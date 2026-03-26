@@ -279,6 +279,103 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             return Result.fail(result)
         return Result.ok(True)
 
+    async def check_user_badge_earned(self, user_uid: str, badge_id: str) -> Result[bool]:
+        """Check if user has earned a badge (cross-habit, no habit_uid filter)."""
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.EARNED_BADGE.value}]->(badge:Achievement {{badge_id: $badge_id}})
+        RETURN count(*) > 0 as already_earned
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid, "badge_id": badge_id})
+        if result.is_error or not result.value:
+            return Result.ok(False)
+        return Result.ok(result.value[0].get("already_earned", False))
+
+    async def award_user_badge(
+        self,
+        user_uid: str,
+        badge_id: str,
+        badge_name: str,
+        badge_description: str,
+        badge_tier: str,
+        badge_category: str,
+        threshold_value: int,
+        occurred_at: str,
+    ) -> Result[bool]:
+        """Create achievement record linked to user only (cross-habit badges)."""
+        query = f"""
+        MERGE (badge:Achievement {{badge_id: $badge_id}})
+        ON CREATE SET
+            badge.name = $badge_name,
+            badge.description = $badge_description,
+            badge.tier = $badge_tier,
+            badge.category = $badge_category,
+            badge.created_at = datetime()
+
+        WITH badge
+        MATCH (user:User {{uid: $user_uid}})
+
+        CREATE (user)-[r:{RelationshipName.EARNED_BADGE.value} {{
+            earned_at: datetime($occurred_at),
+            badge_category: $badge_category,
+            threshold_value: $threshold_value
+        }}]->(badge)
+
+        RETURN badge.badge_id as badge_id
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "badge_id": badge_id,
+                "badge_name": badge_name,
+                "badge_description": badge_description,
+                "badge_tier": badge_tier,
+                "badge_category": badge_category,
+                "threshold_value": threshold_value,
+                "occurred_at": occurred_at,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(True)
+
+    async def get_user_badge_stats(self, user_uid: str) -> Result[Neo4jProperties]:
+        """Get aggregated habit stats for badge evaluation in a single query.
+
+        Returns:
+            Dict with total_completions, high_quality_completions,
+            max_identity_votes, established_identity_count.
+        """
+        query = """
+        MATCH (user:User {uid: $user_uid})-[:OWNS]->(h:Habit:Entity)
+        WITH user,
+             sum(coalesce(h.total_completions, 0)) AS total_completions,
+             max(CASE WHEN h.is_identity_habit = true
+                 THEN coalesce(h.identity_votes_cast, 0) ELSE 0 END) AS max_identity_votes,
+             sum(CASE WHEN h.is_identity_habit = true
+                 AND coalesce(h.identity_votes_cast, 0) >= 50 THEN 1 ELSE 0 END
+             ) AS established_identity_count
+        OPTIONAL MATCH (user)-[:OWNS]->(hc:HabitCompletion)
+        WHERE hc.quality IS NOT NULL AND hc.quality >= 4
+        RETURN total_completions,
+               count(hc) AS high_quality_completions,
+               max_identity_votes,
+               established_identity_count
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return result
+        if not result.value:
+            return Result.ok(
+                {
+                    "total_completions": 0,
+                    "high_quality_completions": 0,
+                    "max_identity_votes": 0,
+                    "established_identity_count": 0,
+                }
+            )
+        return Result.ok(result.value[0])
+
     async def link_habit_to_principle(self, habit_uid: str, principle_uid: str) -> Result[bool]:
         """
         Link habit to principle it embodies.

@@ -181,11 +181,15 @@ class AchievementEarned(BaseEvent):
     """
 
     user_uid: str
-    habit_uid: str
     badge_id: str
     badge_name: str
     badge_tier: str  # "bronze", "silver", "gold", "platinum"
-    streak_length: int
+    badge_category: str = "streak"  # streak, completion, quality, identity
+
+    # Context — optional depending on badge category
+    habit_uid: str = ""  # Per-habit badges; empty for cross-habit badges
+    streak_length: int = 0  # Streak badges only
+    threshold_value: int = 0  # The threshold that was crossed (e.g. 50 completions)
 
     @property
     def event_type(self) -> str:

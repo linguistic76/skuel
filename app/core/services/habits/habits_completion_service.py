@@ -502,16 +502,11 @@ class HabitsCompletionService:
 
     async def get_badge_progress(self, user_uid: str) -> Result[dict[str, Any]]:
         """
-        Calculate badge progress based on completion data.
+        Calculate badge progress, merging persisted badges with computed progress.
 
-        Computes progress for all badge categories on the fly from habit/completion
-        data. Used by UI routes (/badges/showcase, /badges/widget) to render
-        progress bars and unlock status.
-
-        Note: Only streak badges (7/30/100/365) are persisted to Neo4j as
-        Achievement nodes via HabitEventHandlerService. Completion, quality, and
-        identity badges are computed here but not yet persisted. See the TODO in
-        HabitEventHandlerService for the planned unification.
+        Streak, completion, quality, and identity badges are persisted to Neo4j
+        as Achievement nodes by HabitEventHandlerService. This method computes
+        live progress values and enriches them with persisted earned_at dates.
 
         Args:
             user_uid: User identifier
@@ -563,56 +558,44 @@ class HabitsCompletionService:
                 if completion.is_high_quality():
                     high_quality_completions += 1
 
-        badge_progress = {
+        # Fetch persisted badges to get earned_at dates
+        earned_badge_ids: set[str] = set()
+        if hasattr(self.habits_backend, "get_user_badges"):
+            badges_result = await self.habits_backend.get_user_badges(user_uid)
+            if badges_result.is_ok:
+                for badge_record in badges_result.value:
+                    earned_badge_ids.add(badge_record.get("badge_id", ""))
+
+        def _badge_entry(badge_id: str, current: int | float, target: int) -> dict[str, Any]:
+            """Build badge progress dict, marking as unlocked if persisted OR threshold met."""
+            unlocked = current >= target or badge_id in earned_badge_ids
+            return {"unlocked": unlocked, "progress": min(current / target, 1.0)}
+
+        badge_progress: dict[str, Any] = {
             "streaks": {
                 "current_max_streak": max_streak,
-                "week_warrior": {"unlocked": max_streak >= 7, "progress": min(max_streak / 7, 1.0)},
-                "month_master": {
-                    "unlocked": max_streak >= 30,
-                    "progress": min(max_streak / 30, 1.0),
-                },
-                "century_champion": {
-                    "unlocked": max_streak >= 100,
-                    "progress": min(max_streak / 100, 1.0),
-                },
-                "year_legend": {
-                    "unlocked": max_streak >= 365,
-                    "progress": min(max_streak / 365, 1.0),
-                },
+                "week_warrior": _badge_entry("habit_week_warrior", max_streak, 7),
+                "month_master": _badge_entry("habit_month_master", max_streak, 30),
+                "century_champion": _badge_entry("habit_century_champion", max_streak, 100),
+                "year_legend": _badge_entry("habit_year_legend", max_streak, 365),
             },
             "completions": {
                 "total_completions": total_completions,
-                "getting_started": {
-                    "unlocked": total_completions >= 10,
-                    "progress": min(total_completions / 10, 1.0),
-                },
-                "habit_builder": {
-                    "unlocked": total_completions >= 50,
-                    "progress": min(total_completions / 50, 1.0),
-                },
-                "century_club": {
-                    "unlocked": total_completions >= 100,
-                    "progress": min(total_completions / 100, 1.0),
-                },
-                "habit_master": {
-                    "unlocked": total_completions >= 500,
-                    "progress": min(total_completions / 500, 1.0),
-                },
+                "getting_started": _badge_entry("getting_started", total_completions, 10),
+                "habit_builder": _badge_entry("habit_builder", total_completions, 50),
+                "century_club": _badge_entry("century_club", total_completions, 100),
+                "habit_master": _badge_entry("habit_master", total_completions, 500),
             },
             "quality": {
                 "high_quality_count": high_quality_completions,
-                "quality_focused": {
-                    "unlocked": high_quality_completions >= 100,
-                    "progress": min(high_quality_completions / 100, 1.0),
-                },
+                "quality_focused": _badge_entry("quality_focused", high_quality_completions, 100),
             },
             "identity": {
                 "total_identity_votes": total_identity_votes,
-                "identity_seeker": {
-                    "unlocked": total_identity_votes >= 50,
-                    "progress": min(total_identity_votes / 50, 1.0),
-                },
+                "identity_seeker": _badge_entry("identity_established", total_identity_votes, 50),
             },
+            # Persisted badge IDs for UI consumption
+            "earned_badge_ids": list(earned_badge_ids),
         }
 
         return Result.ok(badge_progress)

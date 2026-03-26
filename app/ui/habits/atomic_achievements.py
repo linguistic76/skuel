@@ -19,13 +19,12 @@ All badges include:
 - Progress tracking
 - Celebration modal on unlock
 
-Implementation Status:
-    This module defines 16 badge types and renders progress/unlock UI. Badge
-    progress is computed on the fly by HabitsCompletionService.get_badge_progress().
-    Currently only streak badges (Consistency category, 4 tiers) are persisted to
-    Neo4j as Achievement nodes via HabitEventHandlerService. The remaining badge
-    categories display correctly in the UI but are not yet persisted to the graph.
-    See TODO in HabitEventHandlerService for the planned unification.
+Implementation:
+    Defines 16 badge types across 5 categories. Streak (4), completion (4),
+    quality (1), and identity (3) badges are persisted to Neo4j as Achievement
+    nodes by HabitEventHandlerService. Cross-domain badges (system, velocity,
+    mastery) remain UI-computed pending GoalAchieved event wiring.
+    See: core/services/habits/habit_event_handler_service.py
 """
 
 from dataclasses import dataclass
@@ -578,55 +577,67 @@ class AtomicHabitsBadges:
     @staticmethod
     def calculate_badge_progress(user_data: dict) -> list[Badge]:
         """
-        Calculate current badge progress based on user data.
+        Calculate current badge progress from HabitsCompletionService.get_badge_progress() output.
 
-        Expected user_data structure:
-        {
-            "identity_votes": {"writer": 35, "athlete": 60, "learner": 25},
-            "system_strengths": [92, 88, 95, 78], # All goal system strengths
-            "perfect_streak_days": 45,
-            "weekly_velocities": [120, 115, 130, 125], # Last 4 weeks
-            "designed_habits_count": 8,
-            "goals_achieved_count": 2
-        }
+        Consumes the structured dict returned by get_badge_progress():
+            streaks: {current_max_streak, week_warrior, month_master, ...}
+            completions: {total_completions, getting_started, habit_builder, ...}
+            quality: {high_quality_count, quality_focused}
+            identity: {total_identity_votes, identity_seeker}
+            earned_badge_ids: list[str]  — persisted badge IDs from Neo4j
+
+        A badge is marked unlocked if either the threshold is met OR it
+        appears in earned_badge_ids.
         """
         badges = []
+        earned = set(user_data.get("earned_badge_ids", []))
 
-        identity_votes = user_data.get("identity_votes", {})
+        # Extract values from completion service format
+        streaks = user_data.get("streaks", {})
+        completions = user_data.get("completions", {})
+        quality = user_data.get("quality", {})
+        identity = user_data.get("identity", {})
+
+        max_streak = streaks.get("current_max_streak", 0)
+        total_completions = completions.get("total_completions", 0)
+        high_quality_count = quality.get("high_quality_count", 0)
+        total_identity_votes = identity.get("total_identity_votes", 0)
+
+        # Cross-domain data (not from completion service — populated by future callers)
         system_strengths = user_data.get("system_strengths", [])
-        perfect_streak = user_data.get("perfect_streak_days", 0)
         velocities = user_data.get("weekly_velocities", [])
         designed_habits = user_data.get("designed_habits_count", 0)
         goals_achieved = user_data.get("goals_achieved_count", 0)
 
-        # Identity badges
-        max_identity_votes = max(identity_votes.values()) if identity_votes else 0
-        identity_count = sum(1 for v in identity_votes.values() if v >= 50)
+        def _unlocked(badge_id: str, threshold_met: bool) -> bool:
+            return threshold_met or badge_id in earned
 
+        # Identity badges (persisted by HabitEventHandlerService)
         badges.append(
             AtomicHabitsBadges.create_badge(
                 "identity_established",
-                current_value=max_identity_votes,
-                is_unlocked=max_identity_votes >= 50,
-                unlock_date=date.today() if max_identity_votes >= 50 else None,
+                current_value=total_identity_votes,
+                is_unlocked=_unlocked("identity_established", total_identity_votes >= 50),
             )
         )
 
         badges.append(
             AtomicHabitsBadges.create_badge(
-                "multi_identity", current_value=identity_count, is_unlocked=identity_count >= 3
+                "multi_identity",
+                current_value=0,  # Needs per-identity breakdown (cross-domain)
+                is_unlocked=_unlocked("multi_identity", False),
             )
         )
 
         badges.append(
             AtomicHabitsBadges.create_badge(
                 "identity_master",
-                current_value=max_identity_votes,
-                is_unlocked=max_identity_votes >= 200,
+                current_value=total_identity_votes,
+                is_unlocked=_unlocked("identity_master", total_identity_votes >= 200),
             )
         )
 
-        # System badges
+        # System badges (cross-domain, computed only — not yet persisted)
         max_system_strength = max(system_strengths) if system_strengths else 0
         high_systems_count = sum(1 for s in system_strengths if s >= 85)
 
@@ -634,7 +645,7 @@ class AtomicHabitsBadges:
             AtomicHabitsBadges.create_badge(
                 "system_architect",
                 current_value=max_system_strength,
-                is_unlocked=max_system_strength >= 90,
+                is_unlocked=_unlocked("system_architect", max_system_strength >= 90),
             )
         )
 
@@ -642,7 +653,7 @@ class AtomicHabitsBadges:
             AtomicHabitsBadges.create_badge(
                 "perfect_system",
                 current_value=max_system_strength,
-                is_unlocked=max_system_strength >= 100,
+                is_unlocked=_unlocked("perfect_system", max_system_strength >= 100),
             )
         )
 
@@ -650,44 +661,52 @@ class AtomicHabitsBadges:
             AtomicHabitsBadges.create_badge(
                 "multi_system",
                 current_value=high_systems_count,
-                is_unlocked=high_systems_count >= 5,
+                is_unlocked=_unlocked("multi_system", high_systems_count >= 5),
             )
         )
 
-        # Consistency badges
+        # Consistency badges (streak badges persisted per-habit as habit_week_warrior etc.)
         badges.append(
             AtomicHabitsBadges.create_badge(
-                "perfect_week", current_value=perfect_streak, is_unlocked=perfect_streak >= 7
+                "perfect_week",
+                current_value=max_streak,
+                is_unlocked=_unlocked("perfect_week", max_streak >= 7),
             )
         )
 
         badges.append(
             AtomicHabitsBadges.create_badge(
                 "consistency_champion",
-                current_value=perfect_streak,
-                is_unlocked=perfect_streak >= 30,
+                current_value=max_streak,
+                is_unlocked=_unlocked("consistency_champion", max_streak >= 30),
             )
         )
 
         badges.append(
             AtomicHabitsBadges.create_badge(
-                "century_club", current_value=perfect_streak, is_unlocked=perfect_streak >= 100
+                "century_club",
+                current_value=max_streak,
+                is_unlocked=_unlocked("century_club", max_streak >= 100),
             )
         )
 
         badges.append(
             AtomicHabitsBadges.create_badge(
-                "unbreakable", current_value=perfect_streak, is_unlocked=perfect_streak >= 365
+                "unbreakable",
+                current_value=max_streak,
+                is_unlocked=_unlocked("unbreakable", max_streak >= 365),
             )
         )
 
-        # Velocity badges
+        # Velocity badges (cross-domain, computed only — not yet persisted)
         max_velocity = max(velocities) if velocities else 0
         sustained_velocity_weeks = sum(1 for v in velocities if v >= 150)
 
         badges.append(
             AtomicHabitsBadges.create_badge(
-                "velocity_champion", current_value=max_velocity, is_unlocked=max_velocity >= 100
+                "velocity_champion",
+                current_value=max_velocity,
+                is_unlocked=_unlocked("velocity_champion", max_velocity >= 100),
             )
         )
 
@@ -695,26 +714,32 @@ class AtomicHabitsBadges:
             AtomicHabitsBadges.create_badge(
                 "velocity_master",
                 current_value=sustained_velocity_weeks,
-                is_unlocked=sustained_velocity_weeks >= 4,
+                is_unlocked=_unlocked("velocity_master", sustained_velocity_weeks >= 4),
             )
         )
 
-        # Mastery badges
+        # Mastery badges (cross-domain, computed only — not yet persisted)
         badges.append(
             AtomicHabitsBadges.create_badge(
-                "habit_sculptor", current_value=designed_habits, is_unlocked=designed_habits >= 10
-            )
-        )
-
-        badges.append(
-            AtomicHabitsBadges.create_badge(
-                "goal_achiever", current_value=goals_achieved, is_unlocked=goals_achieved >= 1
+                "habit_sculptor",
+                current_value=designed_habits,
+                is_unlocked=_unlocked("habit_sculptor", designed_habits >= 10),
             )
         )
 
         badges.append(
             AtomicHabitsBadges.create_badge(
-                "master_achiever", current_value=goals_achieved, is_unlocked=goals_achieved >= 5
+                "goal_achiever",
+                current_value=goals_achieved,
+                is_unlocked=_unlocked("goal_achiever", goals_achieved >= 1),
+            )
+        )
+
+        badges.append(
+            AtomicHabitsBadges.create_badge(
+                "master_achiever",
+                current_value=goals_achieved,
+                is_unlocked=_unlocked("master_achiever", goals_achieved >= 5),
             )
         )
 

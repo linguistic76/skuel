@@ -438,6 +438,57 @@ class HabitsOperations(
         """Count habit stats: total, active, streaks."""
         ...
 
+    # Badge operations
+    async def get_user_badges(self, user_uid: str) -> Result[builtins.list[Neo4jProperties]]:
+        """Get all badges earned by a user via EARNED_BADGE relationships."""
+        ...
+
+    async def get_habit_badges(self, habit_uid: str) -> Result[builtins.list[Neo4jProperties]]:
+        """Get all badges unlocked by a specific habit."""
+        ...
+
+    async def check_badge_already_earned(
+        self, user_uid: str, habit_uid: str, badge_id: str
+    ) -> Result[bool]:
+        """Check if user has already earned this badge for this habit."""
+        ...
+
+    async def award_badge(
+        self,
+        user_uid: str,
+        habit_uid: str,
+        badge_id: str,
+        badge_name: str,
+        badge_description: str,
+        badge_tier: str,
+        streak_length: int,
+        occurred_at: str,
+    ) -> Result[bool]:
+        """Create achievement record and link to user and habit."""
+        ...
+
+    async def check_user_badge_earned(self, user_uid: str, badge_id: str) -> Result[bool]:
+        """Check if user has earned a badge (cross-habit, no habit_uid filter)."""
+        ...
+
+    async def award_user_badge(
+        self,
+        user_uid: str,
+        badge_id: str,
+        badge_name: str,
+        badge_description: str,
+        badge_tier: str,
+        badge_category: str,
+        threshold_value: int,
+        occurred_at: str,
+    ) -> Result[bool]:
+        """Create achievement record linked to user only (cross-habit badges)."""
+        ...
+
+    async def get_user_badge_stats(self, user_uid: str) -> Result[Neo4jProperties]:
+        """Get aggregated habit stats for badge evaluation."""
+        ...
+
 
 @runtime_checkable
 class FinancesOperations(BackendOperations["ExpensePure"], Protocol):

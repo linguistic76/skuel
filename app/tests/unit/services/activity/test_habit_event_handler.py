@@ -2,10 +2,11 @@
 Unit tests for HabitEventHandlerService.
 
 Tests cover:
-- handle_habit_completed: timing learning, EMA on-time rate
+- handle_habit_completed: timing learning, EMA on-time rate, aggregate badges
 - handle_habit_streak_broken: recovery difficulty, knowledge impact
 - handle_habit_missed: difficulty pattern detection, insight persistence
 - handle_habit_streak_milestone: badge awarding, duplicate prevention
+- _check_aggregate_badges: completion, quality, identity badge awarding
 - Fire-and-forget contract: exceptions logged, never propagated
 - Module-level helpers: _calculate_recovery_difficulty, _calculate_miss_severity
 """
@@ -43,6 +44,19 @@ def mock_backend() -> Mock:
     backend.get_habit_badges = AsyncMock(return_value=Result.ok([]))
     backend.check_badge_already_earned = AsyncMock(return_value=Result.ok(False))
     backend.award_badge = AsyncMock(return_value=Result.ok(True))
+    # Aggregate badge methods
+    backend.get_user_badge_stats = AsyncMock(
+        return_value=Result.ok(
+            {
+                "total_completions": 0,
+                "high_quality_completions": 0,
+                "max_identity_votes": 0,
+                "established_identity_count": 0,
+            }
+        )
+    )
+    backend.check_user_badge_earned = AsyncMock(return_value=Result.ok(False))
+    backend.award_user_badge = AsyncMock(return_value=Result.ok(True))
     return backend
 
 
@@ -69,11 +83,12 @@ def service(mock_backend: Mock) -> HabitEventHandlerService:
 def service_full(
     mock_backend: Mock, mock_relationships: AsyncMock, mock_insight_store: AsyncMock
 ) -> HabitEventHandlerService:
+    event_bus = AsyncMock()
     return HabitEventHandlerService(
         backend=mock_backend,
         relationship_service=mock_relationships,
         insight_store=mock_insight_store,
-        event_bus=Mock(),
+        event_bus=event_bus,
     )
 
 
@@ -528,3 +543,210 @@ class TestHandleHabitStreakMilestone:
 
         # Should NOT raise
         await service.handle_habit_streak_milestone(event)
+
+
+# ---------------------------------------------------------------------------
+# _check_aggregate_badges tests
+# ---------------------------------------------------------------------------
+
+
+class TestCheckAggregateBadges:
+    """Tests for _check_aggregate_badges — completion, quality, identity badges."""
+
+    @pytest.mark.asyncio
+    async def test_awards_getting_started_at_10_completions(
+        self, mock_backend: Mock, service_full: HabitEventHandlerService
+    ):
+        mock_backend.get_user_badge_stats.return_value = Result.ok(
+            {
+                "total_completions": 12,
+                "high_quality_completions": 0,
+                "max_identity_votes": 0,
+                "established_identity_count": 0,
+            }
+        )
+
+        await service_full._check_aggregate_badges("user_mike")
+
+        # Should award getting_started (threshold 10) but not habit_builder (threshold 50)
+        awarded_ids = [
+            call.kwargs["badge_id"] for call in mock_backend.award_user_badge.call_args_list
+        ]
+        assert "getting_started" in awarded_ids
+        assert "habit_builder" not in awarded_ids
+
+    @pytest.mark.asyncio
+    async def test_awards_multiple_completion_badges(
+        self, mock_backend: Mock, service_full: HabitEventHandlerService
+    ):
+        mock_backend.get_user_badge_stats.return_value = Result.ok(
+            {
+                "total_completions": 55,
+                "high_quality_completions": 0,
+                "max_identity_votes": 0,
+                "established_identity_count": 0,
+            }
+        )
+
+        await service_full._check_aggregate_badges("user_mike")
+
+        awarded_ids = [
+            call.kwargs["badge_id"] for call in mock_backend.award_user_badge.call_args_list
+        ]
+        assert "getting_started" in awarded_ids
+        assert "habit_builder" in awarded_ids
+        assert "habit_master" not in awarded_ids
+
+    @pytest.mark.asyncio
+    async def test_awards_quality_badge_at_100(
+        self, mock_backend: Mock, service_full: HabitEventHandlerService
+    ):
+        mock_backend.get_user_badge_stats.return_value = Result.ok(
+            {
+                "total_completions": 0,
+                "high_quality_completions": 105,
+                "max_identity_votes": 0,
+                "established_identity_count": 0,
+            }
+        )
+
+        await service_full._check_aggregate_badges("user_mike")
+
+        awarded_ids = [
+            call.kwargs["badge_id"] for call in mock_backend.award_user_badge.call_args_list
+        ]
+        assert "quality_focused" in awarded_ids
+
+    @pytest.mark.asyncio
+    async def test_awards_identity_badges(
+        self, mock_backend: Mock, service_full: HabitEventHandlerService
+    ):
+        mock_backend.get_user_badge_stats.return_value = Result.ok(
+            {
+                "total_completions": 0,
+                "high_quality_completions": 0,
+                "max_identity_votes": 210,
+                "established_identity_count": 3,
+            }
+        )
+
+        await service_full._check_aggregate_badges("user_mike")
+
+        awarded_ids = [
+            call.kwargs["badge_id"] for call in mock_backend.award_user_badge.call_args_list
+        ]
+        assert "identity_established" in awarded_ids
+        assert "identity_master" in awarded_ids
+        assert "multi_identity" in awarded_ids
+
+    @pytest.mark.asyncio
+    async def test_skips_already_earned_badges(
+        self, mock_backend: Mock, service_full: HabitEventHandlerService
+    ):
+        mock_backend.get_user_badge_stats.return_value = Result.ok(
+            {
+                "total_completions": 15,
+                "high_quality_completions": 0,
+                "max_identity_votes": 0,
+                "established_identity_count": 0,
+            }
+        )
+        # getting_started already earned
+        mock_backend.check_user_badge_earned.return_value = Result.ok(True)
+
+        await service_full._check_aggregate_badges("user_mike")
+
+        mock_backend.award_user_badge.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_publishes_achievement_earned_event(
+        self, mock_backend: Mock, service_full: HabitEventHandlerService
+    ):
+        mock_backend.get_user_badge_stats.return_value = Result.ok(
+            {
+                "total_completions": 15,
+                "high_quality_completions": 0,
+                "max_identity_votes": 0,
+                "established_identity_count": 0,
+            }
+        )
+
+        await service_full._check_aggregate_badges("user_mike")
+
+        # Event bus should have been called
+        service_full.event_bus.publish_async.assert_called()
+        published_event = service_full.event_bus.publish_async.call_args[0][0]
+        assert published_event.badge_id == "getting_started"
+        assert published_event.badge_category == "completion"
+        assert published_event.threshold_value == 10
+
+    @pytest.mark.asyncio
+    async def test_no_awards_below_threshold(
+        self, mock_backend: Mock, service_full: HabitEventHandlerService
+    ):
+        mock_backend.get_user_badge_stats.return_value = Result.ok(
+            {
+                "total_completions": 5,
+                "high_quality_completions": 0,
+                "max_identity_votes": 0,
+                "established_identity_count": 0,
+            }
+        )
+
+        await service_full._check_aggregate_badges("user_mike")
+
+        mock_backend.award_user_badge.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_stats_error_does_not_raise(
+        self, mock_backend: Mock, service_full: HabitEventHandlerService
+    ):
+        mock_backend.get_user_badge_stats.return_value = Result.fail(
+            {"message": "connection error"}
+        )
+
+        # Fire-and-forget: should NOT raise
+        await service_full._check_aggregate_badges("user_mike")
+
+        mock_backend.award_user_badge.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_badge_category_in_event(
+        self, mock_backend: Mock, service_full: HabitEventHandlerService
+    ):
+        """Identity badges should have badge_category='identity'."""
+        mock_backend.get_user_badge_stats.return_value = Result.ok(
+            {
+                "total_completions": 0,
+                "high_quality_completions": 0,
+                "max_identity_votes": 60,
+                "established_identity_count": 0,
+            }
+        )
+
+        await service_full._check_aggregate_badges("user_mike")
+
+        awarded = mock_backend.award_user_badge.call_args
+        assert awarded.kwargs["badge_category"] == "identity"
+
+
+class TestHandleHabitCompletedCallsAggregateBadges:
+    """Verify handle_habit_completed triggers aggregate badge checking."""
+
+    @pytest.mark.asyncio
+    async def test_calls_check_aggregate_badges(
+        self, mock_backend: Mock, service_full: HabitEventHandlerService
+    ):
+        habit = _make_habit(learned_completion_count=5)
+        mock_backend.get.return_value = Result.ok(habit)
+
+        event = HabitCompleted(
+            habit_uid="habit_test_abc",
+            user_uid="user_mike",
+            occurred_at=datetime(2026, 3, 26, 14, 30),
+        )
+
+        await service_full.handle_habit_completed(event)
+
+        # Should have called get_user_badge_stats (from _check_aggregate_badges)
+        mock_backend.get_user_badge_stats.assert_called_once_with("user_mike")

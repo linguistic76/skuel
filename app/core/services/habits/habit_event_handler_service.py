@@ -117,28 +117,26 @@ class HabitEventHandlerService:
     missed habits, and achievement milestones.
 
     Handles:
-    - HabitCompleted: Timing/scheduling learning via EMA
+    - HabitCompleted: Timing/scheduling learning + completion/quality/identity badges
     - HabitStreakBroken: Recovery difficulty calculation, knowledge impact
     - HabitMissed: Difficulty pattern detection, insight persistence
-    - HabitStreakMilestone: Achievement badge awarding
+    - HabitStreakMilestone: Streak badge awarding (per-habit)
 
-    Badge System Status:
-        Currently awards streak-based badges only (4 tiers: 7/30/100/365 days).
-        These are persisted as Achievement nodes in Neo4j via EARNED_BADGE and
-        UNLOCKED_ACHIEVEMENT relationships.
+    Badge System:
+        Two awarding paths, both persisted as Achievement nodes in Neo4j:
 
-        TODO: Extend badge awarding to non-streak categories. The UI
-        (AtomicHabitsBadges in ui/habits/atomic_achievements.py) and progress
-        tracking (HabitsCompletionService.get_badge_progress) already cover
-        completion, quality, and identity badges — but those are computed on
-        the fly, not persisted to the graph. Persisting them would enable:
-        - Badge history queries and cross-domain awareness in UserContext
-        - AchievementEarned events for non-streak badges (notifications)
-        - Unification of the two badge registries (MILESTONE_BADGES here vs
-          BADGE_DEFINITIONS in AtomicHabitsBadges)
+        1. Per-habit streak badges (via HabitStreakMilestone): 4 tiers at
+           7/30/100/365 days. Linked to both User and Habit nodes.
+
+        2. Cross-habit aggregate badges (via HabitCompleted): completion count,
+           quality, and identity badges. Linked to User only (no single habit).
+
+        Cross-domain badges (system strength, velocity, mastery) defined in
+        AtomicHabitsBadges remain UI-computed — they require GoalAchieved and
+        other cross-domain events not yet wired.
     """
 
-    # Achievement badge definitions (migrated from HabitAchievementService)
+    # Per-habit streak badges (triggered by HabitStreakMilestone)
     MILESTONE_BADGES: ClassVar[dict[int, dict[str, str]]] = {
         7: {
             "badge_id": "habit_week_warrior",
@@ -164,6 +162,78 @@ class HabitEventHandlerService:
             "description": "Maintained a habit for 365 consecutive days",
             "tier": "platinum",
         },
+    }
+
+    # Cross-habit aggregate badges (triggered by HabitCompleted)
+    # Each entry: (badge_id, name, description, tier, stat_key, threshold)
+    AGGREGATE_BADGES: ClassVar[list[tuple[str, str, str, str, str, int]]] = [
+        # Completion count badges
+        (
+            "getting_started",
+            "Getting Started",
+            "Completed habits 10 times total",
+            "bronze",
+            "total_completions",
+            10,
+        ),
+        (
+            "habit_builder",
+            "Habit Builder",
+            "Completed habits 50 times total",
+            "silver",
+            "total_completions",
+            50,
+        ),
+        (
+            "habit_master",
+            "Habit Master",
+            "Completed habits 500 times total — relentless consistency",
+            "platinum",
+            "total_completions",
+            500,
+        ),
+        # Quality badges
+        (
+            "quality_focused",
+            "Quality Focused",
+            "Logged 100 high-quality completions (4+ rating)",
+            "gold",
+            "high_quality_completions",
+            100,
+        ),
+        # Identity badges
+        (
+            "identity_established",
+            "Identity Established",
+            "Cast 50 votes for a single identity — you've become who you wanted to be",
+            "silver",
+            "max_identity_votes",
+            50,
+        ),
+        (
+            "identity_master",
+            "Identity Master",
+            "Cast 200 votes for a single identity — absolute mastery",
+            "gold",
+            "max_identity_votes",
+            200,
+        ),
+        (
+            "multi_identity",
+            "Renaissance Person",
+            "Established 3 different identities simultaneously",
+            "platinum",
+            "established_identity_count",
+            3,
+        ),
+    ]
+
+    # Map stat_key → badge category for AchievementEarned events
+    _STAT_CATEGORY: ClassVar[dict[str, str]] = {
+        "total_completions": "completion",
+        "high_quality_completions": "quality",
+        "max_identity_votes": "identity",
+        "established_identity_count": "identity",
     }
 
     def __init__(
@@ -257,6 +327,10 @@ class HabitEventHandlerService:
                     "event_type": "habit.timing.learned",
                 },
             )
+
+            # 7. Check and award aggregate badges (completion, quality, identity)
+            await self._check_aggregate_badges(event.user_uid)
+
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
                 f"handle_habit_completed failed (non-fatal): {e}",
@@ -564,10 +638,11 @@ class HabitEventHandlerService:
 
                 achievement_event = AchievementEarned(
                     user_uid=event.user_uid,
-                    habit_uid=event.habit_uid,
                     badge_id=badge_info["badge_id"],
                     badge_name=badge_info["name"],
                     badge_tier=badge_info["tier"],
+                    badge_category="streak",
+                    habit_uid=event.habit_uid,
                     streak_length=streak_length,
                 )
                 await publish_event(self.event_bus, achievement_event, self.logger)
@@ -663,7 +738,7 @@ class HabitEventHandlerService:
         streak_length: int,
         occurred_at: datetime,
     ) -> Result[bool]:
-        """Create achievement record and link to user."""
+        """Create achievement record and link to user and habit (per-habit badges)."""
         return await self.backend.award_badge(
             user_uid=user_uid,
             habit_uid=habit_uid,
@@ -674,3 +749,66 @@ class HabitEventHandlerService:
             streak_length=streak_length,
             occurred_at=occurred_at.isoformat(),
         )
+
+    async def _check_aggregate_badges(self, user_uid: str) -> None:
+        """Check and award cross-habit aggregate badges.
+
+        Queries aggregated stats (total completions, high-quality count,
+        identity votes) and awards any newly-crossed thresholds.
+
+        Fire-and-forget: errors are logged, never propagated.
+        """
+        # 1. Get aggregated stats
+        stats_result = await self.backend.get_user_badge_stats(user_uid)
+        if stats_result.is_error:
+            self.logger.warning(f"Failed to get badge stats for {user_uid}: {stats_result.error}")
+            return
+
+        stats = stats_result.value
+        now_iso = datetime.now().isoformat()
+
+        # 2. Check each aggregate badge threshold
+        for badge_id, name, description, tier, stat_key, threshold in self.AGGREGATE_BADGES:
+            current_value = int(stats.get(stat_key, 0) or 0)
+            if current_value < threshold:
+                continue
+
+            # 3. Check if already earned
+            already_result = await self.backend.check_user_badge_earned(user_uid, badge_id)
+            if already_result.is_error:
+                self.logger.warning(f"Failed to check badge {badge_id}: {already_result.error}")
+                continue
+            if already_result.value:
+                continue
+
+            # 4. Award the badge
+            category = self._STAT_CATEGORY.get(stat_key, "completion")
+            result = await self.backend.award_user_badge(
+                user_uid=user_uid,
+                badge_id=badge_id,
+                badge_name=name,
+                badge_description=description,
+                badge_tier=tier,
+                badge_category=category,
+                threshold_value=threshold,
+                occurred_at=now_iso,
+            )
+
+            if result.is_ok:
+                self.logger.info(
+                    f"Awarded aggregate badge '{name}' ({category}) to user {user_uid} "
+                    f"(threshold: {threshold}, actual: {current_value})"
+                )
+
+                # 5. Publish AchievementEarned event
+                from core.events.habit_events import AchievementEarned
+
+                achievement_event = AchievementEarned(
+                    user_uid=user_uid,
+                    badge_id=badge_id,
+                    badge_name=name,
+                    badge_tier=tier,
+                    badge_category=category,
+                    threshold_value=threshold,
+                )
+                await publish_event(self.event_bus, achievement_event, self.logger)
