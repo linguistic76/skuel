@@ -612,8 +612,8 @@ class Neo4jSchemaManager:
             ("form_submission_fulltext_idx", "FormSubmission", ["title", "processed_content"]),
         ]
 
-        for index_name, label, fields in fulltext_definitions:
-            result = await self._create_fulltext_index(index_name, label, fields)
+        for index_name, label, index_fields in fulltext_definitions:
+            result = await self._create_fulltext_index(index_name, label, index_fields)
             if result.is_ok:
                 results["created"].append(index_name)
             else:
