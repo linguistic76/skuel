@@ -267,3 +267,67 @@ class _LearningStateMixin:
         RETURN r.level as mastery
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
+
+    # ========================================================================
+    # USER LEARNING CONTEXT (migrated from ContextRetriever)
+    # ========================================================================
+
+    async def get_user_learning_context(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get complete user learning context in a single query.
+
+        Retrieves:
+        - Current knowledge state (mastered, learning, blocked)
+        - Active learning paths with progress
+        - Related tasks and goals
+        - Knowledge prerequisites and relationships
+
+        Returns:
+            Single record with 'context' key containing structured learning state.
+        """
+        query = """
+        MATCH (u:User {uid: $user_uid})
+
+        // Knowledge state
+        OPTIONAL MATCH (u)-[:MASTERED]->(mastered:Entity)
+        OPTIONAL MATCH (u)-[:LEARNING]->(learning:Entity)
+
+        // Blocked knowledge - KUs required by tasks but not mastered
+        OPTIONAL MATCH (u)-[:HAS_TASK]->(t:Task)-[:APPLIES_KNOWLEDGE]->(blocked_ku:Entity)
+        WHERE NOT (u)-[:MASTERED]->(blocked_ku)
+
+        // Learning paths
+        OPTIONAL MATCH (u)-[:ENROLLED_IN]->(lp:Lp)
+
+        // Active tasks
+        OPTIONAL MATCH (u)-[:HAS_TASK]->(task:Task)
+        WHERE task.status IN ['pending', 'in_progress']
+
+        // Active goals
+        OPTIONAL MATCH (u)-[:HAS_GOAL]->(goal:Goal)
+        WHERE goal.status = 'active'
+
+        // Prerequisites for blocked knowledge (limited depth)
+        OPTIONAL MATCH (blocked_ku)-[:REQUIRES_KNOWLEDGE*1..3]->(prereq:Entity)
+        WHERE NOT (u)-[:MASTERED]->(prereq)
+
+        WITH u,
+             collect(DISTINCT mastered) AS mastered_knowledge,
+             collect(DISTINCT learning) AS learning_knowledge,
+             collect(DISTINCT blocked_ku) AS blocked_knowledge,
+             collect(DISTINCT lp) AS learning_paths,
+             collect(DISTINCT task) AS active_tasks,
+             collect(DISTINCT goal) AS active_goals,
+             collect(DISTINCT prereq) AS unmastered_prerequisites
+
+        RETURN {
+            user_uid: u.uid,
+            mastered_knowledge: [ku IN mastered_knowledge | {uid: ku.uid, title: ku.title, mastery_level: 1.0}],
+            learning_knowledge: [ku IN learning_knowledge | {uid: ku.uid, title: ku.title, mastery_level: 0.5}],
+            blocked_knowledge: [ku IN blocked_knowledge | {uid: ku.uid, title: ku.title, mastery_level: 0.0}],
+            learning_paths: [lp IN learning_paths | {uid: lp.uid, title: lp.title}],
+            active_tasks: [t IN active_tasks | {uid: t.uid, title: t.title, status: t.status}],
+            active_goals: [g IN active_goals | {uid: g.uid, title: g.title, status: g.status}],
+            unmastered_prerequisites: [ku IN unmastered_prerequisites | {uid: ku.uid, title: ku.title}]
+        } AS context
+        """
+        return await self.execute_query(query, {"user_uid": user_uid})

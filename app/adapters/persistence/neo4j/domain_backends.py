@@ -2106,6 +2106,44 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         """
         return await self.execute_query(query, {"ku_uid": ku_uid})
 
+    # ========================================================================
+    # PREREQUISITE & DEPENDENCY QUERIES (migrated from ContextRetriever)
+    # ========================================================================
+
+    async def get_unmastered_prerequisites(
+        self, ku_uid: str, user_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get unmastered prerequisites for a knowledge unit (depth 1..3).
+
+        Traverses REQUIRES_KNOWLEDGE chains up to 3 hops, filtering out
+        prerequisites the user has already MASTERED.
+
+        Returns:
+            Single record with 'prerequisites' key containing list of
+            {uid, title} dicts.
+        """
+        query = """
+        MATCH (ku:Entity {uid: $ku_uid})
+        OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE*1..3]->(prereq:Entity)
+        WHERE NOT EXISTS {
+            MATCH (u:User {uid: $user_uid})-[:MASTERED]->(prereq)
+        }
+        RETURN collect(DISTINCT {uid: prereq.uid, title: prereq.title}) AS prerequisites
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid, "user_uid": user_uid})
+
+    async def count_dependents(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Count entities that depend on this knowledge unit via REQUIRES_KNOWLEDGE.
+
+        Returns:
+            Single record with 'unlocks_count' key.
+        """
+        query = """
+        MATCH (ku:Entity {uid: $ku_uid})<-[:REQUIRES_KNOWLEDGE]-(dependent:Entity)
+        RETURN count(DISTINCT dependent) AS unlocks_count
+        """
+        return await self.execute_query(query, {"ku_uid": ku_uid})
+
 
 class LsBackend(UniversalNeo4jBackend[LearningStep]):
     """

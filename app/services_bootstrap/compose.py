@@ -121,12 +121,6 @@ async def compose_services(
         query_executor = Neo4jQueryExecutor(driver)
         logger.info("✅ QueryExecutor created (hexagonal architecture port)")
 
-        # CrossDomainQueries — multi-hop graph queries spanning Tasks↔KU, Habits↔Goals, etc.
-        from core.services.cross_domain_queries import CrossDomainQueries
-
-        cross_domain_queries_svc = CrossDomainQueries(query_executor)
-        logger.info("✅ CrossDomainQueries created")
-
         # ========================================================================
         # SYNC AUTH INDEXES AND CLEANUP (Startup Tasks)
         # ========================================================================
@@ -1137,8 +1131,6 @@ async def compose_services(
             context_aware_ai=context_aware_ai,
             # Lateral relationship services (January 2026 - Core graph architecture)
             lateral=lateral_service,
-            # Cross-domain graph queries
-            cross_domain_queries=cross_domain_queries_svc,
             # Intelligence tier (ADR-043)
             intelligence_tier=tier,
         )

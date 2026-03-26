@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from core.services.choices_service import ChoicesService
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
-    from core.services.cross_domain_queries import CrossDomainQueries
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
@@ -309,9 +308,6 @@ class Services:
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
     # ========================================================================
     lateral: "LateralRelationshipOperations | None" = None
-
-    # Cross-domain graph queries (multi-hop: Tasks↔KU, Habits↔Goals, Events↔KU, Finance↔Goals)
-    cross_domain_queries: "CrossDomainQueries | None" = None
 
     # Intelligence tier (ADR-043: CORE = analytics only, FULL = analytics + AI)
     intelligence_tier: "IntelligenceTier | None" = None

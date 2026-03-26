@@ -97,6 +97,9 @@ class AskesisDeps:
     ku_service: Any | None = None
     lp_service: Any | None = None
     principles_service: Any | None = None
+    # Backends for ContextRetriever graph queries (migrated from inline Cypher)
+    ku_backend: Any | None = None  # boundary: KuBackend
+    lesson_backend: Any | None = None  # boundary: LessonBackend
 
 
 class AskesisService:
@@ -192,6 +195,9 @@ class AskesisService:
             events_service=deps.events_service,
             principles_service=deps.principles_service,
             lp_service=deps.lp_service,
+            # Backends for graph queries (migrated from inline Cypher)
+            ku_backend=deps.ku_backend,
+            lesson_backend=deps.lesson_backend,
         )
 
         # January 2026: IntentClassifier and ResponseGenerator extracted from QueryProcessor

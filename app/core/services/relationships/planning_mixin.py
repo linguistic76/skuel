@@ -11,6 +11,10 @@ the UnifiedRelationshipService, enabling context-first queries like:
 
 These methods leverage UserContext (~240 fields) for filtering and ranking.
 
+Cypher in this mixin executes through self.backend.execute_query() — the backend's
+hexagonal boundary. Queries are config-driven (parameterized by self.config.entity_label
+and self.config.domain), so they cannot belong to any single domain backend.
+
 Domain-specific planning methods (get_at_risk_habits_for_user, etc.) live in
 _domain_planning_mixin.py, which is also mixed into UnifiedRelationshipService.
 """

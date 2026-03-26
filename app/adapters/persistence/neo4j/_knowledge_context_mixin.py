@@ -441,3 +441,27 @@ class _KnowledgeContextMixin:
         return await self.execute_query(
             query, {"user_uid": user_uid, "domain": domain, "limit": limit}
         )
+
+    # ========================================================================
+    # RESOURCE CITATION QUERIES (migrated from ContextRetriever)
+    # ========================================================================
+
+    async def get_cited_resources(
+        self, source_uids: list[str], limit: int = 20
+    ) -> Result[list[Neo4jProperties]]:
+        """Get Resources cited by Lessons/KUs via CITES_RESOURCE.
+
+        Args:
+            source_uids: UIDs of Lessons/KUs to traverse from.
+            limit: Maximum number of resources to return.
+
+        Returns:
+            List of records with 'resource' key containing resource properties.
+        """
+        query = """
+        MATCH (source:Entity)-[:CITES_RESOURCE]->(r:Resource)
+        WHERE source.uid IN $source_uids
+        RETURN DISTINCT r {.*} AS resource
+        LIMIT $limit
+        """
+        return await self.execute_query(query, {"source_uids": source_uids, "limit": limit})

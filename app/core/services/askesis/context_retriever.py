@@ -37,9 +37,8 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.constants import GraphDepth
 from core.models.askesis.ls_bundle import LSBundle
-from core.models.enums import Domain
 from core.models.query_types import QueryIntent
-from core.utils.decorators import requires_graph_intelligence, with_error_handling
+from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -103,6 +102,9 @@ class ContextRetriever:
         events_service: EntityLookup | None = None,
         principles_service: EntityLookup | None = None,
         lp_service: EntityLookup | None = None,
+        # Backends for graph queries (migrated from inline Cypher)
+        ku_backend: Any | None = None,  # boundary: KuBackend
+        lesson_backend: Any | None = None,  # boundary: LessonBackend
     ) -> None:
         """
         Initialize context retriever.
@@ -123,6 +125,8 @@ class ContextRetriever:
             events_service: For fetching full Event objects from graph_context (LS bundle)
             principles_service: For fetching full Principle objects from graph_context (LS bundle)
             lp_service: For fetching full LearningPath from graph_context (LS bundle)
+            ku_backend: KuBackend for prerequisite/dependency queries
+            lesson_backend: LessonBackend for learning context and resource queries
         """
         self.graph_intel = graph_intelligence_service
         self.embeddings_service = embeddings_service
@@ -136,6 +140,10 @@ class ContextRetriever:
         self.events_service = events_service
         self.principles_service = principles_service
         self.lp_service = lp_service
+
+        # Backends for graph queries
+        self.ku_backend = ku_backend
+        self.lesson_backend = lesson_backend
 
         logger.info("ContextRetriever initialized")
 
@@ -228,13 +236,12 @@ class ContextRetriever:
 
         return context
 
-    @requires_graph_intelligence("get_learning_context")
     @with_error_handling("get_learning_context", error_type="system", uid_param="user_uid")
     async def get_learning_context(self, user_uid: str, depth: int = 2) -> Result[dict[str, Any]]:
         """
         Get user's complete learning context
 
-        Retrieves in single query:
+        Retrieves in single query via LessonBackend:
         - Current knowledge state (mastered, learning, blocked)
         - Active learning paths with progress
         - Related tasks and goals
@@ -242,61 +249,64 @@ class ContextRetriever:
 
         Args:
             user_uid: Unique identifier of the user
-            depth: Graph traversal depth (default: 2)
+            depth: Graph traversal depth (default: 2, unused — backend query uses fixed depth)
 
         Returns:
             Result containing complete learning context
-
-        Performance: 150ms -> 18ms (8x faster)
         """
-        # Build user learning context query using CypherGenerator helper
-        query, params = self._build_user_learning_context_query(user_uid, depth)
+        if not self.lesson_backend:
+            return Result.fail(
+                Errors.system(
+                    message="LessonBackend not available — learning context queries disabled",
+                    operation="get_learning_context",
+                )
+            )
 
-        # Execute query
-        graph_context_result = await self.graph_intel.execute_apoc_query(query, parameters=params)
+        result = await self.lesson_backend.get_user_learning_context(user_uid)
 
-        if graph_context_result.is_error:
-            return graph_context_result
+        if result.is_error:
+            return Result.fail(result)
 
-        context = graph_context_result.value
+        records = result.value or []
+        if not records:
+            return Result.ok(
+                {
+                    "user_uid": user_uid,
+                    "knowledge_units": [],
+                    "learning_paths": [],
+                    "related_tasks": [],
+                    "related_goals": [],
+                    "knowledge_by_status": {"mastered": [], "learning": [], "blocked": []},
+                    "graph_context": {},
+                }
+            )
 
-        # Extract learning context by domain
-        knowledge_units = context.get_nodes_by_domain(Domain.KNOWLEDGE)
-        learning_paths = context.get_nodes_by_domain(Domain.LEARNING)
-        related_tasks = context.get_nodes_by_domain(Domain.TASKS)
-        related_goals = context.get_nodes_by_domain(Domain.GOALS)
+        context = records[0].get("context", {})
 
-        # Categorize knowledge by status
-        mastered = []
-        learning = []
-        blocked = []
+        # Extract categorized knowledge (query pre-categorizes by mastery level)
+        mastered = context.get("mastered_knowledge", [])
+        learning_knowledge = context.get("learning_knowledge", [])
+        blocked = context.get("blocked_knowledge", [])
 
-        for ku in knowledge_units:
-            mastery = getattr(ku, "mastery_level", 0.0)
-            if mastery >= 0.8:
-                mastered.append(ku)
-            elif mastery >= 0.3:
-                learning.append(ku)
-            else:
-                blocked.append(ku)
+        # Combine all knowledge units for the flat list
+        knowledge_units = mastered + learning_knowledge + blocked
 
         return Result.ok(
             {
                 "user_uid": user_uid,
                 "knowledge_units": knowledge_units,
-                "learning_paths": learning_paths,
-                "related_tasks": related_tasks,
-                "related_goals": related_goals,
+                "learning_paths": context.get("learning_paths", []),
+                "related_tasks": context.get("active_tasks", []),
+                "related_goals": context.get("active_goals", []),
                 "knowledge_by_status": {
                     "mastered": mastered,
-                    "learning": learning,
+                    "learning": learning_knowledge,
                     "blocked": blocked,
                 },
                 "graph_context": context,
             }
         )
 
-    @requires_graph_intelligence("analyze_knowledge_gaps")
     @with_error_handling("analyze_knowledge_gaps", error_type="system", uid_param="user_uid")
     async def analyze_knowledge_gaps(self, user_uid: str) -> Result[dict[str, Any]]:
         """
@@ -635,21 +645,13 @@ class ContextRetriever:
         Returns:
             List of Resource domain models (may be empty).
         """
-        if not source_uids or not self.graph_intel:
+        if not source_uids or not self.lesson_backend:
             return []
 
         from core.models.resource.resource import Resource
         from core.models.resource.resource_dto import ResourceDTO
 
-        query = """
-        MATCH (source:Entity)-[:CITES_RESOURCE]->(r:Resource)
-        WHERE source.uid IN $source_uids
-        RETURN DISTINCT r {.*} AS resource
-        LIMIT 20
-        """
-        result = await self.graph_intel.execute_query(
-            query, parameters={"source_uids": source_uids}
-        )
+        result = await self.lesson_backend.get_cited_resources(source_uids)
         if result.is_error or not result.value:
             return []
 
@@ -728,75 +730,6 @@ class ContextRetriever:
             if item.get("node", {}).get("uid")
         ]
 
-    def _build_user_learning_context_query(
-        self, user_uid: str, depth: int
-    ) -> tuple[str, dict[str, Any]]:
-        """
-        Build Cypher query for user learning context.
-
-        Retrieves in single query:
-        - Knowledge state (mastered, learning, blocked)
-        - Active learning paths with progress
-        - Related tasks and goals
-        - Knowledge prerequisites
-
-        Args:
-            user_uid: User identifier
-            depth: Graph traversal depth
-
-        Returns:
-            Tuple of (query_string, parameters)
-        """
-        # Comprehensive learning context query
-        query = """
-        MATCH (u:User {uid: $user_uid})
-
-        // Knowledge state
-        OPTIONAL MATCH (u)-[:MASTERED]->(mastered:Entity)
-        OPTIONAL MATCH (u)-[:LEARNING]->(learning:Entity)
-
-        // Blocked knowledge - KUs required by tasks but not mastered
-        OPTIONAL MATCH (u)-[:HAS_TASK]->(t:Task)-[:APPLIES_KNOWLEDGE]->(blocked_ku:Entity)
-        WHERE NOT (u)-[:MASTERED]->(blocked_ku)
-
-        // Learning paths
-        OPTIONAL MATCH (u)-[:ENROLLED_IN]->(lp:Lp)
-
-        // Active tasks
-        OPTIONAL MATCH (u)-[:HAS_TASK]->(task:Task)
-        WHERE task.status IN ['pending', 'in_progress']
-
-        // Active goals
-        OPTIONAL MATCH (u)-[:HAS_GOAL]->(goal:Goal)
-        WHERE goal.status = 'active'
-
-        // Prerequisites for blocked knowledge (limited depth)
-        OPTIONAL MATCH (blocked_ku)-[:REQUIRES_KNOWLEDGE*1..3]->(prereq:Entity)
-        WHERE NOT (u)-[:MASTERED]->(prereq)
-
-        WITH u,
-             collect(DISTINCT mastered) AS mastered_knowledge,
-             collect(DISTINCT learning) AS learning_knowledge,
-             collect(DISTINCT blocked_ku) AS blocked_knowledge,
-             collect(DISTINCT lp) AS learning_paths,
-             collect(DISTINCT task) AS active_tasks,
-             collect(DISTINCT goal) AS active_goals,
-             collect(DISTINCT prereq) AS unmastered_prerequisites
-
-        RETURN {
-            user_uid: u.uid,
-            mastered_knowledge: [ku IN mastered_knowledge | {uid: ku.uid, title: ku.title, mastery_level: 1.0}],
-            learning_knowledge: [ku IN learning_knowledge | {uid: ku.uid, title: ku.title, mastery_level: 0.5}],
-            blocked_knowledge: [ku IN blocked_knowledge | {uid: ku.uid, title: ku.title, mastery_level: 0.0}],
-            learning_paths: [lp IN learning_paths | {uid: lp.uid, title: lp.title}],
-            active_tasks: [t IN active_tasks | {uid: t.uid, title: t.title, status: t.status}],
-            active_goals: [g IN active_goals | {uid: g.uid, title: g.title, status: g.status}],
-            unmastered_prerequisites: [ku IN unmastered_prerequisites | {uid: ku.uid, title: ku.title}]
-        } AS context
-        """
-        params = {"user_uid": user_uid, "depth": depth}
-        return query, params
-
     async def _analyze_blocked_knowledge_prerequisites(
         self, blocked_knowledge: list[Any], user_uid: str, _knowledge_units: list[Any]
     ) -> list[dict[str, Any]]:
@@ -823,43 +756,33 @@ class ContextRetriever:
 
         for blocked_ku in blocked_knowledge:
             # Extract uid and title from object or dict
-            ku_uid = getattr(blocked_ku, "uid", None) or blocked_ku.get("uid", "")
-            ku_title = getattr(blocked_ku, "title", None) or blocked_ku.get("title", "Unknown")
+            ku_uid = getattr(blocked_ku, "uid", None) or (
+                blocked_ku.get("uid", "") if isinstance(blocked_ku, dict) else ""
+            )
+            ku_title = getattr(blocked_ku, "title", None) or (
+                blocked_ku.get("title", "Unknown") if isinstance(blocked_ku, dict) else "Unknown"
+            )
 
             if not ku_uid:
                 continue
 
-            # Step 1: Get unmastered prerequisites
-            prereq_query = """
-            MATCH (ku:Entity {uid: $ku_uid})
-            OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE*1..3]->(prereq:Entity)
-            WHERE NOT EXISTS {
-                MATCH (u:User {uid: $user_uid})-[:MASTERED]->(prereq)
-            }
-            RETURN collect(DISTINCT {uid: prereq.uid, title: prereq.title}) AS prerequisites
-            """
-            prereq_result = await self.graph_intel.execute_query(
-                prereq_query, parameters={"ku_uid": ku_uid, "user_uid": user_uid}
-            )
-
+            # Step 1: Get unmastered prerequisites (via KuBackend)
             prerequisites = []
-            if prereq_result.is_ok and prereq_result.value:
-                record = prereq_result.value[0] if prereq_result.value else {}
-                prerequisites = [p for p in record.get("prerequisites", []) if p and p.get("uid")]
+            if self.ku_backend:
+                prereq_result = await self.ku_backend.get_unmastered_prerequisites(ku_uid, user_uid)
+                if prereq_result.is_ok and prereq_result.value:
+                    record = prereq_result.value[0] if prereq_result.value else {}
+                    prerequisites = [
+                        p for p in record.get("prerequisites", []) if p and p.get("uid")
+                    ]
 
-            # Step 2: Calculate impact (how many things does mastering this unlock?)
-            impact_query = """
-            MATCH (ku:Entity {uid: $ku_uid})<-[:REQUIRES_KNOWLEDGE]-(dependent:Entity)
-            RETURN count(DISTINCT dependent) AS unlocks_count
-            """
-            impact_result = await self.graph_intel.execute_query(
-                impact_query, parameters={"ku_uid": ku_uid}
-            )
-
+            # Step 2: Calculate impact (via KuBackend)
             unlocks_count = 0
-            if impact_result.is_ok and impact_result.value:
-                record = impact_result.value[0] if impact_result.value else {}
-                unlocks_count = record.get("unlocks_count", 0)
+            if self.ku_backend:
+                impact_result = await self.ku_backend.count_dependents(ku_uid)
+                if impact_result.is_ok and impact_result.value:
+                    record = impact_result.value[0] if impact_result.value else {}
+                    unlocks_count = record.get("unlocks_count", 0)
 
             # Step 3: Build gap analysis entry
             gap_analysis.append(

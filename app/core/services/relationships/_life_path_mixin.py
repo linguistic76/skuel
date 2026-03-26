@@ -15,6 +15,10 @@ Provides:
 Requires on concrete class:
     backend, logger (set by UnifiedRelationshipService.__init__)
 
+Cypher in this mixin executes through self.backend.execute_query() — the backend's
+hexagonal boundary. These queries are entity-agnostic (any entity SERVES_LIFE_PATH
+to any LifePath), so they cannot belong to a single domain backend.
+
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 

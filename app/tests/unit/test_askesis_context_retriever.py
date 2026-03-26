@@ -258,7 +258,7 @@ class TestLoadLsBundlePartialFailure:
         lesson = _make_entity("l_lesson_1", "Test Lesson")
         lp = _make_entity("lp:test", "Test LP")
 
-        # graph_intel returns a Resource record from CITES_RESOURCE query
+        # lesson_backend returns a Resource record from get_cited_resources
         resource_record = {
             "resource": {
                 "uid": "resource_book_1",
@@ -268,10 +268,11 @@ class TestLoadLsBundlePartialFailure:
                 "media_type": "book",
             }
         }
-        gi = _make_graph_intel([resource_record])
+        lesson_backend = MagicMock()
+        lesson_backend.get_cited_resources = AsyncMock(return_value=Result.ok([resource_record]))
 
         retriever = ContextRetriever(
-            graph_intelligence_service=gi,
+            graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
             lesson_service=_ok_service(lesson),
             ku_service=MagicMock(get=AsyncMock()),
@@ -280,6 +281,7 @@ class TestLoadLsBundlePartialFailure:
             events_service=MagicMock(),
             principles_service=MagicMock(),
             lp_service=_ok_service(lp),
+            lesson_backend=lesson_backend,
         )
 
         ctx = _make_user_context()
@@ -293,15 +295,12 @@ class TestLoadLsBundlePartialFailure:
 
     @pytest.mark.anyio
     async def test_resource_fetch_failure_does_not_break_bundle(self) -> None:
-        """Resource fetch crash → bundle built with empty resources."""
+        """Resource fetch crash → bundle built with empty resources (no lesson_backend)."""
         lesson = _make_entity("l_lesson_1", "Test Lesson")
         lp = _make_entity("lp:test", "Test LP")
 
-        gi = MagicMock()
-        gi.execute_query = AsyncMock(side_effect=RuntimeError("graph down"))
-
         retriever = ContextRetriever(
-            graph_intelligence_service=gi,
+            graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
             lesson_service=_ok_service(lesson),
             ku_service=MagicMock(get=AsyncMock()),
@@ -310,6 +309,7 @@ class TestLoadLsBundlePartialFailure:
             events_service=MagicMock(),
             principles_service=MagicMock(),
             lp_service=_ok_service(lp),
+            # No lesson_backend → resource fetch skipped gracefully
         )
 
         ctx = _make_user_context()
