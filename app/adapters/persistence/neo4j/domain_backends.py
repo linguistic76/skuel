@@ -147,10 +147,9 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             return Result.fail(update_result)
         return Result.ok(True)
 
-    async def create_user_habit_relationship(self, user_uid: str, habit_uid: str) -> bool:
+    async def create_user_habit_relationship(self, user_uid: str, habit_uid: str) -> Result[bool]:
         """Create User→Habit OWNS relationship in the graph."""
-        rel_result: Result[bool] = await self.create_user_relationship(user_uid, habit_uid)
-        return rel_result.is_ok
+        return await self.create_user_relationship(user_uid, habit_uid)
 
     async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
         """Count habit stats: total, active, streaks."""
@@ -173,7 +172,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             }
         )
 
-    async def link_habit_to_knowledge(self, habit_uid: str, knowledge_uid: str) -> bool:
+    async def link_habit_to_knowledge(self, habit_uid: str, knowledge_uid: str) -> Result[bool]:
         """
         Link habit to knowledge it practices.
         Creates: (Habit)-[:REINFORCES_KNOWLEDGE]->(Entity)
@@ -185,16 +184,16 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             MERGE (h)-[r:REINFORCES_KNOWLEDGE]->(k)
             RETURN r
             """
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"habit_uid": habit_uid, "knowledge_uid": knowledge_uid}
-                )
-                await result.single()
+            result = await self.execute_query(
+                query, {"habit_uid": habit_uid, "knowledge_uid": knowledge_uid}
+            )
+            if result.is_error:
+                return Result.fail(result)
             self.logger.info(f"Linked Habit:{habit_uid} to Knowledge:{knowledge_uid}")
-            return True
+            return Result.ok(True)
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link habit to knowledge: {e}")
-            return False
+            return Result.fail(Errors.database(operation="link_habit_to_knowledge", message=str(e)))
 
     async def get_user_badges(self, user_uid: str) -> Result[list[Neo4jProperties]]:
         """Get all badges earned by a user via EARNED_BADGE relationships."""
@@ -301,7 +300,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             return Result.fail(result)
         return Result.ok(True)
 
-    async def link_habit_to_principle(self, habit_uid: str, principle_uid: str) -> bool:
+    async def link_habit_to_principle(self, habit_uid: str, principle_uid: str) -> Result[bool]:
         """
         Link habit to principle it embodies.
         Creates: (Habit)-[:EMBODIES_PRINCIPLE]->(Entity)
@@ -313,16 +312,16 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             MERGE (h)-[r:EMBODIES_PRINCIPLE]->(p)
             RETURN r
             """
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"habit_uid": habit_uid, "principle_uid": principle_uid}
-                )
-                await result.single()
+            result = await self.execute_query(
+                query, {"habit_uid": habit_uid, "principle_uid": principle_uid}
+            )
+            if result.is_error:
+                return Result.fail(result)
             self.logger.info(f"Linked Habit:{habit_uid} to Principle:{principle_uid}")
-            return True
+            return Result.ok(True)
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to link habit to principle: {e}")
-            return False
+            return Result.fail(Errors.database(operation="link_habit_to_principle", message=str(e)))
 
 
 class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
@@ -377,28 +376,24 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         Add a milestone to a goal.
         Creates: (Goal)-[:HAS_MILESTONE]->(Milestone)
         """
-        try:
-            query = """
-            MATCH (g:Goal {uid: $goal_id})
-            MERGE (m:Milestone {uid: $milestone_uid})
-            SET m += $milestone_props
-            MERGE (g)-[r:HAS_MILESTONE]->(m)
-            RETURN r
-            """
-            milestone_uid = milestone.get("uid") or f"milestone_{goal_id}_{len(milestone)}"
-            params = {
-                "goal_id": goal_id,
-                "milestone_uid": milestone_uid,
-                "milestone_props": milestone,
-            }
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                await result.single()
-            self.logger.info(f"Added milestone to Goal:{goal_id}")
-            return Result.ok(True)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to add milestone: {e}")
-            return Result.fail(Errors.database(operation="add_milestone", message=str(e)))
+        query = """
+        MATCH (g:Goal {uid: $goal_id})
+        MERGE (m:Milestone {uid: $milestone_uid})
+        SET m += $milestone_props
+        MERGE (g)-[r:HAS_MILESTONE]->(m)
+        RETURN r
+        """
+        milestone_uid = milestone.get("uid") or f"milestone_{goal_id}_{len(milestone)}"
+        params = {
+            "goal_id": goal_id,
+            "milestone_uid": milestone_uid,
+            "milestone_props": milestone,
+        }
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        self.logger.info(f"Added milestone to Goal:{goal_id}")
+        return Result.ok(True)
 
     async def create_user_goal_relationship(self, user_uid: str, goal_uid: str) -> Result[bool]:
         """Create User→Goal OWNS relationship in the graph."""
@@ -500,67 +495,55 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         Link goal to supporting habit.
         Creates: (Goal)-[:SUPPORTED_BY_HABIT]->(Habit)
         """
-        try:
-            query = """
-            MATCH (g:Goal {uid: $goal_uid})
-            MATCH (h:Habit {uid: $habit_uid})
-            MERGE (g)-[r:SUPPORTED_BY_HABIT]->(h)
-            RETURN r
-            """
-            async with self.driver.session() as session:
-                result = await session.run(query, {"goal_uid": goal_uid, "habit_uid": habit_uid})
-                await result.single()
-            self.logger.info(f"Linked Goal:{goal_uid} to Habit:{habit_uid}")
-            return Result.ok(True)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to link goal to habit: {e}")
-            return Result.fail(Errors.database(operation="link_goal_to_habit", message=str(e)))
+        query = """
+        MATCH (g:Goal {uid: $goal_uid})
+        MATCH (h:Habit {uid: $habit_uid})
+        MERGE (g)-[r:SUPPORTED_BY_HABIT]->(h)
+        RETURN r
+        """
+        result = await self.execute_query(query, {"goal_uid": goal_uid, "habit_uid": habit_uid})
+        if result.is_error:
+            return Result.fail(result)
+        self.logger.info(f"Linked Goal:{goal_uid} to Habit:{habit_uid}")
+        return Result.ok(True)
 
     async def link_goal_to_knowledge(self, goal_uid: str, knowledge_uid: str) -> Result[bool]:
         """
         Link goal to required knowledge unit.
         Creates: (Goal)-[:REQUIRES_KNOWLEDGE]->(Entity)
         """
-        try:
-            query = """
-            MATCH (g:Goal {uid: $goal_uid})
-            MATCH (k:Entity {uid: $knowledge_uid})
-            MERGE (g)-[r:REQUIRES_KNOWLEDGE]->(k)
-            RETURN r
-            """
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"goal_uid": goal_uid, "knowledge_uid": knowledge_uid}
-                )
-                await result.single()
-            self.logger.info(f"Linked Goal:{goal_uid} to Knowledge:{knowledge_uid}")
-            return Result.ok(True)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to link goal to knowledge: {e}")
-            return Result.fail(Errors.database(operation="link_goal_to_knowledge", message=str(e)))
+        query = """
+        MATCH (g:Goal {uid: $goal_uid})
+        MATCH (k:Entity {uid: $knowledge_uid})
+        MERGE (g)-[r:REQUIRES_KNOWLEDGE]->(k)
+        RETURN r
+        """
+        result = await self.execute_query(
+            query, {"goal_uid": goal_uid, "knowledge_uid": knowledge_uid}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        self.logger.info(f"Linked Goal:{goal_uid} to Knowledge:{knowledge_uid}")
+        return Result.ok(True)
 
     async def link_goal_to_principle(self, goal_uid: str, principle_uid: str) -> Result[bool]:
         """
         Link goal to guiding principle.
         Creates: (Goal)-[:GUIDED_BY_PRINCIPLE]->(Entity)
         """
-        try:
-            query = """
-            MATCH (g:Goal {uid: $goal_uid})
-            MATCH (p:Entity {uid: $principle_uid})
-            MERGE (g)-[r:GUIDED_BY_PRINCIPLE]->(p)
-            RETURN r
-            """
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"goal_uid": goal_uid, "principle_uid": principle_uid}
-                )
-                await result.single()
-            self.logger.info(f"Linked Goal:{goal_uid} to Principle:{principle_uid}")
-            return Result.ok(True)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to link goal to principle: {e}")
-            return Result.fail(Errors.database(operation="link_goal_to_principle", message=str(e)))
+        query = """
+        MATCH (g:Goal {uid: $goal_uid})
+        MATCH (p:Entity {uid: $principle_uid})
+        MERGE (g)-[r:GUIDED_BY_PRINCIPLE]->(p)
+        RETURN r
+        """
+        result = await self.execute_query(
+            query, {"goal_uid": goal_uid, "principle_uid": principle_uid}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        self.logger.info(f"Linked Goal:{goal_uid} to Principle:{principle_uid}")
+        return Result.ok(True)
 
 
 class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
@@ -604,32 +587,25 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         Link task to required knowledge unit.
         Creates: (Task)-[:REQUIRES_KNOWLEDGE]->(Knowledge)
         """
-        try:
-            query = """
-            MATCH (t:Task {uid: $task_uid})
-            MATCH (k:Entity {uid: $knowledge_uid})
-            MERGE (t)-[r:REQUIRES_KNOWLEDGE]->(k)
-            SET r.knowledge_score_required = $knowledge_score_required,
-                r.is_learning_opportunity = $is_learning_opportunity
-            RETURN r
-            """
-            params = {
-                "task_uid": task_uid,
-                "knowledge_uid": knowledge_uid,
-                "knowledge_score_required": knowledge_score_required,
-                "is_learning_opportunity": is_learning_opportunity,
-            }
-
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                await result.single()
-
-            self.logger.info(f"Linked Task:{task_uid} to Knowledge:{knowledge_uid}")
-            return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to link task to knowledge: {e}")
-            return Result.fail(Errors.database(operation="link_task_to_knowledge", message=str(e)))
+        query = """
+        MATCH (t:Task {uid: $task_uid})
+        MATCH (k:Entity {uid: $knowledge_uid})
+        MERGE (t)-[r:REQUIRES_KNOWLEDGE]->(k)
+        SET r.knowledge_score_required = $knowledge_score_required,
+            r.is_learning_opportunity = $is_learning_opportunity
+        RETURN r
+        """
+        params = {
+            "task_uid": task_uid,
+            "knowledge_uid": knowledge_uid,
+            "knowledge_score_required": knowledge_score_required,
+            "is_learning_opportunity": is_learning_opportunity,
+        }
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        self.logger.info(f"Linked Task:{task_uid} to Knowledge:{knowledge_uid}")
+        return Result.ok(True)
 
     async def link_task_to_goal(
         self,
@@ -642,32 +618,25 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         Link task to goal it contributes to.
         Creates: (Task)-[:CONTRIBUTES_TO_GOAL]->(Goal)
         """
-        try:
-            query = """
-            MATCH (t:Task {uid: $task_uid})
-            MATCH (g:Goal {uid: $goal_uid})
-            MERGE (t)-[r:CONTRIBUTES_TO_GOAL]->(g)
-            SET r.contribution_percentage = $contribution_percentage,
-                r.milestone_uid = $milestone_uid
-            RETURN r
-            """
-            params = {
-                "task_uid": task_uid,
-                "goal_uid": goal_uid,
-                "contribution_percentage": contribution_percentage,
-                "milestone_uid": milestone_uid,
-            }
-
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                await result.single()
-
-            self.logger.info(f"Linked Task:{task_uid} to Goal:{goal_uid}")
-            return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to link task to goal: {e}")
-            return Result.fail(Errors.database(operation="link_task_to_goal", message=str(e)))
+        query = """
+        MATCH (t:Task {uid: $task_uid})
+        MATCH (g:Goal {uid: $goal_uid})
+        MERGE (t)-[r:CONTRIBUTES_TO_GOAL]->(g)
+        SET r.contribution_percentage = $contribution_percentage,
+            r.milestone_uid = $milestone_uid
+        RETURN r
+        """
+        params = {
+            "task_uid": task_uid,
+            "goal_uid": goal_uid,
+            "contribution_percentage": contribution_percentage,
+            "milestone_uid": milestone_uid,
+        }
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        self.logger.info(f"Linked Task:{task_uid} to Goal:{goal_uid}")
+        return Result.ok(True)
 
     # ========================================================================
     # LEARNING LOOP METHODS (ADR-048)
@@ -675,44 +644,34 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
 
     async def get_user_learning_state(self, user_uid: str) -> Result[dict[str, Any]]:
         """Get learning state properties from User node for duration calibration."""
-        try:
-            query = """
-            MATCH (u:User {uid: $user_uid})
-            RETURN u.task_duration_ratio AS task_duration_ratio,
-                   u.task_completion_count AS task_completion_count,
-                   u.task_duration_updated_at AS task_duration_updated_at
-            """
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid})
-                record = await result.single()
-                if not record:
-                    return Result.ok({})
-                return Result.ok(dict(record))
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to get user learning state: {e}")
-            return Result.fail(Errors.database(operation="get_user_learning_state", message=str(e)))
+        query = """
+        MATCH (u:User {uid: $user_uid})
+        RETURN u.task_duration_ratio AS task_duration_ratio,
+               u.task_completion_count AS task_completion_count,
+               u.task_duration_updated_at AS task_duration_updated_at
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok({})
+        return Result.ok(result.value[0])
 
     async def update_user_learning_state(
         self, user_uid: str, properties: dict[str, Any]
     ) -> Result[bool]:
         """Update learning state properties on User node."""
-        try:
-            query = """
-            MATCH (u:User {uid: $user_uid})
-            SET u += $properties
-            RETURN u.uid
-            """
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid, "properties": properties})
-                record = await result.single()
-                if not record:
-                    return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-                return Result.ok(True)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to update user learning state: {e}")
-            return Result.fail(
-                Errors.database(operation="update_user_learning_state", message=str(e))
-            )
+        query = """
+        MATCH (u:User {uid: $user_uid})
+        SET u += $properties
+        RETURN u.uid
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid, "properties": properties})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+        return Result.ok(True)
 
     # ========================================================================
     # HIERARCHY EXTENSIONS (Task-specific)
@@ -919,55 +878,41 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         Link event to goal it supports.
         Creates: (Event)-[:SUPPORTS_GOAL {contribution_weight}]->(Goal)
         """
-        try:
-            query = """
-            MATCH (e:Event {uid: $event_uid})
-            MATCH (g:Goal {uid: $goal_uid})
-            MERGE (e)-[r:SUPPORTS_GOAL]->(g)
-            SET r.contribution_weight = $contribution_weight
-            RETURN r
-            """
-            params = {
-                "event_uid": event_uid,
-                "goal_uid": goal_uid,
-                "contribution_weight": contribution_weight,
-            }
-
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                await result.single()
-
-            self.logger.info(f"Linked Event:{event_uid} to Goal:{goal_uid}")
-            return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to link event to goal: {e}")
-            return Result.fail(Errors.database(operation="link_event_to_goal", message=str(e)))
+        query = """
+        MATCH (e:Event {uid: $event_uid})
+        MATCH (g:Goal {uid: $goal_uid})
+        MERGE (e)-[r:SUPPORTS_GOAL]->(g)
+        SET r.contribution_weight = $contribution_weight
+        RETURN r
+        """
+        params = {
+            "event_uid": event_uid,
+            "goal_uid": goal_uid,
+            "contribution_weight": contribution_weight,
+        }
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        self.logger.info(f"Linked Event:{event_uid} to Goal:{goal_uid}")
+        return Result.ok(True)
 
     async def link_event_to_habit(self, event_uid: str, habit_uid: str) -> Result[bool]:
         """
         Link event to habit it reinforces.
         Creates: (Event)-[:REINFORCES_HABIT]->(Habit)
         """
-        try:
-            query = """
-            MATCH (e:Event {uid: $event_uid})
-            MATCH (h:Habit {uid: $habit_uid})
-            MERGE (e)-[r:REINFORCES_HABIT]->(h)
-            RETURN r
-            """
-            params = {"event_uid": event_uid, "habit_uid": habit_uid}
-
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                await result.single()
-
-            self.logger.info(f"Linked Event:{event_uid} to Habit:{habit_uid}")
-            return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to link event to habit: {e}")
-            return Result.fail(Errors.database(operation="link_event_to_habit", message=str(e)))
+        query = """
+        MATCH (e:Event {uid: $event_uid})
+        MATCH (h:Habit {uid: $habit_uid})
+        MERGE (e)-[r:REINFORCES_HABIT]->(h)
+        RETURN r
+        """
+        params = {"event_uid": event_uid, "habit_uid": habit_uid}
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        self.logger.info(f"Linked Event:{event_uid} to Habit:{habit_uid}")
+        return Result.ok(True)
 
     async def link_event_to_knowledge(
         self, event_uid: str, knowledge_uids: list[str]
@@ -976,26 +921,19 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         Link event to knowledge units it reinforces.
         Creates: (Event)-[:REINFORCES_KNOWLEDGE]->(Knowledge) for each UID
         """
-        try:
-            query = """
-            MATCH (e:Event {uid: $event_uid})
-            UNWIND $knowledge_uids AS ku_uid
-            MATCH (k:Entity {uid: ku_uid})
-            MERGE (e)-[r:REINFORCES_KNOWLEDGE]->(k)
-            RETURN count(r) as relationship_count
-            """
-            params = {"event_uid": event_uid, "knowledge_uids": knowledge_uids}
-
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                await result.single()
-
-            self.logger.info(f"Linked Event:{event_uid} to {len(knowledge_uids)} knowledge units")
-            return Result.ok(True)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed to link event to knowledge: {e}")
-            return Result.fail(Errors.database(operation="link_event_to_knowledge", message=str(e)))
+        query = """
+        MATCH (e:Event {uid: $event_uid})
+        UNWIND $knowledge_uids AS ku_uid
+        MATCH (k:Entity {uid: ku_uid})
+        MERGE (e)-[r:REINFORCES_KNOWLEDGE]->(k)
+        RETURN count(r) as relationship_count
+        """
+        params = {"event_uid": event_uid, "knowledge_uids": knowledge_uids}
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        self.logger.info(f"Linked Event:{event_uid} to {len(knowledge_uids)} knowledge units")
+        return Result.ok(True)
 
 
 class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
@@ -1272,19 +1210,15 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
         RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"ku_uid": ku_uid})
-                records = await result.data()
-            if not records:
-                return Result.fail(Errors.not_found(resource="Lesson", identifier=ku_uid))
-            record = records[0]
-            if not record["ku_exists"]:
-                return Result.fail(Errors.not_found(resource="Lesson", identifier=ku_uid))
-            return Result.ok(record["is_organizer"])
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed is_organizer check for {ku_uid}: {e}")
-            return Result.fail(Errors.database(operation="is_organizer", message=str(e)))
+        result = await self.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(Errors.not_found(resource="Lesson", identifier=ku_uid))
+        record = result.value[0]
+        if not record["ku_exists"]:
+            return Result.fail(Errors.not_found(resource="Lesson", identifier=ku_uid))
+        return Result.ok(record["is_organizer"])
 
     async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
         """Create ORGANIZES relationship between two Lessons."""
@@ -1295,22 +1229,18 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         SET r.order = $order
         RETURN true AS success
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {"parent_uid": parent_uid, "child_uid": child_uid, "order": order},
-                )
-                records = await result.data()
-            success = bool(records and records[0]["success"])
-            if success:
-                self.logger.info(
-                    f"Organized Lesson {child_uid} under {parent_uid} at position {order}"
-                )
-            return Result.ok(success)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed organize {child_uid} under {parent_uid}: {e}")
-            return Result.fail(Errors.database(operation="organize", message=str(e)))
+        result = await self.execute_query(
+            query,
+            {"parent_uid": parent_uid, "child_uid": child_uid, "order": order},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        success = bool(result.value and result.value[0]["success"])
+        if success:
+            self.logger.info(
+                f"Organized Lesson {child_uid} under {parent_uid} at position {order}"
+            )
+        return Result.ok(success)
 
     async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
         """Remove ORGANIZES relationship between two Lessons."""
@@ -1319,20 +1249,16 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         DELETE r
         RETURN true AS success
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {"parent_uid": parent_uid, "child_uid": child_uid},
-                )
-                records = await result.data()
-            success = bool(records and records[0]["success"])
-            if success:
-                self.logger.info(f"Removed organization of {child_uid} from {parent_uid}")
-            return Result.ok(success)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed unorganize {child_uid} from {parent_uid}: {e}")
-            return Result.fail(Errors.database(operation="unorganize", message=str(e)))
+        result = await self.execute_query(
+            query,
+            {"parent_uid": parent_uid, "child_uid": child_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        success = bool(result.value and result.value[0]["success"])
+        if success:
+            self.logger.info(f"Removed organization of {child_uid} from {parent_uid}")
+        return Result.ok(success)
 
     async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
         """Change the order of a child Lesson within its parent organizer."""
@@ -1341,21 +1267,13 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         SET r.order = $new_order
         RETURN true AS success
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {
-                        "parent_uid": parent_uid,
-                        "child_uid": child_uid,
-                        "new_order": new_order,
-                    },
-                )
-                records = await result.data()
-            return Result.ok(bool(records and records[0]["success"]))
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed reorder {child_uid} under {parent_uid}: {e}")
-            return Result.fail(Errors.database(operation="reorder", message=str(e)))
+        result = await self.execute_query(
+            query,
+            {"parent_uid": parent_uid, "child_uid": child_uid, "new_order": new_order},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(bool(result.value and result.value[0]["success"]))
 
     async def get_organized_children(
         self, parent_uid: str, limit: int | None = None
@@ -1370,17 +1288,14 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         if limit is not None:
             query += "\nLIMIT $limit"
             params["limit"] = limit
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, params)
-                records = await result.data()
-            children = [
-                {"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in records
-            ]
-            return Result.ok(children)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed get_organized_children for {parent_uid}: {e}")
-            return Result.fail(Errors.database(operation="get_organized_children", message=str(e)))
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        children = [
+            {"uid": r["uid"], "title": r["title"], "order": r["order"]}
+            for r in (result.value or [])
+        ]
+        return Result.ok(children)
 
     async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
         """Find all parent Lessons that organize the given Lesson."""
@@ -1389,17 +1304,14 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         RETURN parent.uid AS uid, parent.title AS title, r.order AS order
         ORDER BY parent.title
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"ku_uid": ku_uid})
-                records = await result.data()
-            organizers = [
-                {"uid": r["uid"], "title": r["title"], "order": r["order"]} for r in records
-            ]
-            return Result.ok(organizers)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed find_organizers for {ku_uid}: {e}")
-            return Result.fail(Errors.database(operation="find_organizers", message=str(e)))
+        result = await self.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result)
+        organizers = [
+            {"uid": r["uid"], "title": r["title"], "order": r["order"]}
+            for r in (result.value or [])
+        ]
+        return Result.ok(organizers)
 
     async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
         """List Kus that organize others but are not themselves organized (root organizers)."""
@@ -1412,18 +1324,14 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         ORDER BY root.title
         LIMIT $limit
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"limit": limit})
-                records = await result.data()
-            roots = [
-                {"uid": r["uid"], "title": r["title"], "child_count": r["child_count"]}
-                for r in records
-            ]
-            return Result.ok(roots)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed list_root_organizers: {e}")
-            return Result.fail(Errors.database(operation="list_root_organizers", message=str(e)))
+        result = await self.execute_query(query, {"limit": limit})
+        if result.is_error:
+            return Result.fail(result)
+        roots = [
+            {"uid": r["uid"], "title": r["title"], "child_count": r["child_count"]}
+            for r in (result.value or [])
+        ]
+        return Result.ok(roots)
 
     async def link_to_ku(self, lesson_uid: str, ku_uid: str) -> Result[bool]:
         """Create USES_KU relationship from Lesson to atomic Ku."""
@@ -1433,18 +1341,14 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
         MERGE (lesson)-[r:USES_KU]->(ku)
         RETURN true AS success
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"lesson_uid": lesson_uid, "ku_uid": ku_uid})
-                records = await result.data()
-            if not records:
-                return Result.fail(
-                    Errors.not_found(resource="Lesson or Ku", identifier=f"{lesson_uid} / {ku_uid}")
-                )
-            return Result.ok(True)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed link_to_ku {lesson_uid} -> {ku_uid}: {e}")
-            return Result.fail(Errors.database(operation="link_to_ku", message=str(e)))
+        result = await self.execute_query(query, {"lesson_uid": lesson_uid, "ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(
+                Errors.not_found(resource="Lesson or Ku", identifier=f"{lesson_uid} / {ku_uid}")
+            )
+        return Result.ok(True)
 
     async def get_used_kus(self, lesson_uid: str) -> Result[list[Neo4jProperties]]:
         """Get all atomic Kus used by a Lesson via USES_KU."""
@@ -1454,14 +1358,10 @@ class LessonBackend(UniversalNeo4jBackend[Lesson]):
                ku.ku_category AS ku_category
         ORDER BY ku.title
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"lesson_uid": lesson_uid})
-                records = await result.data()
-            return Result.ok(records)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed get_used_kus for {lesson_uid}: {e}")
-            return Result.fail(Errors.database(operation="get_used_kus", message=str(e)))
+        result = await self.execute_query(query, {"lesson_uid": lesson_uid})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
 
     # ========================================================================
     # USER PROGRESS RELATIONSHIPS (VIEWED, IN_PROGRESS, MASTERED, BOOKMARKED)
@@ -2554,18 +2454,13 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         WHERE s.entity_type IN ['exercise_submission', 'submission']
         RETURN count(s) AS count
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"user_uid": user_uid, "exercise_uid": exercise_uid}
-                )
-                record = await result.single()
-                return Result.ok(record["count"] if record else 0)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed count_submissions_for_exercise: {e}")
-            return Result.fail(
-                Errors.database(operation="count_submissions_for_exercise", message=str(e))
-            )
+        result = await self.execute_query(
+            query, {"user_uid": user_uid, "exercise_uid": exercise_uid}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        record = result.value[0] if result.value else {}
+        return Result.ok(record.get("count", 0))
 
     async def get_first_submission_for_exercise(
         self, user_uid: str, exercise_uid: str
@@ -2578,20 +2473,14 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         ORDER BY s.created_at ASC
         LIMIT 1
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"user_uid": user_uid, "exercise_uid": exercise_uid}
-                )
-                record = await result.single()
-                if not record:
-                    return Result.ok(None)
-                return Result.ok(dict(record))
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed get_first_submission_for_exercise: {e}")
-            return Result.fail(
-                Errors.database(operation="get_first_submission_for_exercise", message=str(e))
-            )
+        result = await self.execute_query(
+            query, {"user_uid": user_uid, "exercise_uid": exercise_uid}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok(None)
+        return Result.ok(result.value[0])
 
     async def get_exercise_for_submission(self, submission_uid: str) -> Result[str | None]:
         """Get exercise UID linked to a submission via FULFILLS_EXERCISE."""
@@ -2600,18 +2489,12 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         RETURN e.uid AS exercise_uid
         LIMIT 1
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"submission_uid": submission_uid})
-                record = await result.single()
-                if not record:
-                    return Result.ok(None)
-                return Result.ok(record["exercise_uid"])
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed get_exercise_for_submission: {e}")
-            return Result.fail(
-                Errors.database(operation="get_exercise_for_submission", message=str(e))
-            )
+        result = await self.execute_query(query, {"submission_uid": submission_uid})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok(None)
+        return Result.ok(result.value[0]["exercise_uid"])
 
     async def get_teacher_feedback_state(self, teacher_uid: str) -> Result[Neo4jProperties]:
         """Read feedback EMA state from User node for turnaround calibration."""
@@ -2621,18 +2504,12 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
                u.feedback_sample_count AS feedback_sample_count,
                u.feedback_updated_at AS feedback_updated_at
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"teacher_uid": teacher_uid})
-                record = await result.single()
-                if not record:
-                    return Result.ok({})
-                return Result.ok(dict(record))
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed get_teacher_feedback_state: {e}")
-            return Result.fail(
-                Errors.database(operation="get_teacher_feedback_state", message=str(e))
-            )
+        result = await self.execute_query(query, {"teacher_uid": teacher_uid})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok({})
+        return Result.ok(result.value[0])
 
     async def update_teacher_feedback_state(
         self, teacher_uid: str, properties: Neo4jProperties
@@ -2643,20 +2520,14 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         SET u += $properties
         RETURN u.uid
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query, {"teacher_uid": teacher_uid, "properties": properties}
-                )
-                record = await result.single()
-                if not record:
-                    return Result.fail(Errors.not_found(resource="User", identifier=teacher_uid))
-                return Result.ok(True)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed update_teacher_feedback_state: {e}")
-            return Result.fail(
-                Errors.database(operation="update_teacher_feedback_state", message=str(e))
-            )
+        result = await self.execute_query(
+            query, {"teacher_uid": teacher_uid, "properties": properties}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(Errors.not_found(resource="User", identifier=teacher_uid))
+        return Result.ok(True)
 
     # ========================================================================
     # EXERCISE SUBMISSION PROCESSING
@@ -3211,14 +3082,10 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
                lesson.description AS description
         ORDER BY lesson.title
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"ku_uid": ku_uid})
-                records = await result.data()
-            return Result.ok(records)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed get_lessons_using for {ku_uid}: {e}")
-            return Result.fail(Errors.database(operation="get_lessons_using", message=str(e)))
+        result = await self.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
 
     async def get_usage_summary(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Count lessons (USES_KU), learning steps (TRAINS_KU), organized children."""
@@ -4966,16 +4833,11 @@ class JournalInputBackend(UniversalNeo4jBackend["JeInput"]):
           AND ji.metadata CONTAINS $date_str
         RETURN count(ji) AS count
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid, "date_str": entry_date})
-                record = await result.single()
-                return Result.ok(record["count"] if record else 0)
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed count_je_inputs_for_date: {e}")
-            return Result.fail(
-                Errors.database(operation="count_je_inputs_for_date", message=str(e))
-            )
+        result = await self.execute_query(query, {"user_uid": user_uid, "date_str": entry_date})
+        if result.is_error:
+            return Result.fail(result)
+        record = result.value[0] if result.value else {}
+        return Result.ok(record.get("count", 0))
 
     async def get_ephemeral_je_inputs(
         self, user_uid: str, limit: int = 100
@@ -4988,14 +4850,10 @@ class JournalInputBackend(UniversalNeo4jBackend["JeInput"]):
         ORDER BY ji.created_at DESC
         LIMIT $limit
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"user_uid": user_uid, "limit": limit})
-                records = [record async for record in result]
-                return Result.ok([dict(record["ji"]) for record in records])
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed get_ephemeral_je_inputs: {e}")
-            return Result.fail(Errors.database(operation="get_ephemeral_je_inputs", message=str(e)))
+        result = await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["ji"] for record in (result.value or [])])
 
     async def get_je_inputs_by_date_range(
         self, user_uid: str, start_date: str, end_date: str
@@ -5007,19 +4865,13 @@ class JournalInputBackend(UniversalNeo4jBackend["JeInput"]):
         RETURN ji
         ORDER BY ji.created_at DESC
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {"user_uid": user_uid, "start_date": start_date, "end_date": end_date},
-                )
-                records = [record async for record in result]
-                return Result.ok([dict(record["ji"]) for record in records])
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed get_je_inputs_by_date_range: {e}")
-            return Result.fail(
-                Errors.database(operation="get_je_inputs_by_date_range", message=str(e))
-            )
+        result = await self.execute_query(
+            query,
+            {"user_uid": user_uid, "start_date": start_date, "end_date": end_date},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["ji"] for record in (result.value or [])])
 
 
 class JournalOutputBackend(UniversalNeo4jBackend["JeOutput"]):
@@ -5037,16 +4889,12 @@ class JournalOutputBackend(UniversalNeo4jBackend["JeOutput"]):
         RETURN jo
         LIMIT 1
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(query, {"je_input_uid": je_input_uid})
-                record = await result.single()
-                if not record:
-                    return Result.ok(None)
-                return Result.ok(dict(record["jo"]))
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed get_je_output_for_input: {e}")
-            return Result.fail(Errors.database(operation="get_je_output_for_input", message=str(e)))
+        result = await self.execute_query(query, {"je_input_uid": je_input_uid})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok(None)
+        return Result.ok(result.value[0]["jo"])
 
     async def create_with_transforms(
         self,
@@ -5068,21 +4916,17 @@ class JournalOutputBackend(UniversalNeo4jBackend["JeOutput"]):
         CREATE (jo)-[:{RelationshipName.TRANSFORMS.value}]->(ji)
         RETURN jo
         """
-        try:
-            async with self.driver.session() as session:
-                result = await session.run(
-                    query,
-                    {"props": properties, "user_uid": user_uid, "je_input_uid": je_input_uid},
-                )
-                record = await result.single()
-                if not record:
-                    return Result.fail(
-                        Errors.database("create_with_transforms", "User or JeInput not found")
-                    )
-                return Result.ok(dict(record["jo"]))
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Failed create_with_transforms: {e}")
-            return Result.fail(Errors.database(operation="create_with_transforms", message=str(e)))
+        result = await self.execute_query(
+            query,
+            {"props": properties, "user_uid": user_uid, "je_input_uid": je_input_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(
+                Errors.database("create_with_transforms", "User or JeInput not found")
+            )
+        return Result.ok(result.value[0]["jo"])
 
 
 class GroupBackend(UniversalNeo4jBackend["Group"]):
