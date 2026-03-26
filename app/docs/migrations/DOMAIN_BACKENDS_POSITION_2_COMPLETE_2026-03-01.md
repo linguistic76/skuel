@@ -127,7 +127,7 @@ Cross-domain aggregation stays in services — not raw persistence:
 
 **Curriculum Domains (5):**
 - `KuBackend` — ORGANIZES graph + usage summary + namespace/alias search + relationship queries (13 methods: +7 for related/broader/narrower/learning-path/task/event/habit UIDs)
-- `LessonBackend` — ORGANIZES hierarchy + user progress (VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED, 18 methods) + graph context
+- `LessonBackend` — 59 methods across 5 mixins: `_OrganizesMixin` (12), `_LearningStateMixin` (13), `_SemanticMixin` (11), `_KnowledgeContextMixin` (13), `_AdaptiveMixin` (10)
 - `LsBackend` — CONTAINS_KNOWLEDGE CRUD (4 methods) + lesson progress tracking
 - `LpBackend` — HAS_STEP management (5 methods) + mastery progress queries
 - `ExerciseBackend` — curriculum links + OWNS/FOR_GROUP + student exercise queries (6 methods)

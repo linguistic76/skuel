@@ -362,14 +362,15 @@ deserialize_json_fields(insight_data, "related_entities", "recommended_actions",
 6. **No APOC in domain services** (SKUEL001) — pure Cypher only
 7. **No inline Cypher in services** — domain-specific Cypher belongs in domain backends (`domain_backends.py`). Services call `self.backend.method_name()`, never `self.backend.execute_query(cypher, params)`.
 8. **No json.dumps() in services** — `backend.update()` and `backend.create()` auto-serialize complex types via `to_neo4j_node()`. For custom Cypher reads, use `parse_neo4j_json()` / `deserialize_json_fields()`.
-9. **Validate interpolated identifiers** — Neo4j Cypher cannot parameterize relationship types or labels, so f-string interpolation is unavoidable for those. Use `_validate_rel_name()` (rejects non-`[A-Z0-9_]`), `NeoLabel` enum typing for labels, and `_ALLOWED_ORDER_BY` whitelist for `ORDER BY` fields. Never accept raw user strings for these positions.
+9. **Validate interpolated identifiers** — Neo4j Cypher cannot parameterize relationship types or labels, so f-string interpolation is unavoidable for those. Use `_validate_rel_name()` and `_ALLOWED_ORDER_BY` from `_backend_helpers.py` (rejects non-`[A-Z0-9_]` relationship names, whitelists ORDER BY fields), `NeoLabel` enum typing for labels. Never accept raw user strings for these positions.
 
 ## Where Does Cypher Live?
 
 | Cypher Type | Location | Example |
 |-------------|----------|---------|
 | Generic CRUD | `UniversalNeo4jBackend` (via mixins) | `create()`, `get()`, `update()`, `delete()` |
-| Domain-specific relationships | Domain backend in `domain_backends.py` | `LessonBackend.mark_mastered()`, `SubmissionsBackend.link_to_exercise()` |
+| Domain-specific relationships | Domain backend in `domain_backends.py` | `SubmissionsBackend.link_to_exercise()`, `ChoicesBackend.get_principle_adherence_data()` |
+| Lesson-specific Cypher | 5 Lesson mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
 | Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY |
 | Vector index calls | `neo4j_vector_search_service.py` (infrastructure, FULL tier only) | `db.index.vector.queryNodes()` |
 | Fulltext index creation | `neo4j_schema_manager.py` (bootstrap, always) | `sync_fulltext_indexes()` — 15 domains |

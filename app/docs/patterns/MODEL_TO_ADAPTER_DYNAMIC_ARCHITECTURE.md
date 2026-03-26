@@ -33,6 +33,12 @@ adapters/persistence/neo4j/
     _user_entity_mixin.py         # Generic user-entity ops (5 methods)
     _traversal_mixin.py           # GraphTraversalOperations
     _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 hierarchy methods for Activity Domains)
+    _backend_helpers.py           # Shared validation: _validate_rel_name(), _ALLOWED_ORDER_BY
+    _organizes_mixin.py           # _OrganizesMixin — ORGANIZES relationship management (12 methods)
+    _learning_state_mixin.py      # _LearningStateMixin — VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED (13 methods)
+    _semantic_mixin.py            # _SemanticMixin — semantic relationships + graph analysis (11 methods)
+    _knowledge_context_mixin.py   # _KnowledgeContextMixin — context, discovery, readiness (13 methods)
+    _adaptive_mixin.py            # _AdaptiveMixin — practice, search, adaptive mastery (10 methods)
     domain_backends.py            # 19 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
                                   #   ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, LsBackend,
                                   #   LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend,
@@ -167,6 +173,22 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 
 **Fail-fast cleanup:** `executor: QueryExecutor` replaced with `backend: LateralRelationshipBackendOperations`.
 
+### March 26, 2026 Update: LessonBackend Mixin Decomposition (Phase 10)
+
+`LessonBackend` (1,248 lines, 54 methods) was 2x the next-largest backend. Decomposed into 5 focused mixins following the `_HierarchyMixin` pattern. LessonBackend is now ~20 lines inheriting from all 5 mixins — pure structural refactor, no behavioral changes.
+
+| Mixin | Methods | Responsibility |
+|-------|---------|----------------|
+| `_OrganizesMixin` | 12 | ORGANIZES relationship management |
+| `_LearningStateMixin` | 13 | User progress: VIEWED, IN_PROGRESS, MASTERED, BOOKMARKED, MARKED_AS_READ |
+| `_SemanticMixin` | 11 | Semantic relationships + graph analysis (hub scores, prereq chains) |
+| `_KnowledgeContextMixin` | 13 | Context, discovery, readiness (USES_KU, connected activities, learning gaps) |
+| `_AdaptiveMixin` | 10 | Practice, keyword/vector search, adaptive mastery tracking |
+
+Shared validation helpers (`_validate_rel_name`, `_ALLOWED_ORDER_BY`) extracted to `_backend_helpers.py`.
+
+**Reuse potential:** `_LearningStateMixin` methods are entity-agnostic internally — LsBackend, ExerciseBackend, or KuBackend can add it to their bases when learning state tracking is needed.
+
 ### March 26, 2026 Update: execute_query() Standardization (Phase 9)
 
 Standardized all 33 domain backend methods across 8 backends to use `self.execute_query()` instead of direct `self.driver.session()` + `session.run()`. Also fixed 3 `HabitsBackend` methods that returned raw `bool` instead of `Result[bool]`.
@@ -181,7 +203,7 @@ Standardized all 33 domain backend methods across 8 backends to use `self.execut
 
 Hardened 3 backend methods against Cypher injection and migrated 17 inline Cypher queries from 5 service files to domain backends.
 
-**Security hardening in `domain_backends.py`:**
+**Security hardening (now in `_backend_helpers.py`):**
 - `_validate_rel_name()` — rejects relationship names with non-`[A-Z0-9_]` characters
 - `_ALLOWED_ORDER_BY` — whitelist for `ORDER BY` field names (prevents injection via order_by parameter)
 - `find_connected_activities()` — `node_label` typed `NeoLabel`, `rel_types` typed `list[RelationshipName | str]`, `limit` parameterized as `$limit`
@@ -204,17 +226,17 @@ Hardened 3 backend methods against Cypher injection and migrated 17 inline Cyphe
 
 The largest single migration — 35 inline Cypher queries from 8 lesson service files moved to 31 named `LessonBackend` methods. The `neo4j_adapter` dependency was removed from 5 services entirely.
 
-**LessonBackend extended (+31 methods):**
+**LessonBackend extended (+31 methods), later decomposed into 5 mixins (Phase 10):**
 
-| Category | Methods | Source Service |
-|----------|---------|----------------|
-| **Practice + AI (3)** | `find_kus_practiced_by_event`, `increment_practice_count`, `semantic_search_chunks` | practice, ai |
-| **Search (2)** | `find_similar_by_keywords`, `search_by_keywords` | search |
-| **Application Discovery (3)** | `find_connected_activities`, `find_learning_steps_containing_ku`, `find_learning_paths_teaching_ku` | application_discovery |
-| **Context (3)** | `find_ready_to_learn`, `find_learning_gaps`, `find_reinforcement_candidates` | context |
-| **Semantic (6)** | `create_semantic_relationship`, `query_semantic_neighborhood`, `delete_semantic_relationship`, `query_relationships_by_type`, `discover_semantic_bridges`, `infer_transitive_relationships` | semantic |
-| **Graph (9)** | `link_prerequisite`, `link_parent_child`, `query_user_mastery_for_prereqs`, `find_learning_recommendations`, `compute_hub_scores`, `query_foundational_knowledge`, `find_prerequisite_chain`, `find_next_steps`, `find_time_aware_paths` | graph |
-| **Adaptive (5)** | `track_mastery_completion`, `query_user_masteries`, `query_active_learning_paths`, `query_completed_learning_paths`, `query_learning_preferences` | adaptive |
+| Category | Methods | Mixin (Phase 10) |
+|----------|---------|-------------------|
+| **Practice + AI (3)** | `find_kus_practiced_by_event`, `increment_practice_count`, `semantic_search_chunks` | `_AdaptiveMixin` |
+| **Search (2)** | `find_similar_by_keywords`, `search_by_keywords` | `_AdaptiveMixin` |
+| **Application Discovery (3)** | `find_connected_activities`, `find_learning_steps_containing_ku`, `find_learning_paths_teaching_ku` | `_KnowledgeContextMixin` |
+| **Context (3)** | `find_ready_to_learn`, `find_learning_gaps`, `find_reinforcement_candidates` | `_KnowledgeContextMixin` |
+| **Semantic (6)** | `create_semantic_relationship`, `query_semantic_neighborhood`, `delete_semantic_relationship`, `query_relationships_by_type`, `discover_semantic_bridges`, `infer_transitive_relationships` | `_SemanticMixin` |
+| **Graph (9)** | `link_prerequisite`, `link_parent_child`, `query_user_mastery_for_prereqs`, `find_learning_recommendations`, `compute_hub_scores`, `query_foundational_knowledge`, `find_prerequisite_chain`, `find_next_steps`, `find_time_aware_paths` | `_SemanticMixin` + `_KnowledgeContextMixin` |
+| **Adaptive (5)** | `track_mastery_completion`, `query_user_masteries`, `query_active_learning_paths`, `query_completed_learning_paths`, `query_learning_preferences` | `_AdaptiveMixin` |
 
 **Protocol:** 31 new methods added to `LessonOperations` in `curriculum_protocols.py`.
 
