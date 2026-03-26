@@ -13,7 +13,7 @@ When upgrading embedding models (e.g., HuggingFace releases a new version of `BA
 
 - Database backup completed
 - New embedding model tested and validated
-- Sufficient OpenAI API credits (estimate cost based on entity counts)
+- Sufficient HuggingFace API capacity (or local inference setup)
 - Downtime window scheduled (if running live migration)
 
 ---
@@ -24,22 +24,25 @@ Update the embedding version and model in your environment:
 
 ```bash
 # Set new version
-export GENAI_EMBEDDING_VERSION="v2"
+export EMBEDDING_VERSION="v3"  # Increment from current v2
 
 # Set new model (if model name changed)
-export GENAI_EMBEDDING_MODEL="BAAI/bge-large-en-v1.5-v2"  # or updated model name
+export EMBEDDING_MODEL="BAAI/bge-large-en-v1.5"  # or updated model name
 
 # Restart application for changes to take effect
 ```
 
-**Config location:** `/core/config/unified_config.py`
+**Config location:** `/core/config/unified_config.py` (`EmbeddingConfig`)
 
 ```python
 @dataclass
-class GenAIConfig:
-    embedding_version: str = field(default="v1")  # Increment for upgrades
+class EmbeddingConfig:
+    embedding_version: str = field(default="v2")  # Increment for upgrades
     embedding_model: str = field(default="BAAI/bge-large-en-v1.5")
+    embedding_dimension: int = field(default=1024)
 ```
+
+**Note:** Vector indexes (1024-dim, cosine) are automatically created at bootstrap when `INTELLIGENCE_TIER=full`. If changing dimensions, drop and recreate indexes.
 
 ---
 

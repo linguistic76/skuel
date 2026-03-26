@@ -28,7 +28,7 @@ The app is architecturally split into two layers. The foundational layer — CRU
 |-----------|-------------|--------------|
 | CRUD | Create, read, update, delete all 21 entity types | Neo4j only |
 | Ingestion | Markdown/YAML → Neo4j pipeline | Neo4j only |
-| Keyword Search | Full-text search across 12 domains | Neo4j fulltext indexes |
+| Keyword Search | Full-text search across 15 domains | Neo4j fulltext indexes (auto-created at bootstrap via `sync_fulltext_indexes()`) |
 | UserContext | ~250-field user state (standard + rich) | Neo4j MEGA-QUERY |
 | Analytics | 13 `BaseAnalyticsService` instances | Neo4j + Python |
 | UserContextIntelligence | Daily planning, life path alignment | Neo4j + Python |
@@ -67,7 +67,8 @@ INTELLIGENCE_TIER=core
 - All 12 `BaseAIService` instances — not created
 - Search falls back to keyword (fulltext indexes)
 - Askesis is **not created** (requires FULL tier — no degraded mode)
-- Vector indexes still synced at bootstrap (idempotent, ready for when you switch back)
+- Vector indexes **not created** (unnecessary without embeddings)
+- Full-text indexes still synced (Cypher-first keyword search always available)
 
 ### Turn on AI/Embeddings (Full mode)
 
@@ -175,7 +176,8 @@ Switching from FULL → CORE:
 | File | Purpose |
 |------|---------|
 | `core/config/intelligence_tier.py` | `IntelligenceTier` enum, `from_env()` |
-| `services_bootstrap/compose.py` | 3 gating points |
+| `services_bootstrap/compose.py` | Bootstrap: index sync (tier-gated) + 3 AI gating points |
+| `adapters/persistence/neo4j/neo4j_schema_manager.py` | `sync_fulltext_indexes()` (always), `sync_vector_indexes()` (FULL only) |
 | `adapters/inbound/ai_guard.py` | Route-level guard (`is_ai_available()`) |
 | `.env` | `INTELLIGENCE_TIER=core\|full` |
 | `core/services/background/embedding_worker.py` | Only starts when embeddings service exists |

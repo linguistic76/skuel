@@ -43,7 +43,7 @@ The test suite runs 1966 tests without any API mocking for AI services. Services
 |--------|-----------|
 | **Curriculum** | Lesson, Ku, Exercise, LearningStep, LearningPath authoring and ingestion |
 | **Activity** | Task, Goal, Habit, Event, Choice, Principle — full CRUD with status transitions |
-| **Search** | Keyword search across 12 domains via Neo4j fulltext indexes |
+| **Search** | Keyword search across 15 domains via Neo4j fulltext indexes (auto-created at bootstrap) |
 | **User Context** | ~250-field UserContext built from MEGA-QUERY (standard + rich) |
 | **Analytics** | 13 BaseAnalyticsService instances — graph traversal, no AI |
 | **Intelligence** | UserContextIntelligence — daily planning, life path alignment, schedule-aware recommendations |
@@ -76,7 +76,11 @@ INTELLIGENCE_TIER=core
 INTELLIGENCE_TIER=full
 ```
 
-Three gating points in `services_bootstrap/compose.py` check `IntelligenceTier.from_env()`. When `core`, the AI services are never created. All downstream code receives `None` and handles it through the None-propagation pattern.
+At bootstrap, `services_bootstrap/compose.py` checks `IntelligenceTier.from_env()`:
+
+- **Always created (both tiers):** Auth indexes, domain indexes (UID, user_uid, status, date, composite), and **full-text indexes** for all 15 searchable domains via `Neo4jSchemaManager.sync_fulltext_indexes()`. This is the Cypher-first search foundation.
+- **FULL tier only:** Vector indexes (1024-dim, cosine similarity) on Entity and ContentChunk labels via `sync_vector_indexes()`. AI services (embeddings, LLM, vector search) are created. Background embedding worker starts.
+- **CORE tier:** Vector indexes and all AI services are skipped. All downstream code receives `None` and handles it through the None-propagation pattern.
 
 **See:** [Graceful Degradation Architecture](/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md) for implementation details — the three gating points, None-propagation pattern, event-driven embedding architecture, and search fallback behavior.
 
@@ -109,7 +113,8 @@ When switching from Digital back to Analog, nothing is lost. Existing embeddings
 | File | Role |
 |------|------|
 | `core/config/intelligence_tier.py` | `IntelligenceTier` enum — the toggle |
-| `services_bootstrap/compose.py` | Three gating points for AI service creation |
+| `services_bootstrap/compose.py` | Bootstrap orchestration: index sync + tier-gated AI service creation |
+| `adapters/persistence/neo4j/neo4j_schema_manager.py` | `sync_fulltext_indexes()` (always), `sync_vector_indexes()` (FULL only), `sync_domain_indexes()` (always) |
 | `adapters/inbound/ai_guard.py` | Route-level guards for AI endpoints |
 | `core/services/base_analytics_service.py` | Analog intelligence base (no AI deps) |
 | `core/services/base_ai_service.py` | Digital intelligence base (requires LLM + embeddings) |

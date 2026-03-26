@@ -93,6 +93,10 @@ The `huggingface-hub` package is included in project dependencies.
 
 ### 3. Create Vector Indexes
 
+Vector indexes are **automatically created at bootstrap** when `INTELLIGENCE_TIER=full` (via `Neo4jSchemaManager.sync_vector_indexes()`). Full-text indexes for keyword search are always created regardless of tier (via `sync_fulltext_indexes()`).
+
+To create vector indexes manually (e.g., before first app start):
+
 ```bash
 uv run python scripts/create_vector_indexes.py
 ```

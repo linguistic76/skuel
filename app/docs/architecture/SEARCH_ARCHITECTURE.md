@@ -100,7 +100,7 @@ _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
 1. `SearchRouter` receives `SearchRequest`
 2. Routes to domain search service (e.g., `KuSearchService.search()`)
 3. Domain service builds Cypher via `UnifiedQueryBuilder`
-4. Executes fulltext or filtered search
+4. Executes fulltext or filtered search (fulltext indexes auto-created at bootstrap via `Neo4jSchemaManager.sync_fulltext_indexes()`)
 5. Returns results with relevance scoring
 
 **UI Mapping:** "Properties" sidebar section — domain, SEL category, learning level, content type, educational level
@@ -762,8 +762,9 @@ Graph Relationships:
 | **Routes** | `/adapters/inbound/search_routes.py` | HTTP handling with explicit DI |
 | **Request Model** | `/core/models/search_request.py` | `SearchRequest`, `SearchResponse` |
 | **Domain Search Services** | `/core/services/{domain}/{domain}_search_service.py` | Domain search logic |
-| **Vector Search** | `/core/services/neo4j_vector_search_service.py` | `semantic_enhanced_search()`, `learning_aware_search()` |
+| **Vector Search** | `/core/services/neo4j_vector_search_service.py` | `semantic_enhanced_search()`, `learning_aware_search()` (FULL tier only) |
 | **Vector Config** | `/core/config/unified_config.py` | `VectorSearchConfig` |
+| **Schema Manager** | `/adapters/persistence/neo4j/neo4j_schema_manager.py` | `sync_fulltext_indexes()` (always), `sync_vector_indexes()` (FULL tier only) |
 | **UI Components** | `/ui/search/components.py` | Sidebar, results, learning badges |
 | **Intelligence** | `/core/services/search/search_intelligence_service.py` | Ranking, suggestions |
 | **MEGA-QUERY** | `/core/services/user/user_context_queries.py` | User state query |

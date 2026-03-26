@@ -174,12 +174,28 @@ Tasks, Goals, Events, and Choices use the base implementation. Only Habits and P
 
 **See:** `/docs/architecture/SEARCH_ARCHITECTURE.md` → "Temporal Scoring Patterns" for full breakdown.
 
+## Search Index Foundation (Bootstrap)
+
+At startup, `Neo4jSchemaManager` creates all indexes needed for search:
+
+| Index Type | Method | Tier | What It Powers |
+|-----------|--------|------|---------------|
+| **Full-text indexes** | `sync_fulltext_indexes()` | Always (CORE + FULL) | Lucene keyword search — 15 domains |
+| **Vector indexes** | `sync_vector_indexes()` | FULL only | 1024-dim cosine similarity on Entity + ContentChunk |
+
+Full-text indexes are the **Cypher-first search foundation**. They enable `db.index.fulltext.queryNodes()` for relevance-ranked keyword search without embeddings. The `_SearchMixin.search()` method provides a `CONTAINS`-based fallback, but full-text indexes are always available for richer search.
+
+Vector indexes are only created when `INTELLIGENCE_TIER=full` (embeddings enabled). When absent, search gracefully falls back to keyword-only results.
+
+**Key file:** `adapters/persistence/neo4j/neo4j_schema_manager.py`
+
 ## Common Gotchas
 
 1. **Always use SearchRouter** for external access — never call domain services directly from routes
 2. **Curriculum content is shared** — `_user_ownership_relationship = None` (no OWNS filter)
 3. **MOC is not a searchable domain** — it's emergent identity via ORGANIZES relationships on Ku nodes
 4. **12 searchable domains** — 6 Activity + 3 Curriculum + 3 Learning Loop; MOC is not an EntityType
+5. **Full-text indexes are always created** — regardless of INTELLIGENCE_TIER; vector indexes are FULL-only
 
 ## UserContext and Search
 

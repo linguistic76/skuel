@@ -199,6 +199,33 @@ Each domain has a suggested `QueryIntent` that optimizes graph queries:
 | Choices | `PRINCIPLE_ALIGNMENT` | ALIGNED_WITH_PRINCIPLE, INFORMED_BY_KNOWLEDGE |
 | Events | `SCHEDULED_ACTION` | EXECUTES_TASK, PRACTICES_KNOWLEDGE |
 
+## Index Architecture (Bootstrap)
+
+Neo4j indexes are created automatically at startup via `Neo4jSchemaManager` in `services_bootstrap/compose.py`:
+
+| Index Type | Method | When Created | Purpose |
+|-----------|--------|-------------|---------|
+| **Domain indexes** | `sync_domain_indexes()` | Always | UID, user_uid, status, date, composite — 48 indexes |
+| **Full-text indexes** | `sync_fulltext_indexes()` | Always | Lucene keyword search across 15 domains — Cypher-first foundation |
+| **Auth indexes** | `sync_auth_indexes()` | Always | Rate limiting, session lookup, email uniqueness |
+| **Vector indexes** | `sync_vector_indexes()` | FULL tier only | 1024-dim cosine similarity on Entity + ContentChunk |
+
+Full-text indexes are the **Cypher-first search foundation** — always available, no embeddings needed:
+
+```cypher
+-- Full-text search (Lucene-based, relevance-ranked)
+CALL db.index.fulltext.queryNodes('task_fulltext_idx', 'urgent deadline')
+YIELD node, score
+RETURN node.uid, node.title, score
+
+-- Vector search (FULL tier only, 1024-dim BAAI/bge-large-en-v1.5)
+CALL db.index.vector.queryNodes('entity_embedding_idx', 10, $embedding)
+YIELD node, score
+RETURN node.uid, node.title, score
+```
+
+All DDL is idempotent (`IF NOT EXISTS`) — safe on every startup.
+
 ## Best Practices
 
 ### 1. Always Use Parameters

@@ -9,7 +9,7 @@ This guide covers deploying the async embedding background worker to production 
 ## Prerequisites
 
 ### Required Services
-- ✅ **Neo4j AuraDB** (with GenAI plugin enabled)
+- ✅ **Neo4j AuraDB** (no plugin required — embeddings generated Python-side)
 - ✅ **HuggingFace API Key** (for embeddings generation via `BAAI/bge-large-en-v1.5`)
 - ✅ **Python 3.11+** with uv
 
@@ -39,13 +39,15 @@ EMBEDDING_BATCH_SIZE=25
 EMBEDDING_BATCH_INTERVAL=30
 ```
 
-### Neo4j GenAI Plugin Setup
+### Neo4j Index Setup
 
-**In Neo4j AuraDB Console**:
-1. Navigate to "Plugins" tab
-2. Enable "GenAI" plugin
-3. Configure OpenAI credentials at database level
-4. Verify with: `RETURN ai.text.embed('test')` in Neo4j Browser
+Indexes are **automatically created at bootstrap** — no manual setup needed:
+
+- **Full-text indexes** (15 domains) — always created via `sync_fulltext_indexes()`
+- **Vector indexes** (Entity + ContentChunk, 1024-dim cosine) — created when `INTELLIGENCE_TIER=full`
+- **Domain indexes** (UID, user_uid, status, date, composite) — always created
+
+No Neo4j GenAI plugin is required. Embeddings are generated Python-side via HuggingFace Inference API.
 
 ---
 
