@@ -520,6 +520,113 @@ class Neo4jSchemaManager:
 
         return Result.ok(results)
 
+    async def _create_fulltext_index(
+        self, index_name: str, label: str, fields: list[str]
+    ) -> Result[str]:
+        """
+        Create a full-text index on one or more fields.
+
+        Full-text indexes support Lucene-based text search (relevance-ranked).
+        This is the Cypher-first search foundation — always available, no embeddings needed.
+
+        Args:
+            index_name: Name for the index
+            label: Neo4j label
+            fields: Fields to include in the full-text index
+
+        Returns:
+            Result with 'created' or error
+        """
+        _validate_label(label)
+        for f in fields:
+            _validate_identifier(f)
+        _validate_identifier(index_name, context="index name")
+
+        fields_str = ", ".join(f"n.{f}" for f in fields)
+
+        try:
+            query = f"""
+            CREATE FULLTEXT INDEX {index_name} IF NOT EXISTS
+            FOR (n:{label}) ON EACH [{fields_str}]
+            """
+
+            async with self.driver.session() as session:
+                await session.run(query)
+
+            return Result.ok("created")
+
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed to create fulltext index {index_name}: {e}")
+            return Result.fail(
+                Errors.database(
+                    operation="create_fulltext_index",
+                    message=f"Fulltext index creation failed: {e}",
+                    entity=label,
+                )
+            )
+
+    async def sync_fulltext_indexes(self) -> Result[dict[str, Any]]:
+        """
+        Create full-text indexes for keyword search across all searchable domains.
+
+        This is the Cypher-first search foundation — pure Neo4j, no embeddings,
+        no external dependencies. Always created regardless of INTELLIGENCE_TIER.
+
+        Full-text indexes enable Lucene-based keyword search with relevance ranking,
+        replacing sequential CONTAINS scans. Field selections align with
+        SEARCH_FIELD_CONFIG in core/services/search/config.py.
+
+        Idempotent — uses IF NOT EXISTS. Safe to call on every startup.
+        """
+        results: dict[str, Any] = {"created": [], "failed": []}
+
+        # Full-text index definitions: (index_name, label, fields)
+        # Fields sourced from SEARCH_FIELD_CONFIG — the single source of truth
+        fulltext_definitions: list[tuple[str, str, list[str]]] = [
+            # Activity Domains (6)
+            ("task_fulltext_idx", "Task", ["title", "description"]),
+            ("goal_fulltext_idx", "Goal", ["title", "description"]),
+            ("habit_fulltext_idx", "Habit", ["title", "description"]),
+            ("event_fulltext_idx", "Event", ["title", "description"]),
+            ("choice_fulltext_idx", "Choice", ["title", "description", "context"]),
+            ("principle_fulltext_idx", "Principle", ["title", "statement", "description"]),
+            # Curriculum Domains (5)
+            ("lesson_fulltext_idx", "Lesson", ["title", "content"]),
+            ("ku_fulltext_idx", "Ku", ["title", "description"]),
+            ("learning_step_fulltext_idx", "LearningStep", ["title", "intent", "description"]),
+            ("learning_path_fulltext_idx", "LearningPath", ["title", "goal", "description"]),
+            ("exercise_fulltext_idx", "Exercise", ["title", "instructions"]),
+            # Learning Loop (2)
+            ("revised_exercise_fulltext_idx", "RevisedExercise", ["title", "instructions"]),
+            (
+                "exercise_submission_fulltext_idx",
+                "ExerciseSubmission",
+                ["title", "processed_content"],
+            ),
+            # Forms (2)
+            (
+                "form_template_fulltext_idx",
+                "FormTemplate",
+                ["title", "description", "instructions"],
+            ),
+            ("form_submission_fulltext_idx", "FormSubmission", ["title", "processed_content"]),
+        ]
+
+        for index_name, label, fields in fulltext_definitions:
+            result = await self._create_fulltext_index(index_name, label, fields)
+            if result.is_ok:
+                results["created"].append(index_name)
+            else:
+                results["failed"].append(index_name)
+
+        created_count = len(results["created"])
+        failed_count = len(results["failed"])
+        self.logger.info(
+            f"Fulltext indexes synced: {created_count} created/verified, {failed_count} failed"
+        )
+
+        return Result.ok(results)
+
     async def sync_all_models(self, model_registry: dict[str, type[T]]) -> Result[dict[str, Any]]:
         """
         Sync indexes for all registered models.
@@ -594,6 +701,11 @@ class Neo4jSchemaManager:
         - lpstep_embedding_idx (label LpStep — current label is LearningStep)
         - journal_submission_* (label JournalSubmission — renamed to JeInput)
         - journal_report_* (label JournalReport — renamed to JeOutput)
+        - knowledge_fulltext (legacy — label Entity with old field set)
+        - tasks_fulltext (legacy — replaced by task_fulltext_idx)
+        - journals_fulltext (legacy — label Document no longer exists)
+        - curriculum_fulltext_idx (legacy — Curriculum label replaced by Lesson)
+        - lpstep_fulltext_idx (legacy — label Lpstep renamed to LearningStep)
         """
         stale_indexes = [
             "ai_report_uid_idx",
@@ -602,6 +714,12 @@ class Neo4jSchemaManager:
             "journal_submission_user_uid_idx",
             "journal_report_uid_idx",
             "journal_report_user_uid_idx",
+            # Legacy fulltext indexes (replaced by sync_fulltext_indexes)
+            "knowledge_fulltext",
+            "tasks_fulltext",
+            "journals_fulltext",
+            "curriculum_fulltext_idx",
+            "lpstep_fulltext_idx",
         ]
         results: dict[str, Any] = {"dropped": [], "failed": []}
 

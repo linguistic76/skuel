@@ -567,12 +567,12 @@ def dto_from_dict[T](
     # ARCHITECTURAL DECISION (2026-02-01):
     # Infrastructure fields (embeddings, indexes) are filtered out from DTOs.
     # Embeddings are stored in Neo4j for vector search but are NOT part of
-    # the domain model. Application code doesn't need raw 1536-dim vectors.
+    # the domain model. Application code doesn't need raw 1024-dim vectors.
     #
     # This handles cases where Neo4j returns extra properties that aren't
     # defined in the DTO:
-    # - embedding: 1536-dimensional vector for semantic search
-    # - embedding_version: OpenAI model version (e.g., "text-embedding-3-small")
+    # - embedding: 1024-dimensional vector for semantic search (BAAI/bge-large-en-v1.5)
+    # - embedding_version: Embedding version (e.g., "v2")
     # - embedding_model: Model name
     # - embedding_updated_at: When embedding was last generated
     #

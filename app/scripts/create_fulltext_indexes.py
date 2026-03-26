@@ -28,11 +28,7 @@ logger = get_logger("skuel.scripts.fulltext_indexes")
 # Full-text index definitions
 # Format: {label: {index_name, fields_to_index}}
 FULLTEXT_INDEX_DEFINITIONS = {
-    "Curriculum": {
-        "index_name": "curriculum_fulltext_idx",
-        "fields": ["title", "content", "tags"],
-        "description": "Curriculum - title, content, and tags",
-    },
+    # Activity Domains (6)
     "Task": {
         "index_name": "task_fulltext_idx",
         "fields": ["title", "description"],
@@ -55,18 +51,61 @@ FULLTEXT_INDEX_DEFINITIONS = {
     },
     "Choice": {
         "index_name": "choice_fulltext_idx",
-        "fields": ["title", "description"],
-        "description": "Choices - title and description",
+        "fields": ["title", "description", "context"],
+        "description": "Choices - title, description, and context",
     },
     "Principle": {
         "index_name": "principle_fulltext_idx",
         "fields": ["title", "statement", "description"],
         "description": "Principles - title, statement, and description",
     },
-    "Lpstep": {
-        "index_name": "lpstep_fulltext_idx",
+    # Curriculum Domains (5)
+    "Lesson": {
+        "index_name": "lesson_fulltext_idx",
+        "fields": ["title", "content"],
+        "description": "Lessons - title and content",
+    },
+    "Ku": {
+        "index_name": "ku_fulltext_idx",
         "fields": ["title", "description"],
-        "description": "Learning Path Steps - title and description",
+        "description": "Knowledge Units - title and description",
+    },
+    "LearningStep": {
+        "index_name": "learning_step_fulltext_idx",
+        "fields": ["title", "intent", "description"],
+        "description": "Learning Steps - title, intent, and description",
+    },
+    "LearningPath": {
+        "index_name": "learning_path_fulltext_idx",
+        "fields": ["title", "goal", "description"],
+        "description": "Learning Paths - title, goal, and description",
+    },
+    "Exercise": {
+        "index_name": "exercise_fulltext_idx",
+        "fields": ["title", "instructions"],
+        "description": "Exercises - title and instructions",
+    },
+    # Learning Loop (2)
+    "RevisedExercise": {
+        "index_name": "revised_exercise_fulltext_idx",
+        "fields": ["title", "instructions"],
+        "description": "Revised Exercises - title and instructions",
+    },
+    "ExerciseSubmission": {
+        "index_name": "exercise_submission_fulltext_idx",
+        "fields": ["title", "processed_content"],
+        "description": "Exercise Submissions - title and processed content",
+    },
+    # Forms (2)
+    "FormTemplate": {
+        "index_name": "form_template_fulltext_idx",
+        "fields": ["title", "description", "instructions"],
+        "description": "Form Templates - title, description, and instructions",
+    },
+    "FormSubmission": {
+        "index_name": "form_submission_fulltext_idx",
+        "fields": ["title", "processed_content"],
+        "description": "Form Submissions - title and processed content",
     },
 }
 

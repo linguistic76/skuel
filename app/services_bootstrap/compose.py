@@ -142,21 +142,25 @@ async def compose_services(
         else:
             logger.warning(f"⚠️ Auth index sync had issues: {auth_index_result.error}")
 
-        # Create vector indexes for semantic search (idempotent — safe on every startup)
-        vector_labels = [
-            "Entity",  # Base label — covers all entity types via multi-label
-            "ContentChunk",  # RAG chunks
-        ]
-        vector_result = await schema_manager.sync_vector_indexes(
-            entity_labels=vector_labels, dimension=1536, similarity="cosine"
-        )
-        if vector_result.is_ok:
-            created = vector_result.value.get("created", [])
-            logger.info(
-                f"✅ Vector indexes synced: {', '.join(created) if created else 'all exist'}"
+        # Create vector indexes for semantic search (FULL tier only — ADR-043)
+        # CORE tier has no embeddings, so vector indexes are unnecessary
+        if tier.ai_enabled:
+            vector_labels = [
+                "Entity",  # Base label — covers all entity types via multi-label
+                "ContentChunk",  # RAG chunks
+            ]
+            vector_result = await schema_manager.sync_vector_indexes(
+                entity_labels=vector_labels, dimension=1024, similarity="cosine"
             )
+            if vector_result.is_ok:
+                created = vector_result.value.get("created", [])
+                logger.info(
+                    f"✅ Vector indexes synced: {', '.join(created) if created else 'all exist'}"
+                )
+            else:
+                logger.warning(f"⚠️ Vector index sync had issues: {vector_result.error}")
         else:
-            logger.warning(f"⚠️ Vector index sync had issues: {vector_result.error}")
+            logger.info("⏭️  Vector indexes skipped (intelligence tier: CORE)")
 
         # Drop stale indexes from removed labels
         stale_result = await schema_manager.drop_stale_indexes()
@@ -176,6 +180,18 @@ async def compose_services(
             )
         else:
             logger.warning(f"⚠️ Domain index sync had issues: {domain_idx_result.error}")
+
+        # Sync full-text indexes (Cypher-first search foundation — always created)
+        fulltext_result = await schema_manager.sync_fulltext_indexes()
+        if fulltext_result.is_ok:
+            created = fulltext_result.value.get("created", [])
+            failed = fulltext_result.value.get("failed", [])
+            logger.info(
+                f"✅ Fulltext indexes synced: {len(created)} created/verified"
+                + (f", {len(failed)} failed" if failed else "")
+            )
+        else:
+            logger.warning(f"⚠️ Fulltext index sync had issues: {fulltext_result.error}")
 
         # Cleanup expired sessions and reset tokens (daily maintenance at startup)
         from adapters.persistence.neo4j.session_backend import SessionBackend
@@ -204,7 +220,7 @@ async def compose_services(
         }
 
         recommended_keys = {
-            "OPENAI_API_KEY": "OpenAI API (optional - enables embeddings, semantic search, and AI features)",
+            "OPENAI_API_KEY": "OpenAI API (optional - enables LLM chat, content processing, and AI features)",
         }
 
         # Check required keys (FAIL-FAST)

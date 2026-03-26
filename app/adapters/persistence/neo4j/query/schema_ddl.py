@@ -71,7 +71,7 @@ FOR (n:{label})
 ON (n.{prop})
 OPTIONS {{
   indexConfig: {{
-    `vector.dimensions`: 1536,
+    `vector.dimensions`: 1024,
     `vector.similarity_function`: 'cosine'
   }}
 }}

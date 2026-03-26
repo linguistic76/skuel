@@ -61,7 +61,7 @@ PRIORITY_ENTITIES = [
 
 async def create_vector_indexes(
     entity_labels: list[str] | None = None,
-    dimension: int = 1536,
+    dimension: int = 1024,
     similarity: str = "cosine",
 ) -> None:
     """
@@ -69,7 +69,7 @@ async def create_vector_indexes(
 
     Args:
         entity_labels: List of entity labels (defaults to PRIORITY_ENTITIES)
-        dimension: Vector dimension (default 1536; use 1024 for BAAI/bge-large-en-v1.5)
+        dimension: Vector dimension (default 1024 for BAAI/bge-large-en-v1.5)
         similarity: Similarity function (default "cosine")
     """
     config = create_config()
