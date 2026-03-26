@@ -164,4 +164,4 @@ self.search = TasksSearchService(backend=tasks_backend)
 
 `base_label=NeoLabel.ENTITY` is required for all Activity Domains — it's what makes Neo4j create `(n:Entity:Task)` multi-label nodes, enabling universal Entity queries to work.
 
-Each Activity Domain backend extends `_HierarchyMixin` for parent-child ops (HAS_SUBTASK, HAS_SUBGOAL, etc.) plus domain-specific methods like `get_stats_for_user()`. HabitsBackend additionally has badge/achievement methods.
+Each Activity Domain backend extends `_HierarchyMixin` for parent-child ops (HAS_SUBTASK, HAS_SUBGOAL, etc.) plus domain-specific methods like `get_stats_for_user()`. HabitsBackend additionally has badge/achievement methods: per-habit streak badges (`award_badge`, `check_badge_already_earned`) and cross-habit aggregate badges (`award_user_badge`, `check_user_badge_earned`, `get_user_badge_stats`).

@@ -88,7 +88,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
 | `intelligence` | Pattern analysis, habit stacking recommendations |
 | `events` | Cross-domain event scheduling integration |
-| `event_handler` | Event-driven reactive logic (timing learning, badges, difficulty) |
+| `event_handler` | Event-driven reactive logic (timing learning, streak + aggregate badges, difficulty) |
 | `patterns` | Atomic Habits pattern recognition with confidence scoring |
 | `goal_analytics` | Cross-domain Habits→Goals analytics |
 

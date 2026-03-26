@@ -622,8 +622,8 @@ What do you want to do?
 ├─ [Habits only] Sync with Events domain?
 │  └─ Use: EventIntegrationService
 │
-├─ [Habits only] Award achievement badges?
-│  └─ Use: EventHandlerService
+├─ [Habits only] Award achievement badges (streak + aggregate)?
+│  └─ Use: EventHandlerService (streak via HabitStreakMilestone, aggregate via HabitCompleted)
 │
 ├─ [Goals only] React to goal events (achievements, abandonment)?
 │  └─ Use: EventHandlerService

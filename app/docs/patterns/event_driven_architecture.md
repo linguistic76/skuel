@@ -149,7 +149,7 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 ### Phase 4 Complete (✅ November 2025)
 
 **5 Integrations Operational:**
-1. ✅ **Habit → Achievements** - Badge awarding on streak milestones
+1. ✅ **Habit → Achievements** - Badge awarding on streak milestones + aggregate badges (completion, quality, identity) on HabitCompleted
 2. ✅ **Goal → Recommendations** - Learning path suggestions on goal achievement
 3. ✅ **LP → Recommendations** - Next learning suggestions on path completion
 4. ✅ **Multi-Domain Analytics** - Cross-domain event aggregation

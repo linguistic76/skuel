@@ -91,8 +91,8 @@ Habit chains, prerequisites, reinforcement, and achievements.
 | `REINFORCES_STEP` | Habit | LearningStep | Habit reinforces learning step |
 | `EMBODIES_PRINCIPLE` | Habit | Principle | Habit embodies principle |
 | `PRACTICED_AT_EVENT` | Habit | Event | Habit practiced at event |
-| `UNLOCKED_ACHIEVEMENT` | Habit | Achievement | Habit unlocked a badge |
-| `EARNED_BADGE` | User | Achievement | User earned a badge |
+| `UNLOCKED_ACHIEVEMENT` | Habit | Achievement | Habit unlocked a per-habit streak badge |
+| `EARNED_BADGE` | User | Achievement | User earned a badge (per-habit streak or cross-habit aggregate) |
 
 ### Event Relationships
 
