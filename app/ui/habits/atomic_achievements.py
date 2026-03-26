@@ -18,6 +18,14 @@ All badges include:
 - Unlock criteria
 - Progress tracking
 - Celebration modal on unlock
+
+Implementation Status:
+    This module defines 16 badge types and renders progress/unlock UI. Badge
+    progress is computed on the fly by HabitsCompletionService.get_badge_progress().
+    Currently only streak badges (Consistency category, 4 tiers) are persisted to
+    Neo4j as Achievement nodes via HabitEventHandlerService. The remaining badge
+    categories display correctly in the UI but are not yet persisted to the graph.
+    See TODO in HabitEventHandlerService for the planned unification.
 """
 
 from dataclasses import dataclass

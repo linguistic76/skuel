@@ -121,6 +121,21 @@ class HabitEventHandlerService:
     - HabitStreakBroken: Recovery difficulty calculation, knowledge impact
     - HabitMissed: Difficulty pattern detection, insight persistence
     - HabitStreakMilestone: Achievement badge awarding
+
+    Badge System Status:
+        Currently awards streak-based badges only (4 tiers: 7/30/100/365 days).
+        These are persisted as Achievement nodes in Neo4j via EARNED_BADGE and
+        UNLOCKED_ACHIEVEMENT relationships.
+
+        TODO: Extend badge awarding to non-streak categories. The UI
+        (AtomicHabitsBadges in ui/habits/atomic_achievements.py) and progress
+        tracking (HabitsCompletionService.get_badge_progress) already cover
+        completion, quality, and identity badges — but those are computed on
+        the fly, not persisted to the graph. Persisting them would enable:
+        - Badge history queries and cross-domain awareness in UserContext
+        - AchievementEarned events for non-streak badges (notifications)
+        - Unification of the two badge registries (MILESTONE_BADGES here vs
+          BADGE_DEFINITIONS in AtomicHabitsBadges)
     """
 
     # Achievement badge definitions (migrated from HabitAchievementService)

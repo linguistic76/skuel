@@ -504,6 +504,15 @@ class HabitsCompletionService:
         """
         Calculate badge progress based on completion data.
 
+        Computes progress for all badge categories on the fly from habit/completion
+        data. Used by UI routes (/badges/showcase, /badges/widget) to render
+        progress bars and unlock status.
+
+        Note: Only streak badges (7/30/100/365) are persisted to Neo4j as
+        Achievement nodes via HabitEventHandlerService. Completion, quality, and
+        identity badges are computed here but not yet persisted. See the TODO in
+        HabitEventHandlerService for the planned unification.
+
         Args:
             user_uid: User identifier
 
