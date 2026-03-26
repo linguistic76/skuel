@@ -309,16 +309,18 @@ Both methods run the same LP-scoped pipeline: LP enrollment gate → intent clas
 
 **Internal Methods:**
 - `_find_similar_knowledge()` - Semantic search via EmbeddingsService (cosine similarity ≥0.6)
-- `_build_user_learning_context_query()` - Comprehensive Cypher with 5 OPTIONAL MATCH clauses
-- `_analyze_blocked_knowledge_prerequisites()` - Gap analysis identifying missing prerequisites
+- `_analyze_blocked_knowledge_prerequisites()` - Gap analysis via `KuBackend.get_unmastered_prerequisites()` + `count_dependents()`
 - `_identify_quick_wins_and_high_impact()` - Classification by prerequisite count:
   - **Quick wins**: 0-1 prerequisites (easy to start)
   - **High impact**: Many dependents (unblocks the most)
 - `_fetch_lessons()`, `_fetch_kus()`, `_fetch_entities_by_uid()` - Parallel entity fetching via `asyncio.gather()`
+- `_fetch_cited_resources()` - Resources via `LessonBackend.get_cited_resources()`
 
 **LS bundle deps** use `EntityLookup` protocol (async `get(uid) -> Result[Any]`): lesson_service, ku_service, habits_service, tasks_service, events_service, principles_service, lp_service.
 
-**Graph Integration:** Uses GraphIntelligenceService for semantic analysis and EmbeddingsService for vector similarity
+**Backend deps** for graph queries (March 2026 — migrated from inline Cypher): `ku_backend` (KuBackend), `lesson_backend` (LessonBackend).
+
+**Graph Integration:** Uses LessonBackend for learning context queries, KuBackend for prerequisite analysis, EmbeddingsService for vector similarity
 
 ---
 

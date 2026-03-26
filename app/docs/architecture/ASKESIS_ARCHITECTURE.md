@@ -458,8 +458,8 @@ Six stub implementations were completed to bring Askesis from ~60-70% to ~95% fu
 | Method | File | Implementation |
 |--------|------|----------------|
 | `_find_similar_knowledge()` | `context_retriever.py` | Semantic search via EmbeddingsService |
-| `_build_user_learning_context_query()` | `context_retriever.py` | Comprehensive Cypher with 5 OPTIONAL MATCH clauses |
-| `_analyze_blocked_knowledge_prerequisites()` | `context_retriever.py` | Gap analysis using Neo4j relationship traversal |
+| `get_learning_context()` | `context_retriever.py` | Delegates to `LessonBackend.get_user_learning_context()` |
+| `_analyze_blocked_knowledge_prerequisites()` | `context_retriever.py` | Gap analysis via `KuBackend.get_unmastered_prerequisites()` + `count_dependents()` |
 | `_identify_quick_wins_and_high_impact()` | `context_retriever.py` | Classification based on prerequisite count |
 | `_generate_context_aware_response()` | `query_processor.py` | LLM integration (required) |
 | `_order_by_prerequisites()` | `askesis_service.py` | Kahn's algorithm for topological sort |

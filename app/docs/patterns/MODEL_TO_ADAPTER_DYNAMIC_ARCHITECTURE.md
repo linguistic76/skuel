@@ -9,7 +9,7 @@ related_docs:
 
 # Model-to-Adapter Dynamic Architecture
 **Date:** October 3, 2025 (Updated: March 26, 2026)
-**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8). `execute_query()` standardization complete (Phase 9). Fail-fast dependency philosophy enforced across all services.
+**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8, 11). `execute_query()` standardization complete (Phase 9). LessonBackend decomposed into 5 mixins (Phase 10). Fail-fast dependency philosophy enforced across all services.
 
 ## Executive Summary
 
@@ -173,6 +173,20 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 
 **Fail-fast cleanup:** `executor: QueryExecutor` replaced with `backend: LateralRelationshipBackendOperations`.
 
+### March 26, 2026 Update: ContextRetriever Cypher Migration + Dead Code Removal (Phase 11)
+
+Migrated 4 inline Cypher queries from `ContextRetriever` (which bypassed the backend layer via `graph_intel.execute_query()`) to domain backends. Deleted `CrossDomainQueries` (762 lines, zero callers — dead code).
+
+**New backend methods:**
+- `KuBackend.get_unmastered_prerequisites()` — prerequisite chains (depth 1..3) filtered by mastery
+- `KuBackend.count_dependents()` — impact score for gap analysis
+- `_KnowledgeContextMixin.get_cited_resources()` — CITES_RESOURCE traversal for LS bundles
+- `_LearningStateMixin.get_user_learning_context()` — single-query learning state (mastered, learning, blocked, paths, tasks, goals)
+
+**ContextRetriever** now delegates to `ku_backend` and `lesson_backend` (injected via `AskesisDeps`). `_build_user_learning_context_query()` deleted. `@requires_graph_intelligence` decorator removed from methods that no longer use `graph_intel`.
+
+**Remaining inline Cypher** in `_life_path_mixin.py` (7 queries) and `planning_mixin.py` (2 queries) is correctly placed — executes through `self.backend.execute_query()` and is entity-agnostic/config-driven.
+
 ### March 26, 2026 Update: LessonBackend Mixin Decomposition (Phase 10)
 
 `LessonBackend` (1,248 lines, 54 methods) was 2x the next-largest backend. Decomposed into 5 focused mixins following the `_HierarchyMixin` pattern. LessonBackend is now ~20 lines inheriting from all 5 mixins — pure structural refactor, no behavioral changes.
@@ -180,9 +194,9 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 | Mixin | Methods | Responsibility |
 |-------|---------|----------------|
 | `_OrganizesMixin` | 12 | ORGANIZES relationship management |
-| `_LearningStateMixin` | 13 | User progress: VIEWED, IN_PROGRESS, MASTERED, BOOKMARKED, MARKED_AS_READ |
+| `_LearningStateMixin` | 14 | User progress: VIEWED, IN_PROGRESS, MASTERED, BOOKMARKED, MARKED_AS_READ + learning context |
 | `_SemanticMixin` | 11 | Semantic relationships + graph analysis (hub scores, prereq chains) |
-| `_KnowledgeContextMixin` | 13 | Context, discovery, readiness (USES_KU, connected activities, learning gaps) |
+| `_KnowledgeContextMixin` | 14 | Context, discovery, readiness (USES_KU, connected activities, learning gaps) + cited resources |
 | `_AdaptiveMixin` | 10 | Practice, keyword/vector search, adaptive mastery tracking |
 
 Shared validation helpers (`_validate_rel_name`, `_ALLOWED_ORDER_BY`) extracted to `_backend_helpers.py`.

@@ -214,22 +214,20 @@ gate. The `min_score=0.6` threshold handles relevance filtering.
 
 ### Knowledge Gap Analysis
 
-`ContextRetriever` now performs comprehensive gap analysis:
+`ContextRetriever` performs comprehensive gap analysis via backend delegation:
 
-1. **`_build_user_learning_context_query()`** - Comprehensive Cypher query with 5 OPTIONAL MATCH clauses:
+1. **`get_learning_context()`** — Delegates to `LessonBackend.get_user_learning_context()` which runs a single Cypher query returning:
    - Current knowledge (mastered KUs)
    - Active learning (in-progress KUs)
-   - Active tasks with knowledge links
-   - Current goals with knowledge requirements
-   - Active habits reinforcing knowledge
+   - Blocked knowledge (required by tasks but not mastered)
+   - Active learning paths, tasks, and goals
+   - Unmastered prerequisites
 
-2. **`_analyze_blocked_knowledge_prerequisites()`** - Identifies:
-   - Knowledge blocked by missing prerequisites
-   - Prerequisite chains preventing progress
-   - Quick wins (0-1 prerequisites)
-   - High-impact items (many dependents)
+2. **`_analyze_blocked_knowledge_prerequisites()`** — For each blocked KU:
+   - `KuBackend.get_unmastered_prerequisites()` — prerequisite chains (depth 1..3)
+   - `KuBackend.count_dependents()` — impact score (how many things are unlocked)
 
-3. **`_identify_quick_wins_and_high_impact()`** - Classification:
+3. **`_identify_quick_wins_and_high_impact()`** — Classification:
    - **Quick wins**: Items with 0-1 prerequisites (easy to start)
    - **High impact**: Items that unlock many dependents
 
