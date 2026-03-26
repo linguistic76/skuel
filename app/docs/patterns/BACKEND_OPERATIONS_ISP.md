@@ -261,15 +261,16 @@ The original February 2026 decomposition created a single `_relationship_mixin.p
 
 `_relationship_query_mixin.py` stubs `_build_direction_pattern` via `TYPE_CHECKING` (declared in `_relationship_crud_mixin.py`). Public API unchanged — 2,817 tests pass.
 
-### Driver Access Patterns
+### Query Execution Patterns
 
 | Pattern | When to Use | Example |
 |---------|-------------|---------|
-| `self.backend.method()` | Standard CRUD, search, relationships | `await self.backend.find_by(status="active")` |
-| `self.backend.driver.execute_query()` | Complex graph queries returning EagerResult | Semantic relationships, aggregations |
-| `self.backend.driver.session()` | Multi-statement transactions | AVOID - prefer execute_query() |
+| `self.backend.method()` | **Services** — all domain queries | `await self.backend.find_by(status="active")` |
+| `self.execute_query(query, params)` | **Domain backends only** — domain-specific Cypher | `await self.execute_query(query, {"uid": uid})` |
 
-**Fail-Fast:** Driver guards are unnecessary in services - driver is REQUIRED at bootstrap.
+**Rule:** Services call named backend methods. Domain backends call `self.execute_query()` (inherited from `UniversalNeo4jBackend`). No code should use `self.driver.session()` directly — `execute_query()` handles session management, the driver-closed guard, and returns `Result[list[dict]]`.
+
+**Fail-Fast:** Driver guards are unnecessary in services — driver is REQUIRED at bootstrap.
 
 ## Key Files
 

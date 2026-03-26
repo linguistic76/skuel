@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-03-25
+updated: 2026-03-26
 category: patterns
 related_skills: []
 related_docs:
@@ -8,8 +8,8 @@ related_docs:
 ---
 
 # Model-to-Adapter Dynamic Architecture
-**Date:** October 3, 2025 (Updated: March 25, 2026)
-**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-6). Fail-fast dependency philosophy enforced across all services.
+**Date:** October 3, 2025 (Updated: March 26, 2026)
+**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8). `execute_query()` standardization complete (Phase 9). Fail-fast dependency philosophy enforced across all services.
 
 ## Executive Summary
 
@@ -167,6 +167,16 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 
 **Fail-fast cleanup:** `executor: QueryExecutor` replaced with `backend: LateralRelationshipBackendOperations`.
 
+### March 26, 2026 Update: execute_query() Standardization (Phase 9)
+
+Standardized all 33 domain backend methods across 8 backends to use `self.execute_query()` instead of direct `self.driver.session()` + `session.run()`. Also fixed 3 `HabitsBackend` methods that returned raw `bool` instead of `Result[bool]`.
+
+**Backends converted:** GoalsBackend (4), TasksBackend (4), EventsBackend (3), LessonBackend (10), KuBackend (1), SubmissionsBackend (5), JournalInputBackend (3), JournalOutputBackend (2).
+
+**Result:** Zero `self.driver.session()` calls remain in `domain_backends.py`. All queries route through `execute_query()` which provides centralized session management, the driver-closed guard, and consistent `Result[list[dict]]` returns. Net reduction of 156 lines of try/except boilerplate.
+
+**Rule enforced:** Domain backends call `self.execute_query()`. Services call named backend methods. No code bypasses the centralized query path.
+
 ### March 26, 2026 Update: Backend Hardening + Service Cypher Migration (Phase 8)
 
 Hardened 3 backend methods against Cypher injection and migrated 17 inline Cypher queries from 5 service files to domain backends.
@@ -267,13 +277,14 @@ def _build_direction_pattern(
     """Build Cypher pattern for directional relationship traversal."""
 ```
 
-### Driver Access Patterns
+### Query Execution Patterns
 
 | Pattern | When to Use | Example |
 |---------|-------------|---------|
-| `self.backend.method()` | Standard CRUD, search, relationships | `await self.backend.find_by(status="active")` |
-| `self.backend.driver.execute_query()` | Complex graph queries returning EagerResult | Semantic relationships, aggregations |
-| `self.backend.driver.session()` | Multi-statement transactions | AVOID - prefer execute_query() |
+| `self.backend.method()` | **Services** — all domain queries | `await self.backend.find_by(status="active")` |
+| `self.execute_query(query, params)` | **Domain backends only** — domain-specific Cypher | `await self.execute_query(query, {"uid": uid})` |
+
+**Rule (Phase 9):** Domain backends call `self.execute_query()`. Services call named backend methods. Zero `self.driver.session()` calls in `domain_backends.py`.
 
 ### Fail-Fast Alignment
 
