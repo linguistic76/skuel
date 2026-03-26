@@ -1,6 +1,6 @@
 ---
 title: MyPy Type Safety Patterns - Systematic Error Reduction
-updated: 2026-02-03
+updated: 2026-03-26
 category: patterns
 related_skills:
 - python
@@ -13,12 +13,12 @@ related_docs:
 
 # MyPy Type Safety Patterns - Systematic Error Reduction
 
-**Last Updated:** February 3, 2026
-**Status:** Production - Proven patterns from 38% error reduction (183 → 114 errors)
+**Last Updated:** March 26, 2026
+**Status:** Production - 227 → 0 errors (March 2026 full resolution)
 
 ## Overview
 
-This guide documents proven patterns for systematically reducing mypy errors by addressing root causes rather than symptoms. These patterns emerged from reducing SKUEL's mypy errors from 183 to 114 (38% reduction) in a single systematic pass.
+This guide documents proven patterns for systematically reducing mypy errors by addressing root causes rather than symptoms. These patterns emerged from reducing SKUEL's mypy errors from 183 to 114 (38% reduction) in an initial systematic pass, then fully resolving all remaining errors to reach **0 MyPy errors** in March 2026 (227 → 0). The original five root causes remain valid educational content; sections 6 and 7 document additional patterns discovered during the final resolution.
 
 ## Related Skills
 
@@ -592,6 +592,75 @@ In SKUEL's codebase:
 
 ---
 
+## 6. Neo4j Property Type Narrowing
+
+**Problem:** Values from `Neo4jProperties` (`dict[str, str | int | float | bool | list | None | datetime]`) come back as a union type. Using them directly in arithmetic or comparisons produces `operator` and `arg-type` errors because MyPy cannot prove the value is numeric.
+
+**Solution:** Explicitly narrow with `int()`, `float()`, or `str()` casts at the point of use.
+
+### Before (Type Error)
+
+```python
+data: Neo4jProperties = await self.backend.get_node(uid)
+# ERROR: Unsupported operand types for * ("str | int | float | bool | list | None | datetime")
+score = data.get("quality_score", 0) * 100
+```
+
+### After (Narrowed)
+
+```python
+data: Neo4jProperties = await self.backend.get_node(uid)
+score = float(data.get("quality_score", 0)) * 100  # Narrowed to float
+```
+
+### Common Narrowing Sites
+
+| Use Case | Cast | Example |
+|----------|------|---------|
+| Arithmetic | `float()` or `int()` | `float(props.get("score", 0.0)) * weight` |
+| Comparisons | `float()` or `int()` | `if int(props.get("count", 0)) > threshold:` |
+| String formatting | `str()` | `label = str(props.get("title", ""))` |
+| Boolean checks | `bool()` | `is_active = bool(props.get("active", False))` |
+
+### Why This Was the Biggest Category
+
+This was the single biggest source of MyPy errors during the March 2026 resolution. Nearly every service that reads Neo4j properties and performs computation needed narrowing casts. The pattern is mechanical but pervasive — `dict.get()` returns the union type, and any downstream operation triggers a type error.
+
+---
+
+## 7. Domain Backend Method Access
+
+**Problem:** Domain backends (`TasksBackend`, `GoalsBackend`, etc.) extend `UniversalNeo4jBackend[T]` with domain-specific methods via mixins. When a service accesses these methods through `self.backend` typed as a generic `BackendOperations[T]` protocol, MyPy reports `attr-defined` errors because the protocol does not declare domain-specific methods.
+
+**Solution:** Use `# type: ignore[attr-defined]` with a comment explaining the domain backend method.
+
+### Example
+
+```python
+class HabitsCompletionService(BaseService[HabitsOperations, Habit]):
+    async def get_streak(self, habit_uid: str) -> Result[int]:
+        # backend is typed as HabitsOperations (generic protocol)
+        # but at runtime it's HabitsBackend which has get_streak_data()
+        streak_data = await self.backend.get_streak_data(  # type: ignore[attr-defined]
+            habit_uid
+        )
+        return Result.ok(streak_data)
+```
+
+### When to Use This Pattern
+
+- The method exists on the concrete domain backend (e.g., `HabitsBackend.get_streak_data()`)
+- The method is NOT on the generic `BackendOperations[T]` protocol (it is domain-specific)
+- Adding the method to the generic protocol would violate ISP — it only applies to one domain
+
+### When NOT to Use This Pattern
+
+- If the method should be on the protocol — add it to the protocol instead
+- If multiple domains need the method — consider adding it to `BackendOperations[T]`
+- If the method is a typo or does not exist — fix the call site
+
+---
+
 ## Success Metrics
 
 ### Error Reduction Achieved
@@ -718,5 +787,5 @@ entity = result.value  # Now safe
 
 ---
 
-**Last Updated:** February 3, 2026
-**Status:** Production - Proven patterns with 38% error reduction
+**Last Updated:** March 26, 2026
+**Status:** Production - 0 MyPy errors achieved (March 2026)

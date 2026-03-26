@@ -653,7 +653,7 @@ Use for consistent timestamp/metadata handling: `timestamp_properties()`, `updat
 - SKUEL016: No stale Poetry references — SKUEL uses uv
 - SKUEL017: No bare `except Exception` — use specific types from `exception_types.py`
 
-**MyPy:** Strict where it matters, gradual everywhere else. Per-module overrides in `pyproject.toml`. Three globally-disabled codes: `type-var`, `assignment`, `arg-type`. Every new `Any` needs a `# boundary:` comment or should use a specific type.
+**MyPy:** `./dev quality` enforces **0 MyPy errors**. Per-module strictness overrides in `pyproject.toml`. Five globally-disabled codes: `type-var`, `assignment`, `arg-type`, `var-annotated`, `type-arg`. Domain backends suppress `misc` (MRO mixin conflicts). Narrow Neo4j property types with `int()`/`float()`/`str()` casts before arithmetic. Every new `Any` needs a `# boundary:` comment or should use a specific type.
 
 **See:** `/docs/patterns/linter_rules.md`, `docs/patterns/mypy_pragmatic_strategy.md`
 

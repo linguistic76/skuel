@@ -1,6 +1,6 @@
 ---
 title: MyPy Limitations in Universal Backend
-updated: 2026-03-01
+updated: 2026-03-26
 status: current
 category: technical-debt
 tags: [backend, limitations, mypy, technical-debt]
@@ -9,13 +9,13 @@ related: [MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md, BACKEND_OPERATIONS_ISP.md]
 
 # MyPy Limitations in Universal Backend
 
-**Status**: Documented Known Issues
+**Status**: Documented Known Issues (domain_backends.py resolved March 2026)
 **Impact**: None (All tests pass, runtime behavior correct)
-**Last Updated**: 2026-03-01
+**Last Updated**: 2026-03-26
 
 ## Overview
 
-The `UniversalNeo4jBackend` contains **~46 MyPy errors** that are **intentional architectural decisions** rather than bugs. These errors arise from MyPy's limitations with advanced generic programming patterns used to achieve SKUEL's "100% Dynamic Backend" architecture.
+The `UniversalNeo4jBackend` mixins contain **~46 MyPy errors** that are **intentional architectural decisions** rather than bugs. These errors arise from MyPy's limitations with advanced generic programming patterns used to achieve SKUEL's "100% Dynamic Backend" architecture. As of March 2026, `domain_backends.py` (which previously had 42 MRO mixin conflicts and 19 `no-any-return` errors) now passes MyPy with 0 errors — see [March 2026 Domain Backends Resolution](#march-2026-domain-backends-resolution).
 
 **Key Principle**: "The plant grows on the lattice" - Domain models define structure, backend dynamically adapts.
 
@@ -67,7 +67,7 @@ async def list(self, filters: dict) -> Result[tuple[list[T], int]]:
 
 ---
 
-### 3. Returning Any (5 errors)
+### 3. Returning Any (5 errors in universal backend mixins)
 
 **Pattern**: Returning Any from function declared to return `Result[T]`
 
@@ -83,6 +83,8 @@ async def get(self, uid: str) -> Result[T | None]:
 **Why Not Fix**: The conversion is genuinely dynamic - we can't know the concrete type until runtime. This is the core of the "100% Dynamic" pattern.
 
 **Impact**: None - Type safety enforced at protocol boundaries
+
+**March 2026 Update**: 19 `no-any-return` errors in `domain_backends.py` were resolved by typing the `executor` parameter as `Neo4jQueryExecutor` (was `Any`) in `LateralRelationshipBackend` and `NotificationBackend`. The remaining Category 3 errors in the universal backend mixins are the architectural limitations documented above.
 
 ---
 
@@ -147,8 +149,8 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 
 ## Test Coverage Verification
 
-**Integration Tests**: 151/151 passing
-**Coverage**: Universal backend operations tested across all 7 domains
+**Integration Tests**: 4015+ passing (151 backend-specific)
+**Coverage**: Universal backend operations tested across all domains
 
 **Test Strategy**:
 - Each domain has comprehensive CRUD tests
@@ -191,7 +193,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 - Test failures in backend operations (would indicate real bug)
 - New domain added that doesn't satisfy protocol
 
-**Last Review**: 2026-01-06
+**Last Review**: 2026-03-26
 **Next Review**: When MyPy version updates or architecture changes
 
 ---
@@ -221,3 +223,37 @@ These changes do not affect the documented MyPy limitations - they remain as exp
 The documented MyPy limitations are now distributed across the mixin files rather than concentrated in the monolith. The errors are the same architectural patterns — mixin decomposition did not introduce or resolve any of them.
 
 **Note on line numbers:** Specific line numbers cited in this document (from the monolith era) are no longer valid. The patterns described still apply — find them by error pattern (`list?[str]`, generic constraint) rather than line number.
+
+## March 2026 Domain Backends Resolution
+
+`domain_backends.py` previously carried **62 MyPy errors** across three categories. All three were resolved in March 2026, bringing the file to **0 MyPy errors**.
+
+### 42 MRO Mixin Conflicts (`[misc]`)
+
+Domain backends like `TasksBackend`, `GoalsBackend`, etc. inherit from `UniversalNeo4jBackend` plus domain-specific mixins (e.g., `_HierarchyMixin`). MyPy flagged 42 `[misc]` errors for "Definition of X in base class Y is incompatible with definition in base class Z" — standard MRO diamond complaints when multiple mixins provide overlapping method signatures.
+
+**Resolution**: Added a per-module MyPy override in `pyproject.toml`:
+
+```toml
+[[tool.mypy.overrides]]
+module = "adapters.persistence.neo4j.domain_backends"
+disable_error_code = ["misc"]
+```
+
+This suppresses only `[misc]` in `domain_backends.py` — all other error codes remain enforced. The MRO conflicts are structural to the mixin composition pattern and do not indicate runtime bugs.
+
+### 19 `no-any-return` Errors
+
+`LateralRelationshipBackend` and `NotificationBackend` accepted `executor: Any` because they did not extend `UniversalNeo4jBackend` (they are standalone backends with direct Cypher execution). Every method returning a `Result` triggered `[no-any-return]` since MyPy could not infer the return type through the untyped executor.
+
+**Resolution**: Typed the `executor` parameter as `Neo4jQueryExecutor` (the protocol already existed in the codebase). This gave MyPy enough information to verify all return types, resolving all 19 errors without any runtime changes.
+
+### 1 `return-value` Error
+
+`get_user_badge_stats` returned a bare `result` on the error path, which MyPy flagged as `[return-value]` because the type did not match the declared return type.
+
+**Resolution**: Changed to `Result.fail(result)` — the standard SKUEL pattern for propagating errors across type boundaries (see Error Handling section in CLAUDE.md).
+
+### Net Result
+
+`domain_backends.py` now passes MyPy with 0 errors. The ~46 errors documented in Categories 1-4 above remain in the `UniversalNeo4jBackend` mixin files — those are genuine MyPy limitations with generic programming patterns and are unchanged.

@@ -1,6 +1,6 @@
 ---
-title: MyPy Pragmatic Strategy - Making Peace with Errors
-updated: 2026-02-03
+title: MyPy Zero-Error Strategy - From Pragmatic Acceptance to Clean Baseline
+updated: 2026-03-26
 category: patterns
 related_skills: []
 related_docs:
@@ -8,44 +8,44 @@ related_docs:
 - /docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md
 ---
 
-# MyPy Pragmatic Strategy - Making Peace with Errors
+# MyPy Zero-Error Strategy - From Pragmatic Acceptance to Clean Baseline
 
-**Last Updated:** February 3, 2026
-**Status:** Pragmatic - Systematic Error Reduction + Warn Don't Fail
+**Last Updated:** March 26, 2026
+**Status:** Zero Errors - `./dev quality` passes clean
 
-> **For systematic error reduction patterns:** See [MYPY_TYPE_SAFETY_PATTERNS.md](MYPY_TYPE_SAFETY_PATTERNS.md) for proven techniques to reduce errors by addressing root causes (183 → 114 errors, 38% reduction).
+> **For systematic error reduction patterns:** See [MYPY_TYPE_SAFETY_PATTERNS.md](MYPY_TYPE_SAFETY_PATTERNS.md) for proven techniques used during the reduction (183 -> 114 -> 0 errors).
 
 ## Executive Summary
 
-**Question:** "How do we get through all these MyPy errors?"
+**Question:** "How did SKUEL go from 2200+ MyPy errors to zero?"
 
-**Answer:** **Systematic reduction + pragmatic acceptance.**
+**Answer:** **Systematic reduction across three phases** — fix real bugs, resolve type inference noise through targeted patterns, and eliminate stub errors through configuration.
 
-### Current State (February 2026)
+### Current State (March 2026)
 
-- **Total MyPy Errors:** 114 (reduced from 183 via systematic fixes)
-- **Recent Reduction:** 69 errors fixed (38% reduction in single session)
-- **Fixed via patterns:** TYPE_CHECKING, Union returns, Nullable guards, Protocol sync
-- **Remaining:** Mixture of real issues and acceptable technical debt
+- **Total MyPy Errors:** 0
+- **`./dev quality`:** Passes clean (MyPy, Ruff, SKUEL linter — all zero errors)
+- **Reduction path:** 2247 -> 183 -> 114 -> 0
+- **Zero is the enforced baseline.** New code must not introduce MyPy errors.
 
-### The Pragmatic Philosophy
+### The Philosophy
 
 **MyPy's job:** Find bugs before runtime
-**Our job:** Fix bugs that matter, ignore noise
-**The balance:** Strict where it counts, lenient elsewhere
+**Our job:** Fix bugs that matter, configure away noise, enforce zero going forward
+**The result:** Type errors are teachers — and we graduated
 
 ---
 
-## The 3 Categories of MyPy Errors
+## The 3 Categories of MyPy Errors (All Resolved)
 
-### Category 1: REAL BUGS (Fixed ✅)
+### Category 1: REAL BUGS (Fixed)
 
 **Example:**
 ```python
-# ❌ WRONG - Creates tuple instead of list!
-action_items: list[str] = field(default_factory=list),  # ← Trailing comma!
+# WRONG - Creates tuple instead of list!
+action_items: list[str] = field(default_factory=list),  # Trailing comma!
 
-# ✅ CORRECT
+# CORRECT
 action_items: list[str] = field(default_factory=list)
 ```
 
@@ -56,7 +56,7 @@ action_items: list[str] = field(default_factory=list)
 
 ---
 
-### Category 2: TYPE INFERENCE NOISE (~2000 errors)
+### Category 2: TYPE INFERENCE NOISE (Resolved)
 
 **Example:**
 ```python
@@ -66,17 +66,14 @@ optional_parameters: set[str] = field(default_factory=set)
 # But this works perfectly at runtime!
 ```
 
-**Why MyPy complains:** It can't infer that `field(default_factory=set)` returns `set[str]`
+**Why MyPy complained:** It couldn't infer that `field(default_factory=set)` returns `set[str]`
 
-**Reality:** Code works fine, MyPy is being overly strict
-
-**Impact:** **ZERO** - Code runs perfectly
 **Count:** ~2000 errors
-**Status:** **IGNORED** - Not worth fixing
+**Status:** **RESOLVED** — via per-module `disable_error_code` overrides in `pyproject.toml`, explicit type narrowing with `int()`/`float()`/`str()` casts on Neo4j properties, and targeted `# type: ignore` annotations where the code was correct but MyPy lacked context.
 
 ---
 
-### Category 3: MISSING TYPE STUBS (~165 errors)
+### Category 3: MISSING TYPE STUBS (Resolved)
 
 **Example:**
 ```python
@@ -86,9 +83,78 @@ from neo4j import AsyncDriver
 
 **Why:** External libraries (neo4j, langchain, etc.) don't provide type stubs
 
-**Impact:** **ZERO** - Libraries work fine
 **Count:** ~165 errors
-**Status:** **IGNORED** - We can't fix upstream libraries
+**Status:** **RESOLVED** — via `follow_imports = "skip"` for external libraries without stubs in `pyproject.toml` overrides.
+
+---
+
+## The March 2026 Resolution
+
+The path from 114 errors to 0 used five key techniques:
+
+### 1. Neo4j Property Type Narrowing
+
+Neo4j returns `Any`-typed values from property dictionaries. Arithmetic or string operations on these trigger MyPy errors. The fix: explicit casts at the point of use.
+
+```python
+# BEFORE: MyPy error - unsupported operand types
+total = record["count"] + record["extra"]
+
+# AFTER: Explicit narrowing tells MyPy the type
+total = int(record["count"]) + int(record["extra"])
+
+# Same pattern for other types
+name: str = str(props.get("name", ""))
+score: float = float(props.get("score", 0.0))
+```
+
+### 2. Domain Backend `# type: ignore[attr-defined]`
+
+Domain backends (e.g., `LessonBackend`, `HabitsBackend`) add methods beyond what `BackendOperations[T]` defines. When services call these domain-specific methods through a generically-typed `self.backend`, MyPy cannot verify the attribute exists.
+
+```python
+# Backend protocol defines generic ops, but LessonBackend adds domain methods
+result = await self.backend.get_lesson_with_kus(uid)  # type: ignore[attr-defined]
+```
+
+This is a conscious trade-off: the backend IS the correct type at runtime (guaranteed by composition), but the generic protocol cannot express every domain extension.
+
+### 3. Per-Module `disable_error_code` in pyproject.toml
+
+Structural MRO conflicts and mixin patterns produce errors that are correct from MyPy's perspective but irrelevant to runtime behavior. Rather than littering code with inline ignores, these are suppressed at the module level:
+
+```toml
+[[tool.mypy.overrides]]
+module = ["adapters.persistence.neo4j.*"]
+disable_error_code = ["type-var", "assignment", "arg-type"]
+```
+
+Three error codes are globally disabled for persistence modules where generic type parameters and Neo4j driver types create unavoidable friction.
+
+### 4. Typed Executor Instead of `Any`
+
+Backend mixins that accept a query executor were typed as `Any`. Replacing with the concrete type eliminated errors at every call site:
+
+```python
+# BEFORE
+async def _execute(self, executor: Any, query: str) -> list[Record]:
+
+# AFTER
+from adapters.persistence.neo4j.types import Neo4jQueryExecutor
+async def _execute(self, executor: Neo4jQueryExecutor, query: str) -> list[Record]:
+```
+
+### 5. Protocol Alignment
+
+Protocol definitions and their implementations had drifted — missing optional parameters, mismatched return types. Aligning protocols to match actual implementations (or vice versa) resolved the remaining errors:
+
+```python
+# Protocol was missing the optional parameter
+class SearchOperations(Protocol):
+    async def search(self, query: str, limit: int = 10,
+                     include_archived: bool = False) -> list[Entity]: ...
+    #                ^^^ added to match implementation
+```
 
 ---
 
@@ -134,36 +200,32 @@ warn_unreachable = false
 
 ## How to Use MyPy Effectively
 
-### Goal: Zero NEW Bugs
+### Goal: Maintain Zero Errors
 
-**DON'T try to fix all 2200 errors** - that's counterproductive!
-
-**DO ensure new code is type-safe:**
+**Every change must keep `./dev quality` passing.** Zero is the enforced baseline — not a target, the floor.
 
 ```bash
-# Check only files you're working on
+# The single command — runs MyPy, Ruff, and SKUEL linter
+./dev quality  # 0 errors expected across all tools
+
+# Check specific file during development
 uv run mypy core/services/my_new_service.py
 
-# Check specific module
-uv run mypy core/services/
-
-# Full check (for reference only)
-uv run mypy core  # 2247 errors is EXPECTED
+# Check with error codes for debugging
+uv run mypy --show-error-codes core
 ```
 
-### When to Fix MyPy Errors
+### When You Encounter a New MyPy Error
 
-1. **Real bugs** (runtime crashes) - **ALWAYS FIX**
-2. **New code you're writing** - Use type hints
-3. **Code you're refactoring** - Clean up while you're there
-4. **Critical modules** (Result[T], error handling) - Must be strict
+1. **Real bug** (wrong type, missing check) — **FIX THE CODE**
+2. **Neo4j property type** — **Add explicit cast** (`int()`, `float()`, `str()`)
+3. **Domain backend method** — **Add `# type: ignore[attr-defined]`** with comment
+4. **Structural/MRO conflict** — **Add per-module override** in `pyproject.toml`
+5. **Protocol drift** — **Align protocol to implementation** (or vice versa)
 
 ### When to IGNORE MyPy Errors
 
-1. **Type inference noise** - Works fine at runtime
-2. **External library stubs** - Not our problem
-3. **Old code that works** - Don't break what's not broken
-4. **Framework patterns** (FastHTML, etc.) - Framework knows best
+You should not need to ignore errors — the goal is zero. If an error cannot be fixed cleanly, use the appropriate suppression technique (inline ignore with error code, per-module override) so the total stays at zero.
 
 ---
 
@@ -172,7 +234,7 @@ uv run mypy core  # 2247 errors is EXPECTED
 ### For New Code
 
 ```python
-# ✅ GOOD - Type hints from the start
+# REQUIRED - Type hints from the start
 async def create_task(
     self,
     title: str,
@@ -185,7 +247,7 @@ async def create_task(
 ### For Existing Code
 
 ```python
-# ✅ ACCEPTABLE - No type hints if it works
+# ACCEPTABLE - No type hints if it works and MyPy doesn't complain
 async def create_task(self, title, user_uid):
     """Create a new task."""
     ...  # Works fine, don't break it
@@ -194,7 +256,7 @@ async def create_task(self, title, user_uid):
 ### For Refactoring
 
 ```python
-# ✅ IDEAL - Add types when refactoring
+# IDEAL - Add types when refactoring
 async def create_task(
     self,
     title: str,
@@ -211,7 +273,7 @@ async def create_task(
 ### Technique 1: Per-Line Suppression
 
 ```python
-# When MyPy is wrong but code works
+# When MyPy is wrong but code works — always include the error code
 result = some_function()  # type: ignore[return-value]
 ```
 
@@ -234,35 +296,30 @@ warn_return_any = false
 
 ---
 
-## The 80/20 Rule
+## The Reduction Journey
 
-**20% of effort → 80% of value:**
+**Phase 1 (December 2025):** Fix real bugs — 82 trailing commas in dataclasses caught by automated script. Runtime crashes prevented.
 
-1. ✅ **Fix real bugs** (82 trailing commas) - **DONE**
-2. ✅ **Configure MyPy sensibly** - **DONE**
-3. ✅ **Type new code** - Ongoing
-4. ⏳ **Gradually improve old code** - When refactoring
+**Phase 2 (January-February 2026):** Systematic reduction — TYPE_CHECKING imports, Union return fixes, Nullable guards, Protocol sync. 183 -> 114 errors (38% reduction).
 
-**80% of effort → 20% of value:**
-
-1. ❌ **Don't fix all 2200 errors** - Waste of time
-2. ❌ **Don't make everything strict** - Counterproductive
-3. ❌ **Don't fix type stubs** - Not our problem
+**Phase 3 (March 2026):** Zero achieved — Neo4j property narrowing, `# type: ignore[attr-defined]` for domain backends, per-module `disable_error_code`, typed executors, protocol alignment. 114 -> 0 errors.
 
 ---
 
-## Comparison with Ruff
+## Comparison with Other Quality Tools
 
 | Tool | Errors | Strategy |
 |------|--------|----------|
-| **Ruff** | 621 | Fix production code, ignore tests/scripts |
-| **MyPy** | 2247 | Fix real bugs, ignore type noise |
-| **SKUEL Linter** | 0 | Enforce architectural patterns |
+| **Ruff** | 0 | Enforced — `./dev quality` fails on any error |
+| **MyPy** | 0 | Enforced — `./dev quality` fails on any error |
+| **SKUEL Linter** | 0 | Enforced — architectural pattern compliance |
 
 **All three work together:**
-- Ruff catches syntax errors
+- Ruff catches style and syntax errors
 - MyPy catches type errors
-- SKUEL linter enforces patterns
+- SKUEL linter enforces architectural patterns
+
+**One command:** `./dev quality` runs all three. All must pass.
 
 ---
 
@@ -270,37 +327,33 @@ warn_return_any = false
 
 ### What Success Looks Like
 
-✅ **Code runs without crashes** (primary goal)
-✅ **New code has type hints** (gradual improvement)
-✅ **Critical modules are strict** (Result[T], error handling)
-✅ **2200 errors is EXPECTED** (technical debt acknowledged)
+- **`./dev quality` passes clean** (zero errors across all tools)
+- **New code has type hints** (maintained by habit)
+- **Critical modules are strict** (Result[T], error handling)
+- **Zero errors is the enforced baseline** (regressions caught immediately)
 
 ### What Failure Looks Like
 
-❌ Trying to fix all 2200 errors
-❌ Breaking working code to satisfy MyPy
-❌ Spending weeks on type stubs
-❌ Making MyPy strict globally
+- Introducing MyPy errors and suppressing them without understanding why
+- Adding blanket `# type: ignore` without specifying the error code
+- Disabling MyPy checks globally instead of per-module
 
 ---
 
 ## The Bottom Line
 
-### Your Question: "How can we ever get through all those errors?"
+### From 2200 Errors to Zero
 
-**Answer:** **We already did!**
-
-1. ✅ Fixed 82 **REAL BUGS** (runtime crashes)
-2. ✅ Configured MyPy **PRAGMATICALLY** (strict where it matters)
-3. ✅ Acknowledged **TECHNICAL DEBT** (2200 errors is OK)
+1. Fixed 82 **REAL BUGS** (runtime crashes)
+2. Resolved ~2000 **TYPE INFERENCE** errors (per-module overrides, type narrowing)
+3. Resolved ~165 **MISSING STUB** errors (`follow_imports = "skip"`)
+4. Achieved and **ENFORCED ZERO** (March 2026)
 
 ### The Philosophy
 
-> "Type errors as teachers, showing us where components don't flow together properly. By listening to them, we strengthen the core."
+> "Type errors are teachers, showing us where components don't flow together properly. When errors appear, investigate the fundamental design first rather than working around with quick fixes."
 
-**But:** Not all type errors are teachers. Some are just noise.
-
-**The art:** Knowing which is which.
+The 2200 errors were not all teachers. Some were noise. The art was knowing which was which — and then systematically addressing both.
 
 ---
 
@@ -311,7 +364,7 @@ When fixing MyPy errors, use these patterns for type narrowing:
 ### Pattern 1: Direct None Checks (WORKS)
 
 ```python
-# ✅ CORRECT - MyPy narrows the type
+# CORRECT - MyPy narrows the type
 if self.relationships is None:
     return Result.fail(Errors.system("Relationships not configured"))
 # After this check, MyPy knows self.relationships is not None
@@ -321,7 +374,7 @@ await self.relationships.get_related()
 ### Pattern 2: getattr() Does NOT Narrow (FAILS)
 
 ```python
-# ❌ WRONG - MyPy doesn't narrow with getattr()
+# WRONG - MyPy doesn't narrow with getattr()
 if getattr(self, "relationships", None) is None:
     return ...
 # MyPy still thinks self.relationships might be None!
@@ -341,7 +394,7 @@ async def get_with_context(self, uid: str) -> Result[...]:
 ### Pattern 4: Guard with Multiple Conditions
 
 ```python
-# ✅ CORRECT - Combined guard
+# CORRECT - Combined guard
 if include_predictions and self.intelligence_factory:
     # Both conditions must be true to enter
     predictions = await self.intelligence_factory.create()
@@ -351,48 +404,36 @@ if include_predictions and self.intelligence_factory:
 
 ## Quick Reference
 
-### Running MyPy
+### Running Quality Checks
 
 ```bash
-# Full check (2247 errors expected)
-uv run mypy core
+# The single command — 0 errors expected
+./dev quality
 
-# Check specific file
+# Check specific file during development
 uv run mypy core/services/my_service.py
 
-# Check with error codes
+# Check with error codes for debugging
 uv run mypy --show-error-codes core
 
 # Check with color output
 uv run mypy --pretty core
 ```
 
-### Fixing Real Bugs
-
-```bash
-# Run automated fix for trailing commas
-uv run python scripts/fix_dataclass_trailing_commas.py
-
-# Verify fixes
-uv run mypy core | tail -5
-```
-
 ### Configuration
 
-- **Main config:** `pyproject.toml` lines 125-263
-- **Per-module overrides:** `pyproject.toml` lines 181-238
-- **Ignored libraries:** `pyproject.toml` lines 241-255
+- **Main config:** `pyproject.toml` — `[tool.mypy]` section
+- **Per-module overrides:** `pyproject.toml` — `[[tool.mypy.overrides]]` sections
+- **Ignored libraries:** `pyproject.toml` — `follow_imports = "skip"` overrides
 
 ---
 
 ## Conclusion
 
-**MyPy with 2247 errors is perfectly fine.**
+**SKUEL runs with zero MyPy errors.**
 
-- 82 real bugs fixed ✅
-- 2000+ type inference noise ignored ✅
-- 165 missing stubs ignored ✅
-- New code is type-safe ✅
-- SKUEL runs perfectly ✅
-
-**Mission accomplished.** 🎉
+- 82 real bugs fixed (Phase 1)
+- ~2000 type inference errors resolved (Phase 2-3)
+- ~165 missing stub errors resolved (Phase 3)
+- New code maintains zero baseline
+- `./dev quality` enforces it

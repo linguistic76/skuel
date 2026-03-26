@@ -432,13 +432,22 @@ tasks: list[Task] = get_tasks()
 
 ## MyPy Configuration
 
-SKUEL uses strict MyPy settings. Key options in `pyproject.toml`:
+SKUEL uses per-module strictness overrides (not global strict mode). As of March 2026, `./dev quality` enforces **0 MyPy errors**. Key config in `pyproject.toml`:
 
 ```toml
 [tool.mypy]
-python_version = "3.11"
-strict = true
-warn_return_any = true
-warn_unused_ignores = true
-disallow_untyped_defs = true
+strict = false  # Per-module overrides instead
+warn_unused_configs = true
+no_implicit_optional = true
+disable_error_code = ["assignment", "arg-type", "var-annotated", "type-arg", "type-var"]
+```
+
+### Neo4j Property Type Narrowing
+
+When values come from `Neo4jProperties` (`dict.get()`), narrow with casts before arithmetic:
+
+```python
+# Neo4j dict.get() returns str | int | float | bool | list | datetime | None
+total = int(progress_data.get("total_lessons", 0))
+ema = float(state.get("feedback_ema_hours") or 0.0)
 ```

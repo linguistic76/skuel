@@ -1,6 +1,6 @@
 # Type Safety Architecture Overview
 
-*Last updated: 2026-03-22*
+*Last updated: 2026-03-26*
 
 SKUEL treats type safety as infrastructure — not ceremony. Types are enforced at every
 layer, from HTTP boundaries through to database writes. The goal is that a type error from
@@ -98,7 +98,7 @@ BackendOperations[T]          # UniversalNeo4jBackend[T] implements this
     └── LowLevelOperations
 ```
 `UniversalNeo4jBackend[Task]`, `UniversalNeo4jBackend[Goal]`, etc. — the same generic
-backend serves all 15 entity types, constrained by `DomainModelProtocol`.
+backend serves all 21 entity types, constrained by `DomainModelProtocol`.
 
 **See:** `docs/patterns/protocol_architecture.md`, `docs/patterns/BACKEND_OPERATIONS_ISP.md`
 
@@ -150,24 +150,28 @@ error metadata) retain `Any`.
 
 **Principle:** "Strict where it matters, gradual everywhere else"
 
-SKUEL does NOT run MyPy in strict mode globally. The reason: ~2,200 latent type errors
-exist in the service layer from earlier development. Forcing strict mode would make the
-checker output unreadable and stall development.
+SKUEL achieved **0 MyPy errors** in March 2026 through gradual per-module strictness.
+The strategy was never "strict mode everywhere" — it was systematic resolution through
+per-module overrides in `pyproject.toml`, climbing from ~2,200 latent errors to zero.
 
-Instead, per-module strictness overrides in `pyproject.toml`:
+Per-module strictness overrides:
 
 | Module Group | Strictness | Why |
 |--------------|-----------|-----|
 | `core.utils.result`, `core.utils.error_boundary` | Strict | Core error-handling infrastructure |
 | `core.models.*`, `core.infrastructure.*` | Medium | Domain models must be well-typed |
-| `core.services.*` | Gradual | Largest surface area, ongoing improvement |
+| `core.services.*` | Gradual | Largest surface area, resolved via systematic patterns |
 | `adapters.*` | Gradual | Framework boundaries; `RouteDecorator` protocol handles FastHTML |
+| `adapters.persistence.neo4j.domain_backends` | Custom | `misc` suppressed for MRO mixin conflicts |
 | `tests.*` | Lenient | Mocks and fixtures need flexibility |
 
 **Disabled error codes (global):**
 - `type-var` — Frozen dataclass + Protocol constraint MyPy limitation
 - `assignment` — Frozen dataclass `__post_init__` pattern (see above)
 - `arg-type` — Often false positives in framework code
+
+**Disabled error codes (per-module):**
+- `misc` on `domain_backends` — MRO conflicts from multiple mixin inheritance in domain backend classes
 
 **Ruff enforces annotation discipline:**
 - `TCH` rules: correct `TYPE_CHECKING` block usage
@@ -180,7 +184,7 @@ Instead, per-module strictness overrides in `pyproject.toml`:
 
 ## Generic Types
 
-The generic backbone that makes one backend serve 15 entity types:
+The generic backbone that makes one backend serve 21 entity types:
 
 ```python
 # DomainModelProtocol — the constraint on T
@@ -193,7 +197,7 @@ class DomainModelProtocol(Protocol):
     @classmethod
     def from_dto(cls, dto: Any) -> "DomainModelProtocol": ...
 
-# UniversalNeo4jBackend[T] — one backend, all 15 entity types
+# UniversalNeo4jBackend[T] — one backend, all 21 entity types
 backend = UniversalNeo4jBackend[Task](driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
 
 # BaseService[B, T] — all 6 activity domains use this
