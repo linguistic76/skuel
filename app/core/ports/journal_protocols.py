@@ -19,9 +19,13 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from datetime import date
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.models.journal.je_input import JeInput
+    from core.models.journal.je_output import JeOutput
 
 
 @runtime_checkable
@@ -45,7 +49,7 @@ class JournalInputOperations(Protocol):
         entry_date: date | None = None,
         instructions: str | None = None,
         max_retention: int | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[JeInput]":
         """Create a text-based journal entry. Returns Result[JeInput]."""
         ...
 
@@ -58,7 +62,7 @@ class JournalInputOperations(Protocol):
         instructions: str | None = None,
         max_retention: int | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[JeInput]":
         """Upload an audio/text file as journal entry. Returns Result[JeInput]."""
         ...
 
@@ -66,7 +70,7 @@ class JournalInputOperations(Protocol):
     # RETRIEVAL
     # ------------------------------------------------------------------
 
-    async def get_je_input(self, uid: str) -> Result[Any | None]:
+    async def get_je_input(self, uid: str) -> "Result[JeInput | None]":
         """Get a journal entry input by UID. Returns Result[JeInput | None]."""
         ...
 
@@ -76,7 +80,7 @@ class JournalInputOperations(Protocol):
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[JeInput]]":
         """List journal entry inputs for a user. Returns Result[list[JeInput]]."""
         ...
 
@@ -85,7 +89,7 @@ class JournalInputOperations(Protocol):
         user_uid: str,
         start_date: date,
         end_date: date,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[JeInput]]":
         """Get journal entries within a date range. Returns Result[list[JeInput]]."""
         ...
 
@@ -127,15 +131,15 @@ class JournalOutputOperations(Protocol):
         content: str,
         enrichment_mode: str = "activity_tracking",
         custom_instructions: str | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[JeOutput]":
         """Process a je_input through LLM and create a je_output. Returns Result[JeOutput]."""
         ...
 
-    async def get_je_output(self, uid: str) -> Result[Any | None]:
+    async def get_je_output(self, uid: str) -> "Result[JeOutput | None]":
         """Get a journal entry output by UID. Returns Result[JeOutput | None]."""
         ...
 
-    async def get_je_output_for_input(self, je_input_uid: str) -> Result[Any | None]:
+    async def get_je_output_for_input(self, je_input_uid: str) -> "Result[JeOutput | None]":
         """Get the je_output associated with a je_input. Returns Result[JeOutput | None]."""
         ...
 
@@ -144,7 +148,7 @@ class JournalOutputOperations(Protocol):
         user_uid: str,
         limit: int = 50,
         offset: int = 0,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[JeOutput]]":
         """List journal entry outputs for a user. Returns Result[list[JeOutput]]."""
         ...
 

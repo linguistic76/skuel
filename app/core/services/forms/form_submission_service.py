@@ -153,7 +153,12 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
 
     async def _get_template(self, form_template_uid: str) -> Result[FormTemplate]:
         """Fetch a FormTemplate via the template service."""
-        return await self.form_template_service.get(form_template_uid)
+        result = await self.form_template_service.get(form_template_uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is None:
+            return Result.fail(Errors.not_found("FormTemplate", form_template_uid))
+        return Result.ok(result.value)
 
     async def _share_on_submit(
         self,

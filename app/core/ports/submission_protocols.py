@@ -27,9 +27,12 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
 from datetime import date
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.models.entity_types import SubmissionEntity
 
 
 @runtime_checkable
@@ -60,7 +63,7 @@ class SubmissionOperations(Protocol):
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
         fulfills_exercise_uid: str | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[SubmissionEntity]":
         """Submit a file for processing. Returns Result[Submission]."""
         ...
 
@@ -70,11 +73,11 @@ class SubmissionOperations(Protocol):
         exercise_uid: str,
         form_data: dict[str, Any],
         title: str | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[SubmissionEntity]":
         """Submit structured form responses (no file). Returns Result[Submission]."""
         ...
 
-    async def get_submission(self, uid: str) -> Result[Any | None]:
+    async def get_submission(self, uid: str) -> "Result[SubmissionEntity | None]":
         """Get submission entity by UID. Returns Result[Submission | None]."""
         ...
 
@@ -85,7 +88,7 @@ class SubmissionOperations(Protocol):
         status: Any | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[SubmissionEntity]]":
         """List submissions for a user with filters. Returns Result[list[Submission]]."""
         ...
 
@@ -106,7 +109,7 @@ class SubmissionOperations(Protocol):
         uid: str,
         processed_content: str,
         processed_file_path: str | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[SubmissionEntity]":
         """Update processed content on a submission. Returns Result[Submission]."""
         ...
 
@@ -114,27 +117,27 @@ class SubmissionOperations(Protocol):
     # CONTENT MANAGEMENT
     # ------------------------------------------------------------------
 
-    async def categorize_submission(self, uid: str, category: str) -> Result[Any]:
+    async def categorize_submission(self, uid: str, category: str) -> "Result[SubmissionEntity]":
         """Set category on a submission. Returns Result[Submission]."""
         ...
 
-    async def add_tags(self, uid: str, tags: list[str]) -> Result[Any]:
+    async def add_tags(self, uid: str, tags: list[str]) -> "Result[SubmissionEntity]":
         """Add tags to a submission. Returns Result[Submission]."""
         ...
 
-    async def remove_tags(self, uid: str, tags: list[str]) -> Result[Any]:
+    async def remove_tags(self, uid: str, tags: list[str]) -> "Result[SubmissionEntity]":
         """Remove tags from a submission. Returns Result[Submission]."""
         ...
 
-    async def publish_submission(self, uid: str) -> Result[Any]:
+    async def publish_submission(self, uid: str) -> "Result[SubmissionEntity]":
         """Publish a submission (set status to COMPLETED). Returns Result[Submission]."""
         ...
 
-    async def archive_submission(self, uid: str) -> Result[Any]:
+    async def archive_submission(self, uid: str) -> "Result[SubmissionEntity]":
         """Archive a submission. Returns Result[Submission]."""
         ...
 
-    async def mark_as_draft(self, uid: str) -> Result[Any]:
+    async def mark_as_draft(self, uid: str) -> "Result[SubmissionEntity]":
         """Mark submission as draft. Returns Result[Submission]."""
         ...
 
@@ -143,7 +146,7 @@ class SubmissionOperations(Protocol):
         category: str,
         limit: int = 50,
         user_uid: str | None = None,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[SubmissionEntity]]":
         """Get submissions by category. Returns Result[list[Submission]]."""
         ...
 
@@ -152,7 +155,7 @@ class SubmissionOperations(Protocol):
         limit: int = 10,
         user_uid: str | None = None,
         entity_type: Any | None = None,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[SubmissionEntity]]":
         """Get recent submissions. Returns Result[list[Submission]]."""
         ...
 
@@ -168,7 +171,7 @@ class SubmissionOperations(Protocol):
         """Bulk delete submissions. Returns Result[int] (count deleted)."""
         ...
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Any]:
+    async def verify_ownership(self, uid: str, user_uid: str) -> "Result[SubmissionEntity]":
         """Verify that user_uid owns the submission. Returns 404 if not found or not owner."""
         ...
 
@@ -192,8 +195,8 @@ class SubmissionOperations(Protocol):
 
     async def get_submissions_shared_with_me(
         self, user_uid: str, limit: int = 50
-    ) -> Result[list[Any]]:
-        """List submissions shared with user. Returns Result[list[SubmissionDTO]]."""
+    ) -> "Result[list[SubmissionEntity]]":
+        """List submissions shared with user. Returns Result[list[Submission]]."""
         ...
 
     async def set_visibility(
@@ -214,7 +217,7 @@ class SubmissionOperations(Protocol):
         self,
         limit: int = 50,
         user_uid: str | None = None,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[SubmissionEntity]]":
         """Get public submissions with server-side visibility filter. Returns Result[list[Submission]]."""
         ...
 
@@ -222,7 +225,7 @@ class SubmissionOperations(Protocol):
         self,
         query: str,
         limit: int = 50,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[SubmissionEntity]]":
         """Search submissions by text. Returns Result[list[Submission]]."""
         ...
 
@@ -242,7 +245,7 @@ class SubmissionProcessingOperations(Protocol):
         self,
         ku_uid: str,
         instructions: dict[str, Any] | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[SubmissionEntity]":
         """Process a submission through the pipeline. Returns Result[Submission]."""
         ...
 
@@ -250,7 +253,7 @@ class SubmissionProcessingOperations(Protocol):
         self,
         ku_uid: str,
         new_instructions: dict[str, Any] | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[SubmissionEntity]":
         """Reprocess a submission with new instructions. Returns Result[Submission]."""
         ...
 
@@ -269,7 +272,7 @@ class SubmissionSearchOperations(Protocol):
         query: str,
         entity_type: Any | None = None,
         limit: int = 50,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[SubmissionEntity]]":
         """Search submissions with text and type filters. Returns Result[list[Submission]]."""
         ...
 
@@ -288,7 +291,7 @@ class SubmissionSearchOperations(Protocol):
         user_uid: str,
         entity_type: Any | None = None,
         limit: int = 10,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[SubmissionEntity]]":
         """Get recent submissions. Returns Result[list[Submission]]."""
         ...
 

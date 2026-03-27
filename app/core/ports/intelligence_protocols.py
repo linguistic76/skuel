@@ -14,9 +14,18 @@ Split into focused protocols (March 2026):
 See: /docs/patterns/protocol_architecture.md
 """
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.ports.query_types import (
+        BehavioralInsightsResult,
+        KnowledgeGenerationResult,
+        KnowledgeSuggestionsResult,
+        LearningOpportunitiesResult,
+        PerformanceAnalyticsResult,
+    )
 
 # ============================================================================
 # KNOWLEDGE INTELLIGENCE — shared across all activity domains
@@ -40,7 +49,7 @@ class KnowledgeIntelligenceOperations(Protocol):
 
     async def get_knowledge_suggestions(
         self, user_uid: str, entity_uid: str | None = None
-    ) -> Result[dict[str, Any]]:
+    ) -> "Result[KnowledgeSuggestionsResult]":
         """
         Generate knowledge suggestions from entity patterns.
 
@@ -67,7 +76,7 @@ class KnowledgeIntelligenceOperations(Protocol):
 
     async def generate_knowledge_from_entities(
         self, user_uid: str, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
+    ) -> "Result[KnowledgeGenerationResult]":
         """
         Generate knowledge units from completed entities.
 
@@ -80,7 +89,7 @@ class KnowledgeIntelligenceOperations(Protocol):
         """
         ...
 
-    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_learning_opportunities(self, user_uid: str) -> "Result[LearningOpportunitiesResult]":
         """
         Discover learning opportunities from entity patterns.
 
@@ -157,7 +166,7 @@ class DomainIntelligenceOperations(Protocol):
 
     async def get_behavioral_insights(
         self, user_uid: str, period_days: int = 90
-    ) -> Result[dict[str, Any]]:
+    ) -> "Result[BehavioralInsightsResult]":
         """
         Analyze behavioral patterns and insights.
 
@@ -172,7 +181,7 @@ class DomainIntelligenceOperations(Protocol):
 
     async def get_performance_analytics(
         self, user_uid: str, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
+    ) -> "Result[PerformanceAnalyticsResult]":
         """
         Analyze performance metrics and trends.
 

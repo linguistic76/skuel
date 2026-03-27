@@ -21,12 +21,31 @@ Protocols:
 
 from collections.abc import Callable
 from datetime import date, datetime
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties
 from core.ports.context_awareness_protocols import FullAwareness
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.models.event.calendar_models import CalendarData, CalendarItem
+    from core.ports.query_types import (
+        BlockingChainResult,
+        LateralRelationshipItem,
+        LifePathAlignmentResult,
+        LifePathDesignation,
+        LifePathRecommendation,
+        LifePathStatus,
+        RelationshipGraphData,
+        SignInResult,
+        SignUpResult,
+    )
+    from core.services.cross_domain_analytics_service import (
+        JournalMoodAnalysis,
+        LearningVelocityMetrics,
+        SpendingPatternAnalysis,
+    )
 
 # ============================================================================
 # CALENDAR
@@ -48,11 +67,11 @@ class CalendarServiceOperations(Protocol):
         end_date: date,
         view_type: Any = ...,
         include_completed: bool = False,
-    ) -> Result[Any]:
+    ) -> "Result[CalendarData]":
         """Get calendar view for a date range. Returns Result[CalendarData]."""
         ...
 
-    async def get_item(self, item_uid: str) -> Result[Any | None]:
+    async def get_item(self, item_uid: str) -> "Result[CalendarItem | None]":
         """Get a calendar item by UID. Returns Result[CalendarItem | None]."""
         ...
 
@@ -62,7 +81,7 @@ class CalendarServiceOperations(Protocol):
         title: str,
         start_time: datetime,
         **kwargs: Any,
-    ) -> Result[Any]:
+    ) -> "Result[CalendarItem]":
         """Quick-create a calendar item. Returns Result[CalendarItem]."""
         ...
 
@@ -70,7 +89,7 @@ class CalendarServiceOperations(Protocol):
         self,
         item_uid: str,
         new_start: datetime,
-    ) -> Result[Any]:
+    ) -> "Result[CalendarItem]":
         """Reschedule a calendar item. Returns Result[CalendarItem]."""
         ...
 
@@ -310,7 +329,7 @@ class CrossDomainAnalyticsOperations(Protocol):
         self,
         user_uid: str,
         days_back: int,
-    ) -> Result[Any]:
+    ) -> "Result[LearningVelocityMetrics]":
         """Get learning velocity metrics. Returns Result[LearningVelocityMetrics]."""
         ...
 
@@ -318,7 +337,7 @@ class CrossDomainAnalyticsOperations(Protocol):
         self,
         user_uid: str,
         days_back: int,
-    ) -> Result[Any]:
+    ) -> "Result[SpendingPatternAnalysis]":
         """Get spending pattern analysis. Returns Result[SpendingPatternAnalysis]."""
         ...
 
@@ -326,7 +345,7 @@ class CrossDomainAnalyticsOperations(Protocol):
         self,
         user_uid: str,
         days_back: int,
-    ) -> Result[Any]:
+    ) -> "Result[JournalMoodAnalysis]":
         """Get journal mood analysis. Returns Result[JournalMoodAnalysis]."""
         ...
 
@@ -358,7 +377,7 @@ class LifePathAlignmentOperations(Protocol):
     Implementation: LifePathAlignmentService
     """
 
-    async def calculate_alignment(self, context: Any) -> Result[Any]:
+    async def calculate_alignment(self, context: Any) -> "Result[LifePathAlignmentResult]":
         """Calculate life path alignment. Accepts pre-built UserContext."""
         ...
 
@@ -375,27 +394,27 @@ class LifePathOperations(Protocol):
 
     alignment: LifePathAlignmentOperations
 
-    async def get_full_status(self, user_uid: str) -> Result[dict[str, Any]]:
-        """Get full life path status. Returns Result[dict]."""
+    async def get_full_status(self, user_uid: str) -> "Result[LifePathStatus]":
+        """Get full life path status. Returns Result[LifePathStatus]."""
         ...
 
     async def capture_and_recommend(
         self,
         user_uid: str,
         vision_statement: str,
-    ) -> Result[dict[str, Any]]:
-        """Capture vision and get recommendations. Returns Result[dict]."""
+    ) -> "Result[LifePathRecommendation]":
+        """Capture vision and get recommendations. Returns Result[LifePathRecommendation]."""
         ...
 
     async def designate_and_calculate(
         self,
         user_uid: str,
         life_path_uid: str,
-    ) -> Result[dict[str, Any]]:
-        """Designate LP as life path and calculate alignment. Returns Result[dict]."""
+    ) -> "Result[LifePathDesignation]":
+        """Designate LP as life path and calculate alignment. Returns Result[LifePathDesignation]."""
         ...
 
-    async def get_alignment(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_alignment(self, user_uid: str) -> "Result[LifePathAlignmentResult]":
         """Get alignment data. Builds context and delegates to alignment sub-service."""
         ...
 
@@ -420,8 +439,8 @@ class GraphAuthOperations(Protocol):
         username: str,
         display_name: str | None = None,
         user_metadata: dict[str, Any] | None = None,
-    ) -> Result[dict[str, Any]]:
-        """Register a new user. Returns Result[dict]."""
+    ) -> "Result[SignUpResult]":
+        """Register a new user. Returns Result[SignUpResult]."""
         ...
 
     async def sign_in(
@@ -430,8 +449,8 @@ class GraphAuthOperations(Protocol):
         password: str,
         ip_address: str = "unknown",
         user_agent: str = "unknown",
-    ) -> Result[dict[str, Any]]:
-        """Authenticate a user. Returns Result[dict]."""
+    ) -> "Result[SignInResult]":
+        """Authenticate a user. Returns Result[SignInResult]."""
         ...
 
     async def sign_out(
@@ -553,22 +572,22 @@ class LateralRelationshipOperations(Protocol):
         include_metadata: bool = True,
         user_uid: str | None = None,
         domain_service: Any | None = None,
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> "Result[list[LateralRelationshipItem]]": ...
 
     async def get_blocking_chain(
         self, entity_uid: str, max_depth: int = 10
-    ) -> Result[dict[str, Any]]: ...
+    ) -> "Result[BlockingChainResult]": ...
 
     async def get_alternatives_with_comparison(
         self, entity_uid: str, comparison_fields: list[str] | None = None
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> "Result[list[LateralRelationshipItem]]": ...
 
     async def get_relationship_graph(
         self,
         entity_uid: str,
         depth: int = 2,
         relationship_types: list[RelationshipName] | None = None,
-    ) -> Result[dict[str, Any]]: ...
+    ) -> "Result[RelationshipGraphData]": ...
 
 
 @runtime_checkable

@@ -1357,7 +1357,7 @@ class ExerciseOperations(Protocol):
         due_date: date | None = None,
         processor_type: Any = ...,
         group_uid: str | None = None,
-    ) -> Result[Any]:
+    ) -> Result[Exercise]:
         """Create an Exercise. Returns Result[Exercise]."""
         ...
 
@@ -1369,7 +1369,7 @@ class ExerciseOperations(Protocol):
         self,
         user_uid: str,
         active_only: bool = True,
-    ) -> Result[list[Any]]:
+    ) -> Result[list[Exercise]]:
         """List user's exercises. Returns Result[list[Exercise]]."""
         ...
 
@@ -1383,7 +1383,7 @@ class ExerciseOperations(Protocol):
         domain: Any | None = None,
         is_active: bool | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[Any]:
+    ) -> Result[Exercise]:
         """Update an exercise. Returns Result[Exercise]."""
         ...
 

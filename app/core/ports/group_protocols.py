@@ -15,9 +15,12 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
 import builtins
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.models.group.group import Group
 
 
 @runtime_checkable
@@ -29,23 +32,23 @@ class GroupOperations(Protocol):
     """
 
     # Standard CRUD (CRUDRouteFactory-compatible)
-    async def create(self, entity: Any) -> Result[Any]:
+    async def create(self, entity: Any) -> "Result[Group]":
         """Create a group. Returns Result[Group]."""
         ...
 
-    async def get(self, uid: str) -> Result[Any | None]:
+    async def get(self, uid: str) -> "Result[Group | None]":
         """Get group by UID. Returns Result[Group | None]."""
         ...
 
-    async def get_for_user(self, uid: str, user_uid: str) -> Result[Any]:
+    async def get_for_user(self, uid: str, user_uid: str) -> "Result[Group]":
         """Get group if user is owner or member. Returns Result[Group]."""
         ...
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Any]:
+    async def verify_ownership(self, uid: str, user_uid: str) -> "Result[Group]":
         """Verify user owns the group (owner_uid match). Returns Result[Group]."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Any]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> "Result[Group]":
         """Update a group. Returns Result[Group]."""
         ...
 
@@ -63,12 +66,12 @@ class GroupOperations(Protocol):
         user_uid: str | None = None,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> Result[Any]:
+    ) -> "Result[tuple[builtins.list[Group], int]]":
         """List groups with pagination and user filtering."""
         ...
 
     # Domain-specific (manual routes)
-    async def get_user_groups(self, user_uid: str) -> Result[builtins.list[Any]]:
+    async def get_user_groups(self, user_uid: str) -> "Result[builtins.list[Group]]":
         """List groups the user is a member of. Returns Result[list[Group]]."""
         ...
 

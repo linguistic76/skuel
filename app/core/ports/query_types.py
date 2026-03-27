@@ -1199,6 +1199,252 @@ class ContextSummary(TypedDict, total=False):
 
 
 # ============================================================================
+# AUTH RESULT TYPES
+# ============================================================================
+
+
+class SignUpResult(TypedDict, total=False):
+    """Return shape for graph_auth.sign_up()."""
+
+    user_uid: str
+    email: str
+    username: str
+    display_name: str | None
+    is_verified: bool
+
+
+class SignInResult(TypedDict, total=False):
+    """Return shape for graph_auth.sign_in()."""
+
+    user_uid: str
+    email: str
+    session_token: str
+    session_uid: str
+    expires_at: str  # ISO format
+    user: Any  # User model (TYPE_CHECKING boundary)
+
+
+# ============================================================================
+# TEACHER REVIEW RESULT TYPES
+# ============================================================================
+
+
+class ReviewQueueItem(TypedDict, total=False):
+    """Single item in teacher's review queue."""
+
+    ku_uid: str
+    title: str
+    status: str
+    entity_type: str
+    submitted_at: str  # ISO format
+    student_uid: str
+    student_name: str
+    project_uid: str
+    project_name: str
+    due_date: str | None
+    shared_at: str  # ISO format
+    feedback_count: int
+
+
+class SubmissionDetailResult(TypedDict, total=False):
+    """Full submission detail for teacher review."""
+
+    uid: str
+    title: str
+    content: str
+    processed_content: str
+    original_filename: str
+    entity_type: str
+    status: str
+    created_at: str  # ISO format
+    student_uid: str
+    student_name: str
+    exercise_uid: str
+    exercise_title: str
+    exercise_instructions: str
+
+
+class TeacherDashboardStats(TypedDict, total=False):
+    """At-a-glance stats for teacher dashboard."""
+
+    pending_count: int
+    total_submissions: int
+    total_students: int
+    total_exercises: int
+    total_groups: int
+
+
+# ============================================================================
+# KNOWLEDGE INTELLIGENCE RESULT TYPES
+# ============================================================================
+
+
+class KnowledgeSuggestionsResult(TypedDict, total=False):
+    """Return shape for get_knowledge_suggestions()."""
+
+    entity_patterns: list[dict[str, Any]]
+    learning_opportunities: list[str]
+    knowledge_gaps: list[str]
+    metadata: dict[str, Any]
+
+
+class KnowledgeGenerationResult(TypedDict, total=False):
+    """Return shape for generate_knowledge_from_entities()."""
+
+    knowledge_units: list[dict[str, Any]]
+    patterns_discovered: list[str]
+    documentation_suggestions: list[str]
+    metadata: dict[str, Any]
+
+
+class LearningOpportunitiesResult(TypedDict, total=False):
+    """Return shape for get_learning_opportunities()."""
+
+    opportunities: list[dict[str, Any]]
+    recommended_focus: list[str]
+    estimated_impact: dict[str, Any]
+    metadata: dict[str, Any]
+
+
+# ============================================================================
+# DOMAIN INTELLIGENCE RESULT TYPES
+# ============================================================================
+
+
+class BehavioralInsightsResult(TypedDict, total=False):
+    """Return shape for get_behavioral_insights()."""
+
+    behavior_patterns: list[dict[str, Any]]
+    success_factors: list[str]
+    recommendations: list[str]
+    metadata: dict[str, Any]
+
+
+class PerformanceAnalyticsResult(TypedDict, total=False):
+    """Return shape for get_performance_analytics()."""
+
+    metrics: dict[str, Any]
+    trends: dict[str, Any]
+    optimization_opportunities: list[dict[str, Any]]
+    learning_state: dict[str, Any]
+    metadata: dict[str, Any]
+
+
+# ============================================================================
+# LIFE PATH RESULT TYPES
+# ============================================================================
+
+
+class LifePathStatus(TypedDict, total=False):
+    """Return shape for lifepath_service.get_full_status()."""
+
+    has_vision: bool
+    has_designation: bool
+    vision: dict[str, Any] | None
+    designation: dict[str, Any] | None
+    alignment: dict[str, Any]
+    recommendations: list[dict[str, Any]]
+    daily_focus: dict[str, Any] | None
+
+
+class LifePathRecommendation(TypedDict, total=False):
+    """Return shape for lifepath_service.capture_and_recommend()."""
+
+    vision: dict[str, Any]
+    recommendations: list[dict[str, Any]]
+    next_step: str
+
+
+class LifePathDesignation(TypedDict, total=False):
+    """Return shape for lifepath_service.designate_and_calculate()."""
+
+    designation: dict[str, Any]
+    alignment: dict[str, Any]
+    recommendations: list[dict[str, Any]]
+
+
+class LifePathAlignmentResult(TypedDict, total=False):
+    """Return shape for lifepath alignment calculation."""
+
+    life_path_uid: str | None
+    life_path_title: str
+    alignment_score: float
+    alignment_level: str
+    dimensions: dict[str, float]
+    knowledge_stats: dict[str, int]
+    recommendations: list[str]
+    calculated_at: str  # ISO format
+    message: str  # Present when no designation exists
+
+
+# ============================================================================
+# LATERAL RELATIONSHIP RESULT TYPES
+# ============================================================================
+
+
+class LateralRelationshipItem(TypedDict, total=False):
+    """Single lateral relationship in get_lateral_relationships() result."""
+
+    type: str
+    target_uid: str
+    target_title: str
+    metadata: dict[str, Any]
+    direction: str
+
+
+class BlockingChainResult(TypedDict, total=False):
+    """Return shape for get_blocking_chain()."""
+
+    root_uid: str
+    total_blockers: int
+    chain_depth: int
+    levels: list[dict[str, Any]]
+    critical_path: list[str]
+
+
+class RelationshipGraphData(TypedDict, total=False):
+    """Vis.js network format for get_relationship_graph()."""
+
+    nodes: list[dict[str, Any]]
+    edges: list[dict[str, Any]]
+
+
+# ============================================================================
+# ACTIVITY REPORT RESULT TYPES
+# ============================================================================
+
+
+class AnnotationResult(TypedDict, total=False):
+    """Return shape for activity report annotate()."""
+
+    uid: str
+    annotation_mode: str
+    user_annotation: str | None
+    user_revision: str | None
+
+
+class AnnotationState(TypedDict, total=False):
+    """Return shape for activity report get_annotation()."""
+
+    uid: str
+    annotation_mode: str | None
+    user_annotation: str | None
+    user_revision: str | None
+    annotation_updated_at: str | None  # ISO format
+
+
+class PrivacySummary(TypedDict, total=False):
+    """Return shape for activity report get_privacy_summary()."""
+
+    user_uid: str
+    admin_snapshots: list[dict[str, Any]]
+    admin_snapshot_count: int
+    shares_granted: list[dict[str, Any]]
+    shares_granted_count: int
+    report_schedule: dict[str, Any]
+
+
+# ============================================================================
 # EXPLICIT EXPORTS
 # ============================================================================
 
@@ -1254,4 +1500,31 @@ __all__ = [
     # User Context Service Response Types - Main Response Types
     "ContextDashboard",
     "ContextSummary",
+    # Auth Result Types
+    "SignUpResult",
+    "SignInResult",
+    # Teacher Review Result Types
+    "ReviewQueueItem",
+    "SubmissionDetailResult",
+    "TeacherDashboardStats",
+    # Knowledge Intelligence Result Types
+    "KnowledgeSuggestionsResult",
+    "KnowledgeGenerationResult",
+    "LearningOpportunitiesResult",
+    # Domain Intelligence Result Types
+    "BehavioralInsightsResult",
+    "PerformanceAnalyticsResult",
+    # Life Path Result Types
+    "LifePathStatus",
+    "LifePathRecommendation",
+    "LifePathDesignation",
+    "LifePathAlignmentResult",
+    # Lateral Relationship Result Types
+    "LateralRelationshipItem",
+    "BlockingChainResult",
+    "RelationshipGraphData",
+    # Activity Report Result Types
+    "AnnotationResult",
+    "AnnotationState",
+    "PrivacySummary",
 ]

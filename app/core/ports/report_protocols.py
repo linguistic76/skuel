@@ -39,6 +39,17 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.report.activity_report import ActivityReport
+    from core.models.report.exercise_report import ExerciseReport
+    from core.models.submissions.report_schedule import ReportSchedule
+    from core.ports.query_types import (
+        AnnotationResult,
+        AnnotationState,
+        PrivacySummary,
+        ReviewQueueItem,
+        SubmissionDetailResult,
+        TeacherDashboardStats,
+    )
     from core.services.user.unified_user_context import UserContext
 
 
@@ -68,13 +79,13 @@ class SubmissionReportOperations(Protocol):
         title: str,
         content: str,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[ExerciseReport]":
         """Create a teacher assessment (EntityType.EXERCISE_REPORT, processor_type=HUMAN).
 
         Verifies teacher-student group membership before creating.
         Auto-shares with student via SHARES_WITH {role: 'student'}.
 
-        Returns Result[SubmissionReport].
+        Returns Result[ExerciseReport].
         """
         ...
 
@@ -82,16 +93,16 @@ class SubmissionReportOperations(Protocol):
         self,
         student_uid: str,
         limit: int = 50,
-    ) -> Result[list[Any]]:
-        """Get feedback reports received by a student. Returns Result[list[SubmissionReport]]."""
+    ) -> "Result[list[ExerciseReport]]":
+        """Get feedback reports received by a student. Returns Result[list[ExerciseReport]]."""
         ...
 
     async def get_assessments_by_teacher(
         self,
         teacher_uid: str,
         limit: int = 50,
-    ) -> Result[list[Any]]:
-        """Get feedback reports authored by a teacher. Returns Result[list[SubmissionReport]]."""
+    ) -> "Result[list[ExerciseReport]]":
+        """Get feedback reports authored by a teacher. Returns Result[list[ExerciseReport]]."""
         ...
 
     # ------------------------------------------------------------------
@@ -105,10 +116,10 @@ class SubmissionReportOperations(Protocol):
         user_uid: str,
         temperature: float = 0.7,
         max_tokens: int = 4000,
-    ) -> Result[Any]:
+    ) -> "Result[ExerciseReport]":
         """Generate AI report for a submission using exercise instructions.
 
-        Creates SUBMISSION_REPORT entity (processor_type=LLM) in Neo4j, linked
+        Creates EXERCISE_REPORT entity (processor_type=LLM) in Neo4j, linked
         to the submission via REPORT_FOR. Also updates the submission's
         denormalized report field for quick access.
 
@@ -119,7 +130,7 @@ class SubmissionReportOperations(Protocol):
             temperature: LLM sampling temperature (0-1)
             max_tokens: Maximum tokens to generate
 
-        Returns Result[SubmissionReport] — the created SUBMISSION_REPORT entity.
+        Returns Result[ExerciseReport] — the created EXERCISE_REPORT entity.
         """
         ...
 
@@ -148,7 +159,7 @@ class ProgressReportOperations(Protocol):
         domains: list[str] | None = None,
         depth: str = "standard",
         include_insights: bool = True,
-    ) -> Result[Any]:
+    ) -> "Result[ActivityReport]":
         """Generate activity feedback (EntityType.ACTIVITY_REPORT). Returns Result[ActivityReport]."""
         ...
 
@@ -168,15 +179,15 @@ class ProgressScheduleOperations(Protocol):
         day_of_week: int = 0,
         domains: list[str] | None = None,
         depth: str = "standard",
-    ) -> Result[Any]:
+    ) -> "Result[ReportSchedule]":
         """Create a recurring progress report schedule. Returns Result[ReportSchedule]."""
         ...
 
-    async def get_user_schedule(self, user_uid: str) -> Result[Any]:
+    async def get_user_schedule(self, user_uid: str) -> "Result[ReportSchedule | None]":
         """Get the user's active report schedule. Returns Result[ReportSchedule | None]."""
         ...
 
-    async def update_schedule(self, uid: str, updates: dict[str, Any]) -> Result[Any]:
+    async def update_schedule(self, uid: str, updates: dict[str, Any]) -> "Result[ReportSchedule]":
         """Update a schedule's configuration. Returns Result[ReportSchedule]."""
         ...
 
@@ -214,7 +225,7 @@ class ActivityReportOperations(Protocol):
         time_period: str = "7d",
         domains: list[str] | None = None,
         snapshot_context: dict[str, Any] | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[ActivityReport]":
         """Create ActivityReport entity from admin-written assessment. Returns Result[ActivityReport]."""
         ...
 
@@ -222,7 +233,7 @@ class ActivityReportOperations(Protocol):
         self,
         subject_uid: str,
         limit: int = 20,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[ActivityReport]]":
         """Get all ActivityReport for a user (LLM + human). Returns Result[list[ActivityReport]]."""
         ...
 
@@ -233,19 +244,18 @@ class ActivityReportOperations(Protocol):
         annotation_mode: str,
         user_annotation: str | None = None,
         user_revision: str | None = None,
-    ) -> Result[Any]:
-        """Save user annotation or revision to an owned ActivityReport. Returns Result[dict]."""
+    ) -> "Result[AnnotationResult]":
+        """Save user annotation or revision to an owned ActivityReport. Returns Result[AnnotationResult]."""
         ...
 
-    async def get_annotation(self, uid: str, user_uid: str) -> Result[Any]:
-        """Get current annotation state for an owned ActivityReport. Returns Result[dict]."""
+    async def get_annotation(self, uid: str, user_uid: str) -> "Result[AnnotationState]":
+        """Get current annotation state for an owned ActivityReport. Returns Result[AnnotationState]."""
         ...
 
-    async def get_privacy_summary(self, user_uid: str) -> Result[Any]:
+    async def get_privacy_summary(self, user_uid: str) -> "Result[PrivacySummary]":
         """Return privacy-transparency summary for the user (admin snapshots, shares, schedule).
 
         User-facing — always scoped to the requesting user's own data.
-        Returns Result[dict] with admin_snapshots, shares_granted, report_schedule.
         """
         ...
 
@@ -316,14 +326,14 @@ class TeacherReviewOperations(Protocol):
         teacher_uid: str,
         status_filter: str | None = None,
         entity_type_filter: str | None = None,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get teacher's pending review queue. Returns Result[list[dict]]."""
+    ) -> "Result[list[ReviewQueueItem]]":
+        """Get teacher's pending review queue. Returns Result[list[ReviewQueueItem]]."""
         ...
 
     async def get_submission_detail(
         self, submission_uid: str, teacher_uid: str
-    ) -> Result[dict[str, Any]]:
-        """Get full submission detail for teacher review (access-checked). Returns Result[dict]."""
+    ) -> "Result[SubmissionDetailResult]":
+        """Get full submission detail for teacher review (access-checked). Returns Result[SubmissionDetailResult]."""
         ...
 
     async def get_report_history(
@@ -379,8 +389,8 @@ class TeacherReviewOperations(Protocol):
         """Get all submissions from student shared with teacher. Returns Result[list[dict]]."""
         ...
 
-    async def get_dashboard_stats(self, teacher_uid: str) -> Result[dict[str, Any]]:
-        """Get at-a-glance stats for dashboard. Returns Result[dict]."""
+    async def get_dashboard_stats(self, teacher_uid: str) -> "Result[TeacherDashboardStats]":
+        """Get at-a-glance stats for dashboard. Returns Result[TeacherDashboardStats]."""
         ...
 
     async def get_teacher_groups_with_stats(self, teacher_uid: str) -> Result[list[dict[str, Any]]]:

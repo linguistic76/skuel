@@ -81,6 +81,8 @@ from core.ports.base_protocols import (
     HierarchyOperations,
 )
 from core.ports.query_types import (
+    ContextDashboard,
+    ContextSummary,
     GraphContextResult,
 )
 
@@ -1241,7 +1243,7 @@ class UserContextOperations(Protocol):
         user_uid: str,
         include_predictions: bool = True,
         time_window: str = "7d",
-    ) -> Result[Any]:  # Result[ContextDashboard]
+    ) -> Result[ContextDashboard]:
         """Get unified context dashboard for user."""
         ...
 
@@ -1249,7 +1251,7 @@ class UserContextOperations(Protocol):
         self,
         user_uid: str,
         include_insights: bool = True,
-    ) -> Result[Any]:  # Result[ContextSummary]
+    ) -> Result[ContextSummary]:
         """Get concise context summary for user."""
         ...
 
