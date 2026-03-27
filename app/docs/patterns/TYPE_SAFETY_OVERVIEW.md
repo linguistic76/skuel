@@ -86,8 +86,8 @@ def create_tasks_api_routes(
 - 100% protocol compliance — all 7 `BaseService` mixins verified by TYPE_CHECKING blocks
 - 29 automated compliance tests (run: `uv run pytest tests/unit/test_protocol_mixin_compliance.py`)
 - Zero `Any` fields in the `Services` dataclass — all 72 fields typed
-- ~149 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026)
-- 89 TypedDicts in `query_types.py` — 21 for inputs (filters, payloads), 68 for outputs (domain stats, system health, teacher review, visualization configs, result shapes, UserContext field types)
+- ~149 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026). 0 `Result[Any]` remain in protocols (1 intentional in `base_service_interface.py`)
+- 93 TypedDicts in `query_types.py` — 21 for inputs (filters, payloads), 72 for outputs (domain stats, system health, teacher review, visualization configs, result shapes, UserContext field types)
 
 **BackendOperations[T] hierarchy** — the foundational generic protocol:
 ```python
@@ -144,12 +144,12 @@ from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request
 (`Neo4jProperties`, `FilterParams`, `Metadata`, `RelationshipMetadata`, `GraphContextResult`)
 instead of `dict[str, Any]` for parameters.
 
-*Phase 4 — Return types:* ~94 protocol methods migrated from `Result[Any]` / `Result[dict[str, Any]]`
-to specific types:
+*Phase 4 — Return types:* ~149 protocol methods migrated from `Result[Any]` / `Result[dict[str, Any]]`
+to specific types (0 `Result[Any]` remain in protocols, 1 intentional in `base_service_interface.py`):
 - Domain model returns: `Result[ExerciseSubmission]`, `Result[Askesis]`, `Result[CalendarData]`, etc.
 - Existing TypedDicts: `Result[ContextDashboard]`, `Result[ContextSummary]`
 - Existing dataclasses: `Result[LearningVelocityMetrics]`, `Result[SpendingPatternAnalysis]`
-- 41 output TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
+- 45 output TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
   teacher review (`ReviewQueueItem`, `TeacherDashboardStats`), intelligence results
   (`KnowledgeSuggestionsResult`, `PerformanceAnalyticsResult`, `KnowledgePrerequisitesResult`,
   `CrossDomainOpportunitiesResult`, `AIInsightsResult`), life path (`LifePathStatus`,

@@ -252,7 +252,10 @@ from core.ports.query_types import (
     # Domain stats
     TaskStats, GoalStats, HabitStats, EventStats, ChoiceStats, PrincipleStats,
     # System health + finance
-    SystemInfoResult, HealthSummaryResult, AlertCheckResult, InvoiceStats,
+    SystemInfoResult, HealthSummaryResult, AlertCheckResult,
+    SystemHealthStatus, HealthCheckValidation,
+    ComponentHealthStatus, HealthCheckerValidationResult,
+    InvoiceStats,
     # Teacher review + submissions
     ReportSubmitResult, ExerciseWithSubmissionCounts, SubmissionStatistics,
     ReportSummary, LearningLoopChain, SubmissionChain,

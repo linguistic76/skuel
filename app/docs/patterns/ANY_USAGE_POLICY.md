@@ -100,12 +100,12 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 - Domain CRUD params (`create_goal`, `update_habit`, etc.) → `Metadata`
 - Cross-domain context returns → `GraphContextResult`
 
-**Phase 4 — Return types:** ~149 protocol methods migrated from `Result[Any]` to specific types:
+**Phase 4 — Return types:** ~149 protocol methods migrated from `Result[Any]` to specific types (0 `Result[Any]` remain in protocols, 1 intentional in `base_service_interface.py`):
 
 - **Domain model returns:** `Result[SubmissionEntity]`, `Result[ExerciseReport]`, `Result[Askesis]`,
   `Result[CalendarData]`, `Result[Group]`, `Result[JeInput]`, `Result[JeOutput]`, `Result[Exercise]`,
   `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ReportSchedule]`, `Result[ActivityReport]`
-- **68 output TypedDicts** in `query_types.py` for structured dict returns:
+- **72 output TypedDicts** in `query_types.py` for structured dict returns:
 
 | TypedDict | Protocol / Field | Methods |
 |-----------|-----------------|---------|
@@ -118,6 +118,7 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 | `LifePathStatus`, `LifePathRecommendation`, `LifePathDesignation`, `LifePathAlignmentResult` | `LifePathOperations`, `LifePathAlignmentOperations` | `get_full_status`, `capture_and_recommend`, `designate_and_calculate`, `get_alignment`, `calculate_alignment` |
 | `LateralRelationshipItem`, `BlockingChainResult`, `RelationshipGraphData` | `LateralRelationshipOperations` | `get_lateral_relationships`, `get_blocking_chain`, `get_relationship_graph` |
 | `AnnotationResult`, `AnnotationState`, `PrivacySummary` | `ActivityReportOperations` | `annotate`, `get_annotation`, `get_privacy_summary` |
+| `SystemHealthStatus`, `HealthCheckValidation`, `ComponentHealthStatus`, `HealthCheckerValidationResult` | `SystemServiceOperations` | `get_health_status`, `validate_health_checkers` |
 | `RichEntityItem`, `RichKnowledgeUnitItem`, `RichLearningPathItem`, `RichLearningStepItem`, `RichMOCItem` | `UserContext` fields | `entities_rich`, `knowledge_units_rich`, `enrolled_paths_rich`, `active_learning_steps_rich`, `active_mocs_rich` |
 | `UnsubmittedExerciseItem`, `PendingRevisedExerciseItem`, `FacetInteractionItem` | `UserContext` fields | `unsubmitted_exercises`, `pending_revised_exercises`, `facet_interaction_history` |
 | `CrossDomainInsightsData`, `CrossDomainInsightItem` | `UserContext` field | `cross_domain_insights` |
