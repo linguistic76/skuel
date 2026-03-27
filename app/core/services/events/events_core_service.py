@@ -34,6 +34,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.type_hints import UserUID
 from core.ports import get_enum_value
+from core.ports.query_types import EventStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
@@ -533,7 +534,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[EventStats]:
         """Count event stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 

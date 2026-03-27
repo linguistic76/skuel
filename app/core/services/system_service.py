@@ -13,6 +13,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any, TypedDict
 
+from core.ports.query_types import AlertCheckResult, HealthSummaryResult, SystemInfoResult
 from core.services.performance_types import AlertThresholds
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -171,7 +172,7 @@ class SystemService:
             return Result.fail(Errors.system(message=str(e), operation="get_health_status"))
 
     @with_error_handling("get_system_info", error_type="system")
-    async def get_system_info(self) -> Result[dict[str, Any]]:
+    async def get_system_info(self) -> Result[SystemInfoResult]:
         """
         Get general system information.
 
@@ -187,7 +188,7 @@ class SystemService:
         return Result.ok(info)
 
     @with_error_handling("get_health_summary", error_type="system")
-    async def get_health_summary(self) -> Result[dict[str, Any]]:
+    async def get_health_summary(self) -> Result[HealthSummaryResult]:
         """
         Get a simple health summary useful for monitoring.
 
@@ -269,7 +270,7 @@ class SystemService:
             return Result.fail(Errors.system(message=str(e), operation="validate_health_checkers"))
 
     @with_error_handling("check_alerts", error_type="system")
-    async def check_alerts(self) -> Result[dict[str, Any]]:
+    async def check_alerts(self) -> Result[AlertCheckResult]:
         """
         Check if any alert conditions are triggered.
 
@@ -278,10 +279,10 @@ class SystemService:
         """
         summary_result = await self.get_health_summary()
         if not summary_result.is_ok:
-            return summary_result
+            return Result.fail(summary_result)
 
         summary = summary_result.value
-        alerts = {
+        alerts: AlertCheckResult = {
             "timestamp": datetime.now().isoformat(),
             "alerts_triggered": [],
             "alert_count": 0,

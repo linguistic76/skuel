@@ -33,7 +33,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
-from core.ports.query_types import TaskUpdatePayload
+from core.ports.query_types import TaskStats, TaskUpdatePayload
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
@@ -601,7 +601,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[TaskStats]:
         """Count task stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 

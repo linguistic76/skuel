@@ -24,6 +24,7 @@ from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
+from core.ports.query_types import PrincipleStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
@@ -674,7 +675,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[PrincipleStats]:
         """Count principle stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 

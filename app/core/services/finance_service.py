@@ -52,6 +52,7 @@ from core.models.finance.finance_pure import (
 from core.models.finance.invoice import InvoicePure
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import FinancesOperations
+from core.ports.query_types import InvoiceStats
 from core.services.finance import (
     FinanceBudgetService,
     FinanceCoreService,
@@ -1180,7 +1181,7 @@ class FinanceService:
             return Result.fail(Errors.system("Invoice service not initialized"))
         return await self.invoice.generate_pdf(uid)
 
-    async def get_invoice_stats(self) -> Result[dict[str, Any]]:
+    async def get_invoice_stats(self) -> Result[InvoiceStats]:
         """
         Get invoice statistics.
 

@@ -18,10 +18,11 @@ Graph relationships queried:
 See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
+from core.ports.query_types import LearningLoopChain, ReportSummary, SubmissionChain
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -109,7 +110,7 @@ class ReportRelationshipService:
             ]
         )
 
-    async def get_report_summary(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_report_summary(self, user_uid: UserUID) -> Result[ReportSummary]:
         """
         Get report completion summary for a user.
 
@@ -155,7 +156,7 @@ class ReportRelationshipService:
     # LEARNING LOOP CHAIN TRAVERSAL
     # ========================================================================
 
-    async def get_learning_loop_chain(self, exercise_uid: str) -> Result[dict[str, Any]]:
+    async def get_learning_loop_chain(self, exercise_uid: str) -> Result[LearningLoopChain]:
         """
         Traverse the full learning loop chain from an exercise.
 
@@ -194,7 +195,7 @@ class ReportRelationshipService:
             }
         )
 
-    async def get_submission_chain(self, submission_uid: str) -> Result[dict[str, Any]]:
+    async def get_submission_chain(self, submission_uid: str) -> Result[SubmissionChain]:
         """
         Traverse the learning loop chain from a specific submission.
 

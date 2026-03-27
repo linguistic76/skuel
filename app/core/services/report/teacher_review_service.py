@@ -27,6 +27,17 @@ from core.events.submission_events import (
     SubmissionRevisionRequested,
 )
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.ports.query_types import (
+    ExerciseWithSubmissionCounts,
+    ReportApprovalResult,
+    ReportHistoryItem,
+    ReportSubmitResult,
+    RevisionRequestResult,
+    StudentSubmissionItem,
+    StudentSummaryItem,
+    SubmissionForExercise,
+    TeacherGroupStats,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -119,7 +130,7 @@ class TeacherReviewService:
     async def get_report_history(
         self,
         submission_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[ReportHistoryItem]]:
         """
         Get all SUBMISSION_REPORT nodes linked to a submission via REPORT_FOR.
 
@@ -153,7 +164,7 @@ class TeacherReviewService:
         report_uid: str,
         teacher_uid: str,
         feedback: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ReportSubmitResult]:
         """
         Submit teacher report for an entity.
 
@@ -215,8 +226,8 @@ class TeacherReviewService:
 
         return Result.ok(
             {
-                "ku_uid": records[0]["uid"],
-                "status": records[0]["status"],
+                "ku_uid": str(records[0]["uid"]),
+                "status": str(records[0]["status"]),
                 "report_uid": report_entity_uid,
                 "feedback_submitted": True,
             }
@@ -227,7 +238,7 @@ class TeacherReviewService:
         report_uid: str,
         teacher_uid: str,
         notes: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[RevisionRequestResult]:
         """
         Request revision for a student submission.
 
@@ -289,8 +300,8 @@ class TeacherReviewService:
 
         return Result.ok(
             {
-                "ku_uid": records[0]["uid"],
-                "status": records[0]["status"],
+                "ku_uid": str(records[0]["uid"]),
+                "status": str(records[0]["status"]),
                 "report_uid": report_entity_uid,
                 "revision_requested": True,
             }
@@ -300,7 +311,7 @@ class TeacherReviewService:
         self,
         report_uid: str,
         teacher_uid: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ReportApprovalResult]:
         """
         Approve a student submission (mark as COMPLETED).
 
@@ -372,8 +383,8 @@ class TeacherReviewService:
 
         return Result.ok(
             {
-                "ku_uid": record["uid"],
-                "status": record["status"],
+                "ku_uid": str(record["uid"]),
+                "status": str(record["status"]),
                 "approved": True,
                 "mastered_ku_count": mastered_count,
             }
@@ -382,7 +393,7 @@ class TeacherReviewService:
     async def get_exercises_with_submission_counts(
         self,
         teacher_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[ExerciseWithSubmissionCounts]]:
         """
         Get teacher's exercises with submission and reviewed counts.
 
@@ -415,7 +426,7 @@ class TeacherReviewService:
     async def get_submissions_for_exercise(
         self,
         exercise_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[SubmissionForExercise]]:
         """
         Get all submissions against a specific exercise.
 
@@ -449,7 +460,7 @@ class TeacherReviewService:
     async def get_students_summary(
         self,
         teacher_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[StudentSummaryItem]]:
         """
         Get students who have shared work with this teacher, with counts.
 
@@ -481,7 +492,7 @@ class TeacherReviewService:
         self,
         teacher_uid: str,
         student_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[StudentSubmissionItem]]:
         """
         Get all submissions from a student that were shared with this teacher.
 
@@ -612,7 +623,7 @@ class TeacherReviewService:
     async def get_teacher_groups_with_stats(
         self,
         teacher_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[TeacherGroupStats]]:
         """
         Get teacher's groups with member, exercise, and pending submission counts.
 

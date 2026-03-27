@@ -37,6 +37,20 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.type_hints import UserUID
+from core.ports.query_types import (
+    ExerciseWithSubmissionCounts,
+    LearningLoopChain,
+    ReportApprovalResult,
+    ReportHistoryItem,
+    ReportSubmitResult,
+    ReportSummary,
+    RevisionRequestResult,
+    StudentSubmissionItem,
+    StudentSummaryItem,
+    SubmissionChain,
+    SubmissionForExercise,
+    TeacherGroupStats,
+)
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -303,9 +317,9 @@ class ReportRelationshipOperations(Protocol):
     async def get_unsubmitted_exercises(
         self, user_uid: UserUID, limit: int = 5
     ) -> Result[list[dict[str, str | None]]]: ...
-    async def get_report_summary(self, user_uid: UserUID) -> Result[dict[str, int]]: ...
-    async def get_learning_loop_chain(self, exercise_uid: str) -> Result[dict[str, Any]]: ...
-    async def get_submission_chain(self, submission_uid: str) -> Result[dict[str, Any]]: ...
+    async def get_report_summary(self, user_uid: UserUID) -> Result[ReportSummary]: ...
+    async def get_learning_loop_chain(self, exercise_uid: str) -> Result[LearningLoopChain]: ...
+    async def get_submission_chain(self, submission_uid: str) -> Result[SubmissionChain]: ...
 
 
 @runtime_checkable
@@ -340,8 +354,8 @@ class TeacherReviewOperations(Protocol):
     async def get_report_history(
         self,
         submission_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get SUBMISSION_REPORT nodes linked to a submission. Returns Result[list[dict]]."""
+    ) -> Result[list[ReportHistoryItem]]:
+        """Get SUBMISSION_REPORT nodes linked to a submission."""
         ...
 
     async def submit_report(
@@ -349,8 +363,8 @@ class TeacherReviewOperations(Protocol):
         report_uid: str,
         teacher_uid: str,
         feedback: str,
-    ) -> Result[dict[str, Any]]:
-        """Submit report for a student submission. Returns Result[dict]."""
+    ) -> Result[ReportSubmitResult]:
+        """Submit report for a student submission."""
         ...
 
     async def request_revision(
@@ -358,44 +372,48 @@ class TeacherReviewOperations(Protocol):
         report_uid: str,
         teacher_uid: str,
         notes: str,
-    ) -> Result[dict[str, Any]]:
-        """Request revision for a student report. Returns Result[dict]."""
+    ) -> Result[RevisionRequestResult]:
+        """Request revision for a student report."""
         ...
 
     async def approve_report(
         self,
         report_uid: str,
         teacher_uid: str,
-    ) -> Result[dict[str, Any]]:
-        """Approve a student report. Returns Result[dict]."""
+    ) -> Result[ReportApprovalResult]:
+        """Approve a student report."""
         ...
 
     async def get_exercises_with_submission_counts(
         self, teacher_uid: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Get teacher's exercises with submission/reviewed counts. Returns Result[list[dict]]."""
+    ) -> Result[list[ExerciseWithSubmissionCounts]]:
+        """Get teacher's exercises with submission/reviewed counts."""
         ...
 
-    async def get_submissions_for_exercise(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all submissions against an exercise. Returns Result[list[dict]]."""
+    async def get_submissions_for_exercise(
+        self, exercise_uid: str
+    ) -> Result[list[SubmissionForExercise]]:
+        """Get all submissions against an exercise."""
         ...
 
-    async def get_students_summary(self, teacher_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get students who shared work with teacher, with counts. Returns Result[list[dict]]."""
+    async def get_students_summary(self, teacher_uid: str) -> Result[list[StudentSummaryItem]]:
+        """Get students who shared work with teacher, with counts."""
         ...
 
     async def get_student_submissions(
         self, teacher_uid: str, student_uid: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Get all submissions from student shared with teacher. Returns Result[list[dict]]."""
+    ) -> Result[list[StudentSubmissionItem]]:
+        """Get all submissions from student shared with teacher."""
         ...
 
     async def get_dashboard_stats(self, teacher_uid: str) -> "Result[TeacherDashboardStats]":
         """Get at-a-glance stats for dashboard. Returns Result[TeacherDashboardStats]."""
         ...
 
-    async def get_teacher_groups_with_stats(self, teacher_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get teacher's groups with member/exercise/pending counts. Returns Result[list[dict]]."""
+    async def get_teacher_groups_with_stats(
+        self, teacher_uid: str
+    ) -> Result[list[TeacherGroupStats]]:
+        """Get teacher's groups with member/exercise/pending counts."""
         ...
 
     async def get_group_detail(

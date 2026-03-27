@@ -30,6 +30,7 @@ from core.models.submissions.submission import Submission
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.models.type_hints import UserUID
 from core.ports import BackendOperations
+from core.ports.query_types import SubmissionStatistics
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
@@ -602,7 +603,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     # ========================================================================
 
     @with_error_handling("get_submission_statistics")
-    async def get_submission_statistics(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_submission_statistics(self, user_uid: UserUID) -> Result[SubmissionStatistics]:
         """
         Get submission statistics for a user.
 

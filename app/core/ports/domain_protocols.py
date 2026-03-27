@@ -82,9 +82,16 @@ from core.ports.base_protocols import (
     HierarchyOperations,
 )
 from core.ports.query_types import (
+    ChoiceStats,
     ContextDashboard,
     ContextSummary,
+    EventStats,
+    GoalStats,
     GraphContextResult,
+    HabitStats,
+    InvoiceStats,
+    PrincipleStats,
+    TaskStats,
 )
 
 if TYPE_CHECKING:
@@ -267,7 +274,7 @@ class TasksOperations(
     # HIERARCHY EXTENSIONS (Task-specific, beyond generic HierarchyOperations)
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[TaskStats]:
         """Count task stats: total, completed, overdue."""
         ...
 
@@ -360,7 +367,7 @@ class EventsOperations(
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[EventStats]:
         """Count event stats: total, scheduled, today."""
         ...
 
@@ -439,7 +446,7 @@ class HabitsOperations(
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[HabitStats]:
         """Count habit stats: total, active, streaks."""
         ...
 
@@ -707,7 +714,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         """List invoices for user, optionally filtered by status."""
         ...
 
-    async def get_invoice_stats(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_invoice_stats(self, user_uid: UserUID) -> Result[InvoiceStats]:
         """Get invoice statistics for user."""
         ...
 
@@ -790,7 +797,7 @@ class GoalsOperations(
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[GoalStats]:
         """Count goal stats: total, active, completed."""
         ...
 
@@ -901,7 +908,7 @@ class ChoicesOperations(
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[ChoiceStats]:
         """Count choice stats: total, pending, decided."""
         ...
 
@@ -977,7 +984,7 @@ class PrinciplesOperations(
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[PrincipleStats]:
         """Count principle stats: total, core, active."""
         ...
 

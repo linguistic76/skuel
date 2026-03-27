@@ -30,6 +30,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.type_hints import EntityUID, UserUID
+from core.ports.query_types import SubmissionStatistics
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -101,8 +102,8 @@ class SubmissionOperations(Protocol):
         """Get processed file content. Returns Result[bytes]."""
         ...
 
-    async def get_submission_statistics(self, user_uid: UserUID) -> Result[dict[str, Any]]:
-        """Get submission statistics for a user. Returns Result[dict]."""
+    async def get_submission_statistics(self, user_uid: UserUID) -> Result[SubmissionStatistics]:
+        """Get submission statistics for a user."""
         ...
 
     async def update_processed_content(
@@ -283,8 +284,8 @@ class SubmissionSearchOperations(Protocol):
         start_date: date,
         end_date: date,
         entity_type: Any | None = None,
-    ) -> Result[dict[str, Any]]:
-        """Get submission statistics for a date range. Returns Result[dict]."""
+    ) -> Result[SubmissionStatistics]:
+        """Get submission statistics for a date range."""
         ...
 
     async def get_recent_submissions(

@@ -34,6 +34,7 @@ from typing import Any, ClassVar, Literal
 from core.models.enums import EntityStatus, Priority
 from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarItemType
 from core.models.type_hints import UserUID
+from core.ports.query_types import ChartJsConfig, GanttConfig, VisTimelineConfig
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.palette import SemanticColor
@@ -185,7 +186,7 @@ class VisualizationService:
         total: list[int],
         labels: list[str],
         chart_type: Literal["line", "bar"] = "line",
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """
         Format completion rate data for Chart.js.
 
@@ -247,7 +248,7 @@ class VisualizationService:
         data: dict[str, int],
         title: str = "Distribution",
         chart_type: Literal["pie", "doughnut", "bar"] = "doughnut",
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """
         Format distribution data for Chart.js (pie, doughnut, or bar).
 
@@ -303,7 +304,7 @@ class VisualizationService:
         series: list[dict[str, Any]],
         labels: list[str],
         title: str = "Trends",
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """
         Format multi-series trend data for Chart.js line chart.
 
@@ -352,7 +353,7 @@ class VisualizationService:
     def format_streak_chart(
         self,
         streaks: list[dict[str, Any]],
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """
         Format habit streak data for Chart.js horizontal bar chart.
 
@@ -409,7 +410,7 @@ class VisualizationService:
         self,
         calendar_data: CalendarData,
         group_by: Literal["type", "project", "none"] = "type",
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[VisTimelineConfig]:
         """
         Format CalendarData for Vis.js Timeline.
 
@@ -457,7 +458,7 @@ class VisualizationService:
         self,
         tasks: list[Any],  # List of Task domain models
         show_deadlines: bool = True,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[VisTimelineConfig]:
         """
         Format Task list for Vis.js Timeline.
 
@@ -533,7 +534,7 @@ class VisualizationService:
         self,
         tasks: list[Any],  # List of Task domain models
         dependencies: dict[str, list[str]] | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GanttConfig]:
         """
         Format tasks for Frappe Gantt.
 
@@ -597,7 +598,7 @@ class VisualizationService:
         goal: Any,  # Goal domain model
         tasks: list[Any],  # Related tasks
         milestones: list[dict[str, Any]] | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GanttConfig]:
         """
         Format a goal with its tasks as a Gantt chart.
 
@@ -671,7 +672,7 @@ class VisualizationService:
         self,
         user_uid: UserUID,
         period: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """
         Get task completion data formatted for Chart.js.
 
@@ -746,7 +747,7 @@ class VisualizationService:
     async def get_priority_distribution_chart_data(
         self,
         user_uid: UserUID,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """
         Get task priority distribution formatted for Chart.js.
 
@@ -781,7 +782,7 @@ class VisualizationService:
     async def get_streak_chart_data(
         self,
         user_uid: UserUID,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """
         Get habit streak data formatted for Chart.js.
 
@@ -814,7 +815,7 @@ class VisualizationService:
         self,
         user_uid: UserUID,
         days_back: int = 30,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """
         Get task status distribution formatted for Chart.js.
 
@@ -854,7 +855,7 @@ class VisualizationService:
         start_date: date,
         end_date: date,
         group_by: str = "type",
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[VisTimelineConfig]:
         """Get calendar timeline data formatted for Vis.js."""
         result = await self.calendar_service.get_calendar_view(
             user_uid=user_uid,
@@ -871,7 +872,7 @@ class VisualizationService:
         self,
         user_uid: UserUID,
         project: str | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[VisTimelineConfig]:
         """Get tasks-only timeline data formatted for Vis.js."""
         today = date.today()
 
@@ -896,7 +897,7 @@ class VisualizationService:
         self,
         user_uid: UserUID,
         project: str | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GanttConfig]:
         """Get tasks Gantt data formatted for Frappe Gantt."""
         today = date.today()
 
@@ -933,7 +934,7 @@ class VisualizationService:
         self,
         user_uid: UserUID,
         goal_uid: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GanttConfig]:
         """Get goal with tasks as Gantt data formatted for Frappe Gantt."""
         goal_result = await self.goals_service.get_for_user(goal_uid, user_uid)
 

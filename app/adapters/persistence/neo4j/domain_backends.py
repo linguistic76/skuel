@@ -61,6 +61,14 @@ from core.models.report.activity_report import ActivityReport
 from core.models.submissions.submission import Submission
 from core.models.task.task import Task
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
+from core.ports.query_types import (
+    ChoiceStats,
+    EventStats,
+    GoalStats,
+    HabitStats,
+    PrincipleStats,
+    TaskStats,
+)
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
@@ -133,7 +141,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         """Create User→Habit OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, habit_uid)
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[HabitStats]:
         """Count habit stats: total, active, streaks."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, entity_type: 'habit'})
@@ -479,7 +487,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         rel_result: Result[bool] = await self.create_user_relationship(user_uid, goal_uid)
         return rel_result
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[GoalStats]:
         """Count goal stats: total, active, completed."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, entity_type: 'goal'})
@@ -760,7 +768,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
     # HIERARCHY EXTENSIONS (Task-specific)
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[TaskStats]:
         """Count task stats via Cypher COUNT — no entity deserialization."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, entity_type: 'task'})
@@ -927,7 +935,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         """Get all events for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[EventStats]:
         """Count event stats: total, scheduled, today."""
         from datetime import date
 
@@ -1063,7 +1071,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         """Get all choices for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[ChoiceStats]:
         """Count choice stats: total, pending, decided."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, entity_type: 'choice'})
@@ -1244,7 +1252,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         """Get all principles for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[PrincipleStats]:
         """Count principle stats: total, core, active."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, entity_type: 'principle'})

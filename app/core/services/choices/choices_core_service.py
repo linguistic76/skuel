@@ -24,6 +24,7 @@ from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.ports.query_types import ChoiceStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
@@ -1046,7 +1047,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[ChoiceStats]:
         """Count choice stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 

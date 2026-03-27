@@ -26,6 +26,14 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.context_awareness_protocols import FullAwareness
+from core.ports.query_types import (
+    AlertCheckResult,
+    ChartJsConfig,
+    GanttConfig,
+    HealthSummaryResult,
+    SystemInfoResult,
+    VisTimelineConfig,
+)
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -126,21 +134,21 @@ class VisualizationOperations(Protocol):
         self,
         user_uid: UserUID,
         period: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """Get task completion data formatted for Chart.js."""
         ...
 
     async def get_priority_distribution_chart_data(
         self,
         user_uid: UserUID,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """Get task priority distribution formatted for Chart.js."""
         ...
 
     async def get_streak_chart_data(
         self,
         user_uid: UserUID,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """Get habit streak data formatted for Chart.js."""
         ...
 
@@ -148,7 +156,7 @@ class VisualizationOperations(Protocol):
         self,
         user_uid: UserUID,
         days_back: int = 30,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """Get task status distribution formatted for Chart.js."""
         ...
 
@@ -158,7 +166,7 @@ class VisualizationOperations(Protocol):
         start_date: Any,
         end_date: Any,
         group_by: str = "type",
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[VisTimelineConfig]:
         """Get calendar timeline data formatted for Vis.js."""
         ...
 
@@ -166,7 +174,7 @@ class VisualizationOperations(Protocol):
         self,
         user_uid: UserUID,
         project: str | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[VisTimelineConfig]:
         """Get tasks-only timeline data formatted for Vis.js."""
         ...
 
@@ -174,7 +182,7 @@ class VisualizationOperations(Protocol):
         self,
         user_uid: UserUID,
         project: str | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GanttConfig]:
         """Get tasks Gantt data formatted for Frappe Gantt."""
         ...
 
@@ -182,7 +190,7 @@ class VisualizationOperations(Protocol):
         self,
         user_uid: UserUID,
         goal_uid: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GanttConfig]:
         """Get goal with tasks as Gantt data formatted for Frappe Gantt."""
         ...
 
@@ -194,7 +202,7 @@ class VisualizationOperations(Protocol):
         total: list[int],
         labels: list[str],
         chart_type: Literal["line", "bar"] = "line",
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """Format completion data for Chart.js."""
         ...
 
@@ -203,14 +211,14 @@ class VisualizationOperations(Protocol):
         data: dict[str, int],
         title: str = "Distribution",
         chart_type: Literal["pie", "doughnut", "bar"] = "doughnut",
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """Format distribution data for Chart.js."""
         ...
 
     def format_streak_chart(
         self,
         streaks: list[dict[str, Any]],
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ChartJsConfig]:
         """Format streak data for Chart.js."""
         ...
 
@@ -218,7 +226,7 @@ class VisualizationOperations(Protocol):
         self,
         calendar_data: Any,
         group_by: Literal["type", "project", "none"] = "type",
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[VisTimelineConfig]:
         """Format calendar data for Vis.js timeline."""
         ...
 
@@ -226,7 +234,7 @@ class VisualizationOperations(Protocol):
         self,
         tasks: list[Any],
         show_deadlines: bool = True,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[VisTimelineConfig]:
         """Format tasks for Vis.js timeline."""
         ...
 
@@ -234,7 +242,7 @@ class VisualizationOperations(Protocol):
         self,
         tasks: list[Any],
         dependencies: dict[str, list[str]] | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GanttConfig]:
         """Format tasks for Frappe Gantt."""
         ...
 
@@ -243,7 +251,7 @@ class VisualizationOperations(Protocol):
         goal: Any,
         tasks: list[Any],
         milestones: list[dict[str, Any]] | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[GanttConfig]:
         """Format goal with tasks for Gantt."""
         ...
 
@@ -269,20 +277,20 @@ class SystemServiceOperations(Protocol):
         """Get system health status. Returns Result[SystemHealthStatus]."""
         ...
 
-    async def get_system_info(self) -> Result[dict[str, Any]]:
-        """Get system version and info. Returns Result[dict]."""
+    async def get_system_info(self) -> Result[SystemInfoResult]:
+        """Get system version and info."""
         ...
 
-    async def get_health_summary(self) -> Result[dict[str, Any]]:
-        """Get health summary with component counts. Returns Result[dict]."""
+    async def get_health_summary(self) -> Result[HealthSummaryResult]:
+        """Get health summary with component counts."""
         ...
 
     async def validate_health_checkers(self) -> Result[Any]:
         """Validate registered health checkers. Returns Result[HealthCheckValidation]."""
         ...
 
-    async def check_alerts(self) -> Result[dict[str, Any]]:
-        """Check for triggered alerts. Returns Result[dict]."""
+    async def check_alerts(self) -> Result[AlertCheckResult]:
+        """Check for triggered alerts."""
         ...
 
     # Sync management methods

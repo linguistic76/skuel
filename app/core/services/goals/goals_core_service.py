@@ -40,7 +40,7 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.ports.domain_protocols import GoalsOperations
-from core.ports.query_types import GoalUpdatePayload
+from core.ports.query_types import GoalStats, GoalUpdatePayload
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
@@ -747,7 +747,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[GoalStats]:
         """Count goal stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 

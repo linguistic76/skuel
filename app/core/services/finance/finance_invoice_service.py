@@ -30,6 +30,7 @@ from core.models.finance.invoice import (
     InvoiceStatus,
     InvoiceType,
 )
+from core.ports.query_types import InvoiceStats
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -319,7 +320,7 @@ class FinanceInvoiceService:
     # STATISTICS
     # ========================================================================
 
-    async def get_invoice_stats(self) -> Result[dict[str, Any]]:
+    async def get_invoice_stats(self) -> Result[InvoiceStats]:
         """
         Get invoice statistics.
 

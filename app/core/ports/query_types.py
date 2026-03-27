@@ -1587,6 +1587,309 @@ class AIInsightsResult(TypedDict, total=False):
 
 
 # ============================================================================
+# VISUALIZATION RESULT TYPES
+# ============================================================================
+# Return shapes for VisualizationService chart methods.
+# Inner structures (options, item details) remain dict[str, Any] because
+# they're consumed by Chart.js/Vis.js/Gantt JavaScript libraries.
+
+
+class ChartJsDataset(TypedDict, total=False):
+    """Single dataset in a Chart.js chart configuration."""
+
+    label: str
+    data: list[int] | list[float]
+    backgroundColor: str | list[str]
+    borderColor: str | list[str]
+    borderWidth: int
+    fill: bool
+    tension: float
+
+
+class ChartJsData(TypedDict, total=False):
+    """Data section of a Chart.js chart configuration."""
+
+    labels: list[str]
+    datasets: list[ChartJsDataset]
+
+
+class ChartJsConfig(TypedDict, total=False):
+    """Return shape for Chart.js chart methods (format_*_chart, get_*_chart_data)."""
+
+    type: str
+    data: ChartJsData
+    options: dict[str, Any]
+
+
+class VisTimelineConfig(TypedDict, total=False):
+    """Return shape for Vis.js timeline methods (format_for_visjs, get_timeline_data)."""
+
+    items: list[dict[str, Any]]
+    groups: list[dict[str, Any]]
+    options: dict[str, Any]
+
+
+class GanttConfig(TypedDict, total=False):
+    """Return shape for Gantt chart methods (format_for_gantt, get_*_gantt_data)."""
+
+    tasks: list[dict[str, Any]]
+    options: dict[str, Any]
+
+
+# ============================================================================
+# TEACHER REVIEW RESULT TYPES
+# ============================================================================
+# Return shapes for TeacherReviewService methods.
+
+
+class ReportSubmitResult(TypedDict, total=False):
+    """Return shape for TeacherReviewService.submit_report()."""
+
+    ku_uid: str
+    status: str
+    report_uid: str
+    feedback_submitted: bool
+
+
+class RevisionRequestResult(TypedDict, total=False):
+    """Return shape for TeacherReviewService.request_revision()."""
+
+    ku_uid: str
+    status: str
+    report_uid: str
+    revision_requested: bool
+
+
+class ReportApprovalResult(TypedDict, total=False):
+    """Return shape for TeacherReviewService.approve_report()."""
+
+    ku_uid: str
+    status: str
+    approved: bool
+    mastered_ku_count: int
+
+
+class ExerciseWithSubmissionCounts(TypedDict, total=False):
+    """Item in TeacherReviewService.get_exercises_with_submission_counts()."""
+
+    uid: str
+    title: str
+    scope: str
+    created_at: str
+    total_count: int
+    reviewed_count: int
+    pending_count: int
+
+
+class SubmissionForExercise(TypedDict, total=False):
+    """Item in TeacherReviewService.get_submissions_for_exercise()."""
+
+    uid: str
+    title: str
+    original_filename: str
+    status: str
+    created_at: str
+    student_uid: str
+    student_name: str
+    feedback_count: int
+
+
+class StudentSummaryItem(TypedDict, total=False):
+    """Item in TeacherReviewService.get_students_summary()."""
+
+    student_uid: str
+    student_name: str
+    submission_count: int
+    reviewed_count: int
+    pending_count: int
+
+
+class StudentSubmissionItem(TypedDict, total=False):
+    """Item in TeacherReviewService.get_student_submissions()."""
+
+    uid: str
+    title: str
+    original_filename: str
+    status: str
+    created_at: str
+    feedback_count: int
+    exercise_uid: str
+    exercise_title: str
+
+
+class ReportHistoryItem(TypedDict, total=False):
+    """Item in TeacherReviewService.get_report_history()."""
+
+    uid: str
+    title: str
+    content: str
+    status: str
+    created_at: str
+    teacher_uid: str
+    teacher_name: str
+
+
+class TeacherGroupStats(TypedDict, total=False):
+    """Item in TeacherReviewService.get_teacher_groups_with_stats()."""
+
+    uid: str
+    name: str
+    description: str
+    is_active: bool
+    member_count: int
+    exercise_count: int
+    pending_count: int
+
+
+# ============================================================================
+# SUBMISSION/REPORT RESULT TYPES
+# ============================================================================
+# Return shapes for submission and report service methods.
+
+
+class SubmissionStatistics(TypedDict, total=False):
+    """Return shape for SubmissionsService.get_submission_statistics()."""
+
+    total: int
+    by_type: dict[str, int]
+    by_status: dict[str, int]
+
+
+class ReportSummary(TypedDict, total=False):
+    """Return shape for ReportRelationshipService.get_report_summary()."""
+
+    total_submissions: int
+    with_report: int
+    without_report: int
+    total_reports: int
+
+
+class LearningLoopChain(TypedDict, total=False):
+    """Return shape for ReportRelationshipService.get_learning_loop_chain()."""
+
+    exercise: dict[str, Any]
+    submissions: list[dict[str, Any]]
+    feedback: list[dict[str, Any]]
+    revised_exercises: list[dict[str, Any]]
+
+
+class SubmissionChain(TypedDict, total=False):
+    """Return shape for ReportRelationshipService.get_submission_chain()."""
+
+    submission: dict[str, Any]
+    exercise: dict[str, Any] | None
+    feedback: list[dict[str, Any]]
+    revised_exercises: list[dict[str, Any]]
+
+
+# ============================================================================
+# SYSTEM HEALTH RESULT TYPES
+# ============================================================================
+# Return shapes for SystemService health monitoring methods.
+
+
+class SystemInfoResult(TypedDict, total=False):
+    """Return shape for SystemService.get_system_info()."""
+
+    service: str
+    version: str
+    timestamp: str
+    components_registered: int
+
+
+class HealthSummaryResult(TypedDict, total=False):
+    """Return shape for SystemService.get_health_summary()."""
+
+    healthy: bool
+    status: str
+    components_total: int
+    components_healthy: int
+    components_unhealthy: int
+    unhealthy_components: list[str]
+    timestamp: str
+
+
+class AlertCheckResult(TypedDict, total=False):
+    """Return shape for SystemService.check_alerts()."""
+
+    timestamp: str
+    alerts_triggered: list[dict[str, Any]]
+    alert_count: int
+    system_healthy: bool
+    has_alerts: bool
+
+
+# ============================================================================
+# FINANCE STATS RESULT TYPES
+# ============================================================================
+
+
+class InvoiceStats(TypedDict, total=False):
+    """Return shape for FinanceInvoiceService.get_invoice_stats()."""
+
+    total_count: int
+    outgoing_total: float
+    incoming_total: float
+    overdue_count: int
+    outstanding_total: float
+
+
+# ============================================================================
+# DOMAIN STATS RESULT TYPES
+# ============================================================================
+# Return shapes for get_stats_for_user() across all 6 Activity Domains.
+# Each backend returns a small fixed dict of int counts via Cypher COUNT.
+
+
+class TaskStats(TypedDict, total=False):
+    """Return shape for TasksBackend.get_stats_for_user()."""
+
+    total: int
+    completed: int
+    overdue: int
+
+
+class GoalStats(TypedDict, total=False):
+    """Return shape for GoalsBackend.get_stats_for_user()."""
+
+    total: int
+    active: int
+    completed: int
+
+
+class HabitStats(TypedDict, total=False):
+    """Return shape for HabitsBackend.get_stats_for_user()."""
+
+    total: int
+    active: int
+    streaks: int
+
+
+class EventStats(TypedDict, total=False):
+    """Return shape for EventsBackend.get_stats_for_user()."""
+
+    total: int
+    scheduled: int
+    today: int
+
+
+class ChoiceStats(TypedDict, total=False):
+    """Return shape for ChoicesBackend.get_stats_for_user()."""
+
+    total: int
+    pending: int
+    decided: int
+
+
+class PrincipleStats(TypedDict, total=False):
+    """Return shape for PrinciplesBackend.get_stats_for_user()."""
+
+    total: int
+    core: int
+    active: int
+
+
+# ============================================================================
 # EXPLICIT EXPORTS
 # ============================================================================
 
@@ -1686,4 +1989,38 @@ __all__ = [
     "CrossDomainConnectionItem",
     "CrossDomainOpportunitiesResult",
     "AIInsightsResult",
+    # Visualization Result Types
+    "ChartJsDataset",
+    "ChartJsData",
+    "ChartJsConfig",
+    "VisTimelineConfig",
+    "GanttConfig",
+    # Teacher Review Result Types
+    "ReportSubmitResult",
+    "RevisionRequestResult",
+    "ReportApprovalResult",
+    "ExerciseWithSubmissionCounts",
+    "SubmissionForExercise",
+    "StudentSummaryItem",
+    "StudentSubmissionItem",
+    "ReportHistoryItem",
+    "TeacherGroupStats",
+    # Submission/Report Result Types
+    "SubmissionStatistics",
+    "ReportSummary",
+    "LearningLoopChain",
+    "SubmissionChain",
+    # System Health Result Types
+    "SystemInfoResult",
+    "HealthSummaryResult",
+    "AlertCheckResult",
+    # Finance Stats Result Types
+    "InvoiceStats",
+    # Domain Stats Result Types
+    "TaskStats",
+    "GoalStats",
+    "HabitStats",
+    "EventStats",
+    "ChoiceStats",
+    "PrincipleStats",
 ]
