@@ -184,7 +184,7 @@ extended_facets: dict[str, Any] | None = None
 limit: int = 20              # Maximum results (1-100)
 offset: int = 0              # Pagination offset (>= 0)
 include_facet_counts: bool = True  # Include facet counts for UI
-user_uid: str | None = None  # User ID for personalized results
+user_uid: UserUID | None = None  # User ID for personalized results
 ```
 
 ### Key Methods

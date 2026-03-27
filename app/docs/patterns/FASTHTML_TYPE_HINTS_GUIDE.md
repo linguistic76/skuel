@@ -206,7 +206,7 @@ from datetime import date
 
 @rt("/tasks/user")
 async def user_tasks(
-    user_uid: str,
+    user_uid: UserUID,
     start_date: date | None = None,  # Auto-converts ISO date string
     tags: list[str] | None = None    # Auto-converts comma-separated list
 ):

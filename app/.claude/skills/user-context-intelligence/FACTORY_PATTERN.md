@@ -28,7 +28,7 @@ Bootstrap (once)          Runtime (per request)
 
 ```python
 # WRONG - services must be passed every time
-async def get_daily_plan(user_uid: str):
+async def get_daily_plan(user_uid: UserUID):
     context = await user_service.get_user_context(user_uid)
 
     # Where do these 13 services come from?
@@ -47,7 +47,7 @@ async def get_daily_plan(user_uid: str):
 
 ```python
 # CORRECT - factory holds services, runtime provides context
-async def get_daily_plan(user_uid: str):
+async def get_daily_plan(user_uid: UserUID):
     context = await user_service.get_user_context(user_uid)
 
     # Factory already has the 13 services
@@ -240,7 +240,7 @@ class DashboardService:
         self.user_service = user_service
         self.intelligence_factory = intelligence_factory
 
-    async def get_user_dashboard(self, user_uid: str) -> Result[dict]:
+    async def get_user_dashboard(self, user_uid: UserUID) -> Result[dict]:
         # Get context
         context = await self.user_service.get_user_context(user_uid)
 
@@ -410,7 +410,7 @@ class MyService:
 
 ```python
 # Each request gets fresh context
-async def handler(request, user_uid: str):
+async def handler(request, user_uid: UserUID):
     context = await get_fresh_context(user_uid)  # Always fresh
     intelligence = factory.create(context)       # Bound to fresh context
     return await intelligence.method()
@@ -428,7 +428,7 @@ class BadService:
     def __init__(self, factory):
         self.cached_intelligence = {}
 
-    async def get_plan(self, user_uid: str):
+    async def get_plan(self, user_uid: UserUID):
         if user_uid not in self.cached_intelligence:
             context = await get_context(user_uid)
             self.cached_intelligence[user_uid] = factory.create(context)
@@ -441,7 +441,7 @@ class GoodService:
     def __init__(self, factory):
         self.factory = factory
 
-    async def get_plan(self, user_uid: str):
+    async def get_plan(self, user_uid: UserUID):
         context = await get_context(user_uid)  # Fresh context
         intelligence = self.factory.create(context)  # Fresh intelligence
         return await intelligence.get_ready_to_work_on_today()

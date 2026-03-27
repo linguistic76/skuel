@@ -41,7 +41,7 @@ class TasksService:
 ```python
 import asyncio
 
-async def get_user_context(user_uid: str) -> Result[UserContext]:
+async def get_user_context(user_uid: UserUID) -> Result[UserContext]:
     # Run independent operations concurrently
     tasks_result, goals_result, habits_result = await asyncio.gather(
         self.tasks_service.list_for_user(user_uid),
@@ -87,7 +87,7 @@ async def create_task_with_goal(data: dict) -> Result[Task]:
 
 
 # Concurrent - when operations are independent
-async def get_dashboard_data(user_uid: str) -> Result[Dashboard]:
+async def get_dashboard_data(user_uid: UserUID) -> Result[Dashboard]:
     # These don't depend on each other
     stats, notifications, recommendations = await asyncio.gather(
         self.stats_service.get_user_stats(user_uid),
@@ -102,7 +102,7 @@ async def get_dashboard_data(user_uid: str) -> Result[Dashboard]:
 ### Pattern 1: Fail on First Error
 
 ```python
-async def get_all_required(user_uid: str) -> Result[tuple]:
+async def get_all_required(user_uid: UserUID) -> Result[tuple]:
     """Fails if any operation fails"""
     try:
         results = await asyncio.gather(
@@ -124,7 +124,7 @@ async def get_all_required(user_uid: str) -> Result[tuple]:
 ### Pattern 2: Collect Partial Results
 
 ```python
-async def get_best_effort(user_uid: str) -> Result[PartialData]:
+async def get_best_effort(user_uid: UserUID) -> Result[PartialData]:
     """Returns partial data if some operations fail"""
     results = await asyncio.gather(
         self.required_service.get(user_uid),
@@ -182,7 +182,7 @@ async def create_with_transaction(data: dict) -> Result[Task]:
 ```python
 from collections.abc import AsyncIterator
 
-async def stream_tasks(user_uid: str) -> AsyncIterator[Task]:
+async def stream_tasks(user_uid: UserUID) -> AsyncIterator[Task]:
     """Stream tasks without loading all into memory"""
     async with self.driver.session() as session:
         result = await session.run(
@@ -193,7 +193,7 @@ async def stream_tasks(user_uid: str) -> AsyncIterator[Task]:
             yield Task.from_dict(record["t"])
 
 # Usage
-async def process_all_tasks(user_uid: str) -> None:
+async def process_all_tasks(user_uid: UserUID) -> None:
     async for task in stream_tasks(user_uid):
         await process(task)
 ```
@@ -241,14 +241,14 @@ async def cpu_bound_work() -> Result:
 
 ```python
 # BAD - sequential for independent operations
-async def get_stats(user_uid: str) -> Stats:
+async def get_stats(user_uid: UserUID) -> Stats:
     tasks = await self.get_tasks(user_uid)  # Wait...
     goals = await self.get_goals(user_uid)  # Then wait...
     habits = await self.get_habits(user_uid)  # Then wait...
     return Stats(tasks, goals, habits)
 
 # GOOD - concurrent for independent operations
-async def get_stats(user_uid: str) -> Stats:
+async def get_stats(user_uid: UserUID) -> Stats:
     tasks, goals, habits = await asyncio.gather(
         self.get_tasks(user_uid),
         self.get_goals(user_uid),

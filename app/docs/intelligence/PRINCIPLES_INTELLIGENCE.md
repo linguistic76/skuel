@@ -268,7 +268,7 @@ trajectory = "stable"     # otherwise
 ```python
 async def get_principle_conflict_analysis(
     self,
-    user_uid: str
+    user_uid: UserUID
 ) -> Result[dict[str, Any]]:
 ```
 
@@ -546,7 +546,7 @@ if result.is_ok:
 async def assess_alignment_dual_track(
     self,
     principle_uid: str,
-    user_uid: str,
+    user_uid: UserUID,
     user_alignment_level: AlignmentLevel,
     user_evidence: str,
     user_reflection: str | None = None,

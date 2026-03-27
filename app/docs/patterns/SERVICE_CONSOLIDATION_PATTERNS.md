@@ -320,7 +320,7 @@ class TasksService(BaseService[TasksOperations, Task]):
         return await self.core.get_task(*args, **kwargs)
 
     # Custom logic (not a delegation — orchestrates multiple sub-services)
-    async def create_task(self, data: dict, user_uid: str) -> Result[Task]:
+    async def create_task(self, data: dict, user_uid: UserUID) -> Result[Task]:
         if not data.get("title"):
             return Result.fail(Errors.validation("Title required"))
         result = await self.core.create_task(data, user_uid)

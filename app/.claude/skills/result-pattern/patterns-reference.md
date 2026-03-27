@@ -13,7 +13,7 @@ from core.utils.errors_simplified import Errors
 class TasksCoreService(BaseService[BackendOperations[Task], Task]):
 
     async def create_task(
-        self, request: TaskCreateRequest, user_uid: str
+        self, request: TaskCreateRequest, user_uid: UserUID
     ) -> Result[Task]:
         """Create a task with full validation."""
         # 1. Input validation
@@ -56,13 +56,13 @@ class TasksCoreService(BaseService[BackendOperations[Task], Task]):
 
         return Result.ok(task)
 
-    async def get_task(self, uid: str, user_uid: str) -> Result[Task]:
+    async def get_task(self, uid: str, user_uid: UserUID) -> Result[Task]:
         """Get task with ownership verification."""
         # Ownership check returns entity or NOT_FOUND
         return await self.verify_ownership(uid, user_uid)
 
     async def update_task(
-        self, uid: str, updates: dict, user_uid: str
+        self, uid: str, updates: dict, user_uid: UserUID
     ) -> Result[Task]:
         """Update task with ownership check."""
         # 1. Verify ownership
@@ -82,7 +82,7 @@ class TasksCoreService(BaseService[BackendOperations[Task], Task]):
 
         return Result.ok(updated)
 
-    async def delete_task(self, uid: str, user_uid: str) -> Result[bool]:
+    async def delete_task(self, uid: str, user_uid: UserUID) -> Result[bool]:
         """Delete task with ownership check."""
         ownership = await self.verify_ownership(uid, user_uid)
         if ownership.is_error:
@@ -97,7 +97,7 @@ class TasksCoreService(BaseService[BackendOperations[Task], Task]):
 class TasksSearchService(BaseService[BackendOperations[Task], Task]):
 
     async def search(
-        self, query: str, user_uid: str, limit: int = 20
+        self, query: str, user_uid: UserUID, limit: int = 20
     ) -> Result[list[Task]]:
         """Search tasks by text query."""
         if not query or len(query.strip()) < 2:
@@ -116,7 +116,7 @@ class TasksSearchService(BaseService[BackendOperations[Task], Task]):
         )
 
     async def get_by_status(
-        self, status: ActivityStatus, user_uid: str
+        self, status: ActivityStatus, user_uid: UserUID
     ) -> Result[list[Task]]:
         """Get tasks by status."""
         result = await self.backend.find_by(
@@ -130,7 +130,7 @@ class TasksSearchService(BaseService[BackendOperations[Task], Task]):
         return Result.ok(result.value or [])
 
     async def intelligent_search(
-        self, query: str, user_uid: str
+        self, query: str, user_uid: UserUID
     ) -> Result[tuple[list[Task], ParsedQuery]]:
         """NLP-based search with automatic filter extraction."""
         # Parse query for keywords
@@ -162,7 +162,7 @@ class TasksSearchService(BaseService[BackendOperations[Task], Task]):
 class TasksIntelligenceService:
 
     async def get_recommendations(
-        self, user_uid: str
+        self, user_uid: UserUID
     ) -> Result[list[TaskRecommendation]]:
         """Get AI-powered task recommendations."""
         # 1. Get user's current tasks
@@ -435,7 +435,7 @@ Result.fail(Errors.system(
 
 ```python
 async def get_task_with_relationships(
-    self, uid: str, user_uid: str
+    self, uid: str, user_uid: UserUID
 ) -> Result[TaskWithContext]:
     # Chain multiple Result-returning operations
     task_result = await self.get_task(uid, user_uid)

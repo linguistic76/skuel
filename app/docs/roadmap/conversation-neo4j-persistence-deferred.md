@@ -89,15 +89,15 @@ class ConversationBackend(UniversalNeo4jBackend[ConversationSession]):
     """
 
     async def get_recent_sessions(
-        self, user_uid: str, limit: int = 5
+        self, user_uid: UserUID, limit: int = 5
     ) -> Result[list[ConversationSession]]: ...
 
     async def get_sessions_for_ku(
-        self, user_uid: str, ku_uid: str
+        self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[ConversationSession]]: ...
 
     async def get_cross_session_summary(
-        self, user_uid: str, ku_uid: str
+        self, user_uid: UserUID, ku_uid: str
     ) -> Result[str]: ...
     # Returns LLM-generated summary of all past sessions on this KU
 ```

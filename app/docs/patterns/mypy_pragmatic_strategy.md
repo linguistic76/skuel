@@ -239,7 +239,7 @@ You should not need to ignore errors — the goal is zero. If an error cannot be
 async def create_task(
     self,
     title: str,
-    user_uid: str
+    user_uid: UserUID
 ) -> Result[Task]:
     """Create a new task."""
     ...
@@ -261,7 +261,7 @@ async def create_task(self, title, user_uid):
 async def create_task(
     self,
     title: str,
-    user_uid: str
+    user_uid: UserUID
 ) -> Result[Task]:
     """Create a new task - refactored with types."""
     ...

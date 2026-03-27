@@ -133,7 +133,7 @@ class EntityDTO:
 @dataclass
 class UserOwnedDTO(EntityDTO):
     """Adds user_uid, visibility, priority."""
-    user_uid: str = ""
+    user_uid: UserUID = ""
     ...
 
 @dataclass
@@ -153,7 +153,7 @@ class Entity:
 @dataclass(frozen=True)
 class UserOwnedEntity(Entity):
     """Adds user_uid, priority. Base for Activity Domains, Submissions, LifePath."""
-    user_uid: str = ""
+    user_uid: UserUID = ""
     ...
 
 @dataclass(frozen=True)
@@ -678,7 +678,7 @@ async def complete_goal(self, uid: str) -> Result[Goal]:
     return await self.backend.update(uid, updates)
 
 # Filter operations - type-safe filter construction
-def render_list_view(user_uid: str) -> Any:
+def render_list_view(user_uid: UserUID) -> Any:
     filters: ActivityFilterSpec = {"status": "active", "sort_by": "created_at"}
     return ListViewComponent(filters=filters)
 ```

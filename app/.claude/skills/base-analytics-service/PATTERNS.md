@@ -83,7 +83,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         return await self.orchestrator.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Analyze habit performance over period."""
         habits = await self.backend.get_user_habits(user_uid)
@@ -137,7 +137,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
     # =========================================================================
 
     async def analyze_streak_patterns(
-        self, user_uid: str, period_days: int = 90
+        self, user_uid: UserUID, period_days: int = 90
     ) -> Result[dict[str, Any]]:
         """Analyze user's streak patterns across all habits."""
         habits = await self.backend.get_user_habits(user_uid)
@@ -308,7 +308,7 @@ class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
     _service_name = "tasks.analytics"
 
     async def get_knowledge_application_opportunities(
-        self, user_uid: str, ku_uid: str
+        self, user_uid: UserUID, ku_uid: str
     ) -> Result[dict[str, Any]]:
         """Find tasks where this knowledge can be applied."""
         self._require_relationship_service("get_knowledge_application_opportunities")
@@ -373,7 +373,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
     async def assess_alignment_dual_track(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         user_level: AlignmentLevel,
         evidence: str,
         reflection: str | None = None,
@@ -393,7 +393,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         )
 
     async def _calculate_system_alignment(
-        self, principle: Principle, user_uid: str
+        self, principle: Principle, user_uid: UserUID
     ) -> tuple[AlignmentLevel, float, list[str]]:
         """Calculate alignment from user's actual behavior."""
         evidence = []
@@ -458,7 +458,7 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
     _service_name = "events.analytics"
 
     async def analyze_event_patterns(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Analyze event completion patterns."""
         events = await self.backend.get_completed_events(user_uid, period_days)

@@ -60,7 +60,7 @@ class PersistedInsight:
 
     # Existing fields
     uid: str
-    user_uid: str
+    user_uid: UserUID
     title: str
     dismissed: bool = False
     actioned: bool = False
@@ -86,7 +86,7 @@ class InsightStore:
     async def dismiss_insight(
         self,
         uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         notes: str = ""  # Optional notes parameter
     ) -> Result[None]:
         """Dismiss insight with optional notes."""
@@ -169,7 +169,7 @@ Retrieve past actions with filtering:
 ```python
 async def get_insight_history(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     history_type: str = "all",  # "all", "dismissed", "actioned"
     limit: int = 50,
 ) -> Result[list[PersistedInsight]]:
@@ -531,7 +531,7 @@ async def restore_insight(request: Request, uid: str) -> Result[Any]:
 Track effectiveness metrics:
 
 ```python
-async def get_insight_effectiveness(self, user_uid: str) -> Result[dict]:
+async def get_insight_effectiveness(self, user_uid: UserUID) -> Result[dict]:
     """Calculate insight effectiveness metrics."""
     query = """
     MATCH (i:Insight {user_uid: $user_uid})

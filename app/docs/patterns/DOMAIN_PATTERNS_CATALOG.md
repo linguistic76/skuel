@@ -209,7 +209,7 @@ class TaskDTO:
 
     # Identity
     uid: str
-    user_uid: str
+    user_uid: UserUID
     title: str
     description: str | None = None
 
@@ -241,7 +241,7 @@ class TaskDTO:
     @classmethod
     def create(
         cls,
-        user_uid: str,
+        user_uid: UserUID,
         title: str,
         priority: Priority = Priority.MEDIUM,
         due_date: date | None = None,
@@ -332,7 +332,7 @@ class Task:
 
     # Identity
     uid: str
-    user_uid: str
+    user_uid: UserUID
     title: str
     description: str | None = None
 
@@ -489,7 +489,7 @@ class Task:
 
 def task_create_request_to_dto(
     request: TaskCreateRequest,
-    user_uid: str,
+    user_uid: UserUID,
 ) -> TaskDTO:
     """Convert Pydantic request → DTO (Tier 1 → Tier 2)."""
     return TaskDTO.create(
@@ -661,7 +661,7 @@ class ExpenseDTO:
 
     # Identity
     uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Finance data
     amount: float
@@ -677,7 +677,7 @@ class ExpenseDTO:
     @classmethod
     def create(
         cls,
-        user_uid: str,
+        user_uid: UserUID,
         amount: float,
         category: str,
         description: str | None = None,
@@ -748,7 +748,7 @@ class FinanceService:
     async def create_expense(
         self,
         request: ExpenseCreateRequest,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[ExpenseDTO]:
         """Create expense (no domain model conversion)."""
 

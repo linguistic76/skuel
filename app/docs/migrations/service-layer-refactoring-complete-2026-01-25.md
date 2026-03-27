@@ -79,7 +79,7 @@ Successfully completed comprehensive refactoring of SKUEL's route layer, moving 
 **Before:**
 ```python
 @rt("/api/context/health")
-async def get_health_route(request: Request, user_uid: str):
+async def get_health_route(request: Request, user_uid: UserUID):
     # ... 27 lines of business logic
     health_score = _calculate_health_score(summary)
     recommendations = _generate_health_recommendations(summary)
@@ -90,7 +90,7 @@ async def get_health_route(request: Request, user_uid: str):
 ```python
 @rt("/api/context/health")
 @boundary_handler()
-async def get_health_route(request: Request, user_uid: str) -> Result[Any]:
+async def get_health_route(request: Request, user_uid: UserUID) -> Result[Any]:
     return await context_service.get_context_health(user_uid)
 ```
 
@@ -418,7 +418,7 @@ All planned refactoring and analysis is complete. The codebase is in a clean, co
 ```python
 @rt("/api/domain/operation")
 @boundary_handler()
-async def operation_route(request: Request, user_uid: str) -> Result[Any]:
+async def operation_route(request: Request, user_uid: UserUID) -> Result[Any]:
     """Brief description."""
     # 1. Validate input
     param = request.query_params.get("param", "default")

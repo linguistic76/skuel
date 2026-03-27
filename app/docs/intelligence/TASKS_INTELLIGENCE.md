@@ -34,7 +34,7 @@ TasksIntelligenceService provides task-specific behavioral insights, performance
 ```python
 async def get_behavioral_insights(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     period_days: int = 90
 ) -> Result[dict[str, Any]]:
 ```
@@ -101,7 +101,7 @@ if result.is_ok:
 ```python
 async def get_performance_analytics(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     period_days: int = 30
 ) -> Result[dict[str, Any]]:
 ```
@@ -270,7 +270,7 @@ if result.is_ok:
 ```python
 async def assess_productivity_dual_track(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     user_productivity_level: ProductivityLevel,
     user_evidence: str,
     user_reflection: str | None = None,

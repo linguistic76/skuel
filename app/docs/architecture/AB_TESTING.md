@@ -314,13 +314,13 @@ group2 = ab_service.get_test_group("new_ui_design_v1", user_uid)
 class ABTestingService:
     def __init__(self, test_configs: dict[str, ABTestConfig] | None = None)
 
-    def get_test_group(self, test_id: str, user_uid: str) -> TestGroup
+    def get_test_group(self, test_id: str, user_uid: UserUID) -> TestGroup
     """Get test group assignment (deterministic)."""
 
-    def is_in_treatment(self, test_id: str, user_uid: str) -> bool
+    def is_in_treatment(self, test_id: str, user_uid: UserUID) -> bool
     """Check if user is in treatment group."""
 
-    def is_in_control(self, test_id: str, user_uid: str) -> bool
+    def is_in_control(self, test_id: str, user_uid: UserUID) -> bool
     """Check if user is in control group."""
 
     def add_test(self, config: ABTestConfig) -> None

@@ -307,7 +307,7 @@ class GoalsLateralService:
         self.goals_service = goals_service
 
     async def create_blocking_relationship(
-        self, blocker_uid: str, blocked_uid: str, reason: str, user_uid: str
+        self, blocker_uid: str, blocked_uid: str, reason: str, user_uid: UserUID
     ) -> Result[bool]:
         for uid in [blocker_uid, blocked_uid]:
             if (await self.goals_service.verify_ownership(uid, user_uid)).is_error:

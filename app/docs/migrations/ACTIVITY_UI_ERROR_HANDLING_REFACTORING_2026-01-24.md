@@ -65,7 +65,7 @@ def render_error_banner(message: str) -> Div:
 ### Data Helpers Return Result[T]
 
 ```python
-async def get_all_{domain}(user_uid: str) -> Result[list[Any]]:
+async def get_all_{domain}(user_uid: UserUID) -> Result[list[Any]]:
     """Get all {domain} for user."""
     try:
         result = await {domain}_service.get_user_{domain}(user_uid)

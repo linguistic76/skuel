@@ -10,7 +10,7 @@ The method compiles and the signature is stable; the body ignores the parameter.
 
 ```python
 async def analyze_habit_performance(
-    self, user_uid: str,
+    self, user_uid: UserUID,
     _period_days: int = 30  # Placeholder - not yet implemented
 ) -> Result[dict[str, Any]]:
 ```

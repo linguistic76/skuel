@@ -220,7 +220,7 @@ from ui.goals.visualization import (
     create_visualization_dashboard,
 )
 
-def analytics_dashboard(user_uid: str):
+def analytics_dashboard(user_uid: UserUID):
     """Complete analytics dashboard."""
     return create_visualization_dashboard(
         user_uid=user_uid,

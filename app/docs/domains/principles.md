@@ -585,7 +585,7 @@ await principles_service.get_conflict_analysis(...)
 class PrincipleReflectionRecorded(BaseEvent):
     reflection_uid: str
     principle_uid: str
-    user_uid: str
+    user_uid: UserUID
     alignment_level: str
     evidence: str
     trigger_type: str | None = None
@@ -600,7 +600,7 @@ class PrincipleConflictRevealed(BaseEvent):
     reflection_uid: str
     principle_uid: str
     conflicting_principle_uid: str
-    user_uid: str
+    user_uid: UserUID
     conflict_context: str | None = None
 ```
 

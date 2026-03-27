@@ -556,7 +556,7 @@ if result.is_ok:
 ```python
 async def assess_progress_dual_track(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     user_progress_level: ProgressLevel,
     user_evidence: str,
     user_reflection: str | None = None,

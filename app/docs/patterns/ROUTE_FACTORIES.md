@@ -474,12 +474,12 @@ Generates a single POST route for quick-add form handling. Each domain provides 
 ```python
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 
-async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
     create_request = parse_task_create_request(form_data)
     return await tasks_service.create_task(create_request, user_uid)
 
-async def render_task_success_view(user_uid: str) -> Any: ...
-async def render_task_add_another_view(user_uid: str) -> Any: ...
+async def render_task_success_view(user_uid: UserUID) -> Any: ...
+async def render_task_add_another_view(user_uid: UserUID) -> Any: ...
 
 config = QuickAddConfig(
     domain_name="tasks",
@@ -504,16 +504,16 @@ Generates 5 dashboard routes from a `DashboardUIConfig` frozen dataclass. Elimin
 ```python
 from adapters.inbound.route_factories import DashboardUIConfig, DashboardUIFactory
 
-async def fetch_choices_context(user_uid: str, filters: ActivityFilters) -> Any:
+async def fetch_choices_context(user_uid: UserUID, filters: ActivityFilters) -> Any:
     return await choices_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
 def build_choices_page_context(svc_ctx: dict[str, Any], filters: ActivityFilters) -> Any:
     return ChoicesPageContext(entities=svc_ctx["entities"], filters=filters.to_dict(), stats=svc_ctx["stats"])
 
-async def render_choices_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+async def render_choices_create(user_uid: UserUID, svc_ctx: dict[str, Any]) -> Any:
     return ChoicesViewComponents.render_create_view(choice_types=CHOICE_TYPES, domains=DOMAINS)
 
-async def render_choices_analytics(user_uid: str, request: Any) -> Any:
+async def render_choices_analytics(user_uid: UserUID, request: Any) -> Any:
     result = await choices_service.get_analytics_context(user_uid)
     if result.is_error:
         return render_error_banner("Failed to load analytics")

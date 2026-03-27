@@ -25,7 +25,7 @@ class TasksAIService(BaseAIService[TasksOperations, Task]):
     async def find_similar_tasks(
         self,
         task_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         top_k: int = 5,
     ) -> Result[list[tuple[Task, float]]]:
         """
@@ -408,7 +408,7 @@ class TasksAIService(BaseAIService[TasksOperations, Task]):
 
     async def get_task_recommendations(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """
         Get task recommendations with fallback.

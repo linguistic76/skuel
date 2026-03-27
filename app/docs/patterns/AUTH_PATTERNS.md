@@ -129,7 +129,7 @@ async def create_knowledge_unit(request, current_user):
 - Checks role hierarchy (403 if insufficient role)
 - Injects `current_user: User` into route kwargs
 
-**Why `current_user: User` instead of `user_uid: str`?**
+**Why `current_user: User` instead of `user_uid: UserUID`?**
 Role checking requires fetching the user from the database anyway, so the decorator provides the full entity to avoid duplicate fetches.
 
 **Do not mix patterns:** When using a role decorator, use `current_user.uid` for the user identifier — do NOT also call `require_authenticated_user(request)`. The decorator already authenticates; the extra call is redundant.
@@ -385,7 +385,7 @@ SKUEL uses **graph-native authentication** where all auth data lives in Neo4j:
 class Session:
     uid: str                    # "session_{hex}"
     session_token: str          # Raw token (cookie only, never stored in Neo4j)
-    user_uid: str               # "user_mike"
+    user_uid: UserUID               # "user_mike"
     created_at: datetime        # UTC-aware
     expires_at: datetime        # UTC-aware
     last_active_at: datetime    # UTC-aware (sliding expiration)

@@ -154,7 +154,7 @@ Is it bad user input (field-level)?
 
 ```python
 async def create_task(self, request: TaskCreateRequest,
-                      user_uid: str) -> Result[Task]:
+                      user_uid: UserUID) -> Result[Task]:
     # Validation - return early
     if not user_uid:
         return Result.fail(
@@ -171,7 +171,7 @@ async def create_task(self, request: TaskCreateRequest,
 ### Pattern 2: Error Propagation
 
 ```python
-async def get_user_tasks(self, user_uid: str) -> Result[list[Task]]:
+async def get_user_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
     result = await self.backend.get_user_tasks(user_uid)
     if result.is_error:
         return result  # Propagate - types align
@@ -227,7 +227,7 @@ async def batch_delete(self, uids: list[str]) -> Result[int]:
 
 ```python
 async def update_for_user(self, uid: str, updates: dict,
-                          user_uid: str) -> Result[Task]:
+                          user_uid: UserUID) -> Result[Task]:
     # verify_ownership returns entity or NotFound error
     ownership = await self.verify_ownership(uid, user_uid)
     if ownership.is_error:

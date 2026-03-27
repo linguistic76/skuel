@@ -373,7 +373,7 @@ class JournalInputService:
     async def create_journal_entry(
         self,
         request: JournalCreateRequest,
-        user_uid: str
+        user_uid: UserUID
     ) -> Result[Journal]:
         result = await self.backend.create(...)
 

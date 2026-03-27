@@ -62,7 +62,7 @@ All search services inherit these methods from `BaseService[Backend, Model]`. Co
 
 ### Core Search Methods
 
-#### `search(query: str, user_uid: str | None, limit: int = 50) -> Result[list[Model]]`
+#### `search(query: str, user_uid: UserUID | None, limit: int = 50) -> Result[list[Model]]`
 Text search across configured `_search_fields`. Orders by `_search_order_by`.
 
 ```python
@@ -82,7 +82,7 @@ request = SearchRequest(
 result = await ku_search.graph_aware_faceted_search(request)
 ```
 
-#### `search_by_tags(tags: list[str], match_all: bool = False, user_uid: str | None = None) -> Result[list[Model]]`
+#### `search_by_tags(tags: list[str], match_all: bool = False, user_uid: UserUID | None = None) -> Result[list[Model]]`
 Array field search with AND/OR semantics.
 
 ```python
@@ -95,28 +95,28 @@ result = await ku_search.search_by_tags(["python", "ml"], match_all=True)
 
 ### Filter Methods
 
-#### `get_by_status(status: str, user_uid: str | None = None) -> Result[list[Model]]`
+#### `get_by_status(status: str, user_uid: UserUID | None = None) -> Result[list[Model]]`
 Filter by status field. Activity domains use `EntityStatus` enum.
 
 ```python
 result = await tasks_search.get_by_status("active", user_uid="user.123")
 ```
 
-#### `get_by_domain(domain: Domain, user_uid: str | None = None) -> Result[list[Model]]`
+#### `get_by_domain(domain: Domain, user_uid: UserUID | None = None) -> Result[list[Model]]`
 Filter by domain field.
 
 ```python
 result = await goals_search.get_by_domain(Domain.HEALTH, user_uid="user.123")
 ```
 
-#### `get_by_category(category: str, user_uid: str | None = None) -> Result[list[Model]]`
+#### `get_by_category(category: str, user_uid: UserUID | None = None) -> Result[list[Model]]`
 Filter by `_category_field` (varies by domain).
 
 ```python
 result = await principles_search.get_by_category("core_values", user_uid="user.123")
 ```
 
-#### `list_categories(user_uid: str | None = None) -> Result[list[str]]`
+#### `list_categories(user_uid: UserUID | None = None) -> Result[list[str]]`
 Get distinct values of `_category_field`.
 
 ```python
@@ -154,7 +154,7 @@ result = await ku_search.get_enables("ku.python-basics")
 # Returns: [KU(uid="ku.oop"), KU(uid="ku.decorators"), ...]
 ```
 
-#### `get_user_progress(uid: str, user_uid: str) -> Result[dict]`
+#### `get_user_progress(uid: str, user_uid: UserUID) -> Result[dict]`
 Get user's progress/mastery for curriculum items (when `_supports_user_progress = True`).
 
 ```python
@@ -224,14 +224,14 @@ _graph_enrichment_patterns = [
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_blocking_tasks` | `(uid: str, user_uid: str) -> Result[list[Task]]` | Tasks blocking this task |
-| `get_blocked_tasks` | `(uid: str, user_uid: str) -> Result[list[Task]]` | Tasks blocked by this task |
-| `get_by_priority` | `(priority: Priority, user_uid: str) -> Result[list[Task]]` | Filter by priority level |
-| `get_overdue` | `(user_uid: str) -> Result[list[Task]]` | Tasks past due date |
-| `get_due_soon` | `(user_uid: str, days: int = 7) -> Result[list[Task]]` | Tasks due within N days |
-| `get_pending` | `(user_uid: str) -> Result[list[Task]]` | Tasks with pending status |
-| `search_by_parent_goal` | `(goal_uid: str, user_uid: str) -> Result[list[Task]]` | Tasks fulfilling a goal |
-| `get_prioritized` | `(user_uid: str, limit: int = 10) -> Result[list[Task]]` | Smart prioritization |
+| `get_blocking_tasks` | `(uid: str, user_uid: UserUID) -> Result[list[Task]]` | Tasks blocking this task |
+| `get_blocked_tasks` | `(uid: str, user_uid: UserUID) -> Result[list[Task]]` | Tasks blocked by this task |
+| `get_by_priority` | `(priority: Priority, user_uid: UserUID) -> Result[list[Task]]` | Filter by priority level |
+| `get_overdue` | `(user_uid: UserUID) -> Result[list[Task]]` | Tasks past due date |
+| `get_due_soon` | `(user_uid: UserUID, days: int = 7) -> Result[list[Task]]` | Tasks due within N days |
+| `get_pending` | `(user_uid: UserUID) -> Result[list[Task]]` | Tasks with pending status |
+| `search_by_parent_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Task]]` | Tasks fulfilling a goal |
+| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Task]]` | Smart prioritization |
 
 ---
 
@@ -255,16 +255,16 @@ _graph_enrichment_patterns = [
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_by_priority` | `(priority: Priority, user_uid: str) -> Result[list[Goal]]` | Filter by priority |
-| `get_by_progress` | `(min_progress: float, max_progress: float, user_uid: str) -> Result[list[Goal]]` | Filter by progress range |
-| `get_by_milestone_status` | `(status: str, user_uid: str) -> Result[list[Goal]]` | Filter by milestone status |
-| `get_active_goals` | `(user_uid: str) -> Result[list[Goal]]` | Active goals only |
-| `get_goals_needing_attention` | `(user_uid: str) -> Result[list[Goal]]` | Stalled or at-risk goals |
-| `get_goals_with_tasks` | `(user_uid: str) -> Result[list[Goal]]` | Goals with linked tasks |
-| `get_aligned_with_principle` | `(principle_uid: str, user_uid: str) -> Result[list[Goal]]` | Goals aligned with principle |
-| `intelligent_search` | `(query: str, user_uid: str, context: dict) -> Result[list[Goal]]` | AI-enhanced search |
-| `list_milestones` | `(goal_uid: str, user_uid: str) -> Result[list[dict]]` | Get goal milestones |
-| `get_prioritized` | `(user_uid: str, limit: int = 10) -> Result[list[Goal]]` | Smart prioritization |
+| `get_by_priority` | `(priority: Priority, user_uid: UserUID) -> Result[list[Goal]]` | Filter by priority |
+| `get_by_progress` | `(min_progress: float, max_progress: float, user_uid: UserUID) -> Result[list[Goal]]` | Filter by progress range |
+| `get_by_milestone_status` | `(status: str, user_uid: UserUID) -> Result[list[Goal]]` | Filter by milestone status |
+| `get_active_goals` | `(user_uid: UserUID) -> Result[list[Goal]]` | Active goals only |
+| `get_goals_needing_attention` | `(user_uid: UserUID) -> Result[list[Goal]]` | Stalled or at-risk goals |
+| `get_goals_with_tasks` | `(user_uid: UserUID) -> Result[list[Goal]]` | Goals with linked tasks |
+| `get_aligned_with_principle` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Goal]]` | Goals aligned with principle |
+| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Goal]]` | AI-enhanced search |
+| `list_milestones` | `(goal_uid: str, user_uid: UserUID) -> Result[list[dict]]` | Get goal milestones |
+| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Goal]]` | Smart prioritization |
 
 ---
 
@@ -287,17 +287,17 @@ _graph_enrichment_patterns = [
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_by_frequency` | `(frequency: str, user_uid: str) -> Result[list[Habit]]` | Filter by frequency (daily/weekly/etc) |
-| `get_by_streak_status` | `(min_streak: int, user_uid: str) -> Result[list[Habit]]` | Filter by streak length |
-| `get_active_habits` | `(user_uid: str) -> Result[list[Habit]]` | Active habits only |
-| `get_habits_needing_attention` | `(user_uid: str) -> Result[list[Habit]]` | Broken streaks or declining |
-| `get_reinforcing_knowledge` | `(ku_uid: str, user_uid: str) -> Result[list[Habit]]` | Habits reinforcing a KU |
-| `get_supporting_goal` | `(goal_uid: str, user_uid: str) -> Result[list[Habit]]` | Habits supporting a goal |
-| `intelligent_search` | `(query: str, user_uid: str, context: dict) -> Result[list[Habit]]` | AI-enhanced search |
-| `get_habits_by_time_of_day` | `(time_of_day: str, user_uid: str) -> Result[list[Habit]]` | Morning/afternoon/evening habits |
-| `get_habit_chain_candidates` | `(habit_uid: str, user_uid: str) -> Result[list[Habit]]` | Potential habit stacking |
-| `get_knowledge_reinforcement_opportunities` | `(user_uid: str) -> Result[list[dict]]` | KU-habit connection opportunities |
-| `get_prioritized` | `(user_uid: str, limit: int = 10) -> Result[list[Habit]]` | Smart prioritization |
+| `get_by_frequency` | `(frequency: str, user_uid: UserUID) -> Result[list[Habit]]` | Filter by frequency (daily/weekly/etc) |
+| `get_by_streak_status` | `(min_streak: int, user_uid: UserUID) -> Result[list[Habit]]` | Filter by streak length |
+| `get_active_habits` | `(user_uid: UserUID) -> Result[list[Habit]]` | Active habits only |
+| `get_habits_needing_attention` | `(user_uid: UserUID) -> Result[list[Habit]]` | Broken streaks or declining |
+| `get_reinforcing_knowledge` | `(ku_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Habits reinforcing a KU |
+| `get_supporting_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Habits supporting a goal |
+| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Habit]]` | AI-enhanced search |
+| `get_habits_by_time_of_day` | `(time_of_day: str, user_uid: UserUID) -> Result[list[Habit]]` | Morning/afternoon/evening habits |
+| `get_habit_chain_candidates` | `(habit_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Potential habit stacking |
+| `get_knowledge_reinforcement_opportunities` | `(user_uid: UserUID) -> Result[list[dict]]` | KU-habit connection opportunities |
+| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Habit]]` | Smart prioritization |
 
 ---
 
@@ -320,16 +320,16 @@ _graph_enrichment_patterns = [
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_upcoming` | `(user_uid: str, days: int = 7) -> Result[list[Event]]` | Events in next N days |
-| `get_past` | `(user_uid: str, days: int = 30) -> Result[list[Event]]` | Events in past N days |
-| `get_by_date_range` | `(start: date, end: date, user_uid: str) -> Result[list[Event]]` | Events in date range |
-| `get_recurring` | `(user_uid: str) -> Result[list[Event]]` | Recurring events only |
-| `get_by_event_type` | `(event_type: str, user_uid: str) -> Result[list[Event]]` | Filter by type |
-| `get_related_to_goal` | `(goal_uid: str, user_uid: str) -> Result[list[Event]]` | Events related to goal |
-| `intelligent_search` | `(query: str, user_uid: str, context: dict) -> Result[list[Event]]` | AI-enhanced search |
-| `get_events_needing_prep` | `(user_uid: str, days: int = 3) -> Result[list[Event]]` | Upcoming events needing preparation |
-| `get_calendar_view` | `(user_uid: str, month: int, year: int) -> Result[dict]` | Calendar-formatted view |
-| `get_prioritized` | `(user_uid: str, limit: int = 10) -> Result[list[Event]]` | Smart prioritization |
+| `get_upcoming` | `(user_uid: UserUID, days: int = 7) -> Result[list[Event]]` | Events in next N days |
+| `get_past` | `(user_uid: UserUID, days: int = 30) -> Result[list[Event]]` | Events in past N days |
+| `get_by_date_range` | `(start: date, end: date, user_uid: UserUID) -> Result[list[Event]]` | Events in date range |
+| `get_recurring` | `(user_uid: UserUID) -> Result[list[Event]]` | Recurring events only |
+| `get_by_event_type` | `(event_type: str, user_uid: UserUID) -> Result[list[Event]]` | Filter by type |
+| `get_related_to_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Event]]` | Events related to goal |
+| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Event]]` | AI-enhanced search |
+| `get_events_needing_prep` | `(user_uid: UserUID, days: int = 3) -> Result[list[Event]]` | Upcoming events needing preparation |
+| `get_calendar_view` | `(user_uid: UserUID, month: int, year: int) -> Result[dict]` | Calendar-formatted view |
+| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Event]]` | Smart prioritization |
 
 ---
 
@@ -353,13 +353,13 @@ _graph_enrichment_patterns = [
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_pending` | `(user_uid: str) -> Result[list[Choice]]` | Undecided choices |
-| `get_by_urgency` | `(urgency: str, user_uid: str) -> Result[list[Choice]]` | Filter by urgency level |
-| `get_affecting_goal` | `(goal_uid: str, user_uid: str) -> Result[list[Choice]]` | Choices affecting a goal |
-| `get_needing_decision` | `(user_uid: str, days: int = 7) -> Result[list[Choice]]` | Choices with deadline approaching |
-| `get_aligned_with_principle` | `(principle_uid: str, user_uid: str) -> Result[list[Choice]]` | Choices aligned with principle |
-| `get_decided` | `(user_uid: str, days: int = 30) -> Result[list[Choice]]` | Recently decided choices |
-| `get_prioritized` | `(user_uid: str, limit: int = 10) -> Result[list[Choice]]` | Smart prioritization |
+| `get_pending` | `(user_uid: UserUID) -> Result[list[Choice]]` | Undecided choices |
+| `get_by_urgency` | `(urgency: str, user_uid: UserUID) -> Result[list[Choice]]` | Filter by urgency level |
+| `get_affecting_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Choice]]` | Choices affecting a goal |
+| `get_needing_decision` | `(user_uid: UserUID, days: int = 7) -> Result[list[Choice]]` | Choices with deadline approaching |
+| `get_aligned_with_principle` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Choice]]` | Choices aligned with principle |
+| `get_decided` | `(user_uid: UserUID, days: int = 30) -> Result[list[Choice]]` | Recently decided choices |
+| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Choice]]` | Smart prioritization |
 
 ---
 
@@ -391,16 +391,16 @@ _graph_enrichment_patterns = [
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_by_strength` | `(min_strength: float, user_uid: str) -> Result[list[Principle]]` | Filter by conviction strength |
-| `get_by_category` | `(category: str, user_uid: str) -> Result[list[Principle]]` | Filter by category |
-| `get_guiding_goals` | `(principle_uid: str, user_uid: str) -> Result[list[Goal]]` | Goals guided by principle |
-| `get_inspiring_habits` | `(principle_uid: str, user_uid: str) -> Result[list[Habit]]` | Habits inspired by principle |
-| `get_for_choice` | `(choice_uid: str, user_uid: str) -> Result[list[Principle]]` | Relevant principles for decision |
-| `get_for_goal` | `(goal_uid: str, user_uid: str) -> Result[list[Principle]]` | Principles aligned with goal |
-| `get_active_principles` | `(user_uid: str) -> Result[list[Principle]]` | Active principles only |
-| `get_needing_review` | `(user_uid: str, days: int = 90) -> Result[list[Principle]]` | Principles not reviewed recently |
-| `get_related_principles` | `(principle_uid: str, user_uid: str) -> Result[list[Principle]]` | Related principles |
-| `get_prioritized` | `(user_uid: str, limit: int = 10) -> Result[list[Principle]]` | Smart prioritization |
+| `get_by_strength` | `(min_strength: float, user_uid: UserUID) -> Result[list[Principle]]` | Filter by conviction strength |
+| `get_by_category` | `(category: str, user_uid: UserUID) -> Result[list[Principle]]` | Filter by category |
+| `get_guiding_goals` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Goal]]` | Goals guided by principle |
+| `get_inspiring_habits` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Habits inspired by principle |
+| `get_for_choice` | `(choice_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Relevant principles for decision |
+| `get_for_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Principles aligned with goal |
+| `get_active_principles` | `(user_uid: UserUID) -> Result[list[Principle]]` | Active principles only |
+| `get_needing_review` | `(user_uid: UserUID, days: int = 90) -> Result[list[Principle]]` | Principles not reviewed recently |
+| `get_related_principles` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Principle]]` | Related principles |
+| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Principle]]` | Smart prioritization |
 
 ---
 
@@ -438,9 +438,9 @@ _graph_enrichment_patterns = [
 | `get_content_chunks` | `(ku_uid: str) -> Result[list[dict]]` | Get all chunks for a KU |
 | `find_similar_content` | `(ku_uid: str, limit: int = 5) -> Result[list[Ku]]` | Semantic similarity search |
 | `search_by_features` | `(features: dict) -> Result[list[Ku]]` | Feature-based search |
-| `search_with_user_context` | `(query: str, user_uid: str) -> Result[list[Ku]]` | Personalized search |
-| `search_with_semantic_intent` | `(intent: str, user_uid: str) -> Result[list[Ku]]` | Intent-based discovery |
-| `get_prioritized` | `(user_uid: str, limit: int = 10) -> Result[list[Ku]]` | Ready-to-learn prioritization |
+| `search_with_user_context` | `(query: str, user_uid: UserUID) -> Result[list[Ku]]` | Personalized search |
+| `search_with_semantic_intent` | `(intent: str, user_uid: UserUID) -> Result[list[Ku]]` | Intent-based discovery |
+| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Ku]]` | Ready-to-learn prioritization |
 
 ---
 
@@ -467,8 +467,8 @@ _graph_enrichment_patterns = [
 |--------|-----------|-------------|
 | `get_for_learning_path` | `(lp_uid: str) -> Result[list[Ls]]` | Steps in a learning path |
 | `get_standalone_steps` | `() -> Result[list[Ls]]` | Steps not in any path |
-| `get_prioritized` | `(user_uid: str, limit: int = 10) -> Result[list[Ls]]` | Ready-to-learn prioritization |
-| `intelligent_search` | `(query: str, user_uid: str, context: dict) -> Result[list[Ls]]` | AI-enhanced search |
+| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Ls]]` | Ready-to-learn prioritization |
+| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Ls]]` | AI-enhanced search |
 
 ---
 
@@ -495,10 +495,10 @@ _graph_enrichment_patterns = [
 |--------|-----------|-------------|
 | `get_by_path_type` | `(path_type: str) -> Result[list[Lp]]` | Filter by path type |
 | `list_by_creator` | `(creator_uid: str) -> Result[list[Lp]]` | Paths by creator |
-| `get_aligned_with_goal` | `(goal_uid: str, user_uid: str) -> Result[list[Lp]]` | Paths aligned with goal |
+| `get_aligned_with_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Lp]]` | Paths aligned with goal |
 | `get_with_steps` | `(lp_uid: str) -> Result[dict]` | Path with full step details |
-| `get_prioritized` | `(user_uid: str, limit: int = 10) -> Result[list[Lp]]` | Recommended paths |
-| `intelligent_search` | `(query: str, user_uid: str, context: dict) -> Result[list[Lp]]` | AI-enhanced search |
+| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Lp]]` | Recommended paths |
+| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Lp]]` | AI-enhanced search |
 
 ---
 
@@ -527,8 +527,8 @@ _graph_enrichment_patterns = [
 | `list_by_creator` | `(creator_uid: str) -> Result[list[Moc]]` | MOCs by creator |
 | `get_related_mocs` | `(moc_uid: str) -> Result[list[Moc]]` | Related MOCs |
 | `get_by_visibility` | `(visibility: str) -> Result[list[Moc]]` | Filter by visibility |
-| `get_prioritized` | `(user_uid: str, limit: int = 10) -> Result[list[Moc]]` | Recommended MOCs |
-| `intelligent_search` | `(query: str, user_uid: str, context: dict) -> Result[list[Moc]]` | AI-enhanced search |
+| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Moc]]` | Recommended MOCs |
+| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Moc]]` | AI-enhanced search |
 
 ---
 

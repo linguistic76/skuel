@@ -332,7 +332,7 @@ class AskesisRecommendation:
     """Prioritized action recommendation."""
     action: str         # Action to take
     entity_type: str    # Domain type
-    entity_uid: str     # Specific entity
+    entity_uid: EntityUID     # Specific entity
     priority: int       # 1 (highest) to 5 (lowest)
     reasoning: str      # Why this action
 

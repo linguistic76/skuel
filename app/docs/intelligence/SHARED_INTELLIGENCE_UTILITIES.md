@@ -72,7 +72,7 @@ This implements SKUEL's core philosophy: *"The user's vision is understood via w
 async def _dual_track_assessment(
     self,
     uid: str,
-    user_uid: str,
+    user_uid: UserUID,
     # USER-DECLARED (Vision)
     user_level: L,              # User's self-reported level (enum)
     user_evidence: str,         # User's evidence for assessment
@@ -118,7 +118,7 @@ from core.models.shared.dual_track import DualTrackResult
 async def assess_alignment_dual_track(
     self,
     principle_uid: str,
-    user_uid: str,
+    user_uid: UserUID,
     user_level: AlignmentLevel,
     evidence: str,
     reflection: str | None = None,
@@ -136,7 +136,7 @@ async def assess_alignment_dual_track(
     )
 
 async def _calculate_system_alignment(
-    self, principle: Principle, user_uid: str
+    self, principle: Principle, user_uid: UserUID
 ) -> tuple[AlignmentLevel, float, list[str]]:
     """
     Calculate alignment from behavior (goals, choices, habits).

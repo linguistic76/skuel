@@ -259,7 +259,7 @@ This is **borderline acceptable** because:
 ```python
 @rt("/api/context/health")
 @boundary_handler()
-async def get_context_health_route(request: Request, user_uid: str) -> Result[Any]:
+async def get_context_health_route(request: Request, user_uid: UserUID) -> Result[Any]:
     """Get overall context system health metrics."""
     return await context_service.get_context_health(user_uid)
 ```

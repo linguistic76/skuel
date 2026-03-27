@@ -76,7 +76,7 @@ def validate_{domain}_form_data(form_data: dict[str, Any]) -> Result[None]:
 
 **Usage in form handlers:**
 ```python
-async def create_{domain}_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+async def create_{domain}_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
     # VALIDATE EARLY
     validation_result = validate_{domain}_form_data(form_data)
     if validation_result.is_error:

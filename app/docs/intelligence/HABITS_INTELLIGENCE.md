@@ -352,7 +352,7 @@ alignment_score = min(10.0, goal_count × 2.0 × consistency_score)
 ```python
 async def assess_consistency_dual_track(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     user_consistency_level: ConsistencyLevel,
     user_evidence: str,
     user_reflection: str | None = None,
@@ -647,7 +647,7 @@ assert service.relationships == relationships
 **Signature:**
 ```python
 async def get_zpd_knowledge_signals(
-    self, user_uid: str
+    self, user_uid: UserUID
 ) -> Result[dict[str, Any]]:
 ```
 

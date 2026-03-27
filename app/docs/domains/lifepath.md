@@ -106,7 +106,7 @@ LifePathService (Facade)
 ```python
 @dataclass(frozen=True)
 class LifePathDesignation:
-    user_uid: str
+    user_uid: UserUID
 
     # THE VISION (user's own words)
     vision_statement: str

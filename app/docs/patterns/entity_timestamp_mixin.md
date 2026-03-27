@@ -71,7 +71,7 @@ class MyService(EntityTimestampMixin):
 ```python
 class MyService(EntityTimestampMixin):
 
-    async def create(self, entity: Task, user_uid: str) -> Result[Task]:
+    async def create(self, entity: Task, user_uid: UserUID) -> Result[Task]:
         # Set metadata on frozen dataclass (uses object.__setattr__)
         entity = self.set_entity_metadata(
             entity,

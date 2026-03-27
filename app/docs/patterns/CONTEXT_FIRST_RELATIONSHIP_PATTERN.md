@@ -581,7 +581,7 @@ Container for categorized dependency analysis:
 ```python
 @dataclass(frozen=True)
 class ContextualDependencies:
-    entity_uid: str
+    entity_uid: EntityUID
     entity_type: str  # "Task", "Goal", "Habit", etc.
 
     # Categorized by readiness

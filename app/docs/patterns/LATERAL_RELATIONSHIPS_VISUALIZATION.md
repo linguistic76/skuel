@@ -120,7 +120,7 @@ EntityRelationshipsSection(
 **Key Features:**
 ```python
 def EntityRelationshipsSection(
-    entity_uid: str,
+    entity_uid: EntityUID,
     entity_type: str,
     show_blocking_chain: bool = True,
     show_alternatives: bool = True,

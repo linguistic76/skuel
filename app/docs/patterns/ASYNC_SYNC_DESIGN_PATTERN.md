@@ -97,7 +97,7 @@ async def get(self, uid: str) -> Result[T]:
     """Calls backend - must be async"""
     return await self.backend.get(uid)
 
-async def verify_ownership(self, uid: str, user_uid: str) -> Result[T]:
+async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[T]:
     """Calls backend - must be async"""
     result = await self.backend.get(uid)
     # ... ownership check logic

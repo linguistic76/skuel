@@ -82,16 +82,16 @@ This design prevents information leakage. An attacker can't determine if a UID e
 ```python
 # core/services/base_service.py
 
-async def verify_ownership(self, uid: str, user_uid: str) -> Result[T]:
+async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[T]:
     """Verify entity exists AND belongs to user. Returns entity or NotFound."""
 
-async def get_for_user(self, uid: str, user_uid: str) -> Result[T]:
+async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[T]:
     """Get entity only if owned by user."""
 
-async def update_for_user(self, uid: str, updates: dict, user_uid: str) -> Result[T]:
+async def update_for_user(self, uid: str, updates: dict, user_uid: UserUID) -> Result[T]:
     """Update entity only if owned by user."""
 
-async def delete_for_user(self, uid: str, user_uid: str) -> Result[bool]:
+async def delete_for_user(self, uid: str, user_uid: UserUID) -> Result[bool]:
     """Delete entity only if owned by user."""
 ```
 
@@ -279,7 +279,7 @@ from adapters.inbound.auth import with_ownership
 @rt("/api/goals/{uid}/progress")
 @with_ownership(lambda: goals_service)
 @boundary_handler()
-async def update_goal_progress(request, user_uid: str, entity: Goal):
+async def update_goal_progress(request, user_uid: UserUID, entity: Goal):
     """Entity is pre-verified to belong to user_uid."""
     body = await request.json()
     return await goals_service.update_goal_progress(entity.uid, body["progress"])
@@ -292,7 +292,7 @@ so they implement `verify_ownership()` directly — same logic, same error seman
 
 ```python
 # core/services/transcription/transcription_service.py
-async def verify_ownership(self, uid: str, user_uid: str) -> Result[Transcription]:
+async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Transcription]:
     result = await self.get(uid)
     if result.is_error:
         return Result.fail(result)
@@ -322,7 +322,7 @@ Entities supporting ownership must have a `user_uid` field:
 @dataclass(frozen=True)
 class Task:
     uid: str
-    user_uid: str  # REQUIRED for ownership verification
+    user_uid: UserUID  # REQUIRED for ownership verification
     title: str
     # ...
 ```

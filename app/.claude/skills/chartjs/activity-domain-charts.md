@@ -32,7 +32,7 @@ Each activity domain has unique metrics that benefit from different chart types:
 ```python
 from ui.goals.visualization import create_chart_view
 
-def task_completion_chart(user_uid: str, period: str = "week"):
+def task_completion_chart(user_uid: UserUID, period: str = "week"):
     """Task completion rate over time."""
     return create_chart_view(
         data_url=f"/api/visualizations/completion?user_uid={user_uid}&period={period}",
@@ -60,7 +60,7 @@ def task_completion_chart(user_uid: str, period: str = "week"):
 ### Priority Distribution (Doughnut)
 
 ```python
-def priority_distribution_chart(user_uid: str):
+def priority_distribution_chart(user_uid: UserUID):
     """Task priority breakdown."""
     return create_chart_view(
         data_url=f"/api/visualizations/priority-distribution?user_uid={user_uid}",
@@ -78,7 +78,7 @@ def priority_distribution_chart(user_uid: str):
 ### Status Breakdown (Pie)
 
 ```python
-def status_breakdown_chart(user_uid: str):
+def status_breakdown_chart(user_uid: UserUID):
     """Task status distribution."""
     return create_chart_view(
         data_url=f"/api/visualizations/status-distribution?user_uid={user_uid}",
@@ -90,7 +90,7 @@ def status_breakdown_chart(user_uid: str):
 ### Complete Tasks Dashboard
 
 ```python
-def tasks_analytics_dashboard(user_uid: str):
+def tasks_analytics_dashboard(user_uid: UserUID):
     """Full tasks analytics page."""
     return Div(
         H1("Tasks Analytics", cls="text-2xl font-bold mb-6"),
@@ -134,7 +134,7 @@ def tasks_analytics_dashboard(user_uid: str):
 ### Goal Progress Trend (Line)
 
 ```python
-def goal_progress_chart(user_uid: str, goal_uid: str | None = None):
+def goal_progress_chart(user_uid: UserUID, goal_uid: str | None = None):
     """Goal progress over time."""
     url = f"/api/goals/progress-trend?user_uid={user_uid}"
     if goal_uid:
@@ -165,7 +165,7 @@ def milestone_chart(goal_uid: str):
 ### Goal Status Distribution (Doughnut)
 
 ```python
-def goal_status_chart(user_uid: str):
+def goal_status_chart(user_uid: UserUID):
     """Distribution of goal statuses."""
     # Custom endpoint needed - not in default visualization routes
     return create_chart_view(
@@ -194,7 +194,7 @@ The signature chart for habits - comparing current vs best streaks:
 ```python
 from ui.goals.visualization import create_streak_chart
 
-def habit_streaks(user_uid: str):
+def habit_streaks(user_uid: UserUID):
     """Habit streak comparison chart."""
     return create_streak_chart(
         user_uid=user_uid,
@@ -232,7 +232,7 @@ def habit_streaks(user_uid: str):
 Chart.js doesn't have native heatmaps, but you can simulate with a matrix:
 
 ```python
-def habit_weekly_pattern(user_uid: str, habit_uid: str):
+def habit_weekly_pattern(user_uid: UserUID, habit_uid: str):
     """Weekly completion pattern."""
     # Use bar chart with days of week
     return create_chart_view(
@@ -245,7 +245,7 @@ def habit_weekly_pattern(user_uid: str, habit_uid: str):
 ### Habit Category Breakdown (Doughnut)
 
 ```python
-def habit_categories_chart(user_uid: str):
+def habit_categories_chart(user_uid: UserUID):
     """Habits by category."""
     return create_chart_view(
         data_url=f"/api/habits/category-distribution?user_uid={user_uid}",
@@ -257,7 +257,7 @@ def habit_categories_chart(user_uid: str):
 ### Complete Habits Dashboard
 
 ```python
-def habits_analytics_dashboard(user_uid: str):
+def habits_analytics_dashboard(user_uid: UserUID):
     """Full habits analytics page."""
     return Div(
         H1("Habits Analytics", cls="text-2xl font-bold mb-6"),
@@ -300,7 +300,7 @@ def habits_analytics_dashboard(user_uid: str):
 ### Hours by Week (Bar)
 
 ```python
-def event_hours_chart(user_uid: str):
+def event_hours_chart(user_uid: UserUID):
     """Scheduled hours per week."""
     return create_chart_view(
         data_url=f"/api/events/hours-by-week?user_uid={user_uid}",
@@ -312,7 +312,7 @@ def event_hours_chart(user_uid: str):
 ### Event Type Distribution (Pie)
 
 ```python
-def event_types_chart(user_uid: str):
+def event_types_chart(user_uid: UserUID):
     """Event types breakdown."""
     return create_chart_view(
         data_url=f"/api/events/type-distribution?user_uid={user_uid}",
@@ -335,7 +335,7 @@ def event_types_chart(user_uid: str):
 ### Decision Status (Doughnut)
 
 ```python
-def choice_status_chart(user_uid: str):
+def choice_status_chart(user_uid: UserUID):
     """Pending vs decided choices."""
     return create_chart_view(
         data_url=f"/api/choices/status-distribution?user_uid={user_uid}",
@@ -347,7 +347,7 @@ def choice_status_chart(user_uid: str):
 ### Choices by Domain (Bar)
 
 ```python
-def choices_by_domain_chart(user_uid: str):
+def choices_by_domain_chart(user_uid: UserUID):
     """Choices categorized by life domain."""
     return create_chart_view(
         data_url=f"/api/choices/by-domain?user_uid={user_uid}",
@@ -372,7 +372,7 @@ def choices_by_domain_chart(user_uid: str):
 Radar charts are ideal for showing principle alignment across categories:
 
 ```python
-def principle_alignment_radar(user_uid: str):
+def principle_alignment_radar(user_uid: UserUID):
     """Multi-dimensional principle alignment."""
     return Div(
         H3("Principle Alignment", cls="text-lg font-semibold mb-2"),
@@ -411,7 +411,7 @@ def principle_alignment_radar(user_uid: str):
 ### Strength Distribution (Doughnut)
 
 ```python
-def principle_strength_chart(user_uid: str):
+def principle_strength_chart(user_uid: UserUID):
     """Principle strength levels."""
     return create_chart_view(
         data_url=f"/api/principles/strength-distribution?user_uid={user_uid}",
@@ -427,7 +427,7 @@ def principle_strength_chart(user_uid: str):
 Combining charts from multiple domains:
 
 ```python
-def life_analytics_dashboard(user_uid: str):
+def life_analytics_dashboard(user_uid: UserUID):
     """Cross-domain life analytics."""
     return Div(
         H1("Life Analytics", cls="text-2xl font-bold mb-6"),
@@ -500,7 +500,7 @@ async def get_new_metric(request: Request):
 ### 2. Create FastHTML Component
 
 ```python
-def new_metric_chart(user_uid: str):
+def new_metric_chart(user_uid: UserUID):
     """Description of what this chart shows."""
     return create_chart_view(
         data_url=f"/api/visualizations/domain/new-metric?user_uid={user_uid}",
@@ -512,7 +512,7 @@ def new_metric_chart(user_uid: str):
 ### 3. Add to Dashboard
 
 ```python
-def domain_dashboard(user_uid: str):
+def domain_dashboard(user_uid: UserUID):
     return Div(
         # Existing charts...
         new_metric_chart(user_uid),

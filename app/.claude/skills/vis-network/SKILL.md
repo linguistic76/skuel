@@ -269,7 +269,7 @@ SKUEL's Vis.js integration follows a clean three-layer architecture where each l
 ```python
 async def get_relationship_graph(
     self,
-    entity_uid: str,
+    entity_uid: EntityUID,
     depth: int = 1,
     relationship_types: list[str] | None = None,
 ) -> Result[dict[str, Any]]:

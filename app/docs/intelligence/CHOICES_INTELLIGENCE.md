@@ -498,7 +498,7 @@ if batch_result.is_ok:
 ```python
 async def assess_decision_quality_dual_track(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     user_decision_quality_level: DecisionQualityLevel,
     user_evidence: str,
     user_reflection: str | None = None,
@@ -612,7 +612,7 @@ POST /api/choices/assess-decision-quality
 **Signature:**
 ```python
 async def get_decision_patterns(
-    self, user_uid: str, days: int = 90
+    self, user_uid: UserUID, days: int = 90
 ) -> Result[dict[str, Any]]:
 ```
 
@@ -627,7 +627,7 @@ async def get_decision_patterns(
 **Signature:**
 ```python
 async def get_choice_quality_correlations(
-    self, user_uid: str, days: int = 90
+    self, user_uid: UserUID, days: int = 90
 ) -> Result[dict[str, Any]]:
 ```
 
@@ -640,7 +640,7 @@ async def get_choice_quality_correlations(
 **Signature:**
 ```python
 async def get_domain_decision_patterns(
-    self, user_uid: str, days: int = 90
+    self, user_uid: UserUID, days: int = 90
 ) -> Result[dict[str, Any]]:
 ```
 
@@ -653,7 +653,7 @@ async def get_domain_decision_patterns(
 **Signature:**
 ```python
 async def analyze_principle_adherence(
-    self, user_uid: str, period_days: int = 90
+    self, user_uid: UserUID, period_days: int = 90
 ) -> Result[dict[str, Any]]:
 ```
 
@@ -668,7 +668,7 @@ async def analyze_principle_adherence(
 **Signature:**
 ```python
 async def detect_principle_choice_conflicts(
-    self, choice_uid: str, user_uid: str
+    self, choice_uid: str, user_uid: UserUID
 ) -> Result[dict[str, Any]]:
 ```
 
@@ -683,7 +683,7 @@ async def detect_principle_choice_conflicts(
 **Signature:**
 ```python
 async def predict_decision_quality(
-    self, choice_uid: str, user_uid: str
+    self, choice_uid: str, user_uid: UserUID
 ) -> Result[dict[str, Any]]:
 ```
 
@@ -704,7 +704,7 @@ async def predict_decision_quality(
 **Signature:**
 ```python
 async def calculate_life_path_contribution_via_principles(
-    self, choice_uid: str, user_uid: str
+    self, choice_uid: str, user_uid: UserUID
 ) -> Result[dict[str, Any]]:
 ```
 
@@ -719,7 +719,7 @@ async def calculate_life_path_contribution_via_principles(
 **Signature:**
 ```python
 async def get_zpd_behavioral_signals(
-    self, user_uid: str
+    self, user_uid: UserUID
 ) -> Result[dict[str, Any]]:
 ```
 

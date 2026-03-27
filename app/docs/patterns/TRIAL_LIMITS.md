@@ -68,7 +68,7 @@ trial_limits = create_trial_limits_service(
 ### Check Limit Before Creation
 
 ```python
-async def create_task(self, user_uid: str, data: TaskCreateRequest) -> Result[Task]:
+async def create_task(self, user_uid: UserUID, data: TaskCreateRequest) -> Result[Task]:
     # Check trial limit first
     limit_check = await trial_limits.check_limit(user_uid, "task")
     if limit_check.is_error:

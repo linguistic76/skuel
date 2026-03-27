@@ -955,12 +955,12 @@ def render_error_banner(message: str) -> Div:
 ```python
 from adapters.inbound.ui_helpers import fetch_user_entities
 
-async def get_all_goals(user_uid: str) -> Result[list[Any]]:
+async def get_all_goals(user_uid: UserUID) -> Result[list[Any]]:
     """Get all goals for user."""
     return await fetch_user_entities(goals_service.get_user_goals, "goals", user_uid, logger)
 
 # For optional services, pass None when service is unavailable:
-async def get_all_events(user_uid: str) -> Result[list[Any]]:
+async def get_all_events(user_uid: UserUID) -> Result[list[Any]]:
     service_method = events_service.get_user_events if events_service else None
     return await fetch_user_entities(service_method, "events", user_uid, logger)
 ```
@@ -1210,7 +1210,7 @@ Module-level helpers keep route handlers thin. The shared primitives in `form_he
 
 ```python
 # Route handler stays thin:
-async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
     create_request = parse_task_create_request(form_data)
     return await tasks_service.create_task(create_request, user_uid)
 ```

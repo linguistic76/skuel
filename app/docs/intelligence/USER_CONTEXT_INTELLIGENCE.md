@@ -964,7 +964,7 @@ plan = await intelligence.get_ready_to_work_on_today()
 UserService uses the factory to create intelligence instances:
 
 ```python
-async def get_daily_plan(self, user_uid: str) -> Result[DailyWorkPlan]:
+async def get_daily_plan(self, user_uid: UserUID) -> Result[DailyWorkPlan]:
     """Get daily work plan for user."""
     # Build context
     context = await self.get_user_context(user_uid)
@@ -983,7 +983,7 @@ async def get_daily_plan(self, user_uid: str) -> Result[DailyWorkPlan]:
 Askesis (AI coach) uses UserContextIntelligence for recommendations:
 
 ```python
-async def get_coaching_recommendations(self, user_uid: str):
+async def get_coaching_recommendations(self, user_uid: UserUID):
     """Get AI coaching recommendations."""
     context = await self.user_service.get_user_context(user_uid)
     intelligence = self.context_intelligence.create(context)

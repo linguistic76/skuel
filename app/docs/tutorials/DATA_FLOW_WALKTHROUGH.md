@@ -143,7 +143,7 @@ body: TaskCreateRequest = TaskCreateRequest(
 async def create_task(
     self,
     request: TaskCreateRequest,  # ← Tier 1 (Pydantic)
-    user_uid: str,
+    user_uid: UserUID,
 ) -> Result[TaskDTO]:  # ← Returns Tier 2 (DTO)
     """
     Create a new task.
@@ -163,7 +163,7 @@ async def create_task(
 ```python
 def task_create_request_to_dto(
     request: TaskCreateRequest,  # ← Tier 1 (Pydantic)
-    user_uid: str,
+    user_uid: UserUID,
 ) -> TaskDTO:  # ← Tier 2 (DTO)
     """Convert Pydantic request to mutable DTO."""
 

@@ -110,7 +110,7 @@ async def create_subtask_relationship(self, parent_uid, subtask_uid, progress_we
         parent_uid, subtask_uid, {"progress_weight": progress_weight}
     )
 
-async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
     return await self.backend.get_stats_for_user(user_uid)
 ```
 
@@ -171,7 +171,7 @@ class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
         """Get task with full graph neighborhood."""
         ...
 
-    async def get_behavioral_insights(self, user_uid: str) -> Result[dict]:
+    async def get_behavioral_insights(self, user_uid: UserUID) -> Result[dict]:
         """Task completion patterns analysis."""
         ...
 ```

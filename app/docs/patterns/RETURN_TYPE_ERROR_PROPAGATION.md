@@ -52,7 +52,7 @@ error: Incompatible return value type (got "Result[None]", expected "Result[T]")
 
 ```python
 async def calculate_readiness_for_knowledge(
-    self, user_uid: str, knowledge_uid: str
+    self, user_uid: UserUID, knowledge_uid: str
 ) -> Result[float]:
     profile_result = await self.build_user_knowledge_profile(user_uid)
     if profile_result.is_error:

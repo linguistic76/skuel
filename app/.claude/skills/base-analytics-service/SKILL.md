@@ -241,7 +241,7 @@ Compare user self-assessment (vision) with system measurement (action):
 
 ```python
 async def assess_alignment_dual_track(
-    self, principle_uid: str, user_uid: str, user_level: AlignmentLevel, ...
+    self, principle_uid: str, user_uid: UserUID, user_level: AlignmentLevel, ...
 ) -> Result[DualTrackResult[AlignmentLevel]]:
     return await self._dual_track_assessment(
         uid=principle_uid,
@@ -278,7 +278,7 @@ Analyze patterns across a user's entities:
 
 ```python
 async def get_behavioral_insights(
-    self, user_uid: str, period_days: int = 90
+    self, user_uid: UserUID, period_days: int = 90
 ) -> Result[dict]:
     """Analyze user's task completion patterns."""
     tasks = await self.backend.get_user_tasks(user_uid, period_days)
@@ -298,7 +298,7 @@ Connect insights across multiple domains:
 
 ```python
 async def get_knowledge_application_opportunities(
-    self, user_uid: str, ku_uid: str
+    self, user_uid: UserUID, ku_uid: str
 ) -> Result[dict]:
     """Find tasks and habits that could apply this knowledge."""
     self._require_relationship_service("get_knowledge_application_opportunities")
@@ -323,7 +323,7 @@ Compute metrics and trends using pure Python:
 
 ```python
 async def get_performance_analytics(
-    self, user_uid: str, period_days: int = 30
+    self, user_uid: UserUID, period_days: int = 30
 ) -> Result[dict]:
     """Calculate performance metrics."""
     tasks = await self.backend.get_completed_tasks(user_uid, period_days)
@@ -406,7 +406,7 @@ async def get_with_context(
     return await self.orchestrator.get_with_context(uid=uid, depth=depth)
 
 async def get_performance_analytics(
-    self, user_uid: str, period_days: int = 30
+    self, user_uid: UserUID, period_days: int = 30
 ) -> Result[dict[str, Any]]:
     """Get user-specific analytics."""
     ...
@@ -559,7 +559,7 @@ class NewDomainIntelligenceService(
         return await self.orchestrator.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         entities = await self.backend.get_user_entities(user_uid, period_days)
         if entities.is_error:

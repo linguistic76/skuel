@@ -486,7 +486,7 @@ result = await self.learning_helper.create_batch_with_learning_alignment(
 **Signature:**
 ```python
 async def get_learning_supporting_entities(
-    user_uid: str,
+    user_uid: UserUID,
     learning_position: LpPosition,
 ) -> Result[list[T]]
 ```
@@ -550,7 +550,7 @@ async def suggest_learning_aligned_entities(
 **Signature:**
 ```python
 async def assess_learning_alignment(
-    entity_uid: str,
+    entity_uid: EntityUID,
     learning_position: LpPosition,
 ) -> Result[dict[str, Any]]
 ```
@@ -917,7 +917,7 @@ self.learning_helper = LearningAlignmentBridge[Event, EventDTO, EventCreateReque
 # In create_study_session() - Single creation with custom fields
 async def create_study_session(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     knowledge_uids: list[str],
     event_date: date,
     learning_path_uid: str | None = None,
@@ -952,7 +952,7 @@ async def create_study_session(
 # In create_learning_path_schedule() - Batch creation
 async def create_learning_path_schedule(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     learning_path_uid: str,
     study_hours_per_week: int = 5,
 ) -> Result[list[Event]]:

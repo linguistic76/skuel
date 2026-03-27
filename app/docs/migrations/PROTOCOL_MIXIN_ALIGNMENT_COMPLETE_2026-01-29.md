@@ -63,10 +63,10 @@ Total: 29/29 PASSED (100%)
 - `search()`: Removed `user_uid` parameter, updated default `limit=50`
 - `search_by_tags()`: Added `match_all: bool = False` and `limit: int = 50`
 - `get_by_status()`: Updated to `status: str, limit: int = 100`
-- `get_by_category()`: Updated to `category: str, user_uid: str | None, limit: int`
+- `get_by_category()`: Updated to `category: str, user_uid: UserUID | None, limit: int`
 - `get_by_relationship()`: Updated to `related_uid, relationship_type, direction`
 - `search_connected_to()`: Updated to `query, related_uid, relationship_type, direction, limit`
-- `graph_aware_faceted_search()`: Updated to `request: Any, user_uid: str`
+- `graph_aware_faceted_search()`: Updated to `request: Any, user_uid: UserUID`
 - `list_categories()`: **REMOVED** (doesn't exist in mixin)
 
 **Result:** ✅ All tests pass

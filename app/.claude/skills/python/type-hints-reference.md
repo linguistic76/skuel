@@ -266,7 +266,7 @@ from core.ports.query_types import (
 # Protocol methods use these as return types instead of dict[str, Any]
 async def get_dashboard_stats(self, teacher_uid: str) -> Result[TeacherDashboardStats]: ...
 async def sign_in(self, email: str, password: str) -> Result[SignInResult]: ...
-async def get_full_status(self, user_uid: str) -> Result[LifePathStatus]: ...
+async def get_full_status(self, user_uid: UserUID) -> Result[LifePathStatus]: ...
 ```
 
 ## Final and ClassVar
@@ -321,16 +321,23 @@ def get(uid: str, default: T | None = None) -> Task | T | None:
 ```python
 from typing import NewType
 
-# Create distinct types for type checking
-UserUID = NewType("UserUID", str)
-TaskUID = NewType("TaskUID", str)
+# Create distinct types for type checking (from core/models/type_hints.py)
+UserUID = NewType("UserUID", str)     # User identity — auth boundary creates these
+EntityUID = NewType("EntityUID", str) # Entity identity — generic entity references
 
-def get_user_tasks(user_uid: UserUID) -> list[Task]:
-    ...
+# All protocols, services, backends use typed UIDs:
+async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[T]: ...
+async def get_context(self, entity_uid: EntityUID) -> Result[dict]: ...
 
-# Type checker catches this mistake
+# Auth creates UserUID at the boundary:
+user_uid: UserUID = require_authenticated_user(request)
+
+# Dataclass defaults use type: ignore (frozen pattern):
+user_uid: UserUID = ""  # type: ignore[assignment]
+
+# Type checker catches identity mixing:
 task_uid = TaskUID("task:123")
-get_user_tasks(task_uid)  # Type error!
+get_user_tasks(task_uid)  # Type error! TaskUID != UserUID
 ```
 
 ## Type Guards

@@ -230,7 +230,7 @@ The Dual-Track Assessment Pattern implements this philosophy by comparing **user
 async def _dual_track_assessment(
     self,
     uid: str,
-    user_uid: str,
+    user_uid: UserUID,
     # USER-DECLARED (Vision)
     user_level: Any,
     user_evidence: str,
@@ -255,7 +255,7 @@ async def _dual_track_assessment(
 ```python
 @dataclass(frozen=True)
 class DualTrackResult(Generic[L]):
-    entity_uid: str
+    entity_uid: EntityUID
     entity_type: str
 
     # USER-DECLARED (Vision)
@@ -711,7 +711,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 2. Open `/core/services/{domain}/{domain}_intelligence_service.py`
 3. Add method following pattern:
    ```python
-   async def get_new_insight(self, user_uid: str, ...) -> Result[dict[str, Any]]:
+   async def get_new_insight(self, user_uid: UserUID, ...) -> Result[dict[str, Any]]:
        self._require_graph_intelligence("get_new_insight")
        # Implementation
        return Result.ok({"insight": data})

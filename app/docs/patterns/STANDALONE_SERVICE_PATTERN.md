@@ -81,18 +81,18 @@ class TranscriptionService:
         self.event_bus = event_bus
 
     # CRUD - focused, minimal
-    async def create(self, request: TranscriptionCreateRequest, user_uid: str) -> Result[Transcription]: ...
+    async def create(self, request: TranscriptionCreateRequest, user_uid: UserUID) -> Result[Transcription]: ...
     async def get(self, uid: str) -> Result[Transcription | None]: ...
     async def delete(self, uid: str) -> Result[bool]: ...
-    async def list(self, user_uid: str, status: str | None, limit: int, offset: int) -> Result[list[Transcription]]: ...
+    async def list(self, user_uid: UserUID, status: str | None, limit: int, offset: int) -> Result[list[Transcription]]: ...
 
     # Processing - the core job
     async def process(self, uid: str, options: ProcessingOptions | None) -> Result[Transcription]: ...
     async def retry(self, uid: str) -> Result[Transcription]: ...
 
     # Query
-    async def search(self, query: str, user_uid: str, limit: int) -> Result[list[Transcription]]: ...
-    async def get_by_status(self, status: str, user_uid: str, limit: int) -> Result[list[Transcription]]: ...
+    async def search(self, query: str, user_uid: UserUID, limit: int) -> Result[list[Transcription]]: ...
+    async def get_by_status(self, status: str, user_uid: UserUID, limit: int) -> Result[list[Transcription]]: ...
 ```
 
 ---
@@ -179,7 +179,7 @@ from core.events.base_event import BaseEvent
 @dataclass(frozen=True)
 class TranscriptionCompleted(BaseEvent):
     transcription_uid: str
-    user_uid: str
+    user_uid: UserUID
     transcript_text: str
     audio_file_path: str
     confidence_score: float
@@ -189,7 +189,7 @@ class TranscriptionCompleted(BaseEvent):
 @dataclass(frozen=True)
 class TranscriptionFailed(BaseEvent):
     transcription_uid: str
-    user_uid: str
+    user_uid: UserUID
     error_message: str
     audio_file_path: str
 ```

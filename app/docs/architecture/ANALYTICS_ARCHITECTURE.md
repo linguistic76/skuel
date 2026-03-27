@@ -283,7 +283,7 @@ Analytics are generated on-demand:
 @dataclass(frozen=True)
 class AnalyticsSummary:
     uid: str
-    user_uid: str
+    user_uid: UserUID
     analytics_domain: AnalyticsDomain
     period_start: date
     period_end: date

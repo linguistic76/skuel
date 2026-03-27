@@ -26,19 +26,19 @@ Implemented by `ActivityKnowledgeIntelligenceService` — a single instance wire
 @runtime_checkable
 class KnowledgeIntelligenceOperations(Protocol):
     async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> Result[KnowledgeSuggestionsResult]: ...
 
     async def get_knowledge_prerequisites(
-        self, entity_uid: str
+        self, entity_uid: EntityUID
     ) -> Result[KnowledgePrerequisitesResult]: ...
 
     async def generate_knowledge_from_entities(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[KnowledgeGenerationResult]: ...
 
     async def get_learning_opportunities(
-        self, user_uid: str
+        self, user_uid: UserUID
     ) -> Result[LearningOpportunitiesResult]: ...
 ```
 
@@ -58,23 +58,23 @@ class DomainIntelligenceOperations(Protocol):
     ) -> Result[list[str]]: ...
 
     async def get_learning_velocity(
-        self, user_uid: str, period_days: int = 90
+        self, user_uid: UserUID, period_days: int = 90
     ) -> Result[LearningVelocityMetrics]: ...
 
     async def get_behavioral_insights(
-        self, user_uid: str, period_days: int = 90
+        self, user_uid: UserUID, period_days: int = 90
     ) -> Result[BehavioralInsightsResult]: ...
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[PerformanceAnalyticsResult]: ...
 
     async def get_cross_domain_opportunities(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> Result[CrossDomainOpportunitiesResult]: ...
 
     async def get_ai_insights(
-        self, user_uid: str, entity_uid: str | None = None, query: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None, query: str | None = None
     ) -> Result[AIInsightsResult]: ...
 ```
 
@@ -120,7 +120,7 @@ Returns user-specific analytics.
 
 ```python
 async def get_performance_analytics(
-    self, user_uid: str, period_days: int = 30
+    self, user_uid: UserUID, period_days: int = 30
 ) -> Result[dict[str, Any]]:
     """Get user-specific analytics."""
     entities = await self.backend.get_user_entities(user_uid)
@@ -299,7 +299,7 @@ class IntelligenceRouteFactory:
 
         @rt(f"/api/{domain}/analytics")
         @boundary_handler()
-        async def get_analytics(request, user_uid: str, period_days: int = 30):
+        async def get_analytics(request, user_uid: UserUID, period_days: int = 30):
             return await service.get_performance_analytics(user_uid, period_days)
 
         @rt(f"/api/{domain}/insights")
@@ -366,7 +366,7 @@ class TasksIntelligenceService(
         return await self.orchestrator.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Get task performance analytics."""
         tasks = await self.backend.get_user_tasks(user_uid)
@@ -412,14 +412,14 @@ class TasksIntelligenceService(
     # ActivityKnowledgeIntelligenceService (core/services/knowledge/) — March 2026
 
     async def get_behavioral_insights(
-        self, user_uid: str, period_days: int = 90
+        self, user_uid: UserUID, period_days: int = 90
     ) -> Result[dict[str, Any]]:
         """Analyze task completion behavior."""
         # Implementation
         ...
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Completion rates, trends, duration calibration."""
         # Implementation

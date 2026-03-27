@@ -231,7 +231,7 @@ async def get_curriculum_html(request: Request, category: str, limit: int = 10) 
 class AdaptiveSELService:
     async def track_page_view(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         category: SELCategory | None = None
     ) -> Result[None]:
         """
@@ -245,7 +245,7 @@ class AdaptiveSELService:
 
     async def track_curriculum_completion(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         ku_uid: str,
         completion_time_minutes: int = 30
     ) -> Result[None]:

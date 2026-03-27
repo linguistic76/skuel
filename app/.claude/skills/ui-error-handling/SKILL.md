@@ -170,7 +170,7 @@ def parse_task_update_payload(form: Any) -> dict[str, Any]:
 Route handlers become thin — just auth + parse + service call:
 
 ```python
-async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
     """Domain-specific task creation logic."""
     create_request = parse_task_create_request(form_data)
     return await tasks_service.create_task(create_request, user_uid)
@@ -297,11 +297,11 @@ async def tasks_dashboard(request):
 from adapters.inbound.ui_helpers import fetch_user_entities
 
 # Simple — service always available:
-async def get_all_goals(user_uid: str) -> Result[list[Any]]:
+async def get_all_goals(user_uid: UserUID) -> Result[list[Any]]:
     return await fetch_user_entities(goals_service.get_user_goals, "goals", user_uid, logger)
 
 # Optional service — pass None when unavailable:
-async def get_all_events(user_uid: str) -> Result[list[Any]]:
+async def get_all_events(user_uid: UserUID) -> Result[list[Any]]:
     service_method = events_service.get_user_events if events_service else None
     return await fetch_user_entities(service_method, "events", user_uid, logger)
 ```
@@ -429,7 +429,7 @@ from core.ports.query_types import ListContext
 
 # In the service facade:
 async def get_filtered_context(
-    self, user_uid: str, status_filter: str = "active", sort_by: str = "due_date",
+    self, user_uid: UserUID, status_filter: str = "active", sort_by: str = "due_date",
 ) -> Result[ListContext]:
     """Get filtered and sorted tasks with pre-filter stats in a single query."""
 
@@ -635,7 +635,7 @@ def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
     return Result.ok(None)
 
 
-async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
     """Create task from form data with early validation."""
 
     # VALIDATE EARLY (before hitting services)
@@ -800,7 +800,7 @@ if intel_data.get("alignment") is not None:
 # Service facade — implements FilteredContextProvider protocol
 # Pure computation helpers are module-level functions passed as callables
 async def get_filtered_context(
-    self, user_uid: str, status_filter: str = "active", sort_by: str = "due_date",
+    self, user_uid: UserUID, status_filter: str = "active", sort_by: str = "due_date",
 ) -> Result[ListContext]:
     """Get filtered and sorted tasks with pre-filter stats."""
 
@@ -914,7 +914,7 @@ def validate_choice_form_data(form_data: dict[str, Any]) -> Result[None]:
     return Result.ok(None)
 
 
-async def create_choice_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+async def create_choice_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
     """Create choice with early validation."""
 
     # Validate early
@@ -954,7 +954,7 @@ async def get_all_tasks(user_uid):
 **Correct approach:**
 ```python
 # ✅ DO THIS
-async def get_all_tasks(user_uid: str) -> Result[list[Any]]:
+async def get_all_tasks(user_uid: UserUID) -> Result[list[Any]]:
     try:
         result = await tasks_service.get_user_tasks(user_uid)
         if result.is_error:
@@ -1077,7 +1077,7 @@ See: `core/services/filtered_context.py`, `core/ports/query_types.py:ListContext
 **Why it's wrong:**
 ```python
 # ❌ DON'T DO THIS
-async def create_task_from_form(form_data: dict, user_uid: str):
+async def create_task_from_form(form_data: dict, user_uid: UserUID):
     # No early validation - Pydantic errors are technical
 
     request = CreateTaskRequest(**form_data)  # May fail with: "Field required: title"
@@ -1093,7 +1093,7 @@ async def create_task_from_form(form_data: dict, user_uid: str):
 **Correct approach:**
 ```python
 # ✅ DO THIS - Validate early with clear messages
-async def create_task_from_form(form_data: dict, user_uid: str) -> Result[Any]:
+async def create_task_from_form(form_data: dict, user_uid: UserUID) -> Result[Any]:
     # Validate FIRST
     validation_result = validate_task_form_data(form_data)
     if validation_result.is_error:
@@ -1145,7 +1145,7 @@ if other_result.is_error:
 **Why it's wrong:**
 ```python
 # ❌ DON'T DO THIS
-async def get_all_tasks(user_uid: str) -> Result[list[Any]]:
+async def get_all_tasks(user_uid: UserUID) -> Result[list[Any]]:
     try:
         result = await tasks_service.get_user_tasks(user_uid)
         if result.is_error:
@@ -1163,7 +1163,7 @@ async def get_all_tasks(user_uid: str) -> Result[list[Any]]:
 **Correct approach:**
 ```python
 # ✅ DO THIS - Always log with context
-async def get_all_tasks(user_uid: str) -> Result[list[Any]]:
+async def get_all_tasks(user_uid: UserUID) -> Result[list[Any]]:
     try:
         result = await tasks_service.get_user_tasks(user_uid)
         if result.is_error:

@@ -70,7 +70,7 @@ async def create_prerequisite_relationship(
     prerequisite_task_uid: str,
     dependent_task_uid: str,
     strength: float = 0.8,
-    user_uid: str | None = None,
+    user_uid: UserUID | None = None,
 ) -> Result[bool]:
     """
     Create PREREQUISITE_FOR relationship (softer than BLOCKS).
@@ -207,7 +207,7 @@ class HabitsLateralService:
         first_habit_uid: str,
         second_habit_uid: str,
         trigger: str = "after",  # "after", "before", "during"
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[bool]:
         """
         Create STACKS_WITH relationship for habit chaining.
@@ -241,7 +241,7 @@ class HabitsLateralService:
         habit_b_uid: str,
         synergy_description: str,
         synergy_score: float = 0.7,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[bool]:
         """
         Create COMPLEMENTARY_TO relationship for synergistic habits.
@@ -276,7 +276,7 @@ class HabitsLateralService:
     async def get_habit_stack(
         self,
         habit_uid: str,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """Get all habits in the stacking chain."""
         if user_uid:
@@ -297,7 +297,7 @@ class HabitsLateralService:
         self,
         habit_uid: str,
         min_synergy: float = 0.5,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """Get habits that complement this habit."""
         if user_uid:

@@ -1,6 +1,6 @@
 # Type Safety Architecture Overview
 
-*Last updated: 2026-03-27*
+*Last updated: 2026-03-27 (added Identity NewTypes section)*
 
 SKUEL treats type safety as infrastructure — not ceremony. Types are enforced at every
 layer, from HTTP boundaries through to database writes. The goal is that a type error from
@@ -259,10 +259,39 @@ paying any runtime cost.
 
 ---
 
+## Identity NewTypes
+
+**Principle:** "A user UID is not an entity UID — the type system enforces this"
+
+`UserUID` and `EntityUID` are `NewType` wrappers over `str` that prevent accidental mixing
+of user identifiers with entity identifiers. They are propagated across the entire codebase:
+
+```python
+from core.models.type_hints import UserUID, EntityUID
+
+# Protocols, services, backends, routes all use typed UIDs:
+async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[T]: ...
+async def get_cross_domain_context(self, entity_uid: EntityUID) -> Result[dict]: ...
+
+# Auth boundary creates UserUID:
+user_uid: UserUID = require_authenticated_user(request)  # Returns UserUID
+
+# Dataclass defaults use type: ignore for frozen pattern:
+user_uid: UserUID = ""  # type: ignore[assignment]
+```
+
+**Coverage:** ~1,580 `UserUID` annotations across 297 files; ~195 `EntityUID` annotations.
+
+**See:** `docs/architecture/TYPE_SAFETY_DESIGN_PHILOSOPHY.md` (why), `docs/patterns/AUTH_PATTERNS.md` (auth boundary)
+
+---
+
 ## Quick Reference
 
 | Need | Use |
 |------|-----|
+| User identifier | `UserUID` (from `core.models.type_hints`) |
+| Entity identifier | `EntityUID` (from `core.models.type_hints`) |
 | Neo4j node property dict | `Neo4jProperties` (from `core.models.type_hints`) |
 | Search/filter parameters | `FilterParams` (from `core.models.type_hints`) |
 | Relationship edge properties | `RelationshipMetadata` (from `core.ports.base_protocols`) |

@@ -325,7 +325,7 @@ async def update(
     self,
     uid: str,
     data: dict,
-    user_uid: str
+    user_uid: UserUID
 ) -> Result[Task]:
     # Verify ownership first
     ownership = await self.verify_ownership(uid, user_uid)

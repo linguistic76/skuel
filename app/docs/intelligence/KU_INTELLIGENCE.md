@@ -28,8 +28,8 @@ LessonIntelligenceService provides semantic knowledge intelligence by analyzing 
 ```python
 async def get_knowledge_suggestions(
     self,
-    user_uid: str,
-    entity_uid: str | None = None
+    user_uid: UserUID,
+    entity_uid: EntityUID | None = None
 ) -> Result[dict[str, Any]]:
 ```
 
@@ -96,8 +96,8 @@ Uses `graph_intel.get_entity_context()` to retrieve semantic neighborhood:
 ```python
 async def get_cross_domain_opportunities(
     self,
-    user_uid: str,
-    entity_uid: str | None = None
+    user_uid: UserUID,
+    entity_uid: EntityUID | None = None
 ) -> Result[dict[str, Any]]:
 ```
 
@@ -178,7 +178,7 @@ The method identifies:
 ```python
 async def get_performance_analytics(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     period_days: int = 30,
     user_context: "UserContext | None" = None  # January 2026: KU-Activity Integration
 ) -> Result[dict[str, Any]]:

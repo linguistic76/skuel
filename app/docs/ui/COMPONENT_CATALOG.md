@@ -868,7 +868,7 @@ Interactive relationship visualization components.
 Complete relationships section with all three views. Uses MonsterUI `Accordion` (`multiple=True`) for collapsible sections — each sub-component is an `AccordionItem` with built-in chevron icons and collapse transitions. Relationship Network starts expanded by default.
 
 **Parameters:**
-- `entity_uid: str` - Entity UID
+- `entity_uid: EntityUID` - Entity UID
 - `entity_type: str` - Entity type (tasks, goals, etc.)
 - `show_blocking_chain: bool` - Show blocking dependencies (default: True)
 - `show_alternatives: bool` - Show alternatives (default: True)
@@ -892,7 +892,7 @@ Side-by-side comparison of alternatives.
 Interactive force-directed graph.
 
 **Parameters:**
-- `entity_uid: str` - Entity UID
+- `entity_uid: EntityUID` - Entity UID
 - `entity_type: str` - Entity type
 - `depth: int` - Graph depth (1-3, default: 2)
 

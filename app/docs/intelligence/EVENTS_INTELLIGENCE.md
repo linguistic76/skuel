@@ -79,7 +79,7 @@ if result.is_ok:
 ```python
 async def get_performance_analytics(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     period_days: int = 30
 ) -> Result[dict[str, Any]]:
 ```
@@ -321,7 +321,7 @@ if result.is_ok:
 ```python
 async def analyze_upcoming_events(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     days_ahead: int = 7
 ) -> Result[dict[str, Any]]:
 ```
@@ -403,7 +403,7 @@ Low impact: <1.0
 ```python
 async def assess_engagement_dual_track(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     user_engagement_level: EngagementLevel,
     user_evidence: str,
     user_reflection: str | None = None,

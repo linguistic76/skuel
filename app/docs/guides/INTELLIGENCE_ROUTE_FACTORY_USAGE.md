@@ -102,7 +102,7 @@ class HabitsIntelligenceService:
         ...
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict]:
         # Return user-specific analytics
         ...
@@ -114,13 +114,13 @@ class HabitsIntelligenceService:
         ...
 
     async def get_recommendations(
-        self, user_uid: str, params: dict
+        self, user_uid: UserUID, params: dict
     ) -> Result[List[dict]]:
         # Return personalized recommendations
         ...
 
     async def optimize(
-        self, user_uid: str, optimization_params: dict
+        self, user_uid: UserUID, optimization_params: dict
     ) -> Result[dict]:
         # Optimize based on intelligence
         ...

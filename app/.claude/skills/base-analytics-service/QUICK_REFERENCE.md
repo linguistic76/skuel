@@ -155,7 +155,7 @@ async def _analyze_entity_with_context(
 async def _dual_track_assessment(
     self,
     uid: str,
-    user_uid: str,
+    user_uid: UserUID,
     user_level: L,
     user_evidence: str,
     user_reflection: str | None,
@@ -180,7 +180,7 @@ async def get_with_context(
     """Entity with full graph neighborhood."""
 
 async def get_performance_analytics(
-    self, user_uid: str, period_days: int = 30
+    self, user_uid: UserUID, period_days: int = 30
 ) -> Result[dict[str, Any]]:
     """User-specific analytics."""
 

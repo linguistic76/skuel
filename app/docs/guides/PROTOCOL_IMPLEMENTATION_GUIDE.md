@@ -200,7 +200,7 @@ class TasksService:
         """Initialize with protocol-based backend."""
         self.backend = backend  # Type: TasksOperations (protocol)
 
-    async def create_task(self, title: str, user_uid: str) -> Result[Task]:
+    async def create_task(self, title: str, user_uid: UserUID) -> Result[Task]:
         """Create a new task."""
         data = {"title": title, "user_uid": user_uid}
         uid_result = await self.backend.create(data)
@@ -266,11 +266,11 @@ from core.utils.result_simplified import Result
 class UserContextOperations(Protocol):
     """Minimal protocol for user context operations."""
 
-    async def invalidate_context(self, user_uid: str) -> Result[None]:
+    async def invalidate_context(self, user_uid: UserUID) -> Result[None]:
         """Invalidate user context cache."""
         ...
 
-    async def get_context(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_context(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get user context."""
         ...
 ```
@@ -344,14 +344,14 @@ class NotificationOperations(Protocol):
 
     async def send_notification(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         message: str,
         priority: str = "normal"
     ) -> Result[None]:
         """Send notification to user."""
         ...
 
-    async def get_unread_count(self, user_uid: str) -> Result[int]:
+    async def get_unread_count(self, user_uid: UserUID) -> Result[int]:
         """Get count of unread notifications."""
         ...
 ```
@@ -367,7 +367,7 @@ class NotificationBackend:
 
     async def send_notification(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         message: str,
         priority: str = "normal"
     ) -> Result[None]:
@@ -375,7 +375,7 @@ class NotificationBackend:
         # Implementation here
         return Result.ok(None)
 
-    async def get_unread_count(self, user_uid: str) -> Result[int]:
+    async def get_unread_count(self, user_uid: UserUID) -> Result[int]:
         """Get unread count implementation."""
         # Implementation here
         return Result.ok(5)
@@ -397,7 +397,7 @@ class NotificationService:
         """Initialize with protocol-based backend."""
         self.backend = backend  # Type-safe!
 
-    async def notify_user(self, user_uid: str, message: str) -> Result[None]:
+    async def notify_user(self, user_uid: UserUID, message: str) -> Result[None]:
         """Send notification to user."""
         return await self.backend.send_notification(user_uid, message)
 ```
@@ -420,7 +420,7 @@ class MockNotificationBackend:
 
     async def send_notification(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         message: str,
         priority: str = "normal"
     ) -> Result[None]:
@@ -432,7 +432,7 @@ class MockNotificationBackend:
         })
         return Result.ok(None)
 
-    async def get_unread_count(self, user_uid: str) -> Result[int]:
+    async def get_unread_count(self, user_uid: UserUID) -> Result[int]:
         """Mock unread count."""
         return Result.ok(0)
 

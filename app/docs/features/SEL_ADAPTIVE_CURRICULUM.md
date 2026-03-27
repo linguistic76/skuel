@@ -55,23 +55,23 @@ class AdaptiveSELService:
 
     # Curriculum Delivery
     async def get_personalized_curriculum(
-        user_uid: str,
+        user_uid: UserUID,
         sel_category: SELCategory,
         limit: int = 10
     ) -> Result[list[Ku]]
 
     async def get_sel_journey(
-        user_uid: str
+        user_uid: UserUID
     ) -> Result[SELJourney]
 
     # Interaction Tracking
     async def track_page_view(
-        user_uid: str,
+        user_uid: UserUID,
         category: SELCategory | None = None
     ) -> Result[None]
 
     async def track_curriculum_completion(
-        user_uid: str,
+        user_uid: UserUID,
         ku_uid: str,
         completion_time_minutes: int = 30
     ) -> Result[None]

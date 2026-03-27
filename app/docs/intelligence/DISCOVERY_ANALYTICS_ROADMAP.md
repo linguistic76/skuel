@@ -47,7 +47,7 @@ Analyzes search patterns to provide insights:
 ```python
 # /core/models/search/search_router.py
 
-async def faceted_search(self, request: SearchRequest, user_uid: str | None = None) -> Result[SearchResponse]:
+async def faceted_search(self, request: SearchRequest, user_uid: UserUID | None = None) -> Result[SearchResponse]:
     # Log the search query
     await self._log_search_query(
         query=request.query_text,

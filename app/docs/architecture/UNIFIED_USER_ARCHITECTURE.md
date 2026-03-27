@@ -230,12 +230,12 @@ user_context_populator.py  (~235 lines)   Context field population
 **Primary API:**
 ```python
 class UserContextBuilder:
-    async def build(self, user_uid: str) -> Result[UserContext]:
+    async def build(self, user_uid: UserUID) -> Result[UserContext]:
         """Standard context — UIDs only. Requires user_service wired."""
 
     async def build_rich(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         min_confidence: float = 0.7,
         window: str = "30d",
     ) -> Result[UserContext]:
@@ -344,7 +344,7 @@ async def get_advancing_goals(self, context: UserContext) -> Result[list[Context
     ...
 
 # ❌ WRONG — duplicates what MEGA-QUERY already provides
-async def get_advancing_goals(self, user_uid: str) -> Result[list[ContextualGoal]]:
+async def get_advancing_goals(self, user_uid: UserUID) -> Result[list[ContextualGoal]]:
     goals = await self.goals_service.get_user_goals(user_uid)  # unnecessary query
     ...
 ```

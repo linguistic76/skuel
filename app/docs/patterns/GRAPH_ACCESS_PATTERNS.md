@@ -350,7 +350,7 @@ async def get_task_context_for_askesis(
 #### Example 4: Cross-Domain Analytics
 
 ```python
-async def analyze_learning_path(self, user_uid: str) -> Result[dict]:
+async def analyze_learning_path(self, user_uid: UserUID) -> Result[dict]:
     """Analyze user's learning path with cross-domain insights."""
 
     # Pattern 1: Get user's active tasks (simple query)

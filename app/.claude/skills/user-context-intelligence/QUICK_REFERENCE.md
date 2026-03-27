@@ -422,7 +422,7 @@ async def get_daily_plan(request):
 ### Pattern 2: Learning Recommendations
 
 ```python
-async def get_learning_recommendations(user_uid: str) -> list[LearningStep]:
+async def get_learning_recommendations(user_uid: UserUID) -> list[LearningStep]:
     context = await user_service.get_user_context(user_uid)
     intelligence = factory.create(context)
 
@@ -433,7 +433,7 @@ async def get_learning_recommendations(user_uid: str) -> list[LearningStep]:
 ### Pattern 3: Life Path Dashboard
 
 ```python
-async def get_life_path_dashboard(user_uid: str) -> dict:
+async def get_life_path_dashboard(user_uid: UserUID) -> dict:
     context = await user_service.get_user_context(user_uid)
     intelligence = factory.create(context)
 
