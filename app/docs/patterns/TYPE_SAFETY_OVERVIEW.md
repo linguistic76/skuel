@@ -280,7 +280,7 @@ user_uid: UserUID = require_authenticated_user(request)  # Returns UserUID
 user_uid: UserUID = ""  # type: ignore[assignment]
 ```
 
-**Coverage:** ~1,580 `UserUID` annotations across 297 files; ~200 `EntityUID` annotations. Variant names (`other_user_uid`, `parent_entity_uid`, `source_entity_uid`) also use the typed versions.
+**Coverage:** ~1,930 `UserUID` annotations across 313 files; ~200 `EntityUID` annotations. Variant names (`other_user_uid`, `parent_entity_uid`, `source_entity_uid`) also use the typed versions. All layers enforce `UserUID` — auth boundaries, REST routes, GraphQL context/resolvers, service facades, backends, and ingestion defaults.
 
 **See:** `docs/architecture/TYPE_SAFETY_DESIGN_PHILOSOPHY.md` (why), `docs/patterns/AUTH_PATTERNS.md` (auth boundary)
 

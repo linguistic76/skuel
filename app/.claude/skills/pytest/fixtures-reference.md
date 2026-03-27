@@ -212,9 +212,9 @@ async def ensure_test_users(neo4j_container):
 
 
 @pytest.fixture
-def test_user_uid() -> str:
+def test_user_uid() -> UserUID:
     """Standard test user UID."""
-    return "user.test"
+    return UserUID("user.test")
 ```
 
 ## Relationship Helper Fixtures

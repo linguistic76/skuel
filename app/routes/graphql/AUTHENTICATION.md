@@ -32,7 +32,7 @@ Authentication is a **two-layer** system:
    → Returns user_uid or raises 401
    ↓
 3. create_graphql_context(services, search_router, user_uid=user_uid)
-   → Context.user_uid is always a non-empty string
+   → Context.user_uid is always a non-empty UserUID
    ↓
 4. Resolvers call require_user_uid(info) or resolve_target_user(info, user_uid)
    → Defense-in-depth: ValueError if somehow empty
@@ -44,7 +44,7 @@ Authentication is a **two-layer** system:
 
 ## Resolver Auth Helpers
 
-### `require_user_uid(info) -> str`
+### `require_user_uid(info) -> UserUID`
 
 Standard way to get the authenticated user in resolvers. Use when the resolver always operates on the current user's data.
 
@@ -57,7 +57,7 @@ async def tasks(self, info: Info[GraphQLContext, Any]) -> list[Task]:
     result = await context.services.tasks.get_filtered_context(user_uid=user_uid, ...)
 ```
 
-### `resolve_target_user(info, user_uid=None) -> str` (async)
+### `resolve_target_user(info, user_uid=None) -> UserUID` (async)
 
 For resolvers that accept an optional `user_uid` override (admin queries). Falls back to the authenticated user. When a `user_uid` override is provided, the caller must have ADMIN role — raises `PermissionError` otherwise.
 
@@ -68,7 +68,7 @@ from routes.graphql.auth import resolve_target_user
 async def learning_path_with_context(
     self, info: Info[GraphQLContext, Any],
     path_uid: str,
-    user_uid: str | None = None,
+    user_uid: UserUID | None = None,
 ) -> LearningPathContext | None:
     target_user_uid = await resolve_target_user(info, user_uid)
 ```
@@ -81,7 +81,7 @@ async def learning_path_with_context(
 
 **No `user_uid` parameter on user-owned queries.** Resolvers like `tasks`, `user_dashboard` pull user_uid from context only. This prevents UID spoofing.
 
-**`context.user_uid` is `str`, not `str | None`.** Since auth is enforced at the HTTP layer, the context always has a valid user_uid. The `require_user_uid()` check is defense-in-depth.
+**`context.user_uid` is `UserUID`, not `str | None`.** Since auth is enforced at the HTTP layer, the context always has a valid typed `UserUID`. The `require_user_uid()` check is defense-in-depth. Both `require_user_uid()` and `resolve_target_user()` return `UserUID`, maintaining type safety from auth boundary through resolvers to services.
 
 ---
 
