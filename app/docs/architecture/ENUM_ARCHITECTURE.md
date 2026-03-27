@@ -231,7 +231,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 
 | Enum | Values | Purpose |
 |------|--------|---------|
-| ExerciseScope | PERSONAL, ASSIGNED | Exercise scope (user's own vs teacher-assigned) |
+| ExerciseScope | PERSONAL, ASSIGNED | Exercise scope (user's own vs teacher-assigned). Enforced at Pydantic boundary (`ExerciseCreateRequest.scope`) and all comparison sites — zero raw string comparisons remain. |
 | FormattingStyle | STRUCTURED, NARRATIVE, BULLET_POINTS, CONVERSATIONAL, EXECUTIVE_SUMMARY | Transcript formatting |
 | AnalysisDepth | BASIC, DETAILED, COMPREHENSIVE | LLM processing depth |
 | ContextEnrichmentLevel | NONE, BASIC, STANDARD, DEEP | SKUEL context integration |
@@ -264,7 +264,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 - `KuComplexity`, `PracticeLevel`
 
 **User** (`user_enums.py`):
-- `UserRole` — 4-tier hierarchy: REGISTERED < MEMBER < TEACHER < ADMIN. Has `has_permission()` for hierarchy-aware checks.
+- `UserRole` — 4-tier hierarchy: REGISTERED < MEMBER < TEACHER < ADMIN. Has `has_permission()` for hierarchy-aware checks. Use `UserRole.from_string()` for Neo4j-sourced values — zero raw string comparisons remain.
 - `ContextHealthScore` — POOR (0.25), FAIR (0.50), GOOD (0.75), EXCELLENT (1.0). UI display methods.
 
 **Metadata** (`metadata_enums.py`) — System-wide configuration:

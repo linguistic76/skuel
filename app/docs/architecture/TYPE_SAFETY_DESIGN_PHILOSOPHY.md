@@ -91,7 +91,7 @@ def get_user_context(user_uid: UserUID) -> Result[UserContext]: ...
 
 **Ownership discrimination:** The `UserOwnedEntity` / `Entity` type hierarchy determines which entities require ownership verification. Routes that accept a `UserOwnedEntity` *must* verify ownership — the type makes this requirement visible.
 
-**Enum-enforced states:** `UserRole`, `ContentScope`, `EntityStatus`, and `ContentOrigin` are enums, not strings. Invalid role escalation, unauthorized content access, and illegal state transitions are caught by the type checker:
+**Enum-enforced states:** `UserRole`, `ContentScope`, `EntityStatus`, `ContentOrigin`, and `ExerciseScope` are enums, not strings. Invalid role escalation, unauthorized content access, and illegal state transitions are caught by the type checker:
 
 | Security Concern | Type Defense |
 |-----------------|--------------|
@@ -100,6 +100,7 @@ def get_user_context(user_uid: UserUID) -> Result[UserContext]: ...
 | Privilege escalation | `UserRole` enum — REGISTERED/MEMBER/TEACHER/ADMIN ordered |
 | Invalid state transitions | `EntityStatus.can_transition_to()` — typed state machine |
 | Content origin confusion | `ContentOrigin` enum — CURATED vs USER_CREATED can't be mixed |
+| Exercise scope confusion | `ExerciseScope` enum — PERSONAL vs ASSIGNED enforced at Pydantic boundary and all comparisons |
 
 **The principle:** Every security boundary that can be expressed as a type *should* be expressed as a type. Runtime checks are the fallback for what types can't reach (network boundaries, database queries). Types are the first line of defense.
 
@@ -142,6 +143,7 @@ SKUEL's type safety has reached a solid, production-grade foundation:
 | Query type coverage | 61 TypedDicts (20 input, 41 output) |
 | Any usage policy | Three categories with enforcement |
 | Security NewTypes | `UserUID` propagated to ~1,580 annotations across 297 files; `EntityUID` to ~200 annotations (including variant names like `parent_entity_uid`, `source_entity_uid`) |
+| Enum-enforced boundaries | `UserRole` and `ExerciseScope` — zero raw string comparisons remain; all role/scope checks use enum members |
 
 This foundation is valued and allowed to evolve. As the ontology grows — new entity types, new relationships, new cross-cutting systems — the type system grows with it. The goal is not perfection frozen in place, but a living system where types track the domain as it reveals itself.
 
