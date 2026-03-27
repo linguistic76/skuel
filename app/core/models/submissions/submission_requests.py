@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from core.models.enums import Domain
 from core.models.enums.entity_enums import ProcessorType
 from core.models.request_base import CreateRequestBase
+from core.models.type_hints import EntityUID
 
 # =============================================================================
 # CREATE REQUESTS — Content Processing (Reports)
@@ -35,7 +36,7 @@ class SubmissionCreateRequest(CreateRequestBase):
     tags: list[str] = Field(default_factory=list, description="Tags")
 
     # Derivation
-    parent_entity_uid: str | None = Field(
+    parent_entity_uid: EntityUID | None = Field(
         None, description="Curriculum Ku this assignment is based on"
     )
 
@@ -58,7 +59,7 @@ class ActivityReportCreateRequest(CreateRequestBase):
     """Create an AI-derived report (AI_FEEDBACK type). System-initiated."""
 
     title: str = Field(min_length=1, max_length=200, description="Report title")
-    parent_entity_uid: str = Field(description="Assignment Ku this report derives from")
+    parent_entity_uid: EntityUID = Field(description="Assignment Ku this report derives from")
 
     # Content
     content: str | None = Field(None, description="AI-generated analysis")

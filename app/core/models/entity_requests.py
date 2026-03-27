@@ -36,7 +36,7 @@ from core.models.request_base import (
     ResponseBase,
     UpdateRequestBase,
 )
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 
 # =============================================================================
 # UPDATE REQUEST (shared across all EntityTypes)
@@ -191,7 +191,7 @@ class EntityResponse(ResponseBase):
     title: str
     entity_type: EntityType
     user_uid: UserUID | None = None
-    parent_entity_uid: str | None = None
+    parent_entity_uid: EntityUID | None = None
     parent_uid: str | None = None
     domain: Domain
     created_by: str | None = None

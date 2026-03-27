@@ -23,6 +23,7 @@ from typing import Any
 
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.type_hints import EntityUID
 from core.ports import get_enum_value
 
 
@@ -43,7 +44,7 @@ class EntityDTO:
     uid: str = ""
     title: str = ""
     entity_type: EntityType = EntityType.KU
-    parent_entity_uid: str | None = None
+    parent_entity_uid: EntityUID | None = None
     domain: Domain = Domain.KNOWLEDGE
     created_by: str | None = None
 

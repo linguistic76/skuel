@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
+from core.models.type_hints import EntityUID
 
 
 @dataclass(frozen=True)
@@ -61,7 +62,7 @@ class Entity:
     uid: str
     title: str
     entity_type: EntityType = EntityType.KU
-    parent_entity_uid: str | None = None  # Derivation chain — what Entity this was based on
+    parent_entity_uid: EntityUID | None = None  # Derivation chain — what Entity this was based on
     domain: Domain = Domain.KNOWLEDGE
     created_by: str | None = None
 

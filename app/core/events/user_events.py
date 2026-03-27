@@ -17,7 +17,7 @@ Subscribers:
 from dataclasses import dataclass
 
 from core.events.base import BaseEvent
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 
 # ============================================================================
 # USER CONTEXT EVENTS
@@ -51,7 +51,7 @@ class UserContextInvalidated(BaseEvent):
     affected_contexts: list[str]  # ["askesis", "search", "recommendations", "dashboard"]
 
     # Optional: source entity that triggered invalidation
-    source_entity_uid: str | None = None
+    source_entity_uid: EntityUID | None = None
     source_entity_type: str | None = None  # "task", "goal", "habit"
 
     @property

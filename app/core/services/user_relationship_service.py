@@ -346,7 +346,7 @@ class UserRelationshipService:
             operation="has_active_goals",
         )
 
-    async def is_following(self, user_uid: UserUID, other_user_uid: str) -> Result[bool]:
+    async def is_following(self, user_uid: UserUID, other_user_uid: UserUID) -> Result[bool]:
         """
         Check if user follows another user.
 

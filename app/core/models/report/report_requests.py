@@ -12,13 +12,14 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from core.models.request_base import CreateRequestBase
+from core.models.type_hints import EntityUID
 
 
 class ReportCreateRequest(CreateRequestBase):
     """Create a submission report (SUBMISSION_REPORT type)."""
 
     title: str = Field(min_length=1, max_length=200, description="Report title")
-    parent_entity_uid: str = Field(description="Assignment Ku being reviewed")
+    parent_entity_uid: EntityUID = Field(description="Assignment Ku being reviewed")
     subject_uid: str | None = Field(None, description="Student UID the report is about")
 
     # Content
