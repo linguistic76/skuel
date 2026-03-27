@@ -1,6 +1,6 @@
 # Type Safety Architecture Overview
 
-*Last updated: 2026-03-26*
+*Last updated: 2026-03-27*
 
 SKUEL treats type safety as infrastructure — not ceremony. Types are enforced at every
 layer, from HTTP boundaries through to database writes. The goal is that a type error from
@@ -81,11 +81,13 @@ def create_tasks_api_routes(
 - Services can be swapped for test doubles without changing route code
 - MyPy catches mismatches between what routes call and what protocols declare
 
-**Key numbers (February 2026):**
+**Key numbers:**
 - 517 `@runtime_checkable` Protocol definitions across 11 files in `core/ports/`
 - 100% protocol compliance — all 7 `BaseService` mixins verified by TYPE_CHECKING blocks
 - 29 automated compliance tests (run: `uv run pytest tests/unit/test_protocol_mixin_compliance.py`)
 - Zero `Any` fields in the `Services` dataclass — all 72 fields typed
+- ~90 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026)
+- 62 TypedDicts in `query_types.py` — 40 for inputs (filters, payloads), 22 for outputs (result shapes)
 
 **BackendOperations[T] hierarchy** — the foundational generic protocol:
 ```python
@@ -136,11 +138,25 @@ from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request
 # FastHTML has no type stubs; these Protocols capture what SKUEL actually calls
 ```
 
-**Protocol layer adoption (Phase 3 — March 2026):** All protocol method signatures in
-`base_protocols.py`, `domain_protocols.py`, and `service_protocols.py` now use typed aliases
+**Protocol layer adoption (March 2026):**
+
+*Phase 3 — Input parameters:* All protocol method signatures now use typed aliases
 (`Neo4jProperties`, `FilterParams`, `Metadata`, `RelationshipMetadata`, `GraphContextResult`)
-instead of `dict[str, Any]`. Only genuine boundary types (Neo4j driver params, FastHTML elements,
-error metadata) retain `Any`.
+instead of `dict[str, Any]` for parameters.
+
+*Phase 4 — Return types:* ~90 protocol methods migrated from `Result[Any]` / `Result[dict[str, Any]]`
+to specific types:
+- Domain model returns: `Result[ExerciseSubmission]`, `Result[Askesis]`, `Result[CalendarData]`, etc.
+- Existing TypedDicts: `Result[ContextDashboard]`, `Result[ContextSummary]`
+- Existing dataclasses: `Result[LearningVelocityMetrics]`, `Result[SpendingPatternAnalysis]`
+- 22 new TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
+  teacher review (`ReviewQueueItem`, `TeacherDashboardStats`), intelligence results
+  (`KnowledgeSuggestionsResult`, `PerformanceAnalyticsResult`), life path (`LifePathStatus`,
+  `LifePathAlignmentResult`), lateral relationships (`BlockingChainResult`, `RelationshipGraphData`),
+  activity reports (`AnnotationResult`, `PrivacySummary`)
+
+Only genuine boundary types (Neo4j driver params, FastHTML elements, error metadata) and
+backend-level raw Cypher results retain `Any`.
 
 **See:** `docs/patterns/ANY_USAGE_POLICY.md` (complete policy with quick-reference table)
 
@@ -250,6 +266,7 @@ paying any runtime cost.
 | FastHTML `app` object | `FastHTMLApp` (from `adapters.inbound.fasthtml_types`) |
 | Request object (lightweight) | `Request` (from `adapters.inbound.fasthtml_types`) |
 | Generic callable (typed) | `EntityFilter[T]`, `Validator[T]`, `Scorer[T]` |
+| Protocol return type | Specific model or TypedDict from `core.ports.query_types` |
 | Permanent Any boundary | Add `# boundary: reason` comment |
 | Service in route signature | Protocol from `core.ports.*` (never concrete class) |
 | Domain model | Frozen `@dataclass(frozen=True)` subclassing `Entity` |

@@ -1,6 +1,6 @@
 # Any Usage Policy
 
-*Last updated: 2026-03-22*
+*Last updated: 2026-03-27*
 
 SKUEL treats `Any` as a last resort, not a default. Every use of `Any` must belong to one
 of the three categories below. Unlabelled `Any` annotations are technical debt and should
@@ -89,10 +89,9 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 
 ---
 
-### Protocol Layer Adoption (Phase 3 — March 2026)
+### Protocol Layer Adoption (March 2026)
 
-All protocol files (`base_protocols.py`, `domain_protocols.py`, `service_protocols.py`) now use
-typed aliases instead of `dict[str, Any]`:
+**Phase 3 — Input parameters:** All protocol files now use typed aliases instead of `dict[str, Any]`:
 
 - `CrudOperations.update()` → `updates: Neo4jProperties`
 - `CrudOperations.list()`, `EntitySearchOperations.get_user_entities()` → `filters: FilterParams`
@@ -100,6 +99,23 @@ typed aliases instead of `dict[str, Any]`:
 - `RelationshipMetadataOperations.get_relationships_batch()` → returns `list[RelationshipMetadata]`
 - Domain CRUD params (`create_goal`, `update_habit`, etc.) → `Metadata`
 - Cross-domain context returns → `GraphContextResult`
+
+**Phase 4 — Return types:** ~90 protocol methods migrated from `Result[Any]` to specific types:
+
+- **Domain model returns:** `Result[SubmissionEntity]`, `Result[ExerciseReport]`, `Result[Askesis]`,
+  `Result[CalendarData]`, `Result[Group]`, `Result[JeInput]`, `Result[JeOutput]`, `Result[Exercise]`,
+  `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ReportSchedule]`, `Result[ActivityReport]`
+- **22 new TypedDicts** in `query_types.py` for structured dict returns:
+
+| TypedDict | Protocol | Methods |
+|-----------|----------|---------|
+| `SignUpResult`, `SignInResult` | `GraphAuthOperations` | `sign_up`, `sign_in` |
+| `ReviewQueueItem`, `SubmissionDetailResult`, `TeacherDashboardStats` | `TeacherReviewOperations` | `get_review_queue`, `get_submission_detail`, `get_dashboard_stats` |
+| `KnowledgeSuggestionsResult`, `KnowledgeGenerationResult`, `LearningOpportunitiesResult` | `KnowledgeIntelligenceOperations` | `get_knowledge_suggestions`, `generate_knowledge_from_entities`, `get_learning_opportunities` |
+| `BehavioralInsightsResult`, `PerformanceAnalyticsResult` | `DomainIntelligenceOperations` | `get_behavioral_insights`, `get_performance_analytics` |
+| `LifePathStatus`, `LifePathRecommendation`, `LifePathDesignation`, `LifePathAlignmentResult` | `LifePathOperations`, `LifePathAlignmentOperations` | `get_full_status`, `capture_and_recommend`, `designate_and_calculate`, `get_alignment`, `calculate_alignment` |
+| `LateralRelationshipItem`, `BlockingChainResult`, `RelationshipGraphData` | `LateralRelationshipOperations` | `get_lateral_relationships`, `get_blocking_chain`, `get_relationship_graph` |
+| `AnnotationResult`, `AnnotationState`, `PrivacySummary` | `ActivityReportOperations` | `annotate`, `get_annotation`, `get_privacy_summary` |
 
 ---
 
@@ -173,6 +189,8 @@ _tasks_service: Any = None  # boundary: placeholder — TasksService not yet thr
 | Search filters | `dict[str, Any]` | `FilterParams` |
 | Relationship props | `Metadata` | `RelationshipMetadata` |
 | Generic callable | `Callable[[Any], bool]` | `EntityFilter[T]` |
+| Protocol return (model) | `Result[Any]` | `Result[Task]`, `Result[Askesis]`, etc. |
+| Protocol return (dict) | `Result[dict[str, Any]]` | TypedDict from `query_types.py` |
 | HTML children | `*c: Any` | *keep — Category C boundary* |
 | Error details | `dict[str, Any]` | *keep — Category C boundary* |
 

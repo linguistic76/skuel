@@ -243,6 +243,27 @@ class TaskCreateData(TypedDict, total=False):
 data: TaskData = {"uid": "123", "title": "Test"}
 ```
 
+**SKUEL protocol return TypedDicts** (from `core/ports/query_types.py`):
+
+```python
+from core.ports.query_types import (
+    # Input types (filters, payloads)
+    ActivityFilterSpec, TaskUpdatePayload, CypherParams,
+    # Output types (protocol return shapes)
+    SignInResult, ReviewQueueItem, TeacherDashboardStats,
+    KnowledgeSuggestionsResult, PerformanceAnalyticsResult,
+    LifePathStatus, LifePathAlignmentResult,
+    LateralRelationshipItem, BlockingChainResult,
+    AnnotationResult, PrivacySummary,
+    ContextDashboard, ContextSummary, IntelligenceResult,
+)
+
+# Protocol methods use these as return types instead of dict[str, Any]
+async def get_dashboard_stats(self, teacher_uid: str) -> Result[TeacherDashboardStats]: ...
+async def sign_in(self, email: str, password: str) -> Result[SignInResult]: ...
+async def get_full_status(self, user_uid: str) -> Result[LifePathStatus]: ...
+```
+
 ## Final and ClassVar
 
 ```python
