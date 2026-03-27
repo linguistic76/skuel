@@ -275,7 +275,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
         )
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30, user_context: "UserContext | None" = None
+        self, user_uid: str, period_days: int = 30, user_context: UserContext | None = None
     ) -> Result[dict[str, Any]]:
         """
         Analyze knowledge substance and application metrics.
@@ -342,7 +342,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
         )
 
     async def calculate_user_substance(
-        self, ku_uid: str, user_context: "UserContext"
+        self, ku_uid: str, user_context: UserContext
     ) -> Result[dict[str, Any]]:
         """
         Calculate per-user substance score for a specific KU.

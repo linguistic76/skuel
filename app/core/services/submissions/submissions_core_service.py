@@ -314,9 +314,9 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if filters:
             result = await self.backend.find_by(**filters)
         else:
-            result = await self.backend.list(limit=limit)
-            if result.is_ok:
-                submissions_list = result.value
+            list_result = await self.backend.list(limit=limit)
+            if list_result.is_ok:
+                submissions_list, _count = list_result.value
                 submissions_list.sort(key=get_report_date, reverse=True)
                 return Result.ok(submissions_list[:limit])
             return Result.ok([])
@@ -564,9 +564,9 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if filters:
             result = await self.backend.find_by(**filters)
         else:
-            result = await self.backend.list(limit=limit * 2)  # Fetch more, filter down
-            if result.is_ok:
-                submissions_list = result.value
+            list_result = await self.backend.list(limit=limit * 2)  # Fetch more, filter down
+            if list_result.is_ok:
+                submissions_list, _count = list_result.value
                 # Filter by category in metadata
                 filtered = [
                     s
@@ -671,9 +671,9 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if filters:
             result = await self.backend.find_by(**filters)
         else:
-            result = await self.backend.list(limit=limit * 2)
-            if result.is_ok:
-                submissions_list = result.value
+            list_result = await self.backend.list(limit=limit * 2)
+            if list_result.is_ok:
+                submissions_list, _count = list_result.value
                 # Filter by tag in metadata
                 filtered = [
                     s

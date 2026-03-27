@@ -266,7 +266,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     # CLASS-LEVEL TYPE ANNOTATIONS
     # ========================================================================
     core: TasksCoreService
-    search: TasksSearchOperations  # Forward ref - imported in TYPE_CHECKING
+    search: TasksSearchOperations  # type: ignore[assignment]  # search service implements callable protocol
     progress: TasksProgressService
     scheduling: TasksSchedulingService
     planning: TasksPlanningService
@@ -306,7 +306,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         # AI service (optional - app works without it)
         self.ai: TasksAIService | None = ai_service
 
-        self.logger = get_logger("skuel.services.tasks")
+        self.logger = get_logger("skuel.services.tasks")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Use factory for search and relationships (common sub-services)
         common = create_common_sub_services(

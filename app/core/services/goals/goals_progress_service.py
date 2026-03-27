@@ -672,7 +672,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         # Timeline analysis
         days_remaining = None
-        required_velocity = 0
+        required_velocity: float = 0
         if goal.target_date:
             days_remaining = (goal.target_date - date.today()).days
             if days_remaining > 0:

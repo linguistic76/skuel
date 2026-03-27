@@ -30,7 +30,7 @@ logger = get_logger("skuel.bootstrap")
 
 async def compose_services(
     neo4j_adapter: Any,
-    event_bus: EventBusOperations = None,
+    event_bus: EventBusOperations | None = None,
     config: Any = None,
     prometheus_metrics: "PrometheusMetrics | None" = None,
     metrics_cache: Any = None,
@@ -1162,7 +1162,7 @@ async def compose_services(
         from core.models.search.search_router import SearchRouter
 
         search_router = SearchRouter(services)
-        services.search_router = search_router
+        services.search_router = search_router  # type: ignore[assignment]  # SearchRouter implements SearchOperations
         logger.info("✅ SearchRouter created (One Path Forward)")
 
         # ========================================================================

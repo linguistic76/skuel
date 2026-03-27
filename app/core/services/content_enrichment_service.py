@@ -99,7 +99,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         self.transcription_service = transcription_service
         self.ai_service = ai_service
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.content_enrichment")
+        self.logger = get_logger("skuel.services.content_enrichment")  # type: ignore[assignment]  # structlog BoundLogger
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -1343,7 +1343,9 @@ Return ONLY Markdown in this structure:
             ku = ku_result.value
             from core.models.user_owned_entity import UserOwnedEntity
 
-            ku_user_uid = ku.user_uid if isinstance(ku, UserOwnedEntity) else "unknown"
+            ku_user_uid = (
+                (ku.user_uid or "unknown") if isinstance(ku, UserOwnedEntity) else "unknown"
+            )
 
         result = await super().delete(uid, cascade=cascade)
 

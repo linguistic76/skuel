@@ -115,7 +115,7 @@ async def fetch_relationships_parallel[T](
                 coroutines.append(empty_result())
 
     # Execute all queries in parallel
-    results: tuple[Result, ...] = await asyncio.gather(*coroutines)
+    results: list[Result[Any]] = await asyncio.gather(*coroutines)
 
     # Extract values from Result[T], defaulting to empty list on error
     kwargs: dict[str, Any] = {}

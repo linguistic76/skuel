@@ -23,7 +23,10 @@ Implementation:
 """
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 from core.events import (
     ChoiceEmbeddingRequested,
@@ -106,7 +109,7 @@ class EmbeddingBackgroundWorker:
         self._total_success = 0
         self._total_failed = 0
         self._batches_processed = 0
-        self._started_at = None
+        self._started_at: datetime | None = None
 
     async def start(self) -> Result[None]:
         """

@@ -32,10 +32,10 @@ class CypherQuery:
     """
 
     cypher: str
-    parameters: dict[str, Any] = (field(default_factory=dict),)
+    parameters: dict[str, Any] = field(default_factory=dict)
     optimization_strategy: QueryOptimizationStrategy = QueryOptimizationStrategy.BASIC
-    expected_labels: set[str] = (field(default_factory=set),)
-    expected_relationships: set[str] = (field(default_factory=set),)
+    expected_labels: set[str] = field(default_factory=set)
+    expected_relationships: set[str] = field(default_factory=set)
     uses_indexes: list[str] = field(default_factory=list)  # Index names used,
     estimated_cost: int | None = None  # Relative cost estimate,
     description: str | None = None
@@ -51,7 +51,7 @@ class TemplateSpec:
     description: str
     base_template: str
     required_parameters: set[str]
-    optional_parameters: set[str] = (field(default_factory=set),)
+    optional_parameters: set[str] = field(default_factory=set)
     optimization_rules: dict[str, str] = field(
         default_factory=dict
     )  # condition -> optimized template,
@@ -95,11 +95,11 @@ class SearchCriteria:
     Criteria for searching nodes, used to select optimal templates.
     """
 
-    labels: set[str] = (field(default_factory=set),)
-    properties: dict[str, Any] = (field(default_factory=dict),)
-    relationship_types: set[str] = (field(default_factory=set),)
-    search_type: str = "exact"  # "exact", "fuzzy", "fulltext", "pattern",
-    limit: int | None = (None,)
+    labels: set[str] = field(default_factory=set)
+    properties: dict[str, Any] = field(default_factory=dict)
+    relationship_types: set[str] = field(default_factory=set)
+    search_type: str = "exact"  # "exact", "fuzzy", "fulltext", "pattern"
+    limit: int | None = None
 
-    order_by: str | None = (None,)
+    order_by: str | None = None
     filters: dict[str, Any] = field(default_factory=dict)

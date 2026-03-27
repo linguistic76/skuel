@@ -367,7 +367,7 @@ class HabitsCompletionService:
         self.logger.debug(f"Getting completions for habit {habit_uid}")
 
         # Build filters
-        filters = {"habit_uid": habit_uid}
+        filters: dict[str, str | datetime] = {"habit_uid": habit_uid}
         if start_date:
             filters["completed_at__gte"] = datetime.combine(start_date, datetime.min.time())
         if end_date:
@@ -625,7 +625,7 @@ class HabitsCompletionService:
             Result[str] with exported data as string
         """
         # Build filters with user_uid
-        filters = {"user_uid": user_uid}
+        filters: dict[str, str | datetime] = {"user_uid": user_uid}
         if start_date:
             filters["completed_at__gte"] = datetime.combine(start_date, datetime.min.time())
         if end_date:

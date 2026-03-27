@@ -178,7 +178,7 @@ class GraphContext:
     query_timestamp: datetime
 
     # Performance metrics
-    neo4j_query_time_ms: float | None = (None,)
+    neo4j_query_time_ms: float | None = None
 
     processing_time_ms: float | None = None
 

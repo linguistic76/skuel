@@ -413,8 +413,11 @@ class EntityRetrieval:
 
             if content_embedding:
                 # Calculate cosine similarity
-                result.vector_score = self.embeddings.calculate_similarity(
+                similarity_result = await self.embeddings.calculate_similarity(
                     query_embedding, content_embedding
+                )
+                result.vector_score = (
+                    similarity_result.value if not similarity_result.is_error else 0.0
                 )
             else:
                 result.vector_score = 0.0

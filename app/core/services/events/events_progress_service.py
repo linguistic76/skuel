@@ -59,7 +59,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
 
     # Configure BaseService
     _date_field = "event_date"
-    _completed_statuses = (EntityStatus.COMPLETED.value, EntityStatus.CANCELLED.value)
+    _completed_statuses = [EntityStatus.COMPLETED.value, EntityStatus.CANCELLED.value]
 
     def __init__(self, backend: "EventsOperations", event_bus=None) -> None:
         """

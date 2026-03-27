@@ -217,10 +217,10 @@ async def validate_file(
             data, body = parse_result.value
         else:  # yaml
             if max_file_size_bytes:
-                parse_result = parse_yaml(file_path, max_file_size_bytes)
+                yaml_result = parse_yaml(file_path, max_file_size_bytes)
             else:
-                parse_result = parse_yaml(file_path)
-            if parse_result.is_error:
+                yaml_result = parse_yaml(file_path)
+            if yaml_result.is_error:
                 return Result.ok(
                     ValidationResult(
                         valid=False,
@@ -228,10 +228,10 @@ async def validate_file(
                         entity_type="unknown",
                         uid="",
                         format=file_format,
-                        errors=[str(parse_result.expect_error())],
+                        errors=[str(yaml_result.expect_error())],
                     )
                 )
-            data = parse_result.value
+            data = yaml_result.value
             body = None
 
         # Detect entity type

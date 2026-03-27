@@ -44,9 +44,9 @@ class SearchTrace:
     """
 
     performed: bool = False
-    query: str | None = (None,)
+    query: str | None = None
     results_count: int = 0
-    summary: str | None = (None,)
+    summary: str | None = None
     elapsed_ms: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
@@ -75,7 +75,7 @@ class ConversationTurn:
     # Core message
     role: MessageRole
     content: str
-    timestamp: datetime = (field(default_factory=create_current_timestamp),)
+    timestamp: datetime = field(default_factory=create_current_timestamp)
     turn_id: str = field(default_factory=create_turn_id)
 
     # Extraction and understanding (flexible dict for any extraction data)
@@ -127,17 +127,17 @@ class ConversationSession:
     # Session identity
     session_id: str
     user_uid: str
-    started_at: datetime = (field(default_factory=_utc_now),)
+    started_at: datetime = field(default_factory=_utc_now)
     last_activity: datetime = field(default_factory=_utc_now)
 
     # Conversation history
-    turns: list[ConversationTurn] = (field(default_factory=list),)
+    turns: list[ConversationTurn] = field(default_factory=list)
     turn_count: int = 0
 
     # Pedagogical state
     guidance_mode: GuidanceMode = GuidanceMode.DIRECT
-    current_topic: str | None = (None,)
-    topics_discussed: list[str] = (field(default_factory=list),)
+    current_topic: str | None = None
+    topics_discussed: list[str] = field(default_factory=list)
     learning_objectives: list[str] = field(default_factory=list)
 
     # Conversation state
@@ -145,17 +145,17 @@ class ConversationSession:
     awaiting_response_to: str | None = None  # What we're waiting for user to answer
 
     # Context accumulation
-    entities_mentioned: list[str] = (field(default_factory=list),)
-    concepts_explored: list[str] = (field(default_factory=list),)
+    entities_mentioned: list[str] = field(default_factory=list)
+    concepts_explored: list[str] = field(default_factory=list)
     questions_asked: list[str] = field(default_factory=list)
 
     # Search context
-    search_queries_performed: list[str] = (field(default_factory=list),)
+    search_queries_performed: list[str] = field(default_factory=list)
     search_results_shown: dict[str, int] = field(default_factory=dict)  # query -> count
 
     # Session metadata
     session_type: str = "chat"  # chat, learning, practice, exploration,
-    session_goals: list[str] = (field(default_factory=list),)
+    session_goals: list[str] = field(default_factory=list)
     session_achievements: list[str] = field(default_factory=list)
 
     # Performance metrics

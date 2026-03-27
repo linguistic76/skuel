@@ -235,14 +235,14 @@ class AskesisRequest:
     user: User
 
     # Session management
-    session_id: str | None = (None,)
+    session_id: str | None = None
 
     create_new_session: bool = False
 
     # Conversation preferences (can override user defaults)
-    personality: Personality | None = (None,)
+    personality: Personality | None = None
 
-    tone: ResponseTone | None = (None,)
+    tone: ResponseTone | None = None
     guidance_mode: GuidanceMode | None = None
 
     # Search configuration
@@ -260,11 +260,11 @@ class AskesisRequest:
     verbosity: str = "medium"  # low, medium, high
 
     # Context and metadata
-    context: dict[str, Any] = (field(default_factory=dict),)
+    context: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Request tracking
-    request_id: str | None = (None,)
+    request_id: str | None = None
 
     timestamp: datetime = field(default_factory=_utcnow)
 
@@ -375,28 +375,28 @@ class AskesisResponse:
     # Search integration
     search_performed: bool = False
 
-    search_query: SearchQuerySchema | None = (None,)
+    search_query: SearchQuerySchema | None = None
     search_results: CrossDomainSearchResultsSchema | None = None
 
     # Extraction and understanding
-    extraction: FacetSetSchema | None = (None,)
+    extraction: FacetSetSchema | None = None
 
-    detected_intent: Intent | None = (None,)
+    detected_intent: Intent | None = None
     confidence: float = 0.8
 
     # Pedagogical enhancements
-    pedagogical_context: PedagogicalContext | None = (None,)
+    pedagogical_context: PedagogicalContext | None = None
 
     learning_insights: list[str] = field(default_factory=list)
 
     # Suggestions and follow-ups
-    suggestions: list[str] = (field(default_factory=list),)
-    follow_up_questions: list[str] = (field(default_factory=list),)
-    recommended_resources: list[str] = (field(default_factory=list),)
+    suggestions: list[str] = field(default_factory=list)
+    follow_up_questions: list[str] = field(default_factory=list)
+    recommended_resources: list[str] = field(default_factory=list)
     exercises: list[str] = field(default_factory=list)
 
     # Knowledge graph integration
-    related_knowledge_units: list[KnowledgeUnitDTO] = (field(default_factory=list),)
+    related_knowledge_units: list[KnowledgeUnitDTO] = field(default_factory=list)
     prerequisite_units: list[str] = field(default_factory=list)  # UIDs of prerequisites,
     next_units: list[str] = field(default_factory=list)  # UIDs of next learning steps
 
@@ -414,11 +414,11 @@ class AskesisResponse:
     search_time_ms: float = 0.0
 
     # Context for next turn
-    context_for_next: dict[str, Any] = (field(default_factory=dict),)
+    context_for_next: dict[str, Any] = field(default_factory=dict)
     awaiting_response: str | None = None  # What we're waiting for user to answer
 
     # Response tracking
-    response_id: str | None = (None,)
+    response_id: str | None = None
 
     timestamp: datetime = field(default_factory=_utcnow)
 
@@ -568,7 +568,7 @@ class AskesisAnalytics:
     intent_counts: dict[str, int] = field(default_factory=dict)
 
     # Topic analysis
-    top_topics: list[str] = (field(default_factory=list),)
+    top_topics: list[str] = field(default_factory=list)
     topic_progression: list[str] = field(default_factory=list)
 
     def get_engagement_score(self) -> float:
@@ -613,11 +613,11 @@ class AskesisError:
     details: dict[str, Any] = field(default_factory=dict)
 
     # Recovery suggestions
-    suggestions: list[str] = (field(default_factory=list),)
+    suggestions: list[str] = field(default_factory=list)
     can_retry: bool = True
 
     # Error context
-    request_id: str | None = (None,)
+    request_id: str | None = None
     timestamp: datetime = field(default_factory=_utcnow)
 
     def to_user_message(self) -> str:

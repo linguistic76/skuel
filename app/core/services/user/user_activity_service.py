@@ -373,7 +373,7 @@ class UserActivityService:
             Dict with requests_received, requests_debounced, invalidations_executed,
             efficiency ratio, and pending count.
         """
-        stats = self._invalidator.get_stats()
+        stats: dict[str, int | float] = dict(self._invalidator.get_stats())
         stats["efficiency"] = self._invalidator.get_efficiency()
         stats["pending_count"] = self._invalidator.get_pending_count()
         return stats

@@ -29,7 +29,7 @@ class UserPreferencesDTO:
 
     # Learning preferences
     learning_level: LearningLevel = LearningLevel.INTERMEDIATE
-    preferred_modalities: list[str] = (field(default_factory=list),)
+    preferred_modalities: list[str] = field(default_factory=list)
     preferred_subjects: list[str] = field(default_factory=list)
 
     # Scheduling preferences
@@ -72,7 +72,7 @@ class UserDTO:
     preferences: UserPreferencesDTO = field(default_factory=UserPreferencesDTO)
 
     # Entity management (just UIDs)
-    active_entity_uids: set[str] = (field(default_factory=set),)
+    active_entity_uids: set[str] = field(default_factory=set)
     archived_entity_uids: set[str] = field(default_factory=set)
 
     # Pinned entities - GRAPH-NATIVE: Query via UserRelationshipService
@@ -80,7 +80,7 @@ class UserDTO:
     pinned_entity_uids: list[str] = field(default_factory=list)  # Populated from service layer
 
     # Interests and goals
-    interests: list[str] = (field(default_factory=list),)
+    interests: list[str] = field(default_factory=list)
     achievements: list[str] = field(default_factory=list)
 
     # Current goals - GRAPH-NATIVE: Query via UserRelationshipService
@@ -98,8 +98,8 @@ class UserDTO:
     team_uids: set[str] = field(default_factory=set)  # Populated from service layer
 
     # Account metadata
-    created_at: datetime = (field(default_factory=datetime.now),)
-    last_active_at: datetime | None = (None,)
+    created_at: datetime = field(default_factory=datetime.now)
+    last_active_at: datetime | None = None
     last_login_at: datetime | None = None
 
     # Account status

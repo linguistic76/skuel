@@ -17,11 +17,11 @@ class QueryElements:
     Used by CypherParser for query analysis.
     """
 
-    nodes: list[dict[str, Any]] = (field(default_factory=list),)
-    relationships: list[dict[str, Any]] = (field(default_factory=list),)
-    properties: dict[str, Any] = (field(default_factory=dict),)
-    conditions: list[str] = (field(default_factory=list),)
-    return_items: list[str] = (field(default_factory=list),)
-    order_by: str | None = (None,)
-    limit: int | None = (None,)
+    nodes: list[dict[str, Any]] = field(default_factory=list)
+    relationships: list[dict[str, Any]] = field(default_factory=list)
+    properties: dict[str, Any] = field(default_factory=dict)
+    conditions: list[str] = field(default_factory=list)
+    return_items: list[str] = field(default_factory=list)
+    order_by: str | None = None
+    limit: int | None = None
     skip: int | None = None

@@ -516,7 +516,13 @@ class HabitEventScheduler:
             elif strategy == SchedulingStrategy.OPTIMAL_TIME:
                 event.start_time = self._get_optimal_time(user_context)
             elif strategy == SchedulingStrategy.FIXED_TIME and habit.preferred_time:
-                event.start_time = habit.preferred_time
+                # preferred_time is stored as str (e.g. "morning"); parse to time if possible
+                from datetime import datetime as _dt
+
+                try:
+                    event.start_time = _dt.strptime(habit.preferred_time, "%H:%M").time()
+                except ValueError:
+                    event.start_time = None  # Unparseable preferred_time — treat as flexible
             else:  # FLEXIBLE
                 event.start_time = None  # Any time
 

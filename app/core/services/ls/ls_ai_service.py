@@ -77,7 +77,8 @@ class LsAIService(BaseAIService[LsOperations, LearningStep]):
         if all_steps_result.is_error:
             return Result.fail(all_steps_result)
 
-        all_steps: list[LearningStep] = all_steps_result.value or []
+        all_steps_data, _count = all_steps_result.value
+        all_steps: list[LearningStep] = all_steps_data or []
         candidates = [
             (s.uid, f"{s.title} {s.intent or ''} {s.description or ''}")
             for s in all_steps

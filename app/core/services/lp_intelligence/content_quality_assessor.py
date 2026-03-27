@@ -427,7 +427,7 @@ class ContentQualityAssessor:
         similarity += (1 - complexity_diff) * 0.2
 
         # Feature similarity
-        feature_match = 0
+        feature_match: float = 0
         if ref_metadata.has_code == cand_metadata.has_code:
             feature_match += 0.25
         if ref_metadata.has_exercises == cand_metadata.has_exercises:

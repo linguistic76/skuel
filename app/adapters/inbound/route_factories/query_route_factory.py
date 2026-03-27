@@ -41,6 +41,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope, UserRole
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -177,7 +178,7 @@ class CommonQueryRouteFactory:
                         )
                     )
 
-                target_user_uid = user_uid
+                target_user_uid = UserUID(user_uid)
 
             # Call service method: get_user_{domain}()
             method_name = f"get_user_{domain}"

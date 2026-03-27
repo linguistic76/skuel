@@ -40,6 +40,7 @@ from core.utils.sort_functions import get_priority_score, get_relevance_score
 if TYPE_CHECKING:
     from core.models.context_types import ContextualDependencies, ContextualTask
     from core.ports.domain_protocols import TasksOperations
+    from core.ports.query_types import RichEntityItem
     from core.services.user.unified_user_context import UserContext
 
 
@@ -300,7 +301,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
             return Result.ok([])
 
         # Build lookup from rich context for O(1) access
-        rich_tasks_by_uid: dict[str, dict] = {}
+        rich_tasks_by_uid: dict[str, RichEntityItem] = {}
         for task_data in rich_tasks:
             task_dict = task_data.get("entity", {})
             uid = task_dict.get("uid")

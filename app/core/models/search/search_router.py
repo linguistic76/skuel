@@ -495,12 +495,12 @@ class SearchRouter:
                     return result
 
             # Route 2: Cross-domain search (no domain specified)
-            result = await self._cross_domain_search(request)
+            cross_results = await self._cross_domain_search(request)
             search_time = (datetime.now() - start_time).total_seconds() * 1000
             return Result.ok(
                 SearchResponse(
-                    results=result,
-                    total=len(result),
+                    results=cross_results,
+                    total=len(cross_results),
                     limit=request.limit,
                     offset=request.offset,
                     query_text=request.query_text,

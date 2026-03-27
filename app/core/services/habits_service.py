@@ -516,7 +516,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.habits")
+        self.logger = get_logger("skuel.services.habits")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Initialize 4 common sub-services via factory (eliminates ~30 lines of repetitive code)
         common: CommonSubServices[HabitsIntelligenceService] = create_common_sub_services(
@@ -527,7 +527,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             insight_store=insight_store,
         )
         self.core = common.core
-        self.search: HabitsSearchOperations = common.search
+        self.search: HabitsSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
         self.relationships: UnifiedRelationshipService = common.relationships
         self.intelligence: HabitsIntelligenceService = common.intelligence
 

@@ -480,8 +480,9 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
                     counts[(record["uid"], record["rel_type"], direction)] = record["count"]
 
             # Fill in zeros for requests that had no results
-            for uid, rel_type, direction in requests:
-                key = (uid, rel_type, direction or "outgoing")
+            for uid, rel_type, req_direction in requests:
+                resolved_direction: str = req_direction if req_direction is not None else "outgoing"
+                key = (uid, rel_type, resolved_direction)
                 if key not in counts:
                     counts[key] = 0
 

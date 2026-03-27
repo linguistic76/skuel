@@ -120,7 +120,7 @@ async def _create_intelligence_hub(
     }
     # Exercise is created in compose_services, passed via services container
     if services.exercises is not None:
-        filtered_providers["exercises"] = services.exercises
+        filtered_providers["exercises"] = services.exercises  # type: ignore[assignment]  # ExerciseOperations satisfies FilteredContextProvider protocol
 
     # ── UserContextIntelligence factory (13-domain architecture) ────────────
     context_intelligence_factory = UserContextIntelligenceFactory(

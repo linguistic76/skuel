@@ -834,6 +834,7 @@ class ActivityExtractorService:
 
         habit = create_result.value
         # Extract UID using Protocol or dict access
+        habit_uid: str | None
         if isinstance(habit, HasUID):
             habit_uid = habit.uid
         elif isinstance(habit, dict):
@@ -885,6 +886,7 @@ class ActivityExtractorService:
 
         goal = create_result.value
         # Extract UID using Protocol or dict access
+        goal_uid: str | None
         if isinstance(goal, HasUID):
             goal_uid = goal.uid
         elif isinstance(goal, dict):
@@ -938,6 +940,7 @@ class ActivityExtractorService:
 
         event = create_result.value
         # Extract UID using Protocol or dict access
+        event_uid: str | None
         if isinstance(event, HasUID):
             event_uid = event.uid
         elif isinstance(event, dict):

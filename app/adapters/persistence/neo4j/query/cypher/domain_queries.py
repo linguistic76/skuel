@@ -1465,7 +1465,7 @@ def build_user_activity_query(
         params["end_date"] = end_date.isoformat()
 
     if exclude_statuses:
-        params["exclude_statuses"] = exclude_statuses
+        params["exclude_statuses"] = exclude_statuses  # type: ignore[assignment]  # list[str] is subtype at runtime; Neo4jValue uses list[str | int | float]
 
     return cypher.strip(), params
 
@@ -1549,7 +1549,7 @@ def build_due_soon_query(
     }
 
     if exclude_statuses:
-        params["exclude_statuses"] = exclude_statuses
+        params["exclude_statuses"] = exclude_statuses  # type: ignore[assignment]  # list[str] is subtype at runtime; Neo4jValue uses list[str | int | float]
     if user_uid:
         params["user_uid"] = user_uid
 
@@ -1625,7 +1625,7 @@ def build_overdue_query(
     }
 
     if exclude_statuses:
-        params["exclude_statuses"] = exclude_statuses
+        params["exclude_statuses"] = exclude_statuses  # type: ignore[assignment]  # list[str] is subtype at runtime; Neo4jValue uses list[str | int | float]
     if user_uid:
         params["user_uid"] = user_uid
 

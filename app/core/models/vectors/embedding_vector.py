@@ -43,7 +43,7 @@ class EmbeddingVector:
 
     # Metadata
     created_at: datetime
-    domain: Domain | None = (None,)
+    domain: Domain | None = None
     metadata: dict[str, Any] | None = None  # type: ignore[assignment]
 
     # Version tracking
@@ -141,7 +141,7 @@ class SimilarityMatch:
     entity_type: str
     similarity_score: float  # 0.0-1.0 (cosine similarity)
     source_text: str
-    domain: Domain | None = (None,)
+    domain: Domain | None = None
 
     metadata: dict[str, Any] | None = None  # type: ignore[assignment]
 

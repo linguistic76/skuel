@@ -429,7 +429,7 @@ class ActionRecommendationEngine:
         """
         # Find goal closest to completion
         best_goal = None
-        best_progress = 0
+        best_progress: float = 0
 
         for goal_uid in user_context.active_goal_uids:
             progress = user_context.goal_progress.get(goal_uid, 0)

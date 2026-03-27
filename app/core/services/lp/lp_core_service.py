@@ -545,7 +545,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             query += " LIMIT $limit"
         query += " RETURN p, steps_data"
 
-        params = {"user_uid": user_uid}
+        params: dict[str, Any] = {"user_uid": user_uid}
         if limit:
             params["limit"] = limit
 
@@ -675,7 +675,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
         # Build SET clause dynamically
         set_clauses = []
-        params = {"uid": path_uid}
+        params: dict[str, Any] = {"uid": path_uid}
 
         allowed_fields = {
             "title",

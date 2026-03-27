@@ -177,7 +177,7 @@ class EventsService(BaseService["EventsOperations", Event]):
     # CLASS-LEVEL TYPE ANNOTATIONS
     # ========================================================================
     core: EventsCoreService
-    search: EventsSearchService
+    search: EventsSearchService  # type: ignore[assignment]  # search service implements callable protocol
     habits: EventsHabitIntegrationService
     learning: EventsLearningService
     progress: EventsProgressService
@@ -562,7 +562,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
         self.ai: EventsAIService | None = ai_service
-        self.logger = get_logger("skuel.services.events")
+        self.logger = get_logger("skuel.services.events")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Initialize 4 common sub-services via factory (eliminates ~30 lines of repetitive code)
         common: CommonSubServices[EventsIntelligenceService] = create_common_sub_services(

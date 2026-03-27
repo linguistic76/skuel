@@ -408,10 +408,11 @@ class AnalyticsLifePathService:
             contributions = {domain: 0.0 for domain in domain_totals}
 
         # Include user_uid for context and validation
-        contributions["user_uid"] = user_uid
-        contributions["total_substance"] = round(total_substance, 2)
+        contributions_result: dict[str, Any] = dict(contributions)
+        contributions_result["user_uid"] = user_uid
+        contributions_result["total_substance"] = round(total_substance, 2)
 
-        return contributions
+        return contributions_result
 
     async def _calculate_alignment_trends(
         self, user_uid: str, life_path_uid: str

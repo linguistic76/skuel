@@ -27,7 +27,7 @@ from fasthtml.common import (
     Script,
     Span,
 )
-from monsterui.franken import UkIcon
+from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user

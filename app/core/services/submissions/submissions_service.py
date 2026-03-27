@@ -76,7 +76,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         super().__init__(backend, "SubmissionsService")
         self.storage_path = Path(storage_path)
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.ku_submission")
+        self.logger = get_logger("skuel.services.ku_submission")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Ensure storage directory exists
         self.storage_path.mkdir(parents=True, exist_ok=True)

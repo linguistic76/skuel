@@ -257,7 +257,7 @@ class LifePathIntelligenceService:
 
     def _get_daily_focus_for_dimension(self, dimension: str, score: float) -> dict[str, Any]:
         """Get daily focus action for a specific dimension."""
-        focuses = {
+        focuses: dict[str, dict[str, Any]] = {
             "activity": {
                 "focus": "Complete one life-path-aligned task",
                 "reason": "Your daily activities need more alignment",

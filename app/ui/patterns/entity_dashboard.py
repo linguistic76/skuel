@@ -265,7 +265,7 @@ class SharedUIComponents:
                 ButtonT(variant_str) if variant_str in ButtonT.__members__ else ButtonT.secondary
             )
 
-            btn_attrs = {"variant": variant}
+            btn_attrs: dict[str, Any] = {"variant": variant}
 
             # Support both href (standard link) and hx_get (HTMX)
             if "href" in action:
@@ -522,7 +522,7 @@ class SharedUIComponents:
                 ButtonT(variant_str) if variant_str in ButtonT.__members__ else ButtonT.primary
             )
 
-            btn_attrs = {"variant": variant}
+            btn_attrs: dict[str, Any] = {"variant": variant}
             if "href" in action:
                 btn_attrs["onclick"] = f"window.location.href='{action['href']}'"
             elif "hx_get" in action:

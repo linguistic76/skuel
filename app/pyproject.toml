@@ -154,7 +154,6 @@ warn_unreachable = false  # Too noisy during development
 # SILENCE THE NOISE: Disable specific error codes that don't matter
 # These are type inference issues that work fine at runtime
 disable_error_code = [
-    "assignment",        # Incompatible types in assignment (dataclass field() inference)
     "arg-type",          # Argument type mismatches (often false positives)
     "var-annotated",     # Variable annotation issues
     "type-arg",          # Type argument issues (generics inference)
@@ -193,13 +192,17 @@ exclude = [
 
 # Per-module configuration for SKUEL-specific patterns
 [[tool.mypy.overrides]]
-# Core services - GRADUAL MIGRATION: Strict for new code, lenient for existing
+# Core ports — strict typing enforced (0 untyped defs as of 2026-03-27)
+module = ["core.ports.*"]
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+# Core services - gradual strictness migration
 module = ["core.services.*"]
 disallow_any_generics = false  # Too many existing violations
-disallow_untyped_defs = false  # Gradual migration
+disallow_untyped_defs = false  # 94 untyped defs remain — enable incrementally
 warn_return_any = false  # Too noisy
-check_untyped_defs = true  # Basic checking
-# Catch Result[Result[T]] patterns - keep this enabled
+check_untyped_defs = true
 disallow_any_decorated = false  # Too strict for FastHTML
 
 [[tool.mypy.overrides]]
@@ -213,7 +216,7 @@ disallow_incomplete_defs = true
 [[tool.mypy.overrides]]
 # Core models and infrastructure - medium strictness
 module = ["core.models.*", "core.infrastructure.*", "core.patterns.*"]
-disallow_untyped_defs = false  # Allow gradual typing
+disallow_untyped_defs = false
 disallow_incomplete_defs = false
 warn_return_any = false
 check_untyped_defs = true
@@ -297,21 +300,6 @@ warn_return_any = true
 module = ["routes.graphql.*"]
 disable_error_code = ["call-arg", "misc"]  # Disable constructor argument checking for Strawberry types
 warn_return_any = false
-
-[[tool.mypy.overrides]]
-# Unused legacy error handler - mixed old/new error patterns (not imported anywhere)
-module = ["core.utils.error_handler"]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-# Schema change detection - references removed ApocQueryBuilder (Pure Cypher Migration Oct 2025)
-module = ["core.infrastructure.database.schema_change"]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-# Principles alignment - 109 type errors, needs significant refactoring
-module = ["core.services.principles.principles_alignment_service"]
-ignore_errors = true
 
 [[tool.mypy.overrides]]
 # Tests, examples, and scripts - verified by pytest (151/151 passing)

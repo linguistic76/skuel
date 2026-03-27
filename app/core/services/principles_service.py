@@ -496,7 +496,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
         self.ai: PrinciplesAIService | None = ai_service
-        self.logger = get_logger("skuel.services.principles")
+        self.logger = get_logger("skuel.services.principles")  # type: ignore[assignment]  # structlog BoundLogger
         self.alignment_cache: dict[str, AlignmentAssessment] = {}
 
         # Initialize 4 common sub-services via factory (eliminates ~30 lines of repetitive code)
@@ -508,7 +508,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
             insight_store=insight_store,
         )
         self.core = common.core
-        self.search: PrinciplesSearchOperations = common.search
+        self.search: PrinciplesSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
         self.relationships: UnifiedRelationshipService = common.relationships
         self.intelligence: PrinciplesIntelligenceService = common.intelligence
 

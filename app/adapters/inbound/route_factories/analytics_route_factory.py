@@ -46,7 +46,7 @@ Usage:
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from adapters.inbound.boundary import boundary_handler
@@ -58,6 +58,11 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger("skuel.routes.analytics_factory")
 
 
+def _default_methods() -> list[str]:
+    """Default HTTP methods for analytics endpoints."""
+    return ["GET"]
+
+
 @dataclass
 class AnalyticsEndpoint:
     """Configuration for a single analytics endpoint"""
@@ -65,14 +70,8 @@ class AnalyticsEndpoint:
     path: str
     handler: Callable
     description: str
-    methods: list[str] = None
-    require_params: list[str] = None
-
-    def __post_init__(self) -> None:
-        if self.methods is None:
-            self.methods = ["GET"]
-        if self.require_params is None:
-            self.require_params = []
+    methods: list[str] = field(default_factory=_default_methods)
+    require_params: list[str] = field(default_factory=list)
 
 
 class AnalyticsRouteFactory:

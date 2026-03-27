@@ -106,9 +106,9 @@ class EventAdapter:
             "event_type": f"EventType.{getattr(self._event.event_type, 'name', self._event.event_type)}",
         }
         if getattr(self._event, "location", None):
-            metadata["location"] = self._event.location
+            metadata["location"] = self._event.location or ""
         if getattr(self._event, "description", None):
-            metadata["description"] = self._event.description
+            metadata["description"] = self._event.description or ""
         return metadata
 
     def get_icon(self) -> str:

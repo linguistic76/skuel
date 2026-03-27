@@ -51,7 +51,7 @@ class ExpenseDTO:
 
     # Payment info
     payment_method: PaymentMethod = PaymentMethod.OTHER
-    account_uid: str | None = (None,)
+    account_uid: str | None = None
     vendor: str | None = None
 
     # Status
@@ -63,26 +63,26 @@ class ExpenseDTO:
     tax_amount: float = 0.0
 
     # Documentation
-    receipt_url: str | None = (None,)
+    receipt_url: str | None = None
     notes: str | None = None
 
     # Recurring expense fields
     is_recurring: bool = False
-    recurrence_pattern: RecurrencePattern | None = (None,)
-    recurrence_end_date: date | None = (None,)
+    recurrence_pattern: RecurrencePattern | None = None
+    recurrence_end_date: date | None = None
     parent_expense_uid: str | None = None
 
     # Budget tracking
-    budget_uid: str | None = (None,)
+    budget_uid: str | None = None
     budget_category: str | None = None
 
     # Metadata
-    tags: list[str] = (field(default_factory=list),)
+    tags: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Audit fields
-    created_at: datetime = (field(default_factory=datetime.now),)
-    updated_at: datetime = (field(default_factory=datetime.now),)
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
     created_by: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -173,12 +173,12 @@ class BudgetDTO:
     is_exceeded: bool = False
 
     # Metadata
-    notes: str | None = (None,)
+    notes: str | None = None
 
     tags: list[str] = field(default_factory=list)
 
     # Audit
-    created_at: datetime = (field(default_factory=datetime.now),)
+    created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
     def to_dict(self) -> dict[str, Any]:
@@ -254,15 +254,15 @@ class ExpenseReportDTO:
     average_amount: float = 0.0
 
     # Category breakdown
-    category_totals: dict[str, float] = (field(default_factory=dict),)
+    category_totals: dict[str, float] = field(default_factory=dict)
     category_counts: dict[str, int] = field(default_factory=dict)
 
     # Time series data
-    daily_totals: dict[str, float] = (field(default_factory=dict),)
+    daily_totals: dict[str, float] = field(default_factory=dict)
     monthly_totals: dict[str, float] = field(default_factory=dict)
 
     # Top items
-    largest_expenses: list[ExpenseDTO] = (field(default_factory=list),)
+    largest_expenses: list[ExpenseDTO] = field(default_factory=list)
     most_frequent_vendors: dict[str, int] = field(default_factory=dict)
 
     # Tax summary
@@ -273,7 +273,7 @@ class ExpenseReportDTO:
     budget_comparisons: list[dict[str, Any]] = field(default_factory=list)
 
     # Metadata
-    generated_at: datetime = (field(default_factory=datetime.now),)
+    generated_at: datetime = field(default_factory=datetime.now)
     filters_applied: dict[str, Any] = field(default_factory=dict)
 
 
@@ -296,13 +296,13 @@ class BudgetAnalysisDTO:
     utilization_percentage: float
 
     # Projections
-    projected_end_amount: float | None = (None,)
+    projected_end_amount: float | None = None
 
-    projected_over_under: float | None = (None,)
+    projected_over_under: float | None = None
     days_until_exceeded: int | None = None
 
     # Category breakdown
-    category_spending: dict[str, float] = (field(default_factory=dict),)
+    category_spending: dict[str, float] = field(default_factory=dict)
     category_percentages: dict[str, float] = field(default_factory=dict)
 
     # Trend analysis

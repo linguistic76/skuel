@@ -60,9 +60,9 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
     def __init__(
         self,
         backend: Any,  # Uses UserContextOperations or similar
-        llm_service: "LLMService",
-        embeddings_service: "HuggingFaceEmbeddingsService",
-        graph_intelligence_service: "GraphIntelligenceService | None" = None,
+        llm_service: LLMService,
+        embeddings_service: HuggingFaceEmbeddingsService,
+        graph_intelligence_service: GraphIntelligenceService | None = None,
         event_bus: Any | None = None,
     ) -> None:
         """

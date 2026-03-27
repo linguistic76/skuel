@@ -63,7 +63,7 @@ class GroupService(BaseService):
         super().__init__(backend, "groups")
         self.backend = backend
         self.event_bus = event_bus
-        self.logger = logger
+        self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
         logger.info("GroupService initialized")
 
     @property

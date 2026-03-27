@@ -168,8 +168,8 @@ class QueryOptimizationResult:
     """Result of query optimization with multiple plan options"""
 
     primary_plan: QueryPlan
-    alternative_plans: list[QueryPlan] = (field(default_factory=list),)
-    index_recommendations: list[IndexRecommendation] = (field(default_factory=list),)
+    alternative_plans: list[QueryPlan] = field(default_factory=list)
+    index_recommendations: list[IndexRecommendation] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
     @property
@@ -218,9 +218,9 @@ class QueryElements:
     functions: set[str]
 
     # Intent analysis fields
-    intent: QueryIntent | None = (None,)
+    intent: QueryIntent | None = None
 
-    keywords: list[str] = (field(default_factory=list),)
+    keywords: list[str] = field(default_factory=list)
     needs_hierarchy: bool = False
 
     needs_prerequisites: bool = False

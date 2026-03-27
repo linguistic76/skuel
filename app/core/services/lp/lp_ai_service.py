@@ -77,7 +77,8 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
         if all_paths_result.is_error:
             return Result.fail(all_paths_result)
 
-        all_paths: list[LearningPath] = all_paths_result.value or []
+        all_paths_data, _count = all_paths_result.value
+        all_paths: list[LearningPath] = all_paths_data or []
         candidates = [
             (p.uid, f"{p.title} {p.description or ''}") for p in all_paths if p.uid != lp_uid
         ]

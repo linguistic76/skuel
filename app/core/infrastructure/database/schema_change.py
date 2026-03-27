@@ -192,7 +192,7 @@ class SchemaChange:
     impact: ChangeImpact
     description: str
     affected_entity: str  # What was changed (index name, label, etc.)
-    old_value: Any | None = (None,)
+    old_value: Any | None = None
     new_value: Any | None = None
     detected_at: datetime = field(default_factory=datetime.now)
 

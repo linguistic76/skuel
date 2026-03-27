@@ -43,6 +43,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    from core.models.askesis.askesis import Askesis
     from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
@@ -50,7 +51,6 @@ if TYPE_CHECKING:
         LifePathAlignment,
         ScheduleAwareRecommendation,
     )
-    from core.models.askesis.askesis import Askesis
     from core.services.askesis.types import (
         AskesisAnalysis,
         AskesisContext,

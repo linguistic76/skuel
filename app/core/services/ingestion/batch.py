@@ -172,9 +172,9 @@ def parse_file_sync(
                 return (None, None, error.to_dict())
             data, body = parse_result.value
         else:
-            parse_result = parse_yaml(file_path, max_file_size_bytes)
-            if parse_result.is_error:
-                err = parse_result.expect_error()
+            yaml_result = parse_yaml(file_path, max_file_size_bytes)
+            if yaml_result.is_error:
+                err = yaml_result.expect_error()
                 # Line number is now embedded in the error message
                 # Extract it for structured error if present
                 line_num = None
@@ -197,7 +197,7 @@ def parse_file_sync(
                     suggestion="Check YAML syntax: proper indentation, colons, and quotes.",
                 )
                 return (None, None, error.to_dict())
-            data = parse_result.value
+            data = yaml_result.value
             body = None
 
         # Stage 3a: Check for edge type (edges are NOT entities)

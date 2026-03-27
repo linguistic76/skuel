@@ -479,7 +479,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         self.ai: GoalsAIService | None = ai_service
 
         self.graph_intel = graph_intelligence_service
-        self.logger = get_logger("skuel.services.goals")
+        self.logger = get_logger("skuel.services.goals")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Initialize 3 common sub-services via factory (core, search, relationships)
         # Note: intelligence is created separately because it needs progress_service
@@ -490,7 +490,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
             event_bus=event_bus,
         )
         self.core = common.core
-        self.search: GoalsSearchOperations = common.search
+        self.search: GoalsSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
         self.relationships: UnifiedRelationshipService = common.relationships
 
         # Domain-specific sub-services that need relationships

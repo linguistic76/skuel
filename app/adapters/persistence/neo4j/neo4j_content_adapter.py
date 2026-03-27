@@ -387,7 +387,7 @@ class Neo4jContentAdapter:
                 RETURN chunk, r.sequence as sequence
                 ORDER BY r.sequence
                 """
-                params = ({"uid": uid, "chunk_type": chunk_type},)
+                params = {"uid": uid, "chunk_type": chunk_type}
             else:
                 query = """
                 MATCH (c:Content {uid: $uid})-[r:HAS_CHUNK]->(chunk:ContentChunk)

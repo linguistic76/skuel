@@ -504,16 +504,16 @@ class DSLConnectionExecutor:
                 self.logger.warning(f"Failed to create knowledge edge: {conn.target_uid}")
 
         # Execute goal connections
-        for conn in plan.goal_connections:
-            result = await self._create_goal_edge(entity_uid, conn, entity_type)
+        for goal_conn in plan.goal_connections:
+            result = await self._create_goal_edge(entity_uid, goal_conn, entity_type)
             if result.is_ok:
                 stats["goal_created"] += 1
             else:
                 stats["goal_failed"] += 1
 
         # Execute principle connections
-        for conn in plan.principle_connections:
-            result = await self._create_principle_edge(entity_uid, conn, entity_type)
+        for principle_conn in plan.principle_connections:
+            result = await self._create_principle_edge(entity_uid, principle_conn, entity_type)
             if result.is_ok:
                 stats["principle_created"] += 1
             else:

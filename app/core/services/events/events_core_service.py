@@ -20,6 +20,7 @@ from operator import attrgetter
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
+from core.events.base import BaseEvent
 from core.events.calendar_event_events import (
     CalendarEventCompleted,
     CalendarEventCreated,
@@ -386,6 +387,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
             event = result.value
 
             # Priority 1: Status changed to COMPLETED (state transition only)
+            domain_event: BaseEvent
             if (
                 "status" in updates
                 and updates["status"] == EntityStatus.COMPLETED.value

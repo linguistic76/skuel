@@ -122,7 +122,7 @@ class KnowledgeCreated(BaseEvent):
     domain: str | None
 
     # Creation context
-    created_by_user: str | None = (None,)
+    created_by_user: str | None = None
     created_from_template: bool = False
 
     @property
@@ -177,7 +177,7 @@ class LearningPathCompleted(BaseEvent):
     user_uid: str
 
     # Completion metrics
-    actual_duration_hours: int | None = (None,)
+    actual_duration_hours: int | None = None
     estimated_duration_hours: int | None = None
     completed_ahead_of_schedule: bool = False
 

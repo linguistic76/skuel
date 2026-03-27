@@ -114,7 +114,9 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
     #     ...
     #   }
     # }
-    _graph_enrichment_patterns: ClassVar[list[tuple[str, str, str]]] = [
+    _graph_enrichment_patterns: ClassVar[
+        tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]
+    ] = (
         # All entities are :Entity nodes — target label is always "Entity"
         ("taught_in_steps", RelationshipName.CONTAINS_KNOWLEDGE.value, NeoLabel.ENTITY.value),
         ("prerequisites", RelationshipName.REQUIRES_KNOWLEDGE.value, NeoLabel.ENTITY.value),
@@ -129,7 +131,7 @@ class LessonSearchService(BaseService[LessonOperations, Entity]):
         ),
         ("informs_choices", RelationshipName.INFORMED_BY_KNOWLEDGE.value, NeoLabel.ENTITY.value),
         ("grounds_principles", RelationshipName.GROUNDED_IN_KNOWLEDGE.value, NeoLabel.ENTITY.value),
-    ]
+    )
 
     def __init__(
         self,

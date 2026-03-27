@@ -54,8 +54,7 @@ if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
-    from core.ports.query_types import KnowledgePrerequisitesResult
-    from core.ports.query_types import ListContext
+    from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
     from core.ports.search_protocols import ChoicesSearchOperations
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.choices.choices_types import ChoiceImpactAnalysis, DecisionIntelligence
@@ -356,7 +355,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
         self.ai: ChoicesAIService | None = ai_service
-        self.logger = get_logger("skuel.services.choices")
+        self.logger = get_logger("skuel.services.choices")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Initialize 4 common sub-services via factory (eliminates ~30 lines of repetitive code)
         common: CommonSubServices[ChoicesIntelligenceService] = create_common_sub_services(
@@ -367,7 +366,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
             insight_store=insight_store,
         )
         self.core = common.core
-        self.search: ChoicesSearchOperations = common.search
+        self.search: ChoicesSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
         self.relationships: UnifiedRelationshipService = common.relationships
         self.intelligence: ChoicesIntelligenceService = common.intelligence
 

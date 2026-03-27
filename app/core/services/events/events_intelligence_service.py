@@ -427,7 +427,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
 
         for event in events:
             # Calculate impact score using graph queries for graph relationships
-            impact_score = 0
+            impact_score: float = 0
 
             # Check goal support via graph
             context_result = await self.relationships.get_cross_domain_context(event.uid)

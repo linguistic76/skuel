@@ -395,7 +395,7 @@ class SearchRequest(BaseModel):
         Used by UniversalNeo4jBackend.find_by() for dynamic queries.
         All facets become WHERE clauses in Cypher.
         """
-        filters = {}
+        filters: dict[str, str] = {}
 
         # Core facets (handle both enum and string values from Pydantic)
         if self.sel_category:

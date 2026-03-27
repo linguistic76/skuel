@@ -160,7 +160,7 @@ class Neo4jSchemaService:
                 relationship_type_info[rel_type] = rel_info_result.value
 
         # Build property mappings
-        all_properties: set[str] = (set(),)
+        all_properties: set[str] = set()
         indexed_properties: dict[str, list[Neo4jIndex]] = {}
         unique_properties: dict[str, list[Neo4jConstraint]] = {}
 

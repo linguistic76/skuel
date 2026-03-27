@@ -549,7 +549,7 @@ class UserContext:
     # - graph_context: {organized_kus, related_content}
 
     # Cross-domain relationship insights (extracted from MEGA-QUERY)
-    cross_domain_insights: CrossDomainInsightsData = field(default_factory=dict)
+    cross_domain_insights: CrossDomainInsightsData = field(default_factory=dict)  # type: ignore[assignment]  # empty dict is valid runtime default for TypedDict
     # Contains:
     # - task_goal_alignments: {task_uid: {goal_uid, alignment_score}}
     # - knowledge_task_applications: {ku_uid: [task_uids applying this knowledge]}

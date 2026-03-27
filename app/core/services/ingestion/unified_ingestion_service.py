@@ -359,10 +359,10 @@ class UnifiedIngestionService:
                 return Result.fail(parse_result)
             data, body = parse_result.value
         else:  # yaml
-            parse_result = parse_yaml(file_path, self.max_file_size_bytes)
-            if parse_result.is_error:
-                return Result.fail(parse_result)
-            data = parse_result.value
+            yaml_result = parse_yaml(file_path, self.max_file_size_bytes)
+            if yaml_result.is_error:
+                return Result.fail(yaml_result)
+            data = yaml_result.value
             body = None
 
         # Check for edge type BEFORE entity type detection

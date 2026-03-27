@@ -13,7 +13,7 @@ Builds on the foundation of EntityInferenceService with enhanced capabilities.
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from operator import attrgetter
 from typing import Any, TypedDict
 
@@ -33,7 +33,7 @@ class KuPattern:
     confidence: float
     evidence: list[str]
     domain: str
-    cross_references: list[str] = None
+    cross_references: list[str] = field(default_factory=list)
 
 
 @dataclass

@@ -57,7 +57,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
             backend: Protocol-based backend for choice operations
         """
         super().__init__(backend, "choices.learning")
-        self.logger = get_logger("skuel.services.choices.learning")
+        self.logger = get_logger("skuel.services.choices.learning")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Initialize LearningAlignmentBridge for learning operations
         self.learning_helper = LearningAlignmentBridge[Choice, ChoiceDTO, ChoiceCreateRequest](

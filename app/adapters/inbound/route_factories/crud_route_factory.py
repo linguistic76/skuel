@@ -452,7 +452,7 @@ class CRUDRouteFactory[T]:
             if verify_ownership:
                 # Require authentication and verify ownership
                 user_uid = require_authenticated_user(request)
-                result: Result[T | None] = await service.get_for_user(uid, user_uid)
+                result: Result[T | None] = await service.get_for_user(uid, user_uid)  # type: ignore[assignment]  # Result invariance - T widens to T | None safely
                 logger.debug(f"Retrieved {domain}: {uid} for user {user_uid}")
             else:
                 # No ownership check (shared entities like KU, LP)
@@ -622,7 +622,7 @@ class CRUDRouteFactory[T]:
                 # Shared domains: pass actual user (or None if unauthenticated)
                 # Service MUST treat None as "return shared/public content"
                 # (not "return everything" - that would be a security issue)
-                user_uid = get_current_user(request)
+                user_uid = get_current_user(request)  # type: ignore[assignment]  # UserUID | None accepted by service.list
 
             # Call service with user filtering
             result = await service.list(

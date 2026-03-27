@@ -877,7 +877,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
 
         # Calculate load by day
         days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-        load_by_day = {day: 0 for day in days}
+        load_by_day: dict[str, float] = {day: 0.0 for day in days}
 
         for habit in active_habits:
             effort = habit.get_effort_score()

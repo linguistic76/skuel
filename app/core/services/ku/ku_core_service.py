@@ -86,7 +86,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         # Filter None values
         properties = {k: v for k, v in properties.items() if v is not None}
 
-        result: Result[Ku | None] = await self.backend.create(properties)
+        result: Result[Ku | None] = await self.backend.create(properties)  # type: ignore[assignment]  # Result invariance — Ku is always non-None here
         if result.is_error:
             return result
 

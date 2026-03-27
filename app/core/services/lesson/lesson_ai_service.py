@@ -159,14 +159,16 @@ class LessonAIService(BaseAIService[LessonOperations, Lesson]):
         """
         # Get KUs to search
         if domain:
-            kus_result = await self.backend.find_by(domain=domain)
+            find_result = await self.backend.find_by(domain=domain)
+            if find_result.is_error:
+                return Result.fail(find_result)
+            kus = find_result.value or []
         else:
-            kus_result = await self.backend.list(limit=500)  # Reasonable limit
-
-        if kus_result.is_error:
-            return Result.fail(kus_result)
-
-        kus = kus_result.value or []
+            list_result = await self.backend.list(limit=500)  # Reasonable limit
+            if list_result.is_error:
+                return Result.fail(list_result)
+            kus_data, _count = list_result.value
+            kus = kus_data or []
         if not kus:
             return Result.ok([])
 

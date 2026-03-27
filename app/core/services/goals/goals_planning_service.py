@@ -41,6 +41,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualGoal
+    from core.ports.query_types import RichEntityItem
     from core.services.user.unified_user_context import UserContext
 
 
@@ -130,7 +131,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             return Result.ok([])
 
         # Build lookup from rich context for O(1) access
-        rich_goals_by_uid: dict[str, dict] = {}
+        rich_goals_by_uid: dict[str, RichEntityItem] = {}
         for goal_data in rich_goals:
             goal_dict = goal_data.get("entity", {})
             uid = goal_dict.get("uid")

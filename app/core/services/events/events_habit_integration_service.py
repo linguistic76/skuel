@@ -65,7 +65,7 @@ class EventsHabitIntegrationService:
     - Managing habit-event relationships
     """
 
-    def __init__(self, backend: "EventsOperations", event_bus=None) -> None:
+    def __init__(self, backend: EventsOperations, event_bus=None) -> None:
         """
         Initialize events habit integration service.
 

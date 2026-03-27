@@ -841,8 +841,9 @@ class UnifiedConfig:
         if os.getenv("CACHE_ENABLED"):
             self.cache.enabled = os.getenv("CACHE_ENABLED", "true").lower() == "true"
 
-        if os.getenv("LOG_LEVEL"):
-            self.application.log_level = os.getenv("LOG_LEVEL")
+        log_level = os.getenv("LOG_LEVEL")
+        if log_level:
+            self.application.log_level = log_level
 
     def validate(self) -> list[str]:
         """

@@ -230,9 +230,9 @@ class FinanceBudgetService:
         all_expenses = []
         if budget.categories:
             for category in budget.categories:
-                result = await self.backend.find_expenses_by_category(category)
-                if result.is_ok:
-                    all_expenses.extend(result.value)
+                expense_result = await self.backend.find_expenses_by_category(category)
+                if expense_result.is_ok:
+                    all_expenses.extend(expense_result.value)
 
         # Service-layer filtering: filter by date range and user
         # Include expenses from start_date onwards, up to end_date if specified

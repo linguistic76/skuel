@@ -242,7 +242,7 @@ def create_system_api_routes(
             system_service.get_health_status(), system_service.get_system_info()
         )
 
-        metrics = {"timestamp": datetime.now(UTC).isoformat(), "service": "SKUEL"}
+        metrics: dict[str, Any] = {"timestamp": datetime.now(UTC).isoformat(), "service": "SKUEL"}
 
         # Add health metrics
         if health_result.is_ok:

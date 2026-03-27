@@ -385,8 +385,8 @@ class ContextRetriever:
         if ls_rich is None:
             return Result.fail(Errors.not_found("learning_step", "no_active_ls"))
 
-        step_data: dict[str, Any] = ls_rich.get("step") or ls_rich.get("entity", {})  # type: ignore[arg-type]
-        graph_context: dict[str, Any] = ls_rich.get("graph_context", {})
+        step_data: dict[str, Any] = dict(ls_rich.get("step") or ls_rich.get("entity", {}))  # type: ignore[call-overload]
+        graph_context: dict[str, Any] = dict(ls_rich.get("graph_context", {}))  # type: ignore[call-overload]
 
         # Step 2: Build the LearningStep domain model
         learning_step = self._build_learning_step(step_data)
@@ -494,7 +494,7 @@ class ContextRetriever:
                           knowledge_relationships, learning_path}
         """
         for ls_item in user_context.active_learning_steps_rich:
-            step_data: dict[str, Any] = ls_item.get("step") or ls_item.get("entity", {})  # type: ignore[arg-type]
+            step_data: dict[str, Any] = dict(ls_item.get("step") or ls_item.get("entity", {}))  # type: ignore[call-overload]
             if not step_data:
                 continue
 

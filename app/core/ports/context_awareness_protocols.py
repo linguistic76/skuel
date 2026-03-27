@@ -43,7 +43,7 @@ Protocol Hierarchy:
 - FullAwareness: complete context (for Askesis, dashboards)
 """
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from core.ports.query_types import (

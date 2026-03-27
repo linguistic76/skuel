@@ -79,7 +79,7 @@ class IdentifiableMixin:
 class TimestampMixin:
     """Mixin for entities with timestamps"""
 
-    created_at: datetime = (field(default_factory=datetime.now),)
+    created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
     def with_updated_timestamp(self, **kwargs: Any) -> "TimestampMixin":
@@ -229,7 +229,7 @@ class BasePureModel(IdentifiableMixin, TimestampMixin, RelationshipMixin, ABC):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization"""
-        result = {}
+        result: dict[str, Any] = {}
         for key, value in self.__dict__.items():
             if value is not None:
                 if isinstance(value, datetime):
@@ -353,12 +353,12 @@ class BaseDTO:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Relationship information for transfer
-    relationships_out: list[Relationship] = (field(default_factory=list),)
+    relationships_out: list[Relationship] = field(default_factory=list)
     relationships_in: list[Relationship] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert DTO to dictionary"""
-        result = {}
+        result: dict[str, Any] = {}
         for k, v in self.__dict__.items():
             if v is not None:
                 if isinstance(v, datetime):
@@ -462,8 +462,8 @@ class BaseSearchDTO(BaseDTO):
 
     score: float | None = None
 
-    highlights: dict[str, str] = (field(default_factory=dict),)
-    matched_fields: list[str] = (field(default_factory=list),)
+    highlights: dict[str, str] = field(default_factory=dict)
+    matched_fields: list[str] = field(default_factory=list)
     relationship_paths: list[list[str]] = field(default_factory=list)  # Paths through graph
 
 
@@ -490,10 +490,10 @@ class BaseSchema(BaseModel):
 class BaseCreateSchema(BaseSchema):
     """Base schema for creation requests"""
 
-    title: str = (Field(..., min_length=1, max_length=200, description="Title of the entity"),)
-    description: str | None = (Field(None, max_length=2000, description="Description"),)
-    content: str | None = (Field(None, description="Main content (markdown, text, etc)"),)
-    tags: list[str] = (Field(default_factory=list, description="Tags for categorization"),)
+    title: str = Field(..., min_length=1, max_length=200, description="Title of the entity")
+    description: str | None = Field(None, max_length=2000, description="Description")
+    content: str | None = Field(None, description="Main content (markdown, text, etc)")
+    tags: list[str] = Field(default_factory=list, description="Tags for categorization")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
     # Optional relationship specifications
@@ -505,11 +505,11 @@ class BaseCreateSchema(BaseSchema):
 class BaseUpdateSchema(BaseSchema):
     """Base schema for update requests - all fields optional"""
 
-    title: str | None = (Field(None, min_length=1, max_length=200),)
-    description: str | None = (Field(None, max_length=2000),)
-    content: str | None = (Field(None),)
-    status: str | None = (Field(None),)
-    progress: float | None = (Field(None, ge=0, le=100),)
+    title: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=2000)
+    content: str | None = Field(None)
+    status: str | None = Field(None)
+    progress: float | None = Field(None, ge=0, le=100)
     tags: list[str] | None = None
 
     notes: str | None = None
@@ -519,13 +519,13 @@ class BaseUpdateSchema(BaseSchema):
 class BaseResponseSchema(BaseSchema):
     """Base schema for API responses"""
 
-    uid: str = (Field(..., description="Unique identifier"),)
-    title: str = (Field(..., description="Title"),)
-    description: str | None = (Field(None, description="Description"),)
-    content: str | None = (Field(None, description="Content"),)
-    status: str | None = (Field(None, description="Current status"),)
-    progress: float = (Field(0.0, description="Progress percentage (0-100)"),)
-    tags: list[str] = (Field(default_factory=list),)
+    uid: str = Field(..., description="Unique identifier")
+    title: str = Field(..., description="Title")
+    description: str | None = Field(None, description="Description")
+    content: str | None = Field(None, description="Content")
+    status: str | None = Field(None, description="Current status")
+    progress: float = Field(0.0, description="Progress percentage (0-100)")
+    tags: list[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -539,19 +539,19 @@ class BaseResponseSchema(BaseSchema):
 class BaseRelationshipSchema(BaseSchema):
     """Schema for relationship data"""
 
-    from_uid: str = (Field(..., description="Source entity UID"),)
-    rel_type: str = (Field(..., description="Relationship type"),)
-    to_uid: str = (Field(..., description="Target entity UID"),)
+    from_uid: str = Field(..., description="Source entity UID")
+    rel_type: str = Field(..., description="Relationship type")
+    to_uid: str = Field(..., description="Target entity UID")
     properties: dict[str, Any] | None = Field(None, description="Relationship properties")
 
 
 class BasePaginatedResponseSchema(BaseSchema):
     """Base schema for paginated responses"""
 
-    items: list[BaseResponseSchema] = (Field(..., description="List of items"),)
-    total: int = (Field(..., description="Total number of items"),)
-    page: int = (Field(1, description="Current page number"),)
-    per_page: int = (Field(20, description="Items per page"),)
+    items: list[BaseResponseSchema] = Field(..., description="List of items")
+    total: int = Field(..., description="Total number of items")
+    page: int = Field(1, description="Current page number")
+    per_page: int = Field(20, description="Items per page")
     pages: int = Field(..., description="Total number of pages")
 
 
@@ -593,11 +593,11 @@ class EntityFactory:
         **kwargs: Any,
     ) -> BaseEntity:
         """Create entity with initial relationships"""
-        entity = EntityFactory.create_entity(entity_class, title, prefix, **kwargs)
+        entity: BaseEntity = EntityFactory.create_entity(entity_class, title, prefix, **kwargs)
         # Add relationships
         for rel_type, target_uids in relationships.items():
             for target_uid in target_uids:
-                entity = entity.add_relationship(rel_type, target_uid)
+                entity = entity.add_relationship(rel_type, target_uid)  # type: ignore[assignment]  # RelationshipMixin returns Self but typed as RelationshipMixin
         return entity
 
 

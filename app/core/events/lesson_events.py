@@ -82,7 +82,7 @@ class KnowledgePracticedInEvent(BaseEvent):
     user_uid: str
 
     # Optional context
-    event_title: str | None = (None,)
+    event_title: str | None = None
     duration_minutes: int | None = None
 
     @property

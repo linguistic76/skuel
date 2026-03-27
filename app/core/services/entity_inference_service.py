@@ -63,6 +63,7 @@ class EntityInferenceService:
         self.logger = get_logger("skuel.inference.service")
 
         # Initialize advanced inference engine
+        self.advanced_engine: AdvancedInferenceEngine | None
         if self.config.enable_advanced_engine:
             self.advanced_engine = AdvancedInferenceEngine()
             self.logger.info("Advanced knowledge inference engine enabled")
@@ -410,7 +411,7 @@ class EntityInferenceService:
                     avg_feedback = sum(all_feedback) / len(all_feedback)
                     validation_feedback["average_accuracy"] = avg_feedback
 
-            stats["validation_feedback"] = validation_feedback
+            stats["validation_feedback"] = validation_feedback  # type: ignore[assignment]  # dict[str, int|float|list[str]] is a valid stats value
 
         return Result.ok(stats)
 

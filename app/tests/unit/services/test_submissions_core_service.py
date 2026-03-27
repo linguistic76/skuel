@@ -989,7 +989,7 @@ class TestGetRecentSubmissionsNoFilters:
             _make_entity(uid=f"s_{i}", created_at=datetime(2026, 3, i + 1, tzinfo=UTC))
             for i in range(5)
         ]
-        backend.list = AsyncMock(return_value=Result.ok(entities))
+        backend.list = AsyncMock(return_value=Result.ok((entities, len(entities))))
         service = _make_service(backend=backend)
 
         result = await service.get_recent_submissions(limit=3)

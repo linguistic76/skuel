@@ -197,21 +197,21 @@ class CalendarService:
         # Parse item type from UID prefix
         if item_uid.startswith("task-"):
             source_uid = item_uid[5:]  # Remove "task-" prefix
-            result = await self.tasks_service.get(source_uid)
-            if result.is_ok and result.value:
-                return Result.ok(self._task_to_calendar_item(result.value))
+            task_result = await self.tasks_service.get(source_uid)
+            if task_result.is_ok and task_result.value:
+                return Result.ok(self._task_to_calendar_item(task_result.value))
 
         elif item_uid.startswith("event-"):
             source_uid = item_uid[6:]  # Remove "event-" prefix
-            result = await self.events_service.get(source_uid)
-            if result.is_ok and result.value:
-                return Result.ok(self._event_to_calendar_item(result.value))
+            event_result = await self.events_service.get(source_uid)
+            if event_result.is_ok and event_result.value:
+                return Result.ok(self._event_to_calendar_item(event_result.value))
 
         elif item_uid.startswith("habit-"):
             source_uid = item_uid[6:]  # Remove "habit-" prefix
-            result = await self.habits_service.get(source_uid)
-            if result.is_ok and result.value:
-                return Result.ok(self._habit_to_calendar_item(result.value))
+            habit_result = await self.habits_service.get(source_uid)
+            if habit_result.is_ok and habit_result.value:
+                return Result.ok(self._habit_to_calendar_item(habit_result.value))
 
         return Result.ok(None)
 
@@ -246,11 +246,11 @@ class CalendarService:
                 status=EntityStatus.SCHEDULED,
                 priority=Priority.MEDIUM,
             )
-            result = await self.tasks_service.create(task_dto)
-            if result.is_ok:
-                return Result.ok(self._task_to_calendar_item(result.value))
+            task_result = await self.tasks_service.create(task_dto)
+            if task_result.is_ok:
+                return Result.ok(self._task_to_calendar_item(task_result.value))
             # Type boundary: Extract error from Result[Task] for Result[CalendarItem]
-            return Result.fail(result)
+            return Result.fail(task_result)
 
         elif item_type == EntityType.EVENT.value:
             # Create event
@@ -264,11 +264,11 @@ class CalendarService:
                 end_time=end_time.time(),
                 status=EntityStatus.SCHEDULED,
             )
-            result = await self.events_service.create(event_dto)
-            if result.is_ok:
-                return Result.ok(self._event_to_calendar_item(result.value))
+            event_result = await self.events_service.create(event_dto)
+            if event_result.is_ok:
+                return Result.ok(self._event_to_calendar_item(event_result.value))
             # Type boundary: Extract error from Result[Event] for Result[CalendarItem]
-            return Result.fail(result)
+            return Result.fail(event_result)
 
         elif item_type == EntityType.HABIT.value:
             # Create habit
@@ -280,11 +280,11 @@ class CalendarService:
                 target_days_per_week=kwargs.get("frequency", 7),
                 status=EntityStatus.ACTIVE,
             )
-            result = await self.habits_service.create(habit_dto)
-            if result.is_ok:
-                return Result.ok(self._habit_to_calendar_item(result.value))
+            habit_result = await self.habits_service.create(habit_dto)
+            if habit_result.is_ok:
+                return Result.ok(self._habit_to_calendar_item(habit_result.value))
             # Type boundary: Extract error from Result[Habit] for Result[CalendarItem]
-            return Result.fail(result)
+            return Result.fail(habit_result)
 
         return Result.fail(Errors.validation(f"Unknown item type: {item_type}", field="item_type"))
 
@@ -303,10 +303,10 @@ class CalendarService:
         # Parse item type and update accordingly
         if item_uid.startswith("task-"):
             source_uid = item_uid[5:]
-            get_result = await self.tasks_service.get(source_uid)
-            if get_result.is_ok and get_result.value:
-                task = get_result.value
-                updated_dto = TaskDTO(
+            task_get = await self.tasks_service.get(source_uid)
+            if task_get.is_ok and task_get.value:
+                task = task_get.value
+                updated_task_dto = TaskDTO(
                     uid=task.uid,
                     user_uid=task.user_uid,
                     title=task.title,
@@ -316,16 +316,16 @@ class CalendarService:
                     status=task.status,
                     priority=task.priority,
                 )
-                result = await self.tasks_service.update(source_uid, updated_dto)
-                if result.is_ok:
-                    return Result.ok(self._task_to_calendar_item(result.value))
-                return Result.fail(result)
+                task_update = await self.tasks_service.update(source_uid, updated_task_dto)
+                if task_update.is_ok:
+                    return Result.ok(self._task_to_calendar_item(task_update.value))
+                return Result.fail(task_update)
 
         elif item_uid.startswith("event-"):
             source_uid = item_uid[6:]
-            get_result = await self.events_service.get(source_uid)
-            if get_result.is_ok and get_result.value:
-                event: Event = get_result.value  # Type hint for MyPy protocol inference
+            event_get = await self.events_service.get(source_uid)
+            if event_get.is_ok and event_get.value:
+                event: Event = event_get.value  # Type hint for MyPy protocol inference
                 start_dt = event.start_datetime()
                 end_dt = event.end_datetime()
                 if start_dt is None or end_dt is None:
@@ -338,7 +338,7 @@ class CalendarService:
                     )
                 duration = end_dt - start_dt
                 new_end = new_start + duration
-                updated_dto = EventDTO(
+                updated_event_dto = EventDTO(
                     uid=event.uid,
                     user_uid=event.user_uid,
                     title=event.title,
@@ -348,10 +348,10 @@ class CalendarService:
                     end_time=new_end.time(),
                     status=event.status,
                 )
-                result = await self.events_service.update(source_uid, updated_dto)
-                if result.is_ok:
-                    return Result.ok(self._event_to_calendar_item(result.value))
-                return Result.fail(result)
+                event_update = await self.events_service.update(source_uid, updated_event_dto)
+                if event_update.is_ok:
+                    return Result.ok(self._event_to_calendar_item(event_update.value))
+                return Result.fail(event_update)
 
         return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
 

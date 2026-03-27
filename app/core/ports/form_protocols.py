@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     import builtins
 
     from core.models.forms.form_submission import FormSubmission
-    from core.models.forms.form_template import FormTemplate  # noqa: F401
+    from core.models.forms.form_template import FormTemplate
 
 # ========================================================================
 # Backend-level protocols (typed self.backend in services)

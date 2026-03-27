@@ -30,12 +30,12 @@ class HabitCompletionDTO:
 
     # Completion Details
     completed_at: datetime
-    notes: str | None = (None,)
+    notes: str | None = None
     quality: int | None = None  # 1-5 rating,
     duration_actual: int | None = None  # minutes
 
     # Metadata
-    created_at: datetime = (field(default_factory=datetime.now),)
+    created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
     # Additional data for Neo4j/extensions

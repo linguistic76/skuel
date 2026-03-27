@@ -68,7 +68,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         super().__init__(backend, "choices")
         self.event_bus = event_bus
         self.relationship_service = relationship_service
-        self.logger = get_logger("skuel.services.choices.core")
+        self.logger = get_logger("skuel.services.choices.core")  # type: ignore[assignment]  # structlog BoundLogger
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -396,7 +396,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
             dto.decision_deadline = choice_update.decision_deadline
 
         # Track updated fields
-        updated_fields = {}
+        updated_fields: dict[str, Any] = {}
         if choice_update.title is not None:
             updated_fields["title"] = choice_update.title
         if choice_update.description is not None:
@@ -436,13 +436,13 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         """
         # Get choice before deletion (for event)
         choice_result = await self.get_choice(choice_uid)
-        choice_description = None
+        choice_description: str | None = None
         user_uid = "unknown"
         if choice_result.is_ok:
             choice = choice_result.value
             if choice:
                 choice_description = choice.description or choice.title
-                user_uid = choice.user_uid
+                user_uid = choice.user_uid or "unknown"
 
         result = await self.backend.delete(choice_uid, cascade=True)
         if result.is_error:

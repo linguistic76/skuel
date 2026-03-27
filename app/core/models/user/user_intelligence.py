@@ -32,6 +32,7 @@ from core.models.pathways.mastery import (
 )
 from core.models.pathways.mastery import LearningRecommendation as KnowledgeRecommendation
 from core.models.pathways.mastery import Mastery as KnowledgeMastery
+from core.ports.query_types import CrossDomainInsightsData
 from core.services.user import UserContext
 
 # NOTE: SearchIntent and SearchQuery removed - deprecated search_archive dependency
@@ -60,13 +61,13 @@ class UserLearningIntelligence:
     user_uid: str
 
     # Knowledge Intelligence
-    current_masteries: dict[str, KnowledgeMastery] = (field(default_factory=dict),)
-    learning_preferences: LearningPreference | None = (None,)
+    current_masteries: dict[str, KnowledgeMastery] = field(default_factory=dict)
+    learning_preferences: LearningPreference | None = None
     knowledge_recommendations: list[KnowledgeRecommendation] = field(default_factory=list)
 
     # Learning Path Intelligence
-    active_learning_paths: list[LearningPath] = (field(default_factory=list),)
-    completed_learning_paths: list[str] = (field(default_factory=list),)
+    active_learning_paths: list[LearningPath] = field(default_factory=list)
+    completed_learning_paths: list[str] = field(default_factory=list)
     learning_velocity_by_domain: dict[Domain, LearningVelocity] = field(default_factory=dict)
 
     # Search Intelligence (simplified - no longer using deprecated SearchQuery/SearchIntent)
@@ -88,8 +89,8 @@ class UserLearningIntelligence:
     )  # search_uid -> knowledge_uid
 
     # Intelligence Evolution
-    intelligence_sources: list[IntelligenceSource] = (field(default_factory=list),)
-    last_intelligence_update: datetime = (field(default_factory=datetime.now),)
+    intelligence_sources: list[IntelligenceSource] = field(default_factory=list)
+    last_intelligence_update: datetime = field(default_factory=datetime.now)
     intelligence_confidence: float = 0.5  # How confident are we in our intelligence
 
     def get_dominant_learning_velocity(self) -> LearningVelocity:
@@ -230,7 +231,7 @@ class UserLearningIntelligence:
     def update_intelligence(
         self,
         new_masteries: list[KnowledgeMastery] | None = None,
-        new_preferences: LearningPreference = None,
+        new_preferences: LearningPreference | None = None,
         new_searches: list[dict[str, Any]] | None = None,
         new_paths: list[LearningPath] | None = None,
     ) -> None:
@@ -292,18 +293,18 @@ class EnhancedUserContext(UserContext):
     learning_intelligence: UserLearningIntelligence | None = None
 
     # Intelligence-Driven Features
-    adaptive_recommendations: list[dict[str, Any]] = (field(default_factory=list),)
+    adaptive_recommendations: list[dict[str, Any]] = field(default_factory=list)
     intelligence_confidence: float = 0.5
-    cross_domain_insights: dict[str, Any] = field(default_factory=dict)
+    cross_domain_insights: CrossDomainInsightsData = field(default_factory=dict)  # type: ignore[assignment]  # empty dict is valid runtime default for TypedDict
 
     # Enhanced Learning Context
-    predicted_learning_velocity: LearningVelocity | None = (None,)
+    predicted_learning_velocity: LearningVelocity | None = None
 
-    optimal_content_types: list[ContentPreference] = (field(default_factory=list),)
+    optimal_content_types: list[ContentPreference] = field(default_factory=list)
     learning_efficiency_by_domain: dict[Domain, float] = field(default_factory=dict)
 
     # Enhanced Search Context
-    search_interest_profile: dict[str, float] = (field(default_factory=dict),)
+    search_interest_profile: dict[str, float] = field(default_factory=dict)
     search_intent_preferences: dict[str, float] = field(
         default_factory=dict
     )  # intent_name -> preference_score
@@ -414,7 +415,7 @@ class EnhancedUserContext(UserContext):
     def update_with_intelligence(
         self,
         masteries: list[KnowledgeMastery] | None = None,
-        preferences: LearningPreference = None,
+        preferences: LearningPreference | None = None,
         searches: list[dict[str, Any]] | None = None,
         paths: list[LearningPath] | None = None,
     ) -> None:
@@ -446,7 +447,7 @@ class EnhancedUserContext(UserContext):
         self.intelligence_confidence = self.learning_intelligence.intelligence_confidence
 
         # Generate cross-domain insights
-        self.cross_domain_insights = {
+        self.cross_domain_insights = {  # type: ignore[typeddict-unknown-key]  # enhanced context extends base shape
             "transfer_opportunities": self.get_cross_domain_transfer_opportunities(),
             "optimal_learning_session": self.get_optimal_learning_session(),
             "personalized_path": self.get_personalized_learning_path(),

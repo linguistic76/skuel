@@ -30,7 +30,7 @@ from core.utils.logging import get_logger
 from core.utils.sort_functions import get_updated_timestamp
 
 if TYPE_CHECKING:
-    from core.ports.query_types import CrossDomainInsightItem, RichEntityItem
+    from core.ports.query_types import RichEntityItem
     from core.services.user import UserContext
     from core.services.user.user_context_extractor import GraphSourcedData
 
@@ -47,7 +47,7 @@ class UserContextPopulator:
     All methods are pure (no side effects beyond context mutation).
     """
 
-    def populate_standard_fields(self, context: "UserContext", uids_data: dict[str, Any]) -> None:
+    def populate_standard_fields(self, context: UserContext, uids_data: dict[str, Any]) -> None:
         """
         Populate standard context fields (UIDs, relationships) from MEGA-QUERY results.
 
@@ -167,7 +167,7 @@ class UserContextPopulator:
             uid for uid in uids_data.get("pending_choice_uids", []) if uid
         ]
 
-    def populate_entities_rich(self, context: "UserContext", entities_data: dict[str, Any]) -> None:
+    def populate_entities_rich(self, context: UserContext, entities_data: dict[str, Any]) -> None:
         """
         Populate activity domain entities from MEGA-QUERY 'entities' section.
 
@@ -184,7 +184,7 @@ class UserContextPopulator:
             for domain, items in entities_data.items()
         }
 
-    def populate_curriculum_rich(self, context: "UserContext", rich_data: dict[str, Any]) -> None:
+    def populate_curriculum_rich(self, context: UserContext, rich_data: dict[str, Any]) -> None:
         """
         Populate curriculum domain rich fields (KU, LP, LS) from MEGA-QUERY 'rich' section.
 
@@ -209,7 +209,7 @@ class UserContextPopulator:
 
     def populate_ku_window_entities(
         self,
-        context: "UserContext",
+        context: UserContext,
         uids_data: dict[str, Any],
         rich_data: dict[str, Any],
         window_start: datetime,
@@ -280,7 +280,7 @@ class UserContextPopulator:
         context.entities_rich = {**context.entities_rich, "ku": ku_entities}
 
     def populate_graph_sourced_fields(
-        self, context: "UserContext", graph_data: "GraphSourcedData"
+        self, context: UserContext, graph_data: GraphSourcedData
     ) -> None:
         """
         Populate graph-sourced relationship fields from extracted data.
@@ -318,7 +318,7 @@ class UserContextPopulator:
         context.prerequisite_counts = graph_data.knowledge.prerequisite_counts
         context.ready_to_learn_uids = graph_data.knowledge.ready_to_learn_uids
 
-    def populate_from_consolidated_data(self, context: "UserContext", data: dict[str, Any]) -> None:
+    def populate_from_consolidated_data(self, context: UserContext, data: dict[str, Any]) -> None:
         """
         Populate UserContext from consolidated query results (standard path).
 
@@ -376,7 +376,7 @@ class UserContextPopulator:
         # Activity report (latest)
         self.populate_activity_report(context, data.get("activity_report"))
 
-    def populate_user_properties(self, context: "UserContext", user_props: dict[str, Any]) -> None:
+    def populate_user_properties(self, context: UserContext, user_props: dict[str, Any]) -> None:
         """
         Populate user preference fields from MEGA-QUERY user_properties.
 
@@ -433,7 +433,7 @@ class UserContextPopulator:
             except ValueError:
                 logger.debug(f"Unknown preferred_guidance value: {preferred_guidance}")
 
-    def populate_life_path(self, context: "UserContext", life_path_data: dict[str, Any]) -> None:
+    def populate_life_path(self, context: UserContext, life_path_data: dict[str, Any]) -> None:
         """
         Populate life path fields from MEGA-QUERY life_path section.
 
@@ -452,9 +452,7 @@ class UserContextPopulator:
         if alignment_score := life_path_data.get("alignment_score"):
             context.life_path_alignment_score = float(alignment_score)
 
-    def populate_activity_report(
-        self, context: "UserContext", record: dict[str, Any] | None
-    ) -> None:
+    def populate_activity_report(self, context: UserContext, record: dict[str, Any] | None) -> None:
         """Populate latest activity report reference fields.
 
         record: single dict from MEGA-QUERY activity_report key, or None if
@@ -468,9 +466,7 @@ class UserContextPopulator:
         context.latest_activity_report_content = record.get("content")
         context.latest_activity_report_user_annotation = record.get("user_annotation")
 
-    def populate_submission_stats(
-        self, context: "UserContext", stats: dict[str, Any] | None
-    ) -> None:
+    def populate_submission_stats(self, context: UserContext, stats: dict[str, Any] | None) -> None:
         """Populate submission & feedback awareness fields from MEGA-QUERY submission_stats.
 
         stats: dict from MEGA-QUERY submission_stats key, or None if no data.
@@ -513,7 +509,7 @@ class UserContextPopulator:
         ]
 
     def populate_cross_domain_insights(
-        self, context: "UserContext", insights_raw: list[dict[str, Any]] | None
+        self, context: UserContext, insights_raw: list[dict[str, Any]] | None
     ) -> None:
         """Populate cross_domain_insights from MEGA-QUERY active_insights_raw key.
 
@@ -529,15 +525,15 @@ class UserContextPopulator:
         def by_confidence(x: dict[str, Any]) -> float:
             return float(x.get("confidence", 0.0))
 
-        sorted_insights: list[CrossDomainInsightItem] = sorted(
+        sorted_insights: list[dict[str, Any]] = sorted(
             insights_raw, key=by_confidence, reverse=True
         )[:5]
         context.cross_domain_insights = {
             "active_count": len(insights_raw),
-            "top_insights": sorted_insights,
+            "top_insights": sorted_insights,  # type: ignore[typeddict-item]  # raw dicts match CrossDomainInsightItem shape
         }
 
-    def populate_moc_fields(self, context: "UserContext", uids_data: dict[str, Any]) -> None:
+    def populate_moc_fields(self, context: UserContext, uids_data: dict[str, Any]) -> None:
         """
         Populate MOC fields from MEGA-QUERY uids section.
 
@@ -567,7 +563,7 @@ class UserContextPopulator:
         ]
 
     def populate_progress_metrics(
-        self, context: "UserContext", progress_counts: dict[str, Any]
+        self, context: UserContext, progress_counts: dict[str, Any]
     ) -> None:
         """
         Populate progress metrics from MEGA-QUERY progress_counts section.
@@ -587,7 +583,7 @@ class UserContextPopulator:
 
     def populate_derived_fields(
         self,
-        context: "UserContext",
+        context: UserContext,
         tasks_rich: list[dict[str, Any]],
         habits_rich: list[dict[str, Any]],
     ) -> None:
@@ -665,7 +661,7 @@ class UserContextPopulator:
 
     def populate_principle_choice_integration(
         self,
-        context: "UserContext",
+        context: UserContext,
         principles_rich: list[dict[str, Any]],
         choices_rich: list[dict[str, Any]],
     ) -> None:

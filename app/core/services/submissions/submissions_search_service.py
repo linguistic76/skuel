@@ -86,7 +86,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         """
         super().__init__(submissions_backend, "SubmissionsSearchService")
         self.event_bus = event_bus
-        self.logger = logger
+        self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT

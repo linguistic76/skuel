@@ -192,7 +192,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 
         # Logger initialization: parameter > class attribute > class name
         self.service_name = service_name or self._service_name or self.__class__.__name__
-        self.logger = get_logger(f"skuel.services.{self.service_name}")
+        self.logger = get_logger(f"skuel.services.{self.service_name}")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Log initialization
         self.logger.debug(f"{self.service_name} initialized with BackendOperations backend")
@@ -456,7 +456,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     _date_field: str = "created_at"
 
     # Status values to exclude when include_completed=False
-    _completed_statuses: ClassVar[tuple[str, ...]] = ()
+    _completed_statuses: ClassVar[list[str]] = []
 
     # DTO class for conversion - subclasses MUST override
     _dto_class: type[DTOProtocol] | None = None
@@ -490,10 +490,10 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
     # ========================================================================
 
     # Prerequisite relationship type(s) to follow
-    _prerequisite_relationships: ClassVar[tuple[str, ...]] = ()
+    _prerequisite_relationships: ClassVar[list[str]] = []
 
     # Enables relationship type(s) - inverse of prerequisites
-    _enables_relationships: ClassVar[tuple[str, ...]] = ()
+    _enables_relationships: ClassVar[list[str]] = []
 
     # Content field name - where content is stored
     _content_field: str = "content"

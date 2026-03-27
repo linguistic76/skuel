@@ -90,7 +90,7 @@ async def get_service_capabilities(
         # }
     """
     domain = domain_name or "unknown"
-    capabilities = {}
+    capabilities: dict[str, Any] = {}
 
     # Check category support (BaseService.list_all_categories from SearchMixin)
     categories_result = await service.list_all_categories()

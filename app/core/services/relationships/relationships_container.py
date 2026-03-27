@@ -123,7 +123,7 @@ class DomainRelationships:
             coroutines.append(service.get_related_uids(spec.method_suffix, entity_uid))
 
         # Execute all queries in parallel
-        results: tuple[Result, ...] = await asyncio.gather(*coroutines)
+        results: list[Result[list[str]]] = await asyncio.gather(*coroutines)
 
         # Build data dict from results
         data: dict[str, list[str]] = {}
@@ -133,7 +133,7 @@ class DomainRelationships:
         # Create and return instance
         instance = cls()
         instance._data = data
-        instance._config = config
+        instance._config = config  # type: ignore[assignment]  # DomainRelationshipConfig satisfies ExtendedRelationshipConfig usage
         return instance
 
     @classmethod

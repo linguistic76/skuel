@@ -312,7 +312,7 @@ class BudgetPure:
     is_exceeded: bool = False
 
     # Metadata
-    notes: str | None = (None,)
+    notes: str | None = None
 
     tags: list[str] = None  # type: ignore[assignment]
 

@@ -139,7 +139,7 @@ class BackgroundTask:
     payload: dict[str, Any]
     created_at: datetime
     scheduled_at: datetime | None = None
-    started_at: datetime | None = (None,)
+    started_at: datetime | None = None
     completed_at: datetime | None = None
     retry_count: int = 0
     max_retries: int = 3

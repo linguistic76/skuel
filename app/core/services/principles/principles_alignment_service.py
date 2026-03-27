@@ -137,7 +137,10 @@ class PrinciplesAlignmentService:
             )
 
         # Get goal
-        goal = await self.goals_backend.get(goal_uid)
+        goal_result = await self.goals_backend.get(goal_uid)
+        if goal_result.is_error:
+            return Result.fail(goal_result)
+        goal = goal_result.value
         if not goal:
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
 
@@ -153,7 +156,7 @@ class PrinciplesAlignmentService:
         total_score = 0.0
 
         for principle in principles:
-            alignment_level = principle.assess_goal_alignment(goal.purpose, goal.category.value)
+            alignment_level = self._assess_entity_alignment(principle, goal.title, goal.category)
 
             # Calculate alignment score
             score = self._calculate_alignment_score(alignment_level)
@@ -171,7 +174,7 @@ class PrinciplesAlignmentService:
                 entity_type="goal",
                 alignment_level=alignment_level,
                 alignment_score=score,
-                influence_description=f"{principle.label} influences goal through {goal.category.value}",
+                influence_description=f"{principle.label} influences goal through {goal.category or 'general'}",
                 influence_weight=priority_numeric / 10.0,
             )
             alignments.append(alignment)
@@ -202,7 +205,7 @@ class PrinciplesAlignmentService:
         assessment = AlignmentAssessment(
             entity_uid=goal_uid,
             entity_type="goal",
-            entity_name=goal.name,
+            entity_name=goal.title,
             principle_alignments=alignments,
             overall_alignment=overall,
             primary_principle=primary,
@@ -236,8 +239,10 @@ class PrinciplesAlignmentService:
         # Get habit
         habit_result = await self.habits_backend.get(habit_uid)
         if habit_result.is_error:
-            return habit_result
+            return Result.fail(habit_result)
         habit = habit_result.value
+        if not habit:
+            return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
 
         # Get user's principles
         principles_result = await self.backend.find_by(user_uid=user_uid)
@@ -251,8 +256,10 @@ class PrinciplesAlignmentService:
         total_score = 0.0
 
         for principle in principles:
-            alignment_level = principle.assess_habit_alignment(
-                habit.habit_category.value, habit.polarity.value
+            habit_category_str = habit.habit_category.value if habit.habit_category else "other"
+            polarity_str = habit.polarity.value if habit.polarity else "build"
+            alignment_level = self._assess_entity_alignment(
+                principle, habit.title, f"{habit_category_str}/{polarity_str}"
             )
 
             # Calculate alignment score
@@ -471,13 +478,11 @@ class PrinciplesAlignmentService:
         # Check goals (if backend available)
         if self.goals_backend:
             try:
-                goals = await self.goals_backend.list_by_user(user_uid)
+                goals_result = await self.goals_backend.find_by(user_uid=user_uid)
+                goals = goals_result.value if not goals_result.is_error else []
                 for goal in goals:
                     # Check if goal aligns with principle
-                    alignment = principle.assess_goal_alignment(
-                        goal.title,  # Goal has 'title', not 'purpose' or 'name'
-                        goal.domain.value,  # Goal has 'domain: Domain', not 'category'
-                    )
+                    alignment = self._assess_entity_alignment(principle, goal.title, goal.category)
                     if alignment in [AlignmentLevel.ALIGNED, AlignmentLevel.MOSTLY_ALIGNED]:
                         evidence.append(f"Goal '{goal.title}' embodies this principle")
                         total_score += self._calculate_alignment_score(alignment)
@@ -488,12 +493,14 @@ class PrinciplesAlignmentService:
         # Check habits (if backend available)
         if self.habits_backend:
             try:
-                habits = await self.habits_backend.list_by_user(user_uid)
+                habits_result = await self.habits_backend.find_by(user_uid=user_uid)
+                habits = habits_result.value if not habits_result.is_error else []
                 for habit in habits:
                     # Check if habit aligns with principle
-                    alignment = principle.assess_habit_alignment(
-                        habit.habit_category.value,  # HabitCategory always exists (default: OTHER)
-                        habit.polarity.value,  # HabitPolarity always exists (default: BUILD)
+                    habit_cat = habit.habit_category.value if habit.habit_category else "other"
+                    polarity = habit.polarity.value if habit.polarity else "build"
+                    alignment = self._assess_entity_alignment(
+                        principle, habit.title, f"{habit_cat}/{polarity}"
                     )
                     if alignment in [AlignmentLevel.ALIGNED, AlignmentLevel.MOSTLY_ALIGNED]:
                         evidence.append(f"Habit '{habit.title}' practices this principle")
@@ -665,8 +672,16 @@ class PrinciplesAlignmentService:
         developing = [p for p in all_principles if p.strength == PrincipleStrength.DEVELOPING]
 
         # Get user's goals and habits
-        goals = await self.goals_backend.list_by_user(user_uid) if self.goals_backend else []
-        habits = await self.habits_backend.list_by_user(user_uid) if self.habits_backend else []
+        goals: list[Goal] = []
+        if self.goals_backend:
+            goals_result = await self.goals_backend.find_by(user_uid=user_uid)
+            if not goals_result.is_error:
+                goals = goals_result.value
+        habits: list[Habit] = []
+        if self.habits_backend:
+            habits_result = await self.habits_backend.find_by(user_uid=user_uid)
+            if not habits_result.is_error:
+                habits = habits_result.value
 
         # Calculate alignment scores
         goal_scores = []
@@ -810,6 +825,26 @@ class PrinciplesAlignmentService:
     # HELPER METHODS
     # ========================================================================
 
+    def _assess_entity_alignment(
+        self, principle: Principle, entity_title: str, entity_category: str | None
+    ) -> AlignmentLevel:
+        """Assess alignment between a principle and an entity using keyword matching."""
+        principle_text = ((principle.statement or "") + " " + (principle.title or "")).lower()
+        entity_text = ((entity_title or "") + " " + (entity_category or "")).lower()
+
+        # Simple keyword overlap heuristic
+        principle_words = set(principle_text.split())
+        entity_words = set(entity_text.split())
+        overlap = len(principle_words & entity_words)
+
+        if overlap >= 3:
+            return AlignmentLevel.ALIGNED
+        elif overlap >= 2:
+            return AlignmentLevel.MOSTLY_ALIGNED
+        elif overlap >= 1:
+            return AlignmentLevel.PARTIAL
+        return AlignmentLevel.UNKNOWN
+
     def _calculate_alignment_score(self, level: AlignmentLevel) -> float:
         """Convert alignment level to numeric score"""
         scores = {
@@ -880,8 +915,8 @@ class PrinciplesAlignmentService:
         score = 0.5  # Neutral baseline
 
         option_lower = option.lower()
-        principle_keywords = (
-            principle.title.lower().split() + principle.description.lower().split()[:10]
+        principle_keywords = principle.title.lower().split() + (
+            principle.description.lower().split()[:10] if principle.description else []
         )
 
         # Check for keyword matches
@@ -1087,9 +1122,9 @@ class PrinciplesAlignmentService:
                     "type": "principle_updated",
                     "description": f"Updated principle: {principle.statement}",
                     "principle_uid": principle.uid,
-                    "principle_name": principle.statement[:50] + "..."
-                    if len(principle.statement) > 50
-                    else principle.statement,
+                    "principle_name": (principle.statement or "")[:50] + "..."
+                    if principle.statement and len(principle.statement) > 50
+                    else (principle.statement or ""),
                 }
             )
 
@@ -1108,9 +1143,9 @@ class PrinciplesAlignmentService:
                             "type": "alignment_assessed",
                             "description": f"Assessed alignment as {assessment.alignment_level.value}",
                             "principle_uid": principle.uid,
-                            "principle_name": principle.statement[:50] + "..."
-                            if len(principle.statement) > 50
-                            else principle.statement,
+                            "principle_name": (principle.statement or "")[:50] + "..."
+                            if principle.statement and len(principle.statement) > 50
+                            else (principle.statement or ""),
                             "alignment_level": assessment.alignment_level.value,
                         }
                         for assessment in principle.alignment_history
@@ -1136,9 +1171,9 @@ class PrinciplesAlignmentService:
                             "type": "expression_added",
                             "description": f"Added expression: {expr_summary}",
                             "principle_uid": principle.uid,
-                            "principle_name": principle.statement[:50] + "..."
-                            if len(principle.statement) > 50
-                            else principle.statement,
+                            "principle_name": (principle.statement or "")[:50] + "..."
+                            if principle.statement and len(principle.statement) > 50
+                            else (principle.statement or ""),
                             "expression": expr_text,
                         }
                     )

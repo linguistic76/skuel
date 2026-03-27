@@ -46,7 +46,7 @@ _GRAPH_QUERY_EXCEPTIONS = (*NEO4J_EXCEPTIONS, KeyError, TypeError)
 
 async def get_knowledge_prerequisites(
     graph: GraphIntelligenceService, entity_uid: str, depth: int = 3
-) -> "Result[KnowledgePrerequisitesResult]":
+) -> Result[KnowledgePrerequisitesResult]:
     """
     Analyze knowledge prerequisites for any entity using graph intelligence.
 
