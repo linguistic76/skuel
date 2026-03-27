@@ -18,11 +18,12 @@ from pathlib import Path
 from typing import Any
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.type_hints import UserUID
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 
-from .config import ENTITY_CONFIGS
+from .config import DEFAULT_USER_UID, ENTITY_CONFIGS
 
 logger = get_logger("skuel.ingestion.preparer")
 
@@ -78,7 +79,7 @@ def _prepare_core(
     data: dict[str, Any],
     body: str | None,
     file_path: Path,
-    default_user_uid: str = "user:system",
+    default_user_uid: UserUID = DEFAULT_USER_UID,
 ) -> dict[str, Any]:
     """
     Core entity data preparation logic shared by sync and async paths.
@@ -226,7 +227,7 @@ async def prepare_entity_data_async(
     data: dict[str, Any],
     body: str | None,
     file_path: Path,
-    default_user_uid: str = "user:system",
+    default_user_uid: UserUID = DEFAULT_USER_UID,
     embeddings_service: Any | None = None,
 ) -> dict[str, Any]:
     """
@@ -313,7 +314,7 @@ def prepare_entity_data(
     data: dict[str, Any],
     body: str | None,
     file_path: Path,
-    default_user_uid: str = "user:system",
+    default_user_uid: UserUID = DEFAULT_USER_UID,
 ) -> dict[str, Any]:
     """
     Synchronous entity data preparation (no embedding generation).

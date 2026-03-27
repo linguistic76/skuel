@@ -27,6 +27,7 @@ from core.models.relationship_registry import (
     LABEL_CONFIGS,
     LABEL_TO_DEFAULT_ENTITY_TYPE,
 )
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # FILE SIZE LIMITS
@@ -50,7 +51,7 @@ DEFAULT_MAX_CONCURRENT_PARSING = 20
 
 # Default user UID for entities without explicit user_uid
 # Configurable via SKUEL_DEFAULT_USER_UID environment variable
-DEFAULT_USER_UID = os.environ.get("SKUEL_DEFAULT_USER_UID", "user:system")
+DEFAULT_USER_UID: UserUID = UserUID(os.environ.get("SKUEL_DEFAULT_USER_UID", "user:system"))
 
 
 # ============================================================================

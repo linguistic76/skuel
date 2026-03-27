@@ -19,6 +19,7 @@ import pytest
 import strawberry
 from strawberry.types import Info
 
+from core.models.type_hints import UserUID
 from routes.graphql.config import validate_list_limit, validate_query_depth
 from routes.graphql.context import GraphQLContext, _batch_load, create_graphql_context
 from routes.graphql.query_helpers import unwrap_list, unwrap_optional, unwrap_result
@@ -436,7 +437,7 @@ class TestBatchLoad:
 class TestCreateGraphqlContext:
     def test_creates_context_with_loaders(self) -> None:
         services = MagicMock()
-        ctx = create_graphql_context(services, search_router=None, user_uid="user.x")
+        ctx = create_graphql_context(services, search_router=None, user_uid=UserUID("user.x"))
 
         assert ctx.user_uid == "user.x"
         assert ctx.services is services

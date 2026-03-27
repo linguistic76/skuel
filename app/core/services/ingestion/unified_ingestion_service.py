@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -98,7 +99,7 @@ class UnifiedIngestionService:
     def __init__(
         self,
         driver: AsyncDriver,
-        default_user_uid: str | None = None,
+        default_user_uid: UserUID | None = None,
         max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
         embeddings_service: Any | None = None,
         chunking_service: Any | None = None,

@@ -11,10 +11,14 @@ from typing import Any
 
 from strawberry.dataloader import DataLoader
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from services_bootstrap import Services
 
 logger = get_logger(__name__)
+
+# Module-level default for unauthenticated/empty UserUID (avoids B008/RUF009)
+_EMPTY_USER_UID: UserUID = UserUID("")
 
 # Type alias for batch load functions: (list[str]) -> Result[list[T | None]]
 type BatchLoadFn = Callable[[list[str]], Coroutine[Any, Any, Any]]
@@ -44,7 +48,7 @@ class GraphQLContext:
     learning_step_loader: DataLoader[str, Any]
 
     # Request metadata (always set — auth enforced at HTTP layer)
-    user_uid: str = ""
+    user_uid: UserUID = _EMPTY_USER_UID
 
 
 async def _batch_load(
@@ -78,7 +82,7 @@ async def _batch_load(
 def create_graphql_context(
     services: Services,
     search_router: Any,
-    user_uid: str = "",
+    user_uid: UserUID = _EMPTY_USER_UID,
 ) -> GraphQLContext:
     """
     Create GraphQL context with DataLoaders for a request.

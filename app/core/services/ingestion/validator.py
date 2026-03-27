@@ -22,11 +22,12 @@ if TYPE_CHECKING:
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-from .config import DEFAULT_MAX_CONCURRENT_PARSING, ENTITY_CONFIGS, collect_files
+from .config import DEFAULT_MAX_CONCURRENT_PARSING, DEFAULT_USER_UID, ENTITY_CONFIGS, collect_files
 from .detector import detect_entity_type, detect_format
 from .parser import parse_markdown, parse_yaml
 from .preparer import prepare_entity_data
@@ -150,7 +151,7 @@ def validate_entity_data(
 
 async def validate_file(
     file_path: Path,
-    default_user_uid: str = "user:system",
+    default_user_uid: UserUID = DEFAULT_USER_UID,
     max_file_size_bytes: int | None = None,
 ) -> Result[ValidationResult]:
     """
@@ -340,7 +341,7 @@ async def validate_directory(
     directory: Path,
     pattern: str = "*",
     max_concurrent: int = DEFAULT_MAX_CONCURRENT_PARSING,
-    default_user_uid: str = "user:system",
+    default_user_uid: UserUID = DEFAULT_USER_UID,
     max_file_size_bytes: int | None = None,
 ) -> Result[DirectoryValidationResult]:
     """

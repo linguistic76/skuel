@@ -25,6 +25,7 @@ import yaml
 
 from core.ingestion.bulk_ingestion import BulkIngestionEngine
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.type_hints import UserUID
 from core.utils.exception_types import (
     DATA_CONVERSION_EXCEPTIONS,
     FILE_IO_EXCEPTIONS,
@@ -38,6 +39,7 @@ from core.utils.result_simplified import Errors, Result
 from .config import (
     DEFAULT_MAX_CONCURRENT_PARSING,
     DEFAULT_MAX_FILE_SIZE_BYTES,
+    DEFAULT_USER_UID,
     ENTITY_CONFIGS,
     collect_files,
 )
@@ -133,7 +135,7 @@ async def check_existing_entities(
 
 def parse_file_sync(
     file_path: Path,
-    default_user_uid: str = "user:system",
+    default_user_uid: UserUID = DEFAULT_USER_UID,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
 ) -> tuple[EntityType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
     """
@@ -317,7 +319,7 @@ def parse_file_sync(
 async def parse_file_for_batch(
     file_path: Path,
     semaphore: asyncio.Semaphore,
-    default_user_uid: str = "user:system",
+    default_user_uid: UserUID = DEFAULT_USER_UID,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
 ) -> tuple[EntityType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
     """
@@ -434,7 +436,7 @@ async def ingest_directory(
     pattern: str = "*",
     batch_size: int = 500,
     max_concurrent: int = DEFAULT_MAX_CONCURRENT_PARSING,
-    default_user_uid: str = "user:system",
+    default_user_uid: UserUID = DEFAULT_USER_UID,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
     ingestion_mode: Literal["full", "incremental", "smart"] = "full",
     validate_targets: bool = False,

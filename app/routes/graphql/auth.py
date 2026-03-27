@@ -23,10 +23,11 @@ from strawberry.types import (
 )
 
 from core.models.enums.user_enums import UserRole
+from core.models.type_hints import UserUID
 from routes.graphql.context import GraphQLContext
 
 
-def require_user_uid(info: Info[GraphQLContext, Any]) -> str:
+def require_user_uid(info: Info[GraphQLContext, Any]) -> UserUID:
     """
     Extract the authenticated user UID from GraphQL context.
 
@@ -48,7 +49,7 @@ def require_user_uid(info: Info[GraphQLContext, Any]) -> str:
         @strawberry.field
         async def tasks(self, info: Info[GraphQLContext, Any]) -> list[Task]:
             user_uid = require_user_uid(info)
-            # user_uid is guaranteed to be a non-empty string
+            # user_uid is guaranteed to be a non-empty UserUID
     """
     user_uid = info.context.user_uid
     if not user_uid:
@@ -59,7 +60,7 @@ def require_user_uid(info: Info[GraphQLContext, Any]) -> str:
     return user_uid
 
 
-async def resolve_target_user(info: Info[GraphQLContext, Any], user_uid: str | None = None) -> str:
+async def resolve_target_user(info: Info[GraphQLContext, Any], user_uid: UserUID | None = None) -> UserUID:
     """
     Resolve the target user for a query that accepts an optional user_uid override.
 
@@ -84,7 +85,7 @@ async def resolve_target_user(info: Info[GraphQLContext, Any], user_uid: str | N
             self,
             info: Info[GraphQLContext, Any],
             path_uid: str,
-            user_uid: str | None = None,
+            user_uid: UserUID | None = None,
         ) -> LearningPathContext | None:
             target_user_uid = await resolve_target_user(info, user_uid)
     """
