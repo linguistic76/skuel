@@ -249,7 +249,16 @@ data: TaskData = {"uid": "123", "title": "Test"}
 from core.ports.query_types import (
     # Input types (filters, payloads)
     ActivityFilterSpec, TaskUpdatePayload, CypherParams,
-    # Output types (protocol return shapes)
+    # Domain stats
+    TaskStats, GoalStats, HabitStats, EventStats, ChoiceStats, PrincipleStats,
+    # System health + finance
+    SystemInfoResult, HealthSummaryResult, AlertCheckResult, InvoiceStats,
+    # Teacher review + submissions
+    ReportSubmitResult, ExerciseWithSubmissionCounts, SubmissionStatistics,
+    ReportSummary, LearningLoopChain, SubmissionChain,
+    # Visualization configs
+    ChartJsConfig, VisTimelineConfig, GanttConfig,
+    # Other output types (protocol return shapes)
     SignInResult, ReviewQueueItem, TeacherDashboardStats,
     KnowledgeSuggestionsResult, KnowledgePrerequisitesResult,
     PerformanceAnalyticsResult, CrossDomainOpportunitiesResult, AIInsightsResult,

@@ -100,12 +100,12 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 - Domain CRUD params (`create_goal`, `update_habit`, etc.) → `Metadata`
 - Cross-domain context returns → `GraphContextResult`
 
-**Phase 4 — Return types:** ~94 protocol methods migrated from `Result[Any]` to specific types:
+**Phase 4 — Return types:** ~149 protocol methods migrated from `Result[Any]` to specific types:
 
 - **Domain model returns:** `Result[SubmissionEntity]`, `Result[ExerciseReport]`, `Result[Askesis]`,
   `Result[CalendarData]`, `Result[Group]`, `Result[JeInput]`, `Result[JeOutput]`, `Result[Exercise]`,
   `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ReportSchedule]`, `Result[ActivityReport]`
-- **41 output TypedDicts** in `query_types.py` for structured dict returns:
+- **68 output TypedDicts** in `query_types.py` for structured dict returns:
 
 | TypedDict | Protocol / Field | Methods |
 |-----------|-----------------|---------|

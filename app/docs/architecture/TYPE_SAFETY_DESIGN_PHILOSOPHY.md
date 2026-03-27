@@ -28,7 +28,7 @@ SKUEL is built on a developing ontology — 21 entity types, behavioral traits, 
 | "Some things are owned by users" | `UserOwnedEntity(Entity)` base class |
 | "Entities have behavioral traits" | `is_activity()`, `is_processable()`, `requires_user_uid()` methods |
 | "Services have defined contracts" | 65+ protocols in `core/ports/` |
-| "Query results have known shapes" | 61 TypedDicts in `core/ports/query_types.py` |
+| "Query results have known shapes" | 89 TypedDicts in `core/ports/query_types.py` |
 | "The learning loop has phases" | `Lesson -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise` type chain |
 
 When the ontology evolves — a new entity type, a new relationship, a new behavioral trait — the type system evolves with it. A MyPy error after such a change is not noise; it's the system telling you where the old ontology assumptions no longer hold. This is why SKUEL's core principle for type safety is: *"A type error from MyPy reveals a real design problem, not an annotation oversight."*
@@ -139,8 +139,8 @@ SKUEL's type safety has reached a solid, production-grade foundation:
 | 0 MyPy errors baseline | Achieved March 2026 (down from 2,247) |
 | Three-tier type system | Enforced across all 21 entity types |
 | Protocol-based DI | 65+ protocols, 100% protocol-mixin alignment |
-| Typed protocol returns | ~94 methods return specific models/TypedDicts |
-| Query type coverage | 61 TypedDicts (20 input, 41 output) |
+| Typed protocol returns | ~149 methods return specific models/TypedDicts |
+| Query type coverage | 89 TypedDicts (21 input, 68 output) |
 | Any usage policy | Three categories with enforcement |
 | Security NewTypes | `UserUID` propagated to ~1,580 annotations across 297 files; `EntityUID` to ~200 annotations (including variant names like `parent_entity_uid`, `source_entity_uid`) |
 | Enum-enforced boundaries | `UserRole` and `ExerciseScope` — zero raw string comparisons remain; all role/scope checks use enum members |

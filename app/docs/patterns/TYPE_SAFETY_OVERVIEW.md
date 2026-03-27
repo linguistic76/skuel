@@ -86,8 +86,8 @@ def create_tasks_api_routes(
 - 100% protocol compliance — all 7 `BaseService` mixins verified by TYPE_CHECKING blocks
 - 29 automated compliance tests (run: `uv run pytest tests/unit/test_protocol_mixin_compliance.py`)
 - Zero `Any` fields in the `Services` dataclass — all 72 fields typed
-- ~94 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026)
-- 61 TypedDicts in `query_types.py` — 20 for inputs (filters, payloads), 41 for outputs (result shapes, UserContext field types)
+- ~149 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026)
+- 89 TypedDicts in `query_types.py` — 21 for inputs (filters, payloads), 68 for outputs (domain stats, system health, teacher review, visualization configs, result shapes, UserContext field types)
 
 **BackendOperations[T] hierarchy** — the foundational generic protocol:
 ```python
