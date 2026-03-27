@@ -178,15 +178,17 @@ Per-module strictness overrides:
 |--------------|-----------|-----|
 | `core.utils.result`, `core.utils.error_boundary` | Strict | Core error-handling infrastructure |
 | `core.models.*`, `core.infrastructure.*` | Medium | Domain models must be well-typed |
-| `core.services.*` | Gradual | Largest surface area, resolved via systematic patterns |
+| `core.services.*` | Gradual | 94 untyped defs remain — enable incrementally |
+| `core.ports.*` | `disallow_untyped_defs` | All protocol definitions must have type annotations |
 | `adapters.*` | Gradual | Framework boundaries; `RouteDecorator` protocol handles FastHTML |
 | `adapters.persistence.neo4j.domain_backends` | Custom | `misc` suppressed for MRO mixin conflicts |
 | `tests.*` | Lenient | Mocks and fixtures need flexibility |
 
-**Disabled error codes (global):**
+**Disabled error codes (global, 4 codes):**
 - `type-var` — Frozen dataclass + Protocol constraint MyPy limitation
-- `assignment` — Frozen dataclass `__post_init__` pattern (see above)
 - `arg-type` — Often false positives in framework code
+- `var-annotated` — Frozen dataclass field patterns
+- `type-arg` — Generic type argument constraints in protocol hierarchies
 
 **Disabled error codes (per-module):**
 - `misc` on `domain_backends` — MRO conflicts from multiple mixin inheritance in domain backend classes

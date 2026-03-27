@@ -465,8 +465,14 @@ SKUEL uses per-module strictness overrides (not global strict mode). As of March
 strict = false  # Per-module overrides instead
 warn_unused_configs = true
 no_implicit_optional = true
-disable_error_code = ["assignment", "arg-type", "var-annotated", "type-arg", "type-var"]
+disable_error_code = ["arg-type", "var-annotated", "type-arg", "type-var"]
 ```
+
+Four error codes remain globally disabled. The `assignment` code was re-enabled — it catches trailing-comma tuple bugs (e.g., `x = value,` silently creating a tuple) and type mismatches on variable reassignment.
+
+### Per-Module Strictness
+
+`core.ports.*` enforces `disallow_untyped_defs = true` — all protocol methods must have full type annotations.
 
 ### Neo4j Property Type Narrowing
 

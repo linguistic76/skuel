@@ -1,6 +1,6 @@
 ---
 title: MyPy Zero-Error Strategy - From Pragmatic Acceptance to Clean Baseline
-updated: 2026-03-26
+updated: 2026-03-27
 category: patterns
 related_skills: []
 related_docs:
@@ -10,7 +10,7 @@ related_docs:
 
 # MyPy Zero-Error Strategy - From Pragmatic Acceptance to Clean Baseline
 
-**Last Updated:** March 26, 2026
+**Last Updated:** March 27, 2026
 **Status:** Zero Errors - `./dev quality` passes clean
 
 > **For systematic error reduction patterns:** See [MYPY_TYPE_SAFETY_PATTERNS.md](MYPY_TYPE_SAFETY_PATTERNS.md) for proven techniques used during the reduction (183 -> 114 -> 0 errors).
@@ -50,8 +50,8 @@ action_items: list[str] = field(default_factory=list)
 ```
 
 **Impact:** Runtime crash
-**Count:** 82 errors
-**Status:** **FIXED** via automated script
+**Count:** 82 errors initially (Phase 1); 138 additional found in Phase 4 (~220 total)
+**Status:** **FIXED** — Phase 1 via automated script, Phase 4 via manual sweep after re-enabling `assignment` error code
 **Script:** `scripts/fix_dataclass_trailing_commas.py`
 
 ---
@@ -126,10 +126,10 @@ Structural MRO conflicts and mixin patterns produce errors that are correct from
 ```toml
 [[tool.mypy.overrides]]
 module = ["adapters.persistence.neo4j.*"]
-disable_error_code = ["type-var", "assignment", "arg-type"]
+disable_error_code = ["type-var", "arg-type"]
 ```
 
-Three error codes are globally disabled for persistence modules where generic type parameters and Neo4j driver types create unavoidable friction.
+Four error codes are globally disabled: `arg-type`, `var-annotated`, `type-arg`, `type-var`. The `assignment` error code was previously in this list but was re-enabled in March 2026 after fixing all 277 assignment errors (138 trailing-comma tuple bugs + 139 real type mismatches).
 
 ### 4. Typed Executor Instead of `Any`
 
@@ -174,7 +174,7 @@ warn_redundant_casts = true
 strict_equality = true
 
 # Lenient global defaults
-disallow_untyped_defs = false  # Only enforce in critical modules
+disallow_untyped_defs = false  # Only enforce in critical modules (core.ports.* overrides to true)
 disallow_incomplete_defs = false
 warn_return_any = false
 warn_unreachable = false
@@ -186,6 +186,7 @@ warn_unreachable = false
 - `core.utils.result` - Result[T] pattern
 - `adapters.inbound.boundary` + `core.utils.error_boundary` - Error handling
 - `config` - Application configuration
+- `core.ports.*` - Protocol definitions (`disallow_untyped_defs = true`)
 
 **Medium strictness:**
 - `core.services.*` - Business logic
@@ -302,7 +303,14 @@ warn_return_any = false
 
 **Phase 2 (January-February 2026):** Systematic reduction — TYPE_CHECKING imports, Union return fixes, Nullable guards, Protocol sync. 183 -> 114 errors (38% reduction).
 
-**Phase 3 (March 2026):** Zero achieved — Neo4j property narrowing, `# type: ignore[attr-defined]` for domain backends, per-module `disable_error_code`, typed executors, protocol alignment. 114 -> 0 errors.
+**Phase 3 (Early March 2026):** Zero achieved — Neo4j property narrowing, `# type: ignore[attr-defined]` for domain backends, per-module `disable_error_code`, typed executors, protocol alignment. 114 -> 0 errors.
+
+**Phase 4 (Late March 2026): `assignment` re-enabled** — A comprehensive sweep uncovered 277 suppressed `assignment` errors:
+- **138 trailing-comma tuple bugs** (total ~220 caught across all phases, up from the original 82)
+- **139 real type mismatches** — `BoundLogger` vs `Logger`, `float`/`int` arithmetic on Neo4j properties, `str | None` where `str` was expected, `Result` invariance issues, and more
+- **3 `ignore_errors` overrides removed** — `error_handler` (deleted), `schema_change` and `principles_alignment_service` (now pass clean)
+- **`assignment` error code re-enabled** globally (reduced from 5 disabled codes to 4)
+- **`disallow_untyped_defs = true` enabled for `core.ports.*`** — all protocol definitions now require typed signatures
 
 ---
 
@@ -344,10 +352,12 @@ warn_return_any = false
 
 ### From 2200 Errors to Zero
 
-1. Fixed 82 **REAL BUGS** (runtime crashes)
-2. Resolved ~2000 **TYPE INFERENCE** errors (per-module overrides, type narrowing)
-3. Resolved ~165 **MISSING STUB** errors (`follow_imports = "skip"`)
-4. Achieved and **ENFORCED ZERO** (March 2026)
+1. Fixed ~220 **REAL BUGS** (trailing-comma tuples: 82 in Phase 1, 138 in Phase 4)
+2. Fixed 139 **TYPE MISMATCHES** (BoundLogger, float/int, str|None, Result invariance)
+3. Resolved ~2000 **TYPE INFERENCE** errors (per-module overrides, type narrowing)
+4. Resolved ~165 **MISSING STUB** errors (`follow_imports = "skip"`)
+5. **Re-enabled `assignment`** error code (reduced disabled codes from 5 to 4)
+6. Achieved and **ENFORCED ZERO** (March 2026)
 
 ### The Philosophy
 
@@ -432,8 +442,10 @@ uv run mypy --pretty core
 
 **SKUEL runs with zero MyPy errors.**
 
-- 82 real bugs fixed (Phase 1)
+- ~220 trailing-comma bugs fixed (82 in Phase 1, 138 in Phase 4)
+- 139 real type mismatches fixed (Phase 4)
 - ~2000 type inference errors resolved (Phase 2-3)
 - ~165 missing stub errors resolved (Phase 3)
+- `assignment` error code re-enabled, `core.ports.*` enforces typed defs (Phase 4)
 - New code maintains zero baseline
 - `./dev quality` enforces it
