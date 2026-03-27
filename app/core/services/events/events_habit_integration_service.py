@@ -15,6 +15,8 @@ FROM the Habits perspective). This service manages actual Event entities and the
 habit-related lifecycle.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
@@ -31,6 +33,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
+    from core.ports.query_types import RichEntityItem
 
 
 @dataclass(frozen=True)
@@ -92,7 +95,7 @@ class EventsHabitIntegrationService:
     # - Consistent with Tasks, Habits, Goals progress services
     # ========================================================================
 
-    def _get_events_from_rich_context(self, user_context: UserContext) -> list[dict[str, Any]]:
+    def _get_events_from_rich_context(self, user_context: UserContext) -> list[RichEntityItem]:
         """
         Get all events from UserContext rich data.
 
@@ -105,7 +108,7 @@ class EventsHabitIntegrationService:
         return user_context.entities_rich.get("events", [])
 
     def _filter_events_by_habit(
-        self, events_rich: list[dict[str, Any]], habit_uid: str
+        self, events_rich: list[RichEntityItem], habit_uid: str
     ) -> list[Event]:
         """
         Filter rich event data by reinforces_habit_uid.
@@ -128,7 +131,7 @@ class EventsHabitIntegrationService:
 
     def _filter_events_by_date_range(
         self,
-        events_rich: list[dict[str, Any]],
+        events_rich: list[RichEntityItem],
         start_date: date,
         end_date: date,
         status_filter: str | None = None,

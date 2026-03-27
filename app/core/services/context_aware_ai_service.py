@@ -23,12 +23,15 @@ This service provides:
 The app works WITHOUT this service. It's an enhancement layer.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.ports.query_types import AIInsightsResult
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
     from core.services.infrastructure.graph_intelligence_service import (
         GraphIntelligenceService,
@@ -118,7 +121,7 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
         user_uid: str,
         entity_uid: str | None = None,
         query: str | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[AIInsightsResult]:
         """
         Get AI-powered context-aware recommendations.
 

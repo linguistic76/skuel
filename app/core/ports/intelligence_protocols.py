@@ -20,12 +20,16 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports.query_types import (
+        AIInsightsResult,
         BehavioralInsightsResult,
+        CrossDomainOpportunitiesResult,
         KnowledgeGenerationResult,
+        KnowledgePrerequisitesResult,
         KnowledgeSuggestionsResult,
         LearningOpportunitiesResult,
         PerformanceAnalyticsResult,
     )
+    from core.services.cross_domain_analytics_service import LearningVelocityMetrics
 
 # ============================================================================
 # KNOWLEDGE INTELLIGENCE — shared across all activity domains
@@ -62,7 +66,9 @@ class KnowledgeIntelligenceOperations(Protocol):
         """
         ...
 
-    async def get_knowledge_prerequisites(self, entity_uid: str) -> Result[dict[str, Any]]:
+    async def get_knowledge_prerequisites(
+        self, entity_uid: str
+    ) -> "Result[KnowledgePrerequisitesResult]":
         """
         Analyze knowledge prerequisites for entity.
 
@@ -89,7 +95,9 @@ class KnowledgeIntelligenceOperations(Protocol):
         """
         ...
 
-    async def get_learning_opportunities(self, user_uid: str) -> "Result[LearningOpportunitiesResult]":
+    async def get_learning_opportunities(
+        self, user_uid: str
+    ) -> "Result[LearningOpportunitiesResult]":
         """
         Discover learning opportunities from entity patterns.
 
@@ -151,7 +159,7 @@ class DomainIntelligenceOperations(Protocol):
 
     async def get_learning_velocity(
         self, user_uid: str, period_days: int = 90
-    ) -> Result[dict[str, Any]]:
+    ) -> "Result[LearningVelocityMetrics]":
         """
         Analyze learning velocity from entity completion patterns.
 
@@ -196,7 +204,7 @@ class DomainIntelligenceOperations(Protocol):
 
     async def get_cross_domain_opportunities(
         self, user_uid: str, entity_uid: str | None = None
-    ) -> Result[dict[str, Any]]:
+    ) -> "Result[CrossDomainOpportunitiesResult]":
         """
         Identify cross-domain opportunities and connections.
 
@@ -211,7 +219,7 @@ class DomainIntelligenceOperations(Protocol):
 
     async def get_ai_insights(
         self, user_uid: str, entity_uid: str | None = None, query: str | None = None
-    ) -> Result[dict[str, Any]]:
+    ) -> "Result[AIInsightsResult]":
         """
         Get AI-powered insights using LLM.
 

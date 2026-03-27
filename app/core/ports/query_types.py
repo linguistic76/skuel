@@ -1445,6 +1445,146 @@ class PrivacySummary(TypedDict, total=False):
 
 
 # ============================================================================
+# USER CONTEXT FIELD TYPES — typed shapes for UserContext dict fields
+# ============================================================================
+
+
+class UnsubmittedExerciseItem(TypedDict):
+    """Shape for UserContext.unsubmitted_exercises items."""
+
+    uid: str
+    title: str
+    due_date: str | None
+
+
+class PendingRevisedExerciseItem(TypedDict, total=False):
+    """Shape for UserContext.pending_revised_exercises items."""
+
+    uid: str
+    title: str
+    instructions: str | None
+    original_exercise_uid: str | None
+    report_uid: str | None
+    revision_number: int
+    created_at: str | None
+
+
+class FacetInteractionItem(TypedDict):
+    """Shape for UserContext.facet_interaction_history items."""
+
+    facet: str
+    action: str
+    delta: float
+    new_value: float
+    timestamp: str
+
+
+class RichEntityItem(TypedDict, total=False):
+    """Shape for items in UserContext.entities_rich lists.
+
+    Keys: "tasks", "goals", "habits", "events", "choices", "principles"
+    Inner dict[str, Any] for entity/graph_context — per-domain typing deferred.
+    """
+
+    entity: dict[str, Any]
+    graph_context: dict[str, Any]
+
+
+class RichKnowledgeUnitItem(TypedDict, total=False):
+    """Shape for UserContext.knowledge_units_rich values."""
+
+    ku: dict[str, Any]
+    graph_context: dict[str, Any]
+
+
+class RichLearningPathItem(TypedDict, total=False):
+    """Shape for UserContext.enrolled_paths_rich items."""
+
+    path: dict[str, Any]
+    graph_context: dict[str, Any]
+
+
+class RichLearningStepItem(TypedDict, total=False):
+    """Shape for UserContext.active_learning_steps_rich items."""
+
+    step: dict[str, Any]
+    graph_context: dict[str, Any]
+
+
+class RichMOCItem(TypedDict, total=False):
+    """Shape for UserContext.active_mocs_rich items."""
+
+    moc: dict[str, Any]
+    graph_context: dict[str, Any]
+
+
+class CrossDomainInsightItem(TypedDict):
+    """Single insight in UserContext.cross_domain_insights."""
+
+    uid: str
+    type: str
+    title: str
+    impact: str
+    confidence: float
+
+
+class CrossDomainInsightsData(TypedDict, total=False):
+    """Shape for UserContext.cross_domain_insights."""
+
+    active_count: int
+    top_insights: list[CrossDomainInsightItem]
+
+
+# ============================================================================
+# INTELLIGENCE PROTOCOL RESULT TYPES — remaining untyped protocol returns
+# ============================================================================
+
+
+class KnowledgePrerequisiteItem(TypedDict):
+    """Single prerequisite in KnowledgePrerequisitesResult."""
+
+    uid: str
+    title: str
+    importance: str
+    domain: str
+
+
+class KnowledgePrerequisitesResult(TypedDict, total=False):
+    """Return shape for get_knowledge_prerequisites()."""
+
+    required_knowledge: list[KnowledgePrerequisiteItem]
+    learning_path: list[dict[str, Any]]
+    estimated_prep_time: str
+
+
+class CrossDomainConnectionItem(TypedDict, total=False):
+    """Single connection in CrossDomainOpportunitiesResult."""
+
+    from_uid: str
+    to_uid: str
+    relationship: str
+    strength: float
+
+
+class CrossDomainOpportunitiesResult(TypedDict, total=False):
+    """Return shape for get_cross_domain_opportunities()."""
+
+    connections: list[CrossDomainConnectionItem]
+    opportunities: list[str]
+    synergies: list[str]
+    metadata: dict[str, Any]
+
+
+class AIInsightsResult(TypedDict, total=False):
+    """Return shape for get_ai_insights(). Minimal — not yet implemented."""
+
+    insights: list[dict[str, Any]]
+    recommendations: list[str]
+    confidence: float
+    metadata: dict[str, Any]
+
+
+# ============================================================================
 # EXPLICIT EXPORTS
 # ============================================================================
 
@@ -1527,4 +1667,21 @@ __all__ = [
     "AnnotationResult",
     "AnnotationState",
     "PrivacySummary",
+    # User Context Field Types
+    "UnsubmittedExerciseItem",
+    "PendingRevisedExerciseItem",
+    "FacetInteractionItem",
+    "RichEntityItem",
+    "RichKnowledgeUnitItem",
+    "RichLearningPathItem",
+    "RichLearningStepItem",
+    "RichMOCItem",
+    "CrossDomainInsightItem",
+    "CrossDomainInsightsData",
+    # Intelligence Protocol Result Types
+    "KnowledgePrerequisiteItem",
+    "KnowledgePrerequisitesResult",
+    "CrossDomainConnectionItem",
+    "CrossDomainOpportunitiesResult",
+    "AIInsightsResult",
 ]

@@ -13,6 +13,8 @@ Architecture:
 - Used by UserContextBuilder after extraction
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -28,6 +30,7 @@ from core.utils.logging import get_logger
 from core.utils.sort_functions import get_updated_timestamp
 
 if TYPE_CHECKING:
+    from core.ports.query_types import CrossDomainInsightItem, RichEntityItem
     from core.services.user import UserContext
     from core.services.user.user_context_extractor import GraphSourcedData
 
@@ -226,7 +229,7 @@ class UserContextPopulator:
             item["uid"]: item["ku"] for item in knowledge_list if item and "uid" in item
         }
 
-        ku_entities: list[dict[str, Any]] = []
+        ku_entities: list[RichEntityItem] = []
         engaged_uids: set[str] = set()
 
         # Mastered in window
@@ -526,7 +529,9 @@ class UserContextPopulator:
         def by_confidence(x: dict[str, Any]) -> float:
             return float(x.get("confidence", 0.0))
 
-        sorted_insights = sorted(insights_raw, key=by_confidence, reverse=True)[:5]
+        sorted_insights: list[CrossDomainInsightItem] = sorted(
+            insights_raw, key=by_confidence, reverse=True
+        )[:5]
         context.cross_domain_insights = {
             "active_count": len(insights_raw),
             "top_insights": sorted_insights,

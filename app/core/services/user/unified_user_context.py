@@ -99,6 +99,17 @@ from core.models.enums.user_enums import UserRole
 
 if TYPE_CHECKING:
     from core.models.zpd.zpd_assessment import ZPDAssessment
+    from core.ports.query_types import (
+        CrossDomainInsightsData,
+        FacetInteractionItem,
+        PendingRevisedExerciseItem,
+        RichEntityItem,
+        RichKnowledgeUnitItem,
+        RichLearningPathItem,
+        RichLearningStepItem,
+        RichMOCItem,
+        UnsubmittedExerciseItem,
+    )
 
 
 @dataclass
@@ -385,10 +396,10 @@ class UserContext:
     pending_feedback_count: int = 0
     assigned_exercise_count: int = 0
     completed_exercise_count: int = 0
-    unsubmitted_exercises: list[dict[str, Any]] = field(
+    unsubmitted_exercises: list[UnsubmittedExerciseItem] = field(
         default_factory=list
     )  # Up to 5: {uid, title, due_date}, due_date ASC
-    pending_revised_exercises: list[dict[str, Any]] = field(
+    pending_revised_exercises: list[PendingRevisedExerciseItem] = field(
         default_factory=list
     )  # Up to 5: {uid, title, instructions, revision_number, ...}
 
@@ -422,7 +433,7 @@ class UserContext:
     facet_affinities: dict[str, float] = field(default_factory=dict)
     # Example: {"python": 0.8, "testing": 0.6, "TECH": 0.9}
 
-    facet_interaction_history: list[dict[str, Any]] = field(default_factory=list)
+    facet_interaction_history: list[FacetInteractionItem] = field(default_factory=list)
     # Track recent facet interactions for learning preferences
 
     content_type_preferences: dict[str, float] = field(default_factory=dict)
@@ -481,21 +492,21 @@ class UserContext:
     #
     # Keys: "tasks", "goals", "habits", "events", "choices", "principles"
     # Values: [{"entity": {all entity properties}, "graph_context": {...}}, ...]
-    entities_rich: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    entities_rich: dict[str, list[RichEntityItem]] = field(default_factory=dict)
 
     # Rich knowledge data (full KU objects with graph neighborhoods)
-    knowledge_units_rich: dict[str, dict[str, Any]] = field(default_factory=dict)
+    knowledge_units_rich: dict[str, RichKnowledgeUnitItem] = field(default_factory=dict)
     # Key: knowledge_uid
     # Value: {ku: Full KU properties, graph_context: {prerequisites, dependents, related, mastery, etc.}}
 
     # Rich learning path data (full Lp objects with graph neighborhoods)
-    enrolled_paths_rich: list[dict[str, Any]] = field(default_factory=list)
+    enrolled_paths_rich: list[RichLearningPathItem] = field(default_factory=list)
     # Each dict contains:
     # - path: Full LearningPath entity properties
     # - graph_context: {steps, prerequisite_knowledge, aligned_goals, embodied_principles, milestone_events, progress, etc.}
 
     # Rich learning step data (full Ls objects with graph neighborhoods)
-    active_learning_steps_rich: list[dict[str, Any]] = field(default_factory=list)
+    active_learning_steps_rich: list[RichLearningStepItem] = field(default_factory=list)
     # Each dict contains:
     # - step: Full LearningStep entity properties
     # - graph_context: {knowledge, prerequisites, practice_opportunities, guiding_principles, learning_path, etc.}
@@ -532,13 +543,13 @@ class UserContext:
     mocs_by_learning_path: dict[str, list[str]] = field(default_factory=dict)  # lp_uid -> moc_uids
 
     # Rich MOC data (full KU-based MOC objects with graph neighborhoods) - Optional
-    active_mocs_rich: list[dict[str, Any]] = field(default_factory=list)
+    active_mocs_rich: list[RichMOCItem] = field(default_factory=list)
     # Each dict contains:
     # - moc: KU entity properties (MOC is a KU with ORGANIZES relationships)
     # - graph_context: {organized_kus, related_content}
 
     # Cross-domain relationship insights (extracted from MEGA-QUERY)
-    cross_domain_insights: dict[str, Any] = field(default_factory=dict)
+    cross_domain_insights: CrossDomainInsightsData = field(default_factory=dict)
     # Contains:
     # - task_goal_alignments: {task_uid: {goal_uid, alignment_score}}
     # - knowledge_task_applications: {ku_uid: [task_uids applying this knowledge]}
@@ -603,7 +614,7 @@ class UserContext:
         self,
         domain: str,
         filter_uids: set[str] | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[RichEntityItem]:
         """
         Get rich entity data for an activity domain, optionally filtered by UIDs.
 

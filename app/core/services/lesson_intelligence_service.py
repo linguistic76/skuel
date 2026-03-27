@@ -17,6 +17,8 @@ Architecture:
 - Uses HuggingFaceEmbeddingsService for semantic similarity
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -36,6 +38,7 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.ports.query_types import CrossDomainConnectionItem, CrossDomainOpportunitiesResult
     from core.services.user import UserContext
 
 
@@ -219,7 +222,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
 
     async def get_cross_domain_opportunities(
         self, user_uid: str, entity_uid: str | None = None
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[CrossDomainOpportunitiesResult]:
         """Identify cross-domain knowledge connections."""
         self.logger.info(f"Analyzing cross-domain knowledge for user {user_uid}")
 
@@ -245,7 +248,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
 
         context = context_result.value
 
-        connections = [
+        connections: list[CrossDomainConnectionItem] = [
             {
                 "from_uid": rel.start_uid,
                 "to_uid": rel.end_uid,

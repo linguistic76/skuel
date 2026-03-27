@@ -24,13 +24,18 @@ Usage:
     )
 """
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from core.services.infrastructure.graph_intelligence_service import (
     GraphIntelligenceService,
 )
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.ports.query_types import KnowledgePrerequisiteItem, KnowledgePrerequisitesResult
 
 _GRAPH_QUERY_EXCEPTIONS = (*NEO4J_EXCEPTIONS, KeyError, TypeError)
 
@@ -41,7 +46,7 @@ _GRAPH_QUERY_EXCEPTIONS = (*NEO4J_EXCEPTIONS, KeyError, TypeError)
 
 async def get_knowledge_prerequisites(
     graph: GraphIntelligenceService, entity_uid: str, depth: int = 3
-) -> Result[dict[str, Any]]:
+) -> "Result[KnowledgePrerequisitesResult]":
     """
     Analyze knowledge prerequisites for any entity using graph intelligence.
 
@@ -74,7 +79,7 @@ async def get_knowledge_prerequisites(
 
     # Extract prerequisites from graph context
     context = context_result.value
-    prerequisites = [
+    prerequisites: list[KnowledgePrerequisiteItem] = [
         {
             "uid": node.uid,
             "title": node.properties.get("title", "Unknown"),

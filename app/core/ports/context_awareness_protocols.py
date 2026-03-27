@@ -43,7 +43,15 @@ Protocol Hierarchy:
 - FullAwareness: complete context (for Askesis, dashboards)
 """
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from core.ports.query_types import (
+        RichEntityItem,
+        RichKnowledgeUnitItem,
+        RichLearningPathItem,
+        RichLearningStepItem,
+    )
 
 # =============================================================================
 # CORE IDENTITY - Every service needs at least this
@@ -111,11 +119,11 @@ class TaskAwareness(Protocol):
 
     # Rich context (required for domain planning methods)
     is_rich_context: bool
-    entities_rich: dict[str, list[dict[str, Any]]]
+    entities_rich: dict[str, list["RichEntityItem"]]
 
     def get_rich_entities(
         self, domain: str, filter_uids: set[str] | None = None
-    ) -> list[dict[str, Any]]: ...
+    ) -> list["RichEntityItem"]: ...
 
 
 @runtime_checkable
@@ -151,7 +159,7 @@ class KnowledgeAwareness(Protocol):
     learning_velocity_by_domain: dict[str, float]
 
     # Rich context (optional)
-    knowledge_units_rich: dict[str, dict[str, Any]]
+    knowledge_units_rich: dict[str, "RichKnowledgeUnitItem"]
 
 
 @runtime_checkable
@@ -185,11 +193,11 @@ class HabitAwareness(Protocol):
 
     # Rich context (required for domain planning methods)
     is_rich_context: bool
-    entities_rich: dict[str, list[dict[str, Any]]]
+    entities_rich: dict[str, list["RichEntityItem"]]
 
     def get_rich_entities(
         self, domain: str, filter_uids: set[str] | None = None
-    ) -> list[dict[str, Any]]: ...
+    ) -> list["RichEntityItem"]: ...
 
 
 @runtime_checkable
@@ -232,11 +240,11 @@ class GoalAwareness(Protocol):
 
     # Rich context (required for domain planning methods)
     is_rich_context: bool
-    entities_rich: dict[str, list[dict[str, Any]]]
+    entities_rich: dict[str, list["RichEntityItem"]]
 
     def get_rich_entities(
         self, domain: str, filter_uids: set[str] | None = None
-    ) -> list[dict[str, Any]]: ...
+    ) -> list["RichEntityItem"]: ...
 
 
 @runtime_checkable
@@ -271,11 +279,11 @@ class EventAwareness(Protocol):
 
     # Rich context (required for domain planning methods)
     is_rich_context: bool
-    entities_rich: dict[str, list[dict[str, Any]]]
+    entities_rich: dict[str, list["RichEntityItem"]]
 
     def get_rich_entities(
         self, domain: str, filter_uids: set[str] | None = None
-    ) -> list[dict[str, Any]]: ...
+    ) -> list["RichEntityItem"]: ...
 
 
 @runtime_checkable
@@ -300,11 +308,11 @@ class PrincipleAwareness(Protocol):
 
     # Rich context (required for domain planning methods)
     is_rich_context: bool
-    entities_rich: dict[str, list[dict[str, Any]]]
+    entities_rich: dict[str, list["RichEntityItem"]]
 
     def get_rich_entities(
         self, domain: str, filter_uids: set[str] | None = None
-    ) -> list[dict[str, Any]]: ...
+    ) -> list["RichEntityItem"]: ...
 
 
 @runtime_checkable
@@ -334,11 +342,11 @@ class ChoiceAwareness(Protocol):
 
     # Rich context (required for domain planning methods)
     is_rich_context: bool
-    entities_rich: dict[str, list[dict[str, Any]]]
+    entities_rich: dict[str, list["RichEntityItem"]]
 
     def get_rich_entities(
         self, domain: str, filter_uids: set[str] | None = None
-    ) -> list[dict[str, Any]]: ...
+    ) -> list["RichEntityItem"]: ...
 
 
 @runtime_checkable
@@ -369,8 +377,8 @@ class LearningPathAwareness(Protocol):
     mastered_knowledge_uids: set[str]
 
     # Rich context (optional)
-    enrolled_paths_rich: list[dict[str, Any]]
-    active_learning_steps_rich: list[dict[str, Any]]
+    enrolled_paths_rich: list["RichLearningPathItem"]
+    active_learning_steps_rich: list["RichLearningStepItem"]
 
 
 # =============================================================================
@@ -492,12 +500,12 @@ class FullAwareness(Protocol):
 
     # Rich context (all activity domains)
     is_rich_context: bool
-    entities_rich: dict[str, list[dict[str, Any]]]
-    knowledge_units_rich: dict[str, dict[str, Any]]
+    entities_rich: dict[str, list["RichEntityItem"]]
+    knowledge_units_rich: dict[str, "RichKnowledgeUnitItem"]
 
     def get_rich_entities(
         self, domain: str, filter_uids: set[str] | None = None
-    ) -> list[dict[str, Any]]: ...
+    ) -> list["RichEntityItem"]: ...
 
 
 # =============================================================================

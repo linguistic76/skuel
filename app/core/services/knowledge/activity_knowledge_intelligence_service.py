@@ -33,9 +33,12 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
+
+if TYPE_CHECKING:
+    from core.ports.query_types import KnowledgePrerequisitesResult
 from core.models.entity import Entity
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.neo_labels import NeoLabel
@@ -227,7 +230,9 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
             }
         )
 
-    async def get_knowledge_prerequisites(self, entity_uid: str) -> Result[dict[str, Any]]:
+    async def get_knowledge_prerequisites(
+        self, entity_uid: str
+    ) -> Result[KnowledgePrerequisitesResult]:
         """
         Analyze knowledge prerequisites for any entity using graph intelligence.
 

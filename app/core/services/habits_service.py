@@ -82,7 +82,7 @@ if TYPE_CHECKING:
     )
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
-    from core.ports.query_types import ListContext
+    from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
     from core.ports.search_protocols import HabitsSearchOperations
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.user import UserContext
@@ -599,7 +599,9 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             user_uid, period_days
         )
 
-    async def get_knowledge_prerequisites(self, entity_uid: str) -> Result[dict[str, Any]]:
+    async def get_knowledge_prerequisites(
+        self, entity_uid: str
+    ) -> Result[KnowledgePrerequisitesResult]:
         """Analyze knowledge prerequisites for an entity."""
         return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
 

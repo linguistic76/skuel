@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
     from core.models.resource.resource import Resource
+    from core.ports.query_types import RichLearningStepItem
     from core.services.user import UserContext
 
 
@@ -384,8 +385,8 @@ class ContextRetriever:
         if ls_rich is None:
             return Result.fail(Errors.not_found("learning_step", "no_active_ls"))
 
-        step_data = ls_rich.get("entity", ls_rich.get("step", {}))
-        graph_context = ls_rich.get("graph_context", {})
+        step_data: dict[str, Any] = ls_rich.get("step") or ls_rich.get("entity", {})  # type: ignore[arg-type]
+        graph_context: dict[str, Any] = ls_rich.get("graph_context", {})
 
         # Step 2: Build the LearningStep domain model
         learning_step = self._build_learning_step(step_data)
@@ -484,7 +485,7 @@ class ContextRetriever:
     # PRIVATE - LS BUNDLE HELPERS (absorbed from LSContextLoader)
     # ========================================================================
 
-    def _find_active_ls(self, user_context: UserContext) -> dict[str, Any] | None:
+    def _find_active_ls(self, user_context: UserContext) -> RichLearningStepItem | None:
         """Find the first active (non-mastered) LS from rich context.
 
         UserContext.active_learning_steps_rich contains LS items with:
@@ -493,7 +494,7 @@ class ContextRetriever:
                           knowledge_relationships, learning_path}
         """
         for ls_item in user_context.active_learning_steps_rich:
-            step_data = ls_item.get("entity", ls_item.get("step", {}))
+            step_data: dict[str, Any] = ls_item.get("step") or ls_item.get("entity", {})  # type: ignore[arg-type]
             if not step_data:
                 continue
 

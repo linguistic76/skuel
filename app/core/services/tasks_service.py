@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
+    from core.ports.query_types import KnowledgePrerequisitesResult
     from core.ports.search_protocols import TasksSearchOperations
     from core.services.insight.insight_store import InsightStore
 
@@ -398,7 +399,9 @@ class TasksService(BaseService["TasksOperations", Task]):
             user_uid, period_days
         )
 
-    async def get_knowledge_prerequisites(self, entity_uid: str) -> Result[dict[str, Any]]:
+    async def get_knowledge_prerequisites(
+        self, entity_uid: str
+    ) -> Result[KnowledgePrerequisitesResult]:
         """Analyze knowledge prerequisites for an entity."""
         return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
 
