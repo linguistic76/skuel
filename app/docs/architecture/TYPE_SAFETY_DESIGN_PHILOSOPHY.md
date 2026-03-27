@@ -141,7 +141,7 @@ SKUEL's type safety has reached a solid, production-grade foundation:
 | Typed protocol returns | ~94 methods return specific models/TypedDicts |
 | Query type coverage | 61 TypedDicts (20 input, 41 output) |
 | Any usage policy | Three categories with enforcement |
-| Security NewTypes | `UserUID` propagated to ~1,580 annotations across 297 files; `EntityUID` to ~195 annotations |
+| Security NewTypes | `UserUID` propagated to ~1,580 annotations across 297 files; `EntityUID` to ~200 annotations (including variant names like `parent_entity_uid`, `source_entity_uid`) |
 
 This foundation is valued and allowed to evolve. As the ontology grows — new entity types, new relationships, new cross-cutting systems — the type system grows with it. The goal is not perfection frozen in place, but a living system where types track the domain as it reveals itself.
 
