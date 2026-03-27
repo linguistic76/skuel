@@ -191,7 +191,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             return Result.fail(result)
 
         habits = result.value or []
-        active_habits = [h for h in habits if h.status.value == "active"]
+        active_habits = [h for h in habits if h.status == EntityStatus.ACTIVE]
 
         # Calculate current load
         current_load = sum(h.get_effort_score() for h in active_habits)
@@ -695,7 +695,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         established = [
             h
             for h in habits
-            if h.status.value == "active" and h.current_streak >= ESTABLISHED_STREAK_DAYS
+            if h.status == EntityStatus.ACTIVE and h.current_streak >= ESTABLISHED_STREAK_DAYS
         ]
 
         if not established:
@@ -874,7 +874,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             return Result.fail(result)
 
         habits = result.value or []
-        active_habits = [h for h in habits if h.status.value == "active"]
+        active_habits = [h for h in habits if h.status == EntityStatus.ACTIVE]
 
         # Calculate load by day
         days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]

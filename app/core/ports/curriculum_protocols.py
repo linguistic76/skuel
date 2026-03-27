@@ -89,10 +89,12 @@ if TYPE_CHECKING:
 
     from core.models.enums.neo_labels import NeoLabel
     from core.models.exercises.exercise import Exercise
+    from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.lesson.lesson import Lesson
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.learning_step import LearningStep
     from core.models.relationship_names import RelationshipName
+    from core.services.lesson.lesson_organization_service import OrganizationView
     from core.utils.result_simplified import Result
 
 
@@ -286,7 +288,7 @@ class KuInteractionOperations(Protocol):
         """Mark a KU as in-progress for the user."""
         ...
 
-    async def get_user_progress(self, user_uid: UserUID, ku_uid: str) -> Result[Any]:
+    async def get_user_progress(self, user_uid: UserUID, ku_uid: str) -> Result[dict[str, Any]]:
         """Get user's progress on a specific KU."""
         ...
 
@@ -468,7 +470,7 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         """Check if a Lesson has organized children."""
         ...
 
-    async def get_organization_view(self, ku_uid: str, max_depth: int = 3) -> Result[Any]:
+    async def get_organization_view(self, ku_uid: str, max_depth: int = 3) -> Result[OrganizationView]:
         """Get a Lesson with its organized children hierarchy."""
         ...
 
@@ -1428,15 +1430,15 @@ class RevisedExerciseOperations(Protocol):
     Implementation: RevisedExerciseService
     """
 
-    async def create(self, entity: Any) -> Result[Any]:
+    async def create(self, entity: RevisedExercise) -> Result[RevisedExercise]:
         """Create a RevisedExercise with authority verification and relationships."""
         ...
 
-    async def get(self, uid: str) -> Result[Any]:
+    async def get(self, uid: str) -> Result[RevisedExercise]:
         """Get revised exercise by UID."""
         ...
 
-    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Any]:
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[RevisedExercise]:
         """Update a revised exercise."""
         ...
 
@@ -1446,7 +1448,7 @@ class RevisedExerciseOperations(Protocol):
 
     async def list_for_student(
         self, student_uid: str, teacher_uid: str | None = None
-    ) -> Result[list[Any]]:
+    ) -> Result[list[RevisedExercise]]:
         """List revised exercises targeting a student.
 
         Args:

@@ -27,6 +27,7 @@ from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from core.services.ingestion.types import IngestionStats, IncrementalStats
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -216,6 +217,8 @@ def create_ingestion_api_routes(
 
             if result.is_ok:
                 stats = result.value
+                if not isinstance(stats, (IngestionStats, IncrementalStats)):
+                    return Result.ok({"success": True, "preview": True})
                 return Result.ok(
                     {
                         "success": True,

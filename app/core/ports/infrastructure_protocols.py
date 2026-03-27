@@ -13,6 +13,12 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.user import User
+    from core.services.ingestion.types import (
+        BundleStats,
+        DryRunPreview,
+        IngestionStats,
+        IncrementalStats,
+    )
 
 
 @runtime_checkable
@@ -289,7 +295,7 @@ class IngestionOperations(Protocol):
         validate_targets: bool = False,
         progress_callback: Any | None = None,
         dry_run: bool = False,
-    ) -> Result[Any]:
+    ) -> "Result[IngestionStats | IncrementalStats | DryRunPreview]":
         """Ingest all supported files in a directory."""
         ...
 
@@ -297,10 +303,10 @@ class IngestionOperations(Protocol):
         self,
         vault_path: Path,
         subdirs: list[str] | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[IngestionStats]":
         """Ingest an Obsidian vault or specific subdirectories."""
         ...
 
-    async def ingest_bundle(self, bundle_path: Path) -> Result[Any]:
+    async def ingest_bundle(self, bundle_path: Path) -> "Result[BundleStats]":
         """Ingest a domain bundle using manifest file."""
         ...

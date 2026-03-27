@@ -165,7 +165,7 @@ class AnalyticsMetricsService:
         total = len(tasks)
         completed = sum(1 for t in tasks if t.status == EntityStatus.COMPLETED)
         in_progress = sum(1 for t in tasks if t.status == EntityStatus.ACTIVE)
-        pending = sum(1 for t in tasks if t.status.value == "pending")
+        pending = sum(1 for t in tasks if t.status.is_pending())
         overdue = sum(1 for t in tasks if self._is_overdue(t))
 
         completion_rate = (completed / total * 100) if total > 0 else 0.0

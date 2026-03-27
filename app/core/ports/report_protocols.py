@@ -228,8 +228,8 @@ class ActivityReportOperations(Protocol):
         time_period: str = "7d",
         domains: list[str] | None = None,
         admin_uid: str = "",
-    ) -> Result[Any]:
-        """Build activity snapshot from pre-built UserContext for admin review. Returns Result[dict]."""
+    ) -> Result[dict[str, Any]]:
+        """Build activity snapshot from pre-built UserContext for admin review."""
         ...
 
     async def submit_report(
@@ -292,16 +292,16 @@ class ReviewQueueOperations(Protocol):
         time_period: str = "7d",
         domains: list[str] | None = None,
         message: str | None = None,
-    ) -> Result[Any]:
-        """User requests an activity review. Returns Result[dict]."""
+    ) -> Result[dict[str, Any]]:
+        """User requests an activity review."""
         ...
 
     async def get_pending_reviews(
         self,
         _admin_uid: str,
         limit: int = 20,
-    ) -> Result[list[Any]]:
-        """Admin's pending review queue. Returns Result[list[dict]]."""
+    ) -> Result[list[dict[str, Any]]]:
+        """Admin's pending review queue."""
         ...
 
 

@@ -28,6 +28,7 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_date_query_param
+from core.ports.query_types import ChartJsConfig, GanttConfig, VisTimelineConfig
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -52,7 +53,7 @@ def create_visualization_api_routes(
 
     @rt("/api/visualizations/completion")
     @boundary_handler()
-    async def get_completion_chart(request: Request) -> Result[dict[str, Any]]:
+    async def get_completion_chart(request: Request) -> Result[ChartJsConfig]:
         """Get task completion rate data for Chart.js."""
         user_uid = require_authenticated_user(request)
         period = request.query_params.get("period", "week")
@@ -60,21 +61,21 @@ def create_visualization_api_routes(
 
     @rt("/api/visualizations/priority-distribution")
     @boundary_handler()
-    async def get_priority_distribution(request: Request) -> Result[dict[str, Any]]:
+    async def get_priority_distribution(request: Request) -> Result[ChartJsConfig]:
         """Get task priority distribution for Chart.js pie/doughnut."""
         user_uid = require_authenticated_user(request)
         return await vis_service.get_priority_distribution_chart_data(user_uid=user_uid)
 
     @rt("/api/visualizations/streaks")
     @boundary_handler()
-    async def get_streak_chart(request: Request) -> Result[dict[str, Any]]:
+    async def get_streak_chart(request: Request) -> Result[ChartJsConfig]:
         """Get habit streak data for Chart.js horizontal bar."""
         user_uid = require_authenticated_user(request)
         return await vis_service.get_streak_chart_data(user_uid=user_uid)
 
     @rt("/api/visualizations/status-distribution")
     @boundary_handler()
-    async def get_status_distribution(request: Request) -> Result[dict[str, Any]]:
+    async def get_status_distribution(request: Request) -> Result[ChartJsConfig]:
         """Get task status distribution for Chart.js."""
         user_uid = require_authenticated_user(request)
         return await vis_service.get_status_distribution_chart_data(user_uid=user_uid)
@@ -85,7 +86,7 @@ def create_visualization_api_routes(
 
     @rt("/api/visualizations/timeline")
     @boundary_handler()
-    async def get_timeline_data(request: Request) -> Result[dict[str, Any]]:
+    async def get_timeline_data(request: Request) -> Result[VisTimelineConfig]:
         """Get calendar timeline data for Vis.js."""
         user_uid = require_authenticated_user(request)
 
@@ -107,7 +108,7 @@ def create_visualization_api_routes(
 
     @rt("/api/visualizations/tasks-timeline")
     @boundary_handler()
-    async def get_tasks_timeline(request: Request) -> Result[dict[str, Any]]:
+    async def get_tasks_timeline(request: Request) -> Result[VisTimelineConfig]:
         """Get tasks-only timeline data for Vis.js."""
         user_uid = require_authenticated_user(request)
         project = request.query_params.get("project")
@@ -119,7 +120,7 @@ def create_visualization_api_routes(
 
     @rt("/api/visualizations/gantt/tasks")
     @boundary_handler()
-    async def get_tasks_gantt(request: Request) -> Result[dict[str, Any]]:
+    async def get_tasks_gantt(request: Request) -> Result[GanttConfig]:
         """Get tasks Gantt data for Frappe Gantt."""
         user_uid = require_authenticated_user(request)
         project = request.query_params.get("project")
@@ -127,7 +128,7 @@ def create_visualization_api_routes(
 
     @rt("/api/visualizations/gantt/goal/{goal_uid}")
     @boundary_handler()
-    async def get_goal_gantt(request: Request, goal_uid: str) -> Result[dict[str, Any]]:
+    async def get_goal_gantt(request: Request, goal_uid: str) -> Result[GanttConfig]:
         """Get goal with tasks as Gantt data."""
         user_uid = require_authenticated_user(request)
         return await vis_service.get_goal_gantt_data(user_uid=user_uid, goal_uid=goal_uid)

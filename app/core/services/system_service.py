@@ -11,55 +11,23 @@ __version__ = "2.0"
 
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any, TypedDict
+from typing import Any
 
-from core.ports.query_types import AlertCheckResult, HealthSummaryResult, SystemInfoResult
+from core.ports.query_types import (
+    AlertCheckResult,
+    ComponentHealthStatus,
+    HealthCheckValidation,
+    HealthCheckerValidationResult,
+    HealthSummaryResult,
+    SystemHealthStatus,
+    SystemInfoResult,
+)
 from core.services.performance_types import AlertThresholds
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
-
-
-# TypedDicts for health status structures (fixes MyPy index errors)
-class ComponentHealthStatus(TypedDict, total=False):
-    """Health status for a single component."""
-
-    status: str  # "healthy", "unhealthy", "error"
-    healthy: bool
-    error: str  # Optional - only present if status is "error"
-
-
-class SystemHealthStatus(TypedDict):
-    """Overall system health status."""
-
-    status: str  # "healthy" or "unhealthy"
-    timestamp: str  # ISO format timestamp
-    components: dict[str, ComponentHealthStatus]
-    healthy: bool  # Overall health boolean
-
-
-class ValidationResult(TypedDict, total=False):
-    """Result of health checker validation for a single checker."""
-
-    valid: bool
-    response_time_ms: int  # Only present if valid
-    returned_type: str  # Only present if valid
-    returned_value: Any  # Only present if valid
-    error: str  # Only present if not valid
-    error_type: str  # Only present if not valid
-
-
-class HealthCheckValidation(TypedDict):
-    """Validation results for all health checkers."""
-
-    timestamp: str  # ISO format timestamp
-    total_checkers: int
-    valid_checkers: int
-    invalid_checkers: int
-    results: dict[str, ValidationResult]
-    all_valid: bool
 
 
 class SystemService:

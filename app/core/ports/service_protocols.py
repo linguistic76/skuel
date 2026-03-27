@@ -30,7 +30,9 @@ from core.ports.query_types import (
     AlertCheckResult,
     ChartJsConfig,
     GanttConfig,
+    HealthCheckValidation,
     HealthSummaryResult,
+    SystemHealthStatus,
     SystemInfoResult,
     VisTimelineConfig,
 )
@@ -38,6 +40,9 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.event.calendar_models import CalendarData, CalendarItem
+    from core.models.event.event_dto import EventDTO
+    from core.models.habit.completion import HabitCompletion
+    from core.models.task.task_dto import TaskDTO
     from core.ports.query_types import (
         BlockingChainResult,
         LateralRelationshipItem,
@@ -107,7 +112,7 @@ class CalendarServiceOperations(Protocol):
         on_date: str,
         status: str,
         notes: str | None = None,
-    ) -> Result[Any]:
+    ) -> "Result[HabitCompletion]":
         """Record a habit occurrence from the calendar view."""
         ...
 
@@ -273,8 +278,8 @@ class SystemServiceOperations(Protocol):
 
     # Async health check methods
 
-    async def get_health_status(self) -> Result[Any]:
-        """Get system health status. Returns Result[SystemHealthStatus]."""
+    async def get_health_status(self) -> Result[SystemHealthStatus]:
+        """Get system health status."""
         ...
 
     async def get_system_info(self) -> Result[SystemInfoResult]:
@@ -285,8 +290,8 @@ class SystemServiceOperations(Protocol):
         """Get health summary with component counts."""
         ...
 
-    async def validate_health_checkers(self) -> Result[Any]:
-        """Validate registered health checkers. Returns Result[HealthCheckValidation]."""
+    async def validate_health_checkers(self) -> Result[HealthCheckValidation]:
+        """Validate registered health checkers."""
         ...
 
     async def check_alerts(self) -> Result[AlertCheckResult]:
@@ -517,8 +522,8 @@ class GoalTaskGeneratorOperations(Protocol):
         goal_uid: str,
         user_context: FullAwareness,
         auto_create: bool = False,
-    ) -> Result[Any]:
-        """Generate tasks for a goal. Returns Result[list[TaskDTO]]."""
+    ) -> "Result[list[TaskDTO]]":
+        """Generate tasks for a goal."""
         ...
 
 
@@ -536,8 +541,8 @@ class HabitEventSchedulerOperations(Protocol):
         user_context: FullAwareness,
         auto_create: bool = False,
         days_ahead: int | None = None,
-    ) -> Result[Any]:
-        """Schedule events for a habit. Returns Result[list[EventDTO]]."""
+    ) -> "Result[list[EventDTO]]":
+        """Schedule events for a habit."""
         ...
 
 

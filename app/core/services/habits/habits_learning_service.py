@@ -17,6 +17,7 @@ from typing import Any
 from core.events import HabitCreated, publish_event
 from core.models.enums import Domain, EntityStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
+from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
@@ -109,7 +110,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
                 # GRAPH-NATIVE: Check if habit is learning-related
                 # Check category and source fields (learning step/path linkage)
                 if (
-                    (habit.habit_category and habit.habit_category.value == "learning")
+                    (habit.habit_category and habit.habit_category == HabitCategory.LEARNING)
                     or habit.source_learning_step_uid is not None
                     or habit.source_learning_path_uid is not None
                 ):

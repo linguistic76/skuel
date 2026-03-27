@@ -462,12 +462,7 @@ def create_system_api_routes(
         validation_data = result.value
 
         # Return 503 if validation indicates problems with health checkers
-        # Check for common validation failure indicators
-        is_valid = validation_data.get("valid", True)
-        has_errors = bool(validation_data.get("errors", []))
-        failed_checks = validation_data.get("failed_checks", 0)
-
-        if not is_valid or has_errors or failed_checks > 0:
+        if not validation_data["all_valid"] or validation_data["invalid_checkers"] > 0:
             return Result.fail(
                 Errors.integration(
                     service="SystemService",

@@ -1819,6 +1819,45 @@ class AlertCheckResult(TypedDict, total=False):
     has_alerts: bool
 
 
+class ComponentHealthStatus(TypedDict, total=False):
+    """Health status for a single system component."""
+
+    status: str  # "healthy" or "error"
+    healthy: bool
+    error: str  # Only present if status is "error"
+
+
+class SystemHealthStatus(TypedDict):
+    """Return shape for SystemService.get_health_status()."""
+
+    status: str  # "healthy" or "unhealthy"
+    timestamp: str  # ISO format
+    components: dict[str, ComponentHealthStatus]
+    healthy: bool
+
+
+class HealthCheckerValidationResult(TypedDict, total=False):
+    """Validation result for a single health checker."""
+
+    valid: bool
+    response_time_ms: int  # Only present if valid
+    returned_type: str  # Only present if valid
+    returned_value: Any  # Only present if valid
+    error: str  # Only present if not valid
+    error_type: str  # Only present if not valid
+
+
+class HealthCheckValidation(TypedDict):
+    """Return shape for SystemService.validate_health_checkers()."""
+
+    timestamp: str  # ISO format
+    total_checkers: int
+    valid_checkers: int
+    invalid_checkers: int
+    results: dict[str, HealthCheckerValidationResult]
+    all_valid: bool
+
+
 # ============================================================================
 # FINANCE STATS RESULT TYPES
 # ============================================================================
@@ -2014,6 +2053,10 @@ __all__ = [
     "SystemInfoResult",
     "HealthSummaryResult",
     "AlertCheckResult",
+    "ComponentHealthStatus",
+    "SystemHealthStatus",
+    "HealthCheckerValidationResult",
+    "HealthCheckValidation",
     # Finance Stats Result Types
     "InvoiceStats",
     # Domain Stats Result Types

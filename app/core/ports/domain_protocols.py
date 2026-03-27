@@ -1295,7 +1295,7 @@ class UserContextOperations(Protocol):
         user_uid: UserUID,
         completion_context: dict[str, Any] | None = None,
         reflection_notes: str = "",
-    ) -> Result[Any]:  # Result[Task]
+    ) -> Result[Task]:
         """Complete task with context awareness."""
         ...
 
@@ -1305,7 +1305,7 @@ class UserContextOperations(Protocol):
         user_uid: UserUID,
         context_preferences: dict[str, Any] | None = None,
         auto_create: bool = True,
-    ) -> Result[list[Any]]:  # Result[list[Task]]
+    ) -> Result[list[Task]]:
         """Create contextually relevant tasks from goal."""
         ...
 
@@ -1315,6 +1315,6 @@ class UserContextOperations(Protocol):
         user_uid: UserUID,
         completion_quality: str = "good",
         environmental_factors: dict[str, Any] | None = None,
-    ) -> Result[Any]:  # Result[Habit]
+    ) -> Result[Habit]:
         """Complete habit with context awareness."""
         ...
