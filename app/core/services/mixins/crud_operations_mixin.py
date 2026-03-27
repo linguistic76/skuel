@@ -46,6 +46,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 from core.models.protocols import DomainModelProtocol
+from core.models.type_hints import UserUID
 from core.ports import BackendOperations
 from core.utils.result_simplified import Errors, Result
 
@@ -204,7 +205,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     # This prevents information leakage (attacker can't tell if UID exists).
     # ========================================================================
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[T]:
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[T]:
         """
         Verify that an entity exists AND belongs to the specified user.
 
@@ -252,7 +253,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         return Result.ok(entity)
 
-    async def get_for_user(self, uid: str, user_uid: str) -> Result[T]:
+    async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[T]:
         """
         Get entity by UID, but only if owned by the specified user.
 
@@ -274,7 +275,9 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         """
         return await self.verify_ownership(uid, user_uid)
 
-    async def update_for_user(self, uid: str, updates: dict[str, Any], user_uid: str) -> Result[T]:
+    async def update_for_user(
+        self, uid: str, updates: dict[str, Any], user_uid: UserUID
+    ) -> Result[T]:
         """
         Update entity, but only if owned by the specified user.
 
@@ -308,7 +311,9 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Perform the update
         return await self.backend.update(uid, updates)
 
-    async def delete_for_user(self, uid: str, user_uid: str, cascade: bool = False) -> Result[bool]:
+    async def delete_for_user(
+        self, uid: str, user_uid: UserUID, cascade: bool = False
+    ) -> Result[bool]:
         """
         Delete entity, but only if owned by the specified user.
 
@@ -341,7 +346,7 @@ class CrudOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         filters: dict[str, Any] | None = None,
         sort_by: str | None = None,
         sort_order: str = "asc",
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         order_by: str | None = None,
         order_desc: bool = False,
     ) -> Result[tuple[builtins.list[T], int]]:

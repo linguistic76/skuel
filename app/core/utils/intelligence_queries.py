@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import EntityUID, UserUID
 from core.services.infrastructure.graph_intelligence_service import (
     GraphIntelligenceService,
 )
@@ -45,7 +46,7 @@ _GRAPH_QUERY_EXCEPTIONS = (*NEO4J_EXCEPTIONS, KeyError, TypeError)
 
 
 async def get_knowledge_prerequisites(
-    graph: GraphIntelligenceService, entity_uid: str, depth: int = 3
+    graph: GraphIntelligenceService, entity_uid: EntityUID, depth: int = 3
 ) -> Result[KnowledgePrerequisitesResult]:
     """
     Analyze knowledge prerequisites for any entity using graph intelligence.
@@ -100,7 +101,7 @@ async def get_knowledge_prerequisites(
 
 
 async def get_learning_state(
-    graph: GraphIntelligenceService, user_uid: str
+    graph: GraphIntelligenceService, user_uid: UserUID
 ) -> Result[dict[str, Any]]:
     """
     Get user's current learning state from graph.
@@ -286,7 +287,7 @@ async def analyze_knowledge_patterns(
 
 async def get_entity_neighborhood(
     graph: GraphIntelligenceService,
-    entity_uid: str,
+    entity_uid: EntityUID,
     relationship_types: list[str] | None = None,
     depth: int = 2,
 ) -> Result[dict[str, Any]]:
@@ -371,7 +372,7 @@ async def get_entity_neighborhood(
 
 
 async def find_cross_domain_connections(
-    graph: GraphIntelligenceService, entity_uid: str, target_domains: list[str]
+    graph: GraphIntelligenceService, entity_uid: EntityUID, target_domains: list[str]
 ) -> Result[dict[str, Any]]:
     """
     Find connections between entity and other domains.

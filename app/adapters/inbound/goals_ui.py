@@ -43,6 +43,7 @@ from adapters.inbound.ui_helpers import (
 )
 from core.models.enums import Priority
 from core.models.goal.goal_request import GoalCreateRequest
+from core.models.type_hints import UserUID
 from core.services.goals_service import GoalsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -484,7 +485,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
     # DATA FETCHING HELPERS
     # ========================================================================
 
-    async def get_all_goals(user_uid: str) -> Result[list[Any]]:
+    async def get_all_goals(user_uid: UserUID) -> Result[list[Any]]:
         """Get all goals for user."""
         return await fetch_user_entities(goals_service.get_user_goals, "goals", user_uid, logger)
 
@@ -498,7 +499,7 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
     # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    async def fetch_goals_context(user_uid: str, filters: ActivityFilters) -> Any:
+    async def fetch_goals_context(user_uid: UserUID, filters: ActivityFilters) -> Any:
         """Fetch filtered goals context from service."""
         return await goals_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
@@ -511,12 +512,12 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
             categories=svc_ctx.get("metadata", {}).get("categories", []),
         )
 
-    async def render_goals_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+    async def render_goals_create(user_uid: UserUID, svc_ctx: dict[str, Any]) -> Any:
         """Render goals create view."""
         categories = svc_ctx.get("metadata", {}).get("categories", []) or _get_goal_categories()
         return GoalsViewComponents.render_create_view(categories=categories)
 
-    async def render_goals_calendar(user_uid: str, request: Any) -> Any:
+    async def render_goals_calendar(user_uid: UserUID, request: Any) -> Any:
         """Render goals calendar view."""
         calendar_params = parse_calendar_params(request)
         goals_result = await get_all_goals(user_uid)
@@ -561,19 +562,19 @@ def create_goals_ui_routes(_app, rt, goals_service: GoalsService, services: Any 
     # QUICK ADD (via QuickAddRouteFactory)
     # ========================================================================
 
-    async def create_goal_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+    async def create_goal_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
         """Domain-specific goal creation logic."""
         create_request = parse_goal_create_request(form_data)
         return await goals_service.create_goal(create_request, user_uid)
 
-    async def render_goal_success_view(_user_uid: str) -> Any:
+    async def render_goal_success_view(_user_uid: UserUID) -> Any:
         """Redirect to list view after successful goal creation."""
         return Response(
             status_code=200,
             headers={"HX-Redirect": "/goals?view=list"},
         )
 
-    async def render_goal_add_another_view(user_uid: str) -> Any:
+    async def render_goal_add_another_view(user_uid: UserUID) -> Any:
         """Render create view for add-another flow."""
         return GoalsViewComponents.render_create_view(categories=_get_goal_categories())
 

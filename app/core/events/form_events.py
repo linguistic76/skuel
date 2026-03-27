@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -85,7 +86,7 @@ class FormSubmitted(BaseEvent):
     """
 
     submission_uid: str
-    user_uid: str
+    user_uid: UserUID
     template_uid: str
     metadata: dict[str, Any] | None = None
 
@@ -104,7 +105,7 @@ class FormSubmissionDeleted(BaseEvent):
     """
 
     submission_uid: str
-    user_uid: str
+    user_uid: UserUID
     metadata: dict[str, Any] | None = None
 
     @property

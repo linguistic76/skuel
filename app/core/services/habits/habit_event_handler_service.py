@@ -33,6 +33,7 @@ from core.events.habit_events import (
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -662,7 +663,7 @@ class HabitEventHandlerService:
     # ========================================================================
 
     @with_error_handling("get_user_badges", error_type="database", uid_param="user_uid")
-    async def get_user_badges(self, user_uid: str) -> Result[list[dict]]:
+    async def get_user_badges(self, user_uid: UserUID) -> Result[list[dict]]:
         """Get all badges earned by a user.
 
         Args:
@@ -721,7 +722,7 @@ class HabitEventHandlerService:
     # ========================================================================
 
     async def _check_badge_already_earned(
-        self, user_uid: str, habit_uid: str, badge_id: str
+        self, user_uid: UserUID, habit_uid: str, badge_id: str
     ) -> bool:
         """Check if user has already earned this badge for this habit."""
         result = await self.backend.check_badge_already_earned(user_uid, habit_uid, badge_id)
@@ -732,7 +733,7 @@ class HabitEventHandlerService:
 
     async def _award_badge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         habit_uid: str,
         badge_info: dict,
         streak_length: int,
@@ -750,7 +751,7 @@ class HabitEventHandlerService:
             occurred_at=occurred_at.isoformat(),
         )
 
-    async def _check_aggregate_badges(self, user_uid: str) -> None:
+    async def _check_aggregate_badges(self, user_uid: UserUID) -> None:
         """Check and award cross-habit aggregate badges.
 
         Queries aggregated stats (total completions, high-quality count,

@@ -42,6 +42,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.models.zpd.zpd_assessment import ZoneEvidence, ZPDAction, ZPDAssessment
 from core.utils.result_simplified import Result
 
@@ -90,7 +91,7 @@ class ZPDService:
     # =========================================================================
 
     async def assess_zone(
-        self, user_uid: str, context: UserContext | None = None
+        self, user_uid: UserUID, context: UserContext | None = None
     ) -> Result[ZPDAssessment]:
         """Compute the user's full ZPD from the curriculum graph.
 
@@ -179,7 +180,7 @@ class ZPDService:
             )
         )
 
-    async def get_proximal_ku_uids(self, user_uid: str) -> Result[list[str]]:
+    async def get_proximal_ku_uids(self, user_uid: UserUID) -> Result[list[str]]:
         """Get only the proximal zone KU UIDs, ranked by readiness score.
 
         Lightweight convenience wrapper over assess_zone() for callers that
@@ -192,7 +193,7 @@ class ZPDService:
         return Result.ok(assessment.top_proximal_ku_uids())
 
     async def assess_ku_readiness(
-        self, user_uid: str, ku_uids: list[str]
+        self, user_uid: UserUID, ku_uids: list[str]
     ) -> Result[dict[str, ZoneEvidence]]:
         """Get targeted ZPD evidence for specific KUs.
 
@@ -242,7 +243,7 @@ class ZPDService:
 
         return Result.ok(evidence)
 
-    async def get_readiness_score(self, user_uid: str, ku_uid: str) -> Result[float]:
+    async def get_readiness_score(self, user_uid: UserUID, ku_uid: str) -> Result[float]:
         """Get the readiness score for a specific KU (0.0-1.0).
 
         Returns 0.0 for KUs not in the proximal zone.
@@ -411,7 +412,9 @@ class ZPDService:
 
         return actions
 
-    async def _compute_behavioral_readiness(self, user_uid: str, current_zone: list[str]) -> float:
+    async def _compute_behavioral_readiness(
+        self, user_uid: UserUID, current_zone: list[str]
+    ) -> float:
         """Aggregate behavioral readiness from choices + habits signals.
 
         Weights:

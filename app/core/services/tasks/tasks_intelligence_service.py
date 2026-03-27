@@ -35,6 +35,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -234,7 +236,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
     # ========================================================================
 
     async def get_behavioral_insights(
-        self, user_uid: str, period_days: int = 90
+        self, user_uid: UserUID, period_days: int = 90
     ) -> Result[dict[str, Any]]:
         """
         Analyze behavioral patterns from tasks.
@@ -295,7 +297,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
     # ========================================================================
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Analyze task performance metrics.

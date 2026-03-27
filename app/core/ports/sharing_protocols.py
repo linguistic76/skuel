@@ -20,6 +20,7 @@ See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
 from typing import Any, Protocol, runtime_checkable
 
 from core.models.enums.metadata_enums import Visibility
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.result_simplified import Result
 
 
@@ -36,7 +37,7 @@ class SharingOperations(Protocol):
 
     async def share(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         recipient_uid: str,
         role: str = "viewer",
@@ -47,7 +48,7 @@ class SharingOperations(Protocol):
 
     async def unshare(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         recipient_uid: str,
     ) -> Result[bool]:
@@ -56,14 +57,14 @@ class SharingOperations(Protocol):
 
     async def get_shared_with(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[list[dict[str, Any]]]:
         """Get users an entity is shared with. Returns Result[list[dict]]."""
         ...
 
     async def get_shared_with_me(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 50,
     ) -> Result[list[Any]]:
         """Get entities shared with a user. Returns Result[list[EntityDTO]]."""
@@ -71,7 +72,7 @@ class SharingOperations(Protocol):
 
     async def set_visibility(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         visibility: Visibility,
     ) -> Result[bool]:
@@ -80,22 +81,22 @@ class SharingOperations(Protocol):
 
     async def check_access(
         self,
-        entity_uid: str,
-        user_uid: str,
+        entity_uid: EntityUID,
+        user_uid: UserUID,
     ) -> Result[bool]:
         """Check if a user has access to an entity. Returns Result[bool]."""
         ...
 
     async def verify_shareable(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[bool]:
         """Verify entity can be shared (status + type check). Returns Result[bool]."""
         ...
 
     async def share_with_group(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         group_uid: str,
         share_version: str = "original",
@@ -105,7 +106,7 @@ class SharingOperations(Protocol):
 
     async def unshare_from_group(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         group_uid: str,
     ) -> Result[bool]:
@@ -114,14 +115,14 @@ class SharingOperations(Protocol):
 
     async def get_groups_shared_with(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[list[dict[str, Any]]]:
         """Get groups an entity is shared with. Returns Result[list[dict]]."""
         ...
 
     async def get_shared_with_me_via_groups(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 50,
     ) -> Result[list[Any]]:
         """Get entities shared via group membership. Returns Result[list[dict]]."""

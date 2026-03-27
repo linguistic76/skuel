@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.neo4j_mapper import from_neo4j_node
@@ -84,8 +85,8 @@ class _UserEntityMixin[T: DomainModelProtocol]:
     @safe_backend_operation("create_user_relationship")
     async def create_user_relationship(
         self,
-        user_uid: str,
-        entity_uid: str,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
         relationship_type: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Result[bool]:
@@ -172,7 +173,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
     @safe_backend_operation("get_user_entities")
     async def get_user_entities(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         relationship_type: str | None = None,
         filters: dict[str, Any] | None = None,
         limit: int = 100,
@@ -291,7 +292,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
     @safe_backend_operation("count_user_entities")
     async def count_user_entities(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         relationship_type: str | None = None,
         filters: dict[str, Any] | None = None,
     ) -> Result[int]:
@@ -361,7 +362,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("update_relationship_access")
     async def update_relationship_access(
-        self, user_uid: str, entity_uid: str, relationship_type: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID, relationship_type: str | None = None
     ) -> Result[bool]:
         """
         Update relationship metadata when user accesses an entity.
@@ -429,7 +430,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("delete_user_relationship")
     async def delete_user_relationship(
-        self, user_uid: str, entity_uid: str, relationship_type: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID, relationship_type: str | None = None
     ) -> Result[bool]:
         """
         Delete user-entity relationship.

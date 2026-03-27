@@ -42,6 +42,7 @@ from typing import Any
 
 from core.infrastructure.batch import BatchCypherBuilder
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.processor_functions import (
     extract_created_count,
     extract_dict_from_first_record,
@@ -88,7 +89,7 @@ class UserRelationshipService:
     # Pinned Entities (4 methods)
     # ========================================================================
 
-    async def get_pinned_entities(self, user_uid: str) -> Result[list[str]]:
+    async def get_pinned_entities(self, user_uid: UserUID) -> Result[list[str]]:
         """
         Get UIDs of pinned entities for a user (ordered).
 
@@ -114,7 +115,7 @@ class UserRelationshipService:
             operation="get_pinned_entities",
         )
 
-    async def pin_entity(self, user_uid: str, entity_uid: str) -> Result[bool]:
+    async def pin_entity(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]:
         """
         Pin an entity for quick access.
 
@@ -147,7 +148,7 @@ class UserRelationshipService:
             operation="pin_entity",
         )
 
-    async def unpin_entity(self, user_uid: str, entity_uid: str) -> Result[bool]:
+    async def unpin_entity(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]:
         """
         Unpin an entity.
 
@@ -171,7 +172,7 @@ class UserRelationshipService:
             operation="unpin_entity",
         )
 
-    async def reorder_pins(self, user_uid: str, ordered_entity_uids: list[str]) -> Result[int]:
+    async def reorder_pins(self, user_uid: UserUID, ordered_entity_uids: list[str]) -> Result[int]:
         """
         Reorder pinned entities.
 
@@ -202,7 +203,7 @@ class UserRelationshipService:
     # Current Goals (1 method)
     # ========================================================================
 
-    async def get_current_goals(self, user_uid: str) -> Result[list[str]]:
+    async def get_current_goals(self, user_uid: UserUID) -> Result[list[str]]:
         """
         Get UIDs of current/active goals for a user.
 
@@ -230,7 +231,7 @@ class UserRelationshipService:
     # Social Connections (2 methods)
     # ========================================================================
 
-    async def get_following(self, user_uid: str) -> Result[set[str]]:
+    async def get_following(self, user_uid: UserUID) -> Result[set[str]]:
         """
         Get UIDs of users that this user follows.
 
@@ -253,7 +254,7 @@ class UserRelationshipService:
             operation="get_following",
         )
 
-    async def get_followers(self, user_uid: str) -> Result[set[str]]:
+    async def get_followers(self, user_uid: UserUID) -> Result[set[str]]:
         """
         Get UIDs of users following this user (inverse of FOLLOWS).
 
@@ -283,7 +284,7 @@ class UserRelationshipService:
     # Group Membership (1 method)
     # ========================================================================
 
-    async def get_teams(self, user_uid: str) -> Result[set[str]]:
+    async def get_teams(self, user_uid: UserUID) -> Result[set[str]]:
         """
         Get UIDs of groups this user belongs to.
 
@@ -310,7 +311,7 @@ class UserRelationshipService:
     # Existence Checks (4 methods)
     # ========================================================================
 
-    async def has_pinned_entities(self, user_uid: str) -> Result[bool]:
+    async def has_pinned_entities(self, user_uid: UserUID) -> Result[bool]:
         """
         Check if user has any pinned entities.
 
@@ -326,7 +327,7 @@ class UserRelationshipService:
             operation="has_pinned_entities",
         )
 
-    async def has_active_goals(self, user_uid: str) -> Result[bool]:
+    async def has_active_goals(self, user_uid: UserUID) -> Result[bool]:
         """
         Check if user has any active goals.
 
@@ -345,7 +346,7 @@ class UserRelationshipService:
             operation="has_active_goals",
         )
 
-    async def is_following(self, user_uid: str, other_user_uid: str) -> Result[bool]:
+    async def is_following(self, user_uid: UserUID, other_user_uid: str) -> Result[bool]:
         """
         Check if user follows another user.
 
@@ -362,7 +363,7 @@ class UserRelationshipService:
             operation="is_following",
         )
 
-    async def is_team_member(self, user_uid: str, team_uid: str) -> Result[bool]:
+    async def is_team_member(self, user_uid: UserUID, team_uid: str) -> Result[bool]:
         """
         Check if user is a member of a group.
 
@@ -383,7 +384,7 @@ class UserRelationshipService:
     # Analytics Methods (3 methods)
     # ========================================================================
 
-    async def count_pinned_entities(self, user_uid: str) -> Result[int]:
+    async def count_pinned_entities(self, user_uid: UserUID) -> Result[int]:
         """
         Count number of pinned entities for user.
 
@@ -402,7 +403,7 @@ class UserRelationshipService:
             operation="count_pinned_entities",
         )
 
-    async def get_social_stats(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_social_stats(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """
         Get social statistics for user.
 
@@ -436,7 +437,7 @@ class UserRelationshipService:
             operation="get_social_stats",
         )
 
-    async def get_user_summary(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_user_summary(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Get comprehensive relationship summary for user.
 
@@ -481,7 +482,7 @@ class UserRelationshipService:
 
     async def create_user_relationships(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         pinned_entity_uids: list[str] | None = None,
         current_goal_uids: list[str] | None = None,
         following_uids: list[str] | None = None,

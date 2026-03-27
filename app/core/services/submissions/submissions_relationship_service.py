@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.entity_types import SubmissionEntity
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -107,7 +108,7 @@ class SubmissionsRelationshipService:
     # ========================================================================
 
     async def _create_temporal_relationship(
-        self, ku_uid: str, user_uid: str | None, entity_type: str
+        self, ku_uid: str, user_uid: UserUID | None, entity_type: str
     ) -> int:
         """
         Create FOLLOWS relationship to most recent previous Ku of same type.
@@ -136,7 +137,7 @@ class SubmissionsRelationshipService:
     async def _create_thematic_relationships(
         self,
         ku_uid: str,
-        user_uid: str | None,
+        user_uid: UserUID | None,
         themes: list[str],
     ) -> int:
         """

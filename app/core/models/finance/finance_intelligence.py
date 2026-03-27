@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+from core.models.type_hints import UserUID
+
 
 class SpendingVelocity(StrEnum):
     """Spending rate patterns."""
@@ -60,7 +62,7 @@ class FinancialHealthScore:
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     overall_health: FinancialHealthTier
     health_score: float
     budget_adherence_rate: float
@@ -74,7 +76,7 @@ class FinancialHealthScore:
         return self.overall_health in [FinancialHealthTier.GOOD, FinancialHealthTier.EXCELLENT]
 
 
-def create_financial_health_score(user_uid: str) -> FinancialHealthScore:
+def create_financial_health_score(user_uid: UserUID) -> FinancialHealthScore:
     """Create initial financial health score."""
     return FinancialHealthScore(
         uid=f"fin_health_{user_uid}",

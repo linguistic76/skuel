@@ -37,6 +37,7 @@ from __future__ import annotations
 from typing import Any
 
 from core.infrastructure.batch import BatchCypherBuilder
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.processor_functions import (
     extract_dict_from_first_record,
     extract_uids_list,
@@ -71,7 +72,7 @@ class AnalyticsRelationshipService:
     # User Reports (2 methods)
     # ========================================================================
 
-    async def get_user_reports(self, user_uid: str, limit: int = 50) -> Result[list[str]]:
+    async def get_user_reports(self, user_uid: UserUID, limit: int = 50) -> Result[list[str]]:
         """
         Get UIDs of reports for a user.
 
@@ -95,7 +96,7 @@ class AnalyticsRelationshipService:
         )
 
     async def get_user_reports_by_type(
-        self, user_uid: str, report_type: str, limit: int = 20
+        self, user_uid: UserUID, report_type: str, limit: int = 20
     ) -> Result[list[str]]:
         """
         Get UIDs of reports for a user filtered by type.
@@ -147,7 +148,7 @@ class AnalyticsRelationshipService:
             operation="get_included_entities",
         )
 
-    async def get_reports_including_entity(self, entity_uid: str) -> Result[list[str]]:
+    async def get_reports_including_entity(self, entity_uid: EntityUID) -> Result[list[str]]:
         """
         Get UIDs of reports that include a specific entity.
 
@@ -333,7 +334,7 @@ class AnalyticsRelationshipService:
     # ========================================================================
 
     async def get_reports_in_period(
-        self, user_uid: str, start_date: str, end_date: str
+        self, user_uid: UserUID, start_date: str, end_date: str
     ) -> Result[list[str]]:
         """
         Get UIDs of reports for a user within a date range.
@@ -363,7 +364,9 @@ class AnalyticsRelationshipService:
             operation="get_reports_in_period",
         )
 
-    async def get_latest_report_by_type(self, user_uid: str, report_type: str) -> Result[list[str]]:
+    async def get_latest_report_by_type(
+        self, user_uid: UserUID, report_type: str
+    ) -> Result[list[str]]:
         """
         Get the most recent report of a specific type for a user.
 

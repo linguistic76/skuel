@@ -22,6 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from datetime import date
 
@@ -98,7 +100,7 @@ class TaskDTO(UserOwnedDTO):
     # =========================================================================
 
     @classmethod
-    def create_task(cls, user_uid: str, title: str, **kwargs: Any) -> TaskDTO:
+    def create_task(cls, user_uid: UserUID, title: str, **kwargs: Any) -> TaskDTO:
         """Create a TaskDTO with generated UID and correct defaults.
 
         Requires user_uid. Status defaults to DRAFT.

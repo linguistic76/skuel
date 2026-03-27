@@ -21,6 +21,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -55,7 +56,7 @@ class ReportRelationshipService:
     # INTELLIGENCE QUERIES
     # ========================================================================
 
-    async def get_pending_submissions(self, user_uid: str) -> Result[list[str]]:
+    async def get_pending_submissions(self, user_uid: UserUID) -> Result[list[str]]:
         """
         Get UIDs of submissions that have not yet received a report.
 
@@ -77,7 +78,7 @@ class ReportRelationshipService:
         return Result.ok([str(r["uid"]) for r in (result.value or []) if r["uid"]])
 
     async def get_unsubmitted_exercises(
-        self, user_uid: str, limit: int = 5
+        self, user_uid: UserUID, limit: int = 5
     ) -> Result[list[dict[str, str | None]]]:
         """
         Exercises assigned to this user (via group) with no submission yet.
@@ -108,7 +109,7 @@ class ReportRelationshipService:
             ]
         )
 
-    async def get_report_summary(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_report_summary(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """
         Get report completion summary for a user.
 

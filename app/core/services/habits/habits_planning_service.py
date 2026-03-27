@@ -38,6 +38,7 @@ from core.models.enums import RecurrencePattern
 from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
+from core.models.type_hints import EntityUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_planning_service import BasePlanningService
 from core.utils.decorators import with_error_handling
@@ -85,7 +86,9 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         """Alias for base class method with domain-specific naming."""
         return await self._get_entities_by_uids(uids)
 
-    async def _get_related_habit_uids(self, relationship_key: str, entity_uid: str) -> list[str]:
+    async def _get_related_habit_uids(
+        self, relationship_key: str, entity_uid: EntityUID
+    ) -> list[str]:
         """Alias for base class method with domain-specific naming."""
         return await self._get_related_uids(relationship_key, entity_uid)
 

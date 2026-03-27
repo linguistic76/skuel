@@ -15,7 +15,7 @@ These methods wrap the semantic queries with domain-specific defaults.
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from core.models.type_hints import Neo4jValue
+from core.models.type_hints import Neo4jValue, UserUID
 
 if TYPE_CHECKING:
     from datetime import date
@@ -106,7 +106,7 @@ def build_simple_prerequisite_chain(
 
 def build_unmastered_prerequisite_chain(
     node_uid: str,
-    user_uid: str,
+    user_uid: UserUID,
     node_label: str = "Entity",
     relationship_type: str = "REQUIRES_KNOWLEDGE",
     mastery_relationship: str = "MASTERED_BY",
@@ -194,7 +194,7 @@ def build_multi_domain_context(
 
 
 def build_knowledge_prerequisites(
-    ku_uid: str, user_uid: str | None = None, depth: int = 3, include_optional: bool = False
+    ku_uid: str, user_uid: UserUID | None = None, depth: int = 3, include_optional: bool = False
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for knowledge unit prerequisites (domain-specific convenience).
@@ -331,7 +331,7 @@ def build_goal_dependencies(
 
 def build_habit_dependencies(
     habit_uid: str,
-    user_uid: str | None = None,
+    user_uid: UserUID | None = None,
     direction: str = "prerequisites",
     depth: int = 2,
     include_all_levels: bool = False,
@@ -392,7 +392,7 @@ def build_habit_dependencies(
 
 def build_event_dependencies(
     event_uid: str,
-    user_uid: str | None = None,
+    user_uid: UserUID | None = None,
     direction: str = "prerequisites",
     depth: int = 2,
     include_all_levels: bool = False,
@@ -453,7 +453,7 @@ def build_event_dependencies(
 
 def build_principle_dependencies(
     principle_uid: str,
-    user_uid: str | None = None,
+    user_uid: UserUID | None = None,
     depth: int = 3,
     include_optional: bool = False,
 ) -> tuple[str, dict[str, Neo4jValue]]:
@@ -490,7 +490,7 @@ def build_principle_dependencies(
 
 def build_choice_dependencies(
     choice_uid: str,
-    user_uid: str | None = None,
+    user_uid: UserUID | None = None,
     direction: str = "prerequisites",
     depth: int = 2,
     include_all_levels: bool = False,
@@ -1388,7 +1388,7 @@ def build_principle_with_context(
 
 
 def build_user_activity_query(
-    user_uid: str,
+    user_uid: UserUID,
     node_label: str,
     date_field: str | None = None,
     start_date: "date | None" = None,
@@ -1480,7 +1480,7 @@ def build_due_soon_query(
     date_field: str,
     days_ahead: int = 7,
     exclude_statuses: list[str] | None = None,
-    user_uid: str | None = None,
+    user_uid: UserUID | None = None,
     limit: int = 100,
     secondary_sort_field: str | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
@@ -1560,7 +1560,7 @@ def build_overdue_query(
     node_label: str,
     date_field: str,
     exclude_statuses: list[str] | None = None,
-    user_uid: str | None = None,
+    user_uid: UserUID | None = None,
     limit: int = 100,
     secondary_sort_field: str | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:

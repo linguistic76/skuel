@@ -5,6 +5,8 @@ Frozen dataclasses for teaching dashboard, queue, and detail components.
 
 from dataclasses import dataclass
 
+from core.models.type_hints import UserUID
+
 
 @dataclass(frozen=True)
 class QueueItem:
@@ -101,7 +103,7 @@ class SubmissionRow:
 class ClassMember:
     """A member row in the class detail view."""
 
-    user_uid: str = ""
+    user_uid: UserUID = ""  # type: ignore[assignment]
     user_name: str = "Unknown"
     role: str = "student"
     submission_count: int = 0

@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import EntityUID
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -125,7 +126,7 @@ class _HierarchyMixin:
             return Result.ok(None)
         return Result.ok(result.value[0]["parent"])
 
-    async def get_hierarchy_raw(self, entity_uid: str) -> Result[dict[str, Any]]:
+    async def get_hierarchy_raw(self, entity_uid: EntityUID) -> Result[dict[str, Any]]:
         """Get full hierarchy context: ancestors, siblings, children as raw dicts.
 
         Args:

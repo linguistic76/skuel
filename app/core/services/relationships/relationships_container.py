@@ -16,6 +16,7 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from core.models.type_hints import EntityUID
 from core.services.relationships.extended_config import ExtendedRelationshipConfig, QuerySpec
 
 if TYPE_CHECKING:
@@ -84,7 +85,7 @@ class DomainRelationships:
     @classmethod
     async def fetch(
         cls: type[T],
-        entity_uid: str,
+        entity_uid: EntityUID,
         service: UnifiedRelationshipService,
     ) -> T:
         """

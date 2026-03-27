@@ -25,6 +25,8 @@ Implementation:
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import EntityUID
+
 if TYPE_CHECKING:
     from datetime import datetime
 
@@ -315,7 +317,7 @@ class EmbeddingBackgroundWorker:
                 self._pending_requests.extend(requests)
 
     async def _store_embedding(
-        self, entity_uid: str, entity_type: str, embedding: list[float]
+        self, entity_uid: EntityUID, entity_type: str, embedding: list[float]
     ) -> bool:
         """
         Store embedding in Neo4j node with version tracking.

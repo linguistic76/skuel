@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import Domain
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
+from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
 from core.utils.decorators import with_error_handling
@@ -88,7 +89,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
         return await self.orchestrator.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Get overall Ku statistics (shared content, not user-specific)."""
         ku_result = await self.backend.find_by()

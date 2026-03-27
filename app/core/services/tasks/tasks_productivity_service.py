@@ -26,6 +26,7 @@ from core.models.enums import EntityStatus, Priority
 from core.models.enums.activity_enums import ProductivityLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.task.task import Task
+from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.utils.result_simplified import Result
 
@@ -47,7 +48,7 @@ class TasksProductivityService(BaseAnalyticsService["TasksOperations", Task]):
 
     async def assess_productivity_dual_track(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         user_productivity_level: ProductivityLevel,
         user_evidence: str,
         user_reflection: str | None = None,
@@ -134,7 +135,7 @@ class TasksProductivityService(BaseAnalyticsService["TasksOperations", Task]):
         return Result.ok(result)
 
     async def _calculate_system_productivity(
-        self, _entity: Any, user_uid: str, period_days: int = 30
+        self, _entity: Any, user_uid: UserUID, period_days: int = 30
     ) -> tuple[ProductivityLevel, float, list[str]]:
         """
         Calculate system productivity from task completion metrics.

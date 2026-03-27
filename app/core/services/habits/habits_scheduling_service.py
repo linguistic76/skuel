@@ -41,6 +41,7 @@ from core.models.enums.habit_enums import HabitCategory, HabitDifficulty
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -158,7 +159,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
     @with_error_handling("check_habit_capacity", error_type="database", uid_param="user_uid")
     async def check_habit_capacity(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         proposed_difficulty: HabitDifficulty = HabitDifficulty.MODERATE,
         proposed_duration: int = 15,
         max_daily_load: int = DEFAULT_MAX_DAILY_LOAD,
@@ -457,7 +458,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
     @with_error_handling("suggest_habit_frequency", error_type="database")
     async def suggest_habit_frequency(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         category: HabitCategory,
         difficulty: HabitDifficulty = HabitDifficulty.MODERATE,
     ) -> Result[dict[str, Any]]:
@@ -657,7 +658,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
     @with_error_handling("suggest_habit_stacking", error_type="database", uid_param="user_uid")
     async def suggest_habit_stacking(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         new_habit_time: str | None = None,
         new_habit_category: HabitCategory | None = None,
     ) -> Result[list[dict[str, Any]]]:
@@ -855,7 +856,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
     @with_error_handling("get_habit_load_by_day", error_type="database", uid_param="user_uid")
     async def get_habit_load_by_day(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """
         Calculate habit effort load by day of week.

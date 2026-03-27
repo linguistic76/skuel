@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # HABIT LIFECYCLE EVENTS
@@ -39,7 +40,7 @@ class HabitCreated(BaseEvent):
     """
 
     habit_uid: str
-    user_uid: str
+    user_uid: UserUID
     title: str
     frequency: str  # "daily", "weekly", etc.
     domain: str | None
@@ -68,7 +69,7 @@ class HabitCompleted(BaseEvent):
     """
 
     habit_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Streak context
     current_streak: int = 0
@@ -97,7 +98,7 @@ class HabitStreakBroken(BaseEvent):
     """
 
     habit_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Streak information
     streak_length: int  # How long the streak was
@@ -126,7 +127,7 @@ class HabitMissed(BaseEvent):
     """
 
     habit_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Scheduled vs actual
     scheduled_date: datetime
@@ -158,7 +159,7 @@ class HabitStreakMilestone(BaseEvent):
     """
 
     habit_uid: str
-    user_uid: str
+    user_uid: UserUID
     streak_length: int
 
     # Milestone type
@@ -180,7 +181,7 @@ class AchievementEarned(BaseEvent):
     - UIService (display badge animation)
     """
 
-    user_uid: str
+    user_uid: UserUID
     badge_id: str
     badge_name: str
     badge_tier: str  # "bronze", "silver", "gold", "platinum"
@@ -224,7 +225,7 @@ class HabitCompletionBulk(BaseEvent):
     """
 
     habit_uids: tuple[str, ...]
-    user_uid: str
+    user_uid: UserUID
 
     # Aggregate streak information
     new_streak_records: tuple[str, ...] = ()  # UIDs of habits with new records
@@ -305,7 +306,7 @@ async def log_completion(self, habit_uid: str) -> Result[HabitCompletion]:
 
 
 # In HabitsService.check_missed_habits()
-async def check_missed_habits(self, user_uid: str) -> Result[list[str]]:
+async def check_missed_habits(self, user_uid: UserUID) -> Result[list[str]]:
     '''Check for habits that were scheduled but not completed.'''
     missed_habits = await self._find_missed_habits(user_uid)
 

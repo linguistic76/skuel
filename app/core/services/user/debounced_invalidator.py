@@ -26,6 +26,7 @@ import asyncio
 from collections.abc import Callable, Coroutine
 from typing import Any
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -84,7 +85,7 @@ class DebouncedContextInvalidator:
 
     async def invalidate(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         reason: str = "event",
         affected_contexts: list[str] | None = None,
     ) -> None:
@@ -123,7 +124,7 @@ class DebouncedContextInvalidator:
 
     async def _delayed_invalidate(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         reason: str,
         affected_contexts: list[str] | None,
     ) -> None:
@@ -160,7 +161,7 @@ class DebouncedContextInvalidator:
             self._pending.pop(user_uid, None)
             self._pending_reasons.pop(user_uid, None)
 
-    async def flush(self, user_uid: str | None = None) -> Result[None]:
+    async def flush(self, user_uid: UserUID | None = None) -> Result[None]:
         """
         Immediately execute any pending invalidations.
 

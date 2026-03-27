@@ -33,11 +33,12 @@ Color Scheme:
 
 from fasthtml.common import H3, Div, Option, Select
 
+from core.models.type_hints import EntityUID
 from ui.cards import Card, CardBody
 
 
 def RelationshipGraphView(
-    entity_uid: str,
+    entity_uid: EntityUID,
     entity_type: str,
     depth: int = 2,
 ) -> Div:

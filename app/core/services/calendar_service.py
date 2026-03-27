@@ -36,6 +36,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
 
@@ -126,7 +128,7 @@ class CalendarService:
     @with_error_handling("get_calendar_view", error_type="system", uid_param="user_uid")
     async def get_calendar_view(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         view_type: CalendarView = CalendarView.MONTH,
@@ -360,7 +362,7 @@ class CalendarService:
     # ========================================================================
 
     async def _fetch_tasks(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool
     ) -> list[CalendarItem]:
         """
         Fetch tasks and convert to calendar items.
@@ -394,7 +396,7 @@ class CalendarService:
         return items
 
     async def _fetch_events(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool
     ) -> list[CalendarItem]:
         """
         Fetch events and convert to calendar items.
@@ -424,7 +426,7 @@ class CalendarService:
         return items
 
     async def _fetch_habits(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool
     ) -> list[Habit]:
         """
         Fetch active habits.

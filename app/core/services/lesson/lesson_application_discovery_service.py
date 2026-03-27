@@ -18,6 +18,7 @@ from typing import Any
 
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -61,7 +62,7 @@ class LessonApplicationDiscoveryService:
     async def find_activities_connected_to_knowledge(
         self,
         ku_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         node_label: NeoLabel,
         relationship_types: list[str],
         filters: dict[str, Any] | None = None,
@@ -123,7 +124,7 @@ class LessonApplicationDiscoveryService:
     # ========================================================================
 
     async def find_events_applying_knowledge(
-        self, ku_uid: str, user_uid: str, upcoming_only: bool = True
+        self, ku_uid: str, user_uid: UserUID, upcoming_only: bool = True
     ) -> Result[list[str]]:
         """Find events that apply or reinforce this knowledge."""
         filters: dict[str, Any] | None = None
@@ -142,7 +143,7 @@ class LessonApplicationDiscoveryService:
         )
 
     async def find_habits_reinforcing_knowledge(
-        self, ku_uid: str, user_uid: str, only_active: bool = True
+        self, ku_uid: str, user_uid: UserUID, only_active: bool = True
     ) -> Result[list[str]]:
         """Find habits that reinforce this knowledge."""
         filters: dict[str, Any] | None = None
@@ -158,7 +159,7 @@ class LessonApplicationDiscoveryService:
         )
 
     async def find_tasks_applying_knowledge(
-        self, ku_uid: str, user_uid: str, status_filter: str | None = None
+        self, ku_uid: str, user_uid: UserUID, status_filter: str | None = None
     ) -> Result[list[str]]:
         """Find tasks that apply this knowledge."""
         filters: dict[str, Any] | None = None
@@ -174,7 +175,7 @@ class LessonApplicationDiscoveryService:
         )
 
     async def find_goals_requiring_knowledge(
-        self, ku_uid: str, user_uid: str, status_filter: str | None = None
+        self, ku_uid: str, user_uid: UserUID, status_filter: str | None = None
     ) -> Result[list[str]]:
         """Find goals that require this knowledge."""
         filters: dict[str, Any] | None = None
@@ -190,7 +191,7 @@ class LessonApplicationDiscoveryService:
         )
 
     async def find_choices_informed_by_knowledge(
-        self, ku_uid: str, user_uid: str, pending_only: bool = False
+        self, ku_uid: str, user_uid: UserUID, pending_only: bool = False
     ) -> Result[list[str]]:
         """Find choices informed by this knowledge."""
         filters: dict[str, Any] | None = None
@@ -207,7 +208,7 @@ class LessonApplicationDiscoveryService:
         )
 
     async def find_principles_embodying_knowledge(
-        self, ku_uid: str, user_uid: str, only_active: bool = True
+        self, ku_uid: str, user_uid: UserUID, only_active: bool = True
     ) -> Result[list[str]]:
         """Find principles that embody/reinforce this knowledge."""
         filters: dict[str, Any] | None = None

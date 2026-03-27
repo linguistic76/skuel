@@ -21,6 +21,7 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.pathways.lp_position import LpPosition
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -261,7 +262,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         )
 
     async def get_learning_reinforcing_habits(
-        self, user_uid: str, learning_position: LpPosition
+        self, user_uid: UserUID, learning_position: LpPosition
     ) -> Result[list[Habit]]:
         """
         Get existing habits that reinforce current learning paths.

@@ -76,6 +76,7 @@ Future Considerations:
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from core.models.type_hints import UserUID
 from core.services.user.unified_user_context import UserContext
 
 
@@ -103,7 +104,7 @@ class UserContextCache:
     # See module docstring for full caching policy documentation
     default_ttl: int = 300
 
-    def get(self, user_uid: str) -> UserContext | None:
+    def get(self, user_uid: UserUID) -> UserContext | None:
         """
         Get cached context if valid.
 
@@ -119,7 +120,7 @@ class UserContextCache:
                 return context
         return None
 
-    def set(self, user_uid: str, context: UserContext) -> None:
+    def set(self, user_uid: UserUID, context: UserContext) -> None:
         """
         Cache a context.
 
@@ -131,7 +132,7 @@ class UserContextCache:
         self._cache[user_uid] = context
         self._last_update[user_uid] = datetime.now()
 
-    def invalidate(self, user_uid: str) -> None:
+    def invalidate(self, user_uid: UserUID) -> None:
         """
         Invalidate cached context.
 

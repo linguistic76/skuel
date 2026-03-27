@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,7 @@ class SubmissionCreated(BaseEvent):
     """
 
     submission_uid: str
-    user_uid: str
+    user_uid: UserUID
     entity_type: str  # EntityType enum value
     # File fields - optional (journals don't have files)
     processor_type: str | None = None  # ProcessorType enum value
@@ -60,7 +61,7 @@ class SubmissionProcessingStarted(BaseEvent):
     """
 
     submission_uid: str
-    user_uid: str
+    user_uid: UserUID
     processor_type: str
     metadata: dict[str, Any] | None = None
 
@@ -81,7 +82,7 @@ class SubmissionProcessingCompleted(BaseEvent):
     """
 
     submission_uid: str
-    user_uid: str
+    user_uid: UserUID
     entity_type: str
     has_processed_content: bool
     processing_duration_seconds: float | None
@@ -104,7 +105,7 @@ class SubmissionProcessingFailed(BaseEvent):
     """
 
     submission_uid: str
-    user_uid: str
+    user_uid: UserUID
     error_message: str
     metadata: dict[str, Any] | None = None
 
@@ -125,7 +126,7 @@ class SubmissionDeleted(BaseEvent):
     """
 
     submission_uid: str
-    user_uid: str
+    user_uid: UserUID
     entity_type: str
     metadata: dict[str, Any] | None = None
 

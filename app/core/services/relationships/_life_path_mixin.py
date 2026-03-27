@@ -27,6 +27,7 @@ from __future__ import annotations
 from datetime import UTC
 from typing import Any
 
+from core.models.type_hints import EntityUID
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 
@@ -56,7 +57,7 @@ class LifePathMixin:
     @with_error_handling("link_to_life_path", error_type="database")
     async def link_to_life_path(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         life_path_uid: str,
         contribution_type: str | None = None,
         contribution_score: float = 0.0,
@@ -219,7 +220,7 @@ class LifePathMixin:
     @with_error_handling("calculate_contribution_score", error_type="database")
     async def calculate_contribution_score(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         life_path_uid: str,
     ) -> Result[dict[str, Any]]:
         """
@@ -333,7 +334,7 @@ class LifePathMixin:
     @with_error_handling("update_contribution_score", error_type="database")
     async def update_contribution_score(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         life_path_uid: str,
         new_score: float,
         contribution_type: str | None = None,
@@ -388,7 +389,7 @@ class LifePathMixin:
     @with_error_handling("remove_life_path_link", error_type="database")
     async def remove_life_path_link(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         life_path_uid: str,
     ) -> Result[bool]:
         """

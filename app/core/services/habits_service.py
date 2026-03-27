@@ -30,6 +30,7 @@ from core.models.enums.habit_enums import HabitCategory, HabitDifficulty
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -187,13 +188,15 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     # ========================================================================
 
     # Core CRUD delegations
-    async def create_habit(self, habit_request: HabitCreateRequest, user_uid: str) -> Result[Habit]:
+    async def create_habit(
+        self, habit_request: HabitCreateRequest, user_uid: UserUID
+    ) -> Result[Habit]:
         return await self.core.create_habit(habit_request, user_uid)
 
     async def get_habit(self, uid: str) -> Result[Habit]:
         return await self.core.get_habit(uid)
 
-    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
+    async def get_user_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
         return await self.core.get_user_habits(user_uid)
 
     async def list_habits(
@@ -203,7 +206,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 
     async def get_user_items_in_range(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         include_completed: bool = False,
@@ -243,38 +246,38 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         return await self.progress.identify_potential_keystone_habits(user_context)
 
     # Search delegations
-    async def get_active_habits(self, user_uid: str) -> Result[list[Habit]]:
+    async def get_active_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
         return await self.search.get_active_habits(user_uid)
 
     async def search_habits(
-        self, query: str, limit: int = 50, user_uid: str | None = None
+        self, query: str, limit: int = 50, user_uid: UserUID | None = None
     ) -> Result[list[Habit]]:
         return await self.search.search(query, limit, user_uid)
 
-    async def list_habit_categories(self, user_uid: str) -> Result[list[str]]:
+    async def list_habit_categories(self, user_uid: UserUID) -> Result[list[str]]:
         return await self.search.list_user_categories(user_uid)
 
     async def list_all_habit_categories(self) -> Result[list[str]]:
         return await self.search.list_all_categories()
 
     async def get_habits_by_category(
-        self, category: str, user_uid: str | None = None, limit: int = 100
+        self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Habit]]:
         return await self.search.get_by_category(category, user_uid=user_uid, limit=limit)
 
-    async def get_habits_due_today(self, user_uid: str) -> Result[list[Habit]]:
+    async def get_habits_due_today(self, user_uid: UserUID) -> Result[list[Habit]]:
         return await self.search.get_user_due_today(user_uid)
 
     async def get_all_habits_due_today(self) -> Result[list[Habit]]:
         return await self.search.get_all_due_today()
 
     async def get_overdue_habits(
-        self, user_uid: str | None = None, limit: int = 100
+        self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Habit]]:
         return await self.search.get_overdue(user_uid, limit)
 
     async def get_habits_by_status(
-        self, status: str, limit: int = 100, user_uid: str | None = None
+        self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Habit]]:
         return await self.search.get_by_status(status, limit, user_uid)
 
@@ -320,7 +323,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         )
 
     async def get_learning_reinforcing_habits(
-        self, user_uid: str, learning_position: LpPosition
+        self, user_uid: UserUID, learning_position: LpPosition
     ) -> Result[list[Habit]]:
         return await self.learning.get_learning_reinforcing_habits(user_uid, learning_position)
 
@@ -331,7 +334,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 
     # Relationship delegations
     async def get_habit_cross_domain_context(
-        self, entity_uid: str, depth: int = 2, min_confidence: float = 0.7
+        self, entity_uid: EntityUID, depth: int = 2, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
 
@@ -411,7 +414,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     # Scheduling delegations
     async def check_habit_capacity(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         proposed_difficulty: HabitDifficulty = HabitDifficulty.MODERATE,
         proposed_duration: int = 15,
         max_daily_load: int = DEFAULT_MAX_DAILY_LOAD,
@@ -442,7 +445,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 
     async def suggest_habit_frequency(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         category: HabitCategory,
         difficulty: HabitDifficulty = HabitDifficulty.MODERATE,
     ) -> Result[dict[str, Any]]:
@@ -455,7 +458,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 
     async def suggest_habit_stacking(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         new_habit_time: str | None = None,
         new_habit_category: HabitCategory | None = None,
     ) -> Result[list[dict[str, Any]]]:
@@ -474,7 +477,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             learning_step_uid, user_context, frequency, duration_minutes
         )
 
-    async def get_habit_load_by_day(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_habit_load_by_day(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         return await self.scheduling.get_habit_load_by_day(user_uid)
 
     def __init__(
@@ -586,13 +589,13 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     # ========================================================================
 
     async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> Result[dict[str, Any]]:
         """Generate knowledge suggestions from entity patterns."""
         return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
 
     async def generate_knowledge_from_entities(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Generate knowledge units from completed entities."""
         return await self.knowledge_intelligence.generate_knowledge_from_entities(
@@ -600,12 +603,12 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         )
 
     async def get_knowledge_prerequisites(
-        self, entity_uid: str
+        self, entity_uid: EntityUID
     ) -> Result[KnowledgePrerequisitesResult]:
         """Analyze knowledge prerequisites for an entity."""
         return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
 
-    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Discover learning opportunities from entity patterns."""
         return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
@@ -628,7 +631,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     async def complete_with_goal_impacts(
         self,
         habit_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """
         Complete a habit and calculate goal impacts.
@@ -686,7 +689,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     async def create_with_goal_links(
         self,
         create_request: HabitCreateRequest,
-        user_uid: str,
+        user_uid: UserUID,
         goal_essentiality: dict[str, str] | None = None,
     ) -> Result[Habit]:
         """
@@ -1154,7 +1157,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         return await self.intelligence.analyze_habit_performance(habit_uid)
 
     async def get_habits_summary_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Get summary analytics for all user habits.
@@ -1171,7 +1174,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         return await self.intelligence.get_performance_analytics(user_uid, period_days)
 
     async def get_habit_trends(
-        self, user_uid: str, time_range: str = "30d"
+        self, user_uid: UserUID, time_range: str = "30d"
     ) -> Result[dict[str, Any]]:
         """
         Get habit completion trends for a user.
@@ -1228,7 +1231,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     # delegated via explicit methods below.
 
     async def create_user_habit_relationship(
-        self, user_uid: str, habit_uid: str, commitment_level: str = "active"
+        self, user_uid: UserUID, habit_uid: str, commitment_level: str = "active"
     ) -> Result[bool]:
         """Create User→Habit relationship in graph."""
         properties = (
@@ -1264,7 +1267,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
     # Note: get_habit_cross_domain_context, get_habit_with_semantic_context auto-generated
     # by explicit delegation methods.
 
-    async def get_skills_developed_by_habits(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_skills_developed_by_habits(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get all skills/knowledge developed through user's habits."""
         # Get all user habits
         habits_result = await self.backend.list_by_user(user_uid=user_uid, limit=100)
@@ -1518,7 +1521,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status_filter: str = "active",
         sort_by: str = "streak",
     ) -> Result[ListContext]:

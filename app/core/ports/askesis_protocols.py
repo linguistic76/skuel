@@ -42,6 +42,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.models.askesis.askesis import Askesis
     from core.models.context_types import (
@@ -193,7 +195,7 @@ class AskesisQueryOperations(Protocol):
     """
 
     async def answer_user_question(
-        self, user_uid: str, question: str, session_id: str | None = None
+        self, user_uid: UserUID, question: str, session_id: str | None = None
     ) -> Result[dict[str, Any]]:
         """Answer a natural language question about user's state.
 
@@ -213,7 +215,7 @@ class AskesisQueryOperations(Protocol):
         ...
 
     async def process_query_with_context(
-        self, user_uid: str, query_message: str, depth: int = 2
+        self, user_uid: UserUID, query_message: str, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """Process query with full user context.
 
@@ -465,9 +467,9 @@ class AskesisCoreOperations(Protocol):
     Implementation: AskesisCoreService
     """
 
-    async def get_or_create_for_user(self, user_uid: str) -> Result[Askesis]: ...
+    async def get_or_create_for_user(self, user_uid: UserUID) -> Result[Askesis]: ...
 
-    async def create_askesis(self, user_uid: str, create_request: Any) -> Result[Askesis]: ...
+    async def create_askesis(self, user_uid: UserUID, create_request: Any) -> Result[Askesis]: ...
 
     async def get_askesis(self, askesis_uid: str) -> Result[Askesis | None]: ...
 

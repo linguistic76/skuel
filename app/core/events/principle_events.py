@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.events.base import BaseEvent
+from core.models.type_hints import EntityUID, UserUID
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,7 @@ class PrincipleCreated(BaseEvent):
     """
 
     principle_uid: str
-    user_uid: str
+    user_uid: UserUID
     principle_label: str
     category: str
     strength: str
@@ -55,7 +56,7 @@ class PrincipleUpdated(BaseEvent):
     """
 
     principle_uid: str
-    user_uid: str
+    user_uid: UserUID
     updated_fields: dict[str, Any]
     metadata: dict[str, Any] | None = None
 
@@ -76,7 +77,7 @@ class PrincipleDeleted(BaseEvent):
     """
 
     principle_uid: str
-    user_uid: str
+    user_uid: UserUID
     principle_label: str
     metadata: dict[str, Any] | None = None
 
@@ -97,7 +98,7 @@ class PrincipleStrengthChanged(BaseEvent):
     """
 
     principle_uid: str
-    user_uid: str
+    user_uid: UserUID
     old_strength: str
     new_strength: str
     metadata: dict[str, Any] | None = None
@@ -119,9 +120,9 @@ class PrincipleAlignmentAssessed(BaseEvent):
     """
 
     principle_uid: str
-    entity_uid: str
+    entity_uid: EntityUID
     entity_type: str  # "goal" or "habit"
-    user_uid: str
+    user_uid: UserUID
     alignment_score: float
     metadata: dict[str, Any] | None = None
 
@@ -144,7 +145,7 @@ class PrincipleReflectionRecorded(BaseEvent):
 
     reflection_uid: str
     principle_uid: str
-    user_uid: str
+    user_uid: UserUID
     alignment_level: str  # AlignmentLevel.value
     evidence: str
     trigger_type: str | None = None  # "goal", "habit", "event", "choice", "manual"
@@ -176,7 +177,7 @@ class PrincipleConflictRevealed(BaseEvent):
     reflection_uid: str
     principle_uid: str
     conflicting_principle_uid: str
-    user_uid: str
+    user_uid: UserUID
     conflict_context: str | None = None  # Description of the conflict
     metadata: dict[str, Any] | None = None
 

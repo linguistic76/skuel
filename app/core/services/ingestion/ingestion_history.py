@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -56,7 +57,7 @@ class IngestionHistoryEntry:
     started_at: datetime
     completed_at: datetime | None
     status: str  # "in_progress" | "completed" | "failed"
-    user_uid: str
+    user_uid: UserUID
     source_path: str
     stats: dict[str, Any]  # IngestionStats/IncrementalStats as dict
     errors: list[dict[str, Any]]  # IngestionError dicts
@@ -91,7 +92,7 @@ class IngestionHistoryService:
     async def create_entry(
         self,
         operation_type: str,
-        user_uid: str,
+        user_uid: UserUID,
         source_path: str,
     ) -> Result[str]:
         """

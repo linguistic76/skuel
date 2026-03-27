@@ -34,6 +34,7 @@ from core.models.entity import Entity
 from core.models.enums import Domain, KnowledgeStatus
 from core.models.lesson.lesson import Lesson
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.content_protocols import ensure_content_protocol
 from core.ports.curriculum_protocols import CurriculumOperations
 from core.services.base_service import BaseService
@@ -655,7 +656,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
     @track_query_metrics
     @with_error_handling("get_user_mastery", error_type="database", uid_param="ku_uid")
-    async def get_user_mastery(self, user_uid: str, ku_uid: str) -> Result[float]:
+    async def get_user_mastery(self, user_uid: UserUID, ku_uid: str) -> Result[float]:
         """
         Get user's mastery level for a specific knowledge unit.
 
@@ -733,7 +734,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
     @track_query_metrics("lesson_get_parents")
     @with_error_handling("get_parents", error_type="database", uid_param="entity_uid")
-    async def get_parents(self, entity_uid: str) -> Result[list[Lesson]]:
+    async def get_parents(self, entity_uid: EntityUID) -> Result[list[Lesson]]:
         """
         Get all parent entities (can have multiple via MOC pattern).
 
@@ -766,7 +767,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
     @track_query_metrics("lesson_get_hierarchy")
     @with_error_handling("get_hierarchy", error_type="database", uid_param="entity_uid")
-    async def get_hierarchy(self, entity_uid: str) -> Result[dict]:
+    async def get_hierarchy(self, entity_uid: EntityUID) -> Result[dict]:
         """
         Get full hierarchy context for an entity.
 

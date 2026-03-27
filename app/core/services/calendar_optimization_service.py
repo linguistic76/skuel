@@ -16,6 +16,7 @@ from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, Priority
 from core.models.event.event_dto import EventDTO
 from core.models.task.task_dto import TaskDTO
+from core.models.type_hints import UserUID
 from core.services.calendar_optimization_types import (
     CognitiveBalancedStrategy,
     DeadlineDrivenStrategy,
@@ -239,7 +240,7 @@ class CalendarOptimizationService:
 
     async def optimize_knowledge_scheduling(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         target_date: date,
         tasks: list[TaskDTO],
         events: list[EventDTO],
@@ -330,7 +331,7 @@ class CalendarOptimizationService:
 
     async def plan_learning_sessions(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_goals: list[str],
         available_time_minutes: int,
         preferred_session_length: int = 90,
@@ -380,7 +381,7 @@ class CalendarOptimizationService:
             )
 
     async def recommend_knowledge_application_timing(
-        self, user_uid: str, knowledge_uid: str, application_context: str
+        self, user_uid: UserUID, knowledge_uid: str, application_context: str
     ) -> Result[list[KnowledgeSchedulingRecommendation]]:
         """
         Recommend optimal timing for applying specific knowledge.
@@ -450,7 +451,7 @@ class CalendarOptimizationService:
             )
 
     async def balance_cognitive_load(
-        self, user_uid: str, target_date: date, tasks: list[TaskDTO]
+        self, user_uid: UserUID, target_date: date, tasks: list[TaskDTO]
     ) -> Result[CognitiveLoadBalance]:
         """
         Balance cognitive load across knowledge domains throughout the day.
@@ -532,7 +533,7 @@ class CalendarOptimizationService:
 
     # Private helper methods
 
-    async def _get_user_energy_profile(self, _user_uid: str) -> EnergyProfile:
+    async def _get_user_energy_profile(self, _user_uid: UserUID) -> EnergyProfile:
         """Get user's energy profile - for demo, return realistic pattern."""
         return EnergyProfile(
             peak_hours=[9, 10, 11],  # Morning peak
@@ -1002,7 +1003,7 @@ class CalendarOptimizationService:
 
     async def _plan_learning_sessions(
         self,
-        _user_uid: str,
+        _user_uid: UserUID,
         available_slots: list[OptimizedTimeSlot],
         knowledge_units: list[KnowledgeUnitDTO],
         _energy_profile: EnergyProfile,
@@ -1049,7 +1050,7 @@ class CalendarOptimizationService:
 
     async def _generate_scheduling_recommendations(
         self,
-        _user_uid: str,
+        _user_uid: UserUID,
         _tasks: list[TaskDTO],
         knowledge_units: list[KnowledgeUnitDTO],
         available_slots: list[OptimizedTimeSlot],
@@ -1213,7 +1214,7 @@ class CalendarOptimizationService:
         return groups
 
     async def _create_optimized_learning_session(
-        self, domain: Domain, units: list[dict[str, Any]], preferred_length: int, _user_uid: str
+        self, domain: Domain, units: list[dict[str, Any]], preferred_length: int, _user_uid: UserUID
     ) -> LearningSession:
         """Create an optimized learning session for a domain."""
 
@@ -1245,7 +1246,7 @@ class CalendarOptimizationService:
         }
 
     async def _get_user_learning_history(
-        self, _user_uid: str, _knowledge_uid: str
+        self, _user_uid: UserUID, _knowledge_uid: str
     ) -> list[dict[str, Any]]:
         """Get user's learning history for a knowledge unit."""
         # Demo learning history
@@ -1402,7 +1403,7 @@ class CalendarOptimizationService:
         return recommendations
 
     def _calculate_hourly_cognitive_capacity(
-        self, _user_uid: str, _target_date: date
+        self, _user_uid: UserUID, _target_date: date
     ) -> dict[int, float]:
         """Calculate cognitive capacity for each hour of the day."""
 

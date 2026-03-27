@@ -15,6 +15,7 @@ from enum import StrEnum
 from typing import Any
 
 from core.models.enums import Domain
+from core.models.type_hints import UserUID
 
 
 class MasteryLevel(StrEnum):
@@ -62,7 +63,7 @@ class Mastery:
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     knowledge_uid: str
 
     # Core mastery metrics
@@ -156,7 +157,7 @@ class LearningPreference:
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Content preferences
     preferred_content_types: list[ContentPreference]
@@ -247,7 +248,7 @@ class LearningRecommendation:
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     knowledge_uid: str
 
     # Recommendation intelligence
@@ -313,7 +314,7 @@ class LearningRecommendation:
 
 
 def create_mastery(
-    user_uid: str,
+    user_uid: UserUID,
     knowledge_uid: str,
     initial_level: MasteryLevel = MasteryLevel.INTRODUCED,
     evidence: list[str] | None = None,
@@ -342,7 +343,7 @@ def create_mastery(
     )
 
 
-def create_learning_preference(user_uid: str) -> LearningPreference:
+def create_learning_preference(user_uid: UserUID) -> LearningPreference:
     """Create initial learning preference profile."""
     preference_uid = f"learning_pref_{user_uid}"
 

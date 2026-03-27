@@ -29,6 +29,7 @@ from core.models.enums.submissions_enums import ExerciseScope
 from core.models.exercises.exercise import Exercise
 from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -132,7 +133,7 @@ class ExerciseService(BaseService):
     @with_error_handling("create_exercise", error_type="database")
     async def create_exercise(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         name: str,
         instructions: str,
         model: str = "claude-sonnet-4-6",
@@ -226,7 +227,7 @@ class ExerciseService(BaseService):
 
     @with_error_handling("list_user_exercises", error_type="database")
     async def list_user_exercises(
-        self, user_uid: str, active_only: bool = True
+        self, user_uid: UserUID, active_only: bool = True
     ) -> Result[list[Exercise]]:
         """List personal exercises owned by a user via OWNS relationship."""
         result = await self.backend.get_user_exercises(user_uid)
@@ -325,7 +326,7 @@ class ExerciseService(BaseService):
         return Result.ok(exercises)
 
     @with_error_handling("get_student_exercises", error_type="database")
-    async def get_student_exercises(self, user_uid: str) -> Result[list[Exercise]]:
+    async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
         """
         Get all exercises for a student (via MEMBER_OF -> Group <- FOR_GROUP -> Exercise).
 
@@ -354,7 +355,7 @@ class ExerciseService(BaseService):
 
     @with_error_handling("get_student_exercises_with_status", error_type="database")
     async def get_student_exercises_with_status(
-        self, user_uid: str
+        self, user_uid: UserUID
     ) -> Result[list[dict[str, Any]]]:
         """Get assigned exercises with submission status for the student assignments page.
 
@@ -405,7 +406,11 @@ class ExerciseService(BaseService):
         )
 
     async def load_project_from_file(
-        self, file_path: str, user_uid: str, project_uid: str | None = None, model: str = "gpt-4o"
+        self,
+        file_path: str,
+        user_uid: UserUID,
+        project_uid: str | None = None,
+        model: str = "gpt-4o",
     ) -> Result[Exercise]:
         """
         Load or update an Exercise from a markdown instructions file.
@@ -603,7 +608,7 @@ class ExerciseService(BaseService):
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status_filter: str = "all",
         sort_by: str = "title",
     ) -> Result[ListContext]:

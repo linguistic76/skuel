@@ -41,6 +41,8 @@ RETURN ku
 
 from typing import Any
 
+from core.models.type_hints import UserUID
+
 
 class HybridQueryBuilder:
     """
@@ -75,7 +77,7 @@ class HybridQueryBuilder:
     def build_hybrid_knowledge_query(
         property_filters: dict[str, Any],
         graph_patterns: dict[str, str],
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 20,
         offset: int = 0,
         query_text: str | None = None,
@@ -208,7 +210,7 @@ class HybridQueryBuilder:
         domains: list[str],
         property_filters: dict[str, Any],
         graph_patterns: dict[str, str],
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 20,
     ) -> tuple[str, dict[str, Any]]:
         """
@@ -275,7 +277,7 @@ class HybridQueryBuilder:
     @staticmethod
     def build_optimized_prerequisite_chain(
         knowledge_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         property_filters: dict[str, Any] | None = None,
         max_depth: int = 5,
         only_unmastered: bool = True,

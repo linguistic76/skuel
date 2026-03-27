@@ -66,6 +66,7 @@ from core.models.context_types import (
     _compute_urgency,
 )
 from core.models.enums.entity_enums import EntityType
+from core.models.type_hints import EntityUID
 
 if TYPE_CHECKING:
     import logging
@@ -317,7 +318,7 @@ class ContextFirstMixin(ABC):
 
     def _identify_unlocks(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         entity_type: str,
         context: UserContext,
     ) -> list[str]:
@@ -386,7 +387,7 @@ class ContextFirstMixin(ABC):
 
     def _build_contextual_dependencies(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         entity_type: str,
         enriched: list[ContextualEntity],
         context: UserContext,

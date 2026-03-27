@@ -13,6 +13,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.models.enums import EntityStatus, Priority, RecurrencePattern, Visibility
+from core.models.type_hints import UserUID
 from core.models.validation_rules import (
     validate_email,
     validate_future_date,
@@ -303,7 +304,7 @@ class RecurringInstancesRequest(BaseModel):
 class GetRecurringEventsRequest(BaseModel):
     """Request for retrieving recurring events."""
 
-    user_uid: str = Field(description="User identifier")
+    user_uid: UserUID = Field(description="User identifier")
     limit: int = Field(default=100, ge=1, le=500, description="Maximum results to return")
 
 
@@ -311,7 +312,7 @@ class AddAttendeeRequest(BaseModel):
     """Request for adding an attendee to an event."""
 
     event_uid: str = Field(description="UID of the event")
-    user_uid: str = Field(description="UID of the user to add as attendee")
+    user_uid: UserUID = Field(description="UID of the user to add as attendee")
     role: str = Field(
         default="attendee", description="Attendee role (attendee, organizer, speaker)"
     )
@@ -322,7 +323,7 @@ class RemoveAttendeeRequest(BaseModel):
     """Request for removing an attendee from an event."""
 
     event_uid: str = Field(description="UID of the event")
-    user_uid: str = Field(description="UID of the user to remove")
+    user_uid: UserUID = Field(description="UID of the user to remove")
     send_notification: bool = Field(default=True, description="Whether to notify the attendee")
 
 
@@ -335,7 +336,7 @@ class CheckConflictsRequest(BaseModel):
 class CalendarEventsRequest(BaseModel):
     """Request for retrieving calendar events."""
 
-    user_uid: str = Field(description="User identifier")
+    user_uid: UserUID = Field(description="User identifier")
     start_date: date | None = Field(None, description="Start of date range")
     end_date: date | None = Field(None, description="End of date range")
     limit: int = Field(default=100, ge=1, le=500, description="Maximum results")
@@ -344,7 +345,7 @@ class CalendarEventsRequest(BaseModel):
 class EventHistoryRequest(BaseModel):
     """Request for retrieving event history."""
 
-    user_uid: str = Field(description="User identifier")
+    user_uid: UserUID = Field(description="User identifier")
     days_back: int = Field(default=90, ge=1, le=365, description="Number of days of history")
     limit: int = Field(default=100, ge=1, le=500, description="Maximum results")
 
@@ -354,7 +355,7 @@ class EventsInRangeRequest(BaseModel):
 
     start_date: date = Field(description="Start of date range")
     end_date: date = Field(description="End of date range")
-    user_uid: str | None = Field(None, description="Optional user filter")
+    user_uid: UserUID | None = Field(None, description="Optional user filter")
     limit: int = Field(default=100, ge=1, le=500, description="Maximum results")
 
 

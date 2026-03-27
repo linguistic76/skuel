@@ -19,6 +19,7 @@ Methods:
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -114,7 +115,7 @@ class AdminStatsService:
             return Result.fail(result)
         return Result.ok([dict(r) for r in (result.value or [])])
 
-    async def get_user_ku_detail(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_user_ku_detail(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get detailed KU progress (viewed/in-progress/mastered/bookmarked) for one user."""
         result = await self.query_executor.execute_query(
             """
@@ -190,7 +191,7 @@ class AdminStatsService:
 
         return Result.ok(detail)
 
-    async def get_user_detail_stats(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_user_detail_stats(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Get cross-domain activity stats for a specific user.
 
         Covers all 6 activity domains + knowledge interactions + sessions/logins.

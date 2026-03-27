@@ -27,6 +27,7 @@ from dataclasses import dataclass
 
 from core.models.entity import Entity
 from core.models.enums.metadata_enums import Visibility
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,7 @@ class UserOwnedEntity(Entity):
     # =========================================================================
     # USER OWNERSHIP
     # =========================================================================
-    user_uid: str | None = None  # Owner user UID (e.g. "user_john")
+    user_uid: UserUID | None = None  # Owner user UID (e.g. "user_john")
     priority: str | None = None  # Priority enum value (LOW/MEDIUM/HIGH/CRITICAL)
 
     # =========================================================================

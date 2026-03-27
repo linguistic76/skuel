@@ -119,7 +119,7 @@ class DomainModelProtocol(Protocol):
 
     # Optional but common attributes
     # Note: Not all models have user_uid (e.g., User itself doesn't)
-    # user_uid: str | None
+    # user_uid: UserUID | None
 
     @classmethod
     def from_dto(cls, dto: Any) -> Self:

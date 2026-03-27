@@ -28,6 +28,7 @@ from pydantic import BaseModel
 
 from core.models.enums import Domain, Priority
 from core.models.pathways.lp_position import LpPosition
+from core.models.type_hints import EntityUID, UserUID
 from core.services.base_service import BaseService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -333,7 +334,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
         return Result.ok(created_entities)
 
     async def get_learning_supporting_entities(
-        self, user_uid: str, learning_position: LpPosition
+        self, user_uid: UserUID, learning_position: LpPosition
     ) -> Result[list[T]]:
         """
         Generic implementation of get_learning_supporting_X() pattern.
@@ -541,7 +542,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
         return Result.ok(suggestions[:max_suggestions])
 
     async def assess_learning_alignment(
-        self, entity_uid: str, learning_position: LpPosition
+        self, entity_uid: EntityUID, learning_position: LpPosition
     ) -> Result[dict[str, Any]]:
         """
         Generic implementation of assess_X_learning_alignment() pattern.

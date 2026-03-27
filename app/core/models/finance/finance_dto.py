@@ -19,6 +19,7 @@ from core.models.enums.finance_enums import (
     PaymentMethod,
     RecurrencePattern,
 )
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # EXPENSE DTOs
@@ -159,7 +160,7 @@ class BudgetDTO:
     end_date: date | None = None
 
     # Ownership
-    user_uid: str | None = None
+    user_uid: UserUID | None = None
 
     # Categories covered
     categories: list[ExpenseCategory] = field(default_factory=list)

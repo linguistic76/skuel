@@ -23,6 +23,8 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
 
@@ -457,7 +459,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
     async def record_task_completion(
         self,
         task_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         duration_minutes: int = 0,
         quality_score: float = 1.0,
         completion_notes: str = "",
@@ -629,7 +631,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
     async def assign_task_to_user(
         self,
         task_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         assigned_by: str | None = None,
         priority_override: str | None = None,
     ) -> Result[bool]:
@@ -702,7 +704,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         except (*NEO4J_EXCEPTIONS,) as e:
             self.logger.warning(f"Failed to trigger task {task_uid}: {e}")
 
-    async def _unlock_knowledge(self, knowledge_uid: str, user_uid: str) -> None:
+    async def _unlock_knowledge(self, knowledge_uid: str, user_uid: UserUID) -> None:
         """Unlock knowledge for a user."""
         # This would call knowledge service
         self.logger.debug("Would unlock knowledge %s for user %s", knowledge_uid, user_uid)

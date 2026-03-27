@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -99,7 +100,7 @@ class UserKnowledgeProfile:
     not assumptions or empty defaults.
     """
 
-    user_uid: str
+    user_uid: UserUID
     username: str
 
     # Mastery data
@@ -180,7 +181,7 @@ class UserProgressService:
     # ========================================================================
 
     @with_error_handling("build_user_knowledge_profile", error_type="database")
-    async def build_user_knowledge_profile(self, user_uid: str) -> Result[UserKnowledgeProfile]:
+    async def build_user_knowledge_profile(self, user_uid: UserUID) -> Result[UserKnowledgeProfile]:
         """
         Build complete user knowledge profile from Neo4j graph.
 
@@ -264,7 +265,7 @@ class UserProgressService:
 
     @with_error_handling("calculate_readiness_for_knowledge", error_type="database")
     async def calculate_readiness_for_knowledge(
-        self, user_uid: str, knowledge_uid: str, profile: UserKnowledgeProfile | None = None
+        self, user_uid: UserUID, knowledge_uid: str, profile: UserKnowledgeProfile | None = None
     ) -> Result[float]:
         """
         Calculate user's readiness for specific knowledge unit.
@@ -352,7 +353,7 @@ class UserProgressService:
     @with_error_handling("record_mastery", error_type="database")
     async def record_mastery(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         mastery_score: float,
         practice_count: int = 1,
@@ -419,7 +420,7 @@ class UserProgressService:
     @with_error_handling("record_progress", error_type="database")
     async def record_progress(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         progress: float,
         time_invested_minutes: int = 0,
@@ -479,7 +480,7 @@ class UserProgressService:
     # PRIVATE HELPER METHODS (Graph Queries)
     # ========================================================================
 
-    async def _get_mastered_knowledge(self, user_uid: str) -> list[UserKnowledgeMastery]:
+    async def _get_mastered_knowledge(self, user_uid: UserUID) -> list[UserKnowledgeMastery]:
         """Get all mastered knowledge for user."""
         result = await self.executor.execute_query(
             """
@@ -512,7 +513,7 @@ class UserProgressService:
             for record in (result.value or [])
         ]
 
-    async def _get_in_progress_knowledge(self, user_uid: str) -> list[UserLearningProgress]:
+    async def _get_in_progress_knowledge(self, user_uid: UserUID) -> list[UserLearningProgress]:
         """Get all in-progress knowledge for user."""
         result = await self.executor.execute_query(
             """
@@ -546,7 +547,7 @@ class UserProgressService:
         ]
 
     async def _get_completed_prerequisites(
-        self, user_uid: str, _mastered_uids: set[str]
+        self, user_uid: UserUID, _mastered_uids: set[str]
     ) -> set[str]:
         """
         Get all prerequisites that user has completed.
@@ -566,7 +567,7 @@ class UserProgressService:
 
         return {record["prereq_uid"] for record in (result.value or [])}
 
-    async def _build_prerequisite_map(self, user_uid: str) -> dict[str, list[str]]:
+    async def _build_prerequisite_map(self, user_uid: UserUID) -> dict[str, list[str]]:
         """Build map of knowledge units to their prerequisites."""
         result = await self.executor.execute_query(
             """
@@ -580,7 +581,7 @@ class UserProgressService:
 
         return {record["knowledge_uid"]: record["prereq_uids"] for record in (result.value or [])}
 
-    async def _get_learning_paths(self, user_uid: str) -> tuple[list[str], set[str]]:
+    async def _get_learning_paths(self, user_uid: UserUID) -> tuple[list[str], set[str]]:
         """Get active and completed learning paths."""
         active_result = await self.executor.execute_query(
             """
@@ -609,7 +610,7 @@ class UserProgressService:
 
         return active_paths, completed_paths
 
-    async def _get_interested_knowledge(self, user_uid: str) -> set[str]:
+    async def _get_interested_knowledge(self, user_uid: UserUID) -> set[str]:
         """Get knowledge units user is interested in."""
         result = await self.executor.execute_query(
             """
@@ -625,7 +626,7 @@ class UserProgressService:
         record = records[0] if records else None
         return set(record["interested_uids"]) if record else set()
 
-    async def _get_bookmarked_knowledge(self, user_uid: str) -> set[str]:
+    async def _get_bookmarked_knowledge(self, user_uid: UserUID) -> set[str]:
         """Get bookmarked knowledge units."""
         result = await self.executor.execute_query(
             """
@@ -641,7 +642,7 @@ class UserProgressService:
         record = records[0] if records else None
         return set(record["bookmarked_uids"]) if record else set()
 
-    async def _get_struggling_knowledge(self, user_uid: str) -> set[str]:
+    async def _get_struggling_knowledge(self, user_uid: UserUID) -> set[str]:
         """Get knowledge units user is struggling with."""
         result = await self.executor.execute_query(
             """
@@ -657,7 +658,7 @@ class UserProgressService:
         record = records[0] if records else None
         return set(record["struggling_uids"]) if record else set()
 
-    async def _get_needs_review_knowledge(self, user_uid: str) -> set[str]:
+    async def _get_needs_review_knowledge(self, user_uid: UserUID) -> set[str]:
         """Get knowledge units that need review."""
         result = await self.executor.execute_query(
             """
@@ -680,7 +681,7 @@ class UserProgressService:
 
     @with_error_handling("calculate_knowledge_coverage", error_type="database")
     async def calculate_knowledge_coverage(
-        self, user_uid: str, domain: str | None = None
+        self, user_uid: UserUID, domain: str | None = None
     ) -> Result[dict[str, Any]]:
         """
         Calculate how well learned knowledge covers unlearned topics.

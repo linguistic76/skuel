@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j._backend_helpers import _ALLOWED_ORDER_BY, _validate_rel_name
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -148,7 +149,7 @@ class _KnowledgeContextMixin:
     async def find_connected_activities(
         self,
         ku_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         node_label: NeoLabel,
         rel_types: list[RelationshipName | str],
         filters: dict[str, Any] | None = None,
@@ -368,7 +369,7 @@ class _KnowledgeContextMixin:
         return await self.execute_query(query, {"parent_uid": parent_uid, "child_uid": child_uid})
 
     async def query_user_mastery_for_prereqs(
-        self, user_uid: str, prereq_uids: list[str]
+        self, user_uid: UserUID, prereq_uids: list[str]
     ) -> Result[list[Neo4jProperties]]:
         """Query user MASTERED + IN_PROGRESS state for prerequisite KUs."""
         query = """
@@ -391,7 +392,7 @@ class _KnowledgeContextMixin:
         return await self.execute_query(query, {"user_uid": user_uid, "prereq_uids": prereq_uids})
 
     async def find_learning_recommendations(
-        self, user_uid: str, domain: str | None, limit: int
+        self, user_uid: UserUID, domain: str | None, limit: int
     ) -> Result[list[Neo4jProperties]]:
         """Find KUs user is ready to learn based on mastery and prerequisites."""
         query = """

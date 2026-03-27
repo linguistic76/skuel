@@ -23,6 +23,7 @@ from core.events import CalendarEventCompleted, publish_event
 from core.models.enums import EntityStatus
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
@@ -188,7 +189,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
     @with_error_handling("get_attendance_rate", error_type="database", uid_param="user_uid")
     async def get_attendance_rate(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         period_days: int = 30,
     ) -> Result[dict[str, Any]]:
         """
@@ -252,7 +253,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
     @with_error_handling("get_quality_trends", error_type="database", uid_param="user_uid")
     async def get_quality_trends(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         period_days: int = 30,
     ) -> Result[dict[str, Any]]:
         """
@@ -326,7 +327,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
     )
     async def get_goal_contribution_metrics(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         period_days: int = 30,
     ) -> Result[dict[str, Any]]:
         """
@@ -377,7 +378,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
     @with_error_handling("get_weekly_summary", error_type="database", uid_param="user_uid")
     async def get_weekly_summary(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         weeks_back: int = 4,
     ) -> Result[dict[str, Any]]:
         """
@@ -435,7 +436,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
     @with_error_handling("get_habit_event_stats", error_type="database", uid_param="user_uid")
     async def get_habit_event_stats(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         period_days: int = 30,
     ) -> Result[dict[str, Any]]:
         """

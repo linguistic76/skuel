@@ -39,6 +39,7 @@ from core.models.habit.habit_request import (
     TrackHabitRequest,
     UntrackHabitRequest,
 )
+from core.models.type_hints import UserUID
 from core.services.habits_service import HabitsService
 from core.utils.result_simplified import Result
 
@@ -259,7 +260,9 @@ def create_habits_api_routes(
     @rt("/api/habits/reminders", methods=["POST"])
     @require_ownership_query(get_habits_service)
     @boundary_handler()
-    async def set_habit_reminder_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
+    async def set_habit_reminder_route(
+        request: Request, user_uid: UserUID, entity: Any
+    ) -> Result[Any]:
         """Set a reminder for a habit (requires ownership)."""
         body = await request.json()
         return await habits_service.set_habit_reminder(
@@ -275,7 +278,7 @@ def create_habits_api_routes(
     @require_ownership_query(get_habits_service)
     @boundary_handler()
     async def get_habit_reminders_route(
-        request: Request, user_uid: str, entity: Any
+        request: Request, user_uid: UserUID, entity: Any
     ) -> Result[Any]:
         """Get reminders for a habit (requires ownership)."""
         return await habits_service.get_habit_reminders(entity.uid)
@@ -284,7 +287,7 @@ def create_habits_api_routes(
     @require_ownership_query(get_habits_service)
     @boundary_handler()
     async def delete_habit_reminder_route(
-        request: Request, user_uid: str, entity: Any, reminder_id: str
+        request: Request, user_uid: UserUID, entity: Any, reminder_id: str
     ) -> Result[Any]:
         """Delete a habit reminder (requires ownership)."""
         return await habits_service.delete_habit_reminder(

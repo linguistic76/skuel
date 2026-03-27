@@ -14,6 +14,7 @@ from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.pathways.learning_step import LearningStep
+from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentBridge
@@ -74,7 +75,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
     async def create_choice_with_learning_guidance(
         self,
         choice_request: ChoiceCreateRequest,
-        user_uid: str,
+        user_uid: UserUID,
         learning_position: LpPosition | None = None,
     ) -> Result[Choice]:
         """

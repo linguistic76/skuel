@@ -31,6 +31,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
+from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import PrerequisiteChecker
@@ -425,7 +426,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         step_uid: str,
         task_title: str,
         knowledge_uids: list[str],
-        _user_uid: str,
+        _user_uid: UserUID,
     ) -> Result[Task]:
         """
         Create a practice task for a learning step.

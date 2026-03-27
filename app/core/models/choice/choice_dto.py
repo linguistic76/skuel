@@ -19,6 +19,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from datetime import datetime
 
@@ -76,7 +78,7 @@ class ChoiceDTO(UserOwnedDTO):
     # =========================================================================
 
     @classmethod
-    def create_choice(cls, user_uid: str, title: str, **kwargs: Any) -> ChoiceDTO:
+    def create_choice(cls, user_uid: UserUID, title: str, **kwargs: Any) -> ChoiceDTO:
         """Create a ChoiceDTO with generated UID and correct defaults."""
         from core.utils.uid_generator import UIDGenerator
 

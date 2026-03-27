@@ -19,6 +19,7 @@ __version__ = "2.0"  # Vis.js Timeline version
 
 from fasthtml.common import H1, Body, Div, Head, Html, Link, Meta, Option, P, Script, Span, Title
 
+from core.models.type_hints import UserUID
 from ui.buttons import Button, ButtonT
 from ui.feedback import Loading, LoadingT
 from ui.forms import Input, Label, Select
@@ -29,7 +30,7 @@ from ui.patterns.page_header import PageHeader
 def render_timeline_viewer_page(
     src: str | None = None,
     project: str | None = None,
-    user_uid: str | None = None,
+    user_uid: UserUID | None = None,
 ) -> Html:
     """
     Render the Vis.js timeline viewer page.
@@ -145,7 +146,7 @@ def _render_controls() -> Div:
     )
 
 
-def _render_filters(project: str | None = None, user_uid: str | None = None) -> Div:
+def _render_filters(project: str | None = None, user_uid: UserUID | None = None) -> Div:
     """Render the filter controls."""
     return Div(
         Div(

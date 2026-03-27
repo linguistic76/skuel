@@ -21,6 +21,7 @@ Subscribers:
 from dataclasses import dataclass
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # TASK LIFECYCLE EVENTS
@@ -38,7 +39,7 @@ class TaskCreated(BaseEvent):
     """
 
     task_uid: str
-    user_uid: str
+    user_uid: UserUID
     title: str
     priority: str
     domain: str | None
@@ -64,7 +65,7 @@ class TaskCompleted(BaseEvent):
     """
 
     task_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Optional context for analytics
     completion_time_seconds: int | None = None
@@ -86,7 +87,7 @@ class TaskUpdated(BaseEvent):
     """
 
     task_uid: str
-    user_uid: str
+    user_uid: UserUID
     updated_fields: list[str]
 
     # Include old/new values for significant fields
@@ -109,7 +110,7 @@ class TaskDeleted(BaseEvent):
     """
 
     task_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Context for why deleted
     reason: str | None = None  # "completed_elsewhere", "no_longer_needed", etc.
@@ -135,7 +136,7 @@ class TaskPriorityChanged(BaseEvent):
     """
 
     task_uid: str
-    user_uid: str
+    user_uid: UserUID
     old_priority: str
     new_priority: str
 
@@ -166,7 +167,7 @@ class TasksBulkCompleted(BaseEvent):
     """
 
     task_uids: list[str]
-    user_uid: str
+    user_uid: UserUID
     count: int = 0  # Number of tasks completed
 
     def __post_init__(self) -> None:

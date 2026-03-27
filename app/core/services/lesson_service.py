@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth, QueryLimit
+from core.models.type_hints import UserUID
 from core.ports.query_types import ListContext
 
 if TYPE_CHECKING:
@@ -183,10 +184,12 @@ class LessonService:
     async def archive(self, uid: str) -> Result[CurriculumDTO]:
         return await self.core.archive(uid)
 
-    async def get_user_mastery(self, user_uid: str, ku_uid: str) -> Result[float]:
+    async def get_user_mastery(self, user_uid: UserUID, ku_uid: str) -> Result[float]:
         return await self.core.get_user_mastery(user_uid, ku_uid)
 
-    async def get_all_user_knowledge_status(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_all_user_knowledge_status(
+        self, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:
         """Get all knowledge entities with per-user VIEWED/BOOKMARKED/MASTERED status."""
         return await self.mastery.get_all_user_knowledge_status(user_uid)
 
@@ -287,17 +290,17 @@ class LessonService:
         return await self.graph.link_parent_child(parent_uid, child_uid)
 
     async def get_prerequisite_chain(
-        self, uid: str, user_uid: str | None = None
+        self, uid: str, user_uid: UserUID | None = None
     ) -> Result[dict[str, Any]]:
         return await self.graph.get_prerequisite_chain(uid, user_uid)
 
     async def analyze_knowledge_gaps(
-        self, target_uid: str, user_uid: str
+        self, target_uid: str, user_uid: UserUID
     ) -> Result[dict[str, Any]]:
         return await self.graph.analyze_knowledge_gaps(target_uid, user_uid)
 
     async def get_learning_recommendations(
-        self, user_uid: str, domain: str | None = None, limit: int = 5
+        self, user_uid: UserUID, domain: str | None = None, limit: int = 5
     ) -> Result[list[dict[str, Any]]]:
         return await self.graph.get_learning_recommendations(user_uid, domain, limit)
 
@@ -323,14 +326,14 @@ class LessonService:
 
     # Application discovery delegations (reverse relationship queries)
     async def find_events_applying_knowledge(
-        self, ku_uid: str, user_uid: str, upcoming_only: bool = True
+        self, ku_uid: str, user_uid: UserUID, upcoming_only: bool = True
     ) -> Result[list[str]]:
         return await self.application_discovery.find_events_applying_knowledge(
             ku_uid, user_uid, upcoming_only
         )
 
     async def find_habits_reinforcing_knowledge(
-        self, ku_uid: str, user_uid: str, only_active: bool = True
+        self, ku_uid: str, user_uid: UserUID, only_active: bool = True
     ) -> Result[list[str]]:
         return await self.application_discovery.find_habits_reinforcing_knowledge(
             ku_uid, user_uid, only_active
@@ -345,28 +348,28 @@ class LessonService:
         return await self.application_discovery.find_learning_paths_teaching(ku_uid, limit)
 
     async def find_tasks_applying_knowledge(
-        self, ku_uid: str, user_uid: str, status_filter: str | None = None
+        self, ku_uid: str, user_uid: UserUID, status_filter: str | None = None
     ) -> Result[list[str]]:
         return await self.application_discovery.find_tasks_applying_knowledge(
             ku_uid, user_uid, status_filter
         )
 
     async def find_goals_requiring_knowledge(
-        self, ku_uid: str, user_uid: str, status_filter: str | None = None
+        self, ku_uid: str, user_uid: UserUID, status_filter: str | None = None
     ) -> Result[list[str]]:
         return await self.application_discovery.find_goals_requiring_knowledge(
             ku_uid, user_uid, status_filter
         )
 
     async def find_choices_informed_by_knowledge(
-        self, ku_uid: str, user_uid: str, pending_only: bool = False
+        self, ku_uid: str, user_uid: UserUID, pending_only: bool = False
     ) -> Result[list[str]]:
         return await self.application_discovery.find_choices_informed_by_knowledge(
             ku_uid, user_uid, pending_only
         )
 
     async def find_principles_embodying_knowledge(
-        self, ku_uid: str, user_uid: str, only_active: bool = True
+        self, ku_uid: str, user_uid: UserUID, only_active: bool = True
     ) -> Result[list[str]]:
         return await self.application_discovery.find_principles_embodying_knowledge(
             ku_uid, user_uid, only_active
@@ -418,15 +421,15 @@ class LessonService:
 
     # Adaptive curriculum delegations
     async def get_personalized_curriculum(
-        self, user_uid: str, sel_category: "SELCategory", limit: int = 10
+        self, user_uid: UserUID, sel_category: "SELCategory", limit: int = 10
     ) -> Result[list["Lesson"]]:
         return await self.adaptive.get_personalized_curriculum(user_uid, sel_category, limit)
 
-    async def get_sel_journey(self, user_uid: str) -> Result["LearningJourney"]:
+    async def get_sel_journey(self, user_uid: UserUID) -> Result["LearningJourney"]:
         return await self.adaptive.get_sel_journey(user_uid)
 
     async def track_curriculum_completion(
-        self, user_uid: str, ku_uid: str, completion_time_minutes: int = 30
+        self, user_uid: UserUID, ku_uid: str, completion_time_minutes: int = 30
     ) -> Result[None]:
         return await self.adaptive.track_curriculum_completion(
             user_uid, ku_uid, completion_time_minutes
@@ -625,7 +628,7 @@ class LessonService:
         # Use UniversalNeo4jBackend's get_many() method
         return await self.repo.get_many(uids)
 
-    async def list_user_knowledge(self, user_uid: str) -> Result[list]:
+    async def list_user_knowledge(self, user_uid: UserUID) -> Result[list]:
         """
         Get all knowledge units available for user's semantic search.
 
@@ -1270,7 +1273,7 @@ class LessonService:
     async def get_lesson_recommendations(
         self,
         uid: str,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         recommendation_type: str = "learning",
     ) -> Result[list[CurriculumDTO]]:
         """
@@ -1480,7 +1483,7 @@ class LessonService:
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status_filter: str = "all",
         sort_by: str = "title",
     ) -> Result[ListContext]:

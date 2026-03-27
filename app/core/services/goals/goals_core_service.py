@@ -21,6 +21,8 @@ Responsibilities:
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.models.goal.goal_request import GoalCreateRequest
 
@@ -225,7 +227,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         """
         return await self.get(goal_uid)
 
-    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
+    async def get_user_goals(self, user_uid: UserUID) -> Result[list[Goal]]:
         """
         Get all goals for a user, including learning relationships.
 
@@ -283,7 +285,9 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         return result
 
-    async def create_goal(self, goal_request: "GoalCreateRequest", user_uid: str) -> Result[Goal]:
+    async def create_goal(
+        self, goal_request: "GoalCreateRequest", user_uid: UserUID
+    ) -> Result[Goal]:
         """
         Create a goal from a request with user_uid.
 
@@ -743,12 +747,12 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count goal stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
     async def get_for_user_filtered(
-        self, user_uid: str, status_filter: str = "active"
+        self, user_uid: UserUID, status_filter: str = "active"
     ) -> Result[list[Goal]]:
         """Fetch goals with status filter pushed to Cypher WHERE."""
         match status_filter:

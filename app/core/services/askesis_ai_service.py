@@ -26,6 +26,7 @@ The app works WITHOUT this service. It's an enhancement layer.
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Result
 
@@ -90,7 +91,7 @@ class AskesisAIService(BaseAIService[Any, Any]):
         self.graph = graph_intelligence_service
 
     async def get_behavioral_insights(
-        self, user_uid: str, period_days: int = 90
+        self, user_uid: UserUID, period_days: int = 90
     ) -> Result[dict[str, Any]]:
         """Analyze discipline patterns and willpower management."""
         self.logger.info(f"Analyzing askesis patterns for user {user_uid}")
@@ -133,7 +134,7 @@ class AskesisAIService(BaseAIService[Any, Any]):
         )
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Analyze discipline performance metrics."""
         return Result.ok(

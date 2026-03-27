@@ -30,6 +30,7 @@ from core.models.enums import Domain
 from core.models.graph_context import GraphContext
 from core.models.lesson.lesson import Lesson
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import EntityUID, UserUID
 from core.ports import LessonOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -171,7 +172,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
     # ========================================================================
 
     async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> Result[dict[str, Any]]:
         """Generate knowledge suggestions based on semantic relationships."""
         self.logger.info(f"Generating knowledge suggestions for user {user_uid}")
@@ -221,7 +222,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
         )
 
     async def get_cross_domain_opportunities(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> Result[CrossDomainOpportunitiesResult]:
         """Identify cross-domain knowledge connections."""
         self.logger.info(f"Analyzing cross-domain knowledge for user {user_uid}")
@@ -275,7 +276,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
         )
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30, user_context: UserContext | None = None
+        self, user_uid: UserUID, period_days: int = 30, user_context: UserContext | None = None
     ) -> Result[dict[str, Any]]:
         """
         Analyze knowledge substance and application metrics.

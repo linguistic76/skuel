@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from core.models.enums import EntityStatus
 from core.models.goal.goal_dto import GoalDTO
+from core.models.type_hints import UserUID
 from core.services.adaptive_lp.adaptive_lp_models import AdaptiveLp, LearningStyle
 from core.services.adaptive_lp_types import KnowledgeState
 
@@ -81,7 +82,7 @@ class AdaptiveLpCoreService:
     # USER ANALYSIS (STUBS - TO BE IMPLEMENTED)
     # ========================================================================
 
-    async def _detect_learning_style(self, user_uid: str) -> str:
+    async def _detect_learning_style(self, user_uid: UserUID) -> str:
         """
         TODO: Detect user's learning style from behavior patterns.
 
@@ -199,7 +200,7 @@ class AdaptiveLpCoreService:
     # ========================================================================
 
     @with_error_handling(error_type="system", uid_param="user_uid")
-    async def detect_learning_style(self, user_uid: str) -> Result[str]:
+    async def detect_learning_style(self, user_uid: UserUID) -> Result[str]:
         """Detect user's learning style from task completion patterns."""
         if not self.tasks_service:
             return Result.ok(LearningStyle.INDEPENDENT)
@@ -556,7 +557,7 @@ class AdaptiveLpCoreService:
         return [item for chunk in chunks for item in chunk]
 
     async def _calculate_adaptation_factors(
-        self, user_uid: str, goal: GoalDTO, knowledge_steps: list[str]
+        self, user_uid: UserUID, goal: GoalDTO, knowledge_steps: list[str]
     ) -> dict[str, float]:
         """Calculate factors that influence path adaptation."""
         factors = {

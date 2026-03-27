@@ -184,7 +184,7 @@ class TaskCompleted(BaseEvent):
     '''Published when a task is marked complete.'''
 
     task_uid: str
-    user_uid: str
+    user_uid: UserUID
     completion_time_seconds: int | None = None
 
     @property

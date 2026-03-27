@@ -40,6 +40,7 @@ from typing import Any
 
 from core.models.enums import Domain, EntityStatus
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.ports.base_protocols import Direction
 
 # =============================================================================
@@ -127,7 +128,7 @@ class BaseSearchFilters:
     relationship_direction: Direction = "outgoing"
 
     # User context
-    user_uid: str | None = None
+    user_uid: UserUID | None = None
 
     # Sorting
     sort_order: str | None = None  # SearchSortOrder value

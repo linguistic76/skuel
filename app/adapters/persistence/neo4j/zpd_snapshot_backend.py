@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
@@ -72,7 +74,7 @@ class ZPDSnapshotBackend:
         self._logger = logger
 
     async def save_snapshot(
-        self, user_uid: str, assessment: ZPDAssessment, trigger_event: str
+        self, user_uid: UserUID, assessment: ZPDAssessment, trigger_event: str
     ) -> Result[None]:
         """MERGE ZPDHistory node, update latest fields + increment snapshot_count."""
         confirmed_count = len(assessment.confirmed_zone_uids())
@@ -99,7 +101,7 @@ class ZPDSnapshotBackend:
                 )
             )
 
-    async def get_latest_snapshot(self, user_uid: str) -> Result[dict[str, Any] | None]:
+    async def get_latest_snapshot(self, user_uid: UserUID) -> Result[dict[str, Any] | None]:
         """Read latest snapshot for a user."""
         try:
             records, _, _ = await self._driver.execute_query(

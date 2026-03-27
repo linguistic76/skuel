@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.services.filtered_context import build_filtered_context
 from core.services.ls.ls_ai_service import LsAIService
 from core.services.ls.ls_progress_service import LsProgressService
@@ -208,7 +209,7 @@ class LsService:
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[builtins.list[LearningStep]]:
         """
         List learning steps with pagination and sorting support.
@@ -328,7 +329,7 @@ class LsService:
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status_filter: str = "all",
         sort_by: str = "title",
     ) -> Result[ListContext]:

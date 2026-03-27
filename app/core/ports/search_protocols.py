@@ -26,7 +26,7 @@ Protocol Categories:
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import EntityUID, Metadata
+from core.models.type_hints import EntityUID, Metadata, UserUID
 from core.ports.base_protocols import Direction
 from core.utils.result_simplified import Result
 
@@ -86,7 +86,7 @@ class DomainSearchOperations(Protocol[T]):
     """
 
     async def search(
-        self, query: str, limit: int = 50, user_uid: str | None = None
+        self, query: str, limit: int = 50, user_uid: UserUID | None = None
     ) -> Result[list[T]]:
         """
         Text search on title and description fields.
@@ -196,7 +196,7 @@ class DomainSearchOperations(Protocol[T]):
         ...
 
     async def get_by_status(
-        self, status: str, limit: int = 100, user_uid: str | None = None
+        self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[T]]:
         """
         Filter entities by EntityStatus.
@@ -275,7 +275,7 @@ class DomainSearchOperations(Protocol[T]):
     async def get_due_soon(
         self,
         days_ahead: int = 7,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[T]]:
         """
@@ -293,7 +293,7 @@ class DomainSearchOperations(Protocol[T]):
 
     async def get_overdue(
         self,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[T]]:
         """
@@ -336,19 +336,23 @@ class EventsSearchOperations(DomainSearchOperations["Entity"], Protocol):
 
     # --- Event-specific methods ---
     async def get_in_range(
-        self, start_date: "date", end_date: "date", user_uid: str | None = None, limit: int = 100
+        self,
+        start_date: "date",
+        end_date: "date",
+        user_uid: UserUID | None = None,
+        limit: int = 100,
     ) -> Result[list["Entity"]]:
         """Get events within a date range."""
         ...
 
     async def get_recurring(
-        self, user_uid: str | None = None, limit: int = 100
+        self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list["Entity"]]:
         """Get recurring events."""
         ...
 
     async def get_for_goal(
-        self, goal_uid: str, user_uid: str | None = None
+        self, goal_uid: str, user_uid: UserUID | None = None
     ) -> Result[list["Entity"]]:
         """Get events supporting a goal."""
         ...
@@ -358,32 +362,32 @@ class EventsSearchOperations(DomainSearchOperations["Entity"], Protocol):
         ...
 
     async def get_by_type(
-        self, event_type: str, user_uid: str | None = None, limit: int = 100
+        self, event_type: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list["Entity"]]:
         """Get events by event type."""
         ...
 
     async def get_upcoming(
-        self, user_uid: str, days_ahead: int = 30, limit: int = 100
+        self, user_uid: UserUID, days_ahead: int = 30, limit: int = 100
     ) -> Result[list["Entity"]]:
         """Get upcoming events for a user."""
         ...
 
     async def get_history(
-        self, user_uid: str, days_back: int = 90, limit: int = 100
+        self, user_uid: UserUID, days_back: int = 90, limit: int = 100
     ) -> Result[list["Entity"]]:
         """Get completed/past events for a user."""
         ...
 
     async def get_for_habit(
-        self, habit_uid: str, user_uid: str | None = None
+        self, habit_uid: str, user_uid: UserUID | None = None
     ) -> Result[list["Entity"]]:
         """Get events reinforcing a habit."""
         ...
 
     async def get_calendar_events(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: "date | None" = None,
         end_date: "date | None" = None,
         limit: int = 100,
@@ -411,12 +415,14 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
 
     # --- Habit-specific methods ---
     async def get_by_frequency(
-        self, frequency: str, user_uid: str | None = None, limit: int = 100
+        self, frequency: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list["Habit"]]:
         """Get habits by frequency pattern."""
         ...
 
-    async def get_needing_attention(self, user_uid: str, limit: int = 20) -> Result[list["Habit"]]:
+    async def get_needing_attention(
+        self, user_uid: UserUID, limit: int = 20
+    ) -> Result[list["Habit"]]:
         """Get habits that need attention (broken streaks, missed completions)."""
         ...
 
@@ -425,12 +431,12 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
         ...
 
     async def get_at_risk(
-        self, user_uid: str, days_threshold: int = 3, limit: int = 20
+        self, user_uid: UserUID, days_threshold: int = 3, limit: int = 20
     ) -> Result[list["Habit"]]:
         """Get habits at risk of breaking streak."""
         ...
 
-    async def get_user_due_today(self, user_uid: str) -> Result[list["Habit"]]:
+    async def get_user_due_today(self, user_uid: UserUID) -> Result[list["Habit"]]:
         """Get habits due today for a specific user."""
         ...
 
@@ -439,12 +445,12 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
         ...
 
     async def get_by_category(
-        self, category: str, user_uid: str | None = None, limit: int = 100
+        self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list["Habit"]]:
         """Get habits by category, optionally filtered by user."""
         ...
 
-    async def list_user_categories(self, user_uid: str) -> Result[list[str]]:
+    async def list_user_categories(self, user_uid: UserUID) -> Result[list[str]]:
         """List habit categories for a specific user."""
         ...
 
@@ -458,7 +464,7 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
         """Get habits that reinforce a knowledge unit."""
         ...
 
-    async def get_active_habits(self, user_uid: str) -> Result[list["Habit"]]:
+    async def get_active_habits(self, user_uid: UserUID) -> Result[list["Habit"]]:
         """Get all active habits for a user."""
         ...
 
@@ -493,7 +499,7 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
         """Get tasks that apply a knowledge unit."""
         ...
 
-    async def get_blocked_by_prerequisites(self, user_uid: str) -> Result[list["Task"]]:
+    async def get_blocked_by_prerequisites(self, user_uid: UserUID) -> Result[list["Task"]]:
         """Get tasks blocked by unfulfilled prerequisites."""
         ...
 
@@ -504,7 +510,7 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
         ...
 
     async def get_learning_relevant_tasks(
-        self, user_uid: str, learning_path_uid: str | None = None, limit: int = 20
+        self, user_uid: UserUID, learning_path_uid: str | None = None, limit: int = 20
     ) -> Result[list["Task"]]:
         """Get tasks relevant to current learning."""
         ...
@@ -518,7 +524,7 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
         ...
 
     async def get_user_assigned_tasks(
-        self, user_uid: str, include_completed: bool = False, limit: int = 100
+        self, user_uid: UserUID, include_completed: bool = False, limit: int = 100
     ) -> Result[list["Task"]]:
         """Get tasks assigned to a user."""
         ...
@@ -548,7 +554,7 @@ class GoalsSearchOperations(DomainSearchOperations["Entity"], Protocol):
 
     # --- Goal-specific methods ---
     async def get_by_timeframe(
-        self, timeframe: str, user_uid: str | None = None, limit: int = 100
+        self, timeframe: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list["Entity"]]:
         """Get goals by timeframe (daily, weekly, monthly, yearly)."""
         ...
@@ -557,17 +563,19 @@ class GoalsSearchOperations(DomainSearchOperations["Entity"], Protocol):
         """Get goals by category."""
         ...
 
-    async def get_needing_habits(self, user_uid: str, limit: int = 20) -> Result[list["Entity"]]:
+    async def get_needing_habits(
+        self, user_uid: UserUID, limit: int = 20
+    ) -> Result[list["Entity"]]:
         """Get goals that need supporting habits."""
         ...
 
     async def get_blocked_by_knowledge(
-        self, user_uid: str, limit: int = 20
+        self, user_uid: UserUID, limit: int = 20
     ) -> Result[list["Entity"]]:
         """Get goals blocked by missing knowledge."""
         ...
 
-    async def list_user_categories(self, user_uid: str) -> Result[list[str]]:
+    async def list_user_categories(self, user_uid: UserUID) -> Result[list[str]]:
         """List goal categories for a specific user."""
         ...
 
@@ -609,12 +617,12 @@ class ChoicesSearchOperations(DomainSearchOperations["Entity"], Protocol):
     """
 
     # --- Choice-specific methods ---
-    async def get_pending(self, user_uid: str, limit: int = 100) -> Result[list["Entity"]]:
+    async def get_pending(self, user_uid: UserUID, limit: int = 100) -> Result[list["Entity"]]:
         """Get pending choices for a user."""
         ...
 
     async def get_by_urgency(
-        self, urgency: str, user_uid: str | None = None, limit: int = 100
+        self, urgency: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list["Entity"]]:
         """Get choices by urgency level."""
         ...
@@ -624,7 +632,7 @@ class ChoicesSearchOperations(DomainSearchOperations["Entity"], Protocol):
         ...
 
     async def get_needing_decision(
-        self, user_uid: str, deadline_days: int = 7
+        self, user_uid: UserUID, deadline_days: int = 7
     ) -> Result[list["Entity"]]:
         """Get choices needing decision within deadline."""
         ...
@@ -636,12 +644,12 @@ class ChoicesSearchOperations(DomainSearchOperations["Entity"], Protocol):
         ...
 
     async def get_by_category(
-        self, category: str, user_uid: str | None = None, limit: int = 100
+        self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list["Entity"]]:
         """Get choices by category."""
         ...
 
-    async def list_user_categories(self, user_uid: str) -> Result[list[str]]:
+    async def list_user_categories(self, user_uid: UserUID) -> Result[list[str]]:
         """List choice categories for a specific user."""
         ...
 
@@ -650,7 +658,7 @@ class ChoicesSearchOperations(DomainSearchOperations["Entity"], Protocol):
         ...
 
     async def get_decided(
-        self, user_uid: str, days_back: int = 30, limit: int = 100
+        self, user_uid: UserUID, days_back: int = 30, limit: int = 100
     ) -> Result[list["Entity"]]:
         """Get recently decided choices."""
         ...
@@ -674,13 +682,13 @@ class PrinciplesSearchOperations(DomainSearchOperations["Entity"], Protocol):
 
     # --- Principle-specific methods ---
     async def get_by_strength(
-        self, strength: str, user_uid: str | None = None, limit: int = 100
+        self, strength: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list["Entity"]]:
         """Get principles by strength level."""
         ...
 
     async def get_by_category(
-        self, category: str, user_uid: str | None = None, limit: int = 100
+        self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list["Entity"]]:
         """Get principles by category."""
         ...
@@ -702,12 +710,12 @@ class PrinciplesSearchOperations(DomainSearchOperations["Entity"], Protocol):
         ...
 
     async def get_active_principles(
-        self, user_uid: str, limit: int = 100
+        self, user_uid: UserUID, limit: int = 100
     ) -> Result[list["Entity"]]:
         """Get active principles for a user."""
         ...
 
-    async def list_user_categories(self, user_uid: str) -> Result[list[str]]:
+    async def list_user_categories(self, user_uid: UserUID) -> Result[list[str]]:
         """List principle categories for a specific user."""
         ...
 
@@ -716,7 +724,7 @@ class PrinciplesSearchOperations(DomainSearchOperations["Entity"], Protocol):
         ...
 
     async def get_needing_review(
-        self, user_uid: str, days_since_review: int = 30, limit: int = 20
+        self, user_uid: UserUID, days_since_review: int = 30, limit: int = 20
     ) -> Result[list["Entity"]]:
         """Get principles needing review."""
         ...
@@ -851,7 +859,7 @@ class SupportsGraphAwareSearch(Protocol):
     async def graph_aware_faceted_search(
         self,
         request: "SearchRequest",
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[list[dict[str, Any]]]:
         """
         Faceted search with graph enrichment.

@@ -111,6 +111,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 # Import protocols for type constraints and runtime validation
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import EntityUID
 from core.ports import BackendOperations
 from core.services.mixins import (
     ContextOperationsMixin,
@@ -556,7 +557,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 
     def _validate_prerequisites(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         prerequisite_uids: list[str],
     ) -> Result[None] | None:
         """

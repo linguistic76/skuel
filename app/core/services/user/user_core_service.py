@@ -23,6 +23,7 @@ import dataclasses
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.models.user import User, create_user
 from core.ports.infrastructure_protocols import UserCrudOperations
 from core.utils.decorators import with_error_handling
@@ -155,7 +156,7 @@ class UserCoreService:
         )
 
     @with_error_handling("get_user", error_type="database", uid_param="user_uid")
-    async def get_user(self, user_uid: str) -> Result[User | None]:
+    async def get_user(self, user_uid: UserUID) -> Result[User | None]:
         """
         Get user by UID.
 
@@ -213,7 +214,7 @@ class UserCoreService:
 
     @with_error_handling("update_preferences", error_type="database", uid_param="user_uid")
     async def update_preferences(
-        self, user_uid: str, preferences_update: dict[str, Any]
+        self, user_uid: UserUID, preferences_update: dict[str, Any]
     ) -> Result[User]:
         """
         Update user preferences.
@@ -266,7 +267,7 @@ class UserCoreService:
         return result
 
     @with_error_handling("delete_user", error_type="database", uid_param="user_uid")
-    async def delete_user(self, user_uid: str) -> Result[bool]:
+    async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """
         DETACH DELETE a user.
 
@@ -293,7 +294,7 @@ class UserCoreService:
     # ========================================================================
 
     @with_error_handling("update_user_role", error_type="database", uid_param="user_uid")
-    async def update_user_role(self, user_uid: str, new_role: "UserRole") -> Result[User]:
+    async def update_user_role(self, user_uid: UserUID, new_role: "UserRole") -> Result[User]:
         """
         Update a user's role.
 
@@ -385,7 +386,7 @@ class UserCoreService:
         return Result.ok(paginated)
 
     @with_error_handling("deactivate_user", error_type="database", uid_param="user_uid")
-    async def deactivate_user(self, user_uid: str, reason: str = "") -> Result[User]:
+    async def deactivate_user(self, user_uid: UserUID, reason: str = "") -> Result[User]:
         """
         Deactivate a user account.
 
@@ -428,7 +429,7 @@ class UserCoreService:
         return result
 
     @with_error_handling("activate_user", error_type="database", uid_param="user_uid")
-    async def activate_user(self, user_uid: str) -> Result[User]:
+    async def activate_user(self, user_uid: UserUID) -> Result[User]:
         """
         Reactivate a user account.
 

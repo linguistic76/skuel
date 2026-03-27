@@ -34,6 +34,8 @@ import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from core.models.type_hints import UserUID
+
 # Session configuration
 SESSION_TOKEN_BYTES = 32  # 256-bit tokens
 SESSION_EXPIRY_DAYS = 30  # 30-day sessions
@@ -75,7 +77,7 @@ class Session:
 
     uid: str
     session_token: str
-    user_uid: str
+    user_uid: UserUID
     created_at: datetime
     expires_at: datetime
     last_active_at: datetime
@@ -150,7 +152,7 @@ class Session:
 
 
 def create_session(
-    user_uid: str,
+    user_uid: UserUID,
     ip_address: str,
     user_agent: str,
     expiry_days: int = SESSION_EXPIRY_DAYS,

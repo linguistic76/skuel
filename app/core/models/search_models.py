@@ -14,6 +14,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from core.models.type_hints import UserUID
+
 # ============================================================================
 # SEARCH REQUEST MODELS (Tier 1 - Pydantic)
 # ============================================================================
@@ -33,7 +35,7 @@ class SearchQueryRequest(BaseModel):
     """Request model for complete search query."""
 
     text: str = Field(min_length=1, description="Search query text")
-    user_uid: str = Field(description="User UID for personalization")
+    user_uid: UserUID = Field(description="User UID for personalization")
     facets: FacetSetRequest = Field(default_factory=FacetSetRequest)
     limit: int = Field(default=20, ge=1, le=100)
     offset: int = Field(default=0, ge=0)

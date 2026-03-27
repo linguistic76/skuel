@@ -31,6 +31,7 @@ Responsibilities:
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.models.user import User
 from core.services.user import UserContext
 from core.services.user.user_context_extractor import UserContextExtractor
@@ -103,7 +104,7 @@ class UserContextBuilder:
         self._extractor = UserContextExtractor()
         self._populator = UserContextPopulator()
 
-    async def _resolve_user(self, user_uid: str, operation: str) -> Result[User]:
+    async def _resolve_user(self, user_uid: UserUID, operation: str) -> Result[User]:
         """
         Resolve user from UserService.
 
@@ -150,7 +151,7 @@ class UserContextBuilder:
     # SIMPLIFIED API - Builder Owns User Resolution (Preferred)
     # ========================================================================
 
-    async def build(self, user_uid: str) -> Result[UserContext]:
+    async def build(self, user_uid: UserUID) -> Result[UserContext]:
         """
         Build UserContext for user - handles user resolution internally.
 
@@ -188,7 +189,7 @@ class UserContextBuilder:
 
     async def build_rich(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         min_confidence: float = 0.7,
         window: str = "30d",
     ) -> Result[UserContext]:
@@ -234,7 +235,7 @@ class UserContextBuilder:
     # ========================================================================
 
     @with_error_handling("build_user_context", error_type="system", uid_param="user_uid")
-    async def build_user_context(self, user_uid: str, user: User) -> Result[UserContext]:
+    async def build_user_context(self, user_uid: UserUID, user: User) -> Result[UserContext]:
         """
         Build UserContext from domain queries (standard path).
 
@@ -289,7 +290,7 @@ class UserContextBuilder:
     @with_error_handling("build_rich_user_context", error_type="system", uid_param="user_uid")
     async def build_rich_user_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         user: User,
         min_confidence: float = 0.7,
         window: str = "30d",

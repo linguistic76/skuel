@@ -51,6 +51,7 @@ from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -70,7 +71,7 @@ class StatusOperations(Protocol):
     Status change methods follow naming convention: {action}_{domain}(uid, **kwargs)
     """
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Any]:
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Any]:
         """Verify user owns the entity."""
         ...
 

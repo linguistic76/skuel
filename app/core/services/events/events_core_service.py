@@ -32,6 +32,7 @@ from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.type_hints import UserUID
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -218,7 +219,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         """
         return await self.get(event_uid)
 
-    async def get_user_events(self, user_uid: str) -> Result[list[Event]]:
+    async def get_user_events(self, user_uid: UserUID) -> Result[list[Event]]:
         """
         Get all events for a user, including learning relationships.
 
@@ -532,12 +533,12 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count event stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
     async def get_for_user_filtered(
-        self, user_uid: str, status_filter: str = "scheduled"
+        self, user_uid: UserUID, status_filter: str = "scheduled"
     ) -> Result[list[Event]]:
         """Fetch events with status filter pushed to Cypher WHERE."""
         match status_filter:

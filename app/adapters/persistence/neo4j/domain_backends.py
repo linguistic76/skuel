@@ -60,7 +60,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.report.activity_report import ActivityReport
 from core.models.submissions.submission import Submission
 from core.models.task.task import Task
-from core.models.type_hints import Neo4jProperties
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
@@ -106,7 +106,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             return Result.fail(Errors.not_found(resource="Habit", identifier=habit_id))
         return Result.ok(get_result.value)
 
-    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[list[Habit]]:
+    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:
         """List all habits for a user. Returns flat list (not paginated tuple)."""
         page_result: Result[tuple[list[Habit], int]] = await self.get_user_entities(
             user_uid, limit=limit
@@ -116,7 +116,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         habits, _ = page_result.value
         return Result.ok(habits)
 
-    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
+    async def get_user_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
         """Get all habits for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
 
@@ -127,11 +127,13 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             return Result.fail(update_result)
         return Result.ok(True)
 
-    async def create_user_habit_relationship(self, user_uid: str, habit_uid: str) -> Result[bool]:
+    async def create_user_habit_relationship(
+        self, user_uid: UserUID, habit_uid: str
+    ) -> Result[bool]:
         """Create User→Habit OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, habit_uid)
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count habit stats: total, active, streaks."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, entity_type: 'habit'})
@@ -175,7 +177,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             self.logger.error(f"Failed to link habit to knowledge: {e}")
             return Result.fail(Errors.database(operation="link_habit_to_knowledge", message=str(e)))
 
-    async def get_user_badges(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_user_badges(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get all badges earned by a user via EARNED_BADGE relationships."""
         query = f"""
         MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.EARNED_BADGE.value}]->(badge:Achievement)
@@ -209,7 +211,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         return Result.ok(result.value or [])
 
     async def check_badge_already_earned(
-        self, user_uid: str, habit_uid: str, badge_id: str
+        self, user_uid: UserUID, habit_uid: str, badge_id: str
     ) -> Result[bool]:
         """Check if user has already earned this badge for this habit."""
         query = f"""
@@ -227,7 +229,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
 
     async def award_badge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         habit_uid: str,
         badge_id: str,
         badge_name: str,
@@ -280,7 +282,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             return Result.fail(result)
         return Result.ok(True)
 
-    async def check_user_badge_earned(self, user_uid: str, badge_id: str) -> Result[bool]:
+    async def check_user_badge_earned(self, user_uid: UserUID, badge_id: str) -> Result[bool]:
         """Check if user has earned a badge (cross-habit, no habit_uid filter)."""
         query = f"""
         MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.EARNED_BADGE.value}]->(badge:Achievement {{badge_id: $badge_id}})
@@ -293,7 +295,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
 
     async def award_user_badge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         badge_id: str,
         badge_name: str,
         badge_description: str,
@@ -340,7 +342,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             return Result.fail(result)
         return Result.ok(True)
 
-    async def get_user_badge_stats(self, user_uid: str) -> Result[Neo4jProperties]:
+    async def get_user_badge_stats(self, user_uid: UserUID) -> Result[Neo4jProperties]:
         """Get aggregated habit stats for badge evaluation in a single query.
 
         Returns:
@@ -434,11 +436,11 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             return Result.fail(Errors.not_found(resource="Goal", identifier=goal_id))
         return Result.ok(get_result.value)
 
-    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
+    async def get_user_goals(self, user_uid: UserUID) -> Result[list[Goal]]:
         """Get all goals for a user. Returns flat list (not paginated tuple)."""
         return await self.list_by_user(user_uid)
 
-    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[list[Goal]]:
+    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Goal]]:
         """List all goals for a user. Returns flat list (not paginated tuple)."""
         page_result: Result[tuple[list[Goal], int]] = await self.get_user_entities(
             user_uid, limit=limit
@@ -472,12 +474,12 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         self.logger.info(f"Added milestone to Goal:{goal_id}")
         return Result.ok(True)
 
-    async def create_user_goal_relationship(self, user_uid: str, goal_uid: str) -> Result[bool]:
+    async def create_user_goal_relationship(self, user_uid: UserUID, goal_uid: str) -> Result[bool]:
         """Create User→Goal OWNS relationship in the graph."""
         rel_result: Result[bool] = await self.create_user_relationship(user_uid, goal_uid)
         return rel_result
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count goal stats: total, active, completed."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, entity_type: 'goal'})
@@ -498,7 +500,9 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             }
         )
 
-    async def find_linked_goals_for_task(self, task_uid: str, user_uid: str) -> Result[list[str]]:
+    async def find_linked_goals_for_task(
+        self, task_uid: str, user_uid: UserUID
+    ) -> Result[list[str]]:
         """Find goal UIDs linked to a task via SUPPORTS_GOAL."""
         query = f"""
         MATCH (goal:Entity {{entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(task:Entity {{uid: $task_uid, entity_type: 'task'}})
@@ -510,7 +514,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             return Result.fail(result)
         return Result.ok([record["goal_uid"] for record in (result.value or [])])
 
-    async def count_linked_tasks(self, goal_uid: str, user_uid: str) -> Result[dict[str, int]]:
+    async def count_linked_tasks(self, goal_uid: str, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count total and completed tasks linked to a goal via SUPPORTS_GOAL."""
         query = f"""
         MATCH (goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(task:Entity {{entity_type: 'task'}})
@@ -532,7 +536,9 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             }
         )
 
-    async def find_linked_goals_for_habit(self, habit_uid: str, user_uid: str) -> Result[list[str]]:
+    async def find_linked_goals_for_habit(
+        self, habit_uid: str, user_uid: UserUID
+    ) -> Result[list[str]]:
         """Find goal UIDs linked to a habit via SUPPORTS_GOAL."""
         query = f"""
         MATCH (goal:Entity {{entity_type: 'goal'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(habit:Entity {{uid: $habit_uid, entity_type: 'habit'}})
@@ -545,7 +551,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         return Result.ok([record["goal_uid"] for record in (result.value or [])])
 
     async def count_linked_habits_avg_streak(
-        self, goal_uid: str, user_uid: str
+        self, goal_uid: str, user_uid: UserUID
     ) -> Result[dict[str, Any]]:
         """Count habits linked to a goal and compute their average streak."""
         query = f"""
@@ -719,7 +725,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
     # LEARNING LOOP METHODS (ADR-048)
     # ========================================================================
 
-    async def get_user_learning_state(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_user_learning_state(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get learning state properties from User node for duration calibration."""
         query = """
         MATCH (u:User {uid: $user_uid})
@@ -735,7 +741,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         return Result.ok(result.value[0])
 
     async def update_user_learning_state(
-        self, user_uid: str, properties: dict[str, Any]
+        self, user_uid: UserUID, properties: dict[str, Any]
     ) -> Result[bool]:
         """Update learning state properties on User node."""
         query = """
@@ -754,7 +760,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
     # HIERARCHY EXTENSIONS (Task-specific)
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count task stats via Cypher COUNT — no entity deserialization."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, entity_type: 'task'})
@@ -907,7 +913,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
             return Result.fail(Errors.not_found(resource="Event", identifier=event_id))
         return Result.ok(get_result.value)
 
-    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[list[Event]]:
+    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Event]]:
         """List all events for a user. Returns flat list (not paginated tuple)."""
         page_result: Result[tuple[list[Event], int]] = await self.get_user_entities(
             user_uid, limit=limit
@@ -917,11 +923,11 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         events, _ = page_result.value
         return Result.ok(events)
 
-    async def get_user_events(self, user_uid: str) -> Result[list[Event]]:
+    async def get_user_events(self, user_uid: UserUID) -> Result[list[Event]]:
         """Get all events for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count event stats: total, scheduled, today."""
         from datetime import date
 
@@ -1043,7 +1049,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
             return Result.fail(Errors.not_found(resource="Choice", identifier=choice_id))
         return Result.ok(get_result.value)
 
-    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[list[Choice]]:
+    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Choice]]:
         """List all choices for a user. Returns flat list (not paginated tuple)."""
         page_result: Result[tuple[list[Choice], int]] = await self.get_user_entities(
             user_uid, limit=limit
@@ -1053,11 +1059,11 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         choices, _ = page_result.value
         return Result.ok(choices)
 
-    async def get_user_choices(self, user_uid: str) -> Result[list[Choice]]:
+    async def get_user_choices(self, user_uid: UserUID) -> Result[list[Choice]]:
         """Get all choices for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count choice stats: total, pending, decided."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, entity_type: 'choice'})
@@ -1078,12 +1084,14 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
             }
         )
 
-    async def create_user_choice_relationship(self, user_uid: str, choice_uid: str) -> Result[bool]:
+    async def create_user_choice_relationship(
+        self, user_uid: UserUID, choice_uid: str
+    ) -> Result[bool]:
         """Create User→Choice OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, choice_uid)
 
     async def get_principle_adherence_data(
-        self, user_uid: str, period_days: int
+        self, user_uid: UserUID, period_days: int
     ) -> Result[list[Neo4jProperties]]:
         """Get choices with principle alignment data for adherence analysis."""
         query = f"""
@@ -1108,7 +1116,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         return await self.execute_query(query, {"user_uid": user_uid, "period_days": period_days})
 
     async def get_choice_principle_conflicts(
-        self, choice_uid: str, user_uid: str
+        self, choice_uid: str, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
         """Get principle alignment and conflicts for a choice."""
         query = f"""
@@ -1138,7 +1146,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         return await self.execute_query(query, {"choice_uid": choice_uid, "user_uid": user_uid})
 
     async def get_life_path_contribution(
-        self, choice_uid: str, user_uid: str
+        self, choice_uid: str, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
         """Get life path contribution data for a choice via principles."""
         query = f"""
@@ -1167,7 +1175,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         return await self.execute_query(query, {"choice_uid": choice_uid, "user_uid": user_uid})
 
     async def get_historical_satisfaction_correlation(
-        self, user_uid: str
+        self, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
         """Get satisfaction scores for aligned vs unaligned choices."""
         query = f"""
@@ -1182,7 +1190,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 
-    async def get_recent_conflict_count(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_recent_conflict_count(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Count recent choices (30 days) with unresolved principle conflicts."""
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
@@ -1222,7 +1230,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
         return Result.ok(get_result.value)
 
-    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[list[Principle]]:
+    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Principle]]:
         """List all principles for a user. Returns flat list (not paginated tuple)."""
         page_result: Result[tuple[list[Principle], int]] = await self.get_user_entities(
             user_uid, limit=limit
@@ -1232,11 +1240,11 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         principles, _ = page_result.value
         return Result.ok(principles)
 
-    async def get_user_principles(self, user_uid: str) -> Result[list[Principle]]:
+    async def get_user_principles(self, user_uid: UserUID) -> Result[list[Principle]]:
         """Get all principles for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count principle stats: total, core, active."""
         query = """
         MATCH (n:Entity {user_uid: $user_uid, entity_type: 'principle'})
@@ -1258,7 +1266,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         )
 
     async def create_user_principle_relationship(
-        self, user_uid: str, principle_uid: str
+        self, user_uid: UserUID, principle_uid: str
     ) -> Result[bool]:
         """Create User→Principle OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, principle_uid)
@@ -1297,7 +1305,9 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     operating across all entity types.
     """
 
-    async def count_submissions_for_exercise(self, user_uid: str, exercise_uid: str) -> Result[int]:
+    async def count_submissions_for_exercise(
+        self, user_uid: UserUID, exercise_uid: str
+    ) -> Result[int]:
         """Count submissions by a user for a specific exercise via FULFILLS_EXERCISE."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(e:Entity {uid: $exercise_uid})
@@ -1313,7 +1323,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         return Result.ok(record.get("count", 0))
 
     async def get_first_submission_for_exercise(
-        self, user_uid: str, exercise_uid: str
+        self, user_uid: UserUID, exercise_uid: str
     ) -> Result[Neo4jProperties | None]:
         """Get earliest submission's uid + created_at for a user+exercise pair."""
         query = """
@@ -1456,7 +1466,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     # ========================================================================
 
     async def create_temporal_relationship(
-        self, ku_uid: str, user_uid: str, entity_type: str
+        self, ku_uid: str, user_uid: UserUID, entity_type: str
     ) -> Result[list[Neo4jProperties]]:
         """Create FOLLOWS relationship to most recent previous submission."""
         query = """
@@ -1475,7 +1485,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         )
 
     async def create_thematic_relationships(
-        self, ku_uid: str, user_uid: str, themes: list[str], shared_topics_str: str
+        self, ku_uid: str, user_uid: UserUID, themes: list[str], shared_topics_str: str
     ) -> Result[list[Neo4jProperties]]:
         """Create RELATED_TO relationships for shared topics."""
         query = """
@@ -1831,7 +1841,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     # ========================================================================
 
     async def get_pending_submissions_raw(
-        self, user_uid: str, submission_types: list[str]
+        self, user_uid: UserUID, submission_types: list[str]
     ) -> Result[list[Neo4jProperties]]:
         """Get submissions without a REPORT_FOR relationship."""
         query = f"""
@@ -1847,7 +1857,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         )
 
     async def get_unsubmitted_exercises_raw(
-        self, user_uid: str, limit: int
+        self, user_uid: UserUID, limit: int
     ) -> Result[list[Neo4jProperties]]:
         """Get exercises assigned via group with no submission yet."""
         query = f"""
@@ -1863,7 +1873,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         return await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
 
     async def get_report_summary_raw(
-        self, user_uid: str, submission_types: list[str]
+        self, user_uid: UserUID, submission_types: list[str]
     ) -> Result[list[Neo4jProperties]]:
         """Get report completion counts for a user's submissions."""
         query = f"""
@@ -2112,7 +2122,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
     # ========================================================================
 
     async def get_unmastered_prerequisites(
-        self, ku_uid: str, user_uid: str
+        self, ku_uid: str, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
         """Get unmastered prerequisites for a knowledge unit (depth 1..3).
 
@@ -2304,7 +2314,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         return Result.ok([record["ls_uid"] for record in records])
 
     async def get_lesson_completion_progress(
-        self, ls_uid: str, user_uid: str
+        self, ls_uid: str, user_uid: UserUID
     ) -> Result[Neo4jProperties]:
         """
         Return total and completed Lesson counts for LS progress calculation.
@@ -2535,7 +2545,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         offset: int,
         order_field: str,
         order_direction: str,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """List step nodes with knowledge relationships, pagination, and optional filters."""
         where_clause = "WHERE s.user_uid = $user_uid " if user_uid else ""
@@ -2714,7 +2724,9 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
         records = result.value or []
         return Result.ok([record["lp_uid"] for record in records])
 
-    async def get_ku_mastery_progress(self, lp_uid: str, user_uid: str) -> Result[Neo4jProperties]:
+    async def get_ku_mastery_progress(
+        self, lp_uid: str, user_uid: UserUID
+    ) -> Result[Neo4jProperties]:
         """
         Return total and mastered KU counts for a user's progress in a learning path.
 
@@ -2862,7 +2874,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         return Result.ok([dict(record) for record in (result.value or [])])
 
     async def create_owns_relationship(
-        self, user_uid: str, exercise_uid: str
+        self, user_uid: UserUID, exercise_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """Create OWNS relationship from user to exercise.
 
@@ -2905,7 +2917,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             {"exercise_uid": exercise_uid, "group_uid": group_uid},
         )
 
-    async def get_user_exercises(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_user_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get all exercises owned by a user via OWNS relationship.
 
         Args:
@@ -2923,7 +2935,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             {"user_uid": user_uid},
         )
 
-    async def get_student_exercises(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get assigned exercises for a student via MEMBER_OF -> Group <- FOR_GROUP.
 
         Args:
@@ -2944,7 +2956,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         )
 
     async def get_student_exercises_with_status(
-        self, user_uid: str
+        self, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
         """Get assigned exercises with submission status for a student.
 
@@ -3267,7 +3279,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def create_share(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         recipient_uid: str,
         role: str,
         share_version: str,
@@ -3298,7 +3310,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def delete_share(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         recipient_uid: str,
     ) -> Result[list[Neo4jProperties]]:
         """Delete SHARES_WITH relationship between recipient and entity."""
@@ -3316,7 +3328,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def update_visibility(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         visibility: str,
     ) -> Result[list[Neo4jProperties]]:
@@ -3341,8 +3353,8 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def query_access(
         self,
-        entity_uid: str,
-        user_uid: str,
+        entity_uid: EntityUID,
+        user_uid: UserUID,
     ) -> Result[list[Neo4jProperties]]:
         """Query ownership, visibility, and share relationships for access check."""
         result = await self.execute_query(
@@ -3364,7 +3376,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def query_shareable_status(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[list[Neo4jProperties]]:
         """Query status and entity_type for shareability check."""
         result = await self.execute_query(
@@ -3380,7 +3392,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def query_ownership_and_status(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[list[Neo4jProperties]]:
         """Query ownership and status for combined ownership + shareable check."""
         result = await self.execute_query(
@@ -3398,7 +3410,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def query_shared_with_users(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[list[Neo4jProperties]]:
         """Get users an entity is shared with."""
         result = await self.execute_query(
@@ -3419,7 +3431,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def query_shared_with_me(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int,
     ) -> Result[list[Neo4jProperties]]:
         """Get entities shared with a user via direct SHARES_WITH."""
@@ -3441,7 +3453,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def create_group_share(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         group_uid: str,
         share_version: str,
         shared_at: str,
@@ -3469,7 +3481,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def delete_group_share(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         group_uid: str,
     ) -> Result[list[Neo4jProperties]]:
         """Delete SHARED_WITH_GROUP relationship."""
@@ -3487,7 +3499,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def query_groups_shared_with(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[list[Neo4jProperties]]:
         """Get groups an entity is shared with."""
         result = await self.execute_query(
@@ -3507,7 +3519,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
     async def query_shared_with_me_via_groups(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int,
     ) -> Result[list[Neo4jProperties]]:
         """Get entities shared with a user through group membership."""
@@ -3657,7 +3669,7 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
     async def create_with_relationships(
         self,
         submission: FormSubmission,
-        user_uid: str,
+        user_uid: UserUID,
         form_template_uid: str,
     ) -> Result[FormSubmission]:
         """Atomically create node + OWNS + RESPONDS_TO_FORM in one transaction."""
@@ -3689,7 +3701,9 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             )
         return Result.ok(from_neo4j_node(dict(records[0]["fs"]), self.entity_class))
 
-    async def list_by_user(self, user_uid: str, limit: int = 50) -> Result[list[dict[str, Any]]]:
+    async def list_by_user(
+        self, user_uid: UserUID, limit: int = 50
+    ) -> Result[list[dict[str, Any]]]:
         """Get a user's form submissions."""
         result = await self.execute_query(
             """
@@ -3713,7 +3727,7 @@ class JournalInputBackend(UniversalNeo4jBackend["JeInput"]):
     Uses NeoLabel.JE_INPUT with base_label=NeoLabel.ENTITY.
     """
 
-    async def count_je_inputs_for_date(self, user_uid: str, entry_date: str) -> Result[int]:
+    async def count_je_inputs_for_date(self, user_uid: UserUID, entry_date: str) -> Result[int]:
         """Count journal entries for a user on a specific date."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(ji:JeInput)
@@ -3728,7 +3742,7 @@ class JournalInputBackend(UniversalNeo4jBackend["JeInput"]):
         return Result.ok(record.get("count", 0))
 
     async def get_ephemeral_je_inputs(
-        self, user_uid: str, limit: int = 100
+        self, user_uid: UserUID, limit: int = 100
     ) -> Result[list[Neo4jProperties]]:
         """Get journal entries with FIFO cleanup enabled (max_retention is not null)."""
         query = """
@@ -3744,7 +3758,7 @@ class JournalInputBackend(UniversalNeo4jBackend["JeInput"]):
         return Result.ok([record["ji"] for record in (result.value or [])])
 
     async def get_je_inputs_by_date_range(
-        self, user_uid: str, start_date: str, end_date: str
+        self, user_uid: UserUID, start_date: str, end_date: str
     ) -> Result[list[Neo4jProperties]]:
         """Get journal entries for a user within a date range (by created_at)."""
         query = """
@@ -3787,7 +3801,7 @@ class JournalOutputBackend(UniversalNeo4jBackend["JeOutput"]):
     async def create_with_transforms(
         self,
         properties: Neo4jProperties,
-        user_uid: str,
+        user_uid: UserUID,
         je_input_uid: str,
     ) -> Result[Neo4jProperties]:
         """Atomically create JeOutput node with OWNS + TRANSFORMS relationships.
@@ -3845,7 +3859,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             return Result.fail(result)
         return Result.ok(True)
 
-    async def get_user_groups(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_user_groups(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get all groups a user is a member of (via MEMBER_OF relationship)."""
         result = await self.execute_query(
             f"""
@@ -3863,7 +3877,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
     async def add_member(
         self,
         group_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         joined_at: str,
         role: str = "student",
     ) -> Result[list[Neo4jProperties]]:
@@ -3888,7 +3902,9 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             return Result.fail(result)
         return Result.ok(result.value or [])
 
-    async def remove_member(self, group_uid: str, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def remove_member(
+        self, group_uid: str, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]:
         """Delete MEMBER_OF relationship between user and group."""
         result = await self.execute_query(
             f"""
@@ -4004,7 +4020,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
     async def annotate(
         self,
         uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         annotation_mode: str,
         now: str,
         user_annotation: str | None = None,
@@ -4031,7 +4047,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
             },
         )
 
-    async def get_annotation(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_annotation(self, uid: str, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get current annotation state for an owned ActivityReport."""
         return await self.execute_query(
             """
@@ -4044,7 +4060,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
         )
 
     async def get_admin_snapshots(
-        self, user_uid: str, limit: int = 50
+        self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[Neo4jProperties]]:
         """Get admin-written ActivityReports received by this user (privacy audit)."""
         return await self.execute_query(
@@ -4061,7 +4077,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
         )
 
     async def get_shares_granted(
-        self, user_uid: str, limit: int = 100
+        self, user_uid: UserUID, limit: int = 100
     ) -> Result[list[Neo4jProperties]]:
         """Get users with active SHARES_WITH access to this user's entities."""
         return await self.execute_query(
@@ -4078,7 +4094,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
             {"user_uid": user_uid, "limit": limit},
         )
 
-    async def get_report_schedule(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_report_schedule(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get active report schedule for user (privacy audit)."""
         return await self.execute_query(
             """
@@ -4196,7 +4212,7 @@ class LateralRelationshipBackend:
 
     async def get_relationships(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         type_filter: str,
         pattern: str,
     ) -> Result[list[Neo4jProperties]]:
@@ -4232,7 +4248,7 @@ class LateralRelationshipBackend:
             {"entity_uid": entity_uid},
         )
 
-    async def get_siblings(self, entity_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_siblings(self, entity_uid: EntityUID) -> Result[list[Neo4jProperties]]:
         """Get sibling entities derived from hierarchy (same parent)."""
         return await self.executor.execute_query(
             """
@@ -4251,7 +4267,7 @@ class LateralRelationshipBackend:
             {"entity_uid": entity_uid},
         )
 
-    async def get_cousins(self, entity_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_cousins(self, entity_uid: EntityUID) -> Result[list[Neo4jProperties]]:
         """Get first-cousin entities (same grandparent, different parent)."""
         return await self.executor.execute_query(
             """
@@ -4270,7 +4286,7 @@ class LateralRelationshipBackend:
             {"entity_uid": entity_uid},
         )
 
-    async def get_blocking_chain(self, entity_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_blocking_chain(self, entity_uid: EntityUID) -> Result[list[Neo4jProperties]]:
         """Get transitive blocking chain with depth levels."""
         return await self.executor.execute_query(
             """
@@ -4288,7 +4304,9 @@ class LateralRelationshipBackend:
             {"uid": entity_uid},
         )
 
-    async def get_alternatives_comparison(self, entity_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_alternatives_comparison(
+        self, entity_uid: EntityUID
+    ) -> Result[list[Neo4jProperties]]:
         """Get alternative entities with side-by-side comparison data."""
         return await self.executor.execute_query(
             """
@@ -4313,7 +4331,7 @@ class LateralRelationshipBackend:
 
     async def get_relationship_graph(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         type_filter: str,
         depth: int,
     ) -> Result[list[Neo4jProperties]]:
@@ -4442,7 +4460,7 @@ class NotificationBackend:
         """
         return await self.executor.execute_query(query, params)
 
-    async def get_unread_count(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_unread_count(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get count of unread notifications for a user."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:HAS_NOTIFICATION]->(n:Notification {read: false})
@@ -4451,7 +4469,7 @@ class NotificationBackend:
         return await self.executor.execute_query(query, {"user_uid": user_uid})
 
     async def get_notifications(
-        self, user_uid: str, limit: int, include_read: bool = True
+        self, user_uid: UserUID, limit: int, include_read: bool = True
     ) -> Result[list[Neo4jProperties]]:
         """Get notifications for a user, unread first."""
         read_filter = "" if include_read else "AND n.read = false"
@@ -4472,7 +4490,7 @@ class NotificationBackend:
         return await self.executor.execute_query(query, {"user_uid": user_uid, "limit": limit})
 
     async def mark_read(
-        self, notification_uid: str, user_uid: str
+        self, notification_uid: str, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
         """Mark a single notification as read."""
         query = """
@@ -4484,7 +4502,7 @@ class NotificationBackend:
             query, {"user_uid": user_uid, "notification_uid": notification_uid}
         )
 
-    async def mark_all_read(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def mark_all_read(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Mark all notifications as read for a user."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:HAS_NOTIFICATION]->(n:Notification {read: false})

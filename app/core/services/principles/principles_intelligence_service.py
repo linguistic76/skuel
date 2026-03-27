@@ -28,6 +28,7 @@ from core.models.relationship_names import RelationshipName
 # - Principle.strength: PrincipleStrength (direct access)
 # - Principle does NOT have adherence_score - use default 0.5 where needed
 from core.models.shared.dual_track import DualTrackResult
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
@@ -140,7 +141,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         return await self.get_principle_with_context(uid, depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, _period_days: int = 30
+        self, user_uid: UserUID, _period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Get principle performance analytics for a user.
@@ -380,7 +381,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
     async def assess_alignment_dual_track(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         user_alignment_level: AlignmentLevel,
         user_evidence: str,
         user_reflection: str | None = None,
@@ -437,7 +438,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         )
 
     async def _calculate_system_alignment_for_dual_track(
-        self, principle: Principle, user_uid: str
+        self, principle: Principle, user_uid: UserUID
     ) -> tuple[AlignmentLevel, float, list[str]]:
         """
         Calculate system alignment from goals and habits.
@@ -713,7 +714,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         )
 
     @requires_graph_intelligence("get_principle_conflict_analysis")
-    async def get_principle_conflict_analysis(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_principle_conflict_analysis(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Analyze conflicts between user's principles
 
@@ -1217,7 +1218,7 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
     async def get_choice_guidance_effectiveness(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         period_days: int = 90,
     ) -> Result[dict[str, Any]]:
         """

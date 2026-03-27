@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -121,7 +122,7 @@ class LifePathService:
 
     async def capture_and_recommend(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         vision_statement: str,
     ) -> Result[dict[str, Any]]:
         """
@@ -182,7 +183,7 @@ class LifePathService:
 
     async def designate_and_calculate(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         life_path_uid: str,
     ) -> Result[dict[str, Any]]:
         """
@@ -241,7 +242,7 @@ class LifePathService:
             }
         )
 
-    async def get_full_status(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_full_status(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Get complete life path status for a user.
 
@@ -321,7 +322,7 @@ class LifePathService:
             }
         )
 
-    async def get_alignment(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_alignment(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Get alignment data for a user.
 
@@ -339,7 +340,7 @@ class LifePathService:
 
         return await self.alignment.calculate_alignment(ctx_result.value)
 
-    async def _build_context(self, user_uid: str) -> Result[UserContext]:
+    async def _build_context(self, user_uid: UserUID) -> Result[UserContext]:
         """Build UserContext via user_service."""
         if not self.user_service:
             from core.services.user.unified_user_context import UserContext
@@ -361,7 +362,7 @@ class LifePathService:
 
     async def check_word_action_alignment(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         user_context: UserContext,
     ) -> Result[WordActionAlignment]:
         """

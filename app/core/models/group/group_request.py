@@ -8,6 +8,8 @@ Handles input validation at the API boundary.
 
 from pydantic import BaseModel, Field
 
+from core.models.type_hints import UserUID
+
 
 class GroupCreateRequest(BaseModel):
     """Request to create a new group."""
@@ -65,7 +67,7 @@ class GroupUpdateRequest(BaseModel):
 class GroupMemberRequest(BaseModel):
     """Request to add or remove a member from a group."""
 
-    user_uid: str = Field(
+    user_uid: UserUID = Field(
         ...,
         description="UID of user to add/remove",
     )

@@ -38,6 +38,7 @@ from datetime import date
 from typing import Any
 
 from core.models.enums import Domain
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -71,7 +72,7 @@ class AnalyticsAggregationService:
     # ========================================================================
 
     async def aggregate_weekly_life_summary(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> dict[str, Any]:
         """
         Generate weekly life summary across ALL 4 layers.
@@ -160,7 +161,7 @@ class AnalyticsAggregationService:
         }
 
     async def aggregate_monthly_life_review(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> dict[str, Any]:
         """
         Generate monthly life review across ALL 7 domains.
@@ -187,7 +188,7 @@ class AnalyticsAggregationService:
         }
 
     async def aggregate_quarterly_progress(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> dict[str, Any]:
         """
         Generate quarterly progress report across ALL 7 domains.
@@ -211,7 +212,7 @@ class AnalyticsAggregationService:
         }
 
     async def aggregate_yearly_review(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> dict[str, Any]:
         """
         Generate yearly review across ALL 7 domains.
@@ -241,7 +242,7 @@ class AnalyticsAggregationService:
     # ========================================================================
 
     async def detect_cross_domain_patterns(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> dict[str, Any]:
         """
         Detect patterns and relationships across domains.

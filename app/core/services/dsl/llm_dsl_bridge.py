@@ -47,6 +47,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from core.models.type_hints import UserUID
 from core.prompts import PROMPT_REGISTRY
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -215,7 +216,7 @@ class LLMDSLBridgeService:
     async def transform(
         self,
         text: str,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         context: dict[str, Any] | None = None,
     ) -> Result[DSLTransformResult]:
         """
@@ -292,7 +293,7 @@ class LLMDSLBridgeService:
     async def transform_with_context(
         self,
         text: str,
-        user_uid: str,
+        user_uid: UserUID,
         active_goals: list[dict[str, str]] | None = None,
         recent_topics: list[str] | None = None,
         user_principles: list[str] | None = None,
@@ -332,7 +333,7 @@ class LLMDSLBridgeService:
     def transform_sync(
         self,
         text: str,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[DSLTransformResult]:
         """
         Synchronous transformation (for non-async contexts).

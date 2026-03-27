@@ -22,6 +22,7 @@ Date: October 26, 2025
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
+from core.models.type_hints import EntityUID
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -647,7 +648,7 @@ class GraphIntelligenceService:
 
     @with_error_handling(error_type="database", uid_param="entity_uid")
     async def get_entity_context(
-        self, entity_uid: str, depth: int = 2
+        self, entity_uid: EntityUID, depth: int = 2
     ) -> Result[Any]:  # Returns Result[GraphContext]
         """
         Get generic graph context for any entity.

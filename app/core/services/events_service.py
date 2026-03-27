@@ -24,6 +24,7 @@ from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeR
 from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.type_hints import EntityUID, UserUID
 from core.ports import get_enum_attr_str, get_enum_value
 from core.ports.query_types import EventUpdatePayload
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -194,7 +195,7 @@ class EventsService(BaseService["EventsOperations", Event]):
     async def get_event(self, event_uid: str) -> Result[Event]:
         return await self.core.get_event(event_uid)
 
-    async def get_user_events(self, user_uid: str) -> Result[list[Event]]:
+    async def get_user_events(self, user_uid: UserUID) -> Result[list[Event]]:
         return await self.core.get_user_events(user_uid)
 
     async def find_events(
@@ -215,7 +216,7 @@ class EventsService(BaseService["EventsOperations", Event]):
 
     async def get_user_items_in_range(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         include_completed: bool = False,
@@ -278,22 +279,24 @@ class EventsService(BaseService["EventsOperations", Event]):
         return await self.habits.get_next_habit_events(user_context)
 
     # Learning integration delegations
-    async def get_learning_events(self, user_uid: str, days_ahead: int = 7) -> Result[list[Event]]:
+    async def get_learning_events(
+        self, user_uid: UserUID, days_ahead: int = 7
+    ) -> Result[list[Event]]:
         return await self.learning.get_learning_events(user_uid, days_ahead)
 
     async def get_events_for_knowledge(
-        self, knowledge_uid: str, user_uid: str, days_ahead: int = 30
+        self, knowledge_uid: str, user_uid: UserUID, days_ahead: int = 30
     ) -> Result[list[Event]]:
         return await self.learning.get_events_for_knowledge(knowledge_uid, user_uid, days_ahead)
 
     async def get_events_for_learning_path(
-        self, learning_path_uid: str, user_uid: str
+        self, learning_path_uid: str, user_uid: UserUID
     ) -> Result[list[Event]]:
         return await self.learning.get_events_for_learning_path(learning_path_uid, user_uid)
 
     async def create_study_session(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uids: list[str],
         event_date: date,
         duration_minutes: int = 60,
@@ -306,7 +309,7 @@ class EventsService(BaseService["EventsOperations", Event]):
 
     async def suggest_spaced_repetition_events(
         self,
-        _user_uid: str,
+        _user_uid: UserUID,
         knowledge_uid: str,
         mastery_level: float = 0.5,
         days_to_schedule: int = 30,
@@ -317,7 +320,7 @@ class EventsService(BaseService["EventsOperations", Event]):
 
     async def create_learning_path_schedule(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         learning_path_uid: str,
         _learning_position: LpPosition,
         study_hours_per_week: int = 5,
@@ -327,7 +330,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         )
 
     async def get_knowledge_reinforcement_stats(
-        self, user_uid: str, knowledge_uid: str, days_back: int = 30
+        self, user_uid: UserUID, knowledge_uid: str, days_back: int = 30
     ) -> Result[dict[str, Any]]:
         return await self.learning.get_knowledge_reinforcement_stats(
             user_uid, knowledge_uid, days_back
@@ -335,13 +338,13 @@ class EventsService(BaseService["EventsOperations", Event]):
 
     # Search delegations
     async def search_events(
-        self, query: str, limit: int = 50, user_uid: str | None = None
+        self, query: str, limit: int = 50, user_uid: UserUID | None = None
     ) -> Result[list[Event]]:
         return await self.search.search(query, limit, user_uid)
 
     async def get_calendar_events(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date | None = None,
         end_date: date | None = None,
         limit: int = 100,
@@ -349,22 +352,22 @@ class EventsService(BaseService["EventsOperations", Event]):
         return await self.search.get_calendar_events(user_uid, start_date, end_date, limit)
 
     async def get_event_history(
-        self, user_uid: str, days_back: int = 90, limit: int = 100
+        self, user_uid: UserUID, days_back: int = 90, limit: int = 100
     ) -> Result[list[Event]]:
         return await self.search.get_history(user_uid, days_back, limit)
 
     async def get_events_due_soon(
-        self, days_ahead: int = 7, user_uid: str | None = None, limit: int = 100
+        self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Event]]:
         return await self.search.get_due_soon(days_ahead, user_uid, limit)
 
     async def get_overdue_events(
-        self, user_uid: str | None = None, limit: int = 100
+        self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Event]]:
         return await self.search.get_overdue(user_uid, limit)
 
     async def get_events_by_status(
-        self, status: str, limit: int = 100, user_uid: str | None = None
+        self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Event]]:
         return await self.search.get_by_status(status, limit, user_uid)
 
@@ -372,7 +375,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         self,
         start_date: date,
         end_date: date,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[Event]]:
         return await self.search.get_in_range(start_date, end_date, user_uid, limit)
@@ -384,7 +387,7 @@ class EventsService(BaseService["EventsOperations", Event]):
 
     # Relationship delegations
     async def get_event_cross_domain_context(
-        self, entity_uid: str, depth: int = 2, min_confidence: float = 0.7
+        self, entity_uid: EntityUID, depth: int = 2, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
 
@@ -419,7 +422,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         return await self.intelligence.get_event_knowledge_reinforcement(uid, depth)
 
     async def analyze_upcoming_events(
-        self, user_uid: str, days_ahead: int = 7
+        self, user_uid: UserUID, days_ahead: int = 7
     ) -> Result[dict[str, Any]]:
         return await self.intelligence.analyze_upcoming_events(user_uid, days_ahead)
 
@@ -436,27 +439,27 @@ class EventsService(BaseService["EventsOperations", Event]):
         )
 
     async def get_attendance_rate(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         return await self.progress.get_attendance_rate(user_uid, period_days)
 
     async def get_quality_trends(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         return await self.progress.get_quality_trends(user_uid, period_days)
 
     async def get_goal_contribution_metrics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         return await self.progress.get_goal_contribution_metrics(user_uid, period_days)
 
     async def get_weekly_summary(
-        self, user_uid: str, weeks_back: int = 4
+        self, user_uid: UserUID, weeks_back: int = 4
     ) -> Result[dict[str, Any]]:
         return await self.progress.get_weekly_summary(user_uid, weeks_back)
 
     async def get_habit_event_stats(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         return await self.progress.get_habit_event_stats(user_uid, period_days)
 
@@ -471,7 +474,7 @@ class EventsService(BaseService["EventsOperations", Event]):
 
     async def suggest_time_slots(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         target_date: date,
         duration_minutes: int = 60,
         preferred_hours: tuple[int, int] = (9, 18),
@@ -482,7 +485,7 @@ class EventsService(BaseService["EventsOperations", Event]):
 
     async def find_next_available_slot(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         duration_minutes: int = 60,
         preferred_hours: tuple[int, int] = (9, 18),
         days_to_search: int = 7,
@@ -493,7 +496,7 @@ class EventsService(BaseService["EventsOperations", Event]):
 
     async def optimize_recurring_schedule(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         pattern: RecurrencePattern,
         preferred_time: time | None = None,
         days_to_schedule: int = 30,
@@ -504,7 +507,7 @@ class EventsService(BaseService["EventsOperations", Event]):
 
     async def create_recurring_events(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         title: str,
         pattern: RecurrencePattern,
         duration_minutes: int = 60,
@@ -523,12 +526,12 @@ class EventsService(BaseService["EventsOperations", Event]):
         )
 
     async def get_busy_times(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, list[dict[str, str]]]]:
         return await self.scheduling.get_busy_times(user_uid, start_date, end_date)
 
     async def get_calendar_density(
-        self, user_uid: str, days_ahead: int = 14
+        self, user_uid: UserUID, days_ahead: int = 14
     ) -> Result[dict[str, Any]]:
         return await self.scheduling.get_calendar_density(user_uid, days_ahead)
 
@@ -601,13 +604,13 @@ class EventsService(BaseService["EventsOperations", Event]):
     # ========================================================================
 
     async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> Result[dict[str, Any]]:
         """Generate knowledge suggestions from entity patterns."""
         return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
 
     async def generate_knowledge_from_entities(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Generate knowledge units from completed entities."""
         return await self.knowledge_intelligence.generate_knowledge_from_entities(
@@ -615,12 +618,12 @@ class EventsService(BaseService["EventsOperations", Event]):
         )
 
     async def get_knowledge_prerequisites(
-        self, entity_uid: str
+        self, entity_uid: EntityUID
     ) -> Result[KnowledgePrerequisitesResult]:
         """Analyze knowledge prerequisites for an entity."""
         return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
 
-    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Discover learning opportunities from entity patterns."""
         return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
@@ -659,7 +662,7 @@ class EventsService(BaseService["EventsOperations", Event]):
     # ========================================================================
 
     async def create_user_event_relationship(
-        self, user_uid: str, event_uid: str, participation_type: str = "scheduled"
+        self, user_uid: UserUID, event_uid: str, participation_type: str = "scheduled"
     ) -> Result[bool]:
         """Create User→Event relationship in graph."""
         properties = (
@@ -693,7 +696,9 @@ class EventsService(BaseService["EventsOperations", Event]):
             return Result.fail(result)
         return Result.ok(result.value > 0)
 
-    async def get_events_supporting_goal(self, goal_uid: str, user_uid: str) -> Result[list[Event]]:
+    async def get_events_supporting_goal(
+        self, goal_uid: str, user_uid: UserUID
+    ) -> Result[list[Event]]:
         """Get all events that support a specific goal."""
         # Get event UIDs linked to the goal
         event_uids_result = await self.relationships.get_related_uids("goals", goal_uid)
@@ -728,7 +733,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         )
 
     async def find_events_reinforcing_knowledge(
-        self, knowledge_uid: str, user_uid: str, min_confidence: float = 0.8
+        self, knowledge_uid: str, user_uid: UserUID, min_confidence: float = 0.8
     ) -> Result[list[Event]]:
         """Find events that reinforce specific knowledge."""
         return await self.relationships.find_by_semantic_filter(
@@ -1162,7 +1167,7 @@ class EventsService(BaseService["EventsOperations", Event]):
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status_filter: str = "scheduled",
         sort_by: str = "start_time",
     ) -> Result[ListContext]:

@@ -24,6 +24,7 @@ each relationship service's creation methods from ~15 LOC → 3 LOC.
 from typing import Any, TypeVar
 
 from core.models.enums import Domain
+from core.models.type_hints import EntityUID, UserUID
 from core.services.base_service import BaseService
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -209,8 +210,8 @@ class RelationshipCreator[T, DTO]:
 
     async def create_user_relationship(
         self,
-        user_uid: str,
-        entity_uid: str,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
         relationship_label: str,
         properties: dict[str, Any] | None = None,
         backend_method: str | None = None,
@@ -239,7 +240,7 @@ class RelationshipCreator[T, DTO]:
             ```python
             # Usage example:
             async def create_user_habit_relationship(
-                self, user_uid: str, habit_uid: str, commitment_level: str = "active"
+                self, user_uid: UserUID, habit_uid: str, commitment_level: str = "active"
             ) -> Result[bool]:
                 return await self.relationship_helper.create_user_relationship(
                     user_uid=user_uid,
@@ -270,7 +271,7 @@ class RelationshipCreator[T, DTO]:
     @with_error_handling(error_type="database", uid_param="entity_uid")
     async def get_cross_domain_context(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         depth: int = 2,
         min_confidence: float = 0.7,
         backend_method: str | None = None,

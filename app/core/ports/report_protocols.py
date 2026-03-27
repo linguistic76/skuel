@@ -36,6 +36,7 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -113,7 +114,7 @@ class SubmissionReportOperations(Protocol):
         self,
         entry: Any,
         exercise: Any,
-        user_uid: str,
+        user_uid: UserUID,
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> "Result[ExerciseReport]":
@@ -154,7 +155,7 @@ class ProgressReportOperations(Protocol):
 
     async def generate(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         time_period: str = "7d",
         domains: list[str] | None = None,
         depth: str = "standard",
@@ -174,7 +175,7 @@ class ProgressScheduleOperations(Protocol):
 
     async def create_schedule(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         schedule_type: str = "weekly",
         day_of_week: int = 0,
         domains: list[str] | None = None,
@@ -183,7 +184,7 @@ class ProgressScheduleOperations(Protocol):
         """Create a recurring progress report schedule. Returns Result[ReportSchedule]."""
         ...
 
-    async def get_user_schedule(self, user_uid: str) -> "Result[ReportSchedule | None]":
+    async def get_user_schedule(self, user_uid: UserUID) -> "Result[ReportSchedule | None]":
         """Get the user's active report schedule. Returns Result[ReportSchedule | None]."""
         ...
 
@@ -240,7 +241,7 @@ class ActivityReportOperations(Protocol):
     async def annotate(
         self,
         uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         annotation_mode: str,
         user_annotation: str | None = None,
         user_revision: str | None = None,
@@ -248,11 +249,11 @@ class ActivityReportOperations(Protocol):
         """Save user annotation or revision to an owned ActivityReport. Returns Result[AnnotationResult]."""
         ...
 
-    async def get_annotation(self, uid: str, user_uid: str) -> "Result[AnnotationState]":
+    async def get_annotation(self, uid: str, user_uid: UserUID) -> "Result[AnnotationState]":
         """Get current annotation state for an owned ActivityReport. Returns Result[AnnotationState]."""
         ...
 
-    async def get_privacy_summary(self, user_uid: str) -> "Result[PrivacySummary]":
+    async def get_privacy_summary(self, user_uid: UserUID) -> "Result[PrivacySummary]":
         """Return privacy-transparency summary for the user (admin snapshots, shares, schedule).
 
         User-facing — always scoped to the requesting user's own data.
@@ -273,7 +274,7 @@ class ReviewQueueOperations(Protocol):
 
     async def request_review(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         time_period: str = "7d",
         domains: list[str] | None = None,
         message: str | None = None,
@@ -298,11 +299,11 @@ class ReportRelationshipOperations(Protocol):
     Implementation: ReportRelationshipService
     """
 
-    async def get_pending_submissions(self, user_uid: str) -> Result[list[str]]: ...
+    async def get_pending_submissions(self, user_uid: UserUID) -> Result[list[str]]: ...
     async def get_unsubmitted_exercises(
-        self, user_uid: str, limit: int = 5
+        self, user_uid: UserUID, limit: int = 5
     ) -> Result[list[dict[str, str | None]]]: ...
-    async def get_report_summary(self, user_uid: str) -> Result[dict[str, int]]: ...
+    async def get_report_summary(self, user_uid: UserUID) -> Result[dict[str, int]]: ...
     async def get_learning_loop_chain(self, exercise_uid: str) -> Result[dict[str, Any]]: ...
     async def get_submission_chain(self, submission_uid: str) -> Result[dict[str, Any]]: ...
 

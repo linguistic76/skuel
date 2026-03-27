@@ -27,6 +27,7 @@ Subscribers:
 from dataclasses import dataclass, field
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # LEARNING STEP EVENTS
@@ -111,7 +112,7 @@ class LearningStepCompleted(BaseEvent):
     """
 
     ls_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Completion context
     linked_lp_uid: str | None = None

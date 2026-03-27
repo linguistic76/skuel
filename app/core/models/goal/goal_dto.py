@@ -19,6 +19,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from datetime import date, datetime
 
@@ -107,7 +109,7 @@ class GoalDTO(UserOwnedDTO):
     # =========================================================================
 
     @classmethod
-    def create_goal(cls, user_uid: str, title: str, **kwargs: Any) -> GoalDTO:
+    def create_goal(cls, user_uid: UserUID, title: str, **kwargs: Any) -> GoalDTO:
         """Create a GoalDTO with generated UID and correct defaults."""
         from core.utils.uid_generator import UIDGenerator
 

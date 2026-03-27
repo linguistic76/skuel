@@ -17,6 +17,7 @@ Architecture:
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -1293,7 +1294,7 @@ class UserContextQueryExecutor:
     @with_error_handling("execute_mega_query", error_type="database", uid_param="user_uid")
     async def execute_mega_query(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         min_confidence: float = 0.7,
         window_start: datetime | None = None,
         window_end: datetime | None = None,
@@ -1344,7 +1345,7 @@ class UserContextQueryExecutor:
         return Result.ok(record["result"])
 
     @with_error_handling("fetch_current_lesson_uids", error_type="database", uid_param="user_uid")
-    async def fetch_current_lesson_uids(self, user_uid: str) -> Result[list[str]]:
+    async def fetch_current_lesson_uids(self, user_uid: UserUID) -> Result[list[str]]:
         """Fetch lesson UIDs for KUs the user is currently LEARNING."""
         query = """
         MATCH (user:User {uid: $user_uid})-[r:LEARNING]->(ku:Entity)
@@ -1363,7 +1364,7 @@ class UserContextQueryExecutor:
         return Result.ok(records[0].get("lesson_uids", []))
 
     @with_error_handling("execute_consolidated_query", error_type="database", uid_param="user_uid")
-    async def execute_consolidated_query(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def execute_consolidated_query(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Execute the consolidated query for standard context (UIDs only).
 

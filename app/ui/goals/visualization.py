@@ -27,6 +27,7 @@ Usage:
 
 from fasthtml.common import H3, Canvas, Div, Link, P, Script, Span
 
+from core.models.type_hints import UserUID
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Loading, LoadingT
@@ -138,7 +139,7 @@ def create_chart_view(
 
 
 def create_completion_chart(
-    user_uid: str,
+    user_uid: UserUID,
     period: str = "week",
     title: str = "Task Completion Rate",
 ) -> Div:
@@ -177,7 +178,7 @@ def create_distribution_chart(
 
 
 def create_streak_chart(
-    user_uid: str,
+    user_uid: UserUID,
     title: str = "Habit Streaks",
 ) -> Div:
     """
@@ -297,7 +298,7 @@ def create_timeline_view(
 
 
 def create_calendar_timeline(
-    user_uid: str,
+    user_uid: UserUID,
     start_date: str | None = None,
     end_date: str | None = None,
     title: str = "Schedule Timeline",
@@ -325,7 +326,7 @@ def create_calendar_timeline(
 
 
 def create_tasks_timeline(
-    user_uid: str,
+    user_uid: UserUID,
     project: str | None = None,
     title: str = "Tasks Timeline",
 ) -> Div:
@@ -465,7 +466,7 @@ def create_project_gantt(
 
 
 def create_tasks_gantt(
-    user_uid: str,
+    user_uid: UserUID,
     project: str | None = None,
     title: str = "Tasks Gantt",
 ) -> Div:
@@ -494,7 +495,7 @@ def create_tasks_gantt(
 
 
 def create_visualization_dashboard(
-    user_uid: str,
+    user_uid: UserUID,
     include_charts: bool = True,
     include_timeline: bool = True,
     include_gantt: bool = False,

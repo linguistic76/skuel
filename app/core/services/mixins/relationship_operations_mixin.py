@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import EntityUID
 from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -85,7 +86,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         ...
 
     def _validate_prerequisites(
-        self, entity_uid: str, prerequisite_uids: builtins.list[str]
+        self, entity_uid: EntityUID, prerequisite_uids: builtins.list[str]
     ) -> Result[None] | None:
         """Validation hook - override in subclass."""
         return None
@@ -312,7 +313,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     async def add_prerequisite(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         prerequisite_uid: str,
         confidence: float = 1.0,
     ) -> Result[bool]:

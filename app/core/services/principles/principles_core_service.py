@@ -22,6 +22,7 @@ from core.models.enums.principle_enums import PrincipleCategory, PrincipleStreng
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -366,7 +367,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
         return Result.ok(updated_principle)
 
     @with_error_handling("get_user_principles", error_type="database", uid_param="user_uid")
-    async def get_user_principles(self, user_uid: str) -> Result[list[Principle]]:
+    async def get_user_principles(self, user_uid: UserUID) -> Result[list[Principle]]:
         """
         Get all principles for a user.
 
@@ -472,7 +473,7 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
     @with_error_handling("get_user_items_in_range", error_type="database", uid_param="user_uid")
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Principle]]:
         """
         Get user's principles - standard interface for meta-services.
@@ -673,11 +674,11 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count principle stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    async def get_for_user_filtered(self, user_uid: str) -> Result[list[Principle]]:
+    async def get_for_user_filtered(self, user_uid: UserUID) -> Result[list[Principle]]:
         """Fetch all principles for user (category/strength filtering stays Python-side)."""
         result = await self.backend.find_by(user_uid=user_uid)
         if result.is_error:

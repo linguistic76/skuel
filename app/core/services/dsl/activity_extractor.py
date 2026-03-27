@@ -50,6 +50,7 @@ from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
 from core.models.entity_types import SubmissionEntity
+from core.models.type_hints import UserUID
 from core.ports.base_protocols import HasUID
 from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,
@@ -99,7 +100,7 @@ class HasCreateMethod(Protocol):
 class HasCreateHabitMethod(Protocol):
     """Protocol for services with create_habit() method."""
 
-    async def create_habit(self, data: dict[str, Any], user_uid: str) -> Result[Any]:
+    async def create_habit(self, data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
         """Create a habit."""
         ...
 
@@ -108,7 +109,7 @@ class HasCreateHabitMethod(Protocol):
 class HasCreateGoalMethod(Protocol):
     """Protocol for services with create_goal() method."""
 
-    async def create_goal(self, data: dict[str, Any], user_uid: str) -> Result[Any]:
+    async def create_goal(self, data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
         """Create a goal."""
         ...
 
@@ -117,7 +118,7 @@ class HasCreateGoalMethod(Protocol):
 class HasCreateEventMethod(Protocol):
     """Protocol for services with create_event() method."""
 
-    async def create_event(self, data: dict[str, Any], user_uid: str) -> Result[Any]:
+    async def create_event(self, data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
         """Create an event."""
         ...
 
@@ -144,7 +145,7 @@ class ActivityExtractionResult:
 
     # Source
     report_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # ========================================================================
     # PARSED ACTIVITIES - FOUND COUNTS
@@ -500,7 +501,7 @@ class ActivityExtractorService:
     async def extract_and_create(
         self,
         report: SubmissionEntity,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[ActivityExtractionResult]:
         """
         Extract Activity Lines from submission and create corresponding entities.
@@ -775,7 +776,9 @@ class ActivityExtractorService:
     # ========================================================================
 
     @with_error_handling(error_type="system", operation="create_task")
-    async def _create_task(self, activity: ParsedActivityLine, user_uid: str) -> Result[str | None]:
+    async def _create_task(
+        self, activity: ParsedActivityLine, user_uid: UserUID
+    ) -> Result[str | None]:
         """
         Create a task from parsed activity.
 
@@ -801,7 +804,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_habit")
     async def _create_habit(
-        self, activity: ParsedActivityLine, user_uid: str
+        self, activity: ParsedActivityLine, user_uid: UserUID
     ) -> Result[str | None]:
         """
         Create a habit from parsed activity.
@@ -855,7 +858,9 @@ class ActivityExtractorService:
         return Result.ok(habit_uid)
 
     @with_error_handling(error_type="system", operation="create_goal")
-    async def _create_goal(self, activity: ParsedActivityLine, user_uid: str) -> Result[str | None]:
+    async def _create_goal(
+        self, activity: ParsedActivityLine, user_uid: UserUID
+    ) -> Result[str | None]:
         """
         Create a goal from parsed activity.
 
@@ -908,7 +913,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_event")
     async def _create_event(
-        self, activity: ParsedActivityLine, user_uid: str
+        self, activity: ParsedActivityLine, user_uid: UserUID
     ) -> Result[str | None]:
         """
         Create an event from parsed activity.
@@ -962,7 +967,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_principle")
     async def _create_principle(
-        self, activity: ParsedActivityLine, user_uid: str
+        self, activity: ParsedActivityLine, user_uid: UserUID
     ) -> Result[str | None]:
         """
         Create a principle from parsed activity.
@@ -1001,7 +1006,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_choice")
     async def _create_choice(
-        self, activity: ParsedActivityLine, user_uid: str
+        self, activity: ParsedActivityLine, user_uid: UserUID
     ) -> Result[str | None]:
         """
         Create a choice from parsed activity.
@@ -1040,7 +1045,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_finance")
     async def _create_finance(
-        self, activity: ParsedActivityLine, user_uid: str
+        self, activity: ParsedActivityLine, user_uid: UserUID
     ) -> Result[str | None]:
         """
         Create a finance entry (expense) from parsed activity.
@@ -1082,7 +1087,9 @@ class ActivityExtractorService:
     # ========================================================================
 
     @with_error_handling(error_type="system", operation="create_ku")
-    async def _create_ku(self, activity: ParsedActivityLine, user_uid: str) -> Result[str | None]:
+    async def _create_ku(
+        self, activity: ParsedActivityLine, user_uid: UserUID
+    ) -> Result[str | None]:
         """
         Create a KnowledgeUnit from parsed activity.
 
@@ -1117,7 +1124,9 @@ class ActivityExtractorService:
         return Result.ok(ku_uid)
 
     @with_error_handling(error_type="system", operation="create_ls")
-    async def _create_ls(self, activity: ParsedActivityLine, user_uid: str) -> Result[str | None]:
+    async def _create_ls(
+        self, activity: ParsedActivityLine, user_uid: UserUID
+    ) -> Result[str | None]:
         """
         Create a LearningStep from parsed activity.
 
@@ -1152,7 +1161,9 @@ class ActivityExtractorService:
         return Result.ok(ls_uid)
 
     @with_error_handling(error_type="system", operation="create_lp")
-    async def _create_lp(self, activity: ParsedActivityLine, user_uid: str) -> Result[str | None]:
+    async def _create_lp(
+        self, activity: ParsedActivityLine, user_uid: UserUID
+    ) -> Result[str | None]:
         """
         Create a LearningPath from parsed activity.
 
@@ -1192,7 +1203,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_report")
     async def _create_report(
-        self, activity: ParsedActivityLine, user_uid: str
+        self, activity: ParsedActivityLine, user_uid: UserUID
     ) -> Result[str | None]:
         """
         Create a Submission from parsed activity.
@@ -1235,7 +1246,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_analytics")
     async def _create_analytics(
-        self, activity: ParsedActivityLine, user_uid: str
+        self, activity: ParsedActivityLine, user_uid: UserUID
     ) -> Result[str | None]:
         """
         Create/trigger an Analytics report from parsed activity.
@@ -1279,7 +1290,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_calendar_item")
     async def _create_calendar_item(
-        self, activity: ParsedActivityLine, user_uid: str
+        self, activity: ParsedActivityLine, user_uid: UserUID
     ) -> Result[str | None]:
         """
         Create a Calendar item from parsed activity.
@@ -1324,7 +1335,7 @@ class ActivityExtractorService:
 
     @with_error_handling(error_type="system", operation="create_lifepath")
     async def _create_lifepath(
-        self, activity: ParsedActivityLine, user_uid: str
+        self, activity: ParsedActivityLine, user_uid: UserUID
     ) -> Result[str | None]:
         """
         Create/update a LifePath alignment from parsed activity.

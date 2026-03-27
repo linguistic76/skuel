@@ -9,11 +9,16 @@ from typing import Any
 
 from fasthtml.common import H2, H3, A, Div, P, Span
 
+from core.models.type_hints import UserUID
 from core.services.user.unified_user_context import UserContext
 from ui.patterns.empty_state import EmptyState
 
 
-def KnowledgeDomainView(context: UserContext, services: Any = None, user_uid: str = "") -> Div:
+def KnowledgeDomainView(
+    context: UserContext,
+    services: Any = None,
+    user_uid: UserUID = "",  # type: ignore[assignment]
+) -> Div:
     """Knowledge domain: all KUs with user's VIEWED/BOOKMARKED status.
 
     Queries Neo4j for all Entity nodes and enriches with per-user relationships.

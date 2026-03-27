@@ -21,6 +21,7 @@ from datetime import date
 from typing import Any
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -35,7 +36,7 @@ class CalendarEventCreated(BaseEvent):
     """
 
     event_uid: str
-    user_uid: str
+    user_uid: UserUID
     title: str
     event_date: date
     calendar_event_type: str
@@ -58,7 +59,7 @@ class CalendarEventUpdated(BaseEvent):
     """
 
     event_uid: str
-    user_uid: str
+    user_uid: UserUID
     updated_fields: dict[str, Any]
     metadata: dict[str, Any] | None = None
 
@@ -79,7 +80,7 @@ class CalendarEventCompleted(BaseEvent):
     """
 
     event_uid: str
-    user_uid: str
+    user_uid: UserUID
     completion_date: date
     quality_score: int | None
     metadata: dict[str, Any] | None = None
@@ -101,7 +102,7 @@ class CalendarEventDeleted(BaseEvent):
     """
 
     event_uid: str
-    user_uid: str
+    user_uid: UserUID
     title: str
     metadata: dict[str, Any] | None = None
 
@@ -122,7 +123,7 @@ class CalendarEventRescheduled(BaseEvent):
     """
 
     event_uid: str
-    user_uid: str
+    user_uid: UserUID
     old_date: date
     new_date: date
     metadata: dict[str, Any] | None = None

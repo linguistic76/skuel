@@ -23,6 +23,7 @@ from core.events.journal_events import JeInputCreated, JeInputDeleted
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.journal.je_input import JeInput
 from core.models.journal.je_input_dto import JeInputDTO
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -57,7 +58,7 @@ class JournalInputService:
 
     async def create_journal_entry(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         content: str | None = None,
         mood: str | None = None,
         energy_level: str | None = None,
@@ -122,7 +123,7 @@ class JournalInputService:
         self,
         file_content: bytes,
         original_filename: str,
-        user_uid: str,
+        user_uid: UserUID,
         file_type: str | None = None,
         instructions: str | None = None,
         max_retention: int | None = None,
@@ -216,7 +217,7 @@ class JournalInputService:
 
     async def list_je_inputs(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -242,7 +243,7 @@ class JournalInputService:
 
     async def get_je_inputs_by_date_range(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
     ) -> Result[list[JeInput]]:
@@ -263,7 +264,7 @@ class JournalInputService:
     # LIFECYCLE
     # =========================================================================
 
-    async def make_permanent(self, uid: str, user_uid: str) -> Result[bool]:
+    async def make_permanent(self, uid: str, user_uid: UserUID) -> Result[bool]:
         """Make an ephemeral journal entry permanent (disable FIFO cleanup)."""
         # Verify ownership
         get_result = await self.backend.get(uid)
@@ -283,7 +284,7 @@ class JournalInputService:
         logger.info(f"JeInput made permanent: {uid}")
         return Result.ok(True)
 
-    async def delete_je_input(self, uid: str, user_uid: str) -> Result[bool]:
+    async def delete_je_input(self, uid: str, user_uid: UserUID) -> Result[bool]:
         """Delete a journal entry input and its associated files."""
         # Verify ownership
         get_result = await self.backend.get(uid)
@@ -328,7 +329,7 @@ class JournalInputService:
     # =========================================================================
 
     async def generate_journal_title(
-        self, user_uid: str, entry_date: date | None = None
+        self, user_uid: UserUID, entry_date: date | None = None
     ) -> Result[str]:
         """Generate a sequential title for a new journal entry."""
         effective_date = entry_date or date.today()

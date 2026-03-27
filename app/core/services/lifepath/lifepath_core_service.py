@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import AlignmentLevel
+from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -58,7 +59,7 @@ class LifePathCoreService:
         self.lp_service = lp_service
         logger.info("LifePathCoreService initialized")
 
-    async def get_designation(self, user_uid: str) -> Result[LifePathDesignation | None]:
+    async def get_designation(self, user_uid: UserUID) -> Result[LifePathDesignation | None]:
         """
         Get user's current life path designation.
 
@@ -126,7 +127,7 @@ class LifePathCoreService:
 
     async def save_vision(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         vision_statement: str,
         vision_themes: list[str],
     ) -> Result[LifePathDesignation]:
@@ -194,7 +195,7 @@ class LifePathCoreService:
 
     async def designate_life_path(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         life_path_uid: str,
     ) -> Result[LifePathDesignation]:
         """
@@ -287,7 +288,7 @@ class LifePathCoreService:
                 Errors.database("designate_life_path", f"Failed to designate life path: {e}")
             )
 
-    async def remove_designation(self, user_uid: str) -> Result[bool]:
+    async def remove_designation(self, user_uid: UserUID) -> Result[bool]:
         """
         Remove user's life path designation.
 
@@ -339,7 +340,7 @@ class LifePathCoreService:
 
     async def update_alignment_score(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         alignment_score: float,
         dimension_scores: dict[str, float] | None = None,
     ) -> Result[bool]:

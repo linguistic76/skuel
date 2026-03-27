@@ -25,6 +25,7 @@ from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
 from core.models.report.submission_report import SubmissionReport
 from core.models.submissions.submission import Submission
+from core.models.type_hints import UserUID
 from core.services.llm_caller import LLMCallerProtocol
 from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -82,7 +83,7 @@ class SubmissionReportService:
         self,
         entry: Submission,
         exercise: Exercise,
-        user_uid: str,
+        user_uid: UserUID,
         temperature: float = 0.7,
         max_tokens: int = 4000,
     ) -> Result[SubmissionReport]:
@@ -165,7 +166,7 @@ class SubmissionReportService:
         submission: Submission,
         exercise: Exercise,
         feedback_text: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[SubmissionReport]:
         """
         Persist AI report as a SUBMISSION_REPORT entity in Neo4j.
@@ -282,7 +283,7 @@ class SubmissionReportService:
     async def _update_mastery_for_linked_ku(
         self,
         submission: Submission,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> None:
         """
         Update MASTERED relationships on Ku nodes linked to the submission.
@@ -341,7 +342,7 @@ class SubmissionReportService:
         submission: Submission,
         exercise: Exercise,
         feedback_text: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[SubmissionReport]:
         """Build a non-persisted SubmissionReport object for graceful degradation."""
         title = (

@@ -33,6 +33,7 @@ See: /docs/architecture/LATERAL_RELATIONSHIPS_CORE.md
 from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
     from core.ports.service_protocols import LateralRelationshipBackendOperations
@@ -70,7 +71,7 @@ class LateralRelationshipService:
         metadata: dict[str, Any] | None = None,
         validate: bool = True,
         auto_inverse: bool = True,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         domain_service: Any | None = None,
     ) -> Result[bool]:
         """
@@ -156,7 +157,7 @@ class LateralRelationshipService:
         target_uid: str,
         relationship_type: RelationshipName,
         delete_inverse: bool = True,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         domain_service: Any | None = None,
     ) -> Result[bool]:
         """
@@ -218,11 +219,11 @@ class LateralRelationshipService:
 
     async def get_lateral_relationships(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         relationship_types: list[RelationshipName] | None = None,
         direction: str = "outgoing",  # "outgoing", "incoming", "both"
         include_metadata: bool = True,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         domain_service: Any | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -277,9 +278,9 @@ class LateralRelationshipService:
 
     async def get_siblings(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         include_explicit_only: bool = False,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         domain_service: Any | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -332,7 +333,7 @@ class LateralRelationshipService:
 
     async def get_cousins(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         degree: int = 1,  # 1st cousins, 2nd cousins, etc.
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -545,7 +546,7 @@ class LateralRelationshipService:
 
     async def get_blocking_chain(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         max_depth: int = 10,
     ) -> Result[dict[str, Any]]:
         """
@@ -627,7 +628,7 @@ class LateralRelationshipService:
 
     async def get_alternatives_with_comparison(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         comparison_fields: list[str] | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -694,7 +695,7 @@ class LateralRelationshipService:
 
     async def get_relationship_graph(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         depth: int = 2,
         relationship_types: list[RelationshipName] | None = None,
     ) -> Result[dict[str, Any]]:

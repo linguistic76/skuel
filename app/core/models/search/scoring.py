@@ -44,6 +44,8 @@ from datetime import date
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
+from core.models.type_hints import EntityUID
+
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
     from core.models.enums import Priority
@@ -142,7 +144,7 @@ class PriorityScore:
 
     total: float  # Final score (0.0-1.0)
     components: tuple[ComponentScore, ...] = ()
-    entity_uid: str = ""
+    entity_uid: EntityUID = ""  # type: ignore[assignment]
     entity_type: str = ""
 
     @property

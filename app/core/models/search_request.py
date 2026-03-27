@@ -71,6 +71,7 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # FACET MODELS
@@ -350,7 +351,9 @@ class SearchRequest(BaseModel):
 
     include_facet_counts: bool = Field(True, description="Include facet counts for UI filters")
 
-    user_uid: str | None = Field(None, description="User ID for personalized results (optional)")
+    user_uid: UserUID | None = Field(
+        None, description="User ID for personalized results (optional)"
+    )
 
     @field_validator("query_text")
     @classmethod
@@ -694,7 +697,7 @@ class SearchRequest(BaseModel):
         cls,
         *,
         query: str = "",
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         entity_type: str | None = None,
         _sort_order: str = "relevance",  # Placeholder — not yet implemented
         # Common filters

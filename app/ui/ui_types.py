@@ -18,6 +18,8 @@ Pattern:
 from dataclasses import dataclass
 from datetime import date
 
+from core.models.type_hints import UserUID
+
 
 @dataclass(frozen=True)
 class HabitMigration:
@@ -97,7 +99,7 @@ class AskesisData:
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     intelligence_confidence: float
     conversation_style: str
     is_conversation_ready: bool
@@ -179,7 +181,7 @@ class UserLearningOverview:
         learning_stats: Overall learning statistics
     """
 
-    user_uid: str
+    user_uid: UserUID
     active_paths: list[ActivePathData]
     recent_achievements: list[AchievementData]
     learning_stats: LearningStatsData

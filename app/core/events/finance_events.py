@@ -19,6 +19,7 @@ from datetime import date
 from typing import Any
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class ExpenseCreated(BaseEvent):
     """
 
     expense_uid: str
-    user_uid: str
+    user_uid: UserUID
     description: str
     amount: float
     category: str
@@ -58,7 +59,7 @@ class ExpenseUpdated(BaseEvent):
     """
 
     expense_uid: str
-    user_uid: str
+    user_uid: UserUID
     updated_fields: dict[str, Any]
     metadata: dict[str, Any] | None = None
 
@@ -79,7 +80,7 @@ class ExpenseDeleted(BaseEvent):
     """
 
     expense_uid: str
-    user_uid: str
+    user_uid: UserUID
     description: str
     amount: float
     metadata: dict[str, Any] | None = None
@@ -101,7 +102,7 @@ class ExpensePaid(BaseEvent):
     """
 
     expense_uid: str
-    user_uid: str
+    user_uid: UserUID
     amount: float
     payment_date: date
     metadata: dict[str, Any] | None = None

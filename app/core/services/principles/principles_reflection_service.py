@@ -33,6 +33,7 @@ from core.models.enums.principle_enums import AlignmentLevel
 from core.models.principle.reflection import PrincipleReflection
 from core.models.principle.reflection_dto import PrincipleReflectionDTO
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -124,7 +125,7 @@ class PrinciplesReflectionService:
     async def save_reflection(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         alignment_level: AlignmentLevel,
         evidence: str,
         reflection_notes: str | None = None,
@@ -215,7 +216,7 @@ class PrinciplesReflectionService:
         self,
         reflection_uid: str,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         trigger_type: str | None,
         trigger_uid: str | None,
         conflicting_principle_uids: Sequence[str] | None,
@@ -294,7 +295,7 @@ class PrinciplesReflectionService:
     async def get_reflections_for_principle(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 50,
     ) -> Result[list[PrincipleReflection]]:
         """
@@ -338,7 +339,7 @@ class PrinciplesReflectionService:
     @with_error_handling("get_recent_reflections", error_type="database")
     async def get_recent_reflections(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         days: int = 7,
         limit: int = 20,
     ) -> Result[list[PrincipleReflection]]:
@@ -391,7 +392,7 @@ class PrinciplesReflectionService:
     async def calculate_alignment_trend(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         days: int = 30,
     ) -> Result[AlignmentTrend]:
         """
@@ -510,7 +511,7 @@ class PrinciplesReflectionService:
     async def get_cross_domain_insights(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[list[CrossDomainInsight]]:
         """
         Get insights about which domains align best with a principle.
@@ -580,7 +581,7 @@ class PrinciplesReflectionService:
     @with_error_handling("get_reflection_frequency", error_type="database")
     async def get_reflection_frequency(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         days: int = 30,
     ) -> Result[dict[str, Any]]:
         """
@@ -643,7 +644,7 @@ class PrinciplesReflectionService:
     async def get_conflict_analysis(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """
         Analyze conflicts revealed through reflections for a principle.

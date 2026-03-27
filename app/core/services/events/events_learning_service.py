@@ -20,6 +20,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.event.event_request import EventCreateRequest
 from core.models.pathways.lp_position import LpPosition
+from core.models.type_hints import UserUID
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -94,7 +95,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
     # ========================================================================
 
     async def _find_events_for_knowledge(
-        self, knowledge_uid: str, user_uid: str
+        self, knowledge_uid: str, user_uid: UserUID
     ) -> Result[list[Event]]:
         """
         Find events that reinforce a knowledge unit for a specific user.
@@ -138,7 +139,9 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
     # LEARNING-RELATED EVENT QUERIES
     # ========================================================================
 
-    async def get_learning_events(self, user_uid: str, days_ahead: int = 7) -> Result[list[Event]]:
+    async def get_learning_events(
+        self, user_uid: UserUID, days_ahead: int = 7
+    ) -> Result[list[Event]]:
         """
         Get all upcoming learning-related events.
 
@@ -177,7 +180,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         return Result.ok(learning_events)
 
     async def get_events_for_knowledge(
-        self, knowledge_uid: str, user_uid: str, days_ahead: int = 30
+        self, knowledge_uid: str, user_uid: UserUID, days_ahead: int = 30
     ) -> Result[list[Event]]:
         """
         Get events that reinforce a specific knowledge unit.
@@ -219,7 +222,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         return Result.ok(knowledge_events)
 
     async def get_events_for_learning_path(
-        self, learning_path_uid: str, user_uid: str
+        self, learning_path_uid: str, user_uid: UserUID
     ) -> Result[list[Event]]:
         """
         Get all events associated with a learning path.
@@ -247,7 +250,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
 
     async def create_study_session(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uids: list[str],
         event_date: date,
         duration_minutes: int = 60,
@@ -333,7 +336,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
 
     async def suggest_spaced_repetition_events(
         self,
-        _user_uid: str,
+        _user_uid: UserUID,
         knowledge_uid: str,
         mastery_level: float = 0.5,
         days_to_schedule: int = 30,
@@ -390,7 +393,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
 
     async def create_learning_path_schedule(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         learning_path_uid: str,
         _learning_position: LpPosition,
         study_hours_per_week: int = 5,
@@ -480,7 +483,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
     # ========================================================================
 
     async def get_knowledge_reinforcement_stats(
-        self, user_uid: str, knowledge_uid: str, days_back: int = 30
+        self, user_uid: UserUID, knowledge_uid: str, days_back: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Get statistics on how a knowledge unit has been reinforced through events.

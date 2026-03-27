@@ -21,6 +21,8 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
 
@@ -207,7 +209,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         return Result.ok(enhanced_dto)
 
     @with_error_handling("create_task", error_type="database")
-    async def create_task(self, task_request: TaskCreateRequest, user_uid: str) -> Result[Task]:
+    async def create_task(self, task_request: TaskCreateRequest, user_uid: UserUID) -> Result[Task]:
         """
         Create a task with automatic knowledge inference.
 
@@ -370,7 +372,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         return await self.get(task_uid)
 
     @with_error_handling("get_user_tasks", error_type="database", uid_param="user_uid")
-    async def get_user_tasks(self, user_uid: str) -> Result[list[Task]]:
+    async def get_user_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
         """
         Get all tasks for a user, including learning relationships.
 
@@ -473,7 +475,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         return Result.ok(task)
 
     @with_error_handling("complete_tasks_bulk", error_type="database")
-    async def complete_tasks_bulk(self, task_uids: list[str], user_uid: str) -> Result[int]:
+    async def complete_tasks_bulk(self, task_uids: list[str], user_uid: UserUID) -> Result[int]:
         """
         Complete multiple tasks in a batch operation.
 
@@ -599,12 +601,12 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count task stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
     async def get_for_user_filtered(
-        self, user_uid: str, status_filter: str = "active"
+        self, user_uid: UserUID, status_filter: str = "active"
     ) -> Result[list[Task]]:
         """Fetch tasks with status filter pushed to Cypher WHERE."""
         match status_filter:

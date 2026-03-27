@@ -44,6 +44,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # Import Relationship from graph_models (extracted from base_service for reusability)
 from core.models.graph_models import Relationship
+from core.models.type_hints import UserUID
 
 # Import protocols to replace hasattr usage
 from core.ports import (
@@ -267,7 +268,7 @@ class BaseEntity(BasePureModel, ContentMixin, ProgressMixin, ValidatableMixin):
 class BaseUserOwnedModel(BaseEntity):
     """Base for models owned by a user"""
 
-    user_uid: str = ""
+    user_uid: UserUID = ""  # type: ignore[assignment]
 
     def validate(self) -> Result[bool]:
         """Extended validation for user-owned models"""

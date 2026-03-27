@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.services.filtered_context import build_filtered_context
 from core.services.lp.lp_ai_service import LpAIService
 from core.utils.list_helpers import SortConfig, apply_entity_sort
@@ -202,7 +203,7 @@ class LpService:
 
     async def create_path_from_knowledge_units(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_units: list[Any],
         title: str | None = None,
         description: str | None = None,
@@ -214,7 +215,7 @@ class LpService:
 
     async def create_path(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         title: str,
         description: str,
         steps: list[LearningStep],
@@ -241,7 +242,9 @@ class LpService:
         """Get a learning path by UID."""
         return await self.core.get_learning_path(uid)
 
-    async def list_user_paths(self, user_uid: str, limit: int = 100) -> Result[list[LearningPath]]:
+    async def list_user_paths(
+        self, user_uid: UserUID, limit: int = 100
+    ) -> Result[list[LearningPath]]:
         """List learning paths for a user."""
         return await self.core.list_user_paths(user_uid, limit)
 
@@ -273,18 +276,20 @@ class LpService:
         """Validate prerequisites for a learning path."""
         return await self.intelligence.validate_path_prerequisites(path_uid)
 
-    async def identify_path_blockers(self, path_uid: str, user_uid: str) -> Result[dict[str, Any]]:
+    async def identify_path_blockers(
+        self, path_uid: str, user_uid: UserUID
+    ) -> Result[dict[str, Any]]:
         """Identify blockers in a learning path."""
         return await self.intelligence.identify_path_blockers(path_uid, user_uid)
 
     async def get_optimal_path_recommendation(
-        self, user_uid: str, goal_domain: str | None = None
+        self, user_uid: UserUID, goal_domain: str | None = None
     ) -> Result[dict[str, Any]]:
         """Get optimal path recommendation."""
         return await self.intelligence.get_optimal_path_recommendation(user_uid, goal_domain)
 
     async def get_path_with_context(
-        self, path_uid: str, user_uid: str | None = None, depth: int = 2
+        self, path_uid: str, user_uid: UserUID | None = None, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """Get learning path with context."""
         return await self.intelligence.get_path_with_context(path_uid, user_uid, depth)
@@ -294,7 +299,7 @@ class LpService:
         return await self.intelligence.analyze_path_knowledge_scope(path_uid)
 
     async def find_learning_sequence(
-        self, start_uid: str, goal_uid: str, _user_uid: str | None = None
+        self, start_uid: str, goal_uid: str, _user_uid: UserUID | None = None
     ) -> Result[list[str]]:
         """Find learning sequence."""
         return await self.intelligence.find_learning_sequence(start_uid, goal_uid, _user_uid)
@@ -302,7 +307,7 @@ class LpService:
     async def get_next_adaptive_step(
         self,
         current_step_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         _user_performance: dict[str, float] | None = None,
     ) -> Result[str | None]:
         """Get next adaptive learning step."""
@@ -311,7 +316,7 @@ class LpService:
         )
 
     async def get_recommended_learning_steps(
-        self, user_uid: str, max_difficulty: float = 0.5, limit: int = 5
+        self, user_uid: UserUID, max_difficulty: float = 0.5, limit: int = 5
     ) -> Result[list[dict[str, Any]]]:
         """Get recommended learning steps."""
         return await self.intelligence.get_recommended_learning_steps(
@@ -426,7 +431,7 @@ class LpService:
 
     async def get_dashboard_summary(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         user_progress: Any | None = None,
     ) -> Result[dict[str, Any]]:
         """Build the full pathways dashboard summary for a user.
@@ -499,7 +504,7 @@ class LpService:
         self,
         path_uid: str,
         user_progress: Any | None,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """Get a learning path with progress and mastery info for a user."""
         path_result = await self.get_learning_path(path_uid)
@@ -538,7 +543,7 @@ class LpService:
 
     async def get_learning_analytics(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         user_progress: Any | None,
     ) -> Result[dict[str, Any]]:
         """Get learning analytics data from user's knowledge profile."""
@@ -601,7 +606,7 @@ class LpService:
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[list[LearningPath]]:
         """
         List learning paths with pagination and sorting support.
@@ -652,7 +657,7 @@ class LpService:
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status_filter: str = "all",
         sort_by: str = "title",
     ) -> Result[ListContext]:

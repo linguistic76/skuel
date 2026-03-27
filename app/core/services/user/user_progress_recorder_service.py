@@ -23,6 +23,7 @@ This service is part of the refactored UserService architecture:
 - UserService: Facade coordinating all sub-services
 """
 
+from core.models.type_hints import UserUID
 from core.ports.infrastructure_protocols import UserLearningStateOperations
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -71,7 +72,7 @@ class UserProgressRecorderService:
     @with_error_handling("record_knowledge_mastery", error_type="database", uid_param="user_uid")
     async def record_knowledge_mastery(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         mastery_score: float,
         practice_count: int = 1,
@@ -120,7 +121,7 @@ class UserProgressRecorderService:
     @with_error_handling("record_knowledge_progress", error_type="database", uid_param="user_uid")
     async def record_knowledge_progress(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         progress: float,
         time_invested_minutes: int = 0,
@@ -162,7 +163,7 @@ class UserProgressRecorderService:
     @with_error_handling("enroll_in_learning_path", error_type="database", uid_param="user_uid")
     async def enroll_in_learning_path(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         learning_path_uid: str,
         target_completion: str | None = None,
         weekly_time_commitment: int = 300,
@@ -202,7 +203,7 @@ class UserProgressRecorderService:
     @with_error_handling("complete_learning_path", error_type="database", uid_param="user_uid")
     async def complete_learning_path(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         learning_path_uid: str,
         completion_score: float = 1.0,
         feedback_rating: int | None = None,
@@ -245,7 +246,7 @@ class UserProgressRecorderService:
     )
     async def express_interest_in_knowledge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         interest_score: float = 0.8,
         interest_source: str = "discovery",
@@ -283,7 +284,7 @@ class UserProgressRecorderService:
     @with_error_handling("bookmark_knowledge", error_type="database", uid_param="user_uid")
     async def bookmark_knowledge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         bookmark_reason: str = "reference",
         tags: list[str] | None = None,
@@ -321,7 +322,7 @@ class UserProgressRecorderService:
     # ========================================================================
 
     async def _update_progress_metrics(
-        self, user_uid: str, _concept_uid: str, mastery_level: float
+        self, user_uid: UserUID, _concept_uid: str, mastery_level: float
     ) -> None:
         """
         Update overall progress metrics when mastery changes.
@@ -348,7 +349,7 @@ class UserProgressRecorderService:
         except Exception as e:  # safety-net: catch unexpected errors
             logger.error(f"Error updating progress metrics: {e}")
 
-    async def _update_path_completion_progress(self, user_uid: str, _path_uid: str) -> None:
+    async def _update_path_completion_progress(self, user_uid: UserUID, _path_uid: str) -> None:
         """
         Update progress when a learning path is completed.
 

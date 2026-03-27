@@ -21,6 +21,7 @@ from core.models.enums import (
     LearningLevel,
     TimeOfDay,
 )
+from core.models.type_hints import EntityUID, UserUID
 
 
 @dataclass
@@ -141,36 +142,36 @@ class UserDTO:
         update_from_dict(self, updates)
         self.last_active_at = datetime.now()
 
-    def add_active_entity(self, entity_uid: str) -> bool:
+    def add_active_entity(self, entity_uid: EntityUID) -> bool:
         """Add an entity to active set"""
         if entity_uid not in self.active_entity_uids:
             self.active_entity_uids.add(entity_uid)
             return True
         return False
 
-    def remove_active_entity(self, entity_uid: str) -> bool:
+    def remove_active_entity(self, entity_uid: EntityUID) -> bool:
         """Remove an entity from active set"""
         if entity_uid in self.active_entity_uids:
             self.active_entity_uids.remove(entity_uid)
             return True
         return False
 
-    def archive_entity(self, entity_uid: str) -> None:
+    def archive_entity(self, entity_uid: EntityUID) -> None:
         """Archive an entity"""
         self.active_entity_uids.discard(entity_uid)
         self.archived_entity_uids.add(entity_uid)
 
-    def unarchive_entity(self, entity_uid: str) -> None:
+    def unarchive_entity(self, entity_uid: EntityUID) -> None:
         """Unarchive an entity"""
         self.archived_entity_uids.discard(entity_uid)
 
-    def pin_entity(self, entity_uid: str) -> None:
+    def pin_entity(self, entity_uid: EntityUID) -> None:
         """Pin an entity (adds to front of pinned list)"""
         if entity_uid in self.pinned_entity_uids:
             self.pinned_entity_uids.remove(entity_uid)
         self.pinned_entity_uids.insert(0, entity_uid)
 
-    def unpin_entity(self, entity_uid: str) -> None:
+    def unpin_entity(self, entity_uid: EntityUID) -> None:
         """Unpin an entity"""
         if entity_uid in self.pinned_entity_uids:
             self.pinned_entity_uids.remove(entity_uid)
@@ -187,19 +188,19 @@ class UserDTO:
         if goal_uid not in self.achievements:
             self.achievements.append(goal_uid)
 
-    def follow_user(self, user_uid: str) -> None:
+    def follow_user(self, user_uid: UserUID) -> None:
         """Follow another user"""
         self.following_uids.add(user_uid)
 
-    def unfollow_user(self, user_uid: str) -> None:
+    def unfollow_user(self, user_uid: UserUID) -> None:
         """Unfollow a user"""
         self.following_uids.discard(user_uid)
 
-    def add_follower(self, user_uid: str) -> None:
+    def add_follower(self, user_uid: UserUID) -> None:
         """Add a follower"""
         self.follower_uids.add(user_uid)
 
-    def remove_follower(self, user_uid: str) -> None:
+    def remove_follower(self, user_uid: UserUID) -> None:
         """Remove a follower"""
         self.follower_uids.discard(user_uid)
 

@@ -27,6 +27,7 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.pathways.learning_step import LearningStep
 from core.models.pathways.learning_step_dto import LearningStepDTO
 from core.models.search.query_parser import ParsedSearchQuery
+from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.logging import get_logger
@@ -216,7 +217,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
         return Result.ok(steps)
 
     async def get_prioritized(
-        self, user_uid: str, context: UserContext, limit: int = 20
+        self, user_uid: UserUID, context: UserContext, limit: int = 20
     ) -> Result[list[LearningStep]]:
         """
         Get Learning Steps prioritized by user context.

@@ -27,11 +27,12 @@ from typing import Any
 
 from fasthtml.common import H3, Div, Table, Tbody, Td, Th, Thead, Tr
 
+from core.models.type_hints import EntityUID
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 
 
-def AlternativesComparisonGrid(entity_uid: str, entity_type: str) -> Div:
+def AlternativesComparisonGrid(entity_uid: EntityUID, entity_type: str) -> Div:
     """Side-by-side comparison table for alternative entities.
 
     Args:

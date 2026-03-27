@@ -48,6 +48,7 @@ from core.events.finance_events import (
     ExpenseUpdated,
 )
 from core.models.finance.finance_pure import ExpensePure, ExpenseStatus
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import FinancesOperations
 from core.ports.query_types import FinanceUpdatePayload
 from core.utils.logging import get_logger
@@ -382,7 +383,7 @@ class FinanceCoreService:
         return Result.ok(result.value)
 
     async def get_user_expenses(
-        self, user_uid: str, limit: int = 100, offset: int = 0
+        self, user_uid: UserUID, limit: int = 100, offset: int = 0
     ) -> Result[tuple[builtins.list[ExpensePure], int]]:
         """
         Get all expenses for a user.

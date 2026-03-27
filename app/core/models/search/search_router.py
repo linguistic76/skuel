@@ -69,6 +69,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.type_hints import UserUID
 from core.ports.search_protocols import (
     SupportsGraphAwareSearch,
     SupportsGraphTraversalSearch,
@@ -443,7 +444,7 @@ class SearchRouter:
     async def faceted_search(
         self,
         request: "SearchRequest",
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result["SearchResponse"]:
         """
         Faceted search - THE entry point for all UI-driven search.
@@ -546,7 +547,7 @@ class SearchRouter:
     async def _graph_aware_domain_search(
         self,
         request: "SearchRequest",
-        user_uid: str,
+        user_uid: UserUID,
         domain_str: str,
     ) -> Result["SearchResponse"] | None:
         """

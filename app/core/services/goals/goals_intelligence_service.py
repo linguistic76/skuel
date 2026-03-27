@@ -30,6 +30,7 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.graph_context import GraphContext
 from core.models.habit.habit import Habit as Habit
 from core.models.shared.dual_track import DualTrackResult
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import (
@@ -182,7 +183,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         return await self.get_goal_with_context(uid, depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Get goal performance analytics for a user.
@@ -1314,7 +1315,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
     async def assess_progress_dual_track(
         self,
         goal_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         user_progress_level: ProgressLevel,
         user_evidence: str,
         user_reflection: str | None = None,
@@ -1368,7 +1369,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         )
 
     async def _calculate_system_progress(
-        self, goal: Goal, _user_uid: str
+        self, goal: Goal, _user_uid: UserUID
     ) -> tuple[ProgressLevel, float, list[str]]:
         """
         Calculate system progress from goal metrics.

@@ -24,7 +24,7 @@ Usage:
     class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
         _service_name = "tasks.intelligence"
 
-        async def get_performance_analytics(self, user_uid: str) -> Result[dict]:
+        async def get_performance_analytics(self, user_uid: UserUID) -> Result[dict]:
             # Pure graph queries and Python calculations
             ...
 """
@@ -34,6 +34,7 @@ from typing import Any, ClassVar, Generic, TypeVar
 
 from core.events import publish_event
 from core.models.shared.dual_track import DualTrackResult
+from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -370,7 +371,7 @@ class BaseAnalyticsService(Generic[B, T]):
     async def _dual_track_assessment(
         self,
         uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         # USER-DECLARED (Vision)
         user_level: L,
         user_evidence: str,
@@ -413,7 +414,7 @@ class BaseAnalyticsService(Generic[B, T]):
 
         Example:
             async def assess_alignment_dual_track(
-                self, principle_uid: str, user_uid: str, user_level: AlignmentLevel, ...
+                self, principle_uid: str, user_uid: UserUID, user_level: AlignmentLevel, ...
             ) -> Result[DualTrackResult[AlignmentLevel]]:
                 return await self._dual_track_assessment(
                     uid=principle_uid,

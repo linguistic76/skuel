@@ -18,6 +18,7 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
+from core.models.type_hints import EntityUID
 from core.models.user_pins_request import PinEntityRequest, ReorderPinsRequest
 from core.services.user_relationship_service import UserRelationshipService
 from core.utils.result_simplified import Errors, Result
@@ -83,7 +84,7 @@ def create_user_pins_routes(
         return PinButton(entity_uid=entity_uid, is_pinned=True)
 
     @rt("/api/user/pins/{entity_uid}", methods=["DELETE"])
-    async def unpin_entity(request: Request, entity_uid: str):
+    async def unpin_entity(request: Request, entity_uid: EntityUID):
         """
         Unpin an entity.
 

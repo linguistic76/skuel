@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -50,7 +51,7 @@ class LifePathIntelligenceService:
 
     async def get_recommendations(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         alignment_data: dict[str, Any] | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -208,7 +209,7 @@ class LifePathIntelligenceService:
 
     async def get_daily_focus(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         alignment_data: dict[str, Any] | None = None,
     ) -> Result[dict[str, Any]]:
         """

@@ -21,6 +21,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.habit.habit_request import HabitCreateRequest
+from core.models.type_hints import UserUID
 from core.ports import get_enum_value
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
@@ -190,7 +191,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         """
         return await self.get(uid)
 
-    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
+    async def get_user_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
         """Get all habits for a user."""
         result = await self.backend.find_by(user_uid=user_uid)
         if result.is_error:
@@ -264,7 +265,9 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
 
         return result
 
-    async def create_habit(self, habit_request: HabitCreateRequest, user_uid: str) -> Result[Habit]:
+    async def create_habit(
+        self, habit_request: HabitCreateRequest, user_uid: UserUID
+    ) -> Result[Habit]:
         """
         Create a habit from a request with user_uid.
 
@@ -437,12 +440,12 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count habit stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
     async def get_for_user_filtered(
-        self, user_uid: str, status_filter: str = "active"
+        self, user_uid: UserUID, status_filter: str = "active"
     ) -> Result[list[Habit]]:
         """Fetch habits with status filter pushed to Cypher WHERE."""
         match status_filter:

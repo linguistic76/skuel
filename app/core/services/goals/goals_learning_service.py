@@ -20,6 +20,7 @@ from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.pathways.lp_position import LpPosition
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -189,7 +190,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     async def get_learning_supporting_goals(
-        self, user_uid: str, learning_position: LpPosition
+        self, user_uid: UserUID, learning_position: LpPosition
     ) -> Result[list[Goal]]:
         """
         Get existing goals that support current learning path progression.

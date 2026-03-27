@@ -80,6 +80,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
+from core.models.type_hints import UserUID
+
 from .base_protocols import BackendOperations, GraphRelationshipOperations
 
 if TYPE_CHECKING:
@@ -241,7 +243,7 @@ class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations,
 
     async def get_user_curriculum(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         include_completed: bool = False,
     ) -> Result[list[T]]:
         """
@@ -273,18 +275,18 @@ class KuInteractionOperations(Protocol):
 
     async def record_view(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         ku_uid: str,
         time_spent_seconds: int = 0,
     ) -> Result[bool]:
         """Record that a user viewed a knowledge unit."""
         ...
 
-    async def mark_in_progress(self, user_uid: str, ku_uid: str) -> Result[bool]:
+    async def mark_in_progress(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
         """Mark a KU as in-progress for the user."""
         ...
 
-    async def get_user_progress(self, user_uid: str, ku_uid: str) -> Result[Any]:
+    async def get_user_progress(self, user_uid: UserUID, ku_uid: str) -> Result[Any]:
         """Get user's progress on a specific KU."""
         ...
 
@@ -335,7 +337,7 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         """
         ...
 
-    async def get_user_kus(self, user_uid: str) -> Result[list[Lesson]]:
+    async def get_user_kus(self, user_uid: UserUID) -> Result[list[Lesson]]:
         """
         Get all KUs accessible to a user.
 
@@ -526,7 +528,7 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
     async def find_connected_activities(
         self,
         ku_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         node_label: NeoLabel,
         rel_types: list[RelationshipName | str],
         filters: dict[str, Any] | None = None,
@@ -631,13 +633,13 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         ...
 
     async def query_user_mastery_for_prereqs(
-        self, user_uid: str, prereq_uids: list[str]
+        self, user_uid: UserUID, prereq_uids: list[str]
     ) -> Result[list[dict[str, Any]]]:
         """Query user MASTERED + IN_PROGRESS state for prerequisite KUs."""
         ...
 
     async def find_learning_recommendations(
-        self, user_uid: str, domain: str | None, limit: int
+        self, user_uid: UserUID, domain: str | None, limit: int
     ) -> Result[list[dict[str, Any]]]:
         """Find KUs user is ready to learn based on mastery and prerequisites."""
         ...
@@ -679,24 +681,26 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
     # =========================================================================
 
     async def track_mastery_completion(
-        self, user_uid: str, ku_uid: str, completion_time_minutes: int
+        self, user_uid: UserUID, ku_uid: str, completion_time_minutes: int
     ) -> Result[list[dict[str, Any]]]:
         """Create/update MASTERED relationship when user completes a KU."""
         ...
 
-    async def query_user_masteries(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+    async def query_user_masteries(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
         """Query all MASTERED relationships with full metadata for a user."""
         ...
 
-    async def query_active_learning_paths(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+    async def query_active_learning_paths(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
         """Query user's active/in-progress learning paths."""
         ...
 
-    async def query_completed_learning_paths(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+    async def query_completed_learning_paths(
+        self, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:
         """Query UIDs of completed learning paths for a user."""
         ...
 
-    async def query_learning_preferences(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+    async def query_learning_preferences(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
         """Query user's learning preferences node."""
         ...
 
@@ -731,7 +735,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         """
         ...
 
-    async def get_user_steps(self, user_uid: str) -> Result[list[LearningStep]]:
+    async def get_user_steps(self, user_uid: UserUID) -> Result[list[LearningStep]]:
         """
         Get all learning steps for a user.
 
@@ -983,7 +987,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         offset: int,
         order_field: str,
         order_direction: str,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """List step nodes with knowledge relationships, pagination, and optional filters."""
         ...
@@ -1035,7 +1039,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
 
     async def list_user_paths(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         include_completed: bool = False,
     ) -> Result[list[LearningPath]]:
         """
@@ -1071,7 +1075,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         """
         ...
 
-    async def get_active_paths(self, user_uid: str) -> Result[list[LearningPath]]:
+    async def get_active_paths(self, user_uid: UserUID) -> Result[list[LearningPath]]:
         """
         Get in-progress learning paths for a user.
 
@@ -1142,7 +1146,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         """
         ...
 
-    async def get_current_step(self, uid: str, user_uid: str) -> Result[LearningStep | None]:
+    async def get_current_step(self, uid: str, user_uid: UserUID) -> Result[LearningStep | None]:
         """
         Get the current in-progress step for a user.
 
@@ -1159,7 +1163,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
     # PROGRESS AND MASTERY
     # =========================================================================
 
-    async def calculate_progress(self, uid: str, user_uid: str) -> Result[float]:
+    async def calculate_progress(self, uid: str, user_uid: UserUID) -> Result[float]:
         """
         Calculate overall path progress for a user.
 
@@ -1172,7 +1176,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         """
         ...
 
-    async def calculate_mastery(self, uid: str, user_uid: str) -> Result[float]:
+    async def calculate_mastery(self, uid: str, user_uid: UserUID) -> Result[float]:
         """
         Calculate average mastery across all steps.
 
@@ -1185,7 +1189,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         """
         ...
 
-    async def is_complete(self, uid: str, user_uid: str) -> Result[bool]:
+    async def is_complete(self, uid: str, user_uid: UserUID) -> Result[bool]:
         """
         Check if path is complete for a user.
 
@@ -1198,7 +1202,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         """
         ...
 
-    async def is_mastered(self, uid: str, user_uid: str) -> Result[bool]:
+    async def is_mastered(self, uid: str, user_uid: UserUID) -> Result[bool]:
         """
         Check if path is fully mastered (all steps meet threshold).
 
@@ -1347,7 +1351,7 @@ class ExerciseOperations(Protocol):
 
     async def create_exercise(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         name: str,
         instructions: str,
         model: str = "claude-sonnet-4-6",
@@ -1367,7 +1371,7 @@ class ExerciseOperations(Protocol):
 
     async def list_user_exercises(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         active_only: bool = True,
     ) -> Result[list[Exercise]]:
         """List user's exercises. Returns Result[list[Exercise]]."""

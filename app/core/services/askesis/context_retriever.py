@@ -38,6 +38,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from core.constants import GraphDepth
 from core.models.askesis.ls_bundle import LSBundle
 from core.models.query_types import QueryIntent
+from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -238,7 +239,9 @@ class ContextRetriever:
         return context
 
     @with_error_handling("get_learning_context", error_type="system", uid_param="user_uid")
-    async def get_learning_context(self, user_uid: str, depth: int = 2) -> Result[dict[str, Any]]:
+    async def get_learning_context(
+        self, user_uid: UserUID, depth: int = 2
+    ) -> Result[dict[str, Any]]:
         """
         Get user's complete learning context
 
@@ -309,7 +312,7 @@ class ContextRetriever:
         )
 
     @with_error_handling("analyze_knowledge_gaps", error_type="system", uid_param="user_uid")
-    async def analyze_knowledge_gaps(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def analyze_knowledge_gaps(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Analyze user's knowledge gaps and prerequisite chains
 
@@ -362,7 +365,9 @@ class ContextRetriever:
     # PUBLIC API - LS BUNDLE LOADING (absorbed from LSContextLoader)
     # ========================================================================
 
-    async def load_ls_bundle(self, user_uid: str, user_context: UserContext) -> Result[LSBundle]:
+    async def load_ls_bundle(
+        self, user_uid: UserUID, user_context: UserContext
+    ) -> Result[LSBundle]:
         """Load the complete LS bundle from UserContext + service lookups.
 
         Steps:
@@ -699,7 +704,7 @@ class ContextRetriever:
     # ========================================================================
 
     async def _find_similar_knowledge(
-        self, query: str, _user_uid: str
+        self, query: str, _user_uid: UserUID
     ) -> list[tuple[str, float, str]]:
         """
         Find semantically similar knowledge using Neo4j native vector indexes.
@@ -732,7 +737,7 @@ class ContextRetriever:
         ]
 
     async def _analyze_blocked_knowledge_prerequisites(
-        self, blocked_knowledge: list[Any], user_uid: str, _knowledge_units: list[Any]
+        self, blocked_knowledge: list[Any], user_uid: UserUID, _knowledge_units: list[Any]
     ) -> list[dict[str, Any]]:
         """
         Analyze prerequisite chains for blocked knowledge.

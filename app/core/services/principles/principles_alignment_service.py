@@ -33,6 +33,7 @@ from core.models.principle.principle_types import (
     PrincipleConflict,
     PrincipleDecision,
 )
+from core.models.type_hints import EntityUID, UserUID
 
 # Protocol interfaces - Use main Operations protocols (not QueryOperations aliases)
 from core.ports.domain_protocols import GoalsOperations, HabitsOperations
@@ -49,7 +50,7 @@ logger = get_logger(__name__)
 class MotivationalProfile:
     """A user's complete motivational profile based on principles"""
 
-    user_uid: str
+    user_uid: UserUID
     core_principles: list[Principle]
     developing_principles: list[Principle]
     goal_alignment_score: float
@@ -65,7 +66,7 @@ class MotivationalProfile:
 class AlignmentAssessment:
     """Complete assessment of principle alignment for an entity"""
 
-    entity_uid: str
+    entity_uid: EntityUID
     entity_type: str
     entity_name: str
     principle_alignments: list[PrincipleAlignment]
@@ -116,7 +117,7 @@ class PrinciplesAlignmentService:
 
     @with_error_handling("assess_goal_alignment", error_type="system", uid_param="goal_uid")
     async def assess_goal_alignment(
-        self, goal_uid: str, user_uid: str
+        self, goal_uid: str, user_uid: UserUID
     ) -> Result[AlignmentAssessment]:
         """
         Assess how a goal aligns with user's principles.
@@ -221,7 +222,7 @@ class PrinciplesAlignmentService:
 
     @with_error_handling("assess_habit_alignment", error_type="database")
     async def assess_habit_alignment(
-        self, habit_uid: str, user_uid: str
+        self, habit_uid: str, user_uid: UserUID
     ) -> Result[AlignmentAssessment]:
         """
         Assess how a habit aligns with user's principles.
@@ -322,7 +323,7 @@ class PrinciplesAlignmentService:
     async def assess_with_user_input(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         user_alignment_level: AlignmentLevel,
         user_evidence: str,
         user_reflection: str | None = None,
@@ -458,7 +459,7 @@ class PrinciplesAlignmentService:
         await self.backend.update(principle_uid, dto.to_dict())
 
     async def _calculate_system_alignment(
-        self, principle: Principle, user_uid: str
+        self, principle: Principle, user_uid: UserUID
     ) -> dict[str, Any]:
         """
         Calculate system alignment from goals, habits, and choices.
@@ -647,7 +648,7 @@ class PrinciplesAlignmentService:
     # ========================================================================
 
     @with_error_handling("get_motivational_profile", error_type="database")
-    async def get_motivational_profile(self, user_uid: str) -> Result[MotivationalProfile]:
+    async def get_motivational_profile(self, user_uid: UserUID) -> Result[MotivationalProfile]:
         """
         Generate complete motivational profile for a user.
 
@@ -738,7 +739,7 @@ class PrinciplesAlignmentService:
 
     @with_error_handling("make_principle_based_decision", error_type="database")
     async def make_principle_based_decision(
-        self, user_uid: str, decision_description: str, options: list[str], context: str = ""
+        self, user_uid: UserUID, decision_description: str, options: list[str], context: str = ""
     ) -> Result[PrincipleDecision]:
         """
         Help make a decision based on principles.
@@ -946,7 +947,7 @@ class PrinciplesAlignmentService:
     # ALIGNMENT CALCULATION & TRACKING (October 14, 2025)
     # ========================================================================
 
-    async def calculate_average_alignment(self, user_uid: str) -> Result[float]:
+    async def calculate_average_alignment(self, user_uid: UserUID) -> Result[float]:
         """
         Calculate average alignment score across all user's principles.
 
@@ -1082,7 +1083,7 @@ class PrinciplesAlignmentService:
         )
 
     async def get_recent_activity(
-        self, user_uid: str, limit: int = 10
+        self, user_uid: UserUID, limit: int = 10
     ) -> Result[list[dict[str, Any]]]:
         """
         Get recent principle-related activities for a user.

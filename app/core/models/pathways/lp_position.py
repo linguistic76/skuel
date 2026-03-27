@@ -19,6 +19,7 @@ from typing import Any
 from core.models.enums import Domain
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_step import LearningStep
+from core.models.type_hints import UserUID
 
 
 def _get_path_steps(path: LearningPath) -> list[LearningStep]:
@@ -53,7 +54,7 @@ class LpPosition:
     next_recommended: list[str]  # Next step UIDs ready to start
 
     # Simple Context Data
-    user_uid: str
+    user_uid: UserUID
     generated_at: datetime
     readiness_scores: dict[str, float]  # step_uid -> readiness (0.0-1.0)
 
@@ -335,7 +336,7 @@ class LpPosition:
 
 
 def create_lp_position(
-    user_uid: str,
+    user_uid: UserUID,
     active_paths: list[LearningPath],
     completed_step_uids: set[str],
     readiness_map: dict[str, bool] | None = None,

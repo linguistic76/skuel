@@ -23,6 +23,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, ClassVar
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.ports.domain_protocols import ChoicesOperations
 
@@ -217,7 +219,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
     # ========================================================================
 
     @with_error_handling("get_pending", error_type="database", uid_param="user_uid")
-    async def get_pending(self, user_uid: str, limit: int = 100) -> Result[list[Choice]]:
+    async def get_pending(self, user_uid: UserUID, limit: int = 100) -> Result[list[Choice]]:
         """
         Get pending/undecided choices for a user.
 
@@ -256,7 +258,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
 
     @with_error_handling("get_by_urgency", error_type="database")
     async def get_by_urgency(
-        self, urgency: str, user_uid: str | None = None, limit: int = 100
+        self, urgency: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
         """
         Get choices by urgency level.
@@ -303,7 +305,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
 
     @with_error_handling("get_needing_decision", error_type="database", uid_param="user_uid")
     async def get_needing_decision(
-        self, user_uid: str, deadline_days: int = 7
+        self, user_uid: UserUID, deadline_days: int = 7
     ) -> Result[list[Choice]]:
         """
         Get choices that need a decision within N days.
@@ -398,7 +400,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
 
     @with_error_handling("get_decided", error_type="database", uid_param="user_uid")
     async def get_decided(
-        self, user_uid: str, days_back: int = 90, limit: int = 100
+        self, user_uid: UserUID, days_back: int = 90, limit: int = 100
     ) -> Result[list[Choice]]:
         """
         Get decided/completed choices for a user.
@@ -458,7 +460,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
 
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
-        self, query: str, user_uid: str | None = None, limit: int = 50
+        self, query: str, user_uid: UserUID | None = None, limit: int = 50
     ) -> Result[tuple[list[Choice], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.

@@ -17,6 +17,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import AlignmentLevel
+from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
     from .reflection_dto import PrincipleReflectionDTO
@@ -40,7 +41,7 @@ class PrincipleReflection:
     # Identity (required fields first)
     uid: str
     principle_uid: str
-    user_uid: str
+    user_uid: UserUID
     reflection_date: date
     created_at: datetime
     updated_at: datetime

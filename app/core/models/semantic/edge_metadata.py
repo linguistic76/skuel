@@ -18,6 +18,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from core.models.type_hints import UserUID
+
 
 @dataclass
 class EdgeMetadata:
@@ -139,7 +141,7 @@ class EdgeMetadata:
     False: Global relationship, visible to all users
     """
 
-    user_uid: str | None = None
+    user_uid: UserUID | None = None
     """
     UID of user this relationship belongs to (if user_specific=True).
 

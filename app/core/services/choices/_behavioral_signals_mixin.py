@@ -27,6 +27,7 @@ from typing import Any
 from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
 
 
@@ -53,7 +54,7 @@ class _BehavioralSignalsMixin:
 
     async def assess_decision_quality_dual_track(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         user_decision_quality_level: DecisionQualityLevel,
         user_evidence: str,
         user_reflection: str | None = None,
@@ -99,7 +100,7 @@ class _BehavioralSignalsMixin:
         return _calculate
 
     async def _calculate_system_decision_quality_for_dual_track(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> tuple[DecisionQualityLevel, float, list[str]]:
         """
         Calculate system-measured decision quality from choices data.
@@ -258,7 +259,7 @@ class _BehavioralSignalsMixin:
 
     async def analyze_principle_adherence(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         period_days: int = 90,
     ) -> Result[dict[str, Any]]:
         """
@@ -386,7 +387,7 @@ class _BehavioralSignalsMixin:
     async def detect_principle_choice_conflicts(
         self,
         choice_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """
         Detect conflicts between a choice and user's principles.
@@ -469,7 +470,7 @@ class _BehavioralSignalsMixin:
     async def predict_decision_quality(
         self,
         choice_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """
         Predict decision quality based on principle alignment and historical patterns.
@@ -601,7 +602,7 @@ class _BehavioralSignalsMixin:
     async def calculate_life_path_contribution_via_principles(
         self,
         choice_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """
         Calculate how a choice contributes to life path via principle alignment.
@@ -704,7 +705,7 @@ class _BehavioralSignalsMixin:
     # ZPD BRIDGE (March 2026)
     # =========================================================================
 
-    async def get_zpd_behavioral_signals(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_zpd_behavioral_signals(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Extract behavioral readiness signals for ZPDService consumption.
 

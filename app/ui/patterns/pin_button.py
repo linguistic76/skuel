@@ -17,11 +17,14 @@ Usage:
 
 from fasthtml.common import Span
 
+from core.models.type_hints import EntityUID
 from ui.buttons import Button, ButtonT
 from ui.layout import Size
 
 
-def PinButton(entity_uid: str, is_pinned: bool = False, show_text: bool = False, size: str = "sm"):
+def PinButton(
+    entity_uid: EntityUID, is_pinned: bool = False, show_text: bool = False, size: str = "sm"
+):
     """
     Pin/unpin button with HTMX integration.
 
@@ -84,7 +87,7 @@ def PinButton(entity_uid: str, is_pinned: bool = False, show_text: bool = False,
     )
 
 
-def PinButtonToggle(entity_uid: str, is_pinned: bool = False):
+def PinButtonToggle(entity_uid: EntityUID, is_pinned: bool = False):
     """
     Render a pin button that the server can swap back after API call.
 

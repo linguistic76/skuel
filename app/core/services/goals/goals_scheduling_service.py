@@ -46,6 +46,7 @@ from core.models.enums.goal_enums import GoalTimeframe, GoalType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_request import GoalCreateRequest
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -111,7 +112,7 @@ DEFAULT_DAYS_BY_TIMEFRAME = {
 class GoalCapacityResult:
     """Result of goal capacity check."""
 
-    user_uid: str
+    user_uid: UserUID
     current_goal_count: int
     active_goal_count: int
     max_active_goals: int
@@ -243,7 +244,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
     @with_error_handling("check_goal_capacity", error_type="database", uid_param="user_uid")
     async def check_goal_capacity(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         proposed_type: GoalType = GoalType.OUTCOME,
         proposed_timeframe: GoalTimeframe = GoalTimeframe.QUARTERLY,
         proposed_priority: Priority = Priority.MEDIUM,
@@ -580,7 +581,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
     @with_error_handling("suggest_goal_timeline", error_type="database")
     async def suggest_goal_timeline(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         goal_type: GoalType,
         timeframe: GoalTimeframe,
         complexity_factors: list[str] | None = None,
@@ -916,7 +917,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
     @with_error_handling("optimize_goal_sequencing", error_type="database")
     async def optimize_goal_sequencing(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         goal_uids: list[str],
     ) -> Result[list[GoalSequenceItem]]:
         """
@@ -1028,7 +1029,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
     @with_error_handling("get_goal_load_by_timeframe", error_type="database", uid_param="user_uid")
     async def get_goal_load_by_timeframe(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """
         Calculate goal load by timeframe.

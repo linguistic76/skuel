@@ -53,7 +53,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.report.submission_report import SubmissionReport
 from core.models.submissions.submission_dto import SubmissionDTO
-from core.models.type_hints import FilterParams, Metadata
+from core.models.type_hints import FilterParams, Metadata, UserUID
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.ports.sharing_protocols import SharingOperations
@@ -219,7 +219,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
         return Result.ok(submission)
 
-    async def get_with_access_check(self, uid: str, user_uid: str) -> Result[SubmissionEntity]:
+    async def get_with_access_check(self, uid: str, user_uid: UserUID) -> Result[SubmissionEntity]:
         """
         Get a submission with access control verification.
 
@@ -251,7 +251,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         return await self.get_submission(uid)
 
     async def get_submission_for_date(
-        self, target_date: date, user_uid: str | None = None
+        self, target_date: date, user_uid: UserUID | None = None
     ) -> Result[SubmissionEntity | None]:
         """
         Get the submission for a specific date.
@@ -290,7 +290,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     async def get_recent_submissions(
         self,
         limit: int = 10,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         entity_type: EntityType | None = None,
     ) -> Result[list[SubmissionEntity]]:
         """
@@ -333,7 +333,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
     async def get_public_submissions(
         self,
         limit: int = 50,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[list[SubmissionEntity]]:
         """
         Get submissions with visibility=PUBLIC.
@@ -543,7 +543,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         return await self.update_submission(uid, {"metadata": current_metadata})
 
     async def get_submissions_by_category(
-        self, category: str, limit: int = 50, user_uid: str | None = None
+        self, category: str, limit: int = 50, user_uid: UserUID | None = None
     ) -> Result[list[SubmissionEntity]]:
         """
         Get submission entities by category.
@@ -650,7 +650,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         return await self.update_submission(uid, {"metadata": current_metadata})
 
     async def get_submissions_by_tag(
-        self, tag: str, limit: int = 50, user_uid: str | None = None
+        self, tag: str, limit: int = 50, user_uid: UserUID | None = None
     ) -> Result[list[SubmissionEntity]]:
         """
         Get submission entities with a specific tag.

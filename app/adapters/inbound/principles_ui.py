@@ -46,6 +46,7 @@ from adapters.inbound.ui_helpers import (
 )
 from core.constants import QueryLimit
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleCategory, PrincipleStrength
+from core.models.type_hints import UserUID
 from core.services.principles_service import PrinciplesService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -204,7 +205,7 @@ def create_principles_ui_routes(
     # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    async def fetch_principles_context(user_uid: str, filters: PrincipleFilters) -> Any:
+    async def fetch_principles_context(user_uid: UserUID, filters: PrincipleFilters) -> Any:
         """Fetch filtered principles context from service."""
         return await principles_service.get_filtered_context(
             user_uid, filters.category, filters.strength, filters.sort_by, filters.status
@@ -219,13 +220,13 @@ def create_principles_ui_routes(
             categories=svc_ctx.get("metadata", {}).get("categories", []),
         )
 
-    async def render_principles_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+    async def render_principles_create(user_uid: UserUID, svc_ctx: dict[str, Any]) -> Any:
         """Render principles create view."""
         return PrinciplesViewComponents.render_create_view(
             categories=_get_principle_categories(),
         )
 
-    async def render_principles_analytics(user_uid: str, request: Any) -> Any:
+    async def render_principles_analytics(user_uid: UserUID, request: Any) -> Any:
         """Render principles analytics view."""
         analytics_result = await principles_service.get_analytics_summary(user_uid)
         if analytics_result.is_error:
@@ -269,7 +270,9 @@ def create_principles_ui_routes(
     # QUICK ADD (must be BEFORE {uid} routes to avoid path parameter conflict)
     # ========================================================================
 
-    async def create_principle_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+    async def create_principle_from_form(
+        form_data: dict[str, Any], user_uid: UserUID
+    ) -> Result[Any]:
         """Domain-specific principle creation logic."""
         params = parse_principle_create_params(form_data)
         return cast(
@@ -280,7 +283,7 @@ def create_principles_ui_routes(
             ),
         )
 
-    async def render_principle_success_view(user_uid: str) -> Any:
+    async def render_principle_success_view(user_uid: UserUID) -> Any:
         """Render list view after successful principle creation."""
         filtered_result = await principles_service.get_filtered_context(user_uid)
 
@@ -297,7 +300,7 @@ def create_principles_ui_routes(
         )
         return PrinciplesViewComponents.render_list_view(ctx=page_ctx)
 
-    async def render_principle_add_another_view(user_uid: str) -> Any:
+    async def render_principle_add_another_view(user_uid: UserUID) -> Any:
         """Render create view for add-another flow."""
         return PrinciplesViewComponents.render_create_view(
             categories=_get_principle_categories(),

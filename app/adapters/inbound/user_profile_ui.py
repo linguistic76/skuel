@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, Request
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from services_bootstrap import Services
 
@@ -318,7 +320,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
     # ========================================================================
 
     async def _get_context(
-        user_uid: str,
+        user_uid: UserUID,
     ) -> UserContext:
         """
         Get rich UserContext — single call, includes user identity + role.
@@ -859,7 +861,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             request=request,
         )
 
-    async def _build_knowledge_view(context: UserContext, user_uid: str) -> Any:
+    async def _build_knowledge_view(context: UserContext, user_uid: UserUID) -> Any:
         """Build the Knowledge domain view with all KUs and user status.
 
         Queries Neo4j for all Entity nodes with per-user VIEWED/BOOKMARKED/MASTERED relationships.

@@ -23,6 +23,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.report.activity_report_dto import ActivityReportDTO
@@ -113,7 +115,7 @@ class ActivityReport(UserOwnedEntity):
     @classmethod
     def create(
         cls,
-        user_uid: str,
+        user_uid: UserUID,
         subject_uid: str,
         content: str,
         processor_type: ProcessorType,

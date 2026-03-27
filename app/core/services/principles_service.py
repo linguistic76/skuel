@@ -22,6 +22,7 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import (
     GoalsOperations,
     HabitsOperations,
@@ -231,11 +232,11 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     async def get_principle(self, principle_uid: str) -> Result[Principle]:
         return await self.core.get_principle(principle_uid)
 
-    async def get_user_principles(self, user_uid: str) -> Result[list[Principle]]:
+    async def get_user_principles(self, user_uid: UserUID) -> Result[list[Principle]]:
         return await self.core.get_user_principles(user_uid)
 
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Principle]]:
         return await self.core.get_user_items_in_range(
             user_uid, start_date, end_date, include_completed
@@ -243,20 +244,20 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
     # Alignment delegations
     async def assess_goal_alignment(
-        self, goal_uid: str, user_uid: str
+        self, goal_uid: str, user_uid: UserUID
     ) -> Result[AlignmentAssessment]:
         return await self.alignment.assess_goal_alignment(goal_uid, user_uid)
 
     async def assess_habit_alignment(
-        self, habit_uid: str, user_uid: str
+        self, habit_uid: str, user_uid: UserUID
     ) -> Result[AlignmentAssessment]:
         return await self.alignment.assess_habit_alignment(habit_uid, user_uid)
 
-    async def get_motivational_profile(self, user_uid: str) -> Result[MotivationalProfile]:
+    async def get_motivational_profile(self, user_uid: UserUID) -> Result[MotivationalProfile]:
         return await self.alignment.get_motivational_profile(user_uid)
 
     async def make_principle_based_decision(
-        self, user_uid: str, decision_description: str, options: list[str], context: str = ""
+        self, user_uid: UserUID, decision_description: str, options: list[str], context: str = ""
     ) -> Result[PrincipleDecision]:
         return await self.alignment.make_principle_based_decision(
             user_uid, decision_description, options, context
@@ -297,7 +298,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     # Relationship delegations
     async def get_principle_cross_domain_context(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         depth: int = 2,
         min_confidence: float = 0.7,
     ) -> Result[dict[str, Any]]:
@@ -319,11 +320,11 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     ) -> Result[dict[str, Any]]:
         return await self.intelligence.get_principle_adherence_trends(principle_uid, days)
 
-    async def get_principle_conflict_analysis(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_principle_conflict_analysis(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         return await self.intelligence.get_principle_conflict_analysis(user_uid)
 
     # Search delegations
-    async def list_principle_categories(self, user_uid: str) -> Result[list[str]]:
+    async def list_principle_categories(self, user_uid: UserUID) -> Result[list[str]]:
         return await self.search.list_user_categories(user_uid)
 
     async def list_all_principle_categories(self) -> Result[list[str]]:
@@ -335,7 +336,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         return await self.search.get_related_principles(principle_uid, limit)  # type: ignore[return-value]
 
     async def get_principles_by_status(
-        self, status: str, limit: int = 100, user_uid: str | None = None
+        self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Principle]]:
         return await self.search.get_by_status(status, limit, user_uid)  # type: ignore[return-value]
 
@@ -345,7 +346,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         return await self.search.get_by_strength(strength, limit)  # type: ignore[return-value]
 
     async def get_principles_by_category(
-        self, category: PrincipleCategory | str, user_uid: str | None = None, limit: int = 100
+        self, category: PrincipleCategory | str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Principle]]:
         return await self.search.get_by_category(category, user_uid, limit)  # type: ignore[return-value]
 
@@ -368,7 +369,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     async def save_reflection(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         alignment_level: AlignmentLevel,
         evidence: str,
         reflection_notes: str | None = None,
@@ -392,14 +393,14 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     async def get_reflections_for_principle(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 50,
     ) -> Result[list[PrincipleReflection]]:
         return await self.reflection.get_reflections_for_principle(principle_uid, user_uid, limit)
 
     async def get_recent_reflections(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         days: int = 7,
         limit: int = 20,
     ) -> Result[list[PrincipleReflection]]:
@@ -408,7 +409,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     async def get_alignment_trend(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         days: int = 30,
     ) -> Result[AlignmentTrend]:
         return await self.reflection.calculate_alignment_trend(principle_uid, user_uid, days)
@@ -416,13 +417,13 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     async def get_cross_domain_insights(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[list[CrossDomainInsight]]:
         return await self.reflection.get_cross_domain_insights(principle_uid, user_uid)
 
     async def get_reflection_frequency(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         days: int = 30,
     ) -> Result[dict[str, Any]]:
         return await self.reflection.get_reflection_frequency(user_uid, days)
@@ -430,7 +431,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     async def get_conflict_analysis(
         self,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         return await self.reflection.get_conflict_analysis(principle_uid, user_uid)
 
@@ -558,13 +559,13 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     # ========================================================================
 
     async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> Result[dict[str, Any]]:
         """Generate knowledge suggestions from entity patterns."""
         return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
 
     async def generate_knowledge_from_entities(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Generate knowledge units from completed entities."""
         return await self.knowledge_intelligence.generate_knowledge_from_entities(
@@ -572,12 +573,12 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         )
 
     async def get_knowledge_prerequisites(
-        self, entity_uid: str
+        self, entity_uid: EntityUID
     ) -> Result[KnowledgePrerequisitesResult]:
         """Analyze knowledge prerequisites for an entity."""
         return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
 
-    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Discover learning opportunities from entity patterns."""
         return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
@@ -614,7 +615,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
     async def create_user_principle_relationship(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         principle_uid: str,
         strength: str = "core",
         adoption_date: str | None = None,
@@ -637,7 +638,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
     # Note: get_principle_cross_domain_context delegated via explicit methods below.
 
-    async def get_user_principle_portfolio(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_user_principle_portfolio(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get user's complete principle portfolio with integrity analysis."""
         # Get all principles for the user
         principles_result = await self.backend.list(filters={"user_uid": user_uid}, limit=100)
@@ -654,7 +655,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         )
 
     async def calculate_principle_integrity(
-        self, user_uid: str, principle_uid: str
+        self, user_uid: UserUID, principle_uid: str
     ) -> Result[dict[str, Any]]:
         """Calculate how well user's actions align with stated principle."""
         # Get the principle and its cross-domain context
@@ -682,7 +683,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         query: str,
         filters: dict[str, Any] | None = None,
         limit: int = 50,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[list[Principle]]:
         """
         Search principles by text query. Delegates to PrinciplesSearchService.
@@ -742,7 +743,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         return Result.ok(sources)
 
     async def get_prioritized_principles(
-        self, user_uid: str, limit: int = 10
+        self, user_uid: UserUID, limit: int = 10
     ) -> Result[list[Principle]]:
         """
         Get principles prioritized for user context. Delegates to PrinciplesSearchService.
@@ -1051,7 +1052,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     # QUERY LAYER
     # ========================================================================
 
-    async def get_analytics_summary(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_analytics_summary(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Analytics: counts, adherence, recent reflections. Orchestrates sub-services."""
         all_result = await self.core.get_for_user_filtered(user_uid)
         if all_result.is_error:
@@ -1094,7 +1095,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         category_filter: str = "all",
         strength_filter: str = "all",
         sort_by: str = "strength",

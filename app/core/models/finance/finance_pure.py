@@ -12,6 +12,8 @@ intelligence or unified architecture complexity.
 
 from __future__ import annotations
 
+from core.models.type_hints import UserUID
+
 __version__ = "3.0"  # Simplified standalone bookkeeping (January 2026)
 
 from dataclasses import dataclass
@@ -82,7 +84,7 @@ class ExpensePure:
 
     # Identity
     uid: str
-    user_uid: str  # REQUIRED - expense ownership
+    user_uid: UserUID  # REQUIRED - expense ownership
 
     # Core expense data
     amount: float
@@ -288,7 +290,7 @@ class BudgetPure:
 
     # Identity
     uid: str
-    user_uid: str  # REQUIRED - budget ownership
+    user_uid: UserUID  # REQUIRED - budget ownership
     name: str
 
     # Budget configuration
@@ -418,7 +420,7 @@ class BudgetPure:
 
 def create_expense(
     uid: str,
-    user_uid: str,
+    user_uid: UserUID,
     amount: float,
     description: str,
     category: ExpenseCategory,
@@ -449,7 +451,7 @@ def create_expense(
 
 def create_recurring_expense(
     uid: str,
-    user_uid: str,
+    user_uid: UserUID,
     amount: float,
     description: str,
     category: ExpenseCategory,
@@ -481,7 +483,7 @@ def create_recurring_expense(
 
 def create_budget(
     uid: str,
-    user_uid: str,
+    user_uid: UserUID,
     name: str,
     period: BudgetPeriod,
     amount_limit: float,

@@ -30,6 +30,7 @@ from typing import Any
 
 from neo4j import AsyncDriver
 
+from core.models.type_hints import UserUID
 from core.models.user import User
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -110,7 +111,7 @@ class UserBackend:
             self.logger.error(f"Failed to create user: {e}")
             return Result.fail(Errors.database(operation="create_user", message=str(e)))
 
-    async def get_user_by_uid(self, user_uid: str) -> Result[User | None]:
+    async def get_user_by_uid(self, user_uid: UserUID) -> Result[User | None]:
         """
         Get user by UID.
 
@@ -246,7 +247,7 @@ class UserBackend:
             self.logger.error(f"Failed to update user: {e}")
             return Result.fail(Errors.database(operation="update_user", message=str(e)))
 
-    async def delete_user(self, user_uid: str) -> Result[bool]:
+    async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """
         DETACH DELETE user identity and all relationships.
 
@@ -286,7 +287,7 @@ class UserBackend:
     # These methods manage User-Knowledge relationships in the graph
 
     async def update_user_progress(
-        self, user_uid: str, progress_updates: dict[str, Any]
+        self, user_uid: UserUID, progress_updates: dict[str, Any]
     ) -> Result[bool]:
         """
         Update user's learning progress.
@@ -324,7 +325,7 @@ class UserBackend:
 
     async def record_knowledge_mastery(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         mastery_score: float,
         practice_count: int = 1,
@@ -391,7 +392,7 @@ class UserBackend:
 
     async def record_knowledge_progress(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         progress: float,
         time_invested_minutes: int = 0,
@@ -456,7 +457,7 @@ class UserBackend:
 
     async def get_user_mastery(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         concept_uid: str,
     ) -> Result[float]:
         """
@@ -495,7 +496,7 @@ class UserBackend:
 
     async def enroll_in_learning_path(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         learning_path_uid: str,
         target_completion: str | None = None,
         weekly_time_commitment: int = 300,
@@ -561,7 +562,7 @@ class UserBackend:
 
     async def complete_learning_path(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         learning_path_uid: str,
         completion_score: float = 1.0,
         feedback_rating: int | None = None,
@@ -619,7 +620,7 @@ class UserBackend:
 
     async def express_interest_in_knowledge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         interest_score: float = 0.8,
         interest_source: str = "discovery",
@@ -690,7 +691,7 @@ class UserBackend:
 
     async def bookmark_knowledge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         bookmark_reason: str = "reference",
         tags: list[str] | None = None,
@@ -756,7 +757,7 @@ class UserBackend:
     # ========================================================================
 
     async def update_user_activity(
-        self, user_uid: str, activity_updates: dict[str, Any]
+        self, user_uid: UserUID, activity_updates: dict[str, Any]
     ) -> Result[bool]:
         """
         Update user activity metadata.
@@ -795,7 +796,7 @@ class UserBackend:
 
     async def add_conversation_message(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         role: str,
         content: str,
         metadata: dict[str, Any] | None = None,

@@ -19,6 +19,7 @@ from calendar import monthrange
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -51,7 +52,9 @@ class FinanceReportingService:
     # ========================================================================
 
     @with_error_handling("generate_monthly_report", error_type="database")
-    async def generate_monthly_report(self, user_uid: str, year: int, month: int) -> Result[dict]:
+    async def generate_monthly_report(
+        self, user_uid: UserUID, year: int, month: int
+    ) -> Result[dict]:
         """
         Generate monthly financial report.
 
@@ -122,7 +125,7 @@ class FinanceReportingService:
     @with_error_handling("get_expense_summary", error_type="database")
     async def get_expense_summary(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         from_date: date | None = None,
         to_date: date | None = None,
         group_by: str = "category",
@@ -201,7 +204,7 @@ class FinanceReportingService:
 
     @with_error_handling("get_tax_deductible_expenses", error_type="database")
     async def get_tax_deductible_expenses(
-        self, user_uid: str, year: int
+        self, user_uid: UserUID, year: int
     ) -> Result[list[ExpensePure]]:
         """
         Get all tax-deductible expenses for a year.
@@ -236,7 +239,7 @@ class FinanceReportingService:
     @with_error_handling("get_expenses_by_category", error_type="database")
     async def get_expenses_by_category(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         category: ExpenseCategory,
         from_date: date | None = None,
         to_date: date | None = None,

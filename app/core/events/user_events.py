@@ -17,6 +17,7 @@ Subscribers:
 from dataclasses import dataclass
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # USER CONTEXT EVENTS
@@ -41,7 +42,7 @@ class UserContextInvalidated(BaseEvent):
     - DashboardService (refresh user dashboard)
     """
 
-    user_uid: str
+    user_uid: UserUID
 
     # What triggered the invalidation
     reason: str  # "task_completed", "goal_achieved", "habit_completed", etc.
@@ -69,7 +70,7 @@ class UserPreferencesChanged(BaseEvent):
     - UIService (update UI preferences)
     """
 
-    user_uid: str
+    user_uid: UserUID
 
     # Which preference fields changed
     changed_fields: list[str]
@@ -99,7 +100,7 @@ class UserActivityRecorded(BaseEvent):
     - RecommendationEngine (activity-based recommendations)
     """
 
-    user_uid: str
+    user_uid: UserUID
 
     # Activity details
     activity_type: str  # "viewed_page", "completed_action", "searched", etc.
@@ -121,7 +122,7 @@ Publishing User Events:
 # In UserService.invalidate_context()
 async def invalidate_context(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     reason: str = "manual",
     affected_contexts: list[str] | None = None
 ) -> None:
@@ -145,7 +146,7 @@ async def invalidate_context(
 # In UserService.update_preferences()
 async def update_preferences(
     self,
-    user_uid: str,
+    user_uid: UserUID,
     updates: dict[str, Any]
 ) -> Result[User]:
     '''Update user preferences.'''

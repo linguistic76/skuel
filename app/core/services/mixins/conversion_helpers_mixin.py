@@ -34,6 +34,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol, DTOProtocol
+from core.models.type_hints import UserUID
 from core.ports import BackendOperations
 from core.utils.dto_converters import (
     from_domain_model as _from_domain_model_fn,
@@ -171,7 +172,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
     # Subclasses compose these as needed, adding domain-specific logic between steps.
 
     def _validate_required_user_uid(
-        self, user_uid: str | None, operation: str
+        self, user_uid: UserUID | None, operation: str
     ) -> Result[Any] | None:
         """
         Validate that user_uid is present for an operation.

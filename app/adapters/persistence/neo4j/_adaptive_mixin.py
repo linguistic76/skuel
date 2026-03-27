@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -174,7 +175,7 @@ class _AdaptiveMixin:
     # ========================================================================
 
     async def track_mastery_completion(
-        self, user_uid: str, ku_uid: str, completion_time_minutes: int
+        self, user_uid: UserUID, ku_uid: str, completion_time_minutes: int
     ) -> Result[list[Neo4jProperties]]:
         """Create/update MASTERED relationship when user completes a KU."""
         query = """
@@ -199,7 +200,7 @@ class _AdaptiveMixin:
             },
         )
 
-    async def query_user_masteries(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def query_user_masteries(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Query all MASTERED relationships with full metadata for a user."""
         query = """
         MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Entity)
@@ -222,7 +223,7 @@ class _AdaptiveMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 
-    async def query_active_learning_paths(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def query_active_learning_paths(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Query user's active/in-progress learning paths."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:Lp)
@@ -231,7 +232,9 @@ class _AdaptiveMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 
-    async def query_completed_learning_paths(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def query_completed_learning_paths(
+        self, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]:
         """Query UIDs of completed learning paths for a user."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:COMPLETED]->(lp:Lp)
@@ -239,7 +242,7 @@ class _AdaptiveMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 
-    async def query_learning_preferences(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def query_learning_preferences(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Query user's learning preferences node."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:HAS_PREFERENCE]->(pref:LearningPreference)

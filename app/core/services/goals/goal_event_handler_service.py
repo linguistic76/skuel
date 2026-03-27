@@ -31,6 +31,7 @@ from core.events.goal_events import (
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -411,7 +412,7 @@ class GoalEventHandlerService:
     # INTERNAL HELPERS (migrated from GoalsRecommendationService)
     # ========================================================================
 
-    async def _get_goal_context(self, goal_uid: str, user_uid: str) -> dict | None:
+    async def _get_goal_context(self, goal_uid: str, user_uid: UserUID) -> dict | None:
         """Get achieved goal context from Neo4j for recommendation generation.
 
         Retrieves:
@@ -465,7 +466,7 @@ class GoalEventHandlerService:
 
         return result.value[0]
 
-    def _generate_recommendations(self, goal_context: dict, user_uid: str) -> list[dict]:
+    def _generate_recommendations(self, goal_context: dict, user_uid: UserUID) -> list[dict]:
         """Generate goal recommendations based on achieved goal context.
 
         Recommendation strategies:

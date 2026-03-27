@@ -26,6 +26,7 @@ from core.models.enums.curriculum_enums import LpType
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.search.query_parser import ParsedSearchQuery
+from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.logging import get_logger
@@ -127,7 +128,9 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
             path_type=get_enum_value(path_type),
         )
 
-    async def list_by_creator(self, user_uid: str, limit: int = 50) -> Result[list[LearningPath]]:
+    async def list_by_creator(
+        self, user_uid: UserUID, limit: int = 50
+    ) -> Result[list[LearningPath]]:
         """
         List Learning Paths created by a specific user.
 
@@ -260,7 +263,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         return Result.ok((path_result.value, []))
 
     async def get_prioritized(
-        self, user_uid: str, context: UserContext, limit: int = 20
+        self, user_uid: UserUID, context: UserContext, limit: int = 20
     ) -> Result[list[LearningPath]]:
         """
         Get Learning Paths prioritized by user context.

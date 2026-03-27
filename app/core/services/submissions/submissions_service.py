@@ -28,6 +28,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorTy
 from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission import Submission
 from core.models.submissions.submission_dto import SubmissionDTO
+from core.models.type_hints import UserUID
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -100,7 +101,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         self,
         file_content: bytes,
         original_filename: str,
-        user_uid: str,
+        user_uid: UserUID,
         entity_type: EntityType = EntityType.EXERCISE_SUBMISSION,
         processor_type: ProcessorType = ProcessorType.AUTOMATIC,
         file_type: str | None = None,
@@ -218,7 +219,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("submit_form")
     async def submit_form(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         exercise_uid: str,
         form_data: dict[str, Any],
         title: str | None = None,
@@ -315,7 +316,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("list_submissions")
     async def list_submissions(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         entity_type: EntityType | None = None,
         status: EntityStatus | None = None,
         limit: int = 50,
@@ -359,7 +360,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("count_submissions")
     async def count_submissions(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         entity_type: EntityType | None = None,
         status: EntityStatus | None = None,
     ) -> Result[int]:
@@ -601,7 +602,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     # ========================================================================
 
     @with_error_handling("get_submission_statistics")
-    async def get_submission_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_submission_statistics(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Get submission statistics for a user.
 

@@ -10,6 +10,8 @@ This follows the architectural principle: Pydantic at the edges, pure domain ins
 
 from __future__ import annotations
 
+from core.models.type_hints import UserUID
+
 __version__ = "1.0"
 
 
@@ -195,7 +197,7 @@ class UserSummaryView(BaseModel):
 class UserServiceContextSchema(BaseModel):
     """Schema for lightweight service context"""
 
-    user_uid: str
+    user_uid: UserUID
     username: str
     learning_level: LearningLevel
 
@@ -216,7 +218,7 @@ class UserServiceContextSchema(BaseModel):
 class UserStatisticsSchema(BaseModel):
     """Schema for computed user statistics"""
 
-    user_uid: str
+    user_uid: UserUID
     computed_at: datetime
 
     # Activity counts
@@ -252,7 +254,7 @@ class UserStatisticsSchema(BaseModel):
 class UserCapacityCheckSchema(BaseModel):
     """Schema for checking user capacity"""
 
-    user_uid: str
+    user_uid: UserUID
     new_items_count: int = Field(default=1, ge=1, description="Number of new items to add")
     check_time_availability: bool = Field(
         default=True, description="Check if user has time available"
@@ -262,7 +264,7 @@ class UserCapacityCheckSchema(BaseModel):
 class UserCapacityView(BaseModel):
     """View for user capacity information"""
 
-    user_uid: str
+    user_uid: UserUID
     has_capacity: bool
     current_active_items: int
     max_active_items: int

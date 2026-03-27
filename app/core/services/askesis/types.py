@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from datetime import datetime
 
@@ -148,7 +150,7 @@ class AskesisAnalysis:
         optimization_opportunities: Identified optimization opportunities
     """
 
-    user_uid: str
+    user_uid: UserUID
     generated_at: datetime
     context_summary: dict[str, Any]
     insights: list[AskesisInsight]
@@ -314,7 +316,7 @@ class LearningContext:
         depth: Depth of context retrieval
     """
 
-    user_uid: str
+    user_uid: UserUID
     current_knowledge: list[str]
     in_progress_learning: list[str]
     learning_paths: list[str]
@@ -333,5 +335,5 @@ class AskesisContext:
     """
 
     askesis: Askesis
-    user_uid: str
+    user_uid: UserUID
     user_context: UserContext

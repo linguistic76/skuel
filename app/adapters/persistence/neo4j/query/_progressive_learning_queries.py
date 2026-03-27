@@ -15,6 +15,8 @@ See: /docs/improvement_proposals/EDGEMETADATA_UTILIZATION_SUMMARY.md
 
 from typing import Any
 
+from core.models.type_hints import UserUID
+
 
 class ProgressiveLearningQueries:
     """
@@ -188,7 +190,7 @@ class ProgressiveLearningQueries:
 
     @staticmethod
     def build_difficulty_aware_next_steps_query(
-        user_uid: str,
+        user_uid: UserUID,
         current_difficulty_level: float,
         max_difficulty_jump: float = 1.5,
         domain: str | None = None,
@@ -357,7 +359,7 @@ class ProgressiveLearningQueries:
 
     @staticmethod
     def build_learning_velocity_query(
-        user_uid: str,
+        user_uid: UserUID,
         time_window_days: int = 30,
     ) -> tuple[str, dict[str, Any]]:
         """

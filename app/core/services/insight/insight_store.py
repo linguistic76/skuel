@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.insight.persisted_insight import (
     PersistedInsight,
 )
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import deserialize_json_fields
@@ -243,7 +244,7 @@ class InsightStore:
 
     async def get_active_insights(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         domain: str | None = None,
         limit: int = 50,
     ) -> Result[list[PersistedInsight]]:
@@ -327,8 +328,8 @@ class InsightStore:
 
     async def get_insights_for_entity(
         self,
-        entity_uid: str,
-        user_uid: str,
+        entity_uid: EntityUID,
+        user_uid: UserUID,
         include_dismissed: bool = False,
     ) -> Result[list[PersistedInsight]]:
         """
@@ -401,7 +402,7 @@ class InsightStore:
                 )
             )
 
-    async def dismiss_insight(self, uid: str, user_uid: str, notes: str = "") -> Result[None]:
+    async def dismiss_insight(self, uid: str, user_uid: UserUID, notes: str = "") -> Result[None]:
         """
         Mark an insight as dismissed by the user.
 
@@ -455,7 +456,7 @@ class InsightStore:
                 )
             )
 
-    async def mark_actioned(self, uid: str, user_uid: str, notes: str = "") -> Result[None]:
+    async def mark_actioned(self, uid: str, user_uid: UserUID, notes: str = "") -> Result[None]:
         """
         Mark an insight as actioned by the user.
 
@@ -555,7 +556,7 @@ class InsightStore:
 
     async def get_insight_history(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         history_type: str = "all",
         limit: int = 50,
     ) -> Result[list[PersistedInsight]]:
@@ -634,7 +635,7 @@ class InsightStore:
                 )
             )
 
-    async def get_insight_stats(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_insight_stats(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Get statistics about a user's insights.
 
@@ -759,7 +760,7 @@ class InsightStore:
     # Bulk Operations
     # ========================================
 
-    async def bulk_dismiss(self, uids: list[str], user_uid: str) -> Result[dict[str, Any]]:
+    async def bulk_dismiss(self, uids: list[str], user_uid: UserUID) -> Result[dict[str, Any]]:
         """Dismiss multiple insights, tracking successes and failures.
 
         Args:
@@ -790,7 +791,9 @@ class InsightStore:
             }
         )
 
-    async def bulk_mark_actioned(self, uids: list[str], user_uid: str) -> Result[dict[str, Any]]:
+    async def bulk_mark_actioned(
+        self, uids: list[str], user_uid: UserUID
+    ) -> Result[dict[str, Any]]:
         """Mark multiple insights as actioned, tracking successes and failures.
 
         Args:
@@ -822,7 +825,7 @@ class InsightStore:
         )
 
     async def smart_dismiss(
-        self, user_uid: str, filter_type: str, filter_value: str
+        self, user_uid: UserUID, filter_type: str, filter_value: str
     ) -> Result[dict[str, Any]]:
         """Dismiss all active insights matching a filter criterion.
 
@@ -884,7 +887,7 @@ class InsightStore:
     # Chart Data Methods
     # ========================================
 
-    async def get_impact_distribution_chart(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_impact_distribution_chart(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Build Chart.js doughnut config for impact distribution.
 
         Counts active insights per impact level and returns a complete
@@ -939,7 +942,7 @@ class InsightStore:
             }
         )
 
-    async def get_domain_distribution_chart(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_domain_distribution_chart(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Build Chart.js bar config for insights by domain.
 
         Counts active insights per domain, sorted by count descending.
@@ -989,7 +992,7 @@ class InsightStore:
             }
         )
 
-    async def get_type_distribution_chart(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_type_distribution_chart(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Build Chart.js doughnut config for insight type distribution.
 
         Counts active insights per type, sorted by count descending.
@@ -1046,7 +1049,7 @@ class InsightStore:
             }
         )
 
-    async def get_action_rate_chart(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_action_rate_chart(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Build Chart.js gauge-style doughnut config for action rate.
 
         Uses insight stats to show percentage of actioned vs not actioned.
@@ -1095,7 +1098,7 @@ class InsightStore:
 
     async def get_insight_counts_by_domain(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, int]]:
         """
         Get count of active insights grouped by domain.

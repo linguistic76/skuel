@@ -53,6 +53,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from datetime import date, datetime
 
@@ -88,7 +90,7 @@ class CypherParams(TypedDict, total=False):
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     limit: int
     offset: int
     title: str
@@ -143,7 +145,7 @@ class BaseFilterSpec(TypedDict, total=False):
 
     status: str | list[str]
     category: str | list[str]
-    user_uid: str
+    user_uid: UserUID
     created_after: str
     created_before: str
     limit: int
@@ -1111,7 +1113,7 @@ class ContextDashboard(TypedDict, total=False):
         active_count = tasks_info.get("active_count", 0)
     """
 
-    user_uid: str
+    user_uid: UserUID
     context_version: int
     last_refresh: str
     time_window: str
@@ -1190,7 +1192,7 @@ class ContextSummary(TypedDict, total=False):
         task_focus = priorities.get("task_focus", "")
     """
 
-    user_uid: str
+    user_uid: UserUID
     generated_at: str
     top_priorities: TopPriorities
     key_metrics: KeyMetrics
@@ -1206,7 +1208,7 @@ class ContextSummary(TypedDict, total=False):
 class SignUpResult(TypedDict, total=False):
     """Return shape for graph_auth.sign_up()."""
 
-    user_uid: str
+    user_uid: UserUID
     email: str
     username: str
     display_name: str | None
@@ -1216,7 +1218,7 @@ class SignUpResult(TypedDict, total=False):
 class SignInResult(TypedDict, total=False):
     """Return shape for graph_auth.sign_in()."""
 
-    user_uid: str
+    user_uid: UserUID
     email: str
     session_token: str
     session_uid: str
@@ -1436,7 +1438,7 @@ class AnnotationState(TypedDict, total=False):
 class PrivacySummary(TypedDict, total=False):
     """Return shape for activity report get_privacy_summary()."""
 
-    user_uid: str
+    user_uid: UserUID
     admin_snapshots: list[dict[str, Any]]
     admin_snapshot_count: int
     shares_granted: list[dict[str, Any]]

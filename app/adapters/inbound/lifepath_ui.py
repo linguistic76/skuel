@@ -26,6 +26,7 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.form_helpers import safe_form_string
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
@@ -267,7 +268,7 @@ def _error_page(message: str):
     )
 
 
-def _build_dashboard_content(status: dict, user_uid: str) -> Any:
+def _build_dashboard_content(status: dict, user_uid: UserUID) -> Any:
     """Build the main dashboard content."""
     if not status.get("has_vision"):
         return Div(
@@ -349,7 +350,7 @@ def _build_dashboard_content(status: dict, user_uid: str) -> Any:
     )
 
 
-def _build_recommendations_page(data: dict, user_uid: str) -> Any:
+def _build_recommendations_page(data: dict, user_uid: UserUID) -> Any:
     """Build recommendations page after vision capture."""
     vision = data.get("vision", {})
     recommendations = data.get("recommendations", [])
@@ -415,7 +416,7 @@ def _build_recommendations_page(data: dict, user_uid: str) -> Any:
     )
 
 
-def _build_alignment_dashboard(status: dict, user_uid: str) -> Any:
+def _build_alignment_dashboard(status: dict, user_uid: UserUID) -> Any:
     """Build alignment dashboard with 5-dimension breakdown."""
     alignment = status.get("alignment", {})
     dimensions = alignment.get("dimensions", {})

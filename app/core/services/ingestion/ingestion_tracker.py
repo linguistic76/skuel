@@ -29,6 +29,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from core.models.type_hints import EntityUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -46,7 +47,7 @@ class FileIngestionMetadata:
     content_hash: str  # SHA-256 of file content
     file_mtime: float  # File modification timestamp (Unix epoch)
     last_ingested_at: datetime
-    entity_uid: str
+    entity_uid: EntityUID
 
 
 @dataclass
@@ -162,7 +163,7 @@ class IngestionTracker:
     async def update_ingestion_metadata(
         self,
         file_path: Path,
-        entity_uid: str,
+        entity_uid: EntityUID,
         content_hash: str,
     ) -> Result[None]:
         """

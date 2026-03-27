@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
@@ -201,7 +203,7 @@ class ZPDBackend:
             return 0
 
     async def get_targeted_ku_engagement(
-        self, user_uid: str, ku_uids: list[str]
+        self, user_uid: UserUID, ku_uids: list[str]
     ) -> Result[tuple[list[str], list[str], list[str], list[dict[str, Any]]]]:
         """Fetch engagement data for specific KU UIDs only.
 
@@ -245,7 +247,7 @@ class ZPDBackend:
         return Result.ok((task_engaged, journal_engaged, habit_engaged, submission_data))
 
     async def get_zone_data(
-        self, user_uid: str
+        self, user_uid: UserUID
     ) -> Result[
         tuple[
             list[str],

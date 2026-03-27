@@ -16,6 +16,7 @@ Methods:
 from dataclasses import dataclass
 from typing import Any
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -44,7 +45,7 @@ class HabitsPatternService:
         """Initialize with habits core service for ownership verification."""
         self.habits_core = habits_core
 
-    async def analyze_patterns(self, habit_uid: str, user_uid: str) -> Result[PatternAnalysis]:
+    async def analyze_patterns(self, habit_uid: str, user_uid: UserUID) -> Result[PatternAnalysis]:
         """Full pattern analysis with ownership check."""
         # Ownership verification
         habit_result = await self.habits_core.verify_ownership(habit_uid, user_uid)

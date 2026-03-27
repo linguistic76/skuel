@@ -38,6 +38,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
 
+from core.models.type_hints import EntityUID, UserUID
+
 if TYPE_CHECKING:
     import builtins
     import logging
@@ -510,7 +512,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
 
     async def get_user_entities(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         relationship_type: str | None = None,
         filters: FilterParams | None = None,
         limit: int = 100,
@@ -682,7 +684,7 @@ class GraphTraversalOperations(Protocol):
 
     async def get_domain_context_raw(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         entity_label: str,
         relationship_types: builtins.list[str],
         depth: int = 2,
@@ -819,7 +821,7 @@ class HierarchyOperations(Protocol):
         """Get immediate parent node as a raw dict, or None if root-level."""
         ...
 
-    async def get_hierarchy_raw(self, entity_uid: str) -> ResultType[dict[str, Any]]:
+    async def get_hierarchy_raw(self, entity_uid: EntityUID) -> ResultType[dict[str, Any]]:
         """Get full hierarchy context: ancestors, siblings, children as raw dicts."""
         ...
 

@@ -32,6 +32,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth.session import require_authenticated_user
 from core.models.enums import UserRole
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -99,7 +100,7 @@ async def check_required_role(
 async def verify_entity_ownership(
     service: Any,
     uid: str,
-    user_uid: str,
+    user_uid: UserUID,
     domain: str = "",
 ) -> Result[Any] | None:
     """
@@ -162,7 +163,7 @@ def parse_int_query_param(
 async def require_owned_entity(
     service_core: Any | None,
     uid: str,
-    user_uid: str,
+    user_uid: UserUID,
     entity_name: str = "Entity",
 ) -> tuple[Any | None, Response | None]:
     """

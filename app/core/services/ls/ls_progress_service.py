@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 from core.events import publish_event
 from core.events.curriculum_events import LearningStepCompleted
 from core.events.learning_events import LearningStepProgressUpdated, LessonCompleted
+from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -99,7 +100,7 @@ class LsProgressService:
             self.logger.error(f"Error handling lesson.completed event: {e}")
 
     async def _update_ls_from_lesson_completion(
-        self, ls_uid: str, user_uid: str, newly_mastered_lesson: str
+        self, ls_uid: str, user_uid: UserUID, newly_mastered_lesson: str
     ) -> None:
         """
         Update a single learning step's progress from Lesson completion.

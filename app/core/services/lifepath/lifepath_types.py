@@ -20,6 +20,7 @@ from datetime import datetime
 
 from core.models.enums.lifepath_enums import ThemeCategory
 from core.models.enums.principle_enums import AlignmentLevel
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -38,7 +39,7 @@ class LifePathDesignation:
         to communicate, the UserContext is determined via user's actions."
     """
 
-    user_uid: str
+    user_uid: UserUID
 
     # THE VISION (user's own words, stored on User node)
     vision_statement: str
@@ -162,7 +163,7 @@ class VisionCapture:
     3. This model holds the structured result
     """
 
-    user_uid: str
+    user_uid: UserUID
     vision_statement: str
     themes: tuple[VisionTheme, ...] = field(default_factory=tuple)
     captured_at: datetime = field(default_factory=datetime.now)
@@ -219,7 +220,7 @@ class WordActionAlignment:
     "Are you LIVING what you SAID?"
     """
 
-    user_uid: str
+    user_uid: UserUID
 
     # What user SAID (vision)
     vision_themes: tuple[str, ...] = field(default_factory=tuple)
@@ -265,7 +266,7 @@ class WordActionAlignment:
 class VisionHistory:
     """Track changes in user's vision over time."""
 
-    user_uid: str
+    user_uid: UserUID
     visions: tuple[VisionCapture, ...] = field(default_factory=tuple)
 
     @property

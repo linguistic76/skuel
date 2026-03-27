@@ -25,6 +25,8 @@ from __future__ import annotations
 from operator import attrgetter, itemgetter, methodcaller
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
 
@@ -154,7 +156,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
     @with_error_handling(
         "get_blocked_by_prerequisites", error_type="database", uid_param="user_uid"
     )
-    async def get_blocked_by_prerequisites(self, user_uid: str) -> Result[list[Task]]:
+    async def get_blocked_by_prerequisites(self, user_uid: UserUID) -> Result[list[Task]]:
         """
         Get tasks blocked by missing prerequisites.
 
@@ -253,7 +255,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 
     @with_error_handling("get_learning_relevant_tasks", error_type="database", uid_param="user_uid")
     async def get_learning_relevant_tasks(
-        self, user_uid: str, learning_position: LpPosition, limit: int = 10
+        self, user_uid: UserUID, learning_position: LpPosition, limit: int = 10
     ) -> Result[list[Task]]:
         """
         Get tasks most relevant to user's current learning path position.
@@ -374,7 +376,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 
     @with_error_handling("get_user_assigned_tasks", error_type="database", uid_param="user_uid")
     async def get_user_assigned_tasks(
-        self, user_uid: str, include_completed: bool = False, limit: int = 100
+        self, user_uid: UserUID, include_completed: bool = False, limit: int = 100
     ) -> Result[list[Task]]:
         """
         Get tasks assigned to user via graph traversal.
@@ -417,7 +419,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         "get_tasks_requiring_knowledge", error_type="database", uid_param="knowledge_uid"
     )
     async def get_tasks_requiring_knowledge(
-        self, knowledge_uid: str, user_uid: str | None = None, limit: int = 100
+        self, knowledge_uid: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[dict[str, Any]]]:
         """
         Get tasks that require specific knowledge.
@@ -472,7 +474,7 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
-        self, query: str, user_uid: str | None = None, limit: int = 50
+        self, query: str, user_uid: UserUID | None = None, limit: int = 50
     ) -> Result[tuple[list[Task], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.

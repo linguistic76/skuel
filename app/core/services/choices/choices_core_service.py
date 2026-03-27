@@ -23,6 +23,7 @@ from core.models.choice.choice_option import ChoiceOption
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
@@ -202,7 +203,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         return None  # All validations passed
 
     async def create_choice(
-        self, choice_request: ChoiceCreateRequest, user_uid: str
+        self, choice_request: ChoiceCreateRequest, user_uid: UserUID
     ) -> Result[Choice]:
         """
         Create a basic choice.
@@ -303,7 +304,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         """
         return await self.get(choice_uid)
 
-    async def get_user_choices(self, user_uid: str) -> Result[list[Choice]]:
+    async def get_user_choices(self, user_uid: UserUID) -> Result[list[Choice]]:
         """
         Get all choices for a user.
 
@@ -1045,12 +1046,12 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count choice stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
     async def get_for_user_filtered(
-        self, user_uid: str, status_filter: str = "pending"
+        self, user_uid: UserUID, status_filter: str = "pending"
     ) -> Result[list[Choice]]:
         """Fetch choices with status filter pushed to Cypher WHERE."""
         match status_filter:

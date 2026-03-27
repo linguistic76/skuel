@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import EntityUID
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -52,7 +53,7 @@ class OrderedRelationshipsMixin:
     async def get_ordered_related_uids(
         self,
         relationship_key: str,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[list[str]]:
         """
         Get related entity UIDs in order defined by edge property.
@@ -116,7 +117,7 @@ class OrderedRelationshipsMixin:
     async def get_related_with_metadata(
         self,
         relationship_key: str,
-        entity_uid: str,
+        entity_uid: EntityUID,
         edge_properties: list[str] | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -209,7 +210,7 @@ class OrderedRelationshipsMixin:
     async def reorder_relationships(
         self,
         relationship_key: str,
-        entity_uid: str,
+        entity_uid: EntityUID,
         target_uid_sequence: list[str],
         sequence_property: str = "sequence",
     ) -> Result[int]:
@@ -365,7 +366,7 @@ class OrderedRelationshipsMixin:
     @with_error_handling("get_hierarchical_children", error_type="database", uid_param="entity_uid")
     async def get_hierarchical_children(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         relationship_chain: list[tuple[str, str]],
         max_depth: int = 3,
     ) -> Result[list[dict[str, Any]]]:

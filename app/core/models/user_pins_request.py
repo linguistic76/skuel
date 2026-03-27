@@ -7,11 +7,13 @@ Pydantic models for User Pins API boundaries.
 
 from pydantic import BaseModel, Field
 
+from core.models.type_hints import EntityUID
+
 
 class PinEntityRequest(BaseModel):
     """Request to pin an entity."""
 
-    entity_uid: str = Field(..., min_length=1, description="UID of entity to pin")
+    entity_uid: EntityUID = Field(..., min_length=1, description="UID of entity to pin")
 
 
 class ReorderPinsRequest(BaseModel):

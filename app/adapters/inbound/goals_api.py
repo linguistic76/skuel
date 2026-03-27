@@ -35,6 +35,7 @@ from core.models.goal.goal_request import (
     GoalProgressUpdateRequest,
     MilestoneCreateRequest,
 )
+from core.models.type_hints import UserUID
 from core.services.goals_service import GoalsService
 from core.utils.result_simplified import Errors, Result
 
@@ -73,7 +74,7 @@ def create_goals_api_routes(
     @require_ownership_query(get_goals_service)
     @boundary_handler()
     async def update_goal_progress_route(
-        request: Request, user_uid: str, entity: Any
+        request: Request, user_uid: UserUID, entity: Any
     ) -> Result[dict[str, Any]]:
         """Update goal progress (requires ownership)."""
         body = await request.json()
@@ -94,7 +95,7 @@ def create_goals_api_routes(
     @require_ownership_query(get_goals_service)
     @boundary_handler()
     async def get_goal_progress_route(
-        request: Request, user_uid: str, entity: Any
+        request: Request, user_uid: UserUID, entity: Any
     ) -> Result[dict[str, Any]]:
         """Get goal progress history (requires ownership)."""
         params = dict(request.query_params)
@@ -110,7 +111,7 @@ def create_goals_api_routes(
     @require_ownership_query(get_goals_service)
     @boundary_handler(success_status=201)
     async def create_goal_milestone_route(
-        request: Request, user_uid: str, entity: Any
+        request: Request, user_uid: UserUID, entity: Any
     ) -> Result[bool]:
         """Create a milestone for a goal (requires ownership)."""
         result = await parse_json_body(request, MilestoneCreateRequest)
@@ -152,7 +153,7 @@ def create_goals_api_routes(
     @require_ownership_query(get_goals_service)
     @boundary_handler(success_status=201)
     async def link_goal_to_habit_route(
-        request: Request, user_uid: str, entity: Any
+        request: Request, user_uid: UserUID, entity: Any
     ) -> Result[bool]:
         """Link a habit to a goal (requires ownership)."""
         result = await parse_json_body(request, GoalHabitLinkRequest)
@@ -166,7 +167,7 @@ def create_goals_api_routes(
     @require_ownership_query(get_goals_service)
     @boundary_handler()
     async def unlink_goal_from_habit_route(
-        request: Request, user_uid: str, entity: Any, habit_uid: str
+        request: Request, user_uid: UserUID, entity: Any, habit_uid: str
     ) -> Result[bool]:
         """Unlink a habit from a goal (requires ownership)."""
         return await goals_service.unlink_goal_from_habit(entity.uid, habit_uid)

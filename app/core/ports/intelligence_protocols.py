@@ -16,6 +16,7 @@ See: /docs/patterns/protocol_architecture.md
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -52,7 +53,7 @@ class KnowledgeIntelligenceOperations(Protocol):
     """
 
     async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> "Result[KnowledgeSuggestionsResult]":
         """
         Generate knowledge suggestions from entity patterns.
@@ -67,7 +68,7 @@ class KnowledgeIntelligenceOperations(Protocol):
         ...
 
     async def get_knowledge_prerequisites(
-        self, entity_uid: str
+        self, entity_uid: EntityUID
     ) -> "Result[KnowledgePrerequisitesResult]":
         """
         Analyze knowledge prerequisites for entity.
@@ -81,7 +82,7 @@ class KnowledgeIntelligenceOperations(Protocol):
         ...
 
     async def generate_knowledge_from_entities(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> "Result[KnowledgeGenerationResult]":
         """
         Generate knowledge units from completed entities.
@@ -96,7 +97,7 @@ class KnowledgeIntelligenceOperations(Protocol):
         ...
 
     async def get_learning_opportunities(
-        self, user_uid: str
+        self, user_uid: UserUID
     ) -> "Result[LearningOpportunitiesResult]":
         """
         Discover learning opportunities from entity patterns.
@@ -158,7 +159,7 @@ class DomainIntelligenceOperations(Protocol):
         ...
 
     async def get_learning_velocity(
-        self, user_uid: str, period_days: int = 90
+        self, user_uid: UserUID, period_days: int = 90
     ) -> "Result[LearningVelocityMetrics]":
         """
         Analyze learning velocity from entity completion patterns.
@@ -173,7 +174,7 @@ class DomainIntelligenceOperations(Protocol):
         ...
 
     async def get_behavioral_insights(
-        self, user_uid: str, period_days: int = 90
+        self, user_uid: UserUID, period_days: int = 90
     ) -> "Result[BehavioralInsightsResult]":
         """
         Analyze behavioral patterns and insights.
@@ -188,7 +189,7 @@ class DomainIntelligenceOperations(Protocol):
         ...
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> "Result[PerformanceAnalyticsResult]":
         """
         Analyze performance metrics and trends.
@@ -203,7 +204,7 @@ class DomainIntelligenceOperations(Protocol):
         ...
 
     async def get_cross_domain_opportunities(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> "Result[CrossDomainOpportunitiesResult]":
         """
         Identify cross-domain opportunities and connections.
@@ -218,7 +219,7 @@ class DomainIntelligenceOperations(Protocol):
         ...
 
     async def get_ai_insights(
-        self, user_uid: str, entity_uid: str | None = None, query: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None, query: str | None = None
     ) -> "Result[AIInsightsResult]":
         """
         Get AI-powered insights using LLM.

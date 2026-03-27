@@ -30,6 +30,7 @@ from core.models.askesis.askesis_request import (
 )
 from core.models.enums import GuidanceMode
 from core.models.enums.askesis_enums import QueryComplexity
+from core.models.type_hints import UserUID
 from core.models.user.conversation import ConversationSession
 
 # ==========================================================================
@@ -37,7 +38,9 @@ from core.models.user.conversation import ConversationSession
 # ==========================================================================
 
 
-def askesis_create_request_to_dto(request: AskesisCreateRequest, user_uid: str) -> AskesisCreateDTO:
+def askesis_create_request_to_dto(
+    request: AskesisCreateRequest, user_uid: UserUID
+) -> AskesisCreateDTO:
     """Convert create request to DTO."""
     return AskesisCreateDTO(
         user_uid=user_uid,
@@ -67,7 +70,7 @@ def askesis_update_request_to_dto(
 
 
 def conversation_session_create_request_to_dto(
-    request: ConversationSessionCreateRequest, user_uid: str
+    request: ConversationSessionCreateRequest, user_uid: UserUID
 ) -> ConversationSessionDTO:
     """Convert conversation session create request to DTO."""
     return ConversationSessionDTO(
@@ -81,7 +84,7 @@ def conversation_session_create_request_to_dto(
 
 
 def domain_interaction_request_to_dto(
-    request: DomainInteractionRequest, user_uid: str
+    request: DomainInteractionRequest, user_uid: UserUID
 ) -> DomainInteractionDTO:
     """Convert domain interaction request to DTO."""
     return DomainInteractionDTO(
@@ -97,7 +100,7 @@ def domain_interaction_request_to_dto(
 
 
 def guidance_recommendation_create_request_to_dto(
-    request: GuidanceRecommendationCreateRequest, user_uid: str
+    request: GuidanceRecommendationCreateRequest, user_uid: UserUID
 ) -> GuidanceRecommendationDTO:
     """Convert guidance recommendation create request to DTO."""
     return GuidanceRecommendationDTO(

@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from core.models.submissions.submission_dto import SubmissionDTO
 
 from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.type_hints import UserUID
 from core.models.user_owned_entity import UserOwnedEntity
 
 _SUBMISSION_ENTITY_TYPES = frozenset(
@@ -112,7 +113,7 @@ class Submission(UserOwnedEntity):
     def generate_exercise_title(
         cls,
         exercise_title: str,
-        user_uid: str,
+        user_uid: UserUID,
         revision_number: int = 1,
         revision_date: date | None = None,
     ) -> str:

@@ -20,6 +20,7 @@ Subscribers:
 from dataclasses import dataclass
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # KNOWLEDGE UNIT EVENTS
@@ -41,7 +42,7 @@ class KnowledgeMastered(BaseEvent):
     """
 
     ku_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Mastery metrics
     mastery_score: float  # 0.0 to 1.0
@@ -70,7 +71,7 @@ class LessonCompleted(BaseEvent):
     """
 
     lesson_uid: str
-    user_uid: str
+    user_uid: UserUID
     lesson_title: str | None = None
     linked_ku_uids: tuple[str, ...] = ()
 
@@ -90,7 +91,7 @@ class LearningStepProgressUpdated(BaseEvent):
     """
 
     ls_uid: str
-    user_uid: str
+    user_uid: UserUID
     old_progress: float  # 0.0 to 1.0
     new_progress: float  # 0.0 to 1.0
     lessons_completed: int
@@ -147,7 +148,7 @@ class LearningPathStarted(BaseEvent):
     """
 
     path_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Path details
     path_title: str
@@ -174,7 +175,7 @@ class LearningPathCompleted(BaseEvent):
     """
 
     path_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Completion metrics
     actual_duration_hours: int | None = None
@@ -201,7 +202,7 @@ class LearningPathProgressUpdated(BaseEvent):
     """
 
     path_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Progress tracking
     old_progress: float  # 0.0 to 1.0
@@ -260,7 +261,7 @@ class LearningRecommendationGenerated(BaseEvent):
     - NotificationService (notify user of new recommendations)
     """
 
-    user_uid: str
+    user_uid: UserUID
 
     # Recommendations
     recommended_ku_uids: list[str]
@@ -280,7 +281,7 @@ Publishing Learning Events:
 ===========================
 
 # In LessonService.mark_mastered()
-async def mark_mastered(self, ku_uid: str, user_uid: str, score: float) -> Result[None]:
+async def mark_mastered(self, ku_uid: str, user_uid: UserUID, score: float) -> Result[None]:
     '''Mark a KU as mastered by user.'''
 
     # Update mastery record
@@ -298,7 +299,7 @@ async def mark_mastered(self, ku_uid: str, user_uid: str, score: float) -> Resul
 
 
 # In LpService.start_path()
-async def start_path(self, path_uid: str, user_uid: str) -> Result[None]:
+async def start_path(self, path_uid: str, user_uid: UserUID) -> Result[None]:
     '''Start a learning path.'''
 
     # Get path details
@@ -325,7 +326,7 @@ async def start_path(self, path_uid: str, user_uid: str) -> Result[None]:
 
 
 # In LpService.complete_path()
-async def complete_path(self, path_uid: str, user_uid: str) -> Result[None]:
+async def complete_path(self, path_uid: str, user_uid: UserUID) -> Result[None]:
     '''Mark learning path as completed.'''
 
     # Get progress to calculate metrics

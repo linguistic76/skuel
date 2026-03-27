@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from core.events.base import BaseEvent
+from core.models.type_hints import EntityUID, UserUID
 
 
 @dataclass(frozen=True)
@@ -27,10 +28,10 @@ class EmbeddingRequested(BaseEvent):
     Published after entity creation, consumed by background worker.
     """
 
-    entity_uid: str
+    entity_uid: EntityUID
     entity_type: str  # "task", "goal", etc.
     embedding_text: str
-    user_uid: str
+    user_uid: UserUID
     requested_at: datetime
 
     @property

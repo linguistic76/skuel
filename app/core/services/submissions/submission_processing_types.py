@@ -9,6 +9,8 @@ Replaces dict[str, Any] with strongly-typed, immutable structures.
 from dataclasses import dataclass, field
 from typing import Any
 
+from core.models.type_hints import UserUID
+
 
 @dataclass(frozen=True)
 class SubmissionProcessingContext:
@@ -18,7 +20,7 @@ class SubmissionProcessingContext:
     Used by ContentEnrichmentService to provide context-aware editing.
     """
 
-    user_uid: str
+    user_uid: UserUID
     gathered_at: str
     recent_journals: list[dict[str, str]] = field(default_factory=list)
     active_goals: list[dict[str, str]] = field(default_factory=list)

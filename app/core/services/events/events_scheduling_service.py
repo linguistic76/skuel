@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import EntityStatus, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.user import UserContext
@@ -84,7 +85,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
 
     async def _detect_conflicts(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         event_date: date,
         start_time: time | None,
         end_time: time | None,
@@ -133,7 +134,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
     @with_error_handling("check_conflicts", error_type="database")
     async def check_conflicts(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         event_date: date,
         start_time: time | None = None,
         end_time: time | None = None,
@@ -250,7 +251,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
     @with_error_handling("suggest_time_slots", error_type="database")
     async def suggest_time_slots(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         target_date: date,
         duration_minutes: int = 60,
         preferred_hours: tuple[int, int] = (9, 18),
@@ -333,7 +334,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
     @with_error_handling("find_next_available_slot", error_type="database")
     async def find_next_available_slot(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         duration_minutes: int = 60,
         preferred_hours: tuple[int, int] = (9, 18),
         days_to_search: int = 7,
@@ -376,7 +377,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
     @with_error_handling("optimize_recurring_schedule", error_type="database")
     async def optimize_recurring_schedule(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         pattern: RecurrencePattern,
         preferred_time: time | None = None,
         days_to_schedule: int = 30,
@@ -447,7 +448,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
     @with_error_handling("create_recurring_events", error_type="database")
     async def create_recurring_events(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         title: str,
         pattern: RecurrencePattern,
         duration_minutes: int = 60,
@@ -520,7 +521,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
     @with_error_handling("get_busy_times", error_type="database", uid_param="user_uid")
     async def get_busy_times(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
     ) -> Result[dict[str, list[dict[str, str]]]]:
@@ -569,7 +570,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
     @with_error_handling("get_calendar_density", error_type="database", uid_param="user_uid")
     async def get_calendar_density(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         days_ahead: int = 14,
     ) -> Result[dict[str, Any]]:
         """

@@ -22,6 +22,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.graph_context import GraphContext
 from core.models.shared.dual_track import DualTrackResult
+from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.events.event_relationships import EventRelationships
 from core.services.intelligence import (
@@ -112,7 +113,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
         return await self.orchestrator.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Get event performance analytics for a user.
@@ -380,7 +381,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
     # ========================================================================
 
     async def analyze_upcoming_events(
-        self, user_uid: str, days_ahead: int = 7
+        self, user_uid: UserUID, days_ahead: int = 7
     ) -> Result[dict[str, Any]]:
         """
         Analyze all upcoming events for impact and optimization opportunities.
@@ -634,7 +635,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
 
     async def assess_engagement_dual_track(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         user_engagement_level: EngagementLevel,
         user_evidence: str,
         user_reflection: str | None = None,
@@ -678,7 +679,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
         return _calculate
 
     async def _calculate_system_engagement_for_dual_track(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> tuple[EngagementLevel, float, list[str]]:
         """
         Calculate system-measured engagement level from event data.

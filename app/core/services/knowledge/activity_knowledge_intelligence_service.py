@@ -36,6 +36,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
+from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
     from core.ports.query_types import KnowledgePrerequisitesResult
@@ -86,7 +87,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
     # ========================================================================
 
     async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> Result[dict[str, Any]]:
         """
         Generate knowledge suggestions from entity patterns.
@@ -168,7 +169,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
         )
 
     async def generate_knowledge_from_entities(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Generate knowledge units from completed entities.
@@ -231,7 +232,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
         )
 
     async def get_knowledge_prerequisites(
-        self, entity_uid: str
+        self, entity_uid: EntityUID
     ) -> Result[KnowledgePrerequisitesResult]:
         """
         Analyze knowledge prerequisites for any entity using graph intelligence.
@@ -254,7 +255,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
     # LEARNING INTELLIGENCE - Domain-agnostic implementations
     # ========================================================================
 
-    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Discover learning opportunities from entity patterns.
 

@@ -33,6 +33,8 @@ import logging
 from abc import ABC
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
+from core.models.type_hints import EntityUID
+
 if TYPE_CHECKING:
     from core.ports.base_protocols import BackendOperations
     from core.services.relationships import UnifiedRelationshipService
@@ -133,7 +135,7 @@ class BasePlanningService(ABC, Generic[BackendT, EntityT]):
         # Filter out None values that may occur if some UIDs weren't found
         return [entity for entity in (result.value or []) if entity is not None]
 
-    async def _get_related_uids(self, relationship_key: str, entity_uid: str) -> list[str]:
+    async def _get_related_uids(self, relationship_key: str, entity_uid: EntityUID) -> list[str]:
         """
         Get related UIDs using UnifiedRelationshipService.
 

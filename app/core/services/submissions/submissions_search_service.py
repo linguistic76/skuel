@@ -21,6 +21,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission_dto import SubmissionDTO
+from core.models.type_hints import UserUID
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -104,7 +105,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("get_report_for_date")
     async def get_report_for_date(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         target_date: date,
         entity_type: EntityType | None = None,
     ) -> Result[Entity | None]:
@@ -139,7 +140,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("list_reports_by_date_range")
     async def list_reports_by_date_range(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         entity_type: EntityType | None = None,
@@ -180,7 +181,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("get_reports_by_category")
     async def get_reports_by_category(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         category: str,
         entity_type: EntityType | None = None,
         limit: int = 50,
@@ -221,7 +222,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("get_reports_by_mood")
     async def get_reports_by_mood(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         mood: str,
         start_date: date | None = None,
         end_date: date | None = None,
@@ -275,7 +276,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("search_submissions")
     async def search_submissions(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         query: str,
         entity_type: EntityType | None = None,
         limit: int = 50,
@@ -322,7 +323,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("get_submissions_with_feedback_status")
     async def get_submissions_with_feedback_status(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 50,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -381,7 +382,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("get_report_statistics")
     async def get_report_statistics(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         entity_type: EntityType | None = None,
@@ -520,7 +521,7 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     @with_error_handling("get_recent_submissions")
     async def get_recent_submissions(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         entity_type: EntityType | None = None,
         limit: int = 10,
     ) -> Result[list[Entity]]:

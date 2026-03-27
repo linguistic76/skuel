@@ -45,6 +45,7 @@ from adapters.inbound.ui_helpers import (
 )
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.type_hints import UserUID
 from core.services.events_service import EventsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -241,7 +242,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
     # DATA FETCHING HELPERS
     # ========================================================================
 
-    async def get_all_events(user_uid: str) -> Result[list[Any]]:
+    async def get_all_events(user_uid: UserUID) -> Result[list[Any]]:
         """Get all events for user."""
         service_method = events_service.get_user_events if events_service else None
         return await fetch_user_entities(service_method, "events", user_uid, logger)
@@ -256,7 +257,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
     # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    async def fetch_events_context(user_uid: str, filters: ActivityFilters) -> Any:
+    async def fetch_events_context(user_uid: UserUID, filters: ActivityFilters) -> Any:
         """Fetch filtered events context from service."""
         return await events_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
@@ -268,13 +269,13 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
             stats=svc_ctx["stats"],
         )
 
-    async def render_events_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+    async def render_events_create(user_uid: UserUID, svc_ctx: dict[str, Any]) -> Any:
         """Render events create view."""
         event_types_result = await get_event_types()
         event_types = [] if event_types_result.is_error else event_types_result.value
         return EventsViewComponents.render_create_view(event_types=event_types)
 
-    async def render_events_calendar(user_uid: str, request: Any) -> Any:
+    async def render_events_calendar(user_uid: UserUID, request: Any) -> Any:
         """Render events calendar view."""
         calendar_params = parse_calendar_params(request)
         events_result = await get_all_events(user_uid)
@@ -319,7 +320,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
     # QUICK ADD (via QuickAddRouteFactory)
     # ========================================================================
 
-    async def create_event_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+    async def create_event_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
         """Domain-specific event creation logic."""
         fields = parse_event_form_fields(form_data)
 
@@ -342,7 +343,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
         event = Event.from_dto(event_dto)
         return await events_service.core.create(event)
 
-    async def render_event_success_view(_user_uid: str) -> Any:
+    async def render_event_success_view(_user_uid: UserUID) -> Any:
         """Render calendar view after successful event creation."""
         result = await get_all_events(_user_uid)
         events = result.value if not result.is_error else []
@@ -352,7 +353,7 @@ def create_events_ui_routes(_app, rt, events_service: EventsService, services: A
             calendar_view="month",
         )
 
-    async def render_event_add_another_view(user_uid: str) -> Any:
+    async def render_event_add_another_view(user_uid: UserUID) -> Any:
         """Render create view for add-another flow."""
         event_types = await get_event_types()
         return EventsViewComponents.render_create_view(event_types=event_types)

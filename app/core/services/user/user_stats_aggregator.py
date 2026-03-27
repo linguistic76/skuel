@@ -27,6 +27,7 @@ Architecture:
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.services.user import UserContext
 from core.services.user_stats_types import ProfileHubData
 from core.utils.decorators import with_error_handling
@@ -91,7 +92,7 @@ class UserStatsAggregator:
     # ========================================================================
 
     @with_error_handling("get_profile_hub_data", error_type="database", uid_param="user_uid")
-    async def get_profile_hub_data(self, user_uid: str) -> Result[ProfileHubData]:
+    async def get_profile_hub_data(self, user_uid: UserUID) -> Result[ProfileHubData]:
         """
         Get aggregated data for user profile hub.
 
@@ -226,7 +227,7 @@ class UserStatsAggregator:
     # RECENT ACTIVITIES QUERY
     # ========================================================================
 
-    async def _get_recent_activities(self, user_uid: str) -> list[dict[str, Any]]:
+    async def _get_recent_activities(self, user_uid: UserUID) -> list[dict[str, Any]]:
         """
         Get recent activities across all domains.
 

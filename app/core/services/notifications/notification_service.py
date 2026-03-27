@@ -16,6 +16,7 @@ See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
 from datetime import datetime
 from typing import Any
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -31,7 +32,7 @@ class NotificationService:
 
     async def create_notification(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         notification_type: str,
         title: str,
         message: str,
@@ -76,7 +77,7 @@ class NotificationService:
         logger.debug(f"Created notification {uid} for user {user_uid}: {notification_type}")
         return Result.ok(uid)
 
-    async def get_unread_count(self, user_uid: str) -> Result[int]:
+    async def get_unread_count(self, user_uid: UserUID) -> Result[int]:
         """
         Get count of unread notifications for a user.
 
@@ -96,7 +97,7 @@ class NotificationService:
 
     async def get_notifications(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 20,
         include_read: bool = True,
     ) -> Result[list[dict[str, Any]]]:
@@ -131,7 +132,7 @@ class NotificationService:
 
         return Result.ok(items)
 
-    async def mark_read(self, notification_uid: str, user_uid: str) -> Result[bool]:
+    async def mark_read(self, notification_uid: str, user_uid: UserUID) -> Result[bool]:
         """
         Mark a single notification as read.
 
@@ -151,7 +152,7 @@ class NotificationService:
 
         return Result.ok(True)
 
-    async def mark_all_read(self, user_uid: str) -> Result[int]:
+    async def mark_all_read(self, user_uid: UserUID) -> Result[int]:
         """
         Mark all notifications as read for a user.
 

@@ -12,6 +12,7 @@ Unified interface composing all adaptive learning path sub-services:
 from typing import Any
 
 from core.constants import MasteryLevel
+from core.models.type_hints import UserUID
 
 # Import sub-services
 from core.services.adaptive_lp.adaptive_lp_core_service import AdaptiveLpCoreService
@@ -90,7 +91,7 @@ class AdaptiveLpFacade:
     # ========================================================================
 
     async def generate_goal_driven_learning_path(
-        self, user_uid: str, goal_uid: str, learning_style_override: LearningStyle | None = None
+        self, user_uid: UserUID, goal_uid: str, learning_style_override: LearningStyle | None = None
     ) -> Result[AdaptiveLp]:
         """
         Generate a dynamic learning path based on a specific user goal.
@@ -130,7 +131,7 @@ class AdaptiveLpFacade:
     # ========================================================================
 
     async def generate_adaptive_recommendations(
-        self, user_uid: str, context: dict[str, Any] | None = None
+        self, user_uid: UserUID, context: dict[str, Any] | None = None
     ) -> Result[list[AdaptiveRecommendation]]:
         """
         Generate adaptive recommendations based on knowledge gaps and user context.
@@ -182,7 +183,7 @@ class AdaptiveLpFacade:
     # ========================================================================
 
     async def discover_cross_domain_opportunities(
-        self, user_uid: str, min_confidence: float | None = None
+        self, user_uid: UserUID, min_confidence: float | None = None
     ) -> Result[list[CrossDomainOpportunity]]:
         """
         Discover learning opportunities that span multiple knowledge domains.
@@ -225,7 +226,7 @@ class AdaptiveLpFacade:
     # ========================================================================
 
     async def generate_personalized_application_suggestions(
-        self, user_uid: str, context: dict[str, Any] | None = None
+        self, user_uid: UserUID, context: dict[str, Any] | None = None
     ) -> Result[list[PersonalizedSuggestion]]:
         """
         Generate personalized suggestions for applying existing knowledge.

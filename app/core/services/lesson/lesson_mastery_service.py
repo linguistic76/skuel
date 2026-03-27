@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.learning_events import KnowledgeMastered, LessonCompleted
+from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -89,7 +90,7 @@ class LessonMasteryService:
 
     async def record_view(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         ku_uid: str,
         time_spent_seconds: int = 0,
     ) -> Result[bool]:
@@ -121,7 +122,7 @@ class LessonMasteryService:
 
     async def mark_in_progress(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         ku_uid: str,
     ) -> Result[bool]:
         """Mark a knowledge unit as in-progress for a user."""
@@ -142,7 +143,7 @@ class LessonMasteryService:
 
     async def get_learning_state(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         ku_uid: str,
     ) -> Result[UserKuProgress]:
         """
@@ -208,7 +209,7 @@ class LessonMasteryService:
 
     async def get_learning_states_batch(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         ku_uids: list[str],
     ) -> Result[dict[str, LearningState]]:
         """Get learning states for multiple KUs in one query."""
@@ -245,7 +246,7 @@ class LessonMasteryService:
 
     async def mark_as_read(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         ku_uid: str,
     ) -> Result[None]:
         """Mark a KU as read by the user."""
@@ -262,7 +263,7 @@ class LessonMasteryService:
 
     async def toggle_bookmark(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         ku_uid: str,
     ) -> Result[bool]:
         """Toggle bookmark state for a KU."""
@@ -292,7 +293,7 @@ class LessonMasteryService:
 
     async def mark_mastered(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         ku_uid: str,
         mastery_score: float = 0.8,
         method: str = "report_approval",
@@ -378,7 +379,7 @@ class LessonMasteryService:
 
     async def get_bookmarked_kus(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[list[str]]:
         """Get list of bookmarked KU UIDs for user."""
         if not self.backend:
@@ -394,7 +395,9 @@ class LessonMasteryService:
         self.logger.debug(f"Retrieved {len(ku_uids)} bookmarked KUs for {user_uid}")
         return Result.ok(ku_uids)
 
-    async def get_all_user_knowledge_status(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_all_user_knowledge_status(
+        self, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:
         """Get all knowledge entities with per-user VIEWED/BOOKMARKED/MASTERED status."""
         if not self.backend:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))

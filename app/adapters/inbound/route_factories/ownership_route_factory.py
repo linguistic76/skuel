@@ -58,6 +58,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -75,7 +76,7 @@ class OwnershipOperations(Protocol):
     Services must implement verify_ownership for security.
     """
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Any]:
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Any]:
         """Verify user owns the entity."""
         ...
 

@@ -18,6 +18,8 @@ See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
 
@@ -43,7 +45,7 @@ class ReviewQueueService:
 
     async def request_review(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         time_period: str = "7d",
         domains: list[str] | None = None,
         message: str | None = None,

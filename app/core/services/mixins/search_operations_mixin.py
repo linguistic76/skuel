@@ -67,6 +67,7 @@ from adapters.persistence.neo4j.query import (
 )
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -165,7 +166,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     @with_error_handling("search", error_type="database")
     async def search(
-        self, query: str, limit: int = 50, user_uid: str | None = None
+        self, query: str, limit: int = 50, user_uid: UserUID | None = None
     ) -> Result[builtins.list[T]]:
         """
         Text search across configured search fields.
@@ -465,7 +466,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     async def graph_aware_faceted_search(
         self,
         request: SearchRequest,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Graph-aware faceted search - THE unified method for all domains.
@@ -618,7 +619,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     @with_error_handling("get_by_status", error_type="database")
     async def get_by_status(
-        self, status: str, limit: int = 100, user_uid: str | None = None
+        self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[builtins.list[T]]:
         """
         Filter entities by status field.
@@ -682,7 +683,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     @with_error_handling("get_by_category", error_type="database")
     async def get_by_category(
-        self, category: str, user_uid: str | None = None, limit: int = 100
+        self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[builtins.list[T]]:
         """
         Filter entities by category field.
@@ -719,7 +720,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         return Result.ok(entities)
 
     @with_error_handling("list_user_categories", error_type="database")
-    async def list_user_categories(self, user_uid: str) -> Result[builtins.list[str]]:
+    async def list_user_categories(self, user_uid: UserUID) -> Result[builtins.list[str]]:
         """
         List unique category values for a specific user's entities.
 

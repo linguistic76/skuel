@@ -15,6 +15,8 @@ from collections import defaultdict
 from operator import attrgetter
 from typing import Any
 
+from core.models.type_hints import UserUID
+
 # Import dataclasses from shared models module (breaks circular dependency)
 from core.services.adaptive_lp.adaptive_lp_models import LearningStyle, PersonalizedSuggestion
 from core.services.adaptive_lp_types import KnowledgeState
@@ -42,7 +44,7 @@ class AdaptiveLpSuggestionsService:
     @with_error_handling(error_type="system", uid_param="user_uid")
     async def generate_personalized_application_suggestions(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_state: KnowledgeState,
         learning_style: LearningStyle,
         context: dict[str, Any] | None = None,
@@ -105,7 +107,7 @@ class AdaptiveLpSuggestionsService:
         applied_knowledge: set[str],
         mastery_levels: dict[str, float],
         learning_style: LearningStyle,
-        _user_uid: str,
+        _user_uid: UserUID,
     ) -> list[PersonalizedSuggestion]:
         """Generate suggestions for practicing existing knowledge."""
         suggestions = []
@@ -175,7 +177,7 @@ class AdaptiveLpSuggestionsService:
         return suggestions[:5]  # Limit practice suggestions
 
     async def _generate_project_suggestions(
-        self, applied_knowledge: set[str], _knowledge_state: KnowledgeState, _user_uid: str
+        self, applied_knowledge: set[str], _knowledge_state: KnowledgeState, _user_uid: UserUID
     ) -> list[PersonalizedSuggestion]:
         """Generate suggestions for knowledge application through projects."""
         suggestions = []
@@ -315,7 +317,7 @@ class AdaptiveLpSuggestionsService:
         return project_templates.get(domain)
 
     async def _generate_teaching_suggestions(
-        self, applied_knowledge: set[str], mastery_levels: dict[str, float], _user_uid: str
+        self, applied_knowledge: set[str], mastery_levels: dict[str, float], _user_uid: UserUID
     ) -> list[PersonalizedSuggestion]:
         """Generate suggestions for teaching or sharing knowledge."""
         suggestions = []
@@ -371,7 +373,7 @@ class AdaptiveLpSuggestionsService:
         return suggestions
 
     async def _generate_career_application_suggestions(
-        self, applied_knowledge: set[str], _user_uid: str, _context: dict[str, Any] | None
+        self, applied_knowledge: set[str], _user_uid: UserUID, _context: dict[str, Any] | None
     ) -> list[PersonalizedSuggestion]:
         """Generate suggestions for applying knowledge in career contexts."""
         suggestions = []
@@ -460,7 +462,7 @@ class AdaptiveLpSuggestionsService:
     async def _personalize_and_score_suggestions(
         self,
         suggestions: list[PersonalizedSuggestion],
-        _user_uid: str,
+        _user_uid: UserUID,
         _knowledge_state: KnowledgeState,
         learning_style: LearningStyle,
     ) -> list[PersonalizedSuggestion]:

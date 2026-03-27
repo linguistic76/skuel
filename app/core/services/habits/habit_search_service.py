@@ -26,7 +26,7 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
-from core.models.type_hints import Metadata
+from core.models.type_hints import Metadata, UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -267,7 +267,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
     async def get_due_soon(
         self,
         days_ahead: int = 7,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[Habit]]:
         """
@@ -326,7 +326,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
     @with_error_handling("get_overdue", error_type="database")
     async def get_overdue(
         self,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[Habit]]:
         """
@@ -542,7 +542,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         return Result.ok(at_risk)
 
     @with_error_handling("get_user_due_today", error_type="database")
-    async def get_user_due_today(self, user_uid: str) -> Result[list[Habit]]:
+    async def get_user_due_today(self, user_uid: UserUID) -> Result[list[Habit]]:
         """
         Get habits due today for a specific user.
 
@@ -638,7 +638,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         )
 
     @with_error_handling("get_active_habits", error_type="database", uid_param="user_uid")
-    async def get_active_habits(self, user_uid: str) -> Result[list[Habit]]:
+    async def get_active_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
         """
         Get active (non-archived, non-completed) habits for a user.
 
@@ -674,7 +674,7 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
 
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
-        self, query: str, user_uid: str | None = None, limit: int = 50
+        self, query: str, user_uid: UserUID | None = None, limit: int = 50
     ) -> Result[tuple[list[Habit], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.

@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.askesis.askesis_dto import AskesisDTO
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -76,7 +77,7 @@ class AskesisCoreService:
 
     async def get_or_create_for_user(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[Askesis]:
         """
         Get existing Askesis instance for user, or create if not exists.
@@ -122,7 +123,7 @@ class AskesisCoreService:
 
     async def create_askesis(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         create_request: AskesisCreateRequest,
     ) -> Result[Askesis]:
         """
@@ -196,7 +197,7 @@ class AskesisCoreService:
 
         return Result.ok(result.value)
 
-    async def get_user_askesis(self, user_uid: str) -> Result[Askesis]:
+    async def get_user_askesis(self, user_uid: UserUID) -> Result[Askesis]:
         """
         Get user's Askesis instance (or create if not exists).
 
@@ -270,7 +271,7 @@ class AskesisCoreService:
         self.logger.info(f"Deleted Askesis instance {askesis_uid}")
         return Result.ok(True)
 
-    async def list_user_instances(self, user_uid: str) -> Result[list[Askesis]]:
+    async def list_user_instances(self, user_uid: UserUID) -> Result[list[Askesis]]:
         """
         List all Askesis instances for a user.
 

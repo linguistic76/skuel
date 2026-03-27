@@ -30,6 +30,7 @@ from core.utils.sort_functions import get_result_score
 
 if TYPE_CHECKING:
     from core.models.relationship_registry import DomainRelationshipConfig
+    from core.models.type_hints import EntityUID
     from core.ports.context_awareness_protocols import (
         CoreIdentity,
         CrossDomainAwareness,
@@ -490,6 +491,6 @@ class PlanningMixin:
         return reasons
 
     # Placeholder for get_related_uids - will be provided by the service
-    async def get_related_uids(self, key: str, uid: str) -> Result[list[str]]:
+    async def get_related_uids(self, key: str, uid: EntityUID) -> Result[list[str]]:
         """Get related UIDs - implemented by service."""
         raise NotImplementedError("Must be implemented by service class")

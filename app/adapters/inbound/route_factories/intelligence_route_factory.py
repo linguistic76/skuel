@@ -52,6 +52,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.type_converters import to_dict
@@ -80,7 +81,7 @@ class OwnershipVerifier(Protocol):
     UID enumeration attacks.
     """
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Any]:
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Any]:
         """
         Verify that user owns the entity.
 
@@ -121,7 +122,7 @@ class IntelligenceOperations(Protocol[T]):
         ...
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Get performance analytics for user.

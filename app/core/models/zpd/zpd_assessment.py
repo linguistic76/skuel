@@ -23,6 +23,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+from core.models.type_hints import EntityUID
+
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
@@ -70,7 +72,7 @@ class ZPDAction:
     targets a specific entity that advances the user's proximal zone.
     """
 
-    entity_uid: str
+    entity_uid: EntityUID
     entity_type: str  # "exercise", "lesson", "task", "habit"
     action_type: str  # "learn", "submit", "reinforce", "practice"
     priority: float  # 0.0-1.0

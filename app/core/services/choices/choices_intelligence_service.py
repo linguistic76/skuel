@@ -26,6 +26,7 @@ from core.constants import ConfidenceLevel
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.enums import Domain
+from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.choices._analytics_mixin import _AnalyticsMixin
 from core.services.choices._behavioral_signals_mixin import _BehavioralSignalsMixin
@@ -132,7 +133,7 @@ class ChoicesIntelligenceService(
         return await self.get_choice_with_context(uid, depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, _period_days: int = 30
+        self, user_uid: UserUID, _period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Get choice/decision analytics for a user.

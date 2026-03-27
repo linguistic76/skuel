@@ -27,6 +27,7 @@ from core.models.journal.je_input import JeInput
 from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission import Submission
 from core.models.submissions.submission_dto import SubmissionDTO
+from core.models.type_hints import UserUID
 from core.ports import BackendOperations, BaseUpdatePayload
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -119,7 +120,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         self,
         raw_transcript: str,
         instructions_uid: str | None = None,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[SubmissionAIInsights]:
         """
         Process raw transcript into formatted journal using Neo4j context.
@@ -177,7 +178,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         self,
         audio_file_path: str,
         instructions_uid: str | None = None,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[SubmissionAIInsights]:
         """
         Process audio file into formatted journal insights (full pipeline).
@@ -231,7 +232,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         "get_journal_context_for_processing", error_type="database", uid_param="user_uid"
     )
     async def get_journal_context_for_processing(
-        self, user_uid: str
+        self, user_uid: UserUID
     ) -> Result[SubmissionProcessingContext]:
         """
         Get comprehensive context for intelligent journal processing.
@@ -413,7 +414,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             )
         )
 
-    async def _gather_context(self, user_uid: str) -> SubmissionProcessingContext:
+    async def _gather_context(self, user_uid: UserUID) -> SubmissionProcessingContext:
         """
         Gather relevant context from Neo4j for intelligent editing.
 
@@ -448,7 +449,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         return result.value
 
-    async def _get_recent_journals(self, user_uid: str, days: int = 7) -> list[dict[str, str]]:
+    async def _get_recent_journals(self, user_uid: UserUID, days: int = 7) -> list[dict[str, str]]:
         """
         Get recent journal entries for context awareness.
 
@@ -506,7 +507,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         return journals
 
-    async def _get_active_goals(self, user_uid: str) -> list[dict[str, str]]:
+    async def _get_active_goals(self, user_uid: UserUID) -> list[dict[str, str]]:
         """
         Get active goals for the user.
 
@@ -539,7 +540,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             for record in result.value or []
         ]
 
-    async def _get_recent_topics(self, user_uid: str, days: int = 30) -> list[str]:
+    async def _get_recent_topics(self, user_uid: UserUID, days: int = 30) -> list[str]:
         """
         Extract recurring topics from recent journals.
 
@@ -672,7 +673,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         return Result.ok(relationships_created)
 
-    async def _create_temporal_relationship(self, journal_uid: str, user_uid: str) -> int:
+    async def _create_temporal_relationship(self, journal_uid: str, user_uid: UserUID) -> int:
         """Create FOLLOWS relationship to most recent previous journal-type report."""
         cypher = """
         MATCH (new:Entity {uid: $journal_uid})
@@ -1379,7 +1380,7 @@ Return ONLY Markdown in this structure:
     async def process_raw_transcript(
         self,
         raw_transcript: str,
-        user_uid: str,
+        user_uid: UserUID,
         instructions_uid: str | None = None,
         store_result: bool = True,
     ) -> Result[Entity]:
@@ -1436,7 +1437,7 @@ Return ONLY Markdown in this structure:
     async def search_journal_reports(
         self,
         query: str,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> Result[tuple[list[Entity], int]]:
@@ -1488,7 +1489,7 @@ Return ONLY Markdown in this structure:
     async def create_report_from_transcription(
         self,
         transcription_result: dict[str, Any],
-        user_uid: str,
+        user_uid: UserUID,
         instructions_uid: str | None = None,
     ) -> Result[Entity]:
         """

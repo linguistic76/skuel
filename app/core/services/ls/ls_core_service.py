@@ -35,6 +35,7 @@ from core.events.curriculum_events import (
 )
 from core.models.pathways.learning_step import LearningStep
 from core.models.pathways.learning_step_dto import LearningStepDTO
+from core.models.type_hints import UserUID
 from core.ports import get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
@@ -530,7 +531,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> Result[list[LearningStep]]:
         """
         List learning steps with pagination and sorting support.

@@ -16,6 +16,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any
 
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_domain_choice_count
 
@@ -188,7 +189,9 @@ class _AnalyticsMixin:
 
         return Result.ok(results)
 
-    async def get_decision_patterns(self, user_uid: str, days: int = 90) -> Result[dict[str, Any]]:
+    async def get_decision_patterns(
+        self, user_uid: UserUID, days: int = 90
+    ) -> Result[dict[str, Any]]:
         """
         Analyze user's decision-making patterns.
 
@@ -352,7 +355,7 @@ class _AnalyticsMixin:
         )
 
     async def get_choice_quality_correlations(
-        self, user_uid: str, days: int = 90
+        self, user_uid: UserUID, days: int = 90
     ) -> Result[dict[str, Any]]:
         """
         Analyze correlations between decision quality metrics.
@@ -421,7 +424,7 @@ class _AnalyticsMixin:
         )
 
     async def get_domain_decision_patterns(
-        self, user_uid: str, days: int = 90
+        self, user_uid: UserUID, days: int = 90
     ) -> Result[dict[str, Any]]:
         """
         Analyze decision patterns by domain.

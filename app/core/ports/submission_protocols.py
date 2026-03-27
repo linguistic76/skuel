@@ -29,6 +29,7 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 from datetime import date
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -56,7 +57,7 @@ class SubmissionOperations(Protocol):
         self,
         file_content: bytes,
         original_filename: str,
-        user_uid: str,
+        user_uid: UserUID,
         entity_type: Any,
         processor_type: Any = ...,
         file_type: str | None = None,
@@ -69,7 +70,7 @@ class SubmissionOperations(Protocol):
 
     async def submit_form(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         exercise_uid: str,
         form_data: dict[str, Any],
         title: str | None = None,
@@ -83,7 +84,7 @@ class SubmissionOperations(Protocol):
 
     async def list_submissions(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         entity_type: Any | None = None,
         status: Any | None = None,
         limit: int = 50,
@@ -100,7 +101,7 @@ class SubmissionOperations(Protocol):
         """Get processed file content. Returns Result[bytes]."""
         ...
 
-    async def get_submission_statistics(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_submission_statistics(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get submission statistics for a user. Returns Result[dict]."""
         ...
 
@@ -145,7 +146,7 @@ class SubmissionOperations(Protocol):
         self,
         category: str,
         limit: int = 50,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> "Result[list[SubmissionEntity]]":
         """Get submissions by category. Returns Result[list[Submission]]."""
         ...
@@ -153,7 +154,7 @@ class SubmissionOperations(Protocol):
     async def get_recent_submissions(
         self,
         limit: int = 10,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         entity_type: Any | None = None,
     ) -> "Result[list[SubmissionEntity]]":
         """Get recent submissions. Returns Result[list[Submission]]."""
@@ -171,7 +172,7 @@ class SubmissionOperations(Protocol):
         """Bulk delete submissions. Returns Result[int] (count deleted)."""
         ...
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> "Result[SubmissionEntity]":
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> "Result[SubmissionEntity]":
         """Verify that user_uid owns the submission. Returns 404 if not found or not owner."""
         ...
 
@@ -180,43 +181,43 @@ class SubmissionOperations(Protocol):
     # ------------------------------------------------------------------
 
     async def share_submission(
-        self, entity_uid: str, recipient_uid: str, role: str
+        self, entity_uid: EntityUID, recipient_uid: str, role: str
     ) -> Result[bool]:
         """Create SHARES_WITH relationship. Returns Result[bool]."""
         ...
 
-    async def unshare_submission(self, entity_uid: str, recipient_uid: str) -> Result[bool]:
+    async def unshare_submission(self, entity_uid: EntityUID, recipient_uid: str) -> Result[bool]:
         """Delete SHARES_WITH relationship. Returns Result[bool]."""
         ...
 
-    async def get_shared_with_users(self, entity_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_shared_with_users(self, entity_uid: EntityUID) -> Result[list[dict[str, Any]]]:
         """List users with SHARES_WITH on entity. Returns Result[list[dict]]."""
         ...
 
     async def get_submissions_shared_with_me(
-        self, user_uid: str, limit: int = 50
+        self, user_uid: UserUID, limit: int = 50
     ) -> "Result[list[SubmissionEntity]]":
         """List submissions shared with user. Returns Result[list[Submission]]."""
         ...
 
     async def set_visibility(
-        self, entity_uid: str, owner_uid: str, visibility: Any
+        self, entity_uid: EntityUID, owner_uid: str, visibility: Any
     ) -> Result[bool]:
         """Set entity visibility level. Returns Result[bool]."""
         ...
 
-    async def check_access(self, entity_uid: str, user_uid: str) -> Result[bool]:
+    async def check_access(self, entity_uid: EntityUID, user_uid: UserUID) -> Result[bool]:
         """Check if user can access entity. Returns Result[bool]."""
         ...
 
-    async def verify_shareable(self, entity_uid: str) -> Result[bool]:
+    async def verify_shareable(self, entity_uid: EntityUID) -> Result[bool]:
         """Verify entity is in a shareable state. Returns Result[bool]."""
         ...
 
     async def get_public_submissions(
         self,
         limit: int = 50,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> "Result[list[SubmissionEntity]]":
         """Get public submissions with server-side visibility filter. Returns Result[list[Submission]]."""
         ...
@@ -268,7 +269,7 @@ class SubmissionSearchOperations(Protocol):
 
     async def search_submissions(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         query: str,
         entity_type: Any | None = None,
         limit: int = 50,
@@ -278,7 +279,7 @@ class SubmissionSearchOperations(Protocol):
 
     async def get_submission_statistics(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         entity_type: Any | None = None,
@@ -288,7 +289,7 @@ class SubmissionSearchOperations(Protocol):
 
     async def get_recent_submissions(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         entity_type: Any | None = None,
         limit: int = 10,
     ) -> "Result[list[SubmissionEntity]]":
@@ -298,7 +299,7 @@ class SubmissionSearchOperations(Protocol):
     async def get_journal_for_submission(
         self,
         ku_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any] | None]:
         """Get journal metadata for a submission entity. Returns Result[dict | None]."""
         ...

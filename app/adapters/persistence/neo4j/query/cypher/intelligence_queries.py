@@ -29,7 +29,7 @@ Convenience Functions:
 
 from typing import Any, TypeVar
 
-from core.models.type_hints import Neo4jValue
+from core.models.type_hints import EntityUID, Neo4jValue, UserUID
 
 T = TypeVar("T")
 
@@ -42,7 +42,7 @@ T = TypeVar("T")
 def build_hybrid_knowledge_search(
     property_filters: dict[str, Neo4jValue],
     graph_patterns: dict[str, str],
-    user_uid: str,
+    user_uid: UserUID,
     limit: int = 20,
     offset: int = 0,
     query_text: str | None = None,
@@ -121,7 +121,7 @@ def build_hybrid_knowledge_search(
 
 
 def build_optimized_ready_to_learn(
-    user_uid: str,
+    user_uid: UserUID,
     category: str | None = None,
     level: str | None = None,
     limit: int = 10,
@@ -203,7 +203,7 @@ def build_optimized_ready_to_learn(
 
 
 def build_goal_aligned_hybrid(
-    user_uid: str,
+    user_uid: UserUID,
     content_type: str | None = None,
     learning_level: str | None = None,
     only_active_goals: bool = True,
@@ -513,7 +513,7 @@ def build_impact_chain_query(
 
 
 def build_bidirectional_impact_query(
-    entity_uid: str,
+    entity_uid: EntityUID,
     entity_label: str,
     max_depth: int = 2,
 ) -> tuple[str, dict[str, Neo4jValue]]:

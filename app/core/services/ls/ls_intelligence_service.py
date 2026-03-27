@@ -30,6 +30,7 @@ from core.models.enums import Domain
 from core.models.graph_context import GraphContext
 from core.models.pathways.learning_step import LearningStep
 from core.models.pathways.learning_step_dto import LearningStepDTO
+from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
 from core.utils.decorators import with_error_handling
@@ -128,7 +129,7 @@ class LsIntelligenceService(
         return await self.orchestrator.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Get learning step analytics for a user.

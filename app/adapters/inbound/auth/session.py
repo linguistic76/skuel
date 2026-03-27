@@ -93,7 +93,7 @@ def get_current_user(request: Request) -> UserUID | None:
             return None
 
         # Get user_uid from session
-        user_uid: str | None = session.get("user_uid")
+        user_uid: UserUID | None = session.get("user_uid")
 
         if user_uid:
             logger.debug(f"✅ Authenticated user found: {user_uid}")
@@ -222,7 +222,7 @@ def get_session_token(request: Request) -> str | None:
 
 def set_current_user(
     request: Request,
-    user_uid: str,
+    user_uid: UserUID,
     session_token: str | None = None,
     is_admin: bool = False,
     is_teacher: bool = False,
@@ -474,7 +474,7 @@ def optional_auth(default_user: str = DEFAULT_DEV_USER):
         ```python
         @rt("/tasks")
         @optional_auth()
-        async def list_tasks(request, user_uid: str):
+        async def list_tasks(request, user_uid: UserUID):
             # user_uid is automatically injected
             tasks = await service.list_tasks(user_uid=user_uid)
             ...
@@ -517,7 +517,7 @@ def with_ownership(service_getter, uid_param: str = "uid"):
         @rt("/api/goals/{uid}/progress")
         @with_ownership(get_goals_service)
         @boundary_handler()
-        async def update_goal_progress(request, user_uid: str, entity: Goal):
+        async def update_goal_progress(request, user_uid: UserUID, entity: Goal):
             # entity is pre-verified to belong to user_uid
             return await goals_service.update_goal_progress(entity.uid, ...)
         ```
@@ -588,7 +588,7 @@ def require_ownership_query(service_getter, uid_param: str = "uid") -> Any:
         @rt("/api/tasks/complete")
         @require_ownership_query(get_tasks_service)
         @boundary_handler()
-        async def complete_task(request, user_uid: str, entity: Task):
+        async def complete_task(request, user_uid: UserUID, entity: Task):
             # entity is pre-verified to belong to user_uid
             body = await request.json()
             return await tasks_service.complete_task(entity.uid, body.get("notes"))

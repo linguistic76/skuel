@@ -22,6 +22,8 @@ Date Updated: January 2026 (Type Safety Improvements)
 from collections.abc import Sequence
 from typing import Literal, TypedDict, TypeVar
 
+from core.models.type_hints import UserUID
+
 
 class RelationshipSpec(TypedDict, total=False):
     """
@@ -82,7 +84,7 @@ class CypherQueryParams(TypedDict, total=False):
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     label: str
     limit: int
     offset: int
@@ -122,7 +124,7 @@ class NodePropertySpec(TypedDict, total=False):
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     title: str
     description: str
     status: str

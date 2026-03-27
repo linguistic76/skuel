@@ -24,7 +24,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import Neo4jProperties
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.context_awareness_protocols import FullAwareness
 from core.utils.result_simplified import Result
 
@@ -62,7 +62,7 @@ class CalendarServiceOperations(Protocol):
 
     async def get_calendar_view(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         view_type: Any = ...,
@@ -124,7 +124,7 @@ class VisualizationOperations(Protocol):
 
     async def get_completion_chart_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         period: str,
     ) -> Result[dict[str, Any]]:
         """Get task completion data formatted for Chart.js."""
@@ -132,21 +132,21 @@ class VisualizationOperations(Protocol):
 
     async def get_priority_distribution_chart_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """Get task priority distribution formatted for Chart.js."""
         ...
 
     async def get_streak_chart_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """Get habit streak data formatted for Chart.js."""
         ...
 
     async def get_status_distribution_chart_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         days_back: int = 30,
     ) -> Result[dict[str, Any]]:
         """Get task status distribution formatted for Chart.js."""
@@ -154,7 +154,7 @@ class VisualizationOperations(Protocol):
 
     async def get_timeline_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: Any,
         end_date: Any,
         group_by: str = "type",
@@ -164,7 +164,7 @@ class VisualizationOperations(Protocol):
 
     async def get_tasks_timeline_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         project: str | None = None,
     ) -> Result[dict[str, Any]]:
         """Get tasks-only timeline data formatted for Vis.js."""
@@ -172,7 +172,7 @@ class VisualizationOperations(Protocol):
 
     async def get_tasks_gantt_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         project: str | None = None,
     ) -> Result[dict[str, Any]]:
         """Get tasks Gantt data formatted for Frappe Gantt."""
@@ -180,7 +180,7 @@ class VisualizationOperations(Protocol):
 
     async def get_goal_gantt_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         goal_uid: str,
     ) -> Result[dict[str, Any]]:
         """Get goal with tasks as Gantt data formatted for Frappe Gantt."""
@@ -327,7 +327,7 @@ class CrossDomainAnalyticsOperations(Protocol):
 
     async def get_learning_velocity(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         days_back: int,
     ) -> "Result[LearningVelocityMetrics]":
         """Get learning velocity metrics. Returns Result[LearningVelocityMetrics]."""
@@ -335,7 +335,7 @@ class CrossDomainAnalyticsOperations(Protocol):
 
     async def get_spending_patterns(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         days_back: int,
     ) -> "Result[SpendingPatternAnalysis]":
         """Get spending pattern analysis. Returns Result[SpendingPatternAnalysis]."""
@@ -343,7 +343,7 @@ class CrossDomainAnalyticsOperations(Protocol):
 
     async def get_mood_analysis(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         days_back: int,
     ) -> "Result[JournalMoodAnalysis]":
         """Get journal mood analysis. Returns Result[JournalMoodAnalysis]."""
@@ -351,14 +351,14 @@ class CrossDomainAnalyticsOperations(Protocol):
 
     async def get_productivity_metrics(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """Get productivity analytics. Returns Result[dict]."""
         ...
 
     async def get_habit_consistency(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """Get habit consistency analytics. Returns Result[dict]."""
         ...
@@ -394,13 +394,13 @@ class LifePathOperations(Protocol):
 
     alignment: LifePathAlignmentOperations
 
-    async def get_full_status(self, user_uid: str) -> "Result[LifePathStatus]":
+    async def get_full_status(self, user_uid: UserUID) -> "Result[LifePathStatus]":
         """Get full life path status. Returns Result[LifePathStatus]."""
         ...
 
     async def capture_and_recommend(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         vision_statement: str,
     ) -> "Result[LifePathRecommendation]":
         """Capture vision and get recommendations. Returns Result[LifePathRecommendation]."""
@@ -408,13 +408,13 @@ class LifePathOperations(Protocol):
 
     async def designate_and_calculate(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         life_path_uid: str,
     ) -> "Result[LifePathDesignation]":
         """Designate LP as life path and calculate alignment. Returns Result[LifePathDesignation]."""
         ...
 
-    async def get_alignment(self, user_uid: str) -> "Result[LifePathAlignmentResult]":
+    async def get_alignment(self, user_uid: UserUID) -> "Result[LifePathAlignmentResult]":
         """Get alignment data. Builds context and delegates to alignment sub-service."""
         ...
 
@@ -474,7 +474,7 @@ class GraphAuthOperations(Protocol):
 
     async def admin_generate_reset_token(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         admin_uid: str,
         ip_address: str = "unknown",
         user_agent: str = "unknown",
@@ -550,7 +550,7 @@ class LateralRelationshipOperations(Protocol):
         metadata: Neo4jProperties | None = None,
         validate: bool = True,
         auto_inverse: bool = True,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         domain_service: Any | None = None,
     ) -> Result[bool]: ...
 
@@ -560,31 +560,31 @@ class LateralRelationshipOperations(Protocol):
         target_uid: str,
         relationship_type: RelationshipName,
         delete_inverse: bool = True,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         domain_service: Any | None = None,
     ) -> Result[bool]: ...
 
     async def get_lateral_relationships(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         relationship_types: list[RelationshipName] | None = None,
         direction: str = "outgoing",
         include_metadata: bool = True,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         domain_service: Any | None = None,
     ) -> "Result[list[LateralRelationshipItem]]": ...
 
     async def get_blocking_chain(
-        self, entity_uid: str, max_depth: int = 10
+        self, entity_uid: EntityUID, max_depth: int = 10
     ) -> "Result[BlockingChainResult]": ...
 
     async def get_alternatives_with_comparison(
-        self, entity_uid: str, comparison_fields: list[str] | None = None
+        self, entity_uid: EntityUID, comparison_fields: list[str] | None = None
     ) -> "Result[list[LateralRelationshipItem]]": ...
 
     async def get_relationship_graph(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         depth: int = 2,
         relationship_types: list[RelationshipName] | None = None,
     ) -> "Result[RelationshipGraphData]": ...
@@ -630,24 +630,24 @@ class LateralRelationshipBackendOperations(Protocol):
 
     async def get_relationships(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         type_filter: str,
         pattern: str,
     ) -> Result[list[dict[str, Any]]]: ...
 
-    async def get_siblings(self, entity_uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def get_siblings(self, entity_uid: EntityUID) -> Result[list[dict[str, Any]]]: ...
 
-    async def get_cousins(self, entity_uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def get_cousins(self, entity_uid: EntityUID) -> Result[list[dict[str, Any]]]: ...
 
-    async def get_blocking_chain(self, entity_uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def get_blocking_chain(self, entity_uid: EntityUID) -> Result[list[dict[str, Any]]]: ...
 
     async def get_alternatives_comparison(
-        self, entity_uid: str
+        self, entity_uid: EntityUID
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_relationship_graph(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         type_filter: str,
         depth: int,
     ) -> Result[list[dict[str, Any]]]: ...

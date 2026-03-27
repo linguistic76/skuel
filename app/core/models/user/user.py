@@ -31,6 +31,7 @@ from typing import Any
 from core.models.base_models_consolidated import BaseEntity
 from core.models.enums import EnergyLevel, LearningLevel, TimeOfDay, UserRole
 from core.models.query_types import QueryIntent
+from core.models.type_hints import EntityUID, UserUID
 
 
 def _default_energy_pattern() -> dict[TimeOfDay, EnergyLevel]:
@@ -144,11 +145,11 @@ class User(BaseEntity):
     # Settings
     settings: dict[str, Any] = field(default_factory=dict)
 
-    def is_entity_active(self, entity_uid: str) -> bool:
+    def is_entity_active(self, entity_uid: EntityUID) -> bool:
         """Check if an entity is in the active set"""
         return entity_uid in self.active_entity_uids
 
-    def is_entity_archived(self, entity_uid: str) -> bool:
+    def is_entity_archived(self, entity_uid: EntityUID) -> bool:
         """Check if an entity is archived"""
         return entity_uid in self.archived_entity_uids
 
@@ -278,7 +279,7 @@ class UserServiceContext:
     services can use without loading the full user model.
     """
 
-    user_uid: str
+    user_uid: UserUID
     username: str
     learning_level: LearningLevel
 
@@ -332,7 +333,7 @@ class UserStatistics:
     These are calculated from user activity data, not stored in the user model.
     """
 
-    user_uid: str
+    user_uid: UserUID
     computed_at: datetime = field(default_factory=datetime.now)
 
     # Activity counts
@@ -363,7 +364,9 @@ class UserStatistics:
     most_productive_day: str | None = None  # Day of week
 
     @classmethod
-    def compute_from_progress(cls, user_uid: str, progress_records: list[Any]) -> "UserStatistics":
+    def compute_from_progress(
+        cls, user_uid: UserUID, progress_records: list[Any]
+    ) -> "UserStatistics":
         """
         Compute statistics from progress records.
 

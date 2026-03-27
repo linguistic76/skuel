@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from adapters.persistence.neo4j.query import build_user_activity_query
 from core.models.protocols import DomainModelProtocol, DTOProtocol
+from core.models.type_hints import UserUID
 from core.ports import BackendOperations
 from core.utils.result_simplified import Errors, Result
 
@@ -89,7 +90,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     async def get_user_items_in_range_base(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         date_field: str,
@@ -159,7 +160,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     async def get_user_items_in_range(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         include_completed: bool = False,
@@ -227,7 +228,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
     async def get_due_soon(
         self,
         days_ahead: int = 7,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[builtins.list[T]]:
         """
@@ -301,7 +302,7 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     async def get_overdue(
         self,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[builtins.list[T]]:
         """

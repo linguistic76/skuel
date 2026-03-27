@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from core.models.enums.transcription_enums import TranscriptionStatus
+from core.models.type_hints import UserUID
 
 
 def _utcnow() -> datetime:
@@ -50,7 +51,7 @@ class Transcription:
     duration_seconds: float | None = None
 
     # Ownership
-    user_uid: str | None = None
+    user_uid: UserUID | None = None
 
     # Timestamps
     created_at: datetime = field(default_factory=_utcnow)

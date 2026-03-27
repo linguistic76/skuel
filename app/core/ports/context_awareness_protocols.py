@@ -45,6 +45,8 @@ Protocol Hierarchy:
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.ports.query_types import (
         RichEntityItem,
@@ -71,7 +73,7 @@ class CoreIdentity(Protocol):
         username: User's username for display/logging
     """
 
-    user_uid: str
+    user_uid: UserUID
     username: str
 
 
@@ -98,7 +100,7 @@ class TaskAwareness(Protocol):
     """
 
     # Core identity (inherited conceptually)
-    user_uid: str
+    user_uid: UserUID
 
     # Active task state
     active_task_uids: list[str]
@@ -144,7 +146,7 @@ class KnowledgeAwareness(Protocol):
     """
 
     # Core identity
-    user_uid: str
+    user_uid: UserUID
 
     # Mastery state
     knowledge_mastery: dict[str, float]  # uid -> mastery (0.0-1.0)
@@ -180,7 +182,7 @@ class HabitAwareness(Protocol):
     """
 
     # Core identity
-    user_uid: str
+    user_uid: UserUID
 
     # Habit state
     active_habit_uids: set[str]
@@ -218,7 +220,7 @@ class GoalAwareness(Protocol):
     """
 
     # Core identity
-    user_uid: str
+    user_uid: UserUID
 
     # Goal state
     active_goal_uids: set[str]
@@ -265,7 +267,7 @@ class EventAwareness(Protocol):
     """
 
     # Core identity
-    user_uid: str
+    user_uid: UserUID
 
     # Event state
     upcoming_event_uids: list[str]
@@ -301,7 +303,7 @@ class PrincipleAwareness(Protocol):
     """
 
     # Core identity
-    user_uid: str
+    user_uid: UserUID
 
     # Principle state
     core_principle_uids: set[str]
@@ -330,7 +332,7 @@ class ChoiceAwareness(Protocol):
     """
 
     # Core identity
-    user_uid: str
+    user_uid: UserUID
 
     # Choice state
     pending_choice_uids: list[str]
@@ -365,7 +367,7 @@ class LearningPathAwareness(Protocol):
     """
 
     # Core identity
-    user_uid: str
+    user_uid: UserUID
 
     # Learning path state
     enrolled_path_uids: list[str]
@@ -402,7 +404,7 @@ class CrossDomainAwareness(Protocol):
     """
 
     # Core identity
-    user_uid: str
+    user_uid: UserUID
 
     # Task awareness
     active_task_uids: list[str]
@@ -447,7 +449,7 @@ class FullAwareness(Protocol):
     """
 
     # Core identity
-    user_uid: str
+    user_uid: UserUID
     username: str
 
     # Task awareness

@@ -50,6 +50,7 @@ from core.models.finance.finance_pure import (
     ExpenseStatus,
 )
 from core.models.finance.invoice import InvoicePure
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import FinancesOperations
 from core.services.finance import (
     FinanceBudgetService,
@@ -227,7 +228,7 @@ class FinanceService:
         """Get entity by UID. Returns None if not found."""
         return await self.core.get(uid)
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[ExpensePure]:
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[ExpensePure]:
         """
         Verify user owns the expense.
 
@@ -243,7 +244,7 @@ class FinanceService:
         return Result.ok(expense)
 
     async def get_user_expenses(
-        self, user_uid: str, limit: int = 100, offset: int = 0
+        self, user_uid: UserUID, limit: int = 100, offset: int = 0
     ) -> Result[tuple[list[ExpensePure], int]]:
         """Get all expenses for a user."""
         return await self.core.get_user_expenses(user_uid, limit, offset)
@@ -255,7 +256,7 @@ class FinanceService:
         return await self.core.list_expenses(limit, offset, filters)
 
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[ExpensePure]]:
         """
         Get user's expenses in date range - standard interface for meta-services.
@@ -397,13 +398,15 @@ class FinanceService:
     # REPORTING OPERATIONS - Delegate to FinanceReportingService
     # ========================================================================
 
-    async def generate_monthly_report(self, user_uid: str, year: int, month: int) -> Result[dict]:
+    async def generate_monthly_report(
+        self, user_uid: UserUID, year: int, month: int
+    ) -> Result[dict]:
         """Generate monthly financial report."""
         return await self.reporting.generate_monthly_report(user_uid, year, month)
 
     async def get_expense_summary(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         from_date: date | None = None,
         to_date: date | None = None,
         group_by: str = "category",
@@ -412,14 +415,14 @@ class FinanceService:
         return await self.reporting.get_expense_summary(user_uid, from_date, to_date, group_by)
 
     async def get_tax_deductible_expenses(
-        self, user_uid: str, year: int
+        self, user_uid: UserUID, year: int
     ) -> Result[list[ExpensePure]]:
         """Get all tax-deductible expenses for a year."""
         return await self.reporting.get_tax_deductible_expenses(user_uid, year)
 
     async def find_expenses_by_category(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         category: ExpenseCategory,
         from_date: date | None = None,
         to_date: date | None = None,
@@ -561,7 +564,7 @@ class FinanceService:
 
     async def get_expenses_by_date_range(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         category: ExpenseCategory | None = None,
@@ -606,7 +609,7 @@ class FinanceService:
     async def search_expenses(
         self,
         query: str,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> Result[tuple[list[ExpensePure], int]]:

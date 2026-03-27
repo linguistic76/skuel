@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import AskesisPipelineTimeout, AskesisTokenBudget, QueryProcessorConfidence
 from core.models.enums import MessageRole
 from core.models.query_types import QueryIntent
+from core.models.type_hints import UserUID
 from core.models.user.conversation import ConversationContext
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -147,7 +148,7 @@ class QueryProcessor:
 
     @with_error_handling("answer_user_question", error_type="system", uid_param="user_uid")
     async def answer_user_question(
-        self, user_uid: str, question: str, session_id: str | None = None
+        self, user_uid: UserUID, question: str, session_id: str | None = None
     ) -> Result[dict[str, Any]]:
         """
         Complete RAG pipeline - retrieval + generation.
@@ -193,7 +194,7 @@ class QueryProcessor:
             )
 
     async def _answer_user_question_pipeline(
-        self, user_uid: str, question: str, session_id: str | None = None
+        self, user_uid: UserUID, question: str, session_id: str | None = None
     ) -> Result[dict[str, Any]]:
         """Inner pipeline for answer_user_question, wrapped with timeout."""
         # Step 1: Get full user context
@@ -330,7 +331,7 @@ class QueryProcessor:
 
     @with_error_handling("process_query_with_context", error_type="system", uid_param="user_uid")
     async def process_query_with_context(
-        self, user_uid: str, query_message: str, depth: int = 2
+        self, user_uid: UserUID, query_message: str, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """
         Process Askesis query with full user context.
@@ -377,7 +378,7 @@ class QueryProcessor:
             )
 
     async def _process_query_with_context_pipeline(
-        self, user_uid: str, query_message: str, depth: int = 2
+        self, user_uid: UserUID, query_message: str, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """Inner pipeline for process_query_with_context, wrapped with timeout."""
         # Step 1: Load user context + enrollment gate
@@ -463,7 +464,7 @@ class QueryProcessor:
 
     async def _run_guided_pipeline(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         question: str,
         user_context: Any,
     ) -> tuple[str | None, str | None, Any]:

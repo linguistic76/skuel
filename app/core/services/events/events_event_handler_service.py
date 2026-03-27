@@ -29,6 +29,7 @@ from core.events.calendar_event_events import (
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -361,7 +362,7 @@ class EventsEventHandlerService:
                 },
             )
 
-    async def _count_recent_reschedules(self, user_uid: str) -> int:
+    async def _count_recent_reschedules(self, user_uid: UserUID) -> int:
         """Count events rescheduled by this user in the last 30 days.
 
         Uses a lightweight query on event metadata to detect rescheduling frequency.
@@ -379,7 +380,7 @@ class EventsEventHandlerService:
         row = result.value[0]
         return row.get("reschedule_count", 0) if isinstance(row, dict) else 0
 
-    async def _count_events_in_week(self, user_uid: str, event_date: date) -> int:
+    async def _count_events_in_week(self, user_uid: UserUID, event_date: date) -> int:
         """Count events for a user in the 7-day window around a date.
 
         Args:

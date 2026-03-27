@@ -38,6 +38,7 @@ from core.models.graph_context import GraphContext
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.query_types import QueryIntent
+from core.models.type_hints import UserUID
 from core.ports.content_protocols import ContentAdapter
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
@@ -202,7 +203,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         return await self.orchestrator.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Get learning path analytics for a user.
@@ -591,7 +592,9 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
     @requires_graph_intelligence("identify_path_blockers")
     @with_error_handling("identify_path_blockers", error_type="database", uid_param="path_uid")
-    async def identify_path_blockers(self, path_uid: str, user_uid: str) -> Result[dict[str, Any]]:
+    async def identify_path_blockers(
+        self, path_uid: str, user_uid: UserUID
+    ) -> Result[dict[str, Any]]:
         """
         Identify blockers in learning path for a specific user.
 
@@ -696,7 +699,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         "get_optimal_path_recommendation", error_type="database", uid_param="user_uid"
     )
     async def get_optimal_path_recommendation(
-        self, user_uid: str, goal_domain: str | None = None
+        self, user_uid: UserUID, goal_domain: str | None = None
     ) -> Result[dict[str, Any]]:
         """
         Get optimal learning path recommendation for a user.
@@ -884,7 +887,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
     @with_error_handling("find_learning_sequence", error_type="database", uid_param="start_uid")
     async def find_learning_sequence(
-        self, start_uid: str, goal_uid: str, _user_uid: str | None = None
+        self, start_uid: str, goal_uid: str, _user_uid: UserUID | None = None
     ) -> Result[list[str]]:
         """
         Find optimal learning path from start to goal using graph traversal.
@@ -945,7 +948,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     async def get_next_adaptive_step(
         self,
         current_step_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         _user_performance: dict[str, float] | None = None,
     ) -> Result[str | None]:
         """
@@ -1040,7 +1043,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         "get_recommended_learning_steps", error_type="database", uid_param="user_uid"
     )
     async def get_recommended_learning_steps(
-        self, user_uid: str, max_difficulty: float = 0.5, limit: int = 5
+        self, user_uid: UserUID, max_difficulty: float = 0.5, limit: int = 5
     ) -> Result[list[dict[str, Any]]]:
         """
         Get recommended learning steps for a user based on their progress.
@@ -1143,7 +1146,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     @requires_graph_intelligence("get_path_with_context")
     @with_error_handling("get_path_with_context", error_type="database", uid_param="path_uid")
     async def get_path_with_context(
-        self, path_uid: str, user_uid: str | None = None, depth: int = 2
+        self, path_uid: str, user_uid: UserUID | None = None, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """
         Get learning path with complete graph context.

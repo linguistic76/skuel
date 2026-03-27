@@ -22,13 +22,14 @@ Usage:
 from fasthtml.common import H2, Div
 from monsterui.franken import Accordion, AccordionItem
 
+from core.models.type_hints import EntityUID
 from ui.patterns.relationships.alternatives_grid import AlternativesComparisonGrid
 from ui.patterns.relationships.blocking_chain import BlockingChainView
 from ui.patterns.relationships.relationship_graph import RelationshipGraphView
 
 
 def EntityRelationshipsSection(
-    entity_uid: str,
+    entity_uid: EntityUID,
     entity_type: str,
     show_blocking_chain: bool = True,
     show_alternatives: bool = True,

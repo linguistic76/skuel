@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.enums import EntityStatus
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import ChoicesOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
@@ -173,12 +174,12 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     async def get_choice(self, choice_uid: str) -> Result[Choice]:
         return await self.core.get_choice(choice_uid)
 
-    async def get_user_choices(self, user_uid: str) -> Result[list[Choice]]:
+    async def get_user_choices(self, user_uid: UserUID) -> Result[list[Choice]]:
         return await self.core.get_user_choices(user_uid)
 
     async def get_user_items_in_range(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         include_completed: bool = False,
@@ -191,7 +192,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     async def create_choice_with_learning_guidance(
         self,
         choice_request: ChoiceCreateRequest,
-        user_uid: str,
+        user_uid: UserUID,
         learning_position: LpPosition | None = None,
     ) -> Result[Choice]:
         return await self.learning.create_choice_with_learning_guidance(
@@ -231,7 +232,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     # Relationship delegations
     async def get_choice_cross_domain_context(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         depth: int = 2,
         min_confidence: float = 0.7,
     ) -> Result[dict[str, Any]]:
@@ -263,53 +264,57 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     ) -> Result[ChoiceImpactAnalysis]:
         return await self.intelligence.analyze_choice_impact(choice_uid, depth, min_confidence)
 
-    async def get_decision_patterns(self, user_uid: str, days: int = 90) -> Result[dict[str, Any]]:
+    async def get_decision_patterns(
+        self, user_uid: UserUID, days: int = 90
+    ) -> Result[dict[str, Any]]:
         return await self.intelligence.get_decision_patterns(user_uid, days)
 
     async def get_choice_quality_correlations(
-        self, user_uid: str, days: int = 90
+        self, user_uid: UserUID, days: int = 90
     ) -> Result[dict[str, Any]]:
         return await self.intelligence.get_choice_quality_correlations(user_uid, days)
 
     async def get_domain_decision_patterns(
-        self, user_uid: str, days: int = 90
+        self, user_uid: UserUID, days: int = 90
     ) -> Result[dict[str, Any]]:
         return await self.intelligence.get_domain_decision_patterns(user_uid, days)
 
     # Search delegations
     async def search_choices(
-        self, query: str, limit: int = 50, user_uid: str | None = None
+        self, query: str, limit: int = 50, user_uid: UserUID | None = None
     ) -> Result[list[Choice]]:
         return await self.search.search(query, limit, user_uid)  # type: ignore[return-value]
 
     async def get_choices_by_status(
-        self, status: str, limit: int = 100, user_uid: str | None = None
+        self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Choice]]:
         return await self.search.get_by_status(status, limit, user_uid)  # type: ignore[return-value]
 
     async def get_choices_by_domain(self, domain: Any, limit: int = 100) -> Result[list[Choice]]:
         return await self.search.get_by_domain(domain, limit)  # type: ignore[return-value]
 
-    async def get_pending_choices(self, user_uid: str, limit: int = 100) -> Result[list[Choice]]:
+    async def get_pending_choices(
+        self, user_uid: UserUID, limit: int = 100
+    ) -> Result[list[Choice]]:
         return await self.search.get_pending(user_uid, limit)  # type: ignore[return-value]
 
     async def get_choices_due_soon(
-        self, days_ahead: int = 7, user_uid: str | None = None, limit: int = 100
+        self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
         return await self.search.get_due_soon(days_ahead, user_uid, limit)  # type: ignore[return-value]
 
     async def get_overdue_choices(
-        self, user_uid: str | None = None, limit: int = 100
+        self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
         return await self.search.get_overdue(user_uid, limit)  # type: ignore[return-value]
 
     async def get_choices_by_urgency(
-        self, urgency: str, user_uid: str | None = None, limit: int = 100
+        self, urgency: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
         return await self.search.get_by_urgency(urgency, user_uid, limit)  # type: ignore[return-value]
 
     async def get_choices_needing_decision(
-        self, user_uid: str, deadline_days: int = 7
+        self, user_uid: UserUID, deadline_days: int = 7
     ) -> Result[list[Choice]]:
         return await self.search.get_needing_decision(user_uid, deadline_days)  # type: ignore[return-value]
 
@@ -318,7 +323,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     ) -> Result[list[Choice]]:
         return await self.search.get_prioritized(user_context, limit)  # type: ignore[return-value]
 
-    async def list_choice_categories(self, user_uid: str) -> Result[list[str]]:
+    async def list_choice_categories(self, user_uid: UserUID) -> Result[list[str]]:
         return await self.search.list_user_categories(user_uid)
 
     async def list_all_choice_categories(self) -> Result[list[str]]:
@@ -393,13 +398,13 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     # ========================================================================
 
     async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> Result[dict[str, Any]]:
         """Generate knowledge suggestions from entity patterns."""
         return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
 
     async def generate_knowledge_from_entities(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Generate knowledge units from completed entities."""
         return await self.knowledge_intelligence.generate_knowledge_from_entities(
@@ -407,12 +412,12 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         )
 
     async def get_knowledge_prerequisites(
-        self, entity_uid: str
+        self, entity_uid: EntityUID
     ) -> Result[KnowledgePrerequisitesResult]:
         """Analyze knowledge prerequisites for an entity."""
         return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
 
-    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Discover learning opportunities from entity patterns."""
         return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
@@ -435,7 +440,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     # delegated via explicit methods below.
 
     async def create_choice(
-        self, choice_request: ChoiceCreateRequest, user_uid: str
+        self, choice_request: ChoiceCreateRequest, user_uid: UserUID
     ) -> Result[Choice]:
         """Create a basic choice.
 
@@ -613,7 +618,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     # ========================================================================
 
     async def analyze_decision_patterns(
-        self, user_uid: str, lookback_days: int = 90
+        self, user_uid: UserUID, lookback_days: int = 90
     ) -> Result[dict[str, Any]]:
         """
         Analyze user's decision-making patterns across domains.
@@ -642,7 +647,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status_filter: str = "pending",
         sort_by: str = "deadline",
     ) -> Result[ListContext]:
@@ -662,7 +667,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
             sort_by=sort_by,
         )
 
-    async def get_analytics_context(self, user_uid: str) -> Result[ChoicesAnalyticsContext]:
+    async def get_analytics_context(self, user_uid: UserUID) -> Result[ChoicesAnalyticsContext]:
         """Build pre-computed analytics context for the choices analytics view.
 
         Returns dict with: total_choices, total_decisions, satisfaction_rate,

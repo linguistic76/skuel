@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,7 @@ class GroupMemberAdded(BaseEvent):
     """
 
     group_uid: str
-    user_uid: str
+    user_uid: UserUID
     role: str
     metadata: dict[str, Any] | None = None
 
@@ -63,7 +64,7 @@ class GroupMemberRemoved(BaseEvent):
     """
 
     group_uid: str
-    user_uid: str
+    user_uid: UserUID
     metadata: dict[str, Any] | None = None
 
     @property

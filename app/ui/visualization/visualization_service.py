@@ -33,6 +33,7 @@ from typing import Any, ClassVar, Literal
 
 from core.models.enums import EntityStatus, Priority
 from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarItemType
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.palette import SemanticColor
@@ -668,7 +669,7 @@ class VisualizationService:
 
     async def get_completion_chart_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         period: str,
     ) -> Result[dict[str, Any]]:
         """
@@ -744,7 +745,7 @@ class VisualizationService:
 
     async def get_priority_distribution_chart_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """
         Get task priority distribution formatted for Chart.js.
@@ -779,7 +780,7 @@ class VisualizationService:
 
     async def get_streak_chart_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[dict[str, Any]]:
         """
         Get habit streak data formatted for Chart.js.
@@ -811,7 +812,7 @@ class VisualizationService:
 
     async def get_status_distribution_chart_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         days_back: int = 30,
     ) -> Result[dict[str, Any]]:
         """
@@ -849,7 +850,7 @@ class VisualizationService:
 
     async def get_timeline_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         group_by: str = "type",
@@ -868,7 +869,7 @@ class VisualizationService:
 
     async def get_tasks_timeline_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         project: str | None = None,
     ) -> Result[dict[str, Any]]:
         """Get tasks-only timeline data formatted for Vis.js."""
@@ -893,7 +894,7 @@ class VisualizationService:
 
     async def get_tasks_gantt_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         project: str | None = None,
     ) -> Result[dict[str, Any]]:
         """Get tasks Gantt data formatted for Frappe Gantt."""
@@ -930,7 +931,7 @@ class VisualizationService:
 
     async def get_goal_gantt_data(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         goal_uid: str,
     ) -> Result[dict[str, Any]]:
         """Get goal with tasks as Gantt data formatted for Frappe Gantt."""

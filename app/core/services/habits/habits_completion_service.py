@@ -21,6 +21,7 @@ from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.utils.completion_exporter import export_completions_csv, export_completions_json
 from core.utils.decorators import with_error_handling
@@ -82,7 +83,7 @@ class HabitsCompletionService:
     async def record_completion(
         self,
         habit_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         completed_at: datetime | None = None,
         quality: int | None = None,
         duration_actual: int | None = None,
@@ -143,7 +144,7 @@ class HabitsCompletionService:
     async def record_completions_bulk(
         self,
         habit_uids: list[str],
-        user_uid: str,
+        user_uid: UserUID,
         completed_at: datetime | None = None,
     ) -> Result[list[HabitCompletion]]:
         """
@@ -202,7 +203,7 @@ class HabitsCompletionService:
     async def _record_completion_no_event(
         self,
         habit_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         completed_at: datetime,
     ) -> Result[tuple[HabitCompletion, bool, tuple[str, int] | None]]:
         """
@@ -322,7 +323,9 @@ class HabitsCompletionService:
             # Streak broken
             return 1
 
-    async def _check_streak_milestones(self, habit: Habit, new_streak: int, user_uid: str) -> None:
+    async def _check_streak_milestones(
+        self, habit: Habit, new_streak: int, user_uid: UserUID
+    ) -> None:
         """
         Check if new streak reaches a milestone and publish event.
 
@@ -394,7 +397,7 @@ class HabitsCompletionService:
 
         return Result.ok(completions)
 
-    async def get_today_completions(self, user_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_today_completions(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
         """
         Get all habit completions for today for a user.
 
@@ -454,7 +457,7 @@ class HabitsCompletionService:
 
         return Result.ok(result)
 
-    async def calculate_completed_today_count(self, user_uid: str) -> Result[int]:
+    async def calculate_completed_today_count(self, user_uid: UserUID) -> Result[int]:
         """Calculate how many habits user completed today.
 
         Args:
@@ -501,7 +504,7 @@ class HabitsCompletionService:
 
         return Result.ok(stats)
 
-    async def get_badge_progress(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_badge_progress(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Calculate badge progress, merging persisted badges with computed progress.
 
@@ -607,7 +610,7 @@ class HabitsCompletionService:
 
     async def export_completion_history(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date | None = None,
         end_date: date | None = None,
         format: str = "csv",

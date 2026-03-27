@@ -36,6 +36,7 @@ from typing import Any, Protocol, runtime_checkable
 from core.constants import QueryLimit
 from core.models.entity import Entity
 from core.models.enums import EntityStatus
+from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -122,7 +123,7 @@ class AnalyticsMetricsService:
     # ========================================================================
 
     async def calculate_task_metrics(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """
         Calculate statistical metrics for tasks.
@@ -204,7 +205,7 @@ class AnalyticsMetricsService:
     # ========================================================================
 
     async def calculate_habit_metrics(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """
         Calculate statistical metrics for habits.
@@ -270,7 +271,7 @@ class AnalyticsMetricsService:
     # ========================================================================
 
     async def calculate_goal_metrics(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """
         Calculate statistical metrics for goals.
@@ -361,7 +362,7 @@ class AnalyticsMetricsService:
     # ========================================================================
 
     async def calculate_event_metrics(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """
         Calculate statistical metrics for events.
@@ -433,7 +434,7 @@ class AnalyticsMetricsService:
     # ========================================================================
 
     async def calculate_finance_metrics(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """
         Calculate statistical metrics for finance.
@@ -503,7 +504,7 @@ class AnalyticsMetricsService:
     # ========================================================================
 
     async def calculate_choice_metrics(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """
         Calculate statistical metrics for choices.
@@ -577,7 +578,7 @@ class AnalyticsMetricsService:
     # ========================================================================
 
     async def calculate_principle_metrics(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """
         Calculate statistical metrics for principles.
@@ -651,7 +652,7 @@ class AnalyticsMetricsService:
     # ========================================================================
 
     async def calculate_knowledge_metrics(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """
         Calculate knowledge substance metrics (Layer 0).
@@ -835,7 +836,7 @@ class AnalyticsMetricsService:
                 )
             )
 
-    async def calculate_curriculum_metrics(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def calculate_curriculum_metrics(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Calculate progress through curriculum layer (Layer 0).
 
@@ -958,7 +959,7 @@ class AnalyticsMetricsService:
     # ========================================================================
 
     async def calculate_journal_metrics(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """
         Calculate journal reflection metrics (Layer 2).
@@ -1080,7 +1081,7 @@ class AnalyticsMetricsService:
             )
 
     async def _get_journal_reports(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> list[dict[str, Any]]:
         """
         Get journal Report nodes for a user within a date range.

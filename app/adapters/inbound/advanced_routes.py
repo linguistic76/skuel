@@ -34,6 +34,7 @@ from adapters.inbound.route_factories import (
     parse_date_param_strict,
     register_domain_routes,
 )
+from core.models.type_hints import UserUID
 from core.services.calendar_optimization_service import SchedulingStrategy
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -54,7 +55,7 @@ def create_calendar_optimization_routes(
     @rt("/events/calendar/optimize")
     @boundary_handler()
     async def optimize(
-        user_uid: str = "default_user",
+        user_uid: UserUID = "default_user",  # type: ignore[assignment]
         target_date: str | None = None,
         strategy: str = "cognitive_balanced",
     ) -> Result[Any]:
@@ -123,7 +124,8 @@ def create_calendar_optimization_routes(
     @rt("/events/calendar/cognitive-load")
     @boundary_handler()
     async def cognitive_load(
-        _user_uid: str = "default_user", target_date: str | None = None
+        _user_uid: UserUID = "default_user",  # type: ignore[assignment]
+        target_date: str | None = None,
     ) -> JSONResponse:
         """
         Analyze cognitive load for a specific date.

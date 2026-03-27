@@ -19,6 +19,8 @@ Date: November 23, 2025
 
 from typing import Any
 
+from core.models.type_hints import UserUID
+
 
 class ProvenanceQueries:
     """
@@ -86,7 +88,7 @@ class ProvenanceQueries:
     def build_provenance_distribution_query(
         node_label: str = "Entity",
         relationship_type: str = "REQUIRES_KNOWLEDGE",
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Analyze provenance distribution across relationships.

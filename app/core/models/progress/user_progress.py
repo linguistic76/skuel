@@ -14,6 +14,7 @@ from datetime import date, datetime
 from typing import Any
 
 from core.models.enums import Domain
+from core.models.type_hints import EntityUID, UserUID
 
 
 @dataclass(frozen=True)
@@ -32,8 +33,8 @@ class UserProgress:
 
     # Identity
     uid: str  # Format: "progress.{user_uid}.{entity_uid}.{timestamp}"
-    user_uid: str  # User who achieved this progress
-    entity_uid: str  # What was progressed (task, habit, goal, knowledge, etc.)
+    user_uid: UserUID  # User who achieved this progress
+    entity_uid: EntityUID  # What was progressed (task, habit, goal, knowledge, etc.)
     entity_type: str  # "task", "habit", "goal", "knowledge", "learning_step"
 
     # Progress metrics
@@ -163,7 +164,7 @@ class ProgressAggregate:
     Read-only computed view, not stored directly.
     """
 
-    user_uid: str
+    user_uid: UserUID
     entity_type: str | None = None  # Filter by type, or None for all,
     domain: Domain | None = None  # Filter by domain, or None for all
 
@@ -209,7 +210,9 @@ class ProgressAggregate:
 # ============================================================================
 
 
-def generate_progress_uid(user_uid: str, entity_uid: str, timestamp: datetime | None = None) -> str:
+def generate_progress_uid(
+    user_uid: UserUID, entity_uid: EntityUID, timestamp: datetime | None = None
+) -> str:
     """
     Generate unique UID for progress record.
 

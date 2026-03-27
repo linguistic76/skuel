@@ -26,7 +26,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
-from core.models.type_hints import FilterParams
+from core.models.type_hints import EntityUID, FilterParams
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.neo4j_mapper import from_neo4j_node
@@ -366,7 +366,7 @@ class _SearchMixin[T: DomainModelProtocol]:
 
     async def get_domain_context_raw(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         entity_label: str,
         relationship_types: builtins.list[str],
         depth: int = 2,

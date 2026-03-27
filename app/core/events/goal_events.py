@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # GOAL LIFECYCLE EVENTS
@@ -39,7 +40,7 @@ class GoalCreated(BaseEvent):
     """
 
     goal_uid: str
-    user_uid: str
+    user_uid: UserUID
     title: str
     domain: str | None
     target_date: datetime | None
@@ -68,7 +69,7 @@ class GoalAchieved(BaseEvent):
     """
 
     goal_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Performance metrics
     actual_duration_days: int | None = None
@@ -96,7 +97,7 @@ class GoalProgressUpdated(BaseEvent):
     """
 
     goal_uid: str
-    user_uid: str
+    user_uid: UserUID
     old_progress: float  # 0.0 to 1.0
     new_progress: float  # 0.0 to 1.0
 
@@ -132,7 +133,7 @@ class GoalAbandoned(BaseEvent):
     """
 
     goal_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Context for abandonment
     reason: str | None = None  # "no_longer_relevant", "too_difficult", "changed_priorities"
@@ -161,7 +162,7 @@ class GoalRecommendationsGenerated(BaseEvent):
     """
 
     goal_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Recommendation data
     recommendations: list[
@@ -195,7 +196,7 @@ class GoalMilestoneReached(BaseEvent):
     """
 
     goal_uid: str
-    user_uid: str
+    user_uid: UserUID
     milestone_percentage: float  # e.g., 0.25, 0.5, 0.75
 
     @property

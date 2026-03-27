@@ -29,6 +29,7 @@ from core.events import (
     KnowledgeMastered,
     LearningPathCompleted,
 )
+from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -54,7 +55,7 @@ class FinancialGoalMetrics:
 class LearningVelocityMetrics:
     """Learning velocity and progress metrics."""
 
-    user_uid: str
+    user_uid: UserUID
     period_days: int
 
     # Velocity metrics
@@ -71,7 +72,7 @@ class LearningVelocityMetrics:
 class JournalMoodAnalysis:
     """Mood analysis from journal entries."""
 
-    user_uid: str
+    user_uid: UserUID
     period_days: int
 
     # Mood tracking
@@ -88,7 +89,7 @@ class JournalMoodAnalysis:
 class SpendingPatternAnalysis:
     """Spending pattern analysis by domain."""
 
-    user_uid: str
+    user_uid: UserUID
     period_days: int
 
     # By domain
@@ -512,7 +513,7 @@ class CrossDomainAnalyticsService:
         error_type="system", operation="get_learning_velocity", uid_param="user_uid"
     )
     async def get_learning_velocity(
-        self, user_uid: str, days_back: int = 30
+        self, user_uid: UserUID, days_back: int = 30
     ) -> Result[LearningVelocityMetrics]:
         """
         Calculate learning velocity metrics.
@@ -595,7 +596,7 @@ class CrossDomainAnalyticsService:
         error_type="system", operation="get_spending_patterns", uid_param="user_uid"
     )
     async def get_spending_patterns(
-        self, user_uid: str, days_back: int = 30
+        self, user_uid: UserUID, days_back: int = 30
     ) -> Result[SpendingPatternAnalysis]:
         """
         Analyze spending patterns by domain.
@@ -658,7 +659,7 @@ class CrossDomainAnalyticsService:
 
     @with_error_handling(error_type="system", operation="get_mood_analysis", uid_param="user_uid")
     async def get_mood_analysis(
-        self, user_uid: str, days_back: int = 30
+        self, user_uid: UserUID, days_back: int = 30
     ) -> Result[JournalMoodAnalysis]:
         """
         Analyze journal mood and sentiment.
@@ -779,7 +780,7 @@ class CrossDomainAnalyticsService:
     @with_error_handling(
         error_type="system", operation="get_productivity_metrics", uid_param="user_uid"
     )
-    async def get_productivity_metrics(self, user_uid: str) -> Result[dict]:
+    async def get_productivity_metrics(self, user_uid: UserUID) -> Result[dict]:
         """
         Get productivity analytics from task completions.
 
@@ -844,7 +845,7 @@ class CrossDomainAnalyticsService:
     @with_error_handling(
         error_type="system", operation="get_habit_consistency", uid_param="user_uid"
     )
-    async def get_habit_consistency(self, user_uid: str) -> Result[dict]:
+    async def get_habit_consistency(self, user_uid: UserUID) -> Result[dict]:
         """
         Get habit consistency analytics.
 
@@ -907,7 +908,7 @@ class CrossDomainAnalyticsService:
         )
 
     async def get_combined_dashboard(
-        self, user_uid: str, days_back: int = 30
+        self, user_uid: UserUID, days_back: int = 30
     ) -> Result[dict[str, Any]]:
         """Build a combined analytics dashboard from multiple sub-queries.
 

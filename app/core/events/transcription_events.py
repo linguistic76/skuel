@@ -15,6 +15,7 @@ This replaces direct coupling between TranscriptionService and SubmissionsCoreSe
 from dataclasses import dataclass
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -29,7 +30,7 @@ class TranscriptionCompleted(BaseEvent):
     """
 
     transcription_uid: str
-    user_uid: str
+    user_uid: UserUID
     transcript_text: str
     audio_file_path: str
     confidence_score: float
@@ -52,7 +53,7 @@ class TranscriptionFailed(BaseEvent):
     """
 
     transcription_uid: str
-    user_uid: str
+    user_uid: UserUID
     error_message: str
     audio_file_path: str
 
@@ -71,7 +72,7 @@ class TranscriptionCreated(BaseEvent):
     """
 
     transcription_uid: str
-    user_uid: str
+    user_uid: UserUID
     audio_file_path: str
 
     @property

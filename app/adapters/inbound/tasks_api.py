@@ -29,6 +29,7 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
+from core.models.type_hints import UserUID
 from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Errors, Result
 
@@ -132,7 +133,7 @@ def create_tasks_api_routes(
     @rt("/api/tasks/assign")
     @require_ownership_query(get_tasks_service)
     @boundary_handler()
-    async def assign_task_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
+    async def assign_task_route(request: Request, user_uid: UserUID, entity: Any) -> Result[Any]:
         """Assign task to user (requires ownership)."""
         body = await request.json()
         target_user_uid = body.get("user_uid")
@@ -149,7 +150,7 @@ def create_tasks_api_routes(
     @require_ownership_query(get_tasks_service)
     @boundary_handler()
     async def get_task_dependencies_route(
-        request: Request, user_uid: str, entity: Any
+        request: Request, user_uid: UserUID, entity: Any
     ) -> Result[Any]:
         """Get task dependencies enriched with user context (readiness, blocking, recommendations)."""
         if not user_service:
@@ -182,7 +183,7 @@ def create_tasks_api_routes(
     @require_ownership_query(get_tasks_service)
     @boundary_handler()
     async def create_task_dependency_route(
-        request: Request, user_uid: str, entity: Any
+        request: Request, user_uid: UserUID, entity: Any
     ) -> Result[Any]:
         """Create task dependency (requires ownership)."""
         body = await request.json()
@@ -198,7 +199,7 @@ def create_tasks_api_routes(
 
     @rt("/api/tasks/user/assigned")
     @boundary_handler()
-    async def get_user_assigned_tasks_route(request: Request, user_uid: str) -> Result[Any]:
+    async def get_user_assigned_tasks_route(request: Request, user_uid: UserUID) -> Result[Any]:
         """Get tasks assigned to user."""
         params = dict(request.query_params)
 

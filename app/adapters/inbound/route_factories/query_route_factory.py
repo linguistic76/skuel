@@ -141,7 +141,7 @@ class CommonQueryRouteFactory:
         @rt(f"{self.base_path}/user")
         @boundary_handler()
         async def get_user_entities_route(
-            request: Request, user_uid: str | None = None
+            request: Request, user_uid: UserUID | None = None
         ) -> Result[Any]:
             # Get {domain} for a user.
             # Always require authentication

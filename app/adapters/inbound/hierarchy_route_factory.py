@@ -25,6 +25,7 @@ from typing import Any, Protocol
 from fasthtml.common import Div, Request, Span
 
 from adapters.inbound.auth import require_authenticated_user
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
 
 
@@ -43,7 +44,7 @@ class HierarchicalService(Protocol):
         """Delete entity."""
         ...
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Any]:
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Any]:
         """Verify user owns entity."""
         ...
 

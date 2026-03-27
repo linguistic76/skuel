@@ -11,6 +11,7 @@ from typing import Any
 from starlette.requests import Request
 from starlette.responses import Response
 
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
 
 
@@ -151,7 +152,7 @@ async def render_dashboard_error_page(
 async def fetch_user_entities(
     service_method: Callable[[str], Coroutine[Any, Any, Result[list[Any]]]] | None,
     domain_name: str,
-    user_uid: str,
+    user_uid: UserUID,
     logger: Logger,
 ) -> Result[list[Any]]:
     """Fetch all entities for a user with consistent error handling.

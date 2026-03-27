@@ -33,6 +33,7 @@ from core.models.pathways.mastery import (
     MasteryLevel,
 )
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.models.user.user_intelligence import IntelligenceSource, UserLearningIntelligence
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -74,7 +75,7 @@ class LessonAdaptiveService:
 
     @with_error_handling(error_type="system", operation="get_personalized_curriculum")
     async def get_personalized_curriculum(
-        self, user_uid: str, sel_category: SELCategory, limit: int = 10
+        self, user_uid: UserUID, sel_category: SELCategory, limit: int = 10
     ) -> Result[list[Lesson]]:
         """
         Get personalized curriculum for user in an SEL category.
@@ -253,7 +254,7 @@ class LessonAdaptiveService:
     # ==========================================================================
 
     @with_error_handling(error_type="system", operation="get_sel_journey")
-    async def get_sel_journey(self, user_uid: str) -> Result[LearningJourney]:
+    async def get_sel_journey(self, user_uid: UserUID) -> Result[LearningJourney]:
         """Get user's complete SEL journey across all categories."""
         category_progress = {}
 
@@ -273,7 +274,7 @@ class LessonAdaptiveService:
         )
 
     async def _calculate_category_progress(
-        self, user_uid: str, category: SELCategory
+        self, user_uid: UserUID, category: SELCategory
     ) -> CurriculumProgress:
         """Calculate progress in one SEL category."""
         try:
@@ -312,7 +313,7 @@ class LessonAdaptiveService:
     # ==========================================================================
 
     async def track_curriculum_completion(
-        self, user_uid: str, ku_uid: str, completion_time_minutes: int = 30
+        self, user_uid: UserUID, ku_uid: str, completion_time_minutes: int = 30
     ) -> Result[None]:
         """Track when user completes a KU — creates/updates MASTERED relationship."""
         try:
@@ -333,7 +334,7 @@ class LessonAdaptiveService:
     # USER INTELLIGENCE LOADING
     # ==========================================================================
 
-    async def _load_user_intelligence(self, user_uid: str) -> UserLearningIntelligence | None:
+    async def _load_user_intelligence(self, user_uid: UserUID) -> UserLearningIntelligence | None:
         """
         Load user's learning intelligence from Neo4j.
 
@@ -378,7 +379,7 @@ class LessonAdaptiveService:
             )
             return None
 
-    def _create_default_intelligence(self, user_uid: str) -> UserLearningIntelligence:
+    def _create_default_intelligence(self, user_uid: UserUID) -> UserLearningIntelligence:
         """Create default user intelligence for users without data."""
         return UserLearningIntelligence(
             user_uid=user_uid,
@@ -401,7 +402,7 @@ class LessonAdaptiveService:
     # INTELLIGENCE QUERY HELPERS
     # ==========================================================================
 
-    async def _query_user_masteries(self, user_uid: str) -> dict[str, Mastery]:
+    async def _query_user_masteries(self, user_uid: UserUID) -> dict[str, Mastery]:
         """Query user's MASTERED relationships from graph."""
         try:
             query_result = await self.backend.query_user_masteries(user_uid)
@@ -485,7 +486,7 @@ class LessonAdaptiveService:
             )
             return {}
 
-    async def _query_active_learning_paths(self, user_uid: str) -> list[LearningPath]:
+    async def _query_active_learning_paths(self, user_uid: UserUID) -> list[LearningPath]:
         """Query user's active learning paths."""
         try:
             query_result = await self.backend.query_active_learning_paths(user_uid)
@@ -509,7 +510,7 @@ class LessonAdaptiveService:
         except NEO4J_EXCEPTIONS:
             return []
 
-    async def _query_completed_learning_paths(self, user_uid: str) -> list[str]:
+    async def _query_completed_learning_paths(self, user_uid: UserUID) -> list[str]:
         """Query UIDs of completed learning paths."""
         try:
             query_result = await self.backend.query_completed_learning_paths(user_uid)
@@ -564,7 +565,7 @@ class LessonAdaptiveService:
                 return Domain.KNOWLEDGE
         return Domain.KNOWLEDGE
 
-    async def _load_learning_preferences(self, user_uid: str) -> LearningPreference | None:
+    async def _load_learning_preferences(self, user_uid: UserUID) -> LearningPreference | None:
         """Load user's learning preferences if available."""
         try:
             result = await self.backend.query_learning_preferences(user_uid)

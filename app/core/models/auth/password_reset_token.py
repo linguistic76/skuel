@@ -28,6 +28,8 @@ import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from core.models.type_hints import UserUID
+
 # Token configuration
 RESET_TOKEN_BYTES = 32  # 256-bit tokens
 RESET_TOKEN_EXPIRY_MINUTES = 15  # 15 minutes validity (industry standard for security)
@@ -62,7 +64,7 @@ class PasswordResetToken:
 
     uid: str
     token: str
-    user_uid: str
+    user_uid: UserUID
     created_at: datetime
     expires_at: datetime
     is_used: bool = False
@@ -98,7 +100,7 @@ class PasswordResetToken:
 
 
 def create_password_reset_token(
-    user_uid: str,
+    user_uid: UserUID,
     created_by_admin_uid: str | None = None,
     expiry_minutes: int = RESET_TOKEN_EXPIRY_MINUTES,
 ) -> PasswordResetToken:

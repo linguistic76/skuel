@@ -93,6 +93,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -203,7 +204,7 @@ class ConversionOperations(Protocol[T]):
 
     def _validate_required_user_uid(
         self,
-        user_uid: str | None,
+        user_uid: UserUID | None,
         operation: str,
     ) -> Result[Any] | None:
         """
@@ -307,7 +308,7 @@ class CrudOperations(Protocol[T]):
         filters: dict[str, Any] | None = None,
         sort_by: str | None = None,
         sort_order: str = "asc",
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         order_by: str | None = None,
         order_desc: bool = False,
     ) -> Result[tuple[list[T], int]]:
@@ -330,7 +331,7 @@ class CrudOperations(Protocol[T]):
         ...
 
     # Ownership-verified CRUD
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[T]:
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[T]:
         """
         Get entity with ownership check (404 if not owned).
 
@@ -343,7 +344,7 @@ class CrudOperations(Protocol[T]):
         """
         ...
 
-    async def get_for_user(self, uid: str, user_uid: str) -> Result[T]:
+    async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[T]:
         """
         Alias for verify_ownership().
 
@@ -356,7 +357,9 @@ class CrudOperations(Protocol[T]):
         """
         ...
 
-    async def update_for_user(self, uid: str, updates: dict[str, Any], user_uid: str) -> Result[T]:
+    async def update_for_user(
+        self, uid: str, updates: dict[str, Any], user_uid: UserUID
+    ) -> Result[T]:
         """
         Update entity, but only if owned by the specified user.
 
@@ -370,7 +373,9 @@ class CrudOperations(Protocol[T]):
         """
         ...
 
-    async def delete_for_user(self, uid: str, user_uid: str, cascade: bool = False) -> Result[bool]:
+    async def delete_for_user(
+        self, uid: str, user_uid: UserUID, cascade: bool = False
+    ) -> Result[bool]:
         """
         Delete entity, but only if owned by the specified user.
 
@@ -396,7 +401,7 @@ class SearchOperations(Protocol[T]):
     """
 
     async def search(
-        self, query: str, limit: int = 50, user_uid: str | None = None
+        self, query: str, limit: int = 50, user_uid: UserUID | None = None
     ) -> Result[list[T]]:
         """
         Text search across configured search fields.
@@ -431,7 +436,7 @@ class SearchOperations(Protocol[T]):
         ...
 
     async def get_by_status(
-        self, status: str, limit: int = 100, user_uid: str | None = None
+        self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[T]]:
         """
         Filter entities by status field.
@@ -447,7 +452,7 @@ class SearchOperations(Protocol[T]):
         ...
 
     async def get_by_category(
-        self, category: str, user_uid: str | None = None, limit: int = 100
+        self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[T]]:
         """
         Filter entities by category field.
@@ -507,7 +512,7 @@ class SearchOperations(Protocol[T]):
     async def graph_aware_faceted_search(
         self,
         request: Any,  # SearchRequest
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[list[dict[str, Any]]]:
         """
         Graph-aware faceted search - THE unified method for all domains.
@@ -628,7 +633,7 @@ class RelationshipOperations(Protocol[T]):
 
     async def add_prerequisite(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         prerequisite_uid: str,
         confidence: float = 1.0,
     ) -> Result[bool]:
@@ -670,7 +675,7 @@ class TimeQueryOperations(Protocol[T]):
 
     async def get_user_items_in_range(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         include_completed: bool = False,
@@ -692,7 +697,7 @@ class TimeQueryOperations(Protocol[T]):
     async def get_due_soon(
         self,
         days_ahead: int = 7,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[T]]:
         """
@@ -710,7 +715,7 @@ class TimeQueryOperations(Protocol[T]):
 
     async def get_overdue(
         self,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[T]]:
         """
@@ -734,7 +739,9 @@ class UserProgressOperations(Protocol[T]):
     Purpose: Progress and mastery tracking (curriculum-origin, now universal).
     """
 
-    async def get_user_progress(self, user_uid: str, entity_uid: str) -> Result[dict[str, Any]]:
+    async def get_user_progress(
+        self, user_uid: UserUID, entity_uid: EntityUID
+    ) -> Result[dict[str, Any]]:
         """
         Get user's progress/mastery for an entity.
 
@@ -749,8 +756,8 @@ class UserProgressOperations(Protocol[T]):
 
     async def update_user_mastery(
         self,
-        user_uid: str,
-        entity_uid: str,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
         mastery_level: float,
     ) -> Result[bool]:
         """
@@ -768,7 +775,7 @@ class UserProgressOperations(Protocol[T]):
 
     async def get_user_curriculum(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         include_completed: bool = False,
     ) -> Result[list[T]]:
         """

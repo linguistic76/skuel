@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -65,7 +66,7 @@ class ZPDSnapshotHandler:
         """Snapshot when learning path progress changes — LP advancement."""
         await self._take_snapshot(event.user_uid, "learning_path.progress_updated")
 
-    async def _take_snapshot(self, user_uid: str, trigger: str) -> None:
+    async def _take_snapshot(self, user_uid: UserUID, trigger: str) -> None:
         """Reassess the user's zone and persist the snapshot."""
         assessment_result = await self._zpd_service.assess_zone(user_uid)
         if assessment_result.is_error:

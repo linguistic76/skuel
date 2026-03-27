@@ -54,6 +54,8 @@ See Also:
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.models.enums import Domain
 
@@ -187,7 +189,7 @@ class ActivityCarrier(KnowledgeCarrier, Protocol):
         learning_impact_score: Calculate learning impact when activity completes
     """
 
-    user_uid: str
+    user_uid: UserUID
     source_learning_step_uid: str | None
 
     def learning_impact_score(self) -> float:

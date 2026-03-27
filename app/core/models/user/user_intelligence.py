@@ -32,6 +32,7 @@ from core.models.pathways.mastery import (
 )
 from core.models.pathways.mastery import LearningRecommendation as KnowledgeRecommendation
 from core.models.pathways.mastery import Mastery as KnowledgeMastery
+from core.models.type_hints import UserUID
 from core.ports.query_types import CrossDomainInsightsData
 from core.services.user import UserContext
 
@@ -58,7 +59,7 @@ class UserLearningIntelligence:
     to provide adaptive, context-aware user understanding.
     """
 
-    user_uid: str
+    user_uid: UserUID
 
     # Knowledge Intelligence
     current_masteries: dict[str, KnowledgeMastery] = field(default_factory=dict)

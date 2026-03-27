@@ -21,6 +21,7 @@ from typing import Any, ClassVar
 
 from fasthtml.common import H2, A, Div, Form, Option, P, Span, Td
 
+from core.models.type_hints import UserUID
 from ui.admin.types import UserCardData
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
@@ -456,7 +457,7 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_user_activity_stats(stats: dict, user_uid: str) -> Div:
+    def render_user_activity_stats(stats: dict, user_uid: UserUID) -> Div:
         """Render comprehensive activity, learning, and session stats for a user.
 
         Args:
@@ -565,7 +566,7 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_user_reports_list(reports: list, _user_uid: str) -> Div:
+    def render_user_reports_list(reports: list, _user_uid: UserUID) -> Div:
         """Render a list of user reports for admin user detail page.
 
         Args:
@@ -619,7 +620,7 @@ class AdminUIComponents:
         )
 
     @staticmethod
-    def render_user_projects_list(projects: list, _user_uid: str) -> Div:
+    def render_user_projects_list(projects: list, _user_uid: UserUID) -> Div:
         """Render a list of user assignments for admin user detail page.
 
         Args:

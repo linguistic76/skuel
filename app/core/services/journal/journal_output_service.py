@@ -28,6 +28,7 @@ from core.events.journal_events import JeOutputGenerated
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.journal.je_output import JeOutput
 from core.models.journal.je_output_dto import JeOutputDTO
+from core.models.type_hints import UserUID
 from core.ports.output_generator_protocols import OutputInstruction
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -96,7 +97,7 @@ class JournalOutputService:
     async def process_je_input(
         self,
         je_input_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         content: str,
         enrichment_mode: str = "activity_tracking",
         custom_instructions: str | None = None,
@@ -213,7 +214,7 @@ class JournalOutputService:
 
     async def list_je_outputs(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 50,
         offset: int = 0,
     ) -> Result[list[JeOutput]]:

@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,7 @@ class ChoiceCreated(BaseEvent):
     """
 
     choice_uid: str
-    user_uid: str
+    user_uid: UserUID
     choice_description: str
     domain: str
     urgency: str
@@ -55,7 +56,7 @@ class ChoiceUpdated(BaseEvent):
     """
 
     choice_uid: str
-    user_uid: str
+    user_uid: UserUID
     updated_fields: dict[str, Any]
     metadata: dict[str, Any] | None = None
 
@@ -76,7 +77,7 @@ class ChoiceDeleted(BaseEvent):
     """
 
     choice_uid: str
-    user_uid: str
+    user_uid: UserUID
     choice_description: str
     metadata: dict[str, Any] | None = None
 
@@ -97,7 +98,7 @@ class ChoiceMade(BaseEvent):
     """
 
     choice_uid: str
-    user_uid: str
+    user_uid: UserUID
     selected_option: str
     confidence: float
     metadata: dict[str, Any] | None = None
@@ -119,7 +120,7 @@ class ChoiceOutcomeRecorded(BaseEvent):
     """
 
     choice_uid: str
-    user_uid: str
+    user_uid: UserUID
     outcome_quality: float
     lessons_learned: str | None
     metadata: dict[str, Any] | None = None

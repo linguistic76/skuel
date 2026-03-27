@@ -96,6 +96,7 @@ from core.models.enums import (
     TimeOfDay,
 )
 from core.models.enums.user_enums import UserRole
+from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
     from core.models.zpd.zpd_assessment import ZPDAssessment
@@ -148,7 +149,7 @@ class UserContext:
     # =========================================================================
     # CORE IDENTITY
     # =========================================================================
-    user_uid: str
+    user_uid: UserUID
     username: str = ""  # Optional - populated by UserContextBuilder when available
     email: str = ""
     display_name: str = ""

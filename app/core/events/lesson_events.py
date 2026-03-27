@@ -25,6 +25,7 @@ Subscribers:
 from dataclasses import dataclass
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # KNOWLEDGE SUBSTANCE EVENTS
@@ -50,7 +51,7 @@ class KnowledgeAppliedInTask(BaseEvent):
 
     knowledge_uid: str
     task_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Optional context
     task_title: str | None = None
@@ -79,7 +80,7 @@ class KnowledgePracticedInEvent(BaseEvent):
 
     knowledge_uid: str
     event_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Optional context
     event_title: str | None = None
@@ -112,7 +113,7 @@ class KnowledgePracticed(BaseEvent):
     """
 
     ku_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Context information
     practice_context: str  # "event_completion", "study_session", etc.
@@ -145,7 +146,7 @@ class KnowledgeBuiltIntoHabit(BaseEvent):
 
     knowledge_uid: str
     habit_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Optional context
     habit_title: str | None = None
@@ -177,7 +178,7 @@ class KnowledgeInformedChoice(BaseEvent):
 
     knowledge_uid: str
     choice_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Optional context
     choice_title: str | None = None
@@ -211,7 +212,7 @@ class KnowledgeBulkAppliedInTask(BaseEvent):
 
     knowledge_uids: tuple[str, ...]
     task_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Optional context
     task_title: str | None = None
@@ -243,7 +244,7 @@ class KnowledgeBulkBuiltIntoHabit(BaseEvent):
 
     knowledge_uids: tuple[str, ...]
     habit_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Optional context
     habit_title: str | None = None
@@ -275,7 +276,7 @@ class KnowledgeBulkInformedChoice(BaseEvent):
 
     knowledge_uids: tuple[str, ...]
     choice_uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Optional context
     choice_title: str | None = None

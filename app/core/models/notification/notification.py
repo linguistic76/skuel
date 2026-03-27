@@ -14,6 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from core.models.type_hints import UserUID
+
 
 @dataclass(frozen=True)
 class Notification:
@@ -24,7 +26,7 @@ class Notification:
     """
 
     uid: str
-    user_uid: str  # Recipient
+    user_uid: UserUID  # Recipient
     notification_type: str  # e.g., "feedback_received", "revision_requested"
     title: str  # Short display title
     message: str  # Longer description

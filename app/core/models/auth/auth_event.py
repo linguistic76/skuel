@@ -35,6 +35,8 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
+from core.models.type_hints import UserUID
+
 
 class AuthEventType(StrEnum):
     """Types of authentication events for audit trail."""
@@ -116,7 +118,7 @@ class AuthEvent:
     timestamp: datetime
     ip_address: str
     user_agent: str
-    user_uid: str | None = None
+    user_uid: UserUID | None = None
     email: str | None = None
     session_uid: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -143,7 +145,7 @@ def create_auth_event(
     event_type: AuthEventType,
     ip_address: str,
     user_agent: str,
-    user_uid: str | None = None,
+    user_uid: UserUID | None = None,
     email: str | None = None,
     session_uid: str | None = None,
     metadata: dict[str, Any] | None = None,

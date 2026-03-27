@@ -31,6 +31,7 @@ from core.models.query_types import QueryIntent
 from core.models.search_models import FacetSetRequest as FacetSetSchema
 from core.models.search_models import SearchQueryRequest as SearchQuerySchema
 from core.models.search_models import SearchResultDTO as CrossDomainSearchResultsSchema
+from core.models.type_hints import UserUID
 from core.models.user import User
 from core.models.user.conversation import ConversationSession, PedagogicalContext
 
@@ -61,7 +62,7 @@ class Askesis:
 
     # Identity
     uid: str
-    user_uid: str
+    user_uid: UserUID
     name: str = "Askesis"  # Fixed: string value, not tuple
     version: str = "1.0"
 
@@ -532,7 +533,7 @@ class AskesisAnalytics:
     Used for improving the service and understanding usage.
     """
 
-    user_uid: str
+    user_uid: UserUID
     period: str  # "session", "day", "week", "month"
 
     # Interaction metrics

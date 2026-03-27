@@ -27,10 +27,11 @@ from typing import Any
 
 from fasthtml.common import H3, A, Div, Span
 
+from core.models.type_hints import EntityUID
 from ui.cards import Card, CardBody
 
 
-def BlockingChainView(entity_uid: str, entity_type: str) -> Div:
+def BlockingChainView(entity_uid: EntityUID, entity_type: str) -> Div:
     """Vertical flow chart showing transitive blocking chain.
 
     Args:

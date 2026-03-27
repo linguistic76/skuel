@@ -40,6 +40,7 @@ from starlette.requests import Request
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import RouteDecorator, RouteList
 from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
@@ -136,7 +137,7 @@ def create_study_ui_routes(
     # HELPER
     # ========================================================================
 
-    async def _get_context(user_uid: str) -> Any:
+    async def _get_context(user_uid: UserUID) -> Any:
         """Get UserContext for landing page."""
         if not user_service:
             raise ValueError("User service unavailable")

@@ -16,6 +16,7 @@ from core.models.submissions.report_schedule import (
     ReportScheduleDTO,
     report_schedule_dto_to_domain,
 )
+from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
     from core.ports import BackendOperations
@@ -40,7 +41,7 @@ class ProgressScheduleService:
 
     async def create_schedule(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         schedule_type: str = "weekly",
         day_of_week: int = 0,
         domains: list[str] | None = None,
@@ -93,7 +94,7 @@ class ProgressScheduleService:
         logger.info(f"Created report schedule {uid} for {user_uid}: {schedule_type}")
         return Result.ok(schedule)
 
-    async def get_user_schedule(self, user_uid: str) -> Result[ReportSchedule | None]:
+    async def get_user_schedule(self, user_uid: UserUID) -> Result[ReportSchedule | None]:
         """Get the user's active entity schedule (one per user)."""
         result = await self.backend.find_by(user_uid=user_uid, is_active=True)
         if result.is_error:

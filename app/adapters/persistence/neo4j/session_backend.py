@@ -25,6 +25,7 @@ from neo4j.time import DateTime as Neo4jDateTime
 from core.models.auth.auth_event import AuthEvent
 from core.models.auth.password_reset_token import PasswordResetToken
 from core.models.auth.session import Session, hash_session_token
+from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -264,7 +265,7 @@ class SessionBackend:
             self.logger.error(f"Failed to invalidate session: {e}")
             return Result.fail(Errors.database(operation="invalidate_session", message=str(e)))
 
-    async def invalidate_all_user_sessions(self, user_uid: str) -> Result[int]:
+    async def invalidate_all_user_sessions(self, user_uid: UserUID) -> Result[int]:
         """
         Invalidate all sessions for a user.
 
@@ -344,7 +345,7 @@ class SessionBackend:
     """
 
     async def get_user_sessions(
-        self, user_uid: str, valid_only: bool = True
+        self, user_uid: UserUID, valid_only: bool = True
     ) -> Result[list[Session]]:
         """
         Get all sessions for a user.

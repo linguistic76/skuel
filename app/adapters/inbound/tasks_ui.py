@@ -50,6 +50,7 @@ from adapters.inbound.ui_helpers import (
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.task.task_request import TaskCreateRequest as TaskCreateRequest
+from core.models.type_hints import UserUID
 from core.services.tasks_service import TasksService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -204,7 +205,7 @@ def create_tasks_ui_routes(
     # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    async def fetch_tasks_context(user_uid: str, filters: TaskFilters) -> Any:
+    async def fetch_tasks_context(user_uid: UserUID, filters: TaskFilters) -> Any:
         """Fetch filtered tasks context from service."""
         return await tasks_service.get_filtered_context(
             user_uid,
@@ -224,14 +225,14 @@ def create_tasks_ui_routes(
             assignees=svc_ctx.get("metadata", {}).get("assignees", []),
         )
 
-    async def render_tasks_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+    async def render_tasks_create(user_uid: UserUID, svc_ctx: dict[str, Any]) -> Any:
         """Render tasks create view."""
         return TasksViewComponents.render_create_view(
             projects=svc_ctx.get("metadata", {}).get("projects", []),
             existing_tasks=svc_ctx["entities"],
         )
 
-    async def render_tasks_calendar(user_uid: str, request: Any) -> Any:
+    async def render_tasks_calendar(user_uid: UserUID, request: Any) -> Any:
         """Render tasks calendar view."""
         calendar_params = parse_calendar_params(request)
         all_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
@@ -267,12 +268,12 @@ def create_tasks_ui_routes(
     # QUICK ADD (via QuickAddRouteFactory)
     # ========================================================================
 
-    async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+    async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
         """Domain-specific task creation logic."""
         create_request = parse_task_create_request(form_data)
         return await tasks_service.create_task(create_request, user_uid)
 
-    async def render_task_success_view(user_uid: str) -> Any:
+    async def render_task_success_view(user_uid: UserUID) -> Any:
         """Render list view after successful task creation."""
         filtered_result = await tasks_service.get_filtered_context(user_uid)
 
@@ -289,7 +290,7 @@ def create_tasks_ui_routes(
         )
         return TasksViewComponents.render_list_view(ctx=page_ctx)
 
-    async def render_task_add_another_view(user_uid: str) -> Any:
+    async def render_task_add_another_view(user_uid: UserUID) -> Any:
         """Render create view for add-another flow."""
         filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter="all")
 

@@ -44,6 +44,7 @@ from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit_request import HabitCreateRequest
+from core.models.type_hints import UserUID
 from core.services.habits_service import HabitsService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -439,7 +440,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
     # DATA FETCHING HELPERS
     # ========================================================================
 
-    async def get_all_habits(user_uid: str) -> Result[list[Any]]:
+    async def get_all_habits(user_uid: UserUID) -> Result[list[Any]]:
         """Get all habits for user."""
         return await fetch_user_entities(habits_service.get_user_habits, "habits", user_uid, logger)
 
@@ -453,7 +454,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
     # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    async def fetch_habits_context(user_uid: str, filters: ActivityFilters) -> Any:
+    async def fetch_habits_context(user_uid: UserUID, filters: ActivityFilters) -> Any:
         """Fetch filtered habits context from service."""
         return await habits_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
@@ -466,12 +467,12 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
             categories=svc_ctx.get("metadata", {}).get("categories", []),
         )
 
-    async def render_habits_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+    async def render_habits_create(user_uid: UserUID, svc_ctx: dict[str, Any]) -> Any:
         """Render habits create view."""
         categories = svc_ctx.get("metadata", {}).get("categories", []) or _get_habit_categories()
         return HabitsViewComponents.render_create_view(categories=categories)
 
-    async def render_habits_calendar(user_uid: str, request: Any) -> Any:
+    async def render_habits_calendar(user_uid: UserUID, request: Any) -> Any:
         """Render habits calendar view."""
         calendar_params = parse_calendar_params(request)
         habits_result = await get_all_habits(user_uid)
@@ -516,12 +517,12 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
     # QUICK ADD (via QuickAddRouteFactory)
     # ========================================================================
 
-    async def create_habit_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+    async def create_habit_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
         """Domain-specific habit creation logic."""
         create_request = parse_habit_create_request(form_data)
         return await habits_service.create_habit(create_request, user_uid)
 
-    async def render_habit_success_view(user_uid: str) -> Any:
+    async def render_habit_success_view(user_uid: UserUID) -> Any:
         """Render list view after successful habit creation."""
         result = await habits_service.get_filtered_context(user_uid)
         if result.is_error:
@@ -538,7 +539,7 @@ def create_habits_ui_routes(_app, rt, habits_service: HabitsService, services: A
         )
         return HabitsViewComponents.render_list_view(ctx=page_ctx)
 
-    async def render_habit_add_another_view(user_uid: str) -> Any:
+    async def render_habit_add_another_view(user_uid: UserUID) -> Any:
         """Render create view for add-another flow."""
         return HabitsViewComponents.render_create_view(categories=_get_habit_categories())
 

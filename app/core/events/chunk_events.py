@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,7 @@ class ChunkEmbeddingRequested(BaseEvent):
     chunk_uids: tuple[str, ...]  # ["ku.python:chunk:0", ...]
     chunk_texts: tuple[str, ...]  # Context window for each chunk
     requested_at: datetime
-    user_uid: str | None = None
+    user_uid: UserUID | None = None
 
     @property
     def event_type(self) -> str:

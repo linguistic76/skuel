@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import EntityUID, UserUID
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
@@ -89,7 +90,7 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
         self.graph = graph_intelligence_service
 
     async def get_behavioral_insights(
-        self, user_uid: str, period_days: int = 90
+        self, user_uid: UserUID, period_days: int = 90
     ) -> Result[dict[str, Any]]:
         """
         Analyze context-aware behavioral patterns.
@@ -103,7 +104,7 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
         )
 
     async def get_performance_analytics(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Analyze context-aware performance metrics.
@@ -118,8 +119,8 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
 
     async def get_ai_insights(
         self,
-        user_uid: str,
-        entity_uid: str | None = None,
+        user_uid: UserUID,
+        entity_uid: EntityUID | None = None,
         query: str | None = None,
     ) -> Result[AIInsightsResult]:
         """

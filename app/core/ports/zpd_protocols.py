@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.models.zpd.zpd_assessment import ZoneEvidence, ZPDAssessment
     from core.services.user.unified_user_context import UserContext
@@ -35,7 +37,7 @@ class ZPDBackendOperations(Protocol):
         ...
 
     async def get_targeted_ku_engagement(
-        self, user_uid: str, ku_uids: list[str]
+        self, user_uid: UserUID, ku_uids: list[str]
     ) -> Result[tuple[list[str], list[str], list[str], list[dict[str, Any]]]]:
         """Fetch engagement data for specific KU UIDs only.
 
@@ -51,7 +53,7 @@ class ZPDBackendOperations(Protocol):
         ...
 
     async def get_zone_data(
-        self, user_uid: str
+        self, user_uid: UserUID
     ) -> Result[
         tuple[
             list[str],
@@ -99,7 +101,7 @@ class ZPDOperations(Protocol):
     """
 
     async def assess_zone(
-        self, user_uid: str, context: UserContext | None = None
+        self, user_uid: UserUID, context: UserContext | None = None
     ) -> Result[ZPDAssessment]:
         """Compute the user's full ZPD from the curriculum graph.
 
@@ -124,7 +126,7 @@ class ZPDOperations(Protocol):
         """
         ...
 
-    async def get_proximal_ku_uids(self, user_uid: str) -> Result[list[str]]:
+    async def get_proximal_ku_uids(self, user_uid: UserUID) -> Result[list[str]]:
         """Get only the proximal zone KU UIDs for lightweight callers.
 
         Convenience wrapper over assess_zone() that extracts just the
@@ -140,7 +142,7 @@ class ZPDOperations(Protocol):
         """
         ...
 
-    async def get_readiness_score(self, user_uid: str, ku_uid: str) -> Result[float]:
+    async def get_readiness_score(self, user_uid: UserUID, ku_uid: str) -> Result[float]:
         """Get the readiness score for a specific KU.
 
         Calls assess_zone() and extracts the score for the given KU.
@@ -157,7 +159,7 @@ class ZPDOperations(Protocol):
         ...
 
     async def assess_ku_readiness(
-        self, user_uid: str, ku_uids: list[str]
+        self, user_uid: UserUID, ku_uids: list[str]
     ) -> Result[dict[str, ZoneEvidence]]:
         """Get targeted ZPD evidence for specific KUs.
 

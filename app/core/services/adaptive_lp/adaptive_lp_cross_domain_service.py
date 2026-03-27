@@ -16,6 +16,7 @@ from operator import attrgetter
 from typing import Any
 
 from core.models.enums import Domain
+from core.models.type_hints import UserUID
 
 # Import dataclasses from shared models module (breaks circular dependency)
 from core.services.adaptive_lp.adaptive_lp_models import CrossDomainOpportunity
@@ -49,7 +50,10 @@ class AdaptiveLpCrossDomainService:
 
     @with_error_handling(error_type="system", uid_param="user_uid")
     async def discover_cross_domain_opportunities(
-        self, user_uid: str, knowledge_state: KnowledgeState, min_confidence: float | None = None
+        self,
+        user_uid: UserUID,
+        knowledge_state: KnowledgeState,
+        min_confidence: float | None = None,
     ) -> Result[list[CrossDomainOpportunity]]:
         """
         Discover learning opportunities that span multiple knowledge domains.
@@ -139,7 +143,7 @@ class AdaptiveLpCrossDomainService:
         target_domain: str,
         source_knowledge: list[str],
         target_knowledge: list[str],
-        _user_uid: str,
+        _user_uid: UserUID,
     ) -> CrossDomainOpportunity | None:
         """Create a cross-domain opportunity between two domains."""
         try:
@@ -273,7 +277,7 @@ class AdaptiveLpCrossDomainService:
             return None
 
     async def _discover_innovation_opportunities(
-        self, domain_knowledge: dict[str, list[str]], _user_uid: str
+        self, domain_knowledge: dict[str, list[str]], _user_uid: UserUID
     ) -> list[CrossDomainOpportunity]:
         """Discover innovation opportunities combining 3+ domains."""
         opportunities = []
@@ -357,7 +361,7 @@ class AdaptiveLpCrossDomainService:
     async def _score_cross_domain_opportunities(
         self,
         opportunities: list[CrossDomainOpportunity],
-        _user_uid: str,
+        _user_uid: UserUID,
         _knowledge_state: KnowledgeState,
     ) -> list[CrossDomainOpportunity]:
         """Score and rank cross-domain opportunities."""

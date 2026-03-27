@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Any
 
 from core.models.enums.submissions_enums import ProgressDepth, ScheduleType
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # TIER 2 - DTO (Transfer Layer)
@@ -31,7 +32,7 @@ class ReportScheduleDTO:
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     schedule_type: str = "weekly"
     day_of_week: int = 0  # 0=Monday, 6=Sunday
     domains: list[str] | None = None
@@ -78,7 +79,7 @@ class ReportSchedule:
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     schedule_type: ScheduleType = ScheduleType.WEEKLY
     day_of_week: int = 0  # 0=Monday, 6=Sunday
     domains: list[str] = field(default_factory=list)

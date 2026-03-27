@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.journal.je_input_dto import JeInputDTO
@@ -71,7 +73,7 @@ class JeInput(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def generate_title(cls, user_uid: str, entry_date: date, order: int) -> str:
+    def generate_title(cls, user_uid: UserUID, entry_date: date, order: int) -> str:
         """Auto-generate the canonical journal entry title.
 
         Format: Journal — {user_id} — {Mar 02, 2026} — #{order}

@@ -26,6 +26,7 @@ from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -86,7 +87,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
     @with_error_handling("get_by_status", error_type="database")
     async def get_by_status(
-        self, status: str, limit: int = 100, user_uid: str | None = None
+        self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Principle]]:
         """
         Filter principles by active/inactive status.
@@ -250,7 +251,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     async def get_due_soon(
         self,
         days_ahead: int = 30,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[Principle]]:
         """
@@ -307,7 +308,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     @with_error_handling("get_overdue", error_type="database")
     async def get_overdue(
         self,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[Principle]]:
         """
@@ -387,7 +388,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
     @with_error_handling("get_by_category", error_type="database")
     async def get_by_category(
-        self, category: PrincipleCategory | str, user_uid: str | None = None, limit: int = 100
+        self, category: PrincipleCategory | str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Principle]]:
         """
         Get principles in a specific category.
@@ -501,7 +502,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
     @with_error_handling("get_active_principles", error_type="database")
     async def get_active_principles(
-        self, user_uid: str, limit: int = 100
+        self, user_uid: UserUID, limit: int = 100
     ) -> Result[list[Principle]]:
         """
         Get all active principles for a user.
@@ -681,7 +682,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
-        self, query: str, user_uid: str | None = None, limit: int = 50
+        self, query: str, user_uid: UserUID | None = None, limit: int = 50
     ) -> Result[tuple[list[Principle], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.

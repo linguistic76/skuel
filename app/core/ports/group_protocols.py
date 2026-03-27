@@ -17,6 +17,7 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 import builtins
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -40,11 +41,11 @@ class GroupOperations(Protocol):
         """Get group by UID. Returns Result[Group | None]."""
         ...
 
-    async def get_for_user(self, uid: str, user_uid: str) -> "Result[Group]":
+    async def get_for_user(self, uid: str, user_uid: UserUID) -> "Result[Group]":
         """Get group if user is owner or member. Returns Result[Group]."""
         ...
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> "Result[Group]":
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> "Result[Group]":
         """Verify user owns the group (owner_uid match). Returns Result[Group]."""
         ...
 
@@ -63,7 +64,7 @@ class GroupOperations(Protocol):
         filters: dict[str, Any] | None = None,
         sort_by: str | None = None,
         sort_order: str = "asc",
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         order_by: str | None = None,
         order_desc: bool = False,
     ) -> "Result[tuple[builtins.list[Group], int]]":
@@ -71,14 +72,14 @@ class GroupOperations(Protocol):
         ...
 
     # Domain-specific (manual routes)
-    async def get_user_groups(self, user_uid: str) -> "Result[builtins.list[Group]]":
+    async def get_user_groups(self, user_uid: UserUID) -> "Result[builtins.list[Group]]":
         """List groups the user is a member of. Returns Result[list[Group]]."""
         ...
 
     async def add_member(
         self,
         group_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         role: str = "student",
     ) -> Result[bool]:
         """Add a member to a group. Returns Result[bool]."""
@@ -87,7 +88,7 @@ class GroupOperations(Protocol):
     async def remove_member(
         self,
         group_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[bool]:
         """Remove a member from a group. Returns Result[bool]."""
         ...

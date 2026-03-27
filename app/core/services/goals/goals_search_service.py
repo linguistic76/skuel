@@ -26,6 +26,7 @@ from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -481,7 +482,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
 
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
-        self, query: str, user_uid: str | None = None, limit: int = 50
+        self, query: str, user_uid: UserUID | None = None, limit: int = 50
     ) -> Result[tuple[list[Goal], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.

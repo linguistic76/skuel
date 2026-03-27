@@ -23,7 +23,7 @@ Usage:
     from core.services.entity_timestamp_mixin import EntityTimestampMixin
 
     class TasksCoreService(BaseService, EntityTimestampMixin):
-        async def create(self, task: Task, user_uid: str) -> Result[Task]:
+        async def create(self, task: Task, user_uid: UserUID) -> Result[Task]:
             task = self.set_entity_metadata(task, user_uid=user_uid, source="api")
             return await self.backend.create(task)
 
@@ -37,6 +37,7 @@ See Also:
 
 from typing import Any, TypeVar
 
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.timestamp_helpers import now_local, now_utc
 
 T = TypeVar("T")
@@ -60,7 +61,7 @@ class EntityTimestampMixin:
     @staticmethod
     def set_entity_metadata(
         entity: T,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         source: str = "api",
         version: int = 1,
         use_utc: bool = False,
@@ -140,7 +141,7 @@ class EntityTimestampMixin:
         return entity
 
     @staticmethod
-    def set_entity_user(entity: T, user_uid: str) -> T:
+    def set_entity_user(entity: T, user_uid: UserUID) -> T:
         """
         Set the user_uid on a frozen dataclass entity.
 
@@ -163,7 +164,7 @@ class EntityTimestampMixin:
 
     @staticmethod
     def build_creation_metadata(
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         source: str = "api",
         version: int = 1,
         use_utc: bool = False,
@@ -205,7 +206,7 @@ class EntityTimestampMixin:
 
     @staticmethod
     def build_update_metadata(
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         reason: str | None = None,
         use_utc: bool = False,
         **extra: Any,
@@ -292,8 +293,8 @@ class EntityTimestampMixin:
     @staticmethod
     def build_audit_entry(
         action: str,
-        entity_uid: str,
-        user_uid: str | None = None,
+        entity_uid: EntityUID,
+        user_uid: UserUID | None = None,
         details: dict[str, Any] | None = None,
         use_utc: bool = False,
     ) -> dict[str, Any]:

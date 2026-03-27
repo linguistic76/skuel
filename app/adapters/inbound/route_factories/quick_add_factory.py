@@ -18,16 +18,16 @@ Usage:
     )
 
     # Define domain-specific functions (named functions, not lambdas - SKUEL012)
-    async def create_task_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Task]:
+    async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Task]:
         # Parse form data, build request, call service
         create_request = TaskCreateRequest(title=form_data["title"], ...)
         return await tasks_service.create_task(create_request, user_uid)
 
-    async def render_task_success_view(user_uid: str) -> Any:
+    async def render_task_success_view(user_uid: UserUID) -> Any:
         tasks, stats = await get_filtered_tasks(user_uid, ...)
         return TasksViewComponents.render_list_view(tasks=tasks, stats=stats, ...)
 
-    async def render_task_add_another_view(user_uid: str) -> Any:
+    async def render_task_add_another_view(user_uid: UserUID) -> Any:
         projects = await get_distinct_projects(user_uid)
         return TasksViewComponents.render_create_view(projects=projects, ...)
 

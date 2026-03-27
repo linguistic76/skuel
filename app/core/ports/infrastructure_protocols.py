@@ -8,7 +8,7 @@ Interfaces for infrastructure and system services.
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
-from core.models.type_hints import Metadata
+from core.models.type_hints import Metadata, UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -66,7 +66,7 @@ class UserCrudOperations(Protocol):
         """Create a new user."""
         ...
 
-    async def get_user_by_uid(self, user_uid: str) -> Result["User | None"]:
+    async def get_user_by_uid(self, user_uid: UserUID) -> Result["User | None"]:
         """Get user by UID."""
         ...
 
@@ -78,7 +78,7 @@ class UserCrudOperations(Protocol):
         """Update user data."""
         ...
 
-    async def delete_user(self, user_uid: str) -> Result[bool]:
+    async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """DETACH DELETE a user."""
         ...
 
@@ -94,13 +94,15 @@ class UserLearningStateOperations(Protocol):
     See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
     """
 
-    async def update_user_progress(self, user_uid: str, progress_updates: Metadata) -> Result[bool]:
+    async def update_user_progress(
+        self, user_uid: UserUID, progress_updates: Metadata
+    ) -> Result[bool]:
         """Update user's learning progress."""
         ...
 
     async def record_knowledge_mastery(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         mastery_score: float,
         practice_count: int = 1,
@@ -111,7 +113,7 @@ class UserLearningStateOperations(Protocol):
 
     async def record_knowledge_progress(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         progress: float,
         time_invested_minutes: int = 0,
@@ -122,7 +124,7 @@ class UserLearningStateOperations(Protocol):
 
     async def get_user_mastery(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         concept_uid: str,
     ) -> Result[float]:
         """Get user's mastery level for a knowledge concept (0.0-1.0)."""
@@ -130,7 +132,7 @@ class UserLearningStateOperations(Protocol):
 
     async def enroll_in_learning_path(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         learning_path_uid: str,
         target_completion: str | None = None,
         weekly_time_commitment: int = 300,
@@ -141,7 +143,7 @@ class UserLearningStateOperations(Protocol):
 
     async def complete_learning_path(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         learning_path_uid: str,
         completion_score: float = 1.0,
         feedback_rating: int | None = None,
@@ -151,7 +153,7 @@ class UserLearningStateOperations(Protocol):
 
     async def express_interest_in_knowledge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         interest_score: float = 0.8,
         interest_source: str = "discovery",
@@ -163,7 +165,7 @@ class UserLearningStateOperations(Protocol):
 
     async def bookmark_knowledge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         bookmark_reason: str = "reference",
         tags: list[str] | None = None,
@@ -180,12 +182,14 @@ class UserActivityOperations(Protocol):
     See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
     """
 
-    async def update_user_activity(self, user_uid: str, activity_data: Metadata) -> Result[bool]:
+    async def update_user_activity(
+        self, user_uid: UserUID, activity_data: Metadata
+    ) -> Result[bool]:
         """Update user's activity tracking data."""
         ...
 
     async def add_conversation_message(
-        self, user_uid: str, role: str, content: str, metadata: Metadata | None = None
+        self, user_uid: UserUID, role: str, content: str, metadata: Metadata | None = None
     ) -> Result[bool]:
         """Add a conversation message to user's history."""
         ...

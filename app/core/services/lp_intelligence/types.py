@@ -16,6 +16,7 @@ from datetime import datetime
 from enum import Enum
 
 from core.models.enums import GuidanceMode
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # ENUMS
@@ -41,7 +42,7 @@ class LearningReadiness(Enum):
 class LearningAnalysis:
     """Comprehensive learning state analysis."""
 
-    user_uid: str
+    user_uid: UserUID
     timestamp: datetime
 
     # Current state

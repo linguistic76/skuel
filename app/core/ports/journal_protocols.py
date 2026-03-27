@@ -21,6 +21,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from datetime import date
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -42,7 +43,7 @@ class JournalInputOperations(Protocol):
 
     async def create_journal_entry(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         content: str | None = None,
         mood: str | None = None,
         energy_level: str | None = None,
@@ -57,7 +58,7 @@ class JournalInputOperations(Protocol):
         self,
         file_content: bytes,
         original_filename: str,
-        user_uid: str,
+        user_uid: UserUID,
         file_type: str | None = None,
         instructions: str | None = None,
         max_retention: int | None = None,
@@ -76,7 +77,7 @@ class JournalInputOperations(Protocol):
 
     async def list_je_inputs(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -86,7 +87,7 @@ class JournalInputOperations(Protocol):
 
     async def get_je_inputs_by_date_range(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
     ) -> "Result[list[JeInput]]":
@@ -97,11 +98,11 @@ class JournalInputOperations(Protocol):
     # LIFECYCLE
     # ------------------------------------------------------------------
 
-    async def make_permanent(self, uid: str, user_uid: str) -> Result[bool]:
+    async def make_permanent(self, uid: str, user_uid: UserUID) -> Result[bool]:
         """Make an ephemeral journal entry permanent (disable FIFO cleanup)."""
         ...
 
-    async def delete_je_input(self, uid: str, user_uid: str) -> Result[bool]:
+    async def delete_je_input(self, uid: str, user_uid: UserUID) -> Result[bool]:
         """Delete a journal entry input and its associated files."""
         ...
 
@@ -110,7 +111,7 @@ class JournalInputOperations(Protocol):
     # ------------------------------------------------------------------
 
     async def generate_journal_title(
-        self, user_uid: str, entry_date: date | None = None
+        self, user_uid: UserUID, entry_date: date | None = None
     ) -> Result[str]:
         """Generate a sequential title for a new journal entry."""
         ...
@@ -127,7 +128,7 @@ class JournalOutputOperations(Protocol):
     async def process_je_input(
         self,
         je_input_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         content: str,
         enrichment_mode: str = "activity_tracking",
         custom_instructions: str | None = None,
@@ -145,7 +146,7 @@ class JournalOutputOperations(Protocol):
 
     async def list_je_outputs(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 50,
         offset: int = 0,
     ) -> "Result[list[JeOutput]]":

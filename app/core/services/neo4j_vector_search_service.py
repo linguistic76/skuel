@@ -23,6 +23,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.config.unified_config import VectorSearchConfig
+from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
@@ -718,7 +719,7 @@ class Neo4jVectorSearchService:
 
     async def _calculate_semantic_boost(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         context_uids: list[str],
     ) -> float:
         """
@@ -795,7 +796,7 @@ class Neo4jVectorSearchService:
         self,
         label: str,
         text: str,
-        user_uid: str,
+        user_uid: UserUID,
         prefer_unmastered: bool = True,
         limit: int | None = None,
         min_score: float | None = None,
@@ -929,7 +930,7 @@ class Neo4jVectorSearchService:
 
     async def _get_learning_states_batch(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         ku_uids: list[str],
     ) -> Result[dict[str, str]]:
         """

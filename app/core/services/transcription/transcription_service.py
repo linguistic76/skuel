@@ -42,6 +42,7 @@ from core.models.transcription.transcription import (
     TranscriptionProcessOptions,
     TranscriptionStatus,
 )
+from core.models.type_hints import UserUID
 from core.services.entity_timestamp_mixin import EntityTimestampMixin
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -97,7 +98,7 @@ class TranscriptionService(EntityTimestampMixin):
     async def create(
         self,
         request: TranscriptionCreateRequest,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[Transcription]:
         """
         Create a new transcription record.
@@ -151,7 +152,7 @@ class TranscriptionService(EntityTimestampMixin):
         """
         return await self.backend.get(uid)
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Transcription]:
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Transcription]:
         """Verify that a transcription exists and belongs to the specified user.
 
         Returns the transcription if owned, otherwise NotFound error.
@@ -187,7 +188,7 @@ class TranscriptionService(EntityTimestampMixin):
 
     async def list(
         self,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         status: TranscriptionStatus | None = None,
         limit: int = 100,
         offset: int = 0,
@@ -204,7 +205,7 @@ class TranscriptionService(EntityTimestampMixin):
         Returns:
             Result containing list of Transcriptions
         """
-        filters = {}
+        filters: dict[str, Any] = {}
         if user_uid:
             filters["user_uid"] = user_uid
         if status:
@@ -380,7 +381,7 @@ class TranscriptionService(EntityTimestampMixin):
     async def search(
         self,
         query: str,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[builtins.list[Transcription]]:
         """
@@ -410,7 +411,7 @@ class TranscriptionService(EntityTimestampMixin):
     async def get_by_status(
         self,
         status: TranscriptionStatus,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[builtins.list[Transcription]]:
         """
@@ -433,7 +434,7 @@ class TranscriptionService(EntityTimestampMixin):
     async def _mark_failed(
         self,
         uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         error_message: str,
     ) -> None:
         """Mark transcription as failed and publish event."""

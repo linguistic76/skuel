@@ -200,7 +200,7 @@ UniversalNeo4jBackend[T]  <- ONE instance per domain, NO wrappers
 
 **`Any` policy:** Category A (eliminate), Category B (use specific type like `Neo4jProperties`), Category C (permanent boundary — add `# boundary:` comment).
 
-**See:** `docs/patterns/TYPE_SAFETY_OVERVIEW.md`, `docs/patterns/ANY_USAGE_POLICY.md`, `docs/patterns/MYPY_TYPE_SAFETY_PATTERNS.md`
+**See:** `docs/architecture/TYPE_SAFETY_DESIGN_PHILOSOPHY.md` (why), `docs/patterns/TYPE_SAFETY_OVERVIEW.md` (how), `docs/patterns/ANY_USAGE_POLICY.md`, `docs/patterns/MYPY_TYPE_SAFETY_PATTERNS.md`
 
 ## Three-Tier Type System
 

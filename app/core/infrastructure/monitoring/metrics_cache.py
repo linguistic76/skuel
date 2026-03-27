@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -193,7 +194,7 @@ class CachedEventMetrics:
 class CachedContextMetrics:
     """Cached context invalidation metrics (debugging only)."""
 
-    user_uid: str
+    user_uid: UserUID
 
     # Recent invalidations (last 50)
     recent_invalidations: deque[dict[str, Any]] = field(default_factory=lambda: deque(maxlen=50))
@@ -355,7 +356,7 @@ class MetricsCache:
             self._event_cache[event_type].record_publication(duration_ms, handlers_called)
 
     async def record_context_invalidation(
-        self, user_uid: str, duration_ms: float, reason: str, affected_contexts: list[str]
+        self, user_uid: UserUID, duration_ms: float, reason: str, affected_contexts: list[str]
     ) -> None:
         """
         Record a context invalidation.
@@ -421,7 +422,7 @@ class MetricsCache:
         return metrics
 
     async def get_context_invalidation_metrics(
-        self, user_uid: str | None = None
+        self, user_uid: UserUID | None = None
     ) -> list[dict[str, Any]] | dict[str, Any] | None:
         """
         Get cached context invalidation metrics.

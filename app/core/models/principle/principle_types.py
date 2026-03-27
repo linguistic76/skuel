@@ -21,6 +21,7 @@ from datetime import date, datetime
 from operator import itemgetter
 
 from core.models.enums.principle_enums import AlignmentLevel
+from core.models.type_hints import EntityUID
 
 
 @dataclass(frozen=True)
@@ -84,7 +85,7 @@ class PrincipleAlignment:
     """
 
     principle_uid: str  # UID of the principle
-    entity_uid: str  # UID of goal or habit
+    entity_uid: EntityUID  # UID of goal or habit
     entity_type: str  # "goal" or "habit"
 
     # Alignment assessment

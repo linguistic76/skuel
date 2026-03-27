@@ -25,6 +25,7 @@ from typing import Any
 from adapters.calendar_adapters import adapt_entities
 from core.models.enums import ActivityType, Priority
 from core.models.event.calendar_models import CalendarItem, CalendarItemType
+from core.models.type_hints import EntityUID
 from core.ports import get_enum_value
 from core.ports.calendar_protocol import CalendarTrackable, WindowKind
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
@@ -74,7 +75,7 @@ def get_priority_calendar_color(priority: Priority | str | None) -> str:
     return normalized.get_calendar_color()
 
 
-def _make_calendar_uid(prefix: str, entity_uid: str, suffix: str | None = None) -> str:
+def _make_calendar_uid(prefix: str, entity_uid: EntityUID, suffix: str | None = None) -> str:
     """
     Generate consistent calendar item UID.
 

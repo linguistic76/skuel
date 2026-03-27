@@ -65,6 +65,7 @@ from pydantic import BaseModel
 from adapters.inbound.auth.session import get_current_user, require_authenticated_user
 from adapters.inbound.route_factories.route_helpers import check_required_role
 from core.models.enums import ContentScope, UserRole
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -110,7 +111,7 @@ class CRUDOperations(Protocol[T]):
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-        user_uid: str | None = None,  # NEW: User filtering
+        user_uid: UserUID | None = None,  # NEW: User filtering
     ) -> Result[list[T]]:
         """
         List entities with pagination and optional user filtering.
@@ -128,15 +129,17 @@ class CRUDOperations(Protocol[T]):
         ...
 
     # Ownership-verified methods (December 2025)
-    async def get_for_user(self, uid: str, user_uid: str) -> Result[T]:
+    async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[T]:
         """Get entity by UID, only if owned by user"""
         ...
 
-    async def update_for_user(self, uid: str, updates: dict[str, Any], user_uid: str) -> Result[T]:
+    async def update_for_user(
+        self, uid: str, updates: dict[str, Any], user_uid: UserUID
+    ) -> Result[T]:
         """Update entity, only if owned by user"""
         ...
 
-    async def delete_for_user(self, uid: str, user_uid: str) -> Result[bool]:
+    async def delete_for_user(self, uid: str, user_uid: UserUID) -> Result[bool]:
         """Delete entity, only if owned by user"""
         ...
 
@@ -583,7 +586,7 @@ class CRUDRouteFactory[T]:
         - This is the service's responsibility to enforce
 
         Example service implementation:
-            async def list(self, ..., user_uid: str | None = None):
+            async def list(self, ..., user_uid: UserUID | None = None):
                 if user_uid is None:
                     # Return shared/public content only
                     return await self.backend.list(limit=limit, ...)

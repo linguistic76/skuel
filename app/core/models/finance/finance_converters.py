@@ -10,6 +10,8 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from core.models.type_hints import UserUID
+
 from .finance_dto import (
     BudgetDTO,
     BudgetPeriod,
@@ -33,7 +35,7 @@ from .finance_request import (
 
 
 def expense_create_request_to_dto(
-    request: ExpenseCreateRequest, user_uid: str | None = None
+    request: ExpenseCreateRequest, user_uid: UserUID | None = None
 ) -> ExpenseDTO:
     """Convert ExpenseCreateRequest to ExpenseDTO"""
     return ExpenseDTO(
@@ -214,7 +216,7 @@ def expense_dto_to_response(dto: ExpenseDTO) -> dict[str, Any]:
 
 
 def budget_create_request_to_dto(
-    request: BudgetCreateRequest, user_uid: str | None = None
+    request: BudgetCreateRequest, user_uid: UserUID | None = None
 ) -> BudgetDTO:
     """Convert BudgetCreateRequest to BudgetDTO"""
     return BudgetDTO(

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -53,7 +54,7 @@ class _LearningStateMixin:
     # ========================================================================
 
     async def record_view(
-        self, user_uid: str, ku_uid: str, now: str, time_spent: int
+        self, user_uid: UserUID, ku_uid: str, now: str, time_spent: int
     ) -> Result[list[Neo4jProperties]]:
         """MERGE VIEWED relationship with timestamp and count tracking."""
         query = """
@@ -77,7 +78,7 @@ class _LearningStateMixin:
         )
 
     async def mark_in_progress(
-        self, user_uid: str, ku_uid: str, now: str
+        self, user_uid: UserUID, ku_uid: str, now: str
     ) -> Result[list[Neo4jProperties]]:
         """MERGE IN_PROGRESS relationship."""
         query = """
@@ -94,7 +95,7 @@ class _LearningStateMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid, "now": now})
 
-    async def mark_as_read(self, user_uid: str, ku_uid: str) -> Result[list[Neo4jProperties]]:
+    async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """MERGE MARKED_AS_READ relationship."""
         query = """
         MATCH (user:User {uid: $user_uid})
@@ -106,7 +107,7 @@ class _LearningStateMixin:
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
 
     async def mark_mastered(
-        self, user_uid: str, ku_uid: str, now: str, mastery_score: float, method: str
+        self, user_uid: UserUID, ku_uid: str, now: str, mastery_score: float, method: str
     ) -> Result[list[Neo4jProperties]]:
         """MERGE MASTERED relationship with score comparison."""
         query = """
@@ -145,7 +146,7 @@ class _LearningStateMixin:
     # BOOKMARK OPERATIONS
     # ========================================================================
 
-    async def check_bookmark(self, user_uid: str, ku_uid: str) -> Result[list[Neo4jProperties]]:
+    async def check_bookmark(self, user_uid: UserUID, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Check if BOOKMARKED relationship exists."""
         query = """
         MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity {uid: $ku_uid})
@@ -153,7 +154,9 @@ class _LearningStateMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
 
-    async def delete_bookmark(self, user_uid: str, ku_uid: str) -> Result[list[Neo4jProperties]]:
+    async def delete_bookmark(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[Neo4jProperties]]:
         """Delete BOOKMARKED relationship."""
         query = """
         MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity {uid: $ku_uid})
@@ -161,7 +164,9 @@ class _LearningStateMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
 
-    async def create_bookmark(self, user_uid: str, ku_uid: str) -> Result[list[Neo4jProperties]]:
+    async def create_bookmark(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[Neo4jProperties]]:
         """MERGE BOOKMARKED relationship."""
         query = """
         MATCH (user:User {uid: $user_uid})
@@ -176,7 +181,7 @@ class _LearningStateMixin:
     # ========================================================================
 
     async def get_learning_state_raw(
-        self, user_uid: str, ku_uid: str
+        self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """Fetch all user-entity learning relationships in one query."""
         query = """
@@ -202,7 +207,7 @@ class _LearningStateMixin:
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
 
     async def get_learning_states_batch_raw(
-        self, user_uid: str, ku_uids: list[str]
+        self, user_uid: UserUID, ku_uids: list[str]
     ) -> Result[list[Neo4jProperties]]:
         """Batch query learning states for multiple KUs."""
         query = """
@@ -220,7 +225,7 @@ class _LearningStateMixin:
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uids": ku_uids})
 
     async def detect_lesson_completion(
-        self, ku_uid: str, user_uid: str
+        self, ku_uid: str, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
         """Find lessons where all KUs are mastered after a KU mastery event."""
         query = """
@@ -236,7 +241,7 @@ class _LearningStateMixin:
         """
         return await self.execute_query(query, {"ku_uid": ku_uid, "user_uid": user_uid})
 
-    async def get_bookmarked_kus(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_bookmarked_kus(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get all bookmarked KU UIDs for a user."""
         query = """
         MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity)
@@ -245,7 +250,9 @@ class _LearningStateMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 
-    async def get_all_user_knowledge_status(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_all_user_knowledge_status(
+        self, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]:
         """Get all knowledge entities with per-user interaction status."""
         query = """
         MATCH (ku:Entity)
@@ -260,7 +267,9 @@ class _LearningStateMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 
-    async def get_user_mastery(self, user_uid: str, ku_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_user_mastery(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[Neo4jProperties]]:
         """Get mastery level for a specific user-KU pair."""
         query = """
         MATCH (user:User {uid: $user_uid})-[r:MASTERED]->(ku:Entity {uid: $ku_uid})
@@ -272,7 +281,7 @@ class _LearningStateMixin:
     # USER LEARNING CONTEXT (migrated from ContextRetriever)
     # ========================================================================
 
-    async def get_user_learning_context(self, user_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_user_learning_context(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get complete user learning context in a single query.
 
         Retrieves:

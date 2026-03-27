@@ -28,6 +28,7 @@ Implementation Date: October 24, 2025
 from datetime import datetime
 from typing import Any, TypedDict
 
+from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -68,7 +69,7 @@ class AnalyticsLifePathService:
         self.ku_service = ku_service
         self.lp_service = lp_service
 
-    async def calculate_life_path_alignment(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def calculate_life_path_alignment(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Calculate user's alignment with their ultimate life goal.
 
@@ -284,7 +285,7 @@ class AnalyticsLifePathService:
             )
 
     async def _analyze_knowledge_substance(
-        self, knowledge_units: list, user_uid: str
+        self, knowledge_units: list, user_uid: UserUID
     ) -> dict[str, Any]:
         """
         Analyze substance scores for knowledge units.
@@ -352,7 +353,7 @@ class AnalyticsLifePathService:
         }
 
     async def _analyze_domain_contributions(
-        self, knowledge_units: list, user_uid: str
+        self, knowledge_units: list, user_uid: UserUID
     ) -> dict[str, float]:
         """
         Analyze which Layer 1 domains contribute most to Life Path alignment.
@@ -415,7 +416,7 @@ class AnalyticsLifePathService:
         return contributions_result
 
     async def _calculate_alignment_trends(
-        self, user_uid: str, life_path_uid: str
+        self, user_uid: UserUID, life_path_uid: str
     ) -> dict[str, Any]:
         """
         Calculate alignment trends over time.

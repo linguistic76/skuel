@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 
+from core.models.type_hints import UserUID
 from core.services.performance_types import (
     CacheOptimization,
     CachePerformance,
@@ -96,7 +97,7 @@ class InferenceRequest:
     """Knowledge inference request."""
 
     request_id: str
-    user_uid: str
+    user_uid: UserUID
     query: str
     context: dict[str, Any]
     requested_at: datetime

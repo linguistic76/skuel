@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from core.events import publish_event
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.lesson_events import KnowledgePracticed
+from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -129,7 +130,7 @@ class LessonPracticeService:
             self.logger.error(f"Error handling event_completed event: {e}")
 
     async def _update_ku_practice_count(
-        self, ku_uid: str, user_uid: str, event_uid: str, occurred_at: datetime
+        self, ku_uid: str, user_uid: UserUID, event_uid: str, occurred_at: datetime
     ) -> None:
         """
         Internal helper to update a single KU's practice count.

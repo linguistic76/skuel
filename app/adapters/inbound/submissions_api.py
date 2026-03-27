@@ -25,6 +25,8 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.ports.report_protocols import TeacherReviewOperations
     from core.ports.submission_protocols import (
@@ -111,7 +113,7 @@ def create_submissions_api_routes(
 
     logger.info("Creating Submissions API routes")
 
-    async def _get_owned_submission(submission_uid: str, user_uid: str) -> Result[Any]:
+    async def _get_owned_submission(submission_uid: str, user_uid: UserUID) -> Result[Any]:
         """Load a submission and verify it belongs to the requesting user."""
         submission_result = await submission_service.get_submission(submission_uid)
         if submission_result.is_error:
@@ -124,7 +126,7 @@ def create_submissions_api_routes(
         return Result.ok(submission)
 
     async def _validate_owned_submissions(
-        submission_uids: list[str], user_uid: str
+        submission_uids: list[str], user_uid: UserUID
     ) -> Result[None]:
         """Ensure all provided submissions are owned by the requesting user."""
         for uid in submission_uids:
@@ -349,7 +351,7 @@ def create_submissions_api_routes(
     @boundary_handler()
     async def list_submissions_route(
         request: Request,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         report_type: str | None = None,
         status: str | None = None,
         limit: int = 50,
@@ -644,7 +646,9 @@ def create_submissions_api_routes(
 
     @rt("/api/submissions/statistics")
     @boundary_handler()
-    async def get_statistics_route(request: Request, user_uid: str | None = None) -> Result[Any]:
+    async def get_statistics_route(
+        request: Request, user_uid: UserUID | None = None
+    ) -> Result[Any]:
         """
         Get submission statistics for a user.
 
@@ -668,7 +672,7 @@ def create_submissions_api_routes(
         @rt("/api/submissions/categorize")
         @boundary_handler()
         async def categorize_submission_route(
-            request: Request, submission_uid: str, user_uid: str
+            request: Request, submission_uid: str, user_uid: UserUID
         ) -> Result[Any]:
             """
             Categorize a submission.
@@ -696,7 +700,7 @@ def create_submissions_api_routes(
         @rt("/api/submissions/tags/add")
         @boundary_handler()
         async def add_tags_route(
-            request: Request, submission_uid: str, user_uid: str
+            request: Request, submission_uid: str, user_uid: UserUID
         ) -> Result[Any]:
             """
             Add tags to a submission.
@@ -722,7 +726,7 @@ def create_submissions_api_routes(
         @rt("/api/submissions/tags/remove")
         @boundary_handler()
         async def remove_tags_route(
-            request: Request, submission_uid: str, user_uid: str
+            request: Request, submission_uid: str, user_uid: UserUID
         ) -> Result[Any]:
             """
             Remove tags from a submission.
@@ -748,7 +752,7 @@ def create_submissions_api_routes(
         @rt("/api/submissions/publish")
         @boundary_handler()
         async def publish_submission_route(
-            request: Request, submission_uid: str, user_uid: str
+            request: Request, submission_uid: str, user_uid: UserUID
         ) -> Result[Any]:
             """
             Publish a submission.
@@ -766,7 +770,7 @@ def create_submissions_api_routes(
         @rt("/api/submissions/archive")
         @boundary_handler()
         async def archive_submission_route(
-            request: Request, submission_uid: str, user_uid: str
+            request: Request, submission_uid: str, user_uid: UserUID
         ) -> Result[Any]:
             """
             Archive a submission.
@@ -784,7 +788,7 @@ def create_submissions_api_routes(
         @rt("/api/submissions/draft")
         @boundary_handler()
         async def mark_as_draft_route(
-            request: Request, submission_uid: str, user_uid: str
+            request: Request, submission_uid: str, user_uid: UserUID
         ) -> Result[Any]:
             """
             Mark submission as draft.
@@ -801,7 +805,7 @@ def create_submissions_api_routes(
 
         @rt("/api/submissions/bulk/categorize")
         @boundary_handler()
-        async def bulk_categorize_route(request: Request, user_uid: str) -> Result[Any]:
+        async def bulk_categorize_route(request: Request, user_uid: UserUID) -> Result[Any]:
             """
             Bulk categorize reports.
 
@@ -827,7 +831,7 @@ def create_submissions_api_routes(
 
         @rt("/api/submissions/bulk/tag")
         @boundary_handler()
-        async def bulk_tag_route(request: Request, user_uid: str) -> Result[Any]:
+        async def bulk_tag_route(request: Request, user_uid: UserUID) -> Result[Any]:
             """
             Bulk tag reports.
 
@@ -851,7 +855,7 @@ def create_submissions_api_routes(
 
         @rt("/api/submissions/bulk/delete")
         @boundary_handler()
-        async def bulk_delete_route(request: Request, user_uid: str) -> Result[Any]:
+        async def bulk_delete_route(request: Request, user_uid: UserUID) -> Result[Any]:
             """
             Bulk delete reports.
 
@@ -878,7 +882,7 @@ def create_submissions_api_routes(
         @rt("/api/submissions/by-category")
         @boundary_handler()
         async def get_by_category_route(
-            request: Request, user_uid: str, category: str, limit: int = 50
+            request: Request, user_uid: UserUID, category: str, limit: int = 50
         ) -> Result[Any]:
             """
             Get reports by category.
@@ -894,7 +898,9 @@ def create_submissions_api_routes(
 
         @rt("/api/submissions/recent")
         @boundary_handler()
-        async def get_recent_route(request: Request, user_uid: str, limit: int = 10) -> Result[Any]:
+        async def get_recent_route(
+            request: Request, user_uid: UserUID, limit: int = 10
+        ) -> Result[Any]:
             """
             Get recent reports.
 

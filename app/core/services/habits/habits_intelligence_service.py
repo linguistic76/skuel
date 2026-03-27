@@ -26,6 +26,7 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
+from core.models.type_hints import UserUID
 
 # NOTE (November 2025): Removed HasConsistencyScore, HasFrequency, HasStreakCount imports
 # These protocols were used for defensive isinstance() checks, but the Habit model
@@ -146,7 +147,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         return await self.get_habit_with_context(uid, depth)
 
     async def get_performance_analytics(
-        self, user_uid: str, _period_days: int = 30
+        self, user_uid: UserUID, _period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """
         Get habit performance analytics for a user.
@@ -786,7 +787,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
     async def assess_consistency_dual_track(
         self,
         habit_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         user_consistency_level: ConsistencyLevel,
         user_evidence: str,
         user_reflection: str | None = None,
@@ -840,7 +841,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         )
 
     async def _calculate_system_consistency(
-        self, habit: Habit, _user_uid: str
+        self, habit: Habit, _user_uid: UserUID
     ) -> tuple[ConsistencyLevel, float, list[str]]:
         """
         Calculate system consistency from habit metrics.
@@ -981,7 +982,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
     # ZPD BRIDGE (March 2026)
     # =========================================================================
 
-    async def get_zpd_knowledge_signals(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_zpd_knowledge_signals(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Extract knowledge reinforcement signals for ZPDService consumption.
 

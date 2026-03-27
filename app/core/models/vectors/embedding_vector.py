@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Any
 
 from core.models.enums import Domain
+from core.models.type_hints import EntityUID
 
 
 @dataclass(frozen=True)
@@ -29,7 +30,7 @@ class EmbeddingVector:
 
     # Identity
     uid: str  # Format: "embedding.{entity_uid}.{model}.{timestamp}"
-    entity_uid: str  # UID of the entity being embedded
+    entity_uid: EntityUID  # UID of the entity being embedded
     entity_type: str  # "knowledge", "task", "habit", "goal", "journal", etc.
 
     # Vector data
@@ -137,7 +138,7 @@ class SimilarityMatch:
     Read-only computed view, not stored directly.
     """
 
-    entity_uid: str
+    entity_uid: EntityUID
     entity_type: str
     similarity_score: float  # 0.0-1.0 (cosine similarity)
     source_text: str
@@ -166,7 +167,9 @@ class SimilarityMatch:
 # ============================================================================
 
 
-def generate_embedding_uid(entity_uid: str, model: str, timestamp: datetime | None = None) -> str:
+def generate_embedding_uid(
+    entity_uid: EntityUID, model: str, timestamp: datetime | None = None
+) -> str:
     """
     Generate unique UID for embedding record.
 

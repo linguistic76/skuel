@@ -17,6 +17,8 @@ See: /docs/patterns/SHARING_PATTERNS.md (to be created)
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import EntityUID
+
 if TYPE_CHECKING:
     from core.ports.sharing_protocols import SharingOperations
     from core.ports.submission_protocols import SubmissionOperations
@@ -64,7 +66,7 @@ class SetVisibilityRequest(BaseModel):
 class ShareWithGroupRequest(BaseModel):
     """Request to share an entity with a group."""
 
-    entity_uid: str
+    entity_uid: EntityUID
     group_uid: str
     share_version: str = "original"
 
@@ -72,7 +74,7 @@ class ShareWithGroupRequest(BaseModel):
 class UnshareFromGroupRequest(BaseModel):
     """Request to revoke group-level sharing."""
 
-    entity_uid: str
+    entity_uid: EntityUID
     group_uid: str
 
 

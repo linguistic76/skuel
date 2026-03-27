@@ -21,7 +21,7 @@ from enum import Enum
 from typing import Any, get_origin, get_type_hints
 
 from core.models.enums.neo_labels import NeoLabel
-from core.models.type_hints import Neo4jValue
+from core.models.type_hints import EntityUID, Neo4jValue, UserUID
 from core.utils.logging import get_logger
 
 from ._types import T
@@ -750,7 +750,7 @@ def get_supported_operators() -> list[str]:
 def build_distinct_values_query(
     label: str,
     field: str,
-    user_uid: str | None = None,
+    user_uid: UserUID | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query to get distinct values from a field.
@@ -908,8 +908,8 @@ def build_prerequisite_traversal_query(
 
 def build_user_progress_query(
     label: str,
-    user_uid: str,
-    entity_uid: str,
+    user_uid: UserUID,
+    entity_uid: EntityUID,
     mastery_threshold: float = 0.8,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
@@ -952,7 +952,7 @@ def build_user_progress_query(
 
 def build_user_curriculum_query(
     label: str,
-    user_uid: str,
+    user_uid: UserUID,
     include_completed: bool = False,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """

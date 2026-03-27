@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
 from core.services.filtered_context import build_filtered_context
 from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
@@ -145,7 +146,7 @@ class KuService:
     # SEARCH (delegated to search)
     # =========================================================================
 
-    async def search(self, query: str, user_uid: str | None = None) -> Result[list[Any]]:
+    async def search(self, query: str, user_uid: UserUID | None = None) -> Result[list[Any]]:
         """Full-text search across Kus."""
         return await self.search_service.search(query, user_uid)
 
@@ -187,7 +188,7 @@ class KuService:
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status_filter: str = "all",
         sort_by: str = "title",
     ) -> Result[ListContext]:

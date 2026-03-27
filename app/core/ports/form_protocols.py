@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol
 
+from core.models.type_hints import UserUID
 from core.ports.base_protocols import BackendOperations
 from core.utils.result_simplified import Result
 
@@ -53,12 +54,12 @@ class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Proto
     async def create_with_relationships(
         self,
         submission: FormSubmission,
-        user_uid: str,
+        user_uid: UserUID,
         form_template_uid: str,
     ) -> Result[FormSubmission]: ...
 
     async def list_by_user(
-        self, user_uid: str, limit: int = 50
+        self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_submissions_for_template(
@@ -94,7 +95,7 @@ class FormTemplateOperations(Protocol):
         offset: int = 0,
         order_by: str | None = None,
         order_desc: bool = False,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         **kwargs: Any,
     ) -> Result[builtins.list[FormTemplate]]: ...
 
@@ -114,7 +115,7 @@ class FormSubmissionOperations(Protocol):
 
     async def submit_form(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         form_template_uid: str,
         form_data: dict[str, Any],
         title: str | None = None,
@@ -123,18 +124,20 @@ class FormSubmissionOperations(Protocol):
         share_with_admin: bool = False,
     ) -> Result[FormSubmission]: ...
 
-    async def get_submission(self, uid: str, user_uid: str) -> Result[FormSubmission | None]: ...
+    async def get_submission(
+        self, uid: str, user_uid: UserUID
+    ) -> Result[FormSubmission | None]: ...
 
     async def get_my_submissions(
-        self, user_uid: str, limit: int = 50
+        self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[dict[str, Any]]]: ...
 
-    async def delete_submission(self, uid: str, user_uid: str) -> Result[bool]: ...
+    async def delete_submission(self, uid: str, user_uid: UserUID) -> Result[bool]: ...
 
     async def share_submission(
         self,
         uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         group_uid: str | None = None,
         recipient_uids: list[str] | None = None,
         share_with_admin: bool = False,

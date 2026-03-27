@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import EntityUID
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -186,7 +187,9 @@ class _OrganizesMixin:
         """
         return await self.execute_query(query, {"parent_uid": parent_uid})
 
-    async def get_parent_organizers_raw(self, entity_uid: str) -> Result[list[Neo4jProperties]]:
+    async def get_parent_organizers_raw(
+        self, entity_uid: EntityUID
+    ) -> Result[list[Neo4jProperties]]:
         """Find all parents that organize a given entity."""
         query = """
         MATCH (parent:Entity)-[:ORGANIZES]->(child:Entity {uid: $entity_uid})
@@ -195,7 +198,7 @@ class _OrganizesMixin:
         """
         return await self.execute_query(query, {"entity_uid": entity_uid})
 
-    async def get_hierarchy_raw(self, entity_uid: str) -> Result[dict[str, Any]]:
+    async def get_hierarchy_raw(self, entity_uid: EntityUID) -> Result[dict[str, Any]]:
         """Get full hierarchy context: ancestors, children, siblings."""
         ancestors_query = """
         MATCH path = (ancestor:Entity)-[:ORGANIZES*]->(ku:Entity {uid: $entity_uid})

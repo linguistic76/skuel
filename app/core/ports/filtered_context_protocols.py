@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from core.models.type_hints import UserUID
 from core.ports.query_types import ListContext
 from core.utils.result_simplified import Result
 
@@ -33,7 +34,7 @@ class FilteredContextProvider(Protocol):
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status_filter: str = ...,
         sort_by: str = ...,
     ) -> Result[ListContext]: ...

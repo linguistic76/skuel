@@ -12,6 +12,7 @@ from datetime import date, datetime
 from typing import Any
 
 from core.models.enums.principle_enums import AlignmentLevel
+from core.models.type_hints import UserUID
 from core.utils.uid_generator import UIDGenerator
 
 
@@ -29,7 +30,7 @@ class PrincipleReflectionDTO:
     # Identity
     uid: str
     principle_uid: str
-    user_uid: str
+    user_uid: UserUID
     reflection_date: date
 
     # Assessment
@@ -58,7 +59,7 @@ class PrincipleReflectionDTO:
     def create(
         cls,
         principle_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         alignment_level: AlignmentLevel,
         evidence: str,
         reflection_notes: str | None = None,

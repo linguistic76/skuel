@@ -31,6 +31,7 @@ from typing import Any
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.task.task import Task as Task
+from core.models.type_hints import UserUID
 from core.ports import HasMetadata, HasSummary
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
@@ -184,7 +185,7 @@ class InsightGenerationService:
 
     @with_error_handling("extract_knowledge_from_completed_tasks", error_type="system")
     async def extract_knowledge_from_completed_tasks(
-        self, user_uid: str, days_back: int = 30, min_tasks: int = 5
+        self, user_uid: UserUID, days_back: int = 30, min_tasks: int = 5
     ) -> Result[list[CurriculumDTO]]:
         """
         Extract knowledge from user's completed tasks over a time period.
@@ -233,7 +234,9 @@ class InsightGenerationService:
 
         return Result.ok(knowledge_units)
 
-    async def _get_completed_tasks_since(self, user_uid: str, since_date: datetime) -> list[Task]:
+    async def _get_completed_tasks_since(
+        self, user_uid: UserUID, since_date: datetime
+    ) -> list[Task]:
         """Get completed tasks for a user since a specific date."""
         if not self.tasks_service:
             msg = "tasks_service is required for task analysis but was not injected"
@@ -1016,7 +1019,7 @@ class InsightGenerationService:
         return Result.ok(categorized)
 
     async def _convert_insight_to_knowledge(
-        self, insight: GeneratedInsight, user_uid: str
+        self, insight: GeneratedInsight, user_uid: UserUID
     ) -> CurriculumDTO | None:
         """Convert a generated insight into a knowledge unit."""
         try:

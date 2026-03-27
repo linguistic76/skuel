@@ -18,6 +18,8 @@ See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.domain_backends import ActivityReportBackend
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -381,7 +383,7 @@ class ActivityReportService:
     async def annotate(
         self,
         uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         annotation_mode: str,
         user_annotation: str | None = None,
         user_revision: str | None = None,
@@ -450,7 +452,7 @@ class ActivityReportService:
             }
         )
 
-    async def get_annotation(self, uid: str, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_annotation(self, uid: str, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Get current annotation state for an owned ActivityReport.
 
@@ -483,7 +485,7 @@ class ActivityReportService:
             }
         )
 
-    async def get_privacy_summary(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_privacy_summary(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Return a privacy-transparency summary for the authenticated user.
 

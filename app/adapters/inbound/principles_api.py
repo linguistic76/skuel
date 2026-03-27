@@ -29,6 +29,7 @@ from core.models.principle.principle_request import (
     PrincipleExpressionRequest,
     PrincipleLinkRequest,
 )
+from core.models.type_hints import UserUID
 from core.services.conversion_service import ConversionServiceV2
 from core.services.principles_service import PrinciplesService
 from core.utils.result_simplified import Result
@@ -108,7 +109,7 @@ def create_principles_api_routes(
     @require_ownership_query(get_principles_service, uid_param="principle_uid")
     @boundary_handler(success_status=201)
     async def create_principle_expression_route(
-        request: Request, user_uid: str, entity: Any
+        request: Request, user_uid: UserUID, entity: Any
     ) -> Result[Any]:
         """Create a principle expression (requires ownership)."""
         body = await request.json()
@@ -123,7 +124,7 @@ def create_principles_api_routes(
     @require_ownership_query(get_principles_service, uid_param="principle_uid")
     @boundary_handler()
     async def assess_principle_alignment_route(
-        request: Request, user_uid: str, entity: Any
+        request: Request, user_uid: UserUID, entity: Any
     ) -> Result[Any]:
         """
         Assess alignment with a principle (requires ownership).
@@ -159,7 +160,7 @@ def create_principles_api_routes(
     @require_ownership_query(get_principles_service, uid_param="principle_uid")
     @boundary_handler(success_status=201)
     async def create_principle_link_route(
-        request: Request, user_uid: str, entity: Any
+        request: Request, user_uid: UserUID, entity: Any
     ) -> Result[Any]:
         """Create a link between principles (requires ownership)."""
         body = await request.json()

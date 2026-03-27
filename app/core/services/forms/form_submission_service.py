@@ -17,6 +17,7 @@ from core.models.forms.form_submission import FormSubmission
 from core.models.forms.form_submission_dto import FormSubmissionDTO
 from core.models.forms.form_template import FormTemplate
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.ports.form_protocols import FormSubmissionBackendOperations, FormTemplateOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.ports.sharing_protocols import SharingOperations
@@ -69,7 +70,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
 
     async def submit_form(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         form_template_uid: str,
         form_data: dict[str, Any],
         title: str | None = None,
@@ -163,7 +164,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
     async def _share_on_submit(
         self,
         submission_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         group_uid: str | None,
         recipient_uids: list[str] | None,
         share_with_admin: bool,
@@ -196,7 +197,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         if share_with_admin:
             await self._share_with_admin(submission_uid, user_uid)
 
-    async def _share_with_admin(self, submission_uid: str, user_uid: str) -> None:
+    async def _share_with_admin(self, submission_uid: str, user_uid: UserUID) -> None:
         """Share a submission with the admin user (using UserRole enum)."""
         if not self.sharing_service:
             self.logger.warning("share_with_admin called but no sharing_service configured")
@@ -219,7 +220,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
     # READ
     # ========================================================================
 
-    async def get_submission(self, uid: str, user_uid: str) -> Result[FormSubmission]:
+    async def get_submission(self, uid: str, user_uid: UserUID) -> Result[FormSubmission]:
         """Get a FormSubmission by UID, verifying ownership."""
         result: Result[FormSubmission | None] = await self.backend.get(uid)
         if result.is_error:
@@ -232,7 +233,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         return Result.ok(result.value)
 
     async def get_my_submissions(
-        self, user_uid: str, limit: int = 50
+        self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[dict[str, Any]]]:
         """Get a user's form submissions."""
         return await self.backend.list_by_user(user_uid, limit=limit)
@@ -241,7 +242,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
     # DELETE
     # ========================================================================
 
-    async def delete_submission(self, uid: str, user_uid: str) -> Result[bool]:
+    async def delete_submission(self, uid: str, user_uid: UserUID) -> Result[bool]:
         """Delete a user's form submission (ownership-verified)."""
         # Verify ownership first
         get_result = await self.get_submission(uid, user_uid)
@@ -272,7 +273,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
     async def share_submission(
         self,
         uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         group_uid: str | None = None,
         recipient_uids: list[str] | None = None,
         share_with_admin: bool = False,

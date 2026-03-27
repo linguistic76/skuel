@@ -24,6 +24,7 @@ from core.models.enums import EntityStatus, Priority
 from core.models.enums.goal_enums import GoalTimeframe, GoalType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.activity_domain_config import create_common_sub_services
 from core.services.base_service import BaseService
@@ -212,11 +213,11 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     async def get_goal(self, goal_uid: str) -> Result[Goal]:
         return await self.core.get_goal(goal_uid)
 
-    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
+    async def get_user_goals(self, user_uid: UserUID) -> Result[list[Goal]]:
         return await self.core.get_user_goals(user_uid)
 
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Goal]]:
         return await self.core.get_user_items_in_range(
             user_uid, start_date, end_date, include_completed
@@ -238,7 +239,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     async def archive_goal(self, uid: str, reason: str = "Archived") -> Result[bool]:
         return await self.core.archive_goal(uid, reason)
 
-    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: str) -> Result[Goal]:
+    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: UserUID) -> Result[Goal]:
         return await self.core.create_goal(goal_request, user_uid)
 
     # Progress delegations
@@ -294,7 +295,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         return await self.learning.suggest_learning_aligned_goals(learning_position, goal_domain)
 
     async def get_learning_supporting_goals(
-        self, user_uid: str, learning_position: LpPosition
+        self, user_uid: UserUID, learning_position: LpPosition
     ) -> Result[list[Goal]]:
         return await self.learning.get_learning_supporting_goals(user_uid, learning_position)
 
@@ -311,7 +312,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
 
     # Relationship delegations
     async def get_goal_cross_domain_context(
-        self, entity_uid: str, depth: int = 2, min_confidence: float = 0.7
+        self, entity_uid: EntityUID, depth: int = 2, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
 
@@ -347,34 +348,34 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         return await self.intelligence.get_goal_learning_requirements(uid, depth, min_confidence)
 
     # Search delegations
-    async def list_goal_categories(self, user_uid: str) -> Result[list[str]]:
+    async def list_goal_categories(self, user_uid: UserUID) -> Result[list[str]]:
         return await self.search.list_user_categories(user_uid)
 
     async def list_all_goal_categories(self) -> Result[list[str]]:
         return await self.search.list_all_categories()
 
     async def get_goals_by_category(
-        self, category: str, user_uid: str | None = None, limit: int = 100
+        self, category: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
         return await self.search.get_by_category(category, user_uid, limit)  # type: ignore[call-arg, return-value]
 
     async def get_goals_by_status(
-        self, status: str, limit: int = 100, user_uid: str | None = None
+        self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Goal]]:
         return await self.search.get_by_status(status, limit, user_uid)  # type: ignore[return-value]
 
     async def search_goals(
-        self, query: str, limit: int = 50, user_uid: str | None = None
+        self, query: str, limit: int = 50, user_uid: UserUID | None = None
     ) -> Result[list[Goal]]:
         return await self.search.search(query, limit, user_uid)  # type: ignore[return-value]
 
     async def get_goals_due_soon(
-        self, days_ahead: int = 7, user_uid: str | None = None, limit: int = 100
+        self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
         return await self.search.get_due_soon(days_ahead, user_uid, limit)  # type: ignore[return-value]
 
     async def get_overdue_goals(
-        self, user_uid: str | None = None, limit: int = 100
+        self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
         return await self.search.get_overdue(user_uid, limit)  # type: ignore[return-value]
 
@@ -389,7 +390,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     # Scheduling delegations
     async def check_goal_capacity(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         proposed_type: GoalType = GoalType.OUTCOME,
         proposed_timeframe: GoalTimeframe = GoalTimeframe.QUARTERLY,
         proposed_priority: Priority = Priority.MEDIUM,
@@ -401,7 +402,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
 
     async def suggest_goal_timeline(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         goal_type: GoalType,
         timeframe: GoalTimeframe,
         complexity_factors: list[str] | None = None,
@@ -419,11 +420,11 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         return await self.scheduling.get_schedule_aware_next_goal(user_context)
 
     async def optimize_goal_sequencing(
-        self, user_uid: str, goal_uids: list[str]
+        self, user_uid: UserUID, goal_uids: list[str]
     ) -> Result[list[GoalSequenceItem]]:
         return await self.scheduling.optimize_goal_sequencing(user_uid, goal_uids)
 
-    async def get_goal_load_by_timeframe(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_goal_load_by_timeframe(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         return await self.scheduling.get_goal_load_by_timeframe(user_uid)
 
     async def create_goal_with_scheduling_context(
@@ -543,13 +544,13 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> Result[dict[str, Any]]:
         """Generate knowledge suggestions from entity patterns."""
         return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
 
     async def generate_knowledge_from_entities(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Generate knowledge units from completed entities."""
         return await self.knowledge_intelligence.generate_knowledge_from_entities(
@@ -557,12 +558,12 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         )
 
     async def get_knowledge_prerequisites(
-        self, entity_uid: str
+        self, entity_uid: EntityUID
     ) -> Result[KnowledgePrerequisitesResult]:
         """Analyze knowledge prerequisites for an entity."""
         return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
 
-    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Discover learning opportunities from entity patterns."""
         return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
@@ -585,7 +586,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     # delegated via explicit method below.
 
     async def create_user_goal_relationship(
-        self, user_uid: str, goal_uid: str, role: str = "owner"
+        self, user_uid: UserUID, goal_uid: str, role: str = "owner"
     ) -> Result[bool]:
         """Create User→Goal relationship in graph."""
         properties = {"role": role} if role != "owner" else None
@@ -873,7 +874,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         status_filter: str = "active",
         sort_by: str = "target_date",
     ) -> Result[ListContext]:

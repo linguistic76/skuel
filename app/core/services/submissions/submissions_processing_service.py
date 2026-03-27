@@ -32,6 +32,7 @@ from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.journal.je_input import JeInput
 from core.models.submissions.submission import Submission
+from core.models.type_hints import UserUID
 from core.services.submissions.submissions_service import SubmissionsService
 from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -433,7 +434,7 @@ class SubmissionsProcessingService:
     # ========================================================================
 
     async def _extract_activities(
-        self, submission: SubmissionEntity, user_uid: str, instructions: dict[str, Any] | None
+        self, submission: SubmissionEntity, user_uid: UserUID, instructions: dict[str, Any] | None
     ) -> None:
         """
         Extract Activity Lines from processed content and create entities.

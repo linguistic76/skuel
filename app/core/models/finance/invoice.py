@@ -14,6 +14,8 @@ Invoices support both:
 
 from __future__ import annotations
 
+from core.models.type_hints import UserUID
+
 __version__ = "1.0"
 
 import uuid
@@ -136,7 +138,7 @@ class InvoiceDTO:
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     invoice_type: str
     counterparty: str
     invoice_date: date
@@ -227,7 +229,7 @@ class InvoicePure:
 
     # Identity
     uid: str
-    user_uid: str
+    user_uid: UserUID
 
     # Invoice data
     invoice_type: InvoiceType
@@ -351,7 +353,7 @@ class InvoicePure:
 
 def invoice_create_request_to_dto(
     request: InvoiceCreateRequest,
-    user_uid: str,
+    user_uid: UserUID,
 ) -> InvoiceDTO:
     """Convert create request to DTO with generated UID."""
     items = [
@@ -451,7 +453,7 @@ def invoice_dto_to_response(dto: InvoiceDTO) -> dict[str, Any]:
 
 
 def create_invoice(
-    user_uid: str,
+    user_uid: UserUID,
     invoice_type: InvoiceType | str,
     counterparty: str,
     invoice_date: date,

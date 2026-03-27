@@ -37,6 +37,7 @@ from core.models.event.event_request import (
     RecurringInstancesRequest,
     RemoveAttendeeRequest,
 )
+from core.models.type_hints import UserUID
 from core.services.events_service import EventsService
 from core.utils.result_simplified import Result
 
@@ -137,7 +138,9 @@ def create_events_api_routes(
     @rt("/api/events/conflicts")
     @require_ownership_query(get_events_service)
     @boundary_handler()
-    async def check_conflicts_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
+    async def check_conflicts_route(
+        request: Request, user_uid: UserUID, entity: Any
+    ) -> Result[Any]:
         """Check for scheduling conflicts (requires ownership)."""
         return await events_service.check_conflicts(CheckConflictsRequest(event_uid=entity.uid))
 
@@ -211,7 +214,7 @@ def create_events_api_routes(
     @require_ownership_query(get_events_service)
     @boundary_handler()
     async def create_recurring_instances_route(
-        request: Request, user_uid: str, entity: Any
+        request: Request, user_uid: UserUID, entity: Any
     ) -> Result[Any]:
         """Create recurring event instances (requires ownership)."""
         body = await request.json()
@@ -240,7 +243,7 @@ def create_events_api_routes(
     @rt("/api/events/attendees", methods=["POST"])
     @require_ownership_query(get_events_service)
     @boundary_handler()
-    async def add_attendee_route(request: Request, user_uid: str, entity: Any) -> Result[Any]:
+    async def add_attendee_route(request: Request, user_uid: UserUID, entity: Any) -> Result[Any]:
         """Add attendee to event (requires ownership)."""
         body = await request.json()
         return await events_service.add_attendee(
@@ -256,7 +259,7 @@ def create_events_api_routes(
     @require_ownership_query(get_events_service)
     @boundary_handler()
     async def remove_attendee_route(
-        request: Request, user_uid: str, entity: Any, attendee_uid: str
+        request: Request, user_uid: UserUID, entity: Any, attendee_uid: str
     ) -> Result[Any]:
         """Remove attendee from event (requires ownership)."""
         return await events_service.remove_attendee(

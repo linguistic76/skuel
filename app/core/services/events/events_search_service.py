@@ -24,6 +24,8 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, ClassVar
 
+from core.models.type_hints import UserUID
+
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
 
@@ -228,7 +230,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         self,
         start_date: date,
         end_date: date,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
         limit: int = 100,
     ) -> Result[list[Event]]:
         """
@@ -287,7 +289,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
 
     @with_error_handling("get_recurring", error_type="database")
     async def get_recurring(
-        self, user_uid: str | None = None, limit: int = 100
+        self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Event]]:
         """
         Get recurring events.
@@ -331,7 +333,9 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         return Result.ok(events)
 
     @with_error_handling("get_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_for_goal(self, goal_uid: str, user_uid: str | None = None) -> Result[list[Event]]:
+    async def get_for_goal(
+        self, goal_uid: str, user_uid: UserUID | None = None
+    ) -> Result[list[Event]]:
         """
         Get events that support a specific goal.
 
@@ -434,7 +438,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
 
     @with_error_handling("get_by_type", error_type="database")
     async def get_by_type(
-        self, event_type: str, user_uid: str | None = None, limit: int = 100
+        self, event_type: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Event]]:
         """
         Get events by event type.
@@ -464,7 +468,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
 
     @with_error_handling("get_upcoming", error_type="database", uid_param="user_uid")
     async def get_upcoming(
-        self, user_uid: str, days_ahead: int = 30, limit: int = 100
+        self, user_uid: UserUID, days_ahead: int = 30, limit: int = 100
     ) -> Result[list[Event]]:
         """
         Get upcoming events for a user.
@@ -489,7 +493,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
 
     @with_error_handling("get_history", error_type="database", uid_param="user_uid")
     async def get_history(
-        self, user_uid: str, days_back: int = 90, limit: int = 100
+        self, user_uid: UserUID, days_back: int = 90, limit: int = 100
     ) -> Result[list[Event]]:
         """
         Get completed/past events for a user.
@@ -541,7 +545,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
 
     @with_error_handling("get_for_habit", error_type="database", uid_param="habit_uid")
     async def get_for_habit(
-        self, habit_uid: str, user_uid: str | None = None
+        self, habit_uid: str, user_uid: UserUID | None = None
     ) -> Result[list[Event]]:
         """
         Get events that reinforce a specific habit.
@@ -575,7 +579,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
     @with_error_handling("get_calendar_events", error_type="database", uid_param="user_uid")
     async def get_calendar_events(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date | None = None,
         end_date: date | None = None,
         limit: int = 100,
@@ -625,7 +629,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
 
     @with_error_handling("intelligent_search", error_type="database")
     async def intelligent_search(
-        self, query: str, user_uid: str | None = None, limit: int = 50
+        self, query: str, user_uid: UserUID | None = None, limit: int = 50
     ) -> Result[tuple[list[Event], ParsedSearchQuery]]:
         """
         Natural language search with semantic filter extraction.

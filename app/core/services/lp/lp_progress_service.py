@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from core.events import LearningPathCompleted, LearningPathProgressUpdated, publish_event
 from core.events.curriculum_events import LearningStepCompleted
 from core.events.learning_events import KnowledgeMastered
+from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -172,7 +173,7 @@ class LpProgressService:
             self.logger.error(f"Error handling learning_step.completed event: {e}")
 
     # FUTURE-IMPL: FUTURE-IMPL-009 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md
-    async def _update_lp_from_ku_mastery(self, lp_uid: str, user_uid: str) -> None:
+    async def _update_lp_from_ku_mastery(self, lp_uid: str, user_uid: UserUID) -> None:
         """
         Internal helper to update a single learning path's progress from KU mastery.
 

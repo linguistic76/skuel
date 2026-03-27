@@ -24,6 +24,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import AlignmentLevel
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -147,7 +148,7 @@ class LifePathAlignmentService:
 
         return Result.ok(result)
 
-    async def _get_user_life_path(self, user_uid: str) -> str | None:
+    async def _get_user_life_path(self, user_uid: UserUID) -> str | None:
         """Get user's designated life path UID."""
         if not self.executor:
             return None
@@ -184,7 +185,7 @@ class LifePathAlignmentService:
                 }
         return {"title": "Unknown", "description": ""}
 
-    async def _calculate_knowledge_alignment(self, user_uid: str, life_path_uid: str) -> float:
+    async def _calculate_knowledge_alignment(self, user_uid: UserUID, life_path_uid: str) -> float:
         """
         Calculate knowledge dimension (25% weight).
 
@@ -236,7 +237,7 @@ class LifePathAlignmentService:
             return float(score) if score else 0.0
         return 0.0
 
-    async def _calculate_activity_alignment(self, user_uid: str, life_path_uid: str) -> float:
+    async def _calculate_activity_alignment(self, user_uid: UserUID, life_path_uid: str) -> float:
         """
         Calculate activity dimension (25% weight).
 
@@ -298,7 +299,7 @@ class LifePathAlignmentService:
             return float(score) if score else 0.0
         return 0.0
 
-    async def _calculate_goal_alignment(self, user_uid: str, life_path_uid: str) -> float:
+    async def _calculate_goal_alignment(self, user_uid: UserUID, life_path_uid: str) -> float:
         """
         Calculate goal dimension (20% weight).
 
@@ -341,7 +342,7 @@ class LifePathAlignmentService:
             return float(score) if score else 0.0
         return 0.0
 
-    async def _calculate_principle_alignment(self, user_uid: str, life_path_uid: str) -> float:
+    async def _calculate_principle_alignment(self, user_uid: UserUID, life_path_uid: str) -> float:
         """
         Calculate principle dimension (15% weight).
 
@@ -384,7 +385,7 @@ class LifePathAlignmentService:
             return float(score) if score else 0.0
         return 0.0
 
-    async def _calculate_momentum(self, user_uid: str, life_path_uid: str) -> float:
+    async def _calculate_momentum(self, user_uid: UserUID, life_path_uid: str) -> float:
         """
         Calculate momentum dimension (15% weight).
 
@@ -454,7 +455,7 @@ class LifePathAlignmentService:
         return 0.5
 
     async def _get_knowledge_substance_stats(
-        self, user_uid: str, life_path_uid: str
+        self, user_uid: UserUID, life_path_uid: str
     ) -> dict[str, int]:
         """Get counts of embodied vs theoretical knowledge."""
         if not self.executor:

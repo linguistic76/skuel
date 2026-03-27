@@ -24,6 +24,7 @@ import time
 from typing import TYPE_CHECKING
 
 from core.models.enums.lifepath_enums import ThemeCategory
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -138,7 +139,9 @@ class LifePathVisionService:
         self.lp_service = lp_service
         logger.info("LifePathVisionService initialized")
 
-    async def capture_vision(self, user_uid: str, vision_statement: str) -> Result[VisionCapture]:
+    async def capture_vision(
+        self, user_uid: UserUID, vision_statement: str
+    ) -> Result[VisionCapture]:
         """
         Extract themes from user's vision statement.
 

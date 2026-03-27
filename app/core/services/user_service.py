@@ -22,6 +22,7 @@ Architecture:
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import UserRole
+from core.models.type_hints import EntityUID, UserUID
 from core.models.user import User
 from core.ports.infrastructure_protocols import (
     EventBusOperations,
@@ -133,7 +134,7 @@ class UserService:
         """Ensure system user exists for infrastructure operations."""
         return await self.core.ensure_system_user()
 
-    async def get_user(self, user_uid: str) -> Result[User | None]:
+    async def get_user(self, user_uid: UserUID) -> Result[User | None]:
         """Get user by UID."""
         return await self.core.get_user(user_uid)
 
@@ -141,7 +142,7 @@ class UserService:
         """Get user by username."""
         return await self.core.get_user_by_username(username)
 
-    async def get_user_context(self, user_uid: str) -> Result[UserContext]:
+    async def get_user_context(self, user_uid: UserUID) -> Result[UserContext]:
         """
         Get UserContext for a user (public API for Askesis and other services).
 
@@ -176,12 +177,12 @@ class UserService:
         return await self.core.update_user(user)
 
     async def update_preferences(
-        self, user_uid: str, preferences_update: dict[str, Any]
+        self, user_uid: UserUID, preferences_update: dict[str, Any]
     ) -> Result[User]:
         """Update user preferences (convenience method)."""
         return await self.core.update_preferences(user_uid, preferences_update)
 
-    async def delete_user(self, user_uid: str) -> Result[bool]:
+    async def delete_user(self, user_uid: UserUID) -> Result[bool]:
         """Delete a user."""
         return await self.core.delete_user(user_uid)
 
@@ -199,9 +200,9 @@ class UserService:
 
     async def update_role(
         self,
-        target_user_uid: str,
+        target_user_uid: UserUID,
         new_role: UserRole,
-        admin_user_uid: str,
+        admin_user_uid: UserUID,
     ) -> Result[User]:
         """
         Update a user's role (ADMIN only).
@@ -250,7 +251,7 @@ class UserService:
 
     async def list_users(
         self,
-        admin_user_uid: str,
+        admin_user_uid: UserUID,
         limit: int = 100,
         offset: int = 0,
         role_filter: UserRole | None = None,
@@ -288,8 +289,8 @@ class UserService:
 
     async def deactivate_user(
         self,
-        target_user_uid: str,
-        admin_user_uid: str,
+        target_user_uid: UserUID,
+        admin_user_uid: UserUID,
         reason: str = "",
     ) -> Result[User]:
         """
@@ -332,8 +333,8 @@ class UserService:
 
     async def activate_user(
         self,
-        target_user_uid: str,
-        admin_user_uid: str,
+        target_user_uid: UserUID,
+        admin_user_uid: UserUID,
     ) -> Result[User]:
         """
         Reactivate a user account (ADMIN only).
@@ -368,7 +369,7 @@ class UserService:
 
     async def record_knowledge_mastery(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         mastery_score: float,
         practice_count: int = 1,
@@ -385,13 +386,13 @@ class UserService:
             update_progress,
         )
 
-    async def get_user_mastery(self, user_uid: str, concept_uid: str) -> Result[float]:
+    async def get_user_mastery(self, user_uid: UserUID, concept_uid: str) -> Result[float]:
         """Get user's mastery level for a knowledge concept (0.0-1.0)."""
         return await self.progress.repo.get_user_mastery(user_uid, concept_uid)
 
     async def record_knowledge_progress(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         progress: float,
         time_invested_minutes: int = 0,
@@ -404,7 +405,7 @@ class UserService:
 
     async def enroll_in_learning_path(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         learning_path_uid: str,
         target_completion: str | None = None,
         weekly_time_commitment: int = 300,
@@ -417,7 +418,7 @@ class UserService:
 
     async def complete_learning_path(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         learning_path_uid: str,
         completion_score: float = 1.0,
         feedback_rating: int | None = None,
@@ -429,7 +430,7 @@ class UserService:
 
     async def express_interest_in_knowledge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         interest_score: float = 0.8,
         interest_source: str = "discovery",
@@ -443,7 +444,7 @@ class UserService:
 
     async def bookmark_knowledge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_uid: str,
         bookmark_reason: str = "reference",
         tags: list | None = None,
@@ -459,19 +460,19 @@ class UserService:
     # ========================================================================
 
     async def update_user_activity(
-        self, user_uid: str, activity_type: str, entity_uid: str, action: str = "viewed"
+        self, user_uid: UserUID, activity_type: str, entity_uid: EntityUID, action: str = "viewed"
     ) -> Result[bool]:
         """Update user's activity state."""
         return await self.activity.update_user_activity(user_uid, activity_type, entity_uid, action)
 
     async def add_conversation_message(
-        self, user_uid: str, role: str, content: str, metadata: dict | None = None
+        self, user_uid: UserUID, role: str, content: str, metadata: dict | None = None
     ) -> Result[bool]:
         """Add message to user's conversation history."""
         return await self.activity.add_conversation_message(user_uid, role, content, metadata)
 
     async def invalidate_context(
-        self, user_uid: str, reason: str = "manual", affected_contexts: list[str] | None = None
+        self, user_uid: UserUID, reason: str = "manual", affected_contexts: list[str] | None = None
     ) -> None:
         """Invalidate cached user context when domain events occur."""
         await self.activity.invalidate_context(user_uid, reason, affected_contexts)
@@ -486,7 +487,7 @@ class UserService:
     # PROFILE HUB DATA (Delegate to UserStatsAggregator)
     # ========================================================================
 
-    async def get_profile_hub_data(self, user_uid: str) -> Result[ProfileHubData]:
+    async def get_profile_hub_data(self, user_uid: UserUID) -> Result[ProfileHubData]:
         """
         Get aggregated data for user profile hub.
 
@@ -519,7 +520,7 @@ class UserService:
     # CONTEXT BUILDING (Internal - used by stats aggregator)
     # ========================================================================
 
-    async def _build_user_context(self, user_uid: str, user: User) -> Result[UserContext]:
+    async def _build_user_context(self, user_uid: UserUID, user: User) -> Result[UserContext]:
         """
         Build UserContext from domain queries.
 
@@ -542,7 +543,7 @@ class UserService:
     # ========================================================================
 
     async def get_rich_unified_context(
-        self, user_uid: str, min_confidence: float = 0.7
+        self, user_uid: UserUID, min_confidence: float = 0.7
     ) -> Result[UserContext]:
         """
         Get COMPLETE UserContext with BOTH standard AND rich fields.
@@ -648,7 +649,7 @@ class UserService:
 
     async def get_daily_work_plan(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         prioritize_life_path: bool = True,
         respect_capacity: bool = True,
     ) -> Result[DailyWorkPlan]:
@@ -705,7 +706,7 @@ class UserService:
 
     async def get_next_learning_steps(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         max_steps: int = 5,
         consider_goals: bool = True,
         consider_capacity: bool = True,

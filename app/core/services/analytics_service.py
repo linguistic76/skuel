@@ -20,6 +20,7 @@ from typing import Any
 
 from core.models.analytics import AnalyticsSummary, AnalyticsSummaryDTO, dto_to_summary
 from core.models.enums import AnalyticsDomain
+from core.models.type_hints import UserUID
 from core.services.analytics import (
     AnalyticsAggregationService,
     AnalyticsLifePathService,
@@ -312,7 +313,11 @@ class AnalyticsService:
 
     @with_error_handling("generate_report", error_type="system")
     async def generate_report(
-        self, user_uid: str, analytics_domain: AnalyticsDomain, period_start: date, period_end: date
+        self,
+        user_uid: UserUID,
+        analytics_domain: AnalyticsDomain,
+        period_start: date,
+        period_end: date,
     ) -> Result[AnalyticsSummary]:
         """
         Generate statistical report for any domain and period.
@@ -372,7 +377,7 @@ class AnalyticsService:
     # ========================================================================
 
     async def generate_monthly_report(
-        self, user_uid: str, analytics_domain: AnalyticsDomain, year: int, month: int
+        self, user_uid: UserUID, analytics_domain: AnalyticsDomain, year: int, month: int
     ) -> Result[AnalyticsSummary]:
         """Generate report for a specific month"""
         start_date = date(year, month, 1)
@@ -380,7 +385,7 @@ class AnalyticsService:
         return await self.generate_report(user_uid, analytics_domain, start_date, end_date)
 
     async def generate_yearly_report(
-        self, user_uid: str, analytics_domain: AnalyticsDomain, year: int
+        self, user_uid: UserUID, analytics_domain: AnalyticsDomain, year: int
     ) -> Result[AnalyticsSummary]:
         """Generate report for a full year"""
         start_date = date(year, 1, 1)
@@ -388,7 +393,7 @@ class AnalyticsService:
         return await self.generate_report(user_uid, analytics_domain, start_date, end_date)
 
     async def generate_weekly_report(
-        self, user_uid: str, analytics_domain: AnalyticsDomain, week_start: date | None = None
+        self, user_uid: UserUID, analytics_domain: AnalyticsDomain, week_start: date | None = None
     ) -> Result[AnalyticsSummary]:
         """Generate report for a week (defaults to current week)"""
         if not week_start:
@@ -403,7 +408,7 @@ class AnalyticsService:
 
     @with_error_handling("generate_weekly_life_summary", error_type="system")
     async def generate_weekly_life_summary(
-        self, user_uid: str, week_start: date | None = None
+        self, user_uid: UserUID, week_start: date | None = None
     ) -> Result[dict[str, Any]]:
         """
         Generate weekly life summary across ALL 7 domains.
@@ -423,7 +428,7 @@ class AnalyticsService:
 
     @with_error_handling("generate_monthly_life_review", error_type="system")
     async def generate_monthly_life_review(
-        self, user_uid: str, year: int, month: int
+        self, user_uid: UserUID, year: int, month: int
     ) -> Result[dict[str, Any]]:
         """
         Generate monthly life review across ALL 7 domains.
@@ -440,7 +445,7 @@ class AnalyticsService:
 
     @with_error_handling("generate_quarterly_progress", error_type="system")
     async def generate_quarterly_progress(
-        self, user_uid: str, year: int, quarter: int
+        self, user_uid: UserUID, year: int, quarter: int
     ) -> Result[dict[str, Any]]:
         """
         Generate quarterly progress report across ALL 7 domains.
@@ -459,7 +464,7 @@ class AnalyticsService:
         return Result.ok(progress)
 
     @with_error_handling("generate_yearly_review", error_type="system")
-    async def generate_yearly_review(self, user_uid: str, year: int) -> Result[dict[str, Any]]:
+    async def generate_yearly_review(self, user_uid: UserUID, year: int) -> Result[dict[str, Any]]:
         """
         Generate yearly review across ALL 7 domains.
 
@@ -473,7 +478,7 @@ class AnalyticsService:
 
     @with_error_handling("detect_cross_domain_patterns", error_type="system")
     async def detect_cross_domain_patterns(
-        self, user_uid: str, start_date: date, end_date: date
+        self, user_uid: UserUID, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """
         Detect patterns and relationships across domains.
@@ -491,7 +496,7 @@ class AnalyticsService:
     # ========================================================================
 
     async def _calculate_metrics(
-        self, user_uid: str, analytics_domain: AnalyticsDomain, start_date: date, end_date: date
+        self, user_uid: UserUID, analytics_domain: AnalyticsDomain, start_date: date, end_date: date
     ) -> Result[dict[str, Any]]:
         """Calculate metrics based on report type (delegates to metrics service)"""
         if analytics_domain == AnalyticsDomain.TASKS:
@@ -581,7 +586,7 @@ class AnalyticsService:
     # LIFE PATH ALIGNMENT TRACKING (Layer 3 Cross-Layer Metric!)
     # ========================================================================
 
-    async def calculate_life_path_alignment(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def calculate_life_path_alignment(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
         Calculate user's alignment with their ultimate life goal.
 

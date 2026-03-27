@@ -48,6 +48,7 @@ from core.models.entity_requests import EntityUpdateRequest
 from core.models.enums import Domain as DomainEnum
 from core.models.enums import Priority as PriorityEnum
 from core.models.enums.choice_enums import ChoiceType
+from core.models.type_hints import UserUID
 from core.services.choices_service import ChoicesService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -185,7 +186,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
     # DASHBOARD + VIEW FRAGMENTS (via DashboardUIFactory)
     # ========================================================================
 
-    async def fetch_choices_context(user_uid: str, filters: ActivityFilters) -> Any:
+    async def fetch_choices_context(user_uid: UserUID, filters: ActivityFilters) -> Any:
         """Fetch filtered choices context from service."""
         return await choices_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
 
@@ -197,14 +198,14 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             stats=svc_ctx["stats"],
         )
 
-    async def render_choices_create(user_uid: str, svc_ctx: dict[str, Any]) -> Any:
+    async def render_choices_create(user_uid: UserUID, svc_ctx: dict[str, Any]) -> Any:
         """Render choices create view."""
         return ChoicesViewComponents.render_create_view(
             choice_types=CHOICE_TYPES,
             domains=DOMAINS,
         )
 
-    async def render_choices_analytics(user_uid: str, request: Any) -> Any:
+    async def render_choices_analytics(user_uid: UserUID, request: Any) -> Any:
         """Render choices analytics view."""
         analytics_result = await choices_service.get_analytics_context(user_uid)
         if analytics_result.is_error:
@@ -253,14 +254,14 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
             return (False, "At least 2 options are required")
         return (True, "")
 
-    async def create_choice_from_form(form_data: dict[str, Any], user_uid: str) -> Result[Any]:
+    async def create_choice_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
         """Domain-specific choice creation logic."""
         choice_request = parse_choice_create_request(form_data)
         return cast(
             "Result[Any]", await choices_service.core.create_choice(choice_request, user_uid)
         )
 
-    async def render_choice_success_view(user_uid: str) -> Any:
+    async def render_choice_success_view(user_uid: UserUID) -> Any:
         """Render list view after successful choice creation."""
         result = await choices_service.get_filtered_context(user_uid)
         if result.is_error:
@@ -273,7 +274,7 @@ def create_choices_ui_routes(_app, rt, choices_service: ChoicesService, services
         )
         return ChoicesViewComponents.render_list_view(ctx=page_ctx)
 
-    async def render_choice_add_another_view(user_uid: str) -> Any:
+    async def render_choice_add_another_view(user_uid: UserUID) -> Any:
         """Render create view for add-another flow."""
         return ChoicesViewComponents.render_create_view(
             choice_types=CHOICE_TYPES,

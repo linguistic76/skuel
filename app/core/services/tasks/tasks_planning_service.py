@@ -31,6 +31,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.task.task import Task
+from core.models.type_hints import UserUID
 from core.services.base_planning_service import BasePlanningService
 from core.services.infrastructure import PrerequisiteChecker
 from core.utils.decorators import with_error_handling
@@ -85,7 +86,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         return await self._get_entities_by_uids(uids)
 
     async def _find_tasks_for_knowledge(
-        self, knowledge_uid: str, user_uid: str, limit: int = 20
+        self, knowledge_uid: str, user_uid: UserUID, limit: int = 20
     ) -> Result[list[Task]]:
         """
         Find tasks that apply a specific knowledge unit for a user.

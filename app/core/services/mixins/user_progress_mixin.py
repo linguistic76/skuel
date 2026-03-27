@@ -27,6 +27,7 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.protocols import DomainModelProtocol
+from core.models.type_hints import EntityUID, UserUID
 from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -76,7 +77,9 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
     # ========================================================================
 
     @with_error_handling("get_user_progress", error_type="database")
-    async def get_user_progress(self, user_uid: str, entity_uid: str) -> Result[dict[str, Any]]:
+    async def get_user_progress(
+        self, user_uid: UserUID, entity_uid: EntityUID
+    ) -> Result[dict[str, Any]]:
         """
         Get user's progress/mastery for an entity.
 
@@ -141,8 +144,8 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
     @with_error_handling("update_user_mastery", error_type="database")
     async def update_user_mastery(
         self,
-        user_uid: str,
-        entity_uid: str,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
         mastery_level: float,
     ) -> Result[bool]:
         """
@@ -213,7 +216,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
     @with_error_handling("get_user_curriculum", error_type="database")
     async def get_user_curriculum(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         include_completed: bool = False,
     ) -> Result[builtins.list[T]]:
         """

@@ -24,6 +24,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.constants import GraphDepth
+from core.models.type_hints import EntityUID
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -71,7 +72,7 @@ class IntelligenceMixin:
     @with_error_handling("get_cross_domain_context", error_type="database", uid_param="entity_uid")
     async def get_cross_domain_context(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         depth: int = 2,
         min_confidence: float = 0.7,
     ) -> Result[dict[str, Any]]:
@@ -432,7 +433,7 @@ class IntelligenceMixin:
     )
     async def get_cross_domain_context_typed(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         depth: int = 2,
         min_confidence: float = 0.7,
     ) -> Result[Any]:

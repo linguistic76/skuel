@@ -25,6 +25,7 @@ from core.models.entity_dto import EntityDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
+from core.models.type_hints import UserUID
 from core.ports import get_enum_value
 
 
@@ -42,7 +43,7 @@ class UserOwnedDTO(EntityDTO):
     # =========================================================================
     # USER OWNERSHIP
     # =========================================================================
-    user_uid: str | None = None
+    user_uid: UserUID | None = None
     priority: str | None = None
 
     # =========================================================================

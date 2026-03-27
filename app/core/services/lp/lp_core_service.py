@@ -35,6 +35,7 @@ from core.models.enums import Domain
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.pathways.learning_step import LearningStep
+from core.models.type_hints import UserUID
 from core.ports import HasUID, get_enum_value
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
@@ -173,7 +174,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     )
     async def create_path_from_knowledge_units(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_units: list[Any],
         title: str | None = None,
         description: str | None = None,
@@ -231,7 +232,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     @with_error_handling("create_path", error_type="database", uid_param="user_uid")
     async def create_path(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         title: str,
         description: str,
         steps: list[LearningStep],
@@ -532,7 +533,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
     @with_error_handling("list_user_paths", error_type="database", uid_param="user_uid")
     async def list_user_paths(
-        self, user_uid: str, limit: int | None = None
+        self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[LearningPath]]:
         """List all learning paths for a specific user."""
         query = """
@@ -876,7 +877,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
     @with_error_handling("_persist_path", error_type="database", uid_param="user_uid")
     async def _persist_path(
-        self, path: LearningPath, steps: list[LearningStep], user_uid: str
+        self, path: LearningPath, steps: list[LearningStep], user_uid: UserUID
     ) -> Result[bool]:
         """Persist a learning path to Neo4j graph."""
         # Create path node with all fields

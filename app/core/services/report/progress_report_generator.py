@@ -36,6 +36,7 @@ from core.events.submission_events import SubmissionCreated
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.enums.submissions_enums import ProgressDepth
 from core.models.report.activity_report import ActivityReport
+from core.models.type_hints import UserUID
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.prompts import PROMPT_REGISTRY
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -83,7 +84,7 @@ class ProgressReportGenerator:
 
     async def generate(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         time_period: str = "7d",
         domains: list[str] | None = None,
         depth: str = "standard",
@@ -760,7 +761,7 @@ class ProgressReportGenerator:
 
         return "\n".join(sections)
 
-    async def _check_cooldown(self, user_uid: str) -> Result[None]:
+    async def _check_cooldown(self, user_uid: UserUID) -> Result[None]:
         """Return failure if an ActivityReport was generated within MIN_REPORT_COOLDOWN_MINUTES.
 
         Uses a Cypher datetime comparison to avoid Python-side datetime parsing of
@@ -796,7 +797,7 @@ class ProgressReportGenerator:
         return Result.ok(None)
 
     async def _fetch_previous_annotation(
-        self, user_uid: str, current_period_start: datetime
+        self, user_uid: UserUID, current_period_start: datetime
     ) -> str | None:
         """Return the most recent user_annotation from a prior ActivityReport, or None.
 

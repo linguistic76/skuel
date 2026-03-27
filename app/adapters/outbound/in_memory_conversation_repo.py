@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 
 
@@ -24,7 +25,7 @@ class ConversationSession:
     """Stub type for conversation session - module not yet implemented."""
 
     session_id: str
-    user_uid: str
+    user_uid: UserUID
     messages: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     last_activity: datetime | None = None  # Initialized in __post_init__
@@ -93,7 +94,7 @@ class InMemoryConversationRepo:
             raise PersistenceError(f"Failed to load session {session_id}: {e}") from e
 
     async def load_user_sessions(
-        self, user_uid: str, limit: int = 10, active_only: bool = True
+        self, user_uid: UserUID, limit: int = 10, active_only: bool = True
     ) -> list[ConversationSession]:
         """Load user sessions from memory"""
         try:

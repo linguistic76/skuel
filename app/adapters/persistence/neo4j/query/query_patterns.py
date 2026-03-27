@@ -27,6 +27,8 @@ Estimated Reduction: ~500-1,000 lines across services
 
 from typing import Any
 
+from core.models.type_hints import EntityUID, UserUID
+
 
 class QueryPatterns:
     """
@@ -47,7 +49,7 @@ class QueryPatterns:
     @staticmethod
     def get_user_entities(
         entity_label: str,
-        user_uid: str,
+        user_uid: UserUID,
         relationship: str | None = None,
         filters: dict[str, Any] | None = None,
         order_by: str | None = None,
@@ -135,7 +137,7 @@ class QueryPatterns:
     @staticmethod
     def get_user_entity_uids(
         entity_label: str,
-        user_uid: str,
+        user_uid: UserUID,
         relationship: str | None = None,
         filters: dict[str, Any] | None = None,
     ) -> tuple[str, dict[str, Any]]:
@@ -195,7 +197,10 @@ class QueryPatterns:
 
     @staticmethod
     def get_entity_with_relationships(
-        entity_label: str, entity_uid: str, rel_types: list[str], rel_direction: str = "outgoing"
+        entity_label: str,
+        entity_uid: EntityUID,
+        rel_types: list[str],
+        rel_direction: str = "outgoing",
     ) -> tuple[str, dict[str, Any]]:
         """
         Get entity with related entities via specified relationships.
@@ -251,10 +256,10 @@ class QueryPatterns:
     @staticmethod
     def get_prerequisite_chain(
         entity_label: str,
-        entity_uid: str,
+        entity_uid: EntityUID,
         relationship_type: str = "REQUIRES_KNOWLEDGE",
         max_depth: int = 5,
-        user_uid: str | None = None,
+        user_uid: UserUID | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Get complete prerequisite/dependency chain for an entity.
@@ -315,7 +320,7 @@ class QueryPatterns:
     @staticmethod
     def get_completed_prerequisites(
         entity_label: str,
-        user_uid: str,
+        user_uid: UserUID,
         mastery_relationship: str = "MASTERED",
         prerequisite_relationship: str = "REQUIRES_KNOWLEDGE",
     ) -> tuple[str, dict[str, Any]]:
@@ -350,8 +355,8 @@ class QueryPatterns:
     @staticmethod
     def create_user_entity_relationship(
         entity_label: str,
-        user_uid: str,
-        entity_uid: str,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
         relationship_type: str,
         properties: dict[str, Any] | None = None,
     ) -> tuple[str, dict[str, Any]]:
@@ -567,7 +572,7 @@ class QueryPatterns:
 
     @staticmethod
     def count_entities(
-        entity_label: str, user_uid: str | None = None, filters: dict[str, Any] | None = None
+        entity_label: str, user_uid: UserUID | None = None, filters: dict[str, Any] | None = None
     ) -> tuple[str, dict[str, Any]]:
         """
         Count entities with optional filtering.

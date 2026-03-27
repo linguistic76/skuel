@@ -21,6 +21,7 @@ from typing import Any
 
 from core.infrastructure.utils.factory_functions import create_current_timestamp, create_turn_id
 from core.models.enums import ConversationState, GuidanceMode, MessageRole, SystemConstants
+from core.models.type_hints import UserUID
 
 # NOTE: FacetExtraction removed - was deprecated search_archive dependency
 # Extraction field in ConversationTurn is now optional dict for flexibility
@@ -126,7 +127,7 @@ class ConversationSession:
 
     # Session identity
     session_id: str
-    user_uid: str
+    user_uid: UserUID
     started_at: datetime = field(default_factory=_utc_now)
     last_activity: datetime = field(default_factory=_utc_now)
 
@@ -333,7 +334,7 @@ class ConversationContext:
 
     total_turns_processed: int = 0
 
-    def get_or_create_session(self, session_id: str, user_uid: str) -> ConversationSession:
+    def get_or_create_session(self, session_id: str, user_uid: UserUID) -> ConversationSession:
         """Get existing session or create new one"""
         if session_id not in self.active_sessions:
             session = ConversationSession(session_id=session_id, user_uid=user_uid)
@@ -347,7 +348,7 @@ class ConversationContext:
 
         return self.active_sessions[session_id]
 
-    def get_user_context(self, user_uid: str) -> dict[str, Any]:
+    def get_user_context(self, user_uid: UserUID) -> dict[str, Any]:
         """Get accumulated context for a user across sessions"""
         # Type-safe lists for context aggregation
         recent_topics: list[str] = []
@@ -368,7 +369,7 @@ class ConversationContext:
             "frequent_concepts": frequent_concepts,
         }
 
-    def update_user_memory(self, user_uid: str, key: str, value: Any):
+    def update_user_memory(self, user_uid: UserUID, key: str, value: Any):
         """Update user's conversation memory"""
         if user_uid not in self.user_memory:
             self.user_memory[user_uid] = {}
@@ -392,7 +393,7 @@ class ConversationContext:
         """Get count of active sessions"""
         return len(self.active_sessions)
 
-    def get_user_session_count(self, user_uid: str) -> int:
+    def get_user_session_count(self, user_uid: UserUID) -> int:
         """Get count of sessions for a user"""
         return len(self.user_sessions.get(user_uid, []))
 

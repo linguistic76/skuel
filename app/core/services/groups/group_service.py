@@ -20,6 +20,7 @@ from typing import Any
 from core.events.base import BaseEvent
 from core.models.group.group import Group, GroupDTO
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.ports.base_protocols import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.base_service import BaseService
@@ -75,7 +76,7 @@ class GroupService(BaseService):
     # OWNERSHIP VERIFICATION (Group uses owner_uid, not user_uid)
     # ========================================================================
 
-    async def verify_ownership(self, uid: str, user_uid: str) -> Result[Group]:
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Group]:
         """Override: Group uses owner_uid instead of Entity.user_uid."""
         result = await self.get(uid)
         if result.is_error:
@@ -87,7 +88,7 @@ class GroupService(BaseService):
             return Result.fail(Errors.not_found(f"Group {uid} not found"))
         return Result.ok(entity)
 
-    async def get_for_user(self, uid: str, user_uid: str) -> Result[Group]:
+    async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[Group]:
         """Owner OR member can view a group."""
         result = await self.get(uid)
         if result.is_error or not result.value:
@@ -150,7 +151,7 @@ class GroupService(BaseService):
     # ========================================================================
 
     @with_error_handling("get_user_groups", error_type="database")
-    async def get_user_groups(self, user_uid: str) -> Result[list[Group]]:
+    async def get_user_groups(self, user_uid: UserUID) -> Result[list[Group]]:
         """
         Get all groups a user is a member of (via MEMBER_OF relationship).
 
@@ -183,7 +184,7 @@ class GroupService(BaseService):
     async def add_member(
         self,
         group_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         role: str = "student",
     ) -> Result[bool]:
         """
@@ -250,7 +251,7 @@ class GroupService(BaseService):
     async def remove_member(
         self,
         group_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
     ) -> Result[bool]:
         """
         Remove a member from a group.

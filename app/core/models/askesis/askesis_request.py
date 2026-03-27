@@ -18,6 +18,7 @@ from core.models.enums.askesis_enums import (
     IntegrationSuccess,
     QueryComplexity,
 )
+from core.models.type_hints import UserUID
 from core.models.validation_rules import validate_required_string
 
 
@@ -290,7 +291,7 @@ class AskesisResponse(BaseModel):
     """Response model for Askesis data."""
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     name: str
     version: str
 
@@ -335,7 +336,7 @@ class ConversationSessionResponse(BaseModel):
     """Response model for conversation sessions."""
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     started_at: datetime
     ended_at: datetime | None
 
@@ -369,7 +370,7 @@ class GuidanceRecommendationResponse(BaseModel):
     """Response model for guidance recommendations."""
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     guidance_type: str
     title: str
     description: str
@@ -416,7 +417,7 @@ class DomainSuggestionResponse(BaseModel):
 class IntelligenceInsightsResponse(BaseModel):
     """Response model for intelligence insights."""
 
-    user_uid: str
+    user_uid: UserUID
     overall_intelligence: float
     conversation_readiness: bool
     needs_more_learning: bool

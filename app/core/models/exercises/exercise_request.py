@@ -15,11 +15,13 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from core.models.type_hints import UserUID
+
 
 class ExerciseCreateRequest(BaseModel):
     """Request to create a new Exercise (instruction template)."""
 
-    user_uid: str = Field(..., description="User UID who owns this exercise")
+    user_uid: UserUID = Field(..., description="User UID who owns this exercise")
 
     name: str = Field(
         ...,

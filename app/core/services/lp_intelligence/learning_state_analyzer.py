@@ -27,6 +27,7 @@ from datetime import datetime
 from typing import Any
 
 from core.models.enums import GuidanceMode
+from core.models.type_hints import UserUID
 from core.services.embeddings_service import HuggingFaceEmbeddingsService
 from core.services.lp_intelligence.types import LearningAnalysis, LearningReadiness, ProgressSummary
 from core.services.user import UserContext
@@ -536,7 +537,7 @@ class LearningStateAnalyzer:
     # HELPERS (Private)
     # ========================================================================
 
-    async def _get_progress_summary(self, user_uid: str) -> ProgressSummary | None:
+    async def _get_progress_summary(self, user_uid: UserUID) -> ProgressSummary | None:
         """
         Get user progress summary from backend.
 

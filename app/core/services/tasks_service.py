@@ -17,6 +17,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, TypedDict
 
+from core.models.type_hints import EntityUID, UserUID
+
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
     from core.ports.query_types import KnowledgePrerequisitesResult
@@ -123,7 +125,7 @@ class TaskAnalyticsDashboard(TypedDict):
     """Complete analytics dashboard data structure."""
 
     timeframe_days: int
-    user_uid: str
+    user_uid: UserUID
     generated_at: str
     task_statistics: TaskStatistics
     learning_patterns: LearningPatternsData
@@ -386,13 +388,13 @@ class TasksService(BaseService["TasksOperations", Task]):
     # ========================================================================
 
     async def get_knowledge_suggestions(
-        self, user_uid: str, entity_uid: str | None = None
+        self, user_uid: UserUID, entity_uid: EntityUID | None = None
     ) -> Result[dict[str, Any]]:
         """Generate knowledge suggestions from entity patterns."""
         return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
 
     async def generate_knowledge_from_entities(
-        self, user_uid: str, period_days: int = 30
+        self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
         """Generate knowledge units from completed entities."""
         return await self.knowledge_intelligence.generate_knowledge_from_entities(
@@ -400,12 +402,12 @@ class TasksService(BaseService["TasksOperations", Task]):
         )
 
     async def get_knowledge_prerequisites(
-        self, entity_uid: str
+        self, entity_uid: EntityUID
     ) -> Result[KnowledgePrerequisitesResult]:
         """Analyze knowledge prerequisites for an entity."""
         return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
 
-    async def get_learning_opportunities(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Discover learning opportunities from entity patterns."""
         return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
@@ -426,7 +428,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     async def get_task(self, task_uid: str) -> Result[Task]:
         return await self.core.get_task(task_uid)
 
-    async def get_user_tasks(self, user_uid: str) -> Result[list[Task]]:
+    async def get_user_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
         return await self.core.get_user_tasks(user_uid)
 
     async def list_tasks(self, filters: dict | None = None, limit: int = 100) -> Result[list[Task]]:
@@ -434,7 +436,7 @@ class TasksService(BaseService["TasksOperations", Task]):
 
     async def get_user_items_in_range(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         include_completed: bool = False,
@@ -462,7 +464,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     async def get_tasks_applying_knowledge(self, knowledge_uid: str) -> Result[list[Task]]:
         return await self.search.get_tasks_applying_knowledge(knowledge_uid)
 
-    async def get_blocked_by_prerequisites(self, user_uid: str) -> Result[list[Task]]:
+    async def get_blocked_by_prerequisites(self, user_uid: UserUID) -> Result[list[Task]]:
         return await self.search.get_blocked_by_prerequisites(user_uid)
 
     async def get_prioritized_tasks(
@@ -471,7 +473,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         return await self.search.get_prioritized_tasks(user_context, limit)
 
     async def get_learning_relevant_tasks(
-        self, user_uid: str, learning_position: LpPosition, limit: int = 10
+        self, user_uid: UserUID, learning_position: LpPosition, limit: int = 10
     ) -> Result[list[Task]]:
         return await self.search.get_learning_relevant_tasks(user_uid, learning_position, limit)
 
@@ -495,7 +497,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     async def record_task_completion(
         self,
         task_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         duration_minutes: int = 0,
         quality_score: float = 1.0,
         completion_notes: str = "",
@@ -507,7 +509,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     async def assign_task_to_user(
         self,
         task_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         assigned_by: str | None = None,
         priority_override: str | None = None,
     ) -> Result[bool]:
@@ -549,7 +551,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         )
 
     async def create_task_from_learning_step(
-        self, step_uid: str, task_title: str, knowledge_uids: list[str], _user_uid: str
+        self, step_uid: str, task_title: str, knowledge_uids: list[str], _user_uid: UserUID
     ) -> Result[Task]:
         return await self.scheduling.create_task_from_learning_step(
             step_uid, task_title, knowledge_uids, _user_uid
@@ -585,7 +587,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         return await self.relationships.get_completion_impact(uid)
 
     async def analyze_task_learning_context(
-        self, entity_uid: str, depth: int = 2, min_confidence: float = 0.7
+        self, entity_uid: EntityUID, depth: int = 2, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
 
@@ -614,7 +616,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     # EXPLICIT CORE METHODS (custom logic)
     # ========================================================================
 
-    async def create_task(self, task_request: TaskCreateRequest, user_uid: str) -> Result[Task]:
+    async def create_task(self, task_request: TaskCreateRequest, user_uid: UserUID) -> Result[Task]:
         """
         Create a task with automatic knowledge inference.
 
@@ -769,11 +771,11 @@ class TasksService(BaseService["TasksOperations", Task]):
         )
 
     async def get_user_assigned_tasks(
-        self, user_uid: str, include_completed: bool = False, limit: int = 100
+        self, user_uid: UserUID, include_completed: bool = False, limit: int = 100
     ) -> Result[list[Task]]:
         """Get tasks assigned to user via graph traversal."""
         # Use backend list with user_uid filter
-        filters = {"user_uid": user_uid}
+        filters: dict[str, Any] = {"user_uid": user_uid}
         if not include_completed:
             filters["status__ne"] = "completed"
         result = await self.backend.list(filters=filters, limit=limit)
@@ -784,7 +786,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         return Result.ok(tasks)
 
     async def get_tasks_requiring_knowledge(
-        self, knowledge_uid: str, user_uid: str | None = None, limit: int = 100
+        self, knowledge_uid: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Task]]:
         """Get tasks that require specific knowledge (returns Task objects, not dicts)."""
         # Use find_by_semantic_filter to find tasks with relationship to this knowledge
@@ -856,7 +858,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     # ========================================================================
 
     async def analyze_learning_patterns(
-        self, user_uid: str, timeframe_days: int = 30
+        self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
         """
         Analyze learning patterns across user's task activities.
@@ -877,7 +879,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         )
 
     async def calculate_knowledge_aware_priorities(
-        self, user_uid: str, task_uids: list[str] | None = None
+        self, user_uid: UserUID, task_uids: list[str] | None = None
     ) -> Result[list[Any]]:
         """
         Calculate knowledge-aware priority scores for tasks.
@@ -943,7 +945,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         return Result.ok(priorities)
 
     async def generate_task_insights(
-        self, user_uid: str, timeframe_days: int = 30
+        self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
         """
         Generate insights from user's completed tasks.
@@ -975,7 +977,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         return await self.analytics_engine.generate_task_insights(completed_tasks, patterns)
 
     async def track_knowledge_mastery_progression(
-        self, user_uid: str, knowledge_uids: list[str] | None = None
+        self, user_uid: UserUID, knowledge_uids: list[str] | None = None
     ) -> Result[dict[str, Any]]:
         """
         Track knowledge mastery progression for user.
@@ -1015,7 +1017,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     # AUTOMATIC KNOWLEDGE GENERATION
     # ========================================================================
 
-    async def _trigger_knowledge_generation(self, user_uid: str) -> None:
+    async def _trigger_knowledge_generation(self, user_uid: UserUID) -> None:
         """
         Trigger automatic knowledge generation from completed tasks.
 
@@ -1054,7 +1056,7 @@ class TasksService(BaseService["TasksOperations", Task]):
             self.logger.warning(f"Knowledge generation failed for user {user_uid}: {e}")
 
     async def trigger_manual_knowledge_generation(
-        self, user_uid: str, days_back: int = 30, min_tasks: int = 3
+        self, user_uid: UserUID, days_back: int = 30, min_tasks: int = 3
     ) -> Result[dict[str, Any]]:
         """
         Manually trigger knowledge generation and return results for review.
@@ -1139,7 +1141,7 @@ class TasksService(BaseService["TasksOperations", Task]):
 
     async def get_filtered_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         project: str | None = None,
         assignee: str | None = None,
         due_filter: str | None = None,

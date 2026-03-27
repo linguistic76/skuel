@@ -12,6 +12,7 @@ from typing import Any
 
 from core.models.enums import GuidanceMode, Priority
 from core.models.enums.askesis_enums import QueryComplexity
+from core.models.type_hints import UserUID
 
 
 @dataclass
@@ -19,7 +20,7 @@ class ConversationSessionDTO:
     """Mutable DTO for conversation sessions."""
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     started_at: datetime
     ended_at: datetime | None = None
 
@@ -49,7 +50,7 @@ class DomainInteractionDTO:
     domain_b: str
     interaction_type: str  # "synergy", "conflict", "dependency", "enhancement"
     synergy_score: float  # 0.0 to 1.0
-    user_uid: str
+    user_uid: UserUID
     context: str | None = None
 
     observed_at: datetime | None = None
@@ -64,7 +65,7 @@ class GuidanceRecommendationDTO:
     """Mutable DTO for guidance recommendations."""
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     guidance_type: str
     title: str
     description: str
@@ -95,7 +96,7 @@ class AskesisDTO:
     """Mutable DTO for Askesis instances."""
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     name: str = "Askesis"
     version: str = "1.0"
 
@@ -139,7 +140,7 @@ class AskesisDTO:
 class AskesisCreateDTO:
     """DTO for creating new Askesis instances."""
 
-    user_uid: str
+    user_uid: UserUID
     name: str = "Askesis"
     version: str = "1.0"
     preferred_guidance_mode: str = GuidanceMode.DIRECT.value
@@ -187,7 +188,7 @@ class AskesisUpdateDTO:
 class ConversationAnalyticsDTO:
     """DTO for conversation analytics."""
 
-    user_uid: str
+    user_uid: UserUID
     total_sessions: int = 0
     average_session_duration: float = 0.0  # minutes,
     average_satisfaction: float = 0.0
@@ -201,7 +202,7 @@ class ConversationAnalyticsDTO:
 class DomainSynergiesAnalyticsDTO:
     """DTO for domain synergies analytics."""
 
-    user_uid: str
+    user_uid: UserUID
     top_synergies: list[dict[str, Any]] = field(
         default_factory=list
     )  # [{domain_pair, synergy_score}],
@@ -216,7 +217,7 @@ class DomainSynergiesAnalyticsDTO:
 class IntelligenceInsightsDTO:
     """DTO for Askesis intelligence insights."""
 
-    user_uid: str
+    user_uid: UserUID
     overall_intelligence: float = 0.0
     conversation_readiness: bool = False
     needs_more_learning: bool = True
@@ -247,7 +248,7 @@ class CrossDomainInsightDTO:
     """DTO for cross-domain insights."""
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     insight_type: str  # "pattern", "optimization", "conflict", "synergy"
     title: str
     description: str
@@ -279,7 +280,7 @@ class CrossDomainInsightDTO:
 class AskesisConfigurationDTO:
     """DTO for Askesis configuration settings."""
 
-    user_uid: str
+    user_uid: UserUID
 
     # Conversation preferences
     preferred_guidance_mode: str = GuidanceMode.DIRECT.value

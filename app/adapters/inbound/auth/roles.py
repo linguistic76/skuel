@@ -35,7 +35,7 @@ requires fetching the user from the database anyway.
         admin_role = current_user.role
     ```
 
-Pattern 2: Direct Auth → `user_uid: str` (just the identifier)
+Pattern 2: Direct Auth → `user_uid: UserUID` (just the identifier)
 --------------------------------------------------------------
 Most API routes extract user_uid directly via require_authenticated_user().
 This is more efficient when you only need the identifier (no DB fetch).
@@ -282,7 +282,7 @@ def require_role(required_role: UserRole, user_service_getter: Callable[[], Any]
             # 4. Inject current_user (full User entity) into kwargs
             # NOTE: This is the FULL User entity, not just user_uid string.
             # Routes using role decorators receive current_user: User
-            # while routes using require_authenticated_user() get user_uid: str
+            # while routes using require_authenticated_user() get user_uid: UserUID
             kwargs["current_user"] = user
 
             if asyncio.iscoroutinefunction(func):

@@ -32,6 +32,7 @@ from core.infrastructure.relationships.semantic_relationships import (
     SemanticRelationshipType,
 )
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.type_hints import EntityUID
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine, ParsedJournal
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -51,7 +52,7 @@ class HasLinkKnowledge(Protocol):
 
     async def link_knowledge(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         knowledge_uid: str,
         relationship_type: Any,
         properties: dict[str, Any],
@@ -66,7 +67,7 @@ class HasLinkGoal(Protocol):
 
     async def link_goal(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         goal_uid: str,
         relationship_type: Any,
         properties: dict[str, Any],
@@ -81,7 +82,7 @@ class HasLinkPrinciple(Protocol):
 
     async def link_principle(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         principle_uid: str,
         relationship_type: Any,
         properties: dict[str, Any],
@@ -471,7 +472,7 @@ class DSLConnectionExecutor:
     async def execute_plan(
         self,
         plan: DSLConnectionPlan,
-        entity_uid: str,
+        entity_uid: EntityUID,
         entity_type: str = "task",
     ) -> Result[dict[str, Any]]:
         """
@@ -532,7 +533,7 @@ class DSLConnectionExecutor:
 
     async def _create_knowledge_edge(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         connection: KnowledgeConnection,
         entity_type: str,
     ) -> Result[bool]:
@@ -600,7 +601,7 @@ class DSLConnectionExecutor:
 
     async def _create_goal_edge(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         connection: GoalConnection,
         entity_type: str,
     ) -> Result[bool]:
@@ -660,7 +661,7 @@ class DSLConnectionExecutor:
 
     async def _create_principle_edge(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         connection: PrincipleConnection,
         entity_type: str,
     ) -> Result[bool]:

@@ -75,6 +75,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.ports.base_protocols import (
     BackendOperations,
     GraphRelationshipOperations,
@@ -161,7 +162,7 @@ class TasksOperations(
         """Get task by ID. Not found is an error."""
         ...
 
-    async def get_user_tasks(self, user_uid: str) -> Result[list[Task]]:
+    async def get_user_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
         """Get all tasks for a user."""
         ...
 
@@ -178,7 +179,7 @@ class TasksOperations(
         """Batch load multiple tasks by UIDs."""
         ...
 
-    async def get_user_assigned_tasks(self, user_uid: str) -> Result[list[Task]]:
+    async def get_user_assigned_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
         """Get tasks assigned to a user."""
         ...
 
@@ -188,7 +189,7 @@ class TasksOperations(
 
     async def get_user_entities(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         relationship_type: str | None = None,
         filters: FilterParams | None = None,
         limit: int = 100,
@@ -221,7 +222,7 @@ class TasksOperations(
         ...
 
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Task]]:
         """
         Get user's tasks in date range - unified interface for meta-services.
@@ -252,12 +253,12 @@ class TasksOperations(
     # LEARNING LOOP METHODS (ADR-048)
     # ========================================================================
 
-    async def get_user_learning_state(self, user_uid: str) -> Result[Neo4jProperties]:
+    async def get_user_learning_state(self, user_uid: UserUID) -> Result[Neo4jProperties]:
         """Get learning state properties from User node."""
         ...
 
     async def update_user_learning_state(
-        self, user_uid: str, properties: Neo4jProperties
+        self, user_uid: UserUID, properties: Neo4jProperties
     ) -> Result[bool]:
         """Update learning state properties on User node."""
         ...
@@ -266,7 +267,7 @@ class TasksOperations(
     # HIERARCHY EXTENSIONS (Task-specific, beyond generic HierarchyOperations)
     # ========================================================================
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count task stats: total, completed, overdue."""
         ...
 
@@ -320,7 +321,7 @@ class EventsOperations(
         """Get an event by ID. Not found is an error."""
         ...
 
-    async def get_user_events(self, user_uid: str) -> Result[list[Event]]:
+    async def get_user_events(self, user_uid: UserUID) -> Result[list[Event]]:
         """Get all events for a user."""
         ...
 
@@ -335,7 +336,7 @@ class EventsOperations(
         ...
 
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Event]]:
         """
         Get user's events in date range - unified interface for meta-services.
@@ -359,7 +360,7 @@ class EventsOperations(
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count event stats: total, scheduled, today."""
         ...
 
@@ -403,16 +404,18 @@ class HabitsOperations(
         """Get a habit by ID. Not found is an error."""
         ...
 
-    async def get_user_habits(self, user_uid: str) -> Result[list[Habit]]:
+    async def get_user_habits(self, user_uid: UserUID) -> Result[list[Habit]]:
         """Get all habits for a user. Returns Result[list[Habit]]."""
         ...
 
-    async def list_by_user(self, user_uid: str, limit: int = 100) -> Result[builtins.list[Habit]]:
+    async def list_by_user(
+        self, user_uid: UserUID, limit: int = 100
+    ) -> Result[builtins.list[Habit]]:
         """List all habits for a user. Returns Result[list[Habit]]."""
         ...
 
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[builtins.list[Habit]]:
         """
         Get user's habits in date range - unified interface for meta-services.
@@ -436,12 +439,12 @@ class HabitsOperations(
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count habit stats: total, active, streaks."""
         ...
 
     # Badge operations
-    async def get_user_badges(self, user_uid: str) -> Result[builtins.list[Neo4jProperties]]:
+    async def get_user_badges(self, user_uid: UserUID) -> Result[builtins.list[Neo4jProperties]]:
         """Get all badges earned by a user via EARNED_BADGE relationships."""
         ...
 
@@ -450,14 +453,14 @@ class HabitsOperations(
         ...
 
     async def check_badge_already_earned(
-        self, user_uid: str, habit_uid: str, badge_id: str
+        self, user_uid: UserUID, habit_uid: str, badge_id: str
     ) -> Result[bool]:
         """Check if user has already earned this badge for this habit."""
         ...
 
     async def award_badge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         habit_uid: str,
         badge_id: str,
         badge_name: str,
@@ -469,13 +472,13 @@ class HabitsOperations(
         """Create achievement record and link to user and habit."""
         ...
 
-    async def check_user_badge_earned(self, user_uid: str, badge_id: str) -> Result[bool]:
+    async def check_user_badge_earned(self, user_uid: UserUID, badge_id: str) -> Result[bool]:
         """Check if user has earned a badge (cross-habit, no habit_uid filter)."""
         ...
 
     async def award_user_badge(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         badge_id: str,
         badge_name: str,
         badge_description: str,
@@ -487,7 +490,7 @@ class HabitsOperations(
         """Create achievement record linked to user only (cross-habit badges)."""
         ...
 
-    async def get_user_badge_stats(self, user_uid: str) -> Result[Neo4jProperties]:
+    async def get_user_badge_stats(self, user_uid: UserUID) -> Result[Neo4jProperties]:
         """Get aggregated habit stats for badge evaluation."""
         ...
 
@@ -620,7 +623,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         ...
 
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[ExpensePure]]:
         """
         Get user's expenses in date range - unified interface for meta-services.
@@ -647,7 +650,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
 
     async def get_expenses_by_date_range(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         start_date: date,
         end_date: date,
         category: Any = None,
@@ -658,7 +661,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         ...
 
     async def search_expenses(
-        self, user_uid: str, query: str, limit: int = 100, offset: int = 0
+        self, user_uid: UserUID, query: str, limit: int = 100, offset: int = 0
     ) -> Result[tuple[list[Any], int]]:
         """Search expenses by text query."""
         ...
@@ -704,7 +707,7 @@ class FinancesOperations(BackendOperations["ExpensePure"], Protocol):
         """List invoices for user, optionally filtered by status."""
         ...
 
-    async def get_invoice_stats(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_invoice_stats(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get invoice statistics for user."""
         ...
 
@@ -758,12 +761,12 @@ class GoalsOperations(
         """Get a goal by ID. Not found is an error."""
         ...
 
-    async def get_user_goals(self, user_uid: str) -> Result[list[Goal]]:
+    async def get_user_goals(self, user_uid: UserUID) -> Result[list[Goal]]:
         """Get all goals for a user. Returns flat list (not paginated tuple)."""
         ...
 
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Goal]]:
         """
         Get user's goals in date range - unified interface for meta-services.
@@ -787,24 +790,28 @@ class GoalsOperations(
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count goal stats: total, active, completed."""
         ...
 
-    async def find_linked_goals_for_task(self, task_uid: str, user_uid: str) -> Result[list[str]]:
+    async def find_linked_goals_for_task(
+        self, task_uid: str, user_uid: UserUID
+    ) -> Result[list[str]]:
         """Find goal UIDs linked to a task via SUPPORTS_GOAL."""
         ...
 
-    async def count_linked_tasks(self, goal_uid: str, user_uid: str) -> Result[dict[str, int]]:
+    async def count_linked_tasks(self, goal_uid: str, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count total and completed tasks linked to a goal."""
         ...
 
-    async def find_linked_goals_for_habit(self, habit_uid: str, user_uid: str) -> Result[list[str]]:
+    async def find_linked_goals_for_habit(
+        self, habit_uid: str, user_uid: UserUID
+    ) -> Result[list[str]]:
         """Find goal UIDs linked to a habit via SUPPORTS_GOAL."""
         ...
 
     async def count_linked_habits_avg_streak(
-        self, goal_uid: str, user_uid: str
+        self, goal_uid: str, user_uid: UserUID
     ) -> Result[dict[str, Any]]:
         """Count habits linked to a goal and compute their average streak."""
         ...
@@ -870,7 +877,7 @@ class ChoicesOperations(
         ...
 
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Choice]]:
         """
         Get user's choices in date range - unified interface for meta-services.
@@ -894,7 +901,7 @@ class ChoicesOperations(
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count choice stats: total, pending, decided."""
         ...
 
@@ -941,12 +948,12 @@ class PrinciplesOperations(
         """Get a principle by ID. Not found is an error."""
         ...
 
-    async def get_user_principles(self, user_uid: str) -> Result[list[Principle]]:
+    async def get_user_principles(self, user_uid: UserUID) -> Result[list[Principle]]:
         """Get all principles for a user."""
         ...
 
     async def get_user_items_in_range(
-        self, user_uid: str, start_date: date, end_date: date, include_completed: bool = False
+        self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Principle]]:
         """
         Get user's principles in date range - unified interface for meta-services.
@@ -970,7 +977,7 @@ class PrinciplesOperations(
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
-    async def get_stats_for_user(self, user_uid: str) -> Result[dict[str, int]]:
+    async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count principle stats: total, core, active."""
         ...
 
@@ -1012,7 +1019,7 @@ class BaseRelationshipOperations(Protocol):
         ...
 
     async def get_related_uids(
-        self, relationship_key: str, entity_uid: str
+        self, relationship_key: str, entity_uid: EntityUID
     ) -> Result[builtins.list[str]]:
         """
         Get UIDs of related entities by relationship key.
@@ -1229,7 +1236,7 @@ class ChoicesRelationshipOperations(BaseRelationshipOperations, Protocol):
 class UserContextOperations(Protocol):
     """User context operations for cache invalidation and context-aware operations."""
 
-    async def invalidate_context(self, user_uid: str) -> None:
+    async def invalidate_context(self, user_uid: UserUID) -> None:
         """
         Invalidate cached user context after state-changing operations.
 
@@ -1240,7 +1247,7 @@ class UserContextOperations(Protocol):
 
     async def get_context_dashboard(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         include_predictions: bool = True,
         time_window: str = "7d",
     ) -> Result[ContextDashboard]:
@@ -1249,36 +1256,36 @@ class UserContextOperations(Protocol):
 
     async def get_context_summary(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         include_insights: bool = True,
     ) -> Result[ContextSummary]:
         """Get concise context summary for user."""
         ...
 
-    async def get_next_action(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_next_action(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get AI-recommended next action based on context."""
         ...
 
-    async def get_at_risk_habits(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_at_risk_habits(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get habits at risk of breaking streaks."""
         ...
 
-    async def get_adaptive_learning_path(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_adaptive_learning_path(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get adaptive learning path recommendations."""
         ...
 
-    async def predict_future_context_state(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def predict_future_context_state(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Predict future context state based on current patterns."""
         ...
 
-    async def get_context_health(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def get_context_health(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get overall context health metrics."""
         ...
 
     async def complete_task_with_context(
         self,
         task_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         completion_context: dict[str, Any] | None = None,
         reflection_notes: str = "",
     ) -> Result[Any]:  # Result[Task]
@@ -1288,7 +1295,7 @@ class UserContextOperations(Protocol):
     async def create_tasks_from_goal_context(
         self,
         goal_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         context_preferences: dict[str, Any] | None = None,
         auto_create: bool = True,
     ) -> Result[list[Any]]:  # Result[list[Task]]
@@ -1298,7 +1305,7 @@ class UserContextOperations(Protocol):
     async def complete_habit_with_context(
         self,
         habit_uid: str,
-        user_uid: str,
+        user_uid: UserUID,
         completion_quality: str = "good",
         environmental_factors: dict[str, Any] | None = None,
     ) -> Result[Any]:  # Result[Habit]

@@ -23,6 +23,7 @@ This service is part of the refactored UserService architecture:
 from typing import Any
 
 from core.events import publish_event
+from core.models.type_hints import EntityUID, UserUID
 from core.models.user import User
 from core.ports.infrastructure_protocols import UserActivityOperations
 from core.services.user.debounced_invalidator import DebouncedContextInvalidator
@@ -127,7 +128,7 @@ class UserActivityService:
 
     @with_error_handling("update_user_activity", error_type="database", uid_param="user_uid")
     async def update_user_activity(
-        self, user_uid: str, activity_type: str, entity_uid: str, action: str = "viewed"
+        self, user_uid: UserUID, activity_type: str, entity_uid: EntityUID, action: str = "viewed"
     ) -> Result[bool]:
         """
         Update user's activity state.
@@ -205,7 +206,7 @@ class UserActivityService:
         return result
 
     def _build_activity_update(
-        self, activity_type: str, entity_uid: str, action: str
+        self, activity_type: str, entity_uid: EntityUID, action: str
     ) -> dict[str, Any]:
         """
         Build activity update dictionary based on type and action.
@@ -237,7 +238,7 @@ class UserActivityService:
 
     @with_error_handling("add_conversation_message", error_type="database", uid_param="user_uid")
     async def add_conversation_message(
-        self, user_uid: str, role: str, content: str, metadata: dict | None = None
+        self, user_uid: UserUID, role: str, content: str, metadata: dict | None = None
     ) -> Result[bool]:
         """
         Add message to user's conversation history.
@@ -281,7 +282,7 @@ class UserActivityService:
 
     async def invalidate_context(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         reason: str = InvalidationReason.MANUAL,
         affected_contexts: list[str] | None = None,
         *,
@@ -321,7 +322,7 @@ class UserActivityService:
             await self._invalidator.invalidate(user_uid, reason, affected_contexts)
 
     async def _do_invalidate(
-        self, user_uid: str, reason: str, affected_contexts: list[str] | None = None
+        self, user_uid: UserUID, reason: str, affected_contexts: list[str] | None = None
     ) -> None:
         """
         Execute actual context invalidation (called by debouncer).
@@ -349,7 +350,7 @@ class UserActivityService:
                 or ["askesis", "search", "recommendations", "dashboard"],
             )
 
-    async def flush_pending_invalidations(self, user_uid: str | None = None) -> Result[None]:
+    async def flush_pending_invalidations(self, user_uid: UserUID | None = None) -> Result[None]:
         """
         Immediately execute any pending debounced invalidations.
 
@@ -378,7 +379,7 @@ class UserActivityService:
         stats["pending_count"] = self._invalidator.get_pending_count()
         return stats
 
-    def get_valid_context(self, user_uid: str):
+    def get_valid_context(self, user_uid: UserUID):
         """
         Get cached user context if still valid (not invalidated).
 
@@ -393,7 +394,7 @@ class UserActivityService:
         """
         return self._context_cache.get(user_uid)
 
-    def cache_context(self, user_uid: str, context) -> None:
+    def cache_context(self, user_uid: UserUID, context) -> None:
         """
         Cache a freshly-built user context.
 

@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Generic, TypeVar
 
+from core.models.type_hints import EntityUID
+
 # Generic type var for level enum (AlignmentLevel, ConfidenceLevel, etc.)
 L = TypeVar("L", bound=Enum)
 
@@ -79,7 +81,7 @@ class DualTrackResult(Generic[L]):
     """
 
     # Entity identification
-    entity_uid: str
+    entity_uid: EntityUID
     entity_type: str
 
     # USER-DECLARED (Vision)

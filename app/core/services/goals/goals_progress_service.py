@@ -22,6 +22,7 @@ from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.graph_context import GraphContext
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalUpdatePayload
 from core.services.base_service import BaseService
@@ -1038,7 +1039,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(f"Error handling task_completed event for task {event.task_uid}: {e}")
 
-    async def _update_goal_from_task_completion(self, goal_uid: str, user_uid: str) -> None:
+    async def _update_goal_from_task_completion(self, goal_uid: str, user_uid: UserUID) -> None:
         """
         Internal helper to update a single goal's progress from task completion.
 
@@ -1197,7 +1198,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
     # FUTURE-IMPL: FUTURE-IMPL-008 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md
     async def _update_goal_from_habit_completion(
-        self, goal_uid: str, user_uid: str, current_streak: int
+        self, goal_uid: str, user_uid: UserUID, current_streak: int
     ) -> None:
         """
         Internal helper to update a single goal's progress from habit completion.

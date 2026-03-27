@@ -88,6 +88,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Five-Phased Learning Loop](architecture/FOUR_PHASED_LEARNING_LOOP.md)** | **2026-03-07** | **~130** |
 | **[Learning Progress Event Chain](architecture/LEARNING_PROGRESS_EVENT_CHAIN.md)** | **2026-03-15** | **~120** |
 | [Knowledge Substance Philosophy](architecture/knowledge_substance_philosophy.md) | 2025-10-17 | 371 |
+| **[Type Safety Design Philosophy](architecture/TYPE_SAFETY_DESIGN_PHILOSOPHY.md)** | **2026-03-27** | **Why types matter for SKUEL's ontology, security, and raw-to-typed lifecycle** |
 | **[Model Architecture](architecture/MODEL_ARCHITECTURE.md)** | **2026-02-23** | **290** |
 | **[Relationships Architecture](architecture/RELATIONSHIPS_ARCHITECTURE.md)** | **2026-03-03** | **—** |
 | **[Report Architecture](architecture/REPORT_ARCHITECTURE.md)** | **2026-03-03** | **—** |

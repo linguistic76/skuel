@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from core.models.enums import LearningLevel, SELCategory
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -25,7 +26,7 @@ class CurriculumProgress:
     has mastered, what's in progress, and what's available next.
     """
 
-    user_uid: str
+    user_uid: UserUID
     sel_category: SELCategory
 
     # Progress Metrics
@@ -108,7 +109,7 @@ class LearningJourney:
     curriculum category framework, with recommendations for what to focus on next.
     """
 
-    user_uid: str
+    user_uid: UserUID
     category_progress: dict[SELCategory, CurriculumProgress]
     overall_completion: float = 0.0
 

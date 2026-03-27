@@ -21,6 +21,7 @@ from typing import Any
 
 from core.constants import GraphDepth, QueryLimit
 from core.models.curriculum_dto import CurriculumDTO
+from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -260,7 +261,7 @@ class LessonGraphService:
 
     @with_error_handling("get_prerequisite_chain", error_type="database", uid_param="uid")
     async def get_prerequisite_chain(
-        self, uid: str, user_uid: str | None = None
+        self, uid: str, user_uid: UserUID | None = None
     ) -> Result[dict[str, Any]]:
         """
         Get complete prerequisite chain with learning path.
@@ -313,7 +314,7 @@ class LessonGraphService:
 
     @with_error_handling("analyze_knowledge_gaps", error_type="database", uid_param="target_uid")
     async def analyze_knowledge_gaps(
-        self, target_uid: str, user_uid: str
+        self, target_uid: str, user_uid: UserUID
     ) -> Result[dict[str, Any]]:
         """
         Analyze knowledge gaps for a user targeting a specific unit.
@@ -426,7 +427,7 @@ class LessonGraphService:
         "get_learning_recommendations", error_type="database", uid_param="user_uid"
     )
     async def get_learning_recommendations(
-        self, user_uid: str, domain: str | None = None, limit: int = 5
+        self, user_uid: UserUID, domain: str | None = None, limit: int = 5
     ) -> Result[list[dict[str, Any]]]:
         """
         Get personalized learning recommendations for a user.

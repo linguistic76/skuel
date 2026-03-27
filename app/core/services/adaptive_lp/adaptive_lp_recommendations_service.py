@@ -18,6 +18,7 @@ from typing import Any
 from core.models.enums import EntityStatus
 from core.models.goal.goal_dto import GoalDTO
 from core.models.task.task_dto import TaskDTO
+from core.models.type_hints import UserUID
 
 # Import dataclasses from shared models module (breaks circular dependency)
 from core.services.adaptive_lp.adaptive_lp_models import (
@@ -67,7 +68,7 @@ class AdaptiveLpRecommendationsService:
     @with_error_handling(error_type="system", uid_param="user_uid")
     async def generate_adaptive_recommendations(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_state: KnowledgeState,
         learning_style: LearningStyle,
         context: dict[str, Any] | None = None,
@@ -126,7 +127,7 @@ class AdaptiveLpRecommendationsService:
 
     @with_error_handling(error_type="system", uid_param="user_uid")
     async def _identify_comprehensive_knowledge_gaps(
-        self, user_uid: str, knowledge_state: KnowledgeState
+        self, user_uid: UserUID, knowledge_state: KnowledgeState
     ) -> Result[list[str]]:
         """Identify comprehensive knowledge gaps across all user goals and interests."""
         gaps = set()
@@ -293,7 +294,7 @@ class AdaptiveLpRecommendationsService:
     async def _create_gap_filling_recommendation(
         self,
         knowledge_gap: str,
-        user_uid: str,
+        user_uid: UserUID,
         knowledge_state: KnowledgeState,
         learning_style: LearningStyle,
         _context: dict[str, Any] | None,
@@ -342,7 +343,7 @@ class AdaptiveLpRecommendationsService:
             return None
 
     async def _generate_reinforcement_recommendations(
-        self, _user_uid: str, knowledge_state: KnowledgeState, _learning_style: LearningStyle
+        self, _user_uid: UserUID, knowledge_state: KnowledgeState, _learning_style: LearningStyle
     ) -> list[AdaptiveRecommendation]:
         """Generate recommendations to reinforce existing knowledge."""
         recommendations = []
@@ -385,7 +386,7 @@ class AdaptiveLpRecommendationsService:
         return recommendations[:3]  # Limit reinforcement recommendations
 
     async def _generate_exploration_recommendations(
-        self, _user_uid: str, knowledge_state: KnowledgeState, _learning_style: LearningStyle
+        self, _user_uid: UserUID, knowledge_state: KnowledgeState, _learning_style: LearningStyle
     ) -> list[AdaptiveRecommendation]:
         """Generate recommendations for exploring new knowledge areas."""
         recommendations = []
@@ -442,7 +443,7 @@ class AdaptiveLpRecommendationsService:
     async def _score_and_rank_recommendations(
         self,
         recommendations: list[AdaptiveRecommendation],
-        _user_uid: str,
+        _user_uid: UserUID,
         _knowledge_state: KnowledgeState,
     ) -> list[AdaptiveRecommendation]:
         """Score and rank recommendations by overall value to user."""
@@ -475,7 +476,9 @@ class AdaptiveLpRecommendationsService:
         return recommendations
 
     # Helper methods for recommendation scoring
-    async def _find_goals_needing_knowledge(self, user_uid: str, knowledge_uid: str) -> list[str]:
+    async def _find_goals_needing_knowledge(
+        self, user_uid: UserUID, knowledge_uid: str
+    ) -> list[str]:
         """Find user goals that would benefit from this knowledge."""
         goals = []
 
@@ -564,7 +567,7 @@ class AdaptiveLpRecommendationsService:
 
         return 0.4  # Lower relevance if unrelated
 
-    async def _calculate_gap_impact(self, knowledge_uid: str, _user_uid: str) -> float:
+    async def _calculate_gap_impact(self, knowledge_uid: str, _user_uid: UserUID) -> float:
         """Calculate the potential impact of learning this knowledge."""
         # Simplified impact calculation
         impact = 0.5  # Base impact
@@ -583,7 +586,7 @@ class AdaptiveLpRecommendationsService:
 
         return min(1.0, impact)
 
-    async def _calculate_gap_urgency(self, _knowledge_uid: str, user_uid: str) -> float:
+    async def _calculate_gap_urgency(self, _knowledge_uid: str, user_uid: UserUID) -> float:
         """Calculate how urgently this gap should be addressed."""
         # Check if this knowledge is needed for upcoming goals
         urgency = 0.3  # Base urgency
@@ -601,7 +604,7 @@ class AdaptiveLpRecommendationsService:
 
         return min(1.0, urgency)
 
-    async def _calculate_goal_alignment(self, knowledge_uid: str, user_uid: str) -> float:
+    async def _calculate_goal_alignment(self, knowledge_uid: str, user_uid: UserUID) -> float:
         """Calculate how well this knowledge aligns with user goals."""
         alignment = 0.5  # Base alignment
 

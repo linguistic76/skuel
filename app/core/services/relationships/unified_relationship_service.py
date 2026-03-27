@@ -65,6 +65,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_result_score
 
 if TYPE_CHECKING:
+    from core.models.type_hints import EntityUID, UserUID
     from core.ports.context_awareness_protocols import (
         CoreIdentity,
         CrossDomainAwareness,
@@ -228,7 +229,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     async def get_related_uids(
         self,
         relationship_key: str,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[list[str]]:
         """
         Get UIDs of related entities by relationship key.
@@ -262,7 +263,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     async def has_relationship(
         self,
         relationship_key: str,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[bool]:
         """
         Check if entity has any related entities for a relationship key.
@@ -301,7 +302,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     async def count_related(
         self,
         relationship_key: str,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[int]:
         """
         Count related entities for a relationship key.
@@ -333,8 +334,8 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
     async def create_user_relationship(
         self,
-        user_uid: str,
-        entity_uid: str,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
         properties: dict[str, Any] | None = None,
     ) -> Result[bool]:
         """
@@ -364,8 +365,8 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
     async def delete_user_relationship(
         self,
-        user_uid: str,
-        entity_uid: str,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
     ) -> Result[bool]:
         """
         Delete User→Entity relationship in graph.
@@ -463,7 +464,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
     async def create_relationships_batch(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         relationships: dict[str, list[str]],
     ) -> Result[int]:
         """
@@ -512,7 +513,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
     @with_error_handling("fetch_all_relationships", error_type="database", uid_param="entity_uid")
     async def fetch_all_relationships(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[dict[str, list[str]]]:
         """
         Fetch all relationship UIDs for an entity in parallel.
@@ -935,7 +936,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
     async def link_to_knowledge(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         knowledge_uid: str,
         **properties: Any,
     ) -> Result[bool]:
@@ -974,7 +975,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
     async def link_to_goal(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         goal_uid: str,
         **properties: Any,
     ) -> Result[bool]:
@@ -1006,7 +1007,7 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
 
     async def link_to_principle(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         principle_uid: str,
         **properties: Any,
     ) -> Result[bool]:

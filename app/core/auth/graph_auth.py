@@ -24,6 +24,7 @@ from core.auth.password import hash_password, validate_password, verify_password
 from core.models.auth.auth_event import AuthEventType, create_auth_event
 from core.models.auth.password_reset_token import create_password_reset_token
 from core.models.auth.session import create_session
+from core.models.type_hints import UserUID
 from core.models.user import User, create_user
 from core.utils.exception_types import AUTH_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -444,7 +445,7 @@ class GraphAuthService:
 
     async def change_password(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         old_password: str,
         new_password: str,
         ip_address: str = "unknown",
@@ -528,7 +529,7 @@ class GraphAuthService:
 
     async def admin_generate_reset_token(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         admin_uid: str,
         ip_address: str = "unknown",
         user_agent: str = "unknown",

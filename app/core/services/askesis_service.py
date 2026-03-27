@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import UserUID
 from core.models.user.conversation import ConversationContext
 from core.services.askesis.action_recommendation_engine import ActionRecommendationEngine
 from core.services.askesis.context_retriever import ContextRetriever
@@ -305,22 +306,24 @@ class AskesisService:
         return await self.recommendation_engine.predict_future_state(user_context, days_ahead)
 
     async def answer_user_question(
-        self, user_uid: str, question: str, session_id: str | None = None
+        self, user_uid: UserUID, question: str, session_id: str | None = None
     ) -> Result[dict[str, Any]]:
         """Answer user question via RAG pipeline. Delegated to query_processor."""
         return await self.query_processor.answer_user_question(user_uid, question, session_id)
 
     async def process_query_with_context(
-        self, user_uid: str, query_message: str, depth: int = 2
+        self, user_uid: UserUID, query_message: str, depth: int = 2
     ) -> Result[dict[str, Any]]:
         """Process query with context. Delegated to query_processor."""
         return await self.query_processor.process_query_with_context(user_uid, query_message, depth)
 
-    async def get_learning_context(self, user_uid: str, depth: int = 2) -> Result[dict[str, Any]]:
+    async def get_learning_context(
+        self, user_uid: UserUID, depth: int = 2
+    ) -> Result[dict[str, Any]]:
         """Get user's learning context. Delegated to context_retriever."""
         return await self.context_retriever.get_learning_context(user_uid, depth)
 
-    async def analyze_knowledge_gaps(self, user_uid: str) -> Result[dict[str, Any]]:
+    async def analyze_knowledge_gaps(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Analyze knowledge gaps. Delegated to context_retriever."""
         return await self.context_retriever.analyze_knowledge_gaps(user_uid)
 

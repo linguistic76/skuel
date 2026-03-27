@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.events.base import BaseEvent
+from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,7 @@ class JeInputCreated(BaseEvent):
     """
 
     je_input_uid: str
-    user_uid: str
+    user_uid: UserUID
     file_type: str | None = None  # MIME type
     file_size: int | None = None
     original_filename: str | None = None
@@ -42,7 +43,7 @@ class JeInputProcessingStarted(BaseEvent):
     """Published when processing begins for a journal entry input."""
 
     je_input_uid: str
-    user_uid: str
+    user_uid: UserUID
     processor_type: str
     metadata: dict[str, Any] | None = None
 
@@ -56,7 +57,7 @@ class JeInputProcessingCompleted(BaseEvent):
     """Published when journal input processing completes (transcription or text cleanup)."""
 
     je_input_uid: str
-    user_uid: str
+    user_uid: UserUID
     has_processed_content: bool
     processing_duration_seconds: float | None
     metadata: dict[str, Any] | None = None
@@ -76,7 +77,7 @@ class JeOutputGenerated(BaseEvent):
 
     je_output_uid: str
     je_input_uid: str
-    user_uid: str
+    user_uid: UserUID
     enrichment_mode: str
     output_file_path: str | None = None
     metadata: dict[str, Any] | None = None
@@ -91,7 +92,7 @@ class JeInputDeleted(BaseEvent):
     """Published when a journal entry input is deleted."""
 
     je_input_uid: str
-    user_uid: str
+    user_uid: UserUID
     metadata: dict[str, Any] | None = None
 
     @property

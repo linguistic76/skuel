@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.submissions.submission_dto import SubmissionDTO
+from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -67,7 +68,7 @@ class UnifiedSharingService:
 
     async def share(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         recipient_uid: str,
         role: str = "viewer",
@@ -101,7 +102,7 @@ class UnifiedSharingService:
 
     async def unshare(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         recipient_uid: str,
     ) -> Result[bool]:
@@ -139,7 +140,7 @@ class UnifiedSharingService:
 
     async def set_visibility(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         visibility: Visibility,
     ) -> Result[bool]:
@@ -177,8 +178,8 @@ class UnifiedSharingService:
 
     async def check_access(
         self,
-        entity_uid: str,
-        user_uid: str,
+        entity_uid: EntityUID,
+        user_uid: UserUID,
     ) -> Result[bool]:
         """Check if a user can access an entity.
 
@@ -220,7 +221,7 @@ class UnifiedSharingService:
 
     async def verify_shareable(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[bool]:
         """Verify an entity can be shared based on status and type.
 
@@ -245,7 +246,7 @@ class UnifiedSharingService:
 
     async def get_shared_with(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[list[dict[str, Any]]]:
         """Get list of users an entity is shared with."""
         result = await self.backend.query_shared_with_users(entity_uid=entity_uid)
@@ -255,7 +256,7 @@ class UnifiedSharingService:
 
     async def get_shared_with_me(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 50,
     ) -> Result[list[SubmissionDTO]]:
         """Get entities shared with a specific user."""
@@ -271,7 +272,7 @@ class UnifiedSharingService:
 
     async def share_with_group(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         group_uid: str,
         share_version: str = "original",
@@ -298,7 +299,7 @@ class UnifiedSharingService:
 
     async def unshare_from_group(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         group_uid: str,
     ) -> Result[bool]:
@@ -328,7 +329,7 @@ class UnifiedSharingService:
 
     async def get_groups_shared_with(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
     ) -> Result[list[dict[str, Any]]]:
         """Get groups an entity is shared with."""
         result = await self.backend.query_groups_shared_with(entity_uid=entity_uid)
@@ -338,7 +339,7 @@ class UnifiedSharingService:
 
     async def get_shared_with_me_via_groups(
         self,
-        user_uid: str,
+        user_uid: UserUID,
         limit: int = 50,
     ) -> Result[list[dict[str, Any]]]:
         """Get entities shared with a user through group membership."""
@@ -364,7 +365,7 @@ class UnifiedSharingService:
 
     async def _verify_owned_and_shareable(
         self,
-        entity_uid: str,
+        entity_uid: EntityUID,
         owner_uid: str,
         *,
         require_shareable: bool = True,

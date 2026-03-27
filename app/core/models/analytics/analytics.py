@@ -18,6 +18,7 @@ from enum import Enum
 from typing import Any
 
 from core.models.enums import AnalyticsDomain
+from core.models.type_hints import UserUID
 
 # ============================================================================
 # TIER 2 - DTO (Transfer Layer)
@@ -36,7 +37,7 @@ class AnalyticsSummaryDTO:
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     analytics_domain: AnalyticsDomain
     period_start: date
     period_end: date
@@ -88,7 +89,7 @@ class AnalyticsSummary:
     """
 
     uid: str
-    user_uid: str
+    user_uid: UserUID
     analytics_domain: AnalyticsDomain
     period_start: date
     period_end: date

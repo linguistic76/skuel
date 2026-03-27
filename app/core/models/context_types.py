@@ -61,6 +61,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.type_hints import EntityUID
+
 if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
 
@@ -1303,7 +1305,7 @@ class ContextualDependencies:
     - learning_path_suggestion: Knowledge to acquire for unblocking
     """
 
-    entity_uid: str
+    entity_uid: EntityUID
     entity_type: str  # "Task", "Goal", "Habit", etc.
 
     # Categorized by readiness
