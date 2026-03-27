@@ -86,8 +86,8 @@ def create_tasks_api_routes(
 - 100% protocol compliance — all 7 `BaseService` mixins verified by TYPE_CHECKING blocks
 - 29 automated compliance tests (run: `uv run pytest tests/unit/test_protocol_mixin_compliance.py`)
 - Zero `Any` fields in the `Services` dataclass — all 72 fields typed
-- ~90 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026)
-- 62 TypedDicts in `query_types.py` — 40 for inputs (filters, payloads), 22 for outputs (result shapes)
+- ~94 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026)
+- 61 TypedDicts in `query_types.py` — 20 for inputs (filters, payloads), 41 for outputs (result shapes, UserContext field types)
 
 **BackendOperations[T] hierarchy** — the foundational generic protocol:
 ```python
@@ -144,16 +144,18 @@ from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request
 (`Neo4jProperties`, `FilterParams`, `Metadata`, `RelationshipMetadata`, `GraphContextResult`)
 instead of `dict[str, Any]` for parameters.
 
-*Phase 4 — Return types:* ~90 protocol methods migrated from `Result[Any]` / `Result[dict[str, Any]]`
+*Phase 4 — Return types:* ~94 protocol methods migrated from `Result[Any]` / `Result[dict[str, Any]]`
 to specific types:
 - Domain model returns: `Result[ExerciseSubmission]`, `Result[Askesis]`, `Result[CalendarData]`, etc.
 - Existing TypedDicts: `Result[ContextDashboard]`, `Result[ContextSummary]`
 - Existing dataclasses: `Result[LearningVelocityMetrics]`, `Result[SpendingPatternAnalysis]`
-- 22 new TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
+- 41 output TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
   teacher review (`ReviewQueueItem`, `TeacherDashboardStats`), intelligence results
-  (`KnowledgeSuggestionsResult`, `PerformanceAnalyticsResult`), life path (`LifePathStatus`,
+  (`KnowledgeSuggestionsResult`, `PerformanceAnalyticsResult`, `KnowledgePrerequisitesResult`,
+  `CrossDomainOpportunitiesResult`, `AIInsightsResult`), life path (`LifePathStatus`,
   `LifePathAlignmentResult`), lateral relationships (`BlockingChainResult`, `RelationshipGraphData`),
-  activity reports (`AnnotationResult`, `PrivacySummary`)
+  activity reports (`AnnotationResult`, `PrivacySummary`), UserContext field shapes
+  (`RichEntityItem`, `RichKnowledgeUnitItem`, `CrossDomainInsightsData`, etc.)
 
 Only genuine boundary types (Neo4j driver params, FastHTML elements, error metadata) and
 backend-level raw Cypher results retain `Any`.

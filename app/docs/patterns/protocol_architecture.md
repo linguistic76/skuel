@@ -39,8 +39,8 @@ SKUEL uses Python's Protocol typing (PEP 544) for dependency injection without f
 - **Facade services use concrete types** - Route files import `TasksService` directly; no facade protocols needed
 - **19 route-facing ISP protocols** - Services container fields typed
 - **Services dataclass: zero `Any` fields** — all ~72 fields fully typed
-- **~90 typed return types** — protocol methods return specific models/TypedDicts, not `Result[Any]` (March 2026)
-- **62 TypedDicts** in `query_types.py` — 40 input types + 22 output result types (March 2026)
+- **~94 typed return types** — protocol methods return specific models/TypedDicts, not `Result[Any]` (March 2026)
+- **61 TypedDicts** in `query_types.py` — 20 input types + 41 output result types (March 2026)
 - **75% code reduction** through generic programming patterns
 - **27+ services** using protocol interfaces exclusively
 

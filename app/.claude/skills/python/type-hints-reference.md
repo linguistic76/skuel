@@ -251,11 +251,16 @@ from core.ports.query_types import (
     ActivityFilterSpec, TaskUpdatePayload, CypherParams,
     # Output types (protocol return shapes)
     SignInResult, ReviewQueueItem, TeacherDashboardStats,
-    KnowledgeSuggestionsResult, PerformanceAnalyticsResult,
+    KnowledgeSuggestionsResult, KnowledgePrerequisitesResult,
+    PerformanceAnalyticsResult, CrossDomainOpportunitiesResult, AIInsightsResult,
     LifePathStatus, LifePathAlignmentResult,
     LateralRelationshipItem, BlockingChainResult,
     AnnotationResult, PrivacySummary,
     ContextDashboard, ContextSummary, IntelligenceResult,
+    # UserContext field types
+    RichEntityItem, RichKnowledgeUnitItem, RichLearningPathItem,
+    RichLearningStepItem, CrossDomainInsightsData,
+    UnsubmittedExerciseItem, FacetInteractionItem,
 )
 
 # Protocol methods use these as return types instead of dict[str, Any]

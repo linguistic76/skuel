@@ -100,22 +100,27 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 - Domain CRUD params (`create_goal`, `update_habit`, etc.) → `Metadata`
 - Cross-domain context returns → `GraphContextResult`
 
-**Phase 4 — Return types:** ~90 protocol methods migrated from `Result[Any]` to specific types:
+**Phase 4 — Return types:** ~94 protocol methods migrated from `Result[Any]` to specific types:
 
 - **Domain model returns:** `Result[SubmissionEntity]`, `Result[ExerciseReport]`, `Result[Askesis]`,
   `Result[CalendarData]`, `Result[Group]`, `Result[JeInput]`, `Result[JeOutput]`, `Result[Exercise]`,
   `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ReportSchedule]`, `Result[ActivityReport]`
-- **22 new TypedDicts** in `query_types.py` for structured dict returns:
+- **41 output TypedDicts** in `query_types.py` for structured dict returns:
 
-| TypedDict | Protocol | Methods |
-|-----------|----------|---------|
+| TypedDict | Protocol / Field | Methods |
+|-----------|-----------------|---------|
 | `SignUpResult`, `SignInResult` | `GraphAuthOperations` | `sign_up`, `sign_in` |
 | `ReviewQueueItem`, `SubmissionDetailResult`, `TeacherDashboardStats` | `TeacherReviewOperations` | `get_review_queue`, `get_submission_detail`, `get_dashboard_stats` |
 | `KnowledgeSuggestionsResult`, `KnowledgeGenerationResult`, `LearningOpportunitiesResult` | `KnowledgeIntelligenceOperations` | `get_knowledge_suggestions`, `generate_knowledge_from_entities`, `get_learning_opportunities` |
+| `KnowledgePrerequisitesResult`, `KnowledgePrerequisiteItem` | `KnowledgeIntelligenceOperations` | `get_knowledge_prerequisites` |
 | `BehavioralInsightsResult`, `PerformanceAnalyticsResult` | `DomainIntelligenceOperations` | `get_behavioral_insights`, `get_performance_analytics` |
+| `CrossDomainOpportunitiesResult`, `CrossDomainConnectionItem`, `AIInsightsResult` | `DomainIntelligenceOperations` | `get_cross_domain_opportunities`, `get_ai_insights` |
 | `LifePathStatus`, `LifePathRecommendation`, `LifePathDesignation`, `LifePathAlignmentResult` | `LifePathOperations`, `LifePathAlignmentOperations` | `get_full_status`, `capture_and_recommend`, `designate_and_calculate`, `get_alignment`, `calculate_alignment` |
 | `LateralRelationshipItem`, `BlockingChainResult`, `RelationshipGraphData` | `LateralRelationshipOperations` | `get_lateral_relationships`, `get_blocking_chain`, `get_relationship_graph` |
 | `AnnotationResult`, `AnnotationState`, `PrivacySummary` | `ActivityReportOperations` | `annotate`, `get_annotation`, `get_privacy_summary` |
+| `RichEntityItem`, `RichKnowledgeUnitItem`, `RichLearningPathItem`, `RichLearningStepItem`, `RichMOCItem` | `UserContext` fields | `entities_rich`, `knowledge_units_rich`, `enrolled_paths_rich`, `active_learning_steps_rich`, `active_mocs_rich` |
+| `UnsubmittedExerciseItem`, `PendingRevisedExerciseItem`, `FacetInteractionItem` | `UserContext` fields | `unsubmitted_exercises`, `pending_revised_exercises`, `facet_interaction_history` |
+| `CrossDomainInsightsData`, `CrossDomainInsightItem` | `UserContext` field | `cross_domain_insights` |
 
 ---
 

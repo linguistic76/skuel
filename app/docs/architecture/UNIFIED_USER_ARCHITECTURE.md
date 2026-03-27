@@ -281,7 +281,7 @@ The MEGA-QUERY in `user_context_queries.py` fetches UIDs and full entity data wi
 
 ### `entities_rich` — The Unified Rich Field
 
-`entities_rich: dict[str, list[dict]]` — populated by `build_rich()`. All entries share the shape `{entity: {...}, graph_context: {...}}`:
+`entities_rich: dict[str, list[RichEntityItem]]` — populated by `build_rich()`. All entries share the shape `{entity: {...}, graph_context: {...}}` (typed via `RichEntityItem` TypedDict in `core/ports/query_types.py`):
 
 | Key | Contents |
 |-----|----------|
@@ -290,7 +290,7 @@ The MEGA-QUERY in `user_context_queries.py` fetches UIDs and full entity data wi
 | `"learning_steps"` | LS entities (normalised from `steps_rich`) |
 | `"ku"` | Window-engaged KUs only (mastered or viewed within window); `graph_context.interaction_type` = `"mastered"` or `"viewed"` |
 
-`enrolled_paths_rich` and `active_learning_steps_rich` remain populated for backward compat (same data, old shape). `knowledge_units_rich` (all KUs, static dict) also remains.
+`enrolled_paths_rich: list[RichLearningPathItem]`, `active_learning_steps_rich: list[RichLearningStepItem]`, and `knowledge_units_rich: dict[str, RichKnowledgeUnitItem]` are typed with their own TypedDicts. All 9 formerly-untyped `dict[str, Any]` UserContext fields now have TypedDict annotations (March 2026).
 
 ### ActivityReport Fields — Both Paths
 
