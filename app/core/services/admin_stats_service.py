@@ -19,6 +19,7 @@ Methods:
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -356,16 +357,16 @@ class AdminStatsService:
 
         records = result.value or []
         for r in records:
-            role = (r["role"] or "").lower()
+            parsed_role = UserRole.from_string(r["role"])
             count = r["cnt"] or 0
             stats["total"] += count
-            if role == "admin":
+            if parsed_role == UserRole.ADMIN:
                 stats["admins"] += count
-            elif role == "teacher":
+            elif parsed_role == UserRole.TEACHER:
                 stats["teachers"] += count
-            elif role == "member":
+            elif parsed_role == UserRole.MEMBER:
                 stats["members"] += count
-            elif role == "registered":
+            elif parsed_role == UserRole.REGISTERED:
                 stats["registered"] += count
 
         return Result.ok(stats)

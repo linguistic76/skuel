@@ -21,6 +21,7 @@ from typing import Any
 from fasthtml.common import H3, Div, NotStr, P, Request, Small, Span
 
 from adapters.inbound.auth import require_authenticated_user
+from core.models.enums.submissions_enums import ExerciseScope
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.buttons import Button, ButtonLink, ButtonT
@@ -86,7 +87,7 @@ def _exercises_for_ku_section(exercises: list[dict]) -> Any:
         else:
             # Standard exercise link
             scope = e.get("scope", "personal")
-            scope_variant = BadgeT.secondary if scope == "assigned" else BadgeT.ghost
+            scope_variant = BadgeT.secondary if scope == ExerciseScope.ASSIGNED else BadgeT.ghost
             due = e.get("due_date")
             due_span = Span(f" · due {due}", cls="text-xs text-muted-foreground") if due else None
             row_parts: list[Any] = [

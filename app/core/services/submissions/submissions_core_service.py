@@ -50,6 +50,7 @@ from core.events.submission_events import SubmissionDeleted
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.submissions_enums import ExerciseScope
 from core.models.relationship_names import RelationshipName
 from core.models.report.submission_report import SubmissionReport
 from core.models.submissions.submission_dto import SubmissionDTO
@@ -918,7 +919,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         else:
             # Standard Exercise path: check scope and group membership
             scope = records[0]["scope"]
-            if scope != "assigned":
+            if scope != ExerciseScope.ASSIGNED:
                 return Result.ok(False)  # Not an assigned exercise
 
             group_uid = records[0]["group_uid"]

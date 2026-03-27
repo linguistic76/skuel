@@ -618,11 +618,11 @@ class ExerciseService(BaseService):
             return await self.list_user_exercises(user_uid, active_only=False)
 
         def apply_filters(all_exercises: list[Any]) -> list[Any]:
-            if status_filter == "personal":
+            if status_filter == ExerciseScope.PERSONAL:
                 return [
                     e for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.PERSONAL
                 ]
-            elif status_filter == "assigned":
+            elif status_filter == ExerciseScope.ASSIGNED:
                 return [
                     e for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.ASSIGNED
                 ]

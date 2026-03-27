@@ -15,6 +15,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from core.models.enums.submissions_enums import ExerciseScope
 from core.models.type_hints import UserUID
 
 
@@ -46,8 +47,8 @@ class ExerciseCreateRequest(BaseModel):
     domain: str | None = Field(default=None, description="Optional domain categorization")
 
     # Exercise fields (ADR-040)
-    scope: str = Field(
-        default="personal",
+    scope: ExerciseScope = Field(
+        default=ExerciseScope.PERSONAL,
         description="Exercise scope: 'personal' (default) or 'assigned' (teacher exercise)",
     )
 
@@ -99,7 +100,7 @@ class ExerciseCreateRequest(BaseModel):
     @model_validator(mode="after")
     def validate_exercise_fields(self) -> "ExerciseCreateRequest":
         """If scope=assigned, group_uid is required."""
-        if self.scope == "assigned" and not self.group_uid:
+        if self.scope == ExerciseScope.ASSIGNED and not self.group_uid:
             msg = "group_uid is required when scope is 'assigned'"
             raise ValueError(msg)
         return self
