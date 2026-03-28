@@ -26,6 +26,7 @@ from core.events.principle_events import (
     PrincipleReflectionRecorded,
     PrincipleStrengthChanged,
 )
+from core.models.enums.principle_enums import TriggerType
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.principle.principle import Principle
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -243,7 +244,9 @@ class PrincipleEventHandlerService:
                 return
 
             # 2. Analyze trigger context - cross-domain insight generation
-            is_cross_domain = event.trigger_type in ("goal", "habit", "event", "choice")
+            is_cross_domain = (
+                event.trigger_type is not None and event.trigger_type.is_cross_domain()
+            )
             trigger_context = _analyze_trigger_context(event.trigger_type, event.trigger_uid)
 
             # 3. Determine alignment quality category
@@ -551,22 +554,24 @@ def _categorize_strength_change(old_strength: str, new_strength: str) -> str:
         return "lateral"
 
 
-def _analyze_trigger_context(trigger_type: str | None, trigger_uid: str | None) -> dict[str, Any]:
+def _analyze_trigger_context(
+    trigger_type: TriggerType | None, trigger_uid: str | None
+) -> dict[str, Any]:
     """Analyze the context of what triggered this reflection."""
     if not trigger_type or not trigger_uid:
-        return {"type": "manual", "description": "Self-initiated reflection"}
+        return {"type": TriggerType.MANUAL.value, "description": "Self-initiated reflection"}
 
     descriptions = {
-        "goal": "Reflection triggered while working on a goal",
-        "habit": "Reflection triggered during habit practice",
-        "event": "Reflection triggered by a calendar event",
-        "choice": "Reflection triggered while making a decision",
+        TriggerType.GOAL: "Reflection triggered while working on a goal",
+        TriggerType.HABIT: "Reflection triggered during habit practice",
+        TriggerType.EVENT: "Reflection triggered by a calendar event",
+        TriggerType.CHOICE: "Reflection triggered while making a decision",
     }
 
     return {
-        "type": trigger_type,
+        "type": trigger_type.value,
         "trigger_uid": trigger_uid,
-        "description": descriptions.get(trigger_type, f"Triggered by {trigger_type}"),
+        "description": descriptions.get(trigger_type, f"Triggered by {trigger_type.value}"),
         "cross_domain": True,
     }
 

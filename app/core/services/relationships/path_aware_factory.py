@@ -29,6 +29,15 @@ from core.models.graph.path_aware_types import (
     TaskCrossContext,
 )
 
+type CrossContext = (
+    TaskCrossContext
+    | GoalCrossContext
+    | HabitCrossContext
+    | EventCrossContext
+    | ChoiceCrossContext
+    | PrincipleCrossContext
+)
+
 # Mapping from domain to path-aware type
 PATH_AWARE_TYPE_MAP: dict[Domain, type] = {
     Domain.TASKS: PathAwareTask,
@@ -144,7 +153,7 @@ def create_cross_context(
     source_uid: str,
     categorized_data: dict[str, list[dict[str, Any]]],
     category_domain_map: dict[str, Domain],
-) -> Any:
+) -> CrossContext:
     """
     Create a cross-domain context object from categorized data.
 

@@ -203,7 +203,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
             self.logger.warning("share_with_admin called but no sharing_service configured")
             return
 
-        admin_result = await self.backend.find_admin_user_uid(UserRole.ADMIN.value)
+        admin_result = await self.backend.find_admin_user_uid(UserRole.ADMIN)
         if admin_result.is_ok and admin_result.value:
             admin_uid = admin_result.value
             result = await self.sharing_service.share(

@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
+from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength, TriggerType
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.type_hints import EntityUID, UserUID
@@ -336,7 +336,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         return await self.search.get_related_principles(principle_uid, limit)
 
     async def get_principles_by_status(
-        self, status: str, limit: int = 100, user_uid: UserUID | None = None
+        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Principle]]:
         return await self.search.get_by_status(status, limit, user_uid)
 
@@ -373,7 +373,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         alignment_level: AlignmentLevel,
         evidence: str,
         reflection_notes: str | None = None,
-        trigger_type: str | None = None,
+        trigger_type: TriggerType | None = None,
         trigger_uid: str | None = None,
         trigger_context: str | None = None,
         conflicting_principle_uids: Sequence[str] | None = None,

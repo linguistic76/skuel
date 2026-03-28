@@ -39,6 +39,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.ports import BackendOperations
 
 logger = get_logger(__name__)
@@ -229,7 +230,7 @@ class LsIntelligenceService(
             }
         )
 
-    def _require_executor(self) -> Result[Any]:
+    def _require_executor(self) -> Result[Neo4jQueryExecutor]:
         """Fail-fast guard for executor availability."""
         if not self.executor:
             return Result.fail(

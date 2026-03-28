@@ -60,6 +60,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.report.activity_report import ActivityReport
 from core.models.submissions.submission import Submission
 from core.models.task.task import Task
+from core.models.enums import UserRole
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.query_types import (
     ChoiceStats,
@@ -3660,14 +3661,14 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
     - find_admin_user_uid          — Find the first admin user UID
     """
 
-    async def find_admin_user_uid(self, admin_role: str) -> Result[str | None]:
+    async def find_admin_user_uid(self, admin_role: UserRole) -> Result[str | None]:
         """Find the first admin user UID by role value."""
         result = await self.execute_query(
             """
             MATCH (u:User) WHERE u.role = $admin_role
             RETURN u.uid as uid LIMIT 1
             """,
-            {"admin_role": admin_role},
+            {"admin_role": admin_role.value},
         )
         if result.is_error:
             return Result.fail(result)

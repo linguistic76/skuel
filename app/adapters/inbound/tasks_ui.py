@@ -26,7 +26,7 @@ from fasthtml.common import H1, H2, Div, JSONResponse, P
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.fasthtml_types import Request, RouteDecorator, RouteList
 from adapters.inbound.form_helpers import (
     TaskFilters,
     parse_date_safe,
@@ -183,7 +183,7 @@ def create_tasks_ui_routes(
     rt: RouteDecorator,
     tasks_service: TasksService,
     services: Any = None,
-) -> list:
+) -> RouteList:
     """
     Create three-view task UI routes (standalone, no drawer).
 

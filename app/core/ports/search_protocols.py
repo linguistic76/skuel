@@ -25,6 +25,7 @@ Protocol Categories:
 
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
+from core.models.enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Metadata, UserUID
 from core.ports.base_protocols import Direction
@@ -200,7 +201,7 @@ class DomainSearchOperations(Protocol[T]):
         ...
 
     async def get_by_status(
-        self, status: str, limit: int = 100, user_uid: UserUID | None = None
+        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[T]]:
         """
         Filter entities by EntityStatus.
@@ -817,19 +818,23 @@ class CypherOperations(Protocol):
 class SearchIndexOperations(Protocol):
     """Search index management operations."""
 
-    async def index_entity(self, entity_type: str, entity_id: EntityUID, data: Metadata) -> bool:
+    async def index_entity(
+        self, entity_type: EntityType, entity_id: EntityUID, data: Metadata
+    ) -> bool:
         """Index an entity for search."""
         ...
 
-    async def update_index(self, entity_type: str, entity_id: str, data: dict[str, Any]) -> bool:
+    async def update_index(
+        self, entity_type: EntityType, entity_id: str, data: dict[str, Any]
+    ) -> bool:
         """Update an indexed entity."""
         ...
 
-    async def remove_from_index(self, entity_type: str, entity_id: str) -> bool:
+    async def remove_from_index(self, entity_type: EntityType, entity_id: str) -> bool:
         """Remove an entity from search index."""
         ...
 
-    async def rebuild_index(self, entity_type: str | None = None) -> int:
+    async def rebuild_index(self, entity_type: EntityType | None = None) -> int:
         """Rebuild search index, returns number of indexed items."""
         ...
 

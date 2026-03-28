@@ -20,7 +20,7 @@ This service follows the SearchService pattern documented in:
 from datetime import date, timedelta
 from typing import Any
 
-from core.models.enums import Domain
+from core.models.enums import Domain, EntityStatus
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
@@ -87,20 +87,21 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
 
     @with_error_handling("get_by_status", error_type="database")
     async def get_by_status(
-        self, status: str, limit: int = 100, user_uid: UserUID | None = None
+        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Principle]]:
         """
         Filter principles by active/inactive status.
 
         Args:
-            status: Status string ("active" or "inactive")
+            status: EntityStatus enum or status string ("active" or "inactive")
             limit: Maximum results to return
             user_uid: Optional user UID to scope results to owner
 
         Returns:
             Result containing principles with matching status
         """
-        is_active = status.lower() in ("active", "true", "1")
+        status_str = status.value if isinstance(status, EntityStatus) else status
+        is_active = status_str.lower() in ("active", "true", "1")
         filters: dict[str, Any] = {"is_active": is_active, "limit": limit}
         if user_uid:
             filters["user_uid"] = user_uid

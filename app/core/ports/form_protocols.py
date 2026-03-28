@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol
 
+from core.models.enums import UserRole
 from core.models.type_hints import UserUID
 from core.ports.base_protocols import BackendOperations
 from core.utils.result_simplified import Result
@@ -70,7 +71,7 @@ class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Proto
         self, form_template_uid: str
     ) -> Result[list[dict[str, Any]]]: ...
 
-    async def find_admin_user_uid(self, admin_role: str) -> Result[str | None]: ...
+    async def find_admin_user_uid(self, admin_role: UserRole) -> Result[str | None]: ...
 
 
 # ========================================================================

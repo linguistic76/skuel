@@ -11,7 +11,9 @@ Provides reusable methods for:
 - Generating path-strength-based recommendations
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
+
+from core.models.graph.path_aware_types import PathAwareProtocol
 
 if TYPE_CHECKING:
     from core.models.graph.path_aware_types import (
@@ -23,6 +25,8 @@ if TYPE_CHECKING:
         PathAwarePrinciple,
         PathAwareTask,
     )
+
+P = TypeVar("P", bound=PathAwareProtocol)
 
 
 class PathAwareAnalyzer:
@@ -153,7 +157,7 @@ class PathAwareAnalyzer:
     # ========================================================================
 
     @staticmethod
-    def filter_by_strength(entities: list, min_strength: float = 0.8) -> list:
+    def filter_by_strength(entities: list[P], min_strength: float = 0.8) -> list[P]:
         """
         Filter entities by minimum path strength threshold.
 
@@ -167,7 +171,7 @@ class PathAwareAnalyzer:
         return [e for e in entities if e.path_strength >= min_strength]
 
     @staticmethod
-    def filter_direct_connections(entities: list) -> list:
+    def filter_direct_connections(entities: list[P]) -> list[P]:
         """
         Get only direct connections (distance = 1).
 
@@ -180,7 +184,7 @@ class PathAwareAnalyzer:
         return [e for e in entities if e.distance == 1]
 
     @staticmethod
-    def filter_by_max_distance(entities: list, max_distance: int) -> list:
+    def filter_by_max_distance(entities: list[P], max_distance: int) -> list[P]:
         """
         Filter entities by maximum distance threshold.
 

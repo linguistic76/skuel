@@ -218,16 +218,16 @@ class UIDGenerator:
     # See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
 
     @classmethod
-    def generate_uid(cls, entity_type: str, name: str | None = None) -> str:
+    def generate_uid(cls, prefix: str, name: str | None = None) -> str:
         """
         General UID generation for any entity type.
 
         Args:
-            entity_type: Type of entity (task, event, habit, etc.)
+            prefix: UID prefix (e.g., "task", "sr", "fs", "notif")
             name: Optional name for semantic UIDs
 
         Returns:
-            Generated UID,
+            Generated UID.
 
         Examples:
             - generate_uid("task") -> "task_a1b2c3d4"
@@ -239,7 +239,7 @@ class UIDGenerator:
         if name:
             # Create semantic UID with slugified name
             slug = cls.slugify(name)
-            return f"{entity_type}_{slug}_{random_suffix}"
+            return f"{prefix}_{slug}_{random_suffix}"
         else:
             # Simple random UID
-            return f"{entity_type}_{random_suffix}"
+            return f"{prefix}_{random_suffix}"

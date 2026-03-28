@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.events.base import BaseEvent
+from core.models.enums.principle_enums import TriggerType
 from core.models.type_hints import EntityUID, UserUID
 
 
@@ -148,7 +149,7 @@ class PrincipleReflectionRecorded(BaseEvent):
     user_uid: UserUID
     alignment_level: str  # AlignmentLevel.value
     evidence: str
-    trigger_type: str | None = None  # "goal", "habit", "event", "choice", "manual"
+    trigger_type: TriggerType | None = None
     trigger_uid: str | None = None
     reflection_quality_score: float = 0.0
     metadata: dict[str, Any] | None = None

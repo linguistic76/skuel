@@ -13,6 +13,19 @@ Created: 2025-11-15
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Protocol, TypeVar
+
+
+class PathAwareProtocol(Protocol):
+    """Structural protocol for all path-aware entity types."""
+
+    @property
+    def distance(self) -> int: ...
+    @property
+    def path_strength(self) -> float: ...
+
+
+P = TypeVar("P", bound=PathAwareProtocol)
 
 
 @dataclass(frozen=True)
@@ -369,7 +382,7 @@ class EventCrossContext:
 # Helper Functions for Path Analysis
 
 
-def calculate_avg_path_strength(entities: list) -> float:
+def calculate_avg_path_strength(entities: list[PathAwareProtocol]) -> float:
     """
     Calculate average path strength across multiple entities.
 
@@ -384,7 +397,7 @@ def calculate_avg_path_strength(entities: list) -> float:
     return sum(e.path_strength for e in entities) / len(entities)
 
 
-def filter_by_strength(entities: list, min_strength: float = 0.7) -> list:
+def filter_by_strength(entities: list[P], min_strength: float = 0.7) -> list[P]:
     """
     Filter entities by minimum path strength (confidence threshold).
 
@@ -398,7 +411,7 @@ def filter_by_strength(entities: list, min_strength: float = 0.7) -> list:
     return [e for e in entities if e.path_strength >= min_strength]
 
 
-def filter_by_distance(entities: list, max_distance: int = 2) -> list:
+def filter_by_distance(entities: list[P], max_distance: int = 2) -> list[P]:
     """
     Filter entities by maximum distance (relationship hops).
 
@@ -412,7 +425,7 @@ def filter_by_distance(entities: list, max_distance: int = 2) -> list:
     return [e for e in entities if e.distance <= max_distance]
 
 
-def get_direct_connections(entities: list) -> list:
+def get_direct_connections(entities: list[P]) -> list[P]:
     """
     Get only direct (1-hop) connections.
 

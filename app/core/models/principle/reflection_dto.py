@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
-from core.models.enums.principle_enums import AlignmentLevel
+from core.models.enums.principle_enums import AlignmentLevel, TriggerType
 from core.models.type_hints import UserUID
 from core.utils.uid_generator import UIDGenerator
 
@@ -44,7 +44,7 @@ class PrincipleReflectionDTO:
     reflection_quality_score: float = 0.0
 
     # Trigger context
-    trigger_type: str | None = None  # "goal", "habit", "event", "choice", "manual"
+    trigger_type: TriggerType | None = None
     trigger_uid: str | None = None
     trigger_context: str | None = None
 
@@ -63,7 +63,7 @@ class PrincipleReflectionDTO:
         alignment_level: AlignmentLevel,
         evidence: str,
         reflection_notes: str | None = None,
-        trigger_type: str | None = None,
+        trigger_type: TriggerType | None = None,
         trigger_uid: str | None = None,
         trigger_context: str | None = None,
         reflection_date: date | None = None,
@@ -227,7 +227,7 @@ class PrincipleReflectionDTO:
 
     def has_trigger(self) -> bool:
         """Check if reflection has a trigger."""
-        return self.trigger_type is not None and self.trigger_type != "manual"
+        return self.trigger_type is not None and self.trigger_type != TriggerType.MANUAL
 
     def has_notes(self) -> bool:
         """Check if reflection has notes."""

@@ -286,7 +286,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         return await self.search.search(query, limit, user_uid)
 
     async def get_choices_by_status(
-        self, status: str, limit: int = 100, user_uid: UserUID | None = None
+        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Choice]]:
         return await self.search.get_by_status(status, limit, user_uid)
 

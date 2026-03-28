@@ -277,7 +277,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         return await self.search.get_overdue(user_uid, limit)
 
     async def get_habits_by_status(
-        self, status: str, limit: int = 100, user_uid: UserUID | None = None
+        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Habit]]:
         return await self.search.get_by_status(status, limit, user_uid)
 

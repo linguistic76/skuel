@@ -133,7 +133,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
         """Convert list of backend data to domain models."""
         return _to_domain_models_fn(data_list, dto_class, model_class)
 
-    def _from_domain_model(self, model: T, dto_class: type) -> Any:
+    def _from_domain_model(self, model: T, dto_class: type[DTOProtocol]) -> DTOProtocol:
         """Convert domain model to DTO for backend operations."""
         return _from_domain_model_fn(model, dto_class)
 
@@ -173,7 +173,7 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     def _validate_required_user_uid(
         self, user_uid: UserUID | None, operation: str
-    ) -> Result[Any] | None:
+    ) -> Result[None] | None:
         """
         Validate that user_uid is present for an operation.
 
@@ -185,7 +185,6 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         Returns:
             None if valid, Result.fail() if user_uid is missing.
-            Returns Result[Any] to be compatible with any Result[T] return type.
 
         Example:
             validation = self._validate_required_user_uid(user_uid, "task creation")

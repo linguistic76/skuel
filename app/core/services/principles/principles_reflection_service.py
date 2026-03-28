@@ -29,7 +29,7 @@ from typing import Any
 
 from core.events import publish_event
 from core.events.principle_events import PrincipleConflictRevealed, PrincipleReflectionRecorded
-from core.models.enums.principle_enums import AlignmentLevel
+from core.models.enums.principle_enums import AlignmentLevel, TriggerType
 from core.models.principle.reflection import PrincipleReflection
 from core.models.principle.reflection_dto import PrincipleReflectionDTO
 from core.models.relationship_names import RelationshipName
@@ -66,7 +66,7 @@ class CrossDomainInsight:
     """Insight about which domain triggers align best with a principle."""
 
     principle_uid: str
-    trigger_type: str
+    trigger_type: TriggerType
     reflection_count: int
     alignment_average: float
     most_common_alignment: str
@@ -129,7 +129,7 @@ class PrinciplesReflectionService:
         alignment_level: AlignmentLevel,
         evidence: str,
         reflection_notes: str | None = None,
-        trigger_type: str | None = None,
+        trigger_type: TriggerType | None = None,
         trigger_uid: str | None = None,
         trigger_context: str | None = None,
         conflicting_principle_uids: Sequence[str] | None = None,
@@ -149,7 +149,7 @@ class PrinciplesReflectionService:
             alignment_level: How well actions aligned with the principle
             evidence: What was observed (required)
             reflection_notes: Optional additional thoughts
-            trigger_type: What triggered this reflection (goal, habit, event, choice, manual)
+            trigger_type: What triggered this reflection
             trigger_uid: UID of triggering entity
             trigger_context: Context description for the trigger
             conflicting_principle_uids: UIDs of principles that conflict
@@ -217,7 +217,7 @@ class PrinciplesReflectionService:
         reflection_uid: str,
         principle_uid: str,
         user_uid: UserUID,
-        trigger_type: str | None,
+        trigger_type: TriggerType | None,
         trigger_uid: str | None,
         conflicting_principle_uids: Sequence[str] | None,
     ) -> None:
@@ -237,12 +237,12 @@ class PrinciplesReflectionService:
         )
 
         # (Reflection)-[:TRIGGERED_BY]->(Trigger) if triggered by entity
-        if trigger_type and trigger_uid and trigger_type != "manual":
+        if trigger_type and trigger_uid and trigger_type.is_cross_domain():
             await self.backend.add_relationship(
                 from_uid=reflection_uid,
                 to_uid=trigger_uid,
                 relationship_type=RelationshipName.TRIGGERED_BY,
-                properties={"trigger_type": trigger_type},
+                properties={"trigger_type": trigger_type.value},
             )
 
         # (Reflection)-[:REVEALS_CONFLICT]->(Principle) for each conflict
@@ -548,7 +548,7 @@ class PrinciplesReflectionService:
 
         insights = []
         for record in result.value:
-            trigger_type = record["trigger_type"]
+            trigger_type = TriggerType(record["trigger_type"])
             alignments = record["alignments"]
             count = record["count"]
 

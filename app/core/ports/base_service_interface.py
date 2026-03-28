@@ -93,6 +93,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
+from core.models.enums import EntityStatus
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.query_types import UserProgressResult
 from core.utils.result_simplified import Result
@@ -437,13 +438,13 @@ class SearchOperations(Protocol[T]):
         ...
 
     async def get_by_status(
-        self, status: str, limit: int = 100, user_uid: UserUID | None = None
+        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[T]]:
         """
         Filter entities by status field.
 
         Args:
-            status: Status string (e.g., "active", "completed", "archived")
+            status: EntityStatus enum or status string (e.g., "active", "completed")
             limit: Maximum results to return
             user_uid: Optional user UID to scope results to owner
 

@@ -91,6 +91,7 @@ from core.utils.result_simplified import Errors, Result
 class HasCreateMethod(Protocol):
     """Protocol for services with create() method."""
 
+    # boundary: Result[Any] required — runtime_checkable must match Result[Task], Result[Habit], etc.
     async def create(self, entity: Any, *args: Any, **kwargs: Any) -> Result[Any]:
         """Create an entity."""
         ...
@@ -100,6 +101,7 @@ class HasCreateMethod(Protocol):
 class HasCreateHabitMethod(Protocol):
     """Protocol for services with create_habit() method."""
 
+    # boundary: Result[Any] required — runtime_checkable must match Result[Habit]
     async def create_habit(self, data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
         """Create a habit."""
         ...
@@ -109,6 +111,7 @@ class HasCreateHabitMethod(Protocol):
 class HasCreateGoalMethod(Protocol):
     """Protocol for services with create_goal() method."""
 
+    # boundary: Result[Any] required — runtime_checkable must match Result[Goal]
     async def create_goal(self, data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
         """Create a goal."""
         ...
@@ -118,6 +121,7 @@ class HasCreateGoalMethod(Protocol):
 class HasCreateEventMethod(Protocol):
     """Protocol for services with create_event() method."""
 
+    # boundary: Result[Any] required — runtime_checkable must match Result[Event]
     async def create_event(self, data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
         """Create an event."""
         ...

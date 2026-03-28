@@ -48,6 +48,21 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 ---
 
+## Design Principles
+
+*Core principles governing every technical decision — see [Design Principles](design-principles/README.md)*
+
+| Document | Description |
+|----------|-------------|
+| [One Path Forward](design-principles/ONE_PATH_FORWARD.md) | When a better pattern emerges, the old one is deleted entirely |
+| [Fail Fast](design-principles/FAIL_FAST.md) | Dependencies are required; errors surface immediately with clear reports |
+| [Leverage Maintained Software](design-principles/LEVERAGE_MAINTAINED_SOFTWARE.md) | Adopt established open-source software over bespoke alternatives |
+| [Type Safety as Ontology](design-principles/TYPE_SAFETY_AS_ONTOLOGY.md) | Enums and types define what the app *is*, not just what it accepts |
+| [Limited Backward Compatibility](design-principles/LIMITED_BACKWARD_COMPATIBILITY.md) | No legacy wrappers, no deprecation periods, no historical references |
+| [Analog-Digital Independence](design-principles/ANALOG_DIGITAL_INDEPENDENCE.md) | The Analog layer is the foundation, not a degraded Digital layer |
+
+---
+
 ## Domains
 
 *17 Entity Types with behavioral traits — see [Entity Type Architecture](architecture/ENTITY_TYPE_ARCHITECTURE.md)*

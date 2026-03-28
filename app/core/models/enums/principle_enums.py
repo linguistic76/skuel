@@ -11,6 +11,24 @@ from __future__ import annotations
 from enum import StrEnum
 
 
+class TriggerType(StrEnum):
+    """What triggered a principle reflection."""
+
+    GOAL = "goal"
+    HABIT = "habit"
+    EVENT = "event"
+    CHOICE = "choice"
+    MANUAL = "manual"
+
+    def is_cross_domain(self) -> bool:
+        """Check if this trigger links to another entity domain."""
+        return self != TriggerType.MANUAL
+
+    def get_label(self) -> str:
+        """Get human-readable label."""
+        return self.value.title()
+
+
 class PrincipleCategory(StrEnum):
     """Life domain classification for principles."""
 

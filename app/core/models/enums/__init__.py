@@ -11,7 +11,7 @@ Module Organization:
 - goal_enums: GoalType, GoalTimeframe, MeasurementType, HabitEssentiality
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
 - choice_enums: ChoiceType
-- principle_enums: PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
+- principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
 - submissions_enums: ExerciseScope, FormattingStyle, AnalysisDepth, ContextEnrichmentLevel,
                      ScheduleType, ProgressDepth
 - curriculum_enums: LpType, StepDifficulty
@@ -119,7 +119,13 @@ from .metadata_enums import (
 from .neo_labels import NeoLabel
 
 # Principle enums
-from .principle_enums import AlignmentLevel, PrincipleCategory, PrincipleSource, PrincipleStrength
+from .principle_enums import (
+    AlignmentLevel,
+    PrincipleCategory,
+    PrincipleSource,
+    PrincipleStrength,
+    TriggerType,
+)
 
 # Scheduling enums - time, recurrence, and energy management
 from .scheduling_enums import (
@@ -207,6 +213,7 @@ __all__ = [
     "PrincipleSource",
     "PrincipleStrength",
     "Priority",
+    "TriggerType",
     "ProcessorType",
     "QueryComplexity",
     "ProductivityLevel",

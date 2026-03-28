@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums.principle_enums import AlignmentLevel
+from core.models.enums.principle_enums import AlignmentLevel, TriggerType
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
@@ -57,7 +57,7 @@ class PrincipleReflection:
     reflection_quality_score: float = 0.0  # 0-1 based on depth
 
     # Trigger context (what prompted this reflection)
-    trigger_type: str | None = None  # "goal", "habit", "event", "choice", "manual"
+    trigger_type: TriggerType | None = None
     trigger_uid: str | None = None  # UID of triggering entity
     trigger_context: str | None = None  # Description of triggering situation
 
@@ -79,10 +79,14 @@ class PrincipleReflection:
         if not (0.0 <= self.reflection_quality_score <= 1.0):
             raise ValueError("reflection_quality_score must be between 0.0 and 1.0")
 
-        # Validate trigger_type if provided
-        valid_triggers = {"goal", "habit", "event", "choice", "manual", None}
-        if self.trigger_type not in valid_triggers:
-            raise ValueError(f"trigger_type must be one of {valid_triggers}")
+        # Coerce trigger_type string to TriggerType enum if needed
+        if self.trigger_type is not None and not isinstance(self.trigger_type, TriggerType):
+            try:
+                object.__setattr__(self, "trigger_type", TriggerType(self.trigger_type))
+            except ValueError:
+                raise ValueError(
+                    f"trigger_type must be a TriggerType value, got '{self.trigger_type}'"
+                )
 
     # ========================================================================
     # FACTORY METHODS
@@ -167,36 +171,30 @@ class PrincipleReflection:
 
     def has_trigger(self) -> bool:
         """Check if this reflection was triggered by a specific entity."""
-        return self.trigger_type is not None and self.trigger_type != "manual"
+        return self.trigger_type is not None and self.trigger_type != TriggerType.MANUAL
 
     def was_triggered_by_goal(self) -> bool:
         """Check if reflection was triggered by a goal."""
-        return self.trigger_type == "goal"
+        return self.trigger_type == TriggerType.GOAL
 
     def was_triggered_by_habit(self) -> bool:
         """Check if reflection was triggered by a habit."""
-        return self.trigger_type == "habit"
+        return self.trigger_type == TriggerType.HABIT
 
     def was_triggered_by_event(self) -> bool:
         """Check if reflection was triggered by an event."""
-        return self.trigger_type == "event"
+        return self.trigger_type == TriggerType.EVENT
 
     def was_triggered_by_choice(self) -> bool:
         """Check if reflection was triggered by a choice."""
-        return self.trigger_type == "choice"
+        return self.trigger_type == TriggerType.CHOICE
 
     def get_trigger_description(self) -> str:
         """Get human-readable description of what triggered this reflection."""
         if not self.has_trigger():
             return "Manual reflection"
 
-        type_labels = {
-            "goal": "Goal",
-            "habit": "Habit",
-            "event": "Event",
-            "choice": "Choice",
-        }
-        label = type_labels.get(self.trigger_type, "Entity")
+        label = self.trigger_type.get_label() if self.trigger_type else "Entity"
 
         if self.trigger_context:
             return f"{label}: {self.trigger_context}"

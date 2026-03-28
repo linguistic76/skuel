@@ -25,6 +25,8 @@ Usage:
     )
 """
 
+from typing import Any
+
 from fasthtml.common import H3, Canvas, Div, Link, P, Script, Span
 
 from core.models.type_hints import UserUID
@@ -38,14 +40,14 @@ from ui.layout import Size
 # =============================================================================
 
 
-def chart_js_scripts() -> list:
+def chart_js_scripts() -> list[Any]:
     """Return script tags for Chart.js (local vendor)."""
     return [
         Script(src="/static/vendor/chart.js/chart.umd.js"),
     ]
 
 
-def visjs_scripts() -> list:
+def visjs_scripts() -> list[Any]:
     """Return script and link tags for Vis.js Timeline (local vendor)."""
     return [
         Link(
@@ -56,7 +58,7 @@ def visjs_scripts() -> list:
     ]
 
 
-def gantt_scripts() -> list:
+def gantt_scripts() -> list[Any]:
     """Return script and link tags for Frappe Gantt (local vendor)."""
     return [
         Link(

@@ -7,11 +7,12 @@ Status and entity type badge components for teaching views.
 
 from typing import Any
 
+from core.models.enums import EntityStatus, EntityType
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 
 
-def status_badge(status: str) -> Any:
+def status_badge(status: EntityStatus | str) -> Any:
     """Render a badge for entity status."""
     badge_variants: dict[str, BadgeT] = {
         "submitted": BadgeT.warning,
@@ -20,14 +21,16 @@ def status_badge(status: str) -> Any:
         "revision_requested": BadgeT.error,
         "draft": BadgeT.ghost,
     }
-    variant = badge_variants.get(status, BadgeT.ghost)
-    label = status.replace("_", " ").title()
+    status_str = status.value if isinstance(status, EntityStatus) else status
+    variant = badge_variants.get(status_str, BadgeT.ghost)
+    label = status_str.replace("_", " ").title()
     return Badge(label, variant=variant)
 
 
-def entity_type_badge(entity_type: str | None) -> Any:
+def entity_type_badge(entity_type: EntityType | str | None) -> Any:
     """Render a badge for entity type."""
     if not entity_type:
         return ""
-    label = entity_type.replace("_", " ").title()
+    type_str = entity_type.value if isinstance(entity_type, EntityType) else entity_type
+    label = type_str.replace("_", " ").title()
     return Badge(label, variant=BadgeT.outline, size=Size.sm)

@@ -367,7 +367,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         return await self.search.get_overdue(user_uid, limit)
 
     async def get_events_by_status(
-        self, status: str, limit: int = 100, user_uid: UserUID | None = None
+        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Event]]:
         return await self.search.get_by_status(status, limit, user_uid)
 

@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from core.config.intelligence_tier import IntelligenceTier
+from core.models.enums import EntityType
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.config")
@@ -190,17 +191,21 @@ class VectorSearchConfig:
     learning_state_boost_viewed: float = 0.0  # No change (neutral)
     learning_state_boost_not_started: float = 0.15  # +15% boost (discovery)
 
-    def get_min_score_for_entity(self, entity_type: str) -> float:
+    def get_min_score_for_entity(self, entity_type: EntityType | str) -> float:
         """
         Get minimum similarity score for specific entity type.
 
         Args:
-            entity_type: Entity type (Ku, Task, Goal, Habit, Event, Lpstep)
+            entity_type: Entity type enum or Neo4j label string
 
         Returns:
             Minimum similarity score (0.0-1.0)
         """
-        entity_lower = entity_type.lower()
+        entity_lower = (
+            entity_type.value.lower()
+            if isinstance(entity_type, EntityType)
+            else entity_type.lower()
+        )
         mapping = {
             "entity": self.ku_min_score,
             "task": self.task_min_score,

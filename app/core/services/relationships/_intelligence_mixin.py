@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.protocols import DomainModelProtocol
     from core.models.relationship_registry import DomainRelationshipConfig
+    from core.services.relationships.path_aware_factory import CrossContext
 
 Model = TypeVar("Model", bound="DomainModelProtocol")
 
@@ -436,7 +437,7 @@ class IntelligenceMixin:
         entity_uid: EntityUID,
         depth: int = 2,
         min_confidence: float = 0.7,
-    ) -> Result[Any]:
+    ) -> Result[CrossContext]:
         """
         Get cross-domain context with path-aware typed entities.
 
@@ -459,7 +460,7 @@ class IntelligenceMixin:
         # Get raw cross-domain context
         raw_result = await self.get_cross_domain_context(entity_uid, depth, min_confidence)
         if raw_result.is_error:
-            return raw_result
+            return Result.fail(raw_result)
 
         raw_context = raw_result.value
 

@@ -25,6 +25,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import RouteList
 from adapters.inbound.form_helpers import safe_form_string
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -68,7 +69,7 @@ def create_lifepath_ui_routes(
     rt: Any,
     lifepath_service: Any,
     services: Any = None,
-) -> list:
+) -> RouteList:
     """
     Create LifePath UI routes.
 

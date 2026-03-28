@@ -45,7 +45,12 @@ from adapters.inbound.ui_helpers import (
     render_safe_error_response,
 )
 from core.constants import QueryLimit
-from core.models.enums.principle_enums import AlignmentLevel, PrincipleCategory, PrincipleStrength
+from core.models.enums.principle_enums import (
+    AlignmentLevel,
+    PrincipleCategory,
+    PrincipleStrength,
+    TriggerType,
+)
 from core.models.type_hints import UserUID
 from core.services.principles_service import PrinciplesService
 from core.utils.logging import get_logger
@@ -140,12 +145,16 @@ def parse_reflection_params(form: Any) -> dict[str, Any]:
     evidence = safe_form_string(form.get("evidence"))
 
     # Trigger fields (optional)
-    trigger_type = safe_form_string(form.get("trigger_type")) or "manual"
+    trigger_type_str = safe_form_string(form.get("trigger_type")) or "manual"
+    try:
+        trigger_type = TriggerType(trigger_type_str)
+    except ValueError:
+        trigger_type = TriggerType.MANUAL
     trigger_uid = safe_form_string(form.get("trigger_uid")) or None
     trigger_context = safe_form_string(form.get("trigger_context")) or None
 
     # Clear trigger_uid if type is manual (no entity associated)
-    if trigger_type == "manual":
+    if trigger_type == TriggerType.MANUAL:
         trigger_uid = None
 
     # Fallback evidence if not provided

@@ -65,6 +65,7 @@ from adapters.persistence.neo4j.query import (
     build_relationship_traversal_query,
     build_text_search_query,
 )
+from core.models.enums import EntityStatus
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -619,13 +620,13 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     @with_error_handling("get_by_status", error_type="database")
     async def get_by_status(
-        self, status: str, limit: int = 100, user_uid: UserUID | None = None
+        self, status: EntityStatus | str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[builtins.list[T]]:
         """
         Filter entities by status field.
 
         Args:
-            status: Status string (e.g., "active", "completed", "archived")
+            status: EntityStatus enum or status string (e.g., "active", "completed")
             limit: Maximum results to return
             user_uid: Optional user UID to scope results to owner
 
@@ -637,7 +638,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if config_result.is_error:
             return Result.fail(config_result)
 
-        filters: dict[str, Any] = {"status": status, "limit": limit}
+        status_str = status.value if isinstance(status, EntityStatus) else status
+        filters: dict[str, Any] = {"status": status_str, "limit": limit}
         if user_uid:
             filters["user_uid"] = user_uid
 

@@ -734,14 +734,14 @@ class PrinciplesViewComponents:
     @staticmethod
     def _render_reflection_card(reflection: Any) -> Div:
         """Render a single reflection card."""
-        from core.models.enums.principle_enums import AlignmentLevel
+        from core.models.enums.principle_enums import AlignmentLevel, TriggerType
 
         alignment = getattr(reflection, "alignment_level", AlignmentLevel.PARTIAL)
         evidence = getattr(reflection, "evidence", "")
         notes = getattr(reflection, "reflection_notes", "")
         quality = getattr(reflection, "reflection_quality_score", 0.0)
         reflection_date = getattr(reflection, "reflection_date", "")
-        trigger_type = getattr(reflection, "trigger_type", "manual")
+        trigger_type = getattr(reflection, "trigger_type", TriggerType.MANUAL)
 
         alignment_variants = {
             AlignmentLevel.ALIGNED: (BadgeT.success, "Fully Aligned"),
@@ -776,10 +776,10 @@ class PrinciplesViewComponents:
                 P(evidence, cls="text-muted-foreground mb-2") if evidence else None,
                 P(notes, cls="text-muted-foreground text-sm italic") if notes else None,
                 Span(
-                    f"Triggered by: {trigger_type}",
+                    f"Triggered by: {trigger_type.get_label() if isinstance(trigger_type, TriggerType) else trigger_type}",
                     cls="text-xs text-muted-foreground mt-2 block",
                 )
-                if trigger_type != "manual"
+                if trigger_type != TriggerType.MANUAL
                 else None,
                 cls="p-4",
             ),
