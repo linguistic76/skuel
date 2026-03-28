@@ -15,9 +15,7 @@ from typing import Any
 
 from core.ports.query_types import (
     AlertCheckResult,
-    ComponentHealthStatus,
     HealthCheckValidation,
-    HealthCheckerValidationResult,
     HealthSummaryResult,
     SystemHealthStatus,
     SystemInfoResult,

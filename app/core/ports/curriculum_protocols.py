@@ -672,7 +672,9 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         """Find KUs user is ready to learn based on mastery and prerequisites."""
         ...
 
-    async def compute_hub_scores(self) -> Result[list[dict[str, Any]]]:  # boundary: returns {updated_count}
+    async def compute_hub_scores(
+        self,
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {updated_count}
         """Compute and cache degree centrality hub scores on all Entity nodes."""
         ...
 

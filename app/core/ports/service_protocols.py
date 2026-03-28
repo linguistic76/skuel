@@ -661,9 +661,7 @@ class LateralRelationshipBackendOperations(Protocol):
 
     async def get_cousins(self, entity_uid: EntityUID) -> Result[list[CousinRow]]: ...
 
-    async def get_blocking_chain(
-        self, entity_uid: EntityUID
-    ) -> Result[list[BlockingChainRow]]: ...
+    async def get_blocking_chain(self, entity_uid: EntityUID) -> Result[list[BlockingChainRow]]: ...
 
     async def get_alternatives_comparison(
         self, entity_uid: EntityUID

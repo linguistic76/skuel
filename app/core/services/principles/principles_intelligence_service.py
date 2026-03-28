@@ -19,15 +19,14 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
-from core.models.enums.principle_enums import AlignmentLevel
-from core.models.principle.principle import Principle
-from core.models.principle.principle_dto import PrincipleDTO
-from core.models.relationship_names import RelationshipName
 
 # NOTE (November 2025): Removed Has* protocol imports - Principle model is well-typed
 # - Principle.strength: PrincipleStrength (direct access)
 # - Principle does NOT have adherence_score - use default 0.5 where needed
-from core.models.enums.principle_enums import PrincipleStrength
+from core.models.enums.principle_enums import AlignmentLevel, PrincipleStrength
+from core.models.principle.principle import Principle
+from core.models.principle.principle_dto import PrincipleDTO
+from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
@@ -174,8 +173,12 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         active_principles = [p for p in principles if p.is_active]
 
         # Count by strength
-        core_principles = [p for p in principles if p.strength and p.strength == PrincipleStrength.CORE]
-        strong_principles = [p for p in principles if p.strength and p.strength == PrincipleStrength.STRONG]
+        core_principles = [
+            p for p in principles if p.strength and p.strength == PrincipleStrength.CORE
+        ]
+        strong_principles = [
+            p for p in principles if p.strength and p.strength == PrincipleStrength.STRONG
+        ]
 
         return Result.ok(
             {

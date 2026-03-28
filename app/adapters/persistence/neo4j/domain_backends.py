@@ -3025,7 +3025,8 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         if result.is_error:
             return Result.fail(result)
         items: list[CurriculumExerciseResult] = [
-            dict(record) for record in (result.value or [])  # type: ignore[misc]
+            dict(record)
+            for record in (result.value or [])  # type: ignore[misc]
         ]
         return Result.ok(items)
 
@@ -3279,7 +3280,8 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         if result.is_error:
             return Result.fail(result)
         items: list[RevisionChainResult] = [
-            dict(record) for record in (result.value or [])  # type: ignore[misc]
+            dict(record)
+            for record in (result.value or [])  # type: ignore[misc]
         ]
         return Result.ok(items)
 

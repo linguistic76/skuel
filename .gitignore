@@ -226,3 +226,6 @@ app/core/models/0000000000000000000
 app/core/models/2 consider
 app/core/models/2do cleanup
 app/core/models/cosmetics
+
+# YAML templates (local content, not tracked)
+app/yaml_templates/
