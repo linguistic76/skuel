@@ -100,12 +100,12 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 - Domain CRUD params (`create_goal`, `update_habit`, etc.) → `Metadata`
 - Cross-domain context returns → `GraphContextResult`
 
-**Phase 4 — Return types:** ~149 protocol methods migrated from `Result[Any]` to specific types (0 `Result[Any]` remain in protocols, 1 intentional in `base_service_interface.py`):
+**Phase 4 — Return types:** ~170 protocol methods migrated from `Result[Any]` to specific types (0 `Result[Any]` remain in protocols, 1 intentional in `base_service_interface.py`):
 
 - **Domain model returns:** `Result[SubmissionEntity]`, `Result[ExerciseReport]`, `Result[Askesis]`,
   `Result[CalendarData]`, `Result[Group]`, `Result[JeInput]`, `Result[JeOutput]`, `Result[Exercise]`,
   `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ReportSchedule]`, `Result[ActivityReport]`
-- **72 output TypedDicts** in `query_types.py` for structured dict returns:
+- **85 output TypedDicts** in `query_types.py` for structured dict returns:
 
 | TypedDict | Protocol / Field | Methods |
 |-----------|-----------------|---------|
@@ -122,6 +122,9 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 | `RichEntityItem`, `RichKnowledgeUnitItem`, `RichLearningPathItem`, `RichLearningStepItem`, `RichMOCItem` | `UserContext` fields | `entities_rich`, `knowledge_units_rich`, `enrolled_paths_rich`, `active_learning_steps_rich`, `active_mocs_rich` |
 | `UnsubmittedExerciseItem`, `PendingRevisedExerciseItem`, `FacetInteractionItem` | `UserContext` fields | `unsubmitted_exercises`, `pending_revised_exercises`, `facet_interaction_history` |
 | `CrossDomainInsightsData`, `CrossDomainInsightItem` | `UserContext` field | `cross_domain_insights` |
+| `NextActionResult`, `AtRiskHabitsResult`, `AdaptiveLearningPathResult`, `FutureContextStateResult`, `ContextHealthResult` | `ContextAwareOperations` | `get_next_action`, `get_at_risk_habits`, `get_adaptive_learning_path`, `predict_future_context_state`, `get_context_health` |
+| `GraphInfluenceItem`, `RelationshipSummaryResult` | `GraphEntity` | `get_upstream_influences`, `get_downstream_impacts`, `get_relationship_summary` |
+| `SubstantiationSummaryResult`, `LsKnowledgeSummaryResult`, `LsPracticeSummaryResult`, `UserProgressResult` | `CurriculumOperations`, `LsOperations` | `get_substantiation_summary`, `get_knowledge_summary`, `get_practice_summary`, `get_user_progress` |
 
 ---
 

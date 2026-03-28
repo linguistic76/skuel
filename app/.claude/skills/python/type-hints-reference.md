@@ -269,6 +269,14 @@ from core.ports.query_types import (
     LateralRelationshipItem, BlockingChainResult,
     AnnotationResult, PrivacySummary,
     ContextDashboard, ContextSummary, IntelligenceResult,
+    # Context intelligence results
+    NextActionResult, AtRiskHabitsResult, AdaptiveLearningPathResult,
+    FutureContextStateResult, ContextHealthResult,
+    # Graph entity results
+    GraphInfluenceItem, RelationshipSummaryResult,
+    # Curriculum structure results
+    SubstantiationSummaryResult, LsKnowledgeSummaryResult,
+    LsPracticeSummaryResult, UserProgressResult,
     # UserContext field types
     RichEntityItem, RichKnowledgeUnitItem, RichLearningPathItem,
     RichLearningStepItem, CrossDomainInsightsData,

@@ -28,7 +28,7 @@ SKUEL is built on a developing ontology — 21 entity types, behavioral traits, 
 | "Some things are owned by users" | `UserOwnedEntity(Entity)` base class |
 | "Entities have behavioral traits" | `is_activity()`, `is_processable()`, `requires_user_uid()` methods |
 | "Services have defined contracts" | 65+ protocols in `core/ports/` |
-| "Query results have known shapes" | 93 TypedDicts in `core/ports/query_types.py` |
+| "Query results have known shapes" | 106 TypedDicts in `core/ports/query_types.py` |
 | "The learning loop has phases" | `Lesson -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise` type chain |
 
 When the ontology evolves — a new entity type, a new relationship, a new behavioral trait — the type system evolves with it. A MyPy error after such a change is not noise; it's the system telling you where the old ontology assumptions no longer hold. This is why SKUEL's core principle for type safety is: *"A type error from MyPy reveals a real design problem, not an annotation oversight."*
@@ -139,8 +139,8 @@ SKUEL's type safety has reached a solid, production-grade foundation:
 | 0 MyPy errors baseline | Achieved March 2026 (down from 2,247) |
 | Three-tier type system | Enforced across all 21 entity types |
 | Protocol-based DI | 65+ protocols, 100% protocol-mixin alignment |
-| Typed protocol returns | ~149 methods return specific models/TypedDicts, 0 `Result[Any]` in protocols (1 intentional in `base_service_interface.py`) |
-| Query type coverage | 93 TypedDicts (21 input, 72 output) |
+| Typed protocol returns | ~170 methods return specific models/TypedDicts, 0 `Result[Any]` in protocols (1 intentional in `base_service_interface.py`) |
+| Query type coverage | 106 TypedDicts (21 input, 85 output) |
 | Any usage policy | Three categories with enforcement |
 | Security NewTypes | `UserUID` propagated to ~1,930 annotations across 313 files; `EntityUID` to ~200 annotations (including variant names like `parent_entity_uid`, `source_entity_uid`). All layers enforce `UserUID` — auth, REST, GraphQL, services, backends, ingestion |
 | Enum-enforced boundaries | `UserRole` and `ExerciseScope` — zero raw string comparisons remain; all role/scope checks use enum members |

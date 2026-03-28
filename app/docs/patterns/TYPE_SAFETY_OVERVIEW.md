@@ -86,8 +86,8 @@ def create_tasks_api_routes(
 - 100% protocol compliance — all 7 `BaseService` mixins verified by TYPE_CHECKING blocks
 - 29 automated compliance tests (run: `uv run pytest tests/unit/test_protocol_mixin_compliance.py`)
 - Zero `Any` fields in the `Services` dataclass — all 72 fields typed
-- ~149 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026). 0 `Result[Any]` remain in protocols (1 intentional in `base_service_interface.py`)
-- 93 TypedDicts in `query_types.py` — 21 for inputs (filters, payloads), 72 for outputs (domain stats, system health, teacher review, visualization configs, result shapes, UserContext field types)
+- ~170 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026). 0 `Result[Any]` remain in protocols (1 intentional in `base_service_interface.py`)
+- 106 TypedDicts in `query_types.py` — 21 for inputs (filters, payloads), 85 for outputs (domain stats, system health, teacher review, visualization configs, result shapes, UserContext field types, context intelligence, graph entity, curriculum structure)
 
 **BackendOperations[T] hierarchy** — the foundational generic protocol:
 ```python
@@ -144,7 +144,7 @@ from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request
 (`Neo4jProperties`, `FilterParams`, `Metadata`, `RelationshipMetadata`, `GraphContextResult`)
 instead of `dict[str, Any]` for parameters.
 
-*Phase 4 — Return types:* ~149 protocol methods migrated from `Result[Any]` / `Result[dict[str, Any]]`
+*Phase 4 — Return types:* ~170 protocol methods migrated from `Result[Any]` / `Result[dict[str, Any]]`
 to specific types (0 `Result[Any]` remain in protocols, 1 intentional in `base_service_interface.py`):
 - Domain model returns: `Result[ExerciseSubmission]`, `Result[Askesis]`, `Result[CalendarData]`, etc.
 - Existing TypedDicts: `Result[ContextDashboard]`, `Result[ContextSummary]`

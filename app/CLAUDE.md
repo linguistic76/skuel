@@ -189,12 +189,12 @@ UniversalNeo4jBackend[T]  <- ONE instance per domain, NO wrappers
 |--------|-------------|
 | **Three-Tier Type System** | Pydantic at edges, frozen dataclasses at core, DTOs between |
 | **Protocol-Based DI** | Zero concrete dependencies in route signatures — all services injected as protocols |
-| **Typed Protocol Returns** | ~149 protocol methods return specific models/TypedDicts; 0 `Result[Any]` in protocols (1 intentional in `base_service_interface.py`) |
+| **Typed Protocol Returns** | ~170 protocol methods return specific models/TypedDicts; 0 `Result[Any]` in protocols (1 intentional in `base_service_interface.py`) |
 | **Any Usage Policy** | Every `Any` is justified (Category C boundary) or eliminated (Categories A + B) |
 
 **Key type aliases** (from `core/models/type_hints.py`): `Neo4jProperties`, `FilterParams`, `RelationshipMetadata`
 
-**Protocol return TypedDicts** (from `core/ports/query_types.py`): 93 TypedDicts — 21 for inputs (filters, payloads) + 72 for outputs (domain stats, system health, teacher review, visualization configs, intelligence, life path, lateral relationships, activity reports, UserContext field shapes). New protocol methods should return a specific model or TypedDict, not `Result[Any]`.
+**Protocol return TypedDicts** (from `core/ports/query_types.py`): 106 TypedDicts — 21 for inputs (filters, payloads) + 85 for outputs (domain stats, system health, teacher review, visualization configs, intelligence, life path, lateral relationships, activity reports, UserContext field shapes, context intelligence, graph entity, curriculum structure). New protocol methods should return a specific model or TypedDict, not `Result[Any]`.
 
 **FastHTML boundary** (no type stubs): `from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request, RouteList`
 
