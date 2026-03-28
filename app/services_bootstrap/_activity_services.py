@@ -16,7 +16,6 @@ def _create_activity_services(
     goals_backend: Any,
     choices_backend: Any,
     principles_backend: Any,
-    reflection_backend: Any = None,
     # Shared dependencies
     graph_intelligence: Any = None,
     event_bus: Any = None,
@@ -39,7 +38,7 @@ def _create_activity_services(
     Domain-specific dependencies:
         - Tasks: ku_inference_service, analytics_engine, ku_generation_service
         - Habits: completions_backend (for achievements)
-        - Principles: goals_backend, habits_backend (cross-domain alignment), reflection_backend
+        - Principles: goals_backend, habits_backend (cross-domain alignment)
 
     All facades embed intelligence (access via facade.intelligence).
     """
@@ -95,7 +94,6 @@ def _create_activity_services(
             graph_intelligence_service=graph_intelligence,
             goals_backend=goals_backend,
             habits_backend=habits_backend,
-            reflection_backend=reflection_backend,
             event_bus=event_bus,
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,

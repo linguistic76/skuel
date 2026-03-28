@@ -257,14 +257,13 @@ def _insight_item(level: str, message: str, href: str) -> A:
 def _current_focus_card(context: UserContext) -> Div:
     """Current task focus — compact inline element."""
     if not context.current_task_focus:
-        return A(
+        return Div(
             Span("🎯", cls="text-lg mr-2"),
             Span(
                 "No current focus set",
-                cls="text-sm text-muted-foreground group-hover:text-primary transition-colors",
+                cls="text-sm text-muted-foreground",
             ),
-            href="/tasks",
-            cls="flex items-center mb-4 group",
+            cls="flex items-center mb-4",
         )
 
     # Get task title from rich data if available
@@ -278,10 +277,9 @@ def _current_focus_card(context: UserContext) -> Div:
     return Div(
         Span("🎯", cls="text-lg mr-2"),
         Span("Focus: ", cls="text-sm font-medium text-muted-foreground"),
-        A(
+        Span(
             task_title,
-            href=f"/tasks/get?uid={context.current_task_focus}",
-            cls="text-sm font-medium text-primary hover:underline",
+            cls="text-sm font-medium text-primary",
         ),
         cls="flex items-center mb-4",
     )

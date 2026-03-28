@@ -51,11 +51,9 @@ from core.services.tasks import (
     TasksIntelligenceService,
     TasksLearningMetricsService,
     TasksPlanningService,
-    TasksProductivityService,
     TasksProgressService,
     TasksSchedulingService,
 )
-from core.services.tasks.tasks_ai_service import TasksAIService
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
@@ -274,7 +272,8 @@ class TasksService(BaseService["TasksOperations", Task]):
     planning: TasksPlanningService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
-    productivity: TasksProductivityService
+    # AI service shelved (2026-03-28)
+    # TasksProductivityService shelved (2026-03-28)
     learning_metrics: TasksLearningMetricsService
     event_handler: TaskEventHandlerService
 
@@ -286,7 +285,6 @@ class TasksService(BaseService["TasksOperations", Task]):
         ku_generation_service=None,
         graph_intelligence_service=None,
         event_bus=None,
-        ai_service: TasksAIService | None = None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: Any = None,
     ) -> None:
@@ -300,13 +298,11 @@ class TasksService(BaseService["TasksOperations", Task]):
             ku_generation_service: InsightGenerationService for automatic knowledge generation,
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
             event_bus: Event bus for publishing domain events (optional)
-            ai_service: Optional AI service for LLM/embeddings features (January 2026)
             insight_store: For persisting event-driven insights (optional)
         """
         super().__init__(backend, "tasks")
 
-        # AI service (optional - app works without it)
-        self.ai: TasksAIService | None = ai_service
+        # AI service shelved (2026-03-28)
 
         self.logger = get_logger("skuel.services.tasks")  # type: ignore[assignment]  # structlog BoundLogger
 
@@ -337,11 +333,7 @@ class TasksService(BaseService["TasksOperations", Task]):
             event_bus=event_bus,
         )
 
-        # Dual-track productivity assessment (ADR-030)
-        self.productivity: TasksProductivityService = TasksProductivityService(
-            backend=backend,
-            event_bus=event_bus,
-        )
+        # TasksProductivityService shelved (2026-03-28)
 
         # Task-level learning metrics (uses Task model + TaskRelationships)
         self.learning_metrics: TasksLearningMetricsService = TasksLearningMetricsService(

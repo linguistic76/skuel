@@ -27,7 +27,6 @@ from core.services.base_service import BaseService
 # Import sub-services
 from core.services.choices import ChoicesLearningService
 from core.services.choices.choice_event_handler_service import ChoiceEventHandlerService
-from core.services.choices.choices_ai_service import ChoicesAIService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
 
@@ -334,7 +333,6 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         backend: ChoicesOperations,
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
-        ai_service: ChoicesAIService | None = None,
         insight_store: Any = None,
         activity_knowledge_intelligence: Any = None,
     ) -> None:
@@ -359,7 +357,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
 
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
-        self.ai: ChoicesAIService | None = ai_service
+        # AI service shelved (2026-03-28)
         self.logger = get_logger("skuel.services.choices")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Initialize 4 common sub-services via factory (eliminates ~30 lines of repetitive code)

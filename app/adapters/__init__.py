@@ -24,7 +24,7 @@ Example Usage:
     from adapters.events_adapters import InMemoryEventBus
 
     # Web routes in adapters/inbound/
-    from adapters.inbound.tasks_routes import create_tasks_routes
+    from adapters.inbound.study_routes import create_study_routes
 """
 
 __version__ = "1.0"

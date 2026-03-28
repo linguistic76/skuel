@@ -17,10 +17,10 @@ Sub-Services:
 - TasksSchedulingService: Scheduling, capacity management
 - TasksPlanningService: Context-aware planning and recommendations
 - TasksIntelligenceService: Pure Cypher analytics (NO AI dependencies)
-- TasksProductivityService: Dual-track productivity assessment (ADR-030)
 - TasksLearningMetricsService: Task-level learning metrics via Task model
 - TaskEventHandlerService: Event-driven reactive handlers
-- TasksAIService: AI-powered features (LLM/embeddings) - OPTIONAL
+- TasksAIService: SHELVED (2026-03-28)
+- TasksProductivityService: SHELVED (2026-03-28)
 
 Common Import Pattern (Production):
     from core.services.tasks_service import TasksService  # Facade
@@ -44,24 +44,22 @@ Architecture Notes:
 
 # Import implemented services
 from core.services.tasks.task_event_handler_service import TaskEventHandlerService
-from core.services.tasks.tasks_ai_service import TasksAIService
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.services.tasks.tasks_intelligence_service import TasksIntelligenceService
 from core.services.tasks.tasks_learning_metrics_service import TasksLearningMetricsService
 from core.services.tasks.tasks_planning_service import TasksPlanningService
-from core.services.tasks.tasks_productivity_service import TasksProductivityService
 from core.services.tasks.tasks_progress_service import TasksProgressService
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 from core.services.tasks.tasks_search_service import TasksSearchService
 
+# Shelved (2026-03-28): TasksAIService, TasksProductivityService
+
 __all__ = [
     "TaskEventHandlerService",
-    "TasksAIService",
     "TasksCoreService",
     "TasksIntelligenceService",
     "TasksLearningMetricsService",
     "TasksPlanningService",
-    "TasksProductivityService",
     "TasksProgressService",
     "TasksSchedulingService",
     "TasksSearchService",

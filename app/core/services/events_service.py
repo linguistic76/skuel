@@ -42,7 +42,6 @@ from core.services.events import (
     EventsSchedulingService,
     EventsSearchService,
 )
-from core.services.events.events_ai_service import EventsAIService
 from core.services.filtered_context import build_filtered_context
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
@@ -540,7 +539,6 @@ class EventsService(BaseService["EventsOperations", Event]):
         backend: EventsOperations,
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
-        ai_service: EventsAIService | None = None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: Any = None,
     ) -> None:
@@ -564,7 +562,7 @@ class EventsService(BaseService["EventsOperations", Event]):
 
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
-        self.ai: EventsAIService | None = ai_service
+        # AI service shelved (2026-03-28)
         self.logger = get_logger("skuel.services.events")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Initialize 4 common sub-services via factory (eliminates ~30 lines of repetitive code)

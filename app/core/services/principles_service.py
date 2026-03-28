@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength, TriggerType
+from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.type_hints import EntityUID, UserUID
@@ -38,9 +38,7 @@ from core.services.principles import (
     PrinciplesAlignmentService,
     PrinciplesLearningService,
     PrinciplesPlanningService,
-    PrinciplesReflectionService,
 )
-from core.services.principles.principles_ai_service import PrinciplesAIService
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
@@ -51,15 +49,12 @@ from core.utils.sort_functions import get_created_at_attr, get_title_or_name_low
 from core.utils.type_converters import normalize_enum_str
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
     from datetime import date
 
     from core.models.context_types import ContextualPrinciple, PracticeOpportunity
-    from core.models.enums.principle_enums import AlignmentLevel
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.models.principle.principle_types import PrincipleDecision
-    from core.models.principle.reflection import PrincipleReflection
     from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
     from core.ports.search_protocols import PrinciplesSearchOperations
     from core.services.principles.principles_alignment_service import (
@@ -71,10 +66,6 @@ if TYPE_CHECKING:
     )
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
-    )
-    from core.services.principles.principles_reflection_service import (
-        AlignmentTrend,
-        CrossDomainInsight,
     )
     from core.services.user import UserContext
 
@@ -365,75 +356,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     ) -> Result[list[Principle]]:
         return await self.search.get_for_choice(choice_uid, limit)
 
-    # Reflection delegations
-    async def save_reflection(
-        self,
-        principle_uid: str,
-        user_uid: UserUID,
-        alignment_level: AlignmentLevel,
-        evidence: str,
-        reflection_notes: str | None = None,
-        trigger_type: TriggerType | None = None,
-        trigger_uid: str | None = None,
-        trigger_context: str | None = None,
-        conflicting_principle_uids: Sequence[str] | None = None,
-    ) -> Result[PrincipleReflection]:
-        return await self.reflection.save_reflection(
-            principle_uid,
-            user_uid,
-            alignment_level,
-            evidence,
-            reflection_notes,
-            trigger_type,
-            trigger_uid,
-            trigger_context,
-            conflicting_principle_uids,
-        )
-
-    async def get_reflections_for_principle(
-        self,
-        principle_uid: str,
-        user_uid: UserUID,
-        limit: int = 50,
-    ) -> Result[list[PrincipleReflection]]:
-        return await self.reflection.get_reflections_for_principle(principle_uid, user_uid, limit)
-
-    async def get_recent_reflections(
-        self,
-        user_uid: UserUID,
-        days: int = 7,
-        limit: int = 20,
-    ) -> Result[list[PrincipleReflection]]:
-        return await self.reflection.get_recent_reflections(user_uid, days, limit)
-
-    async def get_alignment_trend(
-        self,
-        principle_uid: str,
-        user_uid: UserUID,
-        days: int = 30,
-    ) -> Result[AlignmentTrend]:
-        return await self.reflection.calculate_alignment_trend(principle_uid, user_uid, days)
-
-    async def get_cross_domain_insights(
-        self,
-        principle_uid: str,
-        user_uid: UserUID,
-    ) -> Result[list[CrossDomainInsight]]:
-        return await self.reflection.get_cross_domain_insights(principle_uid, user_uid)
-
-    async def get_reflection_frequency(
-        self,
-        user_uid: UserUID,
-        days: int = 30,
-    ) -> Result[dict[str, Any]]:
-        return await self.reflection.get_reflection_frequency(user_uid, days)
-
-    async def get_conflict_analysis(
-        self,
-        principle_uid: str,
-        user_uid: UserUID,
-    ) -> Result[dict[str, Any]]:
-        return await self.reflection.get_conflict_analysis(principle_uid, user_uid)
+    # PrinciplesReflectionService shelved (2026-03-28)
 
     # Planning delegations
     async def get_principles_needing_attention_for_user(
@@ -466,9 +389,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         graph_intelligence_service: Any,
         goals_backend: GoalsOperations | None = None,
         habits_backend: HabitsOperations | None = None,
-        reflection_backend: Any | None = None,
         event_bus: Any = None,
-        ai_service: PrinciplesAIService | None = None,
         insight_store: Any = None,
         activity_knowledge_intelligence: Any = None,
     ) -> None:
@@ -480,7 +401,6 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             goals_backend: Backend for goal queries (cross-domain alignment)
             habits_backend: Backend for habit queries (cross-domain alignment)
-            reflection_backend: Backend for reflection persistence (optional, uses backend if not provided)
             event_bus: Event bus for publishing domain events (optional)
             insight_store: InsightStore for persisting event-driven insights (optional)
 
@@ -496,7 +416,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
-        self.ai: PrinciplesAIService | None = ai_service
+        # AI service shelved (2026-03-28)
         self.logger = get_logger("skuel.services.principles")  # type: ignore[assignment]  # structlog BoundLogger
         self.alignment_cache: dict[str, AlignmentAssessment] = {}
 
@@ -522,11 +442,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         )
         self.learning = PrinciplesLearningService(backend=backend)
 
-        # Reflection sub-service (January 2026 - graph-connected reflections)
-        self.reflection = PrinciplesReflectionService(
-            backend=reflection_backend or backend,
-            event_bus=event_bus,
-        )
+        # PrinciplesReflectionService shelved (2026-03-28)
 
         # Planning sub-service (January 2026 - context-aware recommendations)
         self.planning = PrinciplesPlanningService(
@@ -549,9 +465,9 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         self.knowledge_intelligence = activity_knowledge_intelligence
 
         self.logger.info(
-            "PrinciplesService facade initialized with 10 sub-services: "
+            "PrinciplesService facade initialized with 8 sub-services: "
             "core, search, alignment, learning, relationships, intelligence, "
-            "reflection, planning, event_handler, knowledge_intelligence"
+            "planning, event_handler, knowledge_intelligence"
         )
 
     # ========================================================================
@@ -1071,17 +987,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         except Exception as e:  # safety-net: optional alignment degrades gracefully
             self.logger.warning(f"Could not calculate adherence: {e}")
 
-        recent_reflections: list[Any] = []
-        try:
-            reflections_result = await self.reflection.get_recent_reflections(
-                user_uid,
-                days=7,
-                limit=10,
-            )
-            if not reflections_result.is_error:
-                recent_reflections = reflections_result.value
-        except Exception as e:  # safety-net: optional reflections degrade gracefully
-            self.logger.warning(f"Could not get recent reflections: {e}")
+        # PrinciplesReflectionService shelved (2026-03-28)
 
         return Result.ok(
             {
@@ -1089,7 +995,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
                 "overall_adherence": overall_adherence,
                 "core_count": core_count,
                 "active_count": active_count,
-                "reflections": recent_reflections,
+                "reflections": [],
             }
         )
 

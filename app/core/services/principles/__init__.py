@@ -16,9 +16,10 @@ Sub-Services:
 - PrinciplesAlignmentService: Alignment assessment across domains
 - PrinciplesLearningService: Learning path integration, knowledge connections
 - PrinciplesPlanningService: Context-aware recommendations
-- PrinciplesReflectionService: Reflection persistence and analytics
 - PrinciplesIntelligenceService: Pure Cypher analytics (NO AI dependencies)
 - PrincipleEventHandlerService: Event-driven cascade analysis and conflict intelligence
+- PrinciplesReflectionService: SHELVED (2026-03-28)
+- PrinciplesAIService: SHELVED (2026-03-28)
 
 Common Import Pattern (Production):
     from core.services.principles_service import PrinciplesService  # Facade
@@ -44,8 +45,9 @@ from core.services.principles.principles_event_handler_service import PrincipleE
 from core.services.principles.principles_intelligence_service import PrinciplesIntelligenceService
 from core.services.principles.principles_learning_service import PrinciplesLearningService
 from core.services.principles.principles_planning_service import PrinciplesPlanningService
-from core.services.principles.principles_reflection_service import PrinciplesReflectionService
 from core.services.principles.principles_search_service import PrinciplesSearchService
+
+# Shelved (2026-03-28): PrinciplesReflectionService, PrinciplesAIService
 
 __all__ = [
     "PrincipleEventHandlerService",
@@ -54,6 +56,5 @@ __all__ = [
     "PrinciplesIntelligenceService",
     "PrinciplesLearningService",
     "PrinciplesPlanningService",
-    "PrinciplesReflectionService",
     "PrinciplesSearchService",
 ]

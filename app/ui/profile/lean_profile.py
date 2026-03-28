@@ -1,20 +1,18 @@
 """Lean profile view — Focus + Velocity + Activity overview.
 
-The /profile page shows personal measurements at top, then all activity domains
-at a glance via HTMX-loaded card previews.
+The /profile page shows personal measurements at top, then activity reports link.
 """
 
-from fasthtml.common import A, Div, Span
+from fasthtml.common import Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
-from ui.activities.landing import domain_card_grid
 from ui.buttons import ButtonLink, ButtonT
 from ui.layout import Size
 from ui.layouts.dashboard import DashboardSection
 
 
 def LeanProfileView(context: UserContext) -> Div:
-    """Profile overview: Focus + Velocity + Activity domain grid.
+    """Profile overview: Focus + Velocity + Activity reports link.
 
     Args:
         context: UserContext with ~250 fields of user state
@@ -24,7 +22,19 @@ def LeanProfileView(context: UserContext) -> Div:
         _velocity_summary(context),
         DashboardSection(
             "Activities",
-            domain_card_grid(context),
+            Div(
+                P(
+                    "View your activity reports for insights across all domains.",
+                    cls="text-sm text-muted-foreground mb-3",
+                ),
+                ButtonLink(
+                    "Activity Reports",
+                    href="/activity-reports",
+                    variant=ButtonT.secondary,
+                    size=Size.sm,
+                ),
+                cls="py-2",
+            ),
         ),
         _settings_link(),
     )
@@ -33,14 +43,13 @@ def LeanProfileView(context: UserContext) -> Div:
 def _current_focus_card(context: UserContext) -> Div:
     """Current task focus — compact inline element."""
     if not context.current_task_focus:
-        return A(
+        return Div(
             Span("🎯", cls="text-lg mr-2"),
             Span(
                 "No current focus set",
-                cls="text-sm text-muted-foreground group-hover:text-primary transition-colors",
+                cls="text-sm text-muted-foreground",
             ),
-            href="/tasks",
-            cls="flex items-center mb-4 group",
+            cls="flex items-center mb-4",
         )
 
     task_title = "Current Task"
@@ -53,10 +62,9 @@ def _current_focus_card(context: UserContext) -> Div:
     return Div(
         Span("🎯", cls="text-lg mr-2"),
         Span("Focus: ", cls="text-sm font-medium text-muted-foreground"),
-        A(
+        Span(
             task_title,
-            href=f"/tasks/get?uid={context.current_task_focus}",
-            cls="text-sm font-medium text-primary hover:underline",
+            cls="text-sm font-medium text-primary",
         ),
         cls="flex items-center mb-4",
     )

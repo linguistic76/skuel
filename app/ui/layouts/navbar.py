@@ -250,6 +250,9 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
         tabindex="0",
     )
 
+    if not ACTIVITY_DROPDOWN_ITEMS:
+        return Div(trigger)
+
     dropdown_items = [
         A(
             Span(di.icon, cls="text-base", aria_hidden="true") if di.icon else None,

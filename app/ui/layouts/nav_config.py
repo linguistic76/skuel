@@ -65,15 +65,10 @@ class DropdownItem:
     icon: str = ""
 
 
-# Activity domain dropdown items — shown on hover over the "A" icon
-ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
-    DropdownItem("Tasks", "/tasks", icon="✅"),
-    DropdownItem("Goals", "/goals", icon="🎯"),
-    DropdownItem("Habits", "/habits", icon="🔄"),
-    DropdownItem("Events", "/events", icon="📅"),
-    DropdownItem("Choices", "/choices", icon="🔀"),
-    DropdownItem("Principles", "/principles", icon="⚖️"),
-)
+# Activity domain dropdown items — SHELVED (2026-03-28)
+# Activity CRUD UI moved to _shelved/activity_ui/
+# Activity data viewed via ActivityReport UI in Study sidebar
+ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 
 
 # Curriculum domain dropdown items — shown on hover over the "C" icon

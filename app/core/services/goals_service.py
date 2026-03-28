@@ -40,7 +40,6 @@ from core.services.goals import (
     GoalsSchedulingService,
 )
 from core.services.goals.goal_relationships import GoalRelationships
-from core.services.goals.goals_ai_service import GoalsAIService
 from core.services.goals_types import GoalFeasibilityAssessment
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
@@ -454,7 +453,6 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         backend: GoalsOperations,
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
-        ai_service: GoalsAIService | None = None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: Any = None,
     ) -> None:
@@ -465,7 +463,6 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
             backend: Protocol-based backend for goal operations
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
-            ai_service: Optional AI service for LLM/embeddings features (January 2026)
 
         Note:
             Context invalidation now happens via event-driven architecture.
@@ -474,15 +471,10 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         Migration Note (v3.2.0 - December 2025):
             Made graph_intelligence_service REQUIRED - relationship service needs it.
             Fail-fast at construction, not at method call.
-
-        AI Service Note (January 2026):
-            ai_service is OPTIONAL - the app works without it. When provided,
-            enables AI-powered features like semantic similarity and insights.
         """
         super().__init__(backend, "goals")
 
-        # AI service (optional - app works without it)
-        self.ai: GoalsAIService | None = ai_service
+        # AI service shelved (2026-03-28)
 
         self.graph_intel = graph_intelligence_service
         self.logger = get_logger("skuel.services.goals")  # type: ignore[assignment]  # structlog BoundLogger

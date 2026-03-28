@@ -22,7 +22,8 @@ Sub-Services (in this package):
 - HabitsIntelligenceService: Pure Cypher analytics (NO AI dependencies)
 - HabitEventHandlerService: Event-driven reactive logic (fire-and-forget handlers)
 - HabitsPatternService: Atomic Habits pattern recognition with confidence scoring
-- HabitsGoalAnalyticsService: Cross-domain Habits->Goals analytics (system health, velocity, impact)
+- HabitsGoalAnalyticsService: SHELVED (2026-03-28)
+- HabitsAIService: SHELVED (2026-03-28)
 
 Common Import Pattern (Production):
     from core.services.habits_service import HabitsService  # Facade
@@ -47,7 +48,6 @@ from core.services.habits.habit_event_handler_service import HabitEventHandlerSe
 from core.services.habits.habit_search_service import HabitSearchService
 from core.services.habits.habits_core_service import HabitsCoreService
 from core.services.habits.habits_event_integration_service import HabitsEventIntegrationService
-from core.services.habits.habits_goal_analytics_service import HabitsGoalAnalyticsService
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
 from core.services.habits.habits_learning_service import HabitsLearningService
 from core.services.habits.habits_pattern_service import HabitsPatternService
@@ -55,12 +55,13 @@ from core.services.habits.habits_planning_service import HabitsPlanningService
 from core.services.habits.habits_progress_service import HabitsProgressService
 from core.services.habits.habits_scheduling_service import HabitsSchedulingService
 
+# Shelved (2026-03-28): HabitsGoalAnalyticsService, HabitsAIService
+
 __all__ = [
     "HabitEventHandlerService",
     "HabitSearchService",
     "HabitsCoreService",
     "HabitsEventIntegrationService",
-    "HabitsGoalAnalyticsService",
     "HabitsIntelligenceService",
     "HabitsLearningService",
     "HabitsPatternService",

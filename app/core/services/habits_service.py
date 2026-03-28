@@ -47,9 +47,7 @@ from core.services.habits import (
     HabitsSchedulingService,
 )
 from core.services.habits.habit_event_handler_service import HabitEventHandlerService
-from core.services.habits.habits_ai_service import HabitsAIService
 from core.services.habits.habits_completion_service import HabitsCompletionService
-from core.services.habits.habits_goal_analytics_service import HabitsGoalAnalyticsService
 from core.services.habits.habits_pattern_service import HabitsPatternService
 from core.services.habits.habits_scheduling_service import DEFAULT_MAX_DAILY_LOAD
 
@@ -486,7 +484,6 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         graph_intelligence_service: GraphIntelligenceService,
         completions_backend: BackendOperations[HabitCompletion],
         event_bus: EventBusOperations | None = None,
-        ai_service: HabitsAIService | None = None,
         insight_store: Any = None,
         activity_knowledge_intelligence: Any = None,
     ) -> None:
@@ -498,7 +495,6 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
             completions_backend: Backend for habit completion tracking (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
-            ai_service: Optional AI service for LLM/embeddings features (January 2026)
             insight_store: InsightStore for persisting event-driven insights (optional)
 
         Note:
@@ -514,8 +510,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         """
         super().__init__(backend, "habits")
 
-        # AI service (optional - app works without it)
-        self.ai: HabitsAIService | None = ai_service
+        # AI service shelved (2026-03-28)
 
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
@@ -571,9 +566,9 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             event_bus=event_bus,
         )
 
-        # Pattern recognition + goal analytics (March 2026)
+        # Pattern recognition (March 2026)
         self.patterns = HabitsPatternService(habits_core=self.core)
-        self.goal_analytics = HabitsGoalAnalyticsService(habits_service=self)
+        # HabitsGoalAnalyticsService shelved (2026-03-28)
 
         # Cross-domain dependency — post-wired in bootstrap
         self.goals_service: Any = None

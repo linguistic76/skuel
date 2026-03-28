@@ -524,30 +524,9 @@ async def _wire_all_routes(
 
     create_lesson_reading_routes(app, rt, services, None)
 
-    # -- Activity --
-    from adapters.inbound.tasks_routes import create_tasks_routes
-
-    create_tasks_routes(app, rt, services, None)
-
-    from adapters.inbound.goals_routes import create_goals_routes
-
-    create_goals_routes(app, rt, services, None)
-
-    from adapters.inbound.habits_routes import create_habits_routes
-
-    create_habits_routes(app, rt, services, None)
-
-    from adapters.inbound.events_routes import create_events_routes
-
-    create_events_routes(app, rt, services, None)
-
-    from adapters.inbound.choices_routes import create_choices_routes
-
-    create_choices_routes(app, rt, services, None)
-
-    from adapters.inbound.principles_routes import create_principles_routes
-
-    create_principles_routes(app, rt, services, None)
+    # -- Activity Domain CRUD UI shelved (2026-03-28) --
+    # Routes moved to _shelved/activity_ui/adapters/
+    # Activity data enters via ingestion, viewed via ActivityReport UI
 
     # -- Submissions --
     from adapters.inbound.submissions_routes import create_submissions_routes
@@ -676,10 +655,6 @@ async def _wire_all_routes(
     from adapters.inbound.ai_routes import create_ai_routes
 
     create_ai_routes(app, rt, services)
-
-    from adapters.inbound.activities_ui import setup_activities_routes
-
-    setup_activities_routes(rt, services)
 
     from adapters.inbound.user_profile_ui import setup_user_profile_routes
 

@@ -265,7 +265,7 @@ async def compose_services(
         knowledge_backend = backends["knowledge_backend"]
         ku_backend = backends["ku_backend"]
         principles_backend = backends["principles_backend"]
-        reflection_backend = backends["reflection_backend"]
+        # reflection_backend shelved (2026-03-28)
         choices_backend = backends["choices_backend"]
         progress_backend = backends["progress_backend"]
         submissions_backend = backends["submissions_backend"]
@@ -388,7 +388,7 @@ async def compose_services(
             goals_backend=goals_backend,
             choices_backend=choices_backend,
             principles_backend=principles_backend,
-            reflection_backend=reflection_backend,
+            # reflection_backend removed — PrinciplesReflectionService shelved (2026-03-28)
             graph_intelligence=graph_intelligence,
             event_bus=event_bus,
             ku_inference_service=ku_inference_service,
@@ -573,7 +573,7 @@ async def compose_services(
         askesis_ai, context_aware_ai = _wire_ai_services(
             llm_service=llm_service,
             embeddings_service=embeddings_service,
-            activity_services=activity_services,
+            _activity_services=activity_services,
             learning_services=learning_services,
             user_service=user_service,
             graph_intelligence=graph_intelligence,
@@ -1005,8 +1005,8 @@ async def compose_services(
 
         # Post-wire goals_service into habits (cross-domain dependency)
         activity_services["habits"].goals_service = activity_services["goals"]
-        activity_services["habits"].goal_analytics.goals_service = activity_services["goals"]
-        logger.info("✅ HabitsService + HabitsGoalAnalyticsService wired with GoalsService")
+        # HabitsGoalAnalyticsService shelved (2026-03-28)
+        logger.info("✅ HabitsService wired with GoalsService")
 
         # Post-wire habits_service into goals intelligence (cross-domain dependency)
         activity_services["goals"].intelligence.habits_service = activity_services["habits"]
@@ -1178,9 +1178,7 @@ async def compose_services(
             "services.context_intelligence": services.context_intelligence,
             "services.search_router": services.search_router,
             "form_submission_service.sharing_service": form_submission_service.sharing_service,
-            "habits.goal_analytics.goals_service": (
-                activity_services["habits"].goal_analytics.goals_service
-            ),
+            # habits.goal_analytics shelved (2026-03-28)
         }
         missing = [name for name, value in post_wiring_checks.items() if value is None]
         if missing:
