@@ -12,6 +12,24 @@ if TYPE_CHECKING:
     from .entity_enums import EntityStatus
 
 
+class AssessmentOutcome(StrEnum):
+    """
+    Outcome of an ExerciseReport assessment.
+
+    Makes each EXERCISE_REPORT self-describing — the report records
+    what decision was made, not just the feedback text.
+
+    Values:
+        APPROVED: Teacher approved the submission (mastery 0.8)
+        NEEDS_REVISION: Teacher requested revision (submission → REVISION_REQUESTED)
+        AI_EVALUATED: LLM-generated feedback (mastery 0.6, awaiting teacher review)
+    """
+
+    APPROVED = "approved"
+    NEEDS_REVISION = "needs_revision"
+    AI_EVALUATED = "ai_evaluated"
+
+
 class KuComplexity(StrEnum):
     """
     Complexity level of a Knowledge Unit.

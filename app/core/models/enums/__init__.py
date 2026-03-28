@@ -78,6 +78,7 @@ from .ku_enums import KuCategory
 # Learning enums - education, knowledge, and mastery tracking
 from .learning_enums import (
     DOMAIN_SEL_MAPPING,
+    AssessmentOutcome,
     ContentType,
     EducationalLevel,
     KnowledgeStatus,
@@ -154,6 +155,7 @@ __all__ = [
     "DOMAIN_SEL_MAPPING",
     "ActivityType",
     "AlignmentLevel",
+    "AssessmentOutcome",
     "AnalyticsDomain",
     "AnalysisDepth",
     "BridgeType",

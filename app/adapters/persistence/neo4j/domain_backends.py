@@ -1702,6 +1702,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
             user_uid: $teacher_uid,
             status: $completed_status,
             processor_type: $processor_type,
+            assessment_outcome: $assessment_outcome,
             content: $feedback,
             created_by: $teacher_uid,
             created_at: datetime($now),

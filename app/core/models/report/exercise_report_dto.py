@@ -2,7 +2,7 @@
 ExerciseReportDTO - Exercise Report DTO (Tier 2 - Transfer)
 =============================================================
 
-Extends UserOwnedDTO with 5 report-specific fields.
+Extends UserOwnedDTO with 6 report-specific fields.
 
 Hierarchy:
     EntityDTO (~18 common fields)
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.learning_enums import AssessmentOutcome
 from core.models.enums.metadata_enums import Visibility
 from core.models.user_owned_dto import UserOwnedDTO
 from core.ports import get_enum_value
@@ -32,11 +33,12 @@ class ExerciseReportDTO(UserOwnedDTO):
     """
     Mutable DTO for exercise reports (EntityType.EXERCISE_REPORT).
 
-    Extends UserOwnedDTO with 5 report-specific fields:
+    Extends UserOwnedDTO with 6 report-specific fields:
     - report_content: str | None — the report text
     - report_generated_at: datetime | None — when report was generated
     - subject_uid: str | None — who/what this report is about
     - processor_type: ProcessorType | None — HUMAN/LLM/AUTOMATIC
+    - assessment_outcome: AssessmentOutcome | None — APPROVED/NEEDS_REVISION/AI_EVALUATED
     - report_file_path: str | None — generated output file path
     """
 
@@ -47,6 +49,7 @@ class ExerciseReportDTO(UserOwnedDTO):
     report_generated_at: datetime | None = None
     subject_uid: str | None = None
     processor_type: ProcessorType | None = None
+    assessment_outcome: AssessmentOutcome | None = None
     report_file_path: str | None = None
 
     # =========================================================================
@@ -65,6 +68,7 @@ class ExerciseReportDTO(UserOwnedDTO):
                 "report_generated_at": self.report_generated_at,
                 "subject_uid": self.subject_uid,
                 "processor_type": get_enum_value(self.processor_type),
+                "assessment_outcome": get_enum_value(self.assessment_outcome),
                 "report_file_path": self.report_file_path,
             }
         )
@@ -91,6 +95,7 @@ class ExerciseReportDTO(UserOwnedDTO):
                 "domain": Domain,
                 "visibility": Visibility,
                 "processor_type": ProcessorType,
+                "assessment_outcome": AssessmentOutcome,
             },
             datetime_fields=[
                 "created_at",
@@ -131,6 +136,7 @@ class ExerciseReportDTO(UserOwnedDTO):
                 "report_generated_at",
                 "subject_uid",
                 "processor_type",
+                "assessment_outcome",
                 "report_file_path",
             },
             enum_mappings={
@@ -139,6 +145,7 @@ class ExerciseReportDTO(UserOwnedDTO):
                 "domain": Domain,
                 "visibility": Visibility,
                 "processor_type": ProcessorType,
+                "assessment_outcome": AssessmentOutcome,
             },
         )
 

@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from core.models.report.exercise_report_dto import ExerciseReportDTO
 
 from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.enums.learning_enums import AssessmentOutcome
 from core.models.user_owned_entity import UserOwnedEntity
 
 
@@ -28,7 +29,7 @@ class ExerciseReport(UserOwnedEntity):
     """
     Immutable domain model for exercise reports (EntityType.EXERCISE_REPORT).
 
-    Extends UserOwnedEntity with 5 report-specific fields.
+    Extends UserOwnedEntity with 6 report-specific fields.
     """
 
     def __post_init__(self) -> None:
@@ -44,6 +45,7 @@ class ExerciseReport(UserOwnedEntity):
     report_generated_at: datetime | None = None
     subject_uid: str | None = None  # Who/what this report is about
     processor_type: ProcessorType | None = None  # HUMAN/LLM/AUTOMATIC
+    assessment_outcome: AssessmentOutcome | None = None  # APPROVED/NEEDS_REVISION/AI_EVALUATED
     report_file_path: str | None = None  # Generated output file path
 
     # =========================================================================

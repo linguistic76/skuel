@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.learning_enums import AssessmentOutcome
 from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
 from core.models.report.exercise_report import ExerciseReport
@@ -207,6 +208,7 @@ class ExerciseReportService:
             user_uid: $user_uid,
             status: $completed_status,
             processor_type: $processor_type,
+            assessment_outcome: $assessment_outcome,
             content: $feedback_text,
             report_content: $feedback_text,
             report_generated_at: datetime($now),
@@ -238,6 +240,7 @@ class ExerciseReportService:
                     "entity_type": EntityType.EXERCISE_REPORT.value,
                     "completed_status": EntityStatus.COMPLETED.value,
                     "processor_type": ProcessorType.LLM.value,
+                    "assessment_outcome": AssessmentOutcome.AI_EVALUATED.value,
                     "now": now,
                 },
             )
@@ -259,6 +262,7 @@ class ExerciseReportService:
                 user_uid=user_uid,
                 status=EntityStatus.COMPLETED,
                 processor_type=ProcessorType.LLM,
+                assessment_outcome=AssessmentOutcome.AI_EVALUATED,
                 content=feedback_text,
                 report_content=feedback_text,
                 subject_uid=submission.uid,
@@ -357,6 +361,7 @@ class ExerciseReportService:
             user_uid=user_uid,
             status=EntityStatus.COMPLETED,
             processor_type=ProcessorType.LLM,
+            assessment_outcome=AssessmentOutcome.AI_EVALUATED,
             content=feedback_text,
             report_content=feedback_text,
             subject_uid=submission.uid,

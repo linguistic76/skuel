@@ -27,6 +27,7 @@ from core.events.submission_events import (
     SubmissionRevisionRequested,
 )
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.learning_enums import AssessmentOutcome
 from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
     ReportApprovalResult,
@@ -198,6 +199,7 @@ class TeacherReviewService:
                 "submission_status": EntityStatus.COMPLETED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
+                "assessment_outcome": AssessmentOutcome.APPROVED.value,
                 "now": now,
             }
         )
@@ -271,6 +273,7 @@ class TeacherReviewService:
                 "submission_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
+                "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
                 "now": now,
             }
         )
