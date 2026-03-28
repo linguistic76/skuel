@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth, QueryLimit
 from core.models.type_hints import UserUID
-from core.ports.query_types import ListContext
+from core.ports.query_types import ListContext, OrganizerResult, RootOrganizerResult
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticTriple
@@ -472,21 +472,21 @@ class LessonService:
             )
         return await self.organization.get_navigation(ku_uid)
 
-    async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+    async def find_organizers(self, ku_uid: str) -> Result[list[OrganizerResult]]:
         if self.organization is None:
             return Result.fail(
                 Errors.system("Organization service not available", "find_organizers")
             )
         return await self.organization.find_organizers(ku_uid)
 
-    async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
+    async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
         if self.organization is None:
             return Result.fail(
                 Errors.system("Organization service not available", "list_root_organizers")
             )
         return await self.organization.list_root_organizers(limit)
 
-    async def get_organized_children(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_organized_children(self, ku_uid: str) -> Result[list[OrganizerResult]]:
         if self.organization is None:
             return Result.fail(
                 Errors.system("Organization service not available", "get_organized_children")

@@ -28,6 +28,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 from core.models.relationship_names import RelationshipName
+from core.ports.query_types import RevisionChainResult
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
@@ -274,6 +275,6 @@ class RevisedExerciseService(BaseService):
         return Result.ok(exercises)
 
     @with_error_handling("get_revision_chain", error_type="database")
-    async def get_revision_chain(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_revision_chain(self, exercise_uid: str) -> Result[list[RevisionChainResult]]:
         """Get all revisions in the chain for an original exercise."""
         return await self.backend.get_revision_chain(exercise_uid)

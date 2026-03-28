@@ -19,6 +19,7 @@ See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -249,14 +250,14 @@ class LessonOrganizationService:
             )
         )
 
-    async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+    async def find_organizers(self, ku_uid: str) -> Result[list[OrganizerResult]]:
         """Find all parent Kus that organize the given Ku."""
         return await self.backend.find_organizers(ku_uid)
 
-    async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
+    async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
         """List Kus that organize others but are not themselves organized (root organizers)."""
         return await self.backend.list_root_organizers(limit)
 
-    async def get_organized_children(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_organized_children(self, ku_uid: str) -> Result[list[OrganizerResult]]:
         """Get direct children of a Ku organized by ORGANIZES relationship."""
         return await self.backend.get_organized_children(ku_uid)

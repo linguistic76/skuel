@@ -1416,32 +1416,59 @@ class PerformanceAnalyticsResult(TypedDict, total=False):
 # ============================================================================
 
 
+class VisionData(TypedDict, total=False):
+    """Nested shape for life path vision capture."""
+
+    statement: str
+    themes: list[str]
+    captured_at: str | None  # ISO format
+
+
+class DesignationData(TypedDict, total=False):
+    """Nested shape for life path designation."""
+
+    life_path_uid: str | None
+    designated_at: str | None  # ISO format
+    vision_statement: str
+
+
+class AlignmentDimensions(TypedDict):
+    """Nested shape for alignment dimension scores."""
+
+    knowledge: float
+    activity: float
+    goal: float
+    principle: float
+    momentum: float
+
+
 class LifePathStatus(TypedDict, total=False):
     """Return shape for lifepath_service.get_full_status()."""
 
     has_vision: bool
     has_designation: bool
-    vision: dict[str, Any] | None
-    designation: dict[str, Any] | None
-    alignment: dict[str, Any]
-    recommendations: list[dict[str, Any]]
+    vision: VisionData | None
+    designation: DesignationData | None
+    alignment: dict[str, Any]  # LifePathAlignmentResult or empty dict
+    recommendations: list[str]
     daily_focus: dict[str, Any] | None
+    next_step: str
 
 
 class LifePathRecommendation(TypedDict, total=False):
     """Return shape for lifepath_service.capture_and_recommend()."""
 
-    vision: dict[str, Any]
-    recommendations: list[dict[str, Any]]
+    vision: VisionData
+    recommendations: list[str]
     next_step: str
 
 
 class LifePathDesignation(TypedDict, total=False):
     """Return shape for lifepath_service.designate_and_calculate()."""
 
-    designation: dict[str, Any]
-    alignment: dict[str, Any]
-    recommendations: list[dict[str, Any]]
+    designation: DesignationData
+    alignment: dict[str, Any]  # LifePathAlignmentResult
+    recommendations: list[str]
 
 
 class LifePathAlignmentResult(TypedDict, total=False):
@@ -1451,7 +1478,7 @@ class LifePathAlignmentResult(TypedDict, total=False):
     life_path_title: str
     alignment_score: float
     alignment_level: str
-    dimensions: dict[str, float]
+    dimensions: AlignmentDimensions
     knowledge_stats: dict[str, int]
     recommendations: list[str]
     calculated_at: str  # ISO format
@@ -2145,6 +2172,224 @@ class ParentProgressResult(TypedDict, total=False):
 
 
 # ============================================================================
+# CURRICULUM BACKEND RESULT TYPES — LessonOperations Cypher returns
+# ============================================================================
+# TypedDicts for stable Cypher RETURN shapes from LessonBackend mixins.
+# Methods that return variable-depth graph traversals or arbitrary Cypher
+# remain as dict[str, Any] with # boundary: comments in the protocol.
+
+
+class OrganizerResult(TypedDict):
+    """Return shape for find_organizers() and get_organized_children()."""
+
+    uid: str
+    title: str
+    order: int | None
+
+
+class RootOrganizerResult(TypedDict):
+    """Return shape for list_root_organizers()."""
+
+    uid: str
+    title: str
+    child_count: int
+
+
+class ReadyToLearnResult(TypedDict):
+    """Return shape for find_ready_to_learn()."""
+
+    uid: str
+    title: str
+    domain: str | None
+    summary: str | None
+    readiness: float
+    total_prereqs: int
+    satisfied_prereqs: int
+    prereq_uids: list[str]
+    dependent_count: int
+
+
+class LearningGapResult(TypedDict):
+    """Return shape for find_learning_gaps()."""
+
+    uid: str
+    title: str
+    domain: str | None
+    goals_blocked: int
+    blocking_goal_uids: list[str]
+    prereq_count: int
+    satisfied_prereqs: int
+    readiness: float
+
+
+class ReinforcementCandidateResult(TypedDict):
+    """Return shape for find_reinforcement_candidates()."""
+
+    uid: str
+    title: str
+    domain: str | None
+    goal_relevance: int
+    dependent_count: int
+
+
+class UserMasteryResult(TypedDict, total=False):
+    """Return shape for query_user_masteries() — MASTERED relationship properties."""
+
+    ku_uid: str
+    mastery_level: str | None
+    confidence_score: float | None
+    mastery_score: float | None
+    learning_velocity: float | None
+    time_to_mastery_hours: float | None
+    review_frequency_days: int | None
+    mastery_evidence: str | None
+    last_reviewed: str | None
+    last_practiced: str | None
+    learning_path_context: str | None
+    difficulty_experienced: str | None
+    preferred_learning_method: str | None
+    created_at: str | None
+    updated_at: str | None
+
+
+class PrereqMasteryResult(TypedDict, total=False):
+    """Return shape for query_user_mastery_for_prereqs()."""
+
+    ku_uid: str | None
+    score: float | None
+    confidence: float | None
+    last_practiced: str | None
+
+
+class LearningRecommendationResult(TypedDict):
+    """Return shape for find_learning_recommendations()."""
+
+    uid: str
+    title: str
+    summary: str | None
+    domain: str | None
+    readiness: float
+    total_prereqs: int
+    satisfied_prereqs: int
+    enables_count: int
+
+
+class SemanticSearchChunkResult(TypedDict):
+    """Return shape for semantic_search_chunks()."""
+
+    chunk_uid: str
+    chunk_type: str
+    text: str
+    context_window: str | None
+    similarity_score: float
+    parent_entity_uid: str
+    parent_ku_title: str
+
+
+class RequiredKnowledgeResult(TypedDict):
+    """Return shape for ExerciseBackend.get_required_knowledge()."""
+
+    uid: str
+    title: str
+    entity_type: str
+    complexity: str | None
+    learning_level: str | None
+
+
+class CurriculumExerciseResult(TypedDict, total=False):
+    """Return shape for ExerciseBackend.get_exercises_for_curriculum()."""
+
+    uid: str
+    title: str
+    scope: str
+    due_date: str | None
+    status: str | None
+    form_schema: str | None
+
+
+class RevisionChainResult(TypedDict):
+    """Return shape for RevisedExerciseBackend.get_revision_chain()."""
+
+    uid: str
+    title: str
+    revision_number: int
+    student_uid: str
+    report_uid: str | None
+    status: str
+    created_at: str
+
+
+class LsKnowledgeItemResult(TypedDict):
+    """Return shape for LsBackend.list_knowledge()."""
+
+    uid: str
+    title: str
+    domain: str | None
+    type: str
+    created_at: str | None
+
+
+# ============================================================================
+# LATERAL RELATIONSHIP BACKEND RESULT TYPES
+# ============================================================================
+# TypedDicts for stable Cypher RETURN shapes from LateralRelationshipBackend.
+
+
+class LateralRelationshipRow(TypedDict, total=False):
+    """Return shape for LateralRelationshipBackend.get_relationships()."""
+
+    relationship_type: str
+    related_uid: str
+    related_title: str
+    metadata: dict[str, Any]
+    direction: str
+
+
+class SiblingRow(TypedDict):
+    """Return shape for LateralRelationshipBackend.get_siblings()."""
+
+    sibling_uid: str
+    sibling_title: str
+    hierarchy_type: str
+    order: int | None
+
+
+class CousinRow(TypedDict):
+    """Return shape for LateralRelationshipBackend.get_cousins()."""
+
+    cousin_uid: str
+    cousin_title: str
+    shared_ancestor_uid: str
+    shared_ancestor_title: str
+
+
+class BlockingChainRow(TypedDict):
+    """Return shape for LateralRelationshipBackend.get_blocking_chain()."""
+
+    uid: str
+    title: str
+    status: str | None
+    entity_type: str
+    depth: int
+    blocks_count: int
+
+
+class RelationshipGraphRow(TypedDict, total=False):
+    """Return shape for LateralRelationshipBackend.get_relationship_graph()."""
+
+    center_uid: str
+    center_title: str
+    center_type: str
+    center_status: str | None
+    related_uid: str
+    related_title: str
+    related_type: str
+    related_status: str | None
+    relationships: list[dict[str, Any]]
+    depth_level: int
+
+
+# ============================================================================
 # EXPLICIT EXPORTS
 # ============================================================================
 
@@ -2284,4 +2529,28 @@ __all__ = [
     "PrincipleStats",
     # Task Hierarchy Result Types
     "ParentProgressResult",
+    # Curriculum Backend Result Types
+    "OrganizerResult",
+    "RootOrganizerResult",
+    "ReadyToLearnResult",
+    "LearningGapResult",
+    "ReinforcementCandidateResult",
+    "UserMasteryResult",
+    "PrereqMasteryResult",
+    "LearningRecommendationResult",
+    "SemanticSearchChunkResult",
+    "RequiredKnowledgeResult",
+    "CurriculumExerciseResult",
+    "RevisionChainResult",
+    "LsKnowledgeItemResult",
+    # Life Path Nested Types
+    "VisionData",
+    "DesignationData",
+    "AlignmentDimensions",
+    # Lateral Relationship Backend Result Types
+    "LateralRelationshipRow",
+    "SiblingRow",
+    "CousinRow",
+    "BlockingChainRow",
+    "RelationshipGraphRow",
 ]

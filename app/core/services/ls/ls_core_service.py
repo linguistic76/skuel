@@ -37,7 +37,7 @@ from core.models.pathways.learning_step import LearningStep
 from core.models.pathways.learning_step_dto import LearningStepDTO
 from core.models.type_hints import UserUID
 from core.ports import get_enum_value
-from core.ports.query_types import LsKnowledgeSummaryResult
+from core.ports.query_types import LsKnowledgeItemResult, LsKnowledgeSummaryResult
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
@@ -624,7 +624,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
     @with_error_handling("get_contained_knowledge", error_type="database")
     async def get_contained_knowledge(
         self, ls_uid: str, knowledge_type: str | None = None
-    ) -> Result[list[dict]]:
+    ) -> Result[list[LsKnowledgeItemResult]]:
         """Get KUs contained in this LS via CONTAINS_KNOWLEDGE relationships."""
         if knowledge_type and knowledge_type not in ("primary", "supporting"):
             return Result.fail(

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import EntityUID
 from core.ports.base_protocols import HierarchyContextRaw
+from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -121,7 +122,7 @@ class _OrganizesMixin:
 
     async def get_organized_children(
         self, parent_uid: str, limit: int | None = None
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[OrganizerResult]]:
         """Get direct ORGANIZES children of a Lesson, ordered by position."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
@@ -135,13 +136,13 @@ class _OrganizesMixin:
         result = await self.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
-        children = [
+        children: list[OrganizerResult] = [
             {"uid": r["uid"], "title": r["title"], "order": r["order"]}
             for r in (result.value or [])
         ]
         return Result.ok(children)
 
-    async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+    async def find_organizers(self, ku_uid: str) -> Result[list[OrganizerResult]]:
         """Find all parent Lessons that organize the given Lesson."""
         query = """
         MATCH (parent:Entity)-[r:ORGANIZES]->(ku:Entity {uid: $ku_uid})
@@ -151,13 +152,13 @@ class _OrganizesMixin:
         result = await self.execute_query(query, {"ku_uid": ku_uid})
         if result.is_error:
             return Result.fail(result)
-        organizers = [
+        organizers: list[OrganizerResult] = [
             {"uid": r["uid"], "title": r["title"], "order": r["order"]}
             for r in (result.value or [])
         ]
         return Result.ok(organizers)
 
-    async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
+    async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
         """List Kus that organize others but are not themselves organized (root organizers)."""
         query = """
         MATCH (root:Entity)-[:ORGANIZES]->(:Entity)
@@ -171,7 +172,7 @@ class _OrganizesMixin:
         result = await self.execute_query(query, {"limit": limit})
         if result.is_error:
             return Result.fail(result)
-        roots = [
+        roots: list[RootOrganizerResult] = [
             {"uid": r["uid"], "title": r["title"], "child_count": r["child_count"]}
             for r in (result.value or [])
         ]

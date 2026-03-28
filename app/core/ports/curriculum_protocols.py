@@ -82,9 +82,22 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from core.models.type_hints import UserUID
 from core.ports.query_types import (
+    CurriculumExerciseResult,
+    LearningGapResult,
+    LearningRecommendationResult,
+    LsKnowledgeItemResult,
     LsKnowledgeSummaryResult,
     LsPracticeSummaryResult,
+    OrganizerResult,
+    PrereqMasteryResult,
+    ReadyToLearnResult,
+    ReinforcementCandidateResult,
+    RequiredKnowledgeResult,
+    RevisionChainResult,
+    RootOrganizerResult,
+    SemanticSearchChunkResult,
     SubstantiationSummaryResult,
+    UserMasteryResult,
     UserProgressResult,
 )
 
@@ -455,11 +468,9 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
     # =========================================================================
     # ORGANIZATION (ORGANIZES relationships — any Lesson can organize others)
     # =========================================================================
-    # boundary: Methods below through ADAPTIVE (Phase 6B) return list[dict[str, Any]]
-    # or dict[str, Any] — raw Cypher query results whose column names vary by query.
-    # These are intentional backend boundaries: the protocol exposes graph-native
-    # shapes that services interpret. Typing them would couple protocols to
-    # specific Cypher RETURN clauses.
+    # Stable Cypher returns below are typed with TypedDicts from query_types.py.
+    # Methods that execute variable-depth traversals or arbitrary Cypher remain
+    # as dict[str, Any] with inline # boundary: comments.
 
     async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
         """Create ORGANIZES relationship between two Lessons."""
@@ -483,15 +494,15 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         """Get a Lesson with its organized children hierarchy."""
         ...
 
-    async def find_organizers(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+    async def find_organizers(self, ku_uid: str) -> Result[list[OrganizerResult]]:
         """Find all parent Lessons that organize the given Lesson."""
         ...
 
-    async def list_root_organizers(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
+    async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
         """List Lessons that organize others but are not themselves organized."""
         ...
 
-    async def get_organized_children(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_organized_children(self, ku_uid: str) -> Result[list[OrganizerResult]]:
         """Get direct children of a Lesson organized by ORGANIZES relationship."""
         ...
 
@@ -499,13 +510,15 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
     # PRACTICE + AI (Phase 1)
     # =========================================================================
 
-    async def find_kus_practiced_by_event(self, event_uid: str) -> Result[list[dict[str, Any]]]:
+    async def find_kus_practiced_by_event(
+        self, event_uid: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {ku_uid} — single column
         """Find KU UIDs practiced by a completed event via PRACTICES relationship."""
         ...
 
     async def increment_practice_count(
         self, ku_uid: str, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {new_count} — single column
         """Increment practice count and update last_practiced_date on a KU."""
         ...
 
@@ -516,7 +529,7 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         threshold: float,
         chunk_types: list[str] | None = None,
         ku_uid: str | None = None,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[SemanticSearchChunkResult]]:
         """Vector search across ContentChunk nodes for precise RAG retrieval."""
         ...
 
@@ -524,11 +537,15 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
     # SEARCH (Phase 2)
     # =========================================================================
 
-    async def find_similar_by_keywords(self, uid: str, limit: int) -> Result[list[dict[str, Any]]]:
+    async def find_similar_by_keywords(
+        self, uid: str, limit: int
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns full entity node properties
         """Find similar entities using keyword matching and structural similarity."""
         ...
 
-    async def search_by_keywords(self, query_text: str, limit: int) -> Result[list[dict[str, Any]]]:
+    async def search_by_keywords(
+        self, query_text: str, limit: int
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns full entity node properties
         """Keyword-based search using CONTAINS on title/summary/tags."""
         ...
 
@@ -546,19 +563,19 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         order_by: str = "created_at",
         limit: int = 10,
         reverse_direction: bool = False,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {entity_uid} — label-dependent
         """Find activity entities connected to a KU via graph relationships."""
         ...
 
     async def find_learning_steps_containing_ku(
         self, ku_uid: str, limit: int = 10
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {step_uid} — single column
         """Find learning steps that contain/teach a KU via CONTAINS_KNOWLEDGE."""
         ...
 
     async def find_learning_paths_teaching_ku(
         self, ku_uid: str, limit: int = 10
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {path_uid} — single column
         """Find learning paths that teach a KU via LS chain."""
         ...
 
@@ -568,19 +585,19 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
 
     async def find_ready_to_learn(
         self, mastered_uids: list[str], domain: str | None, limit: int
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[ReadyToLearnResult]]:
         """Find KUs the user is ready to learn (prerequisites >= 70% met)."""
         ...
 
     async def find_learning_gaps(
         self, goal_uids: list[str], mastered_uids: list[str], limit: int
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LearningGapResult]]:
         """Find KUs required by goals but not mastered."""
         ...
 
     async def find_reinforcement_candidates(
         self, uids: list[str], active_goal_uids: list[str]
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[ReinforcementCandidateResult]]:
         """Get KU details + goal relevance for reinforcement candidates."""
         ...
 
@@ -590,19 +607,19 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
 
     async def create_semantic_relationship(
         self, cypher: str, params: dict[str, Any]
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: arbitrary Cypher
         """Execute a SemanticTriple.to_cypher_merge() query."""
         ...
 
     async def query_semantic_neighborhood(
         self, uid: str, semantic_types: list[Any] | None, depth: int, min_confidence: float
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: variable-depth graph traversal
         """Query semantic neighborhood using build_semantic_context helper."""
         ...
 
     async def delete_semantic_relationship(
         self, rel_name: str, subject_uid: str, object_uid: str
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {deleted} — single column
         """Delete a semantic relationship between two entities."""
         ...
 
@@ -611,19 +628,19 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         uid: str,
         rel_name: str,
         direction: Literal["outgoing", "incoming", "both"] = "both",
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns target node + rel properties
         """Find relationships by type and direction for an entity."""
         ...
 
     async def discover_semantic_bridges(
         self, uid: str, target_domain: str | None, limit: int
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns target node + bridge metadata
         """Discover cross-domain semantic bridges via shared concepts."""
         ...
 
     async def infer_transitive_relationships(
         self, uid: str, limit: int
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns target node + inference metadata
         """Infer potential relationships via transitive closure."""
         ...
 
@@ -633,45 +650,47 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
 
     async def link_prerequisite(
         self, unit_uid: str, prereq_uid: str, is_mandatory: bool
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns relationship properties
         """Create REQUIRES_KNOWLEDGE relationship between two entities."""
         ...
 
     async def link_parent_child(
         self, parent_uid: str, child_uid: str
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns relationship properties
         """Create HAS_NARROWER hierarchy relationship."""
         ...
 
     async def query_user_mastery_for_prereqs(
         self, user_uid: UserUID, prereq_uids: list[str]
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[PrereqMasteryResult]]:
         """Query user MASTERED + IN_PROGRESS state for prerequisite KUs."""
         ...
 
     async def find_learning_recommendations(
         self, user_uid: UserUID, domain: str | None, limit: int
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LearningRecommendationResult]]:
         """Find KUs user is ready to learn based on mastery and prerequisites."""
         ...
 
-    async def compute_hub_scores(self) -> Result[list[dict[str, Any]]]:
+    async def compute_hub_scores(self) -> Result[list[dict[str, Any]]]:  # boundary: returns {updated_count}
         """Compute and cache degree centrality hub scores on all Entity nodes."""
         ...
 
     async def query_foundational_knowledge(
         self, domain: str | None, min_hub_score: int, limit: int
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns full entity node properties
         """Query high-hub-score KUs (foundational concepts)."""
         ...
 
     async def find_prerequisite_chain(
         self, uid: str, depth: int, min_confidence: float
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: variable-depth traversal via CypherGenerator
         """Find prerequisite chain using CypherGenerator helper."""
         ...
 
-    async def find_next_steps(self, uid: str, limit: int) -> Result[list[dict[str, Any]]]:
+    async def find_next_steps(
+        self, uid: str, limit: int
+    ) -> Result[list[dict[str, Any]]]:  # boundary: traversal via CypherGenerator
         """Find KUs that have this one as a prerequisite."""
         ...
 
@@ -683,7 +702,7 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         min_confidence: float,
         depth: int,
         limit: int,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: variable-depth metadata-aware traversal
         """Build metadata-aware learning paths respecting user constraints."""
         ...
 
@@ -693,25 +712,29 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
 
     async def track_mastery_completion(
         self, user_uid: UserUID, ku_uid: str, completion_time_minutes: int
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns MASTERED relationship properties
         """Create/update MASTERED relationship when user completes a KU."""
         ...
 
-    async def query_user_masteries(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
+    async def query_user_masteries(self, user_uid: UserUID) -> Result[list[UserMasteryResult]]:
         """Query all MASTERED relationships with full metadata for a user."""
         ...
 
-    async def query_active_learning_paths(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
+    async def query_active_learning_paths(
+        self, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns full LP node properties
         """Query user's active/in-progress learning paths."""
         ...
 
     async def query_completed_learning_paths(
         self, user_uid: UserUID
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {lp_uid} — single column
         """Query UIDs of completed learning paths for a user."""
         ...
 
-    async def query_learning_preferences(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
+    async def query_learning_preferences(
+        self, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns full LearningPreference node
         """Query user's learning preferences node."""
         ...
 
@@ -733,9 +756,9 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     # =========================================================================
     # LS-SPECIFIC RETRIEVAL
     # =========================================================================
-    # boundary: LS/LP query methods below return list[dict[str, Any]] — raw Cypher
-    # results from multi-hop graph traversals (step→lesson→ku chains). Column
-    # names vary by query depth and optional joins.
+    # boundary: LS/LP backend methods below return list[dict[str, Any]] — raw Cypher
+    # results from multi-hop graph traversals (step→lesson→ku chains) or full node
+    # property sets. Column names vary by query depth and optional joins.
 
     async def get_ls(self, uid: str) -> Result[LearningStep]:
         """
@@ -832,7 +855,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
 
     async def list_knowledge(
         self, ls_uid: str, knowledge_type: str | None = None
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LsKnowledgeItemResult]]:
         """List CONTAINS_KNOWLEDGE relationships, optionally filtered by type."""
         ...
 
@@ -1407,8 +1430,7 @@ class ExerciseOperations(Protocol):
         ...
 
     # Curriculum linking
-    # boundary: Exercise/RevisedExercise query methods below return list[dict[str, Any]]
-    # — raw Cypher results from REQUIRES_KNOWLEDGE and revision chain traversals.
+    # Curriculum linking
     async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """Link exercise to curriculum KU via REQUIRES_KNOWLEDGE."""
         ...
@@ -1417,13 +1439,15 @@ class ExerciseOperations(Protocol):
         """Remove REQUIRES_KNOWLEDGE relationship."""
         ...
 
-    async def get_required_knowledge(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_required_knowledge(
+        self, exercise_uid: str
+    ) -> Result[list[RequiredKnowledgeResult]]:
         """Get curriculum KUs required by an exercise."""
         ...
 
     async def get_exercises_for_curriculum(
         self, curriculum_uid: str
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[CurriculumExerciseResult]]:
         """Get exercises that require a specific curriculum KU."""
         ...
 
@@ -1468,7 +1492,7 @@ class RevisedExerciseOperations(Protocol):
         """
         ...
 
-    async def get_revision_chain(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_revision_chain(self, exercise_uid: str) -> Result[list[RevisionChainResult]]:
         """Get all revisions in the chain for an original exercise."""
         ...
 

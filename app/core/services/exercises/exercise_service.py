@@ -31,6 +31,7 @@ from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports import get_enum_value
+from core.ports.query_types import CurriculumExerciseResult, RequiredKnowledgeResult
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.filtered_context import build_filtered_context
@@ -554,7 +555,9 @@ class ExerciseService(BaseService):
         return result
 
     @with_error_handling("get_required_knowledge", error_type="database")
-    async def get_required_knowledge(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_required_knowledge(
+        self, exercise_uid: str
+    ) -> Result[list[RequiredKnowledgeResult]]:
         """
         Get all curriculum KUs required by an exercise.
 
@@ -581,7 +584,7 @@ class ExerciseService(BaseService):
     @with_error_handling("get_exercises_for_curriculum", error_type="database")
     async def get_exercises_for_curriculum(
         self, curriculum_uid: str
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[CurriculumExerciseResult]]:
         """
         Get all exercises that require a specific curriculum KU.
 
@@ -598,7 +601,9 @@ class ExerciseService(BaseService):
         if result.is_error:
             return Result.fail(result)
 
-        exercises = [dict(record) for record in (result.value or [])]
+        exercises: list[CurriculumExerciseResult] = [
+            dict(record) for record in (result.value or [])  # type: ignore[misc]
+        ]
         self.logger.info(f"Found {len(exercises)} exercises for curriculum {curriculum_uid}")
         return Result.ok(exercises)
 

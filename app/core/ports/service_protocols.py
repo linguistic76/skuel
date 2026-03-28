@@ -28,10 +28,15 @@ from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.context_awareness_protocols import FullAwareness
 from core.ports.query_types import (
     AlertCheckResult,
+    BlockingChainRow,
     ChartJsConfig,
+    CousinRow,
     GanttConfig,
     HealthCheckValidation,
     HealthSummaryResult,
+    LateralRelationshipRow,
+    RelationshipGraphRow,
+    SiblingRow,
     SystemHealthStatus,
     SystemInfoResult,
     VisTimelineConfig,
@@ -610,9 +615,9 @@ class LateralRelationshipBackendOperations(Protocol):
     Implementation: LateralRelationshipBackend in domain_backends.py.
     Consumer: LateralRelationshipService.
 
-    boundary: All methods return list[dict[str, Any]] — raw Cypher results from
-    relationship MERGE/DELETE/MATCH operations. Column names depend on the
-    specific relationship query pattern (create, traverse, validate).
+    Stable query returns are typed with TypedDicts from query_types.py.
+    CRUD operations and validation checks remain as dict[str, Any] with
+    inline boundary comments.
     """
 
     async def create_relationship(
@@ -621,14 +626,14 @@ class LateralRelationshipBackendOperations(Protocol):
         target_uid: str,
         relationship_type: str,
         metadata: dict[str, Any],
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns relationship properties
 
     async def delete_relationship(
         self,
         source_uid: str,
         target_uid: str,
         relationship_type: str,
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns {deleted_count}
 
     async def create_inverse(
         self,
@@ -636,54 +641,56 @@ class LateralRelationshipBackendOperations(Protocol):
         target_uid: str,
         relationship_type: str,
         metadata: dict[str, Any],
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: no RETURN clause
 
     async def delete_inverse(
         self,
         source_uid: str,
         target_uid: str,
         relationship_type: str,
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: no RETURN clause
 
     async def get_relationships(
         self,
         entity_uid: EntityUID,
         type_filter: str,
         pattern: str,
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[LateralRelationshipRow]]: ...
 
-    async def get_siblings(self, entity_uid: EntityUID) -> Result[list[dict[str, Any]]]: ...
+    async def get_siblings(self, entity_uid: EntityUID) -> Result[list[SiblingRow]]: ...
 
-    async def get_cousins(self, entity_uid: EntityUID) -> Result[list[dict[str, Any]]]: ...
+    async def get_cousins(self, entity_uid: EntityUID) -> Result[list[CousinRow]]: ...
 
-    async def get_blocking_chain(self, entity_uid: EntityUID) -> Result[list[dict[str, Any]]]: ...
+    async def get_blocking_chain(
+        self, entity_uid: EntityUID
+    ) -> Result[list[BlockingChainRow]]: ...
 
     async def get_alternatives_comparison(
         self, entity_uid: EntityUID
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: contains all_properties/rel_properties
 
     async def get_relationship_graph(
         self,
         entity_uid: EntityUID,
         type_filter: str,
         depth: int,
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[RelationshipGraphRow]]: ...
 
     async def check_entities_exist(
         self, source_uid: str, target_uid: str
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns {source_count, target_count}
 
     async def check_same_parent(
         self, source_uid: str, target_uid: str
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns {shared_parent_count}
 
     async def check_same_depth(
         self, source_uid: str, target_uid: str
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns {source_depth, target_depth}
 
     async def check_no_cycles(
         self,
         source_uid: str,
         target_uid: str,
         relationship_type: str,
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[dict[str, Any]]]: ...  # boundary: returns {cycle_count}

@@ -63,12 +63,16 @@ from core.models.task.task import Task
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.query_types import (
     ChoiceStats,
+    CurriculumExerciseResult,
     EventStats,
     GoalStats,
     HabitStats,
+    LsKnowledgeItemResult,
     LsKnowledgeSummaryResult,
     ParentProgressResult,
     PrincipleStats,
+    RequiredKnowledgeResult,
+    RevisionChainResult,
     TaskStats,
 )
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -2223,7 +2227,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
 
     async def list_knowledge(
         self, ls_uid: str, knowledge_type: str | None = None
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LsKnowledgeItemResult]]:
         """List CONTAINS_KNOWLEDGE relationships, optionally filtered by type."""
         if knowledge_type:
             query = """
@@ -2245,18 +2249,17 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         result = await self.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
-        return Result.ok(
-            [
-                {
-                    "uid": r["uid"],
-                    "title": r["title"],
-                    "domain": r["domain"],
-                    "type": r["type"],
-                    "created_at": r["created_at"],
-                }
-                for r in result.value or []
-            ]
-        )
+        items: list[LsKnowledgeItemResult] = [
+            {
+                "uid": r["uid"],
+                "title": r["title"],
+                "domain": r["domain"],
+                "type": r["type"],
+                "created_at": r["created_at"],
+            }
+            for r in result.value or []
+        ]
+        return Result.ok(items)
 
     async def get_knowledge_summary(self, ls_uid: str) -> Result[LsKnowledgeSummaryResult]:
         """Aggregate counts and UIDs of primary vs supporting knowledge."""
@@ -2855,7 +2858,9 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             )
         return Result.ok(True)
 
-    async def get_required_knowledge(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_required_knowledge(
+        self, exercise_uid: str
+    ) -> Result[list[RequiredKnowledgeResult]]:
         """
         Get all curriculum KUs required by an exercise.
 
@@ -2881,7 +2886,8 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         )
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([dict(record) for record in (result.value or [])])
+        items: list[RequiredKnowledgeResult] = [dict(record) for record in (result.value or [])]  # type: ignore[misc]
+        return Result.ok(items)
 
     async def create_owns_relationship(
         self, user_uid: UserUID, exercise_uid: str
@@ -2992,7 +2998,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
 
     async def get_exercises_for_curriculum(
         self, curriculum_uid: str
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[CurriculumExerciseResult]]:
         """Get all exercises that require a specific curriculum KU.
 
         Args:
@@ -3001,7 +3007,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         Returns:
             Result containing exercise summary records
         """
-        return await self.execute_query(
+        result = await self.execute_query(
             f"""
             MATCH (exercise:Entity {{entity_type: 'exercise'}})
                   -[:{RelationshipName.REQUIRES_KNOWLEDGE}]->
@@ -3016,6 +3022,12 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             """,
             {"curriculum_uid": curriculum_uid},
         )
+        if result.is_error:
+            return Result.fail(result)
+        items: list[CurriculumExerciseResult] = [
+            dict(record) for record in (result.value or [])  # type: ignore[misc]
+        ]
+        return Result.ok(items)
 
     async def get_exercise_for_submission(
         self, submission_uid: str
@@ -3242,7 +3254,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
 
         return await self.execute_query(query, params)
 
-    async def get_revision_chain(self, exercise_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_revision_chain(self, exercise_uid: str) -> Result[list[RevisionChainResult]]:
         """
         Get all revised exercises in the revision chain for an original exercise.
 
@@ -3266,7 +3278,10 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         )
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([dict(record) for record in (result.value or [])])
+        items: list[RevisionChainResult] = [
+            dict(record) for record in (result.value or [])  # type: ignore[misc]
+        ]
+        return Result.ok(items)
 
 
 # Entity types that can be shared while active (not just completed)
