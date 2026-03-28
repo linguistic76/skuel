@@ -370,14 +370,14 @@ class SchemaChangeDetector:
                 self.logger.error(f"Error in monitoring loop: {e}", exc_info=True)
                 await asyncio.sleep(self.check_interval_seconds)
 
-    def add_change_handler(self, handler: Callable[[SchemaChangeEvent], None]):
+    def add_change_handler(self, handler: Callable[[SchemaChangeEvent], None]) -> None:
         """Add a handler for schema change events"""
         self._change_handlers.append(handler)
         self.logger.debug(
             f"Added schema change handler, total handlers: {len(self._change_handlers)}"
         )
 
-    def remove_change_handler(self, handler: Callable[[SchemaChangeEvent], None]):
+    def remove_change_handler(self, handler: Callable[[SchemaChangeEvent], None]) -> None:
         """Remove a schema change handler"""
         if handler in self._change_handlers:
             self._change_handlers.remove(handler)
@@ -515,7 +515,7 @@ class AdaptiveOptimizationHandler:
         self.adapter = neo4j_adapter
         self.logger = get_logger("AdaptiveOptimizationHandler")
 
-    async def handle_schema_change(self, event: SchemaChangeEvent):
+    async def handle_schema_change(self, event: SchemaChangeEvent) -> None:
         """Handle a schema change event"""
         try:
             report = event.change_report

@@ -57,7 +57,14 @@ from .preparer import (
     prepare_entity_data,
     prepare_entity_data_async,
 )
-from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionStats
+from .types import (
+    BundleStats,
+    DirectoryValidationResult,
+    DryRunPreview,
+    IncrementalStats,
+    IngestionStats,
+    ValidationResult,
+)
 from .validator import (
     validate_directory,
     validate_edge_data,
@@ -559,7 +566,7 @@ class UnifiedIngestionService:
     # VALIDATION - Delegate to validator module
     # ========================================================================
 
-    async def validate_file(self, file_path: Path) -> Result[Any]:
+    async def validate_file(self, file_path: Path) -> Result[ValidationResult]:
         """
         Validate a file without persisting to Neo4j (dry-run mode).
 
@@ -576,7 +583,7 @@ class UnifiedIngestionService:
         directory: Path,
         pattern: str = "*",
         max_concurrent: int = 20,
-    ) -> Result[Any]:
+    ) -> Result[DirectoryValidationResult]:
         """
         Validate all files in a directory without persisting (dry-run mode).
 

@@ -201,7 +201,7 @@ class QueryTemplateRegistry:
 
         self.logger.info(f"Loaded {len(self._template_library)} default templates")
 
-    def register_template(self, name: str, spec: TemplateSpec, category: str = "custom"):
+    def register_template(self, name: str, spec: TemplateSpec, category: str = "custom") -> None:
         """
         Register a new query template.
 

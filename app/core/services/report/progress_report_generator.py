@@ -22,6 +22,8 @@ import json
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums import EntityStatus
+
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
     from core.services.ai_service import OpenAIService
@@ -436,7 +438,7 @@ class ProgressReportGenerator:
                 entity = item["entity"]
                 graph_ctx = item.get("graph_context", {})
                 result["tasks_total"] += 1
-                if entity.get("status") == "completed":
+                if entity.get("status") == EntityStatus.COMPLETED:
                     result["tasks_completed"] += 1
                     for ref in graph_ctx.get("goal_refs", []):
                         if ref.get("title"):
@@ -476,7 +478,7 @@ class ProgressReportGenerator:
         if include_all or "habits" in (domains or []):
             for item in context.entities_rich.get("habits", []):
                 entity = item["entity"]
-                if entity.get("status") == "completed":
+                if entity.get("status") == EntityStatus.COMPLETED:
                     result["habits_completed"] += 1
                 result["habits_details"].append(
                     {
@@ -614,7 +616,9 @@ class ProgressReportGenerator:
             sections.append(f"- **Completed:** {tasks_completed} / {tasks_total} ({rate:.0f}%)")
             if depth != ProgressDepth.SUMMARY:
                 for task in completions.get("tasks_details", [])[:10]:
-                    status_icon = "done" if task["status"] == "completed" else task["status"]
+                    status_icon = (
+                        "done" if task["status"] == EntityStatus.COMPLETED else task["status"]
+                    )
                     sections.append(f"  - {task['title']} [{status_icon}]")
             sections.append("")
 

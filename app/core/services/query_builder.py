@@ -184,7 +184,7 @@ class QueryBuilder:
     # TEMPLATE MANAGEMENT (Delegate to QueryTemplateRegistry)
     # ========================================================================
 
-    def register_template(self, name: str, spec: TemplateSpec, category: str = "custom"):
+    def register_template(self, name: str, spec: TemplateSpec, category: str = "custom") -> None:
         """Register a custom query template."""
         return self.templates.register_template(name, spec, category)
 
@@ -247,7 +247,7 @@ class QueryBuilder:
         """Generate a query to compute facet counts."""
         return await self.faceted.generate_facet_counts_query(base_query, facet_fields)
 
-    def register_faceted_templates(self):
+    def register_faceted_templates(self) -> None:
         """Register templates for faceted search."""
         return self.faceted.register_faceted_templates(self.templates)
 

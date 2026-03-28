@@ -193,7 +193,7 @@ class RecommendationEngine:
             Self for chaining
 
         Example:
-            def goal_specific_recs(metrics):
+            def goal_specific_recs(metrics) -> list[str]:
                 recs = []
                 if metrics.get("habits_supporting") == 0:
                     recs.append("Add habits to support this goal")

@@ -110,12 +110,12 @@ def _is_event_scheduled(e: Any) -> bool:
 
 def _is_event_completed(e: Any) -> bool:
     """Filter predicate: event is completed."""
-    return _get_event_status_value(e) == "completed"
+    return _get_event_status_value(e) == EntityStatus.COMPLETED
 
 
 def _is_event_cancelled(e: Any) -> bool:
     """Filter predicate: event is cancelled."""
-    return _get_event_status_value(e) == "cancelled"
+    return _get_event_status_value(e) == EntityStatus.CANCELLED
 
 
 _EVENT_FILTER_CONFIG: FilterConfig = {

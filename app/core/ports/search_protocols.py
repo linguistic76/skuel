@@ -33,9 +33,13 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from datetime import date
 
+    from core.models.choice.choice import Choice as Choice
     from core.models.entity import Entity
     from core.models.enums import Domain
+    from core.models.event.event import Event as Event
+    from core.models.goal.goal import Goal as Goal
     from core.models.habit.habit import Habit as Habit
+    from core.models.principle.principle import Principle as Principle
     from core.models.search.filters import BaseSearchFilters
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest
@@ -317,7 +321,7 @@ class DomainSearchOperations(Protocol[T]):
 
 
 @runtime_checkable
-class EventsSearchOperations(DomainSearchOperations["Entity"], Protocol):
+class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
     """
     Extended search protocol for Events domain.
     Uses Entity model with EntityType.EVENT.
@@ -341,47 +345,47 @@ class EventsSearchOperations(DomainSearchOperations["Entity"], Protocol):
         end_date: "date",
         user_uid: UserUID | None = None,
         limit: int = 100,
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Event"]]:
         """Get events within a date range."""
         ...
 
     async def get_recurring(
         self, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Event"]]:
         """Get recurring events."""
         ...
 
     async def get_for_goal(
         self, goal_uid: str, user_uid: UserUID | None = None
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Event"]]:
         """Get events supporting a goal."""
         ...
 
-    async def get_conflicting(self, event_uid: str) -> Result[list["Entity"]]:
+    async def get_conflicting(self, event_uid: str) -> Result[list["Event"]]:
         """Get events that conflict with a given event."""
         ...
 
     async def get_by_type(
         self, event_type: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Event"]]:
         """Get events by event type."""
         ...
 
     async def get_upcoming(
         self, user_uid: UserUID, days_ahead: int = 30, limit: int = 100
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Event"]]:
         """Get upcoming events for a user."""
         ...
 
     async def get_history(
         self, user_uid: UserUID, days_back: int = 90, limit: int = 100
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Event"]]:
         """Get completed/past events for a user."""
         ...
 
     async def get_for_habit(
         self, habit_uid: str, user_uid: UserUID | None = None
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Event"]]:
         """Get events reinforcing a habit."""
         ...
 
@@ -391,7 +395,7 @@ class EventsSearchOperations(DomainSearchOperations["Entity"], Protocol):
         start_date: "date | None" = None,
         end_date: "date | None" = None,
         limit: int = 100,
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Event"]]:
         """Get events for calendar display."""
         ...
 
@@ -537,7 +541,7 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
 
 
 @runtime_checkable
-class GoalsSearchOperations(DomainSearchOperations["Entity"], Protocol):
+class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
     """
     Extended search protocol for Goals domain.
 
@@ -555,23 +559,21 @@ class GoalsSearchOperations(DomainSearchOperations["Entity"], Protocol):
     # --- Goal-specific methods ---
     async def get_by_timeframe(
         self, timeframe: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Goal"]]:
         """Get goals by timeframe (daily, weekly, monthly, yearly)."""
         ...
 
-    async def get_by_category(self, category: str, limit: int = 100) -> Result[list["Entity"]]:
+    async def get_by_category(self, category: str, limit: int = 100) -> Result[list["Goal"]]:
         """Get goals by category."""
         ...
 
-    async def get_needing_habits(
-        self, user_uid: UserUID, limit: int = 20
-    ) -> Result[list["Entity"]]:
+    async def get_needing_habits(self, user_uid: UserUID, limit: int = 20) -> Result[list["Goal"]]:
         """Get goals that need supporting habits."""
         ...
 
     async def get_blocked_by_knowledge(
         self, user_uid: UserUID, limit: int = 20
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Goal"]]:
         """Get goals blocked by missing knowledge."""
         ...
 
@@ -583,25 +585,25 @@ class GoalsSearchOperations(DomainSearchOperations["Entity"], Protocol):
         """List all goal categories (admin use)."""
         ...
 
-    async def get_goals_for_task(self, task_uid: str) -> Result[list["Entity"]]:
+    async def get_goals_for_task(self, task_uid: str) -> Result[list["Goal"]]:
         """Get goals that a task fulfills."""
         ...
 
-    async def get_goals_for_habit(self, habit_uid: str) -> Result[list["Entity"]]:
+    async def get_goals_for_habit(self, habit_uid: str) -> Result[list["Goal"]]:
         """Get goals that a habit supports."""
         ...
 
-    async def get_sub_goals(self, parent_goal_uid: str) -> Result[list["Entity"]]:
+    async def get_sub_goals(self, parent_goal_uid: str) -> Result[list["Goal"]]:
         """Get sub-goals of a parent goal."""
         ...
 
-    async def get_related_goals(self, goal_uid: str, limit: int = 10) -> Result[list["Entity"]]:
+    async def get_related_goals(self, goal_uid: str, limit: int = 10) -> Result[list["Goal"]]:
         """Get goals related to a given goal."""
         ...
 
 
 @runtime_checkable
-class ChoicesSearchOperations(DomainSearchOperations["Entity"], Protocol):
+class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
     """
     Extended search protocol for Choices domain.
 
@@ -617,35 +619,35 @@ class ChoicesSearchOperations(DomainSearchOperations["Entity"], Protocol):
     """
 
     # --- Choice-specific methods ---
-    async def get_pending(self, user_uid: UserUID, limit: int = 100) -> Result[list["Entity"]]:
+    async def get_pending(self, user_uid: UserUID, limit: int = 100) -> Result[list["Choice"]]:
         """Get pending choices for a user."""
         ...
 
     async def get_by_urgency(
         self, urgency: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Choice"]]:
         """Get choices by urgency level."""
         ...
 
-    async def get_affecting_goal(self, goal_uid: str) -> Result[list["Entity"]]:
+    async def get_affecting_goal(self, goal_uid: str) -> Result[list["Choice"]]:
         """Get choices that affect a goal."""
         ...
 
     async def get_needing_decision(
         self, user_uid: UserUID, deadline_days: int = 7
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Choice"]]:
         """Get choices needing decision within deadline."""
         ...
 
     async def get_aligned_with_principle(
         self, principle_uid: str, limit: int = 20
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Choice"]]:
         """Get choices aligned with a principle."""
         ...
 
     async def get_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Choice"]]:
         """Get choices by category."""
         ...
 
@@ -659,13 +661,13 @@ class ChoicesSearchOperations(DomainSearchOperations["Entity"], Protocol):
 
     async def get_decided(
         self, user_uid: UserUID, days_back: int = 30, limit: int = 100
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Choice"]]:
         """Get recently decided choices."""
         ...
 
 
 @runtime_checkable
-class PrinciplesSearchOperations(DomainSearchOperations["Entity"], Protocol):
+class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
     """
     Extended search protocol for Principles domain. Uses Entity model with EntityType.PRINCIPLE.
 
@@ -683,13 +685,13 @@ class PrinciplesSearchOperations(DomainSearchOperations["Entity"], Protocol):
     # --- Principle-specific methods ---
     async def get_by_strength(
         self, strength: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Principle"]]:
         """Get principles by strength level."""
         ...
 
     async def get_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Principle"]]:
         """Get principles by category."""
         ...
 
@@ -701,17 +703,17 @@ class PrinciplesSearchOperations(DomainSearchOperations["Entity"], Protocol):
         """Get habit UIDs inspired by a principle."""
         ...
 
-    async def get_for_choice(self, choice_uid: str, limit: int = 10) -> Result[list["Entity"]]:
+    async def get_for_choice(self, choice_uid: str, limit: int = 10) -> Result[list["Principle"]]:
         """Get principles relevant to a choice."""
         ...
 
-    async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list["Entity"]]:
+    async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list["Principle"]]:
         """Get principles guiding a goal."""
         ...
 
     async def get_active_principles(
         self, user_uid: UserUID, limit: int = 100
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Principle"]]:
         """Get active principles for a user."""
         ...
 
@@ -725,13 +727,13 @@ class PrinciplesSearchOperations(DomainSearchOperations["Entity"], Protocol):
 
     async def get_needing_review(
         self, user_uid: UserUID, days_since_review: int = 30, limit: int = 20
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Principle"]]:
         """Get principles needing review."""
         ...
 
     async def get_related_principles(
         self, principle_uid: str, limit: int = 10
-    ) -> Result[list["Entity"]]:
+    ) -> Result[list["Principle"]]:
         """Get principles related to a given principle."""
         ...
 

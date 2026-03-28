@@ -19,8 +19,8 @@ Usage:
     )
 
     # Weighted average (define extractors as named functions)
-    def get_success_rate(h): return h.success_rate
-    def get_priority_weight(h): return h.priority_weight
+    def get_success_rate(h) -> float: return h.success_rate
+    def get_priority_weight(h) -> float: return h.priority_weight
     avg = MetricsCalculator.weighted_average(habits, get_success_rate, get_priority_weight)
 
     # Combine factors
@@ -97,8 +97,8 @@ class MetricsCalculator:
 
         Example:
             # Average habit success rate weighted by priority
-            def get_success_rate(h): return h.success_rate
-            def get_priority_weight(h): return h.priority_weight
+            def get_success_rate(h) -> float: return h.success_rate
+            def get_priority_weight(h) -> float: return h.priority_weight
             avg = MetricsCalculator.weighted_average(
                 habits, get_success_rate, get_priority_weight
             )
@@ -125,7 +125,7 @@ class MetricsCalculator:
             Simple average (0.0 if no items)
 
         Example:
-            def get_completion_score(t): return 1.0 if t.is_completed else 0.0
+            def get_completion_score(t) -> float: return 1.0 if t.is_completed else 0.0
             avg_completion = MetricsCalculator.simple_average(tasks, get_completion_score)
         """
         if not items:

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
 
-from core.models.enums import Domain
+from core.models.enums import Domain, EntityStatus
 from core.models.type_hints import EntityUID, UserUID
 
 
@@ -85,7 +85,7 @@ class UserProgress:
     @property
     def is_completed(self) -> bool:
         """Check if progress is completed."""
-        return self.status == "completed" or self.progress_value >= 1.0
+        return self.status == EntityStatus.COMPLETED or self.progress_value >= 1.0
 
     @property
     def is_mastered(self) -> bool:

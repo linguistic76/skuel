@@ -87,7 +87,7 @@ async def get_knowledge_prerequisites(
             "importance": "high",  # Could be calculated from relationship strength
             "domain": node.properties.get("domain", "unknown"),
         }
-        for node in context.nodes
+        for node in context.all_nodes
         if node.labels and "Entity" in node.labels
     ]
 
@@ -323,7 +323,7 @@ async def get_entity_neighborhood(
     context = context_result.value
 
     # Filter relationships by type if specified (post-query filtering)
-    relationships = context.relationships
+    relationships = context.all_relationships
     if relationship_types:
         relationship_types_set = set(relationship_types)
         relationships = [rel for rel in relationships if rel.type in relationship_types_set]
@@ -339,15 +339,15 @@ async def get_entity_neighborhood(
         # Only include nodes connected via specified relationship types
         connected_uids = set()
         for rel in relationships:
-            connected_uids.add(rel.source_uid)
-            connected_uids.add(rel.target_uid)
-        filtered_nodes = [node for node in context.nodes if node.uid in connected_uids]
+            connected_uids.add(rel.start_node_uid)
+            connected_uids.add(rel.end_node_uid)
+        filtered_nodes = [node for node in context.all_nodes if node.uid in connected_uids]
         domains = {label for node in filtered_nodes for label in (node.labels or [])}
     else:
-        domains = {label for node in context.nodes for label in (node.labels or [])}
+        domains = {label for node in context.all_nodes for label in (node.labels or [])}
 
     # Use filtered nodes if relationship_types specified, otherwise all nodes
-    output_nodes = filtered_nodes if relationship_types else context.nodes
+    output_nodes = filtered_nodes if relationship_types else context.all_nodes
 
     return Result.ok(
         {

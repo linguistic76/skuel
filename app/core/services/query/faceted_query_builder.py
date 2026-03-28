@@ -11,6 +11,8 @@ NOTE: This service depends on QueryOptimizer for full functionality.
 The QueryBuilder facade wires these dependencies.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from adapters.persistence.neo4j.query import (
@@ -27,6 +29,7 @@ from core.utils.validation_helpers import validate_field_name
 
 if TYPE_CHECKING:
     from core.services.query.query_optimizer import QueryOptimizer
+    from core.services.query.query_template_registry import QueryTemplateRegistry
 
 
 class FacetedQueryBuilder:
@@ -282,7 +285,7 @@ class FacetedQueryBuilder:
                 )
             )
 
-    def register_faceted_templates(self, template_manager):
+    def register_faceted_templates(self, template_manager: QueryTemplateRegistry) -> None:
         """Register templates optimized for faceted search."""
 
         # Faceted knowledge search

@@ -333,37 +333,37 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
     async def get_related_principles(
         self, principle_uid: str, limit: int = 10
     ) -> Result[list[Principle]]:
-        return await self.search.get_related_principles(principle_uid, limit)  # type: ignore[return-value]
+        return await self.search.get_related_principles(principle_uid, limit)
 
     async def get_principles_by_status(
         self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Principle]]:
-        return await self.search.get_by_status(status, limit, user_uid)  # type: ignore[return-value]
+        return await self.search.get_by_status(status, limit, user_uid)
 
     async def get_principles_by_strength(
         self, strength: PrincipleStrength, limit: int = 100
     ) -> Result[list[Principle]]:
-        return await self.search.get_by_strength(strength, limit)  # type: ignore[return-value]
+        return await self.search.get_by_strength(strength, limit)
 
     async def get_principles_by_category(
         self, category: PrincipleCategory | str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Principle]]:
-        return await self.search.get_by_category(category, user_uid, limit)  # type: ignore[return-value]
+        return await self.search.get_by_category(category, user_uid, limit)
 
     async def get_principles_needing_review(
         self, days_threshold: int = 90, limit: int = 20
     ) -> Result[list[Principle]]:
-        return await self.search.get_needing_review(days_threshold, limit)  # type: ignore[return-value]
+        return await self.search.get_needing_review(days_threshold, limit)
 
     async def get_principles_for_goal(
         self, goal_uid: str, limit: int = 10
     ) -> Result[list[Principle]]:
-        return await self.search.get_for_goal(goal_uid, limit)  # type: ignore[return-value]
+        return await self.search.get_for_goal(goal_uid, limit)
 
     async def get_principles_for_choice(
         self, choice_uid: str, limit: int = 10
     ) -> Result[list[Principle]]:
-        return await self.search.get_for_choice(choice_uid, limit)  # type: ignore[return-value]
+        return await self.search.get_for_choice(choice_uid, limit)
 
     # Reflection delegations
     async def save_reflection(
@@ -701,7 +701,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         result = await self.search.search(query, limit=limit, user_uid=user_uid)
 
         if result.is_error:
-            return result  # type: ignore[return-value]
+            return result
 
         matching = result.value
 
@@ -759,7 +759,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
         # Build minimal context for prioritization
         user_context = UserContext(user_uid=user_uid, username="")
-        return await self.search.get_prioritized(user_context, limit=limit)  # type: ignore[return-value]
+        return await self.search.get_prioritized(user_context, limit=limit)
 
     # ========================================================================
     # PRINCIPLE EXPRESSIONS — Inline list on Principle entity

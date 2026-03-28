@@ -18,6 +18,7 @@ See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums import EntityStatus
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
@@ -137,7 +138,9 @@ class ActivityReportService:
             snapshot["domains"]["tasks"] = {
                 "count": len(tasks),
                 "completed": sum(
-                    1 for item in tasks if item.get("entity", {}).get("status") == "completed"
+                    1
+                    for item in tasks
+                    if item.get("entity", {}).get("status") == EntityStatus.COMPLETED
                 ),
                 "items": [
                     {

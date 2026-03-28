@@ -1511,7 +1511,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             "prerequisite_count": len(prerequisite_uids),
             "is_foundational": len(prerequisite_uids) == 0,
             "difficulty": difficulty_value,
-            "is_active": status_value == "active",
+            "is_active": status_value == EntityStatus.ACTIVE,
         }
         return Result.ok(enriched)
 

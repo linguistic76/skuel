@@ -602,7 +602,8 @@ class ExerciseService(BaseService):
             return Result.fail(result)
 
         exercises: list[CurriculumExerciseResult] = [
-            dict(record) for record in (result.value or [])  # type: ignore[misc]
+            dict(record)  # type: ignore[misc]
+            for record in (result.value or [])
         ]
         self.logger.info(f"Found {len(exercises)} exercises for curriculum {curriculum_uid}")
         return Result.ok(exercises)

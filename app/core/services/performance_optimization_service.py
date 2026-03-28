@@ -86,7 +86,7 @@ class CacheEntry:
             return False
         return datetime.now() > self.created_at + timedelta(seconds=self.ttl_seconds)
 
-    def access(self):
+    def access(self) -> None:
         """Record cache access."""
         self.last_accessed = datetime.now()
         self.access_count += 1
@@ -267,7 +267,7 @@ class AdvancedCache:
             return True
         return False
 
-    async def clear(self):
+    async def clear(self) -> None:
         """Clear entire cache."""
         self.cache.clear()
         self.access_order.clear()
@@ -519,7 +519,7 @@ class FastInferenceEngine:
         combined = "|".join(key_components)
         return hashlib.md5(combined.encode()).hexdigest()
 
-    async def precompute_patterns(self, common_queries: list[str]):
+    async def precompute_patterns(self, common_queries: list[str]) -> None:
         """Precompute inference results for common queries."""
         for query in common_queries:
             query_hash = hashlib.md5(query.encode()).hexdigest()[:8]
@@ -559,7 +559,7 @@ class BackgroundProcessingEngine:
 
         self.logger = get_logger(__name__)
 
-    async def start(self):
+    async def start(self) -> None:
         """Start background processing engine."""
         self.is_running = True
 
@@ -570,14 +570,14 @@ class BackgroundProcessingEngine:
 
         self.logger.info("Background processing engine started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop background processing engine."""
         self.is_running = False
         self.thread_pool.shutdown(wait=True)
         self.process_pool.shutdown(wait=True)
         self.logger.info("Background processing engine stopped")
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         """Gracefully shutdown background processing and cancel all tasks."""
         self.logger.info("Shutting down background processing engine")
 
@@ -860,7 +860,7 @@ class PerformanceOptimizationService:
         self.start_time = datetime.now()
         self.logger = get_logger(__name__)
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize performance optimization service."""
         await self.background_engine.start()
 
@@ -879,12 +879,12 @@ class PerformanceOptimizationService:
 
         self.logger.info("Performance optimization service initialized")
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         """Shutdown performance optimization service."""
         await self.background_engine.shutdown()
         self.logger.info("Performance optimization service shutdown")
 
-    async def close(self):
+    async def close(self) -> None:
         """Close service - cleanup hook for ServiceContainer."""
         await self.shutdown()
 

@@ -16,7 +16,7 @@ Uses pure Cypher for 8-10x performance improvement over sequential queries.
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
-from core.models.enums import Domain
+from core.models.enums import Domain, EntityStatus
 from core.models.enums.activity_enums import EngagementLevel
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
@@ -515,7 +515,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
             "goal_uid": goal.get("uid"),
             "contribution_weight": contribution_weight,
             "status": event.status,
-            "completed": event.status == "completed",
+            "completed": event.status == EntityStatus.COMPLETED,
         }
 
     async def _analyze_habit_impact(self, event: Event, _context: GraphContext) -> dict[str, Any]:
@@ -533,7 +533,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
             "habit_uid": event.reinforces_habit_uid,
             "quality_score": event.habit_completion_quality,  # GRAPH-NATIVE: renamed from quality_score
             "status": event.status,
-            "completed": event.status == "completed",
+            "completed": event.status == EntityStatus.COMPLETED,
         }
 
     async def _analyze_knowledge_impact(

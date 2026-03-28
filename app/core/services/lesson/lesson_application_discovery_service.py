@@ -91,7 +91,7 @@ class LessonApplicationDiscoveryService:
         """
         verify = await self._verify_ku_exists(ku_uid)
         if verify.is_error:
-            return verify  # type: ignore[return-value]
+            return Result.fail(verify)
 
         self.logger.debug(
             f"Finding {node_label} entities connected to knowledge {ku_uid} "
@@ -240,7 +240,7 @@ class LessonApplicationDiscoveryService:
         """
         verify = await self._verify_ku_exists(ku_uid)
         if verify.is_error:
-            return verify  # type: ignore[return-value]
+            return Result.fail(verify)
 
         self.logger.debug(f"Finding learning steps containing knowledge {ku_uid} (limit={limit})")
 
@@ -263,7 +263,7 @@ class LessonApplicationDiscoveryService:
         """
         verify = await self._verify_ku_exists(ku_uid)
         if verify.is_error:
-            return verify  # type: ignore[return-value]
+            return Result.fail(verify)
 
         self.logger.debug(f"Finding learning paths teaching knowledge {ku_uid} (limit={limit})")
 

@@ -19,7 +19,7 @@ Usage:
     )
 
     # Keyword-based detection (define extractor as named function)
-    def get_lowercase_title(t): return t.title.lower()
+    def get_lowercase_title(t) -> str: return t.title.lower()
     opportunities = PatternAnalyzer.detect_by_keywords(
         tasks,
         [(["debug", "fix", "bug"], "Error handling patterns")],
@@ -115,7 +115,7 @@ class PatternAnalyzer:
             List of detected pattern names
 
         Example:
-            def get_lowercase_title(t): return t.title.lower()
+            def get_lowercase_title(t) -> str: return t.title.lower()
             opportunities = PatternAnalyzer.detect_by_keywords(
                 tasks,
                 [
@@ -159,7 +159,7 @@ class PatternAnalyzer:
             List of detected pattern names
 
         Example:
-            def get_lowercase_title(t): return t.title.lower()
+            def get_lowercase_title(t) -> str: return t.title.lower()
             gaps = PatternAnalyzer.detect_by_indicator_tuples(
                 tasks,
                 [
@@ -199,7 +199,7 @@ class PatternAnalyzer:
             List of {"skill": name, "suggestion": text, "source": "task_analysis"} dicts
 
         Example:
-            def get_lowercase_title(t): return t.title.lower()
+            def get_lowercase_title(t) -> str: return t.title.lower()
             skills = PatternAnalyzer.extract_skill_keywords(
                 tasks,
                 get_lowercase_title,
@@ -268,9 +268,9 @@ class PatternAnalyzer:
             List of identified factor names
 
         Example:
-            def has_high_priority_focus(ts):
+            def has_high_priority_focus(ts) -> bool:
                 return sum(1 for t in ts if t.priority.is_high()) / len(ts) > 0.4
-            def has_detailed_descriptions(ts):
+            def has_detailed_descriptions(ts) -> bool:
                 return sum(1 for t in ts if t.description) / len(ts) > 0.6
             factors = PatternAnalyzer.identify_factors(
                 tasks,
@@ -298,7 +298,7 @@ class PatternAnalyzer:
             Dict of category -> count
 
         Example:
-            def get_status_value(t): return t.status.value
+            def get_status_value(t) -> str: return t.status.value
             counts = PatternAnalyzer.count_by_category(tasks, get_status_value)
             # Returns {"pending": 5, "active": 3, "completed": 10}
         """
@@ -326,7 +326,7 @@ class PatternAnalyzer:
             Dict with "peak_hour", "count", "confidence" or None if no data
 
         Example:
-            def get_completion_hour(t): return t.completed_at.hour if t.completed_at else None
+            def get_completion_hour(t) -> int | None: return t.completed_at.hour if t.completed_at else None
             peak = PatternAnalyzer.find_peak_time(completed_tasks, get_completion_hour)
             # Returns {"peak_hour": 14, "count": 15, "confidence": 0.7}
         """

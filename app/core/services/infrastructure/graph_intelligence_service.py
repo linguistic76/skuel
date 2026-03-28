@@ -19,6 +19,8 @@ See: /docs/ADVANCED_GDS_INTEGRATION.md
 Date: October 26, 2025
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
@@ -28,6 +30,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.graph_context import GraphContext
     from core.ports import QueryExecutor
 
 logger = get_logger(__name__)
@@ -582,7 +585,7 @@ class GraphIntelligenceService:
         node_uid: str,
         intent: Any,  # QueryIntent enum
         depth: int = 2,
-    ) -> Result[Any]:  # Returns Result[GraphContext]
+    ) -> Result[GraphContext]:
         """
         Execute graph context query with specific intent.
 
@@ -649,7 +652,7 @@ class GraphIntelligenceService:
     @with_error_handling(error_type="database", uid_param="entity_uid")
     async def get_entity_context(
         self, entity_uid: EntityUID, depth: int = 2
-    ) -> Result[Any]:  # Returns Result[GraphContext]
+    ) -> Result[GraphContext]:
         """
         Get generic graph context for any entity.
 

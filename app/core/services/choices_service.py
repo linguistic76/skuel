@@ -283,45 +283,45 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
     async def search_choices(
         self, query: str, limit: int = 50, user_uid: UserUID | None = None
     ) -> Result[list[Choice]]:
-        return await self.search.search(query, limit, user_uid)  # type: ignore[return-value]
+        return await self.search.search(query, limit, user_uid)
 
     async def get_choices_by_status(
         self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Choice]]:
-        return await self.search.get_by_status(status, limit, user_uid)  # type: ignore[return-value]
+        return await self.search.get_by_status(status, limit, user_uid)
 
     async def get_choices_by_domain(self, domain: Any, limit: int = 100) -> Result[list[Choice]]:
-        return await self.search.get_by_domain(domain, limit)  # type: ignore[return-value]
+        return await self.search.get_by_domain(domain, limit)
 
     async def get_pending_choices(
         self, user_uid: UserUID, limit: int = 100
     ) -> Result[list[Choice]]:
-        return await self.search.get_pending(user_uid, limit)  # type: ignore[return-value]
+        return await self.search.get_pending(user_uid, limit)
 
     async def get_choices_due_soon(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
-        return await self.search.get_due_soon(days_ahead, user_uid, limit)  # type: ignore[return-value]
+        return await self.search.get_due_soon(days_ahead, user_uid, limit)
 
     async def get_overdue_choices(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
-        return await self.search.get_overdue(user_uid, limit)  # type: ignore[return-value]
+        return await self.search.get_overdue(user_uid, limit)
 
     async def get_choices_by_urgency(
         self, urgency: str, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Choice]]:
-        return await self.search.get_by_urgency(urgency, user_uid, limit)  # type: ignore[return-value]
+        return await self.search.get_by_urgency(urgency, user_uid, limit)
 
     async def get_choices_needing_decision(
         self, user_uid: UserUID, deadline_days: int = 7
     ) -> Result[list[Choice]]:
-        return await self.search.get_needing_decision(user_uid, deadline_days)  # type: ignore[return-value]
+        return await self.search.get_needing_decision(user_uid, deadline_days)
 
     async def get_prioritized_choices(
         self, user_context: UserContext, limit: int = 10
     ) -> Result[list[Choice]]:
-        return await self.search.get_prioritized(user_context, limit)  # type: ignore[return-value]
+        return await self.search.get_prioritized(user_context, limit)
 
     async def list_choice_categories(self, user_uid: UserUID) -> Result[list[str]]:
         return await self.search.list_user_categories(user_uid)

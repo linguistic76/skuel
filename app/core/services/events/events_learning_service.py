@@ -526,7 +526,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         total_time_minutes = 0
 
         for event in events:
-            if event.status == "completed":
+            if event.status == EntityStatus.COMPLETED:
                 completed_events += 1
                 total_time_minutes += event.duration_minutes or 0
 

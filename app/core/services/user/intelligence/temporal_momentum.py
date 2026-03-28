@@ -14,6 +14,8 @@ See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums import EntityStatus
+
 if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
 
@@ -61,7 +63,9 @@ class TemporalMomentumMixin:
                 velocities[domain] = 0.0
                 continue
             completed = sum(
-                1 for item in items if item.get("entity", {}).get("status") == "completed"
+                1
+                for item in items
+                if item.get("entity", {}).get("status") == EntityStatus.COMPLETED
             )
             velocities[domain] = completed / len(items)
 

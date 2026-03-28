@@ -20,7 +20,12 @@ This service is part of the refactored UserService architecture:
 - UserService: Facade coordinating all sub-services
 """
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from core.services.user.unified_user_context import UserContext
 
 from core.events import publish_event
 from core.models.type_hints import EntityUID, UserUID
@@ -379,7 +384,7 @@ class UserActivityService:
         stats["pending_count"] = self._invalidator.get_pending_count()
         return stats
 
-    def get_valid_context(self, user_uid: UserUID):
+    def get_valid_context(self, user_uid: UserUID) -> UserContext | None:
         """
         Get cached user context if still valid (not invalidated).
 

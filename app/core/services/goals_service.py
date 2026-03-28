@@ -128,20 +128,25 @@ def _compute_goal_stats(all_goals: list[Any]) -> dict[str, int | float]:
         "active": sum(
             1
             for g in all_goals
-            if _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
+            if _get_goal_status_str(g)
+            not in (EntityStatus.COMPLETED, EntityStatus.CANCELLED, EntityStatus.ARCHIVED)
         ),
-        "completed": sum(1 for g in all_goals if _get_goal_status_str(g) == "completed"),
+        "completed": sum(1 for g in all_goals if _get_goal_status_str(g) == EntityStatus.COMPLETED),
     }
 
 
 def _is_goal_active(g: Any) -> bool:
     """Filter predicate: goal is not in a terminal state."""
-    return _get_goal_status_str(g) not in ("completed", "cancelled", "archived")
+    return _get_goal_status_str(g) not in (
+        EntityStatus.COMPLETED,
+        EntityStatus.CANCELLED,
+        EntityStatus.ARCHIVED,
+    )
 
 
 def _is_goal_completed(g: Any) -> bool:
     """Filter predicate: goal is completed."""
-    return _get_goal_status_str(g) == "completed"
+    return _get_goal_status_str(g) == EntityStatus.COMPLETED
 
 
 _GOAL_FILTER_CONFIG: FilterConfig = {
@@ -362,30 +367,30 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
     async def get_goals_by_status(
         self, status: str, limit: int = 100, user_uid: UserUID | None = None
     ) -> Result[list[Goal]]:
-        return await self.search.get_by_status(status, limit, user_uid)  # type: ignore[return-value]
+        return await self.search.get_by_status(status, limit, user_uid)
 
     async def search_goals(
         self, query: str, limit: int = 50, user_uid: UserUID | None = None
     ) -> Result[list[Goal]]:
-        return await self.search.search(query, limit, user_uid)  # type: ignore[return-value]
+        return await self.search.search(query, limit, user_uid)
 
     async def get_goals_due_soon(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
-        return await self.search.get_due_soon(days_ahead, user_uid, limit)  # type: ignore[return-value]
+        return await self.search.get_due_soon(days_ahead, user_uid, limit)
 
     async def get_overdue_goals(
         self, user_uid: UserUID | None = None, limit: int = 100
     ) -> Result[list[Goal]]:
-        return await self.search.get_overdue(user_uid, limit)  # type: ignore[return-value]
+        return await self.search.get_overdue(user_uid, limit)
 
     async def get_goals_by_domain(self, domain: Domain, limit: int = 100) -> Result[list[Goal]]:
-        return await self.search.get_by_domain(domain, limit)  # type: ignore[return-value]
+        return await self.search.get_by_domain(domain, limit)
 
     async def get_prioritized_goals(
         self, user_context: UserContext, limit: int = 10
     ) -> Result[list[Goal]]:
-        return await self.search.get_prioritized(user_context, limit)  # type: ignore[return-value]
+        return await self.search.get_prioritized(user_context, limit)
 
     # Scheduling delegations
     async def check_goal_capacity(

@@ -52,6 +52,7 @@ from core.models.event.calendar_models import (
 )
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
+from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 
@@ -796,7 +797,7 @@ class CalendarService:
         on_date: str,
         status: str,
         notes: str | None = None,
-    ) -> Result[Any]:
+    ) -> Result[HabitCompletion]:
         """
         Record a habit occurrence from the calendar view.
 

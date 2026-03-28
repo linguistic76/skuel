@@ -26,6 +26,8 @@ Created: 2025-11-18
 Purpose: Enable context-aware API functionality
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -52,6 +54,7 @@ from core.utils.result_simplified import Errors, Result
 # Avoid circular import - UserService imports from core.services.user
 if TYPE_CHECKING:
     from core.models.enums import ContextHealthScore
+    from core.models.habit.habit import Habit
     from core.services.user_service import UserService
 
 logger = get_logger(__name__)
@@ -648,7 +651,7 @@ class UserContextService:
         user_uid: UserUID,
         completion_quality: str = "good",  # poor, fair, good, excellent
         environmental_factors: dict[str, Any] | None = None,
-    ) -> Result[Any]:  # Returns Habit
+    ) -> Result[Habit]:
         """
         Complete habit with context awareness.
 
@@ -700,7 +703,7 @@ class UserContextService:
         # Build user context - builder owns user resolution (Option A architecture)
         context_result = await self.context_builder.build(user_uid)
         if context_result.is_error:
-            return context_result
+            return Result.fail(context_result)
 
         context = context_result.value
 
