@@ -60,7 +60,7 @@ class GraphIntelligenceService:
     - (Analyzes all relationship types for hub/centrality detection)
     """
 
-    def __init__(self, executor: "QueryExecutor") -> None:
+    def __init__(self, executor: QueryExecutor) -> None:
         """
         Initialize graph intelligence service.
 

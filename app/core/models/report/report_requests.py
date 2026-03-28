@@ -1,5 +1,5 @@
 """
-SubmissionReport Domain Request Models
+ExerciseReport Domain Request Models
 =======================================
 
 Pydantic models for teacher/AI reports on student submissions.

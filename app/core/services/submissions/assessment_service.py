@@ -9,7 +9,7 @@ Handles:
 - Querying assessments received by a student
 - Querying assessments authored by a teacher
 
-Assessments are SubmissionReport entities with entity_type=EXERCISE_REPORT,
+Assessments are ExerciseReport entities with entity_type=EXERCISE_REPORT,
 linked to students via ASSESSMENT_OF relationships and auto-shared via SHARES_WITH.
 """
 
@@ -21,7 +21,7 @@ from core.events.submission_events import AssessmentCreated
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.report.submission_report import SubmissionReport
+from core.models.report.exercise_report import ExerciseReport
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.ports import BackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -64,7 +64,7 @@ class AssessmentService:
         title: str,
         content: str,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[SubmissionReport]:
+    ) -> Result[ExerciseReport]:
         """
         Create a teacher assessment (feedback) for a student.
 
@@ -104,7 +104,7 @@ class AssessmentService:
 
         uid = UIDGenerator.generate_uid("sr")
 
-        assessment = SubmissionReport(
+        assessment = ExerciseReport(
             uid=uid,
             title=title,
             entity_type=EntityType.EXERCISE_REPORT,

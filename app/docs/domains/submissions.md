@@ -48,7 +48,7 @@ The Submissions + Reports domain handles the artifact-based side of SKUEL's Five
 | Relationship Service | `submissions_relationship_service.py` |
 | Learning Loop Handler | `learning_loop_event_handler_service.py` |
 | Teacher Review | `teacher_review_service.py` (review queue, report, revision, approval — delegates to `SubmissionsBackend`, `ExerciseBackend`, `GroupBackend`) |
-| Submission Report | `submission_report_service.py` (AI-generated exercise reports) |
+| Exercise Report | `exercise_report_service.py` (AI-generated exercise reports) |
 | Activity Report | `activity_report_service.py` (delegates to `ActivityReportBackend`) |
 | Progress Generator | `progress_report_generator.py` |
 | Schedule Service | `progress_schedule_service.py` |

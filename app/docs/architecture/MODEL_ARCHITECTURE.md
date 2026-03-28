@@ -70,8 +70,7 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │   │
 │   ├── Submission ───── + processor_type, file_path, file_type, processed_content
 │   │   └── ExerciseSubmission   (forces entity_type=EXERCISE_SUBMISSION)
-│   ├── SubmissionReport ── + report_content, subject_uid, report_file_path (NOT Submission)
-│   │   └── ExerciseReport       (forces entity_type=EXERCISE_REPORT)
+│   ├── ExerciseReport ── + report_content, subject_uid, report_file_path (NOT Submission, forces entity_type=EXERCISE_REPORT)
 │   ├── JeInput ──────── (forces entity_type=JE_INPUT, standalone journal domain)
 │   ├── JeOutput ─────── (forces entity_type=JE_OUTPUT, standalone journal domain)
 │   ├── ActivityReport ─── (forces entity_type=ACTIVITY_REPORT, NO file fields)
@@ -144,7 +143,7 @@ core/models/{domain}/
 | `ku/` | Ku + KuDTO | Curriculum | Atomic knowledge units |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
 | `submissions/` | Submission, ExerciseSubmission + DTOs | Submissions | + submission_requests.py, report_schedule.py |
-| `report/` | ActivityReport + ActivityReportDTO, SubmissionReport + SubmissionReportDTO | Report | ActivityReport: no file fields; SubmissionReport: tied to submission via subject_uid |
+| `report/` | ActivityReport + ActivityReportDTO, ExerciseReport + ExerciseReportDTO | Report | ActivityReport: no file fields; ExerciseReport: tied to submission via subject_uid |
 | `journal/` | JeInput, JeOutput + DTOs | Journal | Standalone domain — NOT under submissions |
 | `life_path/` | LifePath + LifePathDTO | Destination | |
 | `group/` | Group + request | Organizational | Teacher-student classes (ADR-040) |

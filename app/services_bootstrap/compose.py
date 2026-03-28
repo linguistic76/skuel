@@ -638,7 +638,7 @@ async def compose_services(
 
         # UnifiedLLMCaller: routes to OpenAI or Anthropic based on model prefix
         from core.services.llm_caller import UnifiedLLMCaller
-        from core.services.report import SubmissionReportService
+        from core.services.report import ExerciseReportService
 
         llm_caller = None
         if ai_service:
@@ -648,12 +648,12 @@ async def compose_services(
             )
             logger.info("✅ UnifiedLLMCaller created")
 
-        # SubmissionReportService: None in CORE tier — report generation requires AI
+        # ExerciseReportService: None in CORE tier — report generation requires AI
         submission_report_service = None
         if llm_caller:
-            submission_report_service = SubmissionReportService(
+            submission_report_service = ExerciseReportService(
                 llm_caller=llm_caller,
-                executor=query_executor,  # Creates SUBMISSION_REPORT entity + REPORT_FOR relationship
+                executor=query_executor,  # Creates ExerciseReport entity + REPORT_FOR relationship
                 ku_interaction_service=learning_services[
                     "lesson_service"
                 ].mastery,  # Closes mastery loop

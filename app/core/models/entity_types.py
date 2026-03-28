@@ -34,7 +34,6 @@ from core.models.pathways.learning_step import LearningStep
 from core.models.principle.principle import Principle
 from core.models.report.activity_report import ActivityReport
 from core.models.report.exercise_report import ExerciseReport
-from core.models.report.submission_report import SubmissionReport
 from core.models.resource.resource import Resource
 from core.models.submissions.exercise_submission import ExerciseSubmission
 from core.models.submissions.submission import Submission
@@ -60,7 +59,7 @@ KuEntity = Ku
 SubmissionEntity = Submission | ExerciseSubmission
 
 # Report entities — report output (no file fields, report-specific fields)
-ReportEntity = ActivityReport | SubmissionReport | ExerciseReport
+ReportEntity = ActivityReport | ExerciseReport
 
 # Journal entities — standalone domain (NOT submission, NOT report)
 JournalEntity = JeInput | JeOutput

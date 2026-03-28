@@ -220,7 +220,7 @@ UniversalNeo4jBackend[T]  <- ONE instance per domain, NO wrappers
 Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 +-- UserOwnedEntity(Entity) +3 fields (user_uid, visibility, priority)
 |   +-- Task, Goal, Habit, Event, Choice, Principle  (Activity)
-|   +-- LifePath, ActivityReport, Submission, SubmissionReport, JeInput, JeOutput
+|   +-- LifePath, ActivityReport, Submission, ExerciseReport, JeInput, JeOutput
 +-- Ku(Entity) -- atomic knowledge unit (namespace, ku_category, aliases, source, sel_category)
 +-- Curriculum(Entity) +21 fields -> Lesson, LearningStep, LearningPath, Exercise
 +-- Resource(Entity) +7 fields (Curated content)

@@ -307,7 +307,7 @@ class LessonMasteryService:
 
         Two callers in the educational loop:
         - TeacherReviewService.approve_report(): score=0.8, method="ku_approval"
-        - SubmissionReportService._update_mastery_for_linked_ku(): score=0.6, method="activity_report"
+        - ExerciseReportService._update_mastery_for_linked_ku(): score=0.6, method="activity_report"
         """
         if not self.backend:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))

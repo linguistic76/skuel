@@ -21,7 +21,7 @@ summarises cross-domain activity over a time window. Still a report, broader sco
 
 Protocol Responsibilities
 --------------------------
-    SubmissionReportOperations   — Human + AI report CRUD (EXERCISE_REPORT entities)
+    ExerciseReportOperations     — Human + AI report CRUD (EXERCISE_REPORT entities)
     ProgressReportOperations     — Auto-generated progress reports (ACTIVITY_REPORT entities)
     ProgressScheduleOperations   — Recurring progress report scheduling
     ActivityReportOperations     — Processor-neutral ActivityReport CRUD (snapshot, submit, history, annotate)
@@ -69,8 +69,8 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class SubmissionReportOperations(Protocol):
-    """Human + AI reports on submissions. Both create SUBMISSION_REPORT entities.
+class ExerciseReportOperations(Protocol):
+    """Human + AI reports on submissions. Both create EXERCISE_REPORT entities.
 
     processor_type discriminates the source:
         ProcessorType.HUMAN — teacher writes report (create_assessment)
@@ -80,7 +80,7 @@ class SubmissionReportOperations(Protocol):
     they represent the same concept: a response to student work.
 
     Route consumers: exercise_report_api.py (assessments), exercises_api.py (AI reports)
-    Implementation: SubmissionsCoreService (assessments) + SubmissionReportService (AI)
+    Implementation: SubmissionsCoreService (assessments) + ExerciseReportService (AI)
     """
 
     # ------------------------------------------------------------------
@@ -360,7 +360,7 @@ class TeacherReviewOperations(Protocol):
         self,
         submission_uid: str,
     ) -> Result[list[ReportHistoryItem]]:
-        """Get SUBMISSION_REPORT nodes linked to a submission."""
+        """Get EXERCISE_REPORT nodes linked to a submission."""
         ...
 
     async def submit_report(

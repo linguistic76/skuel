@@ -9,10 +9,10 @@ Answers intelligence questions about the Report stage of the learning loop:
 - How many submissions have reports vs. not?
 
 No LLM dependencies — this is a Level 1 graph analytics service.
-The higher-level SubmissionReportService (LLM report generation) is a separate concern.
+The higher-level ExerciseReportService (LLM report generation) is a separate concern.
 
 Graph relationships queried:
-- REPORT_FOR: (SubmissionReport)-[:REPORT_FOR]->(Submission)
+- REPORT_FOR: (ExerciseReport)-[:REPORT_FOR]->(Submission)
 - OWNS: (User)-[:OWNS]->(Submission)
 
 See: /docs/architecture/REPORT_ARCHITECTURE.md
@@ -164,8 +164,8 @@ class ReportRelationshipService:
 
         Graph pattern (mixed directions):
             (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-            (SubmissionReport)-[:REPORT_FOR]->(Submission)
-            (RevisedExercise)-[:RESPONDS_TO_REPORT]->(SubmissionReport)
+            (ExerciseReport)-[:REPORT_FOR]->(Submission)
+            (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
             (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
 
         Args:
@@ -203,8 +203,8 @@ class ReportRelationshipService:
 
         Graph pattern:
             (Submission)-[:FULFILLS_EXERCISE]->(Exercise)
-            (SubmissionReport)-[:REPORT_FOR]->(Submission)
-            (RevisedExercise)-[:RESPONDS_TO_REPORT]->(SubmissionReport)
+            (ExerciseReport)-[:REPORT_FOR]->(Submission)
+            (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
 
         Args:
             submission_uid: UID of the submission

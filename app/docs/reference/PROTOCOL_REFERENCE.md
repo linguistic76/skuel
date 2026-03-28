@@ -473,13 +473,13 @@ Map to the **Report** stage of the educational loop. `processor_type` discrimina
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `SubmissionReportOperations` | `submission_report`, `submissions_core` | generate_report (→ `SUBMISSION_REPORT`, `LLM`), create_assessment (→ `SUBMISSION_REPORT`, `HUMAN`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `exercise_report_api.py` |
+| `ExerciseReportOperations` | `submission_report`, `submissions_core` | generate_report (→ `SUBMISSION_REPORT`, `LLM`), create_assessment (→ `SUBMISSION_REPORT`, `HUMAN`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `exercise_report_api.py` |
 | `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
 | `ProgressScheduleOperations` | `progress_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `progress_report_api.py` |
 | `ActivityReportOperations` | `activity_report` | 6 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, annotate, get_annotation, get_privacy_summary) | `progress_report_api.py` |
 
-**Why `SubmissionReportOperations` unifies human + AI reports:**
-`TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `SubmissionReportService.generate_report()` (processor_type=LLM) both create `SUBMISSION_REPORT` entities linked via `REPORT_FOR`. The protocol captures what routes need regardless of which processor created it.
+**Why `ExerciseReportOperations` unifies human + AI reports:**
+`TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `ExerciseReportService.generate_report()` (processor_type=LLM) both create `SUBMISSION_REPORT` entities linked via `REPORT_FOR`. The protocol captures what routes need regardless of which processor created it.
 
 **Note on `AssignmentOperations`:** `AssignmentOperations` remains in `curriculum_protocols.py` — Assignments are curriculum entities (Exercise scope=assigned), not reports.
 
@@ -589,7 +589,7 @@ Every field on the `Services` dataclass is typed — zero `Any` fields remain. T
 class Services:
     # Route-facing: ISP protocols (19 fields)
     reports: SubmissionOperations | None = None          # was ReportsSubmissionOperations
-    report_feedback: SubmissionReportOperations | None = None    # was ReportsFeedbackOperations
+    report_feedback: ExerciseReportOperations | None = None    # was ReportsFeedbackOperations
     calendar: CalendarServiceOperations | None = None
     graph_auth: GraphAuthOperations | None = None
 

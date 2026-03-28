@@ -32,7 +32,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
     Extends UserOwnedDTO with 9 revised-exercise-specific fields:
     - revision_number: Which revision iteration
     - original_exercise_uid: UID of the original Exercise
-    - report_uid: UID of the SubmissionReport this addresses
+    - report_uid: UID of the ExerciseReport this addresses
     - student_uid: Target student
     - instructions: Revision instructions
     - model: Which LLM to use

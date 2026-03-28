@@ -64,6 +64,7 @@ from core.ports import (
     CrossDomainAnalyticsOperations,
     EventBusOperations,
     ExerciseOperations,
+    ExerciseReportOperations,
     FinancesOperations,
     FormSubmissionOperations,
     FormTemplateOperations,
@@ -80,7 +81,6 @@ from core.ports import (
     SharingOperations,
     SubmissionOperations,
     SubmissionProcessingOperations,
-    SubmissionReportOperations,
     SubmissionSearchOperations,
     SystemServiceOperations,
     TeacherReviewOperations,
@@ -136,8 +136,8 @@ class Services:
     transcription: "TranscriptionService | None" = None
 
     # Report services (LLM-based processing)
-    submission_report: SubmissionReportOperations | None = (
-        None  # SubmissionReportService - LLM report on submission content
+    submission_report: ExerciseReportOperations | None = (
+        None  # ExerciseReportService - LLM report on submission content
     )
     exercises: ExerciseOperations | None = (
         None  # ExerciseService - Reusable LLM instruction templates

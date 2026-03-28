@@ -697,7 +697,7 @@ class Neo4jSchemaManager:
         Drop indexes that reference labels no longer in use.
 
         Stale indexes:
-        - ai_report_uid_idx (label AiReport — reports use ExerciseReport/JeOutput/SubmissionReport)
+        - ai_report_uid_idx (label AiReport — reports use ExerciseReport/JeOutput)
         - lpstep_embedding_idx (label LpStep — current label is LearningStep)
         - journal_submission_* (label JournalSubmission — renamed to JeInput)
         - journal_report_* (label JournalReport — renamed to JeOutput)

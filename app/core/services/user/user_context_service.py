@@ -75,7 +75,7 @@ class UserContextService:
     def __init__(
         self,
         context_builder: UserContextBuilder,
-        user_service: "UserService",  # String annotation to avoid circular import
+        user_service: UserService,  # String annotation to avoid circular import
         tasks_service: TasksOperations | None = None,
         goal_task_generator: Any | None = None,  # GoalTaskGenerator
         habits_service: Any | None = None,  # HabitsService
@@ -733,7 +733,7 @@ class UserContextService:
     # HELPER METHODS
     # =========================================================================
 
-    def _calculate_health_score(self, summary: ContextSummary) -> "ContextHealthScore":
+    def _calculate_health_score(self, summary: ContextSummary) -> ContextHealthScore:
         """
         Calculate overall health score from context summary.
 

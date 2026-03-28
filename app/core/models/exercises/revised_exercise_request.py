@@ -6,7 +6,7 @@ Pydantic models for RevisedExercise API validation and serialization.
 Handles input validation at the API boundary.
 
 Part of the five-phase learning loop:
-Exercise → Submission → SubmissionReport → RevisedExercise → Submission v2 → ...
+Exercise → Submission → ExerciseReport → RevisedExercise → Submission v2 → ...
 """
 
 from pydantic import BaseModel, Field
@@ -19,7 +19,7 @@ class RevisedExerciseCreateRequest(BaseModel):
         ..., description="UID of the original Exercise being revised"
     )
 
-    report_uid: str = Field(..., description="UID of the SubmissionReport this addresses")
+    report_uid: str = Field(..., description="UID of the ExerciseReport this addresses")
 
     student_uid: str = Field(..., description="UID of the student this revision targets")
 

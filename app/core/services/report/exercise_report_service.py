@@ -1,15 +1,15 @@
 """
-Submission Report Service
-==========================
+Exercise Report Service
+========================
 
 Generates AI reports for submission entries using Exercises.
 
-AI report creates a first-class SUBMISSION_REPORT entity (processor_type=LLM),
+AI report creates a first-class EXERCISE_REPORT entity (processor_type=LLM),
 symmetric with human teacher reports (processor_type=HUMAN). Both are stored
-as SUBMISSION_REPORT entities linked to the submission via REPORT_FOR.
+as EXERCISE_REPORT entities linked to the submission via REPORT_FOR.
 
 The core educational loop:
-    Exercise (instructions) + Submission (student work) → LLM → SUBMISSION_REPORT entity
+    Exercise (instructions) + Submission (student work) → LLM → EXERCISE_REPORT entity
 
 Following SKUEL principles:
 - Transparent: User sees exact prompt sent to LLM
@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
-from core.models.report.submission_report import SubmissionReport
+from core.models.report.exercise_report import ExerciseReport
 from core.models.submissions.submission import Submission
 from core.models.type_hints import UserUID
 from core.services.llm_caller import LLMCallerProtocol
@@ -39,11 +39,11 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class SubmissionReportService:
+class ExerciseReportService:
     """
     Generates AI reports for submission entries using exercise instructions.
 
-    Creates a SUBMISSION_REPORT entity (processor_type=LLM) linked to the
+    Creates an EXERCISE_REPORT entity (processor_type=LLM) linked to the
     submission via REPORT_FOR — symmetric with teacher reports.
 
     Supports both OpenAI and Anthropic models.
@@ -61,7 +61,7 @@ class SubmissionReportService:
 
         Args:
             llm_caller: Unified LLM caller for model-agnostic generation
-            executor: QueryExecutor for creating SUBMISSION_REPORT entity in Neo4j
+            executor: QueryExecutor for creating EXERCISE_REPORT entity in Neo4j
             ku_interaction_service: Optional — updates MASTERED relationships on linked Ku nodes
                 after feedback is persisted, closing the mastery loop for PERSONAL scope
                 exercises where no teacher approval step exists
@@ -77,7 +77,7 @@ class SubmissionReportService:
         if self.ku_interaction_service:
             available.append("MasteryLoop")
 
-        logger.info(f"SubmissionReportService initialized with: {', '.join(available)}")
+        logger.info(f"ExerciseReportService initialized with: {', '.join(available)}")
 
     async def generate_report(
         self,
@@ -86,11 +86,11 @@ class SubmissionReportService:
         user_uid: UserUID,
         temperature: float = 0.7,
         max_tokens: int = 4000,
-    ) -> Result[SubmissionReport]:
+    ) -> Result[ExerciseReport]:
         """
         Generate AI report for a submission entry using exercise instructions.
 
-        Creates a SUBMISSION_REPORT entity (processor_type=LLM) in Neo4j, linked
+        Creates an EXERCISE_REPORT entity (processor_type=LLM) in Neo4j, linked
         to the submission via REPORT_FOR. Also updates the submission's
         denormalized report field for quick access.
 
@@ -102,7 +102,7 @@ class SubmissionReportService:
             max_tokens: Maximum tokens to generate (default 4000)
 
         Returns:
-            Result[SubmissionReport] containing the created SUBMISSION_REPORT entity
+            Result[ExerciseReport] containing the created EXERCISE_REPORT entity
         """
         try:
             if not exercise.is_valid():
@@ -138,7 +138,7 @@ class SubmissionReportService:
             feedback_text = llm_result.value
             self.logger.info(f"Report generated: {len(feedback_text)} chars")
 
-            # Persist as SUBMISSION_REPORT entity
+            # Persist as EXERCISE_REPORT entity
             return await self._persist_report_entity(
                 submission=entry,
                 exercise=exercise,
@@ -167,9 +167,9 @@ class SubmissionReportService:
         exercise: Exercise,
         feedback_text: str,
         user_uid: UserUID,
-    ) -> Result[SubmissionReport]:
+    ) -> Result[ExerciseReport]:
         """
-        Persist AI report as a SUBMISSION_REPORT entity in Neo4j.
+        Persist AI report as an EXERCISE_REPORT entity in Neo4j.
 
         Creates the entity, OWNS relationship, REPORT_FOR relationship,
         and updates the submission's denormalized report field — atomically.
@@ -179,9 +179,9 @@ class SubmissionReportService:
         if not self.executor:
             self.logger.warning(
                 "No executor configured — AI report generated but not persisted as entity. "
-                "Configure executor in SubmissionReportService to enable full persistence."
+                "Configure executor in ExerciseReportService to enable full persistence."
             )
-            # Return a transient SubmissionReport object for graceful degradation
+            # Return a transient ExerciseReport object for graceful degradation
             return self._build_transient_report(submission, exercise, feedback_text, user_uid)
 
         report_uid = UIDGenerator.generate_uid("sr")
@@ -246,13 +246,13 @@ class SubmissionReportService:
                 return Result.fail(
                     Errors.database(
                         "create_report_entity",
-                        "Failed to create SUBMISSION_REPORT entity",
+                        "Failed to create EXERCISE_REPORT entity",
                     )
                 )
 
-            self.logger.info(f"SUBMISSION_REPORT entity created: {report_uid}")
+            self.logger.info(f"EXERCISE_REPORT entity created: {report_uid}")
 
-            feedback_entity = SubmissionReport(
+            feedback_entity = ExerciseReport(
                 uid=report_uid,
                 entity_type=EntityType.EXERCISE_REPORT,
                 title=title,
@@ -343,14 +343,14 @@ class SubmissionReportService:
         exercise: Exercise,
         feedback_text: str,
         user_uid: UserUID,
-    ) -> Result[SubmissionReport]:
-        """Build a non-persisted SubmissionReport object for graceful degradation."""
+    ) -> Result[ExerciseReport]:
+        """Build a non-persisted ExerciseReport object for graceful degradation."""
         title = (
             f"AI Feedback: {exercise.title[:50]}"
             if exercise.title
             else f"AI Feedback: {exercise.uid[:20]}"
         )
-        feedback_entity = SubmissionReport(
+        feedback_entity = ExerciseReport(
             uid=f"transient_{submission.uid}",
             entity_type=EntityType.EXERCISE_REPORT,
             title=title,

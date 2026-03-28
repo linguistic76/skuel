@@ -48,7 +48,7 @@ class Lesson(Curriculum):
 
     The 4-part educational loop:
         Lesson (unit for learning) → Exercise (instruction template)
-          → Submission (student work) → SubmissionReport (teacher/AI response)
+          → Submission (student work) → ExerciseReport (teacher/AI response)
 
     See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
     """

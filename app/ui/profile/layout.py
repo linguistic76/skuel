@@ -135,7 +135,7 @@ def _profile_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
             )
         )
 
-    # Simple item (Overview, SubmissionReport)
+    # Simple item (Overview, ExerciseReport)
     return Li(
         Anchor(
             Span(item.icon, cls="text-lg", aria_hidden="true") if item.icon else "",

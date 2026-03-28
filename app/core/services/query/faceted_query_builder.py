@@ -43,7 +43,7 @@ class FacetedQueryBuilder:
     It depends on QueryOptimizer for query optimization (injected after initialization).
     """
 
-    def __init__(self, schema_service, optimizer: "QueryOptimizer | None" = None) -> None:
+    def __init__(self, schema_service, optimizer: QueryOptimizer | None = None) -> None:
         """
         Initialize faceted builder with schema service.
 

@@ -11,7 +11,7 @@ content according to instructions. The user remains the sole interpreter.
 
 Pipeline position: JE_INPUT → LLM → **JE_OUTPUT**
 
-Extends UserOwnedEntity directly (NOT SubmissionReport — not an interpretation).
+Extends UserOwnedEntity directly (NOT ExerciseReport — not an interpretation).
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """

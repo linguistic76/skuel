@@ -632,7 +632,7 @@ Routes / Application Code
 │   └─ batch_processing_service.py    (Tier 2: batch txt → md via LLM)
 │
 └─ report/
-    ├─ submission_report_service.py   (entry point — uses UnifiedLLMCaller)
+    ├─ exercise_report_service.py     (entry point — uses UnifiedLLMCaller)
     ├─ activity_report_service.py     (CRUD for ActivityReport — delegates to ActivityReportBackend)
     ├─ review_queue_service.py        (ReviewRequest node management)
     ├─ teacher_review_service.py      (delegates to SubmissionsBackend, ExerciseBackend, GroupBackend)

@@ -109,8 +109,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- FormSubmission(UserOwnedEntity)          FORM_SUBMISSION (structured JSON)
 |   +-- Submission(UserOwnedEntity) +13 file/processing fields
 |   |   +-- ExerciseSubmission(Submission)        EXERCISE_SUBMISSION
-|   +-- SubmissionReport(UserOwnedEntity) +5 report fields (NOT Submission)
-|   |   +-- ExerciseReport(SubmissionReport)      EXERCISE_REPORT
+|   +-- ExerciseReport(UserOwnedEntity) +5 report fields (NOT Submission)    EXERCISE_REPORT
 |   +-- JeInput(UserOwnedEntity)                  JE_INPUT (standalone journal domain)
 |   +-- JeOutput(UserOwnedEntity)                 JE_OUTPUT (standalone journal domain)
 |   +-- RevisedExercise(UserOwnedEntity)          REVISED_EXERCISE
@@ -129,7 +128,7 @@ EntityDTO (~18 fields)
 +-- UserOwnedDTO -> ActivityReportDTO              (no file fields)
 +-- UserOwnedDTO -> FormSubmissionDTO              (structured JSON, no file fields)
 +-- UserOwnedDTO -> SubmissionDTO -> ExerciseSubmissionDTO
-+-- UserOwnedDTO -> SubmissionReportDTO -> ExerciseReportDTO  (NOT SubmissionDTO)
++-- UserOwnedDTO -> ExerciseReportDTO  (NOT SubmissionDTO)
 +-- UserOwnedDTO -> JeInputDTO, JeOutputDTO        (standalone journal domain)
 +-- EntityDTO -> FormTemplateDTO                   (form_schema, instructions)
 +-- CurriculumDTO(EntityDTO) -> LessonDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
@@ -152,7 +151,7 @@ Every entity node gets two labels: `:Entity` (universal) + type-specific (`:Task
 | `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
 | `:FormTemplate`, `:FormSubmission` |
 | `:Submission`, `:ExerciseSubmission` |
-| `:SubmissionReport`, `:ExerciseReport` |
+| `:ExerciseReport` |
 | `:JeInput`, `:JeOutput` |
 | `:ActivityReport` |
 | `:Exercise` |
@@ -291,10 +290,10 @@ The educational loop: `Lesson -> Exercise -> ExerciseSubmission -> ExerciseRepor
 | EntityType | Inherits | ProcessorType | Description |
 |------------|---------|---------------|-------------|
 | `EXERCISE_SUBMISSION` | `Submission(UserOwnedEntity)` | `HUMAN` or `LLM` | Student work against an Exercise |
-| `EXERCISE_REPORT` | `SubmissionReport(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a submission via `subject_uid` |
+| `EXERCISE_REPORT` | `ExerciseReport(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a submission via `subject_uid` |
 | `ACTIVITY_REPORT` | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
 
-**Key structural note:** `SubmissionReport` extends `UserOwnedEntity` directly — NOT `Submission`. It has 5 report-specific fields (`report_content`, `report_generated_at`, `subject_uid`, `processor_type`, `report_file_path`) but no file/processing fields.
+**Key structural note:** `ExerciseReport` extends `UserOwnedEntity` directly — NOT `Submission`. It has 5 report-specific fields (`report_content`, `report_generated_at`, `subject_uid`, `processor_type`, `report_file_path`) but no file/processing fields.
 
 `ACTIVITY_REPORT` also inherits `UserOwnedEntity` directly — no file fields. It responds to aggregate activity patterns over a time period, not to a specific artifact.
 
@@ -302,7 +301,7 @@ The educational loop: `Lesson -> Exercise -> ExerciseSubmission -> ExerciseRepor
 
 **Services split:**
 - `core/services/submissions/` — `ActivityReportService`, `ReviewQueueService`, student work pipeline
-- `core/services/report/` — `SubmissionReportService`, `ProgressReportGenerator`, `ProgressScheduleService`
+- `core/services/report/` — `ExerciseReportService`, `ProgressReportGenerator`, `ProgressScheduleService`
 
 ### JeInput + JeOutput — Standalone Journal Domain
 
@@ -313,7 +312,7 @@ Journal is a **standalone domain**, NOT under submissions/reports. Two entity ty
 | `JE_INPUT` | `UserOwnedEntity` directly | Journal entry input (voice/text), UID prefix `ji_` |
 | `JE_OUTPUT` | `UserOwnedEntity` directly | Journal entry output (LLM-transformed), UID prefix `jo_` |
 
-Both extend `UserOwnedEntity` directly (NOT `Submission` or `SubmissionReport`). `JeOutput` has `ContentOrigin.USER_CREATED` (not REPORT). Relationship: `(JeOutput)-[:TRANSFORMS]->(JeInput)`.
+Both extend `UserOwnedEntity` directly (NOT `Submission` or `ExerciseReport`). `JeOutput` has `ContentOrigin.USER_CREATED` (not REPORT). Relationship: `(JeOutput)-[:TRANSFORMS]->(JeInput)`.
 
 **Pipeline:** JE_INPUT(audio) → Deepgram → JE_INPUT(text) → LLM → JE_OUTPUT
 
@@ -324,14 +323,14 @@ Both extend `UserOwnedEntity` directly (NOT `Submission` or `SubmissionReport`).
 
 ### RevisedExercise — Five-Phase Learning Loop
 
-Teacher-created revision of an Exercise that addresses specific `SubmissionReport` gaps. Extends `UserOwnedEntity` (NOT Curriculum — needs `user_uid` but not 21 Curriculum fields). First entity type combining `ContentOrigin.CURRICULUM` with `requires_user_uid()=True`.
+Teacher-created revision of an Exercise that addresses specific `ExerciseReport` gaps. Extends `UserOwnedEntity` (NOT Curriculum — needs `user_uid` but not 21 Curriculum fields). First entity type combining `ContentOrigin.CURRICULUM` with `requires_user_uid()=True`.
 
 | EntityType | Inherits | Description |
 |------------|---------|-------------|
 | `REVISED_EXERCISE` | `UserOwnedEntity` | Teacher's revised instructions targeting a specific student |
 
 **Graph relationships:**
-- `RESPONDS_TO_REPORT` → SubmissionReport (what report this addresses)
+- `RESPONDS_TO_REPORT` → ExerciseReport (what report this addresses)
 - `REVISES_EXERCISE` → Exercise (what exercise this revises)
 - `FULFILLS_EXERCISE` ← Submission (student submits against this)
 
@@ -510,7 +509,7 @@ Full taxonomy: 70+ typed relationship names in `RelationshipName` enum (`core/mo
 | Document | What it covers |
 |----------|---------------|
 | [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) | User model, auth, roles, UserContext (~240 fields) |
-| [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) | ActivityReport, SubmissionReport, all report types |
+| [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) | ActivityReport, ExerciseReport, all report types |
 | [RELATIONSHIPS_ARCHITECTURE.md](RELATIONSHIPS_ARCHITECTURE.md) | UnifiedRelationshipService, relationship taxonomy |
 | [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) | KU/LS/LP/MOC patterns |
 | [ANALYTICS_ARCHITECTURE.md](ANALYTICS_ARCHITECTURE.md) | Analytics meta-service |

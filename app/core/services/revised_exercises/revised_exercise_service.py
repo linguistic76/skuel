@@ -6,9 +6,9 @@ CRUD operations for RevisedExercises — targeted revision instructions that
 address specific feedback gaps in the five-phase learning loop.
 
 The flow:
-    Exercise → Submission → SubmissionReport → RevisedExercise → Submission v2 → ...
+    Exercise → Submission → ExerciseReport → RevisedExercise → Submission v2 → ...
 
-A teacher creates a RevisedExercise after reviewing SubmissionReport, providing
+A teacher creates a RevisedExercise after reviewing ExerciseReport, providing
 targeted instructions for the student to address specific gaps. The student
 submits against the RevisedExercise via FULFILLS_EXERCISE (same relationship
 as regular Exercise submissions).
@@ -224,7 +224,7 @@ class RevisedExerciseService(BaseService):
         """Verify the teacher has review authority over the feedback.
 
         Checks the graph path:
-        - (SubmissionReport)-[:REPORT_FOR]->(Submission) exists
+        - (ExerciseReport)-[:REPORT_FOR]->(Submission) exists
         - (Teacher)-[:SHARES_WITH {role:'teacher'}]->(Submission)
         - (Student)-[:OWNS]->(Submission)
         """

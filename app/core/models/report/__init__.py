@@ -1,1 +1,1 @@
-"""Report domain models — ActivityReport, SubmissionReport (responses to student submissions)."""
+"""Report domain models — ActivityReport, ExerciseReport (responses to student submissions)."""

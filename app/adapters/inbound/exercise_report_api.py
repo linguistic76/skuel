@@ -13,7 +13,7 @@ Routes:
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.report_protocols import SubmissionReportOperations
+    from core.ports.report_protocols import ExerciseReportOperations
 
 from starlette.requests import Request
 
@@ -31,7 +31,7 @@ logger = get_logger("skuel.routes.submissions.assessment")
 def create_exercise_report_api_routes(
     _app: Any,
     rt: Any,
-    feedback_service: "SubmissionReportOperations",
+    feedback_service: "ExerciseReportOperations",
     user_service_getter: Any,
 ) -> list[Any]:
     """
@@ -40,7 +40,7 @@ def create_exercise_report_api_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        feedback_service: SubmissionReportOperations service for assessment CRUD
+        feedback_service: ExerciseReportOperations service for assessment CRUD
         user_service_getter: Named function returning user_service (for role checks)
     """
 

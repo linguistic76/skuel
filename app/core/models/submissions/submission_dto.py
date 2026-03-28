@@ -6,15 +6,15 @@ Extends UserOwnedDTO with 13 submission-specific fields matching the
 Submission frozen dataclass (Tier 3): file storage, content processing,
 and subject tracking.
 
-Base DTO for file/artifact content-processing types: Submission, Journal, SubmissionReport.
-(ActivityReportDTO extends UserOwnedDTO directly — no file fields.)
+Base DTO for file/artifact content-processing types: Submission, Journal.
+(ActivityReportDTO extends UserOwnedDTO directly — no file fields.
+ExerciseReportDTO extends UserOwnedDTO directly.)
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── SubmissionDTO(UserOwnedDTO) +13 submission-specific fields
-            ├── JournalDTO(SubmissionDTO) +0
-            └── SubmissionReportDTO(SubmissionDTO) +2
+        ├── SubmissionDTO(UserOwnedDTO) +13 submission-specific fields
+        └── ExerciseReportDTO(UserOwnedDTO)
 
 See: /docs/patterns/three_tier_type_system.md
 """

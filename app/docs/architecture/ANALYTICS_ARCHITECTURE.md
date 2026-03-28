@@ -383,7 +383,7 @@ Analytics and `ActivityReport` are often confused — both aggregate activity da
 
 ## See Also
 
-- [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) — `ActivityReport` and `SubmissionReport` patterns
+- [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) — `ActivityReport` and `ExerciseReport` patterns
 - [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) — Submission pipeline, Exercise, visibility model
 - [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) — Domain intelligence services (extend `BaseAnalyticsService`)
 - [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md)

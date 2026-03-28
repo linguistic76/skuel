@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.entity_enums import EntityType
-from core.models.report.submission_report import SubmissionReport
+from core.models.report.exercise_report import ExerciseReport
 from core.utils.result_simplified import Errors, Result
 
 # Helpers for mocking execute_query call sequence (returns Result[list[dict]])
@@ -85,10 +85,10 @@ class TestCreateAssessment:
         )
 
         assert not result.is_error
-        # Verify backend.create was called with a SubmissionReport
+        # Verify backend.create was called with an ExerciseReport
         assert mock_backend.create.call_count == 1
         created_ku = mock_backend.create.call_args[0][0]
-        assert isinstance(created_ku, SubmissionReport)
+        assert isinstance(created_ku, ExerciseReport)
         assert created_ku.entity_type == EntityType.EXERCISE_REPORT
         assert created_ku.user_uid == "user_teacher"
         assert created_ku.subject_uid == "user_student"

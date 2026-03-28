@@ -160,7 +160,7 @@ If any handler fails:
 | Caller | Score | Method | Context |
 |--------|-------|--------|---------|
 | `TeacherReviewService.approve_report()` | 0.8 | `"ku_approval"` | Teacher approves a submission report — highest confidence |
-| `SubmissionReportService._update_mastery_for_linked_ku()` | 0.6 | `"activity_report"` | PERSONAL scope exercises with no teacher step |
+| `ExerciseReportService._update_mastery_for_linked_ku()` | 0.6 | `"activity_report"` | PERSONAL scope exercises with no teacher step |
 
 Both trigger the full event chain. Higher scores always win (Cypher uses
 `CASE WHEN new > existing`), so teacher approval upgrades an earlier AI score.

@@ -7,7 +7,7 @@ version: 3.0.0
 tags:
 - report
 - activity_report
-- submission_report
+- exercise_report
 - activity_domains
 - submissions
 - exercise
@@ -42,7 +42,7 @@ Both paths produce report entities. The `EntityType` and `ProcessorType` fields 
 
 **Hierarchy:**
 - `ExerciseSubmission` extends `Submission(UserOwnedEntity)` — file/processing fields
-- `ExerciseReport` extends `SubmissionReport(UserOwnedEntity)` — report fields only (NOT Submission)
+- `ExerciseReport` extends `UserOwnedEntity` — report fields only (NOT Submission)
 - `ActivityReport` extends `UserOwnedEntity` directly — no file fields, responds to aggregate activity patterns
 
 **Note:** Journal types (`JE_INPUT`, `JE_OUTPUT`) are now a standalone domain, not part of the submissions/reports hierarchy. See [ENTITY_TYPE_ARCHITECTURE.md](ENTITY_TYPE_ARCHITECTURE.md).
@@ -157,7 +157,7 @@ Curriculum Work                 Activity Domains
 | Field | Value |
 |-------|-------|
 | `entity_type` | `"exercise_report"` |
-| Inherits | `SubmissionReport(UserOwnedEntity)` — NOT Submission |
+| Inherits | `UserOwnedEntity` — NOT Submission |
 | `subject_uid` | UID of the submission being evaluated |
 | `processor_type` | `HUMAN` or `LLM` |
 
@@ -166,7 +166,7 @@ Curriculum Work                 Activity Domains
 | Source | Service | ProcessorType | Trigger |
 |--------|---------|---------------|---------|
 | Teacher writes feedback | `AssessmentService.create_assessment()` | `HUMAN` | Teacher reviews submission in queue |
-| AI evaluates via Exercise | `SubmissionReportService.generate_report()` | `LLM` | Exercise has `instructions`; AI generates response |
+| AI evaluates via Exercise | `ExerciseReportService.generate_report()` | `LLM` | Exercise has `instructions`; AI generates response |
 
 Both use atomic Cypher: create entity + `REPORT_FOR` relationship + denormalize to `submission.report` in one transaction.
 
@@ -275,8 +275,8 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 
 | Service | Protocol | Produces | Notes |
 |---------|----------|---------|-------|
-| `AssessmentService` (via `SubmissionsCoreService`) | `SubmissionReportOperations` | `SUBMISSION_REPORT` (HUMAN) | Teacher assessment; verifies group membership |
-| `SubmissionReportService` | `SubmissionReportOperations` | `SUBMISSION_REPORT` (LLM) | AI evaluation via Exercise instructions (uses `UnifiedLLMCaller`) |
+| `AssessmentService` (via `SubmissionsCoreService`) | `ExerciseReportOperations` | `SUBMISSION_REPORT` (HUMAN) | Teacher assessment; verifies group membership |
+| `ExerciseReportService` | `ExerciseReportOperations` | `SUBMISSION_REPORT` (LLM) | AI evaluation via Exercise instructions (uses `UnifiedLLMCaller`) |
 | `ProgressReportGenerator` | `ProgressReportOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
 | `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |
 | `ReviewQueueService` | `ReviewQueueOperations` | `ReviewRequest` nodes | User-initiated review queue management |
@@ -313,10 +313,10 @@ Reports split into two structurally different positions:
 
 ### SUBMISSION_REPORT — Leaf Domain
 
-`SUBMISSION_REPORT` fits the leaf domain model. One submission goes in, one SubmissionReport node comes out. The generating services operate against a focused backend — the scope is a single artifact and its owner.
+`SUBMISSION_REPORT` fits the leaf domain model. One submission goes in, one ExerciseReport node comes out. The generating services operate against a focused backend — the scope is a single artifact and its owner.
 
 ```
-Submission  →  SubmissionReportService / AssessmentService  →  SUBMISSION_REPORT node
+Submission  →  ExerciseReportService / AssessmentService  →  SUBMISSION_REPORT node
                (one artifact in, one report node out)
 ```
 
@@ -463,7 +463,7 @@ When `openai_service` is available, the generator:
 
 ```cypher
 // SUBMISSION_REPORT — tied to a specific submission
-(:Entity:SubmissionReport {
+(:Entity:ExerciseReport {
     uid, entity_type: 'submission_report',
     user_uid,        // owner (teacher or AI agent)
     subject_uid,     // submission being evaluated

@@ -35,7 +35,6 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.models.choice.choice import Choice as Choice
-    from core.models.entity import Entity
     from core.models.enums import Domain
     from core.models.event.event import Event as Event
     from core.models.goal.goal import Goal as Goal

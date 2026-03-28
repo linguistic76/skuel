@@ -10,8 +10,7 @@ from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.report.activity_report import ActivityReport
 from core.models.report.exercise_report import ExerciseReport
-from core.models.report.submission_report import SubmissionReport
-from core.models.report.submission_report_dto import SubmissionReportDTO
+from core.models.report.exercise_report_dto import ExerciseReportDTO
 from core.models.submissions.exercise_submission import ExerciseSubmission
 from core.models.submissions.submission import Submission
 
@@ -168,7 +167,7 @@ class TestKuConversions:
         assert dto.subject_uid == "user_student"
 
     def test_from_dto_preserves_subject_uid(self):
-        dto = SubmissionReportDTO(
+        dto = ExerciseReportDTO(
             uid="er_test_123",
             title="Teacher Feedback",
             entity_type=EntityType.EXERCISE_REPORT,
@@ -176,7 +175,7 @@ class TestKuConversions:
             status=EntityStatus.COMPLETED,
             subject_uid="user_student",
         )
-        ku = SubmissionReport.from_dto(dto)
+        ku = ExerciseReport.from_dto(dto)
         assert ku.subject_uid == "user_student"
 
     def test_roundtrip_none_subject_uid(self):

@@ -53,7 +53,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | **Curriculum Structure** | LESSON, LEARNING_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:Lesson, :Entity:LearningStep, :Entity:LearningPath, :Entity:Exercise |
 | **Forms** | FORM_TEMPLATE, FORM_SUBMISSION | Template: admin-created; Submission: user-owned | :Entity:FormTemplate, :Entity:FormSubmission |
 | **Submissions** | EXERCISE_SUBMISSION | User-owned | :Entity:ExerciseSubmission:Submission |
-| **Reports** | EXERCISE_REPORT, ACTIVITY_REPORT | User-owned | :Entity:ExerciseReport:SubmissionReport, :Entity:ActivityReport |
+| **Reports** | EXERCISE_REPORT, ACTIVITY_REPORT | User-owned | :Entity:ExerciseReport, :Entity:ActivityReport |
 | **Journal** | JE_INPUT, JE_OUTPUT | User-owned | :Entity:JeInput, :Entity:JeOutput |
 | **Activity** (user-owned) | TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE | User-owned | :Entity:Task, :Entity:Goal, etc. |
 | **Hybrid/Destination** | REVISED_EXERCISE, LIFE_PATH | User-owned | :Entity:RevisedExercise, :Entity:LifePath |

@@ -39,7 +39,7 @@ Service Responsibilities
 - AssessmentService: Teacher assessments (sub-service)
 - SubmissionsSearchService: Read-only queries
 - ExerciseService: Exercise CRUD (in exercises package)
-- SubmissionReportService: AI report generation
+- ExerciseReportService: AI report generation
 """
 
 from datetime import date, datetime
@@ -52,7 +52,7 @@ from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.submissions_enums import ExerciseScope
 from core.models.relationship_names import RelationshipName
-from core.models.report.submission_report import SubmissionReport
+from core.models.report.exercise_report import ExerciseReport
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.models.type_hints import FilterParams, Metadata, UserUID
 from core.ports import BackendOperations
@@ -1004,7 +1004,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         title: str,
         content: str,
         metadata: Metadata | None = None,
-    ) -> Result[SubmissionReport]:
+    ) -> Result[ExerciseReport]:
         """Delegate to assessments sub-service."""
         return await self.assessments.create_assessment(
             teacher_uid, subject_uid, title, content, metadata

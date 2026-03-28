@@ -62,7 +62,7 @@ class Exercise(Curriculum):
     Transparency principles:
     - Instructions are visible and editable (no black box)
     - User controls the model
-    - SubmissionReport = instructions + entry content -> LLM -> response
+    - ExerciseReport = instructions + entry content -> LLM -> response
 
     Exercise-specific fields (8):
     - instructions: LLM prompt for processing

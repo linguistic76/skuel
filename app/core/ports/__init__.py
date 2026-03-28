@@ -234,10 +234,10 @@ from .query_types import (
 # Report protocols — Report stage of the educational loop
 from .report_protocols import (
     ActivityReportOperations,
+    ExerciseReportOperations,
     ProgressReportOperations,
     ProgressScheduleOperations,
     ReviewQueueOperations,
-    SubmissionReportOperations,
     TeacherReviewOperations,
 )
 
@@ -449,7 +449,7 @@ __all__ = [
     "SharingOperations",
     # ========== REPORT PROTOCOLS (5) ==========
     "ActivityReportOperations",
-    "SubmissionReportOperations",
+    "ExerciseReportOperations",
     "ProgressReportOperations",
     "ProgressScheduleOperations",
     "ReviewQueueOperations",

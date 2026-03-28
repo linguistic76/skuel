@@ -18,7 +18,7 @@ tags: [journals, standalone-domain, multi-modal, ai-processing]
 
 ## Domain Architecture (March 2026)
 
-Journal is a **standalone domain** — `JeInput(UserOwnedEntity)` and `JeOutput(UserOwnedEntity)` in the model hierarchy. Neither inherits from `Submission` or `SubmissionReport`.
+Journal is a **standalone domain** — `JeInput(UserOwnedEntity)` and `JeOutput(UserOwnedEntity)` in the model hierarchy. Neither inherits from `Submission` or `ExerciseReport`.
 
 | EntityType | Class | ContentOrigin | Description |
 |------------|-------|---------------|-------------|
@@ -153,7 +153,7 @@ This design supports SKUEL's core belief that **the ability to assess oneself is
 
 ### March 2026: Journal Domain Extraction
 
-- **Before:** Journals were `JournalSubmission(Submission)` and `JournalReport(SubmissionReport)` — subtypes under the submissions/reports hierarchy
+- **Before:** Journals were `JournalSubmission(Submission)` and `JournalReport(ExerciseReport)` — subtypes under the submissions/reports hierarchy
 - **After:** Journals are a standalone domain with `JeInput(UserOwnedEntity)` and `JeOutput(UserOwnedEntity)`
 - **Reason:** Journals have a fundamentally different lifecycle (input → transform → output) compared to the exercise submission pipeline (submit → evaluate → report)
 - **Service renamed:** `JournalOutputGenerator` → `JournalOutputService`; `JournalsCoreService` removed (journal delegation removed from SubmissionsCoreService)

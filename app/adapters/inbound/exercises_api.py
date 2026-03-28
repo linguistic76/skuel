@@ -40,7 +40,7 @@ def create_exercises_api_routes(
         rt: Route decorator
         exercises_service: ExerciseService instance
         transcript_service: ContentEnrichmentService for entry lookup
-        submission_report_service: SubmissionReportService for AI reports
+        submission_report_service: ExerciseReportService for AI reports
         user_service: UserService for role checks
     """
 
@@ -57,7 +57,7 @@ def create_exercises_api_routes(
         """
         Generate AI report for an entry using an exercise.
 
-        Creates a SUBMISSION_REPORT entity (processor_type=LLM) linked to the
+        Creates a ExerciseReport entity (processor_type=LLM) linked to the
         submission via REPORT_FOR — symmetric with human teacher reports.
 
         Body (JSON):
@@ -67,14 +67,14 @@ def create_exercises_api_routes(
         - max_tokens: Max tokens to generate (optional, default 4000)
 
         Returns:
-        - 200: SubmissionReport entity created {report_uid, entry_uid, project_uid, report_content}
+        - 200: ExerciseReport entity created {report_uid, entry_uid, project_uid, report_content}
         - 400: Invalid input
         - 404: Entry or exercise not found
         - 503: Service not available
         """
         if not submission_report_service:
             return Result.fail(
-                Errors.system("Report service not available", service="SubmissionReportService")
+                Errors.system("Report service not available", service="ExerciseReportService")
             )
 
         if not transcript_service:
@@ -105,7 +105,7 @@ def create_exercises_api_routes(
         entry = entry_result.value
         exercise = exercise_result.value
 
-        # Generate report — creates SUBMISSION_REPORT entity + REPORT_FOR relationship
+        # Generate report — creates ExerciseReport entity + REPORT_FOR relationship
         report_result = await submission_report_service.generate_report(
             entry=entry,
             exercise=exercise,

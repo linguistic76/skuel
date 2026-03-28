@@ -12,29 +12,39 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.report.exercise_report_dto import ExerciseReportDTO
 
-from core.models.enums.entity_enums import EntityType
-from core.models.report.submission_report import SubmissionReport
+from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.user_owned_entity import UserOwnedEntity
 
 
 @dataclass(frozen=True)
-class ExerciseReport(SubmissionReport):
+class ExerciseReport(UserOwnedEntity):
     """
     Immutable domain model for exercise reports (EntityType.EXERCISE_REPORT).
 
-    Inherits all fields from SubmissionReport. Zero extra fields.
+    Extends UserOwnedEntity with 5 report-specific fields.
     """
 
     def __post_init__(self) -> None:
-        """Force entity_type=EXERCISE_REPORT, then delegate to SubmissionReport."""
+        """Force entity_type=EXERCISE_REPORT, then delegate to UserOwnedEntity."""
         if self.entity_type != EntityType.EXERCISE_REPORT:
             object.__setattr__(self, "entity_type", EntityType.EXERCISE_REPORT)
         super().__post_init__()
+
+    # =========================================================================
+    # REPORT-SPECIFIC FIELDS
+    # =========================================================================
+    report_content: str | None = None
+    report_generated_at: datetime | None = None  # type: ignore[assignment]
+    subject_uid: str | None = None  # Who/what this report is about
+    processor_type: ProcessorType | None = None  # HUMAN/LLM/AUTOMATIC
+    report_file_path: str | None = None  # Generated output file path
 
     # =========================================================================
     # CONVERSION

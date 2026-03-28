@@ -82,7 +82,6 @@ class NeoLabel(StrEnum):
     SUBMISSION = "Submission"  # Base label for multi-label queries
     EXERCISE_SUBMISSION = "ExerciseSubmission"
     ACTIVITY_REPORT = "ActivityReport"
-    SUBMISSION_REPORT = "SubmissionReport"  # Base label for multi-label queries
     EXERCISE_REPORT = "ExerciseReport"
 
     # Journal (standalone — NOT submission, NOT report)

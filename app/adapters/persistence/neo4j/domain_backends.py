@@ -47,6 +47,7 @@ from adapters.persistence.neo4j._semantic_mixin import _SemanticMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
 from core.models.entity import Entity
+from core.models.enums import UserRole
 from core.models.event.event import Event
 from core.models.exercises.exercise import Exercise
 from core.models.goal.goal import Goal
@@ -60,7 +61,6 @@ from core.models.relationship_names import RelationshipName
 from core.models.report.activity_report import ActivityReport
 from core.models.submissions.submission import Submission
 from core.models.task.task import Task
-from core.models.enums import UserRole
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.ports.query_types import (
     ChoiceStats,
@@ -1650,7 +1650,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         {where_clause}
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(project:Entity:Exercise)
-        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
+        OPTIONAL MATCH (fb:Entity:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
         WITH ku, student, project, r, count(fb) as feedback_count
         RETURN ku.uid as ku_uid,
                ku.title as title,
@@ -1671,7 +1671,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     async def get_report_history(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
         """Get all SUBMISSION_REPORT nodes linked to a submission via REPORT_FOR."""
         query = f"""
-        MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(submission:Entity:Submission {{uid: $submission_uid}})
+        MATCH (fb:Entity:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(submission:Entity:Submission {{uid: $submission_uid}})
         OPTIONAL MATCH (teacher:User)-[:{RelationshipName.OWNS.value}]->(fb)
         RETURN fb.uid as uid,
                fb.title as title,
@@ -1751,7 +1751,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         query = f"""
         MATCH (s:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
-        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(s)
+        OPTIONAL MATCH (fb:Entity:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(s)
         WITH s, student, count(fb) AS feedback_count
         RETURN s.uid AS uid, s.title AS title,
                s.original_filename AS original_filename, s.status AS status,
@@ -1783,7 +1783,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
         MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku)
-        OPTIONAL MATCH (fb:Entity:SubmissionReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
+        OPTIONAL MATCH (fb:Entity:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         WITH ku, count(fb) AS feedback_count, ex
         RETURN ku.uid AS uid, ku.title AS title,
@@ -3148,7 +3148,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         """Verify teacher has review authority over a report.
 
         Checks the graph path:
-        - (SubmissionReport)-[:REPORT_FOR]->(Submission) exists
+        - (ExerciseReport)-[:REPORT_FOR]->(Submission) exists
         - (Teacher)-[:SHARES_WITH {role:'teacher'}]->(Submission)
         - (Student)-[:OWNS]->(Submission)
 
@@ -3808,7 +3808,7 @@ class JournalOutputBackend(UniversalNeo4jBackend["JeOutput"]):
     """
     Domain backend for JeOutput entities (journal entry outputs).
 
-    Standalone journal backend — NOT part of SubmissionReport infrastructure.
+    Standalone journal backend — NOT part of ExerciseReport infrastructure.
     Uses NeoLabel.JE_OUTPUT with base_label=NeoLabel.ENTITY.
     """
 

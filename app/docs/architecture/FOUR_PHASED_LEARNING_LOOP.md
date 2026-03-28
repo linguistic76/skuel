@@ -338,7 +338,7 @@ via the Exercise's `instructions` field (`LLM`).
 
 **EntityType:** `EntityType.EXERCISE_REPORT`
 **Structural position:** Leaf domain — fits the standard 4-layer architecture cleanly
-(`SubmissionReportOperations` protocol → `SubmissionsBackend` → `SubmissionReportService` / `SubmissionsCoreService`).
+(`ExerciseReportOperations` protocol → `SubmissionsBackend` → `ExerciseReportService` / `SubmissionsCoreService`).
 
 ### 4b. ACTIVITY_REPORT — Response to Activity Patterns
 
@@ -359,15 +359,15 @@ canonical taxonomy, all services, API routes, ProcessorType table, graph pattern
 ## Phase 5: RevisedExercise — The Targeted Revision
 
 **What:** A teacher-created revision of an Exercise that addresses specific gaps identified
-in `SubmissionReport`. The teacher creates targeted, revised instructions for a specific
+in `ExerciseReport`. The teacher creates targeted, revised instructions for a specific
 student. The student then submits against the RevisedExercise, receives new feedback, and the
 cycle continues indefinitely. This forces a **reflection step** between feedback and
 resubmission, making revision pedagogically explicit.
 
 ```
-Lesson → Exercise v1 → Submission v1 → SubmissionReport v1
+Lesson → Exercise v1 → Submission v1 → ExerciseReport v1
                                               ↓
-                                        RevisedExercise v2 → Submission v2 → SubmissionReport v2
+                                        RevisedExercise v2 → Submission v2 → ExerciseReport v2
                                               ↓
                                         RevisedExercise v3 → ...
 ```
@@ -391,7 +391,7 @@ revision cycle explicitly rather than implicitly.
     student_uid: '...',
     revision_number: 2
 })
-(re)-[:RESPONDS_TO_REPORT]->(feedback:Entity:SubmissionReport)
+(re)-[:RESPONDS_TO_REPORT]->(feedback:Entity:ExerciseReport)
 (re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
 (student:User)-[:SHARES_WITH {role: 'student'}]->(re)     // auto-created on creation
 (submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(re)  // reuses existing rel type

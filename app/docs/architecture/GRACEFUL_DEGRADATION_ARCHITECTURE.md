@@ -145,7 +145,7 @@ All in `services_bootstrap/compose.py`:
 |------|-----------------|---------------|
 | Embeddings block | `HuggingFaceEmbeddingsService`, `Neo4jVectorSearchService` | Skipped |
 | LLM block | `LLMService` | Skipped |
-| OpenAI block | `OpenAIService`, `SubmissionReportService`, `JournalOutputGenerator` | Skipped |
+| OpenAI block | `OpenAIService`, `ExerciseReportService`, `JournalOutputGenerator` | Skipped |
 
 Everything downstream of these three blocks naturally degrades via None-propagation.
 

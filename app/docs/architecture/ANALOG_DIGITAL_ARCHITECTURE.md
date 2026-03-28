@@ -59,7 +59,7 @@ The test suite runs 1966 tests without any API mocking for AI services. Services
 | **Embeddings** | 1024-dim vectors on 13 entity types (BAAI/bge-large-en-v1.5 via HF Inference API) | Semantic representation of content |
 | **Vector Search** | Hybrid search (keyword + vector + RRF) | "Find similar" across domains |
 | **Askesis** | Socratic AI companion, ZPD-aware | Personalized learning dialogue |
-| **Reports** | AI-generated SubmissionReport | Automated assessment |
+| **Reports** | AI-generated ExerciseReport | Automated assessment |
 | **Journals** | Voice transcription + AI analysis | Audio-to-text processing |
 | **Content Enrichment** | Quality analysis, complexity scoring | Automated content metadata |
 | **12 AI Services** | Domain-specific BaseAIService instances | Per-domain AI capabilities |

@@ -8,7 +8,7 @@ Reuses SHARES_WITH infrastructure. When a student submits an entity against
 an ASSIGNED Exercise, the entity is auto-shared with the teacher.
 The teacher's review queue = submissions shared with them via role="teacher".
 
-When providing a report or requesting revision, a SUBMISSION_REPORT Entity nodes
+When providing a report or requesting revision, an EXERCISE_REPORT Entity node
 is created and linked to the submission via REPORT_FOR. This makes every
 report round a first-class graph entity — searchable, queryable, and
 supporting revision cycles.
@@ -132,7 +132,7 @@ class TeacherReviewService:
         submission_uid: str,
     ) -> Result[list[ReportHistoryItem]]:
         """
-        Get all SUBMISSION_REPORT nodes linked to a submission via REPORT_FOR.
+        Get all EXERCISE_REPORT nodes linked to a submission via REPORT_FOR.
 
         Args:
             submission_uid: The submission UID
@@ -168,14 +168,14 @@ class TeacherReviewService:
         """
         Submit teacher report for an entity.
 
-        Creates a SUBMISSION_REPORT Entity nodes linked to the submission via REPORT_FOR.
+        Creates an EXERCISE_REPORT Entity node linked to the submission via REPORT_FOR.
         Also writes report to submission's report field (denormalized for quick access)
         and sets submission status to COMPLETED.
 
         Args:
             report_uid: Submission UID to provide report for
             teacher_uid: Teacher providing report
-            feedback: SubmissionReport text
+            feedback: ExerciseReport text
 
         Returns:
             Result containing report info
@@ -242,7 +242,7 @@ class TeacherReviewService:
         """
         Request revision for a student submission.
 
-        Creates a SUBMISSION_REPORT Entity nodes with revision notes, linked via REPORT_FOR.
+        Creates an EXERCISE_REPORT Entity node with revision notes, linked via REPORT_FOR.
         Sets submission status to REVISION_REQUESTED.
 
         Args:
