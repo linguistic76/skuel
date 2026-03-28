@@ -223,7 +223,7 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "task creation")
         if validation:
-            return validation
+            return Result.fail(validation)
 
         # Create DTO from request with all fields
         from core.utils.uid_generator import UIDGenerator

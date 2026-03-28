@@ -1,5 +1,5 @@
 # Enum Architecture
-*Last updated: 2026-03-18*
+*Last updated: 2026-03-28*
 
 > **Core Principle:** "Enums define behavior, services consume it"
 
@@ -19,7 +19,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `habit_enums.py` | Habit classification and completion | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus |
 | `askesis_enums.py` | Askesis query complexity and integration | QueryComplexity, IntegrationSuccess |
 | `choice_enums.py` | Decision types | ChoiceType |
-| `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel |
+| `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel, TriggerType |
 | `submissions_enums.py` | Submissions + Reports processing and scheduling | ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
 | `curriculum_enums.py` | Learning path and step types | LpType, StepDifficulty |
 | `lifepath_enums.py` | Vision theme classification | ThemeCategory |
@@ -41,28 +41,29 @@ from core.models.enums import EntityType, EntityStatus, Priority
 
 ## The Two Core Enums
 
-### EntityType — What Is It? (16 values)
+### EntityType — What Is It? (21 values)
 
 EntityType is the type discriminator for every entity in SKUEL. It lives on the `entity_type` field of every Entity and determines valid statuses, default status, content origin, ownership rules, and Neo4j labels.
 
-**Five groups:**
+**Eight groups:**
 
 | Group | EntityTypes | Ownership | Neo4j Labels |
 |-------|-------------|-----------|--------------|
 | **Knowledge** (atomic curriculum) | KU, RESOURCE | Admin-created, no user_uid | :Entity:Ku, :Entity:Resource |
-| **Curriculum Structure** | LEARNING_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:LearningStep, :Entity:LearningPath, :Entity:Exercise |
+| **Curriculum Structure** | LESSON, LEARNING_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:Lesson, :Entity:LearningStep, :Entity:LearningPath, :Entity:Exercise |
+| **Forms** | FORM_TEMPLATE, FORM_SUBMISSION | Template: admin-created; Submission: user-owned | :Entity:FormTemplate, :Entity:FormSubmission |
 | **Submissions** | EXERCISE_SUBMISSION | User-owned | :Entity:ExerciseSubmission:Submission |
 | **Reports** | EXERCISE_REPORT, ACTIVITY_REPORT | User-owned | :Entity:ExerciseReport:SubmissionReport, :Entity:ActivityReport |
 | **Journal** | JE_INPUT, JE_OUTPUT | User-owned | :Entity:JeInput, :Entity:JeOutput |
 | **Activity** (user-owned) | TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE | User-owned | :Entity:Task, :Entity:Goal, etc. |
-| **Destination** | LIFE_PATH | User-owned | :Entity:LifePath |
+| **Hybrid/Destination** | REVISED_EXERCISE, LIFE_PATH | User-owned | :Entity:RevisedExercise, :Entity:LifePath |
 
 **Content Origin tiers** (derived from EntityType via `.content_origin()`):
 
 | Tier | ContentOrigin | EntityTypes |
 |------|---------------|-------------|
-| A | CURATED | Resource |
-| B | CURRICULUM | KU, LearningStep, LearningPath, Exercise |
+| A | CURATED | Resource, FormTemplate |
+| B | CURRICULUM | Lesson, KU, LearningStep, LearningPath, Exercise, RevisedExercise |
 | C | USER_CREATED | All 6 Activity types + ExerciseSubmission, JeInput, JeOutput, LifePath, FormSubmission |
 | D | REPORT | ActivityReport, ExerciseReport |
 
@@ -167,9 +168,9 @@ Enums wire into the model layer through a class hierarchy. Each level inherits e
 
 | Base Class | Enum Fields | Models |
 |------------|-------------|--------|
-| Entity | entity_type, status, visibility | *(all 16 models)* |
+| Entity | entity_type, status, visibility | *(all 21 entity types)* |
 | UserOwnedEntity | *(inherits above)* | Task, Goal, Habit, Event, Choice, Principle, Submission types, LifePath |
-| Curriculum *(base class)* | + complexity, learning_level, sel_category | Ku, LearningStep, LearningPath, Exercise |
+| Curriculum *(base class)* | + complexity, learning_level, sel_category | Lesson, LearningStep, LearningPath, Exercise |
 
 Domain-specific enum fields: Goal (+3), Habit (+3), Principle (+4), Choice (+1), Submission (+1), LifePath (+1), LearningStep (+1), LearningPath (+1), Exercise (+1).
 
@@ -224,6 +225,7 @@ CompletionStatus has dynamic methods: `counts_as_success()` (DONE and PARTIAL co
 | PrincipleSource | PHILOSOPHICAL, RELIGIOUS, CULTURAL, PERSONAL, ... (7) | Origin/tradition |
 | PrincipleStrength | CORE, STRONG, MODERATE, DEVELOPING, EXPLORING | How deeply held |
 | AlignmentLevel | FLOURISHING (1.0), ALIGNED (0.85), ... UNKNOWN (0.0) — 8 values | Alignment scoring |
+| TriggerType | GOAL, HABIT, EVENT, CHOICE, MANUAL | What activates a principle |
 
 AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track assessment pattern, and `get_color()` for UI rendering (green/yellow/red).
 
@@ -436,8 +438,79 @@ Confidence.from_search_text("unsure")        # → [Confidence.UNCERTAIN, Confid
 
 ---
 
+## Enum-YAML Ontological Bridge
+
+> **Core Insight:** "Enums define what is valid. YAML templates express content using that vocabulary."
+
+Enums and YAML templates are two halves of the same system. Enums define SKUEL's vocabulary — the valid values for every constrained field. YAML templates are the authoring surface where content authors use that vocabulary to create entities. The type safety chain ensures no invalid value survives from authoring to storage.
+
+### The Trace: YAML Field to Neo4j Property
+
+```
+YAML author writes: priority: medium
+        ↓
+    detector.py: type field → EntityType enum
+        ↓
+    preparer.py: normalize UIDs, inject entity_type property
+        ↓
+    Pydantic request model: validates "medium" → Priority.MEDIUM
+        ↓
+    Frozen dataclass: Priority.MEDIUM stored as typed field
+        ↓
+    Neo4j: property stored as "medium" (StrEnum string value)
+```
+
+### Enum-Governed YAML Fields
+
+These YAML fields are constrained by Python enums. Using an invalid value fails Pydantic validation during ingestion.
+
+| YAML Field | Enum Class | Applies To | Example Values |
+|------------|------------|-----------|----------------|
+| `type` | `EntityType` | All entities | `Task`, `Habit`, `Ku`, `Lesson` |
+| `priority` | `Priority` | All activities | `low`, `medium`, `high`, `critical` |
+| `status` | `EntityStatus` | All entities | `draft`, `active`, `completed` |
+| `polarity` | `HabitPolarity` | Habit | `build`, `break`, `neutral` |
+| `category` (habit) | `HabitCategory` | Habit | `health`, `fitness`, `learning` |
+| `difficulty` | `HabitDifficulty` | Habit | `trivial`, `easy`, `moderate`, `challenging`, `hard` |
+| `goal_type` | `GoalType` | Goal | `outcome`, `process`, `learning`, `mastery` |
+| `timeframe` | `GoalTimeframe` | Goal | `daily`, `weekly`, `quarterly`, `yearly` |
+| `measurement_type` | `MeasurementType` | Goal | `binary`, `percentage`, `numeric` |
+| `choice_type` | `ChoiceType` | Choice | `binary`, `multiple`, `ranking`, `strategic` |
+| `category` (principle) | `PrincipleCategory` | Principle | `spiritual`, `ethical`, `personal` |
+| `source` (principle) | `PrincipleSource` | Principle | `philosophical`, `religious`, `personal` |
+| `strength` | `PrincipleStrength` | Principle | `core`, `strong`, `moderate`, `developing` |
+| `recurrence_pattern` | `RecurrencePattern` | Habit, Event | `daily`, `weekly`, `monthly` |
+| `ku_category` | `KuCategory` | Ku | `state`, `concept`, `principle`, `practice` |
+| `sel_category` | `SELCategory` | Ku, Lesson | `self_awareness`, `self_management` |
+| `complexity` | `KuComplexity` | Lesson, Ku | `basic`, `medium`, `advanced` |
+
+### Annotated Example
+
+From the `mindfulness_101` bundle — enum-governed fields marked with `# ← enum`:
+
+```yaml
+type: Habit                    # ← EntityType.HABIT
+uid: habit:daily-2min-breath
+title: Daily 2-Minute Breath
+priority: medium               # ← Priority.MEDIUM
+polarity: build                # ← HabitPolarity.BUILD
+category: mindfulness          # ← HabitCategory.MINDFULNESS
+difficulty: easy               # ← HabitDifficulty.EASY
+recurrence_pattern: daily      # ← RecurrencePattern.DAILY
+connections:
+  reinforces_knowledge:
+    - l:mindfulness:breath-awareness-basics
+```
+
+Every value after the colon is validated against the corresponding enum. A typo like `polarity: built` produces a clear Pydantic validation error at ingestion time — not a silent bad value in Neo4j.
+
+**See:** [YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md) (authoring reference), [Schema Templates](/yaml_templates/_schemas/) (complete field reference per entity type)
+
+---
+
 ## See Also
 
 - [Constants Usage Guide](/docs/patterns/constants_usage_guide.md) — Named constants vs enums
 - [Domain Patterns Catalog](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) — How enums integrate with the three-tier type system
+- [YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md) — Content authoring with enum-governed fields
 - Source: `core/models/enums/` (17 files, ~3,400 lines)

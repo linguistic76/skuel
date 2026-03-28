@@ -42,6 +42,19 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 | Events | `/core/events/principle_events.py` |
 | Context Types | `/core/models/context_types.py` (ContextualPrinciple, PracticeOpportunity) |
 
+## Domain Enums
+
+| Enum | Import | Values | YAML Field |
+|------|--------|--------|------------|
+| `PrincipleCategory` | `core.models.enums` | SPIRITUAL, ETHICAL, RELATIONAL, PERSONAL, PROFESSIONAL, INTELLECTUAL, HEALTH, CREATIVE | `category` |
+| `PrincipleSource` | `core.models.enums` | PHILOSOPHICAL, RELIGIOUS, CULTURAL, PERSONAL, SCIENTIFIC, MENTOR, LITERATURE | `source` |
+| `PrincipleStrength` | `core.models.enums` | CORE, STRONG, MODERATE, DEVELOPING, EXPLORING | `strength` |
+| `AlignmentLevel` | `core.models.enums` | FLOURISHING, ALIGNED, MOSTLY_ALIGNED, EXPLORING, PARTIAL, DRIFTING, MISALIGNED, UNKNOWN | — (reflection scoring) |
+| `TriggerType` | `core.models.enums` | GOAL, HABIT, EVENT, CHOICE, MANUAL | — (what activates a principle) |
+| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
+
+**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
+
 ## Facade Pattern (February 2026)
 
 `PrinciplesService` uses explicit `async def` delegation methods for clean delegation to **10 specialized sub-services**:

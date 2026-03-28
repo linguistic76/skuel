@@ -296,6 +296,16 @@ user_uid: UserUID = ""  # type: ignore[assignment]
 
 ---
 
+## Enum-YAML Foundation
+
+Enums don't just enforce code boundaries — they define the vocabulary that content authors use in YAML templates. When an author writes `priority: medium` in a YAML file, that value is validated against the `Priority` enum during ingestion. The chain is unbroken: YAML field value → `detector.py` → `preparer.py` → Pydantic validation → enum member → frozen dataclass → Neo4j property.
+
+This means the type safety system extends beyond code into content authoring. A typo in a YAML template produces a Pydantic validation error, not a silent bad value in the database.
+
+**87 enum classes** across 17 files in `core/models/enums/` define SKUEL's complete vocabulary. **See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the full catalog and the enum-YAML field mapping.
+
+---
+
 ## Quick Reference
 
 | Need | Use |

@@ -282,7 +282,7 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit]):
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "habit creation")
         if validation:
-            return validation
+            return Result.fail(validation)
 
         # Create DTO from request with all fields
         dto = HabitDTO(

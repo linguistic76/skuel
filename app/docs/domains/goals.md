@@ -48,6 +48,18 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 | UI Routes | `/adapters/inbound/goals_ui.py` |
 | View Components | `/ui/goals/views.py` |
 
+## Domain Enums
+
+| Enum | Import | Values | YAML Field |
+|------|--------|--------|------------|
+| `GoalType` | `core.models.enums` | OUTCOME, PROCESS, LEARNING, PROJECT, MILESTONE, MASTERY | `goal_type` |
+| `GoalTimeframe` | `core.models.enums` | DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY, MULTI_YEAR | `timeframe` |
+| `MeasurementType` | `core.models.enums` | BINARY, PERCENTAGE, NUMERIC, MILESTONE, HABIT_BASED, KNOWLEDGE_BASED, TASK_BASED, MIXED | `measurement_type` |
+| `HabitEssentiality` | `core.models.enums` | ESSENTIAL, CRITICAL, SUPPORTING, OPTIONAL | — (goal-habit link weight) |
+| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
+
+**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
+
 ## Facade Pattern (February 2026)
 
 `GoalsService` uses explicit `async def` delegation methods for clean delegation to 9 specialized sub-services:

@@ -260,7 +260,7 @@ class LateralRelationshipService:
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         relationships = [
             {
@@ -316,7 +316,7 @@ class LateralRelationshipService:
             result = await self.backend.get_siblings(entity_uid)
 
             if result.is_error:
-                return result
+                return Result.fail(result)
 
             siblings = [
                 {
@@ -354,7 +354,7 @@ class LateralRelationshipService:
         result = await self.backend.get_cousins(entity_uid)
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         cousins = [
             {

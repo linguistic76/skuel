@@ -50,6 +50,19 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | UI Routes | `/adapters/inbound/habits_ui.py` |
 | View Components | `/ui/habits/views.py` |
 
+## Domain Enums
+
+| Enum | Import | Values | YAML Field |
+|------|--------|--------|------------|
+| `HabitPolarity` | `core.models.enums` | BUILD, BREAK, NEUTRAL | `polarity` |
+| `HabitCategory` | `core.models.enums` | HEALTH, FITNESS, MINDFULNESS, LEARNING, PRODUCTIVITY, CREATIVE, SOCIAL, FINANCIAL, OTHER | `category` |
+| `HabitDifficulty` | `core.models.enums` | TRIVIAL, EASY, MODERATE, CHALLENGING, HARD | `difficulty` |
+| `CompletionStatus` | `core.models.enums` | DONE, PARTIAL, SKIPPED, MISSED, PAUSED | — (daily tracking) |
+| `RecurrencePattern` | `core.models.enums` | DAILY, WEEKLY, MONTHLY, etc. (10 values) | `recurrence_pattern` |
+| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
+
+**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
+
 ## Facade Pattern (February 2026)
 
 `HabitsService` uses explicit `async def` delegation methods for clean delegation to 14 specialized sub-services:

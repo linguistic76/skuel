@@ -36,6 +36,15 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 | UI Routes | `/adapters/inbound/choice_ui.py` |
 | View Components | `/ui/choices/views.py` |
 
+## Domain Enums
+
+| Enum | Import | Values | YAML Field |
+|------|--------|--------|------------|
+| `ChoiceType` | `core.models.enums` | BINARY, MULTIPLE, RANKING, ALLOCATION, STRATEGIC, OPERATIONAL | `choice_type` |
+| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
+
+**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
+
 ## Facade Pattern (February 2026)
 
 `ChoicesService` uses explicit `async def` delegation methods for clean delegation to 7 specialized sub-services:

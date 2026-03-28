@@ -103,7 +103,9 @@ metric     → data/measurement item
 @context(goal,learning)
 ```
 
-**Type Safety Note:** The `@context()` value maps to `EntityType` (for all entity type types) or `NonKuDomain` (for finance, group, calendar, learning) in `/core/models/enums/` for compile-time verification. The union type `DomainIdentifier = EntityType | NonKuDomain` covers all domains.
+**Type Safety Note:** The `@context()` value maps to `EntityType` (for all entity types) or `NonKuDomain` (for finance, group, calendar, learning) in `/core/models/enums/` for compile-time verification. The union type `DomainIdentifier = EntityType | NonKuDomain` covers all domains.
+
+Values are validated via `EntityType.from_string()`, which supports aliases (e.g., `"article"` resolves to `EntityType.LESSON`, `"knowledge"` resolves to `EntityType.KU`). Invalid values produce clear parser errors — the enum IS the specification of valid context values. See [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the complete `EntityType` value list and alias mappings.
 
 ---
 

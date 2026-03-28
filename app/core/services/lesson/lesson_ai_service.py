@@ -239,7 +239,7 @@ class LessonAIService(BaseAIService[LessonOperations, Lesson]):
             ku_uid=ku_uid,
         )
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         if not result.value:
             return Result.ok([])

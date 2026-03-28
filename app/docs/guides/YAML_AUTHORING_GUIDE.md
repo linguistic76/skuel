@@ -53,6 +53,31 @@ The `type` value is case-insensitive. Aliases resolve to the canonical type duri
 
 See `yaml_templates/_schemas/` for the complete field reference per entity type.
 
+### Enum-Governed Fields
+
+Many YAML fields are constrained by Python enums — using an invalid value will fail Pydantic validation during ingestion with a clear error message. These are not free-text fields; they accept only the values defined in the corresponding enum class.
+
+**Quick reference — most common enum-governed fields:**
+
+| YAML Field | Enum Class | Valid Values |
+|------------|------------|-------------|
+| `type` | `EntityType` | `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Ku`, `Lesson`, `LearningStep`, `LearningPath`, `ExerciseSubmission`, `LifePath` |
+| `priority` | `Priority` | `low`, `medium`, `high`, `critical` |
+| `polarity` | `HabitPolarity` | `build`, `break`, `neutral` |
+| `category` (habit) | `HabitCategory` | `health`, `fitness`, `mindfulness`, `learning`, `productivity`, `creative`, `social`, `financial`, `other` |
+| `difficulty` | `HabitDifficulty` | `trivial`, `easy`, `moderate`, `challenging`, `hard` |
+| `goal_type` | `GoalType` | `outcome`, `process`, `learning`, `project`, `milestone`, `mastery` |
+| `timeframe` | `GoalTimeframe` | `daily`, `weekly`, `monthly`, `quarterly`, `yearly`, `multi_year` |
+| `choice_type` | `ChoiceType` | `binary`, `multiple`, `ranking`, `allocation`, `strategic`, `operational` |
+| `category` (principle) | `PrincipleCategory` | `spiritual`, `ethical`, `relational`, `personal`, `professional`, `intellectual`, `health`, `creative` |
+| `source` (principle) | `PrincipleSource` | `philosophical`, `religious`, `cultural`, `personal`, `scientific`, `mentor`, `literature` |
+| `strength` | `PrincipleStrength` | `core`, `strong`, `moderate`, `developing`, `exploring` |
+| `recurrence_pattern` | `RecurrencePattern` | `none`, `daily`, `weekdays`, `weekends`, `weekly`, `biweekly`, `monthly`, `quarterly`, `yearly`, `custom` |
+| `ku_category` | `KuCategory` | `state`, `concept`, `principle`, `intake`, `substance`, `practice`, `value` |
+| `sel_category` | `SELCategory` | `self_awareness`, `self_management`, `social_awareness`, `relationship_skills`, `responsible_decision_making` |
+
+All enum classes live in `core/models/enums/`. For the complete enum catalog and the field-to-enum mapping, see [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md).
+
 ### Ownership
 
 Activity domains (Task, Goal, Habit, Event, Choice, Principle), ExerciseSubmission, and LifePath are **user-owned** — they require a `user_uid`. If the YAML file omits `user_uid`, the ingestion engine sets it to the default (`SKUEL_DEFAULT_USER_UID` env var, or `user:system`).

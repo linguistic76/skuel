@@ -219,7 +219,7 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "choice creation")
         if validation:
-            return validation
+            return Result.fail(validation)
 
         # Create DTO from request using entity factory method
         dto = ChoiceDTO.create_choice(

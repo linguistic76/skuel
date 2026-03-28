@@ -115,6 +115,23 @@ class LpService(BaseService[LpOperations, LearningPath]):
 
 **See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`
 
+## Domain Enum Quick Reference
+
+Each activity domain has domain-specific enums beyond the shared `Priority` and `EntityStatus`. All enums import from `core.models.enums`.
+
+| Domain | Key Enums |
+|--------|-----------|
+| **Tasks** | Priority, EntityStatus, RecurrencePattern, EnergyLevel |
+| **Goals** | GoalType, GoalTimeframe, MeasurementType, HabitEssentiality |
+| **Habits** | HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus, RecurrencePattern |
+| **Events** | RecurrencePattern, TimeOfDay, EnergyLevel, ActivityType |
+| **Choices** | ChoiceType |
+| **Principles** | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel, TriggerType |
+| **Curriculum** | LpType, StepDifficulty, LearningLevel, KuComplexity, SELCategory |
+| **KU** | KuCategory, SELCategory |
+
+**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the complete catalog with values and dynamic patterns.
+
 ## See Also
 
 - [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md)

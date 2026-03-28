@@ -301,7 +301,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         # Validate user_uid (uses BaseService helper)
         validation = self._validate_required_user_uid(user_uid, "goal creation")
         if validation:
-            return validation
+            return Result.fail(validation)
 
         # Create DTO from request with all fields
         # Set status to ACTIVE so goal appears in default list view
