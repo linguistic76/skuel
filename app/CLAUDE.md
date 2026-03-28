@@ -194,7 +194,7 @@ UniversalNeo4jBackend[T]  <- ONE instance per domain, NO wrappers
 
 **Key type aliases** (from `core/models/type_hints.py`): `Neo4jProperties`, `FilterParams`, `RelationshipMetadata`
 
-**Protocol return TypedDicts** (from `core/ports/query_types.py`): 106 TypedDicts — 21 for inputs (filters, payloads) + 85 for outputs (domain stats, system health, teacher review, visualization configs, intelligence, life path, lateral relationships, activity reports, UserContext field shapes, context intelligence, graph entity, curriculum structure). New protocol methods should return a specific model or TypedDict, not `Result[Any]`.
+**Protocol return TypedDicts** (from `core/ports/query_types.py`): 128 TypedDicts — 21 for inputs (filters, payloads) + 107 for outputs (domain stats, system health, teacher review, visualization configs, intelligence, life path, lateral relationships, activity reports, UserContext field shapes, context intelligence, graph entity, curriculum structure, curriculum backend Cypher returns). New protocol methods should return a specific model or TypedDict, not `Result[Any]`.
 
 **FastHTML boundary** (no type stubs): `from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request, RouteList`
 

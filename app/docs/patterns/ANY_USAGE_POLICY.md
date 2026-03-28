@@ -105,7 +105,7 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 - **Domain model returns:** `Result[SubmissionEntity]`, `Result[ExerciseReport]`, `Result[Askesis]`,
   `Result[CalendarData]`, `Result[Group]`, `Result[JeInput]`, `Result[JeOutput]`, `Result[Exercise]`,
   `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ReportSchedule]`, `Result[ActivityReport]`
-- **85 output TypedDicts** in `query_types.py` for structured dict returns:
+- **107 output TypedDicts** in `query_types.py` for structured dict returns:
 
 | TypedDict | Protocol / Field | Methods |
 |-----------|-----------------|---------|
