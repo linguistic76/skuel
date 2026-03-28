@@ -12,13 +12,11 @@ from fasthtml.common import H1, H2, H3, Div, P
 from fasthtml.common import A as Anchor
 from starlette.responses import Response
 
-from core.models.lesson.lesson_request import LessonCreateRequest
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
-from ui.patterns.form_generator import FormGenerator
 
 logger = get_logger("skuel.routes.lesson.ui")
 
@@ -67,33 +65,6 @@ class LessonUIComponents:
             card_attrs={"id": f"lesson-{uid}", "cls": "border-l-4 border-blue-500 p-4"},
         )
 
-    @staticmethod
-    def render_create_lesson_form() -> Any:
-        """Create Lesson form using FormGenerator."""
-        return Card(
-            H2("Create Lesson", cls="text-xl font-bold mb-4"),
-            FormGenerator.from_model(
-                LessonCreateRequest,
-                action="/api/lesson",
-                method="POST",
-                include_fields=[
-                    "title",
-                    "content",
-                    "domain",
-                    "tags",
-                    "prerequisites",
-                    "complexity",
-                    "confidence",
-                ],
-                form_attrs={
-                    "hx_post": "/api/lesson",
-                    "hx_target": "#lesson-container",
-                    "hx_swap": "outerHTML",
-                },
-                submit_label="Create Lesson",
-            ),
-            cls="p-6 max-w-2xl mx-auto",
-        )
 
 
 # ============================================================================
@@ -110,11 +81,6 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
     """
 
     logger.info("Lesson UI routes registered")
-
-    @rt("/lesson/create")
-    async def lesson_create_form(_request) -> Any:
-        """Create lesson form."""
-        return LessonUIComponents.render_create_lesson_form()
 
     @rt("/lesson/discovery")
     async def lesson_discovery_dashboard(_request) -> Any:

@@ -36,8 +36,6 @@ from core.models.group.group import Group
 from core.models.group.group_request import GroupCreateRequest
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest
-from core.models.ku.ku import Ku
-from core.models.lesson.lesson_request import LessonCreateRequest
 from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.task.task import Task
@@ -239,14 +237,6 @@ class ConversionServiceV2:
     ) -> Goal:
         """Convert GoalCreateRequest to Goal using generic method."""
         return cls.create_to_pure(schema, Goal, uid, **kwargs)
-
-    # --- Knowledge Unit (Ku) Conversions --
-    @classmethod
-    def ku_create_to_pure(
-        cls, schema: LessonCreateRequest, uid: str | None = None, **kwargs: Any
-    ) -> Ku:
-        """Convert CurriculumCreateRequest to Curriculum entity using generic method."""
-        return cls.create_to_pure(schema, Ku, uid, **kwargs)
 
     # --- Finance Conversions (three-tier migrated) --
     @classmethod

@@ -15,15 +15,11 @@ from adapters.inbound.learning_steps_routes import LS_CONFIG
 from adapters.inbound.pathways_api import create_pathways_api_routes
 from adapters.inbound.pathways_ui import create_pathways_ui_routes
 from adapters.inbound.route_factories import (
-    CRUDRouteConfig,
     DomainRouteConfig,
     IntelligenceRouteConfig,
     register_domain_routes,
 )
-from core.models.entity_requests import EntityUpdateRequest
 from core.models.enums import ContentScope
-from core.models.enums.user_enums import UserRole
-from core.models.pathways.pathways_request import LearningPathCreateRequest
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.pathways")
@@ -43,14 +39,6 @@ PATHWAYS_CONFIG = DomainRouteConfig(
         "user_progress": "user_progress",
         "ls_service": "ls",
     },
-    crud=CRUDRouteConfig(
-        create_schema=LearningPathCreateRequest,
-        update_schema=EntityUpdateRequest,
-        uid_prefix="lp",
-        scope=ContentScope.SHARED,
-        require_role=UserRole.ADMIN,
-        user_service_attr="user_service",
-    ),
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 
