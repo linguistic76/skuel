@@ -1,6 +1,6 @@
 # Type Safety Architecture Overview
 
-*Last updated: 2026-03-27 (added Identity NewTypes section)*
+*Last updated: 2026-03-27 (search protocol generics, enum enforcement, return type narrowing)*
 
 SKUEL treats type safety as infrastructure — not ceremony. Types are enforced at every
 layer, from HTTP boundaries through to database writes. The goal is that a type error from
@@ -86,8 +86,9 @@ def create_tasks_api_routes(
 - 100% protocol compliance — all 7 `BaseService` mixins verified by TYPE_CHECKING blocks
 - 29 automated compliance tests (run: `uv run pytest tests/unit/test_protocol_mixin_compliance.py`)
 - Zero `Any` fields in the `Services` dataclass — all 72 fields typed
-- ~170 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026). 0 `Result[Any]` remain in protocols (1 intentional in `base_service_interface.py`)
+- ~170 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026). 0 `Result[Any]` remain in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed (e.g., `Result[GraphContext]`, `Result[HabitCompletion]`, `Result[ValidationResult]`)
 - 128 TypedDicts in `query_types.py` — 21 for inputs (filters, payloads), 107 for outputs (domain stats, system health, teacher review, visualization configs, result shapes, UserContext field types, context intelligence, graph entity, curriculum structure, curriculum backend Cypher returns, lateral relationship backend returns, life path nested types)
+- **Search protocol generics** — all 6 extended search protocols (`TasksSearchOperations`, `GoalsSearchOperations`, etc.) parameterized with their domain model type (`Task`, `Goal`, `Event`, `Choice`, `Habit`, `Principle`), not `Entity`. Eliminates `# type: ignore[return-value]` in facade delegation methods
 
 **BackendOperations[T] hierarchy** — the foundational generic protocol:
 ```python
@@ -159,6 +160,15 @@ to specific types (0 `Result[Any]` remain in protocols, 1 intentional in `base_s
 
 Only genuine boundary types (Neo4j driver params, FastHTML elements, error metadata) and
 backend-level raw Cypher results retain `Any`.
+
+*Phase 5 — Service-layer narrowing and search protocol generics:* Remaining `Result[Any]` in
+service methods narrowed to concrete types (`Result[GraphContext]`, `Result[HabitCompletion]`,
+`Result[ValidationResult]`, `Result[DirectoryValidationResult]`, `Result[Habit]`). Search
+protocol root cause fixed: 4 extended protocols (`GoalsSearchOperations`, `EventsSearchOperations`,
+`ChoicesSearchOperations`, `PrinciplesSearchOperations`) re-parameterized from `Entity` to their
+domain model type, eliminating 27 `# type: ignore[return-value]` suppressions in facade delegation
+methods. `EntityStatus` enum now enforced in all status comparisons (previously only `UserRole`
+and `ExerciseScope`). 30 missing return type annotations added to service methods.
 
 **See:** `docs/patterns/ANY_USAGE_POLICY.md` (complete policy with quick-reference table)
 

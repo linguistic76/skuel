@@ -139,11 +139,12 @@ SKUEL's type safety has reached a solid, production-grade foundation:
 | 0 MyPy errors baseline | Achieved March 2026 (down from 2,247) |
 | Three-tier type system | Enforced across all 21 entity types |
 | Protocol-based DI | 65+ protocols, 100% protocol-mixin alignment |
-| Typed protocol returns | ~170 methods return specific models/TypedDicts, 0 `Result[Any]` in protocols (1 intentional in `base_service_interface.py`) |
+| Typed protocol returns | ~170 methods return specific models/TypedDicts, 0 `Result[Any]` in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed to concrete types |
 | Query type coverage | 128 TypedDicts (21 input, 107 output) |
 | Any usage policy | Three categories with enforcement |
 | Security NewTypes | `UserUID` propagated to ~1,930 annotations across 313 files; `EntityUID` to ~200 annotations (including variant names like `parent_entity_uid`, `source_entity_uid`). All layers enforce `UserUID` — auth, REST, GraphQL, services, backends, ingestion |
-| Enum-enforced boundaries | `UserRole` and `ExerciseScope` — zero raw string comparisons remain; all role/scope checks use enum members |
+| Enum-enforced boundaries | `UserRole`, `ExerciseScope`, and `EntityStatus` — zero raw string comparisons remain for roles, scopes, and status checks; all use enum members |
+| Search protocol generics | All 6 `DomainSearchOperations` extensions parameterized with domain model type (`Goal`, `Event`, `Choice`, `Principle`, `Task`, `Habit`), not `Entity` |
 
 This foundation is valued and allowed to evolve. As the ontology grows — new entity types, new relationships, new cross-cutting systems — the type system grows with it. The goal is not perfection frozen in place, but a living system where types track the domain as it reveals itself.
 

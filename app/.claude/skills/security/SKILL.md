@@ -110,7 +110,7 @@ When adding a new route, verify:
 
 | Check | Rule | Details |
 |-------|------|---------|
-| No raw string role/scope comparisons | — | Use `UserRole` enum (not `== "admin"`), `ExerciseScope` enum (not `== "assigned"`) |
+| No raw string role/scope/status comparisons | — | Use `UserRole` enum (not `== "admin"`), `ExerciseScope` enum (not `== "assigned"`), `EntityStatus` enum (not `== "completed"`) |
 | No raw Cypher formatting | SKUEL001 | All queries parameterized |
 | Use RelationshipName enum | SKUEL013 | No hardcoded relationship strings; infrastructure validates before interpolation |
 | No `hasattr()` | SKUEL011 | Use Protocol/isinstance/getattr |
