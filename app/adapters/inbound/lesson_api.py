@@ -7,7 +7,7 @@ in lesson_routes.py. This file contains only domain-specific manual routes
 (relationships, content, search, organization, analytics).
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
@@ -18,6 +18,7 @@ from adapters.inbound.route_factories import (
     parse_int_query_param,
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
+from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity_requests import AddTagsRequest, RemoveTagsRequest
 from core.models.lesson.lesson_request import (
     LessonContentUpdateRequest,
@@ -26,6 +27,10 @@ from core.models.lesson.lesson_request import (
 from core.services.lesson_service import LessonService
 from core.utils.result_simplified import Errors, Result
 from ui.feedback import Alert, AlertT
+
+if TYPE_CHECKING:
+    from core.models.lesson.lesson import Lesson
+    from core.models.pathways.learning_progress import LearningJourney
 
 
 def create_lesson_api_routes(
@@ -59,7 +64,7 @@ def create_lesson_api_routes(
     @boundary_handler()
     async def create_lesson_relationship_route(
         request: Request, current_user: Any, uid: str
-    ) -> Result[Any]:
+    ) -> Result[bool]:
         """Create a relationship between lessons. Requires ADMIN role."""
         result = await parse_json_body(request, LessonRelationshipCreateRequest)
         if result.is_error:
@@ -72,7 +77,9 @@ def create_lesson_api_routes(
 
     @rt("/api/lesson/relationships", methods=["GET"])
     @boundary_handler()
-    async def get_lesson_relationships_route(request: Request, uid: str) -> Result[Any]:
+    async def get_lesson_relationships_route(
+        request: Request, uid: str
+    ) -> Result[list[dict[str, Any]]]:
         """Get relationships for a lesson."""
         params = dict(request.query_params)
         relationship_type = params.get("type")
@@ -82,13 +89,17 @@ def create_lesson_api_routes(
 
     @rt("/api/lesson/prerequisites")
     @boundary_handler()
-    async def get_lesson_prerequisites_route(request: Request, uid: str) -> Result[Any]:
+    async def get_lesson_prerequisites_route(
+        request: Request, uid: str
+    ) -> Result[list[CurriculumDTO]]:
         """Get prerequisites for a lesson."""
         return await lesson_service.get_lesson_prerequisites(uid)
 
     @rt("/api/lesson/dependencies")
     @boundary_handler()
-    async def get_lesson_dependencies_route(request: Request, uid: str) -> Result[Any]:
+    async def get_lesson_dependencies_route(
+        request: Request, uid: str
+    ) -> Result[list[CurriculumDTO]]:
         """Get what depends on this lesson."""
         return await lesson_service.get_lesson_dependencies(uid)
 
@@ -100,7 +111,7 @@ def create_lesson_api_routes(
     @boundary_handler()
     async def update_lesson_content_route(
         request: Request, current_user: Any, uid: str
-    ) -> Result[Any]:
+    ) -> Result[CurriculumDTO]:
         """Update lesson content. Requires ADMIN role."""
         result = await parse_json_body(request, LessonContentUpdateRequest)
         if result.is_error:
@@ -113,7 +124,9 @@ def create_lesson_api_routes(
     @rt("/api/lesson/tags", methods=["POST"])
     @require_admin(user_service_getter)
     @boundary_handler()
-    async def add_lesson_tags_route(request: Request, current_user: Any, uid: str) -> Result[Any]:
+    async def add_lesson_tags_route(
+        request: Request, current_user: Any, uid: str
+    ) -> Result[CurriculumDTO]:
         """Add tags to a lesson. Requires ADMIN role."""
         result = await parse_json_body(request, AddTagsRequest)
         if result.is_error:
@@ -126,7 +139,7 @@ def create_lesson_api_routes(
     @boundary_handler()
     async def remove_lesson_tags_route(
         request: Request, current_user: Any, uid: str
-    ) -> Result[Any]:
+    ) -> Result[CurriculumDTO]:
         """Remove tags from a lesson. Requires ADMIN role."""
         result = await parse_json_body(request, RemoveTagsRequest)
         if result.is_error:
@@ -139,7 +152,7 @@ def create_lesson_api_routes(
 
     @rt("/api/lesson/search")
     @boundary_handler()
-    async def search_lesson_route(request: Request) -> Result[Any]:
+    async def search_lesson_route(request: Request) -> Result[list[CurriculumDTO]]:
         """Search lessons by content, title, or tags."""
         params = dict(request.query_params)
         query = params.get("q", "")
@@ -150,7 +163,7 @@ def create_lesson_api_routes(
 
     @rt("/api/lesson/related")
     @boundary_handler()
-    async def find_related_lesson_route(request: Request, uid: str) -> Result[Any]:
+    async def find_related_lesson_route(request: Request, uid: str) -> Result[list[CurriculumDTO]]:
         """Find lessons related to the given one."""
         params = dict(request.query_params)
         similarity_threshold = float(params.get("threshold", 0.7))
@@ -160,7 +173,9 @@ def create_lesson_api_routes(
 
     @rt("/api/lesson/recommendations")
     @boundary_handler()
-    async def get_lesson_recommendations_route(request: Request, uid: str) -> Result[Any]:
+    async def get_lesson_recommendations_route(
+        request: Request, uid: str
+    ) -> Result[list[CurriculumDTO]]:
         """Get personalized lesson recommendations."""
         params = dict(request.query_params)
         user_uid = params.get("user_uid")
@@ -173,13 +188,13 @@ def create_lesson_api_routes(
 
     @rt("/api/lesson/domains")
     @boundary_handler()
-    async def list_lesson_domains_route(_request: Request) -> Result[Any]:
+    async def list_lesson_domains_route(_request: Request) -> Result[list[str]]:
         """List all lesson domains."""
         return await lesson_service.list_lesson_domains()
 
     @rt("/api/lesson/by-domain")
     @boundary_handler()
-    async def get_lesson_by_domain_route(request: Request, domain: str) -> Result[Any]:
+    async def get_lesson_by_domain_route(request: Request, domain: str) -> Result[list[Any]]:
         """Get lessons in a specific domain."""
         params = dict(request.query_params)
         limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
@@ -188,13 +203,13 @@ def create_lesson_api_routes(
 
     @rt("/api/lesson/categories")
     @boundary_handler()
-    async def list_lesson_categories_route(_request: Request) -> Result[Any]:
+    async def list_lesson_categories_route(_request: Request) -> Result[list[str]]:
         """List all lesson categories."""
         return await lesson_service.list_lesson_categories()
 
     @rt("/api/lesson/tags")
     @boundary_handler()
-    async def list_lesson_tags_route(request: Request) -> Result[Any]:
+    async def list_lesson_tags_route(request: Request) -> Result[list[dict[str, Any]]]:
         """List all lesson tags with usage counts."""
         params = dict(request.query_params)
         min_usage = parse_int_query_param(params, "min_usage", 1, minimum=0)
@@ -206,7 +221,7 @@ def create_lesson_api_routes(
 
     @rt("/api/lesson/stats")
     @boundary_handler()
-    async def get_lesson_stats_route(request: Request, uid: str) -> Result[Any]:
+    async def get_lesson_stats_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get statistics for a lesson."""
         return await lesson_service.get_lesson_stats(uid)
 
@@ -216,7 +231,7 @@ def create_lesson_api_routes(
 
     @rt("/api/lesson/my-context")
     @boundary_handler()
-    async def get_lesson_user_context_route(request: Request, uid: str) -> Result[Any]:
+    async def get_lesson_user_context_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """
         Get personalized context for how the current user uses this lesson.
 
@@ -263,7 +278,7 @@ def create_lesson_api_routes(
 
     @rt("/api/lesson/journey")
     @boundary_handler()
-    async def get_lesson_journey(request: Request) -> Result[Any]:
+    async def get_lesson_journey(request: Request) -> "Result[LearningJourney]":
         """Get user's SEL learning journey — progress across all 5 categories."""
         user_uid = require_authenticated_user(request)
         return await lesson_service.get_sel_journey(user_uid)
@@ -272,7 +287,7 @@ def create_lesson_api_routes(
     @boundary_handler()
     async def get_personalized_curriculum(
         request: Request, category: str, limit: int = 10
-    ) -> Result[Any]:
+    ) -> "Result[list[Lesson]]":
         """Get personalized lesson curriculum for an SEL category."""
         from core.models.enums import SELCategory
 

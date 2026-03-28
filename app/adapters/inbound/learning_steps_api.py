@@ -48,7 +48,7 @@ def create_learning_steps_api_routes(
 
     @rt("/api/learning-steps/attach-to-path", methods=["POST"])
     @boundary_handler()
-    async def attach_step_to_path_route(request: Request, step_uid: str) -> Result[Any]:
+    async def attach_step_to_path_route(request: Request, step_uid: str) -> Result[bool]:
         """Attach a learning step to a learning path."""
         result = await parse_json_body(request, LearningStepPathRequest)
         if result.is_error:
@@ -60,7 +60,7 @@ def create_learning_steps_api_routes(
 
     @rt("/api/learning-steps/detach-from-path", methods=["POST"])
     @boundary_handler()
-    async def detach_step_from_path_route(request: Request, step_uid: str) -> Result[Any]:
+    async def detach_step_from_path_route(request: Request, step_uid: str) -> Result[bool]:
         """Detach a learning step from a learning path."""
         result = await parse_json_body(request, LearningStepPathRequest)
         if result.is_error:
@@ -73,7 +73,9 @@ def create_learning_steps_api_routes(
 
     @rt("/api/learning-steps/prerequisites")
     @boundary_handler()
-    async def get_step_prerequisites_route(request: Request, step_uid: str) -> Result[Any]:
+    async def get_step_prerequisites_route(
+        request: Request, step_uid: str
+    ) -> Result[dict[str, Any]]:
         """Get prerequisites for a learning step."""
 
         # GRAPH-NATIVE: Query prerequisites via UnifiedRelationshipService

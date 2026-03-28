@@ -58,7 +58,7 @@ def create_transcription_api_routes(
 
     @rt("/api/transcriptions", methods=["POST"])
     @boundary_handler()
-    async def create_transcription(request) -> Result[Any]:
+    async def create_transcription(request) -> Result[dict[str, Any]]:
         """Create a new transcription."""
         user_uid = require_authenticated_user(request)
         body = await request.json()
@@ -68,33 +68,33 @@ def create_transcription_api_routes(
 
         if result.is_ok:
             return Result.ok(result.value.to_dict())
-        return result
+        return Result.fail(result)
 
     @rt("/api/transcriptions/get")
     @boundary_handler()
-    async def get_transcription(request, uid: str) -> Result[Any]:
+    async def get_transcription(request, uid: str) -> Result[dict[str, Any]]:
         """Get transcription by UID. Requires ownership."""
         user_uid = require_authenticated_user(request)
         ownership = await transcription_service.verify_ownership(uid, user_uid)
         if ownership.is_error:
-            return ownership
+            return Result.fail(ownership)
 
         return Result.ok(ownership.value.to_dict())
 
     @rt("/api/transcriptions/delete", methods=["DELETE"])
     @boundary_handler()
-    async def delete_transcription(request, uid: str) -> Result[Any]:
+    async def delete_transcription(request, uid: str) -> Result[bool]:
         """Delete transcription. Requires ownership."""
         user_uid = require_authenticated_user(request)
         ownership = await transcription_service.verify_ownership(uid, user_uid)
         if ownership.is_error:
-            return ownership
+            return Result.fail(ownership)
 
         return await transcription_service.delete(uid)
 
     @rt("/api/transcriptions")
     @boundary_handler()
-    async def list_transcriptions(request) -> Result[Any]:
+    async def list_transcriptions(request) -> Result[list[dict[str, Any]]]:
         """List transcriptions for the authenticated user."""
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
@@ -112,7 +112,7 @@ def create_transcription_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         return Result.ok([t.to_dict() for t in (result.value or [])])
 
@@ -122,12 +122,12 @@ def create_transcription_api_routes(
 
     @rt("/api/transcriptions/process", methods=["POST"])
     @boundary_handler()
-    async def process_transcription(request, uid: str) -> Result[Any]:
+    async def process_transcription(request, uid: str) -> Result[dict[str, Any]]:
         """Process transcription with Deepgram. Requires ownership."""
         user_uid = require_authenticated_user(request)
         ownership = await transcription_service.verify_ownership(uid, user_uid)
         if ownership.is_error:
-            return ownership
+            return Result.fail(ownership)
 
         body = await request.json() if request.headers.get("content-length") else {}
 
@@ -136,22 +136,22 @@ def create_transcription_api_routes(
 
         if result.is_ok:
             return Result.ok(result.value.to_dict())
-        return result
+        return Result.fail(result)
 
     @rt("/api/transcriptions/retry", methods=["POST"])
     @boundary_handler()
-    async def retry_transcription(request, uid: str) -> Result[Any]:
+    async def retry_transcription(request, uid: str) -> Result[dict[str, Any]]:
         """Retry a failed transcription. Requires ownership."""
         user_uid = require_authenticated_user(request)
         ownership = await transcription_service.verify_ownership(uid, user_uid)
         if ownership.is_error:
-            return ownership
+            return Result.fail(ownership)
 
         result = await transcription_service.retry(uid)
 
         if result.is_ok:
             return Result.ok(result.value.to_dict())
-        return result
+        return Result.fail(result)
 
     # ========================================================================
     # QUERY ROUTES
@@ -159,7 +159,7 @@ def create_transcription_api_routes(
 
     @rt("/api/transcriptions/search")
     @boundary_handler()
-    async def search_transcriptions(request) -> Result[Any]:
+    async def search_transcriptions(request) -> Result[list[dict[str, Any]]]:
         """Search transcriptions by transcript text. Scoped to authenticated user."""
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
@@ -173,13 +173,13 @@ def create_transcription_api_routes(
         result = await transcription_service.search(query, user_uid=user_uid, limit=limit)
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         return Result.ok([t.to_dict() for t in (result.value or [])])
 
     @rt("/api/transcriptions/status")
     @boundary_handler()
-    async def get_by_status(request, status: str) -> Result[Any]:
+    async def get_by_status(request, status: str) -> Result[list[dict[str, Any]]]:
         """Get transcriptions by status. Scoped to authenticated user."""
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
@@ -196,7 +196,7 @@ def create_transcription_api_routes(
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         return Result.ok([t.to_dict() for t in (result.value or [])])
 

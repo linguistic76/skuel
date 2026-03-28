@@ -93,7 +93,7 @@ def create_progress_report_api_routes(
 
     @rt("/api/reports/progress/generate")
     @boundary_handler(success_status=201)
-    async def generate_progress_report(request: Request) -> Result[Any]:
+    async def generate_progress_report(request: Request) -> Result[dict[str, Any]]:
         """Generate a progress report on demand."""
         user_uid = require_authenticated_user(request)
 
@@ -120,7 +120,7 @@ def create_progress_report_api_routes(
 
     @rt("/api/reports/progress")
     @boundary_handler()
-    async def list_progress_reports(request: Request) -> Result[Any]:
+    async def list_progress_reports(request: Request) -> Result[dict[str, Any]]:
         """List user's progress reports."""
         user_uid = require_authenticated_user(request)
         limit = parse_int_query_param(request.query_params, "limit", 20, minimum=1, maximum=500)
@@ -152,7 +152,7 @@ def create_progress_report_api_routes(
 
         @rt("/api/reports/schedule")
         @boundary_handler(success_status=201)
-        async def create_schedule(request: Request) -> Result[Any]:
+        async def create_schedule(request: Request) -> Result[dict[str, Any]]:
             """Create or update a report generation schedule."""
             user_uid = require_authenticated_user(request)
             body = await request.json()
@@ -178,7 +178,7 @@ def create_progress_report_api_routes(
 
         @rt("/api/reports/schedule/get")
         @boundary_handler()
-        async def get_schedule(request: Request) -> Result[Any]:
+        async def get_schedule(request: Request) -> Result[dict[str, Any]]:
             """Get user's report schedule."""
             user_uid = require_authenticated_user(request)
 
@@ -190,7 +190,7 @@ def create_progress_report_api_routes(
 
         @rt("/api/reports/schedule/update")
         @boundary_handler()
-        async def update_schedule(request: Request, uid: str) -> Result[Any]:
+        async def update_schedule(request: Request, uid: str) -> Result[dict[str, Any]]:
             """Update a report schedule."""
             _user_uid = require_authenticated_user(request)
             body = await request.json()
@@ -211,7 +211,7 @@ def create_progress_report_api_routes(
 
         @rt("/api/reports/schedule/delete")
         @boundary_handler()
-        async def deactivate_schedule(request: Request, uid: str) -> Result[Any]:
+        async def deactivate_schedule(request: Request, uid: str) -> Result[dict[str, Any]]:
             """Deactivate a report schedule."""
             _user_uid = require_authenticated_user(request)
 
@@ -235,7 +235,9 @@ def create_progress_report_api_routes(
         @rt("/api/activity-review/snapshot")
         @require_admin(get_user_service)
         @boundary_handler()
-        async def get_activity_snapshot(request: Request, current_user: Any) -> Result[Any]:
+        async def get_activity_snapshot(
+            request: Request, current_user: Any
+        ) -> Result[dict[str, Any]]:
             """Generate activity snapshot for admin review.
 
             Admin-initiated path: admin selects a user + time window,
@@ -278,7 +280,9 @@ def create_progress_report_api_routes(
         @rt("/api/activity-review/submit", methods=["POST"])
         @require_admin(get_user_service)
         @boundary_handler(success_status=201)
-        async def submit_activity_feedback(request: Request, current_user: Any) -> Result[Any]:
+        async def submit_activity_feedback(
+            request: Request, current_user: Any
+        ) -> Result[dict[str, Any]]:
             """Admin submits written activity feedback.
 
             Creates ActivityReport entity with ProcessorType.HUMAN.
@@ -311,7 +315,7 @@ def create_progress_report_api_routes(
 
         @rt("/api/activity-review/history")
         @boundary_handler()
-        async def get_activity_feedback_history(request: Request) -> Result[Any]:
+        async def get_activity_feedback_history(request: Request) -> Result[dict[str, Any]]:
             """User's received activity feedback (both LLM and human).
 
             SECURITY: Always scoped to the authenticated user's own history.
@@ -337,7 +341,7 @@ def create_progress_report_api_routes(
 
         @rt("/api/activity-reports/annotate", methods=["POST"])
         @boundary_handler()
-        async def save_annotation(request: Request) -> Result[Any]:
+        async def save_annotation(request: Request) -> Result[dict[str, Any]]:
             """Save user annotation or revision to an owned ActivityReport.
 
             Body fields:
@@ -366,7 +370,7 @@ def create_progress_report_api_routes(
 
         @rt("/api/activity-reports/annotation")
         @boundary_handler()
-        async def get_annotation(request: Request) -> Result[Any]:
+        async def get_annotation(request: Request) -> Result[dict[str, Any]]:
             """Get current annotation state for an owned ActivityReport."""
             user_uid = require_authenticated_user(request)
             uid = request.query_params.get("uid", "").strip()
@@ -381,7 +385,7 @@ def create_progress_report_api_routes(
 
         @rt("/api/privacy/audit")
         @boundary_handler()
-        async def get_privacy_audit(request: Request) -> Result[Any]:
+        async def get_privacy_audit(request: Request) -> Result[dict[str, Any]]:
             """Return privacy-transparency summary for the authenticated user.
 
             User-facing endpoint — always scoped to the requesting user's own data.
@@ -419,7 +423,7 @@ def create_progress_report_api_routes(
 
         @rt("/api/activity-review/request", methods=["POST"])
         @boundary_handler(success_status=201)
-        async def request_activity_review(request: Request) -> Result[Any]:
+        async def request_activity_review(request: Request) -> Result[dict[str, Any]]:
             """User requests an activity review from an admin."""
             user_uid = require_authenticated_user(request)
             parsed = await parse_json_body(request, ActivityReviewRequest)
@@ -445,7 +449,7 @@ def create_progress_report_api_routes(
 
         @rt("/api/activity-review/queue")
         @boundary_handler()
-        async def get_review_queue(request: Request) -> Result[Any]:
+        async def get_review_queue(request: Request) -> Result[dict[str, Any]]:
             """Admin's pending review queue."""
             admin_uid = require_authenticated_user(request)
             limit = parse_int_query_param(request.query_params, "limit", 20, minimum=1, maximum=500)

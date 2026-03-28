@@ -11,6 +11,8 @@ __version__ = "1.0"
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
+from core.ports.query_types import InvoiceStats
+
 if TYPE_CHECKING:
     from core.ports import FinancesOperations
 
@@ -92,17 +94,17 @@ def create_finance_api_routes(
     @rt("/api/expenses/date-range")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def get_expenses_by_date_range_route(request, current_user) -> Result[Any]:
+    async def get_expenses_by_date_range_route(request, current_user) -> Result[dict[str, Any]]:
         """Get expenses within a date range (admin only)"""
         params = dict(request.query_params)
 
         # Required parameters
         start_result = parse_date_param_strict(params.get("start_date"), "start_date")
         if start_result.is_error:
-            return start_result
+            return Result.fail(start_result)
         end_result = parse_date_param_strict(params.get("end_date"), "end_date")
         if end_result.is_error:
-            return end_result
+            return Result.fail(end_result)
         start_date = start_result.value
         end_date = end_result.value
 
@@ -133,7 +135,7 @@ def create_finance_api_routes(
     @rt("/api/expenses/search")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def search_expenses_route(request, current_user) -> Result[Any]:
+    async def search_expenses_route(request, current_user) -> Result[dict[str, Any]]:
         """Search expenses with text query (admin only)"""
         params = dict(request.query_params)
 
@@ -171,7 +173,7 @@ def create_finance_api_routes(
     @rt("/api/expenses/clear")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def clear_expense_route(request, current_user, uid: str) -> Result[Any]:
+    async def clear_expense_route(request, current_user, uid: str) -> Result[bool]:
         """Mark expense as cleared (admin only)."""
         result = await finance_service.clear_expense(uid)
 
@@ -182,7 +184,7 @@ def create_finance_api_routes(
     @rt("/api/expenses/reconcile")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def reconcile_expense_route(request, current_user, uid: str) -> Result[Any]:
+    async def reconcile_expense_route(request, current_user, uid: str) -> Result[bool]:
         """Mark expense as reconciled (admin only)."""
         result = await finance_service.reconcile_expense(expense_uid=uid, reconciliation_data={})
 
@@ -193,13 +195,13 @@ def create_finance_api_routes(
     @rt("/api/expenses/receipt")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def attach_receipt_route(request, current_user, uid: str) -> Result[Any]:
+    async def attach_receipt_route(request, current_user, uid: str) -> Result[bool]:
         """Attach receipt to expense (admin only)."""
         from core.models.finance.finance_request import AttachReceiptRequest
 
         parsed = await parse_json_body(request, AttachReceiptRequest)
         if parsed.is_error:
-            return parsed  # type: ignore[return-value]
+            return Result.fail(parsed)
 
         result = await finance_service.attach_receipt(uid, parsed.value.receipt_url)
 
@@ -230,7 +232,7 @@ def create_finance_api_routes(
     @rt("/api/budgets/active")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def get_active_budgets_route(request, current_user) -> Result[Any]:
+    async def get_active_budgets_route(request, current_user) -> Result[dict[str, Any]]:
         """Get active budgets (admin only)"""
         result = await finance_service.get_active_budgets()
 
@@ -242,7 +244,7 @@ def create_finance_api_routes(
     @rt("/api/budgets/recalculate")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def recalculate_budget_route(request, current_user, uid: str) -> Result[Any]:
+    async def recalculate_budget_route(request, current_user, uid: str) -> Result[bool]:
         """Recalculate budget spending from expenses (admin only)."""
         result = await finance_service.recalculate_budget(uid)
 
@@ -333,7 +335,7 @@ def create_finance_api_routes(
     @rt("/api/invoices")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def list_invoices_route(request, current_user) -> Result[Any]:
+    async def list_invoices_route(request, current_user) -> Result[dict[str, Any]]:
         """List all invoices with optional filters (admin only)"""
         # Get query params
         invoice_type = request.query_params.get("type")  # outgoing or incoming
@@ -354,12 +356,12 @@ def create_finance_api_routes(
                     "count": len(invoices),
                 }
             )
-        return result
+        return Result.fail(result)
 
     @rt("/api/invoices", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler()
-    async def create_invoice_route(request, current_user) -> Result[Any]:
+    async def create_invoice_route(request, current_user) -> Result[dict[str, Any]]:
         """Create a new invoice (admin only)"""
         from core.models.finance.invoice import (
             InvoiceCreateRequest,
@@ -369,7 +371,7 @@ def create_finance_api_routes(
 
         parsed = await parse_json_body(request, InvoiceCreateRequest)
         if parsed.is_error:
-            return parsed  # type: ignore[return-value]
+            return Result.fail(parsed)
         invoice_request = parsed.value
 
         # Convert request to domain model
@@ -386,13 +388,13 @@ def create_finance_api_routes(
                     "message": "Invoice created successfully",
                 }
             )
-        return result
+        return Result.fail(result)
 
     # IMPORTANT: Static routes (/stats) must come BEFORE parameterized routes (/{uid})
     @rt("/api/invoices/stats")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def get_invoice_stats_route(request, current_user) -> Result[Any]:
+    async def get_invoice_stats_route(request, current_user) -> Result[InvoiceStats]:
         """Get invoice statistics (admin only)"""
         result = await finance_service.get_invoice_stats(user_uid=current_user.uid)
 
@@ -403,7 +405,7 @@ def create_finance_api_routes(
     @rt("/api/invoices/get")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def get_invoice_route(request, current_user, uid: str) -> Result[Any]:
+    async def get_invoice_route(request, current_user, uid: str) -> Result[dict[str, Any]]:
         """Get a specific invoice by UID (admin only)"""
         result = await finance_service.get_invoice(uid)
 
@@ -415,7 +417,7 @@ def create_finance_api_routes(
                     "invoice": result.value.to_dto().to_dict(),
                 }
             )
-        return result
+        return Result.fail(result)
 
     @rt("/api/invoices/pdf")
     @require_admin(get_user_service)
@@ -448,14 +450,14 @@ def create_finance_api_routes(
     @rt("/api/expenses/bulk/categorize")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def bulk_categorize_expenses_route(request, current_user) -> Result[Any]:
+    async def bulk_categorize_expenses_route(request, current_user) -> Result[dict[str, Any]]:
         """Bulk categorize multiple expenses (admin only)"""
         from core.models.finance.finance_pure import ExpenseCategory
         from core.models.finance.finance_request import BulkCategorizeExpensesRequest
 
         parsed = await parse_json_body(request, BulkCategorizeExpensesRequest)
         if parsed.is_error:
-            return parsed  # type: ignore[return-value]
+            return Result.fail(parsed)
         req = parsed.value
 
         category_enum = ExpenseCategory(req.category)

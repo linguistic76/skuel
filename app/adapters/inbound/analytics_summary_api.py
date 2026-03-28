@@ -53,7 +53,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/life-path-alignment")
     @boundary_handler()
-    async def get_life_path_alignment_route(request: Request) -> Result[Any]:
+    async def get_life_path_alignment_route(request: Request) -> Result[dict[str, Any]]:
         """
         Get user's alignment with their ultimate life goal.
 
@@ -79,7 +79,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/weekly-life-summary")
     @boundary_handler()
-    async def get_weekly_life_summary_route(request: Request) -> Result[Any]:
+    async def get_weekly_life_summary_route(request: Request) -> Result[dict[str, Any]]:
         """
         Get weekly life summary across ALL 4 layers.
 
@@ -101,7 +101,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
         if start_date_str:
             result = parse_date_param_strict(start_date_str, "start_date")
             if result.is_error:
-                return result
+                return Result.fail(result)
             start_date = result.value
         else:
             today = date.today()
@@ -111,7 +111,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/monthly-life-review")
     @boundary_handler()
-    async def get_monthly_life_review_route(request: Request) -> Result[Any]:
+    async def get_monthly_life_review_route(request: Request) -> Result[dict[str, Any]]:
         """
         Get monthly life review across ALL 4 layers.
 
@@ -129,10 +129,10 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
         year_result = parse_int_param_strict(request.query_params.get("year"), "year", 2000, 2100)
         if year_result.is_error:
-            return year_result
+            return Result.fail(year_result)
         month_result = parse_int_param_strict(request.query_params.get("month"), "month", 1, 12)
         if month_result.is_error:
-            return month_result
+            return Result.fail(month_result)
 
         return await analytics_service.generate_monthly_life_review(
             user_uid, year_result.value, month_result.value
@@ -140,7 +140,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/quarterly-progress")
     @boundary_handler()
-    async def get_quarterly_progress_route(request: Request) -> Result[Any]:
+    async def get_quarterly_progress_route(request: Request) -> Result[dict[str, Any]]:
         """
         Get quarterly progress analytics across ALL 4 layers.
 
@@ -158,12 +158,12 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
         year_result = parse_int_param_strict(request.query_params.get("year"), "year", 2000, 2100)
         if year_result.is_error:
-            return year_result
+            return Result.fail(year_result)
         quarter_result = parse_int_param_strict(
             request.query_params.get("quarter"), "quarter", 1, 4
         )
         if quarter_result.is_error:
-            return quarter_result
+            return Result.fail(quarter_result)
 
         return await analytics_service.generate_quarterly_progress(
             user_uid, year_result.value, quarter_result.value
@@ -171,7 +171,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/yearly-review")
     @boundary_handler()
-    async def get_yearly_review_route(request: Request) -> Result[Any]:
+    async def get_yearly_review_route(request: Request) -> Result[dict[str, Any]]:
         """
         Get yearly review across ALL 4 layers.
 
@@ -189,7 +189,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
         year_result = parse_int_param_strict(request.query_params.get("year"), "year", 2000, 2100)
         if year_result.is_error:
-            return year_result
+            return Result.fail(year_result)
 
         return await analytics_service.generate_yearly_review(user_uid, year_result.value)
 
@@ -199,7 +199,7 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
     @rt("/api/analytics/cross-domain-patterns")
     @boundary_handler()
-    async def get_cross_domain_patterns_route(request: Request) -> Result[Any]:
+    async def get_cross_domain_patterns_route(request: Request) -> Result[dict[str, Any]]:
         """
         Detect patterns and relationships across domains.
 
@@ -220,10 +220,10 @@ def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsSe
 
         start_result = parse_date_param_strict(request.query_params.get("start_date"), "start_date")
         if start_result.is_error:
-            return start_result
+            return Result.fail(start_result)
         end_result = parse_date_param_strict(request.query_params.get("end_date"), "end_date")
         if end_result.is_error:
-            return end_result
+            return Result.fail(end_result)
 
         if end_result.value < start_result.value:
             return Result.fail(

@@ -16,6 +16,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
+from core.models.group.group import Group
 from core.models.group.group_request import GroupMemberRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -46,7 +47,7 @@ def create_groups_api_routes(
 
     @rt("/api/groups/mine", methods=["GET"])
     @boundary_handler()
-    async def my_groups(request: Request) -> Result[Any]:
+    async def my_groups(request: Request) -> Result[list[Group]]:
         """List groups the current user is a member of."""
         user_uid = require_authenticated_user(request)
         return await group_service.get_user_groups(user_uid)
@@ -58,15 +59,15 @@ def create_groups_api_routes(
     @rt("/api/groups/{uid}/members/add", methods=["POST"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def add_member(request: Request, uid: str, current_user: Any) -> Result[Any]:
+    async def add_member(request: Request, uid: str, current_user: Any) -> Result[bool]:
         """Add a member to a group. Owner only."""
         ownership_result = await group_service.verify_ownership(uid, current_user.uid)
         if ownership_result.is_error:
-            return ownership_result
+            return Result.fail(ownership_result)
 
         result = await parse_json_body(request, GroupMemberRequest)
         if result.is_error:
-            return result
+            return Result.fail(result)
         req = result.value
 
         return await group_service.add_member(
@@ -78,15 +79,15 @@ def create_groups_api_routes(
     @rt("/api/groups/{uid}/members/remove", methods=["POST"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def remove_member(request: Request, uid: str, current_user: Any) -> Result[Any]:
+    async def remove_member(request: Request, uid: str, current_user: Any) -> Result[bool]:
         """Remove a member from a group. Owner only."""
         ownership_result = await group_service.verify_ownership(uid, current_user.uid)
         if ownership_result.is_error:
-            return ownership_result
+            return Result.fail(ownership_result)
 
         result = await parse_json_body(request, GroupMemberRequest)
         if result.is_error:
-            return result
+            return Result.fail(result)
         req = result.value
 
         return await group_service.remove_member(
@@ -96,7 +97,7 @@ def create_groups_api_routes(
 
     @rt("/api/groups/{uid}/members", methods=["GET"])
     @boundary_handler()
-    async def list_members(request: Request, uid: str) -> Result[Any]:
+    async def list_members(request: Request, uid: str) -> Result[list[dict[str, Any]]]:
         """List group members. Accessible to owner and members."""
         require_authenticated_user(request)
         return await group_service.get_members(uid)

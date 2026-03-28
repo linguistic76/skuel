@@ -22,6 +22,7 @@ from adapters.inbound.route_factories import (
     OwnershipRouteFactory,
     parse_int_query_param,
 )
+from core.models.choice.choice import Choice
 from core.models.choice.choice_request import ChoiceDecisionRequest
 from core.models.type_hints import UserUID
 from core.services.choices_service import ChoicesService
@@ -82,11 +83,13 @@ def create_choices_api_routes(
     @rt("/api/choices/decide", methods=["POST"])
     @require_ownership_query(get_choice_service, uid_param="choice_uid")
     @boundary_handler(success_status=200)
-    async def make_decision_route(request: Request, user_uid: UserUID, entity: Any) -> Result[Any]:
+    async def make_decision_route(
+        request: Request, user_uid: UserUID, entity: Any
+    ) -> Result[Choice]:
         """Make a decision on a choice (requires ownership)."""
         result = await parse_json_body(request, ChoiceDecisionRequest)
         if result.is_error:
-            return result  # type: ignore[return-value]
+            return Result.fail(result)
         req = result.value
 
         return await choice_service.make_decision(
@@ -101,7 +104,7 @@ def create_choices_api_routes(
     @boundary_handler(success_status=201)
     async def create_choice_option_route(
         request: Request, user_uid: UserUID, entity: Any
-    ) -> Result[Any]:
+    ) -> Result[Choice]:
         """Create a new option for a choice (requires ownership)."""
         body = await request.json()
         from core.models.choice.choice_request import ChoiceOptionCreateRequest
@@ -127,7 +130,7 @@ def create_choices_api_routes(
     @boundary_handler()
     async def update_choice_option_route(
         request: Request, user_uid: UserUID, entity: Any, option_uid: str
-    ) -> Result[Any]:
+    ) -> Result[Choice]:
         """Update a choice option (requires ownership)."""
         body = await request.json()
 
@@ -155,7 +158,7 @@ def create_choices_api_routes(
     @boundary_handler(success_status=200)
     async def evaluate_choice_outcome_route(
         request: Request, user_uid: UserUID, entity: Any
-    ) -> Result[Any]:
+    ) -> Result[Choice]:
         """Evaluate the outcome of a decided choice (requires ownership)."""
         body = await request.json()
         from core.models.choice.choice_request import ChoiceEvaluationRequest
@@ -163,7 +166,7 @@ def create_choices_api_routes(
         evaluation_request = ChoiceEvaluationRequest.model_validate(body)
 
         # Use evaluate_choice_outcome method from core service
-        result: Result[Any] = await choice_service.core.evaluate_choice_outcome(
+        result: Result[Choice] = await choice_service.core.evaluate_choice_outcome(
             choice_uid=entity.uid,
             evaluation=evaluation_request,
         )
@@ -171,7 +174,9 @@ def create_choices_api_routes(
 
     @rt("/api/choices/analytics")
     @boundary_handler()
-    async def get_choice_analytics_route(request: Request, user_uid: UserUID) -> Result[Any]:
+    async def get_choice_analytics_route(
+        request: Request, user_uid: UserUID
+    ) -> Result[dict[str, Any]]:
         """Get choice analytics and decision patterns."""
         params = dict(request.query_params)
 
@@ -182,10 +187,7 @@ def create_choices_api_routes(
         lookback_days = parse_timeframe_days(timeframe, default=90)
 
         # Use intelligence service (analytics methods consolidated here)
-        result: Result[Any] = await choice_service.intelligence.get_decision_patterns(
-            user_uid, days=lookback_days
-        )
-        return result
+        return await choice_service.intelligence.get_decision_patterns(user_uid, days=lookback_days)
 
     # ========================================================================
     # INTELLIGENCE ROUTES (High-Value Analytics)
@@ -194,7 +196,9 @@ def create_choices_api_routes(
 
     @rt("/api/choices/intelligence/quality-correlations")
     @boundary_handler()
-    async def get_quality_correlations_route(request: Request, user_uid: UserUID) -> Result[Any]:
+    async def get_quality_correlations_route(
+        request: Request, user_uid: UserUID
+    ) -> Result[dict[str, Any]]:
         """
         What factors correlate with good decisions?
 
@@ -205,16 +209,13 @@ def create_choices_api_routes(
             Dict with correlation scores for decision factors (confidence,
             principle alignment, time pressure, domain, etc.)
         """
-        result: Result[Any] = await choice_service.intelligence.get_choice_quality_correlations(
-            user_uid
-        )
-        return result
+        return await choice_service.intelligence.get_choice_quality_correlations(user_uid)
 
     @rt("/api/choices/intelligence/domain-patterns")
     @boundary_handler()
     async def get_domain_decision_patterns_route(
         request: Request, user_uid: UserUID
-    ) -> Result[Any]:
+    ) -> Result[dict[str, Any]]:
         """
         Get decision patterns by life domain.
 
@@ -230,10 +231,7 @@ def create_choices_api_routes(
         params = dict(request.query_params)
         days = parse_int_query_param(params, "days", 90, minimum=1, maximum=365)
 
-        result: Result[Any] = await choice_service.intelligence.get_domain_decision_patterns(
-            user_uid, days=days
-        )
-        return result
+        return await choice_service.intelligence.get_domain_decision_patterns(user_uid, days=days)
 
     return []  # Routes registered via @rt() decorators (no objects returned)
 

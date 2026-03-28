@@ -17,10 +17,12 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.result_helpers import require_found
+from core.models.pathways.learning_step import LearningStep
 from core.models.pathways.pathways_request import (
     LearningPathProgressRequest,
 )
 from core.services.lp_service import LpService
+from core.services.user_progress_service import UserKnowledgeProfile
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -56,13 +58,13 @@ def create_pathways_api_routes(
 
     @rt("/api/pathways/steps")
     @boundary_handler()
-    async def get_path_steps_route(request: Request, path_uid: str) -> Result[Any]:
+    async def get_path_steps_route(request: Request, path_uid: str) -> Result[list[LearningStep]]:
         """Get all steps for a learning path."""
         return await learning_service.get_path_steps(path_uid)
 
     @rt("/api/pathways/current-step")
     @boundary_handler()
-    async def get_current_step_route(request: Request, path_uid: str) -> Result[Any]:
+    async def get_current_step_route(request: Request, path_uid: str) -> Result[LearningStep]:
         """Get the current (first incomplete) step in a learning path."""
 
         return require_found(
@@ -76,7 +78,7 @@ def create_pathways_api_routes(
 
     @rt("/api/pathways/progress")
     @boundary_handler(success_status=201)
-    async def update_progress_route(request: Request) -> Result[Any]:
+    async def update_progress_route(request: Request) -> Result[dict[str, Any]]:
         """Update progress for a learning step.
 
         Resolves the step's knowledge UIDs and records mastery or progress
@@ -94,7 +96,7 @@ def create_pathways_api_routes(
             progress_req.step_uid,
         )
         if step_found.is_error:
-            return step_found
+            return Result.fail(step_found)
 
         step = step_found.value
 
@@ -142,7 +144,7 @@ def create_pathways_api_routes(
 
     @rt("/api/pathways/progress/summary")
     @boundary_handler()
-    async def get_progress_summary_route(request: Request) -> Result[Any]:
+    async def get_progress_summary_route(request: Request) -> Result[dict[str, Any]]:
         """Get comprehensive learning progress summary for a user."""
         user_uid = require_authenticated_user(request)
 
@@ -154,9 +156,11 @@ def create_pathways_api_routes(
                 )
             )
 
-        profile_result: Result[Any] = await user_progress.build_user_knowledge_profile(user_uid)
+        profile_result: Result[
+            UserKnowledgeProfile
+        ] = await user_progress.build_user_knowledge_profile(user_uid)
         if profile_result.is_error:
-            return profile_result
+            return Result.fail(profile_result)
 
         profile = profile_result.value
 
@@ -167,7 +171,7 @@ def create_pathways_api_routes(
 
     @rt("/api/pathways/recommendations")
     @boundary_handler()
-    async def get_path_recommendations_route(request: Request) -> Result[Any]:
+    async def get_path_recommendations_route(request: Request) -> Result[dict[str, Any]]:
         """Get recommended learning paths for a user."""
         require_authenticated_user(request)
 

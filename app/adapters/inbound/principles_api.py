@@ -24,6 +24,7 @@ from adapters.inbound.route_factories import (
     OwnershipRouteFactory,
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
+from core.models.principle.principle import Principle
 from core.models.principle.principle_request import (
     AlignmentAssessmentRequest,
     PrincipleExpressionRequest,
@@ -110,7 +111,7 @@ def create_principles_api_routes(
     @boundary_handler(success_status=201)
     async def create_principle_expression_route(
         request: Request, user_uid: UserUID, entity: Any
-    ) -> Result[Any]:
+    ) -> Result[dict[str, Any]]:
         """Create a principle expression (requires ownership)."""
         body = await request.json()
         data = PrincipleExpressionRequest.model_validate(body)
@@ -125,7 +126,7 @@ def create_principles_api_routes(
     @boundary_handler()
     async def assess_principle_alignment_route(
         request: Request, user_uid: UserUID, entity: Any
-    ) -> Result[Any]:
+    ) -> Result[dict[str, Any]]:
         """
         Assess alignment with a principle (requires ownership).
 
@@ -143,7 +144,7 @@ def create_principles_api_routes(
         min_confidence = getattr(data, "min_confidence", 0.7)
 
         # Use hybrid dual-track assessment: store user input AND calculate system alignment
-        result: Result[Any] = await principles_service.alignment.assess_with_user_input(
+        result: Result[dict[str, Any]] = await principles_service.alignment.assess_with_user_input(
             principle_uid=entity.uid,
             user_uid=user_uid,
             user_alignment_level=data.alignment_level,
@@ -161,7 +162,7 @@ def create_principles_api_routes(
     @boundary_handler(success_status=201)
     async def create_principle_link_route(
         request: Request, user_uid: UserUID, entity: Any
-    ) -> Result[Any]:
+    ) -> Result[dict[str, Any]]:
         """Create a link between principles (requires ownership)."""
         body = await request.json()
         data = PrincipleLinkRequest.model_validate(body)
@@ -176,7 +177,7 @@ def create_principles_api_routes(
 
     @rt("/api/principles/search")
     @boundary_handler()
-    async def search_principles_route(request: Request) -> Result[Any]:
+    async def search_principles_route(request: Request) -> Result[list[Principle]]:
         """Search principles by content and metadata for the authenticated user."""
         user_uid = require_authenticated_user(request)
         body = await request.json()
@@ -188,14 +189,14 @@ def create_principles_api_routes(
 
     @rt("/api/principles/categories")
     @boundary_handler()
-    async def get_principle_categories_route(request: Request) -> Result[Any]:
+    async def get_principle_categories_route(request: Request) -> Result[list[str]]:
         """Get principle categories for the authenticated user."""
         user_uid = require_authenticated_user(request)
         return await principles_service.list_principle_categories(user_uid)
 
     @rt("/api/principles/sources")
     @boundary_handler()
-    async def get_principle_sources_route(_request: Request) -> Result[Any]:
+    async def get_principle_sources_route(_request: Request) -> Result[list[str]]:
         """Get all principle sources with counts."""
         return await principles_service.get_principle_sources()
 

@@ -21,6 +21,12 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.lifepath_request import CaptureVisionRequest, DesignateLifePathRequest
+from core.ports.query_types import (
+    LifePathAlignmentResult,
+    LifePathDesignation,
+    LifePathRecommendation,
+    LifePathStatus,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -49,7 +55,7 @@ def create_lifepath_api_routes(
 
     @rt("/api/lifepath/status")
     @boundary_handler()
-    async def api_get_status(request: Request) -> Result[Any]:
+    async def api_get_status(request: Request) -> Result[LifePathStatus]:
         """Get full life path status."""
         user_uid = require_authenticated_user(request)
 
@@ -62,7 +68,7 @@ def create_lifepath_api_routes(
 
     @rt("/api/lifepath/vision", methods=["POST"])
     @boundary_handler()
-    async def api_capture_vision(request: Request) -> Result[Any]:
+    async def api_capture_vision(request: Request) -> Result[LifePathRecommendation]:
         """Capture vision and get recommendations (JSON API)."""
         user_uid = require_authenticated_user(request)
 
@@ -79,7 +85,7 @@ def create_lifepath_api_routes(
 
     @rt("/api/lifepath/designate", methods=["POST"])
     @boundary_handler()
-    async def api_designate(request: Request) -> Result[Any]:
+    async def api_designate(request: Request) -> Result[LifePathDesignation]:
         """Designate an LP as life path (JSON API)."""
         user_uid = require_authenticated_user(request)
 
@@ -94,7 +100,7 @@ def create_lifepath_api_routes(
 
     @rt("/api/lifepath/alignment")
     @boundary_handler()
-    async def api_get_alignment(request: Request) -> Result[Any]:
+    async def api_get_alignment(request: Request) -> Result[LifePathAlignmentResult]:
         """Get alignment data (JSON API)."""
         user_uid = require_authenticated_user(request)
 

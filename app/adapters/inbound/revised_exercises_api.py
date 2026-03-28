@@ -18,6 +18,8 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
+from core.models.exercises.revised_exercise import RevisedExercise
+from core.ports.query_types import RevisionChainResult
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -44,7 +46,9 @@ def create_revised_exercises_api_routes(
     @rt("/api/revised-exercises/for-student", methods=["GET"])
     @require_teacher(get_user_service)
     @boundary_handler()
-    async def list_for_student(request: Request, current_user: Any = None) -> Result[Any]:
+    async def list_for_student(
+        request: Request, current_user: Any = None
+    ) -> Result[list[RevisedExercise]]:
         """List revised exercises targeting a specific student (scoped to requesting teacher)."""
         teacher_uid = current_user.uid
         student_uid = request.query_params.get("student_uid")
@@ -55,7 +59,9 @@ def create_revised_exercises_api_routes(
     @rt("/api/revised-exercises/chain", methods=["GET"])
     @require_teacher(get_user_service)
     @boundary_handler()
-    async def get_revision_chain(request: Request, current_user: Any = None) -> Result[Any]:
+    async def get_revision_chain(
+        request: Request, current_user: Any = None
+    ) -> Result[list[RevisionChainResult]]:
         """Get the revision chain for an original exercise."""
         exercise_uid = request.query_params.get("exercise_uid")
         if not exercise_uid:
@@ -68,14 +74,14 @@ def create_revised_exercises_api_routes(
 
     @rt("/api/revised-exercises/my-revisions", methods=["GET"])
     @boundary_handler()
-    async def my_revisions(request: Request) -> Result[Any]:
+    async def my_revisions(request: Request) -> Result[list[RevisedExercise]]:
         """List revised exercises targeting the current user (student view)."""
         user_uid = require_authenticated_user(request)
         return await revised_exercise_service.list_for_student(user_uid)
 
     @rt("/api/revised-exercises/view", methods=["GET"])
     @boundary_handler()
-    async def view_revised_exercise(request: Request) -> Result[Any]:
+    async def view_revised_exercise(request: Request) -> Result[RevisedExercise | None]:
         """View a RevisedExercise (student or owning teacher)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid")

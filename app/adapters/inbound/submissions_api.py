@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
+    from core.models.entity_types import SubmissionEntity
     from core.ports.report_protocols import TeacherReviewOperations
     from core.ports.submission_protocols import (
         SubmissionOperations,
@@ -56,6 +57,7 @@ from core.models.entity_requests import (
 )
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.submissions.submission_requests import FormSubmitRequest
+from core.ports.query_types import SubmissionStatistics
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -113,7 +115,9 @@ def create_submissions_api_routes(
 
     logger.info("Creating Submissions API routes")
 
-    async def _get_owned_submission(submission_uid: str, user_uid: UserUID) -> Result[Any]:
+    async def _get_owned_submission(
+        submission_uid: str, user_uid: UserUID
+    ) -> "Result[SubmissionEntity]":
         """Load a submission and verify it belongs to the requesting user."""
         submission_result = await submission_service.get_submission(submission_uid)
         if submission_result.is_error:
@@ -143,7 +147,7 @@ def create_submissions_api_routes(
 
     @rt("/api/submissions/upload")
     @boundary_handler(success_status=201)
-    async def upload_submission_route(request: Request) -> Result[Any]:
+    async def upload_submission_route(request: Request) -> Result[dict[str, Any]]:
         """
         Upload file for processing.
 
@@ -302,7 +306,7 @@ def create_submissions_api_routes(
 
     @rt("/api/submissions/form")
     @boundary_handler(success_status=201)
-    async def submit_form_route(request: Request) -> Result[Any]:
+    async def submit_form_route(request: Request) -> Result[dict[str, Any]]:
         """
         Submit structured form data against an exercise.
 
@@ -318,7 +322,7 @@ def create_submissions_api_routes(
 
         parsed = await parse_json_body(request, FormSubmitRequest)
         if parsed.is_error:
-            return parsed  # type: ignore[return-value]
+            return Result.fail(parsed)
         req = parsed.value
 
         if not req.form_data:
@@ -356,7 +360,7 @@ def create_submissions_api_routes(
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Result[Any]:
+    ) -> Result[dict[str, Any]]:
         """
         List reports for a user with filters.
 
@@ -419,7 +423,7 @@ def create_submissions_api_routes(
 
     @rt("/api/submissions/get")
     @boundary_handler()
-    async def get_submission_route(request: Request, uid: str) -> Result[Any]:
+    async def get_submission_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """
         Get submission details by UID.
 
@@ -431,7 +435,7 @@ def create_submissions_api_routes(
         """
         found = require_found(await submission_service.get_submission(uid), "Submission", uid)
         if found.is_error:
-            return found
+            return Result.fail(found)
 
         return Result.ok(entity_to_response(found.value))
 
@@ -441,7 +445,7 @@ def create_submissions_api_routes(
 
     @rt("/api/submissions/content")
     @boundary_handler()
-    async def get_submission_content_route(request: Request, uid: str) -> Result[Any]:
+    async def get_submission_content_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """
         Get processed content for a submission.
 
@@ -454,7 +458,7 @@ def create_submissions_api_routes(
         # Get submission
         found = require_found(await submission_service.get_submission(uid), "Submission", uid)
         if found.is_error:
-            return found
+            return Result.fail(found)
 
         submission = found.value
 
@@ -485,7 +489,7 @@ def create_submissions_api_routes(
 
     @rt("/api/submissions/process")
     @boundary_handler()
-    async def process_submission_route(request: Request, uid: str) -> Result[Any]:
+    async def process_submission_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """
         Process a submission.
 
@@ -648,7 +652,7 @@ def create_submissions_api_routes(
     @boundary_handler()
     async def get_statistics_route(
         request: Request, user_uid: UserUID | None = None
-    ) -> Result[Any]:
+    ) -> Result[SubmissionStatistics]:
         """
         Get submission statistics for a user.
 
@@ -673,7 +677,7 @@ def create_submissions_api_routes(
         @boundary_handler()
         async def categorize_submission_route(
             request: Request, submission_uid: str, user_uid: UserUID
-        ) -> Result[Any]:
+        ) -> "Result[SubmissionEntity]":
             """
             Categorize a submission.
 
@@ -686,7 +690,7 @@ def create_submissions_api_routes(
             """
             parsed = await parse_json_body(request, CategorizeEntityRequest)
             if parsed.is_error:
-                return parsed  # type: ignore[return-value]
+                return Result.fail(parsed)
             req = parsed.value
 
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
@@ -701,7 +705,7 @@ def create_submissions_api_routes(
         @boundary_handler()
         async def add_tags_route(
             request: Request, submission_uid: str, user_uid: UserUID
-        ) -> Result[Any]:
+        ) -> "Result[SubmissionEntity]":
             """
             Add tags to a submission.
 
@@ -714,7 +718,7 @@ def create_submissions_api_routes(
             """
             parsed = await parse_json_body(request, AddTagsRequest)
             if parsed.is_error:
-                return parsed  # type: ignore[return-value]
+                return Result.fail(parsed)
             req = parsed.value
 
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
@@ -727,7 +731,7 @@ def create_submissions_api_routes(
         @boundary_handler()
         async def remove_tags_route(
             request: Request, submission_uid: str, user_uid: UserUID
-        ) -> Result[Any]:
+        ) -> "Result[SubmissionEntity]":
             """
             Remove tags from a submission.
 
@@ -740,7 +744,7 @@ def create_submissions_api_routes(
             """
             parsed = await parse_json_body(request, RemoveTagsRequest)
             if parsed.is_error:
-                return parsed  # type: ignore[return-value]
+                return Result.fail(parsed)
             req = parsed.value
 
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
@@ -753,7 +757,7 @@ def create_submissions_api_routes(
         @boundary_handler()
         async def publish_submission_route(
             request: Request, submission_uid: str, user_uid: UserUID
-        ) -> Result[Any]:
+        ) -> "Result[SubmissionEntity]":
             """
             Publish a submission.
 
@@ -771,7 +775,7 @@ def create_submissions_api_routes(
         @boundary_handler()
         async def archive_submission_route(
             request: Request, submission_uid: str, user_uid: UserUID
-        ) -> Result[Any]:
+        ) -> "Result[SubmissionEntity]":
             """
             Archive a submission.
 
@@ -789,7 +793,7 @@ def create_submissions_api_routes(
         @boundary_handler()
         async def mark_as_draft_route(
             request: Request, submission_uid: str, user_uid: UserUID
-        ) -> Result[Any]:
+        ) -> "Result[SubmissionEntity]":
             """
             Mark submission as draft.
 
@@ -805,7 +809,7 @@ def create_submissions_api_routes(
 
         @rt("/api/submissions/bulk/categorize")
         @boundary_handler()
-        async def bulk_categorize_route(request: Request, user_uid: UserUID) -> Result[Any]:
+        async def bulk_categorize_route(request: Request, user_uid: UserUID) -> Result[int]:
             """
             Bulk categorize reports.
 
@@ -818,7 +822,7 @@ def create_submissions_api_routes(
             """
             parsed = await parse_json_body(request, BulkCategorizeRequest)
             if parsed.is_error:
-                return parsed  # type: ignore[return-value]
+                return Result.fail(parsed)
             req = parsed.value
 
             ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
@@ -831,7 +835,7 @@ def create_submissions_api_routes(
 
         @rt("/api/submissions/bulk/tag")
         @boundary_handler()
-        async def bulk_tag_route(request: Request, user_uid: UserUID) -> Result[Any]:
+        async def bulk_tag_route(request: Request, user_uid: UserUID) -> Result[int]:
             """
             Bulk tag reports.
 
@@ -844,7 +848,7 @@ def create_submissions_api_routes(
             """
             parsed = await parse_json_body(request, BulkTagRequest)
             if parsed.is_error:
-                return parsed  # type: ignore[return-value]
+                return Result.fail(parsed)
             req = parsed.value
 
             ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
@@ -855,7 +859,7 @@ def create_submissions_api_routes(
 
         @rt("/api/submissions/bulk/delete")
         @boundary_handler()
-        async def bulk_delete_route(request: Request, user_uid: UserUID) -> Result[Any]:
+        async def bulk_delete_route(request: Request, user_uid: UserUID) -> Result[int]:
             """
             Bulk delete reports.
 
@@ -868,7 +872,7 @@ def create_submissions_api_routes(
             """
             parsed = await parse_json_body(request, BulkDeleteRequest)
             if parsed.is_error:
-                return parsed  # type: ignore[return-value]
+                return Result.fail(parsed)
             req = parsed.value
 
             ownership_result = await _validate_owned_submissions(req.entity_uids, user_uid)
@@ -883,7 +887,7 @@ def create_submissions_api_routes(
         @boundary_handler()
         async def get_by_category_route(
             request: Request, user_uid: UserUID, category: str, limit: int = 50
-        ) -> Result[Any]:
+        ) -> "Result[list[SubmissionEntity]]":
             """
             Get reports by category.
 
@@ -900,7 +904,7 @@ def create_submissions_api_routes(
         @boundary_handler()
         async def get_recent_route(
             request: Request, user_uid: UserUID, limit: int = 10
-        ) -> Result[Any]:
+        ) -> "Result[list[SubmissionEntity]]":
             """
             Get recent reports.
 
@@ -922,7 +926,9 @@ def create_submissions_api_routes(
 
         @rt("/api/submissions/{uid}/reports")
         @boundary_handler()
-        async def get_submission_reports_route(request: Request, uid: str) -> Result[Any]:
+        async def get_submission_reports_route(
+            request: Request, uid: str
+        ) -> Result[dict[str, Any]]:
             """
             Get all report rounds for a specific submission (student-facing).
 

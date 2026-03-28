@@ -25,6 +25,10 @@ from core.models.report.report_requests import AssessmentCreateRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
+# Route-local response shapes (used only in this file)
+AssessmentResponse = dict[str, Any]  # {"report": dict, "message": str}
+AssessmentListResponse = dict[str, Any]  # {"assessments": list[dict], "count": int}
+
 logger = get_logger("skuel.routes.submissions.assessment")
 
 
@@ -53,7 +57,7 @@ def create_exercise_report_api_routes(
     @rt("/api/reports/assessments")
     @require_teacher(user_service_getter)
     @boundary_handler(success_status=201)
-    async def create_assessment(request: Request, current_user: Any) -> Result[Any]:
+    async def create_assessment(request: Request, current_user: Any) -> Result[AssessmentResponse]:
         """Create a teacher assessment for a student."""
         teacher_uid = current_user.uid
         body = await request.json()
@@ -79,7 +83,7 @@ def create_exercise_report_api_routes(
 
     @rt("/api/reports/assessments/given")
     @boundary_handler()
-    async def get_given_assessments(request: Request) -> Result[Any]:
+    async def get_given_assessments(request: Request) -> Result[AssessmentListResponse]:
         """Get assessments authored by the current teacher."""
         user_uid = require_authenticated_user(request)
         limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maximum=500)
@@ -102,7 +106,7 @@ def create_exercise_report_api_routes(
 
     @rt("/api/reports/assessments/received")
     @boundary_handler()
-    async def get_received_assessments(request: Request) -> Result[Any]:
+    async def get_received_assessments(request: Request) -> Result[AssessmentListResponse]:
         """Get assessments received by the current student."""
         user_uid = require_authenticated_user(request)
         limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maximum=500)

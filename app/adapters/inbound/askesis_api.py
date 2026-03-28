@@ -29,6 +29,7 @@ from fasthtml.common import Request
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.route_factories import parse_int_query_param, split_csv
+from core.models.askesis.askesis import Askesis
 from core.models.askesis.askesis_request import (
     AskesisAnalyticsRequest,
     AskesisCreateRequest,
@@ -120,7 +121,7 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/user")
     @boundary_handler()
-    async def get_user_askesis_route(request: Request) -> Result:
+    async def get_user_askesis_route(request: Request) -> Result[Askesis]:
         """Get user's Askesis AI assistant instance (or create if not exists)."""
         user_uid = require_authenticated_user(request)
 
@@ -137,7 +138,7 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis")
     @boundary_handler(success_status=201)
-    async def create_askesis_instance_route(request: Request) -> Result:
+    async def create_askesis_instance_route(request: Request) -> Result[Askesis]:
         """Create new Askesis AI assistant instance."""
         user_uid = require_authenticated_user(request)
         body = await request.json()
@@ -157,7 +158,7 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/settings", methods=["PUT"])
     @boundary_handler()
-    async def update_askesis_settings_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def update_askesis_settings_route(request: Request, askesis_uid: str) -> Result[Askesis]:
         """Update Askesis settings and preferences."""
         body = await request.json()
 
@@ -180,7 +181,9 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/guidance", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def generate_proactive_guidance_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def generate_proactive_guidance_route(
+        request: Request, askesis_uid: str
+    ) -> Result[dict[str, Any]]:
         """
         Generate proactive guidance and recommendations.
 
@@ -206,7 +209,7 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/insights")
     @boundary_handler()
-    async def get_ai_insights_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def get_ai_insights_route(request: Request, askesis_uid: str) -> Result[dict[str, Any]]:
         """
         Get AI-generated insights about user patterns.
 
@@ -243,7 +246,9 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/domain-integration", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def trigger_domain_integration_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def trigger_domain_integration_route(
+        request: Request, askesis_uid: str
+    ) -> Result[dict[str, Any]]:
         """
         Trigger cross-domain integration and analysis.
 
@@ -267,7 +272,9 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/analytics")
     @boundary_handler()
-    async def get_askesis_analytics_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def get_askesis_analytics_route(
+        request: Request, askesis_uid: str
+    ) -> Result[dict[str, Any]]:
         """
         Get Askesis performance and intelligence analytics.
 
@@ -318,7 +325,7 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/suggestions")
     @boundary_handler(success_status=200)
-    async def get_domain_suggestions_route(request: Request) -> Result[Any]:
+    async def get_domain_suggestions_route(request: Request) -> Result[dict[str, Any]]:
         """
         Get domain suggestions based on user query.
 
@@ -367,7 +374,9 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/intelligence", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def update_intelligence_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def update_intelligence_route(
+        request: Request, askesis_uid: str
+    ) -> Result[dict[str, Any]]:
         """
         Update Askesis intelligence based on feedback.
 
@@ -425,7 +434,9 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/daily-plan")
     @boundary_handler()
-    async def get_daily_work_plan_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def get_daily_work_plan_route(
+        request: Request, askesis_uid: str
+    ) -> Result[dict[str, Any]]:
         """
         🎯 THE FLAGSHIP METHOD - What should the user focus on TODAY?
 
@@ -498,7 +509,9 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/learning-steps")
     @boundary_handler()
-    async def get_optimal_learning_steps_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def get_optimal_learning_steps_route(
+        request: Request, askesis_uid: str
+    ) -> Result[dict[str, Any]]:
         """
         Determine what to learn next based on ALL factors.
 
@@ -577,7 +590,9 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/critical-path")
     @boundary_handler()
-    async def get_learning_critical_path_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def get_learning_critical_path_route(
+        request: Request, askesis_uid: str
+    ) -> Result[dict[str, Any]]:
         """
         What's the fastest route to life path alignment?
 
@@ -615,7 +630,9 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/unblocking-order")
     @boundary_handler()
-    async def get_unblocking_priority_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def get_unblocking_priority_route(
+        request: Request, askesis_uid: str
+    ) -> Result[dict[str, Any]]:
         """
         What should I learn first to unlock the most items?
 
@@ -659,7 +676,9 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/synergies")
     @boundary_handler()
-    async def get_cross_domain_synergies_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def get_cross_domain_synergies_route(
+        request: Request, askesis_uid: str
+    ) -> Result[dict[str, Any]]:
         """
         Detect synergies between entities across different domains.
 
@@ -726,7 +745,9 @@ def create_askesis_api_routes(
 
     @rt("/api/askesis/life-path-alignment")
     @boundary_handler()
-    async def get_life_path_alignment_route(request: Request, askesis_uid: str) -> Result[Any]:
+    async def get_life_path_alignment_route(
+        request: Request, askesis_uid: str
+    ) -> Result[dict[str, Any]]:
         """
         Calculate comprehensive life path alignment score.
 
@@ -796,7 +817,7 @@ def create_askesis_api_routes(
     @boundary_handler()
     async def get_schedule_aware_recommendations_route(
         request: Request, askesis_uid: str
-    ) -> Result[Any]:
+    ) -> Result[dict[str, Any]]:
         """
         Get recommendations that consider the user's schedule and capacity.
 

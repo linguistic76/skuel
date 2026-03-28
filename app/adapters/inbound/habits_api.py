@@ -30,6 +30,7 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
+from core.models.habit.habit import Habit
 from core.models.habit.habit_request import (
     ArchiveHabitRequest,
     DeleteHabitReminderRequest,
@@ -166,14 +167,14 @@ def create_habits_api_routes(
 
     @rt("/api/habits/categories")
     @boundary_handler()
-    async def list_habit_categories_route(request: Request) -> Result[Any]:
+    async def list_habit_categories_route(request: Request) -> Result[list[str]]:
         """List habit categories for the authenticated user."""
         user_uid = require_authenticated_user(request)
         return await habits_service.list_habit_categories(user_uid)
 
     @rt("/api/habits/by-category")
     @boundary_handler()
-    async def get_habits_by_category_route(request: Request, category: str) -> Result[Any]:
+    async def get_habits_by_category_route(request: Request, category: str) -> Result[list[Habit]]:
         """Get habits in a specific category for the authenticated user."""
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
@@ -226,7 +227,7 @@ def create_habits_api_routes(
 
     @rt("/api/habits/search")
     @boundary_handler()
-    async def search_habits_route(request: Request) -> Result[Any]:
+    async def search_habits_route(request: Request) -> Result[list[Habit]]:
         """Search habits by name or description for the authenticated user."""
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
@@ -238,14 +239,14 @@ def create_habits_api_routes(
 
     @rt("/api/habits/due-today")
     @boundary_handler()
-    async def get_habits_due_today_route(request: Request) -> Result[Any]:
+    async def get_habits_due_today_route(request: Request) -> Result[list[Habit]]:
         """Get habits due today for the authenticated user."""
         user_uid = require_authenticated_user(request)
         return await habits_service.get_habits_due_today(user_uid)
 
     @rt("/api/habits/overdue")
     @boundary_handler()
-    async def get_overdue_habits_route(request: Request) -> Result[Any]:
+    async def get_overdue_habits_route(request: Request) -> Result[list[Habit]]:
         """Get overdue habits for the authenticated user."""
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
@@ -261,8 +262,10 @@ def create_habits_api_routes(
     @require_ownership_query(get_habits_service)
     @boundary_handler()
     async def set_habit_reminder_route(
-        request: Request, user_uid: UserUID, entity: Any
-    ) -> Result[Any]:
+        request: Request,
+        user_uid: UserUID,
+        entity: Any,  # boundary: injected by @require_ownership_query
+    ) -> Result[dict[str, Any]]:
         """Set a reminder for a habit (requires ownership)."""
         body = await request.json()
         return await habits_service.set_habit_reminder(
@@ -278,8 +281,10 @@ def create_habits_api_routes(
     @require_ownership_query(get_habits_service)
     @boundary_handler()
     async def get_habit_reminders_route(
-        request: Request, user_uid: UserUID, entity: Any
-    ) -> Result[Any]:
+        request: Request,
+        user_uid: UserUID,
+        entity: Any,  # boundary: injected by @require_ownership_query
+    ) -> Result[list[dict[str, Any]]]:
         """Get reminders for a habit (requires ownership)."""
         return await habits_service.get_habit_reminders(entity.uid)
 
@@ -287,8 +292,11 @@ def create_habits_api_routes(
     @require_ownership_query(get_habits_service)
     @boundary_handler()
     async def delete_habit_reminder_route(
-        request: Request, user_uid: UserUID, entity: Any, reminder_id: str
-    ) -> Result[Any]:
+        request: Request,
+        user_uid: UserUID,
+        entity: Any,  # boundary: injected by @require_ownership_query
+        reminder_id: str,
+    ) -> Result[bool]:
         """Delete a habit reminder (requires ownership)."""
         return await habits_service.delete_habit_reminder(
             DeleteHabitReminderRequest(

@@ -46,7 +46,7 @@ def create_form_templates_api_routes(
     @rt("/api/form-templates/link-lesson", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler()
-    async def link_form_to_lesson(request: Request, current_user: Any = None) -> Result[Any]:
+    async def link_form_to_lesson(request: Request, current_user: Any = None) -> Result[bool]:
         """Link a FormTemplate to a Lesson via EMBEDS_FORM."""
         parsed = await parse_json_body(request, FormLessonLinkRequest)
         if parsed.is_error:
@@ -58,7 +58,7 @@ def create_form_templates_api_routes(
     @rt("/api/form-templates/unlink-lesson", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler()
-    async def unlink_form_from_lesson(request: Request, current_user: Any = None) -> Result[Any]:
+    async def unlink_form_from_lesson(request: Request, current_user: Any = None) -> Result[bool]:
         """Remove EMBEDS_FORM link between FormTemplate and Lesson."""
         parsed = await parse_json_body(request, FormLessonLinkRequest)
         if parsed.is_error:

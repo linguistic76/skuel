@@ -29,6 +29,7 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.enums import ContentScope
+from core.models.event.event import Event
 from core.models.event.event_request import (
     AddAttendeeRequest,
     CheckConflictsRequest,
@@ -126,7 +127,7 @@ def create_events_api_routes(
 
     @rt("/api/events/calendar")
     @boundary_handler()
-    async def get_calendar_events_route(request: Request) -> Result[Any]:
+    async def get_calendar_events_route(request: Request) -> Result[list[Event]]:
         """Get events for calendar view."""
         params = dict(request.query_params)
         start_date = params.get("start_date")
@@ -140,7 +141,7 @@ def create_events_api_routes(
     @boundary_handler()
     async def check_conflicts_route(
         request: Request, user_uid: UserUID, entity: Any
-    ) -> Result[Any]:
+    ) -> Result[list[str]]:
         """Check for scheduling conflicts (requires ownership)."""
         return await events_service.check_conflicts(CheckConflictsRequest(event_uid=entity.uid))
 
@@ -149,7 +150,7 @@ def create_events_api_routes(
 
     @rt("/api/events/search")
     @boundary_handler()
-    async def search_events_route(request: Request) -> Result[Any]:
+    async def search_events_route(request: Request) -> Result[list[Event]]:
         """Search events for the authenticated user."""
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
@@ -215,7 +216,7 @@ def create_events_api_routes(
     @boundary_handler()
     async def create_recurring_instances_route(
         request: Request, user_uid: UserUID, entity: Any
-    ) -> Result[Any]:
+    ) -> Result[list[Event]]:
         """Create recurring event instances (requires ownership)."""
         body = await request.json()
         return await events_service.create_recurring_instances(
@@ -227,7 +228,7 @@ def create_events_api_routes(
 
     @rt("/api/events/recurring")
     @boundary_handler()
-    async def get_recurring_events_route(request: Request) -> Result[Any]:
+    async def get_recurring_events_route(request: Request) -> Result[list[Event]]:
         """Get recurring events using typed request object."""
         params = dict(request.query_params)
         typed_request = GetRecurringEventsRequest(
@@ -243,7 +244,7 @@ def create_events_api_routes(
     @rt("/api/events/attendees", methods=["POST"])
     @require_ownership_query(get_events_service)
     @boundary_handler()
-    async def add_attendee_route(request: Request, user_uid: UserUID, entity: Any) -> Result[Any]:
+    async def add_attendee_route(request: Request, user_uid: UserUID, entity: Any) -> Result[bool]:
         """Add attendee to event (requires ownership)."""
         body = await request.json()
         return await events_service.add_attendee(
@@ -260,7 +261,7 @@ def create_events_api_routes(
     @boundary_handler()
     async def remove_attendee_route(
         request: Request, user_uid: UserUID, entity: Any, attendee_uid: str
-    ) -> Result[Any]:
+    ) -> Result[bool]:
         """Remove attendee from event (requires ownership)."""
         return await events_service.remove_attendee(
             RemoveAttendeeRequest(

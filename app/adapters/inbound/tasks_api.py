@@ -10,7 +10,7 @@ runtime closures or domain-specific handler logic:
 - Manual domain routes (assign, dependencies, impact, etc.)
 """
 
-from typing import Any, cast
+from typing import Any
 
 from fasthtml.common import Request
 
@@ -28,7 +28,9 @@ from adapters.inbound.route_factories import (
     parse_int_query_param,
 )
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
+from core.models.context_types import ContextualDependencies
 from core.models.enums import ContentScope
+from core.models.task.task import Task
 from core.models.type_hints import UserUID
 from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Errors, Result
@@ -89,21 +91,19 @@ def create_tasks_api_routes(
 
     async def handle_performance_analytics(
         service: TasksService, params: dict[str, Any]
-    ) -> Result[Any]:
+    ) -> Result[dict[str, Any]]:
         """Handle performance analytics request."""
         period_days = parse_int_query_param(params, "period_days", 30, minimum=1, maximum=365)
         user_uid = params.get("_user_uid", "")  # Injected by factory
-        result = await service.intelligence.get_performance_analytics(user_uid, period_days)
-        return cast("Result[Any]", result)
+        return await service.intelligence.get_performance_analytics(user_uid, period_days)
 
     async def handle_behavioral_insights(
         service: TasksService, params: dict[str, Any]
-    ) -> Result[Any]:
+    ) -> Result[dict[str, Any]]:
         """Handle behavioral insights request."""
         period_days = parse_int_query_param(params, "period_days", 90, minimum=1, maximum=365)
         user_uid = params.get("_user_uid", "")  # Injected by factory
-        result = await service.intelligence.get_behavioral_insights(user_uid, period_days)
-        return cast("Result[Any]", result)
+        return await service.intelligence.get_behavioral_insights(user_uid, period_days)
 
     analytics_factory = AnalyticsRouteFactory(
         service=tasks_service,
@@ -133,7 +133,7 @@ def create_tasks_api_routes(
     @rt("/api/tasks/assign")
     @require_ownership_query(get_tasks_service)
     @boundary_handler()
-    async def assign_task_route(request: Request, user_uid: UserUID, entity: Any) -> Result[Any]:
+    async def assign_task_route(request: Request, user_uid: UserUID, entity: Any) -> Result[bool]:
         """Assign task to user (requires ownership)."""
         body = await request.json()
         target_user_uid = body.get("user_uid")
@@ -151,7 +151,7 @@ def create_tasks_api_routes(
     @boundary_handler()
     async def get_task_dependencies_route(
         request: Request, user_uid: UserUID, entity: Any
-    ) -> Result[Any]:
+    ) -> Result[ContextualDependencies]:
         """Get task dependencies enriched with user context (readiness, blocking, recommendations)."""
         if not user_service:
             return Result.fail(
@@ -184,7 +184,7 @@ def create_tasks_api_routes(
     @boundary_handler()
     async def create_task_dependency_route(
         request: Request, user_uid: UserUID, entity: Any
-    ) -> Result[Any]:
+    ) -> Result[bool]:
         """Create task dependency (requires ownership)."""
         body = await request.json()
         blocks_task_uid = body.get("blocks_task_uid")
@@ -199,7 +199,9 @@ def create_tasks_api_routes(
 
     @rt("/api/tasks/user/assigned")
     @boundary_handler()
-    async def get_user_assigned_tasks_route(request: Request, user_uid: UserUID) -> Result[Any]:
+    async def get_user_assigned_tasks_route(
+        request: Request, user_uid: UserUID
+    ) -> Result[list[Task]]:
         """Get tasks assigned to user."""
         params = dict(request.query_params)
 
@@ -213,7 +215,9 @@ def create_tasks_api_routes(
 
     @rt("/api/tasks/knowledge")
     @boundary_handler()
-    async def get_tasks_for_knowledge_route(request: Request, knowledge_uid: str) -> Result[Any]:
+    async def get_tasks_for_knowledge_route(
+        request: Request, knowledge_uid: str
+    ) -> Result[list[Task]]:
         """Get tasks that apply specific knowledge."""
         # Note: method is directly available on TasksService
         facade = tasks_service
@@ -244,7 +248,7 @@ def create_tasks_api_routes(
 
     @rt("/api/tasks/search")
     @boundary_handler()
-    async def search_tasks_route(request: Request) -> Result[Any]:
+    async def search_tasks_route(request: Request) -> Result[list[Task]]:
         """Search tasks by query string for the authenticated user."""
         user_uid = require_authenticated_user(request)
         params = dict(request.query_params)
@@ -252,8 +256,7 @@ def create_tasks_api_routes(
         query = params.get("query", "")
         limit = parse_int_query_param(params, "limit", 10, minimum=1, maximum=100)
 
-        result: Result[Any] = await tasks_service.search.search(query, limit, user_uid=user_uid)
-        return result
+        return await tasks_service.search.search(query, limit, user_uid=user_uid)
 
     # ========================================================================
     # TIME-BASED ROUTES (January 2026)
@@ -263,7 +266,7 @@ def create_tasks_api_routes(
 
     @rt("/api/tasks/due-soon", methods=["GET"])
     @boundary_handler()
-    async def get_tasks_due_soon_route(request: Request) -> Result[Any]:
+    async def get_tasks_due_soon_route(request: Request) -> Result[list[Task]]:
         """
         Get tasks due within specified number of days.
 
@@ -280,16 +283,15 @@ def create_tasks_api_routes(
         days_ahead = parse_int_query_param(params, "days_ahead", 7, minimum=1, maximum=365)
         limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
-        result: Result[Any] = await tasks_service.search.get_due_soon(
+        return await tasks_service.search.get_due_soon(
             days_ahead=days_ahead,
             user_uid=user_uid,
             limit=limit,
         )
-        return result
 
     @rt("/api/tasks/overdue", methods=["GET"])
     @boundary_handler()
-    async def get_tasks_overdue_route(request: Request) -> Result[Any]:
+    async def get_tasks_overdue_route(request: Request) -> Result[list[Task]]:
         """
         Get tasks past their due date.
 
@@ -304,11 +306,10 @@ def create_tasks_api_routes(
 
         limit = parse_int_query_param(params, "limit", 100, minimum=1, maximum=500)
 
-        result: Result[Any] = await tasks_service.search.get_overdue(
+        return await tasks_service.search.get_overdue(
             user_uid=user_uid,
             limit=limit,
         )
-        return result
 
     # Return empty list since routes are registered directly on app
     return []

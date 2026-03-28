@@ -43,7 +43,9 @@ def create_insights_api_routes(
 
     @rt("/api/insights/{uid}/dismiss", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def dismiss_insight(request: Request, uid: str) -> Result[Any]:
+    async def dismiss_insight(
+        request: Request, uid: str
+    ) -> Result[Any]:  # boundary: FastHTML FT component
         """Dismiss an insight (mark as dismissed).
 
         , Task 17: Now accepts optional notes parameter.
@@ -82,7 +84,9 @@ def create_insights_api_routes(
 
     @rt("/api/insights/{uid}/action", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def mark_insight_actioned(request: Request, uid: str) -> Result[Any]:
+    async def mark_insight_actioned(
+        request: Request, uid: str
+    ) -> Result[Any]:  # boundary: FastHTML FT component
         """Mark an insight as actioned.
 
         , Task 17: Now accepts optional notes parameter.
@@ -135,7 +139,7 @@ def create_insights_api_routes(
 
     @rt("/api/insights/bulk/dismiss", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def bulk_dismiss_insights(request: Request) -> Result[Any]:
+    async def bulk_dismiss_insights(request: Request) -> Result[dict[str, Any]]:
         """Bulk dismiss multiple insights."""
         user_uid = require_authenticated_user(request)
 
@@ -147,7 +151,7 @@ def create_insights_api_routes(
 
     @rt("/api/insights/bulk/action", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def bulk_action_insights(request: Request) -> Result[Any]:
+    async def bulk_action_insights(request: Request) -> Result[dict[str, Any]]:
         """Bulk mark insights as actioned."""
         user_uid = require_authenticated_user(request)
 
@@ -159,7 +163,7 @@ def create_insights_api_routes(
 
     @rt("/api/insights/bulk/smart-dismiss", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def smart_dismiss_insights(request: Request) -> Result[Any]:
+    async def smart_dismiss_insights(request: Request) -> Result[dict[str, Any]]:
         """Smart bulk dismiss — dismiss all insights matching a filter."""
         user_uid = require_authenticated_user(request)
 
@@ -176,7 +180,7 @@ def create_insights_api_routes(
         request: Request,
         domain: str | None = None,
         limit: int = 50,
-    ) -> Result[Any]:
+    ) -> Result[dict[str, Any]]:
         """Get active insights for the current user (JSON API).
 
         Args:
@@ -215,7 +219,7 @@ def create_insights_api_routes(
 
     @rt("/api/insights/stats")
     @boundary_handler(success_status=200)
-    async def get_insight_stats(request: Request) -> Result[Any]:
+    async def get_insight_stats(request: Request) -> Result[dict[str, Any]]:
         """Get insight statistics for the current user (JSON API).
 
         Args:
@@ -234,28 +238,28 @@ def create_insights_api_routes(
 
     @rt("/api/insights/charts/impact-distribution")
     @boundary_handler(success_status=200)
-    async def impact_distribution_chart(request: Request) -> Result[Any]:
+    async def impact_distribution_chart(request: Request) -> Result[dict[str, Any]]:
         """Chart.js doughnut chart config for impact distribution."""
         user_uid = require_authenticated_user(request)
         return await insight_store.get_impact_distribution_chart(user_uid)
 
     @rt("/api/insights/charts/domain-distribution")
     @boundary_handler(success_status=200)
-    async def domain_distribution_chart(request: Request) -> Result[Any]:
+    async def domain_distribution_chart(request: Request) -> Result[dict[str, Any]]:
         """Chart.js bar chart config for insights by domain."""
         user_uid = require_authenticated_user(request)
         return await insight_store.get_domain_distribution_chart(user_uid)
 
     @rt("/api/insights/charts/type-distribution")
     @boundary_handler(success_status=200)
-    async def type_distribution_chart(request: Request) -> Result[Any]:
+    async def type_distribution_chart(request: Request) -> Result[dict[str, Any]]:
         """Chart.js doughnut chart config for insight type distribution."""
         user_uid = require_authenticated_user(request)
         return await insight_store.get_type_distribution_chart(user_uid)
 
     @rt("/api/insights/charts/action-rate")
     @boundary_handler(success_status=200)
-    async def action_rate_chart(request: Request) -> Result[Any]:
+    async def action_rate_chart(request: Request) -> Result[dict[str, Any]]:
         """Chart.js gauge/doughnut chart for insight action rate."""
         user_uid = require_authenticated_user(request)
         return await insight_store.get_action_rate_chart(user_uid)
@@ -266,7 +270,7 @@ def create_insights_api_routes(
 
     @rt("/api/insights/{uid}/details")
     @boundary_handler(success_status=200)
-    async def get_insight_details(request: Request, uid: str) -> Result[Any]:
+    async def get_insight_details(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get detailed insight information for modal display.
 
         Args:
@@ -313,7 +317,7 @@ def create_insights_api_routes(
 
     @rt("/api/insights/{uid}/snooze", methods=["POST"])
     @boundary_handler(success_status=200)
-    async def snooze_insight(request: Request, uid: str) -> Result[Any]:
+    async def snooze_insight(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Snooze an insight for a specified number of days.
 
         Args:

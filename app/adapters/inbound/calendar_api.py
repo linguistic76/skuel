@@ -54,7 +54,7 @@ def create_calendar_api_routes(
 
     @rt("/api/v2/calendar/items/{item_id}")
     @boundary_handler()
-    async def get_calendar_item(_request, item_id: str) -> Result[Any]:
+    async def get_calendar_item(_request, item_id: str) -> Result[dict[str, Any]]:
         """Get details for a specific calendar item."""
         result = await calendar_service.get_item(item_id)
 

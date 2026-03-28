@@ -24,6 +24,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import parse_int_query_param
 from core.models.lesson.lesson_request import LessonOrganizeRequest, LessonReorderRequest
+from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -78,7 +79,7 @@ def create_lesson_organization_api_routes(
         """Organize a Ku under another Ku (create ORGANIZES relationship)."""
         parsed = await parse_json_body(request, LessonOrganizeRequest)
         if parsed.is_error:
-            return parsed  # type: ignore[return-value]
+            return Result.fail(parsed)
         req = parsed.value
 
         result = await ku_service.organize(req.parent_uid, req.child_uid, req.order)
@@ -95,7 +96,7 @@ def create_lesson_organization_api_routes(
         """Remove organization relationship between Kus."""
         parsed = await parse_json_body(request, LessonOrganizeRequest)
         if parsed.is_error:
-            return parsed  # type: ignore[return-value]
+            return Result.fail(parsed)
         req = parsed.value
 
         result = await ku_service.unorganize(req.parent_uid, req.child_uid)
@@ -110,7 +111,7 @@ def create_lesson_organization_api_routes(
         """Change the order of a child Ku within its parent."""
         parsed = await parse_json_body(request, LessonReorderRequest)
         if parsed.is_error:
-            return parsed  # type: ignore[return-value]
+            return Result.fail(parsed)
         req = parsed.value
 
         result = await ku_service.reorder(req.parent_uid, req.child_uid, req.new_order)
@@ -124,13 +125,13 @@ def create_lesson_organization_api_routes(
 
     @rt("/api/lesson/{uid}/organizers")
     @boundary_handler()
-    async def find_organizers_route(request: Request, uid: str) -> Result[list[Any]]:
+    async def find_organizers_route(request: Request, uid: str) -> Result[list[OrganizerResult]]:
         """Find all parent Kus that organize the given Ku."""
         return await ku_service.find_organizers(uid)
 
     @rt("/api/lesson/root-organizers")
     @boundary_handler()
-    async def list_root_organizers_route(request: Request) -> Result[list[Any]]:
+    async def list_root_organizers_route(request: Request) -> Result[list[RootOrganizerResult]]:
         """List Kus that organize others but are not themselves organized (root organizers)."""
         params = dict(request.query_params)
         limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
@@ -138,7 +139,9 @@ def create_lesson_organization_api_routes(
 
     @rt("/api/lesson/{uid}/organized-children")
     @boundary_handler()
-    async def get_organized_children_route(request: Request, uid: str) -> Result[list[Any]]:
+    async def get_organized_children_route(
+        request: Request, uid: str
+    ) -> Result[list[OrganizerResult]]:
         """Get direct children of a Ku organized by ORGANIZES relationship."""
         return await ku_service.get_organized_children(uid)
 
