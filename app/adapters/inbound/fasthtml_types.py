@@ -52,6 +52,10 @@ class FastHTMLApp(Protocol):
         """ASGI interface."""
         ...
 
+    def get(self, path: str) -> Any:
+        """Register a GET route handler (Starlette-style decorator)."""
+        ...
+
 
 class Request(Protocol):
     """

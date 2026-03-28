@@ -6,6 +6,9 @@ Wires FormTemplate API routes using DomainRouteConfig.
 Admin-only CRUD (via CRUDRouteFactory) + lesson linking (manual).
 """
 
+from typing import TYPE_CHECKING, Any
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.form_templates_api import create_form_templates_api_routes
 from adapters.inbound.route_factories import (
     CRUDRouteConfig,
@@ -18,6 +21,9 @@ from core.models.forms.form_template_request import (
     FormTemplateCreateRequest,
     FormTemplateUpdateRequest,
 )
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 FORM_TEMPLATES_CONFIG = DomainRouteConfig(
     domain_name="form-templates",
@@ -38,7 +44,9 @@ FORM_TEMPLATES_CONFIG = DomainRouteConfig(
 )
 
 
-def create_form_templates_routes(app, rt, services, _sync_service=None):
+def create_form_templates_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire form template API routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, FORM_TEMPLATES_CONFIG)
 

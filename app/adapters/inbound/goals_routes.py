@@ -6,6 +6,9 @@ Activity Domain: CRUD, Query, and Intelligence factories declared in config.
 Status factory remains in goals_api.py.
 """
 
+from typing import TYPE_CHECKING, Any
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.goals_api import create_goals_api_routes
 from adapters.inbound.goals_ui import create_goals_ui_routes
 from adapters.inbound.route_factories import (
@@ -13,6 +16,10 @@ from adapters.inbound.route_factories import (
     register_domain_routes,
 )
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 GOALS_CONFIG = create_activity_domain_route_config(
     domain_name="goals",
@@ -32,7 +39,9 @@ GOALS_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_goals_routes(app, rt, services, _sync_service=None):
+def create_goals_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire goals API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, GOALS_CONFIG)
 

@@ -10,7 +10,7 @@ Uses StatCard/StatsGrid from ui/patterns/stats_grid.py for all metric displays.
 
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
     H2,
@@ -26,6 +26,10 @@ from fasthtml.common import (
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+
+if TYPE_CHECKING:
+    from core.services.analytics_service import AnalyticsService
 from core.models.enums import AnalyticsDomain
 from core.models.enums.principle_enums import AlignmentLevel
 from core.utils.logging import get_logger
@@ -661,7 +665,9 @@ def parse_period_params(request: Request) -> PeriodParams:
 # ============================================================================
 
 
-def create_analytics_ui_routes(app, rt, analytics_service):
+def create_analytics_ui_routes(
+    app: FastHTMLApp, rt: RouteDecorator, analytics_service: "AnalyticsService"
+) -> None:
     """
     Register analytics UI routes.
 

@@ -6,10 +6,14 @@ Wires Notifications UI routes using DomainRouteConfig.
 UI-only (no separate API factory needed — HTMX handles mutations).
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.notifications_ui import create_notifications_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 
 def _noop_api_factory(_app: Any, _rt: Any, _primary: Any, **_kw: Any) -> list[Any]:
@@ -25,7 +29,9 @@ NOTIFICATIONS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_notifications_routes(app, rt, services, _sync_service=None):
+def create_notifications_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire notifications UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, NOTIFICATIONS_CONFIG)
 

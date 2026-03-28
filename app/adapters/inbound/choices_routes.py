@@ -6,14 +6,21 @@ Activity Domain: CRUD, Query, and Intelligence factories declared in config.
 No Status or Analytics factories — all remaining routes are manual.
 """
 
+from typing import TYPE_CHECKING, Any
+
 from adapters.inbound.choices_api import create_choices_api_routes
 from adapters.inbound.choices_ui import create_choices_ui_routes
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
 from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.entity_requests import EntityUpdateRequest
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 CHOICES_CONFIG = create_activity_domain_route_config(
     domain_name="choices",
@@ -33,7 +40,9 @@ CHOICES_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_choices_routes(app, rt, services, _sync_service=None):
+def create_choices_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire choices API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, CHOICES_CONFIG)
 

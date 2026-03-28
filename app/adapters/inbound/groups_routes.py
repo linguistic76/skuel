@@ -9,6 +9,9 @@ Membership operations stay manual in groups_api.py.
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
+from typing import TYPE_CHECKING, Any
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.groups_api import create_groups_api_routes
 from adapters.inbound.groups_ui import create_groups_ui_routes
 from adapters.inbound.route_factories import (
@@ -19,6 +22,10 @@ from adapters.inbound.route_factories import (
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.models.group.group_request import GroupCreateRequest, GroupUpdateRequest
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 GROUPS_CONFIG = DomainRouteConfig(
     domain_name="groups",
@@ -40,7 +47,9 @@ GROUPS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_groups_routes(app, rt, services, _sync_service=None):
+def create_groups_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire group API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, GROUPS_CONFIG)
 

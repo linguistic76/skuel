@@ -13,12 +13,16 @@ auth, availability check, error propagation, and response wrapping.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from starlette.responses import JSONResponse
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 logger = get_logger("skuel.routes.ai")
 
@@ -256,7 +260,9 @@ _SIGNATURE_FACTORIES = {
 # ---------------------------------------------------------------------------
 
 
-def create_ai_routes(app: Any, rt: Any, services: Any) -> list[Any]:
+def create_ai_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None"
+) -> RouteList:
     """Create routes for AI-powered domain features.
 
     All routes check if the domain's .ai service is available.

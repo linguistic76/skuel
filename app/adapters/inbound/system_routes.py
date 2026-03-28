@@ -10,9 +10,15 @@ This replaces the monolithic system_routes_impl.py with clean separation:
 - This file: Minimal wiring factory
 """
 
+from typing import TYPE_CHECKING
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.system_api import create_system_api_routes
 from adapters.inbound.system_ui import create_system_ui_routes
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 SYSTEM_CONFIG = DomainRouteConfig(
     domain_name="system",
@@ -26,7 +32,9 @@ SYSTEM_CONFIG = DomainRouteConfig(
 )
 
 
-def create_system_routes(app, rt, services):
+def create_system_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None"
+) -> RouteList:
     """Wire system API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, SYSTEM_CONFIG)
 

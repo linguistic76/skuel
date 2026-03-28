@@ -8,8 +8,11 @@ Exercises provide reusable LLM instruction templates for any submission type.
 Formerly assignments_routes.py — renamed per of Ku hierarchy refactoring.
 """
 
+from typing import TYPE_CHECKING, Any
+
 from adapters.inbound.exercises_api import create_exercises_api_routes
 from adapters.inbound.exercises_ui import create_exercises_ui_routes
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import (
     CRUDRouteConfig,
     DomainRouteConfig,
@@ -18,6 +21,10 @@ from adapters.inbound.route_factories import (
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise_request import ExerciseCreateRequest, ExerciseUpdateRequest
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 EXERCISES_CONFIG = DomainRouteConfig(
     domain_name="exercises",
@@ -44,7 +51,9 @@ EXERCISES_CONFIG = DomainRouteConfig(
 )
 
 
-def create_exercises_routes(app, rt, services, _sync_service=None):
+def create_exercises_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire exercise API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, EXERCISES_CONFIG)
 

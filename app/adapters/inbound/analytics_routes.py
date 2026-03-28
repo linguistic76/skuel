@@ -27,9 +27,16 @@ UI:
 - GET /ui/analytics/weekly-life-summary
 """
 
+from typing import TYPE_CHECKING, Any
+
 from adapters.inbound.analytics_summary_api import create_analytics_summary_api_routes
 from adapters.inbound.analytics_ui import create_analytics_ui_routes
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 # Configuration for Analytics routes
 ANALYTICS_CONFIG = DomainRouteConfig(
@@ -41,7 +48,9 @@ ANALYTICS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_analytics_routes(app, rt, services, _sync_service=None):
+def create_analytics_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """
     Wire analytics API and UI routes using configuration-driven registration.
 

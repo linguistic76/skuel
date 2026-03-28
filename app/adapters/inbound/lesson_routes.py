@@ -7,6 +7,9 @@ Wires Lesson API and UI routes using DomainRouteConfig pattern.
 Version: 4.0 (Renamed from Article to Lesson)
 """
 
+from typing import TYPE_CHECKING, Any
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.lesson_api import create_lesson_api_routes
 from adapters.inbound.lesson_ui import create_lesson_ui_routes
 from adapters.inbound.route_factories import (
@@ -15,6 +18,10 @@ from adapters.inbound.route_factories import (
     register_domain_routes,
 )
 from core.models.enums import ContentScope
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 LESSON_CONFIG = DomainRouteConfig(
     domain_name="lesson",
@@ -28,7 +35,9 @@ LESSON_CONFIG = DomainRouteConfig(
 )
 
 
-def create_lesson_routes(app, rt, services, _sync_service=None):
+def create_lesson_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire Lesson API and UI routes."""
     return register_domain_routes(app, rt, services, LESSON_CONFIG)
 

@@ -7,6 +7,9 @@ in the config.  Status and Analytics factories (runtime closures) remain in
 tasks_api.py.
 """
 
+from typing import TYPE_CHECKING, Any
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
@@ -15,6 +18,10 @@ from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
 from core.models.entity_requests import EntityUpdateRequest as TaskUpdateRequest
 from core.models.task.task_request import TaskCreateRequest
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 TASKS_CONFIG = create_activity_domain_route_config(
     domain_name="tasks",
@@ -35,7 +42,9 @@ TASKS_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_tasks_routes(app, rt, services, _sync_service=None):
+def create_tasks_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire tasks API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, TASKS_CONFIG)
 

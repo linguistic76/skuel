@@ -11,9 +11,16 @@ Philosophy:
     the UserContext is determined via user's actions."
 """
 
+from typing import TYPE_CHECKING, Any
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.lifepath_api import create_lifepath_api_routes
 from adapters.inbound.lifepath_ui import create_lifepath_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 LIFEPATH_CONFIG = DomainRouteConfig(
     domain_name="lifepath",
@@ -24,7 +31,9 @@ LIFEPATH_CONFIG = DomainRouteConfig(
 )
 
 
-def create_lifepath_routes(app, rt, services, _sync_service=None):
+def create_lifepath_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire lifepath API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, LIFEPATH_CONFIG)
 

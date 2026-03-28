@@ -7,6 +7,9 @@ CRUD via CRUDRouteFactory (teacher-only), domain-specific routes via API factory
 Part of the five-phase learning loop: Exercise → Submission → Report → RevisedExercise → ...
 """
 
+from typing import TYPE_CHECKING, Any
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.revised_exercises_api import create_revised_exercises_api_routes
 from adapters.inbound.route_factories import (
     CRUDRouteConfig,
@@ -19,6 +22,9 @@ from core.models.exercises.revised_exercise_request import (
     RevisedExerciseCreateRequest,
     RevisedExerciseUpdateRequest,
 )
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 REVISED_EXERCISES_CONFIG = DomainRouteConfig(
     domain_name="revised-exercises",
@@ -39,7 +45,9 @@ REVISED_EXERCISES_CONFIG = DomainRouteConfig(
 )
 
 
-def create_revised_exercises_routes(app, rt, services, _sync_service=None):
+def create_revised_exercises_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire revised exercise API routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, REVISED_EXERCISES_CONFIG)
 

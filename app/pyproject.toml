@@ -588,6 +588,7 @@ ignore = [
     "RUF022",  # __all__ sorting - we use semantic grouping with comments
     "TC001",   # TYPE_CHECKING imports - false positives for runtime imports
     "UP046",   # Generic[T] syntax - keep existing pattern for compatibility
+    "UP047",   # TypeVar in function signatures - keep existing pattern for consistency with UP046
 ]
 
 # ============================================================================

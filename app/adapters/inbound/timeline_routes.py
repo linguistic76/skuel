@@ -17,12 +17,13 @@ Version: 3.0 - Vis.js Timeline
 """
 
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes, split_csv
 from core.models.enums import EntityStatus
 from core.utils.logging import get_logger
@@ -31,6 +32,9 @@ from ui.timeline.components import (
     render_timeline_error,
     render_timeline_viewer_page,
 )
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 logger = get_logger(__name__)
 
@@ -323,7 +327,9 @@ TIMELINE_CONFIG = DomainRouteConfig(
 )
 
 
-def create_timeline_routes(app, rt, services, _sync_service=None):
+def create_timeline_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire timeline routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, TIMELINE_CONFIG)
 

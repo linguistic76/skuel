@@ -5,8 +5,15 @@ Context Routes - Configuration-Driven Registration
 Wires Context-Aware API routes using DomainRouteConfig pattern.
 """
 
+from typing import TYPE_CHECKING, Any
+
 from adapters.inbound.context_aware_api import create_context_aware_api_routes
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 CONTEXT_CONFIG = DomainRouteConfig(
     domain_name="context",
@@ -17,7 +24,9 @@ CONTEXT_CONFIG = DomainRouteConfig(
 )
 
 
-def create_context_aware_routes(app, rt, services, _sync_service=None):
+def create_context_aware_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """
     Wire context-aware API and UI routes using configuration-driven registration.
 

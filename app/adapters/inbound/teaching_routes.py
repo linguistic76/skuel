@@ -7,9 +7,16 @@ Wires Teaching review API + UI routes using DomainRouteConfig.
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
+from typing import TYPE_CHECKING, Any
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.teaching_api import create_teaching_api_routes
 from adapters.inbound.teaching_ui import create_teaching_ui_routes
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 TEACHING_CONFIG = DomainRouteConfig(
     domain_name="teaching",
@@ -27,7 +34,9 @@ TEACHING_CONFIG = DomainRouteConfig(
 )
 
 
-def create_teaching_routes(app, rt, services, _sync_service=None):
+def create_teaching_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire teaching API + UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, TEACHING_CONFIG)
 

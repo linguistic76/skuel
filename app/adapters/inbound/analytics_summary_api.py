@@ -30,6 +30,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import parse_date_param_strict, parse_int_param_strict
 from core.utils.result_simplified import Errors, Result
 
@@ -37,7 +38,9 @@ if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService
 
 
-def create_analytics_summary_api_routes(app, rt, analytics_service: "AnalyticsService"):
+def create_analytics_summary_api_routes(
+    app: FastHTMLApp, rt: RouteDecorator, analytics_service: "AnalyticsService"
+) -> RouteList:
     """
     Create Analytics Summary API routes (read-only analytics).
 

@@ -6,10 +6,14 @@ Wires Ku UI routes using DomainRouteConfig pattern.
 KuService serves the /ku page — separate from Lesson routes.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.ku_ui import create_ku_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 
 def _ku_api_routes(_app: Any, _rt: Any, _service: Any, **_kw: Any) -> list[Any]:
@@ -26,7 +30,9 @@ KU_CONFIG = DomainRouteConfig(
 )
 
 
-def create_ku_routes(app, rt, services, _sync_service=None):
+def create_ku_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire Ku UI routes."""
     return register_domain_routes(app, rt, services, KU_CONFIG)
 

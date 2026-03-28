@@ -11,6 +11,9 @@ This file handles:
 Version: 3.0 (Renamed from learning_routes.py)
 """
 
+from typing import TYPE_CHECKING, Any
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.learning_steps_routes import LS_CONFIG
 from adapters.inbound.pathways_api import create_pathways_api_routes
 from adapters.inbound.pathways_ui import create_pathways_ui_routes
@@ -21,6 +24,10 @@ from adapters.inbound.route_factories import (
 )
 from core.models.enums import ContentScope
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 logger = get_logger("skuel.routes.pathways")
 
@@ -43,7 +50,9 @@ PATHWAYS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_pathways_routes(app, rt, services, _sync_service=None):
+def create_pathways_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """
     Wire pathways API and UI routes using configuration-driven registration.
 

@@ -6,6 +6,9 @@ Activity Domain: CRUD, Query, and Intelligence factories declared in config.
 Status and Analytics factories remain in habits_api.py.
 """
 
+from typing import TYPE_CHECKING, Any
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.habits_api import create_habits_api_routes
 from adapters.inbound.habits_ui import create_habits_ui_routes
 from adapters.inbound.route_factories import (
@@ -13,6 +16,10 @@ from adapters.inbound.route_factories import (
     register_domain_routes,
 )
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 HABITS_CONFIG = create_activity_domain_route_config(
     domain_name="habits",
@@ -32,7 +39,9 @@ HABITS_CONFIG = create_activity_domain_route_config(
 )
 
 
-def create_habits_routes(app, rt, services, _sync_service=None):
+def create_habits_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire habits API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, HABITS_CONFIG)
 

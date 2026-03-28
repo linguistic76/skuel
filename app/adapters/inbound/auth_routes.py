@@ -5,9 +5,16 @@ Authentication Routes - Clean Architecture Factory
 Minimal factory that wires authentication API and UI routes using DomainRouteConfig.
 """
 
+from typing import TYPE_CHECKING, Any
+
 from adapters.inbound.auth_api import create_auth_api_routes
 from adapters.inbound.auth_ui import create_auth_ui_routes
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 
 AUTH_CONFIG = DomainRouteConfig(
     domain_name="auth",
@@ -23,7 +30,9 @@ AUTH_CONFIG = DomainRouteConfig(
 )
 
 
-def create_auth_routes(app, rt, services, _sync_service=None):
+def create_auth_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+) -> RouteList:
     """Wire authentication API and UI routes using configuration-driven registration."""
     return register_domain_routes(app, rt, services, AUTH_CONFIG)
 
