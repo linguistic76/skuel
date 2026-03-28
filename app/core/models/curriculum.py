@@ -47,7 +47,7 @@ from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory, 
 from core.models.query_types import QueryIntent
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Curriculum(Entity):
     """
     Base class for curriculum domain entities.
@@ -99,15 +99,15 @@ class Curriculum(Entity):
     journal_reflections_count: int = 0
     choices_informed_count: int = 0
 
-    last_applied_date: datetime | None = None  # type: ignore[assignment]
-    last_practiced_date: datetime | None = None  # type: ignore[assignment]
-    last_built_into_habit_date: datetime | None = None  # type: ignore[assignment]
-    last_reflected_date: datetime | None = None  # type: ignore[assignment]
-    last_choice_informed_date: datetime | None = None  # type: ignore[assignment]
+    last_applied_date: datetime | None = None
+    last_practiced_date: datetime | None = None
+    last_built_into_habit_date: datetime | None = None
+    last_reflected_date: datetime | None = None
+    last_choice_informed_date: datetime | None = None
 
     # Substance cache (lazy calculation with 1-hour TTL)
     _cached_substance_score: float | None = None
-    _substance_cache_timestamp: datetime | None = None  # type: ignore[assignment]
+    _substance_cache_timestamp: datetime | None = None
 
     # =========================================================================
     # CURRICULUM-SPECIFIC METHODS

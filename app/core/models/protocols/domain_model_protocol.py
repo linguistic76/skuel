@@ -81,25 +81,21 @@ class DomainModelProtocol(Protocol):
         Total: ~20 domain models
 
     Frozen Dataclass Pattern (from CLAUDE.md):
-        SKUEL uses the frozen dataclass + dynamic default pattern:
+        SKUEL uses frozen dataclasses with kw_only=True to avoid MRO
+        field-ordering issues and type: ignore suppressions:
 
-        @dataclass(frozen=True)
+        @dataclass(frozen=True, kw_only=True)
         class Task:
             uid: str
-            created_at: datetime = None  # type: ignore[assignment]
-            updated_at: datetime = None  # type: ignore[assignment]
+            created_at: datetime | None = None
+            updated_at: datetime | None = None
 
-            def __post_init__(self) -> None:
-                if self.created_at is None:
-                    object.__setattr__(self, 'created_at', datetime.now())
-                if self.updated_at is None:
-                    object.__setattr__(self, 'updated_at', datetime.now())
+        The kw_only=True allows Optional fields with None defaults
+        without conflicting with non-default fields in parent classes.
 
-        This pattern is architecturally correct and works perfectly at runtime,
-        but MyPy sees the static type as `datetime | None` due to the None default.
-
-        Therefore, this protocol accepts Optional types statically while
-        documenting the runtime guarantee of non-None values.
+        This protocol accepts Optional types statically while
+        documenting the runtime guarantee of non-None values
+        (set by __post_init__ or service layer).
 
     Example:
         # Type-safe generic backend operation

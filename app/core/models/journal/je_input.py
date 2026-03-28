@@ -32,7 +32,7 @@ from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.user_owned_entity import UserOwnedEntity
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class JeInput(UserOwnedEntity):
     """
     Immutable domain model for journal entry inputs (EntityType.JE_INPUT).
@@ -60,8 +60,8 @@ class JeInput(UserOwnedEntity):
     # PROCESSING (Deepgram transcription + LLM formatting)
     # =========================================================================
     processor_type: ProcessorType | None = None
-    processing_started_at: datetime | None = None  # type: ignore[assignment]
-    processing_completed_at: datetime | None = None  # type: ignore[assignment]
+    processing_started_at: datetime | None = None
+    processing_completed_at: datetime | None = None
     processing_error: str | None = None
     processed_content: str | None = None  # Transcribed/cleaned text
     processed_file_path: str | None = None

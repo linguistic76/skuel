@@ -36,7 +36,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_entity import UserOwnedEntity
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Event(UserOwnedEntity):
     """
     Immutable domain model for events (EntityType.EVENT).
@@ -57,7 +57,7 @@ class Event(UserOwnedEntity):
     # =========================================================================
     # SCHEDULING
     # =========================================================================
-    event_date: date | None = None  # type: ignore[assignment]
+    event_date: date | None = None
     start_time: time | None = None
     end_time: time | None = None
     duration_minutes: int | None = None  # Expected duration
@@ -74,7 +74,7 @@ class Event(UserOwnedEntity):
     # RECURRENCE
     # =========================================================================
     recurrence_pattern: str | None = None  # RecurrencePattern enum value
-    recurrence_end_date: date | None = None  # type: ignore[assignment]
+    recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
 
     # =========================================================================

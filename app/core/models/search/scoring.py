@@ -133,7 +133,7 @@ class ComponentScore:
         return self.normalized * self.weight
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PriorityScore:
     """
     Composite priority score with component breakdown.
@@ -144,7 +144,7 @@ class PriorityScore:
 
     total: float  # Final score (0.0-1.0)
     components: tuple[ComponentScore, ...] = ()
-    entity_uid: EntityUID = ""  # type: ignore[assignment]
+    entity_uid: EntityUID = ""  # type: ignore[assignment]  # boundary: NewType empty string default
     entity_type: str = ""
 
     @property

@@ -28,7 +28,7 @@ from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.user_owned_entity import UserOwnedEntity
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class JeOutput(UserOwnedEntity):
     """
     Immutable domain model for journal entry outputs (EntityType.JE_OUTPUT).
@@ -47,7 +47,7 @@ class JeOutput(UserOwnedEntity):
     # OUTPUT-SPECIFIC FIELDS
     # =========================================================================
     output_content: str | None = None  # The transformed text
-    output_generated_at: datetime | None = None  # type: ignore[assignment]
+    output_generated_at: datetime | None = None
     source_je_input_uid: str | None = None  # FK to the JeInput this transforms
     enrichment_mode: str | None = None  # activity_tracking | idea_articulation | critical_thinking
     output_file_path: str | None = None  # Path to generated output file on disk

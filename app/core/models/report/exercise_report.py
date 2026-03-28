@@ -23,7 +23,7 @@ from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.user_owned_entity import UserOwnedEntity
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ExerciseReport(UserOwnedEntity):
     """
     Immutable domain model for exercise reports (EntityType.EXERCISE_REPORT).
@@ -41,7 +41,7 @@ class ExerciseReport(UserOwnedEntity):
     # REPORT-SPECIFIC FIELDS
     # =========================================================================
     report_content: str | None = None
-    report_generated_at: datetime | None = None  # type: ignore[assignment]
+    report_generated_at: datetime | None = None
     subject_uid: str | None = None  # Who/what this report is about
     processor_type: ProcessorType | None = None  # HUMAN/LLM/AUTOMATIC
     report_file_path: str | None = None  # Generated output file path

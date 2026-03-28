@@ -9,7 +9,7 @@ Mastery applies to both Lessons (units for learning) and atomic Kus
 See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -52,7 +52,7 @@ class ContentPreference(StrEnum):
     THEORETICAL = "theoretical"  # Abstract concepts
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Mastery:
     """
     Persistent Knowledge Mastery Intelligence.
@@ -146,7 +146,7 @@ class Mastery:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class LearningPreference:
     """
     Persistent Learning Preference Intelligence.
@@ -238,7 +238,7 @@ class LearningPreference:
         return self.prefers_spaced_repetition and self.get_learning_efficiency_score() > 0.6
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class LearningRecommendation:
     """
     Intelligent Knowledge Recommendation.
@@ -275,11 +275,7 @@ class LearningRecommendation:
     presented_to_user: bool = False
     user_action: str | None = None  # "accepted", "dismissed", "deferred"
     success_outcome: bool | None = None
-    created_at: datetime = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.created_at is None:
-            object.__setattr__(self, "created_at", datetime.now())
+    created_at: datetime = field(default_factory=datetime.now)
 
     def is_high_value_recommendation(self) -> bool:
         """Determine if this is a high-value recommendation."""

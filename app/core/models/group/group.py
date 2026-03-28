@@ -61,7 +61,7 @@ class GroupDTO:
 # ============================================================================
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Group:
     """
     Immutable domain model for groups.
@@ -78,17 +78,9 @@ class Group:
     owner_uid: str = ""
     is_active: bool = True
     max_members: int | None = None
-    created_at: datetime = None  # type: ignore[assignment]
-    updated_at: datetime = None  # type: ignore[assignment]
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        """Initialize timestamps with proper defaults."""
-        now = datetime.now()
-        if self.created_at is None:
-            object.__setattr__(self, "created_at", now)
-        if self.updated_at is None:
-            object.__setattr__(self, "updated_at", now)
 
     def is_valid(self) -> bool:
         """Check if group has minimum required fields."""

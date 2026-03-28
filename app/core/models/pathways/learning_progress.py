@@ -17,7 +17,7 @@ from core.models.enums import LearningLevel, SELCategory
 from core.models.type_hints import UserUID
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class CurriculumProgress:
     """
     Tracks user's progress through one curriculum category (e.g., SEL category).
@@ -42,7 +42,7 @@ class CurriculumProgress:
     # Journey Tracking
     started_at: datetime = field(default_factory=datetime.now)
     last_activity: datetime = field(default_factory=datetime.now)
-    estimated_completion_date: datetime | None = None  # type: ignore[assignment]
+    estimated_completion_date: datetime | None = None
 
     def calculate_progress(self) -> float:
         """
@@ -100,7 +100,7 @@ class CurriculumProgress:
         return days_since_activity > 7
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class LearningJourney:
     """
     Complete learning journey for a user across all curriculum categories.

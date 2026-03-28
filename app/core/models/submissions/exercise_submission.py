@@ -26,7 +26,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.submissions.submission import Submission
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ExerciseSubmission(Submission):
     """
     Immutable domain model for exercise submissions (EntityType.EXERCISE_SUBMISSION).

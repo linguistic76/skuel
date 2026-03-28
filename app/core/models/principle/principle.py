@@ -40,7 +40,7 @@ from core.models.principle.principle_types import AlignmentAssessment, Principle
 from core.models.user_owned_entity import UserOwnedEntity
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Principle(UserOwnedEntity):
     """
     Immutable domain model for principles (EntityType.PRINCIPLE).
@@ -88,7 +88,7 @@ class Principle(UserOwnedEntity):
     # =========================================================================
     current_alignment: AlignmentLevel | None = None
     alignment_history: tuple[AlignmentAssessment, ...] = ()
-    last_review_date: date | None = None  # type: ignore[assignment]
+    last_review_date: date | None = None
 
     # =========================================================================
     # CONFLICTS & TENSIONS
@@ -107,7 +107,7 @@ class Principle(UserOwnedEntity):
     # PRINCIPLE STATUS
     # =========================================================================
     is_active: bool = True
-    adopted_date: date | None = None  # type: ignore[assignment]
+    adopted_date: date | None = None
 
     # =========================================================================
     # PRINCIPLE-SPECIFIC METHODS

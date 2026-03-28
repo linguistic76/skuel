@@ -51,7 +51,7 @@ class CalendarView(StrEnum):
     AGENDA = "agenda"  # List view
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class CalendarItem:
     """
     Unified calendar item that can represent any time-based entity.
@@ -85,7 +85,7 @@ class CalendarItem:
     category: str | None = None
 
     # Habit-specific
-    occurrence_data: dict[str, Any] | None = None  # type: ignore[assignment]
+    occurrence_data: dict[str, Any] | None = None
     streak_count: int | None = None
 
     # Event-specific
@@ -105,7 +105,7 @@ class CalendarItem:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class CalendarOccurrence:
     """
     Represents a specific occurrence of a recurring calendar item.
@@ -116,7 +116,7 @@ class CalendarOccurrence:
     date: date
     status: str  # "done", "skipped", "partial", "missed"
     notes: str = ""
-    completion_time: datetime | None = None  # type: ignore[assignment]
+    completion_time: datetime | None = None
     value: float | None = None  # For quantified habits
 
 

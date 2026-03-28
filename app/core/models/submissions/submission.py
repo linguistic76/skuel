@@ -58,7 +58,7 @@ _SUBMISSION_ENTITY_TYPES = frozenset(
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Submission(UserOwnedEntity):
     """
     Immutable domain model for content-processing entities.
@@ -92,8 +92,8 @@ class Submission(UserOwnedEntity):
     # PROCESSING
     # =========================================================================
     processor_type: ProcessorType | None = None
-    processing_started_at: datetime | None = None  # type: ignore[assignment]
-    processing_completed_at: datetime | None = None  # type: ignore[assignment]
+    processing_started_at: datetime | None = None
+    processing_completed_at: datetime | None = None
     processing_error: str | None = None
     processed_content: str | None = None
     processed_file_path: str | None = None

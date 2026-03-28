@@ -281,9 +281,9 @@ class UserFilterSchema(BaseModel):
     is_verified: bool | None = None
     is_premium: bool | None = None
     created_after: datetime | None = None
-    created_before: datetime | None = None  # type: ignore[assignment]
+    created_before: datetime | None = None
     last_active_after: datetime | None = None
-    last_active_before: datetime | None = None  # type: ignore[assignment]
+    last_active_before: datetime | None = None
     has_goals: bool | None = None
     min_completion_rate: float | None = Field(None, ge=0, le=100)
     max_completion_rate: float | None = Field(None, ge=0, le=100)

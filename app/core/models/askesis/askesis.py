@@ -46,7 +46,7 @@ def _utcnow() -> Any:
 # ============================================================================
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Askesis:
     """
     Immutable Askesis domain model - AI Learning Assistant instance.
@@ -97,8 +97,8 @@ class Askesis:
 
     # Metadata
     created_at: datetime = field(default_factory=_utcnow)  # Fixed: field, not tuple-wrapped
-    last_interaction: datetime | None = None  # type: ignore[assignment]
-    last_intelligence_update: datetime | None = None  # type: ignore[assignment]
+    last_interaction: datetime | None = None
+    last_intelligence_update: datetime | None = None
 
     # ========================================================================
     # BUSINESS LOGIC METHODS

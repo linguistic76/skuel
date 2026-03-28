@@ -32,7 +32,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_entity import UserOwnedEntity
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Choice(UserOwnedEntity):
     """
     Immutable domain model for choices (EntityType.CHOICE).
@@ -64,8 +64,8 @@ class Choice(UserOwnedEntity):
     # =========================================================================
     # DECISION TIMING
     # =========================================================================
-    decision_deadline: datetime | None = None  # type: ignore[assignment]
-    decided_at: datetime | None = None  # type: ignore[assignment]
+    decision_deadline: datetime | None = None
+    decided_at: datetime | None = None
 
     # =========================================================================
     # OUTCOME

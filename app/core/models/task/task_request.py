@@ -105,7 +105,7 @@ class TaskUpdateRequest(UpdateRequestBase):
     title: str | None = Field(None, min_length=1, max_length=200)
     description: str | None = None
     due_date: date | None = None
-    scheduled_date: date | None = None  # type: ignore[assignment]
+    scheduled_date: date | None = None
     duration_minutes: int | None = Field(None, ge=5, le=480)
     priority: Priority | None = None
     status: EntityStatus | None = None
@@ -199,7 +199,7 @@ class TaskFilterRequest(FilterRequestBase):
     priority: Priority | None = None
     project: str | None = None
     tags: list[str] | None = None
-    due_date_from: date | None = None  # type: ignore[assignment]
+    due_date_from: date | None = None
     due_date_to: date | None = None
     assigned_to: str | None = None
     overdue_only: bool = False

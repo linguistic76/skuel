@@ -25,7 +25,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
@@ -38,7 +38,7 @@ from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import EntityUID
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Entity:
     """
     Base frozen dataclass for all knowledge types.
@@ -77,25 +77,25 @@ class Entity:
     # =========================================================================
     # STATUS
     # =========================================================================
-    status: EntityStatus = None  # type: ignore[assignment]  # Set in __post_init__
+    status: EntityStatus = None  # type: ignore[assignment]  # Set in __post_init__ (depends on entity_type)
 
     # =========================================================================
     # SHARING
     # =========================================================================
-    visibility: Visibility = None  # type: ignore[assignment]  # Set in __post_init__
+    visibility: Visibility = None  # type: ignore[assignment]  # Set in __post_init__ (overridden by UserOwnedEntity)
 
     # =========================================================================
     # META
     # =========================================================================
     tags: tuple[str, ...] = ()
-    created_at: datetime = None  # type: ignore[assignment]
-    updated_at: datetime = None  # type: ignore[assignment]
-    metadata: dict[str, Any] = None  # type: ignore[assignment]
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Embedding fields for Neo4j GenAI vector search
     embedding: tuple[float, ...] | None = None
     embedding_model: str | None = None
-    embedding_updated_at: datetime | None = None  # type: ignore[assignment]
+    embedding_updated_at: datetime | None = None
 
     # =========================================================================
     # INITIALIZATION
@@ -103,15 +103,6 @@ class Entity:
 
     def __post_init__(self) -> None:
         """Set conditional defaults based on entity_type."""
-        now = datetime.now()
-
-        if self.created_at is None:
-            object.__setattr__(self, "created_at", now)
-        if self.updated_at is None:
-            object.__setattr__(self, "updated_at", now)
-        if self.metadata is None:
-            object.__setattr__(self, "metadata", {})
-
         # Default status from EntityType (type-aware)
         if self.status is None:
             object.__setattr__(self, "status", self.entity_type.default_status())

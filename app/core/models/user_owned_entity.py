@@ -30,7 +30,7 @@ from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import UserUID
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class UserOwnedEntity(Entity):
     """
     Intermediate frozen dataclass for user-owned entities.

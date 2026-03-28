@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from datetime import date
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Milestone:
     """
     A progress checkpoint within a GOAL.
@@ -39,7 +39,7 @@ class Milestone:
     description: str | None = None
     target_date: date | None = None
     target_value: float | None = None
-    achieved_date: date | None = None  # type: ignore[assignment]
+    achieved_date: date | None = None
     is_completed: bool = False
     required_knowledge_uids: tuple[str, ...] = ()
     unlocked_knowledge_uids: tuple[str, ...] = ()

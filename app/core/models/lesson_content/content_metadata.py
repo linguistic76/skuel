@@ -16,7 +16,7 @@ from typing import Any
 from .content import CurriculumContent
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ContentMetadata:
     """
     Immutable metadata for content analysis and search optimization.
@@ -68,7 +68,7 @@ class ContentMetadata:
 
     # Generated summaries (to be filled by AI service)
     summary_generated: str | None = None  # AI-generated summary
-    summary_timestamp: datetime | None = None  # type: ignore[assignment]
+    summary_timestamp: datetime | None = None
 
     # ==========================================================================
     # FACTORY METHODS

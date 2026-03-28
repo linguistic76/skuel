@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class KnowledgeConnection:
     """Represents a connection between domain entity and knowledge"""
 
@@ -18,10 +18,10 @@ class KnowledgeConnection:
     connection_type: str  # 'applies', 'requires', 'generates', 'validates'
     confidence: float  # 0.0 to 1.0
     source: str  # 'explicit', 'inferred', 'system'
-    metadata: dict[str, Any] | None = None  # type: ignore[assignment]
+    metadata: dict[str, Any] | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class LearningOpportunity:
     """Represents a learning opportunity extracted from domain activity"""
 
@@ -29,11 +29,11 @@ class LearningOpportunity:
     description: str
     knowledge_domain: str
     estimated_value: float  # 0.0 to 1.0
-    prerequisites: list[str] | None = None  # type: ignore[assignment]
-    outcomes: list[str] | None = None  # type: ignore[assignment]
+    prerequisites: list[str] | None = None
+    outcomes: list[str] | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class KnowledgeInsight:
     """Represents an insight that could become new knowledge"""
 
@@ -43,4 +43,4 @@ class KnowledgeInsight:
     confidence: float
     source_entities: list[str]
     domain: str
-    metadata: dict[str, Any] | None = None  # type: ignore[assignment]
+    metadata: dict[str, Any] | None = None

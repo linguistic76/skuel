@@ -69,7 +69,7 @@ class ReportScheduleDTO:
 # ============================================================================
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ReportSchedule:
     """
     Immutable domain model for report generation schedules.
@@ -87,17 +87,9 @@ class ReportSchedule:
     is_active: bool = True
     last_generated_at: datetime | None = None
     next_due_at: datetime | None = None
-    created_at: datetime = None  # type: ignore[assignment]
-    updated_at: datetime = None  # type: ignore[assignment]
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        """Initialize timestamps with proper defaults."""
-        now = datetime.now()
-        if self.created_at is None:
-            object.__setattr__(self, "created_at", now)
-        if self.updated_at is None:
-            object.__setattr__(self, "updated_at", now)
 
     def is_due(self) -> bool:
         """Check if this schedule is due for generation."""

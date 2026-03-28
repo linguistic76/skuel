@@ -16,7 +16,7 @@ Types:
 Extracted from principle.py during Ku unification (February 2026).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from operator import itemgetter
 
@@ -43,7 +43,7 @@ class AlignmentAssessment:
     reflection: str | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PrincipleConflict:
     """
     Represents a conflict between principles.
@@ -62,8 +62,8 @@ class PrincipleConflict:
     resolution_examples: tuple[str, ...] = ()  # Examples of successful resolution
 
     # Tracking
-    identified_date: date | None = None  # type: ignore[assignment]
-    last_encountered: date | None = None  # type: ignore[assignment]
+    identified_date: date | None = None
+    last_encountered: date | None = None
     resolution_effectiveness: float = 0.5  # 0-1, how well strategy works
 
     def is_high_priority_conflict(self) -> bool:
@@ -75,7 +75,7 @@ class PrincipleConflict:
         return self.resolution_effectiveness < 0.7
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PrincipleAlignment:
     """
     Represents alignment between a principle and a goal/habit.
@@ -105,13 +105,8 @@ class PrincipleAlignment:
     potential_improvements: tuple[str, ...] = ()  # How to strengthen
 
     # Tracking
-    assessed_date: datetime = None  # type: ignore[assignment]
+    assessed_date: datetime = field(default_factory=datetime.now)
     assessor: str | None = None  # Who made the assessment
-
-    def __post_init__(self) -> None:
-        """Set default datetime."""
-        if self.assessed_date is None:
-            object.__setattr__(self, "assessed_date", datetime.now())
 
     def is_well_aligned(self) -> bool:
         """Check if alignment is strong."""
@@ -162,7 +157,7 @@ class PrincipleAlignment:
         return suggestions[:5]  # Return top 5 suggestions
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PrincipleDecision:
     """
     A decision evaluated through the lens of principles.
@@ -194,15 +189,10 @@ class PrincipleDecision:
     stakes: str = "moderate"  # "high", "moderate", "low"
 
     # Tracking
-    timestamp: datetime = None  # type: ignore[assignment]
+    timestamp: datetime = field(default_factory=datetime.now)
     decision_maker: str | None = None
     actual_choice: str | None = None  # What was actually chosen,
     outcome_assessment: str | None = None  # How it turned out
-
-    def __post_init__(self) -> None:
-        """Set default datetime."""
-        if self.timestamp is None:
-            object.__setattr__(self, "timestamp", datetime.now())
 
     def get_principle_ranking(self) -> list[tuple[str, float]]:
         """

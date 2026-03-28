@@ -264,11 +264,11 @@ class BaseEntity(BasePureModel, ContentMixin, ProgressMixin, ValidatableMixin):
         return replace(self, status=new_status, updated_at=datetime.now())
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class BaseUserOwnedModel(BaseEntity):
     """Base for models owned by a user"""
 
-    user_uid: UserUID = ""  # type: ignore[assignment]
+    user_uid: UserUID = ""  # type: ignore[assignment]  # Category C: NewType default
 
     def validate(self) -> Result[bool]:
         """Extended validation for user-owned models"""
@@ -316,13 +316,13 @@ class BaseVersionedModel(BaseEntity):
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class BaseRecurringModel(BaseEntity):
     """Base for models with recurrence (habits, recurring tasks)"""
 
     recurrence_pattern: str | None = None
 
-    recurrence_end_date: datetime | None = None  # type: ignore[assignment]
+    recurrence_end_date: datetime | None = None
     skip_dates: list[datetime] = field(default_factory=list)
 
     def is_recurring(self) -> bool:
@@ -350,7 +350,7 @@ class BaseDTO:
 
     uid: str
     created_at: datetime | None = None
-    updated_at: datetime | None = None  # type: ignore[assignment]
+    updated_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Relationship information for transfer

@@ -17,7 +17,7 @@ from core.models.enums import Domain, EntityStatus
 from core.models.type_hints import EntityUID, UserUID
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class UserProgress:
     """
     User progress tracking for any domain.
@@ -43,8 +43,8 @@ class UserProgress:
 
     # Timestamps
     tracked_at: datetime  # When this progress was recorded
-    started_at: datetime | None = None  # type: ignore[assignment]
-    completed_at: datetime | None = None  # type: ignore[assignment]
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
     # Quality metrics
     mastery_score: float | None = None  # 0.0-1.0 mastery level (for learning),
@@ -57,11 +57,11 @@ class UserProgress:
 
     # Context
     domain: Domain | None = None  # Domain classification,
-    metadata: dict[str, Any] | None = None  # type: ignore[assignment]
+    metadata: dict[str, Any] | None = None
 
     # Review scheduling (spaced repetition)
-    last_reviewed: datetime | None = None  # type: ignore[assignment]
-    next_review_due: date | None = None  # type: ignore[assignment]
+    last_reviewed: datetime | None = None
+    next_review_due: date | None = None
     review_interval_days: int | None = None
 
     def __post_init__(self) -> None:
@@ -156,7 +156,7 @@ class UserProgress:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ProgressAggregate:
     """
     Aggregated progress statistics for a user across a domain or entity type.
@@ -187,8 +187,8 @@ class ProgressAggregate:
     total_practice_sessions: int = 0
 
     # Period
-    period_start: date | None = None  # type: ignore[assignment]
-    period_end: date | None = None  # type: ignore[assignment]
+    period_start: date | None = None
+    period_end: date | None = None
 
     @property
     def completion_rate(self) -> float:

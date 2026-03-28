@@ -36,7 +36,7 @@ from core.models.enums.principle_enums import AlignmentLevel
 from core.models.user_owned_entity import UserOwnedEntity
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class LifePath(UserOwnedEntity):
     """
     Immutable domain model for life path entities (EntityType.LIFE_PATH).
@@ -58,7 +58,7 @@ class LifePath(UserOwnedEntity):
     # DESIGNATION (ULTIMATE_PATH relationship data)
     # =========================================================================
     life_path_uid: str | None = None  # LP designated as life path
-    designated_at: datetime | None = None  # type: ignore[assignment]
+    designated_at: datetime | None = None
 
     # =========================================================================
     # ALIGNMENT SCORES
@@ -79,7 +79,7 @@ class LifePath(UserOwnedEntity):
     # =========================================================================
     vision_statement: str | None = None  # User's vision in their words
     vision_themes: tuple[str, ...] = ()  # Extracted theme keywords
-    vision_captured_at: datetime | None = None  # type: ignore[assignment]
+    vision_captured_at: datetime | None = None
 
     # =========================================================================
     # LIFE-PATH-SPECIFIC METHODS

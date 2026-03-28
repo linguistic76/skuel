@@ -111,7 +111,7 @@ class EventUpdateRequest(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=200)
     description: str | None = None
     event_date: date | None = None
-    start_time: time | None = None  # type: ignore[assignment]
+    start_time: time | None = None
     end_time: time | None = None
     event_type: str | None = None
     visibility: Visibility | None = None

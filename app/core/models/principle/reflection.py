@@ -12,7 +12,7 @@ Architecture:
 - Quality scoring: 0-1 based on evidence depth, notes, and trigger context
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from .reflection_dto import PrincipleReflectionDTO
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PrincipleReflection:
     """
     Immutable domain model for principle reflections.
@@ -62,13 +62,10 @@ class PrincipleReflection:
     trigger_context: str | None = None  # Description of triggering situation
 
     # Metadata
-    metadata: dict[str, Any] = None  # type: ignore[assignment]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Validate and set defaults after creation."""
-        if self.metadata is None:
-            object.__setattr__(self, "metadata", {})
-
+        """Validate after creation."""
         # Validate alignment level
         if not isinstance(self.alignment_level, AlignmentLevel):
             raise ValueError(
@@ -83,10 +80,10 @@ class PrincipleReflection:
         if self.trigger_type is not None and not isinstance(self.trigger_type, TriggerType):
             try:
                 object.__setattr__(self, "trigger_type", TriggerType(self.trigger_type))
-            except ValueError:
+            except ValueError as err:
                 raise ValueError(
                     f"trigger_type must be a TriggerType value, got '{self.trigger_type}'"
-                )
+                ) from err
 
     # ========================================================================
     # FACTORY METHODS

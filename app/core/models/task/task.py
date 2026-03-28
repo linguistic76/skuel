@@ -30,7 +30,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_entity import UserOwnedEntity
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Task(UserOwnedEntity):
     """
     Immutable domain model for tasks (EntityType.TASK).
@@ -51,15 +51,15 @@ class Task(UserOwnedEntity):
     # =========================================================================
     # SCHEDULING
     # =========================================================================
-    due_date: date | None = None  # type: ignore[assignment]  # Task deadline
-    scheduled_date: date | None = None  # type: ignore[assignment]  # Planned date
-    completion_date: date | None = None  # type: ignore[assignment]  # Actual completion
+    due_date: date | None = None  # Task deadline
+    scheduled_date: date | None = None  # Planned date
+    completion_date: date | None = None  # Actual completion
     duration_minutes: int | None = None  # Expected duration
     actual_minutes: int | None = None  # Actual time spent
 
     # Recurrence
     recurrence_pattern: str | None = None  # RecurrencePattern enum value
-    recurrence_end_date: date | None = None  # type: ignore[assignment]
+    recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
 
     # Event link

@@ -87,7 +87,7 @@ class UserPreferences:
 # ============================================================================
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class User(BaseEntity):
     """
     Core user domain model.
@@ -130,8 +130,8 @@ class User(BaseEntity):
 
     # Account metadata
     created_at: datetime = field(default_factory=datetime.now)
-    last_active_at: datetime | None = None  # type: ignore[assignment]
-    last_login_at: datetime | None = None  # type: ignore[assignment]
+    last_active_at: datetime | None = None
+    last_login_at: datetime | None = None
 
     # Account status
     is_active: bool = True
@@ -270,7 +270,7 @@ class User(BaseEntity):
 # ============================================================================
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class UserServiceContext:
     """
     Lightweight context for service operations.
@@ -294,7 +294,7 @@ class UserServiceContext:
 
     # Session info
     session_id: str | None = None
-    session_start: datetime | None = None  # type: ignore[assignment]
+    session_start: datetime | None = None
 
     @classmethod
     def from_user(

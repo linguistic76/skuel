@@ -17,7 +17,7 @@ from core.models.enums import Domain
 from core.models.type_hints import EntityUID
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class EmbeddingVector:
     """
     Vector embedding for semantic search.
@@ -45,7 +45,7 @@ class EmbeddingVector:
     # Metadata
     created_at: datetime
     domain: Domain | None = None
-    metadata: dict[str, Any] | None = None  # type: ignore[assignment]
+    metadata: dict[str, Any] | None = None
 
     # Version tracking
     version: int = 1  # Increment when re-embedding same entity
@@ -130,7 +130,7 @@ class EmbeddingVector:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class SimilarityMatch:
     """
     Result of similarity search.
@@ -144,7 +144,7 @@ class SimilarityMatch:
     source_text: str
     domain: Domain | None = None
 
-    metadata: dict[str, Any] | None = None  # type: ignore[assignment]
+    metadata: dict[str, Any] | None = None
 
     @property
     def is_high_similarity(self) -> bool:

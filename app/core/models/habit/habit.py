@@ -39,7 +39,7 @@ from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitP
 from core.models.user_owned_entity import UserOwnedEntity
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Habit(UserOwnedEntity):
     """
     Immutable domain model for habits (EntityType.HABIT).
@@ -72,7 +72,7 @@ class Habit(UserOwnedEntity):
     total_completions: int = 0
     total_attempts: int = 0
     success_rate: float = 0.0
-    last_completed: datetime | None = None  # type: ignore[assignment]
+    last_completed: datetime | None = None
 
     # =========================================================================
     # ATOMIC HABITS / BEHAVIOR DESIGN
@@ -93,15 +93,15 @@ class Habit(UserOwnedEntity):
     # =========================================================================
     # LIFECYCLE
     # =========================================================================
-    started_at: datetime | None = None  # type: ignore[assignment]
-    completed_at: datetime | None = None  # type: ignore[assignment]
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
     # =========================================================================
     # SCHEDULING
     # =========================================================================
     duration_minutes: int | None = None  # Expected duration
     recurrence_pattern: str | None = None  # RecurrencePattern enum value
-    recurrence_end_date: date | None = None  # type: ignore[assignment]
+    recurrence_end_date: date | None = None
     recurrence_parent_uid: str | None = None
     target_days_per_week: int | None = None  # Habit frequency
     preferred_time: str | None = None  # Preferred time of day

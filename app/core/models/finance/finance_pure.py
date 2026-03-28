@@ -16,7 +16,7 @@ from core.models.type_hints import UserUID
 
 __version__ = "3.0"  # Simplified standalone bookkeeping (January 2026)
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -73,7 +73,7 @@ EXPENSE_SUBCATEGORIES = {
 # ============================================================================
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ExpensePure:
     """
     Pure immutable expense domain model.
@@ -116,7 +116,7 @@ class ExpensePure:
     # Recurring expense fields
     is_recurring: bool = False
     recurrence_pattern: RecurrencePattern | None = None
-    recurrence_end_date: date | None = None  # type: ignore[assignment]
+    recurrence_end_date: date | None = None
     parent_expense_uid: str | None = None
 
     # Budget tracking
@@ -124,25 +124,13 @@ class ExpensePure:
     budget_category: str | None = None
 
     # Metadata
-    tags: list[str] = None  # type: ignore[assignment]
-    metadata: dict[str, Any] = None  # type: ignore[assignment]
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Audit fields
-    created_at: datetime = None  # type: ignore[assignment]
-    updated_at: datetime = None  # type: ignore[assignment]
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
     created_by: str | None = None
-
-    def __post_init__(self) -> None:
-        """Initialize default values for mutable fields"""
-        # Use object.__setattr__ since dataclass is frozen
-        if self.tags is None:
-            object.__setattr__(self, "tags", [])
-        if self.metadata is None:
-            object.__setattr__(self, "metadata", {})
-        if self.created_at is None:
-            object.__setattr__(self, "created_at", datetime.now())
-        if self.updated_at is None:
-            object.__setattr__(self, "updated_at", datetime.now())
 
     # ========================================================================
     # DTO CONVERSION - THREE-TIER ARCHITECTURE
@@ -280,7 +268,7 @@ class ExpensePure:
 # ============================================================================
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class BudgetPure:
     """
     Pure immutable budget domain model.
@@ -300,10 +288,10 @@ class BudgetPure:
 
     # Time bounds
     start_date: date
-    end_date: date | None = None  # type: ignore[assignment]
+    end_date: date | None = None
 
     # Categories covered
-    categories: list[ExpenseCategory] = None  # type: ignore[assignment]
+    categories: list[ExpenseCategory] = field(default_factory=list)
 
     # Current tracking
     amount_spent: float = 0.0
@@ -316,22 +304,11 @@ class BudgetPure:
     # Metadata
     notes: str | None = None
 
-    tags: list[str] = None  # type: ignore[assignment]
+    tags: list[str] = field(default_factory=list)
 
     # Audit
-    created_at: datetime = None  # type: ignore[assignment]
-    updated_at: datetime = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        """Initialize default values"""
-        if self.categories is None:
-            object.__setattr__(self, "categories", [])
-        if self.tags is None:
-            object.__setattr__(self, "tags", [])
-        if self.created_at is None:
-            object.__setattr__(self, "created_at", datetime.now())
-        if self.updated_at is None:
-            object.__setattr__(self, "updated_at", datetime.now())
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
 
     # ========================================================================
     # DOMAIN METHODS

@@ -280,7 +280,7 @@ class UserLearningIntelligence:
             return Domain.KNOWLEDGE  # Default
 
 
-@dataclass
+@dataclass(kw_only=True)
 class EnhancedUserContext(UserContext):
     """
     Revolutionary Enhanced UserContext with persistent intelligence integration.

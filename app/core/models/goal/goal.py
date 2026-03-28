@@ -36,7 +36,7 @@ from core.models.goal.milestone import Milestone
 from core.models.user_owned_entity import UserOwnedEntity
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Goal(UserOwnedEntity):
     """
     Immutable domain model for goals (EntityType.GOAL).
@@ -71,17 +71,17 @@ class Goal(UserOwnedEntity):
     # =========================================================================
     # TIMELINE
     # =========================================================================
-    start_date: date | None = None  # type: ignore[assignment]
-    target_date: date | None = None  # type: ignore[assignment]
-    achieved_date: date | None = None  # type: ignore[assignment]
+    start_date: date | None = None
+    target_date: date | None = None
+    achieved_date: date | None = None
 
     # =========================================================================
     # PROGRESS
     # =========================================================================
     milestones: tuple[Milestone, ...] = ()
     progress_percentage: float = 0.0
-    last_progress_update: datetime | None = None  # type: ignore[assignment]
-    progress_history: tuple[dict, ...] = ()  # type: ignore[assignment]
+    last_progress_update: datetime | None = None
+    progress_history: tuple[dict, ...] = ()
 
     # =========================================================================
     # MOTIVATION
