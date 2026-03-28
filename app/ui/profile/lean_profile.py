@@ -1,9 +1,10 @@
-"""Lean profile view — Focus + Velocity + Activity overview.
+"""Lean profile view — Focus + Velocity + Learning loop + Activity overview.
 
-The /profile page shows personal measurements at top, then activity reports link.
+The /profile page shows personal measurements at top, current exercises,
+then links to reports.
 """
 
-from fasthtml.common import Div, P, Span
+from fasthtml.common import A, Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
 from ui.buttons import ButtonLink, ButtonT
@@ -12,7 +13,7 @@ from ui.layouts.dashboard import DashboardSection
 
 
 def LeanProfileView(context: UserContext) -> Div:
-    """Profile overview: Focus + Velocity + Activity reports link.
+    """Profile overview: Focus + Velocity + Exercises + Reports links.
 
     Args:
         context: UserContext with ~250 fields of user state
@@ -20,23 +21,84 @@ def LeanProfileView(context: UserContext) -> Div:
     return Div(
         _current_focus_card(context),
         _velocity_summary(context),
+        _current_exercises_section(context),
         DashboardSection(
-            "Activities",
+            "Reports",
             Div(
-                P(
-                    "View your activity reports for insights across all domains.",
-                    cls="text-sm text-muted-foreground mb-3",
-                ),
-                ButtonLink(
-                    "Activity Reports",
-                    href="/activity-reports",
-                    variant=ButtonT.secondary,
-                    size=Size.sm,
+                Div(
+                    ButtonLink(
+                        "Exercise Reports",
+                        href="/exercise-reports",
+                        variant=ButtonT.secondary,
+                        size=Size.sm,
+                    ),
+                    ButtonLink(
+                        "Activity Reports",
+                        href="/activity-reports",
+                        variant=ButtonT.secondary,
+                        size=Size.sm,
+                    ),
+                    cls="flex gap-3 flex-wrap",
                 ),
                 cls="py-2",
             ),
         ),
         _settings_link(),
+    )
+
+
+def _current_exercises_section(context: UserContext) -> Div:
+    """Current exercises — unsubmitted + pending revisions."""
+    items: list[Div] = []
+
+    for rev in context.pending_revised_exercises[:3]:
+        items.append(
+            Div(
+                Span("🔄", cls="mr-2"),
+                A(
+                    rev.get("title", "Revision"),
+                    href=f"/submit?exercise_uid={rev['uid']}",
+                    cls="text-sm font-medium text-primary hover:underline",
+                ),
+                Span(" (revision)", cls="text-xs text-muted-foreground ml-1"),
+                cls="flex items-center",
+            )
+        )
+
+    for ex in context.unsubmitted_exercises[:3]:
+        items.append(
+            Div(
+                Span("📝", cls="mr-2"),
+                A(
+                    ex.get("title", "Exercise"),
+                    href=f"/submit?exercise_uid={ex['uid']}",
+                    cls="text-sm font-medium text-primary hover:underline",
+                ),
+                *(
+                    [Span(f" due {ex['due_date']}", cls="text-xs text-warning ml-1")]
+                    if ex.get("due_date")
+                    else []
+                ),
+                cls="flex items-center",
+            )
+        )
+
+    if not items:
+        return Div(
+            DashboardSection(
+                "Current Exercises",
+                P(
+                    "No exercises in progress.",
+                    cls="text-sm text-muted-foreground py-2",
+                ),
+            ),
+        )
+
+    return Div(
+        DashboardSection(
+            "Current Exercises",
+            Div(*items, cls="space-y-2 py-2"),
+        ),
     )
 
 
