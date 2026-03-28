@@ -683,6 +683,7 @@ _VALID_TRANSITIONS: dict[EntityStatus, set[EntityStatus]] = {
     },
     EntityStatus.REVISION_REQUESTED: {
         EntityStatus.DRAFT,
+        EntityStatus.COMPLETED,  # teacher approves without student re-submitting
         EntityStatus.ARCHIVED,
     },
     EntityStatus.ARCHIVED: set(),

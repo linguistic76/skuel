@@ -176,7 +176,8 @@ class TestSubmitReport:
         assert result.error is db_error
 
     @pytest.mark.asyncio
-    async def test_main_query_empty_records(self):
+    async def test_empty_records_returns_invalid_transition(self):
+        """Empty results after access check = status guard rejected the transition."""
         backend = _make_submissions_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
         backend.create_report_node.return_value = Result.ok([])
@@ -185,7 +186,7 @@ class TestSubmitReport:
         result = await service.submit_report(SUBMISSION_UID, TEACHER_UID, "feedback")
 
         assert result.is_error
-        assert "not found" in str(result.error)
+        assert "reviewable status" in str(result.error)
 
     @pytest.mark.asyncio
     async def test_publishes_report_submitted_event(self):
@@ -290,7 +291,8 @@ class TestRequestRevision:
         assert result.error is db_error
 
     @pytest.mark.asyncio
-    async def test_empty_records_returns_not_found(self):
+    async def test_empty_records_returns_invalid_transition(self):
+        """Empty results after access check = status guard rejected the transition."""
         backend = _make_submissions_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
         backend.create_report_node.return_value = Result.ok([])
@@ -299,7 +301,7 @@ class TestRequestRevision:
         result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "notes")
 
         assert result.is_error
-        assert "not found" in str(result.error)
+        assert "revisable status" in str(result.error)
 
     @pytest.mark.asyncio
     async def test_publishes_revision_requested_event(self):
@@ -453,7 +455,8 @@ class TestApproveReport:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_empty_records_returns_not_found(self):
+    async def test_empty_records_returns_invalid_transition(self):
+        """Empty results after access check = status guard rejected the transition."""
         backend = _make_submissions_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
         backend.approve_and_get_linked_kus.return_value = Result.ok([])
@@ -462,7 +465,7 @@ class TestApproveReport:
         result = await service.approve_report(SUBMISSION_UID, TEACHER_UID)
 
         assert result.is_error
-        assert "not found" in str(result.error)
+        assert "approvable status" in str(result.error)
 
     @pytest.mark.asyncio
     async def test_publishes_submission_approved_event(self):

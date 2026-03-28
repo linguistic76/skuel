@@ -238,23 +238,15 @@ class _HierarchyMixin:
 
         cfg = self._hierarchy_config
 
-        # Build forward relationship property assignments
-        prop_assignments = "created_at: datetime()"
-        if forward_props:
-            extra = ", ".join(f"{k}: ${k}" for k in forward_props)
-            prop_assignments = f"{extra}, {prop_assignments}"
-
         query = f"""
         MATCH (parent:{cfg.node_label} {{uid: $parent_uid{cfg.node_filter}}})
         MATCH (child:{cfg.node_label} {{uid: $child_uid{cfg.node_filter}}})
 
-        CREATE (parent)-[:{cfg.forward_rel} {{
-            {prop_assignments}
-        }}]->(child)
+        MERGE (parent)-[fwd:{cfg.forward_rel}]->(child)
+        ON CREATE SET fwd.created_at = datetime(){", " + ", ".join(f"fwd.{k} = ${k}" for k in forward_props) if forward_props else ""}
 
-        CREATE (child)-[:{cfg.inverse_rel} {{
-            created_at: datetime()
-        }}]->(parent)
+        MERGE (child)-[inv:{cfg.inverse_rel}]->(parent)
+        ON CREATE SET inv.created_at = datetime()
 
         RETURN true as success
         """

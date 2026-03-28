@@ -188,6 +188,7 @@ class TeacherReviewService:
         report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
 
+        allowed_from = [EntityStatus.PROCESSING.value]
         result = await self.submissions_backend.create_report_node(
             {
                 "report_uid": report_uid,
@@ -200,6 +201,7 @@ class TeacherReviewService:
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.APPROVED.value,
+                "allowed_from_statuses": allowed_from,
                 "now": now,
             }
         )
@@ -208,7 +210,15 @@ class TeacherReviewService:
 
         records = result.value
         if not records:
-            return Result.fail(Errors.not_found(f"Submission {report_uid} not found"))
+            return Result.fail(
+                Errors.validation(
+                    message=(
+                        f"Cannot submit report: submission {report_uid} is not in a "
+                        f"reviewable status (expected one of {allowed_from})"
+                    ),
+                    field="status",
+                )
+            )
 
         student_uid = records[0]["student_uid"] or ""
         logger.info(
@@ -262,6 +272,7 @@ class TeacherReviewService:
         report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
 
+        allowed_from = [EntityStatus.COMPLETED.value]
         result = await self.submissions_backend.create_report_node(
             {
                 "report_uid": report_uid,
@@ -274,6 +285,7 @@ class TeacherReviewService:
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ProcessorType.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
+                "allowed_from_statuses": allowed_from,
                 "now": now,
             }
         )
@@ -282,7 +294,15 @@ class TeacherReviewService:
 
         records = result.value
         if not records:
-            return Result.fail(Errors.not_found(f"Submission {report_uid} not found"))
+            return Result.fail(
+                Errors.validation(
+                    message=(
+                        f"Cannot request revision: submission {report_uid} is not in a "
+                        f"revisable status (expected one of {allowed_from})"
+                    ),
+                    field="status",
+                )
+            )
 
         student_uid = records[0]["student_uid"] or ""
         logger.info(
@@ -332,15 +352,24 @@ class TeacherReviewService:
             return Result.fail(access_check)
 
         now = datetime.now().isoformat()
+        allowed_from = [EntityStatus.REVISION_REQUESTED.value]
         result = await self.submissions_backend.approve_and_get_linked_kus(
-            report_uid, now, EntityStatus.COMPLETED.value
+            report_uid, now, EntityStatus.COMPLETED.value, allowed_from
         )
         if result.is_error:
             return Result.fail(result)
 
         records = result.value
         if not records:
-            return Result.fail(Errors.not_found(f"Submission {report_uid} not found"))
+            return Result.fail(
+                Errors.validation(
+                    message=(
+                        f"Cannot approve: submission {report_uid} is not in an "
+                        f"approvable status (expected one of {allowed_from})"
+                    ),
+                    field="status",
+                )
+            )
 
         record = records[0]
         student_uid = record["student_uid"] or ""

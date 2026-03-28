@@ -268,12 +268,13 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         MATCH (user:User {{uid: $user_uid}})
         MATCH (habit:Habit {{uid: $habit_uid}})
 
-        // Create EARNED_BADGE relationship
-        CREATE (user)-[r:{RelationshipName.EARNED_BADGE.value} {{
-            earned_at: datetime($occurred_at),
-            streak_length: $streak_length,
+        // Idempotent EARNED_BADGE relationship
+        MERGE (user)-[r:{RelationshipName.EARNED_BADGE.value} {{
             habit_uid: $habit_uid
         }}]->(badge)
+        ON CREATE SET
+            r.earned_at = datetime($occurred_at),
+            r.streak_length = $streak_length
 
         // Also link achievement to the habit for context
         MERGE (habit)-[:{RelationshipName.UNLOCKED_ACHIEVEMENT.value}]->(badge)
@@ -332,11 +333,12 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         WITH badge
         MATCH (user:User {{uid: $user_uid}})
 
-        CREATE (user)-[r:{RelationshipName.EARNED_BADGE.value} {{
-            earned_at: datetime($occurred_at),
-            badge_category: $badge_category,
-            threshold_value: $threshold_value
+        MERGE (user)-[r:{RelationshipName.EARNED_BADGE.value} {{
+            badge_category: $badge_category
         }}]->(badge)
+        ON CREATE SET
+            r.earned_at = datetime($occurred_at),
+            r.threshold_value = $threshold_value
 
         RETURN badge.badge_id as badge_id
         """
@@ -1685,9 +1687,16 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         return await self.execute_query(query, {"submission_uid": submission_uid})
 
     async def create_report_node(self, params: dict[str, Any]) -> Result[list[Neo4jProperties]]:
-        """Create SUBMISSION_REPORT node, link via REPORT_FOR, share with student, update submission."""
+        """Create SUBMISSION_REPORT node, link via REPORT_FOR, share with student, update submission.
+
+        Requires ``allowed_from_statuses`` in params — a Cypher-level guard that
+        ensures the submission's current status is valid for the requested transition.
+        Returns empty results when the guard rejects the transition (caller already
+        verified existence via _verify_teacher_access).
+        """
         query = f"""
         MATCH (submission:Entity {{uid: $report_uid}})
+        WHERE submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
 
         SET submission.report_content = $feedback,
@@ -1726,11 +1735,21 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         return await self.execute_query(query, params)
 
     async def approve_and_get_linked_kus(
-        self, report_uid: str, now: str, status: str
+        self,
+        report_uid: str,
+        now: str,
+        status: str,
+        allowed_from_statuses: list[str],
     ) -> Result[list[Neo4jProperties]]:
-        """Approve submission: set status and return linked KU UIDs for mastery."""
+        """Approve submission: set status and return linked KU UIDs for mastery.
+
+        Cypher-level guard ensures the submission's current status is in
+        ``allowed_from_statuses`` before mutating.  Returns empty results
+        when the guard rejects the transition.
+        """
         query = f"""
         MATCH (ku:Entity {{uid: $report_uid}})
+        WHERE ku.status IN $allowed_from_statuses
         SET ku.status = $status,
             ku.updated_at = datetime($now)
         WITH ku
@@ -1742,7 +1761,13 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
                collect(curriculum.uid) as linked_ku_uids
         """
         return await self.execute_query(
-            query, {"report_uid": report_uid, "now": now, "status": status}
+            query,
+            {
+                "report_uid": report_uid,
+                "now": now,
+                "status": status,
+                "allowed_from_statuses": allowed_from_statuses,
+            },
         )
 
     async def get_submissions_for_exercise_review(
@@ -2404,20 +2429,23 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
             WITH s
             UNWIND $primary_knowledge_uids AS ku_uid
             MATCH (ku:Entity {uid: ku_uid})
-            CREATE (s)-[:CONTAINS_KNOWLEDGE {type: 'primary'}]->(ku)
+            MERGE (s)-[r:CONTAINS_KNOWLEDGE]->(ku)
+            ON CREATE SET r.type = 'primary'
             """
         if has_supporting_knowledge:
             query += """
             WITH s
             UNWIND $supporting_knowledge_uids AS ku_uid
             MATCH (ku:Entity {uid: ku_uid})
-            CREATE (s)-[:CONTAINS_KNOWLEDGE {type: 'supporting'}]->(ku)
+            MERGE (s)-[r:CONTAINS_KNOWLEDGE]->(ku)
+            ON CREATE SET r.type = 'supporting'
             """
         if path_uid:
             query += """
             WITH s
             MATCH (p:Entity {uid: $path_uid})
-            CREATE (p)-[:HAS_STEP {sequence: $sequence}]->(s)
+            MERGE (p)-[r:HAS_STEP]->(s)
+            ON CREATE SET r.sequence = $sequence
             """
         query += """
         WITH s
@@ -2639,15 +2667,15 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
     async def add_step_to_path(
         self, path_uid: str, step_uid: str, sequence: int, order: int = 0
     ) -> Result[bool]:
-        """Create HAS_STEP relationship between path and step."""
+        """Create HAS_STEP relationship between path and step (idempotent)."""
         query = """
         MATCH (lp:Entity {uid: $path_uid})
         MATCH (ls:Entity {uid: $step_uid})
-        CREATE (lp)-[:HAS_STEP {
-            sequence: $sequence,
-            order: $order,
-            created_at: datetime()
-        }]->(ls)
+        MERGE (lp)-[r:HAS_STEP]->(ls)
+        ON CREATE SET
+            r.sequence = $sequence,
+            r.order = $order,
+            r.created_at = datetime()
         RETURN true as success
         """
         result = await self.execute_query(
@@ -4168,12 +4196,13 @@ class LateralRelationshipBackend:
         relationship_type: str,
         metadata: dict[str, Any],
     ) -> Result[list[Neo4jProperties]]:
-        """Create a lateral relationship between two entities."""
+        """Create a lateral relationship between two entities (idempotent)."""
         return await self.executor.execute_query(
             f"""
             MATCH (source {{uid: $source_uid}})
             MATCH (target {{uid: $target_uid}})
-            CREATE (source)-[r:{relationship_type} $metadata]->(target)
+            MERGE (source)-[r:{relationship_type}]->(target)
+            SET r += $metadata
             RETURN r
             """,
             {
@@ -4206,12 +4235,13 @@ class LateralRelationshipBackend:
         relationship_type: str,
         metadata: dict[str, Any],
     ) -> Result[list[Neo4jProperties]]:
-        """Create inverse relationship for asymmetric types."""
+        """Create inverse relationship for asymmetric types (idempotent)."""
         return await self.executor.execute_query(
             f"""
             MATCH (source {{uid: $source_uid}})
             MATCH (target {{uid: $target_uid}})
-            CREATE (source)-[r:{relationship_type} $metadata]->(target)
+            MERGE (source)-[r:{relationship_type}]->(target)
+            SET r += $metadata
             """,
             {
                 "source_uid": source_uid,
