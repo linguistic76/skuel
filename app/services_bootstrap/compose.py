@@ -956,6 +956,8 @@ async def compose_services(
             openai_service=ai_service,
             insight_store=insight_store,
             event_bus=event_bus,
+            analytics_service=None,  # Post-wired below after analytics_service creation
+            knowledge_intelligence=activity_knowledge_intelligence,
         )
 
         # Create progress report background worker (February 2026)
@@ -987,6 +989,12 @@ async def compose_services(
             event_bus=event_bus,  # Event-driven report generation
         )
         logger.info("✅ Analytics service created")
+
+        # Post-wire analytics_service into progress generator (created before analytics)
+        progress_generator.analytics_service = analytics_service
+        logger.info(
+            "✅ ProgressReportGenerator wired with AnalyticsService + knowledge intelligence"
+        )
 
         # =====================================================================
         # Create orchestration services (GoalTaskGenerator and HabitEventScheduler only)

@@ -31,6 +31,7 @@ def mock_activity_report_service():
     """Create a mock ActivityReportService."""
     service = MagicMock()
     service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
+    service.get_history = AsyncMock(return_value=Result.ok([]))
     return service
 
 

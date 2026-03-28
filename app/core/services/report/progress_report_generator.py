@@ -27,7 +27,11 @@ from core.models.enums import EntityStatus
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
     from core.services.ai_service import OpenAIService
+    from core.services.analytics_service import AnalyticsService
     from core.services.insight.insight_store import InsightStore
+    from core.services.knowledge.activity_knowledge_intelligence_service import (
+        ActivityKnowledgeIntelligenceService,
+    )
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.user.unified_user_context import UserContext
     from core.services.user.user_context_builder import UserContextBuilder
@@ -60,6 +64,8 @@ class ProgressReportGenerator:
         openai_service: Optional OpenAI service (enables LLM generation)
         insight_store: Optional InsightStore for referencing active insights
         event_bus: Optional EventBusOperations for publishing events
+        analytics_service: Optional AnalyticsService for cross-domain intelligence
+        knowledge_intelligence: Optional ActivityKnowledgeIntelligenceService
 
     When openai_service is provided:
         processor_type = LLM, processed_content = LLM-generated text
@@ -76,6 +82,8 @@ class ProgressReportGenerator:
         openai_service: "OpenAIService | None" = None,
         insight_store: "InsightStore | None" = None,
         event_bus: EventBusOperations | None = None,
+        analytics_service: "AnalyticsService | None" = None,
+        knowledge_intelligence: "ActivityKnowledgeIntelligenceService | None" = None,
     ) -> None:
         self.executor = executor
         self.activity_report_service = activity_report_service
@@ -83,6 +91,8 @@ class ProgressReportGenerator:
         self.openai_service = openai_service
         self.insight_store = insight_store
         self.event_bus = event_bus
+        self.analytics_service = analytics_service
+        self.knowledge_intelligence = knowledge_intelligence
 
     async def generate(
         self,
@@ -147,7 +157,13 @@ class ProgressReportGenerator:
                 if insights_result.is_ok:
                     insights = insights_result.value or []
 
-            # 3. Build content — LLM when available, programmatic fallback
+            # 3. Collect intelligence data (baked into report at generation time)
+            intelligence = await self._collect_intelligence(
+                user_uid, completions, start_date, end_date, ctx_result
+            )
+            comparison = await self._collect_comparison(user_uid, time_period)
+
+            # 4. Build content — LLM when available, programmatic fallback
             processor_type = ProcessorType.AUTOMATIC
             processing_error: str | None = None
 
@@ -161,7 +177,12 @@ class ProgressReportGenerator:
 
             if self.openai_service:
                 llm_result = await self._generate_llm_report(
-                    completions, insights, time_period, depth, effective_annotation
+                    completions,
+                    insights,
+                    time_period,
+                    depth,
+                    effective_annotation,
+                    intelligence=intelligence,
                 )
                 if llm_result.is_ok:
                     content = llm_result.value
@@ -179,8 +200,8 @@ class ProgressReportGenerator:
                     completions, insights, start_date, end_date, progress_depth
                 )
 
-            # 4. Build metadata stats (raw data — preserved regardless of LLM use)
-            metadata = {
+            # 5. Build metadata stats (raw data — preserved regardless of LLM use)
+            metadata: dict[str, Any] = {
                 "time_period": time_period,
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
@@ -194,8 +215,12 @@ class ProgressReportGenerator:
                 "insights_referenced": len(insights),
                 "llm_generated": processor_type == ProcessorType.LLM,
             }
+            if intelligence:
+                metadata["intelligence"] = intelligence
+            if comparison:
+                metadata["comparison"] = comparison
 
-            # 5. Create ActivityReport entity
+            # 6. Create ActivityReport entity
             report = ActivityReport.create(
                 user_uid=user_uid,
                 subject_uid=user_uid,
@@ -217,7 +242,7 @@ class ProgressReportGenerator:
             if create_result.is_error:
                 return Result.fail(create_result)
 
-            # 6. Publish event
+            # 7. Publish event
             event = SubmissionCreated(
                 submission_uid=report.uid,
                 user_uid=user_uid,
@@ -237,6 +262,287 @@ class ProgressReportGenerator:
             return Result.fail(Errors.system(f"Failed to generate progress Ku: {e}"))
 
     # =========================================================================
+    # INTELLIGENCE COLLECTION
+    # =========================================================================
+
+    async def _collect_intelligence(
+        self,
+        user_uid: UserUID,
+        completions: dict[str, Any],
+        start_date: datetime,
+        end_date: datetime,
+        ctx_result: "Result[UserContext]",
+    ) -> dict[str, Any] | None:
+        """Collect intelligence data from analytics and knowledge services.
+
+        All intelligence is computed once at generation time and baked into
+        report metadata — the detail view reads from this snapshot, not live.
+
+        Returns None if no intelligence services are available.
+        """
+        intelligence: dict[str, Any] = {}
+
+        # Domain trends — computed from completions data
+        intelligence["domain_trends"] = self._compute_domain_trends(completions)
+
+        # Life path alignment — from UserContext if available
+        if ctx_result.is_ok:
+            context = ctx_result.value
+            lp_score = getattr(context, "life_path_alignment_score", None)
+            intelligence["life_path"] = {
+                "alignment_score": lp_score,
+            }
+            # ZPD summary — FULL tier only
+            zpd = getattr(context, "zpd_assessment", None)
+            if zpd is not None:
+                intelligence["zpd_summary"] = self._extract_zpd_summary(zpd)
+
+        # Cross-domain patterns — from AnalyticsService
+        if self.analytics_service:
+            try:
+                patterns = await self.analytics_service.detect_cross_domain_patterns(
+                    user_uid, start_date.date(), end_date.date()
+                )
+                intelligence["cross_domain_patterns"] = patterns
+            except Exception as e:  # safety-net: intelligence is optional
+                logger.warning(f"Failed to collect cross-domain patterns: {e}")
+
+            # Life path alignment (detailed) — from AnalyticsLifePathService
+            try:
+                alignment = await self.analytics_service.calculate_life_path_alignment(user_uid)
+                if alignment.is_ok:
+                    intelligence["life_path"] = alignment.value
+            except Exception as e:  # safety-net: intelligence is optional
+                logger.warning(f"Failed to collect life path alignment: {e}")
+
+        # Knowledge intelligence — from ActivityKnowledgeIntelligenceService
+        if self.knowledge_intelligence:
+            try:
+                suggestions_result = await self.knowledge_intelligence.get_knowledge_suggestions(
+                    user_uid
+                )
+                opportunities_result = await self.knowledge_intelligence.get_learning_opportunities(
+                    user_uid
+                )
+                knowledge_data: dict[str, Any] = {}
+                if suggestions_result.is_ok:
+                    knowledge_data["suggestions"] = suggestions_result.value
+                if opportunities_result.is_ok:
+                    knowledge_data["opportunities"] = opportunities_result.value
+                if knowledge_data:
+                    intelligence["knowledge"] = knowledge_data
+            except Exception as e:  # safety-net: intelligence is optional
+                logger.warning(f"Failed to collect knowledge intelligence: {e}")
+
+        # Recommendations — synthesized from trends
+        intelligence["recommendations"] = self._synthesize_recommendations(
+            intelligence.get("domain_trends", {}), completions
+        )
+
+        return intelligence if intelligence else None
+
+    async def _collect_comparison(
+        self, user_uid: UserUID, time_period: str
+    ) -> dict[str, Any] | None:
+        """Fetch prior report's intelligence metadata and compute deltas.
+
+        Returns None if no prior report with intelligence data exists.
+        """
+        history_result = await self.activity_report_service.get_history(
+            subject_uid=user_uid, limit=5
+        )
+        if history_result.is_error or not history_result.value:
+            return None
+
+        # Find most recent prior report with intelligence data
+        for prior_report in history_result.value:
+            prior_metadata = getattr(prior_report, "metadata", None) or {}
+            if not isinstance(prior_metadata, dict):
+                continue
+            prior_intelligence = prior_metadata.get("intelligence")
+            if not prior_intelligence:
+                continue
+
+            prior_trends = prior_intelligence.get("domain_trends", {})
+
+            # Store the prior report's key metrics so the UI can compute deltas
+            prior_life_path = prior_intelligence.get("life_path", {})
+
+            return {
+                "previous_report_uid": getattr(prior_report, "uid", ""),
+                "previous_period": getattr(prior_report, "time_period", time_period),
+                "previous_trends": prior_trends,
+                "previous_life_path_score": prior_life_path.get("alignment_score"),
+            }
+
+        return None
+
+    def _compute_domain_trends(self, completions: dict[str, Any]) -> dict[str, Any]:
+        """Compute per-domain trend indicators from completions data.
+
+        Returns a dict keyed by domain name with key metrics.
+        """
+        trends: dict[str, Any] = {}
+
+        # Tasks
+        tasks_total = completions.get("tasks_total", 0)
+        tasks_completed = completions.get("tasks_completed", 0)
+        completion_rate = (tasks_completed / tasks_total) if tasks_total > 0 else 0.0
+        trends["tasks"] = {
+            "total": tasks_total,
+            "completed": tasks_completed,
+            "completion_rate": round(completion_rate, 2),
+        }
+
+        # Goals
+        goals_details = completions.get("goals_details", [])
+        goals_progressed = completions.get("goals_progressed", 0)
+        avg_progress = 0.0
+        if goals_details:
+            progress_values = [g.get("progress") or 0 for g in goals_details]
+            avg_progress = sum(progress_values) / len(progress_values) if progress_values else 0.0
+        trends["goals"] = {
+            "total": goals_progressed,
+            "avg_progress": round(avg_progress, 2),
+        }
+
+        # Habits
+        habits_details = completions.get("habits_details", [])
+        habits_completed = completions.get("habits_completed", 0)
+        avg_streak = 0.0
+        if habits_details:
+            streaks = [h.get("streak") or 0 for h in habits_details]
+            avg_streak = sum(streaks) / len(streaks) if streaks else 0.0
+        trends["habits"] = {
+            "total": len(habits_details),
+            "completed": habits_completed,
+            "avg_streak": round(avg_streak, 1),
+        }
+
+        # Events
+        events_details = completions.get("events_details", [])
+        milestone_count = sum(1 for e in events_details if e.get("is_milestone"))
+        trends["events"] = {
+            "total": len(events_details),
+            "milestones": milestone_count,
+        }
+
+        # Choices
+        choices_details = completions.get("choices_details", [])
+        principled = sum(1 for c in choices_details if c.get("principles"))
+        trends["choices"] = {
+            "total": len(choices_details),
+            "principled": principled,
+        }
+
+        # Principles
+        principles_details = completions.get("principles_details", [])
+        aligned = sum(
+            1 for p in principles_details if p.get("alignment") in ("aligned", "flourishing")
+        )
+        needs_attention = sum(
+            1 for p in principles_details if p.get("alignment") in ("drifting", "misaligned")
+        )
+        trends["principles"] = {
+            "total": len(principles_details),
+            "aligned": aligned,
+            "needs_attention": needs_attention,
+        }
+
+        return trends
+
+    def _extract_zpd_summary(self, zpd: Any) -> dict[str, Any]:
+        """Extract a serializable summary from a ZPDAssessment."""
+        return {
+            "readiness_score": getattr(zpd, "readiness_score", None),
+            "blocking_gaps_count": len(getattr(zpd, "blocking_gaps", []) or []),
+            "recommended_count": len(getattr(zpd, "recommended_actions", []) or []),
+        }
+
+    def _synthesize_recommendations(
+        self, domain_trends: dict[str, Any], completions: dict[str, Any]
+    ) -> list[dict[str, str]]:
+        """Generate actionable recommendations from trends and completions."""
+        recommendations: list[dict[str, str]] = []
+
+        # Task completion rate
+        tasks = domain_trends.get("tasks", {})
+        rate = tasks.get("completion_rate", 0)
+        if tasks.get("total", 0) > 0 and rate < 0.5:
+            recommendations.append(
+                {
+                    "domain": "tasks",
+                    "severity": "warning",
+                    "text": f"Task completion rate is {rate:.0%} — consider reducing scope or breaking tasks smaller.",
+                }
+            )
+        elif tasks.get("total", 0) > 0 and rate >= 0.8:
+            recommendations.append(
+                {
+                    "domain": "tasks",
+                    "severity": "info",
+                    "text": f"Strong task completion at {rate:.0%} — consider taking on more challenging work.",
+                }
+            )
+
+        # Habit streaks
+        habits = domain_trends.get("habits", {})
+        avg_streak = habits.get("avg_streak", 0)
+        if habits.get("total", 0) > 0 and avg_streak < 3:
+            recommendations.append(
+                {
+                    "domain": "habits",
+                    "severity": "warning",
+                    "text": "Habit streaks are low — focus on consistency with fewer habits.",
+                }
+            )
+
+        # Principle alignment
+        principles = domain_trends.get("principles", {})
+        needs_attn = principles.get("needs_attention", 0)
+        if needs_attn > 0:
+            recommendations.append(
+                {
+                    "domain": "principles",
+                    "severity": "warning",
+                    "text": f"{needs_attn} principle(s) need attention — review alignment with daily choices.",
+                }
+            )
+
+        # Choices-principles connection
+        choices = domain_trends.get("choices", {})
+        if choices.get("total", 0) > 0 and choices.get("principled", 0) == 0:
+            recommendations.append(
+                {
+                    "domain": "choices",
+                    "severity": "info",
+                    "text": "No choices linked to principles this period — consider connecting decisions to your values.",
+                }
+            )
+
+        # Goal-knowledge alignment
+        goal_alignments = completions.get("goal_alignments", [])
+        knowledge_apps = completions.get("knowledge_applications", [])
+        if goal_alignments:
+            recommendations.append(
+                {
+                    "domain": "goals",
+                    "severity": "info",
+                    "text": f"Tasks served {len(set(goal_alignments))} goal(s) — good alignment.",
+                }
+            )
+        if knowledge_apps:
+            recommendations.append(
+                {
+                    "domain": "knowledge",
+                    "severity": "info",
+                    "text": f"Applied {len(set(knowledge_apps))} knowledge unit(s) in tasks.",
+                }
+            )
+
+        return recommendations
+
+    # =========================================================================
     # LLM GENERATION
     # =========================================================================
 
@@ -247,6 +553,7 @@ class ProgressReportGenerator:
         time_period: str,
         depth: str,
         previous_annotation: str | None = None,
+        intelligence: dict[str, Any] | None = None,
     ) -> Result[str]:
         """Send activity stats to LLM and return qualitative report text.
 
@@ -256,6 +563,7 @@ class ProgressReportGenerator:
             time_period: e.g. "7d"
             depth: "summary" | "standard" | "detailed"
             previous_annotation: User's self-reflection from their most recent prior report
+            intelligence: Pre-computed intelligence data (trends, patterns, alignment)
 
         Returns:
             Result[str] — LLM-generated report text
@@ -266,7 +574,7 @@ class ProgressReportGenerator:
             )
 
         prompt = self._build_llm_prompt(
-            completions, insights, time_period, depth, previous_annotation
+            completions, insights, time_period, depth, previous_annotation, intelligence
         )
         return await self.openai_service.generate_completion(
             prompt=prompt,
@@ -282,6 +590,7 @@ class ProgressReportGenerator:
         time_period: str,
         depth: str,
         previous_annotation: str | None = None,
+        intelligence: dict[str, Any] | None = None,
     ) -> str:
         """Build the LLM prompt from activity stats and prompt template.
 
@@ -361,6 +670,26 @@ class ProgressReportGenerator:
             stats_json=json.dumps(stats_summary, indent=2),
             insights_section=insights_section,
         )
+        # Inject intelligence data so LLM can reference trends, patterns, recommendations
+        if intelligence:
+            intel_summary: dict[str, Any] = {}
+            if intelligence.get("domain_trends"):
+                intel_summary["domain_trends"] = intelligence["domain_trends"]
+            if intelligence.get("recommendations"):
+                intel_summary["recommendations"] = [
+                    r["text"] for r in intelligence["recommendations"]
+                ]
+            if intelligence.get("life_path"):
+                lp = intelligence["life_path"]
+                intel_summary["life_path_alignment"] = lp.get("alignment_score")
+                if lp.get("recommendations"):
+                    intel_summary["life_path_recommendations"] = lp["recommendations"][:3]
+            if intel_summary:
+                rendered += (
+                    f"\n\n---\nINTELLIGENCE ANALYSIS (reference these trends and "
+                    f"recommendations in your report):\n"
+                    f"{json.dumps(intel_summary, indent=2, default=str)}\n---\n"
+                )
         if previous_annotation:
             # Prompt injection guard: bracket user content with explicit boundaries
             # so the LLM treats it as data (user voice) and not as instructions.

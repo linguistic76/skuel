@@ -615,7 +615,9 @@ def create_study_ui_routes(
         history_result = await activity_report_service.get_history(subject_uid=user_uid, limit=100)
         if history_result.is_error:
             return await create_study_page(
-                content=Div(render_error_banner("Failed to load report", str(history_result.error))),
+                content=Div(
+                    render_error_banner("Failed to load report", str(history_result.error))
+                ),
                 active_section="activity-reports",
                 request=request,
                 title="Activity Report - Study",
@@ -635,11 +637,17 @@ def create_study_ui_routes(
                 title="Activity Report - Study",
             )
 
-        # Extract snapshot from metadata if available
+        # Extract snapshot, intelligence, and comparison from metadata
         metadata = getattr(report, "metadata", None) or {}
         snapshot = metadata.get("snapshot") if isinstance(metadata, dict) else None
+        intelligence = metadata.get("intelligence") if isinstance(metadata, dict) else None
+        comparison = metadata.get("comparison") if isinstance(metadata, dict) else None
 
-        content = Div(render_activity_report_detail(report, snapshot=snapshot))
+        content = Div(
+            render_activity_report_detail(
+                report, snapshot=snapshot, intelligence=intelligence, comparison=comparison
+            )
+        )
         return await create_study_page(
             content=content,
             active_section="activity-reports",

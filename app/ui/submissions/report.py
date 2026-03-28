@@ -3,6 +3,7 @@ Submission Report & Progress UI Components
 ============================================
 
 Renderers for teacher assessments, activity reports, and progress report cards.
+Includes intelligence sections: trends, recommendations, life path, knowledge.
 """
 
 from typing import Any
@@ -19,6 +20,7 @@ from fasthtml.common import (
     Li,
     NotStr,
     P,
+    Span,
     Textarea,
     Ul,
 )
@@ -227,9 +229,7 @@ def render_activity_report_card(report: Any) -> Any:
         date_parts.append(str(time_period))
     subtitle = " \u00b7 ".join(date_parts)
 
-    domain_badges = [
-        Badge(str(d), variant=BadgeT.ghost, size=Size.xs) for d in domains_covered
-    ]
+    domain_badges = [Badge(str(d), variant=BadgeT.ghost, size=Size.xs) for d in domains_covered]
 
     card_content = CardBody(
         Div(
@@ -247,7 +247,10 @@ def render_activity_report_card(report: Any) -> Any:
 
     if uid:
         return A(
-            Card(card_content, cls="bg-background border border-border mb-2 hover:border-primary/50 transition-colors"),
+            Card(
+                card_content,
+                cls="bg-background border border-border mb-2 hover:border-primary/50 transition-colors",
+            ),
             href=f"/activity-reports/detail?uid={uid}",
             cls="block no-underline text-foreground",
         )
@@ -274,12 +277,22 @@ def render_activity_report_list(items: list[Any]) -> Any:
 
 def render_time_period_filter(active_period: str = "") -> Any:
     """Render time-period filter buttons for activity reports."""
-    periods = [("", "All"), ("7d", "7 days"), ("14d", "14 days"), ("30d", "30 days"), ("90d", "90 days")]
+    periods = [
+        ("", "All"),
+        ("7d", "7 days"),
+        ("14d", "14 days"),
+        ("30d", "30 days"),
+        ("90d", "90 days"),
+    ]
     buttons = []
     for value, label in periods:
         is_active = value == active_period
         cls = "px-3 py-1 text-sm rounded-md border transition-colors "
-        cls += "bg-primary text-primary-foreground border-primary" if is_active else "bg-background text-foreground border-border hover:border-primary/50"
+        cls += (
+            "bg-primary text-primary-foreground border-primary"
+            if is_active
+            else "bg-background text-foreground border-border hover:border-primary/50"
+        )
         buttons.append(
             HtmlButton(
                 label,
@@ -333,15 +346,29 @@ def render_domain_summary_card(domain_name: str, data: dict[str, Any]) -> Any:
                 P(", ".join(stats_parts), cls="text-xs text-muted-foreground"),
                 cls="mb-2",
             ),
-            Ul(*item_rows, cls="list-disc list-inside space-y-1") if item_rows else P("No items in this period.", cls="text-xs text-muted-foreground"),
+            Ul(*item_rows, cls="list-disc list-inside space-y-1")
+            if item_rows
+            else P("No items in this period.", cls="text-xs text-muted-foreground"),
             cls="p-3",
         ),
         cls="bg-muted/30 border border-border",
     )
 
 
-def render_activity_report_detail(report: Any, snapshot: dict[str, Any] | None = None) -> Any:
-    """Render the full detail view for a single ActivityReport."""
+def render_activity_report_detail(
+    report: Any,
+    snapshot: dict[str, Any] | None = None,
+    intelligence: dict[str, Any] | None = None,
+    comparison: dict[str, Any] | None = None,
+) -> Any:
+    """Render the full detail view for a single ActivityReport.
+
+    Args:
+        report: ActivityReport entity
+        snapshot: Report snapshot metadata (entity counts per domain)
+        intelligence: Intelligence metadata (trends, patterns, recommendations, life path)
+        comparison: Period-over-period comparison data (previous report deltas)
+    """
     uid = getattr(report, "uid", "") or ""
     title = getattr(report, "title", "") or "Activity Report"
     created_at = getattr(report, "created_at", None)
@@ -364,12 +391,20 @@ def render_activity_report_detail(report: Any, snapshot: dict[str, Any] | None =
     badges.append(render_processor_badge(ptype_str))
     domain_badges = [Badge(str(d), variant=BadgeT.ghost, size=Size.sm) for d in domains_covered]
 
+    # Comparison banner (when prior report exists)
+    comparison_section = _render_comparison_banner(comparison, intelligence) if comparison else None
+
     # Report content section
     content_section = Div(
         H3("Report Content", cls="font-semibold mb-3"),
-        P(content, cls="text-sm whitespace-pre-wrap leading-relaxed") if content else P("No content generated.", cls="text-sm text-muted-foreground"),
+        P(content, cls="text-sm whitespace-pre-wrap leading-relaxed")
+        if content
+        else P("No content generated.", cls="text-sm text-muted-foreground"),
         cls="mb-6",
     )
+
+    # Intelligence sections (from baked metadata)
+    intelligence_sections = _render_intelligence_sections(intelligence) if intelligence else []
 
     # Domain breakdown from snapshot metadata
     domain_cards: list[Any] = []
@@ -378,7 +413,9 @@ def render_activity_report_detail(report: Any, snapshot: dict[str, Any] | None =
         if domains_data:
             domain_cards.append(Hr(cls="my-6"))
             domain_cards.append(H3("Domain Breakdown", cls="font-semibold mb-3"))
-            grid_items = [render_domain_summary_card(name, data) for name, data in domains_data.items()]
+            grid_items = [
+                render_domain_summary_card(name, data) for name, data in domains_data.items()
+            ]
             domain_cards.append(Div(*grid_items, cls="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6"))
 
     # Annotation section
@@ -447,12 +484,12 @@ def render_activity_report_detail(report: Any, snapshot: dict[str, Any] | None =
                 "hx-post": "/api/activity-reports/annotate",
                 "hx-target": "#annotation-status",
                 "hx-swap": "innerHTML",
-                "hx-vals": 'js:{'
-                    + '"uid": document.querySelector("[name=uid]").value,'
-                    + '"annotation_mode": document.querySelector("[name=annotation_mode]:checked").value,'
-                    + '"user_annotation": document.querySelector("[name=annotation_mode]:checked").value === "additive" ? document.querySelector("[name=annotation_text]").value : null,'
-                    + '"user_revision": document.querySelector("[name=annotation_mode]:checked").value === "revision" ? document.querySelector("[name=annotation_text]").value : null'
-                    + '}',
+                "hx-vals": "js:{"
+                + '"uid": document.querySelector("[name=uid]").value,'
+                + '"annotation_mode": document.querySelector("[name=annotation_mode]:checked").value,'
+                + '"user_annotation": document.querySelector("[name=annotation_mode]:checked").value === "additive" ? document.querySelector("[name=annotation_text]").value : null,'
+                + '"user_revision": document.querySelector("[name=annotation_mode]:checked").value === "revision" ? document.querySelector("[name=annotation_text]").value : null'
+                + "}",
                 "hx-headers": '{"Content-Type": "application/json"}',
             },
         ),
@@ -476,10 +513,443 @@ def render_activity_report_detail(report: Any, snapshot: dict[str, Any] | None =
             Div(*domain_badges, cls="flex flex-wrap gap-1 mt-1") if domain_badges else None,
             cls="mb-6",
         ),
+        comparison_section,
         content_section,
+        *intelligence_sections,
         *domain_cards,
         annotation_section,
         back,
+    )
+
+
+# ============================================================================
+# INTELLIGENCE UI SECTIONS
+# ============================================================================
+
+_TREND_ARROW = {"improved": "\u2191", "declined": "\u2193", "stable": "\u2192"}
+_TREND_COLOR = {
+    "improved": "text-green-600",
+    "declined": "text-amber-600",
+    "stable": "text-muted-foreground",
+}
+
+
+def _render_comparison_banner(
+    comparison: dict[str, Any], intelligence: dict[str, Any] | None
+) -> Any:
+    """Render a compact period-over-period comparison banner at top of detail view."""
+    previous_trends = comparison.get("previous_trends", {})
+    current_trends = intelligence.get("domain_trends", {}) if intelligence else {}
+    previous_period = comparison.get("previous_period", "")
+
+    if not previous_trends or not current_trends:
+        return None
+
+    delta_chips = []
+    for domain in ("tasks", "goals", "habits", "events", "choices", "principles"):
+        prev = previous_trends.get(domain, {})
+        curr = current_trends.get(domain, {})
+
+        # Use the most meaningful metric per domain
+        if domain == "tasks":
+            prev_val = prev.get("completion_rate", 0)
+            curr_val = curr.get("completion_rate", 0)
+            label = "Tasks"
+            fmt = "{:+.0%}"
+        elif domain == "goals":
+            prev_val = prev.get("avg_progress", 0)
+            curr_val = curr.get("avg_progress", 0)
+            label = "Goals"
+            fmt = "{:+.0f}%"
+        elif domain == "habits":
+            prev_val = prev.get("avg_streak", 0)
+            curr_val = curr.get("avg_streak", 0)
+            label = "Habits"
+            fmt = "{:+.1f}"
+        else:
+            prev_val = prev.get("total", 0)
+            curr_val = curr.get("total", 0)
+            label = domain.title()
+            fmt = "{:+d}"
+
+        delta = curr_val - prev_val
+        if delta == 0:
+            continue
+
+        direction = "improved" if delta > 0 else "declined"
+        arrow = _TREND_ARROW[direction]
+        color = _TREND_COLOR[direction]
+        try:
+            delta_str = fmt.format(delta)
+        except (ValueError, TypeError):
+            delta_str = str(delta)
+
+        delta_chips.append(Span(f"{label} {arrow}{delta_str}", cls=f"text-xs font-medium {color}"))
+
+    # Life path delta
+    prev_lp = comparison.get("previous_life_path_score")
+    curr_lp = (intelligence or {}).get("life_path", {}).get("alignment_score")
+    if prev_lp is not None and curr_lp is not None:
+        lp_delta = curr_lp - prev_lp
+        if lp_delta != 0:
+            direction = "improved" if lp_delta > 0 else "declined"
+            delta_chips.append(
+                Span(
+                    f"Life Path {_TREND_ARROW[direction]}{lp_delta:+.2f}",
+                    cls=f"text-xs font-medium {_TREND_COLOR[direction]}",
+                )
+            )
+
+    if not delta_chips:
+        return None
+
+    period_label = f"vs previous {previous_period}" if previous_period else "vs previous"
+    return Card(
+        CardBody(
+            Div(
+                Span(period_label, cls="text-xs text-muted-foreground mr-3"),
+                *delta_chips,
+                cls="flex flex-wrap items-center gap-3",
+            ),
+            cls="py-2 px-3",
+        ),
+        cls="bg-muted/20 border border-border mb-4",
+    )
+
+
+def _render_intelligence_sections(intelligence: dict[str, Any]) -> list[Any]:
+    """Render all intelligence sections from baked metadata."""
+    sections: list[Any] = []
+
+    # Trends section
+    domain_trends = intelligence.get("domain_trends")
+    if domain_trends:
+        sections.append(_render_trends_section(domain_trends))
+
+    # Recommendations section
+    recommendations = intelligence.get("recommendations")
+    if recommendations:
+        sections.append(_render_recommendations_section(recommendations))
+
+    # Life path alignment section
+    life_path = intelligence.get("life_path")
+    if life_path and life_path.get("alignment_score") is not None:
+        sections.append(_render_life_path_section(life_path))
+
+    # Knowledge intelligence section
+    knowledge = intelligence.get("knowledge")
+    if knowledge:
+        sections.append(_render_knowledge_section(knowledge))
+
+    # Cross-domain patterns section
+    patterns = intelligence.get("cross_domain_patterns")
+    if patterns:
+        sections.append(_render_cross_domain_section(patterns))
+
+    # ZPD summary (FULL tier only)
+    zpd = intelligence.get("zpd_summary")
+    if zpd:
+        sections.append(_render_zpd_section(zpd))
+
+    return sections
+
+
+def _render_trends_section(domain_trends: dict[str, Any]) -> Any:
+    """Render per-domain trend indicators."""
+    trend_cards = []
+    for domain, data in domain_trends.items():
+        metrics = []
+        if "completion_rate" in data:
+            rate = data["completion_rate"]
+            metrics.append(P(f"Completion: {rate:.0%}", cls="text-xs text-muted-foreground"))
+        if data.get("avg_progress"):
+            metrics.append(
+                P(f"Avg progress: {data['avg_progress']:.0f}%", cls="text-xs text-muted-foreground")
+            )
+        if data.get("avg_streak"):
+            metrics.append(
+                P(f"Avg streak: {data['avg_streak']:.1f}", cls="text-xs text-muted-foreground")
+            )
+        if data.get("milestones"):
+            metrics.append(
+                P(f"Milestones: {data['milestones']}", cls="text-xs text-muted-foreground")
+            )
+        if "principled" in data and data.get("total", 0) > 0:
+            metrics.append(
+                P(
+                    f"Principle-guided: {data['principled']}/{data['total']}",
+                    cls="text-xs text-muted-foreground",
+                )
+            )
+        if "aligned" in data:
+            metrics.append(
+                P(
+                    f"Aligned: {data['aligned']}, Needs attention: {data.get('needs_attention', 0)}",
+                    cls="text-xs text-muted-foreground",
+                )
+            )
+
+        total = data.get("total", 0)
+        if total == 0 and not metrics:
+            continue
+
+        trend_cards.append(
+            Div(
+                P(domain.title(), cls="text-sm font-medium mb-1"),
+                P(f"{total} total", cls="text-xs text-muted-foreground"),
+                *metrics,
+                cls="p-3 bg-muted/20 rounded-md border border-border",
+            )
+        )
+
+    if not trend_cards:
+        return Div()
+
+    return Div(
+        Hr(cls="my-6"),
+        H3("Domain Trends", cls="font-semibold mb-3"),
+        Div(*trend_cards, cls="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4"),
+    )
+
+
+def _render_recommendations_section(recommendations: list[dict[str, str]]) -> Any:
+    """Render actionable recommendation cards."""
+    if not recommendations:
+        return Div()
+
+    _severity_variant: dict[str, BadgeT] = {
+        "warning": BadgeT.warning,
+        "info": BadgeT.info,
+        "critical": BadgeT.error,
+    }
+
+    items = []
+    for rec in recommendations:
+        severity = rec.get("severity", "info")
+        domain = rec.get("domain", "")
+        text = rec.get("text", "")
+        variant = _severity_variant.get(severity, BadgeT.ghost)
+        items.append(
+            Div(
+                Div(
+                    Badge(domain.title(), variant=BadgeT.outline, size=Size.xs) if domain else None,
+                    Badge(severity.title(), variant=variant, size=Size.xs),
+                    cls="flex gap-1 mb-1",
+                ),
+                P(text, cls="text-sm"),
+                cls="p-3 bg-muted/20 rounded-md border border-border",
+            )
+        )
+
+    return Div(
+        Hr(cls="my-6"),
+        H3("Recommendations", cls="font-semibold mb-3"),
+        Div(*items, cls="space-y-2 mb-4"),
+    )
+
+
+def _render_life_path_section(life_path: dict[str, Any]) -> Any:
+    """Render life path alignment score and details."""
+    score = life_path.get("alignment_score")
+    if score is None:
+        return Div()
+
+    score_pct = round(score * 100) if isinstance(score, float) else 0
+    # Color based on score
+    if score_pct >= 70:
+        bar_color = "bg-green-500"
+    elif score_pct >= 40:
+        bar_color = "bg-amber-500"
+    else:
+        bar_color = "bg-red-500"
+
+    details = []
+    if life_path.get("life_path_title"):
+        details.append(
+            P(f"Path: {life_path['life_path_title']}", cls="text-sm text-muted-foreground")
+        )
+    if life_path.get("embodied_knowledge") is not None:
+        details.append(
+            P(
+                f"Knowledge: {life_path.get('embodied_knowledge', 0)} embodied, "
+                f"{life_path.get('theoretical_knowledge', 0)} theoretical",
+                cls="text-sm text-muted-foreground",
+            )
+        )
+    if life_path.get("recommendations"):
+        recs = life_path["recommendations"][:3]
+        details.append(
+            Ul(
+                *[Li(r, cls="text-xs text-muted-foreground") for r in recs],
+                cls="list-disc list-inside mt-1",
+            )
+        )
+
+    return Div(
+        Hr(cls="my-6"),
+        H3("Life Path Alignment", cls="font-semibold mb-3"),
+        Div(
+            Div(
+                P(f"{score_pct}%", cls="text-2xl font-bold"),
+                P("alignment score", cls="text-xs text-muted-foreground"),
+                cls="mr-4",
+            ),
+            Div(
+                Div(
+                    Div(cls=f"{bar_color} h-2 rounded-full", style=f"width: {score_pct}%"),
+                    cls="w-full bg-muted rounded-full h-2",
+                ),
+                cls="flex-1 pt-3",
+            ),
+            cls="flex items-start mb-3",
+        ),
+        *details,
+        cls="mb-4",
+    )
+
+
+def _render_knowledge_section(knowledge: dict[str, Any]) -> Any:
+    """Render knowledge intelligence (opportunities, suggestions)."""
+    items: list[Any] = []
+
+    suggestions = knowledge.get("suggestions", {})
+    if isinstance(suggestions, dict):
+        patterns = suggestions.get("entity_patterns", [])
+        gaps = suggestions.get("knowledge_gaps", [])
+        if patterns:
+            items.append(
+                Div(
+                    H4("Knowledge Patterns", cls="text-sm font-medium mb-1"),
+                    Ul(
+                        *[
+                            Li(p.get("pattern", ""), cls="text-xs text-muted-foreground")
+                            for p in patterns[:5]
+                        ],
+                        cls="list-disc list-inside",
+                    ),
+                    cls="mb-2",
+                )
+            )
+        if gaps:
+            items.append(
+                Div(
+                    H4("Knowledge Gaps", cls="text-sm font-medium mb-1"),
+                    Ul(
+                        *[Li(g, cls="text-xs text-muted-foreground") for g in gaps[:5]],
+                        cls="list-disc list-inside",
+                    ),
+                    cls="mb-2",
+                )
+            )
+
+    opportunities = knowledge.get("opportunities", {})
+    if isinstance(opportunities, dict):
+        opps = opportunities.get("opportunities", [])
+        focus = opportunities.get("recommended_focus", [])
+        if opps:
+            items.append(
+                Div(
+                    H4("Learning Opportunities", cls="text-sm font-medium mb-1"),
+                    Ul(
+                        *[
+                            Li(o.get("title", ""), cls="text-xs text-muted-foreground")
+                            for o in opps[:5]
+                        ],
+                        cls="list-disc list-inside",
+                    ),
+                    cls="mb-2",
+                )
+            )
+        if focus:
+            items.append(
+                Div(
+                    H4("Recommended Focus", cls="text-sm font-medium mb-1"),
+                    Ul(
+                        *[Li(f, cls="text-xs text-muted-foreground") for f in focus[:3]],
+                        cls="list-disc list-inside",
+                    ),
+                    cls="mb-2",
+                )
+            )
+
+    if not items:
+        return Div()
+
+    return Div(
+        Hr(cls="my-6"),
+        H3("Knowledge Intelligence", cls="font-semibold mb-3"),
+        *items,
+    )
+
+
+def _render_cross_domain_section(patterns: dict[str, Any]) -> Any:
+    """Render cross-domain pattern insights."""
+    items: list[Any] = []
+
+    # Choice-principle alignment
+    cpa = patterns.get("choice_principle_alignment", {})
+    if isinstance(cpa, dict) and cpa.get("alignment_ratio") is not None:
+        ratio = cpa["alignment_ratio"]
+        items.append(
+            P(
+                f"Choice-principle alignment: {ratio:.0%}",
+                cls="text-sm text-muted-foreground",
+            )
+        )
+
+    # Goal-habit support
+    ghs = patterns.get("goal_habit_support", {})
+    if isinstance(ghs, dict) and ghs.get("supported_goals") is not None:
+        items.append(
+            P(
+                f"Goals with habit support: {ghs['supported_goals']}",
+                cls="text-sm text-muted-foreground",
+            )
+        )
+
+    # Domain balance
+    balance = patterns.get("domain_balance", {})
+    if isinstance(balance, dict) and balance.get("balance_score") is not None:
+        items.append(
+            P(
+                f"Domain balance score: {balance['balance_score']:.2f}",
+                cls="text-sm text-muted-foreground",
+            )
+        )
+
+    if not items:
+        return Div()
+
+    return Div(
+        Hr(cls="my-6"),
+        H3("Cross-Domain Insights", cls="font-semibold mb-3"),
+        *items,
+        cls="mb-4",
+    )
+
+
+def _render_zpd_section(zpd: dict[str, Any]) -> Any:
+    """Render Zone of Proximal Development summary (FULL tier only)."""
+    readiness = zpd.get("readiness_score")
+    blocking = zpd.get("blocking_gaps_count", 0)
+    recommended = zpd.get("recommended_count", 0)
+
+    if readiness is None:
+        return Div()
+
+    items = [
+        P(f"Learning readiness: {readiness:.0%}", cls="text-sm"),
+    ]
+    if blocking > 0:
+        items.append(P(f"Blocking gaps: {blocking}", cls="text-sm text-amber-600"))
+    if recommended > 0:
+        items.append(P(f"Recommended actions: {recommended}", cls="text-sm text-muted-foreground"))
+
+    return Div(
+        Hr(cls="my-6"),
+        H3("Zone of Proximal Development", cls="font-semibold mb-3"),
+        *items,
+        cls="mb-4",
     )
 
 

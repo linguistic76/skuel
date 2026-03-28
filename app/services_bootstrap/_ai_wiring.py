@@ -67,7 +67,5 @@ def _wire_ai_services(
         graph_intelligence_service=graph_intelligence,
     )
 
-    logger.info(
-        "✅ AI services created and wired (5 services: 3 Curriculum + 2 cross-cutting)"
-    )
+    logger.info("✅ AI services created and wired (5 services: 3 Curriculum + 2 cross-cutting)")
     return askesis_ai, context_aware_ai
