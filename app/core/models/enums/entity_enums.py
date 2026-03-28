@@ -663,11 +663,13 @@ _VALID_TRANSITIONS: dict[EntityStatus, set[EntityStatus]] = {
         EntityStatus.CANCELLED,
     },
     EntityStatus.COMPLETED: {
+        EntityStatus.SUBMITTED,  # reprocessing path
         EntityStatus.REVISION_REQUESTED,
         EntityStatus.ARCHIVED,
     },
     EntityStatus.FAILED: {
         EntityStatus.DRAFT,
+        EntityStatus.SUBMITTED,  # reprocessing path
         EntityStatus.CANCELLED,
         EntityStatus.ARCHIVED,
     },

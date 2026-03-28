@@ -109,7 +109,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- FormSubmission(UserOwnedEntity)          FORM_SUBMISSION (structured JSON)
 |   +-- Submission(UserOwnedEntity) +13 file/processing fields
 |   |   +-- ExerciseSubmission(Submission)        EXERCISE_SUBMISSION
-|   +-- ExerciseReport(UserOwnedEntity) +5 report fields (NOT Submission)    EXERCISE_REPORT
+|   +-- ExerciseReport(UserOwnedEntity) +6 report fields (NOT Submission)    EXERCISE_REPORT
 |   +-- JeInput(UserOwnedEntity)                  JE_INPUT (standalone journal domain)
 |   +-- JeOutput(UserOwnedEntity)                 JE_OUTPUT (standalone journal domain)
 |   +-- RevisedExercise(UserOwnedEntity)          REVISED_EXERCISE
@@ -293,7 +293,7 @@ The educational loop: `Lesson -> Exercise -> ExerciseSubmission -> ExerciseRepor
 | `EXERCISE_REPORT` | `ExerciseReport(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a submission via `subject_uid` |
 | `ACTIVITY_REPORT` | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
 
-**Key structural note:** `ExerciseReport` extends `UserOwnedEntity` directly — NOT `Submission`. It has 5 report-specific fields (`report_content`, `report_generated_at`, `subject_uid`, `processor_type`, `report_file_path`) but no file/processing fields.
+**Key structural note:** `ExerciseReport` extends `UserOwnedEntity` directly — NOT `Submission`. It has 6 report-specific fields (`report_content`, `report_generated_at`, `subject_uid`, `processor_type`, `assessment_outcome`, `report_file_path`) but no file/processing fields. `assessment_outcome` (`AssessmentOutcome` enum: APPROVED, NEEDS_REVISION, AI_EVALUATED) makes each report self-describing — the report records what decision was made, not just feedback text.
 
 `ACTIVITY_REPORT` also inherits `UserOwnedEntity` directly — no file fields. It responds to aggregate activity patterns over a time period, not to a specific artifact.
 

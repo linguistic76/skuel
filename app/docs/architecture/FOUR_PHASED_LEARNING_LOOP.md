@@ -337,6 +337,10 @@ Both say "here is what your work means."
 via the Exercise's `instructions` field (`LLM`).
 
 **EntityType:** `EntityType.EXERCISE_REPORT`
+**Self-describing outcome:** Each report records its `assessment_outcome` (`AssessmentOutcome` enum):
+`APPROVED` (teacher approved, mastery 0.8), `NEEDS_REVISION` (teacher requests resubmission),
+or `AI_EVALUATED` (LLM feedback, mastery 0.6, awaiting teacher review).
+
 **Structural position:** Leaf domain — fits the standard 4-layer architecture cleanly
 (`ExerciseReportOperations` protocol → `SubmissionsBackend` → `ExerciseReportService` / `SubmissionsCoreService`).
 

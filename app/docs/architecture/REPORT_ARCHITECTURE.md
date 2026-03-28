@@ -160,6 +160,7 @@ Curriculum Work                 Activity Domains
 | Inherits | `UserOwnedEntity` — NOT Submission |
 | `subject_uid` | UID of the submission being evaluated |
 | `processor_type` | `HUMAN` or `LLM` |
+| `assessment_outcome` | `APPROVED`, `NEEDS_REVISION`, or `AI_EVALUATED` (`AssessmentOutcome` enum) |
 
 **Two sources — same entity type:**
 
@@ -462,12 +463,13 @@ When `openai_service` is available, the generator:
 ## Neo4j Schema
 
 ```cypher
-// SUBMISSION_REPORT — tied to a specific submission
+// EXERCISE_REPORT — tied to a specific submission
 (:Entity:ExerciseReport {
-    uid, entity_type: 'submission_report',
-    user_uid,        // owner (teacher or AI agent)
-    subject_uid,     // submission being evaluated
-    processor_type,  // 'human' or 'llm'
+    uid, entity_type: 'exercise_report',
+    user_uid,             // owner (teacher or AI agent)
+    subject_uid,          // submission being evaluated
+    processor_type,       // 'human' or 'llm'
+    assessment_outcome,   // 'approved', 'needs_revision', or 'ai_evaluated'
     title, processed_content,
     created_at, updated_at
 })

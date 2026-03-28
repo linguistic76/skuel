@@ -307,33 +307,40 @@ entry points. Both close the loop — both say "here is what your work means."
 ### 4a. EXERCISE_REPORT — Response to an Artifact
 
 **EntityType:** `EntityType.EXERCISE_REPORT`
-**Model:** `core/models/report/exercise_report.py` — `ExerciseReport(Submission)` frozen dataclass
+**Model:** `core/models/report/exercise_report.py` — `ExerciseReport(UserOwnedEntity)` frozen dataclass
 **Neo4j label:** `:Entity:ExerciseReport`
-**Inherits:** Full `Submission` model (+2 report-specific fields)
+**Inherits:** `UserOwnedEntity` directly — NOT Submission (+6 report-specific fields)
 
 **Key fields:**
 ```python
-subject_uid: str | None          # UID of the submission being evaluated (inherited)
-processor_type: ProcessorType    # HUMAN (teacher) | LLM (AI)
-feedback: str | None             # The evaluation text
-feedback_generated_at: datetime | None
+report_content: str | None                        # The evaluation text
+report_generated_at: datetime | None
+subject_uid: str | None                           # UID of the submission being evaluated
+processor_type: ProcessorType | None              # HUMAN (teacher) | LLM (AI)
+assessment_outcome: AssessmentOutcome | None       # APPROVED | NEEDS_REVISION | AI_EVALUATED
+report_file_path: str | None                       # Generated output file path
 ```
+
+`assessment_outcome` (`AssessmentOutcome` enum from `learning_enums.py`) makes each report
+self-describing — the report records what decision was made, not just feedback text.
 
 **Two sources — same EntityType, different ProcessorType:**
 
-| Source | Service | ProcessorType | Trigger |
-|--------|---------|---------------|---------|
-| Teacher | `AssessmentService.create_assessment()` | `HUMAN` | Teacher reviews in queue |
-| AI | `ExerciseReportService.generate_report()` | `LLM` | Exercise has `instructions` (via `UnifiedLLMCaller`) |
+| Source | Service | ProcessorType | AssessmentOutcome | Trigger |
+|--------|---------|---------------|-------------------|---------|
+| Teacher approves | `TeacherReviewService.submit_report()` | `HUMAN` | `APPROVED` | Teacher reviews in queue |
+| Teacher requests revision | `TeacherReviewService.request_revision()` | `HUMAN` | `NEEDS_REVISION` | Teacher wants resubmission |
+| AI | `ExerciseReportService.generate_report()` | `LLM` | `AI_EVALUATED` | Exercise has `instructions` (via `UnifiedLLMCaller`) |
 
 **Graph pattern:**
 ```cypher
 (teacher:User)-[:OWNS]->(report:Entity:ExerciseReport {
     subject_uid: 'submission_uid_being_evaluated',
-    processor_type: 'human',     // or 'llm'
-    feedback: 'Your analysis shows...'
+    processor_type: 'human',            // or 'llm'
+    assessment_outcome: 'approved',     // or 'needs_revision' or 'ai_evaluated'
+    report_content: 'Your analysis shows...'
 })
-(report)-[:REPORT_FOR]->(submission:Entity:Submission)
+(report)-[:REPORT_FOR]->(submission:Entity:ExerciseSubmission)
 ```
 
 **Structural position:** Leaf domain. One submission in, one report node out.
@@ -346,11 +353,11 @@ After reviewing a submission, the teacher has three outcomes via `TeacherReviewS
 (`core/services/report/teacher_review_service.py`, protocol: `TeacherReviewOperations`
 in `core/ports/report_protocols.py`):
 
-| Action | Method | Event Published | Result |
-|--------|--------|-----------------|--------|
-| Write report | `submit_report()` | `ReportSubmitted` | `ExerciseReport` created, loop continues |
-| Request revision | `request_revision()` | `SubmissionRevisionRequested` | Student notified, resubmit expected |
-| Approve | `approve_report()` | `SubmissionApproved` | Loop closes for this exercise |
+| Action | Method | AssessmentOutcome | Event Published | Result |
+|--------|--------|-------------------|-----------------|--------|
+| Write report | `submit_report()` | `APPROVED` | `ReportSubmitted` | `ExerciseReport` created, loop continues |
+| Request revision | `request_revision()` | `NEEDS_REVISION` | `SubmissionRevisionRequested` | Student notified, resubmit expected |
+| Approve | `approve_report()` | — (no report created) | `SubmissionApproved` | Loop closes for this exercise |
 
 Each feedback round creates a new `ExerciseReport` entity via `REPORT_FOR` —
 revision cycles are traceable as first-class graph entities. The loop publishes

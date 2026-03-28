@@ -385,7 +385,10 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         self, uid: str, new_status: EntityStatus, error_message: str | None = None
     ) -> Result[Entity]:
         """
-        Update submission status.
+        Update submission status with transition validation.
+
+        Validates that the transition is allowed by the general transition map
+        and that the target status is valid for the entity's type before persisting.
 
         Args:
             uid: Submission UID
@@ -393,8 +396,27 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             error_message: Error message if status is FAILED
 
         Returns:
-            Result containing updated Ku
+            Result containing updated submission, or validation error if transition is invalid
         """
+        # Fetch current entity to validate the transition
+        current_result = await self.backend.get(uid)
+        if current_result.is_error:
+            return Result.fail(current_result)
+        if not current_result.value:
+            return Result.fail(Errors.not_found("Submission", uid))
+
+        current = current_result.value
+        if not current.status.can_transition_to(new_status, current.entity_type):
+            return Result.fail(
+                Errors.validation(
+                    message=(
+                        f"Invalid status transition: {current.status.value} → {new_status.value} "
+                        f"for {current.entity_type.value}"
+                    ),
+                    field="status",
+                )
+            )
+
         updates: dict[str, Any] = {"status": new_status.value}
 
         if new_status == EntityStatus.PROCESSING:
