@@ -59,7 +59,7 @@ async def get_tasks(user_uid):
 **DO this:**
 ```python
 # ✅ Explicit Result[T] with error propagation
-async def get_tasks(user_uid) -> Result[list[Any]]:
+async def get_tasks(user_uid) -> Result[list[Task]]:
     try:
         result = await tasks_service.list_for_user(user_uid)
         if result.is_error:
@@ -170,7 +170,7 @@ def parse_task_update_payload(form: Any) -> dict[str, Any]:
 Route handlers become thin — just auth + parse + service call:
 
 ```python
-async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
+async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Task]:
     """Domain-specific task creation logic."""
     create_request = parse_task_create_request(form_data)
     return await tasks_service.create_task(create_request, user_uid)
@@ -228,16 +228,16 @@ Data helper returns Result[T]
 ```
 Need to fetch data for UI?
 ├─ Simple fetch (no filtering/sorting)?
-│  └─ async def get_all_tasks() -> Result[list[Any]]
+│  └─ async def get_all_tasks() -> Result[list[Task]]
 │
 ├─ Fetch + stats calculation?
 │  └─ Split into:
-│     - async def get_all_tasks() -> Result[list[Any]]  # I/O
+│     - async def get_all_tasks() -> Result[list[Task]]  # I/O
 │     - def compute_stats(tasks) -> dict  # Pure
 │
 └─ Fetch + stats + filter + sort?
    └─ Split into:
-      - async def get_all_tasks() -> Result[list[Any]]  # I/O
+      - async def get_all_tasks() -> Result[list[Task]]  # I/O
       - def compute_stats(tasks) -> dict  # Pure
       - def apply_filters(tasks, ...) -> list[Any]  # Pure
       - def apply_sort(tasks, sort_by) -> list[Any]  # Pure
@@ -297,11 +297,11 @@ async def tasks_dashboard(request):
 from adapters.inbound.ui_helpers import fetch_user_entities
 
 # Simple — service always available:
-async def get_all_goals(user_uid: UserUID) -> Result[list[Any]]:
+async def get_all_goals(user_uid: UserUID) -> Result[list[Goal]]:
     return await fetch_user_entities(goals_service.get_user_goals, "goals", user_uid, logger)
 
 # Optional service — pass None when unavailable:
-async def get_all_events(user_uid: UserUID) -> Result[list[Any]]:
+async def get_all_events(user_uid: UserUID) -> Result[list[Event]]:
     service_method = events_service.get_user_events if events_service else None
     return await fetch_user_entities(service_method, "events", user_uid, logger)
 ```
@@ -433,7 +433,7 @@ async def get_filtered_context(
 ) -> Result[ListContext]:
     """Get filtered and sorted tasks with pre-filter stats in a single query."""
 
-    async def fetch_all() -> Result[list[Any]]:
+    async def fetch_all() -> Result[list[Task]]:
         return await self.core.get_for_user_filtered(user_uid, "all")
 
     def apply_filters(all_tasks: list[Any]) -> list[Any]:
@@ -635,7 +635,7 @@ def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
     return Result.ok(None)
 
 
-async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
+async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Task]:
     """Create task from form data with early validation."""
 
     # VALIDATE EARLY (before hitting services)
@@ -804,7 +804,7 @@ async def get_filtered_context(
 ) -> Result[ListContext]:
     """Get filtered and sorted tasks with pre-filter stats."""
 
-    async def fetch_all() -> Result[list[Any]]:
+    async def fetch_all() -> Result[list[Task]]:
         return await self.core.get_for_user_filtered(user_uid, "all")
 
     def apply_filters(all_tasks: list[Any]) -> list[Any]:
@@ -914,7 +914,7 @@ def validate_choice_form_data(form_data: dict[str, Any]) -> Result[None]:
     return Result.ok(None)
 
 
-async def create_choice_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
+async def create_choice_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Choice]:
     """Create choice with early validation."""
 
     # Validate early
@@ -954,7 +954,7 @@ async def get_all_tasks(user_uid):
 **Correct approach:**
 ```python
 # ✅ DO THIS
-async def get_all_tasks(user_uid: UserUID) -> Result[list[Any]]:
+async def get_all_tasks(user_uid: UserUID) -> Result[list[Task]]:
     try:
         result = await tasks_service.get_user_tasks(user_uid)
         if result.is_error:
@@ -1093,7 +1093,7 @@ async def create_task_from_form(form_data: dict, user_uid: UserUID):
 **Correct approach:**
 ```python
 # ✅ DO THIS - Validate early with clear messages
-async def create_task_from_form(form_data: dict, user_uid: UserUID) -> Result[Any]:
+async def create_task_from_form(form_data: dict, user_uid: UserUID) -> Result[Task]:
     # Validate FIRST
     validation_result = validate_task_form_data(form_data)
     if validation_result.is_error:
@@ -1145,7 +1145,7 @@ if other_result.is_error:
 **Why it's wrong:**
 ```python
 # ❌ DON'T DO THIS
-async def get_all_tasks(user_uid: UserUID) -> Result[list[Any]]:
+async def get_all_tasks(user_uid: UserUID) -> Result[list[Task]]:
     try:
         result = await tasks_service.get_user_tasks(user_uid)
         if result.is_error:
@@ -1163,7 +1163,7 @@ async def get_all_tasks(user_uid: UserUID) -> Result[list[Any]]:
 **Correct approach:**
 ```python
 # ✅ DO THIS - Always log with context
-async def get_all_tasks(user_uid: UserUID) -> Result[list[Any]]:
+async def get_all_tasks(user_uid: UserUID) -> Result[list[Task]]:
     try:
         result = await tasks_service.get_user_tasks(user_uid)
         if result.is_error:

@@ -21,10 +21,12 @@ Template for defining protocol interfaces in SKUEL's Protocol-Based Architecture
 ## Template
 
 ```python
-from typing import Protocol, Optional, List, Any
+from typing import Protocol, Optional, List, Any, TypeVar
 from core.utils.result import Result
 
-class SomeOperations(Protocol):
+T = TypeVar("T")
+
+class SomeOperations(Protocol[T]):
     """
     Protocol for [domain] backend operations.
 
@@ -32,15 +34,15 @@ class SomeOperations(Protocol):
     Implementations must provide all methods defined here.
 
     Usage:
-        class ConcreteBackend(SomeOperations):
-            async def create(self, data: Any) -> Result[Any]:
+        class ConcreteBackend(SomeOperations[Task]):
+            async def create(self, data: TaskDTO) -> Result[Task]:
                 # Implementation details
                 ...
 
         service = SomeService(backend=ConcreteBackend())
     """
 
-    async def create(self, data: Any) -> Result[Any]:
+    async def create(self, data: T) -> Result[T]:
         """
         Create an entity.
 
@@ -48,11 +50,11 @@ class SomeOperations(Protocol):
             data: Entity data to create
 
         Returns:
-            Result[Any]: Success with created entity or failure with error
+            Result[T]: Success with created entity or failure with error
         """
         ...
 
-    async def get(self, uid: str) -> Result[Optional[Any]]:
+    async def get(self, uid: str) -> Result[Optional[T]]:
         """
         Get entity by UID.
 
@@ -60,12 +62,12 @@ class SomeOperations(Protocol):
             uid: Entity unique identifier
 
         Returns:
-            Result[Optional[Any]]: Success with entity (or None if not found)
+            Result[Optional[T]]: Success with entity (or None if not found)
                                   or failure with error
         """
         ...
 
-    async def list(self, limit: int = 100) -> Result[List[Any]]:
+    async def list(self, limit: int = 100) -> Result[List[T]]:
         """
         List entities.
 
@@ -73,11 +75,11 @@ class SomeOperations(Protocol):
             limit: Maximum number of entities to return (default 100)
 
         Returns:
-            Result[List[Any]]: Success with entity list or failure with error
+            Result[List[T]]: Success with entity list or failure with error
         """
         ...
 
-    async def update(self, uid: str, data: Any) -> Result[Any]:
+    async def update(self, uid: str, data: T) -> Result[T]:
         """
         Update entity.
 
@@ -86,7 +88,7 @@ class SomeOperations(Protocol):
             data: Updated entity data
 
         Returns:
-            Result[Any]: Success with updated entity or failure with error
+            Result[T]: Success with updated entity or failure with error
         """
         ...
 
@@ -161,22 +163,22 @@ class SomeOperations(Protocol):
 
 ### 2. Return Result[T]
 ```python
-async def get(self, uid: str) -> Result[Optional[Any]]:
-    # ALL protocol methods return Result[T]
+async def get(self, uid: str) -> Result[Optional[Task]]:
+    # ALL protocol methods return Result[T] with specific types
 ```
 
 **Never return bare values:**
 ```python
 # ❌ WRONG
-async def get(self, uid: str) -> Optional[Any]:
+async def get(self, uid: str) -> Optional[Task]:
 
 # ✅ CORRECT
-async def get(self, uid: str) -> Result[Optional[Any]]:
+async def get(self, uid: str) -> Result[Optional[Task]]:
 ```
 
 ### 3. Docstrings Required
 ```python
-async def create(self, data: Any) -> Result[Any]:
+async def create(self, data: TaskDTO) -> Result[Task]:
     """
     Create an entity.
 
@@ -184,7 +186,7 @@ async def create(self, data: Any) -> Result[Any]:
         data: Entity data to create
 
     Returns:
-        Result[Any]: Success with created entity or failure with error
+        Result[Task]: Success with created entity or failure with error
     """
     ...
 ```
@@ -193,7 +195,7 @@ async def create(self, data: Any) -> Result[Any]:
 
 ### 4. Use ... for Protocol Bodies
 ```python
-async def create(self, data: Any) -> Result[Any]:
+async def create(self, data: TaskDTO) -> Result[Task]:
     """Create an entity."""
     ...  # Ellipsis indicates protocol method (not implementation)
 ```
@@ -251,9 +253,9 @@ class TasksService:
 **MyPy validation:**
 ```python
 # MyPy checks that implementation satisfies protocol
-class ConcreteBackend(SomeOperations):
+class ConcreteBackend(SomeOperations[Task]):
     # MyPy error if missing methods or wrong signatures
-    async def create(self, data: Any) -> Result[Any]:
+    async def create(self, data: TaskDTO) -> Result[Task]:
         ...
 ```
 

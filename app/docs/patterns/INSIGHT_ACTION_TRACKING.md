@@ -135,7 +135,7 @@ Accept optional notes via JSON body:
 ```python
 @rt("/api/insights/{uid}/dismiss", methods=["POST"])
 @boundary_handler(success_status=200)
-async def dismiss_insight(request: Request, uid: str) -> Result[Any]:
+async def dismiss_insight(request: Request, uid: str) -> Result[dict[str, str]]:
     """Dismiss insight with optional notes."""
     user_uid = require_authenticated_user(request)
 
@@ -500,7 +500,7 @@ Add undo button in history:
 ```python
 @rt("/api/insights/{uid}/restore", methods=["POST"])
 @boundary_handler(success_status=200)
-async def restore_insight(request: Request, uid: str) -> Result[Any]:
+async def restore_insight(request: Request, uid: str) -> Result[dict[str, str]]:
     """Restore a dismissed/actioned insight."""
     user_uid = require_authenticated_user(request)
 

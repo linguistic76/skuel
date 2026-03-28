@@ -910,7 +910,7 @@ from adapters.inbound.auth import require_authenticated_user
 
 @rt("/api/tasks/{uid}/complete")
 @boundary_handler()
-async def complete_task_route(request: Request) -> Result[Any]:
+async def complete_task_route(request: Request) -> Result[Task]:
     """Complete a task (requires ownership)."""
     uid = request.path_params["uid"]
     user_uid = require_authenticated_user(request)  # 1. Authenticate

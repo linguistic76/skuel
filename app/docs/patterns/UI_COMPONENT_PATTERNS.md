@@ -1210,7 +1210,7 @@ Module-level helpers keep route handlers thin. The shared primitives in `form_he
 
 ```python
 # Route handler stays thin:
-async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
+async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Task]:
     create_request = parse_task_create_request(form_data)
     return await tasks_service.create_task(create_request, user_uid)
 ```

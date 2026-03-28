@@ -38,7 +38,7 @@ from core.utils.result_simplified import Result
 
 @rt("/api/tasks/{uid}/complete", methods=["POST"])
 @boundary_handler()
-async def complete_task_route(request: Request) -> Result[Any]:
+async def complete_task_route(request: Request) -> Result[Task]:
     # Line 1: Extract path parameter
     uid = request.path_params["uid"]
 
@@ -76,7 +76,7 @@ async def complete(
     uid: str,                              # Auto-extracted from ?uid=...
     actual_minutes: int | None = None,     # Auto-extracted & validated
     quality_score: float | None = None     # Auto-extracted & validated
-) -> Result[Any]:
+) -> Result[Task]:
     return await tasks_service.complete_task_with_cascade(
         uid,
         actual_minutes=actual_minutes,

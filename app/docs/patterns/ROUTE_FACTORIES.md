@@ -448,9 +448,9 @@ intelligence_factory.register_routes(app, rt)
 Routes use FastHTML function parameters with type hints for clean API design:
 
 ```python
-async def context_route(request, uid: str, depth: int = 2) -> Result[Any]:
-async def analytics_route(request, period_days: int = 30) -> Result[Any]:
-async def insights_route(request, uid: str, min_confidence: float = 0.7) -> Result[Any]:
+async def context_route(request, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
+async def analytics_route(request, period_days: int = 30) -> Result[dict[str, Any]]:
+async def insights_route(request, uid: str, min_confidence: float = 0.7) -> Result[list[dict[str, Any]]]:
 ```
 
 ### Security: Content Scope (January 2026)
@@ -474,7 +474,7 @@ Generates a single POST route for quick-add form handling. Each domain provides 
 ```python
 from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
 
-async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Any]:
+async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Task]:
     create_request = parse_task_create_request(form_data)
     return await tasks_service.create_task(create_request, user_uid)
 

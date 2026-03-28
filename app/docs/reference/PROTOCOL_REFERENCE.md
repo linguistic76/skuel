@@ -529,7 +529,7 @@ LifePathService exposes a `.alignment` sub-service. The protocol models this wit
 ```python
 @runtime_checkable
 class LifePathAlignmentOperations(Protocol):
-    async def calculate_alignment(self, context: Any) -> Result[Any]: ...
+    async def calculate_alignment(self, context: Any) -> Result[dict[str, Any]]: ...
 
 @runtime_checkable
 class LifePathOperations(Protocol):

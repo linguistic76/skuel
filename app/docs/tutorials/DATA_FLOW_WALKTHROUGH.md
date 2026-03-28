@@ -64,7 +64,7 @@ from adapters.inbound.form_helpers import parse_json_body
 
 @rt("/api/tasks/create", methods=["POST"])
 @boundary_handler(success_status=201)
-async def create_task(request: Request) -> Result[Any]:
+async def create_task(request: Request) -> Result[Task]:
     user_uid = require_authenticated_user(request)
     parsed = await parse_json_body(request, TaskCreateRequest)
     if parsed.is_error:

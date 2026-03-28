@@ -1030,7 +1030,7 @@ CALENDAR_CONFIG = DomainRouteConfig(
 
 **API Routes (3):**
 - `POST /api/calendar/quick-create` — Uses `@app.post` (not `@rt`), returns dict/tuple directly
-- `GET /api/v2/calendar/items/{item_id}` — `@rt` + `@boundary_handler`, returns `Result[Any]`
+- `GET /api/v2/calendar/items/{item_id}` — `@rt` + `@boundary_handler`, returns `Result[dict[str, Any]]`
 - `PATCH /api/events/calendar/reschedule` — Returns raw `Response` with `HX-Refresh` header (inline import)
 
 **UI Routes (7):**

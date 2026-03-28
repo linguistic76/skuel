@@ -269,7 +269,7 @@ from adapters.inbound.result_helpers import require_found
 
 @rt("/api/submissions/get")
 @boundary_handler()
-async def get_submission(request: Request, uid: str) -> Result[Any]:
+async def get_submission(request: Request, uid: str) -> Result[dict[str, Any]]:
     found = require_found(await service.get(uid), "Submission", uid)
     if found.is_error:
         return found
@@ -287,7 +287,7 @@ from adapters.inbound.form_helpers import parse_json_body, parse_form_body
 
 @rt("/api/goals/milestones", methods=["POST"])
 @boundary_handler(success_status=201)
-async def create_milestone(request: Request, entity: Any) -> Result[Any]:
+async def create_milestone(request: Request, entity: Any) -> Result[dict[str, Any]]:
     result = await parse_json_body(request, MilestoneCreateRequest)
     if result.is_error:
         return result  # type: ignore[return-value]  → 422 with validation details
