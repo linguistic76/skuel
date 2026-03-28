@@ -7,7 +7,7 @@ in lesson_routes.py. This file contains only domain-specific manual routes
 (relationships, content, search, organization, analytics).
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fasthtml.common import Request
 
@@ -28,9 +28,10 @@ from core.services.lesson_service import LessonService
 from core.utils.result_simplified import Errors, Result
 from ui.feedback import Alert, AlertT
 
-if TYPE_CHECKING:
-    from core.models.lesson.lesson import Lesson
-    from core.models.pathways.learning_progress import LearningJourney
+# NOTE: FastHTML evaluates string annotations at runtime via signature_ex(),
+# so these must be real imports, not TYPE_CHECKING-only.
+from core.models.lesson.lesson import Lesson  # noqa: F811
+from core.models.pathways.learning_progress import LearningJourney
 
 
 def create_lesson_api_routes(
