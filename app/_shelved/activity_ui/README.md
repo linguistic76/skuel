@@ -72,6 +72,23 @@ Activity Domain CRUD UI for 6 domains: Tasks, Goals, Habits, Events, Choices, Pr
 | `habits_goal_analytics_service.py` | `core/services/habits/` | Habit-goal cross-analytics |
 | `principles_reflection_service.py` | `core/services/principles/` | Reflection system |
 
+### Additional files shelved in cleanup round (2026-03-28)
+
+Orphaned code left behind after the initial shelving — zero active imports.
+
+| File | Original location | Purpose |
+|------|-------------------|---------|
+| `ui/patterns/activity_views_base.py` | `ui/patterns/activity_views_base.py` | Activity-specific tabs, calendar nav, filters |
+| `ui/layouts/activity_layout.py` | `ui/layouts/activity_layout.py` | Activity layout with DOMAIN_CSS mapping |
+| `adapters/route_factories/dashboard_ui_factory.py` | `adapters/inbound/route_factories/dashboard_ui_factory.py` | Dashboard UI factory for 6 activity domains |
+| `adapters/route_factories/quick_add_factory.py` | `adapters/inbound/route_factories/quick_add_factory.py` | Quick-add form factory for 6 activity domains |
+| `static/vendor/frappe-gantt/` | `static/vendor/frappe-gantt/` | Frappe Gantt JS/CSS (only loaded by goals visualization) |
+
+**Also removed from active files (not recoverable from _shelved/, but preserved in git history):**
+- 12 dead Alpine.js components from `static/js/skuel.js`: searchSidebar, calendarModal, taskEditModal, timelineViewer, swipeHandler, loadingButton, dropdownNav, ganttVis, choiceOptions, accessibleModal, focusTrapModal, insightSwipeActions
+- `Text` class from `ui/tokens.py`
+- `DashboardUIFactory`/`QuickAddRouteFactory` exports from `route_factories/__init__.py`
+
 ## Dependencies to check on restore
 
 - Service facades: `TasksService`, `GoalsService`, `HabitsService`, `EventsService`, `ChoicesService`, `PrinciplesService`

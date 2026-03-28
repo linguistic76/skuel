@@ -24,10 +24,6 @@ from adapters.inbound.route_factories.crud_route_factory import (
     CRUDOperations,
     CRUDRouteFactory,
 )
-from adapters.inbound.route_factories.dashboard_ui_factory import (
-    DashboardUIConfig,
-    DashboardUIFactory,
-)
 from adapters.inbound.route_factories.domain_route_factory import (
     CRUDRouteConfig,
     DomainRouteConfig,
@@ -46,10 +42,6 @@ from adapters.inbound.route_factories.ownership_route_factory import (
     OwnershipRouteFactory,
 )
 from adapters.inbound.route_factories.query_route_factory import CommonQueryRouteFactory
-from adapters.inbound.route_factories.quick_add_factory import (
-    QuickAddConfig,
-    QuickAddRouteFactory,
-)
 from adapters.inbound.route_factories.route_helpers import (
     DateRangeParams,
     PaginationParams,
@@ -76,9 +68,6 @@ __all__ = [
     "CRUDOperations",
     "CRUDRouteFactory",
     "CommonQueryRouteFactory",
-    # Dashboard UI factory (March 2026)
-    "DashboardUIConfig",
-    "DashboardUIFactory",
     # Domain route factory (January 2026)
     "CRUDRouteConfig",
     "DomainRouteConfig",
@@ -92,9 +81,6 @@ __all__ = [
     "OwnershipOperations",
     "OwnershipRoute",
     "OwnershipRouteFactory",
-    # Quick-add form factory (January 2026)
-    "QuickAddConfig",
-    "QuickAddRouteFactory",
     # Shared route helpers
     "DateRangeParams",
     "PaginationParams",

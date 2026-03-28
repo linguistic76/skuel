@@ -44,7 +44,7 @@ from ui.text import (
 )
 from ui.tokens import Card as CardTokens
 from ui.tokens import Container as ContainerTokens
-from ui.tokens import Spacing, Text
+from ui.tokens import Spacing
 
 __all__ = [
     # Layouts
@@ -59,7 +59,6 @@ __all__ = [
     "CardTokens",
     "ContainerTokens",
     "Spacing",
-    "Text",
     # Buttons
     "Button",
     "ButtonLink",

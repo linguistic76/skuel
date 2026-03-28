@@ -305,7 +305,7 @@ warn_return_any = false
 # Tests, examples, and scripts - verified by pytest (151/151 passing)
 # Focus MyPy on production code quality, not test boilerplate
 # Rationale: Tests prove runtime correctness; no need for static analysis duplication
-module = ["tests.*", "examples.*", "scripts.*"]
+module = ["tests.*", "examples.*", "scripts.*", "_shelved.*"]
 ignore_errors = true
 
 # ============================================================================
@@ -510,6 +510,7 @@ exclude = [
     "neo4j-import",  # Neo4j Docker container data directory (permission denied)
     "docs/archive",  # Archived/deprecated code - not actively maintained
     "zarchives",     # Archived code - not actively maintained
+    "_shelved",      # Shelved code - not actively maintained
     "__pycache__",
     "migrations",
     "*.egg-info",

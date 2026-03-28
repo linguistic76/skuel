@@ -71,22 +71,4 @@ class Card:
     PADDING_SPACIOUS = "p-8"  # Spacious (32px)
 
 
-class Text:
-    """Text styling constants for consistent typography."""
-
-    # Headings
-    H1 = "text-2xl font-bold"
-    H2 = "text-xl font-semibold"
-    H3 = "text-lg font-semibold"
-    H4 = "text-base font-semibold"
-
-    # Body text
-    BODY = "text-base text-foreground"
-    SECONDARY = "text-sm text-muted-foreground"
-    MUTED = "text-sm text-muted-foreground"
-
-    # Labels
-    LABEL = "text-sm font-medium"
-
-
-__all__ = ["Spacing", "Container", "Card", "Text"]
+__all__ = ["Spacing", "Container", "Card"]
