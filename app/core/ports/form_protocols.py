@@ -7,6 +7,10 @@ Two protocol tiers:
   (consumed by service __init__, extend BackendOperations[T] with domain methods)
 - Route-level: FormTemplateOperations, FormSubmissionOperations
   (consumed by route files, service-facing ISP contracts)
+
+boundary: Methods returning list[dict[str, Any]] are intentional — form schemas are
+dynamic/user-defined (FormTemplate.schema is a JSON structure), so query results
+carry variable columns depending on which template relationships are traversed.
 """
 
 from __future__ import annotations

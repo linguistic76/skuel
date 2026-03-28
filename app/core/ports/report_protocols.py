@@ -229,7 +229,12 @@ class ActivityReportOperations(Protocol):
         domains: list[str] | None = None,
         admin_uid: str = "",
     ) -> Result[dict[str, Any]]:
-        """Build activity snapshot from pre-built UserContext for admin review."""
+        """Build activity snapshot from pre-built UserContext for admin review.
+
+        boundary: Returns dict[str, Any] — dynamic domain slices where keys in
+        the 'domains' sub-dict vary based on the domains parameter (tasks, goals,
+        habits, events, choices, principles, knowledge, learning_paths).
+        """
         ...
 
     async def submit_report(

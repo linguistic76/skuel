@@ -2127,6 +2127,24 @@ class PrincipleStats(TypedDict, total=False):
 
 
 # ============================================================================
+# TASK HIERARCHY RESULT TYPES
+# ============================================================================
+
+
+class ParentProgressResult(TypedDict, total=False):
+    """Return shape for TasksBackend.calculate_parent_progress().
+
+    Weighted subtask completion percentage for a parent task.
+    """
+
+    total_weight: float
+    completed_weight: float
+    progress_percentage: float
+    total_subtasks: int
+    completed_subtasks: int
+
+
+# ============================================================================
 # EXPLICIT EXPORTS
 # ============================================================================
 
@@ -2264,4 +2282,6 @@ __all__ = [
     "EventStats",
     "ChoiceStats",
     "PrincipleStats",
+    # Task Hierarchy Result Types
+    "ParentProgressResult",
 ]

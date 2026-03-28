@@ -16,8 +16,8 @@ if TYPE_CHECKING:
     from core.services.ingestion.types import (
         BundleStats,
         DryRunPreview,
-        IngestionStats,
         IncrementalStats,
+        IngestionStats,
     )
 
 
@@ -282,7 +282,13 @@ class IngestionOperations(Protocol):
     """
 
     async def ingest_file(self, file_path: Path) -> Result[dict[str, Any]]:
-        """Ingest a single MD or YAML file into Neo4j."""
+        """Ingest a single MD or YAML file into Neo4j.
+
+        boundary: Two code paths — node ingestion returns {uid, title, entity_type,
+        format, success, nodes_created, nodes_updated, relationships_created,
+        chunks_generated}; edge ingestion returns {from_uid, to_uid, relationship,
+        created, success}. Unifying would require a tagged union.
+        """
         ...
 
     async def ingest_directory(

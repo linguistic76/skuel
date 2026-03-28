@@ -95,6 +95,7 @@ from core.ports.query_types import (
     HabitStats,
     InvoiceStats,
     NextActionResult,
+    ParentProgressResult,
     PrincipleStats,
     TaskStats,
 )
@@ -289,7 +290,7 @@ class TasksOperations(
         """Auto-complete parent task if all subtasks are completed."""
         ...
 
-    async def calculate_parent_progress(self, parent_uid: str) -> Result[dict[str, Any]]:
+    async def calculate_parent_progress(self, parent_uid: str) -> Result[ParentProgressResult]:
         """Calculate weighted subtask completion percentage."""
         ...
 

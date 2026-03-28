@@ -609,6 +609,10 @@ class LateralRelationshipBackendOperations(Protocol):
 
     Implementation: LateralRelationshipBackend in domain_backends.py.
     Consumer: LateralRelationshipService.
+
+    boundary: All methods return list[dict[str, Any]] — raw Cypher results from
+    relationship MERGE/DELETE/MATCH operations. Column names depend on the
+    specific relationship query pattern (create, traverse, validate).
     """
 
     async def create_relationship(

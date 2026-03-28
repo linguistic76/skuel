@@ -223,6 +223,8 @@ class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations,
     # =========================================================================
     # HIERARCHICAL STRUCTURE
     # =========================================================================
+    # boundary: get_hierarchy returns dict[str, Any] — shape varies by entity type
+    # (KU vs LS vs LP each return different hierarchy structures from Cypher).
 
     async def get_hierarchy(self, uid: str) -> Result[dict[str, Any]]:
         """
@@ -453,6 +455,11 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
     # =========================================================================
     # ORGANIZATION (ORGANIZES relationships — any Lesson can organize others)
     # =========================================================================
+    # boundary: Methods below through ADAPTIVE (Phase 6B) return list[dict[str, Any]]
+    # or dict[str, Any] — raw Cypher query results whose column names vary by query.
+    # These are intentional backend boundaries: the protocol exposes graph-native
+    # shapes that services interpret. Typing them would couple protocols to
+    # specific Cypher RETURN clauses.
 
     async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
         """Create ORGANIZES relationship between two Lessons."""
@@ -726,6 +733,9 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     # =========================================================================
     # LS-SPECIFIC RETRIEVAL
     # =========================================================================
+    # boundary: LS/LP query methods below return list[dict[str, Any]] — raw Cypher
+    # results from multi-hop graph traversals (step→lesson→ku chains). Column
+    # names vary by query depth and optional joins.
 
     async def get_ls(self, uid: str) -> Result[LearningStep]:
         """
@@ -950,6 +960,8 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     # =========================================================================
     # CORE CRUD QUERIES (backend-level Cypher)
     # =========================================================================
+    # boundary: LP CRUD methods return list[dict[str, Any]] — raw Cypher node
+    # properties from CREATE/SET/DELETE operations with variable RETURN clauses.
 
     async def create_step_node(
         self,
@@ -1395,6 +1407,8 @@ class ExerciseOperations(Protocol):
         ...
 
     # Curriculum linking
+    # boundary: Exercise/RevisedExercise query methods below return list[dict[str, Any]]
+    # — raw Cypher results from REQUIRES_KNOWLEDGE and revision chain traversals.
     async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """Link exercise to curriculum KU via REQUIRES_KNOWLEDGE."""
         ...

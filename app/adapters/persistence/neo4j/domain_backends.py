@@ -67,6 +67,7 @@ from core.ports.query_types import (
     GoalStats,
     HabitStats,
     LsKnowledgeSummaryResult,
+    ParentProgressResult,
     PrincipleStats,
     TaskStats,
 )
@@ -836,7 +837,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
                 )
         return Result.ok(parent_uids)
 
-    async def calculate_parent_progress(self, parent_uid: str) -> Result[dict[str, Any]]:
+    async def calculate_parent_progress(self, parent_uid: str) -> Result[ParentProgressResult]:
         """Calculate parent task progress based on weighted subtask completion."""
         query = f"""
         MATCH (parent:Entity {{uid: $parent_uid}})

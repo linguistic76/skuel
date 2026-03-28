@@ -127,6 +127,10 @@ class AskesisRecommendationOperations(Protocol):
 
     These methods generate prioritized recommendations based on the user's
     current state, goals, and cross-domain synthesis.
+
+    boundary: optimize_workflow and predict_future_state return dict[str, Any] /
+    list[dict[str, Any]] — LLM-generated response structures whose shape depends
+    on the model's output and varies across prompts and contexts.
     """
 
     async def get_next_best_action(
@@ -192,6 +196,9 @@ class AskesisQueryOperations(Protocol):
 
     These methods handle RAG-based query answering with entity extraction
     and context-aware response generation.
+
+    boundary: All methods return dict[str, Any] — LLM-generated RAG responses
+    whose structure varies by intent classification and entity extraction results.
     """
 
     async def answer_user_question(

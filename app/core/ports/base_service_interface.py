@@ -655,6 +655,9 @@ class RelationshipOperations(Protocol[T]):
         """
         Get hierarchical structure for this entity.
 
+        boundary: Returns dict[str, Any] — shape varies by entity type
+        (KU vs LS vs LP return different hierarchy structures from Cypher).
+
         Args:
             uid: Entity UID
 
