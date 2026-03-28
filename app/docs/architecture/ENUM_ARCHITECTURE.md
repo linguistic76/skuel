@@ -136,6 +136,43 @@ Activity:
 | `get_color()` | str | Hex color for UI (e.g., ACTIVE="#06B6D4" cyan, BLOCKED="#DC2626" red) |
 | `from_search_text(text)` | list[EntityStatus] | Find statuses matching search terms |
 
+### Two Layers of Status Checks
+
+Status checks live at two levels, each with a distinct purpose:
+
+**Layer 1 — `EntityStatus` enum methods** operate on the status value itself. Use these when you have a status value (e.g., from a query filter or transition check) and need to classify it without an entity instance:
+
+```python
+status = EntityStatus.COMPLETED
+status.is_terminal()    # True — COMPLETED, FAILED, CANCELLED, ARCHIVED
+status.is_active()      # False
+status.is_pending()     # False
+status.can_transition_to(EntityStatus.ARCHIVED)  # True
+```
+
+**Layer 2 — `Entity` model properties** operate on the entity instance. Use these in service/route code when you have an entity and need to branch on its current state:
+
+```python
+task: Task = ...
+task.is_completed    # @property — checks status == EntityStatus.COMPLETED
+task.is_draft        # @property — checks status == EntityStatus.DRAFT
+task.is_processing   # @property — checks status == EntityStatus.PROCESSING
+task.is_failed       # @property — checks status == EntityStatus.FAILED
+task.is_archived     # @property — checks status == EntityStatus.ARCHIVED
+task.is_shareable()  # method — True only when COMPLETED (quality control)
+```
+
+**When to use which:**
+
+| Situation | Use | Example |
+|-----------|-----|---------|
+| Checking an entity's current state | Entity properties | `if task.is_completed:` |
+| Classifying a status value (no entity) | Enum methods | `if status.is_terminal():` |
+| Validating a state transition | Enum methods | `status.can_transition_to(target, entity_type)` |
+| Filtering/querying by status category | Enum methods | `[s for s in statuses if s.is_active()]` |
+
+Entity properties are defined on the `Entity` base class (`core/models/entity.py`), so they are available on all 21 entity types. They are simple one-liner `@property` methods — no configuration or overrides needed because all types share the single `EntityStatus` enum.
+
 ### How They Interact
 
 EntityType and EntityStatus cross-reference each other:

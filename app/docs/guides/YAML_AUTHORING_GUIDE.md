@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-03-22
+updated: 2026-03-28
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -62,6 +62,7 @@ Many YAML fields are constrained by Python enums — using an invalid value will
 | YAML Field | Enum Class | Valid Values |
 |------------|------------|-------------|
 | `type` | `EntityType` | `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Ku`, `Lesson`, `LearningStep`, `LearningPath`, `ExerciseSubmission`, `LifePath` |
+| `status` | `EntityStatus` | Per-type subset (see [Entity Status](#entity-status) below) |
 | `priority` | `Priority` | `low`, `medium`, `high`, `critical` |
 | `polarity` | `HabitPolarity` | `build`, `break`, `neutral` |
 | `category` (habit) | `HabitCategory` | `health`, `fitness`, `mindfulness`, `learning`, `productivity`, `creative`, `social`, `financial`, `other` |
@@ -77,6 +78,55 @@ Many YAML fields are constrained by Python enums — using an invalid value will
 | `sel_category` | `SELCategory` | `self_awareness`, `self_management`, `social_awareness`, `relationship_skills`, `responsible_decision_making` |
 
 All enum classes live in `core/models/enums/`. For the complete enum catalog and the field-to-enum mapping, see [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md).
+
+### Entity Status
+
+The `status` field is governed by `EntityStatus` (14 values). Not every status is valid for every entity type — each type has a constrained subset and a default. If you omit `status` from your YAML, the default for that entity type is used.
+
+**Status categories:**
+
+| Category | Statuses | Meaning |
+|----------|----------|---------|
+| Pending | `draft`, `submitted`, `queued`, `scheduled` | Not yet active |
+| Active | `processing`, `active` | Work in progress |
+| Paused | `paused`, `blocked`, `postponed` | Temporarily stopped |
+| Terminal | `completed`, `failed`, `cancelled`, `archived` | No further progression |
+| Special | `revision_requested` | Completed but sent back |
+
+**Valid statuses and defaults per ingestible entity type:**
+
+| Type | Valid Statuses | Default |
+|------|---------------|---------|
+| Ku, Lesson | `draft`, `completed`, `archived` | `draft` |
+| LearningStep, LearningPath | `draft`, `active`, `completed`, `archived` | `draft` |
+| Task | `draft`, `scheduled`, `active`, `paused`, `blocked`, `completed`, `cancelled`, `postponed`, `failed` | `draft` |
+| Goal | `draft`, `active`, `paused`, `completed`, `cancelled`, `failed`, `archived` | `draft` |
+| Habit | `active`, `paused`, `completed`, `cancelled`, `archived` | `active` |
+| Event | `scheduled`, `active`, `completed`, `cancelled` | `scheduled` |
+| Choice | `draft`, `active`, `completed`, `archived` | `draft` |
+| Principle | `active`, `paused`, `archived` | `active` |
+| ExerciseSubmission | `draft`, `submitted`, `queued`, `processing`, `completed`, `failed`, `revision_requested`, `archived` | `draft` |
+| LifePath | `active`, `archived` | `active` |
+
+Using a status not in the valid set for that entity type will fail validation during ingestion.
+
+**Two lifecycle patterns** govern which statuses appear:
+
+```
+Content Processing (ExerciseSubmission, JeInput):
+  draft → submitted → queued → processing → completed / failed
+                                                 |
+                                          revision_requested → resubmit
+
+Activity (Task, Goal, Habit, Event, Choice, Principle):
+  draft → scheduled → active → paused → completed
+              |           |       |
+              |           +→ blocked → active
+              |           |
+              +→ postponed    +→ cancelled / failed
+```
+
+See [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the full transition map and status check methods.
 
 ### Ownership
 
