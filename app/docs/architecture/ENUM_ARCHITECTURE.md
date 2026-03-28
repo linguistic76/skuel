@@ -101,7 +101,7 @@ Content Processing:
   DRAFT → SUBMITTED → QUEUED → PROCESSING → COMPLETED / FAILED
                  ↑                               |          |
                  |                        REVISION_REQUESTED |
-                 |                                           |
+                 |                          ↓ DRAFT    ↓ COMPLETED (teacher approves)
                  +───────── reprocessing path ───────────────+
 
 Activity:
@@ -118,10 +118,18 @@ for content-processing entities (ExerciseSubmission, JE_INPUT). Used by
 Non-submission entity types can't use this path — they don't have SUBMITTED in their
 `valid_statuses()`.
 
-**Transition enforcement:** `SubmissionsService.update_submission_status()` validates every
-status change via `can_transition_to(target, entity_type)` before persisting. Invalid
-transitions return `Errors.validation()` with the from/to/entity_type. This is the
-chokepoint for all processing pipeline status changes (QUEUED, PROCESSING, COMPLETED, FAILED).
+**Transition enforcement — two paths:**
+
+1. **Processing pipeline:** `SubmissionsService.update_submission_status()` validates every
+   status change via `can_transition_to(target, entity_type)` before persisting. Invalid
+   transitions return `Errors.validation()` with the from/to/entity_type. This is the
+   chokepoint for all processing pipeline status changes (QUEUED, PROCESSING, COMPLETED, FAILED).
+
+2. **Teacher review:** `TeacherReviewService` methods enforce transitions atomically in Cypher
+   via `WHERE submission.status IN $allowed_from_statuses` guards on `create_report_node()`
+   and `approve_and_get_linked_kus()`. This is race-safe — no gap between read and write.
+   Allowed transitions: PROCESSING→COMPLETED (submit_report), COMPLETED→REVISION_REQUESTED
+   (request_revision), REVISION_REQUESTED→COMPLETED (approve_report).
 
 **Valid statuses per EntityType (summary):**
 

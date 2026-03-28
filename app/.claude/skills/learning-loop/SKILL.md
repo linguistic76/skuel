@@ -280,6 +280,7 @@ DRAFT → SUBMITTED → QUEUED → PROCESSING → COMPLETED / FAILED
                ↑                               |          |
                +───── reprocessing path ───────+──────────+
 COMPLETED → REVISION_REQUESTED → DRAFT (new submission cycle)
+                                 → COMPLETED (teacher approves without re-submission)
 ```
 
 Reprocessing (`reprocess_submission()`) resets to SUBMITTED and re-enters the pipeline.
@@ -368,11 +369,18 @@ After reviewing a submission, the teacher has three outcomes via `TeacherReviewS
 (`core/services/report/teacher_review_service.py`, protocol: `TeacherReviewOperations`
 in `core/ports/report_protocols.py`):
 
-| Action | Method | AssessmentOutcome | Event Published | Result |
-|--------|--------|-------------------|-----------------|--------|
-| Write report | `submit_report()` | `APPROVED` | `ReportSubmitted` | `ExerciseReport` created, loop continues |
-| Request revision | `request_revision()` | `NEEDS_REVISION` | `SubmissionRevisionRequested` | Student notified, resubmit expected |
-| Approve | `approve_report()` | — (no report created) | `SubmissionApproved` | Loop closes for this exercise |
+| Action | Method | AssessmentOutcome | Allowed From Status | Event Published | Result |
+|--------|--------|-------------------|---------------------|-----------------|--------|
+| Write report | `submit_report()` | `APPROVED` | `PROCESSING` | `ReportSubmitted` | `ExerciseReport` created, loop continues |
+| Request revision | `request_revision()` | `NEEDS_REVISION` | `COMPLETED` | `SubmissionRevisionRequested` | Student notified, resubmit expected |
+| Approve | `approve_report()` | — (no report created) | `REVISION_REQUESTED` | `SubmissionApproved` | Loop closes for this exercise |
+
+**Cypher-level status guards:** All three methods enforce valid status transitions
+atomically in the database via `WHERE submission.status IN $allowed_from_statuses`.
+The service passes the allowed source statuses; if the guard rejects, the query
+returns empty results and the service returns a validation error (not "not found",
+since `_verify_teacher_access` already confirmed existence). This is race-safe —
+no gap between read and write.
 
 Each feedback round creates a new `ExerciseReport` entity via `REPORT_FOR` —
 revision cycles are traceable as first-class graph entities. The loop publishes

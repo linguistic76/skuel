@@ -101,7 +101,9 @@ Exercise (scope=ASSIGNED)
        |                             (student → teacher)
        v
 6. Teacher reviews in queue → writes EXERCISE_REPORT
-       |                       or requests REVISION
+       |   submit_report: PROCESSING → COMPLETED (Cypher-level guard)
+       |   request_revision: COMPLETED → REVISION_REQUESTED (Cypher-level guard)
+       |   approve_report: REVISION_REQUESTED → COMPLETED (Cypher-level guard)
        v
 7. Student sees feedback, optionally resubmits
        (reprocessing: COMPLETED/FAILED → SUBMITTED via reprocess_submission())
@@ -271,7 +273,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 | `SubmissionsService` | `SubmissionOperations` | File upload, storage, submission record creation |
 | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | Routes files to processors, manages status transitions |
 | `UnifiedSharingService` | `SharingOperations` | Visibility control, SHARES_WITH + SHARED_WITH_GROUP management |
-| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `SubmissionsBackend`, `ExerciseBackend`, `GroupBackend`) |
+| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `SubmissionsBackend`, `ExerciseBackend`, `GroupBackend`). Status transitions enforced atomically via Cypher `WHERE status IN $allowed_from_statuses` guards — race-safe, no pre-fetch needed. |
 
 **Report producers:**
 

@@ -61,7 +61,52 @@ async def link_task_to_knowledge(
 - SET overwrites relationship properties on each call
 - Use `ON CREATE SET` if you only want to set props on first creation
 
-**Real-world usage**: All domain backend `link_*` methods in `domain_backends.py`
+**Real-world usage**: All domain backend `link_*` methods in `domain_backends.py`. Also standardized across hierarchy (`_hierarchy_mixin.py`), lateral relationships (`LateralRelationshipBackend`), badges (`EARNED_BADGE`), LP/LS construction (`HAS_STEP`, `CONTAINS_KNOWLEDGE`). **Rule:** Use MERGE (not CREATE) whenever both endpoints already exist — prevents duplicate edges on retry.
+
+---
+
+## Pattern 1b: WHERE Guard — Atomic Status Transition Enforcement
+
+**Problem**: A mutation should only execute if the entity is in a valid source state. Pre-fetching then writing is a race condition; two concurrent requests can both read PROCESSING and both write COMPLETED.
+
+**Context**: `SubmissionsBackend.create_report_node()` and `approve_and_get_linked_kus()` — teacher review actions that set submission status atomically.
+
+**Solution**:
+```cypher
+// TeacherReviewService → SubmissionsBackend.create_report_node()
+MATCH (submission:Entity {uid: $report_uid})
+WHERE submission.status IN $allowed_from_statuses   // Cypher-level guard
+OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
+SET submission.status = $submission_status, ...
+CREATE (fb:Entity { ... })
+...
+RETURN submission.uid as uid, submission.status as status, ...
+
+// If WHERE filters out the node → no rows returned → service returns validation error
+```
+
+**Python (service passes allowed source statuses)**:
+```python
+# TeacherReviewService.submit_report() — PROCESSING → COMPLETED
+allowed_from = [EntityStatus.PROCESSING.value]
+result = await self.submissions_backend.create_report_node({
+    ...,
+    "allowed_from_statuses": allowed_from,
+    "submission_status": EntityStatus.COMPLETED.value,
+})
+if not records:
+    return Result.fail(Errors.validation(
+        message=f"Submission is not in a reviewable status (expected {allowed_from})",
+        field="status",
+    ))
+```
+
+**Trade-offs**:
+- Atomic — no gap between status check and mutation (race-safe)
+- Zero extra queries — guard is part of the existing MATCH
+- Empty results are ambiguous (not found vs guard rejected) — resolve by checking existence separately first (e.g., `_verify_teacher_access`)
+
+**Real-world usage**: `SubmissionsBackend.create_report_node()` (submit_report, request_revision), `SubmissionsBackend.approve_and_get_linked_kus()` (approve_report). Guards enforce: PROCESSING→COMPLETED, COMPLETED→REVISION_REQUESTED, REVISION_REQUESTED→COMPLETED.
 
 ---
 
