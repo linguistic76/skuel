@@ -24,15 +24,20 @@
 | Choices | `choices_service.py` | `choices/choices_core_service.py` | `choices_search_service.py` | `choices_intelligence_service.py` |
 | Principles | `principles_service.py` | `principles/principles_core_service.py` | `principles_search_service.py` | `principles_intelligence_service.py` |
 
-### UI
-| Domain | Routes | Views | Events File |
+### UI (Shelved 2026-03-28)
+
+Activity Domain CRUD UI routes and views have been shelved to `_shelved/activity_ui/`. Activity data now enters via UnifiedIngestionService and is viewed via ActivityReport UI at `/activity-reports`.
+
+| Domain | Routes (shelved) | Views (shelved) | Events File (active) |
 |--------|--------|-------|-------------|
-| Tasks | `adapters/inbound/tasks_ui.py` | `ui/tasks/views.py` | `core/events/task_events.py` |
-| Goals | `adapters/inbound/goals_ui.py` | `ui/goals/views.py` | `core/events/goal_events.py` |
-| Habits | `adapters/inbound/habits_ui.py` | `ui/habits/views.py` | `core/events/habit_events.py` |
-| Events | `adapters/inbound/events_ui.py` | `ui/events/views.py` | `core/events/calendar_event_events.py` |
-| Choices | `adapters/inbound/choices_ui.py` | `ui/choices/views.py` | `core/events/choice_events.py` |
-| Principles | `adapters/inbound/principles_ui.py` | `ui/principles/views.py` | `core/events/principle_events.py` |
+| Tasks | `_shelved/activity_ui/tasks_ui.py` | `_shelved/activity_ui/tasks/views.py` | `core/events/task_events.py` |
+| Goals | `_shelved/activity_ui/goals_ui.py` | `_shelved/activity_ui/goals/views.py` | `core/events/goal_events.py` |
+| Habits | `_shelved/activity_ui/habits_ui.py` | `_shelved/activity_ui/habits/views.py` | `core/events/habit_events.py` |
+| Events | `_shelved/activity_ui/events_ui.py` | `_shelved/activity_ui/events/views.py` | `core/events/calendar_event_events.py` |
+| Choices | `_shelved/activity_ui/choices_ui.py` | `_shelved/activity_ui/choices/views.py` | `core/events/choice_events.py` |
+| Principles | `_shelved/activity_ui/principles_ui.py` | `_shelved/activity_ui/principles/views.py` | `core/events/principle_events.py` |
+
+See `_shelved/activity_ui/README.md` for restore instructions.
 
 ## Domain-Specific Quirks
 

@@ -13,8 +13,8 @@ class TasksService(BaseService[TasksOperations, Task]):
     search: TasksSearchService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
-    productivity: TasksProductivityService
-    learning_metrics: TasksLearningMetricsService
+    # NOTE: productivity, learning_metrics, and other AI/analytics sub-services
+    # were shelved with the Activity UI (2026-03-28). Facades are slimmer now.
 
     # Explicit delegation methods — one line per delegated method
     async def get_task(self, *args: Any, **kwargs: Any) -> Any:
@@ -42,6 +42,8 @@ Created via `create_common_sub_services()` factory:
 | `intelligence` | Analysis & insights | `get_*_with_context()`, domain-specific analysis |
 
 ## Domain-Specific Sub-services
+
+> **Note (2026-03-28):** Some domain-specific sub-services (AI enrichment, UI-specific analytics like `TasksProductivityService`, `PrinciplesReflectionService`, `HabitsGoalAnalyticsService`) were shelved with the Activity UI to `_shelved/activity_ui/`. The table below reflects the pre-shelving state; check each facade's current `__init__` for active sub-services.
 
 | Domain | Extra Sub-services |
 |--------|-------------------|

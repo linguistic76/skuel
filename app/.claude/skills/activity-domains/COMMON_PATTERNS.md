@@ -55,9 +55,11 @@ async def complete_task(self, uid: str) -> Result[Task]:
 
 **Event files**: `/core/events/{domain}_events.py`
 
-## Three-View UI Dashboard
+## Three-View UI Dashboard (Shelved 2026-03-28)
 
-All domains use identical UI structure:
+> **Shelved:** Activity Domain CRUD UI (routes, views, dashboards) moved to `_shelved/activity_ui/`. Activity data now enters via UnifiedIngestionService (mixed markdown + YAML from Obsidian) and is viewed via ActivityReport UI at `/activity-reports` (in Study sidebar). Calendar cross-cutting system still works (reads service protocols, not UI routes). See `_shelved/activity_ui/README.md` for restore instructions.
+
+The shelved UI followed this structure:
 
 ```
 /domain                    # Main dashboard
@@ -71,19 +73,6 @@ All domains use identical UI structure:
 
 /domain/{uid}              # Detail view
 /domain/{uid}/edit         # Edit modal
-```
-
-**View components** in `/ui/{domain}/views.py`:
-```python
-class TasksViewComponents:
-    @staticmethod
-    def render_list_view(ctx: TasksPageContext) -> Div: ...
-
-    @staticmethod
-    def render_create_view(user_uid): ...
-
-    @staticmethod
-    def render_detail_view(task, context): ...
 ```
 
 ## Hierarchy Delegation Pattern

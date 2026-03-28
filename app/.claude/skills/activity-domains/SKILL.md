@@ -2,10 +2,11 @@
 
 > Use when building features for Tasks, Goals, Habits, Events, Choices, or Principles (the 6 Activity Domains).
 
+> **Shelved (2026-03-28):** Activity Domain CRUD UI (routes, views, dashboards) has been shelved to `_shelved/activity_ui/`. Activity data now enters via UnifiedIngestionService (mixed markdown + YAML from Obsidian) and is viewed via ActivityReport UI at `/activity-reports`. Service facades and backends remain active. See `_shelved/activity_ui/README.md` for restore instructions.
+
 ## When to Use This Skill
 
 - Adding new features to any Activity Domain
-- Creating new UI routes or views
 - Implementing service methods
 - Understanding cross-domain relationships
 - Debugging domain-specific issues
@@ -42,9 +43,8 @@ These edges are created at ingestion time from YAML templates. At runtime, domai
 ## Architecture Overview
 
 ```
-User Request → FastHTML Route → Service Facade → Sub-service → Backend → Neo4j
-                    ↓
-              View Component (HTMX response)
+Obsidian YAML/Markdown → UnifiedIngestionService → Service Facade → Backend → Neo4j
+ActivityReport UI ← Service Facade (read path)
 ```
 
 **Each domain has:**
@@ -52,7 +52,7 @@ User Request → FastHTML Route → Service Facade → Sub-service → Backend �
 - **6-13 Sub-services** - Specialized functionality (core, search, intelligence, event_handler, etc.)
 - **Domain Events** - Cross-service communication
 - **Event Handler Service** - Fire-and-forget reactive handlers (`*_event_handler_service.py`) — all 6 Activity Domains have dedicated handlers; all persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points (overdue tasks, priority inflation, goal stalls, rescheduling patterns, etc.). The Learning Loop has a parallel handler (`LearningLoopEventHandlerService`) tracking submission iterations, feedback turnaround, and mastery velocity.
-- **Three-View UI** - List, Create, Analytics tabs
+- **~~Three-View UI~~** - Shelved to `_shelved/activity_ui/` (2026-03-28). Activity data viewed via ActivityReport UI at `/activity-reports`.
 
 ## Key Files Per Domain
 
@@ -69,10 +69,11 @@ core/services/{domain}/
 └── ... (domain-specific services)
 
 core/services/{domain}_service.py  # Facade
-
-adapters/inbound/{domain}_ui.py    # Routes
-ui/{domain}/views.py               # View components
 core/events/{domain}_events.py     # Domain events
+
+# SHELVED (2026-03-28) — moved to _shelved/activity_ui/
+# adapters/inbound/{domain}_ui.py    # UI Routes
+# ui/{domain}/views.py               # View components
 ```
 
 ## Common Operations

@@ -153,7 +153,7 @@ Entity types have behavioral traits — not category membership — that determi
 
 ### Entity Type Groups
 
-- **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation.
+- **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation. **CRUD UI shelved (2026-03-28):** Activity Domain dedicated dashboards, AI sub-services, and some analytics sub-services are shelved. CRUD APIs remain active; activity data is viewed via ActivityReport at `/activity-reports`.
 - **Curriculum (5):** Lesson, Ku, LearningStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
 - **Submissions/Reports (3):** ExerciseSubmission, ExerciseReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
 - **Journal (2):** JeInput, JeOutput — standalone journal domain. `JeInput(UserOwnedEntity)`, `JeOutput(UserOwnedEntity)`. Relationship: `(JeOutput)-[:TRANSFORMS]->(JeInput)`. Pipeline: JE_INPUT(audio) -> Deepgram -> JE_INPUT(text) -> LLM -> JE_OUTPUT. Models in `core/models/journal/`, services in `core/services/journal/` (`JournalInputService` — CRUD + file upload, `JournalOutputService` — LLM processing).
@@ -501,8 +501,8 @@ type Scorer[T] = Callable[[T], Score]
 | CUSTOM | Full-width, page manages layout (SidebarPage) |
 
 - Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, Static in `/static/`
-- Navbar has icon links: **⚛️** (Knowledge, `/ku`) + **C** (Curriculum, `/curriculum`) + **S** (Study, `/study`) + avatar **U** (click → `/profile`; hover → Activity dropdown: Tasks, Goals, Habits, Events, Choices, Principles) + logout icon
-- `/ku` is the Knowledge index — flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking). `/profile` is a lean dashboard (no sidebar, uses `BasePage`). Activity domains at `/activities/{domain}` with sidebar. `/curriculum` is the curriculum hub with 4-card landing; sub-pages (`/lessons`, `/learning-steps`, `/learning-paths`, `/exercises`) share a 4-item Curriculum sidebar. `/study` is the student workspace hub landing page. Sub-pages (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/generate-reports`) share a 5-item Study sidebar. Old `/submissions/*`, `/learn/*`, and `/ui/exercises` UI paths redirect 301 to the new top-level routes.
+- Navbar has icon links: **⚛️** (Knowledge, `/ku`) + **C** (Curriculum, `/curriculum`) + **S** (Study, `/study`) + avatar **U** (click → `/profile`; hover → Activity dropdown, currently empty — activities shelved 2026-03-28) + logout icon
+- `/ku` is the Knowledge index — flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking). `/profile` is a lean dashboard (no sidebar, uses `BasePage`). Activity Domain dedicated dashboards at `/activities/{domain}` are **shelved** (2026-03-28) — activity data is viewed via ActivityReport at `/activity-reports` in the Study sidebar. `/curriculum` is the curriculum hub with 4-card landing; sub-pages (`/lessons`, `/learning-steps`, `/learning-paths`, `/exercises`) share a 4-item Curriculum sidebar. `/study` is the student workspace hub landing page. Sub-pages (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/generate-reports`) share a 5-item Study sidebar. Old `/submissions/*`, `/learn/*`, and `/ui/exercises` UI paths redirect 301 to the new top-level routes.
 - All sidebars unified into `SidebarPage` from `ui/patterns/sidebar.py`
 
 **Shared Components:** `PageHeader` (page title + subtitle + actions — adopted across all 6 Activity Domain dashboards, Study, Curriculum, Admin, Analytics, Calendar, and LifePath), `EmptyState` (empty lists — adopted across ~45 locations), `CardGenerator` (THE single card component — detail cards, list cards, teaching rows, insight cards; supports subtitle, metadata, extra, header_badges with FT pass-through), `StatsGrid`/`StatItem` (statistics grids), `StatusBadge` (delegates to `EntityStatus.get_badge_class()` for all 14 statuses), `render_error_banner`/`render_inline_error` (accessible error states — adopted across 25+ route files). All in `/ui/patterns/` or `/ui/feedback.py`.
@@ -599,7 +599,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **7 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, UserProgress, Context.
 
-**6 Activity Domains:** Tasks (11 sub-services), Goals (9), Habits (14), Events (10), Choices (7), Principles (10). All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()`. **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) provides domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) for all 6 domains — wired into every facade via `self.knowledge_intelligence`.
+**6 Activity Domains:** Tasks, Goals, Habits, Events, Choices, Principles. All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()`. **Shelved (2026-03-28):** AI sub-services and some analytics sub-services are shelved; remaining active sub-services are `.core` and `.search`. **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) provides domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) for all 6 domains — wired into every facade via `self.knowledge_intelligence`.
 
 **Essential Docs:** `/docs/guides/BASESERVICE_QUICK_START.md`, `/docs/reference/SUB_SERVICE_CATALOG.md`, `/docs/reference/BASESERVICE_METHOD_INDEX.md`, `/docs/architecture/SERVICE_TOPOLOGY.md`
 
@@ -705,8 +705,8 @@ POST (Create) -> 201, GET/PUT/DELETE -> 200, POST (Action) -> 200
 | OwnershipRouteFactory | Ownership-verified domain routes (GET/POST with ownership checks) |
 | CommonQueryRouteFactory | Query patterns |
 | AnalyticsRouteFactory | Analytics |
-| QuickAddRouteFactory | Quick-add form handling (6 domains) |
-| DashboardUIFactory | Dashboard + view fragments + list fragment (6 domains) |
+| QuickAddRouteFactory | Quick-add form handling (6 domains) — **shelved for Activity Domains (2026-03-28)** |
+| DashboardUIFactory | Dashboard + view fragments + list fragment (6 domains) — **shelved for Activity Domains (2026-03-28)** |
 
 **UI Route Factories** (config + callables pattern): `QuickAddRouteFactory` and `DashboardUIFactory` eliminate UI route boilerplate across all 6 Activity Domains. Each domain provides named callables for domain-specific behavior; the factory handles auth, error handling, view dispatch, and page wrapping. `DashboardUIConfig` (frozen dataclass) captures variation points: filter parsing, service calls, view rendering, context building, and list fragment rendering.
 
@@ -718,7 +718,7 @@ All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (
 
 **Core Principle:** "Configuration over code for route registration"
 
-DomainRouteConfig eliminates route wiring boilerplate. Activity Domains use `create_activity_domain_route_config()` for config-driven CRUD/Query/Intelligence factories.
+DomainRouteConfig eliminates route wiring boilerplate. Activity Domains use `create_activity_domain_route_config()` for config-driven CRUD/Query/Intelligence factories. **Activity Domain route configs shelved (2026-03-28)** — CRUD APIs remain but UI routes are not registered.
 
 ```python
 TASKS_CONFIG = create_activity_domain_route_config(
@@ -758,7 +758,7 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
 | Analytics | `BaseAnalyticsService` | Graph + Python (NO AI) |
 | AI | `BaseAIService` | LLM + Embeddings (optional) |
 
-**Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default, everything + AI).
+**Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default, everything + AI). **Note:** Activity Domain AI sub-services (e.g., TasksAIService) are shelved (2026-03-28); intelligence focus is on curriculum and learning loop.
 
 **UserContextIntelligence (Central Hub):** `get_ready_to_work_on_today()`, `get_optimal_next_learning_steps()`, `calculate_life_path_alignment()`, `get_schedule_aware_recommendations()`
 

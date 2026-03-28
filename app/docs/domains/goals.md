@@ -293,6 +293,8 @@ The Goals domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
+> **Shelved (2026-03-28):** Activity Domain CRUD UI routes and view components are shelved to `_shelved/activity_ui/`. API routes remain active. The content below is preserved for restoration reference.
+
 ### Three-View Dashboard
 
 | Route | Method | Description |

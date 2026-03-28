@@ -469,6 +469,8 @@ When `scope=ContentScope.USER_OWNED` and `ownership_service` is provided:
 
 ## QuickAddRouteFactory
 
+> **Shelved (2026-03-28):** Activity Domain usage of QuickAddRouteFactory is shelved to `_shelved/activity_ui/`. The factory itself remains available for non-Activity domains.
+
 Generates a single POST route for quick-add form handling. Each domain provides callables for entity creation and success/add-another rendering.
 
 ### Usage
@@ -498,6 +500,8 @@ QuickAddRouteFactory.register_route(rt, config)
 - `POST /{domain}/quick-add` — validates required field, runs extra validators, calls `create_entity`, handles add-another vs success response
 
 ## DashboardUIFactory
+
+> **Shelved (2026-03-28):** Activity Domain usage of DashboardUIFactory is shelved to `_shelved/activity_ui/`. The factory itself remains available for non-Activity domains.
 
 Generates 5 dashboard routes from a `DashboardUIConfig` frozen dataclass. Eliminates ~140 lines of boilerplate per Activity Domain (auth, error handling, view dispatch, page wrapping).
 
