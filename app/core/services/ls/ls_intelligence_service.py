@@ -31,6 +31,7 @@ from core.models.graph_context import GraphContext
 from core.models.pathways.learning_step import LearningStep
 from core.models.pathways.learning_step_dto import LearningStepDTO
 from core.models.type_hints import UserUID
+from core.ports.query_types import LsPracticeSummaryResult
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
 from core.utils.decorators import with_error_handling
@@ -194,7 +195,19 @@ class LsIntelligenceService(
 
         # Get practice summary
         practice_result = await self.get_practice_summary(uid)
-        practice = practice_result.value if practice_result.is_ok else {}
+        practice: LsPracticeSummaryResult = (
+            practice_result.value
+            if practice_result.is_ok
+            else {
+                "habits": 0,
+                "tasks": 0,
+                "events": 0,
+                "goals": 0,
+                "principles": 0,
+                "choices": 0,
+                "total": 0,
+            }
+        )
 
         # Get practice completeness score
         completeness_result = await self.practice_completeness_score(uid)
@@ -279,7 +292,7 @@ class LsIntelligenceService(
     # ========================================================================
 
     @with_error_handling("get_practice_summary", error_type="database", uid_param="ls_uid")
-    async def get_practice_summary(self, ls_uid: str) -> Result[dict[str, int]]:
+    async def get_practice_summary(self, ls_uid: str) -> Result[LsPracticeSummaryResult]:
         """
         Get summary of practice opportunities for a learning step.
 
@@ -378,10 +391,17 @@ class LsIntelligenceService(
             return Result.fail(summary_result)
 
         summary = summary_result.value
-        domains = ["habits", "tasks", "events", "goals", "principles", "choices"]
-        present = sum(1.0 for d in domains if summary[d] > 0)
+        domain_counts = [
+            summary["habits"],
+            summary["tasks"],
+            summary["events"],
+            summary["goals"],
+            summary["principles"],
+            summary["choices"],
+        ]
+        present = sum(1 for count in domain_counts if count > 0)
 
-        score = present / len(domains)
+        score = present / len(domain_counts)
         return Result.ok(score)
 
     # ========================================================================

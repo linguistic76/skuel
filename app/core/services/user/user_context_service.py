@@ -32,7 +32,15 @@ from typing import TYPE_CHECKING, Any
 from core.models.task.task import Task as Task
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import TasksOperations
-from core.ports.query_types import ContextDashboard, ContextSummary
+from core.ports.query_types import (
+    AdaptiveLearningPathResult,
+    AtRiskHabitsResult,
+    ContextDashboard,
+    ContextHealthResult,
+    ContextSummary,
+    FutureContextStateResult,
+    NextActionResult,
+)
 from core.services.user.intelligence import (
     UserContextIntelligenceFactory,
 )
@@ -292,7 +300,7 @@ class UserContextService:
         # Build context - builder owns user resolution (Option A architecture)
         return await self.context_builder.build(user_uid)
 
-    async def get_next_action(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_next_action(self, user_uid: UserUID) -> Result[NextActionResult]:
         """
         Get AI-recommended next action based on context.
 
@@ -300,7 +308,7 @@ class UserContextService:
             user_uid: User identifier
 
         Returns:
-            Result containing next action recommendation with rationale
+            Result[NextActionResult] with recommended action, insights, alerts, rationale
         """
         summary_result = await self.get_context_summary(
             user_uid=user_uid,
@@ -322,7 +330,7 @@ class UserContextService:
 
         return Result.ok(next_action)
 
-    async def get_at_risk_habits(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_at_risk_habits(self, user_uid: UserUID) -> Result[AtRiskHabitsResult]:
         """
         Get habits at risk based on context analysis.
 
@@ -330,7 +338,7 @@ class UserContextService:
             user_uid: User identifier
 
         Returns:
-            Result containing at-risk habits with streaks and completion rates
+            Result[AtRiskHabitsResult] with at-risk habits, streaks, and completion rates
         """
         context_result = await self.context_builder.build(user_uid)
         if context_result.is_error:
@@ -356,7 +364,9 @@ class UserContextService:
 
         return Result.ok(at_risk_data)
 
-    async def get_adaptive_learning_path(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_adaptive_learning_path(
+        self, user_uid: UserUID
+    ) -> Result[AdaptiveLearningPathResult]:
         """
         Get adaptive learning path based on context.
 
@@ -364,7 +374,7 @@ class UserContextService:
             user_uid: User identifier
 
         Returns:
-            Result containing learning path with recommendations
+            Result[AdaptiveLearningPathResult] with path, alignment, and recommendations
         """
         context_result = await self.context_builder.build(user_uid)
         if context_result.is_error:
@@ -385,7 +395,9 @@ class UserContextService:
 
         return Result.ok(learning_path)
 
-    async def predict_future_context_state(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def predict_future_context_state(
+        self, user_uid: UserUID
+    ) -> Result[FutureContextStateResult]:
         """
         Predict future context state based on current patterns.
 
@@ -418,7 +430,7 @@ class UserContextService:
 
         return Result.ok(predictions)
 
-    async def get_context_health(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_context_health(self, user_uid: UserUID) -> Result[ContextHealthResult]:
         """
         Get overall context system health metrics.
 
@@ -426,7 +438,7 @@ class UserContextService:
             user_uid: User identifier
 
         Returns:
-            Result containing health metrics, alerts, and recommendations
+            Result[ContextHealthResult] with health score, metrics, alerts, recommendations
         """
         summary_result = await self.get_context_summary(
             user_uid=user_uid,

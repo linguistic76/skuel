@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import EntityUID
+from core.ports.base_protocols import HierarchyContextRaw
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -198,7 +199,7 @@ class _OrganizesMixin:
         """
         return await self.execute_query(query, {"entity_uid": entity_uid})
 
-    async def get_hierarchy_raw(self, entity_uid: EntityUID) -> Result[dict[str, Any]]:
+    async def get_hierarchy_raw(self, entity_uid: EntityUID) -> Result[HierarchyContextRaw]:
         """Get full hierarchy context: ancestors, children, siblings."""
         ancestors_query = """
         MATCH path = (ancestor:Entity)-[:ORGANIZES*]->(ku:Entity {uid: $entity_uid})

@@ -11,7 +11,7 @@ from typing import Any
 
 from fasthtml.common import H3, Div, Form, Li, NotStr, P, Span, Ul
 
-from core.models.insight.persisted_insight import PersistedInsight
+from core.models.insight.persisted_insight import InsightImpact, PersistedInsight
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.layout import Row, Size
@@ -56,9 +56,9 @@ def InsightCard(insight: PersistedInsight) -> Div:
     # Build badges
     impact_variant = (
         BadgeT.error
-        if insight.impact.value in ("critical", "high")
+        if insight.impact in (InsightImpact.CRITICAL, InsightImpact.HIGH)
         else BadgeT.warning
-        if insight.impact.value == "medium"
+        if insight.impact == InsightImpact.MEDIUM
         else BadgeT.success
     )
     impact_badge = Badge(insight.impact.value.upper(), variant=impact_variant)
@@ -189,9 +189,9 @@ def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div
     badges = []
     impact_variant = (
         BadgeT.error
-        if insight.impact.value in ("critical", "high")
+        if insight.impact in (InsightImpact.CRITICAL, InsightImpact.HIGH)
         else BadgeT.warning
-        if insight.impact.value == "medium"
+        if insight.impact == InsightImpact.MEDIUM
         else BadgeT.success
     )
     impact_badge = Badge(insight.impact.value.upper(), variant=impact_variant)
@@ -362,9 +362,9 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                         Badge(
                             insight.impact.value.upper(),
                             variant=BadgeT.error
-                            if insight.impact.value in ("critical", "high")
+                            if insight.impact in (InsightImpact.CRITICAL, InsightImpact.HIGH)
                             else BadgeT.warning
-                            if insight.impact.value == "medium"
+                            if insight.impact == InsightImpact.MEDIUM
                             else BadgeT.success,
                         ),
                         Badge(insight.domain, variant=BadgeT.neutral),

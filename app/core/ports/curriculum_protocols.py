@@ -81,6 +81,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from core.models.type_hints import UserUID
+from core.ports.query_types import (
+    LsKnowledgeSummaryResult,
+    LsPracticeSummaryResult,
+    SubstantiationSummaryResult,
+    UserProgressResult,
+)
 
 from .base_protocols import BackendOperations, GraphRelationshipOperations
 
@@ -288,7 +294,7 @@ class KuInteractionOperations(Protocol):
         """Mark a KU as in-progress for the user."""
         ...
 
-    async def get_user_progress(self, user_uid: UserUID, ku_uid: str) -> Result[dict[str, Any]]:
+    async def get_user_progress(self, user_uid: UserUID, ku_uid: str) -> Result[UserProgressResult]:
         """Get user's progress on a specific KU."""
         ...
 
@@ -407,18 +413,12 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         """
         ...
 
-    async def get_substantiation_summary(self, uid: str) -> Result[dict[str, Any]]:
+    async def get_substantiation_summary(self, uid: str) -> Result[SubstantiationSummaryResult]:
         """
         Get detailed substantiation breakdown for a KU.
 
-        Returns:
-            Result[dict]: Breakdown including:
-                - tasks_applied: Count of tasks using this KU
-                - events_practiced: Count of events practicing this KU
-                - habits_built: Count of habits reinforcing this KU
-                - journal_reflections: Count of journal entries
-                - choices_informed: Count of choices using this KU
-                - substance_score: Overall score (0.0-1.0)
+        Returns substance_score, per-domain breakdown (tasks, events, habits,
+        journals, choices), gaps, review_status, recommendations, and status flags.
         """
         ...
 
@@ -470,7 +470,9 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         """Check if a Lesson has organized children."""
         ...
 
-    async def get_organization_view(self, ku_uid: str, max_depth: int = 3) -> Result[OrganizationView]:
+    async def get_organization_view(
+        self, ku_uid: str, max_depth: int = 3
+    ) -> Result[OrganizationView]:
         """Get a Lesson with its organized children hierarchy."""
         ...
 
@@ -824,7 +826,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         """List CONTAINS_KNOWLEDGE relationships, optionally filtered by type."""
         ...
 
-    async def get_knowledge_summary(self, ls_uid: str) -> Result[dict[str, Any]]:
+    async def get_knowledge_summary(self, ls_uid: str) -> Result[LsKnowledgeSummaryResult]:
         """Aggregate counts and UIDs of primary vs supporting knowledge."""
         ...
 
@@ -832,17 +834,12 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     # PRACTICE INTEGRATION
     # =========================================================================
 
-    async def get_practice_summary(self, uid: str) -> Result[dict[str, Any]]:
+    async def get_practice_summary(self, uid: str) -> Result[LsPracticeSummaryResult]:
         """
         Get practice integration summary for this step.
 
-        Returns:
-            Result[dict]: Practice elements including:
-                - habit_uids: Habits that build on this step
-                - task_uids: Tasks for practicing this step
-                - event_uids: Events for this step
-                - total_practice_elements: Count of all elements
-                - practice_completeness: Score (0.0-1.0)
+        Returns counts of activity entities (habits, tasks, events, goals,
+        principles, choices) connected to this learning step, plus total.
         """
         ...
 

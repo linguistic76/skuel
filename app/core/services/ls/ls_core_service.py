@@ -37,6 +37,7 @@ from core.models.pathways.learning_step import LearningStep
 from core.models.pathways.learning_step_dto import LearningStepDTO
 from core.models.type_hints import UserUID
 from core.ports import get_enum_value
+from core.ports.query_types import LsKnowledgeSummaryResult
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
@@ -653,7 +654,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
 
     @track_query_metrics("ls_get_knowledge_summary")
     @with_error_handling("get_knowledge_summary", error_type="database")
-    async def get_knowledge_summary(self, ls_uid: str) -> Result[dict]:
+    async def get_knowledge_summary(self, ls_uid: str) -> Result[LsKnowledgeSummaryResult]:
         """Get summary of knowledge relationships (primary/supporting counts and UIDs)."""
         result = await self.backend.get_knowledge_summary(ls_uid)
         if result.is_error:

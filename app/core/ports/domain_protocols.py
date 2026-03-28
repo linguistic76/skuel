@@ -82,14 +82,19 @@ from core.ports.base_protocols import (
     HierarchyOperations,
 )
 from core.ports.query_types import (
+    AdaptiveLearningPathResult,
+    AtRiskHabitsResult,
     ChoiceStats,
     ContextDashboard,
+    ContextHealthResult,
     ContextSummary,
     EventStats,
+    FutureContextStateResult,
     GoalStats,
     GraphContextResult,
     HabitStats,
     InvoiceStats,
+    NextActionResult,
     PrincipleStats,
     TaskStats,
 )
@@ -1269,23 +1274,27 @@ class UserContextOperations(Protocol):
         """Get concise context summary for user."""
         ...
 
-    async def get_next_action(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_next_action(self, user_uid: UserUID) -> Result[NextActionResult]:
         """Get AI-recommended next action based on context."""
         ...
 
-    async def get_at_risk_habits(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_at_risk_habits(self, user_uid: UserUID) -> Result[AtRiskHabitsResult]:
         """Get habits at risk of breaking streaks."""
         ...
 
-    async def get_adaptive_learning_path(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_adaptive_learning_path(
+        self, user_uid: UserUID
+    ) -> Result[AdaptiveLearningPathResult]:
         """Get adaptive learning path recommendations."""
         ...
 
-    async def predict_future_context_state(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def predict_future_context_state(
+        self, user_uid: UserUID
+    ) -> Result[FutureContextStateResult]:
         """Predict future context state based on current patterns."""
         ...
 
-    async def get_context_health(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_context_health(self, user_uid: UserUID) -> Result[ContextHealthResult]:
         """Get overall context health metrics."""
         ...
 

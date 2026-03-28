@@ -32,7 +32,7 @@ from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.form_helpers import safe_form_int, safe_form_string
-from core.models.event.calendar_models import CalendarView
+from core.models.event.calendar_models import CalendarItemType, CalendarView
 from core.utils.logging import get_logger
 from core.utils.timestamp_helpers import next_month, prev_month, week_bounds
 from ui.buttons import Button, ButtonLink, ButtonT
@@ -158,7 +158,7 @@ def _render_item_details_modal(item: Any) -> Div:
 
     # Event-specific info (location, attendees)
     event_info = None
-    if item.item_type.value == "event":
+    if item.item_type == CalendarItemType.EVENT:
         event_details = []
         if item.location:
             event_details.append(
@@ -200,7 +200,7 @@ def _render_item_details_modal(item: Any) -> Div:
 
     # Habit streak info
     habit_info = None
-    if item.item_type.value == "habit" and item.streak_count is not None:
+    if item.item_type == CalendarItemType.HABIT and item.streak_count is not None:
         habit_info = Div(
             P(
                 f"Current Streak: {item.streak_count} days 🔥",
@@ -230,7 +230,7 @@ def _render_item_details_modal(item: Any) -> Div:
         )
     ]
 
-    if item.item_type.value in ("task_work", "task_deadline"):
+    if item.item_type in (CalendarItemType.TASK_WORK, CalendarItemType.TASK_DEADLINE):
         action_buttons.insert(
             0,
             ButtonLink(
@@ -240,7 +240,7 @@ def _render_item_details_modal(item: Any) -> Div:
                 cls="mr-2",
             ),
         )
-    elif item.item_type.value == "event":
+    elif item.item_type == CalendarItemType.EVENT:
         action_buttons.insert(
             0,
             ButtonLink(
@@ -250,7 +250,7 @@ def _render_item_details_modal(item: Any) -> Div:
                 cls="mr-2",
             ),
         )
-    elif item.item_type.value == "habit":
+    elif item.item_type == CalendarItemType.HABIT:
         action_buttons.insert(
             0,
             Button(

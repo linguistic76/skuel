@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
 
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
     import builtins
@@ -48,7 +48,7 @@ if TYPE_CHECKING:
     from core.models.enums import Priority
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_names import RelationshipName
-    from core.models.type_hints import FilterParams, Neo4jProperties
+    from core.models.type_hints import FilterParams
     from core.utils.result_simplified import Result as ResultType
     # Note: Result protocol defined at line 866 is for duck-typing Result-like objects
     # ResultType is the actual Result[T] class used in type annotations
@@ -109,6 +109,24 @@ class RelationshipMetadata(TypedDict, total=False):
     contribution_type: str
     dependency_type: str
     support_type: str
+
+
+class HierarchyContextRaw(TypedDict):
+    """
+    Typed result from get_hierarchy_raw() — full parent-child hierarchy context.
+
+    Always contains all three keys; each list holds raw Neo4j node property dicts.
+    The service layer converts these to typed domain models.
+
+    Keys:
+        ancestors: Root-to-parent path (excludes the entity itself), ordered by depth DESC.
+        siblings: Other children of the same parent.
+        children: Immediate children of the entity.
+    """
+
+    ancestors: list[Neo4jProperties]
+    siblings: list[Neo4jProperties]
+    children: list[Neo4jProperties]
 
 
 class GraphContextNode(TypedDict, total=False):
@@ -813,15 +831,15 @@ class HierarchyOperations(Protocol):
 
     async def get_children_raw(
         self, parent_uid: str, depth: int = 1
-    ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Get child nodes as raw dicts at the given traversal depth."""
+    ) -> ResultType[builtins.list[Neo4jProperties]]:
+        """Get child nodes as raw Neo4j property dicts at the given traversal depth."""
         ...
 
-    async def get_parent_raw(self, child_uid: str) -> ResultType[dict[str, Any] | None]:
-        """Get immediate parent node as a raw dict, or None if root-level."""
+    async def get_parent_raw(self, child_uid: str) -> ResultType[Neo4jProperties | None]:
+        """Get immediate parent node as a raw Neo4j property dict, or None if root-level."""
         ...
 
-    async def get_hierarchy_raw(self, entity_uid: EntityUID) -> ResultType[dict[str, Any]]:
+    async def get_hierarchy_raw(self, entity_uid: EntityUID) -> ResultType[HierarchyContextRaw]:
         """Get full hierarchy context: ancestors, siblings, children as raw dicts."""
         ...
 
@@ -829,7 +847,7 @@ class HierarchyOperations(Protocol):
         self,
         parent_uid: str,
         child_uid: str,
-        forward_props: dict[str, Any] | None = None,
+        forward_props: Neo4jProperties | None = None,
     ) -> ResultType[bool]:
         """Create bidirectional parent-child relationship with cycle detection."""
         ...
@@ -1119,6 +1137,8 @@ __all__ = [
     "GraphContextNode",
     # Graph Relationship Operations Protocol (1)
     "GraphRelationshipOperations",
+    # Hierarchy Operations (1 TypedDict + 1 Protocol)
+    "HierarchyContextRaw",
     "GraphTraversalOperations",  # Graph traversal
     "GtConstraint",
     # Timestamp Protocols (3)

@@ -57,9 +57,9 @@ class GraphContextOrchestrator[T, DTO]:
         intent = entity.get_suggested_query_intent()
 
         # Build query based on intent (15 lines)
-        if intent.value == "hierarchical":
+        if intent == QueryIntent.HIERARCHICAL:
             query = entity.build_hierarchy_query(depth)
-        elif intent.value == "prerequisite":
+        elif intent == QueryIntent.PREREQUISITE:
             query = entity.build_prerequisites_query(depth)
         ...
 

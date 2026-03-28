@@ -23,7 +23,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import EntityUID
+from core.models.type_hints import EntityUID, Neo4jProperties
+from core.ports.base_protocols import HierarchyContextRaw
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -81,8 +82,8 @@ class _HierarchyMixin:
 
     async def get_children_raw(
         self, parent_uid: str, depth: int = 1
-    ) -> Result[list[dict[str, Any]]]:
-        """Get child nodes as raw dicts at the given traversal depth.
+    ) -> Result[list[Neo4jProperties]]:
+        """Get child nodes as raw Neo4j property dicts at the given traversal depth.
 
         Args:
             parent_uid: Parent entity UID.
@@ -103,8 +104,8 @@ class _HierarchyMixin:
             return Result.fail(result)
         return Result.ok([record["child"] for record in (result.value or [])])
 
-    async def get_parent_raw(self, child_uid: str) -> Result[dict[str, Any] | None]:
-        """Get immediate parent node as a raw dict, or None if root-level.
+    async def get_parent_raw(self, child_uid: str) -> Result[Neo4jProperties | None]:
+        """Get immediate parent node as a raw Neo4j property dict, or None if root-level.
 
         Args:
             child_uid: Child entity UID.
@@ -126,17 +127,14 @@ class _HierarchyMixin:
             return Result.ok(None)
         return Result.ok(result.value[0]["parent"])
 
-    async def get_hierarchy_raw(self, entity_uid: EntityUID) -> Result[dict[str, Any]]:
+    async def get_hierarchy_raw(self, entity_uid: EntityUID) -> Result[HierarchyContextRaw]:
         """Get full hierarchy context: ancestors, siblings, children as raw dicts.
 
         Args:
             entity_uid: Entity UID to get hierarchy context for.
 
         Returns:
-            Result containing dict with keys:
-            - ``ancestors``: list[dict] (root to immediate parent, excludes current)
-            - ``siblings``: list[dict] (other children of same parent)
-            - ``children``: list[dict] (immediate children)
+            Result[HierarchyContextRaw] with keys: ancestors, siblings, children.
         """
         cfg = self._hierarchy_config
         uid_param = "entity_uid"
@@ -167,7 +165,7 @@ class _HierarchyMixin:
         children_result = await self.execute_query(children_query, params)
 
         # Process ancestors (exclude current node = last in path)
-        ancestors: list[dict[str, Any]] = []
+        ancestors: list[Neo4jProperties] = []
         if (
             not ancestors_result.is_error
             and ancestors_result.value
@@ -176,7 +174,7 @@ class _HierarchyMixin:
             ancestors.extend(ancestors_result.value[0]["ancestors"][:-1])
 
         # Process siblings
-        siblings: list[dict[str, Any]] = []
+        siblings: list[Neo4jProperties] = []
         if (
             not siblings_result.is_error
             and siblings_result.value
@@ -185,7 +183,7 @@ class _HierarchyMixin:
             siblings.extend(node for node in siblings_result.value[0]["siblings"] if node)
 
         # Process children
-        children: list[dict[str, Any]] = []
+        children: list[Neo4jProperties] = []
         if (
             not children_result.is_error
             and children_result.value
@@ -209,7 +207,7 @@ class _HierarchyMixin:
         self,
         parent_uid: str,
         child_uid: str,
-        forward_props: dict[str, Any] | None = None,
+        forward_props: Neo4jProperties | None = None,
     ) -> Result[bool]:
         """Create bidirectional parent-child relationship with cycle detection.
 

@@ -15,6 +15,8 @@ Includes GraphEntityBase ABC for default implementation of get_relationship_summ
 from abc import ABC, abstractmethod
 from typing import Any, Protocol, runtime_checkable
 
+from core.ports.query_types import GraphInfluenceItem, RelationshipSummaryResult
+
 
 @runtime_checkable
 class GraphEntity(Protocol):
@@ -60,7 +62,7 @@ class GraphEntity(Protocol):
         """
         ...
 
-    def get_upstream_influences(self) -> list[dict[str, Any]]:
+    def get_upstream_influences(self) -> list[GraphInfluenceItem]:
         """
         WHAT shaped me? Entities that influenced the creation of this entity.
 
@@ -70,37 +72,15 @@ class GraphEntity(Protocol):
         - Goals that spawned this entity (parent relationships)
         - Knowledge that prerequisite this entity
 
-        Each dict contains:
-            - uid: Entity UID
-            - entity_type: "choice", "principle", "goal", "knowledge", etc.
-            - relationship_type: "derives_from", "guided_by", "spawned_by", "requires"
-            - reasoning: HOW/WHY this entity influenced (if available)
-            - strength: 0-1 scale of influence strength (if available)
-
-        Example:
-            [
-                {
-                    "uid": "choice:mental-health-priority",
-                    "entity_type": "choice",
-                    "relationship_type": "derives_from",
-                    "reasoning": "Chose to prioritize mental health",
-                    "confidence": 0.9
-                },
-                {
-                    "uid": "principle:small-steps",
-                    "entity_type": "principle",
-                    "relationship_type": "guided_by",
-                    "manifestation": "By starting with just 2 minutes",
-                    "strength": 1.0
-                }
-            ]
+        Each item contains uid, entity_type, relationship_type, and optional
+        reasoning, strength, confidence, manifestation fields.
 
         Returns:
-            List[Dict]: Upstream influencing entities with relationship details
+            list[GraphInfluenceItem]: Upstream influencing entities
         """
         ...
 
-    def get_downstream_impacts(self) -> list[dict[str, Any]]:
+    def get_downstream_impacts(self) -> list[GraphInfluenceItem]:
         """
         WHAT do I shape? Entities that this entity influences/creates.
 
@@ -134,25 +114,16 @@ class GraphEntity(Protocol):
             ]
 
         Returns:
-            List[Dict]: Downstream impacted entities with relationship details
+            list[GraphInfluenceItem]: Downstream impacted entities
         """
         ...
 
-    def get_relationship_summary(self) -> dict[str, Any]:
+    def get_relationship_summary(self) -> RelationshipSummaryResult:
         """
         Get comprehensive relationship context summary.
 
         Combines explanation, upstream influences, and downstream impacts
         into a complete picture of this entity's place in the reasoning graph.
-
-        Returns:
-            Dict: {
-                'explanation': str,  # From explain_existence()
-                'upstream': List[Dict],  # From get_upstream_influences()
-                'downstream': List[Dict],  # From get_downstream_impacts()
-                'upstream_count': int,
-                'downstream_count': int
-            }
         """
         ...
 
@@ -210,12 +181,12 @@ class GraphEntityBase(ABC):
         ...
 
     @abstractmethod
-    def get_upstream_influences(self) -> list[dict[str, Any]]:
+    def get_upstream_influences(self) -> list[GraphInfluenceItem]:
         """WHAT shaped this entity? Upstream influences."""
         ...
 
     @abstractmethod
-    def get_downstream_impacts(self) -> list[dict[str, Any]]:
+    def get_downstream_impacts(self) -> list[GraphInfluenceItem]:
         """WHAT does this entity shape? Downstream impacts."""
         ...
 
@@ -229,21 +200,12 @@ class GraphEntityBase(ABC):
         """
         ...
 
-    def get_relationship_summary(self) -> dict[str, Any]:
+    def get_relationship_summary(self) -> RelationshipSummaryResult:
         """
         Get comprehensive relationship context.
 
         DEFAULT IMPLEMENTATION - works for all domains.
         Subclasses should NOT override this unless truly necessary.
-
-        Returns:
-            Dict containing:
-            - explanation: Why this entity exists
-            - upstream: What shaped it
-            - downstream: What it shapes
-            - upstream_count: Number of upstream influences
-            - downstream_count: Number of downstream impacts
-            - metrics: Domain-specific metrics
         """
         return {
             "explanation": self.explain_existence(),

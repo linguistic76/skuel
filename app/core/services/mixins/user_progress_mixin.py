@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from core.models.protocols import DomainModelProtocol
 from core.models.type_hints import EntityUID, UserUID
 from core.ports import BackendOperations
+from core.ports.query_types import UserProgressResult
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -79,7 +80,7 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
     @with_error_handling("get_user_progress", error_type="database")
     async def get_user_progress(
         self, user_uid: UserUID, entity_uid: EntityUID
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[UserProgressResult]:
         """
         Get user's progress/mastery for an entity.
 

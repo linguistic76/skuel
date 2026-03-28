@@ -66,6 +66,7 @@ from core.ports.query_types import (
     EventStats,
     GoalStats,
     HabitStats,
+    LsKnowledgeSummaryResult,
     PrincipleStats,
     TaskStats,
 )
@@ -2256,7 +2257,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
             ]
         )
 
-    async def get_knowledge_summary(self, ls_uid: str) -> Result[dict[str, Any]]:
+    async def get_knowledge_summary(self, ls_uid: str) -> Result[LsKnowledgeSummaryResult]:
         """Aggregate counts and UIDs of primary vs supporting knowledge."""
         query = """
         MATCH (ls:Entity {uid: $ls_uid})

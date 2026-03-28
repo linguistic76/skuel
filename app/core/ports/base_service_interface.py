@@ -94,6 +94,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 from core.models.type_hints import EntityUID, UserUID
+from core.ports.query_types import UserProgressResult
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -741,7 +742,7 @@ class UserProgressOperations(Protocol[T]):
 
     async def get_user_progress(
         self, user_uid: UserUID, entity_uid: EntityUID
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[UserProgressResult]:
         """
         Get user's progress/mastery for an entity.
 
@@ -750,7 +751,7 @@ class UserProgressOperations(Protocol[T]):
             entity_uid: Entity UID
 
         Returns:
-            Result[dict]: Progress stats for entity
+            Result[UserProgressResult]: Progress stats for entity
         """
         ...
 

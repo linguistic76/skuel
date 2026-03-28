@@ -1201,6 +1201,85 @@ class ContextSummary(TypedDict, total=False):
 
 
 # ============================================================================
+# CONTEXT INTELLIGENCE RESULT TYPES
+# ============================================================================
+
+
+class NextActionResult(TypedDict, total=False):
+    """Return shape for UserContextService.get_next_action().
+
+    AI-recommended next action based on current priorities, overdue items,
+    and at-risk habits.
+    """
+
+    user_uid: str
+    recommended_action: TopPriorities
+    insights: ContextInsights
+    alerts: list[ContextAlert]
+    rationale: str
+
+
+class AtRiskHabitsResult(TypedDict, total=False):
+    """Return shape for UserContextService.get_at_risk_habits().
+
+    Habits at risk of breaking streaks, with streak counts and completion rates
+    filtered to only the at-risk subset.
+    """
+
+    user_uid: str
+    at_risk_habits: list[str]
+    habit_streaks: dict[str, int]
+    completion_rates: dict[str, float]
+    count: int
+
+
+class AdaptiveLearningPathResult(TypedDict, total=False):
+    """Return shape for UserContextService.get_adaptive_learning_path().
+
+    Personalized learning recommendations based on current context: enrolled path,
+    life path alignment, ready-to-learn KUs, and mastery state.
+    """
+
+    user_uid: str
+    current_path: str | None
+    life_path: str | None
+    life_path_alignment: float
+    ready_to_learn: list[str]
+    next_recommended: list[str]
+    mastered_knowledge: list[str]
+    mastered_count: int
+
+
+class FutureContextStateResult(TypedDict, total=False):
+    """Return shape for UserContextService.predict_future_context_state().
+
+    Predicted user state based on current patterns, extracted from the dashboard
+    with predictions enabled.
+    """
+
+    user_uid: str
+    horizon: str
+    generated_at: str
+    predictions: PredictionsData
+    current_state: dict[str, Any]  # boundary: nested dashboard domain slices
+
+
+class ContextHealthResult(TypedDict, total=False):
+    """Return shape for UserContextService.get_context_health().
+
+    Overall context system health: composite health score, key metrics,
+    alerts, insights, and generated recommendations.
+    """
+
+    user_uid: str
+    overall_health: float
+    metrics: KeyMetrics
+    alerts: list[ContextAlert]
+    insights: ContextInsights
+    recommendations: list[str]
+
+
+# ============================================================================
 # AUTH RESULT TYPES
 # ============================================================================
 
@@ -1377,6 +1456,125 @@ class LifePathAlignmentResult(TypedDict, total=False):
     recommendations: list[str]
     calculated_at: str  # ISO format
     message: str  # Present when no designation exists
+
+
+# ============================================================================
+# GRAPH ENTITY RESULT TYPES
+# ============================================================================
+
+
+class GraphInfluenceItem(TypedDict, total=False):
+    """Single upstream influence or downstream impact in the reasoning graph.
+
+    Used by GraphEntity.get_upstream_influences() and get_downstream_impacts().
+    Each item represents an entity that shaped (upstream) or is shaped by
+    (downstream) the current entity.
+    """
+
+    uid: str
+    entity_type: str
+    relationship_type: str
+    reasoning: str
+    strength: float
+    confidence: float
+    manifestation: str
+
+
+class RelationshipSummaryResult(TypedDict, total=False):
+    """Return shape for GraphEntity.get_relationship_summary().
+
+    Combines explain_existence(), upstream influences, and downstream impacts
+    into a complete picture of an entity's place in the reasoning graph.
+    The GraphEntityBase ABC adds domain-specific metrics via _get_domain_metrics().
+    """
+
+    explanation: str
+    upstream: list[GraphInfluenceItem]
+    downstream: list[GraphInfluenceItem]
+    upstream_count: int
+    downstream_count: int
+    metrics: dict[str, Any]  # boundary: domain-specific, varies per entity type
+
+
+# ============================================================================
+# CURRICULUM STRUCTURE RESULT TYPES
+# ============================================================================
+
+
+class SubstantiationBreakdownDomain(TypedDict):
+    """Per-domain substantiation breakdown (tasks, events, habits, journals, choices)."""
+
+    count: int
+    progress: float
+    max_score: float
+
+
+class SubstantiationReviewStatus(TypedDict):
+    """Review timing within SubstantiationSummaryResult."""
+
+    needs_review: bool
+    days_until_review: int | None
+
+
+class SubstantiationSummaryResult(TypedDict, total=False):
+    """Return shape for CurriculumOperations.get_substantiation_summary().
+
+    Detailed breakdown of how a KU is substantiated through lived experience:
+    tasks applied, events practiced, habits built, journal reflections, and choices.
+    """
+
+    substance_score: float
+    breakdown: dict[str, SubstantiationBreakdownDomain]
+    gaps: list[str]
+    review_status: SubstantiationReviewStatus
+    recommendations: list[dict[str, str]]  # boundary: {type, message, impact}
+    status_message: str
+    is_theoretical_only: bool
+    is_well_practiced: bool
+
+
+class LsKnowledgeSummaryResult(TypedDict):
+    """Return shape for LearningStepOperations.get_knowledge_summary().
+
+    Aggregated counts and UIDs of primary vs supporting knowledge in a step.
+    """
+
+    primary_count: int
+    supporting_count: int
+    total_count: int
+    primary_uids: list[str]
+    supporting_uids: list[str]
+
+
+class LsPracticeSummaryResult(TypedDict):
+    """Return shape for LearningStepOperations.get_practice_summary().
+
+    Counts of activity entities connected to this learning step.
+    """
+
+    habits: int
+    tasks: int
+    events: int
+    goals: int
+    principles: int
+    choices: int
+    total: int
+
+
+class UserProgressResult(TypedDict, total=False):
+    """Return shape for CurriculumOperations.get_user_progress().
+
+    User's learning progress on a specific curriculum entity (KU, LS, LP).
+    """
+
+    mastery_level: float
+    is_mastered: bool
+    last_accessed: str | None
+    time_spent: int
+    attempts: int
+    relationship_type: str | None
+    started_at: str | None
+    completed_at: str | None
 
 
 # ============================================================================

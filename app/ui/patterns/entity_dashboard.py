@@ -44,6 +44,7 @@ from fasthtml.common import (
     Span,
 )
 
+from core.models.enums.entity_enums import EntityStatus
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
@@ -663,7 +664,7 @@ class SharedUIComponentsExamples:
                 "total": {"label": "Total Habits", "value": len(habits), "color": "blue"},
                 "active": {
                     "label": "Active",
-                    "value": sum(1 for h in habits if h.status.value == "active"),
+                    "value": sum(1 for h in habits if h.status == EntityStatus.ACTIVE),
                     "color": "green",
                 },
                 "streaks": {
@@ -691,7 +692,7 @@ class SharedUIComponentsExamples:
                 "total": {"label": "Total Tasks", "value": len(tasks), "color": "blue"},
                 "completed": {
                     "label": "Completed",
-                    "value": sum(1 for t in tasks if t.status.value == "completed"),
+                    "value": sum(1 for t in tasks if t.status == EntityStatus.COMPLETED),
                     "color": "green",
                 },
                 "overdue": {"label": "Overdue", "value": 0, "color": "red"},
@@ -711,7 +712,7 @@ class SharedUIComponentsExamples:
                 "total": {"label": "Total Goals", "value": len(goals), "color": "purple"},
                 "active": {
                     "label": "In Progress",
-                    "value": sum(1 for g in goals if g.status.value == "in_progress"),
+                    "value": sum(1 for g in goals if g.status == EntityStatus.ACTIVE),
                     "color": "blue",
                 },
             }
