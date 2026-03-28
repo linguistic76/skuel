@@ -99,8 +99,10 @@ EntityStatus tracks lifecycle across all entity types. Not every status applies 
 ```
 Content Processing:
   DRAFT → SUBMITTED → QUEUED → PROCESSING → COMPLETED / FAILED
-                                                 |
-                                          REVISION_REQUESTED → resubmit
+                 ↑                               |          |
+                 |                        REVISION_REQUESTED |
+                 |                                           |
+                 +───────── reprocessing path ───────────────+
 
 Activity:
   DRAFT → SCHEDULED → ACTIVE → PAUSED → COMPLETED
@@ -109,6 +111,17 @@ Activity:
               |           |
               +→ POSTPONED    +→ CANCELLED / FAILED
 ```
+
+**Reprocessing path:** COMPLETED → SUBMITTED and FAILED → SUBMITTED are valid transitions
+for content-processing entities (ExerciseSubmission, JE_INPUT). Used by
+`SubmissionsProcessingService.reprocess_submission()` to retry or re-evaluate submissions.
+Non-submission entity types can't use this path — they don't have SUBMITTED in their
+`valid_statuses()`.
+
+**Transition enforcement:** `SubmissionsService.update_submission_status()` validates every
+status change via `can_transition_to(target, entity_type)` before persisting. Invalid
+transitions return `Errors.validation()` with the from/to/entity_type. This is the
+chokepoint for all processing pipeline status changes (QUEUED, PROCESSING, COMPLETED, FAILED).
 
 **Valid statuses per EntityType (summary):**
 
@@ -132,7 +145,7 @@ Activity:
 | `is_terminal()` | bool | COMPLETED, FAILED, CANCELLED, or ARCHIVED? |
 | `is_active()` | bool | SUBMITTED, QUEUED, PROCESSING, ACTIVE, or SCHEDULED? |
 | `is_pending()` | bool | DRAFT, SUBMITTED, QUEUED, or SCHEDULED? |
-| `can_transition_to(target, entity_type)` | bool | Is this transition valid (optionally type-aware)? |
+| `can_transition_to(target, entity_type)` | bool | Is this transition valid (optionally type-aware)? Enforced by `update_submission_status()` |
 | `get_color()` | str | Hex color for UI (e.g., ACTIVE="#06B6D4" cyan, BLOCKED="#DC2626" red) |
 | `from_search_text(text)` | list[EntityStatus] | Find statuses matching search terms |
 

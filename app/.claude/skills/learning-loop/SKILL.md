@@ -269,6 +269,21 @@ SubmissionCreated event fires:        SHARES_WITH {role: 'teacher'} (if ASSIGNED
   Same as form path →
 ```
 
+**Status transition enforcement:**
+`SubmissionsService.update_submission_status()` validates every status change via
+`can_transition_to(new_status, entity_type)` before persisting. Invalid transitions
+return `Errors.validation()`. This is the chokepoint for all pipeline status changes.
+
+Valid transitions for ExerciseSubmission:
+```
+DRAFT → SUBMITTED → QUEUED → PROCESSING → COMPLETED / FAILED
+               ↑                               |          |
+               +───── reprocessing path ───────+──────────+
+COMPLETED → REVISION_REQUESTED → DRAFT (new submission cycle)
+```
+
+Reprocessing (`reprocess_submission()`) resets to SUBMITTED and re-enters the pipeline.
+
 **API routes:**
 - `POST /api/submissions/upload` — file upload (multipart form-data)
 - `POST /api/submissions/form` — structured form data (JSON: `{exercise_uid, form_data}`)

@@ -95,15 +95,16 @@ Exercise (scope=ASSIGNED)
        |
        v
 4. Status transition: SUBMITTED → QUEUED → PROCESSING → COMPLETED
-       |
+       |               (enforced by update_submission_status() via can_transition_to())
        v
 5. Auto-sharing: FULFILLS_EXERCISE + SHARES_WITH created
        |                             (student → teacher)
        v
-6. Teacher reviews in queue → writes SUBMISSION_REPORT
+6. Teacher reviews in queue → writes EXERCISE_REPORT
        |                       or requests REVISION
        v
 7. Student sees feedback, optionally resubmits
+       (reprocessing: COMPLETED/FAILED → SUBMITTED via reprocess_submission())
 ```
 
 ### Relationship Graph
