@@ -76,7 +76,7 @@ Priority.from_search_text("urgent")          # → [Priority.HIGH, Priority.CRIT
 
 **File:** `core/models/curriculum.py`
 
-**Request models:** `core/models/lesson/lesson_request.py` (LessonCreateRequest), `core/models/pathways/pathways_request.py` (LsCreateRequest, LpCreateRequest)
+**Request models:** `core/models/lesson/lesson_request.py` (LessonCreateRequest), `core/models/pathways/pathways_request.py` (LsCreateRequest, LpCreateRequest) — used by ingestion, not CRUD routes
 
 **Domains:** KU, LS (LearningStep), LP (LearningPath)
 

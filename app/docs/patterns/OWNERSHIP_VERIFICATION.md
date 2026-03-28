@@ -112,12 +112,14 @@ crud_factory = CRUDRouteFactory(
 )
 
 # Curriculum domains (shared) - no ownership verification
+# Note: Lesson/LS/LP are created via ingestion, not CRUD.
+# FormTemplate is a shared domain that uses CRUD:
 crud_factory = CRUDRouteFactory(
-    service=lesson_service,
-    domain_name="lesson",
-    create_schema=LessonCreateRequest,
+    service=form_template_service,
+    domain_name="form-templates",
+    create_schema=FormTemplateCreateRequest,
     update_schema=EntityUpdateRequest,
-    scope=ContentScope.SHARED,  # Lesson is shared, not user-owned
+    scope=ContentScope.SHARED,  # Shared content, not user-owned
 )
 ```
 

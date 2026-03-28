@@ -57,14 +57,16 @@ crud_factory = CRUDRouteFactory(
 )
 crud_factory.register_routes(app, rt)
 
-# Curriculum domain (shared)
+# Curriculum domain (shared) — uses FormTemplate as example since
+# Lesson/LS/LP are created via ingestion, not CRUD
 crud_factory = CRUDRouteFactory(
-    service=lesson_service,
-    domain_name="lesson",
-    create_schema=LessonCreateRequest,
+    service=form_template_service,
+    domain_name="form-templates",
+    create_schema=FormTemplateCreateRequest,
     update_schema=EntityUpdateRequest,
-    uid_prefix="l",
-    scope=ContentScope.SHARED,  # Curriculum content is shared
+    uid_prefix="ft",
+    scope=ContentScope.SHARED,  # Shared content, admin-only mutations
+    require_role=UserRole.ADMIN,
 )
 crud_factory.register_routes(app, rt)
 ```

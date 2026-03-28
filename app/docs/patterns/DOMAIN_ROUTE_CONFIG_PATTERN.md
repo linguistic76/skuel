@@ -132,7 +132,7 @@ When sub-configs are present, `register_domain_routes()` executes in this order:
 - Factories with static params declared once in config
 - Manual routes and dynamic factories remain flexible
 
-**Adoption:** All 6 Activity Domains + FormTemplate (`scope=ContentScope.SHARED`, `require_role=UserRole.ADMIN`) + RevisedExercise (`scope=ContentScope.USER_OWNED`, `require_role=UserRole.TEACHER`) + Groups (`require_role=UserRole.TEACHER`, `role_gates_reads=False`) migrated.
+**Adoption:** All 6 Activity Domains + FormTemplate (`scope=ContentScope.SHARED`, `require_role=UserRole.ADMIN`) + RevisedExercise (`scope=ContentScope.USER_OWNED`, `require_role=UserRole.TEACHER`) + Groups (`require_role=UserRole.TEACHER`, `role_gates_reads=False`) migrated. Curriculum domains (Lesson, LS, LP) use `IntelligenceRouteConfig` only — no `CRUDRouteConfig` since they are created via ingestion.
 
 ### Recent Updates
 
@@ -706,7 +706,7 @@ def create_insights_routes(app, rt, services, _sync_service=None):
 **Files:** `/adapters/inbound/pathways_routes.py` + `/adapters/inbound/learning_steps_routes.py`
 
 ```python
-# pathways_routes.py — LP config with CRUDRouteConfig + IntelligenceRouteConfig
+# pathways_routes.py — LP config with IntelligenceRouteConfig (no CRUD — created via ingestion)
 PATHWAYS_CONFIG = DomainRouteConfig(
     domain_name="pathways",
     primary_service_attr="lp",
@@ -714,14 +714,6 @@ PATHWAYS_CONFIG = DomainRouteConfig(
     ui_factory=create_pathways_ui_routes,
     api_related_services={"user_service": "user_service", "user_progress": "user_progress"},
     ui_related_services={"user_progress": "user_progress", "ls_service": "ls"},
-    crud=CRUDRouteConfig(
-        create_schema=LearningPathCreateRequest,
-        update_schema=EntityUpdateRequest,
-        uid_prefix="lp",
-        scope=ContentScope.SHARED,
-        require_role=UserRole.ADMIN,
-        user_service_attr="user_service",
-    ),
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 
@@ -733,29 +725,22 @@ def create_pathways_routes(app, rt, services, _sync_service=None):
 ```
 
 ```python
-# learning_steps_routes.py — standalone LS config
+# learning_steps_routes.py — standalone LS config (no CRUD — created via ingestion)
 LS_CONFIG = DomainRouteConfig(
     domain_name="learning-steps",
     primary_service_attr="ls",
     api_factory=create_learning_steps_api_routes,
     api_related_services={"user_service": "user_service"},
-    crud=CRUDRouteConfig(
-        create_schema=LearningStepCreateRequest,
-        update_schema=KuStepUpdateRequest,
-        uid_prefix="ls",
-        scope=ContentScope.SHARED,
-        require_role=UserRole.ADMIN,
-        user_service_attr="user_service",
-    ),
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 ```
 
 **Key features:**
-- Each domain has its own `DomainRouteConfig` with `CRUDRouteConfig` + `IntelligenceRouteConfig`
+- Each domain has its own `DomainRouteConfig` with `IntelligenceRouteConfig`
+- No `CRUDRouteConfig` — curriculum types (Lesson, LS, LP) are created via ingestion, not CRUD
 - LS config lives in a separate file, imported by `pathways_routes.py`
 - Both use `register_domain_routes()` — soft-fail if primary service is missing
-- Demonstrates Curriculum domain pattern: `SHARED` scope + `ADMIN` role + `SHARED` intelligence
+- Demonstrates Curriculum domain pattern: `SHARED` intelligence, ingestion-based creation
 
 ### Example 9: Self-Contained Facade with Complex UI (LifePath)
 
