@@ -41,13 +41,16 @@ from core.ports.query_types import (
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
+# NOTE: FastHTML evaluates string annotations at runtime via signature_ex(),
+# so types used in @rt() handler return annotations must be real imports.
+from core.ports.query_types import (
+    ReviewQueueItem,
+    SubmissionDetailResult,
+    TeacherDashboardStats,
+)
+
 if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
-    from core.ports.query_types import (
-        ReviewQueueItem,
-        SubmissionDetailResult,
-        TeacherDashboardStats,
-    )
 
 logger = get_logger(__name__)
 

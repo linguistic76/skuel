@@ -27,8 +27,11 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 
+# NOTE: FastHTML evaluates string annotations at runtime via signature_ex(),
+# so SubmissionEntity must be a real import, not TYPE_CHECKING-only.
+from core.models.entity_types import SubmissionEntity  # noqa: F811
+
 if TYPE_CHECKING:
-    from core.models.entity_types import SubmissionEntity
     from core.ports.report_protocols import TeacherReviewOperations
     from core.ports.submission_protocols import (
         SubmissionOperations,
