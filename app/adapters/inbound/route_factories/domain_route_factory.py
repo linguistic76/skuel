@@ -77,6 +77,9 @@ class CRUDRouteConfig:
     require_role: UserRole | None = None
     role_gates_reads: bool = True  # When False, get/list skip role check (e.g., Groups)
     user_service_attr: str | None = None  # Services container attr for user_service_getter
+    # Explicit converter: (schema, uid, user_uid) -> domain_model.
+    # When None, CRUDRouteFactory falls back to ConversionServiceV2.CONVERTER_REGISTRY.
+    entity_converter: Callable[..., Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -234,6 +237,7 @@ def register_domain_routes(
             require_role=config.crud.require_role,
             role_gates_reads=config.crud.role_gates_reads,
             user_service_getter=crud_user_service_getter,
+            entity_converter=config.crud.entity_converter,
             prometheus_metrics=prometheus_metrics,
         ).register_routes(app, rt)
 

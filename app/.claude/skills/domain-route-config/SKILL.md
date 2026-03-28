@@ -349,7 +349,7 @@ intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 
 **Service requirements:** The service must implement `create()`, `get()`, `update()`, `delete()`, `list()` (inherited from `BaseService`). For `scope=USER_OWNED`, also needs `get_for_user()`, `update_for_user()`, `delete_for_user()` (inherited from `CrudOperationsMixin`). Override these when the domain model uses a different ownership field (e.g., Group uses `owner_uid` instead of `user_uid`).
 
-**ConversionServiceV2:** Add a `{entity}_create_to_pure()` method (auto-discovered by naming convention: `GroupCreateRequest` → `group_create_to_pure`). Updates use the dict-based pattern in CRUDRouteFactory (`model_dump(exclude_unset=True)`) — no converter needed.
+**ConversionServiceV2:** Add a `{entity}_create_to_pure()` classmethod and register it in `ConversionServiceV2.CONVERTER_REGISTRY` (keyed by schema type, e.g., `GroupCreateRequest: ConversionServiceV2.group_create_to_pure`). Alternatively, pass an explicit `entity_converter` callable via `CRUDRouteConfig.entity_converter`. Updates use the dict-based pattern in CRUDRouteFactory (`model_dump(exclude_unset=True)`) — no converter needed.
 
 ---
 

@@ -11,10 +11,10 @@ Clean implementation with no backwards compatibility.
 __version__ = "2.0"
 
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import fields, is_dataclass
 from datetime import datetime
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_option import ChoiceOption
@@ -464,3 +464,36 @@ class ConversionServiceV2:
             "bidirectional": data_dict.get("bidirectional", False),
             "created_at": datetime.now(),
         }
+
+    # ========================================================================
+    # CONVERTER REGISTRY — static mapping from schema type to converter method
+    # ========================================================================
+    # Replaces getattr-based method discovery (SKUEL011: no hasattr/getattr).
+    # MyPy can verify each value is a valid classmethod reference.
+
+    CONVERTER_REGISTRY: ClassVar[dict[type, Callable[..., Any]]] = {}  # populated after class body
+
+    @classmethod
+    def get_converter(cls, schema_type: type) -> Callable[..., Any] | None:
+        """Look up the converter for a Pydantic CreateRequest type.
+
+        Returns the converter callable, or None if no converter is registered.
+        """
+        return cls.CONVERTER_REGISTRY.get(schema_type)
+
+
+# Populated outside the class body so that forward references to classmethods resolve.
+# Each key is a Pydantic CreateRequest type; each value is the classmethod that converts it.
+ConversionServiceV2.CONVERTER_REGISTRY = {
+    TaskCreateRequest: ConversionServiceV2.task_create_to_pure,
+    EventCreateRequest: ConversionServiceV2.event_create_to_pure,
+    HabitCreateRequest: ConversionServiceV2.habit_create_to_pure,
+    GoalCreateRequest: ConversionServiceV2.goal_create_to_pure,
+    ExpenseCreateRequest: ConversionServiceV2.expense_create_to_pure,
+    BudgetCreateRequest: ConversionServiceV2.budget_create_to_pure,
+    PrincipleCreateRequest: ConversionServiceV2.principle_create_to_pure,
+    ChoiceCreateRequest: ConversionServiceV2.choice_create_to_pure,
+    FormTemplateCreateRequest: ConversionServiceV2.formtemplate_create_to_pure,
+    RevisedExerciseCreateRequest: ConversionServiceV2.revisedexercise_create_to_pure,
+    GroupCreateRequest: ConversionServiceV2.group_create_to_pure,
+}

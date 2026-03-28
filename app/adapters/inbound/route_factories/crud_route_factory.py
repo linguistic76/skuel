@@ -14,20 +14,18 @@ FastHTML Conventions Applied
 3. Type hints enable automatic parameter extraction
 4. Minimal ceremony, maximum clarity
 
-Automatic Method Discovery
---------------------------
-The factory uses reflection to automatically discover conversion methods:
+Entity Conversion
+-----------------
+Schema → domain model conversion uses a static registry
+(``ConversionServiceV2.CONVERTER_REGISTRY``) keyed by Pydantic schema type.
+Adding a new entity type requires:
 
-    Schema Type Name → Conversion Method Name
-    "TaskCreateRequest" → "task_create_to_pure"
-    "EventCreateRequest" → "event_create_to_pure"
+1. Define ``{Entity}CreateRequest`` Pydantic schema
+2. Add a ``{entity}_create_to_pure()`` classmethod to ``ConversionServiceV2``
+3. Register the mapping in ``ConversionServiceV2.CONVERTER_REGISTRY``
 
-Convention: {Entity}CreateRequest → {entity}_create_to_pure(schema, uid)
-
-This means adding a new entity type requires:
-1. Define {Entity}CreateRequest schema
-2. Add {entity}_create_to_pure() method to ConversionServiceV2
-3. That's it! CRUDRouteFactory automatically discovers it.
+Alternatively, pass an explicit ``entity_converter`` callable to the factory
+(or via ``CRUDRouteConfig.entity_converter``) to bypass the registry entirely.
 
 Usage:
     factory = CRUDRouteFactory(
@@ -52,7 +50,6 @@ Benefits:
     - Type-safe with full Pydantic validation
     - Single source of truth for CRUD patterns
     - Zero adapter wrapper code
-    - Automatic discovery - no manual registration needed
     - FastHTML conventions throughout
 """
 
@@ -225,9 +222,8 @@ class CRUDRouteFactory[T]:
                             where teachers mutate but students can read.
             user_service_getter: Function returning UserService (required when require_role is set)
             entity_converter: Custom converter function (schema, uid, user_uid) -> entity.
-                            If not provided, uses ConversionServiceV2 with dynamic method lookup.
-                            ConversionServiceV2 is SKUEL's global conversion utility following
-                            the naming convention: {Entity}CreateRequest -> {entity}_create_to_pure.
+                            If not provided, looks up the converter from
+                            ConversionServiceV2.CONVERTER_REGISTRY by schema type.
             allow_dict_fallback: If True, fall back to dict when no converter found (default: False).
                                When False (fail-fast), returns error if no converter exists.
                                Only set to True for rapid prototyping or entities with flexible schemas.
@@ -373,45 +369,39 @@ class CRUDRouteFactory[T]:
             user_uid = require_authenticated_user(request)
             logger.debug(f"Creating {domain} with user_uid={user_uid}")
 
-            # Convert schema to entity using injected converter or ConversionServiceV2
+            # Convert schema to entity using injected converter or registry
             if entity_converter:
                 # Use injected converter (explicit dependency)
                 entity = entity_converter(schema, uid, user_uid)
             else:
-                # Default: Use ConversionServiceV2 (SKUEL's global conversion utility)
-                # This follows the naming convention: {Entity}CreateRequest -> {entity}_create_to_pure
+                # Look up converter from ConversionServiceV2.CONVERTER_REGISTRY
                 from core.services.conversion_service import ConversionServiceV2
 
-                schema_type = type(schema).__name__
-                entity_name = schema_type.replace("CreateRequest", "").lower()
-                method_name = f"{entity_name}_create_to_pure"
-
-                converter_method = getattr(ConversionServiceV2, method_name, None)
+                converter_method = ConversionServiceV2.get_converter(type(schema))
 
                 if converter_method:
                     entity = converter_method(schema, uid, user_uid=user_uid)
                 elif allow_dict_fallback:
                     # Explicit opt-in to dict fallback (for prototyping or flexible schemas)
+                    schema_type_name = type(schema).__name__
                     entity_data = schema.model_dump()
                     entity_data["uid"] = uid
                     entity_data["user_uid"] = user_uid
-                    domain_model_name = schema_type.replace("CreateRequest", "")
                     logger.warning(
-                        f"No converter found for {domain_model_name} "
-                        f"(method: {method_name}). Using dict fallback (allow_dict_fallback=True)."
+                        f"No converter registered for {schema_type_name}. "
+                        f"Using dict fallback (allow_dict_fallback=True)."
                     )
                     entity = entity_data
                 else:
                     # Fail-fast: No converter and dict fallback not allowed
-                    domain_model_name = schema_type.replace("CreateRequest", "")
+                    schema_type_name = type(schema).__name__
                     return Result.fail(
                         Errors.system(
-                            message=f"No converter found for {domain_model_name}. "
-                            f"Add '{method_name}' to ConversionServiceV2, provide entity_converter, "
-                            f"or set allow_dict_fallback=True.",
+                            message=f"No converter registered for {schema_type_name}. "
+                            f"Register it in ConversionServiceV2.CONVERTER_REGISTRY, "
+                            f"provide entity_converter, or set allow_dict_fallback=True.",
                             operation="entity_conversion",
-                            schema_type=schema_type,
-                            expected_method=method_name,
+                            schema_type=schema_type_name,
                         )
                     )
 
