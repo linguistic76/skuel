@@ -30,7 +30,7 @@ from ui.feedback import Badge, BadgeT
 from ui.forms import Select
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.entity_dashboard import SharedUIComponents
+from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
 class AdminUIComponents:
@@ -278,34 +278,17 @@ class AdminUIComponents:
         Returns:
             Div with stats cards grid
         """
-        stats_config = {
-            "total": {
-                "label": "Total Users",
-                "value": stats.get("total", 0),
-                "color": "blue",
-            },
-            "admins": {
-                "label": "Admins",
-                "value": stats.get("admins", 0),
-                "color": "red",
-            },
-            "teachers": {
-                "label": "Teachers",
-                "value": stats.get("teachers", 0),
-                "color": "orange",
-            },
-            "members": {
-                "label": "Members",
-                "value": stats.get("members", 0),
-                "color": "green",
-            },
-            "registered": {
-                "label": "Free Users",
-                "value": stats.get("registered", 0),
-                "color": "gray",
-            },
-        }
-        return SharedUIComponents.render_stats_cards(stats_config)
+        return StatsGrid(
+            [
+                StatItem(label="Total Users", value=stats.get("total", 0), color="info"),
+                StatItem(label="Admins", value=stats.get("admins", 0), color="error"),
+                StatItem(label="Teachers", value=stats.get("teachers", 0), color="orange-600"),
+                StatItem(label="Members", value=stats.get("members", 0), color="success"),
+                StatItem(
+                    label="Free Users", value=stats.get("registered", 0), color="muted-foreground"
+                ),
+            ]
+        )
 
     @staticmethod
     def render_role_filter(current_role: str | None = None) -> Div:
@@ -465,71 +448,43 @@ class AdminUIComponents:
             user_uid: User UID for linking to learning detail page.
         """
         # Activity domains
-        activity_stats = {
-            "tasks": {
-                "label": f"Tasks ({stats.get('tasks_completed', 0)} completed)",
-                "value": stats.get("tasks_total", 0),
-                "color": "blue",
-            },
-            "goals": {
-                "label": f"Goals ({stats.get('goals_active', 0)} active)",
-                "value": stats.get("goals_total", 0),
-                "color": "green",
-            },
-            "habits": {
-                "label": f"Habits ({stats.get('habits_active', 0)} active)",
-                "value": stats.get("habits_total", 0),
-                "color": "purple",
-            },
-            "events": {
-                "label": "Events",
-                "value": stats.get("events_total", 0),
-                "color": "orange",
-            },
-            "choices": {
-                "label": "Choices",
-                "value": stats.get("choices_total", 0),
-                "color": "indigo",
-            },
-            "principles": {
-                "label": "Principles",
-                "value": stats.get("principles_total", 0),
-                "color": "yellow",
-            },
-        }
+        activity_stats = [
+            StatItem(
+                label=f"Tasks ({stats.get('tasks_completed', 0)} completed)",
+                value=stats.get("tasks_total", 0),
+                color="info",
+            ),
+            StatItem(
+                label=f"Goals ({stats.get('goals_active', 0)} active)",
+                value=stats.get("goals_total", 0),
+                color="success",
+            ),
+            StatItem(
+                label=f"Habits ({stats.get('habits_active', 0)} active)",
+                value=stats.get("habits_total", 0),
+                color="purple-600",
+            ),
+            StatItem(label="Events", value=stats.get("events_total", 0), color="orange-600"),
+            StatItem(label="Choices", value=stats.get("choices_total", 0), color="indigo-600"),
+            StatItem(label="Principles", value=stats.get("principles_total", 0), color="warning"),
+        ]
 
         # Learning progress
-        learning_stats = {
-            "viewed": {
-                "label": "KUs Viewed",
-                "value": stats.get("ku_viewed", 0),
-                "color": "gray",
-            },
-            "in_progress": {
-                "label": "KUs In Progress",
-                "value": stats.get("ku_in_progress", 0),
-                "color": "orange",
-            },
-            "mastered": {
-                "label": "KUs Mastered",
-                "value": stats.get("ku_mastered", 0),
-                "color": "green",
-            },
-        }
+        learning_stats = [
+            StatItem(label="KUs Viewed", value=stats.get("ku_viewed", 0), color="muted-foreground"),
+            StatItem(
+                label="KUs In Progress", value=stats.get("ku_in_progress", 0), color="orange-600"
+            ),
+            StatItem(label="KUs Mastered", value=stats.get("ku_mastered", 0), color="success"),
+        ]
 
         # Session stats
-        session_stats = {
-            "logins": {
-                "label": "Total Logins",
-                "value": stats.get("login_count", 0),
-                "color": "blue",
-            },
-            "sessions": {
-                "label": "Total Sessions",
-                "value": stats.get("session_count", 0),
-                "color": "purple",
-            },
-        }
+        session_stats = [
+            StatItem(label="Total Logins", value=stats.get("login_count", 0), color="info"),
+            StatItem(
+                label="Total Sessions", value=stats.get("session_count", 0), color="purple-600"
+            ),
+        ]
 
         return Div(
             # Activity domains section
@@ -538,7 +493,7 @@ class AdminUIComponents:
                     Span("Activity Domains", cls="text-lg font-semibold"),
                     cls="mb-3",
                 ),
-                SharedUIComponents.render_stats_cards(activity_stats),
+                StatsGrid(activity_stats),
                 cls="mb-6",
             ),
             # Learning progress section
@@ -552,7 +507,7 @@ class AdminUIComponents:
                     ),
                     cls="flex items-center mb-3",
                 ),
-                SharedUIComponents.render_stats_cards(learning_stats),
+                StatsGrid(learning_stats),
                 cls="mb-6",
             ),
             # Session activity section
@@ -561,7 +516,7 @@ class AdminUIComponents:
                     Span("Session Activity", cls="text-lg font-semibold"),
                     cls="mb-3",
                 ),
-                SharedUIComponents.render_stats_cards(session_stats),
+                StatsGrid(session_stats),
             ),
         )
 
@@ -761,29 +716,30 @@ class AdminAnalyticsComponents:
         Returns:
             Div with activity stats grid
         """
-        stats_config = {
-            "tasks": {
-                "label": "Tasks Created",
-                "value": activity_data.get("tasks_created", 0),
-                "color": "green",
-            },
-            "habits": {
-                "label": "Active Habits",
-                "value": activity_data.get("habits_active", 0),
-                "color": "purple",
-            },
-            "goals": {
-                "label": "Active Goals",
-                "value": activity_data.get("goals_active", 0),
-                "color": "orange",
-            },
-            "journals": {
-                "label": "Journals Submitted",
-                "value": activity_data.get("journals_submitted", 0),
-                "color": "blue",
-            },
-        }
-        return SharedUIComponents.render_stats_cards(stats_config)
+        return StatsGrid(
+            [
+                StatItem(
+                    label="Tasks Created",
+                    value=activity_data.get("tasks_created", 0),
+                    color="success",
+                ),
+                StatItem(
+                    label="Active Habits",
+                    value=activity_data.get("habits_active", 0),
+                    color="purple-600",
+                ),
+                StatItem(
+                    label="Active Goals",
+                    value=activity_data.get("goals_active", 0),
+                    color="orange-600",
+                ),
+                StatItem(
+                    label="Journals Submitted",
+                    value=activity_data.get("journals_submitted", 0),
+                    color="info",
+                ),
+            ]
+        )
 
 
 class AdminSystemComponents:
@@ -908,24 +864,19 @@ class AdminSystemComponents:
     @staticmethod
     def render_health_summary(summary: dict) -> Div:
         """Render health summary stats."""
-        stats_config = {
-            "total": {
-                "label": "Total Components",
-                "value": summary.get("components_total", 0),
-                "color": "blue",
-            },
-            "healthy": {
-                "label": "Healthy",
-                "value": summary.get("components_healthy", 0),
-                "color": "green",
-            },
-            "unhealthy": {
-                "label": "Unhealthy",
-                "value": summary.get("components_unhealthy", 0),
-                "color": "red",
-            },
-        }
-        return SharedUIComponents.render_stats_cards(stats_config)
+        return StatsGrid(
+            [
+                StatItem(
+                    label="Total Components", value=summary.get("components_total", 0), color="info"
+                ),
+                StatItem(
+                    label="Healthy", value=summary.get("components_healthy", 0), color="success"
+                ),
+                StatItem(
+                    label="Unhealthy", value=summary.get("components_unhealthy", 0), color="error"
+                ),
+            ]
+        )
 
 
 def _ku_state_section(title: str, badge_variant: BadgeT, kus: list[dict], date_field: str) -> Div:
@@ -995,39 +946,30 @@ class AdminLearningComponents:
                 ),
             )
 
-        stats_config = {
-            "total": {
-                "label": "Total KUs",
-                "value": metrics.get("total_kus", 0),
-                "color": "blue",
-            },
-            "viewed": {
-                "label": "Total Views",
-                "value": metrics.get("total_viewed", 0),
-                "color": "gray",
-            },
-            "in_progress": {
-                "label": "In Progress",
-                "value": metrics.get("total_in_progress", 0),
-                "color": "orange",
-            },
-            "mastered": {
-                "label": "Mastered",
-                "value": metrics.get("total_mastered", 0),
-                "color": "green",
-            },
-            "bookmarked": {
-                "label": "Bookmarked",
-                "value": metrics.get("total_bookmarked", 0),
-                "color": "indigo",
-            },
-            "active_learners": {
-                "label": "Active Learners",
-                "value": metrics.get("users_with_progress", 0),
-                "color": "purple",
-            },
-        }
-        return SharedUIComponents.render_stats_cards(stats_config)
+        return StatsGrid(
+            [
+                StatItem(label="Total KUs", value=metrics.get("total_kus", 0), color="info"),
+                StatItem(
+                    label="Total Views",
+                    value=metrics.get("total_viewed", 0),
+                    color="muted-foreground",
+                ),
+                StatItem(
+                    label="In Progress",
+                    value=metrics.get("total_in_progress", 0),
+                    color="orange-600",
+                ),
+                StatItem(label="Mastered", value=metrics.get("total_mastered", 0), color="success"),
+                StatItem(
+                    label="Bookmarked", value=metrics.get("total_bookmarked", 0), color="indigo-600"
+                ),
+                StatItem(
+                    label="Active Learners",
+                    value=metrics.get("users_with_progress", 0),
+                    color="purple-600",
+                ),
+            ]
+        )
 
     @staticmethod
     def render_user_progress_table(user_progress: list[dict]) -> Div:
@@ -1121,29 +1063,22 @@ class AdminLearningComponents:
                 ),
             )
 
-        stats_config = {
-            "viewed": {
-                "label": "Viewed",
-                "value": summary.get("viewed_count", 0),
-                "color": "gray",
-            },
-            "in_progress": {
-                "label": "In Progress",
-                "value": summary.get("in_progress_count", 0),
-                "color": "orange",
-            },
-            "mastered": {
-                "label": "Mastered",
-                "value": summary.get("mastered_count", 0),
-                "color": "green",
-            },
-            "bookmarked": {
-                "label": "Bookmarked",
-                "value": summary.get("bookmarked_count", 0),
-                "color": "indigo",
-            },
-        }
-        return SharedUIComponents.render_stats_cards(stats_config)
+        return StatsGrid(
+            [
+                StatItem(
+                    label="Viewed", value=summary.get("viewed_count", 0), color="muted-foreground"
+                ),
+                StatItem(
+                    label="In Progress",
+                    value=summary.get("in_progress_count", 0),
+                    color="orange-600",
+                ),
+                StatItem(label="Mastered", value=summary.get("mastered_count", 0), color="success"),
+                StatItem(
+                    label="Bookmarked", value=summary.get("bookmarked_count", 0), color="indigo-600"
+                ),
+            ]
+        )
 
     @staticmethod
     def render_user_ku_detail_list(detail: dict) -> Div:

@@ -276,7 +276,7 @@ navbar = create_navbar(
 
 ### Layout Integration
 
-All domain layouts and SharedUIComponents support the `request` parameter:
+All domain layouts support the `request` parameter:
 
 **Activity Domain Layouts:**
 ```python
@@ -286,19 +286,6 @@ from ui.habits.layout import create_habits_page
 async def habits_dashboard(request):
     # Pass request for automatic navbar auth
     return create_habits_page(content, request=request)
-```
-
-**SharedUIComponents:**
-```python
-from ui.patterns.entity_dashboard import SharedUIComponents
-
-dashboard = SharedUIComponents.render_entity_dashboard(
-    title="🎯 Habits",
-    entities=habits,
-    entity_renderer=render_habit_card,
-    request=request,       # Auto-detects auth
-    active_page="habits",  # Highlights active nav item
-)
 ```
 
 **DocsLayout (Nous pages):**
@@ -330,7 +317,6 @@ return create_docs_page(
 | `/ui/layouts/activity_layout.py` | Activity domain layout with request support |
 | `/ui/habits/layout.py` (etc.) | Domain-specific layouts delegating to activity_layout |
 | `/ui/docs/layout.py` | Documentation layout with request support |
-| `/ui/patterns/entity_dashboard.py` | Shared dashboard with request support |
 
 ## Session Flow
 

@@ -32,6 +32,10 @@ Historical references in code comments create confusion: "Was this renamed? Is t
 
 This principle is the enforcement arm of [One Path Forward](ONE_PATH_FORWARD.md). One Path Forward says "choose the better pattern." Limited Backward Compatibility says "delete the old one completely."
 
+## Scope
+
+This principle addresses **migration scenarios** — when code is being renamed, refactored, or replaced. It does not apply to unmatured code that was built but never integrated. See [One Path Forward § Unmatured vs. Superseded](ONE_PATH_FORWARD.md) for that distinction.
+
 ## Enforcement
 
 - **Code review:** PRs with backward-compatibility wrappers, re-exports, or `# previously known as` comments are rejected

@@ -41,8 +41,8 @@ def build_head(
 ) -> "FT":
     """Build complete HTML head for any SKUEL page.
 
-    This is the single source of truth for <head> content. Used by BasePage,
-    SharedUIComponents, and any code that returns a full Html document.
+    This is the single source of truth for <head> content. Used by BasePage
+    and any code that returns a full Html document.
 
     Args:
         title: Page title (appended with " - SKUEL")

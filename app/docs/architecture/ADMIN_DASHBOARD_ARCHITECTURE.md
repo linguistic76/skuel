@@ -27,7 +27,7 @@ For implementation guidance, see:
 
 ## Overview
 
-The Admin Dashboard provides a centralized UI for system administration at `/admin`. It follows SKUEL's established UI patterns (ProfileLayout, SharedUIComponents) while enforcing ADMIN-only access through role-based decorators.
+The Admin Dashboard provides a centralized UI for system administration at `/admin`. It follows SKUEL's established UI patterns (ProfileLayout, StatsGrid) while enforcing ADMIN-only access through role-based decorators.
 
 The overview page displays quick-action cards (Users, Analytics, Finance, Ingestion) in a 3-column grid. The sidebar provides navigation to 7 sections: Overview, Users, Analytics, Learning, System, Finance, and Ingestion.
 
@@ -407,7 +407,7 @@ The dashboard uses HTMX for dynamic updates without full page reloads:
    ▼
 2. AdminUIComponents.render_user_activity_stats(stats, uid)
    │
-   ├─ Activity Domains section (6 stat cards via SharedUIComponents)
+   ├─ Activity Domains section (6 stat cards via StatsGrid)
    ├─ Learning Progress section (3 stat cards + KU detail link)
    └─ Session Activity section (2 stat cards)
 ```
@@ -431,13 +431,13 @@ Sidebar + content layout with:
 - Overlay drawer on mobile
 - localStorage persistence for sidebar state
 
-### 2. Component Composition (SharedUIComponents)
+### 2. Component Composition (StatsGrid)
 
 Reuses stats cards pattern:
 
 ```python
 AdminUIComponents.render_user_stats(stats)
-# Uses SharedUIComponents.render_stats_cards internally
+# Uses StatsGrid with typed StatItem instances internally
 ```
 
 ### 3. Service Getter Pattern (SKUEL012)
@@ -538,7 +538,7 @@ async def admin_logs(request, current_user: Any):
 
 - **User Roles**: `/docs/decisions/ADR-018-user-roles-four-tier-system.md`
 - **Route Patterns**: `/docs/patterns/ROUTE_FACTORIES.md`
-- **SharedUIComponents**: `/docs/patterns/COMPONENT_PATTERNS.md` (TODO)
+- **StatsGrid**: `/ui/patterns/stats_grid.py` (typed statistics display)
 - **ProfileLayout**: `/ui/profile/layout.py` (reference implementation)
 
 ---

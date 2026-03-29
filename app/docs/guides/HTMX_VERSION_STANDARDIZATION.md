@@ -122,7 +122,6 @@ def create_tasks_page(content, request=None, **kwargs):
 | `/ui/goals/layout.py` | Goals - delegates to `create_activity_page()` |
 | `/ui/habits/layout.py` | Habits - delegates to `create_activity_page()` |
 | `/ui/events/layout.py` | Events - delegates to `create_activity_page()` |
-| `/ui/patterns/entity_dashboard.py` | `render_entity_dashboard()` uses `build_head()` |
 
 ## Version Matrix
 
@@ -298,7 +297,6 @@ The navbar navigation bug was traced to HTMX version mismatch:
 **Files Modified:**
 - `ui/layouts/activity_layout.py` - Returns `Html` instead of `Div`
 - `ui/tasks/layout.py` - Delegates to `create_activity_page()`
-- `ui/patterns/entity_dashboard.py` - `render_entity_dashboard()` returns `Html`
 - `ui/layouts/navbar.py` - Previously added `hx-boost="false"` as defensive measure (later removed — hx-boost was never being set)
 
 ## See Also

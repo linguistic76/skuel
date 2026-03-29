@@ -388,12 +388,12 @@ app, rt = fast_app(hdrs=(*monster_headers(), *pwa_headers()))
 
 ### `build_head()` — Canonical `<head>` for Full Documents
 
-Pages that return complete `Html()` documents (rather than partial HTMX fragments) use `build_head()` from `base_page.py`. This is the **single source of truth** for all `<head>` content — `BasePage` and `SharedUIComponents.render_entity_dashboard()` all delegate to it. Never construct a `Head(...)` manually.
+Pages that return complete `Html()` documents (rather than partial HTMX fragments) use `build_head()` from `base_page.py`. This is the **single source of truth** for all `<head>` content — `BasePage` delegates to it. Never construct a `Head(...)` manually.
 
 ```python
 from ui.layouts.base_page import build_head
 
-# Used internally by BasePage, entity_dashboard
+# Used internally by BasePage
 Html(
     build_head("Page Title", extra_css=["/static/css/calendar.css"]),
     Body(content),

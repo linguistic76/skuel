@@ -32,6 +32,17 @@ Every parallel path doubles the cognitive load, testing surface, and maintenance
 - **Code review:** Any PR introducing a wrapper, adapter, or "temporary" compatibility layer is rejected
 - **MyPy:** Type errors from incomplete migrations are not suppressed — they guide completion
 
+## Unmatured vs. Superseded
+
+This principle applies when pattern A is **replaced** by pattern B. It does not apply to code that was built but never integrated.
+
+Before removing code, distinguish:
+
+- **Superseded** — a better pattern replaced it. One Path Forward applies: remove the old pattern entirely.
+- **Unmatured** — built but never found its place. The question isn't "remove it" but "does it provide value, and where does it belong?"
+
+Unused code with no consumers may be a pattern waiting for integration, not dead code waiting for deletion. Assess its potential value and natural home before treating it as waste.
+
 ## Exceptions
 
 None. If a migration is too large to complete atomically, it is planned in phases — but each phase removes the old pattern from its scope. There is no "we'll clean it up later."
