@@ -1,0 +1,25 @@
+# Ku: False Honey
+# =========
+# Things that look sweet but leave you empty.
+
+version: 1.0
+type: Ku
+
+uid: ku:values:false-honey
+title: False Honey
+namespace: values
+ku_category: concept
+heading: "### False Honey / Temptations"
+aliases:
+  - temptations
+  - false rewards
+  - empty pleasures
+source: research
+sel_category: responsible_decision_making
+description: |
+  Things that look sweet but leave you empty. Scrolling that feels like connection but isn't. Junk food that tastes like nourishment but depletes. Validation that feels like self-worth but evaporates. Learning to distinguish real nourishment from false honey is one of the most practical skills you can develop. The test is simple — how do you feel after?
+tags:
+  - values
+  - awareness
+  - discernment
+  - choices

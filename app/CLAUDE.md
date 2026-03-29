@@ -78,6 +78,8 @@ See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete 
 
 **Content Location (different purpose):** `/home/mike/0bsidian/skuel/docs/` contains Knowledge Unit content for ingestion, NOT technical documentation.
 
+**Default Ingestion Vault:** `data/vault/` (i.e., `/home/mike/skuel/app/data/vault/`) is the default folder for content ingestion — Ku YAMLs, Lesson YAMLs, edge YAMLs, and markdown files. Configurable via `INGESTION_PATH` env var. The Obsidian vault at `/home/mike/0bsidian/skuel/data/vault/` mirrors this as the authoring source.
+
 ## Docstring Philosophy
 
 **Three layers:** docstrings describe implementation, patterns describe approach, architecture describes design.
@@ -611,6 +613,8 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 **Core Principle:** "The hips of SKUEL — one of three foundational systems"
 
 One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, ingestion history, WebSocket progress, edge ingestion (relationship YAML files), full LS field wiring.
+
+**Default Vault:** `data/vault/` (`/home/mike/skuel/app/data/vault/`) — the default folder for all ingestion content. Ku YAMLs (`ku_*.yaml`), Lesson YAMLs (`lesson_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown files live here. Configurable via `INGESTION_PATH` env var.
 
 **Import:** `from core.services.ingestion import UnifiedIngestionService`
 

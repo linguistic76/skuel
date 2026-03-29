@@ -1,0 +1,15 @@
+# Edge: Svadhyaya -> RELATED_TO -> Writing Practice
+# ==================================
+version: 1.0
+type: Edge
+
+from: ku:yoga:svadhyaya
+to: ku:values:writing-practice
+relationship: RELATED_TO
+
+confidence: 0.8
+source: research
+tags:
+  - pedagogy
+  - yoga
+  - values

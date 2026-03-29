@@ -1,0 +1,24 @@
+# Ku: Asanas
+# ==========
+# Physical postures that teach the body to hold steady.
+
+version: 1.0
+type: Ku
+
+uid: ku:yoga:asanas
+title: Asanas
+namespace: yoga
+ku_category: practice
+heading: "#### Asanas"
+aliases:
+  - yoga postures
+  - yoga poses
+  - physical practice
+source: research
+sel_category: self_management
+description: Physical postures that teach the body to hold steady. Not performance, not gymnastics — asanas are about learning to be present in your body. When you hold a pose and breathe through discomfort, you're practicing the same skill that helps you sit with difficult emotions.
+tags:
+  - yoga
+  - practice
+  - body
+  - foundational

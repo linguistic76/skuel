@@ -1,0 +1,25 @@
+# Ku: Pranayama
+# =============
+# Conscious breathing — the bridge between body and mind.
+
+version: 1.0
+type: Ku
+
+uid: ku:yoga:pranayama
+title: Pranayama
+namespace: yoga
+ku_category: practice
+heading: "#### Breathing"
+aliases:
+  - breathing practice
+  - breath work
+  - conscious breathing
+source: research
+sel_category: self_management
+description: Conscious breathing — the bridge between body and mind. Pranayama means working with life-force through breath. When you regulate your breathing, you regulate your nervous system. This is not metaphor; it's measurable. Slow exhales activate the parasympathetic system. You calm down because you breathe, not because you think about calming down.
+tags:
+  - yoga
+  - practice
+  - breath
+  - regulation
+  - foundational

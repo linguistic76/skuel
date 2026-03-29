@@ -1,0 +1,25 @@
+# Ku: Prana
+# =========
+# Life-force — the energy that animates you.
+
+version: 1.0
+type: Ku
+
+uid: ku:yoga:prana
+title: Prana
+namespace: yoga
+ku_category: concept
+heading: "## Feeling"
+aliases:
+  - life force
+  - vital energy
+  - chi
+  - qi
+source: research
+sel_category: self_awareness
+description: Life-force. The energy that animates you — not a belief system, but what you notice when you pay attention to whether you feel alive or depleted. Yoga says prana moves through the body and can be directed through breath and attention. Modern language might call it nervous system vitality or bioenergetics. The name matters less than the experience.
+tags:
+  - yoga
+  - concept
+  - energy
+  - foundational

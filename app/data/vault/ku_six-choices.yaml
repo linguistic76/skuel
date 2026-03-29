@@ -1,0 +1,23 @@
+# Ku: Six Choices
+# ===============
+# A framework for understanding the decisions that shape your life.
+
+version: 1.0
+type: Ku
+
+uid: ku:values:six-choices
+title: Six Choices
+namespace: values
+ku_category: concept
+heading: "#### 6 Choices"
+aliases:
+  - life choices
+  - decision framework
+source: research
+sel_category: responsible_decision_making
+description: A framework for understanding the decisions that shape your life. Choices aren't one-time events — they're patterns of attention and intention that compound over time. What you repeatedly choose becomes who you are. SKUEL treats choice-making as a skill to be developed, not a gift you're born with.
+tags:
+  - values
+  - choices
+  - decisions
+  - framework

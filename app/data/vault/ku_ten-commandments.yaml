@@ -1,0 +1,24 @@
+# Ku: Ten Commandments
+# ====================
+# One of the oldest ethical codes for living in relationship with the sacred and with each other.
+
+version: 1.0
+type: Ku
+
+uid: ku:values:ten-commandments
+title: Ten Commandments
+namespace: values
+ku_category: concept
+heading: "#### 10 Commandments"
+aliases:
+  - Decalogue
+  - Moses's commandments
+  - Biblical law
+source: research
+sel_category: responsible_decision_making
+description: One of the oldest ethical codes — ten principles for living in relationship with the sacred and with each other. Don't kill. Don't steal. Don't lie. Honor your parents. Rest. Whether you're religious or not, these resonate because they address universal human challenges. Every culture has some version. SKUEL studies them as part of understanding how humans have always tried to codify what matters.
+tags:
+  - values
+  - ethics
+  - religion
+  - foundational

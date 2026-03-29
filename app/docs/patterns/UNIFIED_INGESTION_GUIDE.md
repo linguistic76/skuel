@@ -15,6 +15,10 @@ The "hips" of SKUEL - stability through clarity. Connects content (MD/YAML) to t
 
 ---
 
+## Default Vault
+
+The default ingestion folder is `data/vault/` (i.e., `/home/mike/skuel/app/data/vault/`). This is where Ku YAMLs (`ku_*.yaml`), Lesson YAMLs (`lesson_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown content files live. Configurable via `INGESTION_PATH` env var.
+
 ## Quick Start
 
 ```python
@@ -24,6 +28,9 @@ service = UnifiedIngestionService(driver)
 
 # Ingest a single file
 result = await service.ingest_file(Path("ku.machine-learning.md"))
+
+# Ingest the default vault
+stats = await service.ingest_directory(Path("data/vault"), pattern="ku_*.yaml")
 
 # Ingest a directory (full ingestion)
 stats = await service.ingest_directory(Path("/docs"), pattern="*.md")

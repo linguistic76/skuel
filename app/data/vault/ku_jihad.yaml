@@ -1,0 +1,27 @@
+# Ku: Jihad (Inner Struggle)
+# =========
+# The greater jihad — the struggle against your own lower self.
+
+version: 1.0
+type: Ku
+
+uid: ku:values:jihad
+title: Jihad (Inner Struggle)
+namespace: values
+ku_category: concept
+heading: "#### Jihad + Idolatry"
+aliases:
+  - greater jihad
+  - jihad al-nafs
+  - inner battle
+  - struggle of the self
+source: research
+sel_category: self_awareness
+description: |
+  The greater jihad — jihad al-nafs — is the struggle against your own lower self. Not the version on the news. The real one. Every tradition has this idea: the hardest battle is against your own ego, laziness, and base desires. In Islam it's jihad. In yoga it's tapas. In Christianity it's spiritual warfare. The enemy isn't outside. The enemy is the part of you that chooses comfort over growth.
+tags:
+  - values
+  - islam
+  - struggle
+  - ego
+  - spiritual

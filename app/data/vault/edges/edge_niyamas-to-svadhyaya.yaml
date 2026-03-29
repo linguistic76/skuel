@@ -1,0 +1,14 @@
+# Edge: Niyamas -> ENABLES -> Svadhyaya
+# ==================================
+version: 1.0
+type: Edge
+
+from: ku:yoga:niyamas
+to: ku:yoga:svadhyaya
+relationship: ENABLES
+
+confidence: 1.0
+source: research
+tags:
+  - yoga
+  - niyamas

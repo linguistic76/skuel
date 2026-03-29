@@ -1,0 +1,27 @@
+# Ku: Svadhyaya (Self-Study)
+# =========
+# Study of the self, through the self.
+
+version: 1.0
+type: Ku
+
+uid: ku:yoga:svadhyaya
+title: Svadhyaya (Self-Study)
+namespace: yoga
+ku_category: value
+heading: "#### Niyamas"
+aliases:
+  - self-study
+  - self-reflection
+  - self-inquiry
+  - svadhyaya
+source: research
+sel_category: self_awareness
+description: |
+  Study of the self, through the self. This means two things at once: study texts and teachings that illuminate who you are, and study your own patterns — reactions, habits, triggers, stories. Journaling is svadhyaya. Reflection is svadhyaya. The moment you ask "why did I do that?" you're practicing it.
+tags:
+  - yoga
+  - niyamas
+  - value
+  - reflection
+  - awareness

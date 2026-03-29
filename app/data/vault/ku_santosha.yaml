@@ -1,0 +1,25 @@
+# Ku: Santosha (Contentment)
+# =========
+# The practice of being okay with what is — right now, before anything changes.
+
+version: 1.0
+type: Ku
+
+uid: ku:yoga:santosha
+title: Santosha (Contentment)
+namespace: yoga
+ku_category: value
+heading: "#### Niyamas"
+aliases:
+  - contentment
+  - satisfaction
+  - santosha
+source: research
+sel_category: self_management
+description: The practice of being okay with what is — right now, before anything changes. Contentment is not complacency. It's the radical act of not needing the next thing in order to feel alright. In a world engineered to make you want more, santosha is a superpower. You can still work hard and grow. But you don't need to arrive somewhere else to be worthy.
+tags:
+  - yoga
+  - niyamas
+  - value
+  - presence
+  - inner-peace

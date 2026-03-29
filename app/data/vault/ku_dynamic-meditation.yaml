@@ -1,0 +1,26 @@
+# Ku: Dynamic Meditation
+# ======================
+# Intense movement and cathartic release before stillness.
+
+version: 1.0
+type: Ku
+
+uid: ku:yoga:dynamic-meditation
+title: Dynamic Meditation
+namespace: yoga
+ku_category: practice
+heading: "#### Osho Dynamic Meditations"
+aliases:
+  - Osho dynamic meditation
+  - active meditation
+  - cathartic meditation
+source: research
+sel_category: self_management
+description: |
+  Not all meditation is sitting still. Dynamic meditation uses intense physical movement, cathartic release, and silence in sequence. The idea is radical: first exhaust the restlessness, then stillness comes naturally. For adolescents wired for movement, this can be the entry point that sitting practice never was.
+tags:
+  - yoga
+  - practice
+  - meditation
+  - movement
+  - energy

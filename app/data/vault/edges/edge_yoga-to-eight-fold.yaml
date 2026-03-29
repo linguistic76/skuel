@@ -1,0 +1,13 @@
+# Edge: Yoga -> ENABLES -> Eight-Fold Path
+# ==================================
+version: 1.0
+type: Edge
+
+from: ku:yoga:yoga
+to: ku:yoga:eight-fold-path
+relationship: ENABLES
+
+confidence: 0.9
+source: research
+tags:
+  - yoga

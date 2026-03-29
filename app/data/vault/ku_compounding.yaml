@@ -1,0 +1,24 @@
+# Ku: Compounding
+# =========
+# Small actions repeated daily create massive results over time.
+
+version: 1.0
+type: Ku
+
+uid: ku:discipline:compounding
+title: Compounding
+namespace: discipline
+ku_category: concept
+heading: "###### Compounding"
+aliases:
+  - compound effect
+  - daily habits
+  - incremental growth
+source: research
+sel_category: self_management
+description: Small actions repeated daily create massive results over time. This is true for money. It's even more true for who you become. A daily habit of reading, reflecting, or practicing compounds into a fundamentally different person in a year. Most people overestimate what they can do in a week and underestimate what they can do in a year.
+tags:
+  - discipline
+  - habits
+  - growth
+  - long-term

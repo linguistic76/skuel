@@ -1,0 +1,15 @@
+# Edge: Yamas -> SIMILAR_TO -> Buddhist Precepts
+# ==================================
+version: 1.0
+type: Edge
+
+from: ku:yoga:yamas
+to: ku:values:buddhist-precepts
+relationship: SIMILAR_TO
+
+confidence: 0.8
+source: research
+tags:
+  - convergence
+  - yoga
+  - values

@@ -1,0 +1,13 @@
+# Edge: Yoga -> ENABLES -> Asanas
+# ==================================
+version: 1.0
+type: Edge
+
+from: ku:yoga:yoga
+to: ku:yoga:asanas
+relationship: ENABLES
+
+confidence: 0.9
+source: research
+tags:
+  - yoga

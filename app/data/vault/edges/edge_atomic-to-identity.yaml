@@ -1,0 +1,14 @@
+# Edge: Atomic Habits -> RELATED_TO -> Habits Identity
+# ==================================
+version: 1.0
+type: Edge
+
+from: ku:discipline:atomic-habits
+to: ku:discipline:habits-identity
+relationship: RELATED_TO
+
+confidence: 0.9
+source: research
+tags:
+  - cross-domain
+  - discipline

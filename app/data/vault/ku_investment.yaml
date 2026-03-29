@@ -1,0 +1,24 @@
+# Ku: Investment
+# =========
+# Everything worthwhile requires investment — time, energy, attention, discomfort.
+
+version: 1.0
+type: Ku
+
+uid: ku:discipline:investment
+title: Investment
+namespace: discipline
+ku_category: concept
+heading: "#### Investment"
+aliases:
+  - investment in self
+  - self-investment
+source: research
+sel_category: self_management
+description: |
+  Everything worthwhile requires investment — time, energy, attention, discomfort. SKUEL treats investment not as financial advice but as a way of being. You invest in yourself every time you choose practice over distraction, depth over surface, long-term over instant. The learning curve is real. The returns are compounding.
+tags:
+  - discipline
+  - investment
+  - foundational
+  - effort

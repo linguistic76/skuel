@@ -1,0 +1,23 @@
+# Ku: Guided Meditation
+# =====================
+# Structured practices where a voice leads you inward.
+
+version: 1.0
+type: Ku
+
+uid: ku:yoga:guided-meditation
+title: Guided Meditation
+namespace: yoga
+ku_category: practice
+heading: "#### Guided \"Meditations\""
+aliases:
+  - guided practice
+  - meditation guidance
+source: research
+sel_category: self_awareness
+description: Structured practices where a voice leads you inward — through breath, body awareness, visualization, or stillness. Guided meditation is training wheels for attention. You learn to follow, then eventually you learn to lead yourself.
+tags:
+  - yoga
+  - practice
+  - meditation
+  - beginner

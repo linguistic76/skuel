@@ -1,0 +1,14 @@
+# Edge: Cognitive Biases -> ENABLES -> Confirmation Bias
+# ==================================
+version: 1.0
+type: Edge
+
+from: ku:mind:cognitive-biases
+to: ku:mind:confirmation-bias
+relationship: ENABLES
+
+confidence: 1.0
+source: research
+tags:
+  - cross-domain
+  - mind

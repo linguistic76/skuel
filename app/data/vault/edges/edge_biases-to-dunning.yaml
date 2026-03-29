@@ -1,0 +1,14 @@
+# Edge: Cognitive Biases -> ENABLES -> Dunning-Kruger
+# ==================================
+version: 1.0
+type: Edge
+
+from: ku:mind:cognitive-biases
+to: ku:mind:dunning-kruger
+relationship: ENABLES
+
+confidence: 1.0
+source: research
+tags:
+  - cross-domain
+  - mind

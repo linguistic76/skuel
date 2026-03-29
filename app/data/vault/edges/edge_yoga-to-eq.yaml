@@ -1,0 +1,15 @@
+# Edge: Yoga -> PREREQUISITE_FOR -> EQ
+# ==================================
+version: 1.0
+type: Edge
+
+from: ku:yoga:yoga
+to: ku:mind:eq
+relationship: PREREQUISITE_FOR
+
+confidence: 0.8
+source: research
+tags:
+  - cross-domain
+  - yoga
+  - mind

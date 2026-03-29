@@ -1,0 +1,24 @@
+# Ku: Yoga
+# ========
+# The foundational practice — breath, awareness, and honest self-observation.
+
+version: 1.0
+type: Ku
+
+uid: ku:yoga:yoga
+title: Yoga
+namespace: yoga
+ku_category: practice
+heading: "## SEL"
+aliases:
+  - yog
+  - yogic practice
+source: research
+sel_category: self_awareness
+description: |
+  Yoga is not exercise. It's not flexibility. It's a system for understanding who you are — how energy, attention, and behavior work inside you. SKUEL uses yoga as the foundational practice: breath, awareness, and honest self-observation. Everything else builds on this.
+tags:
+  - yoga
+  - foundational
+  - practice
+  - awareness

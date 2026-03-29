@@ -1,0 +1,25 @@
+# Ku: Yamas
+# =========
+# Five ethical restraints — how you relate to the world around you.
+
+version: 1.0
+type: Ku
+
+uid: ku:yoga:yamas
+title: Yamas
+namespace: yoga
+ku_category: concept
+heading: "#### Yamas"
+aliases:
+  - ethical restraints
+  - moral codes
+  - social ethics
+source: research
+sel_category: relationship_skills
+description: Five ethical restraints — how you relate to the world around you. Non-violence, truthfulness, non-stealing, wise use of energy, non-possessiveness. The yamas aren't about being "good." They're about reducing the harm that creates noise in your life. When you stop lying, cheating, and grasping, something quieter and more real emerges.
+tags:
+  - yoga
+  - values
+  - yamas
+  - ethics
+  - foundational

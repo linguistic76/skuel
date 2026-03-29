@@ -1,0 +1,25 @@
+# Ku: Bloom's Taxonomy
+# ====================
+# Six levels of cognitive complexity — from remembering facts to creating something new.
+
+version: 1.0
+type: Ku
+
+uid: ku:pedagogy:blooms-taxonomy
+title: Bloom's Taxonomy
+namespace: pedagogy
+ku_category: concept
+heading: "#### pedagogy"
+aliases:
+  - Bloom's levels
+  - cognitive taxonomy
+  - learning levels
+source: research
+sel_category: self_awareness
+description: |
+  Six levels of cognitive complexity — from remembering facts to creating something new. Remember, Understand, Apply, Analyze, Evaluate, Create. Most school stops at level two. SKUEL pushes toward the top. Memorizing the niyamas is level one. Applying santosha when you don't get what you want is level three. Evaluating your own patterns of attachment is level five. Creating a personal practice is level six.
+tags:
+  - pedagogy
+  - learning
+  - assessment
+  - framework

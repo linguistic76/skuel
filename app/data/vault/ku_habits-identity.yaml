@@ -1,0 +1,25 @@
+# Ku: Habits and Identity
+# =======================
+# The most powerful way to change your habits is to change your identity.
+
+version: 1.0
+type: Ku
+
+uid: ku:discipline:habits-identity
+title: Habits and Identity
+namespace: discipline
+ku_category: concept
+heading: "#### Habits + Identity"
+aliases:
+  - identity-based habits
+  - habit identity
+  - becoming
+source: research
+sel_category: self_awareness
+description: |
+  The most powerful way to change your habits is to change your identity. Don't say "I'm trying to quit smoking." Say "I'm not a smoker." Every action you take is a vote for the type of person you want to become. Identity-based habits work from the inside out — decide who you want to be, then prove it to yourself with small wins. This is where habits meet yoga: both are about becoming, not just doing.
+tags:
+  - discipline
+  - habits
+  - identity
+  - transformation

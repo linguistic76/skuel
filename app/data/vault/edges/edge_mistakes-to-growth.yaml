@@ -1,0 +1,14 @@
+# Edge: Mistakes -> RELATED_TO -> Growth Mindset
+# ==================================
+version: 1.0
+type: Edge
+
+from: ku:mind:mistakes
+to: ku:sel:growth-mindset
+relationship: RELATED_TO
+
+confidence: 0.8
+source: research
+tags:
+  - convergence
+  - mind

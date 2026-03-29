@@ -1,0 +1,26 @@
+# Ku: Constructivism
+# ==================
+# You don't receive knowledge — you build it.
+
+version: 1.0
+type: Ku
+
+uid: ku:pedagogy:constructivism
+title: Constructivism
+namespace: pedagogy
+ku_category: concept
+heading: "#### pedagogy"
+aliases:
+  - constructivist learning
+  - active learning
+  - Piaget
+  - Vygotsky
+source: research
+sel_category: self_awareness
+description: |
+  You don't receive knowledge — you build it. Constructivism says learning happens when you actively construct understanding through experience, reflection, and connecting new ideas to what you already know. A teacher can't pour knowledge into your head. They can only create conditions where you build it yourself. That's why SKUEL emphasizes practice, journaling, and projects over lectures.
+tags:
+  - pedagogy
+  - learning
+  - methodology
+  - foundational

@@ -1,0 +1,24 @@
+# Ku: Confirmation Bias
+# =====================
+# You see what you already believe.
+
+version: 1.0
+type: Ku
+
+uid: ku:mind:confirmation-bias
+title: Confirmation Bias
+namespace: mind
+ku_category: concept
+heading: "### Cognitive Biases"
+aliases:
+  - belief confirmation
+  - selective evidence
+source: research
+sel_category: self_awareness
+description: |
+  You see what you already believe. Your brain filters information to confirm existing opinions and ignores what contradicts them. This is why arguments rarely change minds — both sides are literally seeing different evidence. The antidote is actively seeking out information that challenges your view. Uncomfortable? Yes. That's how you know it's working.
+tags:
+  - mind
+  - cognition
+  - bias
+  - critical-thinking

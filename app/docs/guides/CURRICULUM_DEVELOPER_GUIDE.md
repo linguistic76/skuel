@@ -295,7 +295,7 @@ Before ingesting, review the chain as a whole:
 
 ### Step 5: Ingest
 
-Place your YAML files in the ingestion directory (default `data/vault/`, configurable via `INGESTION_PATH` env var) and ingest them through the system. The ingestion pipeline will:
+Place your YAML files in the default ingestion vault at `data/vault/` (i.e., `/home/mike/skuel/app/data/vault/`), configurable via `INGESTION_PATH` env var, and ingest them through the system. The ingestion pipeline will:
 
 1. Parse each YAML file
 2. Create graph nodes for each Ku and Lesson

@@ -1,0 +1,25 @@
+# Ku: Limbic System
+# =================
+# Your brain's emotional engine.
+
+version: 1.0
+type: Ku
+
+uid: ku:mind:limbic-system
+title: Limbic System
+namespace: mind
+ku_category: concept
+heading: "#### Feelings (begin then look at congition)"
+aliases:
+  - emotional brain
+  - reptilian brain
+  - amygdala response
+source: research
+sel_category: self_awareness
+description: |
+  Your brain's emotional engine — the amygdala (alarm system), hippocampus (memory), and connected structures that process feelings before your thinking brain even knows what happened. When you react before you think, that's your limbic system. Understanding this isn't about excusing behavior — it's about knowing the machinery so you can work with it instead of being hijacked by it.
+tags:
+  - mind
+  - neuroscience
+  - emotions
+  - awareness

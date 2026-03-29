@@ -1,0 +1,14 @@
+# Edge: EQ -> PREREQUISITE_FOR -> SEL
+# ==================================
+version: 1.0
+type: Edge
+
+from: ku:mind:eq
+to: ku:mind:sel
+relationship: PREREQUISITE_FOR
+
+confidence: 0.9
+source: research
+tags:
+  - cross-domain
+  - mind

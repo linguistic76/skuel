@@ -1,0 +1,26 @@
+# Ku: Tapas (Discipline)
+# =========
+# Inner fire. The willingness to do the hard thing because it matters.
+
+version: 1.0
+type: Ku
+
+uid: ku:yoga:tapas
+title: Tapas (Discipline)
+namespace: yoga
+ku_category: value
+heading: "#### Niyamas"
+aliases:
+  - discipline
+  - austerity
+  - inner fire
+  - tapas
+source: research
+sel_category: self_management
+description: Inner fire. The willingness to do the hard thing because it matters, not because someone is watching. Tapas literally means "heat" — the friction of practice burning away what doesn't serve you. Cold showers, consistent study, showing up when you don't feel like it. Discipline is not punishment. It's the investment that compounds.
+tags:
+  - yoga
+  - niyamas
+  - value
+  - discipline
+  - effort

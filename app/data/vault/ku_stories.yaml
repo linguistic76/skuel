@@ -1,0 +1,25 @@
+# Ku: Stories
+# =========
+# Stories are how humans have always learned about life.
+
+version: 1.0
+type: Ku
+
+uid: ku:values:stories
+title: Stories
+namespace: values
+ku_category: concept
+heading: "### Stories (learn about life)"
+aliases:
+  - narratives
+  - parables
+  - life lessons through story
+source: research
+sel_category: self_awareness
+description: |
+  Stories are how humans have always learned about life. Not textbooks — stories. Parables, myths, personal narratives, films, novels. A good story teaches you what a lecture can't: how it feels to be in someone else's situation. SKUEL uses stories as learning tools because the brain processes narrative differently than facts. Stories stick. They change you.
+tags:
+  - values
+  - learning
+  - stories
+  - wisdom
