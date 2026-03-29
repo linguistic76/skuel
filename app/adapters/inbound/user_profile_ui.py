@@ -1,22 +1,24 @@
 """
-User Profile UI Routes - Profile Hub with Sidebar Navigation
-=============================================================
+User Profile UI Routes - Profile Hub Page (MOC Pattern)
+=======================================================
 
-Routes for the user profile pages with sidebar navigation.
+Routes for the user profile hub page and related endpoints.
 
 Key Routes:
-- GET /profile - Profile overview (Focus + Velocity + Activity domains at a glance)
-- GET /profile/{domain} - Domain-specific view (knowledge, learning-steps, learning-paths, shared)
+- GET /profile - Profile hub (grouped card grid with links)
+- GET /profile/{domain} - Legacy redirects to domain routes
 - GET /profile/settings - User settings/preferences
+- GET /profile/shared - Shared content view
 
 Architecture:
-- /profile is THE main entry point with sidebar navigation
-- Activities overview (formerly /activities) is embedded in /profile
+- /profile is a hub page with grouped cards (no sidebar)
+- Uses BasePage(STANDARD) — the MOC pattern
 - Uses UserContext (~250 fields) as the authoritative source for user state
-- Uses BasePage with sidebar for consistent UX
+
+See: /docs/design-principles/HUB_PAGES.md
 """
 
-__version__ = "4.0"  # Merged dashboard sidebar into profile/hub
+__version__ = "5.0"  # Hub page (MOC pattern) — no sidebar
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -51,14 +53,6 @@ from ui.profile.domain_stats_config import (
     learning_steps_active,
     learning_steps_count,
     learning_steps_status,
-)
-from ui.profile.layout import (
-    CURRICULUM_ORDER,
-    DEFAULT_DOMAIN_ICONS,
-    DEFAULT_DOMAIN_NAMES,
-    DOMAIN_ORDER,
-    ProfileDomainItem,
-    create_profile_page,
 )
 from ui.profile.overview import render_domain_card_preview
 
@@ -339,105 +333,6 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             raise ValueError(f"Failed to load context for user: {user_uid}")
         return context_result.value
 
-    def _build_domain_items(
-        context: UserContext, insight_counts: dict[str, int] | None = None
-    ) -> list[ProfileDomainItem]:
-        """
-        Build ProfileDomainItem list from UserContext using configuration.
-
-        Configuration-driven approach eliminates repetitive if-elif blocks.
-
-        Args:
-            context: UserContext with all domain data
-            insight_counts: Optional dict mapping domain -> insight count (e.g., {"habits": 3})
-
-        See: /ui/profile/domain_stats_config.py
-        """
-        items = []
-        insight_counts = insight_counts or {}
-
-        for slug in DOMAIN_ORDER:
-            name = DEFAULT_DOMAIN_NAMES[slug]
-            icon = DEFAULT_DOMAIN_ICONS[slug]
-            href = f"/{slug}"  # Link directly to domain routes, not profile/hub summary
-
-            # Get configuration or use defaults
-            config = DOMAIN_STATS_CONFIG.get(slug)
-            if config:
-                count = config.count_fn(context)
-                active = config.active_fn(context)
-                status_args = config.status_args_fn(context)
-                status = config.status_fn(*status_args)
-            else:
-                count = 0
-                active = 0
-                status = "healthy"
-
-            # Add insight count badge if available
-            insight_count = insight_counts.get(slug, 0)
-
-            items.append(
-                ProfileDomainItem(
-                    name=name,
-                    slug=slug,
-                    icon=icon,
-                    count=count,
-                    active_count=active,
-                    status=status,
-                    href=href,
-                    insight_count=insight_count,
-                )
-            )
-
-        return items
-
-    def _build_curriculum_items(context: UserContext) -> list[ProfileDomainItem]:
-        """
-        Build ProfileDomainItem list for curriculum domains using configuration.
-
-        Configuration-driven approach for curriculum domain statistics.
-
-        See: /ui/profile/domain_stats_config.py
-        """
-        # Map slug -> (count_fn, active_fn, status_fn)
-        curriculum_stats = {
-            "knowledge": (knowledge_count, knowledge_active, knowledge_status),
-            "learning-steps": (learning_steps_count, learning_steps_active, learning_steps_status),
-            "learning-paths": (learning_paths_count, learning_paths_active, learning_paths_status),
-        }
-
-        items = []
-
-        for slug in CURRICULUM_ORDER:
-            name = DEFAULT_DOMAIN_NAMES[slug]
-            icon = DEFAULT_DOMAIN_ICONS[slug]
-            href = f"/profile/{slug}"
-
-            stats_fns = curriculum_stats.get(slug)
-            if stats_fns:
-                count_fn, active_fn, status_fn = stats_fns
-                count = count_fn(context)
-                active = active_fn(context)
-                status = status_fn(context)
-            else:
-                count = 0
-                active = 0
-                status = "healthy"
-
-            items.append(
-                ProfileDomainItem(
-                    name=name,
-                    slug=slug,
-                    icon=icon,
-                    count=count,
-                    active_count=active,
-                    status=status,
-                    href=href,
-                )
-            )
-
-        return items
-
     async def _get_intelligence_data(
         context: UserContext,
     ) -> "Result[dict[str, Any] | None]":
@@ -548,9 +443,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             )
             return await error_page(str(e), 500, request=request)
 
-        from ui.profile.lean_profile import LeanProfileView
+        from ui.profile.hub import ProfileHubView
 
-        content = LeanProfileView(context)
+        content = ProfileHubView(context)
 
         return await BasePage(
             content=content,
@@ -732,21 +627,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         Shared With Me tab - shows assignments and events shared with current user.
 
-        Assignments only
-        Will include events
-
-        Uses profile hub layout with custom content view.
+        Assignments only. Will include events.
         """
         user_uid = require_authenticated_user(request)
-
-        try:
-            context = await _get_context(user_uid)
-        except ValueError as e:
-            logger.error(
-                "Failed to load context for shared content page",
-                extra={"user_uid": user_uid, "error": str(e)},
-            )
-            return await error_page(str(e), 500, request=request)
 
         # Fetch shared reports
         from fasthtml.common import H2, H4, Div, P
@@ -837,28 +720,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             ),
         )
 
-        # Build domain items for sidebar
-        insight_counts: dict[str, int] = {}
-        total_unread_insights = 0
-        if services.insight_store:
-            counts_result = await services.insight_store.get_insight_counts_by_domain(user_uid)
-            if not counts_result.is_error:
-                insight_counts = counts_result.value
-                total_unread_insights = sum(insight_counts.values())
-
-        domain_items = _build_domain_items(context, insight_counts)
-        curriculum_items = _build_curriculum_items(context)
-
-        return await create_profile_page(
+        return await BasePage(
             content=content,
-            domains=domain_items,
-            active_domain="shared",  # Custom domain for sidebar highlighting
-            user_display_name=context.display_name or context.username,
-            title="Shared With Me - Profile Hub",
-            is_admin=context.user_role.can_manage_users(),
-            curriculum_domains=curriculum_items,
-            unread_insights=total_unread_insights,
+            title="Shared With Me",
             request=request,
+            active_page="profile",
         )
 
     async def _build_knowledge_view(context: UserContext, user_uid: UserUID) -> Any:
