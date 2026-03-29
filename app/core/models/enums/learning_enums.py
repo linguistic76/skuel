@@ -136,12 +136,12 @@ class FeedbackCategory(StrEnum):
     def get_color(self) -> str:
         """Hex color for UI rendering."""
         colors = {
-            FeedbackCategory.ACCURACY: "#EF4444",    # Red — factual errors are critical
-            FeedbackCategory.COMPLETENESS: "#F59E0B", # Amber — something is missing
-            FeedbackCategory.DEPTH: "#8B5CF6",        # Purple — analytical gap
-            FeedbackCategory.CLARITY: "#3B82F6",       # Blue — communication issue
-            FeedbackCategory.APPLICATION: "#10B981",   # Green — transfer gap
-            FeedbackCategory.METHODOLOGY: "#06B6D4",   # Cyan — process issue
+            FeedbackCategory.ACCURACY: "#EF4444",  # Red — factual errors are critical
+            FeedbackCategory.COMPLETENESS: "#F59E0B",  # Amber — something is missing
+            FeedbackCategory.DEPTH: "#8B5CF6",  # Purple — analytical gap
+            FeedbackCategory.CLARITY: "#3B82F6",  # Blue — communication issue
+            FeedbackCategory.APPLICATION: "#10B981",  # Green — transfer gap
+            FeedbackCategory.METHODOLOGY: "#06B6D4",  # Cyan — process issue
         }
         return colors.get(self, "#6B7280")
 

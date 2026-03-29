@@ -23,10 +23,14 @@ from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
+    from core.models.curriculum import Curriculum
     from core.models.event.event import Event
+    from core.models.exercises.exercise import Exercise
     from core.models.goal.goal import Goal
     from core.models.habit.habit import Habit
+    from core.models.ku.ku import Ku
     from core.models.principle.principle import Principle
+    from core.models.submissions.exercise_submission import ExerciseSubmission
     from core.models.task.task import Task
 
 
@@ -110,7 +114,7 @@ class CurriculumHubContext(TypedDict, total=False):
 class CurriculumListContext(TypedDict, total=False):
     """Curriculum sub-page list context."""
 
-    entities: list[Any]
+    entities: list[Curriculum]
     active_section: str
 
 
@@ -122,8 +126,8 @@ class CurriculumListContext(TypedDict, total=False):
 class SubmissionsPageContext(TypedDict, total=False):
     """Study submissions page context."""
 
-    submissions: list[Any]
-    exercises: list[Any]
+    submissions: list[ExerciseSubmission]
+    exercises: list[Exercise]
 
 
 # ============================================================================
@@ -134,7 +138,7 @@ class SubmissionsPageContext(TypedDict, total=False):
 class KuIndexContext(TypedDict, total=False):
     """Knowledge Unit index page context."""
 
-    kus: list[Any]
+    kus: list[Ku]
     pinned_uids: list[str]
-    latest: list[Any]
-    bookmarked: list[Any]
+    latest: list[Ku]
+    bookmarked: list[Ku]

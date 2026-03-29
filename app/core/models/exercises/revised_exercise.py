@@ -106,7 +106,9 @@ class RevisedExercise(UserOwnedEntity):
     instructions: str | None = None
     model: str = "claude-sonnet-4-6"
     context_notes: tuple[str, ...] = ()
-    feedback_points: tuple[FeedbackPoint, ...] | tuple[Any, ...] = ()
+    feedback_points: (
+        tuple[FeedbackPoint, ...] | tuple[Any, ...]
+    ) = ()  # boundary: Neo4j JSON string parsed in __post_init__
     revision_rationale: str | None = None
     expected_modality: SubmissionModality | None = None
 
@@ -133,8 +135,7 @@ class RevisedExercise(UserOwnedEntity):
         if self.feedback_points:
             prompt_parts.append("## Feedback Points Being Addressed")
             prompt_parts.extend(
-                f"- [{point.category.get_label()}] {point.detail}"
-                for point in self.feedback_points
+                f"- [{point.category.get_label()}] {point.detail}" for point in self.feedback_points
             )
             prompt_parts.append("")
 

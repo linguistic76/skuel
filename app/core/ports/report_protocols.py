@@ -39,11 +39,14 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from core.models.type_hints import UserUID
 from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
+    GroupMemberProgress,
     LearningLoopChain,
+    PendingReviewItem,
     ReportApprovalResult,
     ReportHistoryItem,
     ReportSubmitResult,
     ReportSummary,
+    ReviewRequestResult,
     RevisionRequestResult,
     StudentSubmissionItem,
     StudentSummaryItem,
@@ -54,9 +57,11 @@ from core.ports.query_types import (
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.exercises.exercise import Exercise
     from core.models.report.activity_report import ActivityReport
     from core.models.report.exercise_report import ExerciseReport
     from core.models.submissions.report_schedule import ReportSchedule
+    from core.models.submissions.submission import Submission
     from core.ports.query_types import (
         AnnotationResult,
         AnnotationState,
@@ -126,8 +131,8 @@ class ExerciseReportOperations(Protocol):
 
     async def generate_report(
         self,
-        entry: Any,
-        exercise: Any,
+        entry: "Submission",
+        exercise: "Exercise",
         user_uid: UserUID,
         temperature: float = 0.7,
         max_tokens: int = 4000,
@@ -297,7 +302,7 @@ class ReviewQueueOperations(Protocol):
         time_period: str = "7d",
         domains: list[str] | None = None,
         message: str | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ReviewRequestResult]:
         """User requests an activity review."""
         ...
 
@@ -305,7 +310,7 @@ class ReviewQueueOperations(Protocol):
         self,
         _admin_uid: str,
         limit: int = 20,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[PendingReviewItem]]:
         """Admin's pending review queue."""
         ...
 
@@ -423,6 +428,6 @@ class TeacherReviewOperations(Protocol):
 
     async def get_group_detail(
         self, group_uid: str, teacher_uid: str
-    ) -> Result[list[dict[str, Any]]]:
-        """Get group members with submission progress stats. Returns Result[list[dict]]."""
+    ) -> Result[list[GroupMemberProgress]]:
+        """Get group members with submission progress stats."""
         ...

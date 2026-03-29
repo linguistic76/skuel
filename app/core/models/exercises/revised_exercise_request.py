@@ -18,9 +18,7 @@ class FeedbackPointInput(BaseModel):
     """A single typed feedback point in a create/update request."""
 
     category: FeedbackCategory = Field(..., description="Category of learning gap")
-    detail: str = Field(
-        ..., min_length=1, max_length=500, description="Specific feedback detail"
-    )
+    detail: str = Field(..., min_length=1, max_length=500, description="Specific feedback detail")
 
 
 class RevisedExerciseCreateRequest(BaseModel):

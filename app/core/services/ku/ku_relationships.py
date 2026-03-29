@@ -245,17 +245,25 @@ class KuRelationships:
 # ========================================================================
 
 
-async def _get_prerequisites(graph_service: LessonGraphService, ku_uid: str) -> Result:
+async def _get_prerequisites(
+    graph_service: LessonGraphService, ku_uid: str
+) -> Result[list[Any]]:  # boundary: graph traversal returns mixed entity shapes
     """Get prerequisite knowledge units (REQUIRES relationship)."""
     return await graph_service.find_prerequisites(ku_uid, depth=1)
 
 
-async def _get_enables(graph_service: LessonGraphService, ku_uid: str) -> Result:
+async def _get_enables(
+    graph_service: LessonGraphService, ku_uid: str
+) -> Result[list[Any]]:  # boundary: graph traversal returns mixed entity shapes
     """Get knowledge units this KU enables (ENABLES relationship)."""
     return await graph_service.find_next_steps(ku_uid, limit=100)
 
 
-async def _get_uids_from_backend(backend: Any, method_name: str, ku_uid: str) -> Result:
+async def _get_uids_from_backend(
+    backend: Any,  # boundary: dynamic method dispatch — type erased
+    method_name: str,
+    ku_uid: str,
+) -> Result[list[str]]:
     """Call a named backend method and extract UIDs from the result."""
     method = getattr(backend, method_name, None)
     if method is None:
@@ -268,7 +276,7 @@ async def _get_uids_from_backend(backend: Any, method_name: str, ku_uid: str) ->
     return Result.ok(uids)
 
 
-def _extract_uids(result: Result) -> list[str]:
+def _extract_uids(result: Result[list[Any]]) -> list[str]:
     """Extract UIDs from Result[list[DTO]] or Result[list[str]]."""
     if not result.is_ok:
         return []

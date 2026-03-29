@@ -20,18 +20,18 @@ from adapters.inbound.route_factories import (
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity_requests import AddTagsRequest, RemoveTagsRequest
+
+# NOTE: FastHTML evaluates string annotations at runtime via signature_ex(),
+# so these must be real imports, not TYPE_CHECKING-only.
+from core.models.lesson.lesson import Lesson
 from core.models.lesson.lesson_request import (
     LessonContentUpdateRequest,
     LessonRelationshipCreateRequest,
 )
+from core.models.pathways.learning_progress import LearningJourney
 from core.services.lesson_service import LessonService
 from core.utils.result_simplified import Errors, Result
 from ui.feedback import Alert, AlertT
-
-# NOTE: FastHTML evaluates string annotations at runtime via signature_ex(),
-# so these must be real imports, not TYPE_CHECKING-only.
-from core.models.lesson.lesson import Lesson  # noqa: F811
-from core.models.pathways.learning_progress import LearningJourney
 
 
 def create_lesson_api_routes(

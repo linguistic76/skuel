@@ -25,11 +25,10 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import UserUID
-
 # NOTE: FastHTML evaluates string annotations at runtime via signature_ex(),
 # so SubmissionEntity must be a real import, not TYPE_CHECKING-only.
-from core.models.entity_types import SubmissionEntity  # noqa: F811
+from core.models.entity_types import SubmissionEntity
+from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
     from core.ports.report_protocols import TeacherReviewOperations

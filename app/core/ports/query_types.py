@@ -1966,6 +1966,38 @@ class TeacherGroupStats(TypedDict, total=False):
     pending_count: int
 
 
+class GroupMemberProgress(TypedDict, total=False):
+    """Item in TeacherReviewService.get_group_detail()."""
+
+    user_uid: str
+    user_name: str
+    role: str
+    joined_at: str
+    submission_count: int
+    reviewed_count: int
+    pending_count: int
+
+
+class ReviewRequestResult(TypedDict, total=False):
+    """Return shape for ReviewQueueService.request_review()."""
+
+    uid: str
+    status: str
+    user_uid: str
+
+
+class PendingReviewItem(TypedDict, total=False):
+    """Item in ReviewQueueService.get_pending_reviews()."""
+
+    uid: str
+    user_uid: str
+    time_period: str
+    domains: list[str]
+    message: str
+    created_at: str
+    username: str
+
+
 # ============================================================================
 # SUBMISSION/REPORT RESULT TYPES
 # ============================================================================

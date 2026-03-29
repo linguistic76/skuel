@@ -16,9 +16,10 @@ See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
+from core.ports.query_types import PendingReviewItem, ReviewRequestResult
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
@@ -49,7 +50,7 @@ class ReviewQueueService:
         time_period: str = "7d",
         domains: list[str] | None = None,
         message: str | None = None,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[ReviewRequestResult]:
         """
         User requests an activity review from an admin.
 
@@ -62,7 +63,7 @@ class ReviewQueueService:
             message: Optional context message from the user
 
         Returns:
-            Result[dict] — the created review request with uid
+            Result[ReviewRequestResult] — the created review request with uid
         """
         try:
             request_uid = UIDGenerator.generate_uid("review_request")
@@ -114,7 +115,7 @@ class ReviewQueueService:
         self,
         _admin_uid: str,
         limit: int = 20,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[PendingReviewItem]]:
         """
         Get pending review requests for admin to action.
 
@@ -123,7 +124,7 @@ class ReviewQueueService:
             limit: Maximum number of results
 
         Returns:
-            Result[list[dict]] — pending review requests with user context
+            Result[list[PendingReviewItem]] — pending review requests with user context
         """
         try:
             result = await self.executor.execute_query(

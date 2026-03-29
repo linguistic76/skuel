@@ -41,14 +41,16 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         entity_label="Ku",
     )
 
-    async def get_by_namespace(self, namespace: str) -> Result[list[dict[str, Any]]]:
+    async def get_by_namespace(
+        self, namespace: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: Neo4j node properties — Ku fields
         """Get all Kus in a specific namespace.
 
         Args:
             namespace: Namespace to filter by (e.g., "attention", "emotion")
 
         Returns:
-            Result containing list of Ku dicts
+            Result containing list of Ku property dicts from Neo4j
         """
         result = await self.backend.get_by_namespace(namespace)  # type: ignore[attr-defined]
         if result.is_error:
@@ -56,14 +58,16 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
 
         return Result.ok([record["ku"] for record in (result.value or [])])
 
-    async def search_by_alias(self, alias: str) -> Result[list[dict[str, Any]]]:
+    async def search_by_alias(
+        self, alias: str
+    ) -> Result[list[dict[str, Any]]]:  # boundary: Neo4j node properties — Ku fields
         """Search Kus by alias (alternative name).
 
         Args:
             alias: Alias to search for (case-insensitive substring)
 
         Returns:
-            Result containing list of matching Ku dicts
+            Result containing list of matching Ku property dicts from Neo4j
         """
         result = await self.backend.search_by_alias(alias)  # type: ignore[attr-defined]
         if result.is_error:

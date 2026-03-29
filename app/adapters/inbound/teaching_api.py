@@ -28,26 +28,25 @@ from core.models.teaching.teaching_request import (
     SubmitReportRequest,
     UpdateTeachingExerciseRequest,
 )
-from core.ports.query_types import (
-    ExerciseWithSubmissionCounts,
-    ReportApprovalResult,
-    ReportSubmitResult,
-    RevisionRequestResult,
-    StudentSubmissionItem,
-    StudentSummaryItem,
-    SubmissionForExercise,
-    TeacherGroupStats,
-)
-from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
 
 # NOTE: FastHTML evaluates string annotations at runtime via signature_ex(),
 # so types used in @rt() handler return annotations must be real imports.
 from core.ports.query_types import (
+    ExerciseWithSubmissionCounts,
+    GroupMemberProgress,
+    ReportApprovalResult,
+    ReportSubmitResult,
     ReviewQueueItem,
+    RevisionRequestResult,
+    StudentSubmissionItem,
+    StudentSummaryItem,
     SubmissionDetailResult,
+    SubmissionForExercise,
     TeacherDashboardStats,
+    TeacherGroupStats,
 )
+from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
@@ -213,7 +212,7 @@ def create_teaching_api_routes(
     @boundary_handler()
     async def get_class_detail(
         request: Request, uid: str, current_user: Any
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[GroupMemberProgress]]:
         """Get members of a specific class with their submission progress."""
         return await teacher_review_service.get_group_detail(
             group_uid=uid,

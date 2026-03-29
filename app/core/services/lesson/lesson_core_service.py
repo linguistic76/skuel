@@ -92,7 +92,12 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         """
 
     def __init__(
-        self, repo=None, content_repo=None, intelligence=None, chunking=None, event_bus=None
+        self,
+        repo: CurriculumOperations[Entity] | None = None,
+        content_repo: Any = None,  # boundary: ContentBackend — no shared protocol
+        intelligence: Any = None,  # boundary: LessonIntelligenceService — circular dep
+        chunking: Any = None,  # boundary: ChunkingService — optional RAG
+        event_bus: Any = None,  # boundary: EventBusOperations — optional
     ) -> None:
         """
         Initialize core service with required dependencies.
@@ -255,7 +260,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         return Result.ok(dto)
 
     async def _store_content(
-        self, uid: str, body: str, title: str, tags: list, metadata: dict
+        self, uid: str, body: str, title: str, tags: list[str], metadata: dict[str, Any]
     ) -> None:
         """
         Store content with optional chunking.
@@ -598,7 +603,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
     @track_query_metrics("lesson_get_chunks")
     @with_error_handling("get_chunks", error_type="database", uid_param="uid")
-    async def get_chunks(self, uid: str, chunk_type=None) -> Result[list]:
+    async def get_chunks(self, uid: str, chunk_type: str | None = None) -> Result[list[Any]]:
         """
         Get content chunks for a knowledge unit.
 
@@ -621,7 +626,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
     @track_query_metrics("lesson_analyze_content")
     @with_error_handling("analyze_content", error_type="system", uid_param="uid")
-    async def analyze_content(self, uid: str) -> Result[dict]:
+    async def analyze_content(self, uid: str) -> Result[dict[str, Any]]:
         """
         Analyze knowledge unit content quality.
 
@@ -767,7 +772,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
 
     @track_query_metrics("lesson_get_hierarchy")
     @with_error_handling("get_hierarchy", error_type="database", uid_param="entity_uid")
-    async def get_hierarchy(self, entity_uid: EntityUID) -> Result[dict]:
+    async def get_hierarchy(self, entity_uid: EntityUID) -> Result[dict[str, Any]]:
         """
         Get full hierarchy context for an entity.
 

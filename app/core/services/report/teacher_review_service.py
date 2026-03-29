@@ -30,6 +30,7 @@ from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorTy
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
+    GroupMemberProgress,
     ReportApprovalResult,
     ReportHistoryItem,
     ReportSubmitResult,
@@ -50,6 +51,7 @@ if TYPE_CHECKING:
         SubmissionsBackend,
     )
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.services.lesson.lesson_mastery_service import LessonMasteryService
 
 logger = get_logger("skuel.services.teacher_review")
 
@@ -62,7 +64,7 @@ class TeacherReviewService:
         submissions_backend: "SubmissionsBackend",
         exercise_backend: "ExerciseBackend",
         group_backend: "GroupBackend",
-        ku_interaction_service: Any,
+        ku_interaction_service: "LessonMasteryService",
         event_bus: "EventBusOperations",
     ) -> None:
         """
@@ -696,7 +698,7 @@ class TeacherReviewService:
         self,
         group_uid: str,
         teacher_uid: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[GroupMemberProgress]]:
         """
         Get members of a teacher's group with their submission progress.
 
@@ -707,7 +709,7 @@ class TeacherReviewService:
             teacher_uid: Teacher UID (ownership checked)
 
         Returns:
-            Result containing list of member dicts with progress stats
+            Result containing list of member progress items
         """
         result = await self.group_backend.get_group_detail(group_uid, teacher_uid)
         if result.is_error:

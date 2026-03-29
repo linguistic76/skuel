@@ -20,7 +20,7 @@ Overrides create/delete to add authority checks, relationships, events, and casc
 import contextlib
 import dataclasses
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from core.events import RevisedExerciseEmbeddingRequested, publish_event
 from core.events.submission_events import RevisedExerciseCreated
@@ -37,6 +37,10 @@ from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from adapters.persistence.neo4j.domain_backends import RevisedExerciseBackend
+    from core.ports.infrastructure_protocols import EventBusOperations
 
 logger = get_logger(__name__)
 
@@ -82,7 +86,9 @@ class RevisedExerciseService(BaseService):
         ),
     )
 
-    def __init__(self, backend: Any, event_bus: Any | None = None) -> None:
+    def __init__(
+        self, backend: "RevisedExerciseBackend", event_bus: "EventBusOperations | None" = None
+    ) -> None:
         """Initialize with backend and optional event bus."""
         super().__init__(backend, "revised_exercises")
         self.backend = backend

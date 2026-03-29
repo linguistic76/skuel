@@ -29,6 +29,8 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 from datetime import date
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.query_types import SubmissionStatistics
 from core.utils.result_simplified import Result
@@ -59,8 +61,8 @@ class SubmissionOperations(Protocol):
         file_content: bytes,
         original_filename: str,
         user_uid: UserUID,
-        entity_type: Any,
-        processor_type: Any = ...,
+        entity_type: EntityType,
+        processor_type: ProcessorType = ...,
         file_type: str | None = None,
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
@@ -86,8 +88,8 @@ class SubmissionOperations(Protocol):
     async def list_submissions(
         self,
         user_uid: UserUID,
-        entity_type: Any | None = None,
-        status: Any | None = None,
+        entity_type: EntityType | None = None,
+        status: EntityStatus | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> "Result[list[SubmissionEntity]]":
@@ -156,7 +158,7 @@ class SubmissionOperations(Protocol):
         self,
         limit: int = 10,
         user_uid: UserUID | None = None,
-        entity_type: Any | None = None,
+        entity_type: EntityType | None = None,
     ) -> "Result[list[SubmissionEntity]]":
         """Get recent submissions. Returns Result[list[Submission]]."""
         ...
@@ -202,7 +204,7 @@ class SubmissionOperations(Protocol):
         ...
 
     async def set_visibility(
-        self, entity_uid: EntityUID, owner_uid: str, visibility: Any
+        self, entity_uid: EntityUID, owner_uid: str, visibility: Visibility
     ) -> Result[bool]:
         """Set entity visibility level. Returns Result[bool]."""
         ...
@@ -272,7 +274,7 @@ class SubmissionSearchOperations(Protocol):
         self,
         user_uid: UserUID,
         query: str,
-        entity_type: Any | None = None,
+        entity_type: EntityType | None = None,
         limit: int = 50,
     ) -> "Result[list[SubmissionEntity]]":
         """Search submissions with text and type filters. Returns Result[list[Submission]]."""
@@ -283,7 +285,7 @@ class SubmissionSearchOperations(Protocol):
         user_uid: UserUID,
         start_date: date,
         end_date: date,
-        entity_type: Any | None = None,
+        entity_type: EntityType | None = None,
     ) -> Result[SubmissionStatistics]:
         """Get submission statistics for a date range."""
         ...
@@ -291,7 +293,7 @@ class SubmissionSearchOperations(Protocol):
     async def get_recent_submissions(
         self,
         user_uid: UserUID,
-        entity_type: Any | None = None,
+        entity_type: EntityType | None = None,
         limit: int = 10,
     ) -> "Result[list[SubmissionEntity]]":
         """Get recent submissions. Returns Result[list[Submission]]."""
