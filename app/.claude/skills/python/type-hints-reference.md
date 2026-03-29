@@ -256,9 +256,10 @@ from core.ports.query_types import (
     SystemHealthStatus, HealthCheckValidation,
     ComponentHealthStatus, HealthCheckerValidationResult,
     InvoiceStats,
-    # Teacher review + submissions
+    # Teacher review + submissions + review queue
     ReportSubmitResult, ExerciseWithSubmissionCounts, SubmissionStatistics,
     ReportSummary, LearningLoopChain, SubmissionChain,
+    GroupMemberProgress, ReviewRequestResult, PendingReviewItem,
     # Visualization configs
     ChartJsConfig, VisTimelineConfig, GanttConfig,
     # Other output types (protocol return shapes)

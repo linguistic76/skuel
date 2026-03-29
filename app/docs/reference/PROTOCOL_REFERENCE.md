@@ -442,7 +442,7 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 |------|-----------|-----------------|
 | `submission_protocols.py` | 3 protocols | `submissions_api.py`, `progress_report_api.py` |
 | `sharing_protocols.py` | 1 protocol | `submissions_sharing_api.py` |
-| `report_protocols.py` | 5 protocols | `exercises_api.py`, `exercise_report_api.py`, `progress_report_api.py`, `teaching_api.py` |
+| `report_protocols.py` | 7 protocols | `exercises_api.py`, `exercise_report_api.py`, `progress_report_api.py`, `teaching_api.py` |
 | `form_protocols.py` | 4 protocols | `form_templates_api.py`, `form_submissions_api.py` |
 | `group_protocols.py` | 1 protocol | `groups_api.py` |
 | `service_protocols.py` | 11 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
@@ -467,19 +467,22 @@ Entity-agnostic sharing. `UnifiedSharingService` implements this protocol and wo
 |----------|---------------|---------|----------------|
 | `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, verify_shareable, share_with_group, unshare_from_group, get_groups_shared_with, get_shared_with_me_via_groups (11 methods) | `submissions_sharing_api.py` |
 
-### Report Protocols (3) — `report_protocols.py`
+### Report Protocols (7) — `report_protocols.py`
 
 Map to the **Report** stage of the educational loop. `processor_type` discriminates source: `HUMAN` (teacher/admin), `LLM` (AI via Exercise or on-demand), `AUTOMATIC` (scheduled).
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `ExerciseReportOperations` | `submission_report`, `submissions_core` | generate_report (→ `SUBMISSION_REPORT`, `LLM`), create_assessment (→ `SUBMISSION_REPORT`, `HUMAN`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `exercise_report_api.py` |
+| `ExerciseReportOperations` | `submission_report`, `submissions_core` | generate_report(`Submission`, `Exercise`) → `EXERCISE_REPORT` `LLM`, create_assessment → `EXERCISE_REPORT` `HUMAN`, get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `exercise_report_api.py` |
 | `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
 | `ProgressScheduleOperations` | `progress_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `progress_report_api.py` |
-| `ActivityReportOperations` | `activity_report` | 6 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, annotate, get_annotation, get_privacy_summary) | `progress_report_api.py` |
+| `ActivityReportOperations` | `activity_report` | 6 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, annotate → `AnnotationResult`, get_annotation → `AnnotationState`, get_privacy_summary → `PrivacySummary`) | `progress_report_api.py` |
+| `ReviewQueueOperations` | `review_queue` | 2 (request_review → `ReviewRequestResult`, get_pending_reviews → `list[PendingReviewItem]`) | `progress_report_api.py` |
+| `ReportRelationshipOperations` | `report_relationships` | 5 (get_pending_submissions, get_unsubmitted_exercises, get_report_summary → `ReportSummary`, get_learning_loop_chain → `LearningLoopChain`, get_submission_chain → `SubmissionChain`) | context intelligence |
+| `TeacherReviewOperations` | `teacher_review` | 13 (review queue → `list[ReviewQueueItem]`, submission detail → `SubmissionDetailResult`, feedback history, submit/request/approve, exercises, students, dashboard → `TeacherDashboardStats`, classes → `list[GroupMemberProgress]`) | `teaching_api.py` |
 
 **Why `ExerciseReportOperations` unifies human + AI reports:**
-`TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `ExerciseReportService.generate_report()` (processor_type=LLM) both create `SUBMISSION_REPORT` entities linked via `REPORT_FOR`. The protocol captures what routes need regardless of which processor created it.
+`TeacherReviewService.create_assessment()` (processor_type=HUMAN) and `ExerciseReportService.generate_report()` (processor_type=LLM) both create `EXERCISE_REPORT` entities linked via `REPORT_FOR`. The protocol captures what routes need regardless of which processor created it. `generate_report` accepts typed params: `entry: Submission`, `exercise: Exercise` (not `Any`).
 
 **Note on `AssignmentOperations`:** `AssignmentOperations` remains in `curriculum_protocols.py` — Assignments are curriculum entities (Exercise scope=assigned), not reports.
 
@@ -501,12 +504,13 @@ Two-tier protocols for the general-purpose form system.
 | `FormTemplateOperations` | `form_template_service` | 8 (create, get, list, update, delete, link/unlink lesson, get_for_lesson) | `form_templates_api.py` |
 | `FormSubmissionOperations` | `form_submission_service` | 5 (submit, get, list_mine, delete, share) | `form_submissions_api.py` |
 
-### Group & Teaching Protocols (2)
+### Group Protocol (1) — `group_protocols.py`
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
 | `GroupOperations` | `group_service` | 9 (create, get, list_teacher, list_user, update, delete, add/remove member, get_members) | `groups_api.py` |
-| `TeacherReviewOperations` | `teacher_review` | 13 (review queue, submission detail, feedback history, submit/request/approve, exercises, students, dashboard, classes) | `teaching_api.py` — in `report_protocols.py` |
+
+**Note:** `TeacherReviewOperations` lives in `report_protocols.py` (Phase 4 Report infrastructure), not `group_protocols.py`.
 
 ### Cross-Cutting Service Protocols (9)
 

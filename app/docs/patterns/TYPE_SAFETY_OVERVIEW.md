@@ -1,6 +1,6 @@
 # Type Safety Architecture Overview
 
-*Last updated: 2026-03-27 (search protocol generics, enum enforcement, return type narrowing)*
+*Last updated: 2026-03-28 (submission/report protocol enum enforcement, new TypedDicts)*
 
 SKUEL treats type safety as infrastructure — not ceremony. Types are enforced at every
 layer, from HTTP boundaries through to database writes. The goal is that a type error from
@@ -87,7 +87,7 @@ def create_tasks_api_routes(
 - 29 automated compliance tests (run: `uv run pytest tests/unit/test_protocol_mixin_compliance.py`)
 - Zero `Any` fields in the `Services` dataclass — all 72 fields typed
 - ~170 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026). 0 `Result[Any]` remain in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed. Route handlers: 0 `Result[Any]` across 27 API files (2 intentional `# boundary:` for FastHTML FT components)
-- 128 TypedDicts in `query_types.py` — 21 for inputs (filters, payloads), 107 for outputs (domain stats, system health, teacher review, visualization configs, result shapes, UserContext field types, context intelligence, graph entity, curriculum structure, curriculum backend Cypher returns, lateral relationship backend returns, life path nested types)
+- 131 TypedDicts in `query_types.py` — 21 for inputs (filters, payloads), 110 for outputs (domain stats, system health, teacher review, visualization configs, result shapes, UserContext field types, context intelligence, graph entity, curriculum structure, curriculum backend Cypher returns, lateral relationship backend returns, life path nested types, review queue results)
 - **Search protocol generics** — all 6 extended search protocols (`TasksSearchOperations`, `GoalsSearchOperations`, etc.) parameterized with their domain model type (`Task`, `Goal`, `Event`, `Choice`, `Habit`, `Principle`), not `Entity`. Eliminates `# type: ignore[return-value]` in facade delegation methods
 
 **BackendOperations[T] hierarchy** — the foundational generic protocol:
@@ -150,8 +150,9 @@ to specific types (0 `Result[Any]` remain in protocols, 1 intentional in `base_s
 - Domain model returns: `Result[ExerciseSubmission]`, `Result[Askesis]`, `Result[CalendarData]`, etc.
 - Existing TypedDicts: `Result[ContextDashboard]`, `Result[ContextSummary]`
 - Existing dataclasses: `Result[LearningVelocityMetrics]`, `Result[SpendingPatternAnalysis]`
-- 45 output TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
-  teacher review (`ReviewQueueItem`, `TeacherDashboardStats`), intelligence results
+- 48 output TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
+  teacher review (`ReviewQueueItem`, `TeacherDashboardStats`, `GroupMemberProgress`),
+  review queue (`ReviewRequestResult`, `PendingReviewItem`), intelligence results
   (`KnowledgeSuggestionsResult`, `PerformanceAnalyticsResult`, `KnowledgePrerequisitesResult`,
   `CrossDomainOpportunitiesResult`, `AIInsightsResult`), life path (`LifePathStatus`,
   `LifePathAlignmentResult`), lateral relationships (`BlockingChainResult`, `RelationshipGraphData`),
@@ -168,7 +169,8 @@ protocol root cause fixed: 4 extended protocols (`GoalsSearchOperations`, `Event
 `ChoicesSearchOperations`, `PrinciplesSearchOperations`) re-parameterized from `Entity` to their
 domain model type, eliminating 27 `# type: ignore[return-value]` suppressions in facade delegation
 methods. `EntityStatus` enum now enforced in all status comparisons (previously only `UserRole`
-and `ExerciseScope`). 30 missing return type annotations added to service methods.
+and `ExerciseScope`). `ProcessorType` and `Visibility` enums enforced in submission protocol
+parameters (previously `Any`). 30 missing return type annotations added to service methods.
 
 *Phase 6 — Route handler returns:* All 27 `*_api.py` route files narrowed from `Result[Any]` to
 specific types (267 → 2). Route handlers now declare exact payload types (`Result[Task]`,

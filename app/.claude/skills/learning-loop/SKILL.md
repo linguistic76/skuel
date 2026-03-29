@@ -592,7 +592,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Activity Report (schedule CRUD)** | `ProgressScheduleService` | `ProgressScheduleOps` | — | `get_schedules`, `create_schedule`, `delete_schedule` |
 | **Activity Report (human)** | `ActivityReportService` | `ActivityReportOperations` | `ActivityReportBackend` + `UserContextBuilder` | `create_snapshot`, `submit_report`, `persist`, `get_history`, `annotate` |
 
-**Protocols location:** `core/ports/report_protocols.py` (all report + teacher review), `core/ports/submission_protocols.py`, `core/ports/group_protocols.py` (group CRUD only)
+**Protocols location:** `core/ports/report_protocols.py` (7 protocols: all report + teacher review + review queue + report relationships), `core/ports/submission_protocols.py` (3 protocols — typed enum params: `EntityType`, `ProcessorType`, `EntityStatus`, `Visibility`), `core/ports/group_protocols.py` (group CRUD only)
 
 ---
 
@@ -746,8 +746,8 @@ that never closes the loop.
 | `core/services/report/activity_report_service.py` | 4 | Admin human report; all write paths converge here |
 | `core/services/report/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |
 | `core/services/background/progress_report_worker.py` | 4 | Scheduled activity report background worker |
-| `core/ports/submission_protocols.py` | 3 | Submission protocol interfaces |
-| `core/ports/report_protocols.py` | 4 | All report protocols incl. `TeacherReviewOperations`, `ReportRelationshipOperations` |
+| `core/ports/submission_protocols.py` | 3 | Submission protocols — typed enum params (`EntityType`, `ProcessorType`, `EntityStatus`, `Visibility`) |
+| `core/ports/report_protocols.py` | 7 | All report protocols incl. `TeacherReviewOperations`, `ReviewQueueOperations`, `ReportRelationshipOperations` — typed returns (`ReviewRequestResult`, `PendingReviewItem`, `GroupMemberProgress`) |
 | `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
 | `adapters/persistence/neo4j/domain_backends.py` | all | Domain-specific Cypher |

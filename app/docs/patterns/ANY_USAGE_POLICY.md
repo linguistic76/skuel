@@ -1,6 +1,6 @@
 # Any Usage Policy
 
-*Last updated: 2026-03-27*
+*Last updated: 2026-03-28*
 
 SKUEL treats `Any` as a last resort, not a default. Every use of `Any` must belong to one
 of the three categories below. Unlabelled `Any` annotations are technical debt and should
@@ -22,6 +22,14 @@ They provide no value and actively undermine type safety.
 - `UserOperations` return types — Were `Result[Any]`, now `Result[User]` / `Result[UserContext]` (no circular import existed)
 - `get_active_learners` — Was `Result[list[Any]]`, now `Result[list[User]]`
 - `bookmark_knowledge` `tags` param — Was `list | None`, now `list[str] | None`
+- `SubmissionOperations.submit_file()` params — Were `entity_type: Any`, `processor_type: Any`, now `EntityType`, `ProcessorType`
+- `SubmissionOperations.list_submissions()` params — Were `entity_type: Any`, `status: Any`, now `EntityType`, `EntityStatus`
+- `SubmissionOperations.set_visibility()` — Was `visibility: Any`, now `Visibility`
+- `ExerciseReportOperations.generate_report()` — Were `entry: Any`, `exercise: Any`, now `Submission`, `Exercise`
+- `TeacherReviewService.__init__()` — Was `ku_interaction_service: Any`, now `LessonMasteryService`
+- `ReviewQueueOperations.request_review()` — Was `Result[dict[str, Any]]`, now `Result[ReviewRequestResult]`
+- `ReviewQueueOperations.get_pending_reviews()` — Was `Result[list[dict[str, Any]]]`, now `Result[list[PendingReviewItem]]`
+- `TeacherReviewOperations.get_group_detail()` — Was `Result[list[dict[str, Any]]]`, now `Result[list[GroupMemberProgress]]`
 
 If you encounter Category A `Any` during development, fix it immediately. There is no
 architectural reason for these to exist.
@@ -105,12 +113,13 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 - **Domain model returns:** `Result[SubmissionEntity]`, `Result[ExerciseReport]`, `Result[Askesis]`,
   `Result[CalendarData]`, `Result[Group]`, `Result[JeInput]`, `Result[JeOutput]`, `Result[Exercise]`,
   `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ReportSchedule]`, `Result[ActivityReport]`
-- **107 output TypedDicts** in `query_types.py` for structured dict returns:
+- **110 output TypedDicts** in `query_types.py` for structured dict returns:
 
 | TypedDict | Protocol / Field | Methods |
 |-----------|-----------------|---------|
 | `SignUpResult`, `SignInResult` | `GraphAuthOperations` | `sign_up`, `sign_in` |
-| `ReviewQueueItem`, `SubmissionDetailResult`, `TeacherDashboardStats` | `TeacherReviewOperations` | `get_review_queue`, `get_submission_detail`, `get_dashboard_stats` |
+| `ReviewQueueItem`, `SubmissionDetailResult`, `TeacherDashboardStats`, `GroupMemberProgress` | `TeacherReviewOperations` | `get_review_queue`, `get_submission_detail`, `get_dashboard_stats`, `get_group_detail` |
+| `ReviewRequestResult`, `PendingReviewItem` | `ReviewQueueOperations` | `request_review`, `get_pending_reviews` |
 | `KnowledgeSuggestionsResult`, `KnowledgeGenerationResult`, `LearningOpportunitiesResult` | `KnowledgeIntelligenceOperations` | `get_knowledge_suggestions`, `generate_knowledge_from_entities`, `get_learning_opportunities` |
 | `KnowledgePrerequisitesResult`, `KnowledgePrerequisiteItem` | `KnowledgeIntelligenceOperations` | `get_knowledge_prerequisites` |
 | `BehavioralInsightsResult`, `PerformanceAnalyticsResult` | `DomainIntelligenceOperations` | `get_behavioral_insights`, `get_performance_analytics` |
