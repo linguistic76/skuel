@@ -312,11 +312,12 @@ Exercise pipeline and teacher workflow.
 
 ## Phase 3: Submission — The Student's Work
 
-**What:** The student's artifact. An uploaded file (audio, text, image) that is processed
-into `processed_content` — the evaluable form. Two leaf types: `EXERCISE_SUBMISSION` (student
-uploads) and `JOURNAL_SUBMISSION` (admin uploads for AI-only processing).
+**What:** The student's artifact. Two submission modes typed by `SubmissionModality`:
+file upload (`FILE_UPLOAD` — audio, text, image processed into `processed_content`) or
+structured form (`STRUCTURED_FORM` — inline form responses stored as JSON). The Exercise's
+`expected_modality` field determines which path the UI presents.
 
-**EntityType:** `EntityType.EXERCISE_SUBMISSION` or `EntityType.JOURNAL_SUBMISSION`
+**EntityType:** `EntityType.EXERCISE_SUBMISSION`
 **Loop role:** The *evidence* — the student's demonstration of engagement with Lesson content.
 Without it, the Curriculum Track has no student voice.
 

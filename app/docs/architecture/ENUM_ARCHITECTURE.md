@@ -20,7 +20,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `askesis_enums.py` | Askesis query complexity and integration | QueryComplexity, IntegrationSuccess |
 | `choice_enums.py` | Decision types | ChoiceType |
 | `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel, TriggerType |
-| `submissions_enums.py` | Submissions + Reports processing and scheduling | ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
+| `submissions_enums.py` | Submissions + Reports processing and scheduling | SubmissionModality, ExerciseScope, FormattingStyle, AnalysisDepth, ScheduleType, ProgressDepth |
 | `curriculum_enums.py` | Learning path and step types | LpType, StepDifficulty |
 | `lifepath_enums.py` | Vision theme classification | ThemeCategory |
 | `scheduling_enums.py` | Time, recurrence, energy | RecurrencePattern, TimeOfDay, EnergyLevel |
@@ -291,6 +291,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 
 | Enum | Values | Purpose |
 |------|--------|---------|
+| SubmissionModality | FILE_UPLOAD, STRUCTURED_FORM | Submission format: file upload vs inline form. Set on `Exercise.expected_modality` (auto-derived from `form_schema`) and `Submission.modality` (set at creation). Orthogonal to `ProcessorType` (who processes) — modality is *how* the submission was created. |
 | ExerciseScope | PERSONAL, ASSIGNED | Exercise scope (user's own vs teacher-assigned). Enforced at Pydantic boundary (`ExerciseCreateRequest.scope`) and all comparison sites — zero raw string comparisons remain. |
 | FormattingStyle | STRUCTURED, NARRATIVE, BULLET_POINTS, CONVERSATIONAL, EXECUTIVE_SUMMARY | Transcript formatting |
 | AnalysisDepth | BASIC, DETAILED, COMPREHENSIVE | LLM processing depth |

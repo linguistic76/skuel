@@ -2,7 +2,7 @@
 SubmissionDTO - Submission-Specific DTO (Tier 2 - Transfer)
 ============================================================
 
-Extends UserOwnedDTO with 13 submission-specific fields matching the
+Extends UserOwnedDTO with 14 submission-specific fields matching the
 Submission frozen dataclass (Tier 3): file storage, content processing,
 and subject tracking.
 
@@ -13,7 +13,7 @@ ExerciseReportDTO extends UserOwnedDTO directly.)
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        ├── SubmissionDTO(UserOwnedDTO) +13 submission-specific fields
+        ├── SubmissionDTO(UserOwnedDTO) +14 submission-specific fields
         └── ExerciseReportDTO(UserOwnedDTO)
 
 See: /docs/patterns/three_tier_type_system.md
@@ -40,9 +40,10 @@ class SubmissionDTO(UserOwnedDTO):
     """
     Mutable DTO for content-processing entities.
 
-    Extends UserOwnedDTO with 13 submission-specific fields:
+    Extends UserOwnedDTO with 14 submission-specific fields:
     - File (4): original_filename, file_path, file_size, file_type
     - Processing (8): processor_type, timestamps, error, content, instructions, max_retention
+    - Modality (1): modality (FILE_UPLOAD or STRUCTURED_FORM)
     - Subject (1): subject_uid
     """
 

@@ -68,15 +68,21 @@ An `Exercise` is the teacher's directive — instructions for what students shou
 ```
 Exercise (scope=ASSIGNED)
     |
-    +-- instructions: str        # What to do (LLM prompt for AI feedback)
-    +-- due_date: date           # When it's due
-    +-- group_uid: str           # Which class
-    +-- model: str               # Which LLM to use for AI feedback
+    +-- instructions: str                # What to do (LLM prompt for AI feedback)
+    +-- due_date: date                   # When it's due
+    +-- group_uid: str                   # Which class
+    +-- model: str                       # Which LLM to use for AI feedback
+    +-- expected_modality: SubmissionModality  # FILE_UPLOAD or STRUCTURED_FORM
+    +-- form_schema: tuple[dict, ...] | None  # Inline form definition (sets STRUCTURED_FORM)
 ```
 
 **Two scopes:**
 - `PERSONAL` — User's own AI template for self-directed feedback
 - `ASSIGNED` — Teacher-created directive targeting a Group
+
+**Two modalities** (typed by `SubmissionModality` enum):
+- `FILE_UPLOAD` — student uploads a file; `expected_modality` auto-derived when `form_schema` is None
+- `STRUCTURED_FORM` — student fills inline form; auto-derived when `form_schema` is present
 
 ---
 

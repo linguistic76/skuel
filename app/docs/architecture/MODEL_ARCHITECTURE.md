@@ -68,7 +68,7 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │   ├── Choice ───────── + choice_type, options, decision_context, outcome
 │   ├── Principle ────── + principle_category, principle_source, strength, current_alignment
 │   │
-│   ├── Submission ───── + processor_type, file_path, file_type, processed_content
+│   ├── Submission ───── + processor_type, modality, file_path, file_type, processed_content
 │   │   └── ExerciseSubmission   (forces entity_type=EXERCISE_SUBMISSION)
 │   ├── ExerciseReport ── + report_content, subject_uid, assessment_outcome, report_file_path (NOT Submission, forces entity_type=EXERCISE_REPORT)
 │   ├── JeInput ──────── (forces entity_type=JE_INPUT, standalone journal domain)
@@ -81,7 +81,7 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │   ├── Ku ───────────── forces entity_type=KU (atomic knowledge unit)
 │   ├── LearningStep ─── + step_difficulty, order, lp_uid
 │   ├── LearningPath ─── + path_type, step_count, total_duration
-│   └── Exercise ─────── + scope (PERSONAL or ASSIGNED)
+│   └── Exercise ─────── + scope, expected_modality (FILE_UPLOAD or STRUCTURED_FORM)
 │
 └── Resource ──────────── + source_url, author, resource_type, year, medium
 ```

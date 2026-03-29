@@ -158,17 +158,19 @@ group_uid: str | None             # ASSIGNED only — which class receives this
 enrichment_mode: str | None       # Processing strategy for the submission
 context_notes: tuple[str, ...]    # Reference materials (immutable)
 form_schema: tuple[dict, ...] | None  # Inline form definition for structured submissions
+expected_modality: SubmissionModality  # FILE_UPLOAD or STRUCTURED_FORM (auto-derived from form_schema)
 ```
 
-**Two submission modes:**
+**Two submission modes (typed by `SubmissionModality` enum):**
 
-| Mode | `form_schema` | Student action | Submission content |
-|------|--------------|----------------|-------------------|
-| **File upload** | `None` | Uploads file (audio, text, image) | `file_path`, `processed_content` |
-| **Inline form** | Present | Fills embedded form in lesson | `metadata["form_data"]`, `processed_content` (JSON) |
+| Mode | `expected_modality` | `form_schema` | Student action | Submission content |
+|------|---------------------|--------------|----------------|-------------------|
+| **File upload** | `FILE_UPLOAD` | `None` | Uploads file (audio, text, image) | `file_path`, `processed_content` |
+| **Inline form** | `STRUCTURED_FORM` | Present | Fills embedded form in lesson | `metadata["form_data"]`, `processed_content` (JSON) |
 
-When `form_schema` is set, the lesson reading page renders the form inline. Both modes
-create `ExerciseSubmission` and trigger the same event pipeline (`FULFILLS_EXERCISE`,
+`expected_modality` is auto-derived in `__post_init__`: if `form_schema` is set → `STRUCTURED_FORM`,
+else → `FILE_UPLOAD`. The corresponding `Submission.modality` field records which path was actually used.
+Both modes create `ExerciseSubmission` and trigger the same event pipeline (`FULFILLS_EXERCISE`,
 auto-share with teacher).
 
 **Two scopes:**
@@ -240,9 +242,16 @@ processing_error: str | None
 processed_content: str | None    # Transcribed/enriched text — the evaluable content
 instructions: str | None         # Processing directives (from Exercise)
 
+# Modality — HOW the submission was created
+modality: SubmissionModality | None  # FILE_UPLOAD | STRUCTURED_FORM (None for legacy)
+
 # Subject (for feedback entities only)
 subject_uid: str | None          # UID of the submission being evaluated
 ```
+
+**SubmissionModality vs ProcessorType:** `SubmissionModality` records *how* the submission was
+created (file upload vs structured form). `ProcessorType` records *who/what* processes it
+(HUMAN, LLM, AUTOMATIC). They are orthogonal — a form submission can still be processed by an LLM.
 
 **Two leaf types:**
 
@@ -250,9 +259,9 @@ subject_uid: str | None          # UID of the submission being evaluated
 |-----------|-----------|---------------|-----------|
 | `EXERCISE_SUBMISSION` | Student uploads | `HUMAN` (then LLM feedback) | Transcription if audio |
 
-**Processing pipeline (two entry points):**
+**Processing pipeline (two entry points, typed by `SubmissionModality`):**
 ```
-FILE UPLOAD PATH                          INLINE FORM PATH
+FILE UPLOAD PATH (modality=FILE_UPLOAD)   INLINE FORM PATH (modality=STRUCTURED_FORM)
 Student uploads file                      Student fills form in lesson page
         ↓                                         ↓
 SubmissionsService.submit_file()          SubmissionsService.submit_form()

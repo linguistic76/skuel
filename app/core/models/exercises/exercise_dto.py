@@ -2,13 +2,13 @@
 ExerciseDTO - Exercise-Specific DTO (Tier 2 - Transfer)
 =========================================================
 
-Extends CurriculumDTO with 7 exercise-specific fields matching the
+Extends CurriculumDTO with 9 exercise-specific fields matching the
 Exercise frozen dataclass (Tier 3): instruction templates for LLM feedback.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── CurriculumDTO(EntityDTO) +21 curriculum-specific fields
-        └── ExerciseDTO(CurriculumDTO) +8 exercise-specific fields
+        └── ExerciseDTO(CurriculumDTO) +9 exercise-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """

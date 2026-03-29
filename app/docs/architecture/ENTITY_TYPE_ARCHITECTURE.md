@@ -107,7 +107,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- LifePath
 |   +-- ActivityReport                           (no file fields)
 |   +-- FormSubmission(UserOwnedEntity)          FORM_SUBMISSION (structured JSON)
-|   +-- Submission(UserOwnedEntity) +13 file/processing fields
+|   +-- Submission(UserOwnedEntity) +14 file/processing/modality fields
 |   |   +-- ExerciseSubmission(Submission)        EXERCISE_SUBMISSION
 |   +-- ExerciseReport(UserOwnedEntity) +6 report fields (NOT Submission)    EXERCISE_REPORT
 |   +-- JeInput(UserOwnedEntity)                  JE_INPUT (standalone journal domain)

@@ -14,7 +14,7 @@ tags: [submissions, reports, processing-domain, domain]
 
 ## Purpose
 
-The Submissions + Reports domain handles the artifact-based side of SKUEL's Five-Phased Learning Loop. Students upload work (ExerciseSubmission), teachers or AI evaluate it (ExerciseReport), and the system generates activity-level reports (ActivityReport) from lived practice across all six Activity Domains.
+The Submissions + Reports domain handles the artifact-based side of SKUEL's Five-Phased Learning Loop. Students submit work (ExerciseSubmission) via two modalities typed by `SubmissionModality`: file upload (`FILE_UPLOAD`) or structured inline form (`STRUCTURED_FORM`). The Exercise's `expected_modality` field determines which path the UI presents. Teachers or AI evaluate submissions (ExerciseReport), and the system generates activity-level reports (ActivityReport) from lived practice across all six Activity Domains.
 
 ## Routes
 
