@@ -11,6 +11,17 @@ Exercise → Submission → ExerciseReport → RevisedExercise → Submission v2
 
 from pydantic import BaseModel, Field
 
+from core.models.enums.learning_enums import FeedbackCategory
+
+
+class FeedbackPointInput(BaseModel):
+    """A single typed feedback point in a create/update request."""
+
+    category: FeedbackCategory = Field(..., description="Category of learning gap")
+    detail: str = Field(
+        ..., min_length=1, max_length=500, description="Specific feedback detail"
+    )
+
 
 class RevisedExerciseCreateRequest(BaseModel):
     """Request to create a new RevisedExercise (targeted revision instructions)."""
@@ -40,8 +51,8 @@ class RevisedExerciseCreateRequest(BaseModel):
         default=None, description="Optional reference materials"
     )
 
-    feedback_points_addressed: list[str] | None = Field(
-        default=None, description="Specific feedback points this revision targets"
+    feedback_points: list[FeedbackPointInput] | None = Field(
+        default=None, description="Typed feedback points this revision targets"
     )
 
     revision_rationale: str | None = Field(
@@ -64,8 +75,8 @@ class RevisedExerciseUpdateRequest(BaseModel):
         default=None, description="Updated context notes (replaces existing)"
     )
 
-    feedback_points_addressed: list[str] | None = Field(
-        default=None, description="Updated feedback points (replaces existing)"
+    feedback_points: list[FeedbackPointInput] | None = Field(
+        default=None, description="Updated typed feedback points (replaces existing)"
     )
 
     revision_rationale: str | None = Field(default=None, description="Updated revision rationale")

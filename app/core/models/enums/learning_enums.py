@@ -30,6 +30,68 @@ class AssessmentOutcome(StrEnum):
     AI_EVALUATED = "ai_evaluated"
 
 
+class FeedbackCategory(StrEnum):
+    """
+    Category of learning gap identified in an ExerciseReport.
+
+    Orthogonal to KnowledgeType (what kind of knowledge) — FeedbackCategory
+    classifies what kind of gap the teacher observed in the student's work.
+    Used on RevisedExercise.feedback_points to enable pattern tracking
+    across submissions and over time.
+
+    Values:
+        ACCURACY: Factual errors, wrong information, incorrect conclusions
+        COMPLETENESS: Missing required elements, incomplete coverage
+        DEPTH: Surface-level treatment, lacks analysis or critical thinking
+        CLARITY: Poorly expressed, hard to follow, structural issues
+        APPLICATION: Knows theory but fails to apply it to the problem
+        METHODOLOGY: Wrong approach, flawed process, inappropriate method
+    """
+
+    ACCURACY = "accuracy"
+    COMPLETENESS = "completeness"
+    DEPTH = "depth"
+    CLARITY = "clarity"
+    APPLICATION = "application"
+    METHODOLOGY = "methodology"
+
+    def get_label(self) -> str:
+        """Human-readable label for UI display."""
+        labels = {
+            FeedbackCategory.ACCURACY: "Accuracy",
+            FeedbackCategory.COMPLETENESS: "Completeness",
+            FeedbackCategory.DEPTH: "Depth",
+            FeedbackCategory.CLARITY: "Clarity",
+            FeedbackCategory.APPLICATION: "Application",
+            FeedbackCategory.METHODOLOGY: "Methodology",
+        }
+        return labels.get(self, self.value.title())
+
+    def get_color(self) -> str:
+        """Hex color for UI rendering."""
+        colors = {
+            FeedbackCategory.ACCURACY: "#EF4444",    # Red — factual errors are critical
+            FeedbackCategory.COMPLETENESS: "#F59E0B", # Amber — something is missing
+            FeedbackCategory.DEPTH: "#8B5CF6",        # Purple — analytical gap
+            FeedbackCategory.CLARITY: "#3B82F6",       # Blue — communication issue
+            FeedbackCategory.APPLICATION: "#10B981",   # Green — transfer gap
+            FeedbackCategory.METHODOLOGY: "#06B6D4",   # Cyan — process issue
+        }
+        return colors.get(self, "#6B7280")
+
+    def get_description(self) -> str:
+        """Description for tooltips and help text."""
+        descriptions = {
+            FeedbackCategory.ACCURACY: "Factual errors, wrong information, incorrect conclusions",
+            FeedbackCategory.COMPLETENESS: "Missing required elements, incomplete coverage",
+            FeedbackCategory.DEPTH: "Surface-level treatment, lacks analysis or critical thinking",
+            FeedbackCategory.CLARITY: "Poorly expressed, hard to follow, structural issues",
+            FeedbackCategory.APPLICATION: "Knows theory but fails to apply it to the problem",
+            FeedbackCategory.METHODOLOGY: "Wrong approach, flawed process, inappropriate method",
+        }
+        return descriptions.get(self, "")
+
+
 class KuComplexity(StrEnum):
     """
     Complexity level of a Knowledge Unit.

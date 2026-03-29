@@ -3128,7 +3128,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             f"""
             MATCH (re:Entity {{uid: $re_uid, entity_type: 'revised_exercise'}})
             MATCH (fb:Entity {{uid: $report_uid}})
-            WHERE fb.entity_type IN ['submission_feedback', 'activity_report']
+            WHERE fb.entity_type IN ['exercise_report', 'activity_report']
             MERGE (re)-[r:{RelationshipName.RESPONDS_TO_REPORT}]->(fb)
             ON CREATE SET r.created_at = datetime()
             RETURN true as success

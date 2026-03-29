@@ -17,6 +17,7 @@ Implements CRUDOperations via BaseService inheritance (CrudOperationsMixin).
 Overrides create/delete to add authority checks, relationships, events, and cascade.
 """
 
+import contextlib
 import dataclasses
 from datetime import datetime
 from typing import Any, ClassVar
@@ -122,18 +123,38 @@ class RevisedExerciseService(BaseService):
         if auth_result.is_error:
             return Result.fail(auth_result)
 
+        # Auto-resolve submission_uid from authority query result
+        auth_records = auth_result.value
+        submission_uid = entity.submission_uid
+        if not submission_uid and auth_records:
+            submission_uid = auth_records[0].get("submission_uid")
+
+        # Auto-resolve expected_modality from original Exercise
+        expected_modality = entity.expected_modality
+        if not expected_modality and entity.original_exercise_uid:
+            exercise_result = await self.backend.get(entity.original_exercise_uid)
+            if exercise_result.is_ok and exercise_result.value:
+                from core.models.enums.submissions_enums import SubmissionModality
+
+                raw_modality = exercise_result.value.get("expected_modality")
+                if raw_modality:
+                    with contextlib.suppress(ValueError):
+                        expected_modality = SubmissionModality(raw_modality)
+
         # Determine revision number from existing chain
         chain_result = await self.backend.get_revision_chain(entity.original_exercise_uid)
         revision_number = 1
         if chain_result.is_ok and chain_result.value:
             revision_number = len(chain_result.value) + 1
 
-        # Enrich entity with computed revision_number and default title
+        # Enrich entity with computed fields
         display_title = entity.title or f"Revision {revision_number}"
         enriched = dataclasses.replace(
             entity,
             revision_number=revision_number,
             title=display_title,
+            submission_uid=submission_uid,
+            expected_modality=expected_modality,
         )
 
         result = await self.backend.create(enriched)
@@ -220,13 +241,15 @@ class RevisedExerciseService(BaseService):
         teacher_uid: str,
         report_uid: str,
         student_uid: str,
-    ) -> Result[bool]:
+    ) -> Result[list[dict[str, str]]]:
         """Verify the teacher has review authority over the feedback.
 
         Checks the graph path:
         - (ExerciseReport)-[:REPORT_FOR]->(Submission) exists
         - (Teacher)-[:SHARES_WITH {role:'teacher'}]->(Submission)
         - (Student)-[:OWNS]->(Submission)
+
+        Returns the matched records (including submission_uid) on success.
         """
         result = await self.backend.verify_teacher_authority(teacher_uid, report_uid, student_uid)
         if result.is_error:
@@ -242,7 +265,7 @@ class RevisedExerciseService(BaseService):
                     field="report_uid",
                 )
             )
-        return Result.ok(True)
+        return Result.ok(records)
 
     # ========================================================================
     # DOMAIN-SPECIFIC QUERIES (not part of CRUDOperations)

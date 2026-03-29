@@ -2,19 +2,20 @@
 RevisedExerciseDTO - Revised Exercise-Specific DTO (Tier 2 - Transfer)
 ========================================================================
 
-Extends UserOwnedDTO with 9 revised-exercise-specific fields matching the
+Extends UserOwnedDTO with 12 revised-exercise-specific fields matching the
 RevisedExercise frozen dataclass (Tier 3).
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── RevisedExerciseDTO(UserOwnedDTO) +9 fields
+        └── RevisedExerciseDTO(UserOwnedDTO) +12 fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -29,16 +30,18 @@ class RevisedExerciseDTO(UserOwnedDTO):
     """
     Mutable DTO for revised exercises (EntityType.REVISED_EXERCISE).
 
-    Extends UserOwnedDTO with 9 revised-exercise-specific fields:
+    Extends UserOwnedDTO with 12 revised-exercise-specific fields:
     - revision_number: Which revision iteration
     - original_exercise_uid: UID of the original Exercise
     - report_uid: UID of the ExerciseReport this addresses
+    - submission_uid: UID of the ExerciseSubmission that was evaluated
     - student_uid: Target student
     - instructions: Revision instructions
     - model: Which LLM to use
     - context_notes: Reference materials
-    - feedback_points_addressed: Specific feedback points targeted
+    - feedback_points: Typed feedback points (list of {category, detail} dicts)
     - revision_rationale: Why this revision was created
+    - expected_modality: What submission format to expect
     """
 
     # =========================================================================
@@ -47,12 +50,14 @@ class RevisedExerciseDTO(UserOwnedDTO):
     revision_number: int = 1
     original_exercise_uid: str | None = None
     report_uid: str | None = None
+    submission_uid: str | None = None
     student_uid: str | None = None
     instructions: str | None = None
     model: str = "claude-sonnet-4-6"
     context_notes: list[str] = field(default_factory=list)
-    feedback_points_addressed: list[str] = field(default_factory=list)
+    feedback_points: list[dict[str, str]] = field(default_factory=list)
     revision_rationale: str | None = None
+    expected_modality: str | None = None
 
     # =========================================================================
     # SERIALIZATION
@@ -66,14 +71,16 @@ class RevisedExerciseDTO(UserOwnedDTO):
                 "revision_number": self.revision_number,
                 "original_exercise_uid": self.original_exercise_uid,
                 "report_uid": self.report_uid,
+                "submission_uid": self.submission_uid,
                 "student_uid": self.student_uid,
                 "instructions": self.instructions,
                 "model": self.model,
                 "context_notes": list(self.context_notes) if self.context_notes else [],
-                "feedback_points_addressed": (
-                    list(self.feedback_points_addressed) if self.feedback_points_addressed else []
+                "feedback_points": (
+                    json.dumps(self.feedback_points) if self.feedback_points else "[]"
                 ),
                 "revision_rationale": self.revision_rationale,
+                "expected_modality": self.expected_modality,
             }
         )
         return data
@@ -100,7 +107,6 @@ class RevisedExerciseDTO(UserOwnedDTO):
             list_fields=[
                 "tags",
                 "context_notes",
-                "feedback_points_addressed",
             ],
             dict_fields=["metadata"],
         )
@@ -135,8 +141,9 @@ class RevisedExerciseDTO(UserOwnedDTO):
                 "instructions",
                 "model",
                 "context_notes",
-                "feedback_points_addressed",
+                "feedback_points",
                 "revision_rationale",
+                "expected_modality",
             },
             enum_mappings={
                 "status": EntityStatus,

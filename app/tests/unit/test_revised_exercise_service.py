@@ -81,7 +81,7 @@ class TestVerifyTeacherAuthority:
         )
 
         assert not result.is_error
-        assert result.value is True
+        assert result.value == [{"submission_uid": "sub_123"}]
 
     @pytest.mark.asyncio
     async def test_propagates_database_error(self, service, mock_backend):
