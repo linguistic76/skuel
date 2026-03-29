@@ -720,7 +720,7 @@ Script(src="/static/vendor/vis-network/vis-network.min.js"),
 - `/PHASE5_COMPLETE.md` - Implementation completion details
 - `/PHASE5_MANUAL_QA_CHECKLIST.md` - Testing guide
 - `/.claude/skills/js-alpine/` - Alpine.js patterns
-- `/docs/fasthtml-llms.txt` - FastHTML + HTMX patterns
+- `/docs/llms.txt/fasthtml-llms.txt` - FastHTML + HTMX patterns
 
 ---
 

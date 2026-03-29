@@ -365,4 +365,4 @@ Div(
 
 - **CLAUDE.md:** Quick reference (Alpine.js Architecture section)
 - **Skills:** `/.claude/skills/js-alpine/` - Detailed skill documentation
-- **FastHTML:** `/docs/fasthtml-llms.txt` - FastHTML patterns
+- **FastHTML:** `/docs/llms.txt/fasthtml-llms.txt` - FastHTML patterns

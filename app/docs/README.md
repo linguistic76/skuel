@@ -174,8 +174,8 @@ related: [other_doc.md]
 - **Main Codebase:** `/home/mike/skuel/app/`
 - **Infrastructure:** `/home/mike/skuel/infrastructure/` (Neo4j and future services)
 - **CLAUDE.md:** `/home/mike/skuel/app/CLAUDE.md`
-- **FastHTML Docs:** `/home/mike/skuel/app/docs/fasthtml-llms.txt` (359KB)
-- **MonsterUI Docs:** `/home/mike/skuel/app/docs/monsterui_4_llms.txt`
+- **FastHTML Docs:** `/home/mike/skuel/app/docs/llms.txt/fasthtml-llms.txt` (359KB)
+- **MonsterUI Docs:** `/home/mike/skuel/app/docs/llms.txt/monsterui_4_llms.txt`
 - **DaisyUI Docs (legacy reference):** `/home/mike/skuel/app/docs/Daisyui_llms.txt` (62KB)
 
 ---
