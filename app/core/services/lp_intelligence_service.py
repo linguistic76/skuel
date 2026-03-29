@@ -40,6 +40,14 @@ from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.query_types import QueryIntent
 from core.models.type_hints import UserUID
 from core.ports.content_protocols import ContentAdapter
+from core.ports.query_types import (
+    LpBlockerAnalysis,
+    LpDomainInsights,
+    LpPathRecommendation,
+    LpPerformanceAnalytics,
+    LpPrerequisiteValidation,
+    LpRecommendedStep,
+)
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
 from core.services.lp_intelligence.content_analyzer import ContentAnalyzer
@@ -204,7 +212,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[LpPerformanceAnalytics]:
         """
         Get learning path analytics for a user.
 
@@ -216,7 +224,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
             period_days: Number of days to analyze (default: 30)
 
         Returns:
-            Result containing analytics data dict
+            Result containing analytics data
 
         Note: Learning Paths are shared curriculum content (no user ownership).
         This returns overall LP statistics rather than user-specific data.
@@ -251,7 +259,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
     async def get_domain_insights(
         self, uid: str, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[LpDomainInsights]:
         """
         Get domain-specific insights for a learning path.
 
@@ -263,7 +271,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
             min_confidence: Minimum confidence threshold (default: 0.7)
 
         Returns:
-            Result containing insights data dict with validation and analysis
+            Result containing insights data with validation and analysis
         """
         if not self.backend:
             return Result.fail(
@@ -507,7 +515,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
     @requires_graph_intelligence("validate_path_prerequisites")
     @with_error_handling("validate_path_prerequisites", error_type="database", uid_param="path_uid")
-    async def validate_path_prerequisites(self, path_uid: str) -> Result[dict[str, Any]]:
+    async def validate_path_prerequisites(self, path_uid: str) -> Result[LpPrerequisiteValidation]:
         """
         Validate prerequisite ordering in learning path.
 
@@ -575,7 +583,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
                 unmet = issue.get("unmet_prerequisites", [])
                 recommendations.append(f"Step {issue['sequence']}: Add prerequisites {unmet[:2]}")
 
-        validation_result = {
+        validation_result: LpPrerequisiteValidation = {
             "path_uid": path_uid,
             "is_valid": is_valid,
             "total_steps": len(validations),
@@ -594,7 +602,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     @with_error_handling("identify_path_blockers", error_type="database", uid_param="path_uid")
     async def identify_path_blockers(
         self, path_uid: str, user_uid: UserUID
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[LpBlockerAnalysis]:
         """
         Identify blockers in learning path for a specific user.
 
@@ -700,7 +708,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     )
     async def get_optimal_path_recommendation(
         self, user_uid: UserUID, goal_domain: str | None = None
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[LpPathRecommendation]:
         """
         Get optimal learning path recommendation for a user.
 
@@ -1040,7 +1048,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     )
     async def get_recommended_learning_steps(
         self, user_uid: UserUID, max_difficulty: float = 0.5, limit: int = 5
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LpRecommendedStep]]:
         """
         Get recommended learning steps for a user based on their progress.
 
@@ -1114,21 +1122,21 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
             query, {"user_uid": user_uid, "max_difficulty": max_difficulty, "limit": limit}
         )
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         records = result.value or []
 
-        recommendations = [
-            {
-                "uid": record["uid"],
-                "title": record["title"],
-                "domain": record["domain"],
-                "confidence": record["confidence"],
-                "strength": record["strength"],
-                "difficulty_gap": record["difficulty_gap"],
-                "semantic_distance": record["semantic_distance"],
-                "prerequisite_readiness": record["prerequisite_readiness"],
-            }
+        recommendations: list[LpRecommendedStep] = [
+            LpRecommendedStep(
+                uid=record["uid"],
+                title=record["title"],
+                domain=record["domain"],
+                confidence=record["confidence"],
+                strength=record["strength"],
+                difficulty_gap=record["difficulty_gap"],
+                semantic_distance=record["semantic_distance"],
+                prerequisite_readiness=record["prerequisite_readiness"],
+            )
             for record in records
         ]
 

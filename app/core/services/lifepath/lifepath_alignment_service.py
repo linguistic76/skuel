@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.type_hints import UserUID
+from core.ports.query_types import LifePathAlignmentResult
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -71,7 +72,7 @@ class LifePathAlignmentService:
         self.ku_service = ku_service
         logger.info("LifePathAlignmentService initialized")
 
-    async def calculate_alignment(self, context: UserContext) -> Result[dict[str, Any]]:
+    async def calculate_alignment(self, context: UserContext) -> Result[LifePathAlignmentResult]:
         """
         Calculate comprehensive life path alignment.
 
@@ -125,7 +126,7 @@ class LifePathAlignmentService:
             momentum_score=momentum_score,
         )
 
-        result = {
+        result: LifePathAlignmentResult = {
             "life_path_uid": life_path_uid,
             "life_path_title": lp_details.get("title", "Unknown"),
             "alignment_score": round(overall_score, 3),
@@ -530,11 +531,10 @@ class LifePathAlignmentService:
 
         return recommendations
 
-    def _no_designation_response(self) -> dict[str, Any]:
+    def _no_designation_response(self) -> LifePathAlignmentResult:
         """Response when user hasn't designated a life path."""
         return {
             "life_path_uid": None,
-            "life_path_title": None,
             "alignment_score": 0.0,
             "alignment_level": "undefined",
             "dimensions": {

@@ -26,6 +26,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
+from core.ports.query_types import (
+    LifePathAlignmentResult,
+    LifePathDesignation,
+    LifePathRecommendation,
+    LifePathRecommendationItem,
+    LifePathStatus,
+    LpMatchResult,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -124,7 +132,7 @@ class LifePathService:
         self,
         user_uid: UserUID,
         vision_statement: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[LifePathRecommendation]:
         """
         Complete vision capture flow: capture → extract themes → recommend LPs.
 
@@ -157,35 +165,35 @@ class LifePathService:
         # Step 3: Get LP recommendations
         recommendations_result = await self.vision.recommend_learning_paths(vision.theme_keywords)
 
-        recommendations = []
+        recommendations: list[LpMatchResult] = []
         if recommendations_result.is_ok:
             recommendations = [
-                {
-                    "lp_uid": r.lp_uid,
-                    "lp_name": r.lp_name,
-                    "match_score": r.match_score,
-                    "matching_themes": list(r.matching_themes),
-                }
+                LpMatchResult(
+                    lp_uid=r.lp_uid,
+                    lp_name=r.lp_name,
+                    match_score=r.match_score,
+                    matching_themes=list(r.matching_themes),
+                )
                 for r in recommendations_result.value
             ]
 
         return Result.ok(
-            {
-                "vision": {
+            LifePathRecommendation(
+                vision={
                     "statement": vision.vision_statement,
                     "themes": vision.theme_keywords,
                     "captured_at": vision.captured_at.isoformat(),
                 },
-                "recommendations": recommendations,
-                "next_step": "Select a Learning Path to designate as your life path",
-            }
+                recommendations=recommendations,
+                next_step="Select a Learning Path to designate as your life path",
+            )
         )
 
     async def designate_and_calculate(
         self,
         user_uid: UserUID,
         life_path_uid: str,
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[LifePathDesignation]:
         """
         Complete designation flow: designate LP → calculate alignment.
 
@@ -204,7 +212,7 @@ class LifePathService:
         designation = designation_result.value
 
         # Step 2: Build UserContext and calculate initial alignment
-        alignment_data = {}
+        alignment_data: LifePathAlignmentResult | None = None
         ctx_result = await self._build_context(user_uid)
         if ctx_result.is_ok:
             alignment_result = await self.alignment.calculate_alignment(ctx_result.value)
@@ -224,25 +232,25 @@ class LifePathService:
             user_uid, alignment_data
         )
 
-        recommendations = []
+        recommendations: list[LifePathRecommendationItem] = []
         if recommendations_result.is_ok:
             recommendations = recommendations_result.value
 
         return Result.ok(
-            {
-                "designation": {
+            LifePathDesignation(
+                designation={
                     "life_path_uid": designation.life_path_uid,
                     "designated_at": designation.designated_at.isoformat()
                     if designation.designated_at
                     else None,
                     "vision_statement": designation.vision_statement,
                 },
-                "alignment": alignment_data,
-                "recommendations": recommendations,
-            }
+                alignment=alignment_data or LifePathAlignmentResult(),
+                recommendations=recommendations,
+            )
         )
 
-    async def get_full_status(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_full_status(self, user_uid: UserUID) -> Result[LifePathStatus]:
         """
         Get complete life path status for a user.
 
@@ -263,17 +271,17 @@ class LifePathService:
 
         if not designation:
             return Result.ok(
-                {
-                    "has_vision": False,
-                    "has_designation": False,
-                    "alignment": None,
-                    "recommendations": await self._get_getting_started_recommendations(),
-                    "next_step": "Express your vision to get started",
-                }
+                LifePathStatus(
+                    has_vision=False,
+                    has_designation=False,
+                    alignment=None,
+                    recommendations=await self._get_getting_started_recommendations(),
+                    next_step="Express your vision to get started",
+                )
             )
 
         # Get alignment
-        alignment_data = {}
+        alignment_data: LifePathAlignmentResult | None = None
         if designation.has_designation:
             ctx_result = await self._build_context(user_uid)
             if ctx_result.is_ok:
@@ -282,7 +290,7 @@ class LifePathService:
                     alignment_data = alignment_result.value
 
         # Get recommendations
-        recommendations = []
+        recommendations: list[LifePathRecommendationItem] = []
         recommendations_result = await self.intelligence.get_recommendations(
             user_uid, alignment_data
         )
@@ -296,10 +304,10 @@ class LifePathService:
             daily_focus = daily_focus_result.value
 
         return Result.ok(
-            {
-                "has_vision": designation.has_vision,
-                "has_designation": designation.has_designation,
-                "vision": {
+            LifePathStatus(
+                has_vision=designation.has_vision,
+                has_designation=designation.has_designation,
+                vision={
                     "statement": designation.vision_statement,
                     "themes": list(designation.vision_themes),
                     "captured_at": designation.vision_captured_at.isoformat()
@@ -308,7 +316,7 @@ class LifePathService:
                 }
                 if designation.has_vision
                 else None,
-                "designation": {
+                designation={
                     "life_path_uid": designation.life_path_uid,
                     "designated_at": designation.designated_at.isoformat()
                     if designation.designated_at
@@ -316,13 +324,13 @@ class LifePathService:
                 }
                 if designation.has_designation
                 else None,
-                "alignment": alignment_data,
-                "recommendations": recommendations,
-                "daily_focus": daily_focus,
-            }
+                alignment=alignment_data,
+                recommendations=recommendations,
+                daily_focus=daily_focus,
+            )
         )
 
-    async def get_alignment(self, user_uid: UserUID) -> Result[dict[str, Any]]:
+    async def get_alignment(self, user_uid: UserUID) -> Result[LifePathAlignmentResult]:
         """
         Get alignment data for a user.
 
@@ -348,16 +356,16 @@ class LifePathService:
             return Result.ok(UserContext(user_uid=user_uid, username=""))
         return await self.user_service.get_user_context(user_uid)
 
-    async def _get_getting_started_recommendations(self) -> list[dict[str, Any]]:
+    async def _get_getting_started_recommendations(self) -> list[LifePathRecommendationItem]:
         """Get recommendations for users without a vision."""
         return [
-            {
-                "type": "getting_started",
-                "priority": "high",
-                "title": "Express your vision",
-                "description": "Start by expressing your life vision in your own words.",
-                "action": "Go to /lifepath/vision to capture your vision",
-            },
+            LifePathRecommendationItem(
+                type="getting_started",
+                priority="high",
+                title="Express your vision",
+                description="Start by expressing your life vision in your own words.",
+                action="Go to /lifepath/vision to capture your vision",
+            ),
         ]
 
     async def check_word_action_alignment(

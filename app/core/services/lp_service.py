@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
+from core.ports.query_types import LpRecommendedStep
 from core.services.filtered_context import build_filtered_context
 from core.services.lp.lp_ai_service import LpAIService
 from core.utils.list_helpers import SortConfig, apply_entity_sort
@@ -317,7 +318,7 @@ class LpService:
 
     async def get_recommended_learning_steps(
         self, user_uid: UserUID, max_difficulty: float = 0.5, limit: int = 5
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[LpRecommendedStep]]:
         """Get recommended learning steps."""
         return await self.intelligence.get_recommended_learning_steps(
             user_uid, max_difficulty, limit

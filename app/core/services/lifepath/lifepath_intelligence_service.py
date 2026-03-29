@@ -14,9 +14,14 @@ And generates actionable recommendations.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
+from core.ports.query_types import (
+    DailyFocusResult,
+    LifePathAlignmentResult,
+    LifePathRecommendationItem,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -52,8 +57,8 @@ class LifePathIntelligenceService:
     async def get_recommendations(
         self,
         user_uid: UserUID,
-        alignment_data: dict[str, Any] | None = None,
-    ) -> Result[list[dict[str, Any]]]:
+        alignment_data: LifePathAlignmentResult | None = None,
+    ) -> Result[list[LifePathRecommendationItem]]:
         """
         Generate personalized life path recommendations.
 
@@ -72,7 +77,8 @@ class LifePathIntelligenceService:
         recommendations = []
 
         # Analyze each dimension
-        dimensions = alignment_data.get("dimensions", {})
+        raw_dims = alignment_data.get("dimensions", {})
+        dimensions: dict[str, float] = {k: float(v) for k, v in raw_dims.items()}
 
         def get_dimension_score(item: tuple[str, float]) -> float:
             return item[1]
@@ -125,9 +131,9 @@ class LifePathIntelligenceService:
 
         return Result.ok(recommendations)
 
-    def _dimension_recommendation(self, dimension: str, score: float) -> dict[str, Any]:
+    def _dimension_recommendation(self, dimension: str, score: float) -> LifePathRecommendationItem:
         """Generate recommendation for a specific dimension."""
-        dim_configs = {
+        dim_configs: dict[str, dict[str, str | list[str]]] = {
             "knowledge": {
                 "title": "Strengthen knowledge mastery",
                 "description": "Your life path knowledge needs more attention.",
@@ -177,18 +183,21 @@ class LifePathIntelligenceService:
 
         config = dim_configs.get(dimension, dim_configs["activity"])
         priority = "high" if score < 0.3 else "medium" if score < 0.6 else "low"
+        title = str(config["title"])
+        description = str(config["description"])
+        actions = list(config["actions"])
 
         return {
             "type": f"dimension_{dimension}",
             "dimension": dimension,
             "score": round(score, 2),
             "priority": priority,
-            "title": config["title"],
-            "description": config["description"],
-            "actions": config["actions"],
+            "title": title,
+            "description": description,
+            "actions": actions,
         }
 
-    def _default_recommendations(self) -> list[dict[str, Any]]:
+    def _default_recommendations(self) -> list[LifePathRecommendationItem]:
         """Default recommendations when no alignment data available."""
         return [
             {
@@ -210,8 +219,8 @@ class LifePathIntelligenceService:
     async def get_daily_focus(
         self,
         user_uid: UserUID,
-        alignment_data: dict[str, Any] | None = None,
-    ) -> Result[dict[str, Any]]:
+        alignment_data: LifePathAlignmentResult | None = None,
+    ) -> Result[DailyFocusResult]:
         """
         Get today's focus area for life path progress.
 
@@ -235,13 +244,14 @@ class LifePathIntelligenceService:
                 }
             )
 
-        dimensions = alignment_data.get("dimensions", {})
+        raw_dims = alignment_data.get("dimensions", {})
+        dimensions: dict[str, float] = {k: float(v) for k, v in raw_dims.items()}
 
         # Find the weakest dimension that can be improved today
         actionable_order = ["activity", "momentum", "knowledge", "goal", "principle"]
 
         for dim in actionable_order:
-            score = dimensions.get(dim, 0)
+            score = dimensions.get(dim, 0.0)
             if score < 0.7:
                 focus = self._get_daily_focus_for_dimension(dim, score)
                 return Result.ok(focus)
@@ -256,9 +266,9 @@ class LifePathIntelligenceService:
             }
         )
 
-    def _get_daily_focus_for_dimension(self, dimension: str, score: float) -> dict[str, Any]:
+    def _get_daily_focus_for_dimension(self, dimension: str, score: float) -> DailyFocusResult:
         """Get daily focus action for a specific dimension."""
-        focuses: dict[str, dict[str, Any]] = {
+        focuses: dict[str, DailyFocusResult] = {
             "activity": {
                 "focus": "Complete one life-path-aligned task",
                 "reason": "Your daily activities need more alignment",

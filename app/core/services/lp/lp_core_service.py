@@ -37,6 +37,7 @@ from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.pathways.learning_step import LearningStep
 from core.models.type_hints import UserUID
 from core.ports import HasUID, get_enum_value
+from core.ports.query_types import LpPathHierarchy
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
@@ -805,7 +806,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         return Result.ok(self._to_domain_model(result.value, LearningPathDTO, LearningPath))
 
     @with_error_handling("get_path_hierarchy", error_type="database", uid_param="path_uid")
-    async def get_path_hierarchy(self, path_uid: str) -> Result[dict[str, Any]]:
+    async def get_path_hierarchy(self, path_uid: str) -> Result[LpPathHierarchy]:
         """
         Get learning path with all its steps.
 

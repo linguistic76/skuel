@@ -58,6 +58,9 @@ from core.models.type_hints import UserUID
 if TYPE_CHECKING:
     from datetime import date, datetime
 
+    from core.models.pathways.learning_path import LearningPath
+    from core.models.pathways.learning_step import LearningStep
+
 # ============================================================================
 # CYPHER QUERY PARAMETERS
 # ============================================================================
@@ -1442,33 +1445,36 @@ class AlignmentDimensions(TypedDict):
     momentum: float
 
 
-class LifePathStatus(TypedDict, total=False):
-    """Return shape for lifepath_service.get_full_status()."""
+class LpMatchResult(TypedDict):
+    """LP match result from vision-based recommendation."""
 
-    has_vision: bool
-    has_designation: bool
-    vision: VisionData | None
-    designation: DesignationData | None
-    alignment: dict[str, Any]  # LifePathAlignmentResult or empty dict
-    recommendations: list[str]
-    daily_focus: dict[str, Any] | None
-    next_step: str
+    lp_uid: str
+    lp_name: str
+    match_score: float
+    matching_themes: list[str]
 
 
-class LifePathRecommendation(TypedDict, total=False):
-    """Return shape for lifepath_service.capture_and_recommend()."""
+class LifePathRecommendationItem(TypedDict, total=False):
+    """Single life path recommendation item."""
 
-    vision: VisionData
-    recommendations: list[str]
-    next_step: str
+    type: str
+    priority: str
+    title: str
+    description: str
+    action: str  # single action (getting_started, knowledge_gap, momentum, maintenance)
+    actions: list[str]  # multiple actions (dimension recommendations)
+    dimension: str  # present on dimension recommendations
+    score: float  # present on dimension recommendations
 
 
-class LifePathDesignation(TypedDict, total=False):
-    """Return shape for lifepath_service.designate_and_calculate()."""
+class DailyFocusResult(TypedDict, total=False):
+    """Return shape for lifepath intelligence get_daily_focus()."""
 
-    designation: DesignationData
-    alignment: dict[str, Any]  # LifePathAlignmentResult
-    recommendations: list[str]
+    focus: str
+    reason: str
+    action: str
+    dimension: str | None
+    current_score: float
 
 
 class LifePathAlignmentResult(TypedDict, total=False):
@@ -1483,6 +1489,35 @@ class LifePathAlignmentResult(TypedDict, total=False):
     recommendations: list[str]
     calculated_at: str  # ISO format
     message: str  # Present when no designation exists
+
+
+class LifePathStatus(TypedDict, total=False):
+    """Return shape for lifepath_service.get_full_status()."""
+
+    has_vision: bool
+    has_designation: bool
+    vision: VisionData | None
+    designation: DesignationData | None
+    alignment: LifePathAlignmentResult | None
+    recommendations: list[LifePathRecommendationItem]
+    daily_focus: DailyFocusResult | None
+    next_step: str
+
+
+class LifePathRecommendation(TypedDict, total=False):
+    """Return shape for lifepath_service.capture_and_recommend()."""
+
+    vision: VisionData
+    recommendations: list[LpMatchResult]
+    next_step: str
+
+
+class LifePathDesignation(TypedDict, total=False):
+    """Return shape for lifepath_service.designate_and_calculate()."""
+
+    designation: DesignationData
+    alignment: LifePathAlignmentResult
+    recommendations: list[LifePathRecommendationItem]
 
 
 # ============================================================================
@@ -1583,6 +1618,152 @@ class LsPracticeSummaryResult(TypedDict):
     principles: int
     choices: int
     total: int
+
+
+# ============================================================================
+# LS INTELLIGENCE RESULT TYPES
+# ============================================================================
+
+
+class LsAnalyticsSummary(TypedDict):
+    """Nested summary for LS analytics."""
+
+    total: int
+    note: str
+
+
+class LsPerformanceAnalytics(TypedDict, total=False):
+    """Return shape for LsIntelligenceService.get_performance_analytics()."""
+
+    user_uid: str
+    period_days: int
+    total_learning_steps: int
+    analytics: LsAnalyticsSummary
+
+
+class LsDomainInsights(TypedDict, total=False):
+    """Return shape for LsIntelligenceService.get_domain_insights()."""
+
+    ls_uid: str
+    ls_title: str
+    ls_intent: str | None
+    practice_summary: LsPracticeSummaryResult
+    practice_completeness: float
+    has_prerequisites: bool
+    min_confidence: float
+
+
+# ============================================================================
+# LP INTELLIGENCE RESULT TYPES
+# ============================================================================
+
+
+class LpAnalyticsSummary(TypedDict):
+    """Nested summary for LP analytics."""
+
+    total: int
+    note: str
+
+
+class LpPerformanceAnalytics(TypedDict, total=False):
+    """Return shape for LpIntelligenceService.get_performance_analytics()."""
+
+    user_uid: str
+    period_days: int
+    total_learning_paths: int
+    analytics: LpAnalyticsSummary
+
+
+class LpDomainInsights(TypedDict, total=False):
+    """Return shape for LpIntelligenceService.get_domain_insights()."""
+
+    lp_uid: str
+    lp_title: str
+    lp_domain: str | None
+    total_steps: int
+    min_confidence: float
+
+
+class LpPathOverview(TypedDict, total=False):
+    """Return shape for LpAIService.generate_path_overview()."""
+
+    lp_uid: str
+    lp_name: str
+    hook: str
+    target_audience: str
+    key_learnings: str
+    commitment: str
+    success_outcome: str
+
+
+class LpCompletionStrategy(TypedDict, total=False):
+    """Return shape for LpAIService.suggest_completion_strategy()."""
+
+    lp_uid: str
+    lp_name: str
+    recommended_pace: str
+    schedule_pattern: str
+    focus_tip: str
+    likely_challenge: str
+    mid_point_milestone: str
+
+
+class LpPathHierarchy(TypedDict):
+    """Return shape for LpCoreService.get_path_hierarchy()."""
+
+    current: LearningPath
+    steps: list[LearningStep]
+    step_count: int
+
+
+class LpPrerequisiteValidation(TypedDict, total=False):
+    """Return shape for LpIntelligenceService.validate_path_prerequisites()."""
+
+    path_uid: str
+    is_valid: bool
+    total_steps: int
+    steps_with_issues: int
+    issues: list[dict[str, Any]]  # boundary: raw Cypher validation records
+    recommendations: list[str]
+    validated_at: str
+
+
+class LpBlockerAnalysis(TypedDict, total=False):
+    """Return shape for LpIntelligenceService.identify_path_blockers()."""
+
+    recommendations: list[str]
+    status: str
+    blocker_count: int
+    analyzed_at: str
+    total_steps: int
+    blocked_steps: list[dict[str, Any]]  # boundary: raw Cypher blocker records
+    first_blocker: dict[str, Any] | None  # boundary: raw Cypher record
+    can_progress: bool
+
+
+class LpPathRecommendation(TypedDict, total=False):
+    """Return shape for LpIntelligenceService.get_optimal_path_recommendation()."""
+
+    recommended_path_uid: str | None
+    path_name: str
+    readiness_score: float
+    estimated_hours: float | None
+    reason: str
+    alternatives: list[dict[str, Any]]  # boundary: raw Cypher path records
+    recommended_at: str
+
+
+class LpRecommendedStep(TypedDict):
+    """Return shape for items in LpIntelligenceService.get_recommended_learning_steps()."""
+
+    uid: str
+    title: str
+    domain: str | None
+    confidence: float
+    strength: float
+    difficulty_gap: float
+    semantic_distance: float
+    prerequisite_readiness: float
 
 
 class UserProgressResult(TypedDict, total=False):
@@ -2488,10 +2669,13 @@ __all__ = [
     "BehavioralInsightsResult",
     "PerformanceAnalyticsResult",
     # Life Path Result Types
+    "LpMatchResult",
+    "LifePathRecommendationItem",
+    "DailyFocusResult",
+    "LifePathAlignmentResult",
     "LifePathStatus",
     "LifePathRecommendation",
     "LifePathDesignation",
-    "LifePathAlignmentResult",
     # Lateral Relationship Result Types
     "LateralRelationshipItem",
     "BlockingChainResult",
@@ -2571,6 +2755,21 @@ __all__ = [
     "CurriculumExerciseResult",
     "RevisionChainResult",
     "LsKnowledgeItemResult",
+    # LS Intelligence Result Types
+    "LsAnalyticsSummary",
+    "LsPerformanceAnalytics",
+    "LsDomainInsights",
+    # LP Intelligence Result Types
+    "LpAnalyticsSummary",
+    "LpPerformanceAnalytics",
+    "LpDomainInsights",
+    "LpPathOverview",
+    "LpCompletionStrategy",
+    "LpPathHierarchy",
+    "LpPrerequisiteValidation",
+    "LpBlockerAnalysis",
+    "LpPathRecommendation",
+    "LpRecommendedStep",
     # Life Path Nested Types
     "VisionData",
     "DesignationData",

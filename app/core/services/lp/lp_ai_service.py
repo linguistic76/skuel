@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.pathways.learning_path import LearningPath
 from core.ports import LpOperations
+from core.ports.query_types import LpCompletionStrategy, LpPathOverview
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
@@ -88,7 +89,7 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
 
         return await self._semantic_search(search_text, candidates, limit)
 
-    async def generate_path_overview(self, lp_uid: str) -> Result[dict[str, Any]]:
+    async def generate_path_overview(self, lp_uid: str) -> Result[LpPathOverview]:
         """Generate an AI-powered overview of a learning path."""
         lp_result = await self.backend.get(lp_uid)
         if lp_result.is_error:
@@ -143,9 +144,10 @@ Format each section with its label."""
                 if line.upper().startswith(f"{key}:"):
                     overview[field] = line.split(":", 1)[1].strip()
 
-        return Result.ok(overview)
+        result: LpPathOverview = overview  # type: ignore[assignment]
+        return Result.ok(result)
 
-    async def suggest_completion_strategy(self, lp_uid: str) -> Result[dict[str, Any]]:
+    async def suggest_completion_strategy(self, lp_uid: str) -> Result[LpCompletionStrategy]:
         """Suggest a strategy for completing a learning path."""
         lp_result = await self.backend.get(lp_uid)
         if lp_result.is_error:
@@ -196,7 +198,8 @@ Format each as KEY: [response]"""
                 if line.upper().startswith(f"{key}:"):
                     strategy[field] = line.split(":", 1)[1].strip()
 
-        return Result.ok(strategy)
+        result: LpCompletionStrategy = strategy  # type: ignore[assignment]
+        return Result.ok(result)
 
     async def generate_path_insight(self, lp_uid: str) -> Result[str]:
         """Generate AI-written insight about a learning path."""
