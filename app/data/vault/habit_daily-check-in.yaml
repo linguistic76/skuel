@@ -1,0 +1,55 @@
+version: 1.0
+type: Habit
+
+uid: habit:daily-check-in
+name: Daily Evening Check-In
+description: Two minutes at the end of each day to name the strongest emotion and its trigger.
+
+polarity: build
+category: self-reflection
+difficulty: easy
+
+recurrence_pattern: daily
+target_days_per_week: 7
+preferred_time: evening
+duration_minutes: 2
+
+connections:
+  reinforces_knowledge:
+    - l:self-reflection:emotional-awareness
+    - l:self-reflection:noticing-patterns
+  supports_goal:
+    - goal:self-reflection-beginner
+  embodies_principle:
+    - principle:observation-before-action
+  prerequisite_habits: []
+
+current_streak: 0
+best_streak: 0
+total_completions: 0
+total_attempts: 0
+success_rate: 0.0
+last_completed: null
+
+cue: Right before bed / After brushing teeth
+routine: |
+  1. Sit on the edge of the bed
+  2. Ask: What was the strongest emotion I felt today?
+  3. Name it precisely (not "bad" — what specifically?)
+  4. Ask: What triggered it?
+  5. Ask: Where did I feel it in my body?
+  6. Write one sentence or just hold the awareness
+reward: Sense of self-knowledge / Calmer transition to sleep
+
+status: active
+priority: high
+
+started_at: null
+tags:
+  - self-reflection
+  - emotions
+  - evening
+  - daily
+  - starter
+created_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T00:00:00Z

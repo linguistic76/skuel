@@ -1,0 +1,44 @@
+version: 1.0
+type: LearningStep
+
+uid: ls:self-reflection-101:step-1
+title: Notice Your Patterns
+intent: Identify one recurring trigger-feeling-response loop in your daily life
+description: |
+  Your first step in self-reflection: pick one behavior pattern
+  and watch it for a day. You're not changing anything — just seeing
+  clearly what's already happening.
+
+knowledge_uids:
+  - l:self-reflection:noticing-patterns
+  - l:self-reflection:emotional-awareness
+
+trains_ku_uids:
+  - ku:self-reflection:self-observation
+  - ku:self-reflection:emotional-patterns
+
+learning_path_uid: lp:self-reflection-101
+sequence: 1
+
+prerequisite_step_uids: []
+prerequisite_knowledge_uids: []
+
+mastery_threshold: 0.7
+current_mastery: 0.0
+estimated_hours: 0.75
+difficulty: easy
+
+status: not_started
+completed: false
+
+domain: personal
+priority: high
+
+notes: Entry point — benefits greatly from prior mindfulness practice but doesn't require it
+tags:
+  - self-observation
+  - patterns
+  - emotions
+  - foundational
+created_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T00:00:00Z

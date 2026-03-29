@@ -1,0 +1,28 @@
+version: 1.0
+type: Choice
+
+uid: choice:name-it-precisely
+title: Name It Precisely
+description: When someone asks how you feel, give a precise answer — at least to yourself. Replace "fine" with the actual emotion.
+user_uid: system
+
+choice_type: binary
+status: pending
+priority: medium
+domain: personal
+
+decision_criteria:
+  - Am I about to say "good", "bad", "fine", or "stressed"?
+  - Can I replace it with a more specific word?
+  - What am I actually feeling right now?
+
+constraints:
+  - You don't have to share the precise answer out loud — internal precision counts
+  - Takes a few seconds of reflection
+
+connections:
+  informed_by_knowledge:
+    - l:self-reflection:emotional-awareness
+
+stakeholders:
+  - self

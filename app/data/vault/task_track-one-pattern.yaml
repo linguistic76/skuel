@@ -1,0 +1,33 @@
+version: 1.0
+type: Task
+
+uid: task:track-one-pattern
+title: Track one behavioral pattern for three days
+description: |
+  Choose one pattern (phone checking, saying yes, procrastinating)
+  and observe it for three days. Each evening, write one sentence:
+  "When [trigger], I felt [feeling] and I [response]."
+
+  Three days gives you enough data to see if it's a real pattern
+  or a one-off. Don't try to change it — just see it clearly.
+
+duration_minutes: 5
+priority: high
+status: draft
+
+due_date: null
+scheduled_date: null
+
+connections:
+  applies_knowledge:
+    - l:self-reflection:noticing-patterns
+  fulfills_goal:
+    - goal:self-reflection-beginner
+  reinforces_habit:
+    - habit:pause-and-name
+
+tags:
+  - self-reflection
+  - patterns
+  - observation
+  - beginner

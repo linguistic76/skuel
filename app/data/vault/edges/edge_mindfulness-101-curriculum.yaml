@@ -1,0 +1,85 @@
+# Mindfulness 101 — Curriculum Structure Edges
+# ==============================================
+# Connects lessons to Kus, LS to lessons, LP to steps
+
+version: 1.0
+
+edges:
+  # Lessons → Kus (USES_KU)
+  - from: l:mindfulness:breath-awareness-basics
+    to: ku:mindfulness:breath
+    type: USES_KU
+  - from: l:mindfulness:breath-awareness-basics
+    to: ku:mindfulness:attention
+    type: USES_KU
+  - from: l:mindfulness:mind-wandering-happens
+    to: ku:mindfulness:attention
+    type: USES_KU
+
+  # Lesson prerequisites (REQUIRES)
+  - from: l:mindfulness:posture-basics
+    to: l:mindfulness:breath-awareness-basics
+    type: REQUIRES
+  - from: l:mindfulness:mind-wandering-happens
+    to: l:mindfulness:breath-awareness-basics
+    type: REQUIRES
+
+  # Lesson enables (ENABLES)
+  - from: l:mindfulness:breath-awareness-basics
+    to: l:mindfulness:posture-basics
+    type: ENABLES
+  - from: l:mindfulness:breath-awareness-basics
+    to: l:mindfulness:mind-wandering-happens
+    type: ENABLES
+
+  # Learning Steps → Lessons (HAS_LESSON)
+  - from: ls:mindfulness-101:step-1
+    to: l:mindfulness:breath-awareness-basics
+    type: HAS_LESSON
+  - from: ls:mindfulness-101:step-1
+    to: l:mindfulness:posture-basics
+    type: HAS_LESSON
+  - from: ls:mindfulness-101:step-2
+    to: l:mindfulness:mind-wandering-happens
+    type: HAS_LESSON
+  - from: ls:mindfulness-101:step-2
+    to: l:mindfulness:breath-awareness-basics
+    type: HAS_LESSON
+
+  # Learning Steps → Kus (TRAINS_KU)
+  - from: ls:mindfulness-101:step-1
+    to: ku:mindfulness:breath
+    type: TRAINS_KU
+  - from: ls:mindfulness-101:step-2
+    to: ku:mindfulness:attention
+    type: TRAINS_KU
+
+  # Learning Path → Learning Steps (CONTAINS_STEP)
+  - from: lp:mindfulness-101
+    to: ls:mindfulness-101:step-1
+    type: CONTAINS_STEP
+    properties:
+      order: 1
+  - from: lp:mindfulness-101
+    to: ls:mindfulness-101:step-2
+    type: CONTAINS_STEP
+    properties:
+      order: 2
+
+  # Learning Step sequencing (NEXT_STEP)
+  - from: ls:mindfulness-101:step-1
+    to: ls:mindfulness-101:step-2
+    type: NEXT_STEP
+
+  # Ku lateral relationships
+  - from: ku:mindfulness:breath
+    to: ku:mindfulness:attention
+    type: RELATED_TO
+
+  # Monolithic lesson → focused lessons (RELATED_TO)
+  - from: l:mindfulness:101
+    to: l:mindfulness:breath-awareness-basics
+    type: RELATED_TO
+  - from: l:mindfulness:101
+    to: l:mindfulness:mind-wandering-happens
+    type: RELATED_TO

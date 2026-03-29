@@ -1,0 +1,28 @@
+version: 1.0
+type: Choice
+
+uid: choice:observe-or-fix
+title: Observe It Before Fixing It
+description: When you notice a pattern you don't like, watch it for three more occurrences before trying to change it.
+user_uid: system
+
+choice_type: binary
+status: pending
+priority: high
+domain: personal
+
+decision_criteria:
+  - Have I seen this pattern at least three times?
+  - Can I describe the trigger, feeling, and response clearly?
+  - Am I trying to fix it out of frustration or understanding?
+
+constraints:
+  - Requires patience — the urge to fix is strong
+  - Works best after mindfulness practice establishes the "watching" skill
+
+connections:
+  informed_by_knowledge:
+    - l:self-reflection:noticing-patterns
+
+stakeholders:
+  - self

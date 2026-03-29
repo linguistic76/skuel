@@ -1,0 +1,101 @@
+# Self-Reflection 101 — Curriculum Structure Edges
+# =================================================
+# Connects lessons to Kus, LS to lessons, LP to steps
+
+version: 1.0
+
+edges:
+  # Lessons → Kus (USES_KU)
+  - from: l:self-reflection:noticing-patterns
+    to: ku:self-reflection:self-observation
+    type: USES_KU
+  - from: l:self-reflection:noticing-patterns
+    to: ku:self-reflection:emotional-patterns
+    type: USES_KU
+  - from: l:self-reflection:emotional-awareness
+    to: ku:self-reflection:emotional-patterns
+    type: USES_KU
+  - from: l:self-reflection:emotional-awareness
+    to: ku:self-reflection:self-observation
+    type: USES_KU
+  - from: l:self-reflection:values-discovery
+    to: ku:self-reflection:personal-values
+    type: USES_KU
+  - from: l:self-reflection:values-discovery
+    to: ku:self-reflection:self-observation
+    type: USES_KU
+
+  # Lesson prerequisites (REQUIRES)
+  - from: l:self-reflection:emotional-awareness
+    to: l:self-reflection:noticing-patterns
+    type: REQUIRES
+  - from: l:self-reflection:values-discovery
+    to: l:self-reflection:noticing-patterns
+    type: REQUIRES
+  - from: l:self-reflection:values-discovery
+    to: l:self-reflection:emotional-awareness
+    type: REQUIRES
+
+  # Lesson enables (ENABLES)
+  - from: l:self-reflection:noticing-patterns
+    to: l:self-reflection:emotional-awareness
+    type: ENABLES
+  - from: l:self-reflection:noticing-patterns
+    to: l:self-reflection:values-discovery
+    type: ENABLES
+  - from: l:self-reflection:emotional-awareness
+    to: l:self-reflection:values-discovery
+    type: ENABLES
+
+  # Learning Steps → Lessons (HAS_LESSON)
+  - from: ls:self-reflection-101:step-1
+    to: l:self-reflection:noticing-patterns
+    type: HAS_LESSON
+  - from: ls:self-reflection-101:step-1
+    to: l:self-reflection:emotional-awareness
+    type: HAS_LESSON
+  - from: ls:self-reflection-101:step-2
+    to: l:self-reflection:values-discovery
+    type: HAS_LESSON
+  - from: ls:self-reflection-101:step-2
+    to: l:self-reflection:emotional-awareness
+    type: HAS_LESSON
+
+  # Learning Steps → Kus (TRAINS_KU)
+  - from: ls:self-reflection-101:step-1
+    to: ku:self-reflection:self-observation
+    type: TRAINS_KU
+  - from: ls:self-reflection-101:step-1
+    to: ku:self-reflection:emotional-patterns
+    type: TRAINS_KU
+  - from: ls:self-reflection-101:step-2
+    to: ku:self-reflection:personal-values
+    type: TRAINS_KU
+
+  # Learning Path → Learning Steps (CONTAINS_STEP)
+  - from: lp:self-reflection-101
+    to: ls:self-reflection-101:step-1
+    type: CONTAINS_STEP
+    properties:
+      order: 1
+  - from: lp:self-reflection-101
+    to: ls:self-reflection-101:step-2
+    type: CONTAINS_STEP
+    properties:
+      order: 2
+
+  # Learning Step sequencing (NEXT_STEP)
+  - from: ls:self-reflection-101:step-1
+    to: ls:self-reflection-101:step-2
+    type: NEXT_STEP
+
+  # Ku lateral relationships
+  - from: ku:self-reflection:self-observation
+    to: ku:self-reflection:emotional-patterns
+    type: RELATED_TO
+  - from: ku:self-reflection:emotional-patterns
+    to: ku:self-reflection:personal-values
+    type: RELATED_TO
+  - from: ku:self-reflection:self-observation
+    to: ku:self-reflection:personal-values
+    type: PREREQUISITE_FOR

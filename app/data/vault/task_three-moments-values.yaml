@@ -1,0 +1,32 @@
+version: 1.0
+type: Task
+
+uid: task:three-moments-values
+title: Write the Three Moments values exercise
+description: |
+  Think of three moments from the past year:
+  1. A moment you felt proud — what value does it reflect?
+  2. A moment you felt angry — what value was violated?
+  3. A hard choice you made — what did the choice reveal?
+
+  Write one sentence for each. Look for overlap — if two or three
+  point to the same value, that's a core value.
+
+duration_minutes: 10
+priority: medium
+status: draft
+
+due_date: null
+scheduled_date: null
+
+connections:
+  applies_knowledge:
+    - l:self-reflection:values-discovery
+  fulfills_goal:
+    - goal:self-reflection-beginner
+
+tags:
+  - self-reflection
+  - values
+  - writing
+  - identity

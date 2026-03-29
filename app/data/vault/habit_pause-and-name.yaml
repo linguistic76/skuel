@@ -1,0 +1,51 @@
+version: 1.0
+type: Habit
+
+uid: habit:pause-and-name
+name: Pause and Name One Reaction
+description: Once per day, catch a reaction in real time — pause for one second and name the feeling.
+
+polarity: build
+category: self-reflection
+difficulty: easy
+
+recurrence_pattern: daily
+target_days_per_week: 5
+preferred_time: anytime
+duration_minutes: 0
+
+connections:
+  reinforces_knowledge:
+    - l:self-reflection:noticing-patterns
+  supports_goal:
+    - goal:self-reflection-beginner
+  embodies_principle:
+    - principle:observation-before-action
+  prerequisite_habits: []
+
+current_streak: 0
+best_streak: 0
+total_completions: 0
+total_attempts: 0
+success_rate: 0.0
+last_completed: null
+
+cue: Any moment of strong reaction — frustration, excitement, anxiety, irritation
+routine: |
+  1. Notice you're reacting
+  2. Pause for one second
+  3. Silently name the feeling ("defensive", "anxious", "impatient")
+  4. Continue with whatever you were doing
+reward: Growing awareness of your patterns / Sense of agency
+
+status: active
+priority: medium
+
+started_at: null
+tags:
+  - self-reflection
+  - real-time
+  - patterns
+  - micro-practice
+created_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T00:00:00Z

@@ -1,0 +1,41 @@
+version: 1.0
+type: Goal
+
+uid: goal:self-reflection-beginner
+title: Build a daily self-observation practice
+description: Develop the habit of noticing patterns, naming emotions precisely, and identifying personal values over four weeks.
+
+goal_type: process
+domain: personal
+timeframe: monthly
+
+measurement_type: percentage
+target_value: 100.0
+current_value: 0.0
+unit_of_measurement: check-ins
+
+start_date: null
+target_date: null
+
+connections:
+  requires_knowledge:
+    - l:self-reflection:noticing-patterns
+    - l:self-reflection:emotional-awareness
+    - l:self-reflection:values-discovery
+  supporting_habits:
+    - habit:daily-check-in
+    - habit:pause-and-name
+  aligned_with_principle:
+    - principle:observation-before-action
+    - principle:precision-over-speed
+
+status: draft
+priority: high
+
+tags:
+  - self-reflection
+  - beginner
+  - self-awareness
+  - daily-practice
+created_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T00:00:00Z

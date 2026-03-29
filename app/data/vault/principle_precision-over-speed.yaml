@@ -1,0 +1,63 @@
+version: 1.0
+type: Principle
+
+uid: principle:precision-over-speed
+name: Precision Over Speed
+statement: I name things precisely rather than vaguely, even when it takes longer
+description: |
+  "I feel bad" is fast but useless. "I feel resentful because my
+  contribution was overlooked" is slower but actionable. Precision
+  in naming emotions, patterns, and values is what turns self-reflection
+  from vague journaling into genuine self-knowledge.
+
+category: personal
+source: personal
+strength: moderate
+
+tradition: Emotional Intelligence / Cognitive Behavioral Therapy
+original_source: Marc Brackett - Permission to Feel, Daniel Goleman
+personal_interpretation: |
+  Speed rewards shallow processing. The habit of quickly categorizing
+  everything as "good" or "bad" or "fine" keeps you on the surface.
+  Slowing down to find the precise word — frustrated, not angry;
+  disappointed, not sad; overwhelmed, not stressed — reveals what's
+  actually happening and what to do about it.
+
+connections:
+  grounded_in_knowledge:
+    - l:self-reflection:emotional-awareness
+  guides_goal:
+    - goal:self-reflection-beginner
+  inspires_habit:
+    - habit:daily-check-in
+
+related_principle_uids:
+  - principle:observation-before-action
+
+key_behaviors:
+  - When asked "how are you?", give a precise answer (even if only to yourself)
+  - In check-ins, replace generic words with specific ones
+  - When journaling, rewrite vague sentences with precise language
+
+decision_criteria:
+  - When naming an emotion, ask "what specifically?" at least once
+  - When describing a pattern, include the trigger, not just the behavior
+
+current_alignment: developing
+last_review_date: 2026-03-29
+
+why_important: |
+  Vague self-reflection feels productive but teaches nothing.
+  Precision is what separates self-knowledge from self-rumination.
+
+is_active: true
+priority: medium
+
+adopted_date: 2026-03-29
+tags:
+  - self-reflection
+  - emotional-vocabulary
+  - precision
+  - self-awareness
+created_at: 2026-03-29T00:00:00Z
+updated_at: 2026-03-29T00:00:00Z
