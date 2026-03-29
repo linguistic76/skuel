@@ -22,13 +22,14 @@ This document covers *how to build one*.
 
 | Route | Purpose | Status |
 |-------|---------|--------|
-| `/ku` | Knowledge browsing (ORGANIZES-driven) | Existing — future hub redesign |
-| `/lessons` | Enrolled + available lessons, LPs, LSs | Existing — future hub redesign |
-| `/submissions` | Submit work + list submissions | Existing — future hub redesign |
-| `/exercise-reports` | Reports + RevisedExercise UI | Existing — future hub redesign |
-| `/activity-reports` | Activity progress reports | Existing — future hub redesign |
+| `/ku` | Knowledge browsing (ORGANIZES-driven) | Active |
+| `/lessons` | Enrolled + available lessons | Active |
+| `/exercises` | Practice linked to lessons and Kus | Active |
+| `/transfer` | Submission hub (tabbed: My Submissions, Submit, Generate) | Active |
+| `/exercise-reports` | Teacher and AI feedback on submissions | Active |
+| `/activity-reports` | Activity progress reports | Active |
 
-Domain hubs are NOT simple card grids — they have real capabilities (forms, entity lists, actions). They may use `HubSection` for sections within the page.
+Domain hubs are NOT simple card grids — they have real capabilities (forms, entity lists, actions). `/transfer` uses Alpine.js tabs + HTMX lazy-loaded fragments.
 
 ## Shared Components
 
@@ -90,19 +91,13 @@ Convert ORGANIZES query results into `HubCardData` for rendering. `RootOrganizer
 Profile uses context-driven card builders that return `list[HubCardData]` with live badges from `UserContext`:
 
 ```python
-def _knowledge_cards(context: UserContext) -> list[HubCardData]:
-    return [
-        HubCardData("📖", "Knowledge", "/ku", "...",
-                     badge=len(context.ku_bookmarked_uids) or None),
-        ...
-    ]
-
 def ProfileHubView(context: UserContext) -> Div:
     return Div(
         _personal_header(context),
-        HubSection("Knowledge", _knowledge_cards(context)),
-        HubSection("Practice", _practice_cards(context)),
-        HubSection("Reports", _reports_cards(context)),
+        HubSection("Knowledge +", _knowledge_cards(context)),  # Ku, Lessons, Exercises
+        HubSection("Transfer", _transfer_cards(context)),      # -> /transfer (submission hub)
+        HubSection("Reports", _reports_cards(context)),        # Exercise + Activity Reports
+        _nous_section(),                                       # Community feed (placeholder)
         _settings_link(),
     )
 ```
