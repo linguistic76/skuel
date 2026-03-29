@@ -21,6 +21,7 @@ from starlette.requests import Request
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from core.models.enums.submissions_enums import EnrichmentMode
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -129,7 +130,7 @@ def create_batch_transcription_api_routes(
         POST body (JSON):
             input_dir: str — path to .txt files (default: data/je_outputs)
             output_dir: str — path for .md output (default: same as input_dir)
-            enrichment_mode: str — "activity_tracking" | "idea_articulation" | "critical_thinking"
+            enrichment_mode: str — EnrichmentMode value (activity_tracking, idea_articulation, critical_thinking)
             custom_instructions: str — user-provided instruction text (overrides mode)
             model: str — LLM model (default: "gpt-4o-mini")
             temperature: float — sampling temperature (default: 0.7)
@@ -154,7 +155,8 @@ def create_batch_transcription_api_routes(
         input_dir = Path(body.get("input_dir", DEFAULT_OUTPUT_DIR))
         output_dir_str = body.get("output_dir")
         output_dir = Path(output_dir_str) if output_dir_str else None
-        enrichment_mode = body.get("enrichment_mode")
+        enrichment_mode_str = body.get("enrichment_mode")
+        enrichment_mode = EnrichmentMode(enrichment_mode_str) if enrichment_mode_str else None
         custom_instructions = body.get("custom_instructions")
         model = body.get("model", "gpt-4o-mini")
         temperature = body.get("temperature", 0.7)

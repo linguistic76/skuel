@@ -20,6 +20,7 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.submissions_enums import EnrichmentMode
 from core.ports.output_generator_protocols import OutputGeneratorOperations
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -87,7 +88,7 @@ class BatchProcessingService:
         self,
         input_dir: Path,
         output_dir: Path | None = None,
-        enrichment_mode: str | None = None,
+        enrichment_mode: EnrichmentMode | None = None,
         custom_instructions: str | None = None,
         model: str = "gpt-4o-mini",
         temperature: float = 0.7,
@@ -100,7 +101,7 @@ class BatchProcessingService:
         Args:
             input_dir: Directory containing .txt files
             output_dir: Directory for .md output (defaults to input_dir)
-            enrichment_mode: Processing strategy name
+            enrichment_mode: Processing strategy (EnrichmentMode enum)
             custom_instructions: User-provided instruction text
             model: LLM model to use
             temperature: Sampling temperature
@@ -234,7 +235,7 @@ class BatchProcessingService:
         audio_dir: Path,
         output_dir: Path,
         batch_transcription: BatchTranscriptionService,
-        enrichment_mode: str | None = None,
+        enrichment_mode: EnrichmentMode | None = None,
         custom_instructions: str | None = None,
         model: str = "gpt-4o-mini",
         temperature: float = 0.7,

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from core.models.enums.submissions_enums import EnrichmentMode
 from core.ports.output_generator_protocols import OutputInstruction
 from core.prompts import PROMPT_REGISTRY
 from core.utils.logging import get_logger
@@ -26,13 +27,13 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.services.output.instruction_resolver")
 
 # Enrichment mode → prompt template ID mapping
-_MODE_TEMPLATE_MAP: dict[str, str] = {
-    "activity_tracking": "journal_activity",
-    "idea_articulation": "journal_articulation",
-    "critical_thinking": "journal_exploration",
+_MODE_TEMPLATE_MAP: dict[EnrichmentMode, str] = {
+    EnrichmentMode.ACTIVITY_TRACKING: "journal_activity",
+    EnrichmentMode.IDEA_ARTICULATION: "journal_articulation",
+    EnrichmentMode.CRITICAL_THINKING: "journal_exploration",
 }
 
-DEFAULT_ENRICHMENT_MODE = "activity_tracking"
+DEFAULT_ENRICHMENT_MODE = EnrichmentMode.ACTIVITY_TRACKING
 
 
 class InstructionResolver:
@@ -48,7 +49,7 @@ class InstructionResolver:
 
     def resolve(
         self,
-        enrichment_mode: str | None = None,
+        enrichment_mode: EnrichmentMode | None = None,
         custom_instructions: str | None = None,
         exercise: Exercise | None = None,
         model: str = "gpt-4o-mini",

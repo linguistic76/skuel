@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import MasteryImpact
-from core.models.enums.submissions_enums import ExerciseScope, SubmissionModality
+from core.models.enums.submissions_enums import EnrichmentMode, ExerciseScope, SubmissionModality
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -89,6 +89,11 @@ class Exercise(Curriculum):
                 object.__setattr__(self, "form_schema", tuple(parsed) if parsed else None)
             except (json.JSONDecodeError, TypeError):
                 object.__setattr__(self, "form_schema", None)
+        # Convert string enrichment_mode from DTO to enum
+        if isinstance(self.enrichment_mode, str) and not isinstance(
+            self.enrichment_mode, EnrichmentMode
+        ):
+            object.__setattr__(self, "enrichment_mode", EnrichmentMode(self.enrichment_mode))
         # Auto-derive expected_modality from form_schema when not explicitly set
         if self.expected_modality is None:
             derived = (
@@ -106,7 +111,7 @@ class Exercise(Curriculum):
     scope: ExerciseScope = ExerciseScope.PERSONAL
     due_date: date | None = None
     group_uid: str | None = None  # Target group for ASSIGNED scope
-    enrichment_mode: str | None = None  # activity_tracking, idea_articulation, etc.
+    enrichment_mode: EnrichmentMode | None = None
     context_notes: tuple[str, ...] = ()  # Reference materials (tuple, not list — frozen)
     form_schema: tuple[dict[str, Any], ...] | None = None  # Inline form definition
     expected_modality: SubmissionModality | None = None  # Auto-derived in __post_init__

@@ -26,10 +26,12 @@ from typing import TYPE_CHECKING, Any
 from core.events import publish_event
 from core.events.journal_events import JeOutputGenerated
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.submissions_enums import EnrichmentMode
 from core.models.journal.je_output import JeOutput
 from core.models.journal.je_output_dto import JeOutputDTO
 from core.models.type_hints import UserUID
 from core.ports.output_generator_protocols import OutputInstruction
+from core.ports.query_types import CleanupStats
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -99,7 +101,7 @@ class JournalOutputService:
         je_input_uid: str,
         user_uid: UserUID,
         content: str,
-        enrichment_mode: str = "activity_tracking",
+        enrichment_mode: EnrichmentMode = EnrichmentMode.ACTIVITY_TRACKING,
         custom_instructions: str | None = None,
     ) -> Result[JeOutput]:
         """Process a je_input through LLM and create a JeOutput entity.
@@ -144,17 +146,17 @@ class JournalOutputService:
             return Result.fail(Errors.system(message=f"File write failed: {e}", service="journal"))
 
         # 4. Create JeOutput in Neo4j
-        effective_mode = enrichment_mode or "activity_tracking"
+        effective_mode = enrichment_mode or EnrichmentMode.ACTIVITY_TRACKING
         properties: dict[str, Any] = {
             "uid": uid,
             "entity_type": EntityType.JE_OUTPUT.value,
-            "title": f"Journal Output — {effective_mode}",
+            "title": f"Journal Output — {effective_mode.value}",
             "status": EntityStatus.COMPLETED.value,
             "user_uid": user_uid,
             "output_content": output_text,
             "output_generated_at": now.isoformat(),
             "source_je_input_uid": je_input_uid,
-            "enrichment_mode": effective_mode,
+            "enrichment_mode": effective_mode.value,
             "output_file_path": str(file_path),
             "processor_type": ProcessorType.LLM.value,
             "created_at": now.isoformat(),
@@ -266,7 +268,7 @@ class JournalOutputService:
         self,
         start_date: datetime,
         end_date: datetime,
-    ) -> Result[dict[str, int]]:
+    ) -> Result[CleanupStats]:
         """Delete je_output files within a date range.
 
         Scans storage_base/{YYYY-MM}/ directories for files in range.

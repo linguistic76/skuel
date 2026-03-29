@@ -2599,6 +2599,18 @@ class RelationshipGraphRow(TypedDict, total=False):
 
 
 # ============================================================================
+# JOURNAL RESULT TYPES
+# ============================================================================
+
+
+class CleanupStats(TypedDict):
+    """Result of file cleanup operations (e.g., JeOutput date range cleanup)."""
+
+    files_deleted: int
+    bytes_freed: int
+
+
+# ============================================================================
 # EXPLICIT EXPORTS
 # ============================================================================
 
@@ -2780,4 +2792,6 @@ __all__ = [
     "CousinRow",
     "BlockingChainRow",
     "RelationshipGraphRow",
+    # Journal Result Types
+    "CleanupStats",
 ]

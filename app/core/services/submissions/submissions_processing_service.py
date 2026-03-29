@@ -30,6 +30,7 @@ from core.events.submission_events import (
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.submissions_enums import EnrichmentMode
 from core.models.journal.je_input import JeInput
 from core.models.submissions.submission import Submission
 from core.models.type_hints import UserUID
@@ -407,7 +408,12 @@ class SubmissionsProcessingService:
             )
             return
 
-        enrichment_mode = instructions.get("enrichment_mode") if instructions else None
+        enrichment_mode_str = instructions.get("enrichment_mode") if instructions else None
+        enrichment_mode = (
+            EnrichmentMode(enrichment_mode_str)
+            if enrichment_mode_str
+            else EnrichmentMode.ACTIVITY_TRACKING
+        )
         custom_instructions = instructions.get("custom_instructions") if instructions else None
 
         # Delegate to JournalOutputService for LLM + Neo4j persistence
@@ -415,7 +421,7 @@ class SubmissionsProcessingService:
             je_input_uid=submission.uid,
             user_uid=submission.user_uid,
             content=content,
-            enrichment_mode=enrichment_mode or "activity_tracking",
+            enrichment_mode=enrichment_mode,
             custom_instructions=custom_instructions,
         )
 
@@ -424,8 +430,7 @@ class SubmissionsProcessingService:
             return
 
         # Activity extraction if mode is activity_tracking (shared concern)
-        effective_mode = enrichment_mode or "activity_tracking"
-        if effective_mode == "activity_tracking" and self.activity_extractor:
+        if enrichment_mode == EnrichmentMode.ACTIVITY_TRACKING and self.activity_extractor:
             self.logger.info(f"Extracting activities for {submission.uid}")
             await self._extract_activities(submission, submission.user_uid, instructions)
 

@@ -18,10 +18,13 @@ ISP-compliant: each protocol captures only the methods called from routes.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from datetime import date
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.submissions_enums import EnrichmentMode
 from core.models.type_hints import UserUID
+from core.ports.query_types import CleanupStats
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -78,7 +81,7 @@ class JournalInputOperations(Protocol):
     async def list_je_inputs(
         self,
         user_uid: UserUID,
-        status: str | None = None,
+        status: EntityStatus | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> "Result[list[JeInput]]":
@@ -130,7 +133,7 @@ class JournalOutputOperations(Protocol):
         je_input_uid: str,
         user_uid: UserUID,
         content: str,
-        enrichment_mode: str = "activity_tracking",
+        enrichment_mode: EnrichmentMode = EnrichmentMode.ACTIVITY_TRACKING,
         custom_instructions: str | None = None,
     ) -> "Result[JeOutput]":
         """Process a je_input through LLM and create a je_output. Returns Result[JeOutput]."""
@@ -159,4 +162,12 @@ class JournalOutputOperations(Protocol):
 
     async def download_output_file(self, uid: str) -> Result[str | None]:
         """Get the file path of a je_output for download. Returns Result[file_path]."""
+        ...
+
+    def cleanup_date_range(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> Result[CleanupStats]:
+        """Delete je_output files within a date range. Admin-only."""
         ...

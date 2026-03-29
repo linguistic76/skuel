@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.events.base import BaseEvent
+from core.models.enums.submissions_enums import EnrichmentMode
 from core.models.type_hints import UserUID
 
 
@@ -78,7 +79,7 @@ class JeOutputGenerated(BaseEvent):
     je_output_uid: str
     je_input_uid: str
     user_uid: UserUID
-    enrichment_mode: str
+    enrichment_mode: EnrichmentMode
     output_file_path: str | None = None
     metadata: dict[str, Any] | None = None
 

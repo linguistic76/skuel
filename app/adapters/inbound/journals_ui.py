@@ -32,7 +32,13 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.submissions_enums import EnrichmentMode
+from core.models.exercises.exercise import Exercise
+from core.models.journal.je_input import JeInput
+from core.ports.curriculum_protocols import ExerciseOperations
+from core.ports.journal_protocols import JournalInputOperations, JournalOutputOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonLink, ButtonT
@@ -90,34 +96,32 @@ def _render_upload_status(
     )
 
 
-def _render_journal_card(je_input: Any) -> Any:
+def _render_journal_card(je_input: JeInput) -> Any:
     """Render a single journal entry card for the browse grid using CardGenerator."""
     from ui.patterns.card_generator import CardGenerator
 
-    file_size = getattr(je_input, "file_size", 0) or 0
+    file_size = je_input.file_size or 0
     file_size_mb = file_size / 1024 / 1024 if file_size else 0
 
-    status = getattr(je_input, "status", None)
+    status = je_input.status
     status_str = (
-        str(status.value) if isinstance(status, EntityStatus) else str(status) if status else None
+        status.value if isinstance(status, EntityStatus) else str(status) if status else None
     )
 
     # Build metadata line
     meta_parts: list[str] = []
-    original_filename = getattr(je_input, "original_filename", None)
-    if original_filename:
-        meta_parts.append(original_filename)
+    if je_input.original_filename:
+        meta_parts.append(je_input.original_filename)
     if file_size_mb > 0:
         meta_parts.append(f"{file_size_mb:.2f} MB")
-    file_type = getattr(je_input, "file_type", None)
-    if file_type:
-        meta_parts.append(file_type)
+    if je_input.file_type:
+        meta_parts.append(je_input.file_type)
 
     # Build action buttons
     action_buttons: list[Any] = []
 
     # Download button for completed entries (download endpoint handles JeOutput lookup)
-    is_completed = status in (EntityStatus.COMPLETED, "completed")
+    is_completed = status == EntityStatus.COMPLETED
     if is_completed:
         action_buttons.append(
             ButtonLink(
@@ -143,7 +147,7 @@ def _render_journal_card(je_input: Any) -> Any:
     )
 
 
-def _render_journals_grid(je_inputs: list[Any]) -> Any:
+def _render_journals_grid(je_inputs: list[JeInput]) -> Any:
     """Render journal entries grid as HTML fragment for HTMX swap."""
     if not je_inputs:
         return Div(
@@ -173,11 +177,11 @@ JOURNALS_SIDEBAR_ITEMS = [
 # ============================================================================
 
 
-def _render_instruction_card(ex: Any, is_first: bool = False) -> Any:
+def _render_instruction_card(ex: Exercise, is_first: bool = False) -> Any:
     """Render one saved instruction file as a selectable card."""
-    uid = getattr(ex, "uid", "")
-    title = getattr(ex, "title", "Unnamed")
-    created_at = getattr(ex, "created_at", None)
+    uid = ex.uid
+    title = ex.title or "Unnamed"
+    created_at = ex.created_at
 
     if isinstance(created_at, datetime):
         date_str = created_at.strftime("%b %d, %Y")
@@ -201,11 +205,12 @@ def _render_instruction_card(ex: Any, is_first: bool = False) -> Any:
     )
 
 
-def _exercise_created_at(exercise: Any) -> str:
-    return getattr(exercise, "created_at", "") or ""
+def _exercise_created_at(exercise: Exercise) -> str:
+    """Sort key — ISO string for consistent ordering."""
+    return exercise.created_at.isoformat() if exercise.created_at else ""
 
 
-def _render_instruction_list(exercises: list[Any], error: str | None = None) -> Any:
+def _render_instruction_list(exercises: list[Exercise], error: str | None = None) -> Any:
     """Return the #instruction-file-list fragment (initial render or HTMX swap)."""
     exercises_sorted = sorted(
         exercises,
@@ -227,7 +232,7 @@ def _render_instruction_list(exercises: list[Any], error: str | None = None) -> 
     return Div(*parts, id="instruction-file-list", cls="space-y-2")
 
 
-def _render_upload_form(exercises: list[Any] | None = None) -> Any:
+def _render_upload_form(exercises: list[Exercise] | None = None) -> Any:
     """Render the file upload form — title + instruction selector + file."""
     exercises = exercises or []
     return Div(
@@ -481,11 +486,11 @@ def _render_filters_section() -> Any:
                     Label("Status"),
                     Select(
                         Option("All Status", value="", selected=True),
-                        Option("Submitted", value="submitted"),
-                        Option("Queued", value="queued"),
-                        Option("Processing", value="processing"),
-                        Option("Completed", value="completed"),
-                        Option("Failed", value="failed"),
+                        Option("Submitted", value=EntityStatus.SUBMITTED.value),
+                        Option("Queued", value=EntityStatus.QUEUED.value),
+                        Option("Processing", value=EntityStatus.PROCESSING.value),
+                        Option("Completed", value=EntityStatus.COMPLETED.value),
+                        Option("Failed", value=EntityStatus.FAILED.value),
                         name="status",
                     ),
                     cls="mb-2",
@@ -523,15 +528,15 @@ def _render_journals_grid_container() -> Any:
 
 
 def create_journals_ui_routes(
-    _app,
-    rt,
-    journal_input_service,
-    journal_output_service=None,
-    report_projects_service=None,
-    user_service=None,
-    batch_transcription_service=None,
-    batch_processing_service=None,
-):
+    _app: FastHTMLApp,
+    rt: RouteDecorator,
+    journal_input_service: JournalInputOperations,
+    journal_output_service: JournalOutputOperations | None = None,
+    report_projects_service: ExerciseOperations | None = None,
+    user_service: Any = None,  # no narrow protocol yet
+    batch_transcription_service: Any = None,  # no narrow protocol yet
+    batch_processing_service: Any = None,  # no narrow protocol yet
+) -> RouteList:
     """
     Create journal UI routes — available to all authenticated users.
 
@@ -567,7 +572,7 @@ def create_journals_ui_routes(
     async def _render_submit_page(request: Request) -> Any:
         user_uid = require_authenticated_user(request)
 
-        exercises: list[Any] = []
+        exercises: list[Exercise] = []
         if report_projects_service:
             ex_result = await report_projects_service.list_user_exercises(user_uid)
             if ex_result.is_ok:
@@ -704,7 +709,7 @@ def create_journals_ui_routes(
                     logger.warning(f"Failed to save instruction file: {create_result.error}")
 
             # Fetch updated list and return refreshed fragment
-            exercises: list[Any] = []
+            exercises: list[Exercise] = []
             if report_projects_service:
                 ex_result = await report_projects_service.list_user_exercises(user_uid)
                 if ex_result.is_ok:
@@ -727,11 +732,20 @@ def create_journals_ui_routes(
         """HTMX endpoint for loading journal entries grid."""
         try:
             user_uid = require_authenticated_user(request)
-            status = request.query_params.get("status", "")
+            status_str = request.query_params.get("status", "")
+            status: EntityStatus | None = None
+            if status_str:
+                try:
+                    status = EntityStatus(status_str)
+                except ValueError:
+                    return Div(
+                        render_inline_error(f"Invalid status: {status_str}"),
+                        id="journals-grid-container",
+                    )
 
             result = await journal_input_service.list_je_inputs(
                 user_uid=user_uid,
-                status=status or None,
+                status=status,
                 limit=50,
             )
 
@@ -859,9 +873,17 @@ def create_journals_ui_routes(
                     Div(
                         Label("Enrichment Mode"),
                         Select(
-                            Option("Activity Tracking", value="activity_tracking", selected=True),
-                            Option("Idea Articulation", value="idea_articulation"),
-                            Option("Critical Thinking", value="critical_thinking"),
+                            Option(
+                                "Activity Tracking",
+                                value=EnrichmentMode.ACTIVITY_TRACKING.value,
+                                selected=True,
+                            ),
+                            Option(
+                                "Idea Articulation", value=EnrichmentMode.IDEA_ARTICULATION.value
+                            ),
+                            Option(
+                                "Critical Thinking", value=EnrichmentMode.CRITICAL_THINKING.value
+                            ),
                             id="enrichment-mode",
                             name="enrichment_mode",
                         ),

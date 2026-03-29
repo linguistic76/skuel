@@ -12,8 +12,8 @@ Module Organization:
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
 - choice_enums: ChoiceType
 - principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
-- submissions_enums: SubmissionModality, ExerciseScope, FormattingStyle, AnalysisDepth, ContextEnrichmentLevel,
-                     ScheduleType, ProgressDepth
+- submissions_enums: SubmissionModality, ExerciseScope, EnrichmentMode, FormattingStyle, AnalysisDepth,
+                     ContextEnrichmentLevel, ScheduleType, ProgressDepth
 - curriculum_enums: LpType, StepDifficulty
 - lifepath_enums: ThemeCategory
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
@@ -141,6 +141,7 @@ from .scheduling_enums import (
 from .submissions_enums import (
     AnalysisDepth,
     ContextEnrichmentLevel,
+    EnrichmentMode,
     ExerciseScope,
     FormattingStyle,
     ProgressDepth,
@@ -180,6 +181,7 @@ __all__ = [
     "DomainIdentifier",
     "EducationalLevel",
     "FeedbackCategory",
+    "EnrichmentMode",
     "EngagementLevel",
     "EnergyLevel",
     "EntityStatus",

@@ -218,14 +218,14 @@ class JournalInputService:
     async def list_je_inputs(
         self,
         user_uid: UserUID,
-        status: str | None = None,
+        status: EntityStatus | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> Result[list[JeInput]]:
         """List journal entry inputs for a user."""
         filters: dict[str, Any] | None = None
         if status:
-            filters = {"status": status}
+            filters = {"status": status.value}
 
         result = await self.backend.get_user_entities(
             user_uid=user_uid,

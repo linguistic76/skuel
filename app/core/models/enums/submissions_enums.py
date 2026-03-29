@@ -60,6 +60,19 @@ class ContextEnrichmentLevel(StrEnum):
     DEEP = "deep"
 
 
+class EnrichmentMode(StrEnum):
+    """Processing strategy for journal LLM enrichment.
+
+    ACTIVITY_TRACKING: Extract and structure daily activities (default)
+    IDEA_ARTICULATION: Develop and refine ideas from raw thoughts
+    CRITICAL_THINKING: Explore topics with analytical depth
+    """
+
+    ACTIVITY_TRACKING = "activity_tracking"
+    IDEA_ARTICULATION = "idea_articulation"
+    CRITICAL_THINKING = "critical_thinking"
+
+
 class ScheduleType(StrEnum):
     """Frequency of progress report generation."""
 
