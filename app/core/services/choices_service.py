@@ -56,6 +56,7 @@ if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
     from core.ports.search_protocols import ChoicesSearchOperations
+    from core.services.choices.choices_ai_service import ChoicesAIService
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.choices.choices_types import ChoiceImpactAnalysis, DecisionIntelligence
     from core.services.user import UserContext
@@ -335,6 +336,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         event_bus: EventBusOperations | None = None,
         insight_store: Any = None,
         activity_knowledge_intelligence: Any = None,
+        ai_service: ChoicesAIService | None = None,
     ) -> None:
         """
         Initialize enhanced choices service with specialized sub-services.
@@ -357,7 +359,8 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
 
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
-        # AI service shelved (2026-03-28)
+        # Optional AI service (ADR-030: AI features are optional)
+        self.ai: ChoicesAIService | None = ai_service
         self.logger = get_logger("skuel.services.choices")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Initialize 4 common sub-services via factory (eliminates ~30 lines of repetitive code)

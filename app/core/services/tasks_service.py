@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import KnowledgePrerequisitesResult
     from core.ports.search_protocols import TasksSearchOperations
     from core.services.insight.insight_store import InsightStore
+    from core.services.tasks.tasks_ai_service import TasksAIService
 
 # Domain models
 from core.models.enums import EntityStatus
@@ -272,7 +273,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     planning: TasksPlanningService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
-    # AI service shelved (2026-03-28)
+    ai: "TasksAIService | None"
     # TasksProductivityService shelved (2026-03-28)
     learning_metrics: TasksLearningMetricsService
     event_handler: TaskEventHandlerService
@@ -287,6 +288,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         event_bus=None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: Any = None,
+        ai_service: "TasksAIService | None" = None,
     ) -> None:
         """
         Initialize enhanced tasks service with specialized sub-services.
@@ -302,7 +304,8 @@ class TasksService(BaseService["TasksOperations", Task]):
         """
         super().__init__(backend, "tasks")
 
-        # AI service shelved (2026-03-28)
+        # Optional AI service (ADR-030: AI features are optional)
+        self.ai: TasksAIService | None = ai_service
 
         self.logger = get_logger("skuel.services.tasks")  # type: ignore[assignment]  # structlog BoundLogger
 

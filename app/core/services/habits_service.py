@@ -69,6 +69,7 @@ if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.context_types import ContextualDependencies, ContextualHabit
     from core.models.graph_context import GraphContext
+    from core.services.habits.habits_ai_service import HabitsAIService
     from core.models.habit.habit_request import (
         ArchiveHabitRequest,
         DeleteHabitReminderRequest,
@@ -486,6 +487,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         event_bus: EventBusOperations | None = None,
         insight_store: Any = None,
         activity_knowledge_intelligence: Any = None,
+        ai_service: HabitsAIService | None = None,
     ) -> None:
         """
         Initialize enhanced habits service with specialized sub-services.
@@ -510,7 +512,8 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         """
         super().__init__(backend, "habits")
 
-        # AI service shelved (2026-03-28)
+        # Optional AI service (ADR-030: AI features are optional)
+        self.ai: HabitsAIService | None = ai_service
 
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus

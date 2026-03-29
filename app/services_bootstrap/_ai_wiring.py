@@ -24,13 +24,33 @@ def _wire_ai_services(
         return None, None
 
     from core.services.askesis_ai_service import AskesisAIService
+    from core.services.choices.choices_ai_service import ChoicesAIService
     from core.services.context_aware_ai_service import ContextAwareAIService
+    from core.services.events.events_ai_service import EventsAIService
+    from core.services.goals.goals_ai_service import GoalsAIService
+    from core.services.habits.habits_ai_service import HabitsAIService
     from core.services.lesson.lesson_ai_service import LessonAIService
     from core.services.lp.lp_ai_service import LpAIService
     from core.services.ls.ls_ai_service import LsAIService
+    from core.services.principles.principles_ai_service import PrinciplesAIService
+    from core.services.tasks.tasks_ai_service import TasksAIService
 
-    # Activity Domain AI services shelved (2026-03-28)
-    # See _shelved/activity_ui/services/
+    # Create AI services for Activity Domains (6)
+    for domain_key in ("tasks", "events", "habits", "goals", "choices", "principles"):
+        ai_cls = {
+            "tasks": TasksAIService,
+            "events": EventsAIService,
+            "habits": HabitsAIService,
+            "goals": GoalsAIService,
+            "choices": ChoicesAIService,
+            "principles": PrinciplesAIService,
+        }[domain_key]
+        facade = _activity_services[domain_key]
+        facade.ai = ai_cls(
+            backend=facade.core.backend,
+            llm_service=llm_service,
+            embeddings_service=embeddings_service,
+        )
 
     # Create AI services for Curriculum Domains (3)
     ku_ai = LessonAIService(
@@ -67,5 +87,5 @@ def _wire_ai_services(
         graph_intelligence_service=graph_intelligence,
     )
 
-    logger.info("✅ AI services created and wired (5 services: 3 Curriculum + 2 cross-cutting)")
+    logger.info("✅ AI services created and wired (11 services: 6 Activity + 3 Curriculum + 2 cross-cutting)")
     return askesis_ai, context_aware_ai

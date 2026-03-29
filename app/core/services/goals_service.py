@@ -61,6 +61,7 @@ if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.enums import Domain
     from core.models.goal.goal_request import GoalCreateRequest
+    from core.services.goals.goals_ai_service import GoalsAIService
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -455,6 +456,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         event_bus: EventBusOperations | None = None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: Any = None,
+        ai_service: GoalsAIService | None = None,
     ) -> None:
         """
         Initialize enhanced goals service with specialized sub-services.
@@ -474,7 +476,8 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
         """
         super().__init__(backend, "goals")
 
-        # AI service shelved (2026-03-28)
+        # Optional AI service (ADR-030: AI features are optional)
+        self.ai: GoalsAIService | None = ai_service
 
         self.graph_intel = graph_intelligence_service
         self.logger = get_logger("skuel.services.goals")  # type: ignore[assignment]  # structlog BoundLogger

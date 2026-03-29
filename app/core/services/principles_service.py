@@ -64,6 +64,7 @@ if TYPE_CHECKING:
     from core.services.principles.principles_event_handler_service import (
         PrincipleEventHandlerService,
     )
+    from core.services.principles.principles_ai_service import PrinciplesAIService
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )
@@ -392,6 +393,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         event_bus: Any = None,
         insight_store: Any = None,
         activity_knowledge_intelligence: Any = None,
+        ai_service: PrinciplesAIService | None = None,
     ) -> None:
         """
         Initialize enhanced principles service with specialized sub-services.
@@ -416,7 +418,8 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
-        # AI service shelved (2026-03-28)
+        # Optional AI service (ADR-030: AI features are optional)
+        self.ai: PrinciplesAIService | None = ai_service
         self.logger = get_logger("skuel.services.principles")  # type: ignore[assignment]  # structlog BoundLogger
         self.alignment_cache: dict[str, AlignmentAssessment] = {}
 

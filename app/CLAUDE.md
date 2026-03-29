@@ -153,7 +153,7 @@ Entity types have behavioral traits — not category membership — that determi
 
 ### Entity Type Groups
 
-- **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation. **CRUD UI shelved (2026-03-28):** Activity Domain dedicated dashboards, AI sub-services, and some analytics sub-services are shelved. CRUD APIs remain active; activity data is viewed via ActivityReport at `/activity-reports`.
+- **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence`, `.ai` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation. **CRUD UI shelved (2026-03-28):** Activity Domain dedicated dashboards and some analytics sub-services are shelved. CRUD APIs remain active; activity data is viewed via ActivityReport at `/activity-reports`. AI sub-services restored (2026-03-29).
 - **Curriculum (5):** Lesson, Ku, LearningStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
 - **Submissions/Reports (3):** ExerciseSubmission, ExerciseReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
 - **Journal (2):** JeInput, JeOutput — standalone journal domain. `JeInput(UserOwnedEntity)`, `JeOutput(UserOwnedEntity)`. Relationship: `(JeOutput)-[:TRANSFORMS]->(JeInput)`. Pipeline: JE_INPUT(audio) -> Deepgram -> JE_INPUT(text) -> LLM -> JE_OUTPUT. Models in `core/models/journal/`, services in `core/services/journal/` (`JournalInputService` — CRUD + file upload, `JournalOutputService` — LLM processing).
@@ -603,7 +603,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **7 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, UserProgress, Context.
 
-**6 Activity Domains:** Tasks, Goals, Habits, Events, Choices, Principles. All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()`. **Shelved (2026-03-28):** AI sub-services and some analytics sub-services are shelved; remaining active sub-services are `.core` and `.search`. **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) provides domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) for all 6 domains — wired into every facade via `self.knowledge_intelligence`.
+**6 Activity Domains:** Tasks, Goals, Habits, Events, Choices, Principles. All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()`. Active sub-services: `.core`, `.search`, `.ai` (optional, FULL tier). Some analytics sub-services shelved (2026-03-28). **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) provides domain-agnostic knowledge intelligence (suggestions, prerequisites, learning opportunities) for all 6 domains — wired into every facade via `self.knowledge_intelligence`.
 
 **Essential Docs:** `/docs/guides/BASESERVICE_QUICK_START.md`, `/docs/reference/SUB_SERVICE_CATALOG.md`, `/docs/reference/BASESERVICE_METHOD_INDEX.md`, `/docs/architecture/SERVICE_TOPOLOGY.md`
 
@@ -762,7 +762,7 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
 | Analytics | `BaseAnalyticsService` | Graph + Python (NO AI) |
 | AI | `BaseAIService` | LLM + Embeddings (optional) |
 
-**Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default, everything + AI). **Note:** Activity Domain AI sub-services (e.g., TasksAIService) are shelved (2026-03-28); intelligence focus is on curriculum and learning loop.
+**Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default, everything + AI). All 6 Activity Domain facades + 3 Curriculum facades have `.ai` (optional, `None` when `INTELLIGENCE_TIER=core`).
 
 **UserContextIntelligence (Central Hub):** `get_ready_to_work_on_today()`, `get_optimal_next_learning_steps()`, `calculate_life_path_alignment()`, `get_schedule_aware_recommendations()`
 

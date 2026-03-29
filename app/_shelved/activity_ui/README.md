@@ -59,15 +59,12 @@ Activity Domain CRUD UI for 6 domains: Tasks, Goals, Habits, Events, Choices, Pr
 4. Check that service facades still expose the methods these routes call
 5. Run `./dev quality` and `uv run pytest` to verify
 
-### services/ (sub-services only needed by UI)
+### services/ (analytics sub-services only needed by UI)
+
+**AI services restored (2026-03-29):** 6 AI services (`*_ai_service.py`) moved back to their original locations — AI intelligence is a capability layer, not UI.
+
 | File | Original location | Purpose |
 |------|-------------------|---------|
-| `tasks_ai_service.py` | `core/services/tasks/` | LLM-enriched task descriptions |
-| `goals_ai_service.py` | `core/services/goals/` | LLM-enriched goal descriptions |
-| `habits_ai_service.py` | `core/services/habits/` | LLM-enriched habit descriptions |
-| `events_ai_service.py` | `core/services/events/` | LLM-enriched event descriptions |
-| `choices_ai_service.py` | `core/services/choices/` | LLM-enriched choice descriptions |
-| `principles_ai_service.py` | `core/services/principles/` | LLM-enriched principle descriptions |
 | `tasks_productivity_service.py` | `core/services/tasks/` | Productivity analytics |
 | `habits_goal_analytics_service.py` | `core/services/habits/` | Habit-goal cross-analytics |
 | `principles_reflection_service.py` | `core/services/principles/` | Reflection system |
@@ -95,5 +92,5 @@ Orphaned code left behind after the initial shelving — zero active imports.
 - Route factories: `DashboardUIFactory`, `QuickAddRouteFactory` (in `adapters/inbound/route_factories/`)
 - `create_activity_domain_route_config()` in route wiring files
 - `ACTIVITY_SIDEBAR_ITEMS` in `ui/activities/sidebar.py`
-- AI services: re-add to `services_bootstrap/_ai_wiring.py` and facade `__init__` methods
+- AI services: ✅ Restored (2026-03-29) — wired in `_ai_wiring.py`, `.ai` field on all 6 facades
 - Analytics services: re-add to facade constructors and `services_bootstrap/compose.py`
