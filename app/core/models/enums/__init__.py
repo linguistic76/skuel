@@ -17,7 +17,7 @@ Module Organization:
 - curriculum_enums: LpType, StepDifficulty
 - lifepath_enums: ThemeCategory
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
-- learning_enums: LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus, etc.
+- learning_enums: MasteryImpact, LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus, etc.
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
 - ku_enums: KuCategory
 - askesis_enums: QueryComplexity, IntegrationSuccess
@@ -86,6 +86,7 @@ from .learning_enums import (
     KnowledgeType,
     KuComplexity,
     LearningLevel,
+    MasteryImpact,
     MasteryStatus,
     PracticeLevel,
     SELCategory,
@@ -206,6 +207,7 @@ __all__ = [
     "LearningLevel",
     "LearningModality",
     "LpType",
+    "MasteryImpact",
     "MasteryStatus",
     "MeasurementType",
     "MessageRole",

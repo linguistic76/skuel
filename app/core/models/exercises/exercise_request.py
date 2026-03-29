@@ -15,6 +15,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from core.models.enums.learning_enums import MasteryImpact
 from core.models.enums.submissions_enums import ExerciseScope
 from core.models.type_hints import UserUID
 
@@ -70,6 +71,11 @@ class ExerciseCreateRequest(BaseModel):
     form_schema: list[dict[str, Any]] | None = Field(
         default=None,
         description="Inline form definition: list of field specs with name, type, label",
+    )
+
+    mastery_impact: MasteryImpact | None = Field(
+        default=None,
+        description="How aggressively completing this exercise advances mastery (minor, moderate, major, certification)",
     )
 
     @field_validator("form_schema")
@@ -128,6 +134,11 @@ class ExerciseUpdateRequest(BaseModel):
     form_schema: list[dict[str, Any]] | None = Field(
         default=None,
         description="Inline form definition (replaces existing). Pass empty list to clear.",
+    )
+
+    mastery_impact: MasteryImpact | None = Field(
+        default=None,
+        description="How aggressively completing this exercise advances mastery",
     )
 
     @field_validator("form_schema")

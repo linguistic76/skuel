@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.enums.learning_enums import AssessmentOutcome
+from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
 from core.models.report.exercise_report import ExerciseReport
@@ -270,8 +270,8 @@ class ExerciseReportService:
 
             # Close the mastery loop: update MASTERED relationships on any Ku nodes
             # linked to the submission via APPLIES_KNOWLEDGE. Mirrors approve_report()
-            # in TeacherReviewService but uses score=0.6 (AI-validated, not teacher-approved).
-            await self._update_mastery_for_linked_ku(submission, user_uid)
+            # in TeacherReviewService but uses the AI score from the exercise's MasteryImpact.
+            await self._update_mastery_for_linked_ku(submission, user_uid, exercise.mastery_impact)
 
             return Result.ok(feedback_entity)
 
@@ -288,6 +288,7 @@ class ExerciseReportService:
         self,
         submission: Submission,
         user_uid: UserUID,
+        mastery_impact: MasteryImpact = MasteryImpact.MODERATE,
     ) -> None:
         """
         Update MASTERED relationships on Ku nodes linked to the submission.
@@ -295,9 +296,10 @@ class ExerciseReportService:
         Queries APPLIES_KNOWLEDGE from the submission to find which Ku nodes
         the student demonstrated knowledge of, then calls mark_mastered() on each.
 
-        Uses mastery_score=0.6 (AI-validated applied knowledge). Teacher approval
-        via approve_report() uses 0.8. The MASTERED Cypher uses CASE WHEN new >
-        existing, so teacher approval later will correctly upgrade 0.6 → 0.8.
+        The mastery score comes from the Exercise's MasteryImpact enum via
+        get_ai_score(). Teacher approval via approve_report() uses the higher
+        get_teacher_score(). The MASTERED Cypher uses CASE WHEN new > existing,
+        so teacher approval later will correctly upgrade the AI score.
 
         This closes the mastery loop for PERSONAL scope exercises where there
         is no teacher approval step. For ASSIGNED scope exercises, both this
@@ -326,10 +328,11 @@ class ExerciseReportService:
             if not ku_uid:
                 continue
 
+            ai_score = mastery_impact.get_ai_score()
             mastery_result = await self.ku_interaction_service.mark_mastered(
                 user_uid=student_uid,
                 ku_uid=ku_uid,
-                mastery_score=0.6,
+                mastery_score=ai_score,
                 method="activity_report",
             )
             if mastery_result.is_error:
@@ -338,7 +341,8 @@ class ExerciseReportService:
                 )
             else:
                 self.logger.info(
-                    f"Mastery updated via AI report: {student_uid} -> {ku_uid} (score=0.6)"
+                    f"Mastery updated via AI report: {student_uid} -> {ku_uid} "
+                    f"(score={ai_score}, impact={mastery_impact.value})"
                 )
 
     def _build_transient_report(

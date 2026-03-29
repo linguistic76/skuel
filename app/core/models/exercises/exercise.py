@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.learning_enums import MasteryImpact
 from core.models.enums.submissions_enums import ExerciseScope, SubmissionModality
 
 if TYPE_CHECKING:
@@ -64,7 +65,7 @@ class Exercise(Curriculum):
     - User controls the model
     - ExerciseReport = instructions + entry content -> LLM -> response
 
-    Exercise-specific fields (9):
+    Exercise-specific fields (10):
     - instructions: LLM prompt for processing
     - model: Which LLM to use
     - scope: ExerciseScope.PERSONAL (user's own template) or ASSIGNED (teacher → group)
@@ -74,6 +75,7 @@ class Exercise(Curriculum):
     - context_notes: Reference materials
     - form_schema: Optional inline form definition for structured submissions
     - expected_modality: What submission format this exercise expects (FILE_UPLOAD or STRUCTURED_FORM)
+    - mastery_impact: How aggressively completing this exercise advances mastery (MINOR → CERTIFICATION)
     """
 
     def __post_init__(self) -> None:
@@ -97,7 +99,7 @@ class Exercise(Curriculum):
             object.__setattr__(self, "expected_modality", derived)
 
     # =========================================================================
-    # EXERCISE-SPECIFIC FIELDS (9)
+    # EXERCISE-SPECIFIC FIELDS (10)
     # =========================================================================
     instructions: str | None = None  # LLM prompt for processing
     model: str = "claude-sonnet-4-6"  # Which LLM to use
@@ -108,6 +110,7 @@ class Exercise(Curriculum):
     context_notes: tuple[str, ...] = ()  # Reference materials (tuple, not list — frozen)
     form_schema: tuple[dict[str, Any], ...] | None = None  # Inline form definition
     expected_modality: SubmissionModality | None = None  # Auto-derived in __post_init__
+    mastery_impact: MasteryImpact = MasteryImpact.MODERATE  # How much mastery this exercise carries
 
     # =========================================================================
     # EXERCISE-SPECIFIC METHODS

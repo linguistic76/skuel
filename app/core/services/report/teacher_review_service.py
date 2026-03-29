@@ -27,7 +27,7 @@ from core.events.submission_events import (
     SubmissionRevisionRequested,
 )
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
-from core.models.enums.learning_enums import AssessmentOutcome
+from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
     ReportApprovalResult,
@@ -378,6 +378,14 @@ class TeacherReviewService:
             [str(uid) for uid in raw_ku_uids if uid] if isinstance(raw_ku_uids, list) else []
         )
 
+        # Resolve MasteryImpact from the linked Exercise (default MODERATE for backward compat)
+        raw_impact = record.get("mastery_impact")
+        try:
+            impact = MasteryImpact(raw_impact) if raw_impact else MasteryImpact.MODERATE
+        except ValueError:
+            impact = MasteryImpact.MODERATE
+        teacher_score = impact.get_teacher_score()
+
         # Update mastery for linked curriculum entities
         mastered_count = 0
         if self.ku_interaction_service and student_uid and linked_ku_uids:
@@ -385,7 +393,7 @@ class TeacherReviewService:
                 mastery_result = await self.ku_interaction_service.mark_mastered(
                     user_uid=student_uid,
                     ku_uid=linked_uid,
-                    mastery_score=0.8,
+                    mastery_score=teacher_score,
                     method="ku_approval",
                 )
                 if mastery_result.is_ok:

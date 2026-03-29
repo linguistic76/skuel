@@ -1746,6 +1746,9 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         Cypher-level guard ensures the submission's current status is in
         ``allowed_from_statuses`` before mutating.  Returns empty results
         when the guard rejects the transition.
+
+        Also traverses FULFILLS_EXERCISE to return the exercise's mastery_impact
+        so TeacherReviewService can use MasteryImpact.get_teacher_score().
         """
         query = f"""
         MATCH (ku:Entity {{uid: $report_uid}})
@@ -1755,10 +1758,12 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         WITH ku
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(curriculum:Entity:Ku)
+        OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise:Entity)
         RETURN ku.uid as uid,
                ku.status as status,
                student.uid as student_uid,
-               collect(curriculum.uid) as linked_ku_uids
+               collect(curriculum.uid) as linked_ku_uids,
+               exercise.mastery_impact as mastery_impact
         """
         return await self.execute_query(
             query,

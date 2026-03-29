@@ -12,6 +12,72 @@ if TYPE_CHECKING:
     from .entity_enums import EntityStatus
 
 
+class MasteryImpact(StrEnum):
+    """
+    Impact on student mastery progression when completing an Exercise.
+
+    Controls how aggressively LessonMasteryService advances a user's
+    MasteryLevel upon learning loop completion. Each Exercise declares its
+    impact — a vocabulary quiz (MINOR) advances mastery less than a capstone
+    project (CERTIFICATION).
+
+    Two score methods reflect the two mastery paths:
+    - get_ai_score(): Used when AI evaluates submission (no teacher review)
+    - get_teacher_score(): Used when a teacher approves submission
+
+    Values:
+        MINOR: Quick check, vocabulary drill — small score bump
+        MODERATE: Standard exercise — current default behavior
+        MAJOR: Deep application exercise — significant advancement
+        CERTIFICATION: Capstone / certification — highest confidence mastery
+    """
+
+    MINOR = "minor"
+    MODERATE = "moderate"
+    MAJOR = "major"
+    CERTIFICATION = "certification"
+
+    def get_ai_score(self) -> float:
+        """Mastery score when AI evaluates the submission (no teacher review)."""
+        scores = {
+            MasteryImpact.MINOR: 0.4,
+            MasteryImpact.MODERATE: 0.6,
+            MasteryImpact.MAJOR: 0.7,
+            MasteryImpact.CERTIFICATION: 0.8,
+        }
+        return scores.get(self, 0.6)
+
+    def get_teacher_score(self) -> float:
+        """Mastery score when a teacher approves the submission."""
+        scores = {
+            MasteryImpact.MINOR: 0.6,
+            MasteryImpact.MODERATE: 0.8,
+            MasteryImpact.MAJOR: 0.85,
+            MasteryImpact.CERTIFICATION: 0.95,
+        }
+        return scores.get(self, 0.8)
+
+    def get_label(self) -> str:
+        """Human-readable label for UI display."""
+        labels = {
+            MasteryImpact.MINOR: "Minor",
+            MasteryImpact.MODERATE: "Moderate",
+            MasteryImpact.MAJOR: "Major",
+            MasteryImpact.CERTIFICATION: "Certification",
+        }
+        return labels.get(self, self.value.title())
+
+    def get_description(self) -> str:
+        """Description for tooltips and help text."""
+        descriptions = {
+            MasteryImpact.MINOR: "Quick check or vocabulary drill — small mastery bump",
+            MasteryImpact.MODERATE: "Standard exercise — typical mastery advancement",
+            MasteryImpact.MAJOR: "Deep application exercise — significant mastery gain",
+            MasteryImpact.CERTIFICATION: "Capstone or certification — highest mastery confidence",
+        }
+        return descriptions.get(self, "")
+
+
 class AssessmentOutcome(StrEnum):
     """
     Outcome of an ExerciseReport assessment.
@@ -20,9 +86,9 @@ class AssessmentOutcome(StrEnum):
     what decision was made, not just the feedback text.
 
     Values:
-        APPROVED: Teacher approved the submission (mastery 0.8)
+        APPROVED: Teacher approved the submission (mastery via MasteryImpact.get_teacher_score())
         NEEDS_REVISION: Teacher requested revision (submission → REVISION_REQUESTED)
-        AI_EVALUATED: LLM-generated feedback (mastery 0.6, awaiting teacher review)
+        AI_EVALUATED: LLM-generated feedback (mastery via MasteryImpact.get_ai_score(), awaiting teacher review)
     """
 
     APPROVED = "approved"

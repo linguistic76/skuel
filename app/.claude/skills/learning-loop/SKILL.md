@@ -62,6 +62,13 @@ practice (Tasks, Goals, Habits) receives the same feedback infrastructure as cur
 work. The mechanism differs (`ACTIVITY_REPORT` vs `EXERCISE_REPORT`), but both
 close the loop: student does work, system or teacher responds.
 
+**Mastery impact scoring:** Each Exercise declares a `mastery_impact: MasteryImpact`
+field (MINOR, MODERATE, MAJOR, CERTIFICATION) that controls how aggressively
+completing it advances the student's mastery. Two score methods:
+`get_ai_score()` (0.4–0.8) for AI-evaluated submissions, `get_teacher_score()`
+(0.6–0.95) for teacher-approved submissions. Default is MODERATE (AI=0.6,
+Teacher=0.8). See: `core/models/enums/learning_enums.py`.
+
 **Learning progress event chain:** When `mark_mastered()` is called on a KU, the
 system automatically propagates progress upward: KU mastery → Lesson completion →
 LS progress → LP progress. See

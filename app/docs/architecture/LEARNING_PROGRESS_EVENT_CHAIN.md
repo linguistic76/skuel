@@ -157,13 +157,16 @@ If any handler fails:
 
 ## Two Callers of mark_mastered()
 
-| Caller | Score | Method | Context |
-|--------|-------|--------|---------|
-| `TeacherReviewService.approve_report()` | 0.8 | `"ku_approval"` | Teacher approves a submission report — highest confidence |
-| `ExerciseReportService._update_mastery_for_linked_ku()` | 0.6 | `"activity_report"` | PERSONAL scope exercises with no teacher step |
+| Caller | Score Source | Method | Context |
+|--------|-------------|--------|---------|
+| `TeacherReviewService.approve_report()` | `MasteryImpact.get_teacher_score()` (0.6–0.95) | `"ku_approval"` | Teacher approves a submission report — highest confidence |
+| `ExerciseReportService._update_mastery_for_linked_ku()` | `MasteryImpact.get_ai_score()` (0.4–0.8) | `"activity_report"` | PERSONAL scope exercises with no teacher step |
 
-Both trigger the full event chain. Higher scores always win (Cypher uses
-`CASE WHEN new > existing`), so teacher approval upgrades an earlier AI score.
+Scores are determined by the Exercise's `mastery_impact` field (`MasteryImpact` enum):
+MINOR (AI=0.4/Teacher=0.6), MODERATE (0.6/0.8, default), MAJOR (0.7/0.85),
+CERTIFICATION (0.8/0.95). Both trigger the full event chain. Higher scores always
+win (Cypher uses `CASE WHEN new > existing`), so teacher approval upgrades an
+earlier AI score.
 
 ---
 

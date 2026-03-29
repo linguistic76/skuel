@@ -295,7 +295,7 @@ class LessonMasteryService:
         self,
         user_uid: UserUID,
         ku_uid: str,
-        mastery_score: float = 0.8,
+        mastery_score: float,
         method: str = "report_approval",
     ) -> Result[bool]:
         """
@@ -303,11 +303,13 @@ class LessonMasteryService:
 
         Creates or updates a MASTERED relationship. The Cypher uses
         CASE WHEN new > existing so higher scores always win — teacher
-        approval at 0.8 will upgrade an AI feedback score of 0.6.
+        approval scores will upgrade AI feedback scores for the same exercise.
 
-        Two callers in the educational loop:
-        - TeacherReviewService.approve_report(): score=0.8, method="ku_approval"
-        - ExerciseReportService._update_mastery_for_linked_ku(): score=0.6, method="activity_report"
+        The mastery_score is determined by MasteryImpact on the Exercise:
+        - ExerciseReportService uses MasteryImpact.get_ai_score() (0.4-0.8)
+        - TeacherReviewService uses MasteryImpact.get_teacher_score() (0.6-0.95)
+
+        See: core/models/enums/learning_enums.py - MasteryImpact
         """
         if not self.backend:
             return Result.fail(Errors.system("Backend required", service="LessonMasteryService"))
