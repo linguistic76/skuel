@@ -102,6 +102,7 @@ if TYPE_CHECKING:
     from core.models.zpd.zpd_assessment import ZPDAssessment
     from core.ports.query_types import (
         CrossDomainInsightsData,
+        CurrentLessonItem,
         FacetInteractionItem,
         PendingRevisedExerciseItem,
         RichEntityItem,
@@ -257,6 +258,9 @@ class UserContext:
     mastered_knowledge_uids: set[str] = field(default_factory=set)
     in_progress_knowledge_uids: set[str] = field(default_factory=set)
     current_lesson_uids: set[str] = field(default_factory=set)  # Lessons using in-progress KUs
+    current_lessons: list[CurrentLessonItem] = field(
+        default_factory=list
+    )  # Up to 20: {uid, title}, lessons for in-progress KUs
 
     # KU interaction tracking (Phase B)
     ku_view_counts: dict[str, int] = field(default_factory=dict)  # uid -> total view count

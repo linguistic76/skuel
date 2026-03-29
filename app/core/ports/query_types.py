@@ -1854,6 +1854,13 @@ class PrivacySummary(TypedDict, total=False):
 # ============================================================================
 
 
+class CurrentLessonItem(TypedDict):
+    """Shape for UserContext.current_lessons items."""
+
+    uid: str
+    title: str
+
+
 class UnsubmittedExerciseItem(TypedDict):
     """Shape for UserContext.unsubmitted_exercises items."""
 

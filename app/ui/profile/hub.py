@@ -1,92 +1,311 @@
-"""Profile hub page — THE main hub, grouped card grid (MOC pattern).
+"""Profile hub page — live actionable hub for learning state.
 
-The /profile page is the top-level entry point. Cards link to domain
-pages organized by the learning loop: Knowledge (Ku, Lessons, Exercises),
-Transfer (submissions), Reports, and Nous.
+The /profile page shows the user's active learning state: Kus they're
+interacting with, lessons being studied, exercises with Submit buttons,
+and recent reports. /transfer remains the full submission archive.
 
 See: /docs/patterns/HUB_PAGE_PATTERN.md
 """
 
-from fasthtml.common import Div, P, Span
+from __future__ import annotations
+
+from typing import Any
+
+from fasthtml.common import A, Div, Span
 
 from core.services.user.unified_user_context import UserContext
-from ui.patterns.hub import HubCardData, HubSection
+from ui.patterns.empty_state import EmptyState
 
 
 def ProfileHubView(context: UserContext) -> Div:
-    """Profile hub — Focus/Velocity header + grouped card grid."""
+    """Profile hub — live learning state with actionable sections."""
     return Div(
         _personal_header(context),
-        HubSection("Knowledge +", _knowledge_cards(context)),
-        HubSection("Transfer", _transfer_cards(context)),
-        HubSection("Reports", _reports_cards(context)),
-        _nous_section(),
+        _knowledge_section(context),
+        _lessons_section(context),
+        _exercises_section(context),
+        _reports_section(),
         _settings_link(),
     )
 
 
 # ---------------------------------------------------------------------------
-# Card definitions — context-driven with optional badges
+# Section header helper
 # ---------------------------------------------------------------------------
 
 
-def _knowledge_cards(context: UserContext) -> list[HubCardData]:
-    return [
-        HubCardData(
-            "\U0001f4d6",
-            "Knowledge",
-            "/ku",
-            "Atomic knowledge units \u2014 concepts, facts, vocabulary.",
-            badge=len(context.ku_bookmarked_uids) or None,
-        ),
-        HubCardData(
-            "\U0001f4da",
-            "Lessons",
-            "/lessons",
-            "Learning content that composes atomic knowledge.",
-        ),
-        HubCardData(
-            "\U0001f3cb\ufe0f",
-            "Exercises",
-            "/exercises",
-            "Practice linked to lessons and knowledge units.",
-            badge=context.assigned_exercise_count or None,
+def _section_header(title: str, view_all_href: str, count: int = 0) -> Div:
+    """Section title with optional count badge and 'View all' link."""
+    parts: list[Any] = [
+        Span(
+            title,
+            cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground",
         ),
     ]
-
-
-def _transfer_cards(context: UserContext) -> list[HubCardData]:
-    return [
-        HubCardData(
-            "\u21c4",
-            "Transfer",
-            "/transfer",
-            "Submit work and receive reports.",
-            badge=context.total_submission_count or None,
-        ),
-    ]
-
-
-def _reports_cards(context: UserContext) -> list[HubCardData]:
-    return [
-        HubCardData(
-            "\U0001f4cb",
-            "Exercise Reports",
-            "/exercise-reports",
-            "Teacher and AI feedback on submissions.",
-            badge=context.pending_feedback_count or None,
-        ),
-        HubCardData(
-            "\U0001f4ca",
-            "Activity Reports",
-            "/activity-reports",
-            "Progress reports across domains.",
-        ),
-    ]
+    if count > 0:
+        parts.append(
+            Span(
+                str(count),
+                cls="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full",
+            )
+        )
+    parts.append(
+        A(
+            "View all",
+            href=view_all_href,
+            cls="ml-auto text-xs text-muted-foreground hover:text-primary",
+        )
+    )
+    return Div(*parts, cls="flex items-center gap-2 mb-3")
 
 
 # ---------------------------------------------------------------------------
-# Personal header — Focus + Velocity
+# Compact row helper
+# ---------------------------------------------------------------------------
+
+
+def _compact_row(
+    title: str,
+    href: str,
+    badges: list[Any] | None = None,
+    action: Any | None = None,
+) -> Div:
+    """Compact row: clickable title + optional badges + optional action."""
+    left = A(
+        title,
+        href=href,
+        cls="text-sm font-medium text-foreground hover:text-primary truncate",
+    )
+    badge_items = badges or []
+    parts: list[Any] = [left, *badge_items]
+    if action is not None:
+        parts.append(action)
+    return Div(
+        *parts,
+        cls="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Knowledge section — bookmarked + recently viewed Kus
+# ---------------------------------------------------------------------------
+
+
+def _knowledge_section(context: UserContext) -> Div:
+    """Kus the user is interacting with — bookmarked and recently viewed."""
+    # Merge bookmarked + recently viewed, preserving order (bookmarked first)
+    seen: set[str] = set()
+    ku_uids: list[str] = []
+    for uid in context.ku_bookmarked_uids:
+        if uid not in seen:
+            ku_uids.append(uid)
+            seen.add(uid)
+    for uid in context.recently_viewed_ku_uids:
+        if uid not in seen:
+            ku_uids.append(uid)
+            seen.add(uid)
+
+    # Look up in knowledge_units_rich for titles and metadata
+    rows: list[Div] = []
+    for uid in ku_uids[:10]:
+        rich = context.knowledge_units_rich.get(uid)
+        if rich:
+            ku_data = rich.get("ku", {})
+            title = ku_data.get("title", uid)
+            namespace = ku_data.get("namespace", "")
+        else:
+            title = uid
+            namespace = ""
+
+        badges: list[Any] = []
+        if uid in context.ku_bookmarked_uids:
+            badges.append(
+                Span(
+                    "pinned",
+                    cls="text-[10px] font-medium bg-amber-500/10 text-amber-600 px-1.5 py-0.5 rounded",
+                )
+            )
+        if namespace:
+            badges.append(
+                Span(
+                    namespace,
+                    cls="text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded",
+                )
+            )
+        mastery = context.knowledge_mastery.get(uid)
+        if mastery is not None and mastery > 0:
+            badges.append(
+                Span(
+                    f"{mastery:.0%}",
+                    cls="text-[10px] font-medium bg-success/10 text-success px-1.5 py-0.5 rounded",
+                )
+            )
+
+        rows.append(_compact_row(title, f"/ku/read?uid={uid}", badges))
+
+    content: Div
+    if rows:
+        content = Div(*rows)
+    else:
+        content = EmptyState(
+            "No knowledge units yet",
+            description="Browse and bookmark Kus to see them here.",
+            action_text="Explore Knowledge",
+            action_href="/ku",
+            cls="py-6",
+        )
+
+    return Div(
+        _section_header("Knowledge", "/ku", len(ku_uids)),
+        content,
+        cls="mb-6",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Lessons section — currently studying
+# ---------------------------------------------------------------------------
+
+
+def _lessons_section(context: UserContext) -> Div:
+    """Lessons the user is actively studying (via in-progress KUs)."""
+    rows: list[Div] = []
+    for lesson in context.current_lessons:
+        rows.append(
+            _compact_row(
+                lesson["title"],
+                f"/lessons/read?uid={lesson['uid']}",
+            )
+        )
+
+    content: Div
+    if rows:
+        content = Div(*rows)
+    else:
+        content = EmptyState(
+            "No active lessons",
+            description="Lessons appear here when you start learning their knowledge units.",
+            action_text="Browse Lessons",
+            action_href="/lessons",
+            cls="py-6",
+        )
+
+    return Div(
+        _section_header("Lessons", "/lessons", len(rows)),
+        content,
+        cls="mb-6",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Exercises section — assigned work with Submit buttons
+# ---------------------------------------------------------------------------
+
+
+def _exercises_section(context: UserContext) -> Div:
+    """Assigned exercises with inline Submit action."""
+    rows: list[Div] = []
+
+    # Unsubmitted exercises — primary actionable items
+    for ex in context.unsubmitted_exercises:
+        badges: list[Any] = []
+        if ex.get("due_date"):
+            badges.append(
+                Span(
+                    f"Due {ex['due_date']}",
+                    cls="text-[10px] font-medium bg-warning/10 text-warning px-1.5 py-0.5 rounded",
+                )
+            )
+        submit_btn = A(
+            "Submit",
+            href=f"/submit?exercise_uid={ex['uid']}",
+            cls="text-xs font-medium bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 whitespace-nowrap",
+        )
+        rows.append(
+            _compact_row(ex["title"], f"/exercises/read?uid={ex['uid']}", badges, submit_btn)
+        )
+
+    # Pending revised exercises — revision requests
+    for rev in context.pending_revised_exercises:
+        badges_rev: list[Any] = [
+            Span(
+                f"Revision #{rev.get('revision_number', 1)}",
+                cls="text-[10px] font-medium bg-destructive/10 text-destructive px-1.5 py-0.5 rounded",
+            )
+        ]
+        submit_btn = A(
+            "Submit",
+            href=f"/submit?exercise_uid={rev['uid']}",
+            cls="text-xs font-medium bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 whitespace-nowrap",
+        )
+        rows.append(
+            _compact_row(rev["title"], f"/exercises/read?uid={rev['uid']}", badges_rev, submit_btn)
+        )
+
+    content: Div
+    if rows:
+        content = Div(*rows)
+    else:
+        content = EmptyState(
+            "No exercises assigned",
+            description="Exercises appear here when a teacher assigns them to your group.",
+            action_text="Browse Exercises",
+            action_href="/exercises",
+            cls="py-6",
+        )
+
+    return Div(
+        _section_header("Exercises", "/exercises", context.assigned_exercise_count),
+        content,
+        cls="mb-6",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Reports section — HTMX lazy-loaded summaries
+# ---------------------------------------------------------------------------
+
+
+def _reports_section() -> Div:
+    """Reports section with HTMX lazy-loaded summaries."""
+    skeleton = Div(
+        Div(cls="h-4 bg-muted rounded w-3/4 animate-pulse"),
+        Div(cls="h-4 bg-muted rounded w-1/2 animate-pulse mt-2"),
+        Div(cls="h-4 bg-muted rounded w-2/3 animate-pulse mt-2"),
+        cls="py-3 px-3",
+    )
+
+    return Div(
+        # Exercise Reports
+        Div(
+            _section_header("Exercise Reports", "/exercise-reports"),
+            Div(
+                skeleton,
+                id="exercise-reports-summary",
+                hx_get="/api/profile/reports/exercise-summary",
+                hx_trigger="load",
+                hx_swap="innerHTML",
+            ),
+            cls="mb-4",
+        ),
+        # Activity Reports
+        Div(
+            _section_header("Activity Reports", "/activity-reports"),
+            Div(
+                skeleton,
+                id="activity-reports-summary",
+                hx_get="/api/profile/reports/activity-summary",
+                hx_trigger="load",
+                hx_swap="innerHTML",
+            ),
+            cls="mb-4",
+        ),
+        cls="mb-6",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Personal header — Focus + Velocity (preserved from original)
 # ---------------------------------------------------------------------------
 
 
@@ -143,66 +362,12 @@ def _velocity_line(context: UserContext) -> Div:
 
 
 # ---------------------------------------------------------------------------
-# Nous — shared knowledge feed (placeholder)
-# ---------------------------------------------------------------------------
-
-
-def _nous_section() -> Div:
-    """Nous section — placeholder for the shared knowledge feed.
-
-    Nous will surface RevisedExercise submissions shared by other learners
-    in a feed format (blog / news-feed style). This section establishes
-    the concept and marks it for future development.
-    """
-    return Div(
-        Span(
-            "Nous",
-            cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground",
-        ),
-        Div(
-            Div(
-                Div(
-                    Span("\U0001f4e1", cls="text-2xl"),
-                    Span(
-                        "Nous",
-                        cls="text-base font-semibold text-foreground",
-                    ),
-                    Span(
-                        "Coming Soon",
-                        cls="ml-auto text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full",
-                    ),
-                    cls="flex items-center gap-2",
-                ),
-                cls="mb-3",
-            ),
-            P(
-                "A shared knowledge feed of revised exercises from the community "
-                "\u2014 learn from how others transfer and apply knowledge.",
-                cls="text-sm text-muted-foreground mb-3",
-            ),
-            Div(
-                Span("\U0001f4dd Revised Exercises", cls="text-xs text-muted-foreground"),
-                Span(" \u00b7 ", cls="text-foreground/20"),
-                Span("\U0001f465 Community Shared", cls="text-xs text-muted-foreground"),
-                Span(" \u00b7 ", cls="text-foreground/20"),
-                Span("\U0001f4f0 Feed Format", cls="text-xs text-muted-foreground"),
-                cls="flex items-center gap-1",
-            ),
-            cls="bg-background rounded-xl p-5 shadow-sm border border-dashed border-border",
-        ),
-        cls="mb-6",
-    )
-
-
-# ---------------------------------------------------------------------------
 # Footer
 # ---------------------------------------------------------------------------
 
 
 def _settings_link() -> Div:
     """Compact settings link at the bottom."""
-    from fasthtml.common import A
-
     return Div(
         A(
             Span("\u2699\ufe0f", cls="mr-2"),

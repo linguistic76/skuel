@@ -21,10 +21,10 @@ from adapters.inbound.auth import make_service_getter, require_authenticated_use
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
-from ui.layouts.base_page import BasePage
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
+from ui.layouts.base_page import BasePage
 from ui.layouts.navbar import create_navbar_for_request
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.error_banner import render_error_banner, render_inline_error

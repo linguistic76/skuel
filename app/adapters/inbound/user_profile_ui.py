@@ -525,6 +525,111 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         return render_domain_card_preview(preview_items, slug)
 
+    # ------------------------------------------------------------------
+    # HTMX report summary fragments for profile hub
+    # ------------------------------------------------------------------
+
+    @rt("/api/profile/reports/exercise-summary")
+    async def exercise_reports_summary(request: Request) -> Any:
+        """HTMX fragment: 5 most recent exercise reports for the profile hub."""
+        from fasthtml.common import A, P, Span
+
+        user_uid = require_authenticated_user(request)
+
+        if services.submission_report is None:
+            return P("Reports not available", cls="text-sm text-muted-foreground py-2")
+
+        result = await services.submission_report.get_assessments_for_student(user_uid, limit=5)
+        if result.is_error:
+            return P("Unable to load reports", cls="text-sm text-muted-foreground py-2")
+
+        reports = result.value or []
+        if not reports:
+            return P(
+                "No exercise reports yet.",
+                cls="text-sm text-muted-foreground py-3 px-3",
+            )
+
+        rows: list[Any] = []
+        for report in reports:
+            title = getattr(report, "title", None) or "Untitled Report"
+            uid = getattr(report, "uid", "")
+            created = getattr(report, "created_at", None)
+            date_str = created.strftime("%b %d") if created else ""
+
+            rows.append(
+                Div(
+                    A(
+                        title,
+                        href=f"/exercise-reports?uid={uid}",
+                        cls="text-sm font-medium text-foreground hover:text-primary truncate",
+                    ),
+                    Span(
+                        date_str,
+                        cls="text-[10px] text-muted-foreground whitespace-nowrap ml-auto",
+                    ),
+                    cls="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/50",
+                )
+            )
+        return Div(*rows)
+
+    @rt("/api/profile/reports/activity-summary")
+    async def activity_reports_summary(request: Request) -> Any:
+        """HTMX fragment: 5 most recent activity reports for the profile hub."""
+        from fasthtml.common import A, P, Span
+
+        user_uid = require_authenticated_user(request)
+
+        if services.activity_report is None:
+            return P("Reports not available", cls="text-sm text-muted-foreground py-2")
+
+        result = await services.activity_report.get_history(user_uid, limit=5)
+        if result.is_error:
+            return P("Unable to load reports", cls="text-sm text-muted-foreground py-2")
+
+        reports = result.value or []
+        if not reports:
+            return P(
+                "No activity reports yet.",
+                cls="text-sm text-muted-foreground py-3 px-3",
+            )
+
+        rows: list[Any] = []
+        for report in reports:
+            title = getattr(report, "title", None) or "Activity Report"
+            uid = getattr(report, "uid", "")
+            created = getattr(report, "created_at", None)
+            date_str = created.strftime("%b %d") if created else ""
+            time_period = getattr(report, "time_period", None)
+
+            badges: list[Any] = []
+            if time_period:
+                badges.append(
+                    Span(
+                        time_period,
+                        cls="text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded",
+                    )
+                )
+            badges.append(
+                Span(
+                    date_str,
+                    cls="text-[10px] text-muted-foreground whitespace-nowrap",
+                ),
+            )
+
+            rows.append(
+                Div(
+                    A(
+                        title,
+                        href=f"/activity-reports/detail?uid={uid}",
+                        cls="text-sm font-medium text-foreground hover:text-primary truncate",
+                    ),
+                    *badges,
+                    cls="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/50 ml-auto",
+                )
+            )
+        return Div(*rows)
+
     @rt("/api/sidebar/badges")
     async def sidebar_badges(request: Request) -> Any:
         """HTMX OOB-swap endpoint: async-loaded count + status badges for sidebar items.

@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
+from core.ports.query_types import CurrentLessonItem
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -1347,21 +1348,33 @@ class UserContextQueryExecutor:
     @with_error_handling("fetch_current_lesson_uids", error_type="database", uid_param="user_uid")
     async def fetch_current_lesson_uids(self, user_uid: UserUID) -> Result[list[str]]:
         """Fetch lesson UIDs for KUs the user is currently LEARNING."""
+        result = await self.fetch_current_lessons(user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([item["uid"] for item in result.value])
+
+    @with_error_handling("fetch_current_lessons", error_type="database", uid_param="user_uid")
+    async def fetch_current_lessons(self, user_uid: UserUID) -> Result[list[CurrentLessonItem]]:
+        """Fetch lesson UIDs and titles for KUs the user is currently LEARNING."""
         query = """
         MATCH (user:User {uid: $user_uid})-[r:LEARNING]->(ku:Entity)
         WHERE coalesce(r.mastery_score, 0.5) < 0.8
         WITH collect(ku.uid) as in_progress_ku_uids
         UNWIND in_progress_ku_uids as ku_uid
         MATCH (lesson:Lesson)-[:USES_KU]->(ku:Entity {uid: ku_uid})
-        RETURN collect(DISTINCT lesson.uid) as lesson_uids
+        WITH DISTINCT lesson
+        RETURN lesson.uid as uid, lesson.title as title
         """
         result = await self.executor.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
             return Result.fail(result)
         records = result.value or []
-        if not records:
-            return Result.ok([])
-        return Result.ok(records[0].get("lesson_uids", []))
+        return Result.ok(
+            [
+                CurrentLessonItem(uid=str(r["uid"]), title=str(r.get("title", "Untitled")))
+                for r in records
+            ]
+        )
 
     @with_error_handling("execute_consolidated_query", error_type="database", uid_param="user_uid")
     async def execute_consolidated_query(self, user_uid: UserUID) -> Result[dict[str, Any]]:
