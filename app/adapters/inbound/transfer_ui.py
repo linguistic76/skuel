@@ -36,6 +36,7 @@ from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Select
 from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 from ui.patterns.dual_pane import DualPaneLayout
 from ui.patterns.page_header import PageHeader
 from ui.submissions.forms import render_upload_form, upload_form_script
@@ -49,7 +50,7 @@ logger = get_logger("skuel.routes.transfer")
 
 
 def _tab_button(label: str, tab_id: str) -> Any:
-    """Single tab button with Alpine.js + ARIA attributes."""
+    """Single tab button with inline Alpine.js state."""
     from fasthtml.common import A
 
     return A(
@@ -57,30 +58,23 @@ def _tab_button(label: str, tab_id: str) -> Any:
         role="tab",
         cls="px-4 py-2 text-sm font-medium cursor-pointer transition-colors rounded-t border-b-2",
         **{
-            ":aria-selected": f"activeTab === '{tab_id}'",
-            ":tabindex": f"activeTab === '{tab_id}' ? 0 : -1",
-            "@click": f"setActiveTab('{tab_id}')",
-            "@keydown": f"handleTabKeydown($event, '{tab_id}')",
-            ":class": f"activeTab === '{tab_id}' ? 'border-primary text-primary bg-background' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
+            ":aria-selected": f"tab === '{tab_id}'",
+            "@click": f"tab = '{tab_id}'",
+            ":class": f"tab === '{tab_id}' ? 'border-primary text-primary bg-background' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
         },
     )
 
 
-def _tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
-    """Tab panel that lazy-loads content via HTMX.
-
-    Default tabs load immediately (hx-trigger="load").
-    Non-default tabs load on first reveal via Alpine x-init.
-    """
-    trigger = "load" if default else "revealed"
+def _tab_panel(tab_id: str, hx_get: str) -> Div:
+    """Tab panel that eager-loads content via HTMX on page load."""
     return Div(
         P("Loading...", cls="text-center text-muted-foreground py-4"),
         id=f"tab-panel-{tab_id}",
         role="tabpanel",
         **{
-            "x-show": f"activeTab === '{tab_id}'",
+            "x-show": f"tab === '{tab_id}'",
             "hx-get": hx_get,
-            "hx-trigger": trigger,
+            "hx-trigger": "load",
             "hx-swap": "innerHTML",
         },
     )
@@ -125,10 +119,10 @@ def create_transfer_ui_routes(
                     role="tablist",
                     cls="flex gap-1 border-b border-border mb-4",
                 ),
-                _tab_panel("submissions", "/submissions/list", default=True),
+                _tab_panel("submissions", "/submissions/list"),
                 _tab_panel("submit", "/transfer/submit-form"),
                 _tab_panel("generate", "/transfer/generate-form"),
-                **{"x-data": "accessibleTabs({ activeTab: 'submissions' })"},
+                **{"x-data": "{ tab: 'submissions' }"},
             ),
             cls="min-h-[200px]",
         )
@@ -143,9 +137,9 @@ def create_transfer_ui_routes(
                     role="tablist",
                     cls="flex gap-1 border-b border-border mb-4",
                 ),
-                _tab_panel("exercise", "/reports/list", default=True),
+                _tab_panel("exercise", "/reports/list"),
                 _tab_panel("activity", "/reports/activity-list"),
-                **{"x-data": "accessibleTabs({ activeTab: 'exercise' })"},
+                **{"x-data": "{ tab: 'exercise' }"},
             ),
             cls="min-h-[200px]",
         )
@@ -156,6 +150,7 @@ def create_transfer_ui_routes(
                 subtitle="Submit work and receive reports",
             ),
             DualPaneLayout(left_pane, right_pane),
+            cls="px-4 sm:px-6 lg:px-10 py-6",
         )
 
         return await BasePage(
@@ -163,6 +158,7 @@ def create_transfer_ui_routes(
             title="Transfer",
             request=request,
             active_page="transfer",
+            page_type=PageType.CUSTOM,
         )
 
     # ========================================================================
