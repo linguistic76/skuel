@@ -37,6 +37,15 @@ _DROPDOWN_ITEMS_MAP: dict[str, tuple[DropdownItem, ...]] = {
 }
 
 
+def _icon_content(item: IconNavItem) -> tuple[Any, str]:
+    """Return (content, extra_css) for an IconNavItem's circular button."""
+    if item.icon:
+        return UkIcon(item.icon, cls="size-5", aria_hidden="true"), ""
+    is_emoji = len(item.letter) > 1 or not item.letter.isascii()
+    text_cls = "text-base" if is_emoji else "font-semibold text-sm"
+    return item.letter, text_cls
+
+
 def _icon_nav_link(item: IconNavItem, active_page: str) -> Any:
     """Create a circular letter icon link, with optional hover dropdown."""
     if item.has_dropdown:
@@ -46,14 +55,12 @@ def _icon_nav_link(item: IconNavItem, active_page: str) -> Any:
     active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
     inactive_cls = "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 
-    # Emoji letters (multi-char) render larger without font-semibold text-sm
-    is_emoji = len(item.letter) > 1 or not item.letter.isascii()
-    text_cls = "text-base" if is_emoji else "font-semibold text-sm"
+    content, text_cls = _icon_content(item)
 
     return A(
         Span(item.label, cls="sr-only"),
         Div(
-            item.letter,
+            content,
             cls=f"size-8 rounded-full flex items-center justify-center {text_cls} "
             f"{active_cls if is_active else inactive_cls}",
             aria_hidden="true",
@@ -69,13 +76,12 @@ def _icon_nav_dropdown(item: IconNavItem, active_page: str) -> Div:
     active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
     inactive_cls = "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 
-    is_emoji = len(item.letter) > 1 or not item.letter.isascii()
-    text_cls = "text-base" if is_emoji else "font-semibold text-sm"
+    content, text_cls = _icon_content(item)
 
     trigger = Div(
         Span(item.label, cls="sr-only"),
         Div(
-            item.letter,
+            content,
             cls=f"size-8 rounded-full flex items-center justify-center {text_cls} cursor-default "
             f"{active_cls if is_active else inactive_cls}",
             aria_hidden="true",

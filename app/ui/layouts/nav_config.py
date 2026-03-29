@@ -54,6 +54,7 @@ class IconNavItem:
     page_key: str
     requires_auth: bool = True
     has_dropdown: bool = False
+    icon: str = ""  # Lucide icon name — when set, renders UkIcon instead of letter
 
 
 @dataclass(frozen=True)
@@ -93,7 +94,7 @@ STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
     IconNavItem("Knowledge", "⚛️", "/ku", "knowledge", has_dropdown=False),
     IconNavItem("Curriculum", "📚", "/curriculum", "curriculum", has_dropdown=True),
-    IconNavItem("Study", "✉️", "/study", "study", has_dropdown=True),
+    IconNavItem("Study", "", "/study", "study", has_dropdown=True, icon="mail"),
 )
 
 # Admin-only navigation item - prepended to nav when user is admin
