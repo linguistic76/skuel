@@ -1563,14 +1563,11 @@ class SubstantiationSummaryResult(TypedDict, total=False):
 class LsKnowledgeSummaryResult(TypedDict):
     """Return shape for LearningStepOperations.get_knowledge_summary().
 
-    Aggregated counts and UIDs of primary vs supporting knowledge in a step.
+    Aggregated count and UIDs of knowledge in a step.
     """
 
-    primary_count: int
-    supporting_count: int
-    total_count: int
-    primary_uids: list[str]
-    supporting_uids: list[str]
+    count: int
+    uids: list[str]
 
 
 class LsPracticeSummaryResult(TypedDict):
@@ -2357,7 +2354,6 @@ class LsKnowledgeItemResult(TypedDict):
     uid: str
     title: str
     domain: str | None
-    type: str
     created_at: str | None
 
 

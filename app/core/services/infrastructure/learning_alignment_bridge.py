@@ -477,8 +477,8 @@ class LearningAlignmentBridge[T, DTO, Request]:
                 # Suggest mastery entity for current step
                 # Use step title or first primary knowledge UID as description
                 step_description = current_step.title
-                if current_step.primary_knowledge_uids:
-                    step_knowledge = current_step.primary_knowledge_uids[0]
+                if current_step.knowledge_uids:
+                    step_knowledge = current_step.knowledge_uids[0]
                     step_description = step_knowledge
 
                 mastery_suggestion = {
@@ -640,8 +640,8 @@ class LearningAlignmentBridge[T, DTO, Request]:
                 if current_step:
                     # Use step title or first primary knowledge UID
                     step_description = current_step.title
-                    if current_step.primary_knowledge_uids:
-                        step_description = current_step.primary_knowledge_uids[0]
+                    if current_step.knowledge_uids:
+                        step_description = current_step.knowledge_uids[0]
 
                     assessment["learning_milestones"].append(
                         {

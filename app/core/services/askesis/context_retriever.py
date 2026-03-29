@@ -537,20 +537,18 @@ class ContextRetriever:
     async def _fetch_lessons(
         self, learning_step: LearningStep, graph_context: dict[str, Any]
     ) -> list[Lesson]:
-        """Fetch full Lessons for primary + supporting knowledge UIDs.
+        """Fetch full Lessons for knowledge UIDs.
 
-        The LS has primary_knowledge_uids and supporting_knowledge_uids pointing
-        to Lessons. The graph_context also has knowledge_relationships with UIDs.
+        The LS has knowledge_uids pointing to Lessons/KUs via CONTAINS_KNOWLEDGE.
+        The graph_context also has knowledge_relationships with UIDs.
         We fetch full content so the Socratic engine can use it as curriculum context.
         """
         if not self.lesson_service:
             return []
 
         lesson_uids: set[str] = set()
-        if learning_step.primary_knowledge_uids:
-            lesson_uids.update(learning_step.primary_knowledge_uids)
-        if learning_step.supporting_knowledge_uids:
-            lesson_uids.update(learning_step.supporting_knowledge_uids)
+        if learning_step.knowledge_uids:
+            lesson_uids.update(learning_step.knowledge_uids)
 
         # Also check graph_context knowledge_relationships for additional UIDs
         for kr in graph_context.get("knowledge_relationships", []):
@@ -573,17 +571,14 @@ class ContextRetriever:
 
         Note: trains_ku_uids is not a field on LearningStep model directly;
         it's derived from TRAINS_KU relationships. We check the LS's
-        semantic_links and primary/supporting knowledge UIDs for KU-prefixed UIDs.
+        semantic_links and knowledge UIDs for KU-prefixed UIDs.
         """
         if not self.ku_service:
             return []
 
         ku_uids: set[str] = set()
         # KU UIDs start with "ku_"
-        for uid in learning_step.primary_knowledge_uids:
-            if uid.startswith("ku_"):
-                ku_uids.add(uid)
-        for uid in learning_step.supporting_knowledge_uids:
+        for uid in learning_step.knowledge_uids:
             if uid.startswith("ku_"):
                 ku_uids.add(uid)
         for uid in learning_step.semantic_links or ():

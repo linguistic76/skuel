@@ -123,7 +123,7 @@ class LearningStepMappable(Protocol):
 
     uid: str
     title: str
-    primary_knowledge_uids: tuple[str, ...] | list[str]
+    knowledge_uids: tuple[str, ...] | list[str]
     mastery_threshold: float
     estimated_hours: float
 

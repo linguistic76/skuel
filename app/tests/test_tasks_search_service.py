@@ -144,7 +144,7 @@ def learning_position() -> LpPosition:
         uid="ls:python_fundamentals",
         title="Python Fundamentals",
         intent="Learn Python basics",
-        primary_knowledge_uids=("ku.python.basics",),
+        knowledge_uids=("ku.python.basics",),
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
@@ -152,7 +152,7 @@ def learning_position() -> LpPosition:
         uid="ls:python_advanced",
         title="Python Advanced",
         intent="Master advanced Python concepts",
-        primary_knowledge_uids=("ku.python.advanced",),
+        knowledge_uids=("ku.python.advanced",),
         mastery_threshold=0.85,
         estimated_hours=20.0,
     )

@@ -551,7 +551,7 @@ if tasks_result.is_ok:
 path_result = await lp_search.get_with_steps("lp.python-mastery")
 if path_result.is_ok:
     for step in path_result.value["steps"]:
-        for ku_uid in step.primary_knowledge_uids:
+        for ku_uid in step.knowledge_uids:
             progress = await ku_search.get_user_progress(ku_uid, "user.123")
             if progress.is_ok and progress.value["mastery_level"] < 0.8:
                 print(f"Gap: {ku_uid}")

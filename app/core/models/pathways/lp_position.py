@@ -86,7 +86,7 @@ class LpPosition:
             current_step = self.current_steps.get(path.uid)
             if current_step:
                 # Check if task knowledge matches current step (iterate over tuple)
-                for ku_uid in current_step.primary_knowledge_uids:
+                for ku_uid in current_step.knowledge_uids:
                     if ku_uid in task_knowledge_uids:
                         relevance_score += 0.5  # High relevance for current step knowledge
                         relevance_factors += 1
@@ -95,7 +95,7 @@ class LpPosition:
                 # Check next steps for preparatory relevance
                 next_step = _get_next_step(path, self.completed_step_uids)
                 if next_step:
-                    for ku_uid in next_step.primary_knowledge_uids:
+                    for ku_uid in next_step.knowledge_uids:
                         if ku_uid in task_knowledge_uids:
                             relevance_score += 0.4  # Good relevance for next step preparation
                             relevance_factors += 1
@@ -151,8 +151,8 @@ class LpPosition:
             if current_step:
                 suggestions.append(f"Practice {path.title} concepts daily")
                 # Use first primary knowledge UID for suggestion
-                if current_step.primary_knowledge_uids:
-                    ku_uid = current_step.primary_knowledge_uids[0]
+                if current_step.knowledge_uids:
+                    ku_uid = current_step.knowledge_uids[0]
                     suggestions.append(f"Review {ku_uid} mastery")
 
         return list(set(suggestions))  # Remove duplicates
@@ -233,9 +233,7 @@ class LpPosition:
             if current_step:
                 # Learning applications (use first primary knowledge UID)
                 ku_uid = (
-                    current_step.primary_knowledge_uids[0]
-                    if current_step.primary_knowledge_uids
-                    else "this step"
+                    current_step.knowledge_uids[0] if current_step.knowledge_uids else "this step"
                 )
                 practice_frame["learning_applications"].append(
                     {
@@ -292,8 +290,8 @@ class LpPosition:
             ):
                 # Use first primary knowledge UID
                 ku_uid = (
-                    current_step.primary_knowledge_uids[0]
-                    if current_step.primary_knowledge_uids
+                    current_step.knowledge_uids[0]
+                    if current_step.knowledge_uids
                     else current_step.uid
                 )
                 learning_path_implications.append(

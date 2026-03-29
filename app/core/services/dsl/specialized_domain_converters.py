@@ -251,13 +251,11 @@ def activity_to_ls_dict(activity: ParsedActivityLine) -> Result[ConversionResult
     if activity.duration_minutes:
         estimated_hours = activity.duration_minutes / 60.0
 
-    # Primary knowledge from @ku tag
-    primary_knowledge_uids = []
+    # Knowledge from @ku tag and @link(ku:...)
+    knowledge_uids = []
     if activity.primary_ku:
-        primary_knowledge_uids.append(activity.primary_ku)
-
-    # Supporting knowledge from @link(ku:...)
-    supporting_knowledge_uids = activity.get_linked_knowledge()
+        knowledge_uids.append(activity.primary_ku)
+    knowledge_uids.extend(activity.get_linked_knowledge())
 
     # Learning path from @link(lp:...)
     learning_path_uid = None
@@ -271,8 +269,7 @@ def activity_to_ls_dict(activity: ParsedActivityLine) -> Result[ConversionResult
         "intent": intent,
         "estimated_hours": estimated_hours,
         "mastery_threshold": 0.7,  # default
-        "primary_knowledge_uids": primary_knowledge_uids,
-        "supporting_knowledge_uids": supporting_knowledge_uids,
+        "knowledge_uids": knowledge_uids,
         "learning_path_uid": learning_path_uid,
         "tags": activity.energy_states if activity.energy_states else [],
     }

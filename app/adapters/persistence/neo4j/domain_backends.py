@@ -2215,29 +2215,22 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
     # KNOWLEDGE RELATIONSHIP CRUD (CONTAINS_KNOWLEDGE edges)
     # ========================================================================
 
-    async def add_knowledge(
-        self, ls_uid: str, ku_uid: str, knowledge_type: str = "primary"
-    ) -> Result[bool]:
+    async def add_knowledge(self, ls_uid: str, ku_uid: str) -> Result[bool]:
         """MERGE CONTAINS_KNOWLEDGE relationship between LS and KU."""
         query = """
         MATCH (ls:Entity {uid: $ls_uid})
         MATCH (ku:Entity {uid: $ku_uid})
         MERGE (ls)-[r:CONTAINS_KNOWLEDGE]->(ku)
-        SET r.type = $knowledge_type,
-            r.created_at = COALESCE(r.created_at, datetime()),
+        SET r.created_at = COALESCE(r.created_at, datetime()),
             r.updated_at = datetime()
         RETURN r
         """
-        result = await self.execute_query(
-            query, {"ls_uid": ls_uid, "ku_uid": ku_uid, "knowledge_type": knowledge_type}
-        )
+        result = await self.execute_query(query, {"ls_uid": ls_uid, "ku_uid": ku_uid})
         if result.is_error:
             return Result.fail(result)
         success = len(result.value or []) > 0
         if success:
-            self.logger.info(
-                f"Created CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid} (type={knowledge_type})"
-            )
+            self.logger.info(f"Created CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
         return Result.ok(success)
 
     async def remove_knowledge(self, ls_uid: str, ku_uid: str) -> Result[bool]:
@@ -2257,28 +2250,15 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
             self.logger.info(f"Removed CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
         return Result.ok(success)
 
-    async def list_knowledge(
-        self, ls_uid: str, knowledge_type: str | None = None
-    ) -> Result[list[LsKnowledgeItemResult]]:
-        """List CONTAINS_KNOWLEDGE relationships, optionally filtered by type."""
-        if knowledge_type:
-            query = """
-            MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE {type: $knowledge_type}]->(ku:Entity)
-            RETURN ku.uid as uid, ku.title as title, ku.domain as domain,
-                   r.type as type, r.created_at as created_at
-            ORDER BY r.created_at, ku.title
-            """
-            params: dict[str, Any] = {"ls_uid": ls_uid, "knowledge_type": knowledge_type}
-        else:
-            query = """
-            MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-            RETURN ku.uid as uid, ku.title as title, ku.domain as domain,
-                   r.type as type, r.created_at as created_at
-            ORDER BY r.type, r.created_at, ku.title
-            """
-            params = {"ls_uid": ls_uid}
-
-        result = await self.execute_query(query, params)
+    async def list_knowledge(self, ls_uid: str) -> Result[list[LsKnowledgeItemResult]]:
+        """List CONTAINS_KNOWLEDGE relationships."""
+        query = """
+        MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
+        RETURN ku.uid as uid, ku.title as title, ku.domain as domain,
+               r.created_at as created_at
+        ORDER BY r.created_at, ku.title
+        """
+        result = await self.execute_query(query, {"ls_uid": ls_uid})
         if result.is_error:
             return Result.fail(result)
         items: list[LsKnowledgeItemResult] = [
@@ -2286,7 +2266,6 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
                 "uid": r["uid"],
                 "title": r["title"],
                 "domain": r["domain"],
-                "type": r["type"],
                 "created_at": r["created_at"],
             }
             for r in result.value or []
@@ -2294,40 +2273,23 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         return Result.ok(items)
 
     async def get_knowledge_summary(self, ls_uid: str) -> Result[LsKnowledgeSummaryResult]:
-        """Aggregate counts and UIDs of primary vs supporting knowledge."""
+        """Aggregate count and UIDs of knowledge in this step."""
         query = """
         MATCH (ls:Entity {uid: $ls_uid})
         OPTIONAL MATCH (ls)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-        WITH ls, r, ku
-        RETURN
-            count(CASE WHEN r.type = 'primary' THEN 1 END) as primary_count,
-            count(CASE WHEN r.type = 'supporting' THEN 1 END) as supporting_count,
-            count(r) as total_count,
-            collect(CASE WHEN r.type = 'primary' THEN ku.uid END) as primary_uids,
-            collect(CASE WHEN r.type = 'supporting' THEN ku.uid END) as supporting_uids
+        RETURN count(r) as count, collect(ku.uid) as uids
         """
         result = await self.execute_query(query, {"ls_uid": ls_uid})
         if result.is_error:
             return Result.fail(result)
         records = result.value or []
         if not records:
-            return Result.ok(
-                {
-                    "primary_count": 0,
-                    "supporting_count": 0,
-                    "total_count": 0,
-                    "primary_uids": [],
-                    "supporting_uids": [],
-                }
-            )
+            return Result.ok({"count": 0, "uids": []})
         record = records[0]
         return Result.ok(
             {
-                "primary_count": record["primary_count"],
-                "supporting_count": record["supporting_count"],
-                "total_count": record["total_count"],
-                "primary_uids": [uid for uid in record["primary_uids"] if uid],
-                "supporting_uids": [uid for uid in record["supporting_uids"] if uid],
+                "count": record["count"],
+                "uids": [uid for uid in record["uids"] if uid],
             }
         )
 
@@ -2406,8 +2368,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
     async def create_step_node(
         self,
         params: dict[str, Any],
-        has_primary_knowledge: bool = False,
-        has_supporting_knowledge: bool = False,
+        has_knowledge: bool = False,
         path_uid: str | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """Create step node with conditional knowledge and path relationships."""
@@ -2429,21 +2390,13 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
             domain: $domain
         })
         """
-        if has_primary_knowledge:
+        if has_knowledge:
             query += """
             WITH s
-            UNWIND $primary_knowledge_uids AS ku_uid
+            UNWIND $knowledge_uids AS ku_uid
             MATCH (ku:Entity {uid: ku_uid})
             MERGE (s)-[r:CONTAINS_KNOWLEDGE]->(ku)
-            ON CREATE SET r.type = 'primary'
-            """
-        if has_supporting_knowledge:
-            query += """
-            WITH s
-            UNWIND $supporting_knowledge_uids AS ku_uid
-            MATCH (ku:Entity {uid: ku_uid})
-            MERGE (s)-[r:CONTAINS_KNOWLEDGE]->(ku)
-            ON CREATE SET r.type = 'supporting'
+            ON CREATE SET r.created_at = datetime()
             """
         if path_uid:
             query += """
@@ -2463,7 +2416,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         query = """
         MATCH (s:Entity {uid: $uid})
         OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-        RETURN s, collect({uid: ku.uid, type: r.type}) as knowledge_rels
+        RETURN s, collect(ku.uid) as knowledge_uids
         """
         return await self.execute_query(query, {"uid": uid})
 
@@ -2472,12 +2425,11 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         query = """
         MATCH (ls:Entity {uid: $uid})
 
-        // 1. Primary and supporting knowledge
+        // 1. Knowledge references
         OPTIONAL MATCH (ls)-[r_ku:CONTAINS_KNOWLEDGE]->(ku:Entity)
         WITH ls, collect({
             uid: ku.uid,
             title: ku.title,
-            type: r_ku.type,
             confidence: coalesce(r_ku.confidence, 1.0)
         }) as knowledge_rels
 
@@ -2572,8 +2524,8 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         MATCH (s:Entity {{uid: $uid}})
         SET {", ".join(set_clauses)}
         WITH s
-        OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-        RETURN s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
+        OPTIONAL MATCH (s)-[:CONTAINS_KNOWLEDGE]->(ku:Entity)
+        RETURN s, collect(ku.uid) as knowledge_uids
         """
         return await self.execute_query(query, params)
 
@@ -2602,9 +2554,9 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
             query = f"""
             MATCH (p:Entity {{uid: $path_uid}})-[:HAS_STEP]->(s:Entity {{entity_type: 'learning_step'}})
             {where_clause}
-            OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-            WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
-            RETURN s, knowledge_rels
+            OPTIONAL MATCH (s)-[:CONTAINS_KNOWLEDGE]->(ku:Entity)
+            WITH s, collect(ku.uid) as knowledge_uids
+            RETURN s, knowledge_uids
             ORDER BY {order_field} {order_direction}
             SKIP $offset
             LIMIT $limit
@@ -2613,9 +2565,9 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
             query = f"""
             MATCH (s:Entity {{entity_type: 'learning_step'}})
             {where_clause}
-            OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
-            WITH s, collect({{uid: ku.uid, type: r.type}}) as knowledge_rels
-            RETURN s, knowledge_rels
+            OPTIONAL MATCH (s)-[:CONTAINS_KNOWLEDGE]->(ku:Entity)
+            WITH s, collect(ku.uid) as knowledge_uids
+            RETURN s, knowledge_uids
             ORDER BY {order_field} {order_direction}
             SKIP $offset
             LIMIT $limit

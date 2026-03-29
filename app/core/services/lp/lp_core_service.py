@@ -193,7 +193,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
                 uid=step_uid,
                 title=f"Step {i + 1}",
                 intent="Complete this learning step",
-                primary_knowledge_uids=tuple([unit.uid if isinstance(unit, HasUID) else str(unit)]),
+                knowledge_uids=tuple([unit.uid if isinstance(unit, HasUID) else str(unit)]),
                 sequence=i,
                 estimated_hours=estimated_hours,
                 mastery_threshold=MasteryLevel.PROFICIENT,

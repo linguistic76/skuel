@@ -528,7 +528,7 @@ class Query:
                 mastered_uids = profile_result.value.mastered_uids
                 for step in steps:
                     # Step is completed if user mastered associated KUs
-                    _ku_uids = getattr(step, "primary_knowledge_uids", None)
+                    _ku_uids = getattr(step, "knowledge_uids", None)
                     if _ku_uids and all(uid in mastered_uids for uid in _ku_uids):
                         completed_steps += 1
 
@@ -552,8 +552,8 @@ class Query:
 
                 # Check each step for blockers
                 for step in steps:
-                    _primary_ku_uids = getattr(step, "primary_knowledge_uids", None)
-                    step_ku_uid = _primary_ku_uids[0] if _primary_ku_uids else ""
+                    _ku_uids = getattr(step, "knowledge_uids", None)
+                    step_ku_uid = _ku_uids[0] if _ku_uids else ""
                     if not step_ku_uid:
                         continue  # Skip steps with no knowledge UID
 
@@ -882,8 +882,7 @@ class Query:
         blockers = []
 
         for i, step in enumerate(steps):
-            # GRAPH-NATIVE: Use primary_knowledge_uids instead of knowledge_uid
-            step_ku_uid = step.primary_knowledge_uids[0] if step.primary_knowledge_uids else None
+            step_ku_uid = step.knowledge_uids[0] if step.knowledge_uids else None
             if not step_ku_uid:
                 continue  # Skip steps with no knowledge UID
 
@@ -951,12 +950,7 @@ class Query:
             # Check for circular dependencies in path
             # A step has a circular dependency if it requires knowledge from a later step
             for j, later_step in enumerate(steps[i + 1 :], start=i + 1):
-                # GRAPH-NATIVE: Use primary_knowledge_uids instead of knowledge_uid
-                later_ku_uid = (
-                    later_step.primary_knowledge_uids[0]
-                    if later_step.primary_knowledge_uids
-                    else None
-                )
+                later_ku_uid = later_step.knowledge_uids[0] if later_step.knowledge_uids else None
                 if not later_ku_uid:
                     continue
 

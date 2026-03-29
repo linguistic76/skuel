@@ -817,37 +817,11 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         """
         ...
 
-    async def get_primary_knowledge(self, uid: str) -> Result[list[Lesson]]:
-        """
-        Get primary (core) knowledge units for this step.
-
-        Args:
-            uid: LS UID
-
-        Returns:
-            Result[list[Lesson]]: Primary knowledge units
-        """
-        ...
-
-    async def get_supporting_knowledge(self, uid: str) -> Result[list[Lesson]]:
-        """
-        Get supporting (optional) knowledge units for this step.
-
-        Args:
-            uid: LS UID
-
-        Returns:
-            Result[list[Lesson]]: Supporting knowledge units
-        """
-        ...
-
     # =========================================================================
     # KNOWLEDGE RELATIONSHIP CRUD (CONTAINS_KNOWLEDGE edges)
     # =========================================================================
 
-    async def add_knowledge(
-        self, ls_uid: str, ku_uid: str, knowledge_type: str = "primary"
-    ) -> Result[bool]:
+    async def add_knowledge(self, ls_uid: str, ku_uid: str) -> Result[bool]:
         """MERGE CONTAINS_KNOWLEDGE relationship between LS and KU."""
         ...
 
@@ -855,14 +829,12 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
         """DELETE CONTAINS_KNOWLEDGE relationship between LS and KU."""
         ...
 
-    async def list_knowledge(
-        self, ls_uid: str, knowledge_type: str | None = None
-    ) -> Result[list[LsKnowledgeItemResult]]:
-        """List CONTAINS_KNOWLEDGE relationships, optionally filtered by type."""
+    async def list_knowledge(self, ls_uid: str) -> Result[list[LsKnowledgeItemResult]]:
+        """List CONTAINS_KNOWLEDGE relationships."""
         ...
 
     async def get_knowledge_summary(self, ls_uid: str) -> Result[LsKnowledgeSummaryResult]:
-        """Aggregate counts and UIDs of primary vs supporting knowledge."""
+        """Aggregate count and UIDs of knowledge in this step."""
         ...
 
     # =========================================================================
@@ -991,8 +963,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     async def create_step_node(
         self,
         params: dict[str, Any],
-        has_primary_knowledge: bool = False,
-        has_supporting_knowledge: bool = False,
+        has_knowledge: bool = False,
         path_uid: str | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """Create step node with conditional knowledge and path relationships."""

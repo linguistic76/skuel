@@ -125,15 +125,15 @@ class TestCurriculumRichContext:
         # Create all relationships
         await services.ls.core.backend.driver.execute_query(
             """
-            // Primary knowledge
+            // Knowledge
             MATCH (ls:Entity {uid: $step_uid})
             MATCH (ku:Entity {uid: $primary_ku})
-            CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: 'primary', confidence: 0.95}]->(ku)
+            CREATE (ls)-[:CONTAINS_KNOWLEDGE {confidence: 0.95}]->(ku)
 
-            // Supporting knowledge
+            // Additional knowledge
             WITH ls
             MATCH (supporting:Entity {uid: $supporting_ku})
-            CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: 'supporting', confidence: 0.8}]->(supporting)
+            CREATE (ls)-[:CONTAINS_KNOWLEDGE {confidence: 0.8}]->(supporting)
 
             // Prerequisite knowledge
             WITH ls
@@ -439,7 +439,7 @@ class TestCurriculumRichContext:
             // Step teaches knowledge
             WITH ls
             MATCH (ku:Entity {uid: $ku_uid})
-            CREATE (ls)-[:CONTAINS_KNOWLEDGE {type: 'primary'}]->(ku)
+            CREATE (ls)-[:CONTAINS_KNOWLEDGE]->(ku)
 
             // User working on step
             WITH ls

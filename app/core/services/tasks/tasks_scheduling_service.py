@@ -357,8 +357,8 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
             if current_step:
                 # Use first primary knowledge UID for suggestions
                 ku_uid = (
-                    current_step.primary_knowledge_uids[0]
-                    if current_step.primary_knowledge_uids
+                    current_step.knowledge_uids[0]
+                    if current_step.knowledge_uids
                     else current_step.title
                 )
 
@@ -386,8 +386,8 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
                     if current_index + 1 < len(path_steps):
                         next_step = path_steps[current_index + 1]
                         next_ku_uid = (
-                            next_step.primary_knowledge_uids[0]
-                            if next_step.primary_knowledge_uids
+                            next_step.knowledge_uids[0]
+                            if next_step.knowledge_uids
                             else next_step.title
                         )
                         prep_suggestion = {

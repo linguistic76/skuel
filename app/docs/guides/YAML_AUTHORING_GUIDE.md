@@ -306,17 +306,15 @@ connections:
 
 Learning Steps group Lessons into collections within a learning path. They have two types of knowledge references:
 
-- **`primary_knowledge_uids`** — Core teaching content. Creates `CONTAINS_KNOWLEDGE` edges. Activities on these Lessons are inherited by the LS via graph traversal.
-- **`supporting_knowledge_uids`** — Supplementary reference material. Creates `REQUIRES_KNOWLEDGE` edges. Activities on these Lessons are NOT inherited — they're enrichment only.
+- **`knowledge_uids`** — Lessons in this step. Creates `CONTAINS_KNOWLEDGE` edges. Activities on these Lessons are inherited by the LS via graph traversal.
 
 Activity domain wiring (habits, tasks, events, goals, principles, choices) lives on **Lessons**, not on Learning Steps. See [Lesson Activity Wiring Guide](/docs/guides/LESSON_ACTIVITY_WIRING.md).
 
 ```yaml
 type: LearningStep
 uid: ls:mindfulness-101:step-1
-primary_knowledge_uids:                              # Core content (activities inherited)
+knowledge_uids:
   - l:mindfulness:breath-awareness-basics
-supporting_knowledge_uids:                           # Supplementary (activities NOT inherited)
   - l:mindfulness:posture-basics
 trains_ku_uids: [ku:mindfulness:breath]
 learning_path_uid: lp:mindfulness-101

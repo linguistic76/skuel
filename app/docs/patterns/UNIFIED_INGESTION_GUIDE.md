@@ -563,11 +563,10 @@ connections:
 
 | YAML Field | Relationship Type | Target | Direction |
 |-----------|-------------------|--------|-----------|
-| `primary_knowledge_uids` | CONTAINS_KNOWLEDGE | Entity | outgoing |
+| `knowledge_uids` | CONTAINS_KNOWLEDGE | Entity | outgoing |
 | `trains_ku_uids` | TRAINS_KU | Ku | outgoing |
 | `prerequisite_step_uids` | REQUIRES_STEP | Entity | outgoing |
 | `prerequisite_knowledge_uids` | REQUIRES_KNOWLEDGE | Entity | outgoing |
-| `supporting_knowledge_uids` | REQUIRES_KNOWLEDGE | Entity | outgoing |
 | `principle_uids` | GUIDED_BY_PRINCIPLE | Principle | outgoing |
 | `choice_uids` | INFORMS_CHOICE | Entity | outgoing |
 | `habit_uids` | BUILDS_HABIT | Entity | outgoing |
@@ -576,7 +575,7 @@ connections:
 | `learning_path_uids` | HAS_STEP | Entity | incoming |
 
 > **Note:** Single-value fields `learning_path_uid` and `knowledge_uid` are auto-converted
-> to their list equivalents (`learning_path_uids`, `primary_knowledge_uids`) during preparation.
+> to their list equivalents (`learning_path_uids`, `knowledge_uids`) during preparation.
 
 > **Note:** Relationship types are unified with the Relationship Registry.
 > Ingestion config is derived from the registry via `generate_ingestion_relationship_config()`.

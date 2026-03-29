@@ -2,7 +2,7 @@
 LearningStepDTO - Learning Step-Specific DTO (Tier 2 - Transfer)
 ==================================================================
 
-Extends CurriculumDTO with 9 learning-step-specific fields matching the
+Extends CurriculumDTO with 8 learning-step-specific fields matching the
 LearningStep frozen dataclass (Tier 3): intent, knowledge references,
 path relationship, and mastery tracking.
 
@@ -31,9 +31,9 @@ class LearningStepDTO(CurriculumDTO):
     """
     Mutable DTO for learning steps (EntityType.LEARNING_STEP).
 
-    Extends CurriculumDTO with 9 learning-step-specific fields:
+    Extends CurriculumDTO with 8 learning-step-specific fields:
     - Intent (1): intent
-    - Knowledge references (2): primary_knowledge_uids, supporting_knowledge_uids
+    - Knowledge references (1): knowledge_uids
     - Path relationship (2): learning_path_uid, sequence
     - Mastery (4): mastery_threshold, current_mastery, estimated_hours, step_difficulty
     """
@@ -46,8 +46,7 @@ class LearningStepDTO(CurriculumDTO):
     # =========================================================================
     # KNOWLEDGE REFERENCES
     # =========================================================================
-    primary_knowledge_uids: list[str] = field(default_factory=list)
-    supporting_knowledge_uids: list[str] = field(default_factory=list)
+    knowledge_uids: list[str] = field(default_factory=list)
 
     # =========================================================================
     # PATH RELATIONSHIP
@@ -74,12 +73,7 @@ class LearningStepDTO(CurriculumDTO):
         data.update(
             {
                 "intent": self.intent,
-                "primary_knowledge_uids": list(self.primary_knowledge_uids)
-                if self.primary_knowledge_uids
-                else [],
-                "supporting_knowledge_uids": list(self.supporting_knowledge_uids)
-                if self.supporting_knowledge_uids
-                else [],
+                "knowledge_uids": list(self.knowledge_uids) if self.knowledge_uids else [],
                 "learning_path_uid": self.learning_path_uid,
                 "sequence": self.sequence,
                 "mastery_threshold": self.mastery_threshold,
@@ -125,8 +119,7 @@ class LearningStepDTO(CurriculumDTO):
                 "tags",
                 "semantic_links",
                 "learning_objectives",
-                "primary_knowledge_uids",
-                "supporting_knowledge_uids",
+                "knowledge_uids",
             ],
             dict_fields=["metadata"],
         )
@@ -165,8 +158,7 @@ class LearningStepDTO(CurriculumDTO):
                 "learning_objectives",
                 # LearningStep-specific fields
                 "intent",
-                "primary_knowledge_uids",
-                "supporting_knowledge_uids",
+                "knowledge_uids",
                 "learning_path_uid",
                 "sequence",
                 "mastery_threshold",

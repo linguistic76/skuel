@@ -156,19 +156,18 @@ def _prepare_core(
         if lp_uid:
             entity_data["learning_path_uids"] = [normalize_uid(lp_uid)]
 
-        # Merge knowledge_uid (single) into primary_knowledge_uids (list)
+        # Merge knowledge_uid (single) into knowledge_uids (list)
         knowledge_uid = entity_data.pop("knowledge_uid", None)
         if knowledge_uid:
             normalized = normalize_uid(knowledge_uid)
-            existing = [normalize_uid(u) for u in entity_data.get("primary_knowledge_uids", [])]
+            existing = [normalize_uid(u) for u in entity_data.get("knowledge_uids", [])]
             if normalized not in existing:
-                entity_data.setdefault("primary_knowledge_uids", []).insert(0, normalized)
+                entity_data.setdefault("knowledge_uids", []).insert(0, normalized)
 
         # Normalize UIDs in all relationship list fields
         # Activity domain fields removed — now live on Lessons
         uid_list_fields = [
-            "primary_knowledge_uids",
-            "supporting_knowledge_uids",
+            "knowledge_uids",
             "trains_ku_uids",
             "prerequisite_step_uids",
             "prerequisite_knowledge_uids",

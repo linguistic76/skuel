@@ -75,7 +75,7 @@ def learning_position() -> LpPosition:
         uid="ls:python_fundamentals",
         title="Python Fundamentals",
         intent="Learn Python basics",
-        primary_knowledge_uids=("ku.python.basics",),
+        knowledge_uids=("ku.python.basics",),
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
@@ -83,7 +83,7 @@ def learning_position() -> LpPosition:
         uid="ls:python_advanced",
         title="Python Advanced",
         intent="Master advanced Python concepts",
-        primary_knowledge_uids=("ku.python.advanced",),
+        knowledge_uids=("ku.python.advanced",),
         mastery_threshold=0.85,
         estimated_hours=20.0,
     )
@@ -425,7 +425,7 @@ async def test_multiple_active_paths_suggestions(scheduling_service):
         uid="ls:python_basics",
         title="Python Basics",
         intent="Learn Python basics",
-        primary_knowledge_uids=("ku.python.basics",),
+        knowledge_uids=("ku.python.basics",),
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
@@ -441,7 +441,7 @@ async def test_multiple_active_paths_suggestions(scheduling_service):
         uid="ls:html_basics",
         title="HTML Basics",
         intent="Learn HTML basics",
-        primary_knowledge_uids=("ku.html.basics",),
+        knowledge_uids=("ku.html.basics",),
         mastery_threshold=0.75,
         estimated_hours=8.0,
     )

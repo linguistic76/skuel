@@ -5,9 +5,9 @@ LearningStep - A Collection of Lessons
 Frozen dataclass for learning step entities (EntityType.LEARNING_STEP).
 A LearningStep is a collection of lessons that forms a step in a learning path.
 
-Inherits common fields from Entity via Curriculum. Adds 9 learning-step-specific fields:
+Inherits common fields from Entity via Curriculum. Adds 8 learning-step-specific fields:
 - Intent (1): intent
-- Knowledge references (2): primary_knowledge_uids, supporting_knowledge_uids
+- Knowledge references (1): knowledge_uids (graph-native, reconstructed from CONTAINS_KNOWLEDGE)
 - Path relationship (2): learning_path_uid, sequence
 - Mastery (4): mastery_threshold, current_mastery, estimated_hours, step_difficulty
 
@@ -36,7 +36,7 @@ class LearningStep(Curriculum):
     A collection of lessons (EntityType.LEARNING_STEP).
 
     A LearningStep groups related lessons into a coherent collection within
-    a learning path. Inherits ~50 fields from Curriculum. Adds 9 fields for
+    a learning path. Inherits ~50 fields from Curriculum. Adds 8 fields for
     intent, knowledge references, path relationship, and mastery tracking.
     """
 
@@ -52,10 +52,9 @@ class LearningStep(Curriculum):
     intent: str | None = None  # Learning intent for this step
 
     # =========================================================================
-    # KNOWLEDGE REFERENCES
+    # KNOWLEDGE REFERENCES (graph-native: reconstructed from CONTAINS_KNOWLEDGE)
     # =========================================================================
-    primary_knowledge_uids: tuple[str, ...] = ()  # Primary KU references
-    supporting_knowledge_uids: tuple[str, ...] = ()  # Supporting KU references
+    knowledge_uids: tuple[str, ...] = ()  # KU references via CONTAINS_KNOWLEDGE
 
     # =========================================================================
     # PATH RELATIONSHIP
@@ -77,16 +76,11 @@ class LearningStep(Curriculum):
 
     def get_combined_knowledge_uids(self) -> set[str]:
         """Get all knowledge UIDs related to this step."""
-        uids: set[str] = set()
-        if self.primary_knowledge_uids:
-            uids.update(self.primary_knowledge_uids)
-        if self.supporting_knowledge_uids:
-            uids.update(self.supporting_knowledge_uids)
-        return uids
+        return set(self.knowledge_uids)
 
     def get_all_knowledge_uids(self) -> set[str]:
         """Alias for get_combined_knowledge_uids."""
-        return self.get_combined_knowledge_uids()
+        return set(self.knowledge_uids)
 
     def calculate_mastery_progress(self) -> float:
         """Calculate progress toward mastery threshold (0.0-1.0)."""
@@ -101,10 +95,8 @@ class LearningStep(Curriculum):
     def calculate_learning_impact(self) -> float:
         """Calculate learning impact score (0.0-1.0)."""
         score = 0.0
-        if self.primary_knowledge_uids:
-            score += min(0.4, len(self.primary_knowledge_uids) * 0.1)
-        if self.supporting_knowledge_uids:
-            score += min(0.3, len(self.supporting_knowledge_uids) * 0.1)
+        if self.knowledge_uids:
+            score += min(0.7, len(self.knowledge_uids) * 0.1)
         score += self.difficulty_rating * 0.3
         return min(1.0, score)
 

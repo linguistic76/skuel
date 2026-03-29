@@ -135,15 +135,13 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
             "status": get_enum_value(step.status),
             "completed": step.is_completed,
             "domain": get_enum_value(step.domain),
-            "primary_knowledge_uids": list(step.primary_knowledge_uids),
-            "supporting_knowledge_uids": list(step.supporting_knowledge_uids),
+            "knowledge_uids": list(step.knowledge_uids),
             "path_uid": path_uid,
         }
 
         result = await self.backend.create_step_node(
             params,
-            has_primary_knowledge=bool(step.primary_knowledge_uids),
-            has_supporting_knowledge=bool(step.supporting_knowledge_uids),
+            has_knowledge=bool(step.knowledge_uids),
             path_uid=path_uid,
         )
 
@@ -165,7 +163,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
             title=step.title,
             intent=step.intent,
             linked_lp_uid=path_uid,
-            linked_ku_uids=step.primary_knowledge_uids + step.supporting_knowledge_uids,
+            linked_ku_uids=step.knowledge_uids,
             sequence_order=step.sequence,
         )
         await publish_event(self.event_bus, event, self.logger)
@@ -197,26 +195,14 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
 
         record = records[0]
         step_data = record["s"]
-        knowledge_rels = record["knowledge_rels"]
-
-        # Separate primary and supporting knowledge from relationships
-        primary_uids = []
-        supporting_uids = []
-        for rel in knowledge_rels:
-            if rel["uid"]:  # Skip empty relationships
-                if rel.get("type") == "supporting":
-                    supporting_uids.append(rel["uid"])
-                else:
-                    # Default to primary if type not specified
-                    primary_uids.append(rel["uid"])
+        knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
 
         step = LearningStep(
             uid=step_data["uid"],
             title=step_data.get("title", "Learning Step"),
             intent=step_data.get("intent", "Complete this learning step"),
             description=step_data.get("description"),
-            primary_knowledge_uids=tuple(primary_uids),
-            supporting_knowledge_uids=tuple(supporting_uids),
+            knowledge_uids=tuple(knowledge_uids),
             learning_path_uid=step_data.get("learning_path_uid"),
             sequence=step_data.get("sequence"),
             mastery_threshold=step_data.get("mastery_threshold", 0.7),
@@ -278,15 +264,8 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         record = records[0]
         step_data = record["ls"]
 
-        # Separate primary and supporting knowledge from relationships
-        primary_uids = []
-        supporting_uids = []
-        for rel in record["knowledge_rels"]:
-            if rel.get("uid"):  # Skip empty relationships
-                if rel.get("type") == "supporting":
-                    supporting_uids.append(rel["uid"])
-                else:
-                    primary_uids.append(rel["uid"])
+        # Extract knowledge UIDs from graph context
+        knowledge_uids = [rel["uid"] for rel in record["knowledge_rels"] if rel.get("uid")]
 
         # Build LearningStep with knowledge UIDs
         step = LearningStep(
@@ -294,8 +273,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
             title=step_data.get("title", "Learning Step"),
             intent=step_data.get("intent", "Complete this learning step"),
             description=step_data.get("description"),
-            primary_knowledge_uids=tuple(primary_uids),
-            supporting_knowledge_uids=tuple(supporting_uids),
+            knowledge_uids=tuple(knowledge_uids),
             learning_path_uid=step_data.get("learning_path_uid"),
             sequence=step_data.get("sequence"),
             mastery_threshold=step_data.get("mastery_threshold", 0.7),
@@ -428,25 +406,14 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
 
         record = records[0]
         step_data = record["s"]
-        knowledge_rels = record["knowledge_rels"]
-
-        # Separate primary and supporting knowledge
-        primary_uids = []
-        supporting_uids = []
-        for rel in knowledge_rels:
-            if rel["uid"]:
-                if rel.get("type") == "supporting":
-                    supporting_uids.append(rel["uid"])
-                else:
-                    primary_uids.append(rel["uid"])
+        knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
 
         updated_step = LearningStep(
             uid=step_data["uid"],
             title=step_data.get("title", "Learning Step"),
             intent=step_data.get("intent", "Complete this learning step"),
             description=step_data.get("description"),
-            primary_knowledge_uids=tuple(primary_uids),
-            supporting_knowledge_uids=tuple(supporting_uids),
+            knowledge_uids=tuple(knowledge_uids),
             learning_path_uid=step_data.get("learning_path_uid"),
             sequence=step_data.get("sequence"),
             mastery_threshold=step_data.get("mastery_threshold", 0.7),
@@ -489,7 +456,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
             return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
 
         step = get_result.value
-        had_ku_links = bool(step.primary_knowledge_uids or step.supporting_knowledge_uids)
+        had_ku_links = bool(step.knowledge_uids)
         linked_lp_uid = step.learning_path_uid
 
         # Delete step and its relationships
@@ -566,17 +533,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         steps = []
         for record in result.value or []:
             step_data = record["s"]
-            knowledge_rels = record["knowledge_rels"]
-
-            # Separate primary and supporting knowledge
-            primary_uids = []
-            supporting_uids = []
-            for rel in knowledge_rels:
-                if rel["uid"]:
-                    if rel.get("type") == "supporting":
-                        supporting_uids.append(rel["uid"])
-                    else:
-                        primary_uids.append(rel["uid"])
+            knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
 
             steps.append(
                 LearningStep(
@@ -584,8 +541,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
                     title=step_data.get("title", "Learning Step"),
                     intent=step_data.get("intent", "Complete this learning step"),
                     description=step_data.get("description"),
-                    primary_knowledge_uids=tuple(primary_uids),
-                    supporting_knowledge_uids=tuple(supporting_uids),
+                    knowledge_uids=tuple(knowledge_uids),
                     learning_path_uid=step_data.get("learning_path_uid"),
                     sequence=step_data.get("sequence"),
                     mastery_threshold=step_data.get("mastery_threshold", 0.7),
@@ -607,38 +563,18 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
 
     @track_query_metrics("ls_add_knowledge")
     @with_error_handling("add_knowledge_relationship", error_type="database")
-    async def add_knowledge_relationship(
-        self, ls_uid: str, ku_uid: str, knowledge_type: str = "primary"
-    ) -> Result[bool]:
+    async def add_knowledge_relationship(self, ls_uid: str, ku_uid: str) -> Result[bool]:
         """Create CONTAINS_KNOWLEDGE relationship between LS and KU."""
-        if knowledge_type not in ("primary", "supporting"):
-            return Result.fail(
-                Errors.validation(
-                    f"Invalid knowledge_type: {knowledge_type}. Must be 'primary' or 'supporting'",
-                    field="knowledge_type",
-                )
-            )
-        return await self.backend.add_knowledge(ls_uid, ku_uid, knowledge_type)
+        return await self.backend.add_knowledge(ls_uid, ku_uid)
 
     @track_query_metrics("ls_get_knowledge")
     @with_error_handling("get_contained_knowledge", error_type="database")
-    async def get_contained_knowledge(
-        self, ls_uid: str, knowledge_type: str | None = None
-    ) -> Result[list[LsKnowledgeItemResult]]:
+    async def get_contained_knowledge(self, ls_uid: str) -> Result[list[LsKnowledgeItemResult]]:
         """Get KUs contained in this LS via CONTAINS_KNOWLEDGE relationships."""
-        if knowledge_type and knowledge_type not in ("primary", "supporting"):
-            return Result.fail(
-                Errors.validation(
-                    f"Invalid knowledge_type: {knowledge_type}. Must be 'primary', 'supporting', or None",
-                    field="knowledge_type",
-                )
-            )
-        result = await self.backend.list_knowledge(ls_uid, knowledge_type)
+        result = await self.backend.list_knowledge(ls_uid)
         if result.is_error:
             return Result.fail(result)
-        self.logger.info(
-            f"Found {len(result.value)} KUs for LS {ls_uid} (type={knowledge_type or 'all'})"
-        )
+        self.logger.info(f"Found {len(result.value)} KUs for LS {ls_uid}")
         return result
 
     @track_query_metrics("ls_remove_knowledge")
@@ -655,14 +591,10 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
     @track_query_metrics("ls_get_knowledge_summary")
     @with_error_handling("get_knowledge_summary", error_type="database")
     async def get_knowledge_summary(self, ls_uid: str) -> Result[LsKnowledgeSummaryResult]:
-        """Get summary of knowledge relationships (primary/supporting counts and UIDs)."""
+        """Get summary of knowledge relationships (count and UIDs)."""
         result = await self.backend.get_knowledge_summary(ls_uid)
         if result.is_error:
             return Result.fail(result)
         summary = result.value
-        self.logger.info(
-            f"Knowledge summary for {ls_uid}: "
-            f"{summary['primary_count']} primary, "
-            f"{summary['supporting_count']} supporting"
-        )
+        self.logger.info(f"Knowledge summary for {ls_uid}: {summary['count']} KUs")
         return result

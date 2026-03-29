@@ -242,11 +242,11 @@ class TestLessonUsesKuWiring:
 class TestLsFieldWiring:
     """Tests for Learning Step relationship field wiring in the registry."""
 
-    def test_primary_knowledge_uids(self):
+    def test_knowledge_uids(self):
         config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
         assert config is not None
-        assert "primary_knowledge_uids" in config
-        assert config["primary_knowledge_uids"]["rel_type"] == "CONTAINS_KNOWLEDGE"
+        assert "knowledge_uids" in config
+        assert config["knowledge_uids"]["rel_type"] == "CONTAINS_KNOWLEDGE"
 
     def test_trains_ku_uids(self):
         config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
@@ -266,12 +266,6 @@ class TestLsFieldWiring:
         assert config is not None
         assert "prerequisite_knowledge_uids" in config
         assert config["prerequisite_knowledge_uids"]["rel_type"] == "REQUIRES_KNOWLEDGE"
-
-    def test_supporting_knowledge_uids(self):
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
-        assert config is not None
-        assert "supporting_knowledge_uids" in config
-        assert config["supporting_knowledge_uids"]["rel_type"] == "REQUIRES_KNOWLEDGE"
 
     def test_learning_path_uids(self):
         config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
@@ -294,10 +288,10 @@ class TestLsFieldWiring:
             assert field not in config
 
     def test_total_field_count(self):
-        """LS should have 6 relationship fields wired (knowledge + steps + paths)."""
+        """LS should have 5 relationship fields wired (knowledge + steps + paths)."""
         config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
         assert config is not None
-        assert len(config) == 6
+        assert len(config) == 5
 
 
 # ============================================================================
@@ -320,7 +314,7 @@ class TestLsPreparerNormalization:
         assert result["learning_path_uids"] == ["lp.mindfulness-101"]
 
     def test_knowledge_uid_merged(self):
-        """Single knowledge_uid should merge into primary_knowledge_uids."""
+        """Single knowledge_uid should merge into knowledge_uids."""
         data = {
             "type": "ls",
             "title": "Step 1",
@@ -328,18 +322,18 @@ class TestLsPreparerNormalization:
         }
         result = prepare_entity_data(EntityType.LEARNING_STEP, data, None, Path("step1.yaml"))
         assert "knowledge_uid" not in result
-        assert "ku.breathing" in result["primary_knowledge_uids"]
+        assert "ku.breathing" in result["knowledge_uids"]
 
     def test_knowledge_uid_no_duplicate(self):
-        """knowledge_uid should not duplicate existing primary_knowledge_uids entry."""
+        """knowledge_uid should not duplicate existing knowledge_uids entry."""
         data = {
             "type": "ls",
             "title": "Step 1",
             "knowledge_uid": "ku:breathing",
-            "primary_knowledge_uids": ["ku:breathing"],
+            "knowledge_uids": ["ku:breathing"],
         }
         result = prepare_entity_data(EntityType.LEARNING_STEP, data, None, Path("step1.yaml"))
-        assert result["primary_knowledge_uids"].count("ku.breathing") == 1
+        assert result["knowledge_uids"].count("ku.breathing") == 1
 
     def test_uid_normalization_in_list_fields(self):
         """All UID list fields should have colon→dot normalization."""
@@ -347,11 +341,11 @@ class TestLsPreparerNormalization:
             "type": "ls",
             "title": "Step 1",
             "trains_ku_uids": ["ku:concept-a", "ku:concept-b"],
-            "primary_knowledge_uids": ["ku:concept-c"],
+            "knowledge_uids": ["ku:concept-c"],
         }
         result = prepare_entity_data(EntityType.LEARNING_STEP, data, None, Path("step1.yaml"))
         assert result["trains_ku_uids"] == ["ku.concept-a", "ku.concept-b"]
-        assert result["primary_knowledge_uids"] == ["ku.concept-c"]
+        assert result["knowledge_uids"] == ["ku.concept-c"]
 
 
 # ============================================================================

@@ -841,14 +841,10 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         # Use model methods for analysis
         scope_summary = path.get_knowledge_scope_summary()
         all_knowledge_uids = path.get_all_knowledge_uids()
-        primary_knowledge = path.get_primary_knowledge_uids()
-        supporting_knowledge = path.get_supporting_knowledge_uids()
 
         analysis = {
             **scope_summary,
             "all_knowledge_uids": list(all_knowledge_uids),
-            "primary_knowledge_uids": list(primary_knowledge),
-            "supporting_knowledge_uids": list(supporting_knowledge),
             "knowledge_complexity": path.knowledge_complexity_score(),
             "practice_coverage": path.practice_coverage_score(),
             "analysis_timestamp": datetime.now().isoformat(),

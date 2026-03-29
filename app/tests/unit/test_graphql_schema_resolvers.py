@@ -81,7 +81,7 @@ class FakeLearningPath:
 class FakeLearningStep:
     uid: str = "ls_test_1"
     title: str = "Test Step"
-    primary_knowledge_uids: tuple[str, ...] = ("ku_test_1",)
+    knowledge_uids: tuple[str, ...] = ("ku_test_1",)
     mastery_threshold: float = 0.8
     estimated_hours: float = 2.5
 
@@ -713,8 +713,8 @@ class TestLearningPathWithContextResolver:
     async def test_returns_context_with_progress(self) -> None:
         lp = FakeLearningPath(uid="lp_ctx", title="Context Path")
         steps = [
-            FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_1",)),
-            FakeLearningStep(uid="ls_2", primary_knowledge_uids=("ku_2",)),
+            FakeLearningStep(uid="ls_1", knowledge_uids=("ku_1",)),
+            FakeLearningStep(uid="ls_2", knowledge_uids=("ku_2",)),
         ]
 
         services = MagicMock()
@@ -790,7 +790,7 @@ class TestLearningPathWithContextResolver:
     @pytest.mark.asyncio
     async def test_blocker_detection_low_progress(self) -> None:
         lp = FakeLearningPath(uid="lp_blk")
-        steps = [FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_1",))]
+        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_1",))]
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
@@ -823,7 +823,7 @@ class TestLearningPathWithContextResolver:
     @pytest.mark.asyncio
     async def test_blocker_detection_missing_prerequisite(self) -> None:
         lp = FakeLearningPath(uid="lp_prereq")
-        steps = [FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_adv",))]
+        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_adv",))]
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
@@ -1050,7 +1050,7 @@ class TestLearningPathBlockersResolver:
     @pytest.mark.asyncio
     async def test_missing_content_blocker(self) -> None:
         lp = FakeLearningPath(uid="lp_blk")
-        steps = [FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_gone",))]
+        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_gone",))]
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
@@ -1072,7 +1072,7 @@ class TestLearningPathBlockersResolver:
     @pytest.mark.asyncio
     async def test_deprecated_content_blocker(self) -> None:
         lp = FakeLearningPath(uid="lp_dep")
-        steps = [FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_old",))]
+        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_old",))]
 
         deprecated_ku = FakeKU(
             uid="ku_old",
@@ -1099,8 +1099,8 @@ class TestLearningPathBlockersResolver:
     @pytest.mark.asyncio
     async def test_circular_dependency_blocker(self) -> None:
         lp = FakeLearningPath(uid="lp_circ")
-        step1 = FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_1",))
-        step2 = FakeLearningStep(uid="ls_2", primary_knowledge_uids=("ku_2",))
+        step1 = FakeLearningStep(uid="ls_1", knowledge_uids=("ku_1",))
+        step2 = FakeLearningStep(uid="ls_2", knowledge_uids=("ku_2",))
 
         ku1 = FakeKU(uid="ku_1", title="KU 1")
         ku2 = FakeKU(uid="ku_2", title="KU 2")
@@ -1157,7 +1157,7 @@ class TestLearningPathBlockersResolver:
     @pytest.mark.asyncio
     async def test_outdated_content_blocker(self) -> None:
         lp = FakeLearningPath(uid="lp_out")
-        steps = [FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_stale",))]
+        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_stale",))]
 
         stale_ku = FakeKU(
             uid="ku_stale",
@@ -1184,7 +1184,7 @@ class TestLearningPathBlockersResolver:
     @pytest.mark.asyncio
     async def test_step_with_no_knowledge_uid_skipped(self) -> None:
         lp = FakeLearningPath(uid="lp_skip")
-        steps = [FakeLearningStep(uid="ls_1", primary_knowledge_uids=())]
+        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=())]
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
@@ -1624,14 +1624,14 @@ class TestDiscoverCrossDomainTargetDomains:
 
 
 class TestLearningPathWithContextStepNoKuUid:
-    """Cover line 558: step with no primary_knowledge_uids skipped in blocker check."""
+    """Cover line 558: step with no knowledge_uids skipped in blocker check."""
 
     @pytest.mark.asyncio
     async def test_step_with_empty_ku_uids_skipped(self) -> None:
         lp = FakeLearningPath(uid="lp_empty_ku")
         # Step has no knowledge UIDs — should be skipped in blocker analysis
-        step_no_ku = FakeLearningStep(uid="ls_no_ku", primary_knowledge_uids=())
-        step_with_ku = FakeLearningStep(uid="ls_with_ku", primary_knowledge_uids=("ku_1",))
+        step_no_ku = FakeLearningStep(uid="ls_no_ku", knowledge_uids=())
+        step_with_ku = FakeLearningStep(uid="ls_with_ku", knowledge_uids=("ku_1",))
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(
@@ -1730,7 +1730,7 @@ class TestLearningPathBlockersMasteryCheck:
     async def test_mastered_prereqs_no_blocker(self) -> None:
         """When user has mastered all prereqs, no blocker is created."""
         lp = FakeLearningPath(uid="lp_mastery")
-        steps = [FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_adv",))]
+        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_adv",))]
         ku_adv = FakeKU(uid="ku_adv", title="Advanced")
         prereq = FakeKU(uid="ku_basic", title="Basic")
 
@@ -1757,7 +1757,7 @@ class TestLearningPathBlockersMasteryCheck:
     async def test_low_mastery_creates_blocker(self) -> None:
         """When user mastery is below threshold, a blocker is created."""
         lp = FakeLearningPath(uid="lp_low")
-        steps = [FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_adv",))]
+        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_adv",))]
         ku_adv = FakeKU(uid="ku_adv", title="Advanced")
         prereq = FakeKU(uid="ku_basic", title="Basic")
 
@@ -1784,7 +1784,7 @@ class TestLearningPathBlockersMasteryCheck:
     async def test_mastery_error_treated_as_not_mastered(self) -> None:
         """When get_user_mastery returns error, treat as not mastered (line 924-926)."""
         lp = FakeLearningPath(uid="lp_err")
-        steps = [FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_adv",))]
+        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_adv",))]
         ku_adv = FakeKU(uid="ku_adv", title="Advanced")
         prereq = FakeKU(uid="ku_basic", title="Basic")
 
@@ -1815,7 +1815,7 @@ class TestLearningPathBlockersPrereqTruncation:
     @pytest.mark.asyncio
     async def test_four_plus_prereqs_truncated(self) -> None:
         lp = FakeLearningPath(uid="lp_trunc")
-        steps = [FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_main",))]
+        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_main",))]
         ku_main = FakeKU(uid="ku_main", title="Main")
 
         # 5 unmet prerequisites
@@ -1843,13 +1843,13 @@ class TestLearningPathBlockersPrereqTruncation:
 
 
 class TestLearningPathBlockersLaterStepNoKuUid:
-    """Cover line 961: later step with no primary_knowledge_uids in circular dep check."""
+    """Cover line 961: later step with no knowledge_uids in circular dep check."""
 
     @pytest.mark.asyncio
     async def test_later_step_no_ku_uid_skipped(self) -> None:
         lp = FakeLearningPath(uid="lp_later_no_ku")
-        step1 = FakeLearningStep(uid="ls_1", primary_knowledge_uids=("ku_1",))
-        step2 = FakeLearningStep(uid="ls_2", primary_knowledge_uids=())  # No KU UID
+        step1 = FakeLearningStep(uid="ls_1", knowledge_uids=("ku_1",))
+        step2 = FakeLearningStep(uid="ls_2", knowledge_uids=())  # No KU UID
 
         ku1 = FakeKU(uid="ku_1", title="KU 1")
 

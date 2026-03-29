@@ -106,7 +106,7 @@ def learning_step_from_domain(step: LearningStepMappable, step_number: int) -> L
         step_number=step_number,
         uid=step.uid,
         title=step.title,
-        knowledge_uid=step.primary_knowledge_uids[0] if step.primary_knowledge_uids else "",
+        knowledge_uid=step.knowledge_uids[0] if step.knowledge_uids else "",
         mastery_threshold=step.mastery_threshold,
         estimated_time=step.estimated_hours,
     )

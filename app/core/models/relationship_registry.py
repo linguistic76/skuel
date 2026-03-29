@@ -1866,7 +1866,7 @@ LS_CONFIG = DomainRelationshipConfig(
             "outgoing",
             "knowledge_units",
             "knowledge",
-            yaml_field_path="primary_knowledge_uids",
+            yaml_field_path="knowledge_uids",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.TRAINS_KU,
@@ -1891,14 +1891,6 @@ LS_CONFIG = DomainRelationshipConfig(
             "prerequisite_knowledge_units",
             "prerequisite_knowledge",
             yaml_field_path="prerequisite_knowledge_uids",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.REQUIRES_KNOWLEDGE,
-            "Entity",
-            "outgoing",
-            "supporting_knowledge_units",
-            "supporting_knowledge",
-            yaml_field_path="supporting_knowledge_uids",
         ),
         # Activity domain wiring removed from LS — now lives on Lessons.
         # LS inherits via (LS)-[:HAS_LESSON]->(Lesson)-[:activity_rel]->(Activity).

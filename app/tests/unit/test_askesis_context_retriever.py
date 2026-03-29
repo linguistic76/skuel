@@ -35,8 +35,7 @@ def _make_user_context(
                 "title": "Test Step",
                 "current_mastery": 0.0,
                 "mastery_threshold": 0.7,
-                "primary_knowledge_uids": ["l_lesson_1"],
-                "supporting_knowledge_uids": [],
+                "knowledge_uids": ["l_lesson_1"],
                 "semantic_links": [],
                 "intent": "Understand testing",
             },
@@ -59,8 +58,7 @@ def _make_entity(uid: str, title: str) -> MagicMock:
     entity.content = f"Content for {title}"
     entity.learning_objectives = []
     entity.semantic_links = ()
-    entity.primary_knowledge_uids = []
-    entity.supporting_knowledge_uids = []
+    entity.knowledge_uids = []
     return entity
 
 

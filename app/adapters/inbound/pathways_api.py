@@ -100,7 +100,7 @@ def create_pathways_api_routes(
 
         step = step_found.value
 
-        ku_uids = list(step.primary_knowledge_uids) + list(step.supporting_knowledge_uids)
+        ku_uids = list(step.knowledge_uids)
         if not ku_uids:
             return Result.fail(
                 Errors.validation(

@@ -63,7 +63,7 @@ class FakeLearningPath:
 class FakeLearningStep:
     uid: str = "ls_test_abc"
     title: str = "Test Step"
-    primary_knowledge_uids: tuple[str, ...] = ("ku_primary",)
+    knowledge_uids: tuple[str, ...] = ("ku_primary",)
     mastery_threshold: float = 0.8
     estimated_hours: float = 2.5
 
@@ -217,12 +217,12 @@ class TestLearningStepFromDomain:
         assert result.mastery_threshold == 0.8
         assert result.estimated_time == 2.5
 
-    def test_empty_primary_knowledge_uids(self) -> None:
-        step = FakeLearningStep(primary_knowledge_uids=())
+    def test_empty_knowledge_uids(self) -> None:
+        step = FakeLearningStep(knowledge_uids=())
         result = learning_step_from_domain(step, step_number=1)
         assert result.knowledge_uid == ""
 
-    def test_list_primary_knowledge_uids(self) -> None:
-        step = FakeLearningStep(primary_knowledge_uids=["ku_a", "ku_b"])
+    def test_list_knowledge_uids(self) -> None:
+        step = FakeLearningStep(knowledge_uids=["ku_a", "ku_b"])
         result = learning_step_from_domain(step, step_number=1)
         assert result.knowledge_uid == "ku_a"

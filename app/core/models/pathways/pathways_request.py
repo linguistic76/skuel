@@ -42,10 +42,7 @@ class LearningStepCreateRequest(CreateRequestBase):
     )
 
     # Knowledge relationships
-    primary_knowledge_uids: list[str] = Field(default_factory=list, description="Primary KU UIDs")
-    supporting_knowledge_uids: list[str] = Field(
-        default_factory=list, description="Supporting KU UIDs"
-    )
+    knowledge_uids: list[str] = Field(default_factory=list, description="KU UIDs")
     prerequisite_step_uids: list[str] = Field(
         default_factory=list, description="Prerequisite step UIDs"
     )

@@ -449,7 +449,7 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
    - Service method tests for LS knowledge
 
 2. **Update Callers**
-   - Find code using `ls.primary_knowledge_uids`
+   - Find code using `ls.knowledge_uids`
    - Replace with `ls_service.get_contained_knowledge()`
    - Migrate to relationship-based queries
 

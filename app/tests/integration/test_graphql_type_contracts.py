@@ -136,13 +136,13 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
         )
 
         # Create learning steps
-        # primary_knowledge_uids is a list property
+        # knowledge_uids is a list property
         learning_steps = [
             {
                 "uid": "ls.type_test_step_1",
                 "title": "Learn Type Testing Basics",
                 "intent": "Master basic type testing concepts",
-                "primary_knowledge_uids": ["ku.type_test_basics"],
+                "knowledge_uids": ["ku.type_test_basics"],
                 "sequence": 1,
                 "mastery_threshold": 0.7,
                 "estimated_hours": 2.0,
@@ -151,7 +151,7 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
                 "uid": "ls.type_test_step_2",
                 "title": "Advanced Type Testing",
                 "intent": "Learn advanced type testing patterns",
-                "primary_knowledge_uids": ["ku.type_test_advanced"],
+                "knowledge_uids": ["ku.type_test_advanced"],
                 "sequence": 2,
                 "mastery_threshold": 0.8,
                 "estimated_hours": 3.0,
@@ -160,7 +160,7 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
                 "uid": "ls.type_test_step_3",
                 "title": "Type Testing Best Practices",
                 "intent": "Apply type testing in production",
-                "primary_knowledge_uids": ["ku.type_test_advanced"],
+                "knowledge_uids": ["ku.type_test_advanced"],
                 "sequence": 3,
                 "mastery_threshold": 0.85,
                 "estimated_hours": 4.0,
@@ -173,7 +173,7 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
                 MERGE (s:Entity {uid: $uid})
                 SET s.title = $title,
                     s.intent = $intent,
-                    s.primary_knowledge_uids = $primary_knowledge_uids,
+                    s.knowledge_uids = $knowledge_uids,
                     s.sequence = $sequence,
                     s.mastery_threshold = $mastery_threshold,
                     s.estimated_hours = $estimated_hours,
@@ -291,10 +291,8 @@ async def test_learning_path_service_returns_typed_steps(lp_service, type_contra
         assert len(step.title) > 0, f"Step {i} title should not be empty"
 
         # Tuple fields (not None)
-        assert step.primary_knowledge_uids is not None, (
-            f"Step {i} primary_knowledge_uids should not be None"
-        )
-        assert len(step.primary_knowledge_uids) > 0, (
+        assert step.knowledge_uids is not None, f"Step {i} knowledge_uids should not be None"
+        assert len(step.knowledge_uids) > 0, (
             f"Step {i} should have at least one primary knowledge UID"
         )
 
@@ -423,7 +421,7 @@ async def test_learning_step_from_domain_conversion(lp_service, type_contract_te
         - Maps fields correctly:
           - uid: direct copy
           - title: direct copy
-          - knowledge_uid: extract from primary_knowledge_uids[0]
+          - knowledge_uid: extract from knowledge_uids[0]
           - mastery_threshold: direct copy
           - estimated_time: maps from estimated_hours
           - step_number: from parameter
@@ -448,12 +446,12 @@ async def test_learning_step_from_domain_conversion(lp_service, type_contract_te
     assert graphql_dto.title == ls_domain_model.title, "title should be copied directly"
     assert graphql_dto.step_number == step_number, "step_number should match parameter"
 
-    # knowledge_uid extracted from primary_knowledge_uids[0]
+    # knowledge_uid extracted from knowledge_uids[0]
     expected_knowledge_uid = (
-        ls_domain_model.primary_knowledge_uids[0] if ls_domain_model.primary_knowledge_uids else ""
+        ls_domain_model.knowledge_uids[0] if ls_domain_model.knowledge_uids else ""
     )
     assert graphql_dto.knowledge_uid == expected_knowledge_uid, (
-        "knowledge_uid should be extracted from primary_knowledge_uids"
+        "knowledge_uid should be extracted from knowledge_uids"
     )
 
     # Direct numeric copies
@@ -470,20 +468,19 @@ async def test_learning_step_from_domain_conversion(lp_service, type_contract_te
 @pytest.mark.asyncio
 async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service):
     """
-    Verify from_domain() handles edge case of empty primary_knowledge_uids.
+    Verify from_domain() handles edge case of empty knowledge_uids.
 
     Edge Case:
-        - Ls with empty primary_knowledge_uids tuple
+        - Ls with empty knowledge_uids tuple
         - Should return empty string for knowledge_uid (not crash)
     """
-    # Arrange - Create LearningStep domain model with empty primary_knowledge_uids
+    # Arrange - Create LearningStep domain model with empty knowledge_uids
     ls_with_no_knowledge = LearningStepModel(
         uid="ls.test_no_knowledge",
         title="Test Step With No Knowledge",
         intent="Test intent",
         description="Test description",
-        primary_knowledge_uids=(),  # Empty tuple
-        supporting_knowledge_uids=(),
+        knowledge_uids=(),  # Empty tuple
         learning_path_uid="lp.test",
         sequence=1,
         mastery_threshold=0.7,
@@ -496,9 +493,7 @@ async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service
     graphql_dto = learning_step_from_domain(ls_with_no_knowledge, 1)
 
     # Assert - Should gracefully handle empty tuple
-    assert graphql_dto.knowledge_uid == "", (
-        "Empty primary_knowledge_uids should map to empty string"
-    )
+    assert graphql_dto.knowledge_uid == "", "Empty knowledge_uids should map to empty string"
     assert isinstance(graphql_dto.knowledge_uid, str), "knowledge_uid should always be string"
 
 

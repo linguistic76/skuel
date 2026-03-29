@@ -692,7 +692,7 @@ class AdvancedInferenceEngine:
                 self.logger.warning("Cross-domain discovery failed: %s", relationships_result.error)
 
             # Update TaskDTO with enhanced inference
-            # GRAPH-NATIVE: primary_knowledge_uids removed - relationships stored as Neo4j edges
+            # GRAPH-NATIVE: knowledge references stored as Neo4j edges
             task_dto.knowledge_confidence_scores = {
                 **(task_dto.knowledge_confidence_scores or {}),
                 **confidence_scores,

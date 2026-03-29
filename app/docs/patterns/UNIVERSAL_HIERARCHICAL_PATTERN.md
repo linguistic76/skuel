@@ -229,15 +229,13 @@ ls:x7y8z9w0v1u2
 ```python
 # OLD - Properties
 class LS:
-    primary_knowledge_uids: tuple[str, ...] = ()
-    supporting_knowledge_uids: tuple[str, ...] = ()
+    knowledge_uids: tuple[str, ...] = ()
 ```
 
 **After (Relationships):**
 ```cypher
 // NEW - Graph relationships
-(ls:Ls)-[:CONTAINS_KNOWLEDGE {type: "primary"}]->(ku:Curriculum)
-(ls:Ls)-[:CONTAINS_KNOWLEDGE {type: "supporting"}]->(ku:Curriculum)
+(ls:Ls)-[:CONTAINS_KNOWLEDGE]->(ku:Curriculum)
 ```
 
 **Service Methods:**

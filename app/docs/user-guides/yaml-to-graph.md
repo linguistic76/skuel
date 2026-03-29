@@ -207,8 +207,7 @@ Every UID-list field on a LearningStep becomes a set of edges in the graph:
 
 | YAML Field | Relationship | Direction | Connects To |
 |---|---|---|---|
-| `primary_knowledge_uids` | `CONTAINS_KNOWLEDGE` | outgoing | Lesson |
-| `supporting_knowledge_uids` | `CONTAINS_KNOWLEDGE` | outgoing | Lesson |
+| `knowledge_uids` | `CONTAINS_KNOWLEDGE` | outgoing | Lesson |
 | `trains_ku_uids` | `TRAINS_KU` | outgoing | Ku |
 | `prerequisite_step_uids` | `REQUIRES_STEP` | outgoing | LearningStep |
 | `prerequisite_knowledge_uids` | `REQUIRES_KNOWLEDGE` | outgoing | Lesson |
@@ -228,10 +227,8 @@ uid: ls:mindfulness-101:step-1
 title: Two Minutes Today
 intent: Try one two-minute breath session, note what you notice
 
-primary_knowledge_uids:
+knowledge_uids:
   - l:mindfulness:breath-awareness-basics
-
-supporting_knowledge_uids:
   - l:mindfulness:posture-basics
 
 trains_ku_uids:

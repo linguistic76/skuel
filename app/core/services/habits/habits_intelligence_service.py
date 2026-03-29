@@ -529,7 +529,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         # Learning analysis
         consistency_score = habit.calculate_consistency_score()
         learning_analysis = {
-            "primary_knowledge_uids": knowledge_reinforcement_uids[:3],
+            "knowledge_uids": knowledge_reinforcement_uids[:3],
             "skill_development_rate": practice_effectiveness / 10.0,
             "learning_consistency": consistency_score,
         }
