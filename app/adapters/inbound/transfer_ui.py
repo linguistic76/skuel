@@ -1,18 +1,15 @@
 """
-Transfer UI Routes — Tabbed Dual-Pane Hub
-==========================================
+Transfer UI Routes — Submission Hub
+=====================================
 
-The /transfer page consolidates submission + report capabilities into
-a tabbed dual-pane layout. Each pane uses Alpine.js tabs with HTMX
-lazy-loading for content.
+The /transfer page is the submission hub. "Transfer" is the user-facing
+name for the act of submitting work. Tabs: My Submissions | Submit | Generate.
 
-Left pane (Submissions): My Submissions | Submit | Generate Report
-Right pane (Reports): Exercise Reports | Activity Reports
-
-HTMX fragments are the atomic rendering units; this page is a compositor.
+Default tab loads on page load; non-default tabs lazy-load on first click
+(via custom 'tab-activate' event + 'once').
 
 Routes:
-- GET /transfer — Tabbed dual-pane hub
+- GET /transfer — Submission hub (tabbed)
 - GET /transfer/submit-form — HTMX fragment: upload form
 - GET /transfer/generate-form — HTMX fragment: generate report form
 """
@@ -37,7 +34,6 @@ from ui.cards import Card, CardBody
 from ui.forms import Select
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
-from ui.patterns.dual_pane import DualPaneLayout
 from ui.patterns.page_header import PageHeader
 from ui.submissions.forms import render_upload_form, upload_form_script
 
@@ -50,7 +46,11 @@ logger = get_logger("skuel.routes.transfer")
 
 
 def _tab_button(label: str, tab_id: str) -> Any:
-    """Single tab button with inline Alpine.js state."""
+    """Single tab button with inline Alpine.js state.
+
+    On click, sets the active tab and dispatches a custom 'tab-activate'
+    event on the target panel so HTMX can lazy-load its content.
+    """
     from fasthtml.common import A
 
     return A(
@@ -59,24 +59,33 @@ def _tab_button(label: str, tab_id: str) -> Any:
         cls="px-4 py-2 text-sm font-medium cursor-pointer transition-colors rounded-t border-b-2",
         **{
             ":aria-selected": f"tab === '{tab_id}'",
-            "@click": f"tab = '{tab_id}'",
+            "@click": f"tab = '{tab_id}'; htmx.trigger('#tab-panel-{tab_id}', 'tab-activate')",
             ":class": f"tab === '{tab_id}' ? 'border-primary text-primary bg-background' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
         },
     )
 
 
-def _tab_panel(tab_id: str, hx_get: str) -> Div:
-    """Tab panel that eager-loads content via HTMX on page load."""
+def _tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
+    """Tab panel with lazy-loaded HTMX content.
+
+    Default tabs load immediately (hx-trigger="load"). Non-default tabs
+    load on first activation via a custom 'tab-activate' event dispatched
+    by _tab_button. The 'once' modifier ensures content is fetched only once.
+    """
+    attrs: dict[str, str] = {
+        "x-show": f"tab === '{tab_id}'",
+        "hx-get": hx_get,
+        "hx-trigger": "load" if default else "tab-activate once",
+        "hx-swap": "innerHTML",
+    }
+    if not default:
+        attrs["x-cloak"] = ""
+
     return Div(
         P("Loading...", cls="text-center text-muted-foreground py-4"),
         id=f"tab-panel-{tab_id}",
         role="tabpanel",
-        **{
-            "x-show": f"tab === '{tab_id}'",
-            "hx-get": hx_get,
-            "hx-trigger": "load",
-            "hx-swap": "innerHTML",
-        },
+        **attrs,
     )
 
 
@@ -105,12 +114,14 @@ def create_transfer_ui_routes(
 
     @rt("/transfer")
     async def transfer_landing(request: Request) -> Any:
-        """Transfer hub — tabbed dual-pane (submissions + reports)."""
+        """Transfer hub — tabbed submission view."""
         require_authenticated_user(request)
 
-        # -- Left pane: Submissions (3 tabs) --
-        left_pane = Div(
-            H3("Submissions", cls="text-lg font-semibold mb-3"),
+        content = Div(
+            PageHeader(
+                "Transfer",
+                subtitle="Submit work and track submissions",
+            ),
             Div(
                 Div(
                     _tab_button("My Submissions", "submissions"),
@@ -119,37 +130,11 @@ def create_transfer_ui_routes(
                     role="tablist",
                     cls="flex gap-1 border-b border-border mb-4",
                 ),
-                _tab_panel("submissions", "/submissions/list"),
+                _tab_panel("submissions", "/submissions/list", default=True),
                 _tab_panel("submit", "/transfer/submit-form"),
                 _tab_panel("generate", "/transfer/generate-form"),
                 **{"x-data": "{ tab: 'submissions' }"},
             ),
-            cls="min-h-[200px]",
-        )
-
-        # -- Right pane: Reports (2 tabs) --
-        right_pane = Div(
-            H3("Reports", cls="text-lg font-semibold mb-3"),
-            Div(
-                Div(
-                    _tab_button("Exercise Reports", "exercise"),
-                    _tab_button("Activity Reports", "activity"),
-                    role="tablist",
-                    cls="flex gap-1 border-b border-border mb-4",
-                ),
-                _tab_panel("exercise", "/reports/list"),
-                _tab_panel("activity", "/reports/activity-list"),
-                **{"x-data": "{ tab: 'exercise' }"},
-            ),
-            cls="min-h-[200px]",
-        )
-
-        content = Div(
-            PageHeader(
-                "Transfer",
-                subtitle="Submit work and receive reports",
-            ),
-            DualPaneLayout(left_pane, right_pane),
             cls="px-4 sm:px-6 lg:px-10 py-6",
         )
 

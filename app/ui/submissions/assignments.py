@@ -2,10 +2,13 @@
 Submission Assignment UI Components
 ====================================
 
-Cards for exercises assigned to students via group membership.
+Cards for exercises assigned to students via group membership,
+and revised exercises targeting a student.
 """
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H4, Div, P, Span
 
@@ -14,6 +17,9 @@ from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+
+if TYPE_CHECKING:
+    from core.models.exercises.revised_exercise import RevisedExercise
 
 
 def render_assignment_card(ex: dict[str, Any]) -> Any:
@@ -97,4 +103,76 @@ def render_assignments_list(exercises: list[dict[str, Any]]) -> Any:
         )
 
     cards = [render_assignment_card(ex) for ex in exercises]
+    return Div(*cards, cls="space-y-4")
+
+
+# ============================================================================
+# REVISED EXERCISE CARDS
+# ============================================================================
+
+
+def render_revised_exercise_card(rev: RevisedExercise) -> Any:
+    """Render a single revised exercise card with Submit button."""
+    title = rev.title or "Untitled Revision"
+    revision_badge = Badge(f"Revision {rev.revision_number}", variant=BadgeT.info, size=Size.sm)
+
+    # Feedback points summary
+    feedback_summary = ""
+    if rev.feedback_points:
+        count = len(rev.feedback_points)
+        label = "feedback point" if count == 1 else "feedback points"
+        feedback_summary = Badge(f"{count} {label}", variant=BadgeT.outline, size=Size.sm)
+
+    instructions_preview = ""
+    if rev.instructions:
+        preview_text = rev.instructions[:200] + ("..." if len(rev.instructions) > 200 else "")
+        instructions_preview = P(preview_text, cls="text-sm text-muted-foreground mt-2")
+
+    rationale = ""
+    if rev.revision_rationale:
+        rationale = P(
+            rev.revision_rationale[:150] + ("..." if len(rev.revision_rationale) > 150 else ""),
+            cls="text-xs text-muted-foreground italic mt-1",
+        )
+
+    action = ButtonLink(
+        "Submit",
+        href=f"/submit?exercise_uid={rev.uid}",
+        variant=ButtonT.primary,
+        size=Size.sm,
+    )
+
+    return Card(
+        Div(
+            Div(
+                Div(
+                    H4(title, cls="text-lg"),
+                    revision_badge,
+                    feedback_summary,
+                    cls="flex items-center gap-2 flex-wrap",
+                ),
+                instructions_preview,
+                rationale,
+                cls="flex-1",
+            ),
+            Div(action, cls="flex items-center"),
+            cls="flex justify-between gap-4",
+        ),
+        cls="bg-background shadow-sm p-4",
+    )
+
+
+def render_revised_exercises_list(exercises: list[RevisedExercise]) -> Any:
+    """Render student's revised exercises with Submit buttons."""
+    if not exercises:
+        return Card(
+            P(
+                "No revised exercises yet. You'll see revisions here when a teacher "
+                "creates targeted follow-up exercises based on your report.",
+                cls="text-center text-muted-foreground py-8",
+            ),
+            cls="bg-background shadow-sm p-6",
+        )
+
+    cards = [render_revised_exercise_card(rev) for rev in exercises]
     return Div(*cards, cls="space-y-4")

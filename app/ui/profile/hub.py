@@ -1,12 +1,13 @@
 """Profile hub page — THE main hub, grouped card grid (MOC pattern).
 
-The /profile page is the top-level entry point. Cards link directly to
-domain hub pages (KU, Lessons, Submissions, Reports). Uses BasePage(STANDARD).
+The /profile page is the top-level entry point. Cards link to domain
+pages organized by the learning loop: Knowledge (Ku, Lessons, Exercises),
+Transfer (submissions), Reports, and Nous.
 
 See: /docs/patterns/HUB_PAGE_PATTERN.md
 """
 
-from fasthtml.common import Div, Span
+from fasthtml.common import Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
 from ui.patterns.hub import HubCardData, HubSection
@@ -16,9 +17,10 @@ def ProfileHubView(context: UserContext) -> Div:
     """Profile hub — Focus/Velocity header + grouped card grid."""
     return Div(
         _personal_header(context),
-        HubSection("Knowledge", _knowledge_cards(context)),
-        HubSection("Practice", _practice_cards(context)),
+        HubSection("Knowledge +", _knowledge_cards(context)),
+        HubSection("Transfer", _transfer_cards(context)),
         HubSection("Reports", _reports_cards(context)),
+        _nous_section(),
         _settings_link(),
     )
 
@@ -44,29 +46,17 @@ def _knowledge_cards(context: UserContext) -> list[HubCardData]:
             "Learning content that composes atomic knowledge.",
         ),
         HubCardData(
-            "\U0001f9e9",
-            "Learning Steps",
-            "/learning-steps",
-            "Collections of lessons grouped by theme.",
-        ),
-        HubCardData(
-            "\U0001f5fa\ufe0f",
-            "Learning Paths",
-            "/learning-paths",
-            "Ordered sequences of learning step collections.",
-        ),
-    ]
-
-
-def _practice_cards(context: UserContext) -> list[HubCardData]:
-    return [
-        HubCardData(
             "\U0001f3cb\ufe0f",
             "Exercises",
             "/exercises",
             "Practice linked to lessons and knowledge units.",
             badge=context.assigned_exercise_count or None,
         ),
+    ]
+
+
+def _transfer_cards(context: UserContext) -> list[HubCardData]:
+    return [
         HubCardData(
             "\u21c4",
             "Transfer",
@@ -149,6 +139,58 @@ def _velocity_line(context: UserContext) -> Div:
         Span(" \u00b7 ", cls="text-foreground/30 mx-2"),
         Span(f"{total_time:.1f}h invested", cls="text-sm text-muted-foreground"),
         cls="flex items-center mb-4",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Nous — shared knowledge feed (placeholder)
+# ---------------------------------------------------------------------------
+
+
+def _nous_section() -> Div:
+    """Nous section — placeholder for the shared knowledge feed.
+
+    Nous will surface RevisedExercise submissions shared by other learners
+    in a feed format (blog / news-feed style). This section establishes
+    the concept and marks it for future development.
+    """
+    return Div(
+        Span(
+            "Nous",
+            cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground",
+        ),
+        Div(
+            Div(
+                Div(
+                    Span("\U0001f4e1", cls="text-2xl"),
+                    Span(
+                        "Nous",
+                        cls="text-base font-semibold text-foreground",
+                    ),
+                    Span(
+                        "Coming Soon",
+                        cls="ml-auto text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full",
+                    ),
+                    cls="flex items-center gap-2",
+                ),
+                cls="mb-3",
+            ),
+            P(
+                "A shared knowledge feed of revised exercises from the community "
+                "\u2014 learn from how others transfer and apply knowledge.",
+                cls="text-sm text-muted-foreground mb-3",
+            ),
+            Div(
+                Span("\U0001f4dd Revised Exercises", cls="text-xs text-muted-foreground"),
+                Span(" \u00b7 ", cls="text-foreground/20"),
+                Span("\U0001f465 Community Shared", cls="text-xs text-muted-foreground"),
+                Span(" \u00b7 ", cls="text-foreground/20"),
+                Span("\U0001f4f0 Feed Format", cls="text-xs text-muted-foreground"),
+                cls="flex items-center gap-1",
+            ),
+            cls="bg-background rounded-xl p-5 shadow-sm border border-dashed border-border",
+        ),
+        cls="mb-6",
     )
 
 
