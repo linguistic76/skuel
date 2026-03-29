@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
 from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.submissions_enums import ExerciseScope
+from core.models.enums.submissions_enums import ExerciseScope, SubmissionModality
 from core.ports import get_enum_value
 
 
@@ -43,6 +43,7 @@ class ExerciseDTO(CurriculumDTO):
     - enrichment_mode: Processing strategy
     - context_notes: Reference materials
     - form_schema: Optional inline form definition
+    - expected_modality: What submission format this exercise expects
     """
 
     # =========================================================================
@@ -56,6 +57,7 @@ class ExerciseDTO(CurriculumDTO):
     enrichment_mode: str | None = None
     context_notes: list[str] = field(default_factory=list)
     form_schema: list[dict[str, Any]] | None = None  # Inline form definition
+    expected_modality: SubmissionModality | None = None
 
     # =========================================================================
     # SERIALIZATION
@@ -77,6 +79,7 @@ class ExerciseDTO(CurriculumDTO):
                 "enrichment_mode": self.enrichment_mode,
                 "context_notes": list(self.context_notes) if self.context_notes else [],
                 "form_schema": self.form_schema,
+                "expected_modality": get_enum_value(self.expected_modality),
             }
         )
 
@@ -114,6 +117,7 @@ class ExerciseDTO(CurriculumDTO):
                 "learning_level": LearningLevel,
                 "sel_category": SELCategory,
                 "scope": ExerciseScope,
+                "expected_modality": SubmissionModality,
             },
             date_fields=["due_date"],
             datetime_fields=[
@@ -175,6 +179,7 @@ class ExerciseDTO(CurriculumDTO):
                 "enrichment_mode",
                 "context_notes",
                 "form_schema",
+                "expected_modality",
             },
             enum_mappings={
                 "entity_type": EntityType,
@@ -184,6 +189,7 @@ class ExerciseDTO(CurriculumDTO):
                 "learning_level": LearningLevel,
                 "sel_category": SELCategory,
                 "scope": ExerciseScope,
+                "expected_modality": SubmissionModality,
             },
         )
 

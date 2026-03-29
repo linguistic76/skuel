@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.enums.metadata_enums import Visibility
+from core.models.enums.submissions_enums import SubmissionModality
 from core.models.user_owned_dto import UserOwnedDTO
 from core.ports import get_enum_value
 
@@ -66,6 +67,11 @@ class SubmissionDTO(UserOwnedDTO):
     max_retention: int | None = None
 
     # =========================================================================
+    # MODALITY
+    # =========================================================================
+    modality: SubmissionModality | None = None
+
+    # =========================================================================
     # SUBJECT
     # =========================================================================
     subject_uid: str | None = None
@@ -96,6 +102,8 @@ class SubmissionDTO(UserOwnedDTO):
                 "processed_file_path": self.processed_file_path,
                 "instructions": self.instructions,
                 "max_retention": self.max_retention,
+                # Modality
+                "modality": get_enum_value(self.modality),
                 # Subject
                 "subject_uid": self.subject_uid,
             }
@@ -123,6 +131,7 @@ class SubmissionDTO(UserOwnedDTO):
                 "domain": Domain,
                 "visibility": Visibility,
                 "processor_type": ProcessorType,
+                "modality": SubmissionModality,
             },
             datetime_fields=[
                 "created_at",
@@ -172,6 +181,7 @@ class SubmissionDTO(UserOwnedDTO):
                 "processed_file_path",
                 "instructions",
                 "max_retention",
+                "modality",
                 "subject_uid",
             },
             enum_mappings={
@@ -180,6 +190,7 @@ class SubmissionDTO(UserOwnedDTO):
                 "domain": Domain,
                 "visibility": Visibility,
                 "processor_type": ProcessorType,
+                "modality": SubmissionModality,
             },
         )
 

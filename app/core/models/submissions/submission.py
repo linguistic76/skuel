@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from core.models.submissions.submission_dto import SubmissionDTO
 
 from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.models.enums.submissions_enums import SubmissionModality
 from core.models.type_hints import UserUID
 from core.models.user_owned_entity import UserOwnedEntity
 
@@ -99,6 +100,11 @@ class Submission(UserOwnedEntity):
     processed_file_path: str | None = None
     instructions: str | None = None  # LLM processing instructions
     max_retention: int | None = None  # FIFO cleanup limit (None = permanent)
+
+    # =========================================================================
+    # MODALITY
+    # =========================================================================
+    modality: SubmissionModality | None = None  # How the submission was created (None for legacy)
 
     # =========================================================================
     # SUBJECT

@@ -12,7 +12,7 @@ Module Organization:
 - habit_enums: HabitPolarity, HabitCategory, HabitDifficulty, CompletionStatus
 - choice_enums: ChoiceType
 - principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
-- submissions_enums: ExerciseScope, FormattingStyle, AnalysisDepth, ContextEnrichmentLevel,
+- submissions_enums: SubmissionModality, ExerciseScope, FormattingStyle, AnalysisDepth, ContextEnrichmentLevel,
                      ScheduleType, ProgressDepth
 - curriculum_enums: LpType, StepDifficulty
 - lifepath_enums: ThemeCategory
@@ -143,6 +143,7 @@ from .submissions_enums import (
     FormattingStyle,
     ProgressDepth,
     ScheduleType,
+    SubmissionModality,
 )
 
 # Transcription enums
@@ -228,6 +229,7 @@ __all__ = [
     "SELCategory",
     "ScheduleType",
     "SearchScope",
+    "SubmissionModality",
     "SeverityLevel",
     "StepDifficulty",
     "SystemConstants",

@@ -25,6 +25,7 @@ from core.events.submission_events import SubmissionCreated
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.submissions_enums import SubmissionModality
 from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission import Submission
 from core.models.submissions.submission_dto import SubmissionDTO
@@ -166,6 +167,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             file_size=len(file_content),
             file_type=file_type,
             processor_type=processor_type,
+            modality=SubmissionModality.FILE_UPLOAD,
             metadata=metadata or {},
         )
 
@@ -252,6 +254,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             processed_content=json.dumps(form_data),
             metadata={"submission_mode": "form", "form_data": form_data},
             processor_type=ProcessorType.AUTOMATIC,
+            modality=SubmissionModality.STRUCTURED_FORM,
         )
 
         create_result = await self.backend.create(submission)

@@ -9,6 +9,18 @@ scheduling, and project/assignment scope.
 from enum import StrEnum
 
 
+class SubmissionModality(StrEnum):
+    """
+    Format of submission expected by an Exercise or used by an ExerciseSubmission.
+
+    FILE_UPLOAD: Student uploads a file (audio, PDF, document, image)
+    STRUCTURED_FORM: Student fills out an inline form defined by Exercise.form_schema
+    """
+
+    FILE_UPLOAD = "file_upload"
+    STRUCTURED_FORM = "structured_form"
+
+
 class ExerciseScope(StrEnum):
     """
     Scope of an exercise (instruction template).

@@ -30,7 +30,7 @@ Terminology
 Hierarchy:
     Entity (~29 fields)
     └── Curriculum(Entity) +21 fields
-        └── Exercise(Curriculum) +8 fields
+        └── Exercise(Curriculum) +9 fields
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
@@ -42,7 +42,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.submissions_enums import ExerciseScope
+from core.models.enums.submissions_enums import ExerciseScope, SubmissionModality
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -64,7 +64,7 @@ class Exercise(Curriculum):
     - User controls the model
     - ExerciseReport = instructions + entry content -> LLM -> response
 
-    Exercise-specific fields (8):
+    Exercise-specific fields (9):
     - instructions: LLM prompt for processing
     - model: Which LLM to use
     - scope: ExerciseScope.PERSONAL (user's own template) or ASSIGNED (teacher → group)
@@ -73,10 +73,11 @@ class Exercise(Curriculum):
     - enrichment_mode: Processing strategy
     - context_notes: Reference materials
     - form_schema: Optional inline form definition for structured submissions
+    - expected_modality: What submission format this exercise expects (FILE_UPLOAD or STRUCTURED_FORM)
     """
 
     def __post_init__(self) -> None:
-        """Force entity_type=EXERCISE, parse JSON form_schema from Neo4j."""
+        """Force entity_type=EXERCISE, parse JSON form_schema, derive expected_modality."""
         super().__post_init__()
         object.__setattr__(self, "entity_type", EntityType.EXERCISE)
         # Neo4j stores form_schema as JSON string — parse on construction
@@ -86,9 +87,17 @@ class Exercise(Curriculum):
                 object.__setattr__(self, "form_schema", tuple(parsed) if parsed else None)
             except (json.JSONDecodeError, TypeError):
                 object.__setattr__(self, "form_schema", None)
+        # Auto-derive expected_modality from form_schema when not explicitly set
+        if self.expected_modality is None:
+            derived = (
+                SubmissionModality.STRUCTURED_FORM
+                if self.form_schema
+                else SubmissionModality.FILE_UPLOAD
+            )
+            object.__setattr__(self, "expected_modality", derived)
 
     # =========================================================================
-    # EXERCISE-SPECIFIC FIELDS (8)
+    # EXERCISE-SPECIFIC FIELDS (9)
     # =========================================================================
     instructions: str | None = None  # LLM prompt for processing
     model: str = "claude-sonnet-4-6"  # Which LLM to use
@@ -98,6 +107,7 @@ class Exercise(Curriculum):
     enrichment_mode: str | None = None  # activity_tracking, idea_articulation, etc.
     context_notes: tuple[str, ...] = ()  # Reference materials (tuple, not list — frozen)
     form_schema: tuple[dict[str, Any], ...] | None = None  # Inline form definition
+    expected_modality: SubmissionModality | None = None  # Auto-derived in __post_init__
 
     # =========================================================================
     # EXERCISE-SPECIFIC METHODS
@@ -133,8 +143,8 @@ class Exercise(Curriculum):
         return "\n".join(prompt_parts)
 
     def has_inline_form(self) -> bool:
-        """Check if this exercise defines an inline form for structured submissions."""
-        return bool(self.form_schema)
+        """Check if this exercise expects structured form submissions."""
+        return self.expected_modality == SubmissionModality.STRUCTURED_FORM
 
     def is_valid(self) -> bool:
         """Check if exercise has minimum required fields."""
