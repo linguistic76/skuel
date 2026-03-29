@@ -92,8 +92,8 @@ STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
 # Icon navigation items — rendered as circular letter buttons in the left navbar section
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
     IconNavItem("Knowledge", "⚛️", "/ku", "knowledge", has_dropdown=False),
-    IconNavItem("Curriculum", "C", "/curriculum", "curriculum", has_dropdown=True),
-    IconNavItem("Study", "S", "/study", "study", has_dropdown=True),
+    IconNavItem("Curriculum", "📚", "/curriculum", "curriculum", has_dropdown=True),
+    IconNavItem("Study", "✉️", "/study", "study", has_dropdown=True),
 )
 
 # Admin-only navigation item - prepended to nav when user is admin

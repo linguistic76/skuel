@@ -69,11 +69,14 @@ def _icon_nav_dropdown(item: IconNavItem, active_page: str) -> Div:
     active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
     inactive_cls = "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 
+    is_emoji = len(item.letter) > 1 or not item.letter.isascii()
+    text_cls = "text-base" if is_emoji else "font-semibold text-sm"
+
     trigger = Div(
         Span(item.label, cls="sr-only"),
         Div(
             item.letter,
-            cls=f"size-8 rounded-full flex items-center justify-center font-semibold text-sm cursor-default "
+            cls=f"size-8 rounded-full flex items-center justify-center {text_cls} cursor-default "
             f"{active_cls if is_active else inactive_cls}",
             aria_hidden="true",
         ),
