@@ -1,13 +1,13 @@
 """Curriculum Hub Routes — Configuration-Driven Registration
 ============================================================
 
-Wires the /curriculum hub routes: landing page + browser sub-pages.
+Wires the /curriculum hub routes: landing redirect + browser sub-pages.
 
 Routes:
-- GET /curriculum — Landing page (4-card grid)
-- GET /lessons — Lesson browser with Curriculum sidebar
-- GET /learning-steps — LS browser with Curriculum sidebar
-- GET /learning-paths — LP browser with Curriculum sidebar
+- GET /curriculum — 301 redirect to /profile
+- GET /lessons — Lesson browser
+- GET /learning-steps — Learning Steps browser
+- GET /learning-paths — Learning Paths browser
 
 Exercises routes are registered separately via exercises_routes.py.
 """

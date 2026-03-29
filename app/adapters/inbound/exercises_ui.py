@@ -21,7 +21,7 @@ from adapters.inbound.auth import make_service_getter, require_authenticated_use
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
-from ui.curriculum.layout import create_curriculum_page
+from ui.layouts.base_page import BasePage
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
@@ -429,11 +429,11 @@ def create_exercises_ui_routes(
                 ExerciseUIComponents.render_exercises_list(exercises),
                 id="main-content",
             )
-            return await create_curriculum_page(
+            return await BasePage(
                 content=content,
-                active_section="exercises",
+                title="Exercises",
                 request=request,
-                title="Exercises - Curriculum",
+                active_page="curriculum",
             )
 
         except Exception as e:  # safety-net: HTTP error boundary

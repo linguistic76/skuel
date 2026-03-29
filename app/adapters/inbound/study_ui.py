@@ -1,16 +1,12 @@
 """
-Study UI Routes — Student Workspace Hub
-========================================
+Study UI Routes — Student Workspace
+====================================
 
 The student's core workspace for submitting work, tracking submissions,
-and reviewing feedback. All sub-pages are top-level routes with shared sidebar.
-
-Layout: 5-item sidebar (Submit / My Submissions / Exercise Reports / Activity Reports
-/ Generate Reports) on sub-pages. Landing page (/study) has no sidebar.
-Exercises moved to Curriculum sidebar.
+and reviewing feedback. All sub-pages are top-level routes using BasePage(STANDARD).
 
 Routes:
-- GET /study — Dashboard landing (no sidebar)
+- GET /study — Redirect to /profile
 - GET /submit — File upload form
 - GET /submissions — My submitted work (yours + browse merged)
 - GET /exercise-reports — Teacher/AI feedback on exercise submissions
@@ -51,7 +47,6 @@ from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
-from ui.study.layout import create_study_page
 from ui.submissions.cards import (
     render_processed_content,
     render_submission_detail,
@@ -149,7 +144,7 @@ def create_study_ui_routes(
         return result.value
 
     # ========================================================================
-    # LANDING PAGE (no sidebar)
+    # LANDING PAGE (redirect to /profile)
     # ========================================================================
 
     @rt("/study")
@@ -160,7 +155,7 @@ def create_study_ui_routes(
         return RedirectResponse(url="/profile", status_code=301)
 
     # ========================================================================
-    # SUBMIT PAGE (sidebar)
+    # SUBMIT PAGE
     # ========================================================================
 
     @rt("/submit")
@@ -181,15 +176,15 @@ def create_study_ui_routes(
             render_upload_form(assigned_exercises, selected_exercise_uid=selected_exercise_uid),
             upload_form_script(),
         )
-        return await create_study_page(
+        return await BasePage(
             content=content,
-            active_section="submit",
+            title="Submit",
             request=request,
-            title="Submit - Study",
+            active_page="study",
         )
 
     # ========================================================================
-    # MY SUBMISSIONS PAGE (sidebar) — merges yours + browse
+    # MY SUBMISSIONS PAGE — merges yours + browse
     # ========================================================================
 
     @rt("/submissions")
@@ -206,15 +201,15 @@ def create_study_ui_routes(
             render_filters_section(),
             render_submissions_grid_container(),
         )
-        return await create_study_page(
+        return await BasePage(
             content=content,
-            active_section="submissions",
+            title="My Submissions",
             request=request,
-            title="My Submissions - Study",
+            active_page="study",
         )
 
     # ========================================================================
-    # EXERCISE REPORTS PAGE (sidebar) — teacher/AI feedback on submissions
+    # EXERCISE REPORTS PAGE — teacher/AI feedback on submissions
     # ========================================================================
 
     @rt("/exercise-reports")
@@ -243,15 +238,15 @@ def create_study_ui_routes(
             ),
             reports_section,
         )
-        return await create_study_page(
+        return await BasePage(
             content=content,
-            active_section="exercise-reports",
+            title="Exercise Reports",
             request=request,
-            title="Exercise Reports - Study",
+            active_page="study",
         )
 
     # ========================================================================
-    # ACTIVITY REPORTS PAGE (sidebar) — activity feedback + progress reports
+    # ACTIVITY REPORTS PAGE — activity feedback + progress reports
     # ========================================================================
 
     @rt("/activity-reports")
@@ -282,15 +277,15 @@ def create_study_ui_routes(
                 },
             ),
         )
-        return await create_study_page(
+        return await BasePage(
             content=content,
-            active_section="activity-reports",
+            title="Activity Reports",
             request=request,
-            title="Activity Reports - Study",
+            active_page="study",
         )
 
     # ========================================================================
-    # GENERATE REPORTS PAGE (sidebar) — on-demand progress report generation
+    # GENERATE REPORTS PAGE — on-demand progress report generation
     # ========================================================================
 
     @rt("/generate-reports")
@@ -365,11 +360,11 @@ def create_study_ui_routes(
             generate_card,
             recent_reports,
         )
-        return await create_study_page(
+        return await BasePage(
             content=content,
-            active_section="generate-reports",
+            title="Generate Reports",
             request=request,
-            title="Generate Reports - Study",
+            active_page="study",
         )
 
     # ========================================================================
@@ -578,31 +573,31 @@ def create_study_ui_routes(
         uid = request.query_params.get("uid", "").strip()
 
         if not uid:
-            return await create_study_page(
+            return await BasePage(
                 content=Div(render_error_banner("Report UID is required")),
-                active_section="activity-reports",
+                title="Activity Report",
                 request=request,
-                title="Activity Report - Study",
+                active_page="study",
             )
 
         if not activity_report_service:
-            return await create_study_page(
+            return await BasePage(
                 content=Div(render_error_banner("Activity report service unavailable")),
-                active_section="activity-reports",
+                title="Activity Report",
                 request=request,
-                title="Activity Report - Study",
+                active_page="study",
             )
 
         # Fetch the report from history (service returns list, find by uid)
         history_result = await activity_report_service.get_history(subject_uid=user_uid, limit=100)
         if history_result.is_error:
-            return await create_study_page(
+            return await BasePage(
                 content=Div(
                     render_error_banner("Failed to load report", str(history_result.error))
                 ),
-                active_section="activity-reports",
+                title="Activity Report",
                 request=request,
-                title="Activity Report - Study",
+                active_page="study",
             )
 
         report = None
@@ -612,11 +607,11 @@ def create_study_ui_routes(
                 break
 
         if not report:
-            return await create_study_page(
+            return await BasePage(
                 content=Div(render_error_banner("Report not found")),
-                active_section="activity-reports",
+                title="Activity Report",
                 request=request,
-                title="Activity Report - Study",
+                active_page="study",
             )
 
         # Extract snapshot, intelligence, and comparison from metadata
@@ -630,11 +625,11 @@ def create_study_ui_routes(
                 report, snapshot=snapshot, intelligence=intelligence, comparison=comparison
             )
         )
-        return await create_study_page(
+        return await BasePage(
             content=content,
-            active_section="activity-reports",
+            title=getattr(report, "title", "Activity Report"),
             request=request,
-            title=f"{getattr(report, 'title', 'Activity Report')} - Study",
+            active_page="study",
         )
 
     # ========================================================================

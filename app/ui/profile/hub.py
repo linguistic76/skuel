@@ -43,6 +43,18 @@ def _knowledge_cards(context: UserContext) -> list[HubCardData]:
             "/lessons",
             "Learning content that composes atomic knowledge.",
         ),
+        HubCardData(
+            "\U0001f9e9",
+            "Learning Steps",
+            "/learning-steps",
+            "Collections of lessons grouped by theme.",
+        ),
+        HubCardData(
+            "\U0001f5fa\ufe0f",
+            "Learning Paths",
+            "/learning-paths",
+            "Ordered sequences of learning step collections.",
+        ),
     ]
 
 
@@ -86,6 +98,12 @@ def _reports_cards(context: UserContext) -> list[HubCardData]:
             "Activity Reports",
             "/activity-reports",
             "Progress reports across domains.",
+        ),
+        HubCardData(
+            "\u26a1",
+            "Generate Reports",
+            "/generate-reports",
+            "Create on-demand progress reports.",
         ),
     ]
 

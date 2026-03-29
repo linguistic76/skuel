@@ -5,9 +5,9 @@ UI for curriculum browser sub-pages.
 
 Routes:
 - GET /curriculum — 301 redirect to /profile (shelved: landing page deprecated)
-- GET /lessons — Lesson browser with Curriculum sidebar
-- GET /learning-steps — Learning Steps browser with Curriculum sidebar
-- GET /learning-paths — Learning Paths browser with Curriculum sidebar
+- GET /lessons — Lesson browser
+- GET /learning-steps — Learning Steps browser
+- GET /learning-paths — Learning Paths browser
 """
 
 from typing import Any
@@ -18,7 +18,7 @@ from starlette.responses import RedirectResponse
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from core.utils.logging import get_logger
-from ui.curriculum.layout import create_curriculum_page
+from ui.layouts.base_page import BasePage
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -47,7 +47,7 @@ def create_curriculum_hub_ui_routes(
 
     @rt("/lessons")
     async def lessons_browser(request) -> Any:
-        """Lesson browser with Curriculum sidebar."""
+        """Lesson browser."""
         require_authenticated_user(request)
 
         lesson_service = services.lesson
@@ -62,16 +62,16 @@ def create_curriculum_hub_ui_routes(
             _entity_list(items, "lessons", "No lessons found"),
             id="main-content",
         )
-        return await create_curriculum_page(
+        return await BasePage(
             content=content,
-            active_section="lessons",
+            title="Lessons",
             request=request,
-            title="Lessons - Curriculum",
+            active_page="curriculum",
         )
 
     @rt("/learning-steps")
     async def learning_steps_browser(request) -> Any:
-        """Learning Steps browser with Curriculum sidebar."""
+        """Learning Steps browser."""
         require_authenticated_user(request)
 
         ls_service = services.ls
@@ -86,16 +86,16 @@ def create_curriculum_hub_ui_routes(
             _entity_list(items, "learning-steps", "No learning steps found"),
             id="main-content",
         )
-        return await create_curriculum_page(
+        return await BasePage(
             content=content,
-            active_section="learning-steps",
+            title="Learning Steps",
             request=request,
-            title="Learning Steps - Curriculum",
+            active_page="curriculum",
         )
 
     @rt("/learning-paths")
     async def learning_paths_browser(request) -> Any:
-        """Learning Paths browser with Curriculum sidebar."""
+        """Learning Paths browser."""
         require_authenticated_user(request)
 
         lp_service = services.lp
@@ -110,11 +110,11 @@ def create_curriculum_hub_ui_routes(
             _entity_list(items, "learning-paths", "No learning paths found"),
             id="main-content",
         )
-        return await create_curriculum_page(
+        return await BasePage(
             content=content,
-            active_section="learning-paths",
+            title="Learning Paths",
             request=request,
-            title="Learning Paths - Curriculum",
+            active_page="curriculum",
         )
 
     return []  # Routes registered via @rt() decorators

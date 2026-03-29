@@ -72,29 +72,21 @@ class DropdownItem:
 ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 
 
-# Curriculum domain dropdown items — shown on hover over the "C" icon
-CURRICULUM_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
-    DropdownItem("Lessons", "/lessons", icon="📖"),
-    DropdownItem("Learning Steps", "/learning-steps", icon="🧩"),
-    DropdownItem("Learning Paths", "/learning-paths", icon="🗺️"),
-    DropdownItem("Exercises", "/exercises", icon="🏋️"),
-)
+# Curriculum domain dropdown items — SHELVED (2026-03-29)
+# Curriculum sidebar removed; pages accessible via /profile hub cards
+CURRICULUM_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 
-# Study workspace dropdown items — shown on hover over the "S" icon
-STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
-    DropdownItem("Submit", "/submit", icon="📤"),
-    DropdownItem("My Submissions", "/submissions", icon="📝"),
-    DropdownItem("Exercise Reports", "/exercise-reports", icon="📋"),
-    DropdownItem("Activity Reports", "/activity-reports", icon="📊"),
-    DropdownItem("Generate Reports", "/generate-reports", icon="⚡"),
-)
+# Study workspace dropdown items — SHELVED (2026-03-29)
+# Study sidebar removed; pages accessible via /profile hub cards + /transfer
+STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 
 
 # Icon navigation items — rendered as circular letter buttons in the left navbar section
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
-    IconNavItem("Knowledge", "⚛️", "/ku", "knowledge", has_dropdown=False),
-    IconNavItem("Curriculum", "📚", "/curriculum", "curriculum", has_dropdown=True),
-    IconNavItem("Study", "", "/study", "study", has_dropdown=True, icon="mail"),
+    IconNavItem("Knowledge", "\u269b\ufe0f", "/ku", "knowledge", has_dropdown=False),
+    IconNavItem(
+        "Transfer", "", "/transfer", "transfer", has_dropdown=False, icon="arrow-left-right"
+    ),
 )
 
 # Admin-only navigation item - prepended to nav when user is admin
