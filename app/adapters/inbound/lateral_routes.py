@@ -316,7 +316,7 @@ def create_lateral_api_routes(
 
     # --- KU: ENABLES Relationships ---
 
-    @rt("/api/lesson/{uid}/lateral/enables", methods=["POST"])
+    @rt("/api/ku/{uid}/lateral/enables", methods=["POST"])
     @boundary_handler(success_status=201)
     async def create_entity_enables(
         request: Request,
@@ -338,7 +338,7 @@ def create_lateral_api_routes(
             {"enabler_uid": uid, "enabled_uid": target_uid},
         )
 
-    @rt("/api/lesson/{uid}/lateral/enables", methods=["GET"])
+    @rt("/api/ku/{uid}/lateral/enables", methods=["GET"])
     @boundary_handler()
     async def get_entity_enables(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get knowledge units that this KU enables."""
@@ -351,7 +351,7 @@ def create_lateral_api_routes(
             "enables",
         )
 
-    @rt("/api/lesson/{uid}/lateral/enabled-by", methods=["GET"])
+    @rt("/api/ku/{uid}/lateral/enabled-by", methods=["GET"])
     @boundary_handler()
     async def get_entity_enabled_by(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get knowledge units that enable this KU."""

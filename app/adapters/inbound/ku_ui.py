@@ -47,7 +47,7 @@ def _render_ku_row(ku: Ku, pinned_uids: set[str]) -> Any:
                 Div(
                     Anchor(
                         ku.title,
-                        href=f"/ku/detail?uid={ku.uid}",
+                        href=f"/ku/{ku.uid}",
                         cls="font-medium text-foreground hover:text-primary transition-colors",
                     ),
                     *badges,
@@ -80,7 +80,7 @@ def _build_sidebar_items(
     # Bookmarks section
     if pinned_kus:
         bookmark_links = [
-            SidebarLink(text=ku.title, href=f"/ku/detail?uid={ku.uid}") for ku in pinned_kus[:10]
+            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in pinned_kus[:10]
         ]
         extra_sections.append(
             Li(
@@ -107,7 +107,7 @@ def _build_sidebar_items(
     # Latest section
     if latest_kus:
         latest_links = [
-            SidebarLink(text=ku.title, href=f"/ku/detail?uid={ku.uid}") for ku in latest_kus[:5]
+            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in latest_kus[:5]
         ]
         extra_sections.append(
             Li(
@@ -149,8 +149,7 @@ def create_ku_ui_routes(_app, rt, ku_service, user_relationship_service=None):
                 logger.error(f"Failed to load knowledge units: {result.error}")
                 ku_load_error = True
             elif result.value:
-                entities, _count = result.value
-                kus = entities
+                kus = result.value
 
         # Fetch pinned entity UIDs for the current user
         pinned_uids: set[str] = set()

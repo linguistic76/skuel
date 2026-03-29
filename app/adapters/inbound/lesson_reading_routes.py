@@ -5,8 +5,8 @@ Lesson Reading Routes - Configuration-Driven Registration
 Wires Lesson reading UI and API routes for the reading interface.
 
 Routes:
-- UI: /lesson/{uid} - Lesson detail page with reading interface
-- API: /api/lesson/{uid}/mark-read, /api/lesson/{uid}/bookmark, /api/lesson/{uid}/navigation
+- UI: /ku/{uid} - KU detail page with reading interface
+- API: /api/ku/{uid}/mark-read, /api/ku/{uid}/bookmark, /api/ku/{uid}/navigation
 """
 
 from typing import Any

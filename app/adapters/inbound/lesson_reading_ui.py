@@ -12,7 +12,7 @@ User-facing routes for reading Knowledge Units with:
 - Lateral relationships visualization
 
 Routes:
-- GET /lesson/{uid} - KU detail page with reading interface
+- GET /ku/{uid} - KU detail page with reading interface
 """
 
 import json
@@ -130,7 +130,7 @@ def _nav_button(ku: dict | None, direction: str) -> Any:
                 Div(f"← {label}", cls="text-sm"),
                 cls="text-left",
             ),
-            href=f"/lesson/{ku.get('uid')}",
+            href=f"/ku/{ku.get('uid')}",
             variant=ButtonT.outline,
         )
     return ButtonLink(
@@ -139,7 +139,7 @@ def _nav_button(ku: dict | None, direction: str) -> Any:
             Div(f"{label} →", cls="text-sm"),
             cls="text-right",
         ),
-        href=f"/lesson/{ku.get('uid')}",
+        href=f"/ku/{ku.get('uid')}",
         variant=ButtonT.outline,
     )
 
@@ -195,7 +195,7 @@ def create_lesson_reading_ui_routes(
         List of registered route functions
     """
 
-    @rt("/lesson/{uid}")
+    @rt("/ku/{uid}")
     async def ku_detail_page(request: Request, uid: str) -> Any:
         """
         KU detail page with full reading interface.
@@ -305,7 +305,7 @@ def create_lesson_reading_ui_routes(
             "Marked as Read" if is_marked_read else "Mark as Read",
             variant=ButtonT.success if is_marked_read else ButtonT.primary,
             size=Size.sm,
-            hx_post=f"/api/lesson/{uid}/mark-read",
+            hx_post=f"/api/ku/{uid}/mark-read",
             hx_swap="outerHTML",
             hx_target="this",
             disabled=is_marked_read,
@@ -315,7 +315,7 @@ def create_lesson_reading_ui_routes(
             "Bookmarked" if is_bookmarked else "Bookmark",
             variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
             size=Size.sm,
-            hx_post=f"/api/lesson/{uid}/bookmark",
+            hx_post=f"/api/ku/{uid}/bookmark",
             hx_swap="outerHTML",
             hx_target="this",
         )
@@ -418,7 +418,7 @@ def create_lesson_reading_ui_routes(
             page_type=PageType.CUSTOM,
         )
 
-    logger.info("KU reading UI routes registered: /lesson/{uid}")
+    logger.info("KU reading UI routes registered: /ku/{uid}")
 
     return [
         ku_detail_page,

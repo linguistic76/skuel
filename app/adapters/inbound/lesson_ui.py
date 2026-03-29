@@ -162,7 +162,7 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
             *[
                 Anchor(
                     moc["title"],
-                    href=f"/lesson/{moc['uid']}",
+                    href=f"/ku/{moc['uid']}",
                     cls="block text-xs hover:text-primary truncate px-2 py-0.5",
                 )
                 for moc in result.value

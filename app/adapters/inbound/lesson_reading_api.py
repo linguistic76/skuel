@@ -8,9 +8,9 @@ API routes for KU interaction tracking:
 - Get navigation (next/prev KU)
 
 Routes:
-- POST /api/lesson/{uid}/mark-read - Mark KU as read
-- POST /api/lesson/{uid}/bookmark - Toggle bookmark
-- GET /api/lesson/{uid}/navigation - Get next/prev KU in MOC order
+- POST /api/ku/{uid}/mark-read - Mark KU as read
+- POST /api/ku/{uid}/bookmark - Toggle bookmark
+- GET /api/ku/{uid}/navigation - Get next/prev KU in MOC order
 """
 
 from typing import Any
@@ -46,7 +46,7 @@ def create_lesson_reading_api_routes(
         List of registered route functions
     """
 
-    @rt("/api/lesson/{uid}/mark-read", methods=["POST"])
+    @rt("/api/ku/{uid}/mark-read", methods=["POST"])
     async def mark_ku_as_read(request: Request, uid: str) -> Any:
         """Mark KU as read. Returns updated button HTML for HTMX swap."""
         user_uid = require_authenticated_user(request)
@@ -68,7 +68,7 @@ def create_lesson_reading_api_routes(
             disabled=True,
         )
 
-    @rt("/api/lesson/{uid}/bookmark", methods=["POST"])
+    @rt("/api/ku/{uid}/bookmark", methods=["POST"])
     async def toggle_ku_bookmark(request: Request, uid: str) -> Any:
         """Toggle KU bookmark. Returns updated button HTML for HTMX swap."""
         user_uid = require_authenticated_user(request)
@@ -89,12 +89,12 @@ def create_lesson_reading_api_routes(
             "Bookmarked" if is_bookmarked else "Bookmark",
             variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
             size=Size.sm,
-            hx_post=f"/api/lesson/{uid}/bookmark",
+            hx_post=f"/api/ku/{uid}/bookmark",
             hx_swap="outerHTML",
             hx_target="this",
         )
 
-    @rt("/api/lesson/{uid}/navigation")
+    @rt("/api/ku/{uid}/navigation")
     @boundary_handler()
     async def get_ku_navigation(request: Request, uid: str) -> Result[dict[str, Any]]:
         """Get next/prev KU in MOC learning sequence."""

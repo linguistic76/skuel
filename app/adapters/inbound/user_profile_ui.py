@@ -879,7 +879,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     ),
                     cls="bg-muted shadow-sm hover:shadow-md transition-shadow",
                 ),
-                href=f"/lesson/{ku['uid']}",
+                href=f"/ku/{ku['uid']}",
             )
 
         ku_content = (
