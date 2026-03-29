@@ -53,13 +53,13 @@ Journals support **three modes** with weighted distribution:
    └─ Text: stored directly on JeInput
 
 2. LLM processing via JournalOutputService
-   ├─ Read enrichment_mode from instructions (activity / articulation / exploration)
-   ├─ JournalOutputService.generate(content, enrichment_mode, input_uid) → formatted content
+   ├─ Read enrichment_mode: EnrichmentMode from instructions (ACTIVITY_TRACKING / IDEA_ARTICULATION / CRITICAL_THINKING)
+   ├─ JournalOutputService.process_je_input(content, enrichment_mode, input_uid) → formatted content
    │  ├─ activity_formatter.md → structured DSL format
    │  ├─ articulation_formatter.md → verbatim preservation
    │  └─ exploration_formatter.md → question-organized
    ├─ Save je_output file → {SKUEL_JOURNAL_STORAGE}/{YYYY-MM}/journal_{uid}_output.md
-   ├─ Extract activities (if enrichment_mode == 'activity_tracking') → DSL activity extractor
+   ├─ Extract activities (if enrichment_mode == EnrichmentMode.ACTIVITY_TRACKING) → DSL activity extractor
    └─ Create JeOutput entity with TRANSFORMS relationship to JeInput
 
 3. Human decomposition (post-processing)

@@ -293,6 +293,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 |------|--------|---------|
 | SubmissionModality | FILE_UPLOAD, STRUCTURED_FORM | Submission format: file upload vs inline form. Set on `Exercise.expected_modality` (auto-derived from `form_schema`) and `Submission.modality` (set at creation). Orthogonal to `ProcessorType` (who processes) — modality is *how* the submission was created. |
 | ExerciseScope | PERSONAL, ASSIGNED | Exercise scope (user's own vs teacher-assigned). Enforced at Pydantic boundary (`ExerciseCreateRequest.scope`) and all comparison sites — zero raw string comparisons remain. |
+| EnrichmentMode | ACTIVITY_TRACKING, IDEA_ARTICULATION, CRITICAL_THINKING | Journal LLM processing strategy. Used on `Exercise.enrichment_mode` and `JeOutput.enrichment_mode`. Maps to prompt templates via `InstructionResolver._MODE_TEMPLATE_MAP`. |
 | FormattingStyle | STRUCTURED, NARRATIVE, BULLET_POINTS, CONVERSATIONAL, EXECUTIVE_SUMMARY | Transcript formatting |
 | AnalysisDepth | BASIC, DETAILED, COMPREHENSIVE | LLM processing depth |
 | ContextEnrichmentLevel | NONE, BASIC, STANDARD, DEEP | SKUEL context integration |

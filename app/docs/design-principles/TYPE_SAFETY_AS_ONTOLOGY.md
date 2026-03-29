@@ -42,7 +42,7 @@ For a system targeting 10,000 users, enum-driven pipelines enable:
 - **No raw string comparisons:** `entity_type == EntityType.TASK`, never `entity_type == "task"`
 - **Enum methods carry behavior:** `EntityStatus.is_terminal()`, `Priority.get_color()`, `EntityType.is_activity()`
 - **Branded identifiers:** `UserUID = NewType("UserUID", str)` — prevents passing a task UID where a user UID is expected
-- **Protocol return types:** 131 TypedDicts in `core/ports/query_types.py` — no `Result[Any]` in protocols
+- **Protocol return types:** 148 TypedDicts in `core/ports/query_types.py` — no `Result[Any]` in protocols
 - **Three-tier type system:** Pydantic at edges, frozen dataclasses at core, DTOs between
 
 ## Enforcement

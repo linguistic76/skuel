@@ -28,7 +28,7 @@ SKUEL is built on a developing ontology — 21 entity types, behavioral traits, 
 | "Some things are owned by users" | `UserOwnedEntity(Entity)` base class |
 | "Entities have behavioral traits" | `is_activity()`, `is_processable()`, `requires_user_uid()` methods |
 | "Services have defined contracts" | 65+ protocols in `core/ports/` |
-| "Query results have known shapes" | 131 TypedDicts in `core/ports/query_types.py` |
+| "Query results have known shapes" | 148 TypedDicts in `core/ports/query_types.py` |
 | "The learning loop has phases" | `Lesson -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise` type chain |
 
 When the ontology evolves — a new entity type, a new relationship, a new behavioral trait — the type system evolves with it. A MyPy error after such a change is not noise; it's the system telling you where the old ontology assumptions no longer hold. This is why SKUEL's core principle for type safety is: *"A type error from MyPy reveals a real design problem, not an annotation oversight."*
@@ -91,7 +91,7 @@ def get_user_context(user_uid: UserUID) -> Result[UserContext]: ...
 
 **Ownership discrimination:** The `UserOwnedEntity` / `Entity` type hierarchy determines which entities require ownership verification. Routes that accept a `UserOwnedEntity` *must* verify ownership — the type makes this requirement visible.
 
-**Enum-enforced states:** `UserRole`, `ContentScope`, `EntityStatus`, `ContentOrigin`, and `ExerciseScope` are enums, not strings. Invalid role escalation, unauthorized content access, and illegal state transitions are caught by the type checker:
+**Enum-enforced states:** `UserRole`, `ContentScope`, `EntityStatus`, `ContentOrigin`, `ExerciseScope`, and `EnrichmentMode` are enums, not strings. Invalid role escalation, unauthorized content access, and illegal state transitions are caught by the type checker:
 
 | Security Concern | Type Defense |
 |-----------------|--------------|
@@ -140,10 +140,10 @@ SKUEL's type safety has reached a solid, production-grade foundation:
 | Three-tier type system | Enforced across all 21 entity types |
 | Protocol-based DI | 65+ protocols, 100% protocol-mixin alignment |
 | Typed protocol returns | ~170 methods return specific models/TypedDicts, 0 `Result[Any]` in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed to concrete types |
-| Query type coverage | 131 TypedDicts (21 input, 110 output) |
+| Query type coverage | 148 TypedDicts (21 input, 127 output) |
 | Any usage policy | Three categories with enforcement |
 | Security NewTypes | `UserUID` propagated to ~1,930 annotations across 313 files; `EntityUID` to ~200 annotations (including variant names like `parent_entity_uid`, `source_entity_uid`). All layers enforce `UserUID` — auth, REST, GraphQL, services, backends, ingestion |
-| Enum-enforced boundaries | `UserRole`, `ExerciseScope`, `EntityStatus`, `ProcessorType`, `Visibility`, `SubmissionModality`, `FeedbackCategory`, `MasteryImpact` — zero raw string comparisons for roles, scopes, status checks, processor types, visibility levels, modalities, feedback categorization, mastery scoring |
+| Enum-enforced boundaries | `UserRole`, `ExerciseScope`, `EntityStatus`, `ProcessorType`, `Visibility`, `SubmissionModality`, `FeedbackCategory`, `MasteryImpact`, `EnrichmentMode` — zero raw string comparisons for roles, scopes, status checks, processor types, visibility levels, modalities, feedback categorization, mastery scoring, enrichment modes |
 | Search protocol generics | All 6 `DomainSearchOperations` extensions parameterized with domain model type (`Goal`, `Event`, `Choice`, `Principle`, `Task`, `Habit`), not `Entity` |
 
 This foundation is valued and allowed to evolve. As the ontology grows — new entity types, new relationships, new cross-cutting systems — the type system grows with it. The goal is not perfection frozen in place, but a living system where types track the domain as it reveals itself.

@@ -87,7 +87,7 @@ def create_tasks_api_routes(
 - 29 automated compliance tests (run: `uv run pytest tests/unit/test_protocol_mixin_compliance.py`)
 - Zero `Any` fields in the `Services` dataclass — all 72 fields typed
 - ~170 protocol return types migrated from `Result[Any]` / `Result[dict[str, Any]]` to specific types (March 2026). 0 `Result[Any]` remain in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed. Route handlers: 0 `Result[Any]` across 27 API files (2 intentional `# boundary:` for FastHTML FT components)
-- 131 TypedDicts in `query_types.py` — 21 for inputs (filters, payloads), 110 for outputs (domain stats, system health, teacher review, visualization configs, result shapes, UserContext field types, context intelligence, graph entity, curriculum structure, curriculum backend Cypher returns, lateral relationship backend returns, life path nested types, review queue results)
+- 148 TypedDicts in `query_types.py` — 21 for inputs (filters, payloads), 127 for outputs (domain stats, system health, teacher review, visualization configs, result shapes, UserContext field types, context intelligence, graph entity, curriculum structure, curriculum backend Cypher returns, lateral relationship backend returns, life path nested types, review queue results, journal cleanup stats)
 - **Search protocol generics** — all 6 extended search protocols (`TasksSearchOperations`, `GoalsSearchOperations`, etc.) parameterized with their domain model type (`Task`, `Goal`, `Event`, `Choice`, `Habit`, `Principle`), not `Entity`. Eliminates `# type: ignore[return-value]` in facade delegation methods
 
 **BackendOperations[T] hierarchy** — the foundational generic protocol:

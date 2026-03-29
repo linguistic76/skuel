@@ -162,7 +162,7 @@ model: str                        # LLM to use: "claude-sonnet-4-6"
 scope: ExerciseScope              # PERSONAL (self-directed) | ASSIGNED (classroom)
 due_date: date | None             # ASSIGNED only — when submission is due
 group_uid: str | None             # ASSIGNED only — which class receives this
-enrichment_mode: str | None       # Processing strategy for the submission
+enrichment_mode: EnrichmentMode | None  # ACTIVITY_TRACKING, IDEA_ARTICULATION, CRITICAL_THINKING
 context_notes: tuple[str, ...]    # Reference materials (immutable)
 form_schema: tuple[dict, ...] | None  # Inline form definition for structured submissions
 expected_modality: SubmissionModality  # FILE_UPLOAD or STRUCTURED_FORM (auto-derived from form_schema)
