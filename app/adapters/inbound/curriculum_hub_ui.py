@@ -57,7 +57,9 @@ def create_curriculum_hub_ui_routes(
         ]:
             svc = getattr(services, service_attr, None)
             if svc:
-                count_result = await svc.core.count()
+                # Facades have .core sub-service; flat BaseService services don't
+                counter = getattr(svc, "core", svc)
+                count_result = await counter.count()
                 count = count_result.value if not count_result.is_error else 0
             else:
                 count = 0

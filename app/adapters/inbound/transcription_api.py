@@ -21,7 +21,11 @@ from typing import Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.route_factories import parse_int_query_param, parse_pagination_params
+from adapters.inbound.route_factories import (
+    parse_int_query_param,
+    parse_pagination_params,
+    verify_entity_ownership,
+)
 from core.models.transcription.transcription import (
     TranscriptionCreateRequest,
     TranscriptionProcessOptions,
@@ -86,9 +90,11 @@ def create_transcription_api_routes(
     async def delete_transcription(request, uid: str) -> Result[bool]:
         """Delete transcription. Requires ownership."""
         user_uid = require_authenticated_user(request)
-        ownership = await transcription_service.verify_ownership(uid, user_uid)
-        if ownership.is_error:
-            return Result.fail(ownership)
+        ownership_error = await verify_entity_ownership(
+            transcription_service, uid, user_uid, "transcription"
+        )
+        if ownership_error:
+            return ownership_error
 
         return await transcription_service.delete(uid)
 
@@ -125,9 +131,11 @@ def create_transcription_api_routes(
     async def process_transcription(request, uid: str) -> Result[dict[str, Any]]:
         """Process transcription with Deepgram. Requires ownership."""
         user_uid = require_authenticated_user(request)
-        ownership = await transcription_service.verify_ownership(uid, user_uid)
-        if ownership.is_error:
-            return Result.fail(ownership)
+        ownership_error = await verify_entity_ownership(
+            transcription_service, uid, user_uid, "transcription"
+        )
+        if ownership_error:
+            return ownership_error
 
         body = await request.json() if request.headers.get("content-length") else {}
 
@@ -143,9 +151,11 @@ def create_transcription_api_routes(
     async def retry_transcription(request, uid: str) -> Result[dict[str, Any]]:
         """Retry a failed transcription. Requires ownership."""
         user_uid = require_authenticated_user(request)
-        ownership = await transcription_service.verify_ownership(uid, user_uid)
-        if ownership.is_error:
-            return Result.fail(ownership)
+        ownership_error = await verify_entity_ownership(
+            transcription_service, uid, user_uid, "transcription"
+        )
+        if ownership_error:
+            return ownership_error
 
         result = await transcription_service.retry(uid)
 

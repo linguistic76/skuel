@@ -47,7 +47,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
-from adapters.inbound.route_factories import split_csv
+from adapters.inbound.route_factories import split_csv, verify_entity_ownership
 from core.models.entity_converters import entity_to_response
 from core.models.entity_requests import (
     AddTagsRequest,
@@ -943,9 +943,11 @@ def create_submissions_api_routes(
             """
             user_uid = require_authenticated_user(request)
 
-            ownership = await submission_service.verify_ownership(uid, user_uid)
-            if ownership.is_error:
-                return Result.fail(Errors.not_found("submission", uid))
+            ownership_error = await verify_entity_ownership(
+                submission_service, uid, user_uid, "submission"
+            )
+            if ownership_error:
+                return ownership_error
 
             result = await teacher_review_service.get_report_history(uid)
             if result.is_error:

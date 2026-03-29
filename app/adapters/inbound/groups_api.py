@@ -16,6 +16,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.route_factories import verify_entity_ownership
 from core.models.group.group import Group
 from core.models.group.group_request import GroupMemberRequest
 from core.utils.logging import get_logger
@@ -61,9 +62,11 @@ def create_groups_api_routes(
     @boundary_handler()
     async def add_member(request: Request, uid: str, current_user: Any) -> Result[bool]:
         """Add a member to a group. Owner only."""
-        ownership_result = await group_service.verify_ownership(uid, current_user.uid)
-        if ownership_result.is_error:
-            return Result.fail(ownership_result)
+        ownership_error = await verify_entity_ownership(
+            group_service, uid, current_user.uid, "group"
+        )
+        if ownership_error:
+            return ownership_error
 
         result = await parse_json_body(request, GroupMemberRequest)
         if result.is_error:
@@ -81,9 +84,11 @@ def create_groups_api_routes(
     @boundary_handler()
     async def remove_member(request: Request, uid: str, current_user: Any) -> Result[bool]:
         """Remove a member from a group. Owner only."""
-        ownership_result = await group_service.verify_ownership(uid, current_user.uid)
-        if ownership_result.is_error:
-            return Result.fail(ownership_result)
+        ownership_error = await verify_entity_ownership(
+            group_service, uid, current_user.uid, "group"
+        )
+        if ownership_error:
+            return ownership_error
 
         result = await parse_json_body(request, GroupMemberRequest)
         if result.is_error:

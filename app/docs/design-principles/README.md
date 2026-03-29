@@ -1,6 +1,6 @@
 ---
 title: SKUEL Design Principles
-updated: 2026-03-28
+updated: 2026-03-29
 status: current
 category: design-principles
 tags: [design, principles, philosophy, architecture]
@@ -21,6 +21,7 @@ Core principles that govern every technical decision in SKUEL. These are not asp
 | 4 | [Type Safety as Ontology](TYPE_SAFETY_AS_ONTOLOGY.md) | Enums and types define what the app *is*, not just what it accepts |
 | 5 | [Limited Backward Compatibility](LIMITED_BACKWARD_COMPATIBILITY.md) | No legacy wrappers, no deprecation periods, no historical references |
 | 6 | [Analog-Digital Independence](ANALOG_DIGITAL_INDEPENDENCE.md) | The app runs at full capability without any paid API dependency |
+| 7 | [Hub Pages](HUB_PAGES.md) | Pages are navigation — curated links replace persistent chrome |
 
 ## How Principles Relate
 
@@ -32,10 +33,12 @@ One Path Forward ──────► Limited Backward Compatibility
        │                         │
        ▼                         ▼
 Leverage Maintained    Analog-Digital Independence
-    Software
+    Software                     │
+                                 ▼
+                            Hub Pages
 ```
 
-**One Path Forward** drives **Limited Backward Compatibility** — you can't have one path if you maintain old paths. **Fail Fast** ensures problems surface before they compound. **Type Safety as Ontology** makes the domain structure machine-verifiable. **Leverage Maintained Software** reduces the surface area that needs human maintenance. **Analog-Digital Independence** ensures the core system works at $0.
+**One Path Forward** drives **Limited Backward Compatibility** — you can't have one path if you maintain old paths. **Fail Fast** ensures problems surface before they compound. **Type Safety as Ontology** makes the domain structure machine-verifiable. **Leverage Maintained Software** reduces the surface area that needs human maintenance. **Analog-Digital Independence** ensures the core system works at $0. **Hub Pages** extends Analog-Digital Independence into UI — pages with links are the simplest, most standards-compliant navigation pattern.
 
 ## Enforcement
 
