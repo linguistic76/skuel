@@ -68,17 +68,10 @@ def _practice_cards(context: UserContext) -> list[HubCardData]:
             badge=context.assigned_exercise_count or None,
         ),
         HubCardData(
-            "\U0001f4e4",
-            "Submit Work",
-            "/submit",
-            "Upload submissions for review.",
-            badge=len(context.unsubmitted_exercises) or None,
-        ),
-        HubCardData(
-            "\U0001f4dd",
-            "Submissions",
-            "/submissions",
-            "Track submitted work and review status.",
+            "\u21c4",
+            "Transfer",
+            "/transfer",
+            "Submit work and receive reports.",
             badge=context.total_submission_count or None,
         ),
     ]
@@ -98,12 +91,6 @@ def _reports_cards(context: UserContext) -> list[HubCardData]:
             "Activity Reports",
             "/activity-reports",
             "Progress reports across domains.",
-        ),
-        HubCardData(
-            "\u26a1",
-            "Generate Reports",
-            "/generate-reports",
-            "Create on-demand progress reports.",
         ),
     ]
 

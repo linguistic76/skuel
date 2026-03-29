@@ -1,29 +1,94 @@
 """
-Transfer UI Routes — Submissions + Reports Dual-Pane
-=====================================================
+Transfer UI Routes — Tabbed Dual-Pane Hub
+==========================================
 
-The /transfer page shows outgoing submissions (left) and incoming
-reports (right) side-by-side on desktop, stacked on mobile.
+The /transfer page consolidates submission + report capabilities into
+a tabbed dual-pane layout. Each pane uses Alpine.js tabs with HTMX
+lazy-loading for content.
+
+Left pane (Submissions): My Submissions | Submit | Generate Report
+Right pane (Reports): Exercise Reports | Activity Reports
+
+HTMX fragments are the atomic rendering units; this page is a compositor.
 
 Routes:
-- GET /transfer — Dual-pane landing page
-
-Both panes load data via existing HTMX endpoints from study_ui.py.
+- GET /transfer — Tabbed dual-pane hub
+- GET /transfer/submit-form — HTMX fragment: upload form
+- GET /transfer/generate-form — HTMX fragment: generate report form
 """
 
 from typing import Any
 
-from fasthtml.common import Div, H3, P
+from fasthtml.common import (
+    H3,
+    Div,
+    Form,
+    Label,
+    Option,
+    P,
+)
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import RouteDecorator, RouteList
 from core.utils.logging import get_logger
+from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody
+from ui.forms import Select
 from ui.layouts.base_page import BasePage
 from ui.patterns.dual_pane import DualPaneLayout
 from ui.patterns.page_header import PageHeader
+from ui.submissions.forms import render_upload_form, upload_form_script
 
 logger = get_logger("skuel.routes.transfer")
+
+
+# ============================================================================
+# TAB COMPONENT
+# ============================================================================
+
+
+def _tab_button(label: str, tab_id: str) -> Any:
+    """Single tab button with Alpine.js + ARIA attributes."""
+    from fasthtml.common import A
+
+    return A(
+        label,
+        role="tab",
+        cls="px-4 py-2 text-sm font-medium cursor-pointer transition-colors rounded-t border-b-2",
+        **{
+            ":aria-selected": f"activeTab === '{tab_id}'",
+            ":tabindex": f"activeTab === '{tab_id}' ? 0 : -1",
+            "@click": f"setActiveTab('{tab_id}')",
+            "@keydown": f"handleTabKeydown($event, '{tab_id}')",
+            ":class": f"activeTab === '{tab_id}' ? 'border-primary text-primary bg-background' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
+        },
+    )
+
+
+def _tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
+    """Tab panel that lazy-loads content via HTMX.
+
+    Default tabs load immediately (hx-trigger="load").
+    Non-default tabs load on first reveal via Alpine x-init.
+    """
+    trigger = "load" if default else "revealed"
+    return Div(
+        P("Loading...", cls="text-center text-muted-foreground py-4"),
+        id=f"tab-panel-{tab_id}",
+        role="tabpanel",
+        **{
+            "x-show": f"activeTab === '{tab_id}'",
+            "hx-get": hx_get,
+            "hx-trigger": trigger,
+            "hx-swap": "innerHTML",
+        },
+    )
+
+
+# ============================================================================
+# ROUTE CREATION
+# ============================================================================
 
 
 def create_transfer_ui_routes(
@@ -31,43 +96,65 @@ def create_transfer_ui_routes(
     rt: RouteDecorator,
     services: Any,
 ) -> RouteList:
-    """Register /transfer UI routes."""
+    """Register /transfer UI routes.
+
+    Args:
+        _app: FastHTML application instance.
+        rt: Router instance.
+        services: Service container — uses submissions, exercises,
+            submissions_search, submissions_core, activity_report.
+    """
+
+    # ========================================================================
+    # TRANSFER HUB
+    # ========================================================================
 
     @rt("/transfer")
     async def transfer_landing(request: Request) -> Any:
-        """Transfer hub — submissions + reports dual-pane."""
+        """Transfer hub — tabbed dual-pane (submissions + reports)."""
         require_authenticated_user(request)
 
+        # -- Left pane: Submissions (3 tabs) --
         left_pane = Div(
-            H3("My Submissions", cls="text-lg font-semibold mb-3"),
+            H3("Submissions", cls="text-lg font-semibold mb-3"),
             Div(
-                P("Loading submissions...", cls="text-center text-muted-foreground"),
-                id="submissions-yours-list",
-                **{
-                    "hx-get": "/submissions/list",
-                    "hx-trigger": "load",
-                    "hx-swap": "outerHTML",
-                },
+                Div(
+                    _tab_button("My Submissions", "submissions"),
+                    _tab_button("Submit", "submit"),
+                    _tab_button("Generate", "generate"),
+                    role="tablist",
+                    cls="flex gap-1 border-b border-border mb-4",
+                ),
+                _tab_panel("submissions", "/submissions/list", default=True),
+                _tab_panel("submit", "/transfer/submit-form"),
+                _tab_panel("generate", "/transfer/generate-form"),
+                **{"x-data": "accessibleTabs({ activeTab: 'submissions' })"},
             ),
             cls="min-h-[200px]",
         )
 
+        # -- Right pane: Reports (2 tabs) --
         right_pane = Div(
-            H3("Exercise Reports", cls="text-lg font-semibold mb-3"),
+            H3("Reports", cls="text-lg font-semibold mb-3"),
             Div(
-                P("Loading reports...", cls="text-center text-muted-foreground"),
-                id="feedback-list",
-                **{
-                    "hx-get": "/reports/list",
-                    "hx-trigger": "load",
-                    "hx-swap": "outerHTML",
-                },
+                Div(
+                    _tab_button("Exercise Reports", "exercise"),
+                    _tab_button("Activity Reports", "activity"),
+                    role="tablist",
+                    cls="flex gap-1 border-b border-border mb-4",
+                ),
+                _tab_panel("exercise", "/reports/list", default=True),
+                _tab_panel("activity", "/reports/activity-list"),
+                **{"x-data": "accessibleTabs({ activeTab: 'exercise' })"},
             ),
             cls="min-h-[200px]",
         )
 
         content = Div(
-            PageHeader("Transfer", subtitle="Submissions sent and reports received"),
+            PageHeader(
+                "Transfer",
+                subtitle="Submit work and receive reports",
+            ),
             DualPaneLayout(left_pane, right_pane),
         )
 
@@ -78,5 +165,110 @@ def create_transfer_ui_routes(
             active_page="transfer",
         )
 
-    logger.info("Transfer UI routes created (/transfer)")
+    # ========================================================================
+    # HTMX FRAGMENTS — tab content
+    # ========================================================================
+
+    @rt("/transfer/submit-form")
+    async def transfer_submit_form(request: Request) -> Any:
+        """HTMX fragment: upload form with exercise selector for Submit tab."""
+        try:
+            user_uid = require_authenticated_user(request)
+
+            assigned_exercises: list[Any] = []
+            exercises_service = getattr(services, "exercises", None)
+            if exercises_service:
+                exercises_result = await exercises_service.get_student_exercises(user_uid)
+                if not exercises_result.is_error and exercises_result.value:
+                    assigned_exercises = exercises_result.value
+
+            return Div(
+                render_upload_form(assigned_exercises),
+                upload_form_script(),
+            )
+        except Exception as e:  # safety-net: HTMX fragment error boundary
+            logger.error(f"Error loading submit form: {e}", exc_info=True)
+            from ui.patterns.error_banner import render_error_banner
+
+            return Div(render_error_banner("Failed to load submit form", str(e)))
+
+    @rt("/transfer/generate-form")
+    async def transfer_generate_form(request: Request) -> Any:
+        """HTMX fragment: generate report form + recent reports for Generate tab."""
+        try:
+            require_authenticated_user(request)
+
+            generate_card = Card(
+                CardBody(
+                    H3("Generate Progress Report", cls="font-semibold mb-4"),
+                    Form(
+                        Div(
+                            Label("Time Period", cls="label"),
+                            Select(
+                                Option("Last 7 days", value="7d", selected=True),
+                                Option("Last 14 days", value="14d"),
+                                Option("Last 30 days", value="30d"),
+                                Option("Last 90 days", value="90d"),
+                                name="time_period",
+                            ),
+                            cls="mb-3",
+                        ),
+                        Div(
+                            Label("Depth", cls="label"),
+                            Select(
+                                Option("Summary (counts only)", value="summary"),
+                                Option(
+                                    "Standard (counts + examples)",
+                                    value="standard",
+                                    selected=True,
+                                ),
+                                Option("Detailed (full breakdown)", value="detailed"),
+                                name="depth",
+                            ),
+                            cls="mb-4",
+                        ),
+                        Div(
+                            Button(
+                                "Generate Now",
+                                type="submit",
+                                variant=ButtonT.primary,
+                            ),
+                            cls="text-center",
+                        ),
+                        Div(id="generate-status", cls="mt-4"),
+                        **{
+                            "hx-post": "/api/reports/progress/generate",
+                            "hx-target": "#generate-status",
+                            "hx-swap": "innerHTML",
+                            "hx-vals": 'js:JSON.stringify({time_period: document.querySelector("[name=time_period]").value, depth: document.querySelector("[name=depth]").value, include_insights: true})',
+                            "hx-headers": '{"Content-Type": "application/json"}',
+                        },
+                    ),
+                ),
+                cls="bg-background shadow-sm mb-6",
+            )
+
+            recent_reports = Div(
+                H3("Recent Progress Reports", cls="font-semibold mb-4"),
+                Div(
+                    P("Loading...", cls="text-center text-muted-foreground"),
+                    id="progress-list",
+                    **{
+                        "hx-get": "/reports/progress-list",
+                        "hx-trigger": "load",
+                        "hx-swap": "outerHTML",
+                    },
+                ),
+            )
+
+            return Div(generate_card, recent_reports)
+        except Exception as e:  # safety-net: HTMX fragment error boundary
+            logger.error(f"Error loading generate form: {e}", exc_info=True)
+            from ui.patterns.error_banner import render_error_banner
+
+            return Div(render_error_banner("Failed to load generate form", str(e)))
+
+    logger.info(
+        "Transfer UI routes created (/transfer, /transfer/submit-form, /transfer/generate-form)"
+    )
     return []  # Routes registered via @rt() decorators

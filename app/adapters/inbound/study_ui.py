@@ -180,7 +180,7 @@ def create_study_ui_routes(
             content=content,
             title="Submit",
             request=request,
-            active_page="study",
+            active_page="transfer",
         )
 
     # ========================================================================
@@ -205,7 +205,7 @@ def create_study_ui_routes(
             content=content,
             title="My Submissions",
             request=request,
-            active_page="study",
+            active_page="transfer",
         )
 
     # ========================================================================
@@ -242,7 +242,7 @@ def create_study_ui_routes(
             content=content,
             title="Exercise Reports",
             request=request,
-            active_page="study",
+            active_page="transfer",
         )
 
     # ========================================================================
@@ -281,7 +281,7 @@ def create_study_ui_routes(
             content=content,
             title="Activity Reports",
             request=request,
-            active_page="study",
+            active_page="transfer",
         )
 
     # ========================================================================
@@ -364,7 +364,7 @@ def create_study_ui_routes(
             content=content,
             title="Generate Reports",
             request=request,
-            active_page="study",
+            active_page="transfer",
         )
 
     # ========================================================================
@@ -577,7 +577,7 @@ def create_study_ui_routes(
                 content=Div(render_error_banner("Report UID is required")),
                 title="Activity Report",
                 request=request,
-                active_page="study",
+                active_page="transfer",
             )
 
         if not activity_report_service:
@@ -585,7 +585,7 @@ def create_study_ui_routes(
                 content=Div(render_error_banner("Activity report service unavailable")),
                 title="Activity Report",
                 request=request,
-                active_page="study",
+                active_page="transfer",
             )
 
         # Fetch the report from history (service returns list, find by uid)
@@ -597,7 +597,7 @@ def create_study_ui_routes(
                 ),
                 title="Activity Report",
                 request=request,
-                active_page="study",
+                active_page="transfer",
             )
 
         report = None
@@ -611,7 +611,7 @@ def create_study_ui_routes(
                 content=Div(render_error_banner("Report not found")),
                 title="Activity Report",
                 request=request,
-                active_page="study",
+                active_page="transfer",
             )
 
         # Extract snapshot, intelligence, and comparison from metadata
@@ -629,7 +629,7 @@ def create_study_ui_routes(
             content=content,
             title=getattr(report, "title", "Activity Report"),
             request=request,
-            active_page="study",
+            active_page="transfer",
         )
 
     # ========================================================================
@@ -904,7 +904,7 @@ def create_study_ui_routes(
             content,
             title="Submission Details",
             request=request,
-            active_page="study",
+            active_page="transfer",
         )
 
     logger.info(
