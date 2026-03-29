@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fasthtml.common import A, Div, Span
+from fasthtml.common import A, Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
 from ui.patterns.empty_state import EmptyState
@@ -25,6 +25,7 @@ def ProfileHubView(context: UserContext) -> Div:
         _lessons_section(context),
         _exercises_section(context),
         _reports_section(),
+        _nous_section(),
         _settings_link(),
     )
 
@@ -358,6 +359,58 @@ def _velocity_line(context: UserContext) -> Div:
         Span(" \u00b7 ", cls="text-foreground/30 mx-2"),
         Span(f"{total_time:.1f}h invested", cls="text-sm text-muted-foreground"),
         cls="flex items-center mb-4",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Nous — shared knowledge feed (placeholder)
+# ---------------------------------------------------------------------------
+
+
+def _nous_section() -> Div:
+    """Nous section — placeholder for the shared knowledge feed.
+
+    Nous will surface RevisedExercise submissions shared by other learners
+    in a feed format (blog / news-feed style). This section establishes
+    the concept and marks it for future development.
+    """
+    return Div(
+        Span(
+            "Nous",
+            cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground",
+        ),
+        Div(
+            Div(
+                Div(
+                    Span("\U0001f4e1", cls="text-2xl"),
+                    Span(
+                        "Nous",
+                        cls="text-base font-semibold text-foreground",
+                    ),
+                    Span(
+                        "Coming Soon",
+                        cls="ml-auto text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full",
+                    ),
+                    cls="flex items-center gap-2",
+                ),
+                cls="mb-3",
+            ),
+            P(
+                "A shared knowledge feed of revised exercises from the community "
+                "\u2014 learn from how others transfer and apply knowledge.",
+                cls="text-sm text-muted-foreground mb-3",
+            ),
+            Div(
+                Span("\U0001f4dd Revised Exercises", cls="text-xs text-muted-foreground"),
+                Span(" \u00b7 ", cls="text-foreground/20"),
+                Span("\U0001f465 Community Shared", cls="text-xs text-muted-foreground"),
+                Span(" \u00b7 ", cls="text-foreground/20"),
+                Span("\U0001f4f0 Feed Format", cls="text-xs text-muted-foreground"),
+                cls="flex items-center gap-1",
+            ),
+            cls="bg-background rounded-xl p-5 shadow-sm border border-dashed border-border",
+        ),
+        cls="mb-6",
     )
 
 

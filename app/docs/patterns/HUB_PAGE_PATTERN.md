@@ -9,14 +9,14 @@ related: [docs/design-principles/HUB_PAGES.md, docs/patterns/UI_COMPONENT_PATTER
 
 # Hub Page (MOC) Pattern
 
-> Implementation guide for hub pages — the card-grid entry points that organize navigation.
+> Implementation guide for hub pages — entry points that organize navigation and surface live state.
 
 For the *design rationale* (why hub pages exist), see `/docs/design-principles/HUB_PAGES.md`.
 This document covers *how to build one*.
 
 ## Architecture
 
-**Profile is THE main hub** (`/profile`). It links directly to domain hub pages via card sections. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
+**Profile is THE main hub** (`/profile`). It is a **live actionable hub** — not a card grid. It surfaces the user's active learning state (Kus, lessons, exercises with Submit buttons, report summaries) directly on the page, sourced from `UserContext.build_rich()`. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
 **Domain hub pages** are rich functional pages that Profile links to:
 
@@ -34,6 +34,8 @@ Domain hubs are NOT simple card grids — they have real capabilities (forms, en
 ## Shared Components
 
 **Location:** `ui/patterns/hub.py`
+
+These components are used by domain hub pages (e.g., KU index). Profile no longer uses them — it has its own live content sections.
 
 ### HubCardData
 
@@ -86,21 +88,28 @@ def hub_cards_from_root_organizers(
 
 Convert ORGANIZES query results into `HubCardData` for rendering. `RootOrganizerResult.child_count` maps to badge.
 
-## Usage: Profile Hub
+## Usage: Profile Hub (Live Actionable)
 
-Profile uses context-driven card builders that return `list[HubCardData]` with live badges from `UserContext`:
+Profile renders live content sections from `UserContext`, not card grids:
 
 ```python
 def ProfileHubView(context: UserContext) -> Div:
     return Div(
-        _personal_header(context),
-        HubSection("Knowledge +", _knowledge_cards(context)),  # Ku, Lessons, Exercises
-        HubSection("Transfer", _transfer_cards(context)),      # -> /transfer (submission hub)
-        HubSection("Reports", _reports_cards(context)),        # Exercise + Activity Reports
-        _nous_section(),                                       # Community feed (placeholder)
+        _personal_header(context),          # Focus + Velocity indicators
+        _knowledge_section(context),        # Bookmarked + recent Kus (mastery %, namespace)
+        _lessons_section(context),          # Lessons being studied (via in-progress KUs)
+        _exercises_section(context),        # Assigned exercises with Submit buttons
+        _reports_section(),                 # HTMX lazy-loaded report summaries
+        _nous_section(),                    # Community feed (placeholder)
         _settings_link(),
     )
 ```
+
+**Data sources (all from `UserContext.build_rich()`):**
+- Knowledge: `ku_bookmarked_uids` + `recently_viewed_ku_uids` → lookup in `knowledge_units_rich`
+- Lessons: `current_lessons` (list of `CurrentLessonItem` with uid + title)
+- Exercises: `unsubmitted_exercises` + `pending_revised_exercises` (from UserContext)
+- Reports: HTMX endpoints `/api/profile/reports/exercise-summary` and `/api/profile/reports/activity-summary`
 
 ## Usage: Graph-Driven Hub Page
 
@@ -125,6 +134,7 @@ section = HubSection("Contents", cards)
 |---------|------|
 | Shared components | `ui/patterns/hub.py` |
 | Profile hub | `ui/profile/hub.py` |
+| Profile routes | `adapters/inbound/user_profile_ui.py` |
 | Design rationale | `docs/design-principles/HUB_PAGES.md` |
 | Base page wrapper | `ui/layouts/base_page.py` |
 

@@ -9,7 +9,7 @@ related: [docs/domains/moc.md, docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 
 # Hub Pages
 
-> Pages are navigation. A well-designed page with curated links replaces persistent chrome.
+> Pages are navigation. A well-designed page with curated content replaces persistent chrome.
 
 ## Statement
 
@@ -31,24 +31,26 @@ SKUEL values standards-compliant, non-cutting-edge UI. Hub pages are the oldest 
 
 | Page | Hub Pattern | What It Organizes |
 |------|-------------|-------------------|
-| `/profile` | Grouped card sections with badges | Knowledge, Practice, Reports — links to all domain pages |
+| `/profile` | Live actionable hub | Knowledge, Lessons, Exercises, Reports, Nous |
 
 ### Profile as THE Hub
 
-Profile is the top-level entry point for the user's world. Cards are grouped into sections (Knowledge, Practice, Reports) with context-driven badges showing live counts from UserContext:
+Profile is the top-level entry point for the user's world. It is a **live actionable hub** — not a card grid. Each section surfaces real items from `UserContext.build_rich()`:
 
-- **Knowledge** — `/ku` (bookmarked count), `/lessons`
-- **Practice** — `/exercises` (assigned count), `/submit` (unsubmitted count), `/submissions`
-- **Reports** — `/exercise-reports` (pending feedback count), `/activity-reports`
+- **Knowledge** — Bookmarked + recently viewed Kus with mastery %, namespace badges. Links to `/ku`
+- **Lessons** — Lessons the user is actively studying (via in-progress KUs). Links to `/lessons`
+- **Exercises** — Assigned exercises with inline **Submit** buttons + pending revisions. Links to `/exercises`
+- **Reports** — HTMX lazy-loaded summaries of recent Exercise Reports and Activity Reports. Links to `/exercise-reports` and `/activity-reports`
+- **Nous** — Community knowledge feed (placeholder for future development)
 
-### Domain Hub Pages (Future)
+### Domain Hub Pages
 
-The pages that Profile links to will become rich functional hubs:
+The pages that Profile links to are rich functional hubs:
 
+- **KU hub** — ORGANIZES-driven knowledge navigation with bookmarks
 - **Lessons hub** — enrolled lessons, available lessons, enrolled LPs/LSs
-- **Submissions hub** — submit an ExerciseSubmission + list submitted work
-- **Reports hub** — ExerciseReports list + RevisedExercise UI
-- **KU hub** — ORGANIZES-driven knowledge navigation
+- **Transfer hub** (`/transfer`) — full submission archive (tabbed: My Submissions, Submit, Generate)
+- **Reports hubs** — `/exercise-reports` and `/activity-reports` with filtering
 
 Each is more than a card grid — they have real capabilities (forms, entity lists, actions).
 
@@ -59,7 +61,7 @@ MOC (Map of Content) is an emergent graph identity — any entity with ORGANIZES
 - **Graph layer:** An entity with ORGANIZES relationships is a MOC
 - **UI layer:** A page with curated links to sub-sections is a hub page
 
-Hub pages do not require ORGANIZES relationships in the graph. They can be purely UI-driven (like `/curriculum`). But when a page's links are derived from graph relationships, the two patterns converge.
+Hub pages do not require ORGANIZES relationships in the graph. They can be purely UI-driven. But when a page's links are derived from graph relationships, the two patterns converge.
 
 ## Coexistence with Sidebars
 
@@ -68,23 +70,23 @@ Hub pages and sidebars serve different roles and can coexist:
 - **Hub page:** Entry point. Helps the user choose a direction. Used at the top of a section.
 - **Sidebar:** Within-section navigation. Helps the user move between items in a section they've already entered.
 
-The curriculum section demonstrates this: `/curriculum` is a hub (no sidebar), `/lessons` uses a sidebar (within-section navigation). The principle is not "delete all sidebars" — it is "use hub pages as entry points instead of relying on sidebars for top-level navigation."
+The KU section demonstrates this: `/ku` uses a sidebar (bookmarks + latest in sidebar, listing in main area). The principle is not "delete all sidebars" — it is "use hub pages as entry points instead of relying on sidebars for top-level navigation."
 
 ## Maturity and Immature Code
 
 Hub pages provide a natural home for features at different maturity levels. A hub can link to a well-built section and a rough prototype equally. The link text and description communicate maturity:
 
 - "Reports — Exercise and activity reports" (mature)
-- "Nous — Emerging" (immature, exploratory)
+- "Nous — Coming Soon" (immature, exploratory)
 
-This allows raw, immature code to exist alongside mature code without architectural conflict. The hub page itself is just links — it doesn't need the linked sections to be complete.
+This allows raw, immature code to exist alongside mature code without architectural conflict. The hub page itself is just content — it doesn't need the linked sections to be complete.
 
 ## Enforcement
 
 - **Profile is THE main hub** — all top-level navigation flows through `/profile`
 - **New domain pages** should be rich functional hubs, not card-grid-only pages
 - **BasePage (STANDARD)** is the correct page type for hub pages — no custom layout needed
-- **Shared components** (`HubCard`, `HubSection`, `HubCardData`) in `ui/patterns/hub.py`
+- **Shared components** (`HubCard`, `HubSection`, `HubCardData`) in `ui/patterns/hub.py` — used by domain hubs, not Profile
 
 ## See Also
 

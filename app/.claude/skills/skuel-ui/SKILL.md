@@ -416,7 +416,7 @@ class NavItem:
     requires_admin: bool = False
 
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
-    NavItem("Profile Hub", "/profile/hub", "profile/hub"),
+    NavItem("Profile Hub", "/profile", "profile"),
     NavItem("Search", "/search", "search"),
     NavItem("Calendar", "/calendar", "calendar"),
 )
@@ -472,7 +472,7 @@ for item in ICON_NAV_ITEMS:  # ⚛️, C, S
 
 ## 4. Sidebar Pages
 
-Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation (Activity domains, Curriculum, Study, KU, Askesis). Note: `/profile` no longer uses a sidebar — it uses `BasePage` directly.
+Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation (Activity domains, Curriculum, Study, KU, Askesis). Note: `/profile` is a **live actionable hub** using `BasePage` directly — it surfaces Kus, lessons, exercises (with Submit buttons), and report summaries from `UserContext.build_rich()`. See `ui/profile/hub.py`.
 
 ### SidebarItem
 
@@ -1041,6 +1041,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
+| `/ui/profile/hub.py` | `ProfileHubView` — live actionable hub (Knowledge, Lessons, Exercises with Submit, Reports, Nous) |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, LS, LP profile views |
 | `/ui/profile/overview.py` | `OverviewView` + all intelligence helper functions |
