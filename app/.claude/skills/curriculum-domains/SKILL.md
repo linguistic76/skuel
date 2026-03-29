@@ -123,6 +123,31 @@ self.relationships = common.relationships
 self.intelligence = common.intelligence
 ```
 
+## Lesson Reading & Enrollment
+
+Lessons use **implicit enrollment** — no explicit signup step. Learning state progresses:
+
+```
+NONE → VIEWED → IN_PROGRESS → MASTERED
+```
+
+| State | Trigger | Relationship |
+|-------|---------|-------------|
+| VIEWED | Automatic on page load (`record_view()`) | `(User)-[:VIEWED]->(Lesson)` |
+| IN_PROGRESS | User clicks "Start Lesson" (`mark_in_progress()`) | `(User)-[:IN_PROGRESS]->(Lesson)` |
+| MASTERED | After exercise completion/teacher approval | `(User)-[:MASTERED]->(Lesson)` |
+
+**Key routes:**
+- `GET /lessons` — Browser with enrollment buttons per lesson
+- `GET /lesson/{uid}/details` — Full reading page (markdown + TOC sidebar + learning objectives + actions)
+- `POST /api/lesson/{uid}/start` — Marks IN_PROGRESS
+
+**Key service:** `lesson_service.mastery` (`LessonMasteryService`) — `record_view()`, `mark_in_progress()`, `get_learning_state()`, `get_learning_states_batch()`
+
+**Key files:** `adapters/inbound/lesson_ui.py` (detail page), `adapters/inbound/lesson_reading_api.py` (start endpoint), `adapters/inbound/curriculum_hub_ui.py` (listing with enrollment)
+
+**Contrast with Learning Paths:** LPs use **explicit enrollment** via `(User)-[:ENROLLED_IN]->(Lp)` relationship with `enroll_in_learning_path()`.
+
 ## Deep Dive Resources
 
 **Architecture:**

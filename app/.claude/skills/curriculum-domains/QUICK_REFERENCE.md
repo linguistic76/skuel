@@ -56,8 +56,19 @@
 | Domain | Route file |
 |--------|-----------|
 | Lesson | `adapters/inbound/lesson_routes.py` (LessonService) |
+| Lesson UI | `adapters/inbound/lesson_ui.py` (detail page, discovery, analytics) |
+| Lesson Reading API | `adapters/inbound/lesson_reading_api.py` (mark-read, bookmark, start, navigation) |
+| Lesson Listing | `adapters/inbound/curriculum_hub_ui.py` (`/lessons` browser with enrollment) |
 | KU | `adapters/inbound/ku_routes.py` (KuService — serves /ku index) |
+| KU Reading | `adapters/inbound/lesson_reading_ui.py` (`/ku/{uid}` detail with content) |
 | LS + LP | `adapters/inbound/pathways_routes.py` |
+
+**Lesson UI Routes:**
+- `GET /lessons` — Lesson browser with enrollment buttons (Start Lesson / In Progress / Mastered)
+- `GET /lesson/{uid}/details` — Full lesson reading page (markdown + TOC sidebar + metadata + actions)
+- `POST /api/lesson/{uid}/start` — Start a lesson (marks IN_PROGRESS via `LessonMasteryService`)
+- `POST /api/ku/{uid}/mark-read` — Mark lesson/KU as read
+- `POST /api/ku/{uid}/bookmark` — Toggle bookmark
 
 **Note**: Ku has its own dedicated route config (`KU_CONFIG` in `ku_routes.py`), separate from Lesson routes. No separate `ls_routes.py`, `lp_routes.py`, or `moc_routes.py` files exist.
 

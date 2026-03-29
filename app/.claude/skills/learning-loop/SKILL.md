@@ -767,6 +767,11 @@ that never closes the loop.
 1. KuService.create_ku()                           → core/services/ku/ku_core_service.py
    Admin creates a Knowledge Unit
        ↓
+1b. Student browses /lessons, clicks "Start Lesson" → adapters/inbound/curriculum_hub_ui.py
+    POST /api/lesson/{uid}/start marks IN_PROGRESS  → adapters/inbound/lesson_reading_api.py
+    GET /lesson/{uid}/details renders full content   → adapters/inbound/lesson_ui.py
+    (Learning state: NONE → VIEWED → IN_PROGRESS → MASTERED)
+       ↓
 2. ExerciseBackend.link_to_curriculum()             → adapters/persistence/neo4j/domain_backends.py
    Teacher links Exercise to Ku via REQUIRES_KNOWLEDGE
        ↓
