@@ -6,7 +6,7 @@
 
 **Prerequisite:** No coding experience required. You write YAML files and markdown. The system does the rest.
 
-**Last Updated:** 2026-03-17
+**Last Updated:** 2026-03-29
 
 ---
 
@@ -171,52 +171,63 @@ tags:
 
 ### Writing a Lesson
 
-A Lesson is a YAML file with a markdown content body. It teaches.
+A Lesson is a **markdown file** (`.md`) with YAML frontmatter. Metadata goes in the frontmatter; the teaching content is the markdown body. The ingestion system automatically extracts the body as the `content` field.
 
-```yaml
-version: 1.0
+```markdown
+---
 type: Lesson
-
-uid: l:sel:understanding-others
-title: Understanding Others — Empathy, Perspective, and Compassion
-sel_category: social_awareness
+uid: l:mindfulness:breath-awareness-basics
+title: Breath Awareness — Basics
+sel_category: self_awareness
 learning_level: beginner
 complexity: basic
 domain: personal
-estimated_time_minutes: 15
+estimated_time_minutes: 10
 
-content: |
-  ## The Outward Turn
-
-  Self-awareness and self-management are inward skills.
-  Social awareness is where you turn outward — toward other people.
-
-  ... (full markdown narrative) ...
-
-  ## Practice
-
-  Pick one of these for today:
-  1. The perspective question: ...
-  2. The cultural check: ...
-  3. Micro-compassion: ...
+learning_objectives:
+  - Understand why breath is used as a mindfulness anchor
+  - Complete a two-minute breath awareness session
 
 uses_kus:
-  - ku:sel:empathy
-  - ku:sel:perspective-taking
-  - ku:sel:cultural-awareness
-  - ku:sel:compassion
+  - ku:mindfulness:breath
+  - ku:mindfulness:attention
 
 connections:
-  requires:
-    - l:sel:managing-yourself
+  requires: []
   enables:
-    - l:sel:building-relationships
+    - l:mindfulness:posture-basics
+    - l:mindfulness:mind-wandering-happens
+
+quality_score: 0.88
 
 tags:
-  - sel
-  - social-awareness
+  - breath
+  - meditation
   - beginner
+---
+
+## Why Breath?
+
+You need an anchor — something to direct your attention toward...
+
+## The Two-Minute Practice
+
+Here's the whole thing. Two minutes.
+
+1. **Sit comfortably.** Chair, floor, cushion — doesn't matter...
+2. **Find the breath.** Don't change it. Just notice where you feel it most...
+
+## Practice: Find Your Spot
+
+Right now, take three natural breaths and answer one question:
+where do you feel the breath most?
 ```
+
+**Why `.md` instead of `.yaml`?** Lessons are content-heavy — the body is the whole point. Markdown gives you natural prose authoring, Obsidian preview, and the ingestion system automatically extracts the body as `content`. No need to cram long prose into YAML `|` string blocks.
+
+**Format convention:**
+- **Lessons** → `.md` files with YAML frontmatter (content-heavy, prose-first)
+- **Everything else** (Kus, LS, LP, activities, edges) → `.yaml` files (metadata-heavy, little/no prose)
 
 **Key fields:**
 
@@ -351,6 +362,120 @@ Each level uses some of the same Kus but adds new ones. The beginner lesson migh
 
 ---
 
+## A Second Worked Example: Mindfulness 101 + Self-Reflection 101
+
+The SEL chain above is linear and self-contained. This example shows two things the SEL chain doesn't: **the full four-entity curriculum stack** (Ku → Lesson → LearningStep → LearningPath) and **cross-domain progression** (one learning path leading into another).
+
+### The Two Domains
+
+**Mindfulness 101** teaches the foundational skill: noticing. Three lessons, two learning steps, one learning path.
+
+**Self-Reflection 101** builds on that skill: once you can notice your breath and label your wandering mind, turn that capacity toward your behavior, emotions, and values. Three lessons, two learning steps, one learning path. It declares Mindfulness 101 as a prerequisite.
+
+```
+Mindfulness 101                          Self-Reflection 101
+  LS Step 1: Two Minutes Today             LS Step 1: Notice Your Patterns
+    └── Lesson: Breath Awareness             └── Lesson: Noticing Patterns
+    └── Lesson: Posture Basics               └── Lesson: Emotional Awareness
+  LS Step 2: Name The Wanders             LS Step 2: Understand Your Values
+    └── Lesson: Mind Wandering               └── Lesson: Values Discovery
+                                             └── Lesson: Emotional Awareness
+         lp:mindfulness-101  ──PREREQUISITE_FOR──>  lp:self-reflection-101
+```
+
+### The Four-Entity Stack
+
+This is the full curriculum hierarchy in action:
+
+| Layer | What It Does | Example |
+|-------|-------------|---------|
+| **Ku** | Defines one atomic concept | `ku:mindfulness:breath` — "The natural rhythm of breathing, used as the primary anchor for attention" |
+| **Lesson** | Composes Kus into a teaching narrative with practice exercises | `l:mindfulness:breath-awareness-basics` — 10-minute lesson teaching the two-minute practice |
+| **LearningStep** | Groups related lessons into a step with a clear intent | `ls:mindfulness-101:step-1` — "Try one two-minute breath session and notice where you feel the breath" |
+| **LearningPath** | Sequences steps into a learner journey | `lp:mindfulness-101` — beginner path from breath to labeling |
+
+Each layer has a distinct purpose. Kus don't teach. Lessons don't sequence. Steps don't define concepts. Paths don't contain content. Mixing these roles creates confusion.
+
+### Cross-Domain Edges
+
+The connection between the two domains is declared in a standalone edge file:
+
+```yaml
+# edges/edge_mindfulness-to-self-reflection.yaml
+version: 1.0
+edges:
+  - from: lp:mindfulness-101
+    to: lp:self-reflection-101
+    type: PREREQUISITE_FOR
+
+  - from: ku:mindfulness:attention
+    to: ku:self-reflection:self-observation
+    type: PREREQUISITE_FOR
+
+  - from: l:mindfulness:mind-wandering-happens
+    to: l:self-reflection:noticing-patterns
+    type: ENABLES
+```
+
+This creates a progression: a learner who completes Mindfulness 101 is ready for Self-Reflection 101. The attention training skill (labeling mind-wanders) becomes the self-observation skill (labeling behavioral patterns). Same muscle, different context.
+
+### Supporting Activity Entities
+
+Each domain wires activities to its lessons. The Mindfulness 101 bundle includes:
+- `habit:daily-2min-breath` — the core daily practice
+- `task:log-first-5-sessions` — a one-time logging task
+- `event:practice-block-2min` — a recurring calendar template
+- `goal:mindfulness-beginner` — the four-week process goal
+- `principle:small-steps` — the guiding principle
+- `choice:2-minutes-right-now` — the immediate action prompt
+
+Self-Reflection 101 has its own parallel set: different habits, tasks, and principles — but the same structural pattern. Activities connect back to their domain's lessons via the `connections` block and substance tracking.
+
+### Lesson Content Design (Inspired by Practice-Reflection Structure)
+
+Every lesson in both bundles follows the same content arc:
+
+1. **Why this matters** — connect to what the learner already knows
+2. **Core concept** — explain the idea clearly, no jargon
+3. **The technique** — step-by-step, concrete, doable right now
+4. **Common mistakes** — what to watch for (normalizes difficulty)
+5. **Practice** — a specific exercise the learner can do today
+
+The practice section is not optional decoration — it's the point. A lesson without a practice exercise is an essay, not a teaching unit.
+
+### File Layout
+
+```
+data/vault/
+  # Mindfulness 101
+  ku_breath.yaml                          # Kus (YAML — metadata only)
+  ku_attention.yaml
+  lesson_breath-awareness-basics.md       # Lessons (Markdown — content-heavy)
+  lesson_posture-basics.md
+  lesson_mind-wandering-happens.md
+  ls_mindfulness-101_step-1.yaml          # Learning Steps (YAML)
+  ls_mindfulness-101_step-2.yaml
+  lp_mindfulness-101.yaml                 # Learning Path (YAML)
+  edges/edge_mindfulness-101-curriculum.yaml  # Internal edges
+  # Self-Reflection 101
+  ku_self-observation.yaml
+  ku_emotional-patterns.yaml
+  ku_personal-values.yaml
+  lesson_noticing-patterns.md
+  lesson_emotional-awareness.md
+  lesson_values-discovery.md
+  ls_self-reflection-101_step-1.yaml
+  ls_self-reflection-101_step-2.yaml
+  lp_self-reflection-101.yaml
+  edges/edge_self-reflection-101-curriculum.yaml
+  # Cross-domain
+  edges/edge_mindfulness-to-self-reflection.yaml
+```
+
+Notice the format convention: `.md` for lessons (content-heavy), `.yaml` for everything else (metadata-heavy).
+
+---
+
 ## Wiring Activities to Lessons
 
 Curriculum content becomes *real* when learners apply it through activities. SKUEL's 6 activity domains — Habits, Tasks, Events, Goals, Principles, Choices — wire directly to Lessons, making each Lesson a self-contained learning unit with built-in practice.
@@ -410,16 +535,59 @@ For the complete reference, see the **[Lesson Activity Wiring Guide](/docs/guide
 
 ---
 
+## Building a Domain Bundle: The Practical Workflow
+
+This is the sequence that works in practice. It was refined by building the Mindfulness 101 and Self-Reflection 101 bundles.
+
+### Step 1: Start with the Kus (5 minutes)
+
+Define 2-4 atomic concepts. Keep them tiny. If you're writing more than one paragraph for a Ku description, you're teaching — and teaching belongs in a Lesson.
+
+### Step 2: Write the Lessons (the bulk of the work)
+
+This is where you spend most of your time. Each lesson is a `.md` file with frontmatter metadata and a markdown body. Write in second person. Be direct. Include a practice exercise at the end.
+
+A good lesson takes 30-60 minutes to write well. Three lessons is a good starting size.
+
+### Step 3: Define the Supporting Activities (10 minutes each)
+
+For each lesson, ask: what should the learner *do* with this knowledge?
+
+- **Habit** — a repeating behavior (daily 2-minute practice)
+- **Task** — a one-time deliverable (write three sentences about your patterns)
+- **Goal** — a multi-week process goal (build a daily practice over four weeks)
+- **Principle** — a guiding value (observation before action)
+- **Choice** — a decision prompt (do two minutes right now)
+- **Event** — a calendar template (evening check-in)
+
+Not every lesson needs all six. Wire what fits.
+
+### Step 4: Build the Structure (LS, LP, edges)
+
+Group lessons into Learning Steps. Sequence steps into a Learning Path. Write edge files for the curriculum structure and any cross-domain connections.
+
+### Step 5: Review the Graph
+
+Before ingesting, mentally walk the graph:
+- Can a learner start from the LP and follow a clear path?
+- Does every LS have at least one lesson?
+- Does every lesson compose at least one Ku?
+- Are activities wired to the right lessons?
+- Are cross-domain connections declared in edge files?
+
+### Step 6: Ingest
+
+Place files in `data/vault/` and ingest. The system handles node creation, relationship wiring, embedding generation, and indexing.
+
 ## What Comes Next
 
-This guide covers the foundation: Kus, Lessons, prerequisite chains, and activity wiring. Future guides will cover:
+This guide covers: Kus, Lessons, prerequisite chains, activity wiring, the four-entity curriculum stack (Ku → Lesson → LS → LP), cross-domain progression, and the practical workflow. Future guides will cover:
 
-- **Learning Steps and Learning Paths** — grouping lessons into collections and ordered sequences
 - **Exercises and the Learning Loop** — attaching practice exercises to lessons, collecting student submissions, generating feedback reports, and creating targeted revisions
 - **The Askesis Companion** — how the AI tutor uses your curriculum graph to guide learners through their zone of proximal development
 - **Ingestion Workflows** — bulk ingestion, dry-run mode, incremental updates, and vault management
 
-For now, start small. Pick a domain you know well. Define 8-12 Kus. Write 3-5 Lessons that compose them. Connect the Lessons into a chain. Wire activities to each Lesson. Ingest and see what the system builds from your content.
+Start small. Pick a domain. Define 2-4 Kus. Write 3 Lessons as `.md` files. Wire a few activities. Build the LS/LP structure. Write edge files. Ingest and see what the system builds.
 
 The graph grows one node at a time.
 
@@ -429,19 +597,26 @@ The graph grows one node at a time.
 
 ### File Locations
 
-| What | Where |
-|------|-------|
-| Ku YAML files | `data/vault/ku_*.yaml` |
-| Lesson YAML files | `data/vault/lesson_*.yaml` |
-| YAML templates and schemas | `yaml_templates/_schemas/` |
-| Existing SEL content | `yaml_templates/sel_*/` |
+| What | Where | Format |
+|------|-------|--------|
+| Ku files | `data/vault/ku_*.yaml` | YAML |
+| Lesson files | `data/vault/lesson_*.md` | Markdown + YAML frontmatter |
+| LearningStep files | `data/vault/ls_*.yaml` | YAML |
+| LearningPath files | `data/vault/lp_*.yaml` | YAML |
+| Activity files | `data/vault/{type}_*.yaml` | YAML |
+| Edge files | `data/vault/edges/edge_*.yaml` | YAML |
+| Templates and schemas | `yaml_templates/_schemas/` | YAML |
+| Worked examples | `yaml_templates/lesson_ls_lp/` | Mixed |
 
 ### UID Patterns
 
 | Entity | Pattern | Example |
 |--------|---------|---------|
-| Ku | `ku:{namespace}:{slug}` | `ku:sel:empathy` |
-| Lesson | `l:{namespace}:{slug}` | `l:sel:understanding-others` |
+| Ku | `ku:{namespace}:{slug}` | `ku:mindfulness:breath` |
+| Lesson | `l:{namespace}:{slug}` | `l:mindfulness:breath-awareness-basics` |
+| LearningStep | `ls:{path}:{slug}` | `ls:mindfulness-101:step-1` |
+| LearningPath | `lp:{slug}` | `lp:mindfulness-101` |
+| Activity | `{type}:{slug}` | `habit:daily-2min-breath` |
 
 ### SEL Categories
 

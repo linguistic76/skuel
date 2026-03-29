@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-03-28
+updated: 2026-03-29
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -9,7 +9,74 @@ tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activit
 
 # YAML Authoring Guide
 
-How to write YAML files that create SKUEL entities and their graph relationships. This guide covers entity structure, the `connections` system, substance tracking, and domain bundles.
+How to write content files that create SKUEL entities and their graph relationships. This guide covers entity structure, file format conventions, the `connections` system, substance tracking, and domain bundles.
+
+---
+
+## File Format: YAML vs Markdown
+
+The ingestion system supports two file formats. Use the one that matches the entity:
+
+| Format | Extension | Best For | How Content Works |
+|--------|-----------|----------|-------------------|
+| **YAML** | `.yaml` | Kus, LS, LP, activities, edges | All fields in YAML. Content (if any) is a `content: \|` string block. |
+| **Markdown** | `.md` | Lessons | Metadata in YAML frontmatter (`---` delimiters). Markdown body automatically becomes the `content` field. |
+
+**Why this split?** Lessons are content-heavy — long prose, headers, lists, emphasis. Writing that inside a YAML `|` block is awkward to author and impossible to preview in Obsidian. Everything else is metadata-heavy with little or no prose, so YAML is cleaner.
+
+### Markdown Lesson Example
+
+```markdown
+---
+type: Lesson
+uid: l:self-reflection:noticing-patterns
+title: Noticing Your Patterns
+sel_category: self_awareness
+learning_level: beginner
+
+uses_kus:
+  - ku:self-reflection:self-observation
+  - ku:self-reflection:emotional-patterns
+
+connections:
+  requires: []
+  enables:
+    - l:self-reflection:emotional-awareness
+
+tags:
+  - self-reflection
+  - patterns
+---
+
+## From Noticing Breath to Noticing Yourself
+
+If you've practiced breath awareness, you already have the core skill...
+
+## Practice: One Pattern, One Day
+
+Pick one pattern you already suspect you have...
+```
+
+The frontmatter contains all the same fields a YAML lesson would — `type`, `uid`, `uses_kus`, `connections`, `tags`, activity wiring fields. The only difference is that `content` is not in the frontmatter — it's the markdown body below the closing `---`.
+
+### YAML Entity Example
+
+```yaml
+version: 1.0
+type: Ku
+
+uid: ku:self-reflection:self-observation
+title: Self-Observation
+namespace: self_reflection
+ku_category: practice
+aliases:
+  - introspection
+  - self-watching
+description: The practice of watching your own thoughts, emotions, and behavioral patterns without immediately reacting.
+tags:
+  - self-reflection
+  - practice
+```
 
 ---
 
@@ -324,9 +391,11 @@ sequence: 1
 
 ---
 
-## Edge Files (Evidence Relationships)
+## Edge Files
 
-Standalone relationship files create edges between existing entities with evidence metadata:
+Standalone edge files in `data/vault/edges/` create relationships between entities. There are two patterns: **evidence edges** (observed connections between Kus) and **curriculum structure edges** (wiring up the four-entity stack and cross-domain connections).
+
+### Evidence Edges (Ku-to-Ku Observations)
 
 ```yaml
 type: Edge
@@ -346,30 +415,99 @@ source: self_observation
 - `temporality`: minutes, hours, days, chronic
 - `source`: self_observation, research, teacher, clinical
 
+### Curriculum Structure Edges (Batch Relationship Files)
+
+For curriculum bundles, edge files declare multiple relationships in a single file. This keeps the individual entity files clean and makes the relationship structure visible in one place.
+
+```yaml
+# edges/edge_mindfulness-101-curriculum.yaml
+version: 1.0
+
+edges:
+  # Lessons → Kus (USES_KU)
+  - from: l:mindfulness:breath-awareness-basics
+    to: ku:mindfulness:breath
+    type: USES_KU
+  - from: l:mindfulness:breath-awareness-basics
+    to: ku:mindfulness:attention
+    type: USES_KU
+
+  # Learning Steps → Lessons (HAS_LESSON)
+  - from: ls:mindfulness-101:step-1
+    to: l:mindfulness:breath-awareness-basics
+    type: HAS_LESSON
+
+  # Learning Path → Steps (CONTAINS_STEP)
+  - from: lp:mindfulness-101
+    to: ls:mindfulness-101:step-1
+    type: CONTAINS_STEP
+    properties:
+      order: 1
+
+  # Ku lateral relationships
+  - from: ku:mindfulness:breath
+    to: ku:mindfulness:attention
+    type: RELATED_TO
+```
+
+### Cross-Domain Edge Files
+
+When two domain bundles connect (e.g., Mindfulness 101 → Self-Reflection 101), declare the connections in a dedicated cross-domain edge file:
+
+```yaml
+# edges/edge_mindfulness-to-self-reflection.yaml
+version: 1.0
+
+edges:
+  - from: lp:mindfulness-101
+    to: lp:self-reflection-101
+    type: PREREQUISITE_FOR
+
+  - from: ku:mindfulness:attention
+    to: ku:self-reflection:self-observation
+    type: PREREQUISITE_FOR
+
+  - from: l:mindfulness:mind-wandering-happens
+    to: l:self-reflection:noticing-patterns
+    type: ENABLES
+```
+
+**Naming convention:** `edge_{from-domain}-to-{to-domain}.yaml` for cross-domain, `edge_{domain}-curriculum.yaml` for internal structure.
+
+**Note:** Relationships can also be declared inline via `connections` blocks and `uses_kus` fields on individual entity files. Edge files are an alternative for bulk declarations and cross-domain wiring. Both approaches create the same Neo4j edges — use whichever is clearer for your content.
+
 ---
 
 ## Domain Bundles
 
-A bundle is a complete, curated collection of related content. See `yaml_templates/mindfulness_101/` for a working example.
+A bundle is a complete, curated collection of related content. See `yaml_templates/lesson_ls_lp/mindfulness_101/` for a template example and `data/vault/` for the live ingestion vault.
 
 ### Bundle Structure
 
+A domain bundle in the vault uses the format convention — `.md` for lessons, `.yaml` for everything else:
+
 ```
-mindfulness_101/
-  manifest.yaml                          # Import order + entity inventory
-  ku_breath.yaml                         # Atomic knowledge units (first)
+data/vault/
+  # Kus (YAML — metadata only, no prose)
+  ku_breath.yaml
   ku_attention.yaml
-  lesson_breath-awareness-basics.yaml    # Lessons that compose Kus
-  lesson_posture-basics.yaml
-  habit_daily-2min-breath.yaml           # Activity domains (with connections)
+  # Lessons (Markdown — frontmatter + prose body)
+  lesson_breath-awareness-basics.md
+  lesson_posture-basics.md
+  lesson_mind-wandering-happens.md
+  # Activity entities (YAML — with connections blocks)
+  habit_daily-2min-breath.yaml
   task_log-first-5-sessions.yaml
   event_practice-block-2min.yaml
   goal_mindfulness-beginner.yaml
   choice_2-minutes-right-now.yaml
   principle_small-steps.yaml
-  ls_mindfulness-101_step-1.yaml         # Learning Steps (reference all above)
+  # Curriculum structure (YAML)
+  ls_mindfulness-101_step-1.yaml
   ls_mindfulness-101_step-2.yaml
-  lp_mindfulness-101.yaml               # Learning Path (sequences Steps)
+  lp_mindfulness-101.yaml
+  # Edges (YAML — relationship declarations)
+  edges/edge_mindfulness-101-curriculum.yaml
 ```
 
 ### Manifest

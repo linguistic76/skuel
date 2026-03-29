@@ -6,7 +6,7 @@
 
 **Prerequisite:** Familiarity with Lesson and Ku authoring (see [CURRICULUM_DEVELOPER_GUIDE.md](/docs/guides/CURRICULUM_DEVELOPER_GUIDE.md)).
 
-**Last Updated:** 2026-03-22
+**Last Updated:** 2026-03-29
 
 ---
 
@@ -106,30 +106,20 @@ Use when the Lesson presents options the learner should actively decide between.
 
 ---
 
-## Full Example
+## Full Example: Lesson File (Markdown Format)
 
-```yaml
-version: 1.0
+Lessons are `.md` files with YAML frontmatter. Activity wiring fields go in the frontmatter alongside other metadata. The markdown body is the teaching content.
+
+```markdown
+---
 type: Lesson
-
 uid: l:mindfulness:breath-awareness-basics
 title: Breath Awareness — Basics
-content: |
-  ## Introduction to Breath Awareness
-
-  Breath awareness is the foundational practice of mindfulness meditation...
-
-  ## The Basic Practice
-
-  1. Find a comfortable position
-  2. Close your eyes
-  3. Notice your breath
-  4. Follow the sensation
-  5. When mind wanders — gently return
-
-  ## Two Minutes is Enough
-
-  Start small, be consistent.
+sel_category: self_awareness
+learning_level: beginner
+complexity: basic
+domain: personal
+estimated_time_minutes: 10
 
 uses_kus:
   - ku:mindfulness:breath
@@ -165,7 +155,72 @@ tags:
   - breath
   - meditation
   - beginner
+---
+
+## Why Breath?
+
+You need an anchor — something to direct your attention toward...
+
+## The Two-Minute Practice
+
+1. **Sit comfortably.** Chair, floor, cushion — doesn't matter...
+2. **Find the breath.** Don't change it. Just notice where you feel it most...
+
+## Practice: Find Your Spot
+
+Right now, take three natural breaths and answer one question:
+where do you feel the breath most?
 ```
+
+**Note:** The activity UID fields (`habit_uids`, `task_uids`, etc.) live in the YAML frontmatter, not in the markdown body. The ingestion system reads them from the frontmatter and creates the corresponding Neo4j relationships.
+
+## Full Example: Activity Entity (YAML Format)
+
+Activity entities are `.yaml` files. They wire back to lessons via the `connections` block — this is the reverse link that enables substance tracking.
+
+```yaml
+version: 1.0
+type: Habit
+
+uid: habit:daily-2min-breath
+name: Daily Two-Minute Breath
+description: One tiny session per day. That's it.
+
+polarity: build
+category: mindfulness
+difficulty: easy
+recurrence_pattern: daily
+target_days_per_week: 7
+preferred_time: morning
+duration_minutes: 2
+
+# Reverse connections — these create substance-tracking edges
+connections:
+  reinforces_knowledge:
+    - l:mindfulness:breath-awareness-basics
+  supports_goal:
+    - goal:mindfulness-beginner
+  embodies_principle:
+    - principle:small-steps
+
+cue: After morning coffee / Right after waking
+routine: |
+  1. Sit comfortably
+  2. Set 2-minute timer
+  3. Close eyes, follow breath
+  4. Return gently when mind wanders
+reward: Calm start to day / Sense of accomplishment
+
+status: active
+priority: high
+tags:
+  - habit
+  - mindfulness
+  - breath
+  - daily
+```
+
+**Two-directional wiring:** The Lesson points to the Habit via `habit_uids` (forward link). The Habit points back to the Lesson via `connections.reinforces_knowledge` (reverse link for substance tracking). Both are needed for the full graph.
 
 ---
 
@@ -228,14 +283,21 @@ These counters measure how much the knowledge is being *lived*, not just read. A
 
 ## The Authoring Pattern
 
-1. **Define atomic Kus** — the concepts your Lesson teaches
-2. **Write the Lesson** — compose Kus into a teaching narrative
-3. **Define activity entities** — create the Habit, Task, Event, Goal, Principle, Choice YAML files
-4. **Wire activities to the Lesson** — add `habit_uids`, `task_uids`, etc. to the Lesson YAML
-5. **Group Lessons into LS** — the LS references Lessons and inherits their activities
-6. **Sequence LS into LP** — the Learning Path orders steps for the learner
+1. **Define atomic Kus** — `.yaml` files, one concept each
+2. **Write the Lesson** — `.md` file with frontmatter metadata and markdown body
+3. **Define activity entities** — `.yaml` files for Habit, Task, Event, Goal, Principle, Choice
+4. **Wire both directions:**
+   - **Forward:** Add `habit_uids`, `task_uids`, etc. to the Lesson frontmatter
+   - **Reverse:** Add `connections.reinforces_knowledge`, `connections.applies_knowledge`, etc. to each activity YAML
+5. **Group Lessons into LS** — `.yaml` files referencing Lessons via `knowledge_uids`
+6. **Sequence LS into LP** — `.yaml` file referencing Steps via `connections.contains_steps`
+7. **Write edge files** — `.yaml` files in `edges/` for curriculum structure and cross-domain connections
 
-Not every Lesson needs all 6 activity types. Start with what makes sense for the content. A Lesson on breath awareness might wire a Habit (daily practice) and a Task (log sessions). A Lesson on decision-making might wire Choices and Principles.
+Not every Lesson needs all 6 activity types. Start with what fits the content. The Mindfulness 101 bundle wires all 6 to its primary lesson (breath awareness) but only 3 to the secondary (mind wandering). The Self-Reflection 101 bundle has 2 habits, 2 principles, 2 tasks, 2 choices, 1 goal, and 1 event across 3 lessons — distributed by relevance, not evenly spread.
+
+### Practical Tip: Which Activities to Write First
+
+When building a new domain, start with the **Habit** and the **Task**. These are the most concrete — "what should the learner do every day?" and "what should the learner produce once?" The Goal, Principle, Choice, and Event can follow once the core practice is clear.
 
 ---
 
