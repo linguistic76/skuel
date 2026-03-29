@@ -1,10 +1,10 @@
 """Curriculum Hub UI Routes
 ==========================
 
-UI for the curriculum landing page and browser sub-pages.
+UI for curriculum browser sub-pages.
 
 Routes:
-- GET /curriculum — Landing page (4-card grid, no sidebar)
+- GET /curriculum — 301 redirect to /profile (shelved: landing page deprecated)
 - GET /lessons — Lesson browser with Curriculum sidebar
 - GET /learning-steps — Learning Steps browser with Curriculum sidebar
 - GET /learning-paths — Learning Paths browser with Curriculum sidebar
@@ -13,17 +13,15 @@ Routes:
 from typing import Any
 
 from fasthtml.common import Div
+from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from core.utils.logging import get_logger
-from ui.curriculum.landing import CurriculumLandingView
 from ui.curriculum.layout import create_curriculum_page
-from ui.layouts.base_page import BasePage
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
-from ui.patterns.stats_grid import StatItem
 
 logger = get_logger("skuel.routes.curriculum_hub")
 
@@ -43,34 +41,9 @@ def create_curriculum_hub_ui_routes(
     """Register curriculum hub UI routes."""
 
     @rt("/curriculum")
-    async def curriculum_landing(request) -> Any:
-        """Curriculum hub landing page — 4-card grid, no sidebar."""
-        require_authenticated_user(request)
-
-        # Fetch counts for stats grid
-        stats: list[StatItem] = []
-        for label, service_attr in [
-            ("Lessons", "lesson"),
-            ("Learning Steps", "ls"),
-            ("Learning Paths", "lp"),
-            ("Exercises", "exercises"),
-        ]:
-            svc = getattr(services, service_attr, None)
-            if svc:
-                # Facades have .core sub-service; flat BaseService services don't
-                counter = getattr(svc, "core", svc)
-                count_result = await counter.count()
-                count = count_result.value if not count_result.is_error else 0
-            else:
-                count = 0
-            stats.append(StatItem(label=label, value=count))
-
-        return await BasePage(
-            CurriculumLandingView(stats=stats),
-            title="Curriculum",
-            request=request,
-            active_page="curriculum",
-        )
+    async def curriculum_landing(request: Any) -> RedirectResponse:
+        """Curriculum hub shelved — redirect to Profile (THE main hub)."""
+        return RedirectResponse(url="/profile", status_code=301)
 
     @rt("/lessons")
     async def lessons_browser(request) -> Any:

@@ -4,6 +4,7 @@ from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_empty_state_with_error, render_error_banner
 from ui.patterns.form_generator import FormGenerator
+from ui.patterns.hub import HubCard, HubCardData, HubSection
 from ui.patterns.page_header import PageHeader
 from ui.patterns.progress_metric import ProgressMetric
 from ui.patterns.section_header import SectionHeader
@@ -14,6 +15,9 @@ __all__ = [
     "CardGenerator",
     "EmptyState",
     "FormGenerator",
+    "HubCard",
+    "HubCardData",
+    "HubSection",
     "PageHeader",
     "ProgressMetric",
     "SectionHeader",

@@ -61,12 +61,12 @@ if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.enums import Domain
     from core.models.goal.goal_request import GoalCreateRequest
-    from core.services.goals.goals_ai_service import GoalsAIService
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
     from core.ports.search_protocols import GoalsSearchOperations
+    from core.services.goals.goals_ai_service import GoalsAIService
     from core.services.goals.goals_scheduling_service import (
         AchievabilityResult,
         GoalCapacityResult,

@@ -75,8 +75,8 @@ if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
     from core.ports.search_protocols import EventsSearchOperations
-    from core.services.events.events_intelligence_service import EventsIntelligenceService
     from core.services.events.events_ai_service import EventsAIService
+    from core.services.events.events_intelligence_service import EventsIntelligenceService
     from core.services.insight.insight_store import InsightStore
     from core.services.user import UserContext
 

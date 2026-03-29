@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from core.models.principle.principle_types import PrincipleDecision
     from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
     from core.ports.search_protocols import PrinciplesSearchOperations
+    from core.services.principles.principles_ai_service import PrinciplesAIService
     from core.services.principles.principles_alignment_service import (
         AlignmentAssessment,
         MotivationalProfile,
@@ -64,7 +65,6 @@ if TYPE_CHECKING:
     from core.services.principles.principles_event_handler_service import (
         PrincipleEventHandlerService,
     )
-    from core.services.principles.principles_ai_service import PrinciplesAIService
     from core.services.principles.principles_intelligence_service import (
         PrinciplesIntelligenceService,
     )

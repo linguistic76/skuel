@@ -69,7 +69,6 @@ if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.context_types import ContextualDependencies, ContextualHabit
     from core.models.graph_context import GraphContext
-    from core.services.habits.habits_ai_service import HabitsAIService
     from core.models.habit.habit_request import (
         ArchiveHabitRequest,
         DeleteHabitReminderRequest,
@@ -84,6 +83,7 @@ if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
     from core.ports.search_protocols import HabitsSearchOperations
+    from core.services.habits.habits_ai_service import HabitsAIService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.user import UserContext
 

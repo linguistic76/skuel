@@ -154,28 +154,10 @@ def create_study_ui_routes(
 
     @rt("/study")
     async def study_landing(request: Request) -> Any:
-        """Learning workspace hub — submit work, track submissions, review feedback."""
-        user_uid = require_authenticated_user(request)
+        """Study hub shelved — redirect to Profile (THE main hub)."""
+        from starlette.responses import RedirectResponse
 
-        try:
-            context = await _get_context(user_uid)
-        except ValueError as e:
-            return await BasePage(
-                render_error_banner("Unable to load study dashboard", str(e)),
-                title="Study",
-                request=request,
-                active_page="study",
-            )
-
-        from ui.study.dashboard import StudyDashboardView
-
-        content = StudyDashboardView(context)
-        return await BasePage(
-            content,
-            title="Study",
-            request=request,
-            active_page="study",
-        )
+        return RedirectResponse(url="/profile", status_code=301)
 
     # ========================================================================
     # SUBMIT PAGE (sidebar)

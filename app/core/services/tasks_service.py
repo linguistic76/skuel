@@ -273,7 +273,7 @@ class TasksService(BaseService["TasksOperations", Task]):
     planning: TasksPlanningService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
-    ai: "TasksAIService | None"
+    ai: TasksAIService | None
     # TasksProductivityService shelved (2026-03-28)
     learning_metrics: TasksLearningMetricsService
     event_handler: TaskEventHandlerService
@@ -288,7 +288,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         event_bus=None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: Any = None,
-        ai_service: "TasksAIService | None" = None,
+        ai_service: TasksAIService | None = None,
     ) -> None:
         """
         Initialize enhanced tasks service with specialized sub-services.

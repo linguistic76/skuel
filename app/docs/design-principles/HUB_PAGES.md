@@ -27,27 +27,30 @@ SKUEL values standards-compliant, non-cutting-edge UI. Hub pages are the oldest 
 
 ## In Practice
 
+**Profile is THE main hub.** The old `/curriculum` and `/study` hubs are shelved — they redirect 301 to `/profile`.
+
 | Page | Hub Pattern | What It Organizes |
 |------|-------------|-------------------|
-| `/curriculum` | 4-card grid, no sidebar | Lessons, Learning Steps, Learning Paths, Exercises |
-| `/profile` (target) | Section cards with counts and links | Kus, Lessons, Submissions, Reports, Nous |
-| `/study` (target) | Section cards linking to student workflows | Submit, Submissions, Reports |
+| `/profile` | Grouped card sections with badges | Knowledge, Practice, Reports — links to all domain pages |
 
-### Existing Example: `/curriculum`
+### Profile as THE Hub
 
-The curriculum landing page is a hub. Four cards, each with an icon, title, description, and link. A stats grid shows counts. No sidebar. The sub-pages (`/lessons`, `/learning-steps`, etc.) use a sidebar for within-section navigation — but the entry point is a hub.
+Profile is the top-level entry point for the user's world. Cards are grouped into sections (Knowledge, Practice, Reports) with context-driven badges showing live counts from UserContext:
 
-### Target Example: `/profile`
+- **Knowledge** — `/ku` (bookmarked count), `/lessons`
+- **Practice** — `/exercises` (assigned count), `/submit` (unsubmitted count), `/submissions`
+- **Reports** — `/exercise-reports` (pending feedback count), `/activity-reports`
 
-The profile page becomes a hub for the user's world:
+### Domain Hub Pages (Future)
 
-- **Knowledge** — link to `/ku`, with count of bookmarked KUs
-- **Lessons** — link to curriculum the user is engaged with
-- **Submit** — link to submission interface, with pending count
-- **Reports** — exercise reports and activity reports
-- **Nous** — emerging section (identity, intelligence, self-knowledge)
+The pages that Profile links to will become rich functional hubs:
 
-Each section is a card or link group in the page content. No sidebar required.
+- **Lessons hub** — enrolled lessons, available lessons, enrolled LPs/LSs
+- **Submissions hub** — submit an ExerciseSubmission + list submitted work
+- **Reports hub** — ExerciseReports list + RevisedExercise UI
+- **KU hub** — ORGANIZES-driven knowledge navigation
+
+Each is more than a card grid — they have real capabilities (forms, entity lists, actions).
 
 ## Relationship to MOC
 
@@ -78,13 +81,15 @@ This allows raw, immature code to exist alongside mature code without architectu
 
 ## Enforcement
 
-- **New top-level sections** should have a hub page as their entry point
-- **Profile redesign** will remove the sidebar and use hub pattern
-- **Code review** should prefer hub pages over adding more sidebar items for top-level navigation
+- **Profile is THE main hub** — all top-level navigation flows through `/profile`
+- **New domain pages** should be rich functional hubs, not card-grid-only pages
 - **BasePage (STANDARD)** is the correct page type for hub pages — no custom layout needed
+- **Shared components** (`HubCard`, `HubSection`, `HubCardData`) in `ui/patterns/hub.py`
 
 ## See Also
 
 - `/docs/domains/moc.md` — MOC as emergent identity
 - `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — LS Path vs MOC Path
-- `/ui/curriculum/landing.py` — reference implementation of hub pattern
+- `/docs/patterns/HUB_PAGE_PATTERN.md` — implementation pattern and shared components
+- `/ui/patterns/hub.py` — shared hub card components
+- `/ui/profile/hub.py` — reference implementation (THE main hub)
