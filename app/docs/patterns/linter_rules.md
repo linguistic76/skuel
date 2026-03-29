@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-03-19
+updated: 2026-03-29
 category: patterns
 related_skills:
 - python
@@ -17,6 +17,8 @@ For implementation guidance, see:
 ## Core Principle: "Automated enforcement prevents pattern violations"
 
 **SKUEL uses automated linting to enforce architectural patterns** that cannot be caught by standard type checkers.
+
+> **Quick start:** See [Linter Guide](../guides/LINTER_GUIDE.md) for how to run linters and the full command reference. See [UV Guide](../guides/UV_GUIDE.md) for package manager commands.
 
 ## Linter Configuration
 
@@ -51,6 +53,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 |------|---------|-------------|
 | **SKUEL004** | Missing confidence threshold | Semantic queries need confidence filters |
 | **SKUEL005** | Non-Result return types | Service methods should return `Result[T]` |
+| **SKUEL006** | TODO/FIXME tracking | Categorizes and tracks TODO/FIXME comments [INFO] |
 | **SKUEL007** | String `Result.fail()` | Use `Errors` factory |
 | **SKUEL008** | Backend wrapper classes | Use `UniversalNeo4jBackend` directly |
 | **SKUEL009** | Tuple defaults | Single-element tuple bug [auto-fix] |
@@ -361,7 +364,16 @@ except Exception as e:  # safety-net: catch unexpected errors
 
 ## Running the Linters
 
-**Run all linters:**
+**Primary interface — use `./dev` commands:**
+```bash
+./dev format        # Auto-format with Ruff
+./dev lint          # Run Ruff + SKUEL pattern linter
+./dev lint-fix      # Auto-fix Ruff issues
+./dev quality       # Run ALL checks (format + Ruff + SKUEL + Cypher + MyPy)
+./dev quality-fix   # Run all checks with auto-fix
+```
+
+**Direct uv commands** (when you need options `./dev` doesn't expose):
 ```bash
 # Ruff - fast Python linter
 uv run ruff check .
@@ -426,6 +438,8 @@ Add to pre-commit hooks or CI pipeline:
 - **scripts/cypher_linter.py** - Cypher query static analysis (10 rules, 2 disabled)
 - **Exceptions documented in:** `pyproject.toml` section `[tool.ruff.lint.per-file-ignores]`
 
+**See:** [UV Guide](../guides/UV_GUIDE.md) for package manager commands, [Linter Guide](../guides/LINTER_GUIDE.md) for full CLI reference
+
 ## Exclusion Patterns
 
 The linter automatically excludes certain files from specific rules. Per-file exemptions use inline suppression comments (see above) rather than hardcoded allowlists.
@@ -449,5 +463,5 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 
 ---
 
-**Last Updated:** March 19, 2026
+**Last Updated:** March 29, 2026
 **Status:** Active - 17 rules enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX`. 118 unit tests cover both linters.

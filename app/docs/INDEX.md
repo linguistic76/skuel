@@ -295,6 +295,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Curriculum Developer Guide](guides/CURRICULUM_DEVELOPER_GUIDE.md)** | **2026-03-17** | **290** |
 | **[YAML Authoring Guide](guides/YAML_AUTHORING_GUIDE.md)** | **2026-03-21** | **220** |
 | **[Lesson Activity Wiring Guide](guides/LESSON_ACTIVITY_WIRING.md)** | **2026-03-22** | **230** |
+| **[Linter Guide](guides/LINTER_GUIDE.md)** | **2026-03-29** | **180** |
+| **[UV Package Manager Guide](guides/UV_GUIDE.md)** | **2026-03-29** | **120** |
 | **[Troubleshooting Guide](TROUBLESHOOTING.md)** | **2026-01-31** | **650** |
 
 ## Deployment
