@@ -29,14 +29,12 @@ def LeanProfileView(context: UserContext) -> Div:
                     ButtonLink(
                         "Exercise Reports",
                         href="/exercise-reports",
-                        variant=ButtonT.secondary,
-                        size=Size.sm,
+                        variant=ButtonT.default,
                     ),
                     ButtonLink(
                         "Activity Reports",
                         href="/activity-reports",
-                        variant=ButtonT.secondary,
-                        size=Size.sm,
+                        variant=ButtonT.default,
                     ),
                     cls="flex gap-3 flex-wrap",
                 ),
