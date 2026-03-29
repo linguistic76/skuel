@@ -481,6 +481,8 @@ Lesson → Exercise v1 → Submission v1 → ExerciseReport v1
 - First entity type combining `ContentOrigin.CURRICULUM` with `requires_user_uid()=True`
 - Teacher-owned, student-targeted (student visibility via `student_uid` field)
 - `revision_number` auto-determined from existing chain length
+- `feedback_points: tuple[FeedbackPoint, ...]` — typed feedback using `FeedbackCategory` enum (ACCURACY, COMPLETENESS, DEPTH, CLARITY, APPLICATION, METHODOLOGY) + free-text detail. Enables pattern tracking across submissions.
+- `expected_modality` and `submission_uid` auto-resolved by service on creation — teacher doesn't provide these
 
 **Services:**
 ```python
@@ -499,8 +501,10 @@ await backend.get_revision_chain(exercise_uid)             # All revisions order
 ```cypher
 (teacher:User)-[:OWNS]->(re:Entity:RevisedExercise {
     original_exercise_uid: '...',
+    submission_uid: '...',
     student_uid: '...',
-    revision_number: 2
+    revision_number: 2,
+    feedback_points: '[{"category":"depth","detail":"..."}]'
 })
 (re)-[:RESPONDS_TO_REPORT]->(report:Entity:ExerciseReport)
 (re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)

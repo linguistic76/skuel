@@ -24,7 +24,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `curriculum_enums.py` | Learning path and step types | LpType, StepDifficulty |
 | `lifepath_enums.py` | Vision theme classification | ThemeCategory |
 | `scheduling_enums.py` | Time, recurrence, energy | RecurrencePattern, TimeOfDay, EnergyLevel |
-| `learning_enums.py` | Education, knowledge, mastery, assessment | AssessmentOutcome, LearningLevel, EducationalLevel, MasteryStatus, ContentType, SELCategory |
+| `learning_enums.py` | Education, knowledge, mastery, assessment, feedback | AssessmentOutcome, FeedbackCategory, LearningLevel, EducationalLevel, MasteryStatus, ContentType, SELCategory |
 | `metadata_enums.py` | Relationships, search, system config | RelationshipType (48 values), Intent, Visibility, SystemConstants |
 | `user_enums.py` | User roles and health scoring | UserRole, ContextHealthScore |
 | `ku_enums.py` | Ku domain classification | KuCategory |
@@ -314,8 +314,9 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 
 ### Infrastructure Enums
 
-**Learning** (`learning_enums.py`) — 10 enums for education/knowledge tracking:
+**Learning** (`learning_enums.py`) — 11 enums for education/knowledge tracking:
 - `AssessmentOutcome` (APPROVED, NEEDS_REVISION, AI_EVALUATED — self-describing report decisions)
+- `FeedbackCategory` (ACCURACY, COMPLETENESS, DEPTH, CLARITY, APPLICATION, METHODOLOGY — classifies learning gap type on RevisedExercise.feedback_points, with `get_label()`, `get_color()`, `get_description()`)
 - `LearningLevel` (BEGINNER → EXPERT, with `can_handle()` method)
 - `EducationalLevel` (ELEMENTARY → LIFELONG, with `get_age_range()`)
 - `MasteryStatus` (NOT_STARTED → MASTERED)
