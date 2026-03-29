@@ -59,12 +59,19 @@ This document defines the authentication requirements for all SKUEL routes.
 All user-owned entities use ownership verification:
 
 ```python
-# Service-level ownership check
-result = await service.verify_ownership(uid, user_uid)
-if result.is_error:
-    return result  # Returns 404 for both missing and unauthorized
+from adapters.inbound.route_factories import verify_entity_ownership, require_owned_entity
 
-# Decorator-based ownership check
+# API routes — verify_entity_ownership helper
+ownership_error = await verify_entity_ownership(service, uid, user_uid, "domain")
+if ownership_error:
+    return ownership_error  # Returns 404 Result
+
+# UI routes — require_owned_entity helper
+entity, error = await require_owned_entity(service, uid, user_uid, "Entity")
+if error:
+    return error  # Returns 404 Response
+
+# Decorator-based ownership check (alternative)
 @with_ownership(get_service)
 async def route(request, user_uid, entity):
     # entity is pre-verified to belong to user_uid

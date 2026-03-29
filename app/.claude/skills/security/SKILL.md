@@ -64,10 +64,18 @@ User-owned entities return "not found" when accessed by non-owners. This prevent
 from enumerating valid entity UIDs.
 
 ```python
-# Pattern: check ownership, return 404 if not owner
-entity = await service.get(uid)
-if entity.is_error or entity.value.user_uid != user_uid:
-    return JSONResponse({"error": "Not found"}, status_code=404)
+from adapters.inbound.route_factories import verify_entity_ownership
+
+# API routes: use verify_entity_ownership helper
+ownership_error = await verify_entity_ownership(service, uid, user_uid, "domain")
+if ownership_error:
+    return ownership_error  # Returns NotFound Result (404)
+
+# UI routes: use require_owned_entity helper
+from adapters.inbound.route_factories import require_owned_entity
+entity, error = await require_owned_entity(service, uid, user_uid, "Entity")
+if error:
+    return error  # Returns Response(404)
 ```
 
 ### boundary_handler Error Stripping

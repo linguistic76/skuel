@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-03-23'
+updated: '2026-03-29'
 category: patterns
 related_skills:
 - activity-domains
@@ -9,7 +9,7 @@ related_docs: []
 ---
 # Ownership Verification Pattern
 
-*Last updated: 2026-03-05*
+*Last updated: 2026-03-29*
 
 ## Quick Start
 
@@ -247,28 +247,38 @@ if error:
     return error
 ```
 
-### Manual API Routes
+### API Routes (verify_entity_ownership helper)
 
-For API routes using `@boundary_handler` that return `Result[T]`, use the service method directly:
+For API routes using `@boundary_handler` that return `Result[T]`, use `verify_entity_ownership`:
 
 ```python
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.route_factories import verify_entity_ownership
 
-@rt("/api/goals/{uid}/progress")
+@rt("/api/transcriptions/process", methods=["POST"])
 @boundary_handler()
-async def update_goal_progress(request: Request) -> Result[dict]:
-    """Update goal progress (requires ownership)."""
-    uid = request.path_params["uid"]
+async def process_transcription(request, uid: str) -> Result[dict[str, Any]]:
+    """Process transcription. Requires ownership."""
     user_uid = require_authenticated_user(request)
+    ownership_error = await verify_entity_ownership(
+        transcription_service, uid, user_uid, "transcription"
+    )
+    if ownership_error:
+        return ownership_error
 
-    # Verify user owns this goal
-    ownership = await goals_service.verify_ownership(uid, user_uid)
-    if ownership.is_error:
-        return ownership  # Returns 404
+    # Safe to proceed - user owns this entity
+    return await transcription_service.process(uid)
+```
 
-    # Safe to proceed - user owns this goal
-    body = await request.json()
-    return await goals_service.update_goal_progress(uid, body["progress"])
+`verify_entity_ownership` returns an error `Result` on failure (truthiness check) or `None` on success. It logs ownership failures at debug level when a domain name is provided.
+
+**When you need the entity value** (e.g., to return it directly), use the service method:
+
+```python
+ownership = await service.verify_ownership(uid, user_uid)
+if ownership.is_error:
+    return Result.fail(ownership)
+return Result.ok(ownership.value.to_dict())  # Uses the returned entity
 ```
 
 ### with_ownership Decorator (Alternative)
@@ -393,14 +403,16 @@ async def update_progress(request):
 
 **After (Secure):**
 ```python
+from adapters.inbound.route_factories import verify_entity_ownership
+
 @rt("/api/goals/{uid}/progress")
-async def update_progress(request):
-    uid = request.path_params["uid"]
+@boundary_handler()
+async def update_progress(request, uid: str):
     user_uid = require_authenticated_user(request)
 
-    ownership = await service.verify_ownership(uid, user_uid)
-    if ownership.is_error:
-        return ownership
+    ownership_error = await verify_entity_ownership(service, uid, user_uid, "goal")
+    if ownership_error:
+        return ownership_error
 
     return await service.update_progress(uid, ...)
 ```

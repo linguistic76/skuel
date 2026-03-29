@@ -425,6 +425,10 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 | **SHARED** | KU, LS, LP | Admin only | All users | No (public) |
 | **ADMIN_ONLY** | Finance | Admin only | Admin only | No (admin-gated) |
 
+**Route helpers** (`from adapters.inbound.route_factories`):
+- `verify_entity_ownership(service, uid, user_uid, domain)` — API routes. Returns error `Result` or `None`.
+- `require_owned_entity(service, uid, user_uid, entity_name)` — UI routes. Returns `(entity, None)` or `(None, Response)`.
+
 **See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`
 
 ## Content Origin Tiers

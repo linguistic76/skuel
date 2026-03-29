@@ -225,15 +225,31 @@ async def batch_delete(self, uids: list[str]) -> Result[int]:
 
 ### Pattern 5: Ownership Verification
 
+**In route handlers**, use the `verify_entity_ownership` helper:
+
+```python
+from adapters.inbound.route_factories import verify_entity_ownership
+
+@rt("/api/transcriptions/delete", methods=["DELETE"])
+@boundary_handler()
+async def delete_transcription(request, uid: str) -> Result[bool]:
+    user_uid = require_authenticated_user(request)
+    ownership_error = await verify_entity_ownership(
+        transcription_service, uid, user_uid, "transcription"
+    )
+    if ownership_error:
+        return ownership_error  # Returns 404 (security: don't reveal existence)
+    return await transcription_service.delete(uid)
+```
+
+**In service internals**, use the service method directly:
+
 ```python
 async def update_for_user(self, uid: str, updates: dict,
                           user_uid: UserUID) -> Result[Task]:
-    # verify_ownership returns entity or NotFound error
     ownership = await self.verify_ownership(uid, user_uid)
     if ownership.is_error:
-        return ownership  # Returns 404 (security: don't reveal existence)
-
-    # Safe to update - user owns this entity
+        return ownership  # Returns 404
     return await self.update(uid, updates)
 ```
 

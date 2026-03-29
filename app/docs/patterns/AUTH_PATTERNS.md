@@ -192,22 +192,34 @@ WebSocket handlers need auth checked before `ws.accept()`. HTTP decorators like 
 
 ### Ownership Verification
 
-After getting `user_uid`, verify ownership before operating on entities:
+After getting `user_uid`, verify ownership before operating on entities. Use the `verify_entity_ownership` helper for API routes:
 
 ```python
+from adapters.inbound.route_factories import verify_entity_ownership
+
 @rt("/api/goals/{uid}")
-async def update_goal(request):
+@boundary_handler()
+async def update_goal(request, uid: str):
     user_uid = require_authenticated_user(request)
-    uid = request.path_params["uid"]
 
-    # verify_ownership returns 404 (not 403) to prevent UID enumeration
-    ownership = await goals_service.verify_ownership(uid, user_uid)
-    if ownership.is_error:
-        return ownership  # Returns 404 "Not Found"
+    # Returns error Result on failure, None on success (404, not 403 — prevents UID enumeration)
+    ownership_error = await verify_entity_ownership(
+        goals_service, uid, user_uid, "goal"
+    )
+    if ownership_error:
+        return ownership_error
 
-    goal = ownership.value
-    # Now safe to update
     return await goals_service.update(uid, updates)
+```
+
+For UI routes returning `Response`, use `require_owned_entity`:
+
+```python
+from adapters.inbound.route_factories import require_owned_entity
+
+entity, error = await require_owned_entity(service, uid, user_uid, "Goal")
+if error:
+    return error  # Returns Response(404)
 ```
 
 ### Using the `@with_ownership` Decorator
