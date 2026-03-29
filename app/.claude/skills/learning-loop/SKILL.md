@@ -768,7 +768,7 @@ that never closes the loop.
    Admin creates a Knowledge Unit
        ↓
 1b. Student browses /lessons, clicks "Start Lesson" → adapters/inbound/curriculum_hub_ui.py
-    POST /api/lesson/{uid}/start marks IN_PROGRESS  → adapters/inbound/lesson_reading_api.py
+    POST /api/lesson/{uid}/start marks IN_PROGRESS  → adapters/inbound/lesson_ui.py
     GET /lesson/{uid}/details renders full content   → adapters/inbound/lesson_ui.py
     (Learning state: NONE → VIEWED → IN_PROGRESS → MASTERED)
        ↓

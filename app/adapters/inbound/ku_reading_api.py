@@ -1,6 +1,6 @@
 """
-KU Reading API Routes - Phase A
-================================
+KU Reading API Routes
+======================
 
 API routes for KU interaction tracking:
 - Mark as read
@@ -27,7 +27,7 @@ from ui.layout import Size
 logger = get_logger("skuel.routes.ku.reading.api")
 
 
-def create_lesson_reading_api_routes(
+def create_ku_reading_api_routes(
     app: Any,
     rt: Any,
     ku_interaction_service: Any,
@@ -94,25 +94,6 @@ def create_lesson_reading_api_routes(
             hx_target="this",
         )
 
-    @rt("/api/lesson/{uid}/start", methods=["POST"])
-    async def start_lesson(request: Request, uid: str) -> Any:
-        """Start a lesson (mark as in-progress). Returns updated button HTML for HTMX swap."""
-        user_uid = require_authenticated_user(request)
-
-        result = await ku_interaction_service.mark_in_progress(user_uid, uid)
-
-        if result.is_error:
-            return Button(
-                "Error",
-                variant=ButtonT.error,
-                size=Size.sm,
-                disabled=True,
-            )
-
-        from ui.feedback import Badge, BadgeT
-
-        return Badge("In Progress", variant=BadgeT.secondary, size=Size.sm)
-
     @rt("/api/ku/{uid}/navigation")
     @boundary_handler()
     async def get_ku_navigation(request: Request, uid: str) -> Result[dict[str, Any]]:
@@ -131,14 +112,13 @@ def create_lesson_reading_api_routes(
             }
         )
 
-    logger.info("KU reading API routes registered (4 endpoints)")
+    logger.info("KU reading API routes registered (3 endpoints)")
 
     return [
         mark_ku_as_read,
         toggle_ku_bookmark,
-        start_lesson,
         get_ku_navigation,
     ]
 
 
-__all__ = ["create_lesson_reading_api_routes"]
+__all__ = ["create_ku_reading_api_routes"]

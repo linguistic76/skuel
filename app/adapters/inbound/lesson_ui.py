@@ -231,6 +231,9 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
             )
 
         lesson, content_body = result.value
+        # Fall back to lesson.content property when no :Content node exists
+        if not content_body and getattr(lesson, "content", None):
+            content_body = lesson.content
 
         # Record view
         await lesson_service.mastery.record_view(user_uid, uid)
@@ -354,6 +357,23 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
             active_page="curriculum",
             page_type=PageType.CUSTOM,
         )
+
+    @rt("/api/lesson/{uid}/start", methods=["POST"])
+    async def start_lesson(request: Request, uid: str) -> Any:
+        """Start a lesson (mark as in-progress). Returns updated button HTML for HTMX swap."""
+        user_uid = require_authenticated_user(request)
+
+        result = await lesson_service.mastery.mark_in_progress(user_uid, uid)
+
+        if result.is_error:
+            return Button(
+                "Error",
+                variant=ButtonT.error,
+                size=Size.sm,
+                disabled=True,
+            )
+
+        return Badge("In Progress", variant=BadgeT.secondary, size=Size.sm)
 
     @rt("/lesson/{uid}/edit")
     async def lesson_edit_form(_request, uid: str) -> Any:

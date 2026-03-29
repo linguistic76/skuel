@@ -520,9 +520,9 @@ async def _wire_all_routes(
 
     create_askesis_routes(app, rt, services, None)
 
-    from adapters.inbound.lesson_reading_routes import create_lesson_reading_routes
+    from adapters.inbound.ku_reading_routes import create_ku_reading_routes
 
-    create_lesson_reading_routes(app, rt, services, None)
+    create_ku_reading_routes(app, rt, services, None)
 
     # -- Activity Domain CRUD UI shelved (2026-03-28) --
     # Routes moved to _shelved/activity_ui/adapters/

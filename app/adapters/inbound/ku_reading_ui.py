@@ -172,7 +172,7 @@ def _form_templates_section(form_templates: list[dict]) -> Any:
     )
 
 
-def create_lesson_reading_ui_routes(
+def create_ku_reading_ui_routes(
     app: Any,
     rt: Any,
     ku_service: Any,
@@ -425,4 +425,4 @@ def create_lesson_reading_ui_routes(
     ]
 
 
-__all__ = ["create_lesson_reading_ui_routes"]
+__all__ = ["create_ku_reading_ui_routes"]

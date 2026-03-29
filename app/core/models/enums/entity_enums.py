@@ -955,6 +955,7 @@ class Domain(StrEnum):
     CREATIVE = "creative"
     RESEARCH = "research"
     SOCIAL = "social"
+    SPIRITUAL = "spiritual"
     META = "meta"
     CROSS_DOMAIN = "cross_domain"
 

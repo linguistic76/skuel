@@ -450,9 +450,13 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         content_body = ""
 
         if self.content_repo:
-            content_result = await self.content_repo.get_content(uid)
-            if content_result.is_ok and content_result.value:
-                content_body = content_result.value.get("content", "")
+            content_data = await self.content_repo.fetch_content(uid)
+            if content_data:
+                content_body = content_data.get("body", "")
+
+        # Fall back to content stored directly on the entity node
+        if not content_body and getattr(ku, "content", None):
+            content_body = ku.content
 
         return Result.ok((ku, content_body))
 

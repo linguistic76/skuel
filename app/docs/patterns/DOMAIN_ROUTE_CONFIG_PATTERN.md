@@ -1013,7 +1013,7 @@ All DomainRouteConfig routes are registered in Section 2 of `_wire_all_routes()`
 10. `/adapters/inbound/revised_exercises_routes.py`
 11. `/adapters/inbound/pathways_routes.py` - LP + LS routes
 12. `/adapters/inbound/askesis_routes.py`
-13. `/adapters/inbound/lesson_reading_routes.py`
+13. `/adapters/inbound/ku_reading_routes.py`
 
 **Submissions/Forms/Journals (4):**
 14. `/adapters/inbound/submissions_routes.py`
@@ -1274,7 +1274,7 @@ Zero runtime overhead - routes are registered once at application startup.
 - Zero regressions detected
 
 **Phase 9 (Complete - 2026-03-11):** Non-Activity domain migrations (6 files)
-- ✅ monitoring_routes.py, lesson_reading_routes.py, study_routes.py (simple migrations)
+- ✅ monitoring_routes.py, ku_reading_routes.py, study_routes.py (simple migrations)
 - ✅ search_routes.py (service-extraction, SearchRouter as primary)
 - ✅ hierarchy_routes.py, lateral_routes.py (loop-pattern, multi-service via kwargs)
 - graphql_routes.py: signature normalized only (needs full services container)

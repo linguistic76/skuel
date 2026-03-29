@@ -57,10 +57,10 @@
 |--------|-----------|
 | Lesson | `adapters/inbound/lesson_routes.py` (LessonService) |
 | Lesson UI | `adapters/inbound/lesson_ui.py` (detail page, discovery, analytics) |
-| Lesson Reading API | `adapters/inbound/lesson_reading_api.py` (mark-read, bookmark, start, navigation) |
 | Lesson Listing | `adapters/inbound/curriculum_hub_ui.py` (`/lessons` browser with enrollment) |
 | KU | `adapters/inbound/ku_routes.py` (KuService — serves /ku index) |
-| KU Reading | `adapters/inbound/lesson_reading_ui.py` (`/ku/{uid}` detail with content) |
+| KU Reading UI | `adapters/inbound/ku_reading_ui.py` (`/ku/{uid}` detail with content) |
+| KU Reading API | `adapters/inbound/ku_reading_api.py` (mark-read, bookmark, navigation) |
 | LS + LP | `adapters/inbound/pathways_routes.py` |
 
 **Lesson UI Routes:**

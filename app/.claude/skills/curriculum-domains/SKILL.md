@@ -144,7 +144,7 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 
 **Key service:** `lesson_service.mastery` (`LessonMasteryService`) — `record_view()`, `mark_in_progress()`, `get_learning_state()`, `get_learning_states_batch()`
 
-**Key files:** `adapters/inbound/lesson_ui.py` (detail page), `adapters/inbound/lesson_reading_api.py` (start endpoint), `adapters/inbound/curriculum_hub_ui.py` (listing with enrollment)
+**Key files:** `adapters/inbound/lesson_ui.py` (detail page + start endpoint), `adapters/inbound/curriculum_hub_ui.py` (listing with enrollment)
 
 **Contrast with Learning Paths:** LPs use **explicit enrollment** via `(User)-[:ENROLLED_IN]->(Lp)` relationship with `enroll_in_learning_path()`.
 
