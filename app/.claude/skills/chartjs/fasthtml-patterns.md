@@ -368,7 +368,7 @@ def chart_with_fallback(data_url: str):
                 P("Chart failed to load", cls="text-error mb-2"),
                 Button(
                     "Retry",
-                    variant=ButtonT.default, size=Size.sm,
+                    variant=ButtonT.neutral, size=Size.sm,
                     **{"@click": f"refresh()"},
                 ),
                 cls="flex flex-col items-center justify-center h-full",
