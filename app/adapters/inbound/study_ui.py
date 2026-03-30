@@ -24,9 +24,6 @@ from fasthtml.common import (
     H3,
     H4,
     Div,
-    Form,
-    Label,
-    Option,
     P,
     Span,
 )
@@ -38,14 +35,17 @@ from adapters.inbound.fasthtml_types import RouteDecorator, RouteList
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonLink, ButtonT
+from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT, Badge, BadgeT
-from ui.forms import Select
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
+from ui.patterns.generate_report import (
+    render_generate_report_card,
+    render_recent_reports_section,
+)
 from ui.patterns.page_header import PageHeader
 from ui.submissions.cards import (
     render_processed_content,
@@ -293,72 +293,13 @@ def create_study_ui_routes(
         """Generate and view progress reports."""
         require_authenticated_user(request)
 
-        generate_card = Card(
-            CardBody(
-                H3("Generate Progress Report", cls="font-semibold mb-4"),
-                Form(
-                    Div(
-                        Label("Time Period", cls="label"),
-                        Select(
-                            Option("Last 7 days", value="7d", selected=True),
-                            Option("Last 14 days", value="14d"),
-                            Option("Last 30 days", value="30d"),
-                            Option("Last 90 days", value="90d"),
-                            name="time_period",
-                        ),
-                        cls="mb-3",
-                    ),
-                    Div(
-                        Label("Depth", cls="label"),
-                        Select(
-                            Option("Summary (counts only)", value="summary"),
-                            Option("Standard (counts + examples)", value="standard", selected=True),
-                            Option("Detailed (full breakdown)", value="detailed"),
-                            name="depth",
-                        ),
-                        cls="mb-4",
-                    ),
-                    Div(
-                        Button(
-                            "Generate Now",
-                            type="submit",
-                            variant=ButtonT.primary,
-                        ),
-                        cls="text-center",
-                    ),
-                    Div(id="generate-status", cls="mt-4"),
-                    **{
-                        "hx-post": "/api/reports/progress/generate",
-                        "hx-target": "#generate-status",
-                        "hx-swap": "innerHTML",
-                        "hx-vals": 'js:JSON.stringify({time_period: document.querySelector("[name=time_period]").value, depth: document.querySelector("[name=depth]").value, include_insights: true})',
-                        "hx-headers": '{"Content-Type": "application/json"}',
-                    },
-                ),
-            ),
-            cls="bg-background shadow-sm mb-6",
-        )
-
-        recent_reports = Div(
-            H3("Recent Progress Reports", cls="font-semibold mb-4"),
-            Div(
-                P("Loading...", cls="text-center text-muted-foreground"),
-                id="progress-list",
-                **{
-                    "hx-get": "/reports/progress-list",
-                    "hx-trigger": "load",
-                    "hx-swap": "outerHTML",
-                },
-            ),
-        )
-
         content = Div(
             PageHeader(
                 "Generate Reports",
                 subtitle="Create on-demand progress reports across your domains",
             ),
-            generate_card,
-            recent_reports,
+            render_generate_report_card(),
+            render_recent_reports_section(),
         )
         return await BasePage(
             content=content,
