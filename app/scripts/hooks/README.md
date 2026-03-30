@@ -4,32 +4,20 @@ This directory contains git hooks that can be installed for the SKUEL project.
 
 ## Available Hooks
 
-### post-commit
+### post-merge
 
-Automatically checks if documentation needs updating after each commit.
+Detects library version changes after `git pull` / merge and reports affected skills.
 
 **Install:**
 ```bash
 # From repository root (/home/mike/skuel)
-ln -sf ../../app/scripts/hooks/post-commit .git/hooks/post-commit
-chmod +x .git/hooks/post-commit
+ln -sf ../../app/scripts/hooks/post-merge .git/hooks/post-merge
+chmod +x .git/hooks/post-merge
 ```
 
-**Or use the dev command:**
-```bash
-./dev install-hooks  # (if implemented)
-```
+**See:** `/docs/development/GIT_HOOKS.md` for complete documentation.
 
-**Disable:**
-```bash
-git config skuel.docs-check false
-```
+## Historical Note
 
-**Re-enable:**
-```bash
-git config skuel.docs-check true
-```
-
-## Hook Details
-
-See `/docs/tools/AUTOMATIC_DOCS_CHECK.md` for complete documentation.
+The `post-commit` hook was removed (2026-03-30). Post-commit documentation checking
+is now handled by the Claude Code PostToolUse hook at `.claude/hooks/post-commit-docs.sh`.

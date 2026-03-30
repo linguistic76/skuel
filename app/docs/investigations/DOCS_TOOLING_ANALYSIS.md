@@ -1,6 +1,7 @@
 # Documentation Tooling Analysis
 **Date:** 2026-01-30
 **Context:** Investigation of docs_freshness.py limitations and recommendations for improvement
+**Status:** Historical — the hybrid approach recommended below was implemented, then replaced (2026-03-30) by the Claude Code PostToolUse hook (`.claude/hooks/post-commit-docs.sh`). The analysis below remains valid as rationale for why mtime-based checking alone is insufficient.
 
 ## Executive Summary
 

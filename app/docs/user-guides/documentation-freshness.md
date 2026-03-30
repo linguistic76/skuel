@@ -19,15 +19,13 @@ Commit lands
     │    → identifies affected skills
     │    → Claude evaluates semantic staleness
     │
-    └─ Git hook (post-commit)
-         → detects new .md files
-         → prompts INDEX.md / CLAUDE.md update
+    (Git post-commit hook removed — doc detection
+     merged into Claude Code hook above)
 
 Any time
     │
     ├─ ./dev health          → 4 automated checks
-    ├─ ./dev health-xref     → cross-reference + staleness
-    └─ ./dev docs-check      → LLM-assisted doc review
+    └─ ./dev health-xref     → cross-reference + staleness
 ```
 
 ---
@@ -165,19 +163,6 @@ Validates bidirectional consistency between skills and documentation, and detect
 
 ## System 3: Git Hooks
 
-Two git hooks fire on different events. Neither blocks operations.
-
-### Post-Commit: New Documentation Detection
-
-**Script:** `scripts/hooks/post-commit` → `scripts/docs_contextual_check_v2.py`
-
-Detects newly added `.md` files and prompts for INDEX updates. Separate from the Claude Code hook (System 1) — this is a standard git hook.
-
-| Trigger | Action |
-|---------|--------|
-| New `.md` in `docs/` | Prompt to update `docs/INDEX.md` |
-| New `.md` in `.claude/skills/` | Prompt to update `CLAUDE.md` |
-
 ### Post-Merge: Library Change Detection
 
 **Script:** `scripts/hooks/post-merge`
@@ -190,20 +175,13 @@ After `git pull` or merge, detects when `uv.lock` changed and reports affected s
    - @fasthtml (primary)
 ```
 
-### Disable / Re-enable
-
-```bash
-git config skuel.docs-check false   # disable post-commit hook
-git config skuel.docs-check true    # re-enable
-```
-
 ---
 
 ## Recommended Workflow
 
 ### After Every Commit (Automatic)
 
-Both hooks fire automatically. Claude evaluates staleness from the Claude Code hook and acts if needed. The git post-commit hook surfaces new `.md` files. No action required.
+The Claude Code PostToolUse hook fires automatically after commits. Claude evaluates staleness and acts if needed. No action required.
 
 ### After Refactors (Manual)
 
@@ -237,8 +215,7 @@ uv run python scripts/docs_freshness.py --stale   # mtime-based staleness
 | `./dev health-links` | Find broken doc links |
 | `./dev health-names` | Find stale identifiers in doc code blocks |
 | `./dev health-xref` | Validate skill↔doc cross-references |
-| `./dev docs-check` | LLM-assisted doc review |
-| `./dev docs-check-fast` | Text-search doc review (no LLM) |
+| `./dev docs-check` | Run post-commit docs hook manually |
 
 **Configuration files:**
 
@@ -247,7 +224,6 @@ uv run python scripts/docs_freshness.py --stale   # mtime-based staleness
 | `.claude/hooks/post-commit-docs.sh` | Claude Code post-commit hook |
 | `.claude/skills/skills_metadata.yaml` | Skill registry (source of truth) |
 | `scripts/health/stale_names.py` | Renamed/deleted identifier rules |
-| `scripts/hooks/post-commit` | Git post-commit hook |
 | `scripts/hooks/post-merge` | Git post-merge hook |
 
 ---

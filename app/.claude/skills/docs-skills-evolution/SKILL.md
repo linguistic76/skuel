@@ -73,7 +73,7 @@ Doc evolution has two equally important triggers:
 - New cross-cutting concerns emerge
 - Internal refactors change file layouts referenced in skills
 
-**Post-commit hook detects new documentation files** and prompts INDEX updates. Cross-reference validation (`validate_cross_references.py`) is a manual tool — run it after major changes.
+**Claude Code PostToolUse hook** (`.claude/hooks/post-commit-docs.sh`) detects changed files and prompts doc/skill review. Cross-reference validation (`validate_cross_references.py`) is a manual tool — run it after major changes.
 
 ---
 
@@ -599,25 +599,14 @@ uv run python scripts/validate_cross_references.py
 
 ## Part 5: Validation & Tooling
 
-### Post-Commit Hook (Automatic)
+### Claude Code PostToolUse Hook (Automatic)
 
-**Location**: `scripts/hooks/post-commit`
+**Location**: `.claude/hooks/post-commit-docs.sh`
 
-**Runs after every commit — new file detection only:**
-- ✅ New `.md` in `docs/` → prompts `docs/INDEX.md` update (CRITICAL)
-- ✅ New `.md` in `.claude/skills/` → prompts `CLAUDE.md` update (HIGH)
-
-Cross-reference analysis was removed (flagged every doc mentioning a changed
-filename, regardless of whether the API changed — too many false positives).
-Semantic doc awareness is handled by the Claude Code PostToolUse hook.
-
-```bash
-# Disable if needed:
-git config skuel.docs-check false
-
-# Re-enable:
-git config skuel.docs-check true
-```
+**Fires after `git commit` via Claude Code Bash tool:**
+- Collects changed `.py` files
+- Finds docs/skills referencing those files
+- Injects context so Claude evaluates staleness semantically
 
 ### Post-Merge Hook (Automatic)
 
@@ -731,7 +720,7 @@ uv run python scripts/detect_library_changes.py --from-ref HEAD~5
 
 ### What Validators Check
 
-**Post-commit hook** (automatic — `docs_contextual_check_v2.py`):
+**Claude Code PostToolUse hook** (automatic — `.claude/hooks/post-commit-docs.sh`):
 
 | Check | Confidence | Action |
 |-------|------------|--------|
@@ -861,7 +850,7 @@ Does the pattern exist in the library's official docs?
 | Health check scripts | `scripts/health/` (`dead_modules.py`, `dead_doc_links.py`, `stale_names.py`) |
 | Health check docs | `docs/tools/HEALTH_CHECKS.md` |
 | Skills metadata | `.claude/skills/skills_metadata.yaml` |
-| Post-commit hook | `scripts/hooks/post-commit` → `scripts/docs_contextual_check_v2.py` |
+| Post-commit doc check | `.claude/hooks/post-commit-docs.sh` (Claude Code PostToolUse hook) |
 | Post-merge hook | `scripts/hooks/post-merge` |
 | Cross-reference validator | `scripts/validate_cross_references.py` |
 | Library change detector | `scripts/detect_library_changes.py` |

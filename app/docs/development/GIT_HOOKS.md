@@ -1,6 +1,6 @@
 # Git Hooks for SKUEL
 
-**Purpose:** Automated documentation prompts and library-change detection after commits.
+**Purpose:** Automated library-change detection after merges.
 
 ---
 
@@ -8,36 +8,11 @@
 
 | Hook | Trigger | Script | Blocks? |
 |------|---------|--------|---------|
-| `post-commit` | After every commit | `scripts/hooks/post-commit` | No |
 | `post-merge` | After `git pull` / merge | `scripts/hooks/post-merge` | No |
 
-Neither hook blocks commits. They surface information you'd otherwise miss.
+The hook does not block operations. It surfaces information you'd otherwise miss.
 
----
-
-## Post-Commit Hook: New Documentation Detection
-
-**Script:** `scripts/hooks/post-commit` → `scripts/docs_contextual_check_v2.py`
-
-Runs after every commit. Checks whether any newly added `.md` files need INDEX entries.
-
-### What It Detects
-
-| Trigger | Confidence | Action |
-|---------|------------|--------|
-| New `.md` in `docs/` | CRITICAL | Prompt to update `docs/INDEX.md` |
-| New `.md` in `.claude/skills/` | HIGH | Prompt to update `CLAUDE.md` |
-
-Only detects **new files** (added, not modified). Cross-reference analysis was removed
-(it flagged every doc mentioning a changed filename — too many false positives).
-Semantic doc-update awareness is handled by the Claude Code PostToolUse hook.
-
-### Disable / Re-enable
-
-```bash
-git config skuel.docs-check false   # disable
-git config skuel.docs-check true    # re-enable
-```
+**Note:** Post-commit documentation checking was previously handled by a git `post-commit` hook (`scripts/hooks/post-commit` + `scripts/docs_contextual_check_v2.py`). This was replaced (2026-03-30) by the Claude Code PostToolUse hook at `.claude/hooks/post-commit-docs.sh`. See `/docs/tools/AUTOMATIC_DOCS_CHECK.md`.
 
 ---
 
@@ -121,9 +96,8 @@ When you update a skill after a staleness warning:
 
 | File | Purpose |
 |------|---------|
-| `scripts/hooks/post-commit` | Post-commit hook (new file detection) |
 | `scripts/hooks/post-merge` | Post-merge hook (library change detection) |
-| `scripts/docs_contextual_check_v2.py` | New documentation file detector |
+| `.claude/hooks/post-commit-docs.sh` | Claude Code PostToolUse hook (post-commit doc checking) |
 | `scripts/validate_cross_references.py` | Full cross-reference + staleness validator |
 | `.claude/skills/skills_metadata.yaml` | Skill registry (source of truth for valid skills) |
 
@@ -133,13 +107,8 @@ When you update a skill after a staleness warning:
 
 **Hook not running** — check permissions:
 ```bash
-ls -la .git/hooks/post-commit   # should show -rwxr-xr-x
-chmod +x .git/hooks/post-commit
-```
-
-**Too noisy** — disable the post-commit docs check:
-```bash
-git config skuel.docs-check false
+ls -la .git/hooks/post-merge   # should show -rwxr-xr-x
+chmod +x .git/hooks/post-merge
 ```
 
 **Stale skills showing unexpectedly** — check git dates vs `last_reviewed`:

@@ -2,33 +2,15 @@
 #
 # Claude Code PostToolUse Hook: Documentation Staleness Detection
 #
-# Fires after every Bash tool use. Fast-exits for non-commits (~0ms).
-# For commits: collects changed files, finds referencing docs, returns
-# a systemMessage so Claude can semantically evaluate staleness.
-#
-# This replaces regex-based pattern matching with Claude's semantic
-# understanding of what actually changed and whether docs need updating.
+# Fires after git commit (filtered by "if": "Bash(git commit:*)" in settings).
+# Collects changed files, finds referencing docs, returns a systemMessage
+# so Claude can semantically evaluate staleness.
 #
 
 set -euo pipefail
 
-# Read JSON from stdin into variable
+# Read JSON from stdin
 INPUT=$(cat)
-
-# Fast path: extract command using Python (jq not guaranteed)
-COMMAND=$(python3 -c "
-import json, sys
-try:
-    data = json.loads(sys.argv[1])
-    print(data.get('tool_input', {}).get('command', ''))
-except Exception:
-    print('')
-" "$INPUT" 2>/dev/null || echo "")
-
-if [[ "$COMMAND" != *"git commit"* ]]; then
-    echo '{}'
-    exit 0
-fi
 
 # Check if the commit succeeded by looking at tool_response
 TOOL_RESPONSE=$(python3 -c "

@@ -157,13 +157,8 @@ case "$1" in
     ;;
 
   docs-check)
-    echo -e "${YELLOW}Checking for documentation updates needed...${NC}"
-    uv run python scripts/docs_contextual_check.py
-    ;;
-
-  docs-check-fast)
-    echo -e "${YELLOW}Checking for documentation updates (fast mode, no LLM)...${NC}"
-    uv run python scripts/docs_contextual_check.py --fast
+    echo -e "${YELLOW}Running post-commit docs check...${NC}"
+    echo '{"tool_input":{"command":"git commit"},"tool_response":"simulated"}' | bash .claude/hooks/post-commit-docs.sh | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('additionalContext','No suggestions.'))" 2>/dev/null || echo "Hook not available"
     ;;
 
   up)
@@ -222,8 +217,7 @@ case "$1" in
     echo "  ./dev test-quick        - Run quick smoke test (~350 tests, ~99% pass) [FASTEST]"
     echo ""
     echo "Documentation:"
-    echo "  ./dev docs-check      - Check if docs need updating (based on recent changes)"
-    echo "  ./dev docs-check-fast - Fast check (text search only, no LLM)"
+    echo "  ./dev docs-check      - Check if docs need updating (runs post-commit hook)"
     echo ""
     echo "Docker:"
     echo "  ./dev up             - Start Neo4j + App (monitoring excluded by default)"
