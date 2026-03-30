@@ -784,7 +784,7 @@ Here is the anatomy of a typical SKUEL page route:
 # adapters/inbound/example_ui.py
 
 from fasthtml.common import Div
-from starlette.requests import Request
+from adapters.inbound.fasthtml_types import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from ui.buttons import Button, ButtonLink, ButtonT
