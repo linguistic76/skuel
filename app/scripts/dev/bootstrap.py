@@ -649,7 +649,7 @@ async def _wire_all_routes(
         )
 
         create_lesson_organization_api_routes(
-            app, rt, ku_service=services.lesson, user_service=services.user_service
+            app, rt, lesson_service=services.lesson, user_service=services.user_service
         )
 
     from adapters.inbound.ai_routes import create_ai_routes

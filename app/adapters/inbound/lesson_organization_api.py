@@ -1,10 +1,10 @@
 """
-KU Organization API — ORGANIZES Relationship REST Endpoints
-============================================================
+Lesson Organization API — ORGANIZES Relationship REST Endpoints
+================================================================
 
-REST API for organizing Kus via ORGANIZES relationships.
+REST API for organizing Lessons via ORGANIZES relationships.
 
-Any Ku can organize other Kus — this is emergent identity, not a type discriminator.
+Any Lesson can organize other Lessons — this is emergent identity, not a type discriminator.
 Write operations (organize, unorganize, reorder) require ADMIN role.
 Read operations are public.
 
@@ -32,15 +32,15 @@ if TYPE_CHECKING:
 
 
 def create_lesson_organization_api_routes(
-    app: Any, rt: Any, ku_service: "LessonOperations", user_service: Any = None
+    app: Any, rt: Any, lesson_service: "LessonOperations", user_service: Any = None
 ) -> list[Any]:
     """
-    Create KU organization API routes.
+    Create Lesson organization API routes.
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
-        ku_service: KU service with organization methods
+        lesson_service: Lesson service with organization methods
         user_service: User service for admin role verification
     """
 
@@ -53,17 +53,17 @@ def create_lesson_organization_api_routes(
     @rt("/api/lesson/{uid}/is-organizer")
     @boundary_handler()
     async def is_organizer_route(request: Request, uid: str) -> Result[dict[str, Any]]:
-        """Check if a Ku has organized children."""
-        result = await ku_service.is_organizer(uid)
+        """Check if a Lesson has organized children."""
+        result = await lesson_service.is_organizer(uid)
         if result.is_error:
             return Result.fail(result)
-        return Result.ok({"ku_uid": uid, "is_organizer": result.value})
+        return Result.ok({"lesson_uid": uid, "is_organizer": result.value})
 
     @rt("/api/lesson/{uid}/organization")
     @boundary_handler()
     async def get_organization_route(request: Request, uid: str) -> Result[dict[str, Any]]:
-        """Get a Ku with its organized children hierarchy."""
-        result = await ku_service.get_organization_view(uid)
+        """Get a Lesson with its organized children hierarchy."""
+        result = await lesson_service.get_organization_view(uid)
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value.to_dict() if result.value else None)
@@ -76,13 +76,13 @@ def create_lesson_organization_api_routes(
     @require_admin(get_user_service)
     @boundary_handler(success_status=201)
     async def organize_route(request, current_user) -> Result[dict[str, Any]]:
-        """Organize a Ku under another Ku (create ORGANIZES relationship)."""
+        """Organize a Lesson under another Lesson (create ORGANIZES relationship)."""
         parsed = await parse_json_body(request, LessonOrganizeRequest)
         if parsed.is_error:
             return Result.fail(parsed)
         req = parsed.value
 
-        result = await ku_service.organize(req.parent_uid, req.child_uid, req.order)
+        result = await lesson_service.organize(req.parent_uid, req.child_uid, req.order)
         if result.is_error:
             return Result.fail(result)
         return Result.ok(
@@ -93,13 +93,13 @@ def create_lesson_organization_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def unorganize_route(request, current_user) -> Result[dict[str, Any]]:
-        """Remove organization relationship between Kus."""
+        """Remove organization relationship between Lessons."""
         parsed = await parse_json_body(request, LessonOrganizeRequest)
         if parsed.is_error:
             return Result.fail(parsed)
         req = parsed.value
 
-        result = await ku_service.unorganize(req.parent_uid, req.child_uid)
+        result = await lesson_service.unorganize(req.parent_uid, req.child_uid)
         if result.is_error:
             return Result.fail(result)
         return Result.ok({"success": result.value})
@@ -108,13 +108,13 @@ def create_lesson_organization_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def reorder_route(request, current_user) -> Result[dict[str, Any]]:
-        """Change the order of a child Ku within its parent."""
+        """Change the order of a child Lesson within its parent."""
         parsed = await parse_json_body(request, LessonReorderRequest)
         if parsed.is_error:
             return Result.fail(parsed)
         req = parsed.value
 
-        result = await ku_service.reorder(req.parent_uid, req.child_uid, req.new_order)
+        result = await lesson_service.reorder(req.parent_uid, req.child_uid, req.new_order)
         if result.is_error:
             return Result.fail(result)
         return Result.ok({"success": result.value})
@@ -126,23 +126,23 @@ def create_lesson_organization_api_routes(
     @rt("/api/lesson/{uid}/organizers")
     @boundary_handler()
     async def find_organizers_route(request: Request, uid: str) -> Result[list[OrganizerResult]]:
-        """Find all parent Kus that organize the given Ku."""
-        return await ku_service.find_organizers(uid)
+        """Find all parent Lessons that organize the given Lesson."""
+        return await lesson_service.find_organizers(uid)
 
     @rt("/api/lesson/root-organizers")
     @boundary_handler()
     async def list_root_organizers_route(request: Request) -> Result[list[RootOrganizerResult]]:
-        """List Kus that organize others but are not themselves organized (root organizers)."""
+        """List Lessons that organize others but are not themselves organized (root organizers)."""
         params = dict(request.query_params)
         limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
-        return await ku_service.list_root_organizers(limit)
+        return await lesson_service.list_root_organizers(limit)
 
     @rt("/api/lesson/{uid}/organized-children")
     @boundary_handler()
     async def get_organized_children_route(
         request: Request, uid: str
     ) -> Result[list[OrganizerResult]]:
-        """Get direct children of a Ku organized by ORGANIZES relationship."""
-        return await ku_service.get_organized_children(uid)
+        """Get direct children of a Lesson organized by ORGANIZES relationship."""
+        return await lesson_service.get_organized_children(uid)
 
     return []  # Routes registered via @rt() decorators

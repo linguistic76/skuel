@@ -1,16 +1,17 @@
 """
-Lesson UI Routes — Lesson-Specific UI Endpoints
-================================================
+Lesson UI Routes — Detail Page + Learning Actions
+===================================================
 
-Lesson detail views, creation forms, and fragment endpoints.
-The /ku route has moved to ku_ui.py (served by KuService).
+Lesson detail view with markdown rendering, TOC sidebar, metadata,
+and HTMX-powered learning state actions (start, mark-read, bookmark).
+
+Stub routes (discovery, analytics, graph, edit) shelved 2026-03-29
+to _shelved/lesson_stubs/.
 """
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, Div, Li, NotStr, P, Request, Span, Ul
-from fasthtml.common import A as Anchor
-from starlette.responses import Response
+from fasthtml.common import H3, Div, Li, NotStr, P, Request, Ul
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
@@ -22,24 +23,14 @@ from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.breadcrumbs import Breadcrumbs
-from ui.patterns.card_generator import CardGenerator
+from ui.patterns.metadata_badge import metadata_badge
 
 logger = get_logger("skuel.routes.lesson.ui")
 
 
 # ============================================================================
-# UI COMPONENT LIBRARY - Reusable Lesson components
+# Helpers
 # ============================================================================
-
-
-def _metadata_badge(label: str, value: str, variant: BadgeT = BadgeT.ghost) -> Any:
-    """Render a metadata badge."""
-    return Badge(
-        Span(label, cls="font-medium mr-1"),
-        value,
-        variant=variant,
-        cls="gap-1",
-    )
 
 
 def _start_lesson_button(uid: str, is_in_progress: bool, is_mastered: bool) -> Any:
@@ -58,48 +49,8 @@ def _start_lesson_button(uid: str, is_in_progress: bool, is_mastered: bool) -> A
     )
 
 
-class LessonUIComponents:
-    """Centralized Lesson UI components."""
-
-    @staticmethod
-    def render_lesson_card(unit, compact=False) -> Any:
-        """Individual Lesson card component using CardGenerator."""
-        uid = unit.uid
-
-        display_fields = (
-            ["title", "domain", "tags"]
-            if compact
-            else ["title", "content", "domain", "tags", "complexity"]
-        )
-
-        action_buttons = Div(
-            Button(
-                "View",
-                variant=ButtonT.outline,
-                size=Size.sm,
-                hx_get=f"/lesson/{uid}/details",
-                hx_target="#modal" if compact else "#main-content",
-            ),
-            Button(
-                "Edit",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                hx_get=f"/lesson/{uid}/edit",
-                hx_target="#modal",
-            ),
-            cls="flex gap-2",
-        )
-
-        return CardGenerator.from_dataclass(
-            unit,
-            display_fields=display_fields,
-            actions=action_buttons,
-            card_attrs={"id": f"lesson-{uid}", "cls": "border-l-4 border-blue-500 p-4"},
-        )
-
-
 # ============================================================================
-# CLEAN UI ROUTES
+# Route factory
 # ============================================================================
 
 
@@ -110,96 +61,6 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
     Args:
         lesson_service: LessonService (services.lesson).
     """
-
-    logger.info("Lesson UI routes registered")
-
-    @rt("/lesson/discovery")
-    async def lesson_discovery_dashboard(_request) -> Any:
-        """Discovery dashboard."""
-        return Div(
-            H1("Knowledge Discovery", cls="text-2xl font-bold mb-6"),
-            Card(
-                H3("Discovery Tools", cls="text-lg font-semibold mb-4"),
-                Div(
-                    Button("Find Connections", variant=ButtonT.primary, size=Size.sm, cls="mr-2"),
-                    Button("Trending Topics", variant=ButtonT.secondary, size=Size.sm, cls="mr-2"),
-                    Button("Knowledge Gaps", variant=ButtonT.outline, size=Size.sm),
-                ),
-                cls="p-6 mb-6",
-            ),
-            Card(
-                H3("Recommended for You", cls="text-lg font-semibold mb-4"),
-                P(
-                    "Personalized knowledge recommendations will appear here",
-                    cls="text-muted-foreground",
-                ),
-                cls="p-6 mb-6",
-            ),
-            Card(
-                H3("Learning Paths", cls="text-lg font-semibold mb-4"),
-                P("Suggested learning paths based on your interests", cls="text-muted-foreground"),
-                cls="p-6",
-            ),
-            cls="container mx-auto p-6",
-        )
-
-    @rt("/lesson/analytics")
-    async def lesson_analytics_dashboard(_request) -> Any:
-        """Curriculum analytics dashboard."""
-        return Div(
-            H1("Lesson Analytics", cls="text-2xl font-bold mb-6"),
-            Card(
-                H3("Growth Metrics", cls="text-lg font-semibold mb-4"),
-                P("Lesson growth and usage analytics", cls="text-muted-foreground"),
-                cls="p-6 mb-6",
-            ),
-            Card(
-                H3("Connection Analysis", cls="text-lg font-semibold mb-4"),
-                P(
-                    "Knowledge graph connectivity and relationship insights",
-                    cls="text-muted-foreground",
-                ),
-                cls="p-6 mb-6",
-            ),
-            Card(
-                H3("Domain Insights", cls="text-lg font-semibold mb-4"),
-                P(
-                    "Knowledge distribution and domain expertise mapping",
-                    cls="text-muted-foreground",
-                ),
-                cls="p-6",
-            ),
-            cls="container mx-auto p-6",
-        )
-
-    @rt("/lesson/graph")
-    async def lesson_graph_page(_request) -> Any:
-        """Knowledge graph page."""
-        return Card(
-            H1("Knowledge Graph", cls="text-2xl font-bold mb-6"),
-            P(
-                "Interactive knowledge graph visualization will be implemented here",
-                cls="text-muted-foreground",
-            ),
-            cls="p-6 container mx-auto",
-        )
-
-    @rt("/lesson/moc-nav")
-    async def moc_nav_fragment(request) -> Any:
-        """HTMX: Load Maps of Content navigation list for sidebar."""
-        result = await lesson_service.list_root_organizers(limit=20)
-        if result.is_error or not result.value:
-            return P("No Maps of Content yet", cls="text-xs opacity-50 px-2")
-        return Div(
-            *[
-                Anchor(
-                    moc["title"],
-                    href=f"/ku/{moc['uid']}",
-                    cls="block text-xs hover:text-primary truncate px-2 py-0.5",
-                )
-                for moc in result.value
-            ],
-        )
 
     @rt("/lesson/{uid}/details")
     async def lesson_detail_page(request: Request, uid: str) -> Any:
@@ -264,13 +125,13 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
         metadata_items = []
         if lesson.domain:
             domain_label = getattr(lesson.domain, "value", str(lesson.domain))
-            metadata_items.append(_metadata_badge("Domain:", domain_label, BadgeT.primary))
+            metadata_items.append(metadata_badge("Domain:", domain_label, BadgeT.primary))
         if lesson.complexity:
-            metadata_items.append(_metadata_badge("Complexity:", str(lesson.complexity.value)))
+            metadata_items.append(metadata_badge("Complexity:", str(lesson.complexity.value)))
         if lesson.learning_level:
-            metadata_items.append(_metadata_badge("Level:", str(lesson.learning_level.value)))
+            metadata_items.append(metadata_badge("Level:", str(lesson.learning_level.value)))
         if lesson.estimated_time_minutes:
-            metadata_items.append(_metadata_badge("Time:", f"{lesson.estimated_time_minutes} min"))
+            metadata_items.append(metadata_badge("Time:", f"{lesson.estimated_time_minutes} min"))
 
         metadata_section = (
             Div(*metadata_items, cls="flex flex-wrap gap-2 mb-4") if metadata_items else Div()
@@ -431,53 +292,11 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
             hx_target="this",
         )
 
-    @rt("/lesson/{uid}/edit")
-    async def lesson_edit_form(_request, uid: str) -> Any:
-        """Edit lesson form fragment."""
-        return Card(
-            H2("Edit Lesson", cls="text-xl font-bold mb-4"),
-            P(f"Edit form for lesson {uid} will be implemented here", cls="text-muted-foreground"),
-            cls="p-6",
-        )
-
-    @rt("/lesson/{uid}/graph")
-    async def lesson_graph_view(_request, uid: str) -> Any:
-        """Lesson graph view centered on specific unit."""
-        return Card(
-            H2("Knowledge Graph", cls="text-xl font-bold mb-4"),
-            P(
-                f"Graph view centered on lesson {uid} will be implemented here",
-                cls="text-muted-foreground",
-            ),
-            cls="p-6",
-        )
-
-    @rt("/static/js/knowledge.js")
-    async def knowledge_javascript(_request) -> Any:
-        """Serve knowledge-specific JavaScript."""
-        js_content = """
-        function closeModal() {
-            document.getElementById('modal').innerHTML = '';
-        }
-
-        function refreshKnowledge() {
-            htmx.trigger('#knowledge-container', 'refresh');
-        }
-
-        function expandKnowledgeCard(uid) {
-            htmx.ajax('GET', `/lesson/${uid}/details`, '#knowledge-details');
-        }
-
-        document.addEventListener('htmx:afterSwap', function(evt) {
-            if (evt.detail.target.id === 'knowledge-list') {
-                console.log('Knowledge list updated');
-            }
-        });
-
-        console.log('Knowledge UI JavaScript loaded');
-        """
-
-        return Response(js_content, media_type="application/javascript")
+    logger.info(
+        "Lesson UI routes registered: /lesson/{uid}/details, "
+        "/api/lesson/{uid}/start, /api/lesson/{uid}/mark-read, "
+        "/api/lesson/{uid}/bookmark"
+    )
 
     return []  # Routes registered via @rt() decorators
 

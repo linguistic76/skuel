@@ -32,6 +32,7 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.patterns.sidebar import SidebarItem, SidebarLink, SidebarPage
@@ -87,16 +88,6 @@ def _ku_learning_buttons(uid: str, is_studying: bool, is_understood: bool) -> An
         ),
         id="ku-learning-actions",
         cls="flex gap-2 items-center",
-    )
-
-
-def _metadata_badge(label: str, value: str, variant: BadgeT = BadgeT.ghost) -> Any:
-    """Render a metadata badge."""
-    return Badge(
-        Span(label, cls="font-medium mr-1"),
-        value,
-        variant=variant,
-        cls="gap-1",
     )
 
 
@@ -485,11 +476,11 @@ def create_ku_ui_routes(
         metadata_items = []
         if getattr(ku, "domain", None):
             domain_label = getattr(ku.domain, "value", str(ku.domain))
-            metadata_items.append(_metadata_badge("Domain:", domain_label, BadgeT.primary))
+            metadata_items.append(metadata_badge("Domain:", domain_label, BadgeT.primary))
         if getattr(ku, "namespace", None):
-            metadata_items.append(_metadata_badge("Namespace:", ku.namespace))
+            metadata_items.append(metadata_badge("Namespace:", ku.namespace))
         if getattr(ku, "ku_category", None):
-            metadata_items.append(_metadata_badge("Category:", ku.ku_category))
+            metadata_items.append(metadata_badge("Category:", ku.ku_category))
 
         metadata_section = (
             Div(*metadata_items, cls="flex flex-wrap gap-2") if metadata_items else None
