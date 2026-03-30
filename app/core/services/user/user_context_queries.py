@@ -1347,7 +1347,7 @@ class UserContextQueryExecutor:
 
     @with_error_handling("fetch_current_lesson_uids", error_type="database", uid_param="user_uid")
     async def fetch_current_lesson_uids(self, user_uid: UserUID) -> Result[list[str]]:
-        """Fetch lesson UIDs for KUs the user is currently LEARNING."""
+        """Fetch lesson UIDs the user is actively studying."""
         result = await self.fetch_current_lessons(user_uid)
         if result.is_error:
             return Result.fail(result)
@@ -1355,15 +1355,11 @@ class UserContextQueryExecutor:
 
     @with_error_handling("fetch_current_lessons", error_type="database", uid_param="user_uid")
     async def fetch_current_lessons(self, user_uid: UserUID) -> Result[list[CurrentLessonItem]]:
-        """Fetch lesson UIDs and titles for KUs the user is currently LEARNING."""
+        """Fetch lessons the user is actively studying (IN_PROGRESS relationship)."""
         query = """
-        MATCH (user:User {uid: $user_uid})-[r:LEARNING]->(ku:Entity)
-        WHERE coalesce(r.mastery_score, 0.5) < 0.8
-        WITH collect(ku.uid) as in_progress_ku_uids
-        UNWIND in_progress_ku_uids as ku_uid
-        MATCH (lesson:Lesson)-[:USES_KU]->(ku:Entity {uid: ku_uid})
-        WITH DISTINCT lesson
+        MATCH (user:User {uid: $user_uid})-[:IN_PROGRESS]->(lesson:Entity:Lesson)
         RETURN lesson.uid as uid, lesson.title as title
+        ORDER BY lesson.title
         """
         result = await self.executor.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
