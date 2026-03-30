@@ -15,6 +15,7 @@ Routes:
 - GET /ku/{uid} - KU detail page with reading interface
 """
 
+import contextlib
 import json
 from typing import Any
 
@@ -172,9 +173,124 @@ def _form_templates_section(form_templates: list[dict]) -> Any:
     )
 
 
+async def _render_ku_detail(
+    request: Request,
+    ku: Any,
+    content_body: str,
+    uid: str,
+    user_uid: str,
+    ku_interaction_service: Any,
+    exercises_service: Any,
+    form_template_service: Any,
+) -> Any:
+    """Render a detail page for an atomic Ku entity.
+
+    Atomic Kus are lightweight reference nodes — simpler layout than Lessons.
+    Content comes from the description field, not a :Content child node.
+    """
+    # Record view (best-effort — mastery service is Lesson-backed)
+    with contextlib.suppress(Exception):  # safety-net: mastery service may not support Ku labels
+        await ku_interaction_service.record_view(user_uid, uid)
+
+    # Render content
+    content_html, toc_html = render_markdown_with_toc(content_body)
+    has_toc = bool(toc_html and toc_html.strip())
+
+    # Metadata badges
+    metadata_items = []
+    if getattr(ku, "domain", None):
+        domain_label = getattr(ku.domain, "value", str(ku.domain))
+        metadata_items.append(_metadata_badge("Domain:", domain_label, BadgeT.primary))
+    if getattr(ku, "namespace", None):
+        metadata_items.append(_metadata_badge("Namespace:", ku.namespace))
+    if getattr(ku, "ku_category", None):
+        metadata_items.append(_metadata_badge("Category:", ku.ku_category))
+
+    metadata_section = (
+        Div(*metadata_items, cls="flex flex-wrap gap-2") if metadata_items else None
+    )
+
+    # Tags
+    tags_section = None
+    if getattr(ku, "tags", None):
+        tag_badges = [Badge(tag, variant=BadgeT.outline, size=Size.sm) for tag in ku.tags]
+        tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mt-3")
+
+    # Exercises
+    exercises_for_ku: list[dict] = []
+    if exercises_service:
+        exercises_result = await exercises_service.get_exercises_for_curriculum(uid)
+        exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
+
+    # FormTemplates
+    form_templates: list[dict] = []
+    if form_template_service:
+        ft_result = await form_template_service.get_for_lesson(uid)
+        form_templates = ft_result.value if ft_result.is_ok else []
+
+    # Breadcrumbs
+    breadcrumb_path = [
+        {"uid": "knowledge", "title": "Knowledge", "url": "/ku"},
+        {"uid": uid, "title": ku.title, "url": ""},
+    ]
+
+    reading_content = Div(
+        NotStr(content_html or "No content available."),
+        cls="prose prose-lg max-w-none",
+    )
+
+    # Metadata footer
+    metadata_footer_items = []
+    if metadata_section:
+        metadata_footer_items.append(metadata_section)
+    if tags_section:
+        metadata_footer_items.append(tags_section)
+
+    metadata_footer = (
+        Div(*metadata_footer_items, cls="border-t border-border pt-6 mt-8")
+        if metadata_footer_items
+        else Div()
+    )
+
+    main_column = Div(
+        Breadcrumbs(path=breadcrumb_path, show_home=False),
+        reading_content,
+        metadata_footer,
+        _exercises_for_ku_section(exercises_for_ku),
+        _form_templates_section(form_templates),
+        Div(
+            EntityRelationshipsSection(entity_uid=uid, entity_type="ku"),
+            cls="mt-8",
+        ),
+        cls="flex-1 min-w-0 max-w-4xl mx-auto px-6 lg:px-8 py-4 lg:py-6",
+    )
+
+    if has_toc:
+        toc_sidebar = Div(
+            Div(
+                H3("Contents", cls="font-semibold text-sm mb-3"),
+                Div(NotStr(toc_html), cls="prose prose-sm max-w-none toc-nav"),
+                cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
+            ),
+            cls="hidden lg:block w-56 shrink-0 border-r border-border",
+        )
+        content = Div(toc_sidebar, main_column, cls="flex")
+    else:
+        content = main_column
+
+    return await BasePage(
+        content=content,
+        title=ku.title,
+        request=request,
+        active_page="knowledge",
+        page_type=PageType.CUSTOM,
+    )
+
+
 def create_ku_reading_ui_routes(
     app: Any,
     rt: Any,
+    lesson_service: Any,
     ku_service: Any,
     ku_interaction_service: Any,
     exercises_service: Any,
@@ -186,7 +302,8 @@ def create_ku_reading_ui_routes(
     Args:
         app: FastHTML app instance
         rt: FastHTML route decorator
-        ku_service: KU service facade (with organization methods for breadcrumbs/navigation)
+        lesson_service: Lesson service facade (for Lesson entities with rich content)
+        ku_service: KuService facade (for atomic Ku entities)
         ku_interaction_service: Interaction tracking service
         exercises_service: Exercise service (for REQUIRES_KNOWLEDGE reverse lookup)
         form_template_service: FormTemplate service (for EMBEDS_FORM reverse lookup)
@@ -200,18 +317,27 @@ def create_ku_reading_ui_routes(
         """
         KU detail page with full reading interface.
 
-        Displays:
-        - Breadcrumbs (from MOC if available)
-        - Page header with mark-as-read and bookmark actions
-        - KU metadata (domain, complexity, tags)
-        - Markdown content with table of contents
-        - Next/prev navigation (via MOC ORGANIZES order)
-        - Lateral relationships visualization
+        Handles both Lesson entities (rich content with TOC, organizers, mastery)
+        and atomic Ku entities (description-based content, simpler layout).
         """
         user_uid = require_authenticated_user(request)
 
-        # Get KU with content (content lives on :Content node)
-        ku_result = await ku_service.get_with_content(uid)
+        # Try Lesson first (has rich content), then fall back to atomic Ku
+        ku_result = await lesson_service.get_with_content(uid)
+
+        # If not found as Lesson, try atomic Ku
+        if ku_result.is_error and ku_service:
+            ku_atom_result = await ku_service.get_ku(uid)
+            if ku_atom_result.is_ok and ku_atom_result.value:
+                ku_atom = ku_atom_result.value
+                # Atomic Kus use description as content
+                content_body = ku_atom.description or ""
+                return await _render_ku_detail(
+                    request, ku_atom, content_body, uid, user_uid,
+                    ku_interaction_service, exercises_service, form_template_service,
+                )
+
+        # Not found in either service
         if ku_result.is_error:
             return await BasePage(
                 content=Div(
@@ -221,7 +347,7 @@ def create_ku_reading_ui_routes(
                             P(f"No KU with identifier: {uid}", cls="text-muted-foreground mt-2"),
                             ButtonLink(
                                 "← Back to Knowledge",
-                                href="/sel",
+                                href="/ku",
                                 variant=ButtonT.ghost,
                                 size=Size.sm,
                                 cls="mt-4",
@@ -283,7 +409,7 @@ def create_ku_reading_ui_routes(
 
         # Build breadcrumbs
         breadcrumb_path = [
-            {"uid": "knowledge", "title": "Knowledge", "url": "/sel"},
+            {"uid": "knowledge", "title": "Knowledge", "url": "/ku"},
         ]
         if mocs:
             moc = mocs[0]

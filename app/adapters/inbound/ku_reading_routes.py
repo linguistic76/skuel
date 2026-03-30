@@ -36,7 +36,8 @@ def _ku_reading_ui_factory(
     return create_ku_reading_ui_routes(
         app=app,
         rt=rt,
-        ku_service=lesson_service,
+        lesson_service=lesson_service,
+        ku_service=kwargs.get("ku_service"),
         ku_interaction_service=lesson_service.mastery,
         exercises_service=kwargs.get("exercises_service"),
         form_template_service=kwargs.get("form_template_service"),
@@ -51,6 +52,7 @@ KU_READING_CONFIG = DomainRouteConfig(
     ui_related_services={
         "exercises_service": "exercises",
         "form_template_service": "form_templates",
+        "ku_service": "ku",
     },
 )
 
