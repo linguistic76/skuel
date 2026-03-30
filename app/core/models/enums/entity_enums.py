@@ -439,6 +439,16 @@ class EntityStatus(StrEnum):
         return _ENTITY_STATUS_SEARCH_DESCRIPTIONS.get(self, "")
 
     @classmethod
+    def from_string(cls, text: str) -> EntityStatus | None:
+        """Parse EntityStatus from string (case-insensitive, alias-aware).
+
+        Supports aliases for user-uploaded data where non-canonical values
+        may appear (e.g., "pending" -> DRAFT).
+        """
+        normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
+        return _ENTITY_STATUS_ALIASES.get(normalized)
+
+    @classmethod
     def from_search_text(cls, text: str) -> list[EntityStatus]:
         """Find matching statuses from search text."""
         text_lower = text.lower()
@@ -612,6 +622,19 @@ _ENTITY_STATUS_SEARCH_DESCRIPTIONS: dict[EntityStatus, str] = {
     EntityStatus.POSTPONED: "Moved to future time",
     EntityStatus.REVISION_REQUESTED: "Revision requested",
     EntityStatus.ARCHIVED: "No longer active",
+}
+
+_ENTITY_STATUS_ALIASES: dict[str, EntityStatus] = {
+    # Canonical values
+    **{status.value: status for status in EntityStatus},
+    # Aliases from user-uploaded data
+    "pending": EntityStatus.DRAFT,
+    "ready": EntityStatus.SCHEDULED,
+    "planned": EntityStatus.SCHEDULED,
+    "in_progress": EntityStatus.ACTIVE,
+    "todo": EntityStatus.DRAFT,
+    "done": EntityStatus.COMPLETED,
+    "canceled": EntityStatus.CANCELLED,
 }
 
 # General transition map — union of all valid transitions across all EntityTypes.

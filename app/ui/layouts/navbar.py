@@ -94,7 +94,7 @@ def _icon_nav_dropdown(item: IconNavItem, active_page: str) -> Div:
 
     dropdown_items = [
         A(
-            Span(di.icon, cls="text-base", aria_hidden="true") if di.icon else None,
+            UkIcon(di.icon, cls="size-4", aria_hidden="true") if di.icon else None,
             Span(di.label),
             href=di.href,
             cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
@@ -264,7 +264,7 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
 
     dropdown_items = [
         A(
-            Span(di.icon, cls="text-base", aria_hidden="true") if di.icon else None,
+            UkIcon(di.icon, cls="size-4", aria_hidden="true") if di.icon else None,
             Span(di.label),
             href=di.href,
             cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",

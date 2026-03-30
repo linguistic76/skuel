@@ -404,6 +404,11 @@ class Neo4jGenericMapper:
         if inspect.isclass(target_type) and issubclass(target_type, Enum):
             # Convert string back to enum
             if isinstance(value, str):
+                # Use alias-aware from_string for EntityStatus
+                if hasattr(target_type, "from_string"):
+                    resolved = target_type.from_string(value)
+                    if resolved is not None:
+                        return resolved
                 try:
                     return target_type(value)
                 except ValueError as e:

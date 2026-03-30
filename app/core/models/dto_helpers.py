@@ -21,6 +21,7 @@ from datetime import date, datetime, time
 from enum import Enum
 from typing import Any
 
+from core.models.enums.entity_enums import EntityStatus
 from core.ports import EnumLike
 
 
@@ -90,7 +91,15 @@ def parse_enum_field(data: dict, field_name: str, enum_class: type[Enum]) -> Non
         # data['status'] is now EntityStatus.ACTIVE
     """
     if field_name in data and isinstance(data[field_name], str):
-        data[field_name] = enum_class(data[field_name])
+        if enum_class is EntityStatus:
+            resolved = EntityStatus.from_string(data[field_name])
+            if resolved is None:
+                raise ValueError(
+                    f"'{data[field_name]}' is not a valid EntityStatus"
+                )
+            data[field_name] = resolved
+        else:
+            data[field_name] = enum_class(data[field_name])
 
 
 def ensure_list_field(data: dict, field_name: str) -> None:

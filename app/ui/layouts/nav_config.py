@@ -67,6 +67,7 @@ class DropdownItem:
 
 
 # Activity domain dropdown items — shown in avatar hover dropdown
+# Tasks and Goals are promoted to top-level navbar icons (ICON_NAV_ITEMS)
 ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
     DropdownItem("Habits", "/habits", icon="repeat"),
     DropdownItem("Events", "/events", icon="calendar"),
