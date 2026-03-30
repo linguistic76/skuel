@@ -1,6 +1,6 @@
-"""Generate Report Form — shared component for progress report generation.
+"""Activity Report Request Form — shared component for activity report submission.
 
-Used by both the Transfer hub (HTMX fragment) and the Study generate-reports page.
+Used by both the Transfer hub (HTMX fragment) and the Study submit-activity-report page.
 """
 
 from fasthtml.common import H3, Div, Form, Label, Option, P
@@ -10,11 +10,11 @@ from ui.cards import Card, CardBody
 from ui.forms import Select
 
 
-def render_generate_report_card():
-    """Card with time period + depth selectors and Generate Now button."""
+def render_activity_report_request_card():
+    """Card with time period + depth selectors and Submit Request button."""
     return Card(
         CardBody(
-            H3("Generate Progress Report", cls="font-semibold mb-4"),
+            H3("Submit Activity Report Request", cls="font-semibold mb-4"),
             Form(
                 Div(
                     Label("Time Period", cls="label"),
@@ -43,7 +43,7 @@ def render_generate_report_card():
                 ),
                 Div(
                     Button(
-                        "Generate Now",
+                        "Submit Request",
                         type="submit",
                         variant=ButtonT.primary,
                     ),
@@ -64,9 +64,9 @@ def render_generate_report_card():
 
 
 def render_recent_reports_section():
-    """HTMX-loading section for recent progress reports."""
+    """HTMX-loading section for recent activity reports."""
     return Div(
-        H3("Recent Progress Reports", cls="font-semibold mb-4"),
+        H3("Recent Activity Reports", cls="font-semibold mb-4"),
         Div(
             P("Loading...", cls="text-center text-muted-foreground"),
             id="progress-list",

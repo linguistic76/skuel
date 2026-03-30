@@ -427,7 +427,7 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
 The navbar left section (after the SKUEL logo) has three icon links and a profile avatar:
 - **⚛️** (Knowledge) → `/ku` — No dropdown, direct link to Knowledge index
 - **C** (Curriculum) → `/curriculum` — Dropdown: Lessons, Learning Steps, Learning Paths, Exercises
-- **S** (Study) → `/study` — Dropdown: Submit, My Submissions, Exercise Reports, Activity Reports, Generate Reports
+- **S** (Study) → `/study` — Dropdown: Submit, My Submissions, Exercise Reports, Activity Reports, Submit Activity Report
 - **Avatar** (click → `/profile`; hover → Activity dropdown: Tasks, Goals, Habits, Events, Choices, Principles)
 - **Logout icon** — always visible on main line
 
@@ -501,7 +501,7 @@ items = [
     SidebarItem("My Submissions", "/submissions", "submissions", icon="📝"),
     SidebarItem("Exercise Reports", "/exercise-reports", "exercise-reports", icon="📋"),
     SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="📊"),
-    SidebarItem("Generate Reports", "/generate-reports", "generate-reports", icon="⚡"),
+    SidebarItem("Submit Activity Report", "/submit-activity-report", "submit-activity-report", icon="⚡"),
 ]
 
 return await SidebarPage(

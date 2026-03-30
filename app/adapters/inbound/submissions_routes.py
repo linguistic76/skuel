@@ -96,7 +96,11 @@ def _create_submission_redirects(rt: RouteDecorator) -> RouteList:
 
     @rt("/learn/generate-reports")
     async def learn_generate_reports_redirect(request: Any) -> Any:
-        return RedirectResponse("/generate-reports", status_code=301)
+        return RedirectResponse("/submit-activity-report", status_code=301)
+
+    @rt("/generate-reports")
+    async def generate_reports_redirect(request: Any) -> Any:
+        return RedirectResponse("/submit-activity-report", status_code=301)
 
     @rt("/learn/submissions/{uid}")
     async def learn_submissions_detail_redirect(request: Any, uid: str) -> Any:
@@ -125,6 +129,7 @@ def _create_submission_redirects(rt: RouteDecorator) -> RouteList:
         learn_exercise_reports_redirect,
         learn_activity_reports_redirect,
         learn_generate_reports_redirect,
+        generate_reports_redirect,
         learn_submissions_detail_redirect,
         ui_exercises_redirect,
         learn_landing_redirect,

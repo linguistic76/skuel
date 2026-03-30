@@ -10,7 +10,7 @@ Routes:
 - GET /submissions — My submitted work
 - GET /exercise-reports — Teacher assessments
 - GET /activity-reports — Activity feedback
-- GET /generate-reports — Progress report generation
+- GET /submit-activity-report — Activity report request
 - GET /submissions/{uid} — Submission detail
 - HTMX fragments for all above
 

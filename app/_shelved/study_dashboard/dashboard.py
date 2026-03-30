@@ -1,7 +1,7 @@
 """Study dashboard — /study landing page.
 
 Workspace hub with 6 action cards (Exercises, Submit, My Submissions, Exercise Reports,
-Activity Reports, Generate Reports) and curriculum discovery links.
+Activity Reports, Submit Activity Report) and curriculum discovery links.
 No sidebar on the landing page.
 """
 
@@ -19,7 +19,7 @@ def StudyDashboardView(context: UserContext) -> Div:
             _submissions_card(context),
             _exercise_reports_card(),
             _activity_reports_card(),
-            _generate_reports_card(),
+            _submit_activity_report_card(),
             cls="flex flex-col gap-5",
         ),
         Div(
@@ -142,21 +142,21 @@ def _activity_reports_card() -> Div:
     )
 
 
-def _generate_reports_card() -> Div:
-    """Generate Reports card."""
+def _submit_activity_report_card() -> Div:
+    """Submit Activity Report card."""
     return Div(
         Div(
             Span("⚡", cls="text-2xl"),
-            H3("Generate Reports", cls="text-lg font-semibold text-foreground"),
+            H3("Submit Activity Report", cls="text-lg font-semibold text-foreground"),
             cls="flex items-center gap-2 mb-3",
         ),
         P(
-            "Create on-demand progress reports across your activity domains.",
+            "Request an on-demand activity report across your domains.",
             cls="text-sm text-muted-foreground mb-3",
         ),
         A(
-            "Generate reports →",
-            href="/generate-reports",
+            "Submit activity report →",
+            href="/submit-activity-report",
             cls="text-sm text-primary hover:underline inline-block",
         ),
         cls="bg-background rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",

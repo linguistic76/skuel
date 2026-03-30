@@ -633,17 +633,17 @@ def create_submissions_ui_routes(
             )
 
     # ========================================================================
-    # PROGRESS PAGE (generate + view progress reports)
+    # PROGRESS PAGE (submit activity report request + view reports)
     # ========================================================================
 
     @rt("/submissions/progress")
     async def submissions_progress_page(request: Request) -> Any:
-        """Progress page: generate and view progress reports."""
+        """Progress page: submit activity report request and view reports."""
         require_authenticated_user(request)
 
         generate_card = Card(
             CardBody(
-                H3("Generate Progress Report", cls="font-semibold mb-4"),
+                H3("Submit Activity Report Request", cls="font-semibold mb-4"),
                 Form(
                     Div(
                         Label("Time Period", cls="label"),
@@ -668,7 +668,7 @@ def create_submissions_ui_routes(
                     ),
                     Div(
                         Button(
-                            "Generate Now",
+                            "Submit Request",
                             type="submit",
                             variant=ButtonT.primary,
                         ),

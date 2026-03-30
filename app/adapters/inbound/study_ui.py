@@ -11,7 +11,7 @@ Routes:
 - GET /submissions — My submitted work (yours + browse merged)
 - GET /exercise-reports — Teacher/AI feedback on exercise submissions
 - GET /activity-reports — AI and scheduled activity feedback
-- GET /generate-reports — On-demand progress report generation
+- GET /submit-activity-report — On-demand activity report request
 - GET /submissions/{uid} — Submission detail page
 - HTMX fragments for all above
 """
@@ -43,7 +43,7 @@ from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.generate_report import (
-    render_generate_report_card,
+    render_activity_report_request_card,
     render_recent_reports_section,
 )
 from ui.patterns.page_header import PageHeader
@@ -259,8 +259,8 @@ def create_study_ui_routes(
                 "Activity Reports",
                 subtitle="AI and scheduled feedback on your activity patterns",
                 actions=ButtonLink(
-                    "Generate Report",
-                    href="/generate-reports",
+                    "Submit Activity Report",
+                    href="/submit-activity-report",
                     variant=ButtonT.secondary,
                     size=Size.sm,
                 ),
@@ -285,25 +285,25 @@ def create_study_ui_routes(
         )
 
     # ========================================================================
-    # GENERATE REPORTS PAGE — on-demand progress report generation
+    # SUBMIT ACTIVITY REPORT — on-demand activity report request
     # ========================================================================
 
-    @rt("/generate-reports")
-    async def study_generate_reports(request: Request) -> Any:
-        """Generate and view progress reports."""
+    @rt("/submit-activity-report")
+    async def study_submit_activity_report(request: Request) -> Any:
+        """Submit a request to generate an activity report."""
         require_authenticated_user(request)
 
         content = Div(
             PageHeader(
-                "Generate Reports",
-                subtitle="Create on-demand progress reports across your domains",
+                "Submit Activity Report Request",
+                subtitle="Request an on-demand activity report across your domains",
             ),
-            render_generate_report_card(),
+            render_activity_report_request_card(),
             render_recent_reports_section(),
         )
         return await BasePage(
             content=content,
-            title="Generate Reports",
+            title="Submit Activity Report",
             request=request,
             active_page="transfer",
         )
@@ -849,7 +849,7 @@ def create_study_ui_routes(
         )
 
     logger.info(
-        "Study UI routes created (/study, /submit, /submissions, /exercise-reports, /activity-reports, /generate-reports)"
+        "Study UI routes created (/study, /submit, /submissions, /exercise-reports, /activity-reports, /submit-activity-report)"
     )
 
     # Route order matters! Specific routes before parameterized routes.
@@ -860,7 +860,7 @@ def create_study_ui_routes(
         study_exercise_reports,  # /exercise-reports
         study_activity_reports,  # /activity-reports
         activity_report_detail,  # /activity-reports/detail?uid=...
-        study_generate_reports,  # /generate-reports
+        study_submit_activity_report,  # /submit-activity-report
         study_reports_list,  # /reports/list (HTMX)
         study_activity_report_list,  # /reports/activity-list (HTMX)
         study_progress_list,  # /reports/progress-list (HTMX)

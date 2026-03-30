@@ -1,6 +1,6 @@
 """Study page layout with sidebar.
 
-Used by /submit, /submissions, /exercise-reports, /activity-reports, /generate-reports.
+Used by /submit, /submissions, /exercise-reports, /activity-reports, /submit-activity-report.
 NOT used by the /study landing page.
 """
 

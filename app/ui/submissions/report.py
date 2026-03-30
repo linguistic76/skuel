@@ -264,8 +264,8 @@ def render_activity_report_list(items: list[Any]) -> Any:
             EmptyState(
                 title="No activity reports yet",
                 description="Generate your first report or wait for a scheduled one.",
-                action_text="Generate Report",
-                action_href="/generate-reports",
+                action_text="Submit Activity Report",
+                action_href="/submit-activity-report",
             ),
             id="activity-feedback-list",
         )

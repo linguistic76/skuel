@@ -11,7 +11,7 @@ Default tab loads on page load; non-default tabs lazy-load on first click
 Routes:
 - GET /transfer — Submission hub (tabbed)
 - GET /transfer/submit-form — HTMX fragment: upload form
-- GET /transfer/generate-form — HTMX fragment: generate report form
+- GET /transfer/generate-form — HTMX fragment: activity report request form
 """
 
 from typing import Any
@@ -28,7 +28,7 @@ from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.generate_report import (
-    render_generate_report_card,
+    render_activity_report_request_card,
     render_recent_reports_section,
 )
 from ui.patterns.page_header import PageHeader
@@ -123,7 +123,7 @@ def create_transfer_ui_routes(
                 Div(
                     _tab_button("My Submissions", "submissions"),
                     _tab_button("Submit", "submit"),
-                    _tab_button("Generate", "generate"),
+                    _tab_button("Request Report", "generate"),
                     role="tablist",
                     cls="flex gap-1 border-b border-border mb-4",
                 ),
@@ -172,10 +172,10 @@ def create_transfer_ui_routes(
 
     @rt("/transfer/generate-form")
     async def transfer_generate_form(request: Request) -> Any:
-        """HTMX fragment: generate report form + recent reports for Generate tab."""
+        """HTMX fragment: activity report request form + recent reports."""
         try:
             require_authenticated_user(request)
-            return Div(render_generate_report_card(), render_recent_reports_section())
+            return Div(render_activity_report_request_card(), render_recent_reports_section())
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading generate form: {e}", exc_info=True)
             from ui.patterns.error_banner import render_error_banner

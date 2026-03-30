@@ -25,7 +25,7 @@ The Submissions + Reports domain handles the artifact-based side of SKUEL's Five
 | `/submissions` | UI | My submitted work |
 | `/exercise-reports` | UI | Teacher/AI feedback on exercise submissions |
 | `/activity-reports` | UI | AI and scheduled activity reports |
-| `/generate-reports` | UI | On-demand progress report generation |
+| `/submit-activity-report` | UI | On-demand activity report request |
 | `/submissions/{uid}` | UI | Submission detail page |
 | `/api/submissions/upload` | API | File upload endpoint |
 | `/api/submissions/progress/generate` | API | On-demand progress report generation |
