@@ -65,13 +65,13 @@ def create_exercises_api_routes(
         submission via REPORT_FOR — symmetric with human teacher reports.
 
         Body (JSON):
-        - entry_uid: Entry UID (required)
-        - project_uid: Exercise UID (required)
+        - submission_uid: Submission UID (required)
+        - exercise_uid: Exercise UID (required)
         - temperature: Sampling temperature 0-1 (optional, default 0.7)
         - max_tokens: Max tokens to generate (optional, default 4000)
 
         Returns:
-        - 200: ExerciseReport entity created {report_uid, entry_uid, project_uid, report_content}
+        - 200: ExerciseReport entity created {report_uid, submission_uid, exercise_uid, report_content}
         - 400: Invalid input
         - 404: Entry or exercise not found
         - 503: Service not available
@@ -97,14 +97,14 @@ def create_exercises_api_routes(
             return Result.fail(parsed)
         report_request = parsed.value
 
-        # Get entry and exercise
-        entry_result = await transcript_service.get(report_request.entry_uid)
+        # Get submission and exercise
+        entry_result = await transcript_service.get(report_request.submission_uid)
         if entry_result.is_error:
-            return Result.fail(Errors.not_found("Entry", report_request.entry_uid))
+            return Result.fail(Errors.not_found("Submission", report_request.submission_uid))
 
-        exercise_result = await exercises_service.get_exercise(report_request.project_uid)
+        exercise_result = await exercises_service.get_exercise(report_request.exercise_uid)
         if exercise_result.is_error:
-            return Result.fail(Errors.not_found("Exercise", report_request.project_uid))
+            return Result.fail(Errors.not_found("Exercise", report_request.exercise_uid))
 
         entry = entry_result.value
         exercise = exercise_result.value
@@ -127,8 +127,8 @@ def create_exercises_api_routes(
         return Result.ok(
             {
                 "report_uid": report_entity.uid,
-                "entry_uid": report_request.entry_uid,
-                "project_uid": report_request.project_uid,
+                "submission_uid": report_request.submission_uid,
+                "exercise_uid": report_request.exercise_uid,
                 "report_content": report_entity.report_content,
             }
         )

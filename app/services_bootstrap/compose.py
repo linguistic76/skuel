@@ -757,11 +757,11 @@ async def compose_services(
         logger.info("✅ NotificationService created")
 
         # Seed default transcript exercise (idempotent create/update)
-        seed_result = await exercise_service.seed_default_project()
+        seed_result = await exercise_service.seed_default_exercise()
         if seed_result.is_ok:
-            logger.info("Default transcript project loaded")
+            logger.info("Default transcript exercise loaded")
         else:
-            logger.warning(f"Default transcript project: {seed_result.error}")
+            logger.warning(f"Default transcript exercise: {seed_result.error}")
 
         # Create submissions submission and processing pipeline services
         from core.services.submissions import (

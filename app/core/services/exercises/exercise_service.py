@@ -381,13 +381,13 @@ class ExerciseService(BaseService):
     # FILE-BASED EXERCISE LOADING
     # ========================================================================
 
-    async def seed_default_project(
+    async def seed_default_exercise(
         self,
         instructions_path: str | None = None,
-        project_uid: str = "jp.transcript_default",
+        exercise_uid: str = "jp.transcript_default",
         model: str = "gpt-4o",
     ) -> Result[Exercise]:
-        """Load/update default transcript project from instructions file.
+        """Load/update default transcript exercise from instructions file.
 
         Called at startup to ensure default exercises exist.
         Encapsulates file resolution, system user ownership, and idempotent create/update.
@@ -399,18 +399,18 @@ class ExerciseService(BaseService):
             str(Path(__file__).parents[3] / "data" / "instructions - transcripts 0.md"),
         )
 
-        return await self.load_project_from_file(
+        return await self.load_exercise_from_file(
             file_path=path,
             user_uid="user_system",
-            project_uid=project_uid,
+            exercise_uid=exercise_uid,
             model=model,
         )
 
-    async def load_project_from_file(
+    async def load_exercise_from_file(
         self,
         file_path: str,
         user_uid: UserUID,
-        project_uid: str | None = None,
+        exercise_uid: str | None = None,
         model: str = "gpt-4o",
     ) -> Result[Exercise]:
         """
@@ -432,13 +432,13 @@ class ExerciseService(BaseService):
             if not name or name == "Instructions":
                 name = path.stem.title()
 
-            if project_uid:
-                existing = await self.backend.get(project_uid)
+            if exercise_uid:
+                existing = await self.backend.get(exercise_uid)
                 if existing.is_ok and existing.value:
                     result = await self.update_exercise(
-                        uid=project_uid, instructions=instructions, model=model
+                        uid=exercise_uid, instructions=instructions, model=model
                     )
-                    self.logger.info(f"Exercise updated from file: {project_uid} - {file_path}")
+                    self.logger.info(f"Exercise updated from file: {exercise_uid} - {file_path}")
                     return result
                 else:
                     exercise_result = await self.create_exercise(
@@ -480,7 +480,7 @@ class ExerciseService(BaseService):
             return Result.fail(
                 Errors.system(
                     f"Failed to load exercise from file: {e!s}",
-                    operation="load_project_from_file",
+                    operation="load_exercise_from_file",
                 )
             )
         except Exception as e:  # safety-net: catch unexpected errors
@@ -488,7 +488,7 @@ class ExerciseService(BaseService):
             return Result.fail(
                 Errors.system(
                     f"Failed to load exercise from file: {e!s}",
-                    operation="load_project_from_file",
+                    operation="load_exercise_from_file",
                 )
             )
 

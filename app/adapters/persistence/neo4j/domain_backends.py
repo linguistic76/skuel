@@ -1661,8 +1661,8 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
                ku.created_at as submitted_at,
                student.uid as student_uid,
                student.name as student_name,
-               project.uid as project_uid,
-               project.name as project_name,
+               project.uid as exercise_uid,
+               project.name as exercise_name,
                project.due_date as due_date,
                r.shared_at as shared_at,
                feedback_count

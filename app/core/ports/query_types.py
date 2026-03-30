@@ -1323,8 +1323,8 @@ class ReviewQueueItem(TypedDict, total=False):
     submitted_at: str  # ISO format
     student_uid: str
     student_name: str
-    project_uid: str
-    project_name: str
+    exercise_uid: str
+    exercise_name: str
     due_date: str | None
     shared_at: str  # ISO format
     feedback_count: int

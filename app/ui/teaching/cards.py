@@ -90,8 +90,8 @@ def render_queue_item(item: QueueItem) -> Div:
     student_name = item.student_name or item.student_uid or "Unknown"
 
     subtitle_parts = [f"by {student_name}"]
-    if item.project_name:
-        subtitle_parts.append(f"for {item.project_name}")
+    if item.exercise_name:
+        subtitle_parts.append(f"for {item.exercise_name}")
 
     feedback_badge: Any = None
     if item.feedback_count > 0:

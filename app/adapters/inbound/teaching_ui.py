@@ -124,7 +124,7 @@ def create_teaching_ui_routes(
             student_uid=d.get("student_uid", ""),
             status=d.get("status") or "unknown",
             entity_type=d.get("entity_type"),
-            project_name=d.get("project_name"),
+            exercise_name=d.get("exercise_name"),
             ku_uid=d.get("ku_uid", ""),
             feedback_count=d.get("feedback_count", 0),
             original_filename=d.get("original_filename"),
