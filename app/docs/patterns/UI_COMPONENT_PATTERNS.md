@@ -1270,8 +1270,13 @@ class RouteDecorator(Protocol):
 class Request(Protocol):
     """Protocol for Starlette Request (lightweight type hint)."""
     query_params: dict[str, str]
-    async def form(self) -> dict[str, Any]:
-        ...
+    headers: _HeadersLike
+    method: str
+    url: _URLLike
+    path_params: dict[str, str]
+    client: _ClientLike | None
+    async def form(self) -> _FormDataLike: ...
+    async def json(self) -> Any: ...
 ```
 
 ### Implementation Status
