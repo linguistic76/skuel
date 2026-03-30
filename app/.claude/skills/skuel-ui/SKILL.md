@@ -56,7 +56,11 @@ Html(build_head("Title", extra_css=["/static/css/calendar.css"]), Body(...))
 | Route | Page | Type | Notes |
 |-------|------|------|-------|
 | `/tasks` | Tasks list + detail | `STANDARD` | HTMX status toggle, filtering, connection badges |
-| `/goals` | Goals list + detail | `STANDARD` | Progress bars, milestones, connection grouping |
+| `/goals` | Goals list + detail | `STANDARD` | Progress bars, milestones, gravity-well connections |
+| `/habits` | Habits list + detail | `STANDARD` | Streaks, atomic habits (cue/routine/reward), identity |
+| `/events` | Events list + detail | `STANDARD` | Scheduling, location, recurrence, milestones |
+| `/choices` | Choices list + detail | `STANDARD` | Options list, decision framework, outcome/satisfaction |
+| `/principles` | Principles list + detail | `STANDARD` | Strength badge, alignment, gravity-well connections |
 | `/upload` | Upload Activity Data | `STANDARD` | HTMX file upload + results display |
 
 ```python
@@ -436,7 +440,7 @@ The navbar left section (after the SKUEL logo) has icon links and a profile avat
 - **⚛️** (Knowledge) → `/ku` — No dropdown, direct link to Knowledge index
 - **Tasks** (check-square icon) → `/tasks` — No dropdown, direct link to read-focused task list with HTMX status toggle and filtering
 - **⇄** (Submissions) → `/submissions` — No dropdown, direct link
-- **Avatar** (click → `/profile`; hover → Activity dropdown, currently empty — activities shelved 2026-03-28)
+- **Avatar** (click → `/profile`; hover → Activity dropdown with Habits, Events, Choices, Principles)
 - **Logout icon** — always visible on main line
 
 Curriculum and Study navbar dropdowns **shelved** (2026-03-29).
