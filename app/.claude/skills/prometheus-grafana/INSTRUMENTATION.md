@@ -396,7 +396,7 @@ Ensure `PrometheusMetrics` is passed to your service:
 prometheus_metrics = PrometheusMetrics()
 
 journaps_service = JournalsService(
-    backend=journals_backend,
+    backend=journaps_backend,
     prometheus_metrics=prometheus_metrics,  # Pass metrics
 )
 ```

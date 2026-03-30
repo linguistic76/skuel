@@ -87,7 +87,7 @@ Migration script: `scripts/migrations/add_has_lesson_relationship_2026_03.cypher
 | Service | File | Role |
 |---------|------|------|
 | `LessonMasteryService` | `core/services/lesson/lesson_mastery_service.py` | Publishes `KnowledgeMastered` on `mark_mastered()`, detects Lesson completion |
-| `PsProgressService` | `core/services/ls/ps_progress_service.py` | Tracks PS progress from Lesson completion |
+| `PsProgressService` | `core/services/ps/ps_progress_service.py` | Tracks PS progress from Lesson completion |
 | `LpProgressService` | `core/services/lp/lp_progress_service.py` | Tracks LP progress from KU mastery and PS completion |
 
 ### Backend Support

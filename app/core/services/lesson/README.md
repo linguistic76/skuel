@@ -286,7 +286,7 @@ Separation of graph analytics from AI features.
 |--------|-----------|--------|--------------|
 | **Lesson** | `/lesson/` | `lesson_service.py` | 12 sub-services |
 | **KU** | `/ku/` | `ku_service.py` | 2 sub-services |
-| **Goals** | `/goals/` | `goals_service.py` | 8 sub-services |
+| **Goals** | `/goals/` | `goaps_service.py` | 8 sub-services |
 | **Habits** | `/habits/` | `habits_service.py` | 8 sub-services |
 
 ---

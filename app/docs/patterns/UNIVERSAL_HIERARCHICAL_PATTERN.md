@@ -235,7 +235,7 @@ class PS:
 **After (Relationships):**
 ```cypher
 // NEW - Graph relationships
-(ls:Ls)-[:CONTAINS_KNOWLEDGE]->(ku:Curriculum)
+(ps:PathStep)-[:CONTAINS_KNOWLEDGE]->(ku:Curriculum)
 ```
 
 **Service Methods:**
@@ -265,8 +265,8 @@ lp:def456ghi012
 
 ```cypher
 // Learning Path contains steps
-(lp:Lp)-[:HAS_STEP {order: 1, sequence: 1}]->(ls:Ls)
-(lp:Lp)-[:HAS_STEP {order: 2, sequence: 2}]->(ls:Ls)
+(lp:Lp)-[:HAS_STEP {order: 1, sequence: 1}]->(ps:PathStep)
+(lp:Lp)-[:HAS_STEP {order: 2, sequence: 2}]->(ps:PathStep)
 ```
 
 ---

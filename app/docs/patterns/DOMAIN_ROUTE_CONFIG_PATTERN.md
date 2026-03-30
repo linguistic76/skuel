@@ -721,8 +721,8 @@ def create_pathways_routes(app, rt, services, _sync_service=None):
 ```python
 # path_steps_routes.py — standalone PS config (no CRUD — created via ingestion)
 PS_CONFIG = DomainRouteConfig(
-    domain_name="learning-steps",
-    primary_service_attr="ls",
+    domain_name="path-steps",
+    primary_service_attr="ps",
     api_factory=create_path_steps_api_routes,
     api_related_services={"user_service": "user_service"},
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),

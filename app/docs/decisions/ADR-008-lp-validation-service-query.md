@@ -79,7 +79,7 @@ OPTIONAL MATCH (u)-[m:MASTERED]->(mastered:Curriculum)
 WITH u, path, collect(mastered.uid) as mastered_uids
 
 // STEP 3: Get path steps and knowledge
-MATCH (path)-[r:HAS_STEP]->(step:Ls)
+MATCH (path)-[r:HAS_STEP]->(step:PathStep)
 MATCH (k:Curriculum {uid: step.knowledge_uid})
 
 // STEP 4: Find prerequisites using semantic relationships (helper subquery)

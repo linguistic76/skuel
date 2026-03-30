@@ -20,13 +20,13 @@
 | Domain | File | Notes |
 |--------|------|-------|
 | Tasks | `/core/services/tasks/tasks_intelligence_service.py` | |
-| Goals | `/core/services/goals/goals_intelligence_service.py` | |
+| Goals | `/core/services/goals/goaps_intelligence_service.py` | |
 | Habits | `/core/services/habits/habits_intelligence_service.py` | |
 | Events | `/core/services/events/events_intelligence_service.py` | |
 | Choices | `/core/services/choices/choices_intelligence_service.py` | |
 | Principles | `/core/services/principles/principles_intelligence_service.py` | |
 | Lesson | `/core/services/lesson_intelligence_service.py` | top-level (not in article/ subdir) |
-| LS | `/core/services/ls/ps_intelligence_service.py` | |
+| LS | `/core/services/ps/ps_intelligence_service.py` | |
 | LP | `/core/services/lp_intelligence_service.py` | top-level (not in lp/ subdir) |
 
 ### Documentation

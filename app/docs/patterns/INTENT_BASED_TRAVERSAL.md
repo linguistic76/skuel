@@ -236,7 +236,7 @@ Each domain's analysis method returns a consistent structure:
 | TasksService | `/core/services/tasks_service.py` |
 | **Goals** | |
 | Goal model | `/core/models/goal/goal.py` |
-| GoalsService | `/core/services/goals_service.py` |
+| GoalsService | `/core/services/goaps_service.py` |
 | **Principles** | |
 | Principle model | `/core/models/principle/principle.py` |
 | PrinciplesService | `/core/services/principles_service.py` |

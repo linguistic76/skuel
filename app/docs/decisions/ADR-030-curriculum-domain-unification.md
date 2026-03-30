@@ -74,8 +74,8 @@ PsService uses `create_curriculum_sub_services()` factory since all its services
 from core.services.curriculum_domain_config import create_curriculum_sub_services
 
 common = create_curriculum_sub_services(
-    domain="ls",
-    backend=ls_backend,
+    domain="ps",
+    backend=ps_backend,
     graph_intel=graph_intelligence,
     event_bus=event_bus,
 )

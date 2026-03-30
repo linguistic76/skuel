@@ -50,7 +50,7 @@ subs = create_lesson_sub_services(backend=repo, graph_intel=graph_intel, ...)
 
 # LS - Generic factory (simple 4-service pattern)
 from core.services.curriculum_domain_config import create_curriculum_sub_services
-common = create_curriculum_sub_services(domain="ls", backend=ls_backend, ...)
+common = create_curriculum_sub_services(domain="ps", backend=ps_backend, ...)
 
 # LP - Specialized factory (requires cross-domain PsService dependency)
 from core.services.curriculum_domain_config import create_lp_sub_services

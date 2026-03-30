@@ -88,7 +88,7 @@ Successfully implemented **comprehensive lateral relationship infrastructure** a
 |------|-------|---------|
 | `/core/models/enums/lateral_relationship_types.py` | 350 | 17 relationship type enum with helper methods |
 | `/core/services/lateral_relationships/lateral_relationship_service.py` | 650 | Core service (create, query, delete, validate) |
-| `/core/services/goals/goals_lateral_service.py` | 450 | Domain example (pattern for all domains) |
+| `/core/services/goals/goaps_intelligence_service.py` | 450 | Domain example (pattern for all domains) |
 | `/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md` | 1200 | Complete architecture documentation |
 
 ### Key Components
@@ -137,13 +137,13 @@ class LateralRelationshipService:
 | Domain | File | Lines | Unique Features |
 |--------|------|-------|----------------|
 | **Tasks** | `/core/services/tasks/tasks_lateral_service.py` | 320 | Hard (BLOCKS) vs soft (PREREQUISITE_FOR) dependencies |
-| **Goals** | `/core/services/goals/goals_lateral_service.py` | 450 | Blocking chains, alternatives, complementary |
+| **Goals** | `/core/services/goals/goaps_intelligence_service.py` | 450 | Blocking chains, alternatives, complementary |
 | **Habits** | `/core/services/habits/habits_lateral_service.py` | 340 | STACKS_WITH (habit chaining with triggers) |
 | **Events** | `/core/services/events/events_lateral_service.py` | 370 | CONFLICTS_WITH (scheduling conflicts) |
 | **Choices** | `/core/services/choices/choices_lateral_service.py` | 360 | ALTERNATIVE_TO (mutually exclusive), BLOCKS |
 | **Principles** | `/core/services/principles/principles_lateral_service.py` | 390 | Value tensions, foundational principles |
 | **KU** | `/core/services/ku/ku_lateral_service.py` | 330 | ENABLES (learning unlocks), no ownership checks |
-| **PS** | `/core/services/ls/ls_lateral_service.py` | 350 | Step dependencies, alternative approaches |
+| **PS** | `/core/services/ps/ps_intelligence_service.py` | 350 | Step dependencies, alternative approaches |
 | **LP** | `/core/services/lp/lp_lateral_service.py` | 340 | Path prerequisites, complementary paths |
 
 ### Pattern Example
@@ -283,14 +283,14 @@ logger.info(f"✅ Registered {len(lateral_routes)} lateral relationship routes")
 **Phase 1: Core Infrastructure**
 1. `/core/models/enums/lateral_relationship_types.py` (350 lines)
 2. `/core/services/lateral_relationships/lateral_relationship_service.py` (650 lines)
-3. `/core/services/goals/goals_lateral_service.py` (450 lines)
+3. `/core/services/goals/goaps_intelligence_service.py` (450 lines)
 4. `/docs/architecture/LATERAL_RELATIONSHIPS_CORE.md` (1200 lines)
 
 **Phase 2: Domain Services**
 5. `/core/services/tasks/tasks_lateral_service.py` (320 lines)
 6. `/core/services/habits/habits_lateral_service.py` (340 lines)
 7. `/core/services/ku/ku_lateral_service.py` (330 lines)
-8. `/core/services/ls/ls_lateral_service.py` (350 lines)
+8. `/core/services/ps/ps_intelligence_service.py` (350 lines)
 9. `/core/services/lp/lp_lateral_service.py` (340 lines)
 10. `/core/services/events/events_lateral_service.py` (370 lines)
 11. `/core/services/choices/choices_lateral_service.py` (360 lines)

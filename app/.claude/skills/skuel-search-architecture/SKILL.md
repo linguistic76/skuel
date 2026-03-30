@@ -61,7 +61,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
     _config = create_curriculum_domain_config(
         dto_class=PathStepDTO,
         model_class=PathStep,
-        domain_name="ls",
+        domain_name="ps",
         search_fields=("title", "intent", "description"),
         category_field="domain",
     )

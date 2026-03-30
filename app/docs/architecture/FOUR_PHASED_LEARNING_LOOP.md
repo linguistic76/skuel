@@ -148,7 +148,7 @@ Once in Neo4j, Lessons connect through graph relationships:
 (a1:Lesson)-[:ENABLES_KNOWLEDGE]->(a2:Lesson)        // What mastering this unlocks
 (moc:Lesson)-[:ORGANIZES]->(a:Lesson)                // MOC grouping (non-linear)
 (a:Lesson)-[:USES_KU]->(ku:Ku)                        // Composes atomic Kus
-(ls:PathStep)-[:TRAINS_KU]->(ku:Ku)                // PS trains atomic Kus
+(ps:PathStep)-[:TRAINS_KU]->(ku:Ku)                // PS trains atomic Kus
 ```
 
 ### Layer 2: How You're Learning It — Mastery Tracking

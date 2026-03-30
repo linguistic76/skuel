@@ -112,8 +112,8 @@ await lesson_service.find_organizers(lesson_uid)  # Multiple parents possible
 from core.services.curriculum_domain_config import create_curriculum_sub_services
 
 common = create_curriculum_sub_services(
-    domain="ls",
-    backend=ls_backend,
+    domain="ps",
+    backend=ps_backend,
     graph_intel=graph_intelligence_service,
     event_bus=event_bus,
 )

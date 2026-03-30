@@ -214,7 +214,7 @@ Curriculum-to-Resource citations — connects teaching content to reference mate
 
 ```cypher
 -- Find all Resources cited by Lessons in a Path Step
-MATCH (ls:PathStep)-[:HAS_STEP]-(lp:LearningPath)
+MATCH (ps:PathStep)-[:HAS_STEP]-(lp:LearningPath)
 MATCH (ls)-[:CONTAINS_KNOWLEDGE]->(a:Lesson)-[:CITES_RESOURCE]->(r:Resource)
 RETURN a.title AS article, r.title AS resource, r.author, r.media_type
 ```

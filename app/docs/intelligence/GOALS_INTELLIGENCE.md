@@ -3,7 +3,7 @@
 ## Overview
 
 **Architecture:** Extends `BaseAnalyticsService[GoalsOperations, Goal]`
-**Location:** `/core/services/goals/goals_intelligence_service.py`
+**Location:** `/core/services/goals/goaps_intelligence_service.py`
 **Service Name:** `goals.intelligence`
 **Lines:** ~1,495
 
@@ -689,7 +689,7 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.goals.intelligence
 ```python
 # GoalsService creates intelligence internally
 goals_service = GoalsService(
-    backend=goals_backend,
+    backend=goaps_backend,
     graph_intelligence_service=graph_intelligence,
     embeddings_service=embeddings_service,
     llm_service=llm_service,
@@ -757,7 +757,7 @@ Uses typed context retrieval with:
 
 ### Unit Tests
 ```bash
-uv run python -m pytest tests/unit/services/test_goals_intelligence_service.py -v
+uv run python -m pytest tests/unit/services/test_goaps_intelligence_service.py -v
 ```
 
 ### Integration Tests
@@ -801,6 +801,6 @@ assert service.relationships == relationships
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
 - `/core/services/base_intelligence_service.py` - Base implementation
-- `/core/services/goals/goals_service.py` - GoalsService facade
-- `/core/services/goals/goals_progress_service.py` - Velocity calculations
+- `/core/services/goals/goaps_service.py` - GoalsService facade
+- `/core/services/goals/goaps_progress_service.py` - Velocity calculations
 - `/core/services/intelligence/cross_domain_context_service.py` - Phase 3 context retrieval

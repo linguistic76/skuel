@@ -453,8 +453,8 @@ Natural Text
 (lesson:Lesson)-[:USES_KU]->(ku:Ku)
 (ku:Curriculum)-[:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
 (ku:Curriculum)-[:ENABLES_KNOWLEDGE]->(ku:Curriculum)
-(lp:LearningPath)-[:HAS_NARROWER]->(ls:PathStep)
-(ls:PathStep)-[:REQUIRES_PREREQUISITE]->(ku:Curriculum)
+(lp:LearningPath)-[:HAS_NARROWER]->(ps:PathStep)
+(ps:PathStep)-[:REQUIRES_PREREQUISITE]->(ku:Curriculum)
 
 // MOC organization
 (entity:Entity)-[:ORGANIZES {order: int}]->(entity:Entity)

@@ -109,7 +109,7 @@ await lesson_core.unorganize_lesson(parent_uid, child_uid)
 
 **Knowledge Relationship:**
 ```cypher
-(ls:Ls)-[:CONTAINS_KNOWLEDGE {type}]->(ku:Curriculum)
+(ps:PathStep)-[:CONTAINS_KNOWLEDGE {type}]->(ku:Curriculum)
 ```
 
 **Service Methods:**
@@ -130,7 +130,7 @@ await ps_service.get_knowledge_summary(ps_uid)
 
 **Step Relationship:**
 ```cypher
-(lp:Lp)-[:HAS_STEP {order, sequence}]->(ls:Ls)
+(lp:Lp)-[:HAS_STEP {order, sequence}]->(ps:PathStep)
 ```
 
 **Status:** ✅ Complete (Already using relationships)
@@ -264,11 +264,11 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
    - Added 5 hierarchical methods
    - Added cycle prevention
 
-3. **`/core/services/ls/ps_core_service.py`** ✅
+3. **`/core/services/ps/ps_core_service.py`** ✅
    - Added 4 knowledge relationship methods
    - Query-based knowledge storage
 
-4. **`/core/models/ls/ls.py`** ✅
+4. **`/core/models/pathways/path_step.py`** ✅
    - Added GRAPH-NATIVE documentation
    - Marked properties as transitional
 

@@ -19,15 +19,15 @@ Together with Daily Notes, these enable quantified self-tracking integrated into
 An `ev__` is a timestamped occurrence -- a "run" of a Path Step or Exercise.
 
 ```yaml
-uid: ev:ls_track_coffee_buzzing:2026_03_06
+uid: ev:ps_track_coffee_buzzing:2026_03_06
 type: EventInstance
-run_of: ls:track-coffee-buzzing     # RUN_OF -> Ls
+run_of: ps:track-coffee-buzzing     # RUN_OF -> PathStep
 timestamp: "2026-03-06T10:30:00+07:00"
 duration_minutes: 5
 notes: "Tracked coffee intake and buzzing levels for the morning."
 ```
 
-**Graph pattern:** `(ev:EventInstance)-[:RUN_OF]->(ls:Ls)`
+**Graph pattern:** `(ev:EventInstance)-[:RUN_OF]->(ps:PathStep)`
 
 ### Measurement (msr__)
 

@@ -251,7 +251,7 @@ async def test_get_task_not_found(tasks_service, mock_backend):
 
 
 @pytest.mark.asyncio
-async def test_create_task_calls_backend(tasks_service, mock_backend, sample_task):
+async def test_create_task_calps_backend(tasks_service, mock_backend, sample_task):
     # Act
     await tasks_service.create({"title": "New Task"})
 

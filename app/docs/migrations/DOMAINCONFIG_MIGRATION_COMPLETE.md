@@ -84,7 +84,7 @@ def _get_config_value(self, attr_name: str, default: Any = None) -> Any:
 Migrated all remaining BaseService subclasses outside Activity domains to achieve 100% DomainConfig coverage:
 
 **Curriculum Domains (2):**
-- `core/services/ls/ps_core_service.py` - Learning Sequence core operations
+- `core/services/ps/ps_core_service.py` - Path Step core operations
 - `core/services/lp/lp_core_service.py` - Learning Path core operations
 
 **Content/Processing Domains (3):**
@@ -106,7 +106,7 @@ class PsCoreService(BaseService[PsOperations, LearningSequence]):
     _config = create_curriculum_domain_config(
         dto_class=LsDTO,
         model_class=LearningSequence,
-        domain_name="ls",
+        domain_name="ps",
         search_fields=("title", "description"),
         category_field="domain",
     )
@@ -178,9 +178,9 @@ GOAPS_CONFIG = create_activity_domain_config(
 - `core/services/tasks/tasks_scheduling_service.py`
 
 **Goals Domain:**
-- `core/services/goals/goals_core_service.py`
+- `core/services/goals/goaps_core_service.py`
 - `core/services/goals/goals_learning_service.py`
-- `core/services/goals/goals_progress_service.py`
+- `core/services/goals/goaps_progress_service.py`
 - `core/services/goals/goals_scheduling_service.py`
 
 **Habits Domain:**
@@ -208,7 +208,7 @@ GOAPS_CONFIG = create_activity_domain_config(
 - `core/services/tasks/tasks_search_service.py` (removed redundant attributes)
 
 ### Curriculum Services (Phase 4) - 2 files
-- `core/services/ls/ps_core_service.py`
+- `core/services/ps/ps_core_service.py`
 - `core/services/lp/lp_core_service.py`
 
 ### Content Services (Phase 4) - 3 files

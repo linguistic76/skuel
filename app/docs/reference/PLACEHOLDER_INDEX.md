@@ -27,7 +27,7 @@ All four should be implemented together when time-window analytics is scheduled.
 
 | Service | File | Line | Parameter | Notes |
 |---------|------|------|-----------|-------|
-| GoalsIntelligenceService | `core/services/goals/goals_intelligence_service.py` | 202 | `_period_days: int = 30` | `analyze_goal_performance()` |
+| GoalsIntelligenceService | `core/services/goals/goaps_intelligence_service.py` | 202 | `_period_days: int = 30` | `analyze_goal_performance()` |
 | HabitsIntelligenceService | `core/services/habits/habits_intelligence_service.py` | 171 | `_period_days: int = 30` | `analyze_habit_performance()` |
 | ChoicesIntelligenceService | `core/services/choices/choices_intelligence_service.py` | 169 | `_period_days: int = 30` | `analyze_choice_patterns()` |
 | PrinciplesIntelligenceService | `core/services/principles/principles_intelligence_service.py` | 173 | `_period_days: int = 30` | `analyze_principle_alignment()` |
@@ -94,7 +94,7 @@ They are hardcoded scalars that should eventually be computed from graph data.
 | `core/services/choices/choices_intelligence_service.py` | 1087 | `avg_confidence = 0.7` | Mean of `choice.confidence` across recent choices |
 | `core/services/choices/choices_intelligence_service.py` | 1088 | `avg_satisfaction = 0.75` | Derived from outcome tracking |
 | `core/services/choices/choices_intelligence_service.py` | 1258 | `"avg_quality_score": 0.7` | Same as above |
-| `core/services/goals/goals_intelligence_service.py` | 533 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum |
+| `core/services/goals/goaps_intelligence_service.py` | 533 | `"learning_progress_rate": 0.5` | KU completion rate for goal-linked curriculum |
 | `core/services/cross_domain_analytics_service.py` | 661–665 | `average_mood`, `mood_trend`, `most_common_themes`, `longest_streak` | Computed from Journal/Submission sentiment analysis |
 
 **What full implementation requires:** Each value needs a dedicated graph query or NLP pipeline.
@@ -144,7 +144,7 @@ habit nodes, these private methods can traverse the context rather than issuing 
 | `core/services/calendar/calendar_optimization_service.py` | 539 | `_get_user_energy_profile()` | `_user_uid: str` | Returns demo/static pattern; real profile query deferred |
 | `core/services/infrastructure/schema_change_detector.py` | 545 | `_update_optimizations()` | `_report: SchemaChangeReport` | Query optimization update deferred |
 | `adapters/persistence/neo4j/jupyter_neo4j_sync.py` | 431 | `_check_for_conflicts()` | `_new_hash: str` | Conflict detection not yet implemented |
-| `core/services/goals/goals_intelligence_service.py` | 1270 | `_determine_trend()` | `_lookback_days: int` | Trend direction ignores lookback window |
+| `core/services/goals/goaps_intelligence_service.py` | 1270 | `_determine_trend()` | `_lookback_days: int` | Trend direction ignores lookback window |
 | `core/services/user/lp_intelligence/learning_recommendation_engine.py` | 217 | (inline comment) | `recommended_ku_uids = []` | Returns empty list; real recommendation logic deferred |
 
 ---

@@ -237,7 +237,7 @@ _graph_enrichment_patterns = [
 
 ### GoalsSearchService
 
-**File:** `core/services/goals/goals_search_service.py`
+**File:** `core/services/goals/goaps_search_service.py`
 
 **Configuration:**
 ```python
@@ -446,7 +446,7 @@ _graph_enrichment_patterns = [
 
 ### PsSearchService
 
-**File:** `core/services/ls/ps_search_service.py`
+**File:** `core/services/ps/ps_search_service.py`
 
 **Configuration:**
 ```python

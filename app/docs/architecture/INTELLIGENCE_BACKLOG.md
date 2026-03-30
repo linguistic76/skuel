@@ -52,7 +52,7 @@ All 4 services accept `_period_days: int = 30` but do not apply any date filteri
 | File | Method |
 |------|--------|
 | `core/services/habits/habits_intelligence_service.py` | `get_habits_strength_metrics()` |
-| `core/services/goals/goals_intelligence_service.py` | `get_goal_momentum_metrics()` |
+| `core/services/goals/goaps_intelligence_service.py` | `get_goal_momentum_metrics()` |
 | `core/services/choices/choices_intelligence_service.py` | `get_decision_velocity()` |
 | `core/services/principles/principles_intelligence_service.py` | `get_principle_alignment_trends()` |
 

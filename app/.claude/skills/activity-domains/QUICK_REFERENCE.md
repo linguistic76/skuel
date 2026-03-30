@@ -18,7 +18,7 @@
 | Domain | Facade | Core | Search | Intelligence |
 |--------|--------|------|--------|--------------|
 | Tasks | `tasks_service.py` | `tasks/tasks_core_service.py` | `tasks_search_service.py` | `tasks_intelligence_service.py` |
-| Goals | `goals_service.py` | `goals/goals_core_service.py` | `goals_search_service.py` | `goals_intelligence_service.py` |
+| Goals | `goaps_service.py` | `goals/goaps_core_service.py` | `goaps_search_service.py` | `goaps_intelligence_service.py` |
 | Habits | `habits_service.py` | `habits/habits_core_service.py` | `habits_search_service.py` | `habits_intelligence_service.py` |
 | Events | `events_service.py` | `events/events_core_service.py` | `events_search_service.py` | `events_intelligence_service.py` |
 | Choices | `choices_service.py` | `choices/choices_core_service.py` | `choices_search_service.py` | `choices_intelligence_service.py` |
@@ -137,7 +137,7 @@ All services wired in: `services_bootstrap/`
 # _create_activity_services() in services_bootstrap/_activity_services.py:
 activity_services = _create_activity_services(
     tasks_backend=tasks_backend, events_backend=events_backend,
-    habits_backend=habits_backend, goals_backend=goals_backend,
+    habits_backend=habits_backend, goaps_backend=goaps_backend,
     choices_backend=choices_backend, principles_backend=principles_backend,
     # ... shared deps: graph_intelligence, event_bus, insight_store
 )

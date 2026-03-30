@@ -47,7 +47,7 @@ ORDER BY count DESC
 
 // View the learning path structure
 MATCH (lp:Lp {uid: 'lp:mindfulness-101'})
-OPTIONAL MATCH (lp)-[:HAS_STEP]->(ls:Ls)
+OPTIONAL MATCH (lp)-[:HAS_STEP]->(ps:PathStep)
 OPTIONAL MATCH (ls)-[:PRIMARY_KNOWLEDGE]->(ku:Curriculum)
 RETURN lp, ls, ku
 ```
@@ -151,7 +151,7 @@ SET ku.content = 'Your updated content here'
 RETURN ku
 
 // Update a path step
-MATCH (ls:Ls {uid: 'ls:mindfulness-101:step-1'})
+MATCH (ps:PathStep {uid: 'ps:mindfulness-101:step-1'})
 SET ls.title = 'Your new title'
 RETURN ls
 ```

@@ -441,7 +441,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
     _config = create_curriculum_domain_config(
         dto_class=PathStepDTO,
         model_class=PathStep,
-        domain_name="ls",
+        domain_name="ps",
         search_fields=("title", "intent", "description"),
         category_field="domain",
     )
@@ -665,7 +665,7 @@ Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_due_today()
 | `core/services/domain_config.py` | `temporal_exclude_statuses`, `temporal_secondary_sort` config fields |
 | `core/services/mixins/time_query_mixin.py` | `get_due_soon()`, `get_overdue()` base implementations |
 | `adapters/persistence/neo4j/query/cypher/domain_queries.py` | `build_due_soon_query()`, `build_overdue_query()` |
-| `core/services/goals/goals_search_service.py` | `GoalsSearchService._PROXIMITY_BANDS` |
+| `core/services/goals/goaps_search_service.py` | `GoalsSearchService._PROXIMITY_BANDS` |
 | `core/services/events/events_search_service.py` | `EventsSearchService._PROXIMITY_BANDS`, `temporal_secondary_sort="start_time"` |
 | `core/services/choices/choices_search_service.py` | `ChoicesSearchService._PROXIMITY_BANDS` |
 | `core/services/habits/habit_search_service.py` | Habit-specific overrides using `get_frequency_window_days()` |

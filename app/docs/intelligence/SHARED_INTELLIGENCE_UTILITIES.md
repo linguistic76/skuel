@@ -239,7 +239,7 @@ This led to:
 
 All 10 Domain Intelligence Services extend BaseAnalyticsService:
 ├── tasks/tasks_intelligence_service.py
-├── goals/goals_intelligence_service.py
+├── goals/goaps_intelligence_service.py
 ├── habits/habits_intelligence_service.py
 ├── events/events_intelligence_service.py
 ├── choices/choices_intelligence_service.py

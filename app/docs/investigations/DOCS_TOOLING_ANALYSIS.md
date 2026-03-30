@@ -242,7 +242,7 @@ Usage:
     uv run python scripts/docs_contextual_check.py --since HEAD~3
 
     # Check specific files
-    uv run python scripts/docs_contextual_check.py --files core/services/ls/*.py
+    uv run python scripts/docs_contextual_check.py --files core/services/ps/*.py
 
     # Check after git commit (via hook)
     uv run python scripts/docs_contextual_check.py --changed-files "$(git diff-tree ...)"
@@ -272,11 +272,11 @@ def find_statistical_references(query: str, docs_dir: Path) -> list[Path]:
 
 ```bash
 # 1. Developer completes work
-git add core/services/ls/ps_core_service.py
+git add core/services/ps/ps_core_service.py
 git commit -m "Add DomainConfig to PsCoreService"
 
 # 2. Git hook runs contextual check
-uv run python scripts/docs_contextual_check.py --changed-files "core/services/ls/ps_core_service.py"
+uv run python scripts/docs_contextual_check.py --changed-files "core/services/ps/ps_core_service.py"
 
 # 3. Output:
 # "🔍 Checking for related documentation...

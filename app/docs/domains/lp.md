@@ -243,7 +243,7 @@ the concept but has no structured way to embody it.
 The per-step practice analysis already works via `PsIntelligenceService`:
 
 ```python
-# These methods exist TODAY in /core/services/ls/ps_intelligence_service.py
+# These methods exist TODAY in /core/services/ps/ps_intelligence_service.py
 
 # Count practice items per step
 result = await ls_intelligence.get_practice_summary("ls:functions")

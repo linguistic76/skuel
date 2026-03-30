@@ -196,7 +196,7 @@ class ActivityCarrier(KnowledgeCarrier, Protocol):
 
 **Domain model modifications (3 methods each):**
 - `/core/models/ku/ku.py`
-- `/core/models/ls/ls.py`
+- `/core/models/pathways/path_step.py`
 - `/core/models/lp/lp.py`
 - `/core/models/moc/moc.py`
 - `/core/models/task/task.py`

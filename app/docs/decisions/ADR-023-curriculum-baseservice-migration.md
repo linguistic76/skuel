@@ -58,7 +58,7 @@ This created:
 **Code Locations:**
 - `/core/services/base_service.py` - Unified BaseService with curriculum methods
 - `/core/services/ku/ku_core_service.py` - KU service (extends BaseService)
-- `/core/services/ls/ps_core_service.py` - PS service (extends BaseService)
+- `/core/services/ps/ps_core_service.py` - PS service (extends BaseService)
 - `/core/services/lp/lp_core_service.py` - LP service (extends BaseService)
 
 ---
@@ -115,9 +115,9 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
 Facades create shared backends using `UniversalNeo4jBackend[T]` directly:
 ```python
 # PsService facade - uses UniversalNeo4jBackend directly (no wrapper)
-ls_backend = UniversalNeo4jBackend[Ls](driver, NeoLabel.PS, Ls)
-self.core = PsCoreService(backend=ls_backend, event_bus=event_bus)
-self.search = PsSearchService(backend=ls_backend)
+ps_backend = UniversalNeo4jBackend[Ls](driver, NeoLabel.PS, Ls)
+self.core = PsCoreService(backend=ps_backend, event_bus=event_bus)
+self.search = PsSearchService(backend=ps_backend)
 
 # LpService facade - uses UniversalNeo4jBackend directly (no wrapper)
 lp_backend = UniversalNeo4jBackend[Lp](driver, NeoLabel.LP, Lp)
@@ -132,7 +132,7 @@ self.search = MocSearchService(backend=moc_backend, discovery_service=self.disco
 **Phase 2c: Delete curriculum backend wrappers (January 2026)**
 
 Removed three wrapper backend files (~2,000 lines total):
-- `adapters/persistence/neo4j/ls_backend.py` (590 lines) - DELETED
+- `adapters/persistence/neo4j/ps_backend.py` (590 lines) - DELETED
 - `adapters/persistence/neo4j/lp_backend.py` (748 lines) - DELETED
 - `adapters/persistence/neo4j/moc_backend.py` (679 lines) - DELETED
 
@@ -202,7 +202,7 @@ Removed category helper methods from ParsedActivityLine and ParsedJournal:
 - **Cross-domain features** - Any domain can use prerequisite/enables/mastery tracking
 - **Massive code reduction** - ~2,800+ lines deleted:
   - 819 lines: CurriculumBaseService
-  - 590 lines: ls_backend.py
+  - 590 lines: ps_backend.py
   - 748 lines: lp_backend.py
   - 679 lines: moc_backend.py
 - **Protocol cleanup** - 11 unused protocols removed (4 dead + 7 orphaned)
@@ -224,7 +224,7 @@ Removed category helper methods from ParsedActivityLine and ParsedJournal:
 
 **Deleted Files:**
 - `core/services/curriculum_base_service.py` (819 lines)
-- `adapters/persistence/neo4j/ls_backend.py` (590 lines) - January 2026
+- `adapters/persistence/neo4j/ps_backend.py` (590 lines) - January 2026
 - `adapters/persistence/neo4j/lp_backend.py` (748 lines) - January 2026
 - `adapters/persistence/neo4j/moc_backend.py` (679 lines) - January 2026
 
@@ -241,8 +241,8 @@ Removed category helper methods from ParsedActivityLine and ParsedJournal:
 **Modified Files:**
 - `core/services/base_service.py` - Added curriculum methods (~270 lines)
 - `core/services/ku/ku_core_service.py` - Changed inheritance to BaseService
-- `core/services/ls/ps_core_service.py` - Changed inheritance to BaseService (January 2026)
-- `core/services/ls/ps_search_service.py` - Changed inheritance to BaseService
+- `core/services/ps/ps_core_service.py` - Changed inheritance to BaseService (January 2026)
+- `core/services/ps/ps_search_service.py` - Changed inheritance to BaseService
 - `core/services/ps_service.py` - Updated to use UniversalNeo4jBackend directly (January 2026)
 - `core/services/lp/lp_core_service.py` - Changed inheritance to BaseService (January 2026)
 - `core/services/lp/lp_search_service.py` - Changed inheritance to BaseService

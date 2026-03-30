@@ -58,7 +58,7 @@ the same dependency pattern.
    ordered path steps. The LP backend already has `get_paths_containing_ku()` and
    `get_ku_mastery_progress()` — use `LpBackend` to get the step sequence:
    ```cypher
-   MATCH (lp:LearningPath {uid: $uid})-[:CONTAINS_STEP {order: order}]->(ls:PathStep)
+   MATCH (lp:LearningPath {uid: $uid})-[:CONTAINS_STEP {order: order}]->(ps:PathStep)
          -[:TEACHES]->(ku:Entity)
    RETURN ku.uid, ku.title, ls.order
    ORDER BY ls.order
@@ -124,7 +124,7 @@ returns a list of KU UIDs) but then short-circuits to `Result.ok(None)`.
 | File | Method | Line |
 |------|--------|------|
 | `core/services/habits/habits_intelligence_service.py` | `get_performance_analytics()` | 142 |
-| `core/services/goals/goals_intelligence_service.py` | `get_performance_analytics()` | 173 |
+| `core/services/goals/goaps_intelligence_service.py` | `get_performance_analytics()` | 173 |
 | `core/services/choices/choices_intelligence_service.py` | `get_decision_velocity()` | 138 |
 | `core/services/principles/principles_intelligence_service.py` | `get_principle_alignment_trends()` | 145 |
 

@@ -14,7 +14,7 @@
 | Domain | File | Status |
 |--------|------|--------|
 | Tasks | `/core/services/tasks/tasks_ai_service.py` | Planned |
-| Goals | `/core/services/goals/goals_ai_service.py` | Planned |
+| Goals | `/core/services/goals/goaps_ai_service.py` | Planned |
 | KU | `/core/services/ku/ku_ai_service.py` | Planned |
 
 **Note:** Domain AI services are planned but not yet implemented (January 2026).

@@ -97,7 +97,7 @@ class UserContextIntelligenceFactory:
             "choices": choices,
             "principles": principles,
             "ku": ku,
-            "ls": ls,
+            "ps": ps,
             "lp": lp,
             "submissions": submissions,
             "report": report,

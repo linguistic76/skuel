@@ -103,7 +103,7 @@ class PsSearchService(BaseService[BackendOperations[Ls], Ls]):
     _config = create_curriculum_domain_config(
         dto_class=LsDTO,
         model_class=Ls,
-        domain_name="ls",
+        domain_name="ps",
         search_fields=("title", "description", "content"),
         category_field="domain",           # Curriculum uses "domain"
         # user_ownership_relationship=None automatically set (shared content)
@@ -280,11 +280,11 @@ class PsService(BaseService[PsOperations, Ls]):
 
     def __init__(self, driver: Neo4jDriver, event_bus: EventBus | None = None):
         # ONE backend instance
-        ls_backend = UniversalNeo4jBackend[Ls](driver, NeoLabel.PS, Ls)
+        ps_backend = UniversalNeo4jBackend[Ls](driver, NeoLabel.PS, Ls)
 
         # Shared across sub-services
-        self.core = PsCoreService(backend=ls_backend, event_bus=event_bus)
-        self.search = PsSearchService(backend=ls_backend)
+        self.core = PsCoreService(backend=ps_backend, event_bus=event_bus)
+        self.search = PsSearchService(backend=ps_backend)
 
     # Explicit delegation methods (February 2026)
     async def create_ls(self, *args: Any, **kwargs: Any) -> Any:
@@ -335,7 +335,7 @@ The unified architecture achieved significant code reduction:
 | Deleted | Lines |
 |---------|-------|
 | CurriculumBaseService | 819 |
-| ls_backend.py wrapper | 590 |
+| ps_backend.py wrapper | 590 |
 | lp_backend.py wrapper | 748 |
 | moc_backend.py wrapper | 679 |
 | Unused protocols | ~200 |

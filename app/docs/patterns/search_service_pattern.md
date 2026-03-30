@@ -618,7 +618,7 @@ Curriculum domains (PS, LP, MOC) use **standalone search services** that don't i
 
 ### PsSearchService
 
-**Location:** `/core/services/ls/ps_search_service.py`
+**Location:** `/core/services/ps/ps_search_service.py`
 
 ```python
 class PsSearchService:
@@ -708,6 +708,6 @@ class LpService:
 - `/core/models/search/search_router.py` - THE search orchestrator (One Path Forward)
 - `/core/services/goals/goal_search_service.py` - Reference implementation (uses inherited methods)
 - `/core/services/principles/principle_search_service.py` - Example of custom overrides
-- `/core/services/ls/ps_search_service.py` - Path Steps search (standalone pattern)
+- `/core/services/ps/ps_search_service.py` - Path Steps search (standalone pattern)
 - `/core/services/lp/lp_search_service.py` - Learning Paths search (standalone pattern)
 - `/core/services/moc/moc_search_service.py` - MOC search (standalone pattern template)

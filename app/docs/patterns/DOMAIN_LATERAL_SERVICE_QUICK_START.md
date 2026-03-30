@@ -21,7 +21,7 @@ For implementation guidance, see:
 
 ```bash
 # Copy the template
-cp core/services/goals/goals_lateral_service.py \
+cp core/services/goals/goaps_intelligence_service.py \
    core/services/tasks/tasks_lateral_service.py
 ```
 
@@ -371,7 +371,7 @@ class HabitsLateralService:
 
 ## Checklist
 
-- [ ] Copy goals_lateral_service.py to your domain
+- [ ] Copy goaps_intelligence_service.py to your domain
 - [ ] Find & replace domain names
 - [ ] Add domain-specific methods (if needed)
 - [ ] Import in services_bootstrap/compose.py

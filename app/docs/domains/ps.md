@@ -5,8 +5,8 @@ updated: 2026-01-11
 status: current
 category: domains
 tags:
-- ls
-- learning-step
+- ps
+- path-step
 - curriculum-domain
 - domain
 - adr-030
@@ -63,12 +63,12 @@ await ps_service.intelligence.is_ready(step_uid, completed_steps)
 | Component | Location |
 |-----------|----------|
 | Facade | `/core/services/ps_service.py` |
-| Core Service | `/core/services/ls/ps_core_service.py` |
-| Search Service | `/core/services/ls/ps_search_service.py` |
-| Intelligence Service | `/core/services/ls/ps_intelligence_service.py` |
+| Core Service | `/core/services/ps/ps_core_service.py` |
+| Search Service | `/core/services/ps/ps_search_service.py` |
+| Intelligence Service | `/core/services/ps/ps_intelligence_service.py` |
 | Backend | `PsBackend` in `/adapters/persistence/neo4j/domain_backends.py` |
-| Model | `/core/models/ls/ls.py` |
-| DTO | `/core/models/ls/ls_dto.py` |
+| Model | `/core/models/pathways/path_step.py` |
+| DTO | `/core/models/pathways/path_step_dto.py` |
 | Relationship Config | `PS_CONFIG` in `/core/models/relationship_registry.py` |
 | Factory | `/core/services/curriculum_domain_config.py` |
 

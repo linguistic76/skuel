@@ -194,7 +194,7 @@ async def assess_alignment_dual_track(
 | `core/services/base_analytics_service.py` | Add `_dual_track_assessment()` template and helpers |
 | `core/services/principles/principles_intelligence_service.py` | Add `assess_alignment_dual_track()` implementation |
 | `core/services/tasks/tasks_productivity_service.py` | `assess_productivity_dual_track()` (extracted March 2026) |
-| `core/services/goals/goals_intelligence_service.py` | Add `assess_progress_dual_track()` implementation |
+| `core/services/goals/goaps_intelligence_service.py` | Add `assess_progress_dual_track()` implementation |
 | `core/services/habits/habits_intelligence_service.py` | Add `assess_consistency_dual_track()` implementation |
 | `core/services/events/events_intelligence_service.py` | Add `assess_engagement_dual_track()` implementation |
 | `core/services/choices/choices_intelligence_service.py` | Add `assess_decision_quality_dual_track()` implementation |

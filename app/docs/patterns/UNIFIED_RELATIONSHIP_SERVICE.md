@@ -103,7 +103,7 @@ tasks_relationship_service = UnifiedRelationshipService(
 
 # Same service, same methods - different domain via configuration
 goals_relationship_service = UnifiedRelationshipService(
-    backend=goals_backend,
+    backend=goaps_backend,
     graph_intel=graph_intel,
     config=GOAPS_CONFIG,
 )

@@ -59,7 +59,7 @@ Standardize Neo4j node labels to match Python class names, aligning with CLAUDE.
 1. `services_bootstrap.py` - Backend instantiation
 2. `adapters/persistence/neo4j/query/_cypher_generator.py` - Query generation
 3. `core/services/lp/lp_*.py` - Learning path services
-4. `core/services/ls/ls_*.py` - Learning step services
+4. `core/services/ps/ps_*.py` - Path step services
 5. `core/services/ku/ku_*.py` - Knowledge unit services
 6. `core/models/relationships/relationship_registry.py` - Relationship definitions
 7. `adapters/persistence/neo4j/*.py` - Database adapters
@@ -80,7 +80,7 @@ Create automated script to replace patterns:
 REPLACEMENTS = [
     # Cypher patterns (in queries)
     (r':LearningPath\b', ':Lp'),
-    (r':PathStep\b', ':Ls'),
+    (r':PathStep\b', ':PathStep'),
     (r':Knowledge\b', ':Ku'),
 
     # String literals (backend labels)
@@ -90,7 +90,7 @@ REPLACEMENTS = [
 
     # Variable names in Cypher (optional - for clarity)
     (r'\blp:LearningPath\b', 'lp:Lp'),
-    (r'\bls:PathStep\b', 'ls:Ls'),
+    (r'\bls:PathStep\b', 'ps:PathStep'),
     (r'\bku:Knowledge\b', 'ku:Ku'),
 ]
 ```
@@ -101,12 +101,12 @@ REPLACEMENTS = [
 ```cypher
 // Add new labels to existing nodes
 MATCH (n:LearningPath) SET n:Lp;
-MATCH (n:PathStep) SET n:Ls;
+MATCH (n:PathStep) SET n:PathStep;
 MATCH (n:Knowledge) SET n:Ku;
 
 // Verify
 MATCH (n:Lp) RETURN count(n);
-MATCH (n:Ls) RETURN count(n);
+MATCH (n:PathStep) RETURN count(n);
 MATCH (n:Curriculum) RETURN count(n);
 ```
 
@@ -114,7 +114,7 @@ MATCH (n:Curriculum) RETURN count(n);
 ```cypher
 // Remove old labels after verification
 MATCH (n:Lp:LearningPath) REMOVE n:LearningPath;
-MATCH (n:Ls:PathStep) REMOVE n:PathStep;
+MATCH (n:PathStep:PathStep) REMOVE n:PathStep;
 MATCH (n:Ku:Knowledge) REMOVE n:Knowledge;
 ```
 
@@ -123,7 +123,7 @@ MATCH (n:Ku:Knowledge) REMOVE n:Knowledge;
 ```cypher
 // Create new indexes
 CREATE INDEX lp_uid IF NOT EXISTS FOR (n:Lp) ON (n.uid);
-CREATE INDEX ps_uid IF NOT EXISTS FOR (n:Ls) ON (n.uid);
+CREATE INDEX ps_uid IF NOT EXISTS FOR (n:PathStep) ON (n.uid);
 CREATE INDEX ku_uid IF NOT EXISTS FOR (n:Curriculum) ON (n.uid);
 
 // Drop old indexes (after verification)

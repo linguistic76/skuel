@@ -90,7 +90,7 @@ WHERE NOT (u)-[:COMPLETED]->(path)
   AND ($domain IS NULL OR path.domain = $domain)  // Optional domain filter
 
 // STEP 4: Get path steps and knowledge
-MATCH (path)-[:HAS_STEP]->(step:Ls)
+MATCH (path)-[:HAS_STEP]->(step:PathStep)
 MATCH (k:Curriculum {uid: step.knowledge_uid})
 
 // STEP 5: Find prerequisites using semantic relationships (helper subquery)

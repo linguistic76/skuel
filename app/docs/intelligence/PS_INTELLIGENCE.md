@@ -3,7 +3,7 @@
 ## Overview
 
 **Architecture:** Extends `BaseAnalyticsService[BackendOperations[Ls], Ls]`
-**Location:** `/core/services/ls/ps_intelligence_service.py`
+**Location:** `/core/services/ps/ps_intelligence_service.py`
 **Service Name:** `ls.intelligence`
 **Lines:** ~530
 
@@ -396,7 +396,7 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.ls.intelligence
 ```python
 # PsService creates intelligence internally
 ps_service = PsService(
-    backend=ls_backend,
+    backend=ps_backend,
     graph_intelligence_service=graph_intelligence,
     relationship_service=relationship_service,
     event_bus=event_bus,
@@ -501,7 +501,7 @@ Unlike Activity Domain intelligence services that use shared utilities, PsIntell
 ```python
 # All methods use GraphQueryExecutor
 return await self.executor.execute(
-    query="MATCH (ls:Ls {uid: $ps_uid})...",
+    query="MATCH (ps:PathStep {uid: $ps_uid})...",
     params={"ps_uid": ps_uid},
     processor=lambda records: ...,
     operation="method_name"
@@ -571,6 +571,6 @@ async def test_practice_completeness_score():
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
 - `/core/services/base_intelligence_service.py` - Base implementation
-- `/core/services/ls/ps_service.py` - PsService facade
+- `/core/services/ps/ps_service.py` - PsService facade
 - `/core/services/graph_query_executor.py` - GraphQueryExecutor pattern
 - `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - Path Step architecture
