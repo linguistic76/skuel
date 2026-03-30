@@ -20,7 +20,7 @@ The ingestion system supports two file formats. Use the one that matches the ent
 | Format | Extension | Best For | How Content Works |
 |--------|-----------|----------|-------------------|
 | **YAML** | `.yaml` | Kus, LS, LP, activities, edges | All fields in YAML. Content (if any) is a `content: \|` string block. |
-| **Markdown** | `.md` | Lessons | Metadata in YAML frontmatter (`---` delimiters). Markdown body automatically becomes the `content` field. |
+| **Markdown** | `.md` | Lessons | Metadata in YAML frontmatter (`---` delimiters), **must include `type: Lesson`**. Markdown body automatically becomes the `content` field. |
 
 **Why this split?** Lessons are content-heavy — long prose, headers, lists, emphasis. Writing that inside a YAML `|` block is awkward to author and impossible to preview in Obsidian. Everything else is metadata-heavy with little or no prose, so YAML is cleaner.
 
@@ -78,6 +78,37 @@ tags:
   - practice
 ```
 
+### Exercise YAML Example
+
+```yaml
+version: 1.0
+type: Exercise
+
+uid: ex:sel:know-yourself-check-in
+title: Know Yourself Check-In
+description: A structured self-awareness exercise
+scope: personal
+model: claude-sonnet-4-6
+mastery_impact: moderate
+sel_category: SELF_AWARENESS
+learning_level: BEGINNER
+tags: [self-awareness, reflection]
+
+instructions: |
+  You are a self-awareness coach. Review the student's responses
+  and provide warm, specific feedback. Keep it to 3-5 sentences.
+
+form_schema:
+  - name: emotion_check
+    type: textarea
+    label: "Name one emotion you felt strongly today. What triggered it?"
+    required: true
+  - name: daily_habit
+    type: text
+    label: "What daily habit will you build to increase self-awareness?"
+    required: true
+```
+
 ---
 
 ## Entity Structure
@@ -93,12 +124,13 @@ title: My Task Title    # Display title
 
 ### Ingestible Entity Types
 
-12 of SKUEL's 21 entity types are file-ingestible. The remaining 9 (Exercise, RevisedExercise, Resource, FormTemplate, FormSubmission, JeInput, JeOutput, ExerciseReport, ActivityReport) are created via API or internal pipelines.
+13 of SKUEL's 21 entity types are file-ingestible. The remaining 8 (RevisedExercise, Resource, FormTemplate, FormSubmission, JeInput, JeOutput, ExerciseReport, ActivityReport) are created via API or internal pipelines.
 
 | Type Value | Aliases | Prefix | Example UID |
 |------------|---------|--------|-------------|
 | `Ku` | — | `ku:` | `ku:attention:buzzing` |
 | `Lesson` | `Article`, `KnowledgeUnit` | `l:` | `l:mindfulness:breath-awareness-basics` |
+| `Exercise` | — | `ex:` | `ex:sel:know-yourself-check-in` |
 | `LearningStep` | `ls` | `ls:` | `ls:mindfulness-101:step-1` |
 | `LearningPath` | `lp` | `lp:` | `lp:mindfulness-101` |
 | `Task` | — | `task:` | `task:log-first-5-sessions` |
@@ -114,7 +146,7 @@ title: My Task Title    # Display title
 
 The `type` value is case-insensitive. Aliases resolve to the canonical type during ingestion.
 
-**UID format:** `prefix:slug` or `prefix:namespace:slug`. Colons are normalized to dots internally (`ku:attention:buzzing` becomes `ku.attention.buzzing` in Neo4j).
+**UID format:** `prefix:slug` or `prefix:namespace:slug`. Colons are normalized to dots internally (`ku:attention:buzzing` becomes `ku.attention.buzzing` in Neo4j). **UID prefix validation:** Explicit UIDs must start with the correct prefix for their entity type (e.g., `l:` for Lessons, `ku:` for Kus, `ex:` for Exercises). A mismatched prefix is rejected during ingestion.
 
 **What happens during ingestion:** The `type` field determines which Neo4j labels the node gets (e.g., `type: Task` creates a node with `:Entity:Task` labels) and sets the `entity_type` property on the node (e.g., `entity_type: "task"`). The `type` field itself is not stored — it is translated into labels and properties.
 
@@ -596,6 +628,6 @@ YAML Author writes type + connections.*
 | `core/services/ingestion/detector.py` | `TYPE_MAPPING`: YAML `type` string → `EntityType` enum |
 | `core/services/ingestion/config.py` | `ENTITY_CONFIGS`: `EntityType` → Neo4j label, UID prefix, required fields |
 | `core/services/ingestion/preparer.py` | Data preparation: strip YAML metadata, inject `entity_type`, normalize UIDs |
-| `core/services/ingestion/validator.py` | Required field and data validation |
+| `core/services/ingestion/validator.py` | Required field validation, UID format validation, data validation |
 | `core/ingestion/bulk_ingestion.py` | Cypher generation and Neo4j writes |
 | `core/models/relationship_registry.py` | `yaml_field_path` → relationship type mappings |

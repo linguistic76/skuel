@@ -414,11 +414,12 @@ print(DEFAULT_USER_UID)  # "user:admin" or "user:system"
 
 ### Markdown Files (.md)
 
-Best for text-heavy content like Knowledge Units:
+Best for text-heavy content like Lessons. **Requires an explicit `type` field in frontmatter** — markdown files without a `type` field are rejected:
 
 ```yaml
-# /docs/ku.machine-learning.md
+# /docs/l.machine-learning.md
 ---
+type: Lesson
 title: Machine Learning
 domain: tech
 tags: [ml, ai, algorithms]
@@ -465,6 +466,7 @@ connections:
 | Entity Type | Prefix | Neo4j Labels | Required Fields | Example File |
 |-------------|--------|-------------|-----------------|--------------|
 | `lesson` | `l.` | `:Entity:Lesson` | title, content | `l.intro-python.md` |
+| `exercise` | `ex.` | `:Entity:Exercise` | title, instructions | `exercise_know-yourself.yaml` |
 | `ku` | `ku.` | `:Entity:Ku` | title | `ku.python-basics.md` |
 | `ls` | `ls.` | `:Entity:LearningStep` | title | `ls.learn-variables.yaml` |
 | `lp` | `lp.` | `:Entity:LearningPath` | name | `lp.python-journey.yaml` |
@@ -484,11 +486,15 @@ connections:
 
 ### Entity Type Detection
 
-The service auto-detects entity type from:
-1. **Explicit `type` field** in YAML frontmatter
-2. **UID prefix** (e.g., `ku.name` → KU)
-3. **File name prefix** (e.g., `ku.name.md` → KU)
-4. **`moc: true` flag** → MOC
+The service detects entity type from:
+1. **Explicit `type` field** in YAML or markdown frontmatter (required — no silent defaults)
+2. **`moc: true` flag** in markdown frontmatter → LESSON
+
+**No implicit defaults:** Markdown files without an explicit `type` field are rejected. YAML files require an explicit `type` field.
+
+### UID Format Validation
+
+Explicit UIDs in vault files are validated against the expected prefix for their entity type. A `type: Lesson` file with `uid: ku.something` is rejected — the prefix must match (e.g., `l.` for Lessons, `ku.` for Kus, `ex.` for Exercises). If no UID is declared, one is auto-generated from the filename with the correct prefix.
 
 ---
 
