@@ -19,13 +19,13 @@ import contextlib
 import json
 from typing import Any
 
-from fasthtml.common import H3, Div, NotStr, P, Request, Small, Span
+from fasthtml.common import H3, Div, NotStr, P, Request, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from core.models.enums.submissions_enums import ExerciseScope
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
-from ui.buttons import Button, ButtonLink, ButtonT
+from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.exercises.inline_form import render_inline_exercise_form
 from ui.feedback import Badge, BadgeT
@@ -107,41 +107,6 @@ def _exercises_for_ku_section(exercises: list[dict]) -> Any:
         ),
         Div(*rows, cls="space-y-2"),
         cls="border-t border-border pt-6 mt-8",
-    )
-
-
-def _nav_button(ku: dict | None, direction: str) -> Any:
-    """Render a navigation button (previous or next)."""
-    if not ku:
-        label = f"{'Previous' if direction == 'prev' else 'Next'}"
-        return Button(
-            f"{'←' if direction == 'prev' else ''} {label} {'→' if direction == 'next' else ''}",
-            variant=ButtonT.outline,
-            disabled=True,
-        )
-
-    label = ku.get("title", "...")
-    if len(label) > 40:
-        label = label[:37] + "..."
-
-    if direction == "prev":
-        return ButtonLink(
-            Div(
-                Small("Previous", cls="text-xs text-muted-foreground"),
-                Div(f"← {label}", cls="text-sm"),
-                cls="text-left",
-            ),
-            href=f"/ku/{ku.get('uid')}",
-            variant=ButtonT.outline,
-        )
-    return ButtonLink(
-        Div(
-            Small("Next", cls="text-xs text-muted-foreground"),
-            Div(f"{label} →", cls="text-sm"),
-            cls="text-right",
-        ),
-        href=f"/ku/{ku.get('uid')}",
-        variant=ButtonT.outline,
     )
 
 
@@ -290,11 +255,11 @@ async def _render_ku_detail(
 def create_ku_reading_ui_routes(
     app: Any,
     rt: Any,
-    lesson_service: Any,
     ku_service: Any,
     ku_interaction_service: Any,
     exercises_service: Any,
     form_template_service: Any = None,
+    **_kwargs: Any,
 ) -> list[Any]:
     """
     Create KU reading UI routes.
@@ -302,7 +267,6 @@ def create_ku_reading_ui_routes(
     Args:
         app: FastHTML app instance
         rt: FastHTML route decorator
-        lesson_service: Lesson service facade (for Lesson entities with rich content)
         ku_service: KuService facade (for atomic Ku entities)
         ku_interaction_service: Interaction tracking service
         exercises_service: Exercise service (for REQUIRES_KNOWLEDGE reverse lookup)
@@ -314,31 +278,13 @@ def create_ku_reading_ui_routes(
 
     @rt("/ku/{uid}")
     async def ku_detail_page(request: Request, uid: str) -> Any:
-        """
-        KU detail page with full reading interface.
-
-        Handles both Lesson entities (rich content with TOC, organizers, mastery)
-        and atomic Ku entities (description-based content, simpler layout).
-        """
+        """KU detail page — renders atomic Ku entities from KuService."""
         user_uid = require_authenticated_user(request)
 
-        # Try Lesson first (has rich content), then fall back to atomic Ku
-        ku_result = await lesson_service.get_with_content(uid)
+        # Fetch atomic Ku
+        ku_result = await ku_service.get_ku(uid) if ku_service else None
 
-        # If not found as Lesson, try atomic Ku
-        if ku_result.is_error and ku_service:
-            ku_atom_result = await ku_service.get_ku(uid)
-            if ku_atom_result.is_ok and ku_atom_result.value:
-                ku_atom = ku_atom_result.value
-                # Atomic Kus use description as content
-                content_body = ku_atom.description or ""
-                return await _render_ku_detail(
-                    request, ku_atom, content_body, uid, user_uid,
-                    ku_interaction_service, exercises_service, form_template_service,
-                )
-
-        # Not found in either service
-        if ku_result.is_error:
+        if not ku_result or ku_result.is_error or not ku_result.value:
             return await BasePage(
                 content=Div(
                     Card(
@@ -360,188 +306,12 @@ def create_ku_reading_ui_routes(
                 request=request,
             )
 
-        ku, content_body = ku_result.value
+        ku = ku_result.value
+        content_body = ku.description or ""
 
-        # Record view
-        await ku_interaction_service.record_view(user_uid, uid)
-
-        # Get learning state (includes marked-as-read and bookmark status)
-        state_result = await ku_interaction_service.get_learning_state(user_uid, uid)
-        is_marked_read = state_result.value.is_marked_as_read if state_result.is_ok else False
-        is_bookmarked = state_result.value.is_bookmarked if state_result.is_ok else False
-        view_count = state_result.value.view_count if state_result.is_ok else 0
-
-        # Exercises that practice this knowledge (Ku -> Exercise loop)
-        exercises_result = await exercises_service.get_exercises_for_curriculum(uid)
-        exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
-
-        # FormTemplates embedded in this lesson (EMBEDS_FORM)
-        form_templates_for_lesson: list[dict] = []
-        if form_template_service:
-            ft_result = await form_template_service.get_for_lesson(uid)
-            form_templates_for_lesson = ft_result.value if ft_result.is_ok else []
-
-        # Get organization context for breadcrumbs + navigation
-        organizers_result = await ku_service.find_organizers(uid)
-        mocs = organizers_result.value if organizers_result.is_ok else []
-
-        # Build navigation from siblings under parent organizer
-        prev_ku = None
-        next_ku = None
-        if mocs:
-            moc = mocs[0]
-            moc_uid = moc.get("uid")
-            moc_view_result = await ku_service.get_organization_view(moc_uid, max_depth=1)
-            if moc_view_result.is_ok:
-                children = moc_view_result.value.children
-                current_idx = None
-                for idx, child in enumerate(children):
-                    if child.uid == uid:
-                        current_idx = idx
-                        break
-                if current_idx is not None:
-                    if current_idx > 0:
-                        prev_child = children[current_idx - 1]
-                        prev_ku = {"uid": prev_child.uid, "title": prev_child.title}
-                    if current_idx < len(children) - 1:
-                        next_child = children[current_idx + 1]
-                        next_ku = {"uid": next_child.uid, "title": next_child.title}
-
-        # Build breadcrumbs
-        breadcrumb_path = [
-            {"uid": "knowledge", "title": "Knowledge", "url": "/ku"},
-        ]
-        if mocs:
-            moc = mocs[0]
-            breadcrumb_path.append(
-                {
-                    "uid": moc.get("uid"),
-                    "title": moc.get("title", "MOC"),
-                    "url": f"/moc/{moc.get('uid')}",
-                }
-            )
-        breadcrumb_path.append({"uid": uid, "title": ku.title, "url": ""})
-
-        # Render markdown content with TOC
-        content_html, toc_html = render_markdown_with_toc(content_body or "")
-        has_toc = bool(toc_html and toc_html.strip())
-
-        # Action buttons
-        mark_read_btn = Button(
-            "Marked as Read" if is_marked_read else "Mark as Read",
-            variant=ButtonT.success if is_marked_read else ButtonT.primary,
-            size=Size.sm,
-            hx_post=f"/api/ku/{uid}/mark-read",
-            hx_swap="outerHTML",
-            hx_target="this",
-            disabled=is_marked_read,
-        )
-
-        bookmark_btn = Button(
-            "Bookmarked" if is_bookmarked else "Bookmark",
-            variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
-            size=Size.sm,
-            hx_post=f"/api/ku/{uid}/bookmark",
-            hx_swap="outerHTML",
-            hx_target="this",
-        )
-
-        # Metadata badges
-        metadata_items = []
-        if ku.domain:
-            domain_label = getattr(ku.domain, "value", str(ku.domain))
-            metadata_items.append(_metadata_badge("Domain:", domain_label, BadgeT.primary))
-        if ku.complexity:
-            metadata_items.append(_metadata_badge("Complexity:", ku.complexity))
-        if view_count > 0:
-            metadata_items.append(_metadata_badge("Views:", str(view_count)))
-
-        metadata_section = (
-            Div(*metadata_items, cls="flex flex-wrap gap-2") if metadata_items else None
-        )
-
-        # Tags
-        tags_section = None
-        if ku.tags:
-            tag_badges = [Badge(tag, variant=BadgeT.outline, size=Size.sm) for tag in ku.tags]
-            tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mt-3")
-
-        # Reading content (markdown only — TOC is separate)
-        reading_content = Div(
-            NotStr(content_html or "No content available."),
-            cls="prose prose-lg max-w-none",
-        )
-
-        # Navigation bar
-        nav_section = Div(
-            Div(
-                _nav_button(prev_ku, "prev"),
-                _nav_button(next_ku, "next"),
-                cls="flex justify-between",
-            ),
-            cls="border-t border-border pt-6 mt-8",
-        )
-
-        # Build metadata footer (below content, not competing with reading)
-        metadata_footer_items = []
-        if metadata_section:
-            metadata_footer_items.append(metadata_section)
-        if tags_section:
-            metadata_footer_items.append(tags_section)
-
-        metadata_footer = (
-            Div(*metadata_footer_items, cls="border-t border-border pt-6 mt-8")
-            if metadata_footer_items
-            else Div()
-        )
-
-        # Main content column — breadcrumbs, content, actions, metadata, nav
-        main_column = Div(
-            Breadcrumbs(path=breadcrumb_path, show_home=False),
-            reading_content,
-            # Actions at the bottom of reading area
-            Div(
-                mark_read_btn,
-                bookmark_btn,
-                cls="flex gap-2 border-t border-border pt-6 mt-8",
-            ),
-            metadata_footer,
-            nav_section,
-            _exercises_for_ku_section(exercises_for_ku),
-            _form_templates_section(form_templates_for_lesson),
-            Div(
-                EntityRelationshipsSection(
-                    entity_uid=uid,
-                    entity_type="ku",
-                ),
-                cls="mt-8",
-            ),
-            cls="flex-1 min-w-0 max-w-4xl mx-auto px-6 lg:px-8 py-4 lg:py-6",
-        )
-
-        if has_toc:
-            # Two-column layout: TOC pinned left, content centered
-            toc_sidebar = Div(
-                Div(
-                    H3("Contents", cls="font-semibold text-sm mb-3"),
-                    Div(
-                        NotStr(toc_html),
-                        cls="prose prose-sm max-w-none toc-nav",
-                    ),
-                    cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
-                ),
-                cls="hidden lg:block w-56 shrink-0 border-r border-border",
-            )
-            content = Div(toc_sidebar, main_column, cls="flex")
-        else:
-            content = main_column
-
-        return await BasePage(
-            content=content,
-            title=ku.title,
-            request=request,
-            active_page="pathways",
-            page_type=PageType.CUSTOM,
+        return await _render_ku_detail(
+            request, ku, content_body, uid, user_uid,
+            ku_interaction_service, exercises_service, form_template_service,
         )
 
     logger.info("KU reading UI routes registered: /ku/{uid}")

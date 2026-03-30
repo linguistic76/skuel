@@ -36,7 +36,6 @@ def _ku_reading_ui_factory(
     return create_ku_reading_ui_routes(
         app=app,
         rt=rt,
-        lesson_service=lesson_service,
         ku_service=kwargs.get("ku_service"),
         ku_interaction_service=lesson_service.mastery,
         exercises_service=kwargs.get("exercises_service"),
