@@ -2201,6 +2201,50 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         """
         return await self.execute_query(query, {"ku_uid": ku_uid})
 
+    # ========================================================================
+    # LEARNING STATE (Ku-native — no LessonService dependency)
+    # ========================================================================
+
+    async def mark_as_read(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Mark a Ku as read by the user."""
+        query = """
+        MATCH (user:User {uid: $user_uid})
+        MATCH (ku:Entity:Ku {uid: $ku_uid})
+        MERGE (user)-[r:MARKED_AS_READ]->(ku)
+        ON CREATE SET r.marked_at = datetime()
+        RETURN ku.uid AS uid
+        """
+        return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
+
+    async def is_marked_as_read(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[bool]:
+        """Check if a Ku has been marked as read by the user."""
+        query = """
+        MATCH (user:User {uid: $user_uid})-[:MARKED_AS_READ]->(ku:Entity:Ku {uid: $ku_uid})
+        RETURN count(*) > 0 AS is_read
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        return Result.ok(records[0]["is_read"] if records else False)
+
+    async def mark_mastered(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Mark a Ku as mastered by the user (stub for future mastery logic)."""
+        query = """
+        MATCH (user:User {uid: $user_uid})
+        MATCH (ku:Entity:Ku {uid: $ku_uid})
+        MERGE (user)-[r:MASTERED]->(ku)
+        ON CREATE SET r.mastered_at = datetime()
+        RETURN ku.uid AS uid
+        """
+        return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
+
 
 class LsBackend(UniversalNeo4jBackend[LearningStep]):
     """

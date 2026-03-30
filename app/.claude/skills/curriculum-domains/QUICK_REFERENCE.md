@@ -58,17 +58,20 @@
 | Lesson | `adapters/inbound/lesson_routes.py` (LessonService) |
 | Lesson UI | `adapters/inbound/lesson_ui.py` (detail page, discovery, analytics) |
 | Lesson Listing | `adapters/inbound/curriculum_hub_ui.py` (`/lessons` browser with enrollment) |
-| KU | `adapters/inbound/ku_routes.py` (KuService — serves /ku index) |
-| KU Reading UI | `adapters/inbound/ku_reading_ui.py` (`/ku/{uid}` detail with content) |
-| KU Reading API | `adapters/inbound/ku_reading_api.py` (mark-read, bookmark, navigation) |
+| KU | `adapters/inbound/ku_routes.py` + `ku_ui.py` (KuService — index, detail, mark-read) |
 | LS + LP | `adapters/inbound/pathways_routes.py` |
 
 **Lesson UI Routes:**
 - `GET /lessons` — Lesson browser with enrollment buttons (Start Lesson / In Progress / Mastered)
 - `GET /lesson/{uid}/details` — Full lesson reading page (markdown + TOC sidebar + metadata + actions)
 - `POST /api/lesson/{uid}/start` — Start a lesson (marks IN_PROGRESS via `LessonMasteryService`)
-- `POST /api/ku/{uid}/mark-read` — Mark lesson/KU as read
-- `POST /api/ku/{uid}/bookmark` — Toggle bookmark
+- `POST /api/lesson/{uid}/mark-read` — Mark lesson as read
+- `POST /api/lesson/{uid}/bookmark` — Toggle lesson bookmark
+
+**Ku UI Routes:**
+- `GET /ku` — Knowledge index with bookmarks sidebar
+- `GET /ku/{uid}` — Ku detail page (description content, metadata, exercises)
+- `POST /api/ku/{uid}/mark-read` — Mark Ku as read (Ku-native, via KuBackend)
 
 **Note**: Ku has its own dedicated route config (`KU_CONFIG` in `ku_routes.py`), separate from Lesson routes. No separate `ls_routes.py`, `lp_routes.py`, or `moc_routes.py` files exist.
 

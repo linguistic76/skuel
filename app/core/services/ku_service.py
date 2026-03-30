@@ -183,6 +183,21 @@ class KuService:
         return await self.backend.get_lessons_using(ku_uid)
 
     # =========================================================================
+    # LEARNING STATE (Ku-native — no LessonService dependency)
+    # =========================================================================
+
+    async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
+        """Mark a Ku as read by the user."""
+        result = await self.backend.mark_as_read(user_uid, ku_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(True)
+
+    async def is_marked_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
+        """Check if a Ku has been marked as read by the user."""
+        return await self.backend.is_marked_as_read(user_uid, ku_uid)
+
+    # =========================================================================
     # QUERY LAYER (FilteredContextProvider)
     # =========================================================================
 

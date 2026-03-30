@@ -299,7 +299,7 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
             "Marked as Read" if is_marked_read else "Mark as Read",
             variant=ButtonT.success if is_marked_read else ButtonT.primary,
             size=Size.sm,
-            hx_post=f"/api/ku/{uid}/mark-read",
+            hx_post=f"/api/lesson/{uid}/mark-read",
             hx_swap="outerHTML",
             hx_target="this",
             disabled=is_marked_read,
@@ -309,7 +309,7 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
             "Bookmarked" if is_bookmarked else "Bookmark",
             variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
             size=Size.sm,
-            hx_post=f"/api/ku/{uid}/bookmark",
+            hx_post=f"/api/lesson/{uid}/bookmark",
             hx_swap="outerHTML",
             hx_target="this",
         )
@@ -374,6 +374,54 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
             )
 
         return Badge("In Progress", variant=BadgeT.secondary, size=Size.sm)
+
+    @rt("/api/lesson/{uid}/mark-read", methods=["POST"])
+    async def mark_lesson_as_read(request: Request, uid: str) -> Any:
+        """Mark lesson as read. Returns updated button HTML for HTMX swap."""
+        user_uid = require_authenticated_user(request)
+
+        result = await lesson_service.mastery.mark_as_read(user_uid, uid)
+
+        if result.is_error:
+            return Button(
+                "Error",
+                variant=ButtonT.error,
+                size=Size.sm,
+                disabled=True,
+            )
+
+        return Button(
+            "Marked as Read",
+            variant=ButtonT.success,
+            size=Size.sm,
+            disabled=True,
+        )
+
+    @rt("/api/lesson/{uid}/bookmark", methods=["POST"])
+    async def toggle_lesson_bookmark(request: Request, uid: str) -> Any:
+        """Toggle lesson bookmark. Returns updated button HTML for HTMX swap."""
+        user_uid = require_authenticated_user(request)
+
+        result = await lesson_service.mastery.toggle_bookmark(user_uid, uid)
+
+        if result.is_error:
+            return Button(
+                "Error",
+                variant=ButtonT.error,
+                size=Size.sm,
+                disabled=True,
+            )
+
+        is_bookmarked = result.value
+
+        return Button(
+            "Bookmarked" if is_bookmarked else "Bookmark",
+            variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
+            size=Size.sm,
+            hx_post=f"/api/lesson/{uid}/bookmark",
+            hx_swap="outerHTML",
+            hx_target="this",
+        )
 
     @rt("/lesson/{uid}/edit")
     async def lesson_edit_form(_request, uid: str) -> Any:

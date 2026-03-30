@@ -1,27 +1,76 @@
 """
-Ku UI Routes — Knowledge Index with Bookmarks Sidebar
-=====================================================
+Ku UI Routes — Knowledge Index + Detail Page + API
+====================================================
 
-The /ku page shows a flat listing of all Knowledge Units with:
-- Sidebar: Bookmarked Kus + Latest Kus
-- Main: Full Ku listing with pin buttons and category badges
+All Ku routes in one file, backed by KuService only (no LessonService dependency).
 
-KuService is the primary service (not LessonService).
+Routes:
+- GET  /ku           — Knowledge index with bookmarks sidebar
+- GET  /ku/{uid}     — Ku detail page with content, metadata, exercises
+- POST /api/ku/{uid}/mark-read — Mark Ku as read (returns updated button)
 """
 
+import json
 from typing import Any
 
+from fasthtml.common import H3, Div, Li, NotStr, P, Request, Span, Ul
 from fasthtml.common import A as Anchor
-from fasthtml.common import Div, Li, P, Ul
 
+from adapters.inbound.auth import is_authenticated, require_authenticated_user
+from core.models.enums.submissions_enums import ExerciseScope
 from core.models.ku.ku import Ku
 from core.utils.logging import get_logger
+from core.utils.markdown_renderer import render_markdown_with_toc
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.cards import Card, CardBody
+from ui.exercises.inline_form import render_inline_exercise_form
 from ui.feedback import Badge, BadgeT
+from ui.forms.inline_form_template import render_inline_form_template
+from ui.layout import Size
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
+from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.pin_button import PinButton
+from ui.patterns.relationships import EntityRelationshipsSection
 from ui.patterns.sidebar import SidebarItem, SidebarLink, SidebarPage
 
 logger = get_logger("skuel.routes.ku.ui")
+
+
+# =============================================================================
+# Shared helpers
+# =============================================================================
+
+
+def _metadata_badge(label: str, value: str, variant: BadgeT = BadgeT.ghost) -> Any:
+    """Render a metadata badge."""
+    return Badge(
+        Span(label, cls="font-medium mr-1"),
+        value,
+        variant=variant,
+        cls="gap-1",
+    )
+
+
+def _parse_form_schema(raw: Any) -> list[dict] | None:
+    """Parse form_schema from Neo4j (may be JSON string, list, or None)."""
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, list) and parsed else None
+        except (json.JSONDecodeError, TypeError):
+            return None
+    if isinstance(raw, list) and raw:
+        return raw
+    return None
+
+
+# =============================================================================
+# Index page helpers
+# =============================================================================
 
 
 def _render_ku_row(ku: Ku, pinned_uids: set[str]) -> Any:
@@ -68,12 +117,11 @@ def _build_sidebar_items(
     latest_kus: list[Ku],
 ) -> tuple[list[SidebarItem], list[Any]]:
     """Build sidebar items: Bookmarks section + Latest section."""
+    from fasthtml.common import H4
+
     items: list[SidebarItem] = [
         SidebarItem(label="All Knowledge", href="/ku", slug="all"),
     ]
-
-    # Extra sidebar sections for bookmarks and latest
-    from fasthtml.common import H4
 
     extra_sections: list[Any] = []
 
@@ -123,21 +171,110 @@ def _build_sidebar_items(
     return items, extra_sections
 
 
-def create_ku_ui_routes(_app, rt, ku_service, user_relationship_service=None):
+# =============================================================================
+# Detail page helpers
+# =============================================================================
+
+
+def _exercises_for_ku_section(exercises: list[dict]) -> Any:
+    """Exercises that practice this knowledge — Ku -> Exercise loop entry point."""
+    if not exercises:
+        return Div()
+
+    rows = []
+    for e in exercises:
+        form_schema = _parse_form_schema(e.get("form_schema"))
+
+        if form_schema:
+            rows.append(
+                render_inline_exercise_form(
+                    exercise_uid=e.get("uid", ""),
+                    form_schema=form_schema,
+                    exercise_title=e.get("title"),
+                )
+            )
+        else:
+            scope = e.get("scope", "personal")
+            scope_variant = BadgeT.secondary if scope == ExerciseScope.ASSIGNED else BadgeT.ghost
+            due = e.get("due_date")
+            due_span = Span(f" · due {due}", cls="text-xs text-muted-foreground") if due else None
+            row_parts: list[Any] = [
+                Span(e.get("title", "Untitled Exercise"), cls="text-sm font-medium"),
+                Badge(scope.title(), variant=scope_variant, size=Size.sm, cls="ml-2"),
+            ]
+            if due_span:
+                row_parts.append(due_span)
+            rows.append(Div(*row_parts, cls="flex items-center py-1.5"))
+
+    return Div(
+        H3("Practice This Knowledge", cls="text-base font-semibold mb-3"),
+        P(
+            "These exercises develop understanding of this knowledge unit.",
+            cls="text-sm text-muted-foreground mb-3",
+        ),
+        Div(*rows, cls="space-y-2"),
+        cls="border-t border-border pt-6 mt-8",
+    )
+
+
+def _form_templates_section(form_templates: list[dict]) -> Any:
+    """Render embedded FormTemplates as inline forms."""
+    if not form_templates:
+        return Div()
+
+    rows = []
+    for ft in form_templates:
+        form_schema = _parse_form_schema(ft.get("form_schema"))
+        if form_schema:
+            rows.append(
+                render_inline_form_template(
+                    form_template_uid=ft.get("uid", ""),
+                    form_schema=form_schema,
+                    title=ft.get("title"),
+                    instructions=ft.get("instructions"),
+                )
+            )
+
+    if not rows:
+        return Div()
+
+    return Div(
+        H3("Forms", cls="text-base font-semibold mb-3"),
+        Div(*rows, cls="space-y-4"),
+        cls="border-t border-border pt-6 mt-8",
+    )
+
+
+# =============================================================================
+# Route factory
+# =============================================================================
+
+
+def create_ku_ui_routes(
+    _app: Any,
+    rt: Any,
+    ku_service: Any,
+    user_relationship_service: Any = None,
+    exercises_service: Any = None,
+    form_template_service: Any = None,
+) -> list[Any]:
     """
-    Create /ku UI routes using KuService.
+    Create all /ku UI + API routes using KuService.
 
     Args:
-        ku_service: The actual KuService (services.ku), NOT LessonService.
+        ku_service: KuService (services.ku) — NOT LessonService.
         user_relationship_service: UserRelationshipService for pinned Kus.
+        exercises_service: Exercise service (for REQUIRES_KNOWLEDGE reverse lookup).
+        form_template_service: FormTemplate service (for EMBEDS_FORM reverse lookup).
     """
 
-    logger.info("Ku UI routes registered (/ku index)")
+    # -----------------------------------------------------------------
+    # GET /ku — Knowledge index
+    # -----------------------------------------------------------------
 
     @rt("/ku")
-    async def ku_index(request) -> Any:
+    async def ku_index(request: Request) -> Any:
         """Main Ku index — flat listing with bookmarks/latest sidebar."""
-        from adapters.inbound.auth import is_authenticated, require_authenticated_user
         from ui.patterns.page_header import PageHeader
 
         # Fetch all Kus
@@ -166,7 +303,7 @@ def create_ku_ui_routes(_app, rt, ku_service, user_relationship_service=None):
         ku_by_uid = {ku.uid: ku for ku in kus}
         pinned_kus = [ku_by_uid[uid] for uid in pinned_uids if uid in ku_by_uid]
 
-        # Latest Kus (first 5 from the list — already sorted by created_at desc from service)
+        # Latest Kus (first 5 from the list)
         latest_kus = kus[:5]
 
         # Build sidebar
@@ -209,6 +346,195 @@ def create_ku_ui_routes(_app, rt, ku_service, user_relationship_service=None):
             active_page="knowledge",
             title_href="/ku",
         )
+
+    # -----------------------------------------------------------------
+    # GET /ku/{uid} — Ku detail page
+    # -----------------------------------------------------------------
+
+    @rt("/ku/{uid}")
+    async def ku_detail_page(request: Request, uid: str) -> Any:
+        """Ku detail page — renders atomic Ku entities from KuService."""
+        user_uid = require_authenticated_user(request)
+
+        # Fetch atomic Ku
+        ku_result = await ku_service.get_ku(uid) if ku_service else None
+
+        if not ku_result or ku_result.is_error or not ku_result.value:
+            return await BasePage(
+                content=Div(
+                    Card(
+                        CardBody(
+                            H3("Knowledge Unit Not Found", cls="text-lg font-bold"),
+                            P(f"No KU with identifier: {uid}", cls="text-muted-foreground mt-2"),
+                            ButtonLink(
+                                "← Back to Knowledge",
+                                href="/ku",
+                                variant=ButtonT.ghost,
+                                size=Size.sm,
+                                cls="mt-4",
+                            ),
+                        ),
+                    ),
+                    cls="max-w-4xl mx-auto p-8",
+                ),
+                title="KU Not Found",
+                request=request,
+            )
+
+        ku = ku_result.value
+        content_body = ku.description or ""
+
+        # Check mark-as-read state
+        is_marked_read = False
+        read_result = await ku_service.is_marked_as_read(user_uid, uid)
+        if read_result.is_ok:
+            is_marked_read = read_result.value
+
+        # Check bookmark state
+        is_pinned = False
+        if user_relationship_service:
+            pins_result = await user_relationship_service.get_pinned_entities(user_uid)
+            if pins_result.is_ok and pins_result.value:
+                is_pinned = uid in set(pins_result.value)
+
+        # Render markdown content with TOC
+        content_html, toc_html = render_markdown_with_toc(content_body)
+        has_toc = bool(toc_html and toc_html.strip())
+
+        # Metadata badges
+        metadata_items = []
+        if getattr(ku, "domain", None):
+            domain_label = getattr(ku.domain, "value", str(ku.domain))
+            metadata_items.append(_metadata_badge("Domain:", domain_label, BadgeT.primary))
+        if getattr(ku, "namespace", None):
+            metadata_items.append(_metadata_badge("Namespace:", ku.namespace))
+        if getattr(ku, "ku_category", None):
+            metadata_items.append(_metadata_badge("Category:", ku.ku_category))
+
+        metadata_section = (
+            Div(*metadata_items, cls="flex flex-wrap gap-2") if metadata_items else None
+        )
+
+        # Tags
+        tags_section = None
+        if getattr(ku, "tags", None):
+            tag_badges = [Badge(tag, variant=BadgeT.outline, size=Size.sm) for tag in ku.tags]
+            tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mt-3")
+
+        # Exercises
+        exercises_for_ku: list[dict] = []
+        if exercises_service:
+            exercises_result = await exercises_service.get_exercises_for_curriculum(uid)
+            exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
+
+        # FormTemplates
+        form_templates: list[dict] = []
+        if form_template_service:
+            ft_result = await form_template_service.get_for_lesson(uid)
+            form_templates = ft_result.value if ft_result.is_ok else []
+
+        # Breadcrumbs
+        breadcrumb_path = [
+            {"uid": "knowledge", "title": "Knowledge", "url": "/ku"},
+            {"uid": uid, "title": ku.title, "url": ""},
+        ]
+
+        reading_content = Div(
+            NotStr(content_html or "No content available."),
+            cls="prose prose-lg max-w-none",
+        )
+
+        # Action buttons
+        mark_read_btn = Button(
+            "Marked as Read" if is_marked_read else "Mark as Read",
+            variant=ButtonT.success if is_marked_read else ButtonT.primary,
+            size=Size.sm,
+            hx_post=f"/api/ku/{uid}/mark-read",
+            hx_swap="outerHTML",
+            hx_target="this",
+            disabled=is_marked_read,
+        )
+
+        # Metadata footer
+        metadata_footer_items = []
+        if metadata_section:
+            metadata_footer_items.append(metadata_section)
+        if tags_section:
+            metadata_footer_items.append(tags_section)
+
+        metadata_footer = (
+            Div(*metadata_footer_items, cls="border-t border-border pt-6 mt-8")
+            if metadata_footer_items
+            else Div()
+        )
+
+        main_column = Div(
+            Breadcrumbs(path=breadcrumb_path, show_home=False),
+            reading_content,
+            # Actions below content
+            Div(
+                mark_read_btn,
+                PinButton(entity_uid=uid, is_pinned=is_pinned),
+                cls="flex gap-2 border-t border-border pt-6 mt-8",
+            ),
+            metadata_footer,
+            _exercises_for_ku_section(exercises_for_ku),
+            _form_templates_section(form_templates),
+            Div(
+                EntityRelationshipsSection(entity_uid=uid, entity_type="ku"),
+                cls="mt-8",
+            ),
+            cls="flex-1 min-w-0 max-w-4xl mx-auto px-6 lg:px-8 py-4 lg:py-6",
+        )
+
+        if has_toc:
+            toc_sidebar = Div(
+                Div(
+                    H3("Contents", cls="font-semibold text-sm mb-3"),
+                    Div(NotStr(toc_html), cls="prose prose-sm max-w-none toc-nav"),
+                    cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
+                ),
+                cls="hidden lg:block w-56 shrink-0 border-r border-border",
+            )
+            content = Div(toc_sidebar, main_column, cls="flex")
+        else:
+            content = main_column
+
+        return await BasePage(
+            content=content,
+            title=ku.title,
+            request=request,
+            active_page="knowledge",
+            page_type=PageType.CUSTOM,
+        )
+
+    # -----------------------------------------------------------------
+    # POST /api/ku/{uid}/mark-read — Mark Ku as read
+    # -----------------------------------------------------------------
+
+    @rt("/api/ku/{uid}/mark-read", methods=["POST"])
+    async def mark_ku_as_read(request: Request, uid: str) -> Any:
+        """Mark Ku as read. Returns updated button HTML for HTMX swap."""
+        user_uid = require_authenticated_user(request)
+
+        result = await ku_service.mark_as_read(user_uid, uid)
+
+        if result.is_error:
+            return Button(
+                "Error",
+                variant=ButtonT.error,
+                size=Size.sm,
+                disabled=True,
+            )
+
+        return Button(
+            "Marked as Read",
+            variant=ButtonT.success,
+            size=Size.sm,
+            disabled=True,
+        )
+
+    logger.info("Ku UI routes registered: /ku, /ku/{uid}, /api/ku/{uid}/mark-read")
 
     return []  # Routes registered via @rt() decorators
 

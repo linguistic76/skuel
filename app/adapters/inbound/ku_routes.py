@@ -2,8 +2,13 @@
 Ku Routes - Configuration-Driven Registration
 ==============================================
 
-Wires Ku UI routes using DomainRouteConfig pattern.
-KuService serves the /ku page — separate from Lesson routes.
+Wires all Ku routes using DomainRouteConfig pattern.
+KuService is the only service dependency — no LessonService.
+
+Routes:
+- GET  /ku                      — Knowledge index
+- GET  /ku/{uid}                — Ku detail page
+- POST /api/ku/{uid}/mark-read  — Mark Ku as read
 """
 
 from typing import TYPE_CHECKING, Any
@@ -17,7 +22,7 @@ if TYPE_CHECKING:
 
 
 def _ku_api_routes(_app: Any, _rt: Any, _service: Any, **_kw: Any) -> list[Any]:
-    """Ku API routes placeholder — Ku CRUD uses the existing ku_api.py."""
+    """Ku API routes are registered inline in ku_ui.py via @rt()."""
     return []
 
 
@@ -26,7 +31,11 @@ KU_CONFIG = DomainRouteConfig(
     primary_service_attr="ku",  # services.ku -> KuService
     api_factory=_ku_api_routes,
     ui_factory=create_ku_ui_routes,
-    ui_related_services={"user_relationship_service": "user_relationships"},
+    ui_related_services={
+        "user_relationship_service": "user_relationships",
+        "exercises_service": "exercises",
+        "form_template_service": "form_templates",
+    },
 )
 
 
