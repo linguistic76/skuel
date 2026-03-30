@@ -41,7 +41,7 @@ For implementation guidance, see:
 class DomainRouteConfig:
     domain_name: str                           # Human-readable name (e.g., "tasks")
     primary_service_attr: str                  # Attribute on services container (e.g., "tasks")
-    api_factory: Callable[..., list[Any]]      # Function to create API routes
+    api_factory: Callable[..., list[Any]] | None = None  # Optional API routes factory
     ui_factory: Callable[..., list[Any]] | None = None  # Optional UI routes factory
     api_related_services: dict[str, str] = {}  # API factory dependencies
     ui_related_services: dict[str, str] = {}   # UI factory dependencies
@@ -630,38 +630,32 @@ TRANSCRIPTION_CONFIG = DomainRouteConfig(
 - Demonstrates single-purpose API services (audio transcription)
 - Pattern used by: transcription, visualization, admin
 
-### Example 6: UI-Only Pattern (NOUS)
+### Example 6: UI-Only Pattern (Study)
 
-**File:** `/adapters/inbound/nous_routes.py`
+**File:** `/adapters/inbound/study_routes.py`
 
 ```python
-NOUS_CONFIG = DomainRouteConfig(
-    domain_name="nous",
-    primary_service_attr="ku",
-    api_factory=None,  # UI-only domain (no API routes)
-    ui_factory=create_nous_ui_routes,
-    api_related_services={},
+STUDY_CONFIG = DomainRouteConfig(
+    domain_name="study",
+    primary_service_attr="submissions",
+    ui_factory=create_study_ui_routes,
+    ui_related_services={
+        "processing_service": "submissions_processor",
+        "user_service": "user_service",
+        "exercises_service": "exercises",
+        "submissions_search_service": "submissions_search",
+        "submissions_core_service": "submissions_core",
+        "activity_report_service": "activity_report",
+        "teacher_review_service": "teacher_review",
+    },
 )
 ```
 
 **Key features:**
 - UI-only domain (no API routes needed)
-- `api_factory=None` - register_domain_routes handles this gracefully
-- Bug fix required: domain_route_factory.py:103 must check `if config.api_factory:` before calling
-- First domain to use this pattern (2026-02-03 migration)
-- Demonstrates content-focused domains without CRUD API needs
-
-**Critical Implementation Detail:**
-
-The `register_domain_routes()` function must check for `None` before calling api_factory:
-
-```python
-# /adapters/inbound/route_factories/domain_route_factory.py:103
-if config.api_factory:  # ✓ REQUIRED - prevents TypeError
-    api_routes = config.api_factory(app, rt, primary_service, **api_related)
-```
-
-Without this check, `api_factory=None` causes `TypeError: 'NoneType' object is not callable`.
+- `api_factory` defaults to `None` — simply omit it
+- `register_domain_routes()` skips API wiring when `api_factory` is `None`
+- Demonstrates UI-focused domains that compose multiple services without a CRUD API
 
 ### Example 7: Multi-Factory Pattern (Insights with History Routes)
 

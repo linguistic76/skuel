@@ -109,18 +109,26 @@ If there's even a single UI page (index, dashboard, settings), use Standard. API
 
 ### Problem
 
-Nous is a knowledge exploration experience backed entirely by KU's API. It needs server-rendered pages but has no CRUD endpoints of its own. Setting `api_factory` to a no-op function would be misleading.
+Study is a submission hub that composes multiple services into server-rendered pages. It has no CRUD API of its own. Setting `api_factory` to a no-op function would be misleading.
 
 ### Solution
 
+Simply omit `api_factory` — it defaults to `None`. Use `ui_factory` and `ui_related_services` for the UI routes and their dependencies.
+
 ```python
-NOUS_CONFIG = DomainRouteConfig(
-    domain_name="nous",
-    primary_service_attr="ku",       # Reuses KU's service
-    api_factory=None,                # Explicit: no API routes
-    ui_factory=create_nous_ui_routes,
-    api_related_services={},
-    ui_related_services={},
+STUDY_CONFIG = DomainRouteConfig(
+    domain_name="study",
+    primary_service_attr="submissions",
+    ui_factory=create_study_ui_routes,
+    ui_related_services={
+        "processing_service": "submissions_processor",
+        "user_service": "user_service",
+        "exercises_service": "exercises",
+        "submissions_search_service": "submissions_search",
+        "submissions_core_service": "submissions_core",
+        "activity_report_service": "activity_report",
+        "teacher_review_service": "teacher_review",
+    },
 )
 ```
 
@@ -128,20 +136,9 @@ NOUS_CONFIG = DomainRouteConfig(
 
 | Pro | Con |
 |-----|-----|
-| Explicit intent: `None` documents no API exists | Requires the null guard in `register_domain_routes()` to remain |
-| `primary_service_attr` can point to another domain's service | Slightly non-obvious: domain name ≠ service attr |
-
-### The null-guard story
-
-During the Nous migration, `register_domain_routes()` called `config.api_factory(...)` unconditionally. With `api_factory=None`, this raised `TypeError: 'NoneType' object is not callable`. The fix was a one-line guard:
-
-```python
-# domain_route_factory.py
-if config.api_factory:   # ← this check
-    config.api_factory(app, rt, primary_service, **api_related)
-```
-
-The symmetric guard for `ui_factory` already existed. **Do not remove either guard** when refactoring `register_domain_routes()`.
+| Clean: omitting `api_factory` documents no API exists | Slightly non-obvious: domain name ≠ service attr |
+| `primary_service_attr` can point to another domain's service | |
+| `register_domain_routes()` skips API wiring automatically | |
 
 ---
 

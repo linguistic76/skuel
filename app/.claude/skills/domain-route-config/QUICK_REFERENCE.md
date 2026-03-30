@@ -112,7 +112,7 @@ __all__ = ["create_{domain}_routes"]
 
 ## Template 3: UI-Only
 
-For content-focused domains with no CRUD API (e.g., Nous). Note: `primary_service_attr` can point to another domain's service.
+For domains with no CRUD API (e.g., Study). Simply omit `api_factory` — it defaults to `None`.
 
 ```python
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
@@ -121,10 +121,8 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 {DOMAIN}_CONFIG = DomainRouteConfig(
     domain_name="{domain}",
     primary_service_attr="{backing_service}",  # May differ from domain name
-    api_factory=None,  # UI-only — null guard in register_domain_routes() handles this
     ui_factory=create_{domain}_ui_routes,
-    api_related_services={},
-    ui_related_services={},
+    ui_related_services={...},  # Service dependencies for the UI factory
 )
 
 

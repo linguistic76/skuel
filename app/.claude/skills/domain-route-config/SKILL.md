@@ -20,12 +20,12 @@ DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80
 |-------|------|----------|---------|
 | `domain_name` | `str` | Yes | Human-readable name for logging (e.g., `"tasks"`) |
 | `primary_service_attr` | `str` | Yes | Attribute name on the services container (e.g., `"tasks"` → `services.tasks`) |
-| `api_factory` | `Callable \| None` | Yes* | Function that registers API routes. `None` for UI-only domains |
-| `ui_factory` | `Callable \| None` | No | Function that registers UI routes. `None` for API-only domains |
+| `api_factory` | `Callable \| None` | No | Function that registers API routes. Defaults to `None` for UI-only domains |
+| `ui_factory` | `Callable \| None` | No | Function that registers UI routes. Defaults to `None` for API-only domains |
 | `api_related_services` | `dict[str, str]` | No | Service dependencies for the API factory (see Service Mapping Contract) |
 | `ui_related_services` | `dict[str, str]` | No | Service dependencies for the UI factory (deprecated as of 2026-02-03 — UI factories use standard `services` param) |
 
-\* At least one of `api_factory` or `ui_factory` must be non-None.
+\* Both default to `None`. At least one of `api_factory` or `ui_factory` must be provided.
 
 ### Import Surface
 
@@ -226,26 +226,32 @@ TRANSCRIPTION_CONFIG = DomainRouteConfig(
 
 ---
 
-### 3. UI-Only — `api_factory=None`
+### 3. UI-Only — omit `api_factory`
 
-**When to use:** Content-focused domains that only need server-rendered pages, with no CRUD API of their own. Example: Nous (knowledge exploration UI backed by KU's API).
+**When to use:** Domains that only need server-rendered pages, with no CRUD API of their own. Example: Study (submission hub composing multiple services).
 
-**Critical detail:** `api_factory` is typed as `Callable[..., list[Any]]` (not `Optional`), but the runtime check `if config.api_factory:` in `register_domain_routes()` (line ~97 of `domain_route_factory.py`) handles `None` safely. This null guard was added during the Nous migration — without it, `api_factory=None` would raise `TypeError: 'NoneType' object is not callable`. Do not remove this check.
+**Detail:** `api_factory` defaults to `None`. Simply omit it. `register_domain_routes()` skips API wiring and `api_related_services` extraction when `api_factory` is `None`.
 
-**Exemplar:** `adapters/inbound/nous_routes.py`
+**Exemplar:** `adapters/inbound/study_routes.py`
 
 ```python
-NOUS_CONFIG = DomainRouteConfig(
-    domain_name="nous",
-    primary_service_attr="ku",           # Nous uses KU's service (no separate service)
-    api_factory=None,                    # UI-only — no API routes
-    ui_factory=create_nous_ui_routes,
-    api_related_services={},
-    ui_related_services={},
+STUDY_CONFIG = DomainRouteConfig(
+    domain_name="study",
+    primary_service_attr="submissions",
+    ui_factory=create_study_ui_routes,
+    ui_related_services={
+        "processing_service": "submissions_processor",
+        "user_service": "user_service",
+        "exercises_service": "exercises",
+        "submissions_search_service": "submissions_search",
+        "submissions_core_service": "submissions_core",
+        "activity_report_service": "activity_report",
+        "teacher_review_service": "teacher_review",
+    },
 )
 ```
 
-Note `primary_service_attr="ku"` — Nous doesn't have its own service; it reuses the KU service. The primary service attr doesn't have to match the domain name.
+Note: `primary_service_attr` doesn't have to match the domain name — a UI-only domain can back onto another domain's service.
 
 ---
 
