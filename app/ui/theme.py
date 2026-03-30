@@ -54,7 +54,7 @@ def monster_headers(
     """
     # MonsterUI theme headers (includes FrankenUI + Tailwind + Lucide icons)
     # Serve from local static directory — no CDN dependency
-    mu_headers = theme.local_headers(static_dir="static/vendor/monsterui")
+    mu_headers = theme.local_headers(static_dir="static/vendor/monsterui", radii="lg")
 
     headers = list(mu_headers)
 
