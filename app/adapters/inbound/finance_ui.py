@@ -19,9 +19,9 @@ __version__ = "3.0"
 from typing import Any
 
 from fasthtml.common import Div, Span
-from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
+from adapters.inbound.fasthtml_types import Request
 from core.models.finance.finance_request import BudgetCreateRequest, ExpenseCreateRequest
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT

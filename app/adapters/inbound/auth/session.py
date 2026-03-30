@@ -31,9 +31,9 @@ from datetime import UTC, datetime
 from functools import wraps
 from typing import TYPE_CHECKING, Any, cast
 
-from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+from adapters.inbound.fasthtml_types import Request
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 

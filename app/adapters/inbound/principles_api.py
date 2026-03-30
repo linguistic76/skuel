@@ -13,9 +13,12 @@ from ui.activities.principles_views import PrincipleCard
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from starlette.requests import Request
-
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+    from adapters.inbound.fasthtml_types import (
+        FastHTMLApp,
+        Request,
+        RouteDecorator,
+        RouteList,
+    )
     from core.services.principles_service import PrinciplesService
 
 logger = get_logger("skuel.routes.principles_api")

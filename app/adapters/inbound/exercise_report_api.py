@@ -15,10 +15,9 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from core.ports.report_protocols import ExerciseReportOperations
 
-from starlette.requests import Request
-
 from adapters.inbound.auth import require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories import parse_int_query_param
 from core.models.entity_converters import entity_to_response
 from core.models.report.report_requests import AssessmentCreateRequest

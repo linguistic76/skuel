@@ -20,9 +20,9 @@ from fasthtml.common import (
     P,
     Span,
 )
-from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody

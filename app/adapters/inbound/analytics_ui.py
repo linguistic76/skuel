@@ -23,10 +23,9 @@ from fasthtml.common import (
     P,
     Span,
 )
-from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 
 if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService

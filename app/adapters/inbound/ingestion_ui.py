@@ -11,9 +11,9 @@ Security:
 from typing import Any
 
 from fasthtml.common import Div, Form, NotStr, P, Pre
-from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
+from adapters.inbound.fasthtml_types import Request
 from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT

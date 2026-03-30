@@ -15,8 +15,8 @@ from typing import Any
 
 from fasthtml.common import A, Button, Div, Nav, Span
 from monsterui.franken import UkIcon
-from starlette.requests import Request
 
+from adapters.inbound.fasthtml_types import Request
 from ui.layouts.nav_config import (
     ACTIVITY_DROPDOWN_ITEMS,
     ADMIN_NAV_ITEM,

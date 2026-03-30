@@ -13,9 +13,12 @@ from ui.activities.tasks_views import TaskCard
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from starlette.requests import Request
-
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+    from adapters.inbound.fasthtml_types import (
+        FastHTMLApp,
+        Request,
+        RouteDecorator,
+        RouteList,
+    )
     from core.services.tasks_service import TasksService
 
 logger = get_logger("skuel.routes.tasks_api")

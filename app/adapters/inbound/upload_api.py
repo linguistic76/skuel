@@ -14,10 +14,10 @@ Routes:
 from typing import TYPE_CHECKING, Any
 
 from starlette.datastructures import UploadFile
-from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from core.services.ingestion.user_upload_service import MAX_FILES_PER_REQUEST
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors

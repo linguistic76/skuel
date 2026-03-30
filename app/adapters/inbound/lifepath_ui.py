@@ -21,11 +21,10 @@ Philosophy:
 from typing import Any
 
 from fasthtml.common import H2, H3, Div, Form, P, Span
-from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import RouteList
+from adapters.inbound.fasthtml_types import Request, RouteList
 from adapters.inbound.form_helpers import safe_form_string
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger

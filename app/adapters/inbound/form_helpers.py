@@ -15,8 +15,8 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 from starlette.datastructures import UploadFile
-from starlette.requests import Request
 
+from adapters.inbound.fasthtml_types import Request
 from core.utils.result_simplified import Errors, Result
 
 

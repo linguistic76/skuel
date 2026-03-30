@@ -25,10 +25,10 @@ Date: 2025-12-06
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
-from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.result_helpers import require_found
 from core.models.entity_requests import ChangeUserRoleRequest
 from core.models.enums import UserRole

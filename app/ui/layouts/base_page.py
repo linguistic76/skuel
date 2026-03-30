@@ -32,7 +32,8 @@ from ui.theme import ALPINE_VERSION, HTMX_VERSION, Theme, pwa_headers
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
-    from starlette.requests import Request
+
+    from adapters.inbound.fasthtml_types import Request
 
 
 def build_head(

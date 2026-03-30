@@ -27,12 +27,11 @@ from fasthtml.common import (
     Textarea,
 )
 from starlette.datastructures import UploadFile
-from starlette.requests import Request
 from starlette.responses import FileResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.submissions_enums import EnrichmentMode
 from core.models.exercises.exercise import Exercise

@@ -18,9 +18,9 @@ __version__ = "5.0"
 from typing import Any
 
 from fasthtml.common import H1, H2, Div, Form, Option, P, Span
-from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT

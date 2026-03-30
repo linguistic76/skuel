@@ -8,9 +8,9 @@ from datetime import date
 from logging import Logger
 from typing import Any
 
-from starlette.requests import Request
 from starlette.responses import Response
 
+from adapters.inbound.fasthtml_types import Request
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
 

@@ -24,10 +24,10 @@ from fasthtml.common import (
     Form,
     P,
 )
-from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
+from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody

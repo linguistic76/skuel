@@ -57,18 +57,45 @@ class FastHTMLApp(Protocol):
         ...
 
 
+class _HeadersLike(Protocol):
+    """Protocol for request headers (Starlette's Headers)."""
+
+    def get(self, key: str, default: str | None = None) -> str | None: ...
+
+
+class _ClientLike(Protocol):
+    """Protocol for request client info (Starlette's Address)."""
+
+    host: str
+
+
+class _URLLike(Protocol):
+    """Protocol for request URL (Starlette's URL)."""
+
+    path: str
+
+
 class Request(Protocol):
     """
-    Minimal protocol for Starlette/FastHTML request objects.
+    Protocol for Starlette/FastHTML request objects.
 
-    Captures only the fields that SKUEL route handlers actually access.
+    Captures the fields that SKUEL route handlers actually access.
     FastHTML wraps Starlette's Request; using a Protocol here avoids importing
     Starlette directly and keeps the dependency lightweight.
+
+    Note: ``session`` is intentionally omitted — it is middleware-injected,
+    not part of the base Request.  Access via ``getattr(request, "session", None)``.
     """
 
     query_params: dict[str, str]
+    headers: _HeadersLike
+    method: str
+    url: _URLLike
+    path_params: dict[str, str]
+    client: _ClientLike | None
 
     async def form(self) -> dict[str, Any]: ...
+    async def json(self) -> Any: ...
 
 
 # Type alias for the return value of route factory functions.

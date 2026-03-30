@@ -9,7 +9,8 @@ from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
-    from starlette.requests import Request
+
+    from adapters.inbound.fasthtml_types import Request
 
 
 FINANCE_SIDEBAR_ITEMS: list[SidebarItem] = [

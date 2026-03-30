@@ -13,9 +13,12 @@ from ui.activities.goals_views import GoalCard
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from starlette.requests import Request
-
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+    from adapters.inbound.fasthtml_types import (
+        FastHTMLApp,
+        Request,
+        RouteDecorator,
+        RouteList,
+    )
     from core.services.goals_service import GoalsService
 
 logger = get_logger("skuel.routes.goals_api")

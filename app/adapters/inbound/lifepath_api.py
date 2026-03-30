@@ -15,10 +15,9 @@ API Routes:
 
 from typing import TYPE_CHECKING, Any
 
-from starlette.requests import Request
-
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.lifepath_request import CaptureVisionRequest, DesignateLifePathRequest
 from core.ports.query_types import (

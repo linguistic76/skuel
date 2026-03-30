@@ -13,10 +13,9 @@ Routes:
 
 from typing import Any
 
-from starlette.requests import Request
-
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.type_hints import EntityUID
 from core.models.user_pins_request import PinEntityRequest, ReorderPinsRequest

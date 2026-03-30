@@ -36,7 +36,8 @@ from ui.layouts.page_types import PageType
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
-    from starlette.requests import Request
+
+    from adapters.inbound.fasthtml_types import Request
 
 
 @dataclass

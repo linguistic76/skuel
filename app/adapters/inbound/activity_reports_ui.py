@@ -20,10 +20,9 @@ from fasthtml.common import (
     Div,
     P,
 )
-from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import Request, RouteDecorator, RouteList
 from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT

@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import H2, H3, Div, NotStr, P, Span
-from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT

@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import Div, NotStr, P, Span
-from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select

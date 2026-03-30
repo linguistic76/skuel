@@ -96,9 +96,9 @@ from functools import wraps
 from typing import Any, cast
 
 from starlette.exceptions import HTTPException
-from starlette.requests import Request
 
 from adapters.inbound.auth.session import get_current_user, require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from core.models.enums import UserRole
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

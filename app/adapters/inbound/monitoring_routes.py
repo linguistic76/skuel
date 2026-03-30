@@ -13,10 +13,9 @@ System health and metrics endpoints for monitoring SKUEL infrastructure.
 from typing import Any
 
 from fasthtml.common import JSONResponse
-from starlette.requests import Request
 
 from adapters.inbound.auth import make_service_getter, require_admin
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
 

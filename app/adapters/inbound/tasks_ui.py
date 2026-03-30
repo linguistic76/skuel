@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activities.tasks_views import (
     TaskDetailView,
@@ -25,8 +26,6 @@ from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from starlette.requests import Request
-
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
     from core.services.tasks_service import TasksService
 

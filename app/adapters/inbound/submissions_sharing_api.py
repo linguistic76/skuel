@@ -24,10 +24,10 @@ if TYPE_CHECKING:
     from core.ports.submission_protocols import SubmissionOperations
 
 from pydantic import BaseModel
-from starlette.requests import Request
 
 from adapters.inbound.auth import UserUID, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories import parse_int_query_param
 from core.models.enums.metadata_enums import Visibility
 from core.utils.logging import get_logger

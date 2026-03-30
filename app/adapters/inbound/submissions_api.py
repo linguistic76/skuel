@@ -36,11 +36,11 @@ if TYPE_CHECKING:
 
 from starlette.background import BackgroundTask
 from starlette.datastructures import UploadFile
-from starlette.requests import Request
 from starlette.responses import FileResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import split_csv, verify_entity_ownership
 from core.models.entity_converters import entity_to_response

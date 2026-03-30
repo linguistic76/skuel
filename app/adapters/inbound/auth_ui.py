@@ -26,7 +26,6 @@ Date: 2026-01-21
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
-from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import (
@@ -36,6 +35,7 @@ from adapters.inbound.auth import (
     is_authenticated,
     set_current_user,
 )
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_bool, safe_form_string
 from core.models.auth import (
     ForgotPasswordRequest,
@@ -187,7 +187,9 @@ def create_auth_ui_routes(
             session_data = login_result.value
 
             # Set session with token
-            request.session.clear()
+            session = getattr(request, "session", None)
+            if session is not None:
+                session.clear()
             user = session_data["user"]
             set_current_user(
                 request,
@@ -280,7 +282,9 @@ def create_auth_ui_routes(
             user = session_data["user"]
 
             # Clear old session first
-            request.session.clear()
+            session = getattr(request, "session", None)
+            if session is not None:
+                session.clear()
 
             # Set new session with token
             set_current_user(
@@ -410,7 +414,8 @@ def create_auth_ui_routes(
     async def logout(request: Request) -> Any:
         """Process logout - invalidate session in Neo4j and clear cookie"""
         user_uid = get_current_user(request)
-        session_token = request.session.get("session_token")
+        session = getattr(request, "session", None)
+        session_token = session.get("session_token") if session else None
 
         # Invalidate session in Neo4j if we have graph_auth and session_token
         if graph_auth and session_token:

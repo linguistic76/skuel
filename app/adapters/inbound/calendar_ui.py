@@ -28,9 +28,9 @@ from fasthtml.common import (
     Span,
 )
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
-from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_int, safe_form_string
 from core.models.event.calendar_models import CalendarItemType, CalendarView
 from core.utils.logging import get_logger

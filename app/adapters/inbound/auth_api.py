@@ -19,7 +19,6 @@ Date: 2026-01-21
 from typing import Any
 
 from fasthtml.common import H1, H2, Div, P, Pre
-from starlette.requests import Request
 
 from adapters.inbound.auth import (
     get_current_user,
@@ -27,6 +26,7 @@ from adapters.inbound.auth import (
     make_service_getter,
     require_admin,
 )
+from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
@@ -69,7 +69,8 @@ def create_auth_api_routes(
         Security: Admin-only - exposes session internals.
         """
         try:
-            session_data = dict(request.session)
+            session = getattr(request, "session", None)
+            session_data = dict(session) if session else {}
         except AttributeError:
             session_data = {}
         user_uid = get_current_user(request)

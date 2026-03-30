@@ -13,9 +13,12 @@ from ui.activities.events_views import EventCard
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from starlette.requests import Request
-
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+    from adapters.inbound.fasthtml_types import (
+        FastHTMLApp,
+        Request,
+        RouteDecorator,
+        RouteList,
+    )
     from core.services.events_service import EventsService
 
 logger = get_logger("skuel.routes.events_api")

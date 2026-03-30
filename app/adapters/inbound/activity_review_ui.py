@@ -36,10 +36,10 @@ from fasthtml.common import (
     Script,
     Span,
 )
-from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin
+from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
