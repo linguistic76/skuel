@@ -74,7 +74,7 @@ async def link_task_to_knowledge(
 **Solution**:
 ```cypher
 // TeacherReviewService → SubmissionsBackend.create_report_node()
-MATCH (submission:Entity {uid: $report_uid})
+MATCH (submission:Entity {uid: $submission_uid})
 WHERE submission.status IN $allowed_from_statuses   // Cypher-level guard
 OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
 SET submission.status = $submission_status, ...

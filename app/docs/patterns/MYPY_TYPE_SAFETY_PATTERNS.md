@@ -462,24 +462,24 @@ Before the explicit delegation migration:
 
 ```python
 @rt("/submissions/categorize")
-async def categorize_route(request, report_uid: str) -> Result[Any]:
-    # Get report
-    report_result = await report_service.get_report(report_uid)
+async def categorize_route(request, submission_uid: str) -> Result[Any]:
+    # Get submission
+    submission_result = await submission_service.get_submission(submission_uid)
 
     # Check for errors
-    if report_result.is_error:
-        return Result.fail(report_result)
+    if submission_result.is_error:
+        return Result.fail(submission_result)
 
     # Extract value
-    report = report_result.value
+    submission = submission_result.value
 
-    # ERROR: Item "None" of "Report | None" has no attribute "user_uid"
-    # Problem: get_report returns Result[Report | None]
+    # ERROR: Item "None" of "Submission | None" has no attribute "user_uid"
+    # Problem: get_submission returns Result[Submission | None]
     # Even though is_error is False, value can still be None (not found case)
-    if report.user_uid != user_uid:
-        return Result.fail(Errors.not_found(resource="Report"))
+    if submission.user_uid != user_uid:
+        return Result.fail(Errors.not_found(resource="Submission"))
 
-    return await reports_core_service.categorize_report(report_uid, category)
+    return await submissions_core_service.categorize_submission(submission_uid, category)
 ```
 
 **The Issue:** `Result[T | None]` pattern is common for "not found" cases:
@@ -491,23 +491,23 @@ async def categorize_route(request, report_uid: str) -> Result[Any]:
 
 ```python
 @rt("/submissions/categorize")
-async def categorize_route(request, report_uid: str) -> Result[Any]:
-    # Get report
-    report_result = await report_service.get_report(report_uid)
+async def categorize_route(request, submission_uid: str) -> Result[Any]:
+    # Get submission
+    submission_result = await submission_service.get_submission(submission_uid)
 
     # Check for errors
-    if report_result.is_error:
-        return Result.fail(report_result)
+    if submission_result.is_error:
+        return Result.fail(submission_result)
 
     # Extract value
-    report = report_result.value
+    submission = submission_result.value
 
     # ✅ Guard: Check for both error AND None
-    if report is None or report.user_uid != user_uid:
-        return Result.fail(Errors.not_found(resource="Report"))
+    if submission is None or submission.user_uid != user_uid:
+        return Result.fail(Errors.not_found(resource="Submission"))
 
-    # After this point, mypy knows report is not None
-    return await reports_core_service.categorize_report(report_uid, category)
+    # After this point, mypy knows submission is not None
+    return await submissions_core_service.categorize_submission(submission_uid, category)
 ```
 
 ### Alternative: Early Return Pattern
