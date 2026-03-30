@@ -398,38 +398,7 @@ The Principles domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
-> **Shelved (2026-03-28):** Activity Domain CRUD UI routes and view components are shelved to `_shelved/activity_ui/`. API routes remain active. The content below is preserved for restoration reference.
-
-### Three-View Dashboard
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/principles` | GET | Main dashboard with List/Create/Analytics tabs |
-| `/principles?view=list` | GET | List view (default) |
-| `/principles?view=create` | GET | Create principle form |
-| `/principles?view=analytics` | GET | Principle analytics |
-
-### HTMX Fragments
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/principles/view/list` | GET | List view fragment |
-| `/principles/view/create` | GET | Create form fragment |
-| `/principles/view/analytics` | GET | Analytics fragment |
-| `/principles/list-fragment` | GET | Filtered list for updates |
-| `/principles/quick-add` | POST | Create principle via form |
-
-### Detail and Reflection Routes
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/principles/{uid}` | GET | View principle detail |
-| `/principles/{uid}/edit` | GET | Edit modal |
-| `/principles/{uid}/edit` | POST | Submit edits |
-| `/principles/{uid}/reflect` | GET | Reflection form modal |
-| `/principles/{uid}/reflect/save` | POST | Save reflection |
-| `/principles/{uid}/reflections` | GET | Reflection history view |
-| `/principles/{uid}/alignment-trend` | GET | Alignment trend visualization |
+Read-focused UI at `/principles` is planned. API routes remain active.
 
 ## Code Examples
 

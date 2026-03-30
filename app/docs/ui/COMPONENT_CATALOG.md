@@ -1035,17 +1035,11 @@ Domain-specific layout helpers.
 
 **Location:** `/ui/activities/tasks_views.py`
 
-Read-focused task view components (2026-03-30). Not the shelved CRUD dashboard — a clean list with HTMX status toggle, priority/status filtering, and knowledge connections.
+Read-focused task view components (2026-03-30). A clean list with HTMX status toggle, priority/status filtering, and knowledge connections.
 
 Components: `TaskStatsBar`, `TaskFilterBar`, `TaskList`, `TaskCard`, `filter_tasks`.
 
 Routes: `GET /tasks` (page), `GET /tasks/list-fragment` (HTMX), `POST /api/tasks/{uid}/status` (status update).
-
-### Task Layout (Shelved)
-
-**Location:** `/ui/tasks/layout.py` (shelved at `_shelved/activity_ui/`)
-
-Task-specific page layouts (shelved 2026-03-28).
 
 ### Habit Layout
 

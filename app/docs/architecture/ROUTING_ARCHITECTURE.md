@@ -400,7 +400,7 @@ RETURN t
 | `DomainRouteConfig(crud=CRUDRouteConfig(...))` | CRUD (+ optional Intelligence) in config; domain-specific in api_factory | Lesson, Exercises, LP, LS, Groups, RevisedExercise, FormTemplate |
 | `DomainRouteConfig(...)` | API + UI factories only; no config-driven factories | KU, Askesis, Context, Search, etc. |
 
-> **Shelved (2026-03-28):** Activity Domain CRUD UI routes (`*_ui.py`, `ui/*/views.py`) are shelved to `_shelved/activity_ui/`. API routes and route configs remain active.
+Tasks and Goals have active read-focused UI views at `/tasks` and `/goals`. Habits, Events, Choices, and Principles read-focused UIs are planned.
 
 ### Pattern Structure (Activity Domains — current)
 

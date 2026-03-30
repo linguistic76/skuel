@@ -90,8 +90,6 @@ class IntelligenceRouteConfig:
 
 #### Activity Domain Convenience Function
 
-> **Shelved (2026-03-28):** Activity Domain UI route configs (`ui_factory` parameter) are shelved to `_shelved/activity_ui/`. API route configs remain active. The convenience function and pattern are preserved for restoration.
-
 For Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles), use the convenience function:
 
 ```python

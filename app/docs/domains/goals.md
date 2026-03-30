@@ -293,35 +293,12 @@ The Goals domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
-> **Shelved (2026-03-28):** Activity Domain CRUD UI routes and view components are shelved to `_shelved/activity_ui/`. API routes remain active. The content below is preserved for restoration reference.
-
-### Three-View Dashboard
+Goals has an active read-focused UI at `/goals` with filtering and progress display.
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/goals` | GET | Main dashboard with List/Create/Analytics tabs |
-| `/goals?view=list` | GET | List view (default) |
-| `/goals?view=create` | GET | Create goal form |
-| `/goals?view=analytics` | GET | Goal analytics |
-
-### HTMX Fragments
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/goals/view/list` | GET | List view fragment |
-| `/goals/view/create` | GET | Create form fragment |
-| `/goals/view/analytics` | GET | Analytics fragment |
-| `/goals/list-fragment` | GET | Filtered list for updates |
-| `/goals/quick-add` | POST | Create goal via form |
-
-### Detail Routes
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/goals/{uid}` | GET | View goal detail |
-| `/goals/{uid}/edit` | GET/POST | Edit goal |
-| `/goals/{uid}/progress` | POST | Update progress |
-| `/goals/{uid}/milestones` | GET | View milestones |
+| `/goals` | GET | Read-focused goal list with filtering |
+| `/goals/list-fragment` | GET | HTMX filtered list fragment |
 
 ## Code Examples
 

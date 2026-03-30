@@ -346,35 +346,7 @@ The Habits domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
-> **Shelved (2026-03-28):** Activity Domain CRUD UI routes and view components are shelved to `_shelved/activity_ui/`. API routes remain active. The content below is preserved for restoration reference.
-
-### Three-View Dashboard
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/habits` | GET | Main dashboard with List/Create/Analytics tabs |
-| `/habits?view=list` | GET | List view (default) |
-| `/habits?view=create` | GET | Create habit form |
-| `/habits?view=analytics` | GET | Habit analytics |
-
-### HTMX Fragments
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/habits/view/list` | GET | List view fragment |
-| `/habits/view/create` | GET | Create form fragment |
-| `/habits/view/analytics` | GET | Analytics fragment |
-| `/habits/list-fragment` | GET | Filtered list for updates |
-| `/habits/quick-add` | POST | Create habit via form |
-
-### Detail Routes
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/habits/{uid}` | GET | View habit detail |
-| `/habits/{uid}/edit` | GET/POST | Edit habit |
-| `/habits/{uid}/complete` | POST | Record completion |
-| `/habits/{uid}/streak` | GET | View streak history |
+Read-focused UI at `/habits` is planned. API routes remain active.
 
 ## Code Examples
 

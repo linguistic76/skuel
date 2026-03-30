@@ -24,20 +24,18 @@
 | Choices | `choices_service.py` | `choices/choices_core_service.py` | `choices_search_service.py` | `choices_intelligence_service.py` |
 | Principles | `principles_service.py` | `principles/principles_core_service.py` | `principles_search_service.py` | `principles_intelligence_service.py` |
 
-### UI (Shelved 2026-03-28)
+### UI (Read-Focused Pattern)
 
-Activity Domain CRUD UI routes and views have been shelved to `_shelved/activity_ui/`. Activity data now enters via UnifiedIngestionService and is viewed via ActivityReport UI at `/activity-reports`.
+Activity Domains use a read-focused UI — data enters via `/upload`, no CRUD forms.
 
-| Domain | Routes (shelved) | Views (shelved) | Events File (active) |
+| Domain | Routes | Views | Events File |
 |--------|--------|-------|-------------|
-| Tasks | `_shelved/activity_ui/tasks_ui.py` | `_shelved/activity_ui/tasks/views.py` | `core/events/task_events.py` |
-| Goals | `_shelved/activity_ui/goals_ui.py` | `_shelved/activity_ui/goals/views.py` | `core/events/goal_events.py` |
-| Habits | `_shelved/activity_ui/habits_ui.py` | `_shelved/activity_ui/habits/views.py` | `core/events/habit_events.py` |
-| Events | `_shelved/activity_ui/events_ui.py` | `_shelved/activity_ui/events/views.py` | `core/events/calendar_event_events.py` |
-| Choices | `_shelved/activity_ui/choices_ui.py` | `_shelved/activity_ui/choices/views.py` | `core/events/choice_events.py` |
-| Principles | `_shelved/activity_ui/principles_ui.py` | `_shelved/activity_ui/principles/views.py` | `core/events/principle_events.py` |
-
-See `_shelved/activity_ui/README.md` for restore instructions.
+| Tasks | `adapters/inbound/tasks_ui.py` | `ui/activities/tasks_views.py` | `core/events/task_events.py` |
+| Goals | `adapters/inbound/goals_ui.py` | `ui/activities/goals_views.py` | `core/events/goal_events.py` |
+| Habits | Planned | Planned | `core/events/habit_events.py` |
+| Events | Planned | Planned | `core/events/calendar_event_events.py` |
+| Choices | Planned | Planned | `core/events/choice_events.py` |
+| Principles | Planned | Planned | `core/events/principle_events.py` |
 
 ## Domain-Specific Quirks
 

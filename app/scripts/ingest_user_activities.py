@@ -56,7 +56,7 @@ async def main() -> None:
             return
 
         stats = result.value
-        print(f"\nIngestion complete:")
+        print("\nIngestion complete:")
         print(f"  Total files:  {stats.total_files}")
         print(f"  Successful:   {stats.successful}")
         print(f"  Failed:       {stats.failed}")
@@ -65,7 +65,7 @@ async def main() -> None:
         print(f"  Relationships: {stats.relationships_created}")
         print(f"  Duration:     {stats.duration_seconds:.1f}s")
         if stats.errors:
-            print(f"\nErrors:")
+            print("\nErrors:")
             for err in stats.errors:
                 print(f"  - {err}")
 
@@ -96,7 +96,9 @@ async def main() -> None:
         )
         if result2.is_ok:
             stats2 = result2.value
-            print(f"  Re-ingestion (for relationships): {stats2.nodes_updated} updated, {stats2.relationships_created} rels")
+            print(
+                f"  Re-ingestion (for relationships): {stats2.nodes_updated} updated, {stats2.relationships_created} rels"
+            )
 
         # 3. Verify final state
         async with driver.session() as session:

@@ -252,35 +252,13 @@ The Tasks domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
-> **Shelved (2026-03-28):** Activity Domain CRUD UI routes and view components are shelved to `_shelved/activity_ui/`. API routes remain active. The content below is preserved for restoration reference.
-
-### Three-View Dashboard
+Tasks has an active read-focused UI at `/tasks` with HTMX status toggle, priority/status filtering, and knowledge connections.
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/tasks` | GET | Main dashboard with List/Create/Calendar tabs |
-| `/tasks?view=list` | GET | List view (default) |
-| `/tasks?view=create` | GET | Create task form |
-| `/tasks?view=calendar` | GET | Calendar view |
-
-### HTMX Fragments
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/tasks/view/list` | GET | List view fragment |
-| `/tasks/view/create` | GET | Create form fragment |
-| `/tasks/view/calendar` | GET | Calendar fragment |
-| `/tasks/list-fragment` | GET | Filtered list for updates |
-| `/tasks/quick-add` | POST | Create task via form |
-
-### Detail Routes
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/tasks/{uid}` | GET | View task detail |
-| `/tasks/{uid}/edit` | GET/POST | Edit task |
-| `/tasks/{uid}/complete` | POST | Mark task complete |
-| `/tasks/{uid}/reschedule` | POST | Reschedule task |
+| `/tasks` | GET | Read-focused task list with filtering |
+| `/tasks/list-fragment` | GET | HTMX filtered list fragment |
+| `POST /api/tasks/{uid}/status` | POST | HTMX status toggle |
 
 ## Code Examples
 

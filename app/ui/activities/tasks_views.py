@@ -11,12 +11,14 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
+    H3,
     A,
     Button,
     Div,
     Form,
     Label,
     Option,
+    P,
     Select,
     Small,
     Span,
@@ -24,6 +26,8 @@ from fasthtml.common import (
 
 from ui.feedback import PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.page_header import PageHeader
+from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 if TYPE_CHECKING:
@@ -107,7 +111,7 @@ def TaskFilterBar(
 
 def TaskList(
     tasks: list["Task"],
-    knowledge_map: dict[str, list[dict[str, str]]] | None = None,
+    connections_map: dict[str, list[dict[str, str]]] | None = None,
 ) -> "FT":
     """Render a list of task cards. Returns a replaceable container for HTMX."""
     if not tasks:
@@ -122,7 +126,8 @@ def TaskList(
         )
 
     cards = [
-        TaskCard(task, knowledge_map.get(task.uid, []) if knowledge_map else []) for task in tasks
+        TaskCard(task, connections_map.get(task.uid, []) if connections_map else [])
+        for task in tasks
     ]
     return Div(*cards, id="task-list", cls="uk-margin-top")
 
@@ -150,9 +155,13 @@ def TaskCard(
         title=f"Mark as {new_status}",
     )
 
-    # Title
+    # Title — clickable link to detail page
     title_cls = "uk-text-muted uk-text-line-through" if is_completed else ""
-    title_el = Span(task.title or "Untitled", cls=title_cls)
+    title_el = A(
+        task.title or "Untitled",
+        href=f"/tasks/detail?uid={task.uid}",
+        cls=f"uk-link-text {title_cls}",
+    )
 
     # Badges row
     badges: list[Any] = []
@@ -177,27 +186,8 @@ def TaskCard(
         ]
         tags_el = Div(*tag_badges, cls="uk-margin-small-top")
 
-    # Knowledge connections
-    knowledge_el = None
-    if knowledge_connections:
-        links = [
-            A(
-                conn.get("title", conn.get("uid", "?")),
-                href=f"/ku/get?uid={conn['uid']}" if conn.get("uid", "").startswith("ku") else "#",
-                cls="uk-link-muted uk-margin-small-right",
-            )
-            for conn in knowledge_connections
-        ]
-        knowledge_el = Div(
-            Small("Applies: ", cls="uk-text-muted"),
-            *links,
-            cls="uk-margin-small-top",
-        )
-    elif task.fulfills_goal_uid:
-        knowledge_el = Div(
-            Small(f"Goal: {task.fulfills_goal_uid}", cls="uk-text-muted"),
-            cls="uk-margin-small-top",
-        )
+    # Cross-domain connection badges
+    knowledge_el = ConnectionBadges(task, knowledge_connections or [])
 
     # Duration
     duration_el = None
@@ -247,6 +237,183 @@ def _is_overdue(task: "Task") -> bool:
 def _safe_id(uid: str) -> str:
     """Convert a UID to a safe HTML id attribute value."""
     return uid.replace(".", "-").replace(":", "-")
+
+
+def ConnectionBadges(
+    task: "Task",
+    connections: list[dict[str, str]],
+) -> "FT":
+    """Render typed connection badges for a task's cross-domain links."""
+    badges: list[Any] = []
+
+    # Icons per connection type
+    conn_icons = {
+        "goal": "target",
+        "habit": "repeat",
+        "ku": "atom",
+        "learning_step": "list",
+        "learning_path": "map",
+        "principle": "compass",
+        "event": "calendar",
+        "choice": "git-branch",
+    }
+
+    for conn in connections:
+        target_type = conn.get("target_type", "")
+        title = conn.get("title", conn.get("target_uid", "?"))
+        target_uid = conn.get("target_uid", "")
+        icon = conn_icons.get(target_type, "link")
+
+        # Build href based on target type
+        if target_type == "goal":
+            href = f"/goals/detail?uid={target_uid}"
+        elif target_type == "ku":
+            href = f"/ku/get?uid={target_uid}"
+        else:
+            href = "#"
+
+        badges.append(
+            A(
+                Span(
+                    cls="uk-icon uk-margin-small-right", **{"uk-icon": f"icon: {icon}; ratio: 0.75"}
+                ),
+                title,
+                href=href,
+                cls="uk-badge uk-margin-small-right",
+                style="text-decoration: none;",
+            )
+        )
+
+    # Fallback to model fields if no connection data was fetched
+    if not badges and task.fulfills_goal_uid:
+        badges.append(
+            A(
+                Span(
+                    cls="uk-icon uk-margin-small-right", **{"uk-icon": "icon: target; ratio: 0.75"}
+                ),
+                task.fulfills_goal_uid,
+                href=f"/goals/detail?uid={task.fulfills_goal_uid}",
+                cls="uk-badge uk-margin-small-right",
+                style="text-decoration: none;",
+            )
+        )
+
+    if not badges:
+        return Span()  # Empty — no connections
+
+    return Div(*badges, cls="uk-margin-small-top")
+
+
+def TaskDetailView(
+    task: "Task",
+    connections: list[dict[str, str]],
+) -> "FT":
+    """Full detail page for a single task."""
+    # Header badges
+    badges: list[Any] = []
+    if task.priority:
+        badges.append(PriorityBadge(str(task.priority)))
+    if task.status:
+        badges.append(StatusBadge(str(task.status)))
+
+    subtitle_parts: list[str] = []
+    if task.status:
+        subtitle_parts.append(str(task.status).replace("_", " ").title())
+    if task.priority:
+        subtitle_parts.append(f"{str(task.priority).title()} priority")
+    subtitle = " · ".join(subtitle_parts) if subtitle_parts else None
+
+    header = PageHeader(task.title or "Untitled Task", subtitle=subtitle)
+
+    # Description
+    desc_el = Div()
+    if task.description:
+        desc_el = Div(
+            P(task.description, cls="uk-text-default"),
+            cls="uk-margin",
+        )
+
+    # Metadata grid
+    meta_items: list[Any] = []
+    if task.due_date:
+        overdue = _is_overdue(task)
+        due_cls = "uk-text-danger uk-text-bold" if overdue else ""
+        meta_items.append(
+            Div(
+                Small("Due Date", cls="uk-text-muted uk-display-block"),
+                Span(str(task.due_date), cls=due_cls),
+            )
+        )
+    if task.duration_minutes:
+        meta_items.append(
+            Div(
+                Small("Duration", cls="uk-text-muted uk-display-block"),
+                Span(f"{task.duration_minutes} min"),
+            )
+        )
+    if task.project:
+        meta_items.append(
+            Div(
+                Small("Project", cls="uk-text-muted uk-display-block"),
+                Span(str(task.project)),
+            )
+        )
+    if task.created_at:
+        meta_items.append(
+            Div(
+                Small("Created", cls="uk-text-muted uk-display-block"),
+                Span(str(task.created_at)[:10]),
+            )
+        )
+
+    meta_grid = Div()
+    if meta_items:
+        meta_grid = Div(
+            *meta_items,
+            cls="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-4@m uk-margin",
+            **{"uk-grid": "true"},
+        )
+
+    # Tags
+    tags_el = Div()
+    if task.tags:
+        tag_badges = [
+            Span(tag, cls="uk-badge uk-badge-secondary uk-margin-small-right") for tag in task.tags
+        ]
+        tags_el = Div(
+            Small("Tags", cls="uk-text-muted uk-display-block uk-margin-small-bottom"),
+            *tag_badges,
+            cls="uk-margin",
+        )
+
+    # Connections section
+    conn_section = Div()
+    conn_badges = ConnectionBadges(task, connections)
+    if connections or task.fulfills_goal_uid:
+        conn_section = Div(
+            H3("Connections", cls="uk-heading-small"),
+            conn_badges,
+            cls="uk-margin",
+        )
+
+    # Lateral relationships (Vis.js graph, blocking chain, alternatives)
+    relationships = EntityRelationshipsSection(
+        entity_uid=task.uid,
+        entity_type="tasks",
+    )
+
+    return Div(
+        header,
+        Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-bottom")
+        if badges
+        else "",
+        desc_el,
+        meta_grid,
+        tags_el,
+        conn_section,
+        relationships,
+        cls="uk-container uk-container-small",
+    )
 
 
 _PRIORITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}

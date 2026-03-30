@@ -153,38 +153,7 @@ The Choices domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
-> **Shelved (2026-03-28):** Activity Domain CRUD UI routes and view components are shelved to `_shelved/activity_ui/`. API routes remain active. The content below is preserved for restoration reference.
-
-### Three-View Dashboard
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/choices` | GET | Main dashboard with List/Create/Analytics tabs |
-| `/choices?view=list` | GET | List view (default) |
-| `/choices?view=create` | GET | Create decision form |
-| `/choices?view=analytics` | GET | Decision analytics |
-
-### HTMX Fragments
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/choices/view/list` | GET | List view fragment |
-| `/choices/view/create` | GET | Create form fragment |
-| `/choices/view/analytics` | GET | Analytics fragment |
-| `/choices/list-fragment` | GET | Filtered list for updates |
-| `/choices/quick-add` | POST | Create choice via form |
-
-### Detail Routes
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/choices/{uid}` | GET | View choice detail |
-| `/choices/{uid}/edit` | GET | Edit modal |
-| `/choices/{uid}/edit` | POST | Submit edits |
-| `/choices/{uid}/decide` | GET | Decision modal |
-| `/choices/{uid}/decide` | POST | Submit decision |
-| `/choices/{uid}/add-option` | GET | Add option modal |
-| `/choices/{uid}/add-option` | POST | Submit new option |
+Read-focused UI at `/choices` is planned. API routes remain active.
 
 ## Dynamic Options at Creation (January 2026)
 

@@ -66,9 +66,7 @@ class DropdownItem:
     icon: str = ""
 
 
-# Activity domain dropdown items — SHELVED (2026-03-28)
-# Activity CRUD UI moved to _shelved/activity_ui/
-# Activity data viewed via ActivityReport UI in Study sidebar
+# Activity domain dropdown items — currently empty (activity domains have direct nav icons)
 ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 
 
@@ -91,6 +89,14 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         "tasks",
         has_dropdown=False,
         icon="check-square",
+    ),
+    IconNavItem(
+        "Goals",
+        "",
+        "/goals",
+        "goals",
+        has_dropdown=False,
+        icon="target",
     ),
     IconNavItem(
         "Submissions",

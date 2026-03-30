@@ -55,25 +55,19 @@ async def complete_task(self, uid: str) -> Result[Task]:
 
 **Event files**: `/core/events/{domain}_events.py`
 
-## Three-View UI Dashboard (Shelved 2026-03-28)
+## Read-Focused UI Pattern
 
-> **Shelved:** Activity Domain CRUD UI (routes, views, dashboards) moved to `_shelved/activity_ui/`. Activity data now enters via UnifiedIngestionService (mixed markdown + YAML from Obsidian) and is viewed via ActivityReport UI at `/activity-reports` (in Study sidebar). Calendar cross-cutting system still works (reads service protocols, not UI routes). See `_shelved/activity_ui/README.md` for restore instructions.
-
-The shelved UI followed this structure:
+Activity Domains use a read-focused UI — no CRUD forms, data enters via `/upload`. Active domains (Tasks, Goals) follow this structure:
 
 ```
-/domain                    # Main dashboard
-/domain?view=list          # List view (default)
-/domain?view=create        # Create form
-/domain?view=analytics     # Analytics view
+/domain                    # Main page — stats, filters, list
+/domain/list-fragment      # HTMX fragment for filter updates
+/domain/detail?uid=...     # Detail page with EntityRelationshipsSection
 
-/domain/view/list          # HTMX fragment
-/domain/view/create        # HTMX fragment
-/domain/view/analytics     # HTMX fragment
-
-/domain/{uid}              # Detail view
-/domain/{uid}/edit         # Edit modal
+/api/{domain}/{uid}/status # HTMX status toggle (POST)
 ```
+
+Calendar cross-cutting system still works (reads service protocols, not UI routes).
 
 ## Hierarchy Delegation Pattern
 

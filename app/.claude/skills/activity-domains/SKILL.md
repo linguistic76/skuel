@@ -2,7 +2,7 @@
 
 > Use when building features for Tasks, Goals, Habits, Events, Choices, or Principles (the 6 Activity Domains).
 
-> **Partially Shelved (2026-03-28, updated 2026-03-30):** Activity Domain CRUD UI (routes, views, dashboards) shelved to `_shelved/activity_ui/`. **Exception:** Tasks has a read-focused view at `/tasks` (2026-03-30) with HTMX status toggle, filtering, and knowledge connections — see `adapters/inbound/tasks_routes.py` and `ui/activities/tasks_views.py`. Activity data enters via bulk upload at `/upload` (any authenticated user) or via admin ingestion. Service facades and backends remain active.
+> Activity Domains use a **read-focused UI** pattern. Tasks (`/tasks`) and Goals (`/goals`) have dedicated views with cross-domain connection badges, detail pages with `EntityRelationshipsSection`, HTMX status toggles, and filtering. Remaining domains (Habits, Events, Choices, Principles) are planned. Activity data enters via bulk upload at `/upload` or admin ingestion. Service facades and backends are fully active.
 
 ## When to Use This Skill
 
@@ -53,7 +53,7 @@ ActivityReport UI ← Service Facade (read path)
 - **6-13 Sub-services** - Specialized functionality (core, search, intelligence, event_handler, etc.)
 - **Domain Events** - Cross-service communication
 - **Event Handler Service** - Fire-and-forget reactive handlers (`*_event_handler_service.py`) — all 6 Activity Domains have dedicated handlers; all persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points (overdue tasks, priority inflation, goal stalls, rescheduling patterns, etc.). The Learning Loop has a parallel handler (`LearningLoopEventHandlerService`) tracking submission iterations, feedback turnaround, and mastery velocity.
-- **~~Three-View UI~~** - Shelved to `_shelved/activity_ui/` (2026-03-28). **Exception:** Tasks has a read-focused view at `/tasks` (2026-03-30). Other activity data viewed via ActivityReport UI at `/activity-reports`.
+- **Read-Focused UI** — Tasks (`/tasks`) and Goals (`/goals`) have dedicated list + detail views with cross-domain connections and `EntityRelationshipsSection`. Other activity data viewed via ActivityReport UI at `/activity-reports`.
 
 ## Key Files Per Domain
 
@@ -72,9 +72,9 @@ core/services/{domain}/
 core/services/{domain}_service.py  # Facade
 core/events/{domain}_events.py     # Domain events
 
-# SHELVED (2026-03-28) — moved to _shelved/activity_ui/
+# Active read-focused UI (Tasks, Goals — others planned):
 # adapters/inbound/{domain}_ui.py    # UI Routes
-# ui/{domain}/views.py               # View components
+# ui/activities/{domain}_views.py    # View components
 ```
 
 ## Common Operations

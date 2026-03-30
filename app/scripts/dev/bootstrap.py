@@ -520,12 +520,14 @@ async def _wire_all_routes(
 
     create_askesis_routes(app, rt, services, None)
 
-    # -- Activity Domain CRUD UI shelved (2026-03-28) --
-    # Full CRUD routes in _shelved/activity_ui/adapters/
-    # Read-focused Tasks view (status controls, filters) is active:
+    # -- Activity Domain read-focused UI --
     from adapters.inbound.tasks_routes import create_tasks_routes
 
     create_tasks_routes(app, rt, services)
+
+    from adapters.inbound.goals_routes import create_goals_routes
+
+    create_goals_routes(app, rt, services)
 
     # -- Submissions --
     from adapters.inbound.submissions_routes import create_submissions_routes

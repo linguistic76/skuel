@@ -261,35 +261,7 @@ The Events domain publishes domain events for cross-service communication:
 
 ## UI Routes
 
-> **Shelved (2026-03-28):** Activity Domain CRUD UI routes and view components are shelved to `_shelved/activity_ui/`. API routes remain active. The content below is preserved for restoration reference.
-
-### Three-View Dashboard
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/events` | GET | Main dashboard with List/Create/Calendar tabs |
-| `/events?view=list` | GET | List view (default) |
-| `/events?view=create` | GET | Create event form |
-| `/events?view=calendar` | GET | Calendar view |
-
-### HTMX Fragments
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/events/view/list` | GET | List view fragment |
-| `/events/view/create` | GET | Create form fragment |
-| `/events/view/calendar` | GET | Calendar fragment |
-| `/events/list-fragment` | GET | Filtered list for updates |
-| `/events/quick-add` | POST | Create event via form |
-
-### Detail Routes
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/events/{uid}` | GET | View event detail |
-| `/events/{uid}/edit` | GET/POST | Edit event |
-| `/events/{uid}/complete` | POST | Mark event complete |
-| `/events/{uid}/reschedule` | POST | Reschedule event |
+Read-focused UI at `/events` is planned. API routes remain active.
 
 ## Code Examples
 

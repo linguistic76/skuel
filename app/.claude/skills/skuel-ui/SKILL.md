@@ -55,6 +55,8 @@ Html(build_head("Title", extra_css=["/static/css/calendar.css"]), Body(...))
 
 | Route | Page | Type | Notes |
 |-------|------|------|-------|
+| `/tasks` | Tasks list + detail | `STANDARD` | HTMX status toggle, filtering, connection badges |
+| `/goals` | Goals list + detail | `STANDARD` | Progress bars, milestones, connection grouping |
 | `/upload` | Upload Activity Data | `STANDARD` | HTMX file upload + results display |
 
 ```python
