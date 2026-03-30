@@ -66,8 +66,13 @@ class DropdownItem:
     icon: str = ""
 
 
-# Activity domain dropdown items — currently empty (activity domains have direct nav icons)
-ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
+# Activity domain dropdown items — shown in avatar hover dropdown
+ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
+    DropdownItem("Habits", "/habits", icon="repeat"),
+    DropdownItem("Events", "/events", icon="calendar"),
+    DropdownItem("Choices", "/choices", icon="git-branch"),
+    DropdownItem("Principles", "/principles", icon="compass"),
+)
 
 
 # Curriculum domain dropdown items — SHELVED (2026-03-29)

@@ -529,6 +529,22 @@ async def _wire_all_routes(
 
     create_goals_routes(app, rt, services)
 
+    from adapters.inbound.habits_routes import create_habits_routes
+
+    create_habits_routes(app, rt, services)
+
+    from adapters.inbound.events_routes import create_events_routes
+
+    create_events_routes(app, rt, services)
+
+    from adapters.inbound.choices_routes import create_choices_routes
+
+    create_choices_routes(app, rt, services)
+
+    from adapters.inbound.principles_routes import create_principles_routes
+
+    create_principles_routes(app, rt, services)
+
     # -- Submissions --
     from adapters.inbound.submissions_routes import create_submissions_routes
 
