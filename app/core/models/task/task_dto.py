@@ -41,7 +41,7 @@ class TaskDTO(UserOwnedDTO):
     Extends UserOwnedDTO with 25 task-specific fields:
     - Scheduling (9): due_date, scheduled_date, completion_date, duration, recurrence
     - Hierarchy (3): parent_uid, project, assignee
-    - Cross-domain links (4): goal, habit, learning step/path references
+    - Cross-domain links (4): goal, habit, path step/path references
     - Progress impact (6): goal contribution, knowledge mastery, habit streak
     - Knowledge intelligence (3): confidence scores, inference metadata, opportunities
     """
@@ -75,7 +75,7 @@ class TaskDTO(UserOwnedDTO):
     # =========================================================================
     fulfills_goal_uid: str | None = None
     reinforces_habit_uid: str | None = None
-    source_learning_step_uid: str | None = None
+    source_path_step_uid: str | None = None
     source_learning_path_uid: str | None = None
 
     # =========================================================================
@@ -155,7 +155,7 @@ class TaskDTO(UserOwnedDTO):
                 # Cross-domain links
                 "fulfills_goal_uid": self.fulfills_goal_uid,
                 "reinforces_habit_uid": self.reinforces_habit_uid,
-                "source_learning_step_uid": self.source_learning_step_uid,
+                "source_path_step_uid": self.source_path_step_uid,
                 "source_learning_path_uid": self.source_learning_path_uid,
                 # Progress impact
                 "goal_progress_contribution": self.goal_progress_contribution,
@@ -260,7 +260,7 @@ class TaskDTO(UserOwnedDTO):
                 "assignee",
                 "fulfills_goal_uid",
                 "reinforces_habit_uid",
-                "source_learning_step_uid",
+                "source_path_step_uid",
                 "source_learning_path_uid",
                 "goal_progress_contribution",
                 "knowledge_mastery_check",

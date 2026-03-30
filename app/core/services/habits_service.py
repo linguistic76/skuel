@@ -465,15 +465,15 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             user_uid, new_habit_time, new_habit_category
         )
 
-    async def create_habit_from_learning_step(
+    async def create_habit_from_path_step(
         self,
-        learning_step_uid: str,
+        path_step_uid: str,
         user_context: UserContext,
         frequency: RecurrencePattern = RecurrencePattern.DAILY,
         duration_minutes: int = 15,
     ) -> Result[Habit]:
-        return await self.scheduling.create_habit_from_learning_step(
-            learning_step_uid, user_context, frequency, duration_minutes
+        return await self.scheduling.create_habit_from_path_step(
+            path_step_uid, user_context, frequency, duration_minutes
         )
 
     async def get_habit_load_by_day(self, user_uid: UserUID) -> Result[dict[str, Any]]:
@@ -1406,7 +1406,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 
         # Integration level calculation
         integration_count = 0
-        if habit.source_learning_step_uid or habit.source_learning_path_uid:
+        if habit.source_path_step_uid or habit.source_learning_path_uid:
             integration_count += 3
         if habit.is_identity_habit:
             integration_count += 2
@@ -1438,9 +1438,9 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             "goal_uids": goal_uids,
             "linked_principle_count": len(principle_uids),
             "principle_uids": principle_uids,
-            "is_curriculum_habit": habit.source_learning_step_uid is not None
+            "is_curriculum_habit": habit.source_path_step_uid is not None
             or habit.source_learning_path_uid is not None,
-            "source_step_uid": habit.source_learning_step_uid,
+            "source_step_uid": habit.source_path_step_uid,
             "source_path_uid": habit.source_learning_path_uid,
             "reinforces_step_count": len(step_uids),
             "step_uids": step_uids,
@@ -1473,9 +1473,9 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         enriched = {
             "uid": habit.uid,
             "name": habit.title,
-            "is_curriculum_habit": habit.source_learning_step_uid is not None
+            "is_curriculum_habit": habit.source_path_step_uid is not None
             or habit.source_learning_path_uid is not None,
-            "source_step_uid": habit.source_learning_step_uid,
+            "source_step_uid": habit.source_path_step_uid,
             "source_path_uid": habit.source_learning_path_uid,
             "reinforces_step_uids": step_uids,
             "reinforces_step_count": len(step_uids),

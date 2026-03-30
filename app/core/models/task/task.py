@@ -7,7 +7,7 @@ Frozen dataclass for task entities (EntityType.TASK).
 Inherits common fields from UserOwnedEntity. Adds 25 task-specific fields:
 - Scheduling (9): due_date, scheduled_date, completion_date, duration, recurrence
 - Hierarchy (3): parent_uid, project, assignee
-- Cross-domain links (4): goal, habit, learning step/path references
+- Cross-domain links (4): goal, habit, path step/path references
 - Progress impact (6): goal contribution, knowledge mastery, habit streak
 - Knowledge intelligence (3): confidence scores, inference metadata, opportunities
 
@@ -77,7 +77,7 @@ class Task(UserOwnedEntity):
     # =========================================================================
     fulfills_goal_uid: str | None = None  # TASK -> GOAL
     reinforces_habit_uid: str | None = None  # TASK -> HABIT
-    source_learning_step_uid: str | None = None  # TASK -> LS
+    source_path_step_uid: str | None = None  # TASK -> LS
     source_learning_path_uid: str | None = None  # TASK -> LP
 
     # =========================================================================
@@ -118,7 +118,7 @@ class Task(UserOwnedEntity):
     def learning_alignment_score(self) -> float:
         """Score for how well a task aligns with learning paths."""
         score = 0.0
-        if self.source_learning_step_uid:
+        if self.source_path_step_uid:
             score += 0.5
         if self.source_learning_path_uid:
             score += 0.3
@@ -210,14 +210,14 @@ class Task(UserOwnedEntity):
         return self.fulfills_goal_uid
 
     @property
-    def is_from_learning_step(self) -> bool:
-        """Check if this task originated from a learning step."""
-        return self.source_learning_step_uid is not None
+    def is_from_path_step(self) -> bool:
+        """Check if this task originated from a path step."""
+        return self.source_path_step_uid is not None
 
     @property
-    def fulfills_learning_step(self) -> bool:
-        """Check if this task fulfills a learning step."""
-        return self.source_learning_step_uid is not None
+    def fulfills_path_step(self) -> bool:
+        """Check if this task fulfills a path step."""
+        return self.source_path_step_uid is not None
 
     # =========================================================================
     # CONVERSION

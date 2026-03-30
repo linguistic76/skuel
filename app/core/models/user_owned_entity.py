@@ -7,7 +7,7 @@ entities belong to a specific user: Activity Domains (Task, Goal, Habit, Event,
 Choice, Principle), Submission types (Journal, ActivityReport,
 ExerciseReport), and LifePath.
 
-Shared/curriculum types (Curriculum, LearningStep, LearningPath, Exercise,
+Shared/curriculum types (Curriculum, PathStep, LearningPath, Exercise,
 Resource) inherit directly from Entity and do NOT have these fields.
 
 Hierarchy:
@@ -17,7 +17,7 @@ Hierarchy:
     │   ├── Submission → ExerciseSubmission, ExerciseReport
     │   ├── ActivityReport (activity-level feedback — no file fields)
     │   └── LifePath
-    ├── Curriculum(Entity) → LearningStep, LearningPath, Exercise
+    ├── Curriculum(Entity) → PathStep, LearningPath, Exercise
     └── Resource(Entity)
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md

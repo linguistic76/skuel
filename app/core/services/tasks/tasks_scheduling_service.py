@@ -351,7 +351,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         """
         suggestions = []
 
-        # Generate suggestions based on current learning steps
+        # Generate suggestions based on current path steps
         for path in learning_position.active_paths:
             current_step = learning_position.current_steps.get(path.uid)
             if current_step:
@@ -420,8 +420,8 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
     # CURRICULUM-BASED TASK CREATION
     # ========================================================================
 
-    @with_error_handling("create_task_from_learning_step", error_type="database")
-    async def create_task_from_learning_step(
+    @with_error_handling("create_task_from_path_step", error_type="database")
+    async def create_task_from_path_step(
         self,
         step_uid: str,
         task_title: str,
@@ -429,7 +429,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         _user_uid: UserUID,
     ) -> Result[Task]:
         """
-        Create a practice task for a learning step.
+        Create a practice task for a path step.
 
         DEFERRED IMPLEMENTATION (Graph-Native):
         ==================================
@@ -448,7 +448,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         4. Create (Task)-[:APPLIES_KNOWLEDGE]->(Knowledge) relationships in graph
 
         Args:
-            step_uid: LearningStep UID,
+            step_uid: PathStep UID,
             task_title: Task title,
             knowledge_uids: Knowledge UIDs to link (currently unused - see deferral note)
             user_uid: User identifier
@@ -460,7 +460,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         task_dto = TaskDTO.create_task(
             user_uid=_user_uid,
             title=task_title,
-            source_learning_step_uid=step_uid,
+            source_path_step_uid=step_uid,
             # DEFERRED: Knowledge relationship creation (see docstring)
             knowledge_mastery_check=True,
             scheduled_date=date.today() + timedelta(days=1),

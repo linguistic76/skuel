@@ -32,7 +32,7 @@ ENTITY TYPES NOT USING THIS BASE SERVICE
 
 **Curriculum Domain Services (3)** - Standalone facades:
     8. LessonService - Knowledge Units (ku:)
-    9. LsService - Learning Steps (ls:)
+    9. PsService - Learning Steps (ls:)
     10. LpService - Learning Paths (lp:)
 
 **Content/Organization Domains (3)** - Cross-domain composition:

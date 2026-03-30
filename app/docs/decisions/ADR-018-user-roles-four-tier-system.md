@@ -216,7 +216,7 @@ Current policy: **All domains unlimited for all users.**
 
 | Domain | Limit |
 |--------|-------|
-| Curriculum (KU, LS, LP) | Unlimited |
+| Curriculum (KU, PS, LP) | Unlimited |
 | Activity (Tasks, Goals, Habits, Events, Choices) | Unlimited |
 | API rate limiting | Reserved for future |
 

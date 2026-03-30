@@ -26,7 +26,7 @@
 | Choices | `/core/services/choices/choices_intelligence_service.py` | |
 | Principles | `/core/services/principles/principles_intelligence_service.py` | |
 | Lesson | `/core/services/lesson_intelligence_service.py` | top-level (not in article/ subdir) |
-| LS | `/core/services/ls/ls_intelligence_service.py` | |
+| LS | `/core/services/ls/ps_intelligence_service.py` | |
 | LP | `/core/services/lp_intelligence_service.py` | top-level (not in lp/ subdir) |
 
 ### Documentation

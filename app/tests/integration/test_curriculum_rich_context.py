@@ -26,7 +26,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.goal.goal_dto import GoalDTO
 from core.models.pathways.learning_path_dto import LearningPathDTO
-from core.models.pathways.learning_step_dto import LearningStepDTO
+from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.task.task_dto import TaskDTO
 from core.utils.uid_generator import UIDGenerator
@@ -36,9 +36,9 @@ from core.utils.uid_generator import UIDGenerator
 class TestCurriculumRichContext:
     """Test rich context pattern for LP and LS domains."""
 
-    async def test_learning_step_get_with_context(self, services, test_user):
+    async def test_path_step_get_with_context(self, services, test_user):
         """
-        Test LsCoreService.get_with_context() fetches step + graph neighborhood.
+        Test PsCoreService.get_with_context() fetches step + graph neighborhood.
 
         Validates that knowledge relationships, prerequisites, guiding principles,
         practice opportunities, and parent path are all fetched in a single query.
@@ -88,23 +88,23 @@ class TestCurriculumRichContext:
         )
         await services.tasks.core.backend.create(task.to_dict())
 
-        # Create prerequisite learning step
-        prereq_step = LearningStepDTO(
-            uid=UIDGenerator.generate_random_uid("ls"),
+        # Create prerequisite path step
+        prereq_step = PathStepDTO(
+            uid=UIDGenerator.generate_random_uid("ps"),
             title="Introduction to Python",
             intent="First step in Python learning",
             description="First step in Python learning",
         )
-        await services.ls.core.backend.create(prereq_step)
+        await services.ps.core.backend.create(prereq_step)
 
-        # Create main learning step
-        main_step = LearningStepDTO(
-            uid=UIDGenerator.generate_random_uid("ls"),
+        # Create main path step
+        main_step = PathStepDTO(
+            uid=UIDGenerator.generate_random_uid("ps"),
             title="Master Python Functions",
             intent="Deep dive into function concepts",
             description="Deep dive into function concepts",
         )
-        await services.ls.core.backend.create(main_step)
+        await services.ps.core.backend.create(main_step)
 
         # Create learning path for context
         learning_path = LearningPathDTO(
@@ -123,7 +123,7 @@ class TestCurriculumRichContext:
         print(f"DEBUG: learning_path.uid = {learning_path.uid}")
 
         # Create all relationships
-        await services.ls.core.backend.driver.execute_query(
+        await services.ps.core.backend.driver.execute_query(
             """
             // Knowledge
             MATCH (ls:Entity {uid: $step_uid})
@@ -179,13 +179,13 @@ class TestCurriculumRichContext:
         )
 
         # Debug: Verify learning path exists and has relationship
-        check_result = await services.ls.core.backend.driver.execute_query(
+        check_result = await services.ps.core.backend.driver.execute_query(
             """
             MATCH (lp:Entity {uid: $lp_uid})
-            OPTIONAL MATCH (lp)-[r:HAS_STEP|CONTAINS_STEP]->(ls:Entity {uid: $ls_uid})
-            RETURN lp.uid as lp_uid, lp.title as lp_name, type(r) as rel_type, r.sequence as sequence, ls.uid as ls_uid
+            OPTIONAL MATCH (lp)-[r:HAS_STEP|CONTAINS_STEP]->(ls:Entity {uid: $ps_uid})
+            RETURN lp.uid as lp_uid, lp.title as lp_name, type(r) as rel_type, r.sequence as sequence, ps.uid as ps_uid
             """,
-            {"lp_uid": learning_path.uid, "ls_uid": main_step.uid},
+            {"lp_uid": learning_path.uid, "ps_uid": main_step.uid},
         )
         check_records = check_result.records
         print(f"DEBUG: Check query found {len(check_records)} records")
@@ -194,10 +194,10 @@ class TestCurriculumRichContext:
             print(
                 f"DEBUG: Relationship type: {check_records[0]['rel_type']}, sequence: {check_records[0]['sequence']}"
             )
-            print(f"DEBUG: LS connected: {check_records[0]['ls_uid']}")
+            print(f"DEBUG: LS connected: {check_records[0]['ps_uid']}")
 
         # TEST: Get with context (single query)
-        result = await services.ls.core.get_with_context(main_step.uid)
+        result = await services.ps.core.get_with_context(main_step.uid)
 
         assert result.is_ok, f"Failed to get step with context: {result.error}"
 
@@ -215,7 +215,7 @@ class TestCurriculumRichContext:
         assert isinstance(context, dict)
         assert len(context) > 0, "graph_context should not be empty"
 
-        # LS-specific context keys (from LsCoreService.get_with_context override)
+        # LS-specific context keys (from PsCoreService.get_with_context override)
         assert "is_sequenced" in context
         assert "guiding_principles" in context
 
@@ -256,22 +256,22 @@ class TestCurriculumRichContext:
         )
         await services.principles.core.backend.create(principle.to_dict())
 
-        # Create learning steps
-        step1 = LearningStepDTO(
-            uid=UIDGenerator.generate_random_uid("ls"),
+        # Create path steps
+        step1 = PathStepDTO(
+            uid=UIDGenerator.generate_random_uid("ps"),
             title="Python Basics",
             intent="Learn Python fundamentals",
             description="Learn Python fundamentals",
         )
-        await services.ls.core.backend.create(step1)
+        await services.ps.core.backend.create(step1)
 
-        step2 = LearningStepDTO(
-            uid=UIDGenerator.generate_random_uid("ls"),
+        step2 = PathStepDTO(
+            uid=UIDGenerator.generate_random_uid("ps"),
             title="Advanced Python",
             intent="Master advanced concepts",
             description="Master advanced concepts",
         )
-        await services.ls.core.backend.create(step2)
+        await services.ps.core.backend.create(step2)
 
         # Create learning path
         learning_path = LearningPathDTO(
@@ -360,7 +360,7 @@ class TestCurriculumRichContext:
         """
         Test that MEGA-QUERY includes curriculum rich data in UserContext.
 
-        Validates that enrolled_paths_rich and active_learning_steps_rich are
+        Validates that enrolled_paths_rich and active_path_steps_rich are
         properly populated with full entities and graph neighborhoods.
         """
         # Create learning path
@@ -372,14 +372,14 @@ class TestCurriculumRichContext:
         )
         await services.lp.core.backend.create(learning_path)
 
-        # Create learning step
-        learning_step = LearningStepDTO(
-            uid=UIDGenerator.generate_random_uid("ls"),
+        # Create path step
+        path_step = PathStepDTO(
+            uid=UIDGenerator.generate_random_uid("ps"),
             title="Functions Deep Dive",
             intent="Master Python functions",
             description="Master Python functions",
         )
-        await services.ls.core.backend.create(learning_step)
+        await services.ps.core.backend.create(path_step)
 
         # Create goal for alignment
         goal = GoalDTO.create_goal(
@@ -402,18 +402,18 @@ class TestCurriculumRichContext:
         await asyncio.sleep(0.1)
 
         # Add secondary labels so MEGA-QUERY can find nodes
-        # MEGA-QUERY expects :LearningPath, :LearningStep, :Goal labels
+        # MEGA-QUERY expects :LearningPath, :PathStep, :Goal labels
         await services.lp.core.backend.driver.execute_query(
             """
             MATCH (lp:Entity {uid: $lp_uid}) SET lp:LearningPath
             WITH lp
-            MATCH (ls:Entity {uid: $ls_uid}) SET ls:LearningStep
+            MATCH (ls:Entity {uid: $ps_uid}) SET ls:PathStep
             WITH ls
             MATCH (goal:Entity {uid: $goal_uid}) SET goal:Goal
             """,
             {
                 "lp_uid": learning_path.uid,
-                "ls_uid": learning_step.uid,
+                "ps_uid": path_step.uid,
                 "goal_uid": goal.uid,
             },
         )
@@ -428,7 +428,7 @@ class TestCurriculumRichContext:
 
             // Add step to path
             WITH lp
-            MATCH (ls:LearningStep {uid: $ls_uid})
+            MATCH (ps:PathStep {uid: $ps_uid})
             CREATE (lp)-[:CONTAINS_STEP {sequence: 1}]->(ls)
 
             // Align path with goal
@@ -450,7 +450,7 @@ class TestCurriculumRichContext:
             {
                 "user_uid": test_user.uid,
                 "lp_uid": learning_path.uid,
-                "ls_uid": learning_step.uid,
+                "ps_uid": path_step.uid,
                 "goal_uid": goal.uid,
                 "ku_uid": ku.uid,
             },
@@ -489,24 +489,24 @@ class TestCurriculumRichContext:
 
         # Check that step was included
         assert len(path_context["steps"]) == 1
-        assert path_context["steps"][0]["uid"] == learning_step.uid
+        assert path_context["steps"][0]["uid"] == path_step.uid
 
         # Check that goal was included
         assert len(path_context["aligned_goals"]) == 1
         assert path_context["aligned_goals"][0]["uid"] == goal.uid
 
-        # Validate active_learning_steps_rich
-        assert hasattr(context, "active_learning_steps_rich"), "active_learning_steps_rich missing"
-        assert len(context.active_learning_steps_rich) > 0, "No active steps found"
+        # Validate active_path_steps_rich
+        assert hasattr(context, "active_path_steps_rich"), "active_path_steps_rich missing"
+        assert len(context.active_path_steps_rich) > 0, "No active steps found"
 
-        step_rich = context.active_learning_steps_rich[0]
+        step_rich = context.active_path_steps_rich[0]
         assert "step" in step_rich, "step properties missing"
         assert "graph_context" in step_rich, "step graph_context missing"
 
         # Validate step properties
         step_props = step_rich["step"]
-        assert step_props["uid"] == learning_step.uid
-        assert step_props["title"] == learning_step.title
+        assert step_props["uid"] == path_step.uid
+        assert step_props["title"] == path_step.title
 
         # Validate step graph context
         step_context = step_rich["graph_context"]
@@ -525,4 +525,4 @@ class TestCurriculumRichContext:
 
         print("✅ MEGA-QUERY curriculum integration complete")
         print(f"   - {len(context.enrolled_paths_rich)} learning paths with rich data")
-        print(f"   - {len(context.active_learning_steps_rich)} learning steps with rich data")
+        print(f"   - {len(context.active_path_steps_rich)} path steps with rich data")

@@ -23,7 +23,7 @@ import pytest
 
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.path_step import PathStep
 from core.models.pathways.lp_position import LpPosition
 from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
@@ -46,7 +46,7 @@ def mock_backend() -> Any:
     # get_user_entities returns (entities, total_count) tuple
     backend.get_user_entities = AsyncMock(return_value=Result.ok(([], 0)))
     backend.find_by = AsyncMock()  # Search service uses find_by for filtering
-    backend.list = AsyncMock()  # Used by curriculum and learning step queries
+    backend.list = AsyncMock()  # Used by curriculum and path step queries
     # Default: No relationships found (empty lists)
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
     backend.create_relationship = AsyncMock(return_value=Result.ok(True))
@@ -117,7 +117,7 @@ def sample_tasks() -> list[Any]:
                 priority=Priority.LOW.value,
                 status=EntityStatus.DRAFT.value,
                 knowledge_mastery_check=True,
-                source_learning_step_uid="ls:python_fundamentals",
+                source_path_step_uid="ps:python_fundamentals",
                 created_at=now,
             )
         ),
@@ -140,16 +140,16 @@ def user_context() -> UserContext:
 @pytest.fixture
 def learning_position() -> LpPosition:
     """Create sample learning position."""
-    step1 = LearningStep(
-        uid="ls:python_fundamentals",
+    step1 = PathStep(
+        uid="ps:python_fundamentals",
         title="Python Fundamentals",
         intent="Learn Python basics",
         knowledge_uids=("ku.python.basics",),
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
-    step2 = LearningStep(
-        uid="ls:python_advanced",
+    step2 = PathStep(
+        uid="ps:python_advanced",
         title="Python Advanced",
         intent="Master advanced Python concepts",
         knowledge_uids=("ku.python.advanced",),
@@ -170,9 +170,9 @@ def learning_position() -> LpPosition:
         active_paths=[path],
         current_steps={"lp:python_mastery": step1},
         completed_step_uids=set(),
-        next_recommended=["ls:python_advanced"],
+        next_recommended=["ps:python_advanced"],
         generated_at=datetime.now(),
-        readiness_scores={"ls:python_advanced": 0.8},
+        readiness_scores={"ps:python_advanced": 0.8},
     )
 
 
@@ -440,10 +440,10 @@ async def test_get_curriculum_tasks(search_service, mock_backend, sample_tasks):
     assert result.is_ok
     curriculum_tasks = result.value
 
-    # Only task 4 has source_learning_step_uid
+    # Only task 4 has source_path_step_uid
     assert len(curriculum_tasks) == 1
     assert curriculum_tasks[0].uid == "task:4"
-    assert curriculum_tasks[0].is_from_learning_step
+    assert curriculum_tasks[0].is_from_path_step
 
 
 # ============================================================================
@@ -452,21 +452,21 @@ async def test_get_curriculum_tasks(search_service, mock_backend, sample_tasks):
 
 
 @pytest.mark.asyncio
-async def test_get_tasks_for_learning_step(search_service, mock_backend, sample_tasks):
-    """Test retrieval of tasks for a specific learning step."""
+async def test_get_tasks_for_path_step(search_service, mock_backend, sample_tasks):
+    """Test retrieval of tasks for a specific path step."""
     # Setup
     # Service uses backend.list() which returns Result[(tasks_data, total_count)] tuple
     tasks_data = [t.to_dto().to_dict() for t in sample_tasks]
     mock_backend.list.return_value = Result.ok((tasks_data, len(tasks_data)))
 
     # Execute
-    result = await search_service.get_tasks_for_learning_step("ls:python_fundamentals")
+    result = await search_service.get_tasks_for_path_step("ps:python_fundamentals")
 
     # Verify
     assert result.is_ok
     tasks = result.value
     assert len(tasks) == 1
-    assert tasks[0].source_learning_step_uid == "ls:python_fundamentals"
+    assert tasks[0].source_path_step_uid == "ps:python_fundamentals"
 
 
 # ============================================================================

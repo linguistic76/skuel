@@ -23,7 +23,7 @@ def _journals_noop_api_factory(_app: Any, _rt: Any, _primary: Any, **_kw: Any) -
     return []
 
 
-JOURNALS_CONFIG = DomainRouteConfig(
+JOURNAPS_CONFIG = DomainRouteConfig(
     domain_name="journals",
     primary_service_attr="journal_input",
     api_factory=_journals_noop_api_factory,
@@ -49,7 +49,7 @@ def create_journals_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any) 
     Returns:
         List of all registered route functions
     """
-    routes = register_domain_routes(app, rt, services, JOURNALS_CONFIG)
+    routes = register_domain_routes(app, rt, services, JOURNAPS_CONFIG)
     logger.info("Journals routes registered (standalone domain)")
     return routes
 

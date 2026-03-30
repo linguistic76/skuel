@@ -339,10 +339,8 @@ class LessonService:
             ku_uid, user_uid, only_active
         )
 
-    async def find_learning_steps_containing(
-        self, ku_uid: str, limit: int = 10
-    ) -> Result[list[str]]:
-        return await self.application_discovery.find_learning_steps_containing(ku_uid, limit)
+    async def find_path_steps_containing(self, ku_uid: str, limit: int = 10) -> Result[list[str]]:
+        return await self.application_discovery.find_path_steps_containing(ku_uid, limit)
 
     async def find_learning_paths_teaching(self, ku_uid: str, limit: int = 10) -> Result[list[str]]:
         return await self.application_discovery.find_learning_paths_teaching(ku_uid, limit)

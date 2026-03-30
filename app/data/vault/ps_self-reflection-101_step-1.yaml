@@ -1,7 +1,7 @@
 version: 1.0
-type: LearningStep
+type: PathStep
 
-uid: ls:self-reflection-101:step-1
+uid: ps:self-reflection-101:step-1
 title: Notice Your Patterns
 intent: Identify one recurring trigger-feeling-response loop in your daily life
 description: |

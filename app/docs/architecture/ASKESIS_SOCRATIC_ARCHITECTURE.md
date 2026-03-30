@@ -1,4 +1,4 @@
-# Askesis Guided Pipeline — LS-Scoped, ZPD-Centered, GuidanceMode-Aware
+# Askesis Guided Pipeline — PS-Scoped, ZPD-Centered, GuidanceMode-Aware
 
 **Last Updated:** March 12, 2026
 
@@ -6,7 +6,7 @@
 
 ## Design Rationale
 
-Askesis is a curriculum-focused chatbot scoped to the user's active Learning Path. No LP enrollment = no Askesis. It uses all curriculum content (Articles, Kus, Resources) linked to the LP/LS graph. Default register is DIRECT, with SOCRATIC, EXPLORATORY, and ENCOURAGING as situational modes.
+Askesis is a curriculum-focused chatbot scoped to the user's active Learning Path. No LP enrollment = no Askesis. It uses all curriculum content (Articles, Kus, Resources) linked to the LP/PS graph. Default register is DIRECT, with SOCRATIC, EXPLORATORY, and ENCOURAGING as situational modes.
 
 **Three principles:**
 1. **LP-scoped:** No LP enrollment = no Askesis. LP gate at top of pipeline.
@@ -28,28 +28,28 @@ EntityExtractor.extract_entities_from_query(question, user_context)
         |
 ContextRetriever.retrieve_relevant_context(user_context, question, intent)
         |
-ContextRetriever.load_ls_bundle(user_uid, user_context)
+ContextRetriever.load_ps_bundle(user_uid, user_context)
         |
-LSBundle (frozen, scoped to 1 Learning Step) — or None
+PsBundle (frozen, scoped to 1 Path Step) — or None
         |
-EntityExtractor.extract_from_bundle(question, ls_bundle)
+EntityExtractor.extract_from_bundle(question, ps_bundle)
         |
 Target KU UIDs (scoped to bundle)
         |
 ZPDService.assess_ku_readiness(user_uid, ku_uids)
         |
-IntentClassifier.determine_guidance_mode(question, ls_bundle, zone_evidence, ku_uids)
+IntentClassifier.determine_guidance_mode(question, ps_bundle, zone_evidence, ku_uids)
         |
 GuidanceDetermination (mode + pedagogical_detail + evidence)
         |
-ResponseGenerator.build_guided_system_prompt(guidance, ls_bundle, user_context)
+ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context)
         |
 LLMService.generate(prompt=question, system_prompt=guided_prompt)
         |
 RESPONSE (GuidanceMode-tagged)
 ```
 
-**Orchestration:** `QueryProcessor.answer_user_question()` runs this pipeline. When no LS bundle is available, it falls back to the standard RAG pipeline (global retrieval + LLM generation).
+**Orchestration:** `QueryProcessor.answer_user_question()` runs this pipeline. When no PS bundle is available, it falls back to the standard RAG pipeline (global retrieval + LLM generation).
 
 ---
 
@@ -78,7 +78,7 @@ RESPONSE (GuidanceMode-tagged)
 | `REDIRECT_TO_CURRICULUM` | No ZPD evidence at all | Point to Lesson to read first |
 | `ENCOURAGE_PRACTICE` | 1 signal, missing practice | Connect understanding to habits/tasks |
 | `SURFACE_CONNECTION` | Multi-KU question with edges | Highlight relationships between concepts |
-| `OUT_OF_SCOPE` | Question not in LS bundle | Redirect to current learning focus |
+| `OUT_OF_SCOPE` | Question not in PS bundle | Redirect to current learning focus |
 
 **Key design decision:** Intent classification is deterministic (decision tree), not LLM-based. It uses ZoneEvidence boolean flags and runs in ~1ms with no network I/O.
 
@@ -100,11 +100,11 @@ class GuidanceDetermination:
 
 ---
 
-## LSBundle — Scoped Context
+## PsBundle — Scoped Context
 
-The LSBundle is a frozen dataclass containing the complete context for a Learning Step:
+The PsBundle is a frozen dataclass containing the complete context for a Path Step:
 
-- `learning_step: LearningStep` — the active step
+- `path_step: PathStep` — the active step
 - `learning_path: LearningPath | None` — parent path
 - `lessons: tuple[Lesson, ...]` — primary + supporting content
 - `kus: tuple[Ku, ...]` — atomic knowledge units trained by this step
@@ -115,7 +115,7 @@ The LSBundle is a frozen dataclass containing the complete context for a Learnin
 
 **Immutability:** Built once per question, passed through the pipeline, never mutated.
 
-**Construction:** `ContextRetriever.load_ls_bundle()` builds the bundle from `UserContext.active_learning_steps_rich` (already loaded by the MEGA-QUERY) plus full entity fetches for content fields. Entity fetches run in parallel with `return_exceptions=True` — individual failures produce empty defaults, so a partial bundle (just the LS) is always built.
+**Construction:** `ContextRetriever.load_ps_bundle()` builds the bundle from `UserContext.active_path_steps_rich` (already loaded by the MEGA-QUERY) plus full entity fetches for content fields. Entity fetches run in parallel with `return_exceptions=True` — individual failures produce empty defaults, so a partial bundle (just the PS) is always built.
 
 **Token truncation:** `curriculum_context_text` is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` to prevent exceeding LLM context windows.
 
@@ -175,14 +175,14 @@ When populated on Curriculum entities, the guided pipeline can assess learner re
 ### Conversation Signals to ZPD
 Socratic conversations can generate ZPD signals: if the user explains a concept correctly in an ASSESS turn, that's evidence comparable to a submission. Not yet implemented — requires structured evaluation.
 
-### ZPD Expansion to Lessons and LS
-Currently ZPD assesses per-KU. Expanding to per-Lesson and per-LS would enable "Have you understood this entire Learning Step?" assessment. Interfaces are ready; implementation waits for curriculum content to reveal what's needed.
+### ZPD Expansion to Lessons and PS
+Currently ZPD assesses per-KU. Expanding to per-Lesson and per-PS would enable "Have you understood this entire Path Step?" assessment. Interfaces are ready; implementation waits for curriculum content to reveal what's needed.
 
 ### Multi-LP Users
-Users enrolled in multiple Learning Paths need a way to select which LP's LS drives the session. Current implementation uses the first active (non-mastered) LS. Future: explicit session binding to a specific LP.
+Users enrolled in multiple Learning Paths need a way to select which LP's PS drives the session. Current implementation uses the first active (non-mastered) PS. Future: explicit session binding to a specific LP.
 
 ### Resource Connectivity (Phase 8) — ✅ Done (March 2026)
-Resources are wired into the Askesis pipeline via `CITES_RESOURCE` relationships. `(Lesson/Ku)-[:CITES_RESOURCE {context}]->(Resource)` connects curriculum to reference material. ContextRetriever loads cited Resources into the LSBundle, ResponseGenerator references them in guided prompts, and semantic search includes Resources alongside Lessons and KUs.
+Resources are wired into the Askesis pipeline via `CITES_RESOURCE` relationships. `(Lesson/Ku)-[:CITES_RESOURCE {context}]->(Resource)` connects curriculum to reference material. ContextRetriever loads cited Resources into the PsBundle, ResponseGenerator references them in guided prompts, and semantic search includes Resources alongside Lessons and KUs.
 
 ---
 
@@ -193,11 +193,11 @@ Resources are wired into the Askesis pipeline via `CITES_RESOURCE` relationships
 | `core/services/askesis/query_processor.py` | `answer_user_question()` — LP-scoped pipeline orchestration |
 | `core/services/askesis/intent_classifier.py` | `classify_pedagogical_intent()` + `determine_guidance_mode()` |
 | `core/services/askesis/entity_extractor.py` | `extract_from_bundle()` — scoped entity matching |
-| `core/services/askesis/context_retriever.py` | `load_ls_bundle()` — LS bundle loading |
+| `core/services/askesis/context_retriever.py` | `load_ps_bundle()` — PS bundle loading |
 | `core/services/askesis/response_generator.py` | `build_guided_system_prompt()` — 4 mode builders |
 | `core/services/zpd/zpd_service.py` | `assess_ku_readiness()` — targeted ZPD |
 | `adapters/persistence/neo4j/zpd_backend.py` | `get_targeted_ku_engagement()` — Cypher query |
-| `core/models/askesis/ls_bundle.py` | LSBundle frozen dataclass |
+| `core/models/askesis/ps_bundle.py` | PsBundle frozen dataclass |
 | `core/models/askesis/pedagogical_intent.py` | PedagogicalIntent enum (7 move types) |
 | `core/models/askesis/learning_objective.py` | StructuredLearningObjective |
 | `core/models/enums/metadata_enums.py` | GuidanceMode enum (DIRECT, SOCRATIC, EXPLORATORY, ENCOURAGING) |

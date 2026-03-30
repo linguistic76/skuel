@@ -87,7 +87,7 @@ class Ku:
     parent_uid: str | None = None
     fulfills_goal_uid: str | None = None
     reinforces_habit_uid: str | None = None
-    source_learning_step_uid: str | None = None
+    source_path_step_uid: str | None = None
 ```
 
 ### When to Use
@@ -160,12 +160,12 @@ async def create_task(self, task_request: TaskCreateRequest) -> Result[Ku]:
 class Ku:
     parent_uid: str | None = None
     fulfills_goal_uid: str | None = None
-    source_learning_step_uid: str | None = None
+    source_path_step_uid: str | None = None
 
     @property
-    def is_from_learning_step(self) -> bool:
-        """Check if this entity originated from a learning step."""
-        return self.source_learning_step_uid is not None
+    def is_from_path_step(self) -> bool:
+        """Check if this entity originated from a path step."""
+        return self.source_path_step_uid is not None
 
     @property
     def parent_goal_uid(self) -> str | None:
@@ -361,12 +361,12 @@ async def analyze_learning_path(self, user_uid: UserUID) -> Result[dict]:
 
     analytics = {
         'total_tasks': len(tasks),
-        'learning_tasks': sum(1 for t in tasks if t.source_learning_step_uid),
+        'learning_tasks': sum(1 for t in tasks if t.source_path_step_uid),
     }
 
     # Pattern 2: Deep cross-domain analysis via infrastructure
     learning_insights = []
-    for task in [t for t in tasks if t.source_learning_step_uid]:
+    for task in [t for t in tasks if t.source_path_step_uid]:
         context_result = await self.graph_intelligence.query_with_intent(
             domain=Domain.TASKS,
             node_uid=task.uid,
@@ -415,10 +415,10 @@ async def create_task_with_validation(
     # ========================================
 
     # Only do deep validation if task has knowledge requirements
-    if task_request.source_learning_step_uid:
+    if task_request.source_path_step_uid:
         context_result = await self.graph_intelligence.query_with_intent(
             domain=Domain.CURRICULUM,
-            node_uid=task_request.source_learning_step_uid,
+            node_uid=task_request.source_path_step_uid,
             intent=QueryIntent.PREREQUISITE,
             depth=2
         )
@@ -606,12 +606,12 @@ Use **pattern badges** in docstrings to document which pattern(s) a method uses:
 ```python
 async def check_prerequisites(self, ku: Ku) -> bool:
     """
-    [P1] Check if entity has a learning step source.
+    [P1] Check if entity has a path step source.
 
     Pattern 1 (Graph-Aware Models): Instant check using relationship UIDs.
     For deep prerequisite analysis, use Pattern 2 via GraphIntelligenceService.
     """
-    return ku.source_learning_step_uid is not None
+    return ku.source_path_step_uid is not None
 ```
 
 **Pattern 2 Methods**:
@@ -663,7 +663,7 @@ class Ku:
     ## Graph Access Patterns
 
     **Pattern 1 (Graph-Aware Models)**: Direct relationship UIDs
-    - Fields: parent_uid, fulfills_goal_uid, source_learning_step_uid
+    - Fields: parent_uid, fulfills_goal_uid, source_path_step_uid
     - Use for: Instant checks, validation, simple queries
 
     **Pattern 2 (Graph-Native Queries)**: Graph intelligence via services

@@ -35,7 +35,7 @@ from core.services.trial_limits import TrialLimits, UNLIMITED
 class TrialLimits:
     # Curriculum domains
     max_knowledge_units: int = UNLIMITED  # -1
-    max_learning_steps: int = UNLIMITED
+    max_path_steps: int = UNLIMITED
     max_learning_paths: int = UNLIMITED
 
     # Activity domains
@@ -162,7 +162,7 @@ PAID_LIMITS = TrialLimits(
     max_events=20,
     max_choices=UNLIMITED,
     max_knowledge_units=UNLIMITED,
-    max_learning_steps=UNLIMITED,
+    max_path_steps=UNLIMITED,
     max_learning_paths=3,
     max_daily_api_calls=100,
 )

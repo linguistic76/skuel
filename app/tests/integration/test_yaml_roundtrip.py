@@ -262,7 +262,7 @@ Content for testing full round-trip.
         - requires (prerequisites)
         - enables (what this enables)
         - related (related topics)
-        - used_in_steps (learning steps)
+        - used_in_steps (path steps)
         - featured_in_paths (learning paths)
         """
 

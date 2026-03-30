@@ -22,7 +22,7 @@ Protocol Categories
 -------------------
 - Backend protocols: BackendOperations + 7 sub-protocols (ISP-compliant)
 - Domain protocols: TasksOperations, GoalsOperations, etc. (inherit from BackendOperations)
-- Curriculum protocols: CurriculumOperations + LessonOperations, LsOperations, LpOperations (Nov 2025)
+- Curriculum protocols: CurriculumOperations + LessonOperations, PsOperations, LpOperations (Nov 2025)
 - Search protocols: DomainSearchOperations, TasksSearchOperations, etc.
 - Infrastructure protocols: EventBusOperations, SchemaOperations, etc.
 
@@ -153,7 +153,7 @@ from .curriculum_protocols import (
     ExerciseOperations,
     LessonOperations,
     LpOperations,
-    LsOperations,
+    PsOperations,
     RevisedExerciseOperations,
 )
 
@@ -221,7 +221,7 @@ from .query_types import (
     IntelligenceResult,
     KuUpdatePayload,
     LpUpdatePayload,
-    LsUpdatePayload,
+    PsUpdatePayload,
     # Query Building Types
     OrderBySpec,
     PaginationSpec,
@@ -311,7 +311,7 @@ __all__ = [
     "HabitUpdatePayload",
     "KuUpdatePayload",
     "LpUpdatePayload",
-    "LsUpdatePayload",
+    "PsUpdatePayload",
     "PrincipleUpdatePayload",
     "TaskUpdatePayload",
     # Query Building Types
@@ -429,7 +429,7 @@ __all__ = [
     "LowLevelOperations",  # Direct DB access (2 methods + driver)
     "QueryExecutor",  # Standalone Cypher query execution port
     "LpOperations",  # Learning Path operations (path)
-    "LsOperations",  # Learning Step operations (edge)
+    "PsOperations",  # Learning Step operations (edge)
     "LtConstraint",
     "MaxItemsConstraint",
     "MaxLenConstraint",

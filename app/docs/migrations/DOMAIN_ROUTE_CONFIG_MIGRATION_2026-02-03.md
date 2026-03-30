@@ -128,7 +128,7 @@ AUTH_CONFIG = DomainRouteConfig(
 
 **Configuration:**
 ```python
-JOURNALS_CONFIG = DomainRouteConfig(
+JOURNAPS_CONFIG = DomainRouteConfig(
     domain_name="journals",
     primary_service_attr="transcript_processor",
     api_factory=create_journals_api_routes,

@@ -23,7 +23,7 @@ The Four Curriculum Domains:
 Protocol Hierarchy:
     - CurriculumOperations[T]: Base protocol inheriting BackendOperations
     - LessonOperations: Extends CurriculumOperations[Lesson] with KU-specific methods
-    - LsOperations: Extends CurriculumOperations[LearningStep] with LS-specific methods
+    - PsOperations: Extends CurriculumOperations[PathStep] with LS-specific methods
     - LpOperations: Extends CurriculumOperations[LearningPath] with LP-specific methods
     - ExerciseOperations: Standalone protocol for Exercise instruction templates
 
@@ -45,13 +45,13 @@ Domain-Specific Protocols:
         ├── get_semantic_links() → Result[list[str]]
         └── get_substance_score() → Result[float]
 
-    LsOperations(CurriculumOperations[LearningStep], Protocol):
+    PsOperations(CurriculumOperations[PathStep], Protocol):
         ├── get_knowledge_uids() → Result[list[str]]
-        ├── get_path_steps() → Result[list[LearningStep]]
+        ├── get_path_steps() → Result[list[PathStep]]
         └── get_practice_summary() → Result[dict]
 
     LpOperations(CurriculumOperations[LearningPath], Protocol):
-        ├── get_next_step() → Result[LearningStep | None]
+        ├── get_next_step() → Result[PathStep | None]
         ├── calculate_progress() → Result[float]
 
 Return Type Consistency
@@ -85,9 +85,9 @@ from core.ports.query_types import (
     CurriculumExerciseResult,
     LearningGapResult,
     LearningRecommendationResult,
-    LsKnowledgeItemResult,
-    LsKnowledgeSummaryResult,
-    LsPracticeSummaryResult,
+    PsKnowledgeItemResult,
+    PsKnowledgeSummaryResult,
+    PsPracticeSummaryResult,
     OrganizerResult,
     PrereqMasteryResult,
     ReadyToLearnResult,
@@ -111,7 +111,7 @@ if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.lesson.lesson import Lesson
     from core.models.pathways.learning_path import LearningPath
-    from core.models.pathways.learning_step import LearningStep
+    from core.models.pathways.path_step import PathStep
     from core.models.relationship_names import RelationshipName
     from core.services.lesson.lesson_organization_service import OrganizationView
     from core.utils.result_simplified import Result
@@ -138,7 +138,7 @@ class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations,
         - get_hierarchy(): Fetch hierarchical structure
 
     Type Parameter:
-        T: The domain model (Curriculum, LearningStep, or LearningPath)
+        T: The domain model (Curriculum, PathStep, or LearningPath)
 
     Design Rationale:
         Curriculum domains share patterns that Activity domains don't need:
@@ -441,7 +441,7 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
     # CURRICULUM INTEGRATION
     # =========================================================================
 
-    async def get_learning_steps_using(self, uid: str) -> Result[list[str]]:
+    async def get_path_steps_using(self, uid: str) -> Result[list[str]]:
         """
         Get LS UIDs that include this KU.
 
@@ -449,7 +449,7 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
             uid: KU UID
 
         Returns:
-            Result[list[str]]: UIDs of learning steps using this KU
+            Result[list[str]]: UIDs of path steps using this KU
         """
         ...
 
@@ -567,10 +567,10 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
         """Find activity entities connected to a KU via graph relationships."""
         ...
 
-    async def find_learning_steps_containing_ku(
+    async def find_path_steps_containing_ku(
         self, ku_uid: str, limit: int = 10
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {step_uid} — single column
-        """Find learning steps that contain/teach a KU via CONTAINS_KNOWLEDGE."""
+        """Find path steps that contain/teach a KU via CONTAINS_KNOWLEDGE."""
         ...
 
     async def find_learning_paths_teaching_ku(
@@ -742,7 +742,7 @@ class LessonOperations(CurriculumOperations["Lesson"], Protocol):
 
 
 @runtime_checkable
-class LsOperations(CurriculumOperations["LearningStep"], Protocol):
+class PsOperations(CurriculumOperations["PathStep"], Protocol):
     """
     Learning Step (LS) specific operations.
 
@@ -751,8 +751,8 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     - Practice integration (habits, tasks, events)
     - Path integration (LS can be standalone or part of LP)
 
-    Neo4j: LS nodes are :Entity:LearningStep{entity_type='learning_step'}
-    UID Format: "ls:{random}" (e.g., "ls:a1b2c3d4")
+    Neo4j: LS nodes are :Entity:PathStep{entity_type='path_step'}
+    UID Format: "ps:{random}" (e.g., "ps:a1b2c3d4")
     """
 
     # =========================================================================
@@ -762,39 +762,39 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     # results from multi-hop graph traversals (step→lesson→ku chains) or full node
     # property sets. Column names vary by query depth and optional joins.
 
-    async def get_ls(self, uid: str) -> Result[LearningStep]:
+    async def get_ls(self, uid: str) -> Result[PathStep]:
         """
         Get a Learning Step by UID.
 
         Args:
-            uid: LS UID (e.g., "ls:a1b2c3d4")
+            uid: LS UID (e.g., "ps:a1b2c3d4")
 
         Returns:
-            Result[LearningStep]: The learning step or not-found error
+            Result[PathStep]: The path step or not-found error
         """
         ...
 
-    async def get_user_steps(self, user_uid: UserUID) -> Result[list[LearningStep]]:
+    async def get_user_steps(self, user_uid: UserUID) -> Result[list[PathStep]]:
         """
-        Get all learning steps for a user.
+        Get all path steps for a user.
 
         Args:
             user_uid: User UID
 
         Returns:
-            Result[list[LearningStep]]: User's learning steps
+            Result[list[PathStep]]: User's path steps
         """
         ...
 
-    async def get_learning_steps_batch(self, uids: list[str]) -> Result[list[LearningStep | None]]:
+    async def get_path_steps_batch(self, uids: list[str]) -> Result[list[PathStep | None]]:
         """
-        Batch load learning steps by UIDs.
+        Batch load path steps by UIDs.
 
         Args:
             uids: List of LS UIDs to load
 
         Returns:
-            Result[list[LearningStep | None]]: Learning steps in same order as input UIDs,
+            Result[list[PathStep | None]]: Learning steps in same order as input UIDs,
                                      None for UIDs that don't exist
         """
         ...
@@ -821,19 +821,19 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     # KNOWLEDGE RELATIONSHIP CRUD (CONTAINS_KNOWLEDGE edges)
     # =========================================================================
 
-    async def add_knowledge(self, ls_uid: str, ku_uid: str) -> Result[bool]:
+    async def add_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
         """MERGE CONTAINS_KNOWLEDGE relationship between LS and KU."""
         ...
 
-    async def remove_knowledge(self, ls_uid: str, ku_uid: str) -> Result[bool]:
+    async def remove_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
         """DELETE CONTAINS_KNOWLEDGE relationship between LS and KU."""
         ...
 
-    async def list_knowledge(self, ls_uid: str) -> Result[list[LsKnowledgeItemResult]]:
+    async def list_knowledge(self, ps_uid: str) -> Result[list[PsKnowledgeItemResult]]:
         """List CONTAINS_KNOWLEDGE relationships."""
         ...
 
-    async def get_knowledge_summary(self, ls_uid: str) -> Result[LsKnowledgeSummaryResult]:
+    async def get_knowledge_summary(self, ps_uid: str) -> Result[PsKnowledgeSummaryResult]:
         """Aggregate count and UIDs of knowledge in this step."""
         ...
 
@@ -841,12 +841,12 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     # PRACTICE INTEGRATION
     # =========================================================================
 
-    async def get_practice_summary(self, uid: str) -> Result[LsPracticeSummaryResult]:
+    async def get_practice_summary(self, uid: str) -> Result[PsPracticeSummaryResult]:
         """
         Get practice integration summary for this step.
 
         Returns counts of activity entities (habits, tasks, events, goals,
-        principles, choices) connected to this learning step, plus total.
+        principles, choices) connected to this path step, plus total.
         """
         ...
 
@@ -890,7 +890,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
     # PATH INTEGRATION
     # =========================================================================
 
-    async def get_path_steps(self, path_uid: str) -> Result[list[LearningStep]]:
+    async def get_path_steps(self, path_uid: str) -> Result[list[PathStep]]:
         """
         Get all steps for a learning path, in sequence order.
 
@@ -898,7 +898,7 @@ class LsOperations(CurriculumOperations["LearningStep"], Protocol):
             path_uid: LP UID
 
         Returns:
-            Result[list[LearningStep]]: Ordered list of steps
+            Result[list[PathStep]]: Ordered list of steps
         """
         ...
 
@@ -1124,7 +1124,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
     # STEP NAVIGATION
     # =========================================================================
 
-    async def get_steps(self, uid: str) -> Result[list[LearningStep]]:
+    async def get_steps(self, uid: str) -> Result[list[PathStep]]:
         """
         Get all steps in this path, in sequence order.
 
@@ -1132,7 +1132,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
             uid: LP UID
 
         Returns:
-            Result[list[LearningStep]]: Ordered steps
+            Result[list[PathStep]]: Ordered steps
         """
         ...
 
@@ -1140,7 +1140,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         self,
         uid: str,
         completed_step_uids: set[str],
-    ) -> Result[LearningStep | None]:
+    ) -> Result[PathStep | None]:
         """
         Get the next step to complete in this path.
 
@@ -1149,11 +1149,11 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
             completed_step_uids: Set of already-completed step UIDs
 
         Returns:
-            Result[LearningStep | None]: Next step or None if path complete
+            Result[PathStep | None]: Next step or None if path complete
         """
         ...
 
-    async def get_current_step(self, uid: str, user_uid: UserUID) -> Result[LearningStep | None]:
+    async def get_current_step(self, uid: str, user_uid: UserUID) -> Result[PathStep | None]:
         """
         Get the current in-progress step for a user.
 
@@ -1162,7 +1162,7 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
             user_uid: User UID
 
         Returns:
-            Result[LearningStep | None]: Current step or None
+            Result[PathStep | None]: Current step or None
         """
         ...
 

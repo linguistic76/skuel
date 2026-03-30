@@ -8,7 +8,7 @@ Philosophy: "Duck typing with compile-time type safety"
 
 Protocols enable structural typing - if an object has the required attributes,
 it satisfies the protocol, regardless of inheritance hierarchy. This provides:
-- Flexibility: Works with Ls, LsDTO, LearningStep, or any compatible type
+- Flexibility: Works with Ls, LsDTO, PathStep, or any compatible type
 - Type Safety: MyPy enforces protocol satisfaction at compile-time
 - No Runtime Checks: No hasattr() needed - type checker guarantees attributes exist
 - Loose Coupling: GraphQL layer depends on structure, not concrete types
@@ -19,22 +19,22 @@ See: https://peps.python.org/pep-0544/ (PEP 544 - Protocols: Structural subtypin
 from typing import Any, Protocol
 
 
-class LearningStepLike(Protocol):
+class PathStepLike(Protocol):
     """
-    Structural contract for learning step data in GraphQL.
+    Structural contract for path step data in GraphQL.
 
     Any object satisfying this protocol can be used in GraphQL resolvers
-    that need learning step data. This includes:
+    that need path step data. This includes:
     - Ls (domain model)
     - LsDTO (data transfer object)
-    - LearningStep (GraphQL type)
+    - PathStep (GraphQL type)
     - Any other object with these attributes
 
     MyPy will verify at compile-time that objects passed to functions
-    expecting LearningStepLike have these attributes.
+    expecting PathStepLike have these attributes.
 
     Example:
-        def build_blocker(step: LearningStepLike) -> Blocker:
+        def build_blocker(step: PathStepLike) -> Blocker:
             return Blocker(
                 knowledge_uid=step.uid,
                 knowledge_title=step.title,  # ✅ Protocol guarantees .title exists
@@ -113,11 +113,11 @@ class LearningPathLike(Protocol):
     estimated_hours: float | None
 
 
-class LearningStepMappable(Protocol):
+class PathStepMappable(Protocol):
     """
-    Richer contract for converting an Ls domain model to GraphQL LearningStep.
+    Richer contract for converting an Ls domain model to GraphQL PathStep.
 
-    Extends beyond LearningStepLike (uid/title only) with the additional
+    Extends beyond PathStepLike (uid/title only) with the additional
     fields needed by the mapper.
     """
 

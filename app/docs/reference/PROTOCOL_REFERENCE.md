@@ -34,7 +34,7 @@ related: [ADR-025, ADR-027]
 |----------|----------|---------|
 | **Base Protocols** | `/core/ports/base_protocols.py` | Core types, backend operations |
 | **Domain Protocols** | `/core/ports/domain_protocols.py` | Domain service operations |
-| **Curriculum Protocols** | `/core/ports/curriculum_protocols.py` | KU, LS, LP, MOC operations |
+| **Curriculum Protocols** | `/core/ports/curriculum_protocols.py` | KU, PS, LP, MOC operations |
 | **Askesis Protocols** | `/core/ports/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
 | **Submission Protocols** | `/core/ports/submission_protocols.py` | Submission CRUD, processing, sharing, search |
 | **Report Protocols** | `/core/ports/report_protocols.py` | Human + AI reports, progress reports, scheduling, teacher review |
@@ -314,7 +314,7 @@ All domain operation protocols use `Result[T]` return types and define **persist
 | `PrinciplesOperations` | Principles | Activity |
 | `FinanceOperations` | Finance | Finance |
 | `KuOperations` | Knowledge Units | Curriculum |
-| `LsOperations` | Learning Steps | Curriculum |
+| `PsOperations` | Path Steps | Curriculum |
 | `LpOperations` | Learning Paths | Curriculum |
 
 **What domain protocols contain:**
@@ -423,7 +423,7 @@ async def analyze_tasks(tasks_service: "TasksService") -> dict:
 | `PrinciplesService` | `core.services.principles_service` |
 | `KuService` | `core.services.ku_service` |
 | `LpService` | `core.services.lp_service` |
-| `LsService` | `core.services.ls_service` |
+| `PsService` | `core.services.ps_service` |
 
 **Note:** MOC uses `KuService` (MOC is KU-based).
 

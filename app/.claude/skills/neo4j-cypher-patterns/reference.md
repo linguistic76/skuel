@@ -88,7 +88,7 @@ Habit chains, prerequisites, reinforcement, and achievements.
 | `REQUIRES_HABIT` | * | Habit | Requires this habit |
 | `REINFORCES_HABIT` | * | Habit | Reinforces this habit |
 | `INSPIRES_HABIT` | * | Habit | Inspires this habit |
-| `REINFORCES_STEP` | Habit | LearningStep | Habit reinforces learning step |
+| `REINFORCES_STEP` | Habit | PathStep | Habit reinforces path step |
 | `EMBODIES_PRINCIPLE` | Habit | Principle | Habit embodies principle |
 | `PRACTICED_AT_EVENT` | Habit | Event | Habit practiced at event |
 | `UNLOCKED_ACHIEVEMENT` | Habit | Achievement | Habit unlocked a per-habit streak badge |
@@ -213,8 +213,8 @@ Curriculum-to-Resource citations — connects teaching content to reference mate
 | `CITES_RESOURCE` | Lesson / Ku | Resource | `context` | Curriculum cites reference material (books, talks, films) |
 
 ```cypher
--- Find all Resources cited by Lessons in a Learning Step
-MATCH (ls:LearningStep)-[:HAS_STEP]-(lp:LearningPath)
+-- Find all Resources cited by Lessons in a Path Step
+MATCH (ls:PathStep)-[:HAS_STEP]-(lp:LearningPath)
 MATCH (ls)-[:CONTAINS_KNOWLEDGE]->(a:Lesson)-[:CITES_RESOURCE]->(r:Resource)
 RETURN a.title AS article, r.title AS resource, r.author, r.media_type
 ```

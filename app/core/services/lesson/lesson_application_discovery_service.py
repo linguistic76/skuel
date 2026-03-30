@@ -227,14 +227,10 @@ class LessonApplicationDiscoveryService:
     # CURRICULUM DISCOVERY (non-activity, no user_uid)
     # ========================================================================
 
-    @with_error_handling(
-        "find_learning_steps_containing", error_type="database", uid_param="ku_uid"
-    )
-    async def find_learning_steps_containing(
-        self, ku_uid: str, limit: int = 10
-    ) -> Result[list[str]]:
+    @with_error_handling("find_path_steps_containing", error_type="database", uid_param="ku_uid")
+    async def find_path_steps_containing(self, ku_uid: str, limit: int = 10) -> Result[list[str]]:
         """
-        Find learning steps that contain/teach this knowledge.
+        Find path steps that contain/teach this knowledge.
 
         Graph Pattern: (Ls)-[:CONTAINS_KNOWLEDGE]->(Ku)
         """
@@ -242,22 +238,22 @@ class LessonApplicationDiscoveryService:
         if verify.is_error:
             return Result.fail(verify)
 
-        self.logger.debug(f"Finding learning steps containing knowledge {ku_uid} (limit={limit})")
+        self.logger.debug(f"Finding path steps containing knowledge {ku_uid} (limit={limit})")
 
-        results = await self.repo.find_learning_steps_containing_ku(ku_uid, limit)
+        results = await self.repo.find_path_steps_containing_ku(ku_uid, limit)
 
         if results.is_error:
             return Result.fail(results)
 
         step_uids = [record["step_uid"] for record in results.value if record.get("step_uid")]
 
-        self.logger.debug(f"Found {len(step_uids)} learning steps containing knowledge {ku_uid}")
+        self.logger.debug(f"Found {len(step_uids)} path steps containing knowledge {ku_uid}")
         return Result.ok(step_uids)
 
     @with_error_handling("find_learning_paths_teaching", error_type="database", uid_param="ku_uid")
     async def find_learning_paths_teaching(self, ku_uid: str, limit: int = 10) -> Result[list[str]]:
         """
-        Find learning paths that teach this knowledge (via learning steps).
+        Find learning paths that teach this knowledge (via path steps).
 
         Graph Pattern: (Lp)-[:HAS_STEP]->(Ls)-[:CONTAINS_KNOWLEDGE]->(Ku)
         """

@@ -44,7 +44,7 @@ class EntityType(StrEnum):
         KU                   → Atomic knowledge unit (concept, state, principle)
         LEARNING_PATH        → Ordered sequence of steps
         LESSON               → A unit for learning
-        LEARNING_STEP        → A collection of lessons
+        PATH_STEP        → A collection of lessons
         LIFE_PATH            → Knowledge about your life direction
         PRINCIPLE            → Knowledge about what you believe
         RESOURCE             → Books, talks, films, music (admin-only)
@@ -56,7 +56,7 @@ class EntityType(StrEnum):
 
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
-        B  CURRICULUM   → LESSON, KU, LEARNING_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
+        B  CURRICULUM   → LESSON, KU, PATH_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
         C  USER_CREATED → Activities (6), EXERCISE_SUBMISSION, JE_INPUT, JE_OUTPUT, LIFE_PATH,
                           FORM_SUBMISSION
         D  REPORT       → ACTIVITY_REPORT, EXERCISE_REPORT
@@ -72,7 +72,7 @@ class EntityType(StrEnum):
     # Curriculum (admin-created, shared)
     LESSON = "lesson"
     KU = "ku"
-    LEARNING_STEP = "learning_step"
+    PATH_STEP = "path_step"
     LEARNING_PATH = "learning_path"
     EXERCISE = "exercise"
 
@@ -212,7 +212,7 @@ class EntityType(StrEnum):
 
         Supports aliases for backward compatibility with DSL and ingestion:
             "ku" -> KU (canonical)
-            "ls" -> LEARNING_STEP
+            "ps" -> PATH_STEP
             "lp" -> LEARNING_PATH
             "submission_report" -> EXERCISE_REPORT
         """
@@ -225,7 +225,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.LESSON: "Lesson",
     EntityType.KU: "Knowledge Unit",
     EntityType.RESOURCE: "Resource",
-    EntityType.LEARNING_STEP: "Learning Step",
+    EntityType.PATH_STEP: "Learning Step",
     EntityType.LEARNING_PATH: "Learning Path",
     EntityType.EXERCISE_SUBMISSION: "Exercise Submission",
     EntityType.ACTIVITY_REPORT: "Activity Report",
@@ -247,7 +247,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
 
 _KNOWLEDGE_TYPES = frozenset({EntityType.LESSON, EntityType.KU})
 _CURRICULUM_STRUCTURE_TYPES = frozenset(
-    {EntityType.LEARNING_STEP, EntityType.LEARNING_PATH, EntityType.EXERCISE}
+    {EntityType.PATH_STEP, EntityType.LEARNING_PATH, EntityType.EXERCISE}
 )
 _CONTENT_PROCESSING_TYPES = frozenset(
     {
@@ -277,7 +277,7 @@ _SHARED_TYPES = frozenset(
         EntityType.LESSON,
         EntityType.KU,
         EntityType.RESOURCE,
-        EntityType.LEARNING_STEP,
+        EntityType.PATH_STEP,
         EntityType.LEARNING_PATH,
         EntityType.EXERCISE,
         EntityType.FORM_TEMPLATE,
@@ -310,7 +310,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     # B — Curriculum structure and organization
     EntityType.LESSON: ContentOrigin.CURRICULUM,
     EntityType.KU: ContentOrigin.CURRICULUM,
-    EntityType.LEARNING_STEP: ContentOrigin.CURRICULUM,
+    EntityType.PATH_STEP: ContentOrigin.CURRICULUM,
     EntityType.LEARNING_PATH: ContentOrigin.CURRICULUM,
     EntityType.EXERCISE: ContentOrigin.CURRICULUM,
     EntityType.REVISED_EXERCISE: ContentOrigin.CURRICULUM,
@@ -336,7 +336,7 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "lesson": EntityType.LESSON,
     "ku": EntityType.KU,
     "resource": EntityType.RESOURCE,
-    "learning_step": EntityType.LEARNING_STEP,
+    "path_step": EntityType.PATH_STEP,
     "learning_path": EntityType.LEARNING_PATH,
     "exercise_submission": EntityType.EXERCISE_SUBMISSION,
     "je_input": EntityType.JE_INPUT,
@@ -354,8 +354,10 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "book": EntityType.RESOURCE,
     "film": EntityType.RESOURCE,
     "talk": EntityType.RESOURCE,
-    "ls": EntityType.LEARNING_STEP,
-    "step": EntityType.LEARNING_STEP,
+    "ls": EntityType.PATH_STEP,
+    "ps": EntityType.PATH_STEP,
+    "step": EntityType.PATH_STEP,
+    "learning_step": EntityType.PATH_STEP,  # backward-compat alias
     "lp": EntityType.LEARNING_PATH,
     "path": EntityType.LEARNING_PATH,
     "exercise": EntityType.EXERCISE,
@@ -734,7 +736,7 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
-    EntityType.LEARNING_STEP: frozenset(
+    EntityType.PATH_STEP: frozenset(
         {
             EntityStatus.DRAFT,
             EntityStatus.ACTIVE,
@@ -895,7 +897,7 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.LESSON: EntityStatus.COMPLETED,
     EntityType.KU: EntityStatus.COMPLETED,
     EntityType.RESOURCE: EntityStatus.COMPLETED,
-    EntityType.LEARNING_STEP: EntityStatus.DRAFT,
+    EntityType.PATH_STEP: EntityStatus.DRAFT,
     EntityType.LEARNING_PATH: EntityStatus.DRAFT,
     EntityType.EXERCISE: EntityStatus.DRAFT,
     EntityType.REVISED_EXERCISE: EntityStatus.DRAFT,

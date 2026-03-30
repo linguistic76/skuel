@@ -240,7 +240,7 @@ if not entities:
 - Choices: 🤔
 - Principles: 💡
 - KU: 📚
-- LS: 📖
+- PS: 📖
 - LP: 🛤️
 
 ---

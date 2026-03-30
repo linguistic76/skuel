@@ -19,7 +19,7 @@ CREATE INDEX lesson_uid_idx IF NOT EXISTS FOR (n:Lesson) ON (n.uid);
 CREATE INDEX ku_uid_idx IF NOT EXISTS FOR (n:Ku) ON (n.uid);
 CREATE INDEX exercise_uid_idx IF NOT EXISTS FOR (n:Exercise) ON (n.uid);
 CREATE INDEX learning_path_uid_idx IF NOT EXISTS FOR (n:LearningPath) ON (n.uid);
-CREATE INDEX learning_step_uid_idx IF NOT EXISTS FOR (n:LearningStep) ON (n.uid);
+CREATE INDEX learning_step_uid_idx IF NOT EXISTS FOR (n:PathStep) ON (n.uid);
 CREATE INDEX life_path_uid_idx IF NOT EXISTS FOR (n:LifePath) ON (n.uid);
 CREATE INDEX resource_uid_idx IF NOT EXISTS FOR (n:Resource) ON (n.uid);
 CREATE INDEX submission_uid_idx IF NOT EXISTS FOR (n:Submission) ON (n.uid);

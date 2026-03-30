@@ -113,7 +113,7 @@ crud_factory = CRUDRouteFactory(
 )
 
 # Curriculum domains (shared) - no ownership verification
-# Note: Lesson/LS/LP are created via ingestion, not CRUD.
+# Note: Lesson/PS/LP are created via ingestion, not CRUD.
 # FormTemplate is a shared domain that uses CRUD:
 crud_factory = CRUDRouteFactory(
     service=form_template_service,
@@ -359,7 +359,7 @@ class Task:
 | Domain | Entity | Notes |
 |--------|--------|-------|
 | KU | KnowledgeUnit | Shared knowledge base |
-| LS | LearningStep | Shared learning content |
+| PS | PathStep | Shared learning content |
 | LP | LearningPath | Shared curricula |
 
 **NOTE (January 2026):** MOC is now KU-based - a KU "is" a MOC when it has

@@ -51,7 +51,7 @@ Each entity type is a peer. No hierarchy of categories.
 | Lesson | Teaching composition (essay-like narrative) |
 | Ku | Atomic knowledge unit (concept, state, principle, substance) |
 | Resource | Curated content (books, talks, films) |
-| LearningStep | Step in a learning path |
+| PathStep | Step in a learning path |
 | LearningPath | Ordered sequence of steps |
 | Exercise | Instruction template for practicing curriculum |
 | Submission | Student-uploaded work |
@@ -84,7 +84,7 @@ All other entity types are peers. Their relationships to each other are expresse
 
 ```
 (Lesson)-[:USES_KU]->(Ku)
-(LearningStep)-[:TRAINS_KU]->(Ku)
+(PathStep)-[:TRAINS_KU]->(Ku)
 (Exercise)-[:FOR_CURRICULUM]->(Lesson)
 (Exercise)-[:FOR_GROUP]->(Group)
 (Submission)-[:FULFILLS_EXERCISE]->(Exercise)

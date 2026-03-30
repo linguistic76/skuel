@@ -18,7 +18,7 @@ Prerequisite-gated, time-aware curriculum navigation. Shows only knowledge the l
 
 **Answered by:**
 - `ZPDService.assess_zone()` — `core/services/zpd/zpd_service.py`
-- `LearningIntelligence.get_optimal_next_learning_steps()` — `core/services/user/intelligence/learning_intelligence.py`
+- `LearningIntelligence.get_optimal_next_path_steps()` — `core/services/user/intelligence/learning_intelligence.py`
 
 ---
 
@@ -74,7 +74,7 @@ Adaptive recommendations weighted by difficulty match, enablement value (how man
 
 **Answered by:**
 - ZPD priority formula in `ZPDService.assess_zone()` — `core/services/zpd/zpd_service.py`
-- `LearningIntelligence.get_optimal_next_learning_steps()` — `core/services/user/intelligence/learning_intelligence.py`
+- `LearningIntelligence.get_optimal_next_path_steps()` — `core/services/user/intelligence/learning_intelligence.py`
 
 ---
 

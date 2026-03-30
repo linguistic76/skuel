@@ -668,10 +668,10 @@ def get_progression_score_with_enablers(item: dict[str, Any]) -> tuple[float, in
     """
     Get progression_score and enabled_by count for sorting learning progression.
 
-    Returns tuple of (progression_score, len(enabled_by)) for sorting learning steps
+    Returns tuple of (progression_score, len(enabled_by)) for sorting path steps
     by progression value and enabling relationships.
 
-    Used for sorting next logical learning steps by progression and connectivity.
+    Used for sorting next logical path steps by progression and connectivity.
     Example: next_steps.sort(key=get_progression_score_with_enablers, reverse=True)
 
     Args:

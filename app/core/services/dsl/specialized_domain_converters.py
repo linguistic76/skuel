@@ -4,7 +4,7 @@ Specialized Domain Converters
 
 Converter functions for non-Activity domains:
 - Finance (NonKuDomain)
-- Curriculum: KU, LearningStep, LearningPath
+- Curriculum: KU, PathStep, LearningPath
 - Meta: Report, Analytics, Calendar
 - LifePath (the destination)
 
@@ -218,21 +218,21 @@ def activity_to_ku_dict(activity: ParsedActivityLine) -> Result[ConversionResult
 @with_error_handling(error_type="system", operation="activity_to_ls_dict")
 def activity_to_ls_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
     """
-    Convert ParsedActivityLine to LearningStep creation dict.
+    Convert ParsedActivityLine to PathStep creation dict.
 
-    LearningSteps are individual steps in a learning journey,
+    PathSteps are individual steps in a learning journey,
     connecting knowledge to practice.
 
     Args:
-        activity: Parsed activity line with context containing "ls" or "learningstep"
+        activity: Parsed activity line with context containing "ps" or "pathstep"
 
     Returns:
-        Result containing dict for LearningStep creation
+        Result containing dict for PathStep creation
     """
     if not activity.is_ls():
         return Result.fail(
             Errors.validation(
-                message="Activity is not a LearningStep (missing 'ls' or 'learningstep' in @context)",
+                message="Activity is not a PathStep (missing 'ls' or 'learningstep' in @context)",
                 field="context",
                 value=",".join(activity.context_values),
             )

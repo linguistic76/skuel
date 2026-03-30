@@ -55,7 +55,7 @@ from core.models.habit.habit import Habit
 from core.models.ku.ku import Ku
 from core.models.lesson.lesson import Lesson
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
 from core.models.report.activity_report import ActivityReport
@@ -68,8 +68,8 @@ from core.ports.query_types import (
     EventStats,
     GoalStats,
     HabitStats,
-    LsKnowledgeItemResult,
-    LsKnowledgeSummaryResult,
+    PsKnowledgeItemResult,
+    PsKnowledgeSummaryResult,
     ParentProgressResult,
     PrincipleStats,
     RequiredKnowledgeResult,
@@ -1994,14 +1994,14 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return Result.ok(result.value or [])
 
     async def get_usage_summary(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """Count lessons (USES_KU), learning steps (TRAINS_KU), organized children."""
+        """Count lessons (USES_KU), path steps (TRAINS_KU), organized children."""
         query = """
         MATCH (ku:Entity:Ku {uid: $ku_uid})
         OPTIONAL MATCH (lesson:Entity)-[:USES_KU]->(ku)
-        OPTIONAL MATCH (ls:Entity)-[:TRAINS_KU]->(ku)
+        OPTIONAL MATCH (ps:Entity)-[:TRAINS_KU]->(ku)
         OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
         RETURN count(DISTINCT lesson) as lessons,
-               count(DISTINCT ls) as learning_steps,
+               count(DISTINCT ps) as path_steps,
                count(DISTINCT child) as organized_children
         """
         return await self.execute_query(query, {"ku_uid": ku_uid})
@@ -2009,8 +2009,8 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
     async def is_trained(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Check if any Learning Step trains this Ku via TRAINS_KU."""
         query = """
-        MATCH (ls:Entity)-[:TRAINS_KU]->(ku:Entity:Ku {uid: $ku_uid})
-        RETURN count(ls) > 0 as trained
+        MATCH (ps:Entity)-[:TRAINS_KU]->(ku:Entity:Ku {uid: $ku_uid})
+        RETURN count(ps) > 0 as trained
         """
         return await self.execute_query(query, {"ku_uid": ku_uid})
 
@@ -2294,11 +2294,11 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return await self.execute_query(query, {"user_uid": user_uid})
 
 
-class LsBackend(UniversalNeo4jBackend[LearningStep]):
+class PsBackend(UniversalNeo4jBackend[PathStep]):
     """
-    Domain backend for LearningStep entities.
+    Domain backend for PathStep entities.
 
-    Extends UniversalNeo4jBackend[LearningStep] with:
+    Extends UniversalNeo4jBackend[PathStep] with:
     - Knowledge relationship CRUD (CONTAINS_KNOWLEDGE edges)
     - Lesson completion progress tracking
     """
@@ -2307,53 +2307,53 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
     # KNOWLEDGE RELATIONSHIP CRUD (CONTAINS_KNOWLEDGE edges)
     # ========================================================================
 
-    async def add_knowledge(self, ls_uid: str, ku_uid: str) -> Result[bool]:
+    async def add_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
         """MERGE CONTAINS_KNOWLEDGE relationship between LS and KU."""
         query = """
-        MATCH (ls:Entity {uid: $ls_uid})
+        MATCH (ps:Entity {uid: $ps_uid})
         MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (ls)-[r:CONTAINS_KNOWLEDGE]->(ku)
+        MERGE (ps)-[r:CONTAINS_KNOWLEDGE]->(ku)
         SET r.created_at = COALESCE(r.created_at, datetime()),
             r.updated_at = datetime()
         RETURN r
         """
-        result = await self.execute_query(query, {"ls_uid": ls_uid, "ku_uid": ku_uid})
+        result = await self.execute_query(query, {"ps_uid": ps_uid, "ku_uid": ku_uid})
         if result.is_error:
             return Result.fail(result)
         success = len(result.value or []) > 0
         if success:
-            self.logger.info(f"Created CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
+            self.logger.info(f"Created CONTAINS_KNOWLEDGE: {ps_uid} -> {ku_uid}")
         return Result.ok(success)
 
-    async def remove_knowledge(self, ls_uid: str, ku_uid: str) -> Result[bool]:
+    async def remove_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
         """DELETE CONTAINS_KNOWLEDGE relationship between LS and KU."""
         query = """
-        MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        MATCH (ps:Entity {uid: $ps_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
         DELETE r
         RETURN count(r) as deleted
         """
-        result = await self.execute_query(query, {"ls_uid": ls_uid, "ku_uid": ku_uid})
+        result = await self.execute_query(query, {"ps_uid": ps_uid, "ku_uid": ku_uid})
         if result.is_error:
             return Result.fail(result)
         records = result.value or []
         deleted = records[0]["deleted"] if records else 0
         success = deleted > 0
         if success:
-            self.logger.info(f"Removed CONTAINS_KNOWLEDGE: {ls_uid} -> {ku_uid}")
+            self.logger.info(f"Removed CONTAINS_KNOWLEDGE: {ps_uid} -> {ku_uid}")
         return Result.ok(success)
 
-    async def list_knowledge(self, ls_uid: str) -> Result[list[LsKnowledgeItemResult]]:
+    async def list_knowledge(self, ps_uid: str) -> Result[list[PsKnowledgeItemResult]]:
         """List CONTAINS_KNOWLEDGE relationships."""
         query = """
-        MATCH (ls:Entity {uid: $ls_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
+        MATCH (ps:Entity {uid: $ps_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
         RETURN ku.uid as uid, ku.title as title, ku.domain as domain,
                r.created_at as created_at
         ORDER BY r.created_at, ku.title
         """
-        result = await self.execute_query(query, {"ls_uid": ls_uid})
+        result = await self.execute_query(query, {"ps_uid": ps_uid})
         if result.is_error:
             return Result.fail(result)
-        items: list[LsKnowledgeItemResult] = [
+        items: list[PsKnowledgeItemResult] = [
             {
                 "uid": r["uid"],
                 "title": r["title"],
@@ -2364,14 +2364,14 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         ]
         return Result.ok(items)
 
-    async def get_knowledge_summary(self, ls_uid: str) -> Result[LsKnowledgeSummaryResult]:
+    async def get_knowledge_summary(self, ps_uid: str) -> Result[PsKnowledgeSummaryResult]:
         """Aggregate count and UIDs of knowledge in this step."""
         query = """
-        MATCH (ls:Entity {uid: $ls_uid})
-        OPTIONAL MATCH (ls)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
+        MATCH (ps:Entity {uid: $ps_uid})
+        OPTIONAL MATCH (ps)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
         RETURN count(r) as count, collect(ku.uid) as uids
         """
-        result = await self.execute_query(query, {"ls_uid": ls_uid})
+        result = await self.execute_query(query, {"ps_uid": ps_uid})
         if result.is_error:
             return Result.fail(result)
         records = result.value or []
@@ -2393,7 +2393,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         """
         Find all LSs that contain a Lesson via HAS_LESSON.
 
-        Used by LsProgressService to find which LSs to update
+        Used by PsProgressService to find which LSs to update
         when a Lesson is completed.
 
         Args:
@@ -2403,17 +2403,17 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
             Result containing list of LS UIDs
         """
         query = """
-        MATCH (ls:Entity {entity_type: 'learning_step'})-[:HAS_LESSON]->(lesson:Entity {uid: $lesson_uid})
-        RETURN DISTINCT ls.uid as ls_uid
+        MATCH (ps:Entity {entity_type: 'path_step'})-[:HAS_LESSON]->(lesson:Entity {uid: $lesson_uid})
+        RETURN DISTINCT ps.uid as ps_uid
         """
         result = await self.execute_query(query, {"lesson_uid": lesson_uid})
         if result.is_error:
             return Result.fail(result)
         records = result.value or []
-        return Result.ok([record["ls_uid"] for record in records])
+        return Result.ok([record["ps_uid"] for record in records])
 
     async def get_lesson_completion_progress(
-        self, ls_uid: str, user_uid: UserUID
+        self, ps_uid: str, user_uid: UserUID
     ) -> Result[Neo4jProperties]:
         """
         Return total and completed Lesson counts for LS progress calculation.
@@ -2421,26 +2421,26 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         A Lesson is "completed" when all its KUs are mastered by the user.
 
         Args:
-            ls_uid: Learning Step UID
+            ps_uid: Learning Step UID
             user_uid: User UID
 
         Returns:
             Result containing dict with total_lessons and completed_lessons
         """
         query = """
-        MATCH (ls:Entity {uid: $ls_uid})-[:HAS_LESSON]->(lesson:Entity {entity_type: 'lesson'})
-        WITH ls, collect(DISTINCT lesson) as all_lessons, count(DISTINCT lesson) as total
+        MATCH (ps:Entity {uid: $ps_uid})-[:HAS_LESSON]->(lesson:Entity {entity_type: 'lesson'})
+        WITH ps, collect(DISTINCT lesson) as all_lessons, count(DISTINCT lesson) as total
         UNWIND all_lessons as lesson
         OPTIONAL MATCH (lesson)-[:USES_KU]->(ku:Entity)
-        WITH ls, lesson, total, collect(DISTINCT ku.uid) as ku_uids, count(DISTINCT ku) as ku_count
+        WITH ps, lesson, total, collect(DISTINCT ku.uid) as ku_uids, count(DISTINCT ku) as ku_count
         OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
         WHERE mastered.uid IN ku_uids
-        WITH ls, lesson, total, ku_count, count(DISTINCT mastered) as mastered_count
+        WITH ps, lesson, total, ku_count, count(DISTINCT mastered) as mastered_count
         WITH total, collect(CASE WHEN ku_count > 0 AND mastered_count = ku_count THEN lesson.uid END) as completed
         RETURN total as total_lessons,
                size([x IN completed WHERE x IS NOT NULL]) as completed_lessons
         """
-        result = await self.execute_query(query, {"ls_uid": ls_uid, "user_uid": user_uid})
+        result = await self.execute_query(query, {"ps_uid": ps_uid, "user_uid": user_uid})
         if result.is_error:
             return Result.fail(result)
         if not result.value:
@@ -2454,7 +2454,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         )
 
     # ========================================================================
-    # CORE CRUD QUERIES (migrated from LsCoreService)
+    # CORE CRUD QUERIES (migrated from PsCoreService)
     # ========================================================================
 
     async def create_step_node(
@@ -2467,7 +2467,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         query = """
         CREATE (s:Entity {
             uid: $uid,
-            entity_type: 'learning_step',
+            entity_type: 'path_step',
             title: $title,
             intent: $intent,
             description: $description,
@@ -2515,71 +2515,71 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
     async def get_step_with_context(self, uid: str) -> Result[list[dict[str, Any]]]:
         """Get step with comprehensive 11-part graph context in a single query."""
         query = """
-        MATCH (ls:Entity {uid: $uid})
+        MATCH (ps:Entity {uid: $uid})
 
         // 1. Knowledge references
-        OPTIONAL MATCH (ls)-[r_ku:CONTAINS_KNOWLEDGE]->(ku:Entity)
-        WITH ls, collect({
+        OPTIONAL MATCH (ps)-[r_ku:CONTAINS_KNOWLEDGE]->(ku:Entity)
+        WITH ps, collect({
             uid: ku.uid,
             title: ku.title,
             confidence: coalesce(r_ku.confidence, 1.0)
         }) as knowledge_rels
 
         // 2. Prerequisite steps
-        OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:Entity {entity_type: 'learning_step'})
-        WITH ls, knowledge_rels, collect({
+        OPTIONAL MATCH (ps)-[:REQUIRES_STEP]->(prereq_step:Entity {entity_type: 'path_step'})
+        WITH ps, knowledge_rels, collect({
             uid: prereq_step.uid,
             title: prereq_step.title,
             completed: prereq_step.completed
         }) as prereq_steps
 
         // 3. Prerequisite knowledge
-        OPTIONAL MATCH (ls)-[:REQUIRES_KNOWLEDGE {type: 'prerequisite'}]->(prereq_ku:Entity)
-        WITH ls, knowledge_rels, prereq_steps, collect({
+        OPTIONAL MATCH (ps)-[:REQUIRES_KNOWLEDGE {type: 'prerequisite'}]->(prereq_ku:Entity)
+        WITH ps, knowledge_rels, prereq_steps, collect({
             uid: prereq_ku.uid,
             title: prereq_ku.title
         }) as prereq_knowledge
 
         // 4. Guiding principles (via Lessons)
-        OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
-        WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, collect(DISTINCT {
+        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
+        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, collect(DISTINCT {
             uid: principle.uid,
             title: principle.title
         }) as principles
 
         // 5. Informed choices (via Lessons)
-        OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:INFORMS_CHOICE]->(choice:Choice)
-        WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, collect(DISTINCT {
+        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:INFORMS_CHOICE]->(choice:Choice)
+        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, collect(DISTINCT {
             uid: choice.uid,
             title: choice.title
         }) as choices
 
         // 6. Practice opportunities: Habits (via Lessons)
-        OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:BUILDS_HABIT]->(habit:Habit)
-        WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, collect(DISTINCT {
+        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:BUILDS_HABIT]->(habit:Habit)
+        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, collect(DISTINCT {
             uid: habit.uid,
             title: habit.title,
             current_streak: habit.current_streak
         }) as habits
 
         // 7. Practice opportunities: Tasks (via Lessons)
-        OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l7)-[:ASSIGNS_TASK]->(task:Task)
-        WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, collect(DISTINCT {
+        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l7)-[:ASSIGNS_TASK]->(task:Task)
+        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, collect(DISTINCT {
             uid: task.uid,
             title: task.title,
             status: task.status
         }) as tasks
 
         // 8. Practice opportunities: Events (via Lessons)
-        OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l8)-[:SCHEDULES_EVENT]->(event:Event)
-        WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, collect(DISTINCT {
+        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l8)-[:SCHEDULES_EVENT]->(event:Event)
+        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, collect(DISTINCT {
             uid: event.uid,
             title: event.title,
             event_date: event.event_date
         }) as events
 
         // 9. Practice opportunities: Goals (via Lessons)
-        OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l9)-[:SUPPORTS_GOAL]->(goal:Goal)
+        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l9)-[:SUPPORTS_GOAL]->(goal:Goal)
         With ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, collect(DISTINCT {
             uid: goal.uid,
             title: goal.title,
@@ -2588,7 +2588,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
 
         // 10. Learning path context (if part of sequence)
         OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
-        WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, {
+        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, {
             uid: lp.uid,
             name: lp.title,
             goal: lp.goal,
@@ -2596,8 +2596,8 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
         } as path_context
 
         // 11. Dependent steps (steps that require this one)
-        OPTIONAL MATCH (dependent:Entity {entity_type: 'learning_step'})-[:REQUIRES_STEP]->(ls)
-        WITH ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, path_context, collect({
+        OPTIONAL MATCH (dependent:Entity {entity_type: 'path_step'})-[:REQUIRES_STEP]->(ls)
+        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, path_context, collect({
             uid: dependent.uid,
             title: dependent.title,
             completed: dependent.completed
@@ -2644,7 +2644,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
 
         if path_uid:
             query = f"""
-            MATCH (p:Entity {{uid: $path_uid}})-[:HAS_STEP]->(s:Entity {{entity_type: 'learning_step'}})
+            MATCH (p:Entity {{uid: $path_uid}})-[:HAS_STEP]->(s:Entity {{entity_type: 'path_step'}})
             {where_clause}
             OPTIONAL MATCH (s)-[:CONTAINS_KNOWLEDGE]->(ku:Entity)
             WITH s, collect(ku.uid) as knowledge_uids
@@ -2655,7 +2655,7 @@ class LsBackend(UniversalNeo4jBackend[LearningStep]):
             """
         else:
             query = f"""
-            MATCH (s:Entity {{entity_type: 'learning_step'}})
+            MATCH (s:Entity {{entity_type: 'path_step'}})
             {where_clause}
             OPTIONAL MATCH (s)-[:CONTAINS_KNOWLEDGE]->(ku:Entity)
             WITH s, collect(ku.uid) as knowledge_uids
@@ -2690,19 +2690,19 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
     async def get_steps_raw(self, path_uid: str, depth: int = 1) -> Result[list[dict[str, Any]]]:
         """Get ordered steps in a learning path as raw dicts."""
         query = f"""
-        MATCH (lp:Entity {{uid: $path_uid}})-[r:HAS_STEP*1..{depth}]->(ls:Entity {{entity_type: 'learning_step'}})
+        MATCH (lp:Entity {{uid: $path_uid}})-[r:HAS_STEP*1..{depth}]->(ps:Entity {{entity_type: 'path_step'}})
         RETURN ls, r[0].sequence as sequence
         ORDER BY sequence
         """
         result = await self.execute_query(query, {"path_uid": path_uid})
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([record["ls"] for record in (result.value or [])])
+        return Result.ok([record["ps"] for record in (result.value or [])])
 
     async def get_parent_path_raw(self, step_uid: str) -> Result[dict[str, Any] | None]:
         """Get parent learning path for a step as raw dict, or None."""
         query = """
-        MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ls:Entity {uid: $step_uid})
+        MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ps:Entity {uid: $step_uid})
         RETURN lp
         LIMIT 1
         """
@@ -2719,7 +2719,7 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
         """Create HAS_STEP relationship between path and step (idempotent)."""
         query = """
         MATCH (lp:Entity {uid: $path_uid})
-        MATCH (ls:Entity {uid: $step_uid})
+        MATCH (ps:Entity {uid: $step_uid})
         MERGE (lp)-[r:HAS_STEP]->(ls)
         ON CREATE SET
             r.sequence = $sequence,
@@ -2744,7 +2744,7 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
         """Remove HAS_STEP relationship and reorder remaining steps."""
         # Delete the relationship
         delete_query = """
-        MATCH (lp:Entity {uid: $path_uid})-[r:HAS_STEP]->(ls:Entity {uid: $step_uid})
+        MATCH (lp:Entity {uid: $path_uid})-[r:HAS_STEP]->(ps:Entity {uid: $step_uid})
         DELETE r
         RETURN count(r) as deleted_count
         """
@@ -2758,8 +2758,8 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
 
         # Reorder remaining steps to close gaps
         reorder_query = """
-        MATCH (lp:Entity {uid: $path_uid})-[r:HAS_STEP]->(ls:Entity {entity_type: 'learning_step'})
-        WITH ls, r
+        MATCH (lp:Entity {uid: $path_uid})-[r:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})
+        WITH ps, r
         ORDER BY r.sequence
         WITH collect(ls) as steps
         UNWIND range(0, size(steps)-1) as idx
@@ -2777,7 +2777,7 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
         MATCH (lp:Entity {uid: $path_uid})
         WITH lp
         UNWIND range(0, size($step_uids)-1) as idx
-        MATCH (lp)-[r:HAS_STEP]->(ls:Entity {uid: $step_uids[idx]})
+        MATCH (lp)-[r:HAS_STEP]->(ps:Entity {uid: $step_uids[idx]})
         SET r.sequence = idx
         RETURN count(r) as updated
         """
@@ -4636,7 +4636,7 @@ __all__ = [
     "LateralRelationshipBackend",
     "LessonBackend",
     "LpBackend",
-    "LsBackend",
+    "PsBackend",
     "NotificationBackend",
     "PrinciplesBackend",
     "RevisedExerciseBackend",

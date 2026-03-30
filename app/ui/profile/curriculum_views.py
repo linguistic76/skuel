@@ -71,10 +71,10 @@ def KnowledgeDomainView(
     )
 
 
-def LearningStepsDomainView(_context: UserContext, _focus_uid: str | None = None) -> Div:
+def PathStepsDomainView(_context: UserContext, _focus_uid: str | None = None) -> Div:
     """Learning Steps domain: placeholder for LS nodes (not yet created).
 
-    Shows a clean empty state explaining what learning steps are.
+    Shows a clean empty state explaining what path steps are.
     """
     return Div(
         H2("Learning Steps", cls="text-2xl font-bold mb-2"),
@@ -83,7 +83,7 @@ def LearningStepsDomainView(_context: UserContext, _focus_uid: str | None = None
             cls="text-muted-foreground mb-6",
         ),
         EmptyState(
-            title="No learning steps available yet",
+            title="No path steps available yet",
             description=(
                 "Learning steps are ordered sequences of Knowledge Units "
                 "within a Learning Path. They provide structured, teacher-directed "

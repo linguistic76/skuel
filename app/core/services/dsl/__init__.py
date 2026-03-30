@@ -10,7 +10,7 @@ SKUEL entities across all SKUEL domains AND semantic knowledge graph connections
 
 **Domains:**
 - Activity Domains (6): Tasks, Habits, Goals, Events, Principles, Choices
-- Curriculum Domains (3): KnowledgeUnit (KU), LearningStep (LS), LearningPath (LP)
+- Curriculum Domains (3): KnowledgeUnit (KU), PathStep (LS), LearningPath (LP)
 - Non-Ku Domains: Finance, Calendar, Learning (modifier)
 - Content Processing: Report/Assignment
 - The Destination (+1): LifePath

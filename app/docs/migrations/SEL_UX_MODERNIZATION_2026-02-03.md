@@ -497,7 +497,7 @@ If issues are discovered, rollback is straightforward:
 - [HTMX Accessibility Patterns](../patterns/HTMX_ACCESSIBILITY_PATTERNS.md) - ARIA announcements
 
 **Architecture:**
-- [Curriculum Grouping](../architecture/CURRICULUM_GROUPING_PATTERNS.md) - KU/LS/LP patterns
+- [Curriculum Grouping](../architecture/CURRICULUM_GROUPING_PATTERNS.md) - KU/PS/LP patterns
 
 **ADRs:**
 - [ADR-023: Curriculum BaseService Migration](../decisions/ADR-023-curriculum-baseservice-migration.md)

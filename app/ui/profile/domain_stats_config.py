@@ -189,18 +189,18 @@ def knowledge_status(ctx: UserContext) -> str:
 
 
 # Learning Steps domain extractors (LS)
-def learning_steps_count(_ctx: UserContext) -> int:
-    """Calculate total learning steps count. Placeholder - no LS nodes yet."""
+def path_steps_count(_ctx: UserContext) -> int:
+    """Calculate total path steps count. Placeholder - no LS nodes yet."""
     return 0
 
 
-def learning_steps_active(_ctx: UserContext) -> int:
-    """Calculate active learning steps count. Placeholder - no LS nodes yet."""
+def path_steps_active(_ctx: UserContext) -> int:
+    """Calculate active path steps count. Placeholder - no LS nodes yet."""
     return 0
 
 
-def learning_steps_status(_ctx: UserContext) -> str:
-    """Calculate learning steps status. Placeholder - no LS nodes yet."""
+def path_steps_status(_ctx: UserContext) -> str:
+    """Calculate path steps status. Placeholder - no LS nodes yet."""
     return "healthy"
 
 
@@ -282,7 +282,7 @@ __all__ = [
     "learning_paths_active",
     "learning_paths_count",
     "learning_paths_status",
-    "learning_steps_active",
-    "learning_steps_count",
-    "learning_steps_status",
+    "path_steps_active",
+    "path_steps_count",
+    "path_steps_status",
 ]

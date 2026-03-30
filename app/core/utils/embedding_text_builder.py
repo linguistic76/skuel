@@ -37,7 +37,7 @@ EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
     EntityType.PRINCIPLE: ("title", "statement", "description"),
     EntityType.REVISED_EXERCISE: ("title", "instructions", "revision_rationale"),
     EntityType.EXERCISE: ("title", "instructions", "description"),
-    EntityType.LEARNING_STEP: ("title", "intent", "description"),
+    EntityType.PATH_STEP: ("title", "intent", "description"),
     EntityType.LEARNING_PATH: ("title", "description", "outcomes"),
     EntityType.EXERCISE_SUBMISSION: ("title", "original_filename", "processed_content"),
     EntityType.JE_INPUT: ("title", "original_filename", "processed_content"),
@@ -124,7 +124,7 @@ def build_embedding_text(
         EntityType.KU,
         EntityType.RESOURCE,
         EntityType.EXERCISE,
-        EntityType.LEARNING_STEP,
+        EntityType.PATH_STEP,
         EntityType.LEARNING_PATH,
         EntityType.REVISED_EXERCISE,
     }

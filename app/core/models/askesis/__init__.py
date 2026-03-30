@@ -74,13 +74,13 @@ from .askesis_request import (
 
 # Socratic tutoring models (Askesis RAG pipeline refactor)
 from .learning_objective import StructuredLearningObjective
-from .ls_bundle import LSBundle
+from .ps_bundle import PsBundle
 from .pedagogical_intent import PedagogicalIntent
 
 __all__ = [
     # Core domain models
     "Askesis",
-    "LSBundle",
+    "PsBundle",
     "PedagogicalIntent",
     "StructuredLearningObjective",
     "AskesisAnalyticsRequest",

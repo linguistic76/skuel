@@ -52,9 +52,9 @@ subs = create_lesson_sub_services(backend=repo, graph_intel=graph_intel, ...)
 from core.services.curriculum_domain_config import create_curriculum_sub_services
 common = create_curriculum_sub_services(domain="ls", backend=ls_backend, ...)
 
-# LP - Specialized factory (requires cross-domain LsService dependency)
+# LP - Specialized factory (requires cross-domain PsService dependency)
 from core.services.curriculum_domain_config import create_lp_sub_services
-subs = create_lp_sub_services(driver=driver, ls_service=ls_service, ...)
+subs = create_lp_sub_services(driver=driver, ps_service=ps_service, ...)
 ```
 
 **Note on MOC:** There is no `MocService`. MOC identity is emergent — any Entity with outgoing `ORGANIZES` relationships is an organizer. This is managed by `LessonOrganizationService` (sub-service of `LessonService`).
@@ -112,7 +112,7 @@ self.relationships = UnifiedRelationshipService(backend, LESSON_CONFIG, graph_in
 # Domain-specific Cypher lives in domain backends, not services
 # LessonBackend.get_with_context_raw() fetches full graph neighborhood:
 result = await self.backend.get_with_context_raw(uid, min_confidence)
-# KuBackend.get_usage_summary() counts lessons, learning steps, children:
+# KuBackend.get_usage_summary() counts lessons, path steps, children:
 result = await self.backend.get_usage_summary(ku_uid)
 ```
 
@@ -127,7 +127,7 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
     _supports_user_progress = True
 
 # Curriculum Domain - shared content
-class LsSearchService(BaseService[BackendOperations[Ls], Ls]):
+class PsSearchService(BaseService[BackendOperations[Ls], Ls]):
     _user_ownership_relationship = None  # Shared content
     _supports_user_progress = True  # Still tracks per-user progress
 ```
@@ -139,7 +139,7 @@ Even though content is shared, Curriculum Domains track per-user data:
 | Data Type | Storage | Example |
 |-----------|---------|---------|
 | **Mastery level** | User→Lesson relationship | `(User)-[:MASTERED {level: 0.8}]->(Lesson)` |
-| **Completion** | User→LS relationship | `(User)-[:COMPLETED]->(LearningStep)` |
+| **Completion** | User→LS relationship | `(User)-[:COMPLETED]->(PathStep)` |
 | **Progress** | User→LP relationship | `(User)-[:ENROLLED {progress: 0.6}]->(LearningPath)` |
 | **Organization** | Lesson→Lesson relationship | `(Lesson)-[:ORGANIZES {order, importance}]->(Lesson)` |
 

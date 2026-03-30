@@ -66,7 +66,7 @@ class LessonCompleted(BaseEvent):
     and all KUs linked via USES_KU are now mastered.
 
     Subscribers:
-    - LsProgressService (update LS progress)
+    - PsProgressService (update LS progress)
     - UserService (invalidate context)
     """
 
@@ -81,16 +81,16 @@ class LessonCompleted(BaseEvent):
 
 
 @dataclass(frozen=True)
-class LearningStepProgressUpdated(BaseEvent):
+class PathStepProgressUpdated(BaseEvent):
     """
-    Published when learning step progress changes.
+    Published when path step progress changes.
 
     Subscribers:
     - DashboardService (update progress visualization)
     - NotificationService (milestone notifications)
     """
 
-    ls_uid: str
+    ps_uid: str
     user_uid: UserUID
     old_progress: float  # 0.0 to 1.0
     new_progress: float  # 0.0 to 1.0
@@ -99,7 +99,7 @@ class LearningStepProgressUpdated(BaseEvent):
 
     @property
     def event_type(self) -> str:
-        return "learning_step.progress_updated"
+        return "path_step.progress_updated"
 
     @property
     def progress_delta(self) -> float:

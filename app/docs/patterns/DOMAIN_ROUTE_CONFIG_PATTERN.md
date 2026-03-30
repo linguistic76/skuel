@@ -132,7 +132,7 @@ When sub-configs are present, `register_domain_routes()` executes in this order:
 - Factories with static params declared once in config
 - Manual routes and dynamic factories remain flexible
 
-**Adoption:** All 6 Activity Domains + FormTemplate (`scope=ContentScope.SHARED`, `require_role=UserRole.ADMIN`) + RevisedExercise (`scope=ContentScope.USER_OWNED`, `require_role=UserRole.TEACHER`) + Groups (`require_role=UserRole.TEACHER`, `role_gates_reads=False`) migrated. Curriculum domains (Lesson, LS, LP) use `IntelligenceRouteConfig` only — no `CRUDRouteConfig` since they are created via ingestion.
+**Adoption:** All 6 Activity Domains + FormTemplate (`scope=ContentScope.SHARED`, `require_role=UserRole.ADMIN`) + RevisedExercise (`scope=ContentScope.USER_OWNED`, `require_role=UserRole.TEACHER`) + Groups (`require_role=UserRole.TEACHER`, `role_gates_reads=False`) migrated. Curriculum domains (Lesson, PS, LP) use `IntelligenceRouteConfig` only — no `CRUDRouteConfig` since they are created via ingestion.
 
 ### Recent Updates
 
@@ -695,9 +695,9 @@ def create_insights_routes(app, rt, services, _sync_service=None):
 - Pattern: DomainRouteConfig + manual extension (not all-or-nothing)
 - History routes are domain-specific (not covered by standard CRUD)
 
-### Example 8: Multi-Domain Composition (Pathways + Learning Steps)
+### Example 8: Multi-Domain Composition (Pathways + Path Steps)
 
-**Files:** `/adapters/inbound/pathways_routes.py` + `/adapters/inbound/learning_steps_routes.py`
+**Files:** `/adapters/inbound/pathways_routes.py` + `/adapters/inbound/path_steps_routes.py`
 
 ```python
 # pathways_routes.py — LP config with IntelligenceRouteConfig (no CRUD — created via ingestion)
@@ -707,23 +707,23 @@ PATHWAYS_CONFIG = DomainRouteConfig(
     api_factory=create_pathways_api_routes,
     ui_factory=create_pathways_ui_routes,
     api_related_services={"user_service": "user_service", "user_progress": "user_progress"},
-    ui_related_services={"user_progress": "user_progress", "ls_service": "ls"},
+    ui_related_services={"user_progress": "user_progress", "ps_service": "ls"},
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 
 def create_pathways_routes(app, rt, services, _sync_service=None):
     routes = register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
-    # LS routes via its own DomainRouteConfig (soft-fail if ls service missing)
-    routes.extend(register_domain_routes(app, rt, services, LS_CONFIG))
+    # PS routes via its own DomainRouteConfig (soft-fail if ls service missing)
+    routes.extend(register_domain_routes(app, rt, services, PS_CONFIG))
     return routes
 ```
 
 ```python
-# learning_steps_routes.py — standalone LS config (no CRUD — created via ingestion)
-LS_CONFIG = DomainRouteConfig(
+# path_steps_routes.py — standalone PS config (no CRUD — created via ingestion)
+PS_CONFIG = DomainRouteConfig(
     domain_name="learning-steps",
     primary_service_attr="ls",
-    api_factory=create_learning_steps_api_routes,
+    api_factory=create_path_steps_api_routes,
     api_related_services={"user_service": "user_service"},
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
@@ -731,8 +731,8 @@ LS_CONFIG = DomainRouteConfig(
 
 **Key features:**
 - Each domain has its own `DomainRouteConfig` with `IntelligenceRouteConfig`
-- No `CRUDRouteConfig` — curriculum types (Lesson, LS, LP) are created via ingestion, not CRUD
-- LS config lives in a separate file, imported by `pathways_routes.py`
+- No `CRUDRouteConfig` — curriculum types (Lesson, PS, LP) are created via ingestion, not CRUD
+- PS config lives in a separate file, imported by `pathways_routes.py`
 - Both use `register_domain_routes()` — soft-fail if primary service is missing
 - Demonstrates Curriculum domain pattern: `SHARED` intelligence, ingestion-based creation
 
@@ -1003,7 +1003,7 @@ All DomainRouteConfig routes are registered in Section 2 of `_wire_all_routes()`
 8. `/adapters/inbound/ku_routes.py`
 9. `/adapters/inbound/exercises_routes.py`
 10. `/adapters/inbound/revised_exercises_routes.py`
-11. `/adapters/inbound/pathways_routes.py` - LP + LS routes
+11. `/adapters/inbound/pathways_routes.py` - LP + PS routes
 12. `/adapters/inbound/askesis_routes.py`
 
 **Submissions/Forms/Journals (4):**

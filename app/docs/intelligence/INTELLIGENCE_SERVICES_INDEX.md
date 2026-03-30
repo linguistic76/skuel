@@ -26,7 +26,7 @@ The app functions fully without any LLM dependencies - AI services enhance but a
 **Total Intelligence Services:** 14
 - **Activity Domains:** 6 (Tasks, Goals, Habits, Events, Choices, Principles)
 - **Shared Knowledge:** 1 (ActivityKnowledgeIntelligenceService — serves all 6 activity domains)
-- **Curriculum Domains:** 4 (KU, LS, LP, MOC)
+- **Curriculum Domains:** 4 (KU, PS, LP, MOC)
 - **Meta Intelligence:** 1 (UserContext - central intelligence hub)
 - **Cross-Cutting:** 1 (Askesis - life context synthesis)
 - **Specialized Graph:** 1 (ZPDService - curriculum ZPD graph analytics — FULL tier only)
@@ -154,7 +154,7 @@ async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Task,
 **IntelligenceRouteFactory Security (January 2026):**
 - **Content scope** via `scope` parameter (default: `ContentScope.USER_OWNED`)
 - Activity Domains verify entity ownership before returning context/insights
-- Shared content (KU, LS, LP, MOC) uses `scope=ContentScope.SHARED`
+- Shared content (KU, PS, LP, MOC) uses `scope=ContentScope.SHARED`
 - Returns 404 (not 403) to prevent UID enumeration attacks
 
 ```python
@@ -195,7 +195,7 @@ async def insights_route(request, uid: str, min_confidence: float = 0.7) -> Resu
 | ChoicesIntelligenceService | ✅ | ✅ | Complete |
 | PrinciplesIntelligenceService | ✅ | ✅ | Complete |
 | KuIntelligenceService | ✅ | ✅ | Complete |
-| LsIntelligenceService | ✅ | ✅ | Complete |
+| PsIntelligenceService | ✅ | ✅ | Complete |
 | LpIntelligenceService | ✅ | ✅ | Complete |
 | MocIntelligenceService | ✅ | ✅ | Complete |
 
@@ -414,7 +414,7 @@ from core.services.intelligence import (
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|
 | **Tasks** | [TASKS_INTELLIGENCE.md](./TASKS_INTELLIGENCE.md) | ~560 | Behavioral insights, performance analytics, cross-domain context |
-| **Goals** | [GOALS_INTELLIGENCE.md](./GOALS_INTELLIGENCE.md) | ~1,139 | Progress forecasting, predictive analytics |
+| **Goals** | [GOAPS_INTELLIGENCE.md](./GOAPS_INTELLIGENCE.md) | ~1,139 | Progress forecasting, predictive analytics |
 | **Habits** | [HABITS_INTELLIGENCE.md](./HABITS_INTELLIGENCE.md) | ~539 | Streak patterns, habit formation insights |
 | **Events** | [EVENTS_INTELLIGENCE.md](./EVENTS_INTELLIGENCE.md) | ~492 | Cross-domain impact, learning practice tracking |
 | **Choices** | [CHOICES_INTELLIGENCE.md](./CHOICES_INTELLIGENCE.md) | ~679 | Decision support, outcome analysis |
@@ -437,7 +437,7 @@ Extracted from TasksIntelligenceService (March 2026). These methods are domain-a
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|
 | **KU** | [KU_INTELLIGENCE.md](./KU_INTELLIGENCE.md) | ~390 | Semantic recommendations, knowledge substance, per-user substance (January 2026) |
-| **LS** | [LS_INTELLIGENCE.md](./LS_INTELLIGENCE.md) | ~394 | Readiness checks, practice completeness |
+| **PS** | [PS_INTELLIGENCE.md](./PS_INTELLIGENCE.md) | ~394 | Readiness checks, practice completeness |
 | **LP** | [LP_INTELLIGENCE.md](./LP_INTELLIGENCE.md) | 378 (facade) + 2,467 (sub-services) | Learning state analysis, content recommendations, adaptive sequencing |
 | **MOC** | [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md) | ~777 | Navigation recommendations, coverage analysis, cross-domain bridges (January 2026) |
 
@@ -575,7 +575,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - ✅ ChoicesIntelligenceService (2026-01-06, updated 2026-01-18)
 - ✅ PrinciplesIntelligenceService (2026-01-06, updated 2026-01-18)
 - ✅ KuIntelligenceService (2026-01-08, updated 2026-01-18)
-- ✅ LsIntelligenceService (2026-01-06, updated 2026-01-18)
+- ✅ PsIntelligenceService (2026-01-06, updated 2026-01-18)
 - ✅ LpIntelligenceService (2026-01-08, updated 2026-01-18)
 - ✅ MocIntelligenceService (2026-01-11, updated 2026-01-18)
 
@@ -652,7 +652,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - Per-user substance calculation (January 2026 - KU-Activity Integration)
 - New API: `GET /api/ku/{uid}/my-context` for personalized KU views
 
-**LS (Learning Steps):**
+**PS (Path Steps):**
 - Lightweight intelligence (intentional design)
 - Practice completeness scoring (1/3 contribution per type)
 - Guidance strength calculation (40% principles + 60% choices)

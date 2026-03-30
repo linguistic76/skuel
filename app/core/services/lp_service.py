@@ -30,11 +30,11 @@ from core.utils.sort_functions import get_created_at_attr, get_title_lower, make
 if TYPE_CHECKING:
     from core.models.enums.entity_enums import Domain
     from core.models.pathways.learning_path import LearningPath
-    from core.models.pathways.learning_step import LearningStep
+    from core.models.pathways.path_step import PathStep
     from core.ports import EventBusOperations
     from core.ports.query_types import ListContext
     from core.services.lesson_service import LessonService
-    from core.services.ls_service import LsService
+    from core.services.ps_service import PsService
     from ui.ui_types import ActivePathData
 
 logger = get_logger(__name__)
@@ -84,7 +84,7 @@ class LpService:
 
     **January 2026 - LP Consolidation (ADR-031):**
     Consolidated from 8 sub-services to 4:
-    - Core: CRUD operations (non-standard: requires ls_service)
+    - Core: CRUD operations (non-standard: requires ps_service)
     - Search: Discovery operations
     - Relationships: Path-step associations (via UnifiedRelationshipService)
     - Intelligence: ALL validation/analysis/adaptive/context operations
@@ -97,10 +97,10 @@ class LpService:
     - Intelligence: validate_path_prerequisites, identify_path_blockers,
             get_optimal_path_recommendation, get_path_with_context,
             analyze_path_knowledge_scope,
-            find_learning_sequence, get_next_adaptive_step, get_recommended_learning_steps
+            find_learning_sequence, get_next_adaptive_step, get_recommended_path_steps
 
     Explicit Methods (custom logic):
-    - Step operations: create_step, get_step, update_step, delete_step, list_steps (ls_service guard)
+    - Step operations: create_step, get_step, update_step, delete_step, list_steps (ps_service guard)
     - CRUD compatibility: create, get, update, delete, list (complex signatures)
     """
 
@@ -108,7 +108,7 @@ class LpService:
         self,
         backend: Any,
         executor: Any,
-        ls_service: LsService,
+        ps_service: PsService,
         ku_service: LessonService | None = None,
         progress_service: Any | None = None,
         graph_intelligence_service: Any | None = None,
@@ -121,17 +121,17 @@ class LpService:
         Initialize facade with sub-services via factory.
 
         FAIL-FAST ARCHITECTURE (per CLAUDE.md):
-        The backend, executor, ls_service, and graph_intelligence_service are REQUIRED.
+        The backend, executor, ps_service, and graph_intelligence_service are REQUIRED.
         Services run at full capacity or fail immediately at startup.
 
         **January 2026 - Factory Pattern (Architecture Consistency Review):**
         Uses create_lp_sub_services() factory for consistent initialization.
-        Factory handles cross-domain dependency: LpCoreService requires ls_service.
+        Factory handles cross-domain dependency: LpCoreService requires ps_service.
 
         Args:
             backend: BackendOperations for LP entities (REQUIRED — created by composition root)
             executor: QueryExecutor for raw Cypher (REQUIRED — created by composition root)
-            ls_service: LsService for learning step operations - REQUIRED
+            ps_service: PsService for path step operations - REQUIRED
             ku_service: Optional LessonService for prerequisite queries
             progress_service: Optional UserProgressService for progress tracking
             graph_intelligence_service: GraphIntelligenceService - REQUIRED for cross-domain queries
@@ -153,9 +153,9 @@ class LpService:
                 "SKUEL follows fail-fast architecture - all required dependencies "
                 "must be provided at initialization."
             )
-        if not ls_service:
+        if not ps_service:
             raise ValueError(
-                "LpService ls_service is REQUIRED. "
+                "LpService ps_service is REQUIRED. "
                 "SKUEL follows fail-fast architecture - all required dependencies "
                 "must be provided at initialization."
             )
@@ -172,7 +172,7 @@ class LpService:
         subs = create_lp_sub_services(
             backend=backend,
             executor=executor,
-            ls_service=ls_service,
+            ps_service=ps_service,
             graph_intelligence_service=graph_intelligence_service,
             event_bus=event_bus,
             progress_backend=progress_backend,
@@ -187,7 +187,7 @@ class LpService:
         self.progress = subs.progress
 
         # Store dependencies
-        self.ls_service = ls_service
+        self.ps_service = ps_service
         self.ku_service = ku_service
         self.graph_intel = graph_intelligence_service
         self.event_bus = event_bus
@@ -219,7 +219,7 @@ class LpService:
         user_uid: UserUID,
         title: str,
         description: str,
-        steps: list[LearningStep],
+        steps: list[PathStep],
         domain: Domain | None = None,
     ) -> Result[LearningPath]:
         """Create a learning path."""
@@ -253,11 +253,11 @@ class LpService:
         """List all learning paths."""
         return await self.core.list_all_paths(limit=limit)
 
-    async def get_path_steps(self, path_uid: str) -> Result[list[LearningStep]]:
+    async def get_path_steps(self, path_uid: str) -> Result[list[PathStep]]:
         """Get steps in a learning path."""
         return await self.core.get_path_steps(path_uid)
 
-    async def get_current_step(self, path_uid: str) -> Result[LearningStep | None]:
+    async def get_current_step(self, path_uid: str) -> Result[PathStep | None]:
         """Get current step for a user in a learning path."""
         return await self.core.get_current_step(path_uid)
 
@@ -311,77 +311,73 @@ class LpService:
         user_uid: UserUID,
         _user_performance: dict[str, float] | None = None,
     ) -> Result[str | None]:
-        """Get next adaptive learning step."""
+        """Get next adaptive path step."""
         return await self.intelligence.get_next_adaptive_step(
             current_step_uid, user_uid, _user_performance
         )
 
-    async def get_recommended_learning_steps(
+    async def get_recommended_path_steps(
         self, user_uid: UserUID, max_difficulty: float = 0.5, limit: int = 5
     ) -> Result[list[LpRecommendedStep]]:
-        """Get recommended learning steps."""
-        return await self.intelligence.get_recommended_learning_steps(
-            user_uid, max_difficulty, limit
-        )
+        """Get recommended path steps."""
+        return await self.intelligence.get_recommended_path_steps(user_uid, max_difficulty, limit)
 
     # ============================================================================
-    # LEARNING STEP OPERATIONS - Delegated to LsService
+    # LEARNING STEP OPERATIONS - Delegated to PsService
     # ============================================================================
-    # Note: These require ls_service guard, kept explicit.
+    # Note: These require ps_service guard, kept explicit.
 
-    async def create_step(
-        self, step: LearningStep, path_uid: str | None = None
-    ) -> Result[LearningStep]:
-        """Create a learning step. Delegates to LsService."""
-        if not self.ls_service:
+    async def create_step(self, step: PathStep, path_uid: str | None = None) -> Result[PathStep]:
+        """Create a path step. Delegates to PsService."""
+        if not self.ps_service:
             from core.utils.result_simplified import Errors
 
             return Result.fail(
-                Errors.system(message="LsService not available", operation="create_step")
+                Errors.system(message="PsService not available", operation="create_step")
             )
-        return await self.ls_service.create_step(step, path_uid)
+        return await self.ps_service.create_step(step, path_uid)
 
-    async def get_step(self, step_uid: str) -> Result[LearningStep | None]:
-        """Get a learning step by UID. Delegates to LsService."""
-        if not self.ls_service:
+    async def get_step(self, step_uid: str) -> Result[PathStep | None]:
+        """Get a path step by UID. Delegates to PsService."""
+        if not self.ps_service:
             from core.utils.result_simplified import Errors
 
             return Result.fail(
-                Errors.system(message="LsService not available", operation="get_step")
+                Errors.system(message="PsService not available", operation="get_step")
             )
-        return await self.ls_service.get_step(step_uid)
+        return await self.ps_service.get_step(step_uid)
 
-    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[LearningStep]:
-        """Update a learning step. Delegates to LsService."""
-        if not self.ls_service:
+    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[PathStep]:
+        """Update a path step. Delegates to PsService."""
+        if not self.ps_service:
             from core.utils.result_simplified import Errors
 
             return Result.fail(
-                Errors.system(message="LsService not available", operation="update_step")
+                Errors.system(message="PsService not available", operation="update_step")
             )
-        return await self.ls_service.update_step(step_uid, updates)
+        return await self.ps_service.update_step(step_uid, updates)
 
     async def delete_step(self, step_uid: str) -> Result[bool]:
-        """Delete a learning step. Delegates to LsService."""
-        if not self.ls_service:
+        """Delete a path step. Delegates to PsService."""
+        if not self.ps_service:
             from core.utils.result_simplified import Errors
 
             return Result.fail(
-                Errors.system(message="LsService not available", operation="delete_step")
+                Errors.system(message="PsService not available", operation="delete_step")
             )
-        return await self.ls_service.delete_step(step_uid)
+        return await self.ps_service.delete_step(step_uid)
 
     async def list_steps(
         self, path_uid: str | None = None, limit: int = 100
-    ) -> Result[list[LearningStep]]:
-        """List learning steps. Delegates to LsService."""
-        if not self.ls_service:
+    ) -> Result[list[PathStep]]:
+        """List path steps. Delegates to PsService."""
+        if not self.ps_service:
             from core.utils.result_simplified import Errors
 
             return Result.fail(
-                Errors.system(message="LsService not available", operation="list_steps")
+                Errors.system(message="PsService not available", operation="list_steps")
             )
-        return await self.ls_service.list_steps(path_uid, limit)
+        return await self.ps_service.list_steps(path_uid, limit)
 
     # ============================================================================
     # AGGREGATION METHODS — extracted from pathways_ui.py route handlers

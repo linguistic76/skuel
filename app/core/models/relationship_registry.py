@@ -55,7 +55,7 @@ from core.models.habit.habit_dto import HabitDTO
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.pathways.learning_path_dto import LearningPathDTO
-from core.models.pathways.learning_step_dto import LearningStepDTO
+from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.principle.principle_dto import PrincipleDTO
 
 # NOTE (February 2026): MOC is not a separate EntityType.
@@ -652,7 +652,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 # GOALS
 # -----------------------------------------------------------------------------
-GOALS_CONFIG = DomainRelationshipConfig(
+GOAPS_CONFIG = DomainRelationshipConfig(
     domain=Domain.GOALS,
     entity_label="Goal",
     dto_class=GoalDTO,
@@ -1690,12 +1690,12 @@ LESSON_CONFIG = DomainRelationshipConfig(
             "informs_choices",
             "informs_choices",
         ),
-        # Curriculum relationships (LS is now :Entity with entity_type='learning_step')
+        # Curriculum relationships (LS is now :Entity with entity_type='path_step')
         UnifiedRelationshipDefinition(
             RelationshipName.CONTAINS_KNOWLEDGE,
             "Entity",
             "incoming",
-            "in_learning_steps",
+            "in_path_steps",
             "in_steps",
         ),
         # Incoming: enables (other KU enables this KU)
@@ -1849,11 +1849,11 @@ KU_CONFIG = DomainRelationshipConfig(
     },
 )
 
-# LS (Learning Step) — Entity with entity_type='learning_step'
-LS_CONFIG = DomainRelationshipConfig(
+# LS (Learning Step) — Entity with entity_type='path_step'
+PS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
     entity_label="Entity",
-    dto_class=LearningStepDTO,
+    dto_class=PathStepDTO,
     model_class=Entity,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
@@ -1938,7 +1938,7 @@ LP_CONFIG = DomainRelationshipConfig(
             RelationshipName.HAS_STEP,
             "Entity",
             "outgoing",
-            "learning_steps",
+            "path_steps",
             "steps",
             order_by_property="sequence",
             order_direction="ASC",
@@ -2131,7 +2131,7 @@ REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
 DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     # Activity Domains (6) - User-owned entities
     Domain.TASKS: TASKS_CONFIG,
-    Domain.GOALS: GOALS_CONFIG,
+    Domain.GOALS: GOAPS_CONFIG,
     Domain.HABITS: HABITS_CONFIG,
     Domain.EVENTS: EVENTS_CONFIG,
     Domain.CHOICES: CHOICES_CONFIG,
@@ -2141,7 +2141,7 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     # Note: LS and LP both use Domain.LEARNING
     # Use LABEL_CONFIGS for unambiguous lookup
     Domain.KNOWLEDGE: LESSON_CONFIG,  # Primary for Domain.KNOWLEDGE
-    Domain.LEARNING: LS_CONFIG,  # Primary for Domain.LEARNING
+    Domain.LEARNING: PS_CONFIG,  # Primary for Domain.LEARNING
 }
 
 # Label-based lookup (THE authoritative way to get curriculum configs)
@@ -2150,7 +2150,7 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
 LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # Activity Domains (6)
     "Task": TASKS_CONFIG,
-    "Goal": GOALS_CONFIG,
+    "Goal": GOAPS_CONFIG,
     "Habit": HABITS_CONFIG,
     "Event": EVENTS_CONFIG,
     "Choice": CHOICES_CONFIG,  # Virtual key — config lookup key for 'choice'}
@@ -2163,13 +2163,13 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # Curriculum Domains — correct Neo4j label keys
     "Lesson": LESSON_CONFIG,
     "Ku": KU_CONFIG,
-    "LearningStep": LS_CONFIG,
+    "PathStep": PS_CONFIG,
     "LearningPath": LP_CONFIG,
     "Exercise": EXERCISE_CONFIG,
     "RevisedExercise": REVISED_EXERCISE_CONFIG,
     # Backward-compat aliases (old label keys used by DomainConfig files)
     "Entity": LESSON_CONFIG,
-    "Ls": LS_CONFIG,
+    "Ls": PS_CONFIG,
     "Lp": LP_CONFIG,
 }
 
@@ -2402,7 +2402,7 @@ ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
     # Curriculum (5)
     EntityType.LESSON: "Lesson",
     EntityType.KU: "Ku",
-    EntityType.LEARNING_STEP: "LearningStep",
+    EntityType.PATH_STEP: "PathStep",
     EntityType.LEARNING_PATH: "LearningPath",
     EntityType.EXERCISE: "Exercise",
     # Instruction Templates (2)
@@ -2433,7 +2433,7 @@ LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     # Curriculum (5)
     "Lesson": EntityType.LESSON,
     "Ku": EntityType.KU,
-    "LearningStep": EntityType.LEARNING_STEP,
+    "PathStep": EntityType.PATH_STEP,
     "LearningPath": EntityType.LEARNING_PATH,
     "Exercise": EntityType.EXERCISE,
     # Instruction Templates (2)
@@ -2461,7 +2461,7 @@ LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     # Backward-compat aliases for old label keys
     "Entity": EntityType.LESSON,
     "Lp": EntityType.LEARNING_PATH,
-    "Ls": EntityType.LEARNING_STEP,
+    "Ls": EntityType.PATH_STEP,
 }
 
 

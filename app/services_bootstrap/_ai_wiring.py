@@ -31,7 +31,7 @@ def _wire_ai_services(
     from core.services.habits.habits_ai_service import HabitsAIService
     from core.services.lesson.lesson_ai_service import LessonAIService
     from core.services.lp.lp_ai_service import LpAIService
-    from core.services.ls.ls_ai_service import LsAIService
+    from core.services.ps.ps_ai_service import PsAIService
     from core.services.principles.principles_ai_service import PrinciplesAIService
     from core.services.tasks.tasks_ai_service import TasksAIService
 
@@ -58,8 +58,8 @@ def _wire_ai_services(
         llm_service=llm_service,
         embeddings_service=embeddings_service,
     )
-    ls_ai = LsAIService(
-        backend=learning_services["learning_steps"].core.backend,
+    ls_ai = PsAIService(
+        backend=learning_services["path_steps"].core.backend,
         llm_service=llm_service,
         embeddings_service=embeddings_service,
     )
@@ -70,7 +70,7 @@ def _wire_ai_services(
     )
     # Wire AI services into Curriculum Domain facades (post-construction)
     learning_services["lesson_service"].ai = ku_ai
-    learning_services["learning_steps"].ai = ls_ai
+    learning_services["path_steps"].ai = ls_ai
     learning_services["learning_paths"].ai = lp_ai
 
     # Create cross-cutting AI services (2)

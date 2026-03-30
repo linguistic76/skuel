@@ -78,7 +78,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Principles](domains/principles.md) | Values that guide goals and choices |
 | [Finance](domains/finance.md) | Expense and budget tracking (admin-only) |
 | [KU (Knowledge Unit)](domains/ku.md) | Atomic knowledge unit (point topology) |
-| [LS (Learning Step)](domains/ls.md) | Collections of lessons (collection topology) |
+| [PS (Path Step)](domains/ps.md) | Collections of lessons (collection topology) |
 | [LP (Learning Path)](domains/lp.md) | Complete learning sequences (path topology) |
 | [Submissions + Reports](domains/submissions.md) | Lesson→Exercise→Submission→Report→RevisedExercise learning loop |
 | [Journals](domains/journals.md) | Standalone journal domain (JE_INPUT → JE_OUTPUT, AI-processed) |
@@ -96,7 +96,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 |----------|---------|-------|
 | [Admin Dashboard Architecture](architecture/ADMIN_DASHBOARD_ARCHITECTURE.md) | 2026-02-08 | 527 |
 | [Alpine.js Architecture](architecture/ALPINE_JS_ARCHITECTURE.md) | 2026-01-05 | 280 |
-| [Curriculum Grouping Patterns: KU, LS, LP + MOC Organization](architecture/CURRICULUM_GROUPING_PATTERNS.md) | 2026-01-20 | 410 |
+| [Curriculum Grouping Patterns: KU, PS, LP + MOC Organization](architecture/CURRICULUM_GROUPING_PATTERNS.md) | 2026-01-20 | 410 |
 | **[Enum Architecture](architecture/ENUM_ARCHITECTURE.md)** | **2026-03-05** | **~330** |
 | **[Priority & Confidence Architecture](architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md)** | **2026-03-05** | **~130** |
 | [Finance Categories System](architecture/FINANCE_CATEGORIES_GUIDE.md) | 2025-11-27 | 562 |
@@ -116,7 +116,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[How Askesis Works](architecture/ASKESIS_HOW_IT_WORKS.md)** | **2026-03-12** | **Plain-English explanation of both halves: intelligence synthesis + guided RAG pipeline** |
 | [Askesis Architecture](architecture/ASKESIS_ARCHITECTURE.md) | 2025-11-27 | — |
 | [Askesis Pedagogical Architecture](architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) | 2026-03-05 | ZPD-aware Socratic companion vision — how Askesis teaches, not how it is built |
-| [Askesis Socratic Architecture](architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md) | 2026-03-12 | LS-scoped Socratic pipeline — LSBundle, PedagogicalIntent, SocraticEngine, ZPD integration |
+| [Askesis Socratic Architecture](architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md) | 2026-03-12 | PS-scoped Socratic pipeline — PsBundle, PedagogicalIntent, SocraticEngine, ZPD integration |
 | [Analytics Architecture](architecture/ANALYTICS_ARCHITECTURE.md) | 2025-11-27 | — |
 | [Core Systems Architecture](architecture/CORE_SYSTEMS_ARCHITECTURE.md) | 2026-02-08 | — |
 | **[Service Topology](architecture/SERVICE_TOPOLOGY.md)** | **2026-01-29** | **—** |
@@ -388,7 +388,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Conversation Neo4j Persistence — Deferred](roadmap/conversation-neo4j-persistence-deferred.md) | 2026-03-05 | Neo4j schema for persisted conversation sessions and turns; cross-session continuity design |
 | [Teacher-Askesis Interface — Deferred](roadmap/teacher-askesis-interface-deferred.md) | 2026-03-05 | Teacher view/adjust/annotate interface; requires ZPDService + Neo4j persistence first |
 | [Learning Loop Cross-Domain Search](roadmap/learning-loop-cross-domain-search.md) | 2026-03-07 | Level 3 roadmap: cross-loop graph traversal search, ExerciseReport/ActivityReport search |
-| [Askesis Semantic Intelligence](roadmap/askesis-semantic-intelligence.md) | 2026-03-12 | Deferred enhancements: learning-aware search, LS bundle semantic enrichment, conversation persistence, gap analysis fallback |
+| [Askesis Semantic Intelligence](roadmap/askesis-semantic-intelligence.md) | 2026-03-12 | Deferred enhancements: learning-aware search, PS bundle semantic enrichment, conversation persistence, gap analysis fallback |
 | [Tables — Custom Design](roadmap/tables-custom-design.md) | 2026-03-14 | 3 tables deferred from TableFromDicts migration: hardcoded rows, headerless layout, dynamic columns |
 
 ## Examples

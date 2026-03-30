@@ -31,7 +31,7 @@ from core.ports.infrastructure_protocols import (
 
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
-from core.models.context_types import DailyWorkPlan, LearningStep
+from core.models.context_types import DailyWorkPlan, PathStep
 from core.services.user import UserContext
 from core.services.user.intelligence import UserContextIntelligenceFactory
 from core.services.user.user_activity_service import UserActivityService
@@ -704,15 +704,15 @@ class UserService:
 
         return Result.ok(plan)
 
-    async def get_next_learning_steps(
+    async def get_next_path_steps(
         self,
         user_uid: UserUID,
         max_steps: int = 5,
         consider_goals: bool = True,
         consider_capacity: bool = True,
-    ) -> Result[list[LearningStep]]:
+    ) -> Result[list[PathStep]]:
         """
-        Get optimal next learning steps for a user.
+        Get optimal next path steps for a user.
 
         THE CORE METHOD - determine what to learn next based on ALL factors.
 
@@ -731,14 +731,14 @@ class UserService:
             consider_capacity: Respect user capacity limits
 
         Returns:
-            Result[list[LearningStep]]: Ranked list of optimal next learning steps
+            Result[list[PathStep]]: Ranked list of optimal next path steps
         """
         # Check if intelligence factory is available
         if not self.intelligence_factory:
             return Result.fail(
                 Errors.system(
                     message="Intelligence factory not available",
-                    operation="get_next_learning_steps",
+                    operation="get_next_path_steps",
                 )
             )
 
@@ -749,9 +749,9 @@ class UserService:
 
         context = context_result.value
 
-        # Create intelligence service from factory and get learning steps
+        # Create intelligence service from factory and get path steps
         intelligence = self.intelligence_factory.create(context)
-        steps = await intelligence.get_optimal_next_learning_steps(
+        steps = await intelligence.get_optimal_next_path_steps(
             max_steps=max_steps,
             consider_goals=consider_goals,
             consider_capacity=consider_capacity,

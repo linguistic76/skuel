@@ -15,12 +15,12 @@ from core.models.relationship_registry import (
     CHOICES_CONFIG,
     DOMAIN_CONFIGS,
     EVENTS_CONFIG,
-    GOALS_CONFIG,
+    GOAPS_CONFIG,
     HABITS_CONFIG,
     LABEL_CONFIGS,
     LESSON_CONFIG,
     LP_CONFIG,
-    LS_CONFIG,
+    PS_CONFIG,
     PRINCIPLES_CONFIG,
     TASKS_CONFIG,
     DomainRelationshipConfig,
@@ -65,7 +65,7 @@ class TestUnifiedRegistry:
             # Curriculum Domains — correct Neo4j label keys
             "Lesson",
             "Ku",
-            "LearningStep",
+            "PathStep",
             "LearningPath",
             "Exercise",
             "RevisedExercise",
@@ -262,7 +262,7 @@ class TestNamedUnifiedConfigs:
     def test_activity_unified_configs_match_registry(self):
         """Verify *_CONFIG configs match DOMAIN_CONFIGS entries."""
         assert TASKS_CONFIG is DOMAIN_CONFIGS[Domain.TASKS]
-        assert GOALS_CONFIG is DOMAIN_CONFIGS[Domain.GOALS]
+        assert GOAPS_CONFIG is DOMAIN_CONFIGS[Domain.GOALS]
         assert HABITS_CONFIG is DOMAIN_CONFIGS[Domain.HABITS]
         assert EVENTS_CONFIG is DOMAIN_CONFIGS[Domain.EVENTS]
         assert CHOICES_CONFIG is DOMAIN_CONFIGS[Domain.CHOICES]
@@ -271,24 +271,24 @@ class TestNamedUnifiedConfigs:
     def test_curriculum_unified_configs_match_label_registry(self):
         """Verify curriculum *_CONFIG configs match LABEL_CONFIGS entries."""
         assert LESSON_CONFIG is LABEL_CONFIGS["Lesson"]
-        assert LS_CONFIG is LABEL_CONFIGS["LearningStep"]
+        assert PS_CONFIG is LABEL_CONFIGS["PathStep"]
         assert LP_CONFIG is LABEL_CONFIGS["LearningPath"]
         # Backward-compat aliases still work
         assert LESSON_CONFIG is LABEL_CONFIGS["Entity"]
-        assert LS_CONFIG is LABEL_CONFIGS["Ls"]
+        assert PS_CONFIG is LABEL_CONFIGS["Ls"]
         assert LP_CONFIG is LABEL_CONFIGS["Lp"]
 
     def test_all_unified_configs_are_domain_relationship_config(self):
         """Verify all named configs are DomainRelationshipConfig."""
         for config in [
             TASKS_CONFIG,
-            GOALS_CONFIG,
+            GOAPS_CONFIG,
             HABITS_CONFIG,
             EVENTS_CONFIG,
             CHOICES_CONFIG,
             PRINCIPLES_CONFIG,
             LESSON_CONFIG,
-            LS_CONFIG,
+            PS_CONFIG,
             LP_CONFIG,
         ]:
             assert isinstance(config, DomainRelationshipConfig)

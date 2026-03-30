@@ -290,7 +290,7 @@ The original February 2026 decomposition created a single `_relationship_mixin.p
 | `/adapters/persistence/neo4j/_semantic_mixin.py` | `_SemanticMixin` — semantic relationships + graph analysis (11 methods) |
 | `/adapters/persistence/neo4j/_knowledge_context_mixin.py` | `_KnowledgeContextMixin` — context, discovery, readiness (13 methods) |
 | `/adapters/persistence/neo4j/_adaptive_mixin.py` | `_AdaptiveMixin` — practice, search, adaptive mastery (10 methods) |
-| `/adapters/persistence/neo4j/domain_backends.py` | 19 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, LsBackend, LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend, RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend, ActivityReportBackend, LateralRelationshipBackend, GroupBackend |
+| `/adapters/persistence/neo4j/domain_backends.py` | 19 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, PsBackend, LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend, RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend, ActivityReportBackend, LateralRelationshipBackend, GroupBackend |
 | `/core/services/base_service.py` | BaseService using BackendOperations |
 | `/core/ports/domain_protocols.py` | Domain-specific protocols |
 

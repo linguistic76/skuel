@@ -16,7 +16,7 @@ core/services/user/intelligence/
 ├── schedule_intelligence.py       # ScheduleIntelligenceMixin
 └── temporal_momentum.py           # TemporalMomentumMixin
 
-core/models/context_types.py       # Return types (LearningStep, DailyWorkPlan, etc.)
+core/models/context_types.py       # Return types (PathStep, DailyWorkPlan, etc.)
 ```
 
 ### Documentation
@@ -48,7 +48,7 @@ from core.services.user.intelligence import (
 from core.services.user.intelligence import (
     LifePathAlignment,
     CrossDomainSynergy,
-    LearningStep,
+    PathStep,
     DailyWorkPlan,
     ScheduleAwareRecommendation,
 )
@@ -57,7 +57,7 @@ from core.services.user.intelligence import (
 from core.models.context_types import (
     LifePathAlignment,
     CrossDomainSynergy,
-    LearningStep,
+    PathStep,
     DailyWorkPlan,
     ScheduleAwareRecommendation,
 )
@@ -114,7 +114,7 @@ from core.models.context_types import (
 
 ### Optional: FilteredContextProvider Dict
 
-`self.filtered_providers: dict[str, FilteredContextProvider]` — maps domain names to facades for on-demand per-domain queries. 11 domains: tasks, goals, habits, events, choices, principles, lessons, ku, learning_steps, learning_paths, exercises.
+`self.filtered_providers: dict[str, FilteredContextProvider]` — maps domain names to facades for on-demand per-domain queries. 11 domains: tasks, goals, habits, events, choices, principles, lessons, ku, path_steps, learning_paths, exercises.
 
 ```python
 # On-demand domain query (vs. UserContext broad snapshot)
@@ -138,12 +138,12 @@ All stats dicts include guaranteed `total` + `active` keys (`BaseStats` contract
 
 ```python
 # Method 1: Learning - What to learn next
-async def get_optimal_next_learning_steps(
+async def get_optimal_next_path_steps(
     self,
     max_steps: int = 5,
     consider_goals: bool = True,
     consider_capacity: bool = True,
-) -> Result[list[LearningStep]]: ...
+) -> Result[list[PathStep]]: ...
 
 # Method 2: Learning - Critical path to life path
 async def get_learning_path_critical_path(self) -> Result[list[str]]: ...
@@ -185,11 +185,11 @@ async def get_schedule_aware_recommendations(
 
 ## The 5 Return Types
 
-### LearningStep
+### PathStep
 
 ```python
 @dataclass
-class LearningStep:
+class PathStep:
     ku_uid: str
     title: str
     rationale: str
@@ -337,7 +337,7 @@ class UserContextIntelligenceFactory:
         calendar: CalendarService,
         # Optional: semantic search enhancements
         vector_search_service: Any = None,
-        # Optional: ZPD-aware learning step ranking (FULL tier only)
+        # Optional: ZPD-aware path step ranking (FULL tier only)
         zpd_service: ZPDOperations | None = None,
     ) -> None: ...
 
@@ -422,11 +422,11 @@ async def get_daily_plan(request):
 ### Pattern 2: Learning Recommendations
 
 ```python
-async def get_learning_recommendations(user_uid: UserUID) -> list[LearningStep]:
+async def get_learning_recommendations(user_uid: UserUID) -> list[PathStep]:
     context = await user_service.get_user_context(user_uid)
     intelligence = factory.create(context)
 
-    result = await intelligence.get_optimal_next_learning_steps(max_steps=5)
+    result = await intelligence.get_optimal_next_path_steps(max_steps=5)
     return result.value if result.is_ok else []
 ```
 

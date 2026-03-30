@@ -356,7 +356,7 @@ crud=CRUDRouteConfig(
 )
 ```
 
-**Exemplars:** `groups_routes.py`, `lesson_routes.py`, `exercises_routes.py`, `pathways_routes.py`, `learning_steps_routes.py`, `form_templates_routes.py`, `revised_exercises_routes.py`
+**Exemplars:** `groups_routes.py`, `lesson_routes.py`, `exercises_routes.py`, `pathways_routes.py`, `path_steps_routes.py`, `form_templates_routes.py`, `revised_exercises_routes.py`
 
 **Combining CRUD + Intelligence:** Curriculum domains typically pair both:
 

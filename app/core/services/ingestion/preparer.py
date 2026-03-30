@@ -150,7 +150,7 @@ def _prepare_core(
                 entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
 
     # Learning Step: normalize relationship fields
-    if entity_type == EntityType.LEARNING_STEP:
+    if entity_type == EntityType.PATH_STEP:
         # Convert single learning_path_uid to list
         lp_uid = entity_data.pop("learning_path_uid", None)
         if lp_uid:
@@ -290,7 +290,7 @@ def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
     Determine if entity type should have embeddings.
 
     All content-bearing entity types receive embeddings for semantic search:
-    - Curriculum: Lesson, Ku, Exercise, LearningStep, LearningPath, Resource, RevisedExercise
+    - Curriculum: Lesson, Ku, Exercise, PathStep, LearningPath, Resource, RevisedExercise
     - Activity: Task, Goal, Habit, Event, Choice, Principle
     """
     embeddable_types = {
@@ -298,7 +298,7 @@ def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
         EntityType.LESSON,
         EntityType.KU,
         EntityType.EXERCISE,
-        EntityType.LEARNING_STEP,
+        EntityType.PATH_STEP,
         EntityType.LEARNING_PATH,
         EntityType.RESOURCE,
         EntityType.REVISED_EXERCISE,

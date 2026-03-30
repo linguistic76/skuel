@@ -34,7 +34,7 @@ related: [README.md, INDEX.md]
 Activity (6)             Curriculum (5)      Content/Processing    Other
 ├── Tasks                ├── Lesson          ├── Submission        ├── Resource
 ├── Goals                ├── Ku              ├── Journal           ├── Finance
-├── Habits               ├── LearningStep    ├── ActivityReport    ├── Groups
+├── Habits               ├── PathStep    ├── ActivityReport    ├── Groups
 ├── Events               ├── LearningPath    └── ExerciseReport  ├── MOC (emergent)
 ├── Choices              └── Exercise                              └── LifePath
 └── Principles
@@ -64,7 +64,7 @@ service = UnifiedRelationshipService(backend, graph_intel, TASKS_CONFIG)
 await service.get_related_uids("knowledge", "task:123")
 ```
 
-**Configs:** `TASKS_CONFIG`, `GOALS_CONFIG`, `HABITS_CONFIG`, `EVENTS_CONFIG`, `CHOICES_CONFIG`, `PRINCIPLES_CONFIG` (from `core.models.relationship_registry`)
+**Configs:** `TASKS_CONFIG`, `GOAPS_CONFIG`, `HABITS_CONFIG`, `EVENTS_CONFIG`, `CHOICES_CONFIG`, `PRINCIPLES_CONFIG` (from `core.models.relationship_registry`)
 
 ### Error Handling
 

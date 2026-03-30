@@ -47,7 +47,7 @@ Two handlers in `_wire_event_subscribers()` cover all events via data-driven sub
 **`invalidate_context_if_user(event)`** — for curriculum events where `user_uid` may be absent (9 events):
 
 - **Learning (5):** `KnowledgeCreated`, `KnowledgeMastered`, `LearningPathStarted`, `LearningPathCompleted`, `LearningPathProgressUpdated`
-- **Learning Steps (4):** `LearningStepCreated`, `LearningStepUpdated`, `LearningStepDeleted`, `LearningStepCompleted`
+- **Path Steps (4):** `PathStepCreated`, `PathStepUpdated`, `PathStepDeleted`, `PathStepCompleted`
 
 Event subscriptions wired in `services_bootstrap.py::_wire_event_subscribers()`.
 

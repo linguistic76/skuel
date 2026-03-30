@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
     from core.models.pathways.learning_path import LearningPath
-    from core.models.pathways.learning_step import LearningStep
+    from core.models.pathways.path_step import PathStep
 
 # ============================================================================
 # CYPHER QUERY PARAMETERS
@@ -476,9 +476,9 @@ class KuUpdatePayload(BaseUpdatePayload, total=False):
     aliases: list[str]
 
 
-class LsUpdatePayload(BaseUpdatePayload, total=False):
+class PsUpdatePayload(BaseUpdatePayload, total=False):
     """
-    Update payload for LearningStep entities.
+    Update payload for PathStep entities.
 
     LS-Specific Fields:
         order_index: Position in learning path
@@ -490,11 +490,11 @@ class LsUpdatePayload(BaseUpdatePayload, total=False):
         completed_at: ISO timestamp when completed
 
     Usage:
-        updates: LsUpdatePayload = {
+        updates: PsUpdatePayload = {
             "is_completed": True,
             "completed_at": "2026-01-21T10:00:00Z",
         }
-        result = await ls_service.update(uid, updates)
+        result = await ps_service.update(uid, updates)
     """
 
     order_index: int
@@ -985,9 +985,9 @@ class DashboardCapacityInfo(TypedDict, total=False):
     preferred_time: str
 
 
-class LearningStepPrediction(TypedDict, total=False):
+class PathStepPrediction(TypedDict, total=False):
     """
-    Single prediction item for learning steps.
+    Single prediction item for path steps.
 
     Fields:
         ku_uid: Knowledge unit UID
@@ -1007,10 +1007,10 @@ class PredictionsData(TypedDict, total=False):
     Wrapper for predictions list.
 
     Fields:
-        next_learning_steps: List of predicted learning steps
+        next_path_steps: List of predicted path steps
     """
 
-    next_learning_steps: list[LearningStepPrediction]
+    next_path_steps: list[PathStepPrediction]
 
 
 class ContextAlert(TypedDict, total=False):
@@ -1595,8 +1595,8 @@ class SubstantiationSummaryResult(TypedDict, total=False):
     is_well_practiced: bool
 
 
-class LsKnowledgeSummaryResult(TypedDict):
-    """Return shape for LearningStepOperations.get_knowledge_summary().
+class PsKnowledgeSummaryResult(TypedDict):
+    """Return shape for PathStepOperations.get_knowledge_summary().
 
     Aggregated count and UIDs of knowledge in a step.
     """
@@ -1605,10 +1605,10 @@ class LsKnowledgeSummaryResult(TypedDict):
     uids: list[str]
 
 
-class LsPracticeSummaryResult(TypedDict):
-    """Return shape for LearningStepOperations.get_practice_summary().
+class PsPracticeSummaryResult(TypedDict):
+    """Return shape for PathStepOperations.get_practice_summary().
 
-    Counts of activity entities connected to this learning step.
+    Counts of activity entities connected to this path step.
     """
 
     habits: int
@@ -1625,29 +1625,29 @@ class LsPracticeSummaryResult(TypedDict):
 # ============================================================================
 
 
-class LsAnalyticsSummary(TypedDict):
+class PsAnalyticsSummary(TypedDict):
     """Nested summary for LS analytics."""
 
     total: int
     note: str
 
 
-class LsPerformanceAnalytics(TypedDict, total=False):
-    """Return shape for LsIntelligenceService.get_performance_analytics()."""
+class PsPerformanceAnalytics(TypedDict, total=False):
+    """Return shape for PsIntelligenceService.get_performance_analytics()."""
 
     user_uid: str
     period_days: int
-    total_learning_steps: int
-    analytics: LsAnalyticsSummary
+    total_path_steps: int
+    analytics: PsAnalyticsSummary
 
 
-class LsDomainInsights(TypedDict, total=False):
-    """Return shape for LsIntelligenceService.get_domain_insights()."""
+class PsDomainInsights(TypedDict, total=False):
+    """Return shape for PsIntelligenceService.get_domain_insights()."""
 
-    ls_uid: str
-    ls_title: str
-    ls_intent: str | None
-    practice_summary: LsPracticeSummaryResult
+    ps_uid: str
+    ps_title: str
+    ps_intent: str | None
+    practice_summary: PsPracticeSummaryResult
     practice_completeness: float
     has_prerequisites: bool
     min_confidence: float
@@ -1712,7 +1712,7 @@ class LpPathHierarchy(TypedDict):
     """Return shape for LpCoreService.get_path_hierarchy()."""
 
     current: LearningPath
-    steps: list[LearningStep]
+    steps: list[PathStep]
     step_count: int
 
 
@@ -1754,7 +1754,7 @@ class LpPathRecommendation(TypedDict, total=False):
 
 
 class LpRecommendedStep(TypedDict):
-    """Return shape for items in LpIntelligenceService.get_recommended_learning_steps()."""
+    """Return shape for items in LpIntelligenceService.get_recommended_path_steps()."""
 
     uid: str
     title: str
@@ -1916,8 +1916,8 @@ class RichLearningPathItem(TypedDict, total=False):
     graph_context: dict[str, Any]
 
 
-class RichLearningStepItem(TypedDict, total=False):
-    """Shape for UserContext.active_learning_steps_rich items."""
+class RichPathStepItem(TypedDict, total=False):
+    """Shape for UserContext.active_path_steps_rich items."""
 
     step: dict[str, Any]
     graph_context: dict[str, Any]
@@ -2536,8 +2536,8 @@ class RevisionChainResult(TypedDict):
     created_at: str
 
 
-class LsKnowledgeItemResult(TypedDict):
-    """Return shape for LsBackend.list_knowledge()."""
+class PsKnowledgeItemResult(TypedDict):
+    """Return shape for PsBackend.list_knowledge()."""
 
     uid: str
     title: str
@@ -2642,7 +2642,7 @@ __all__ = [
     "PrincipleUpdatePayload",
     # Update Payloads - Curriculum Domains
     "KuUpdatePayload",
-    "LsUpdatePayload",
+    "PsUpdatePayload",
     "LpUpdatePayload",
     # Update Payloads - Other Domains
     "FinanceUpdatePayload",
@@ -2663,7 +2663,7 @@ __all__ = [
     "DashboardEventsOverview",
     "DashboardLearningOverview",
     "DashboardCapacityInfo",
-    "LearningStepPrediction",
+    "PathStepPrediction",
     "PredictionsData",
     # User Context Service Response Types - Summary Structures
     "ContextAlert",
@@ -2710,7 +2710,7 @@ __all__ = [
     "RichEntityItem",
     "RichKnowledgeUnitItem",
     "RichLearningPathItem",
-    "RichLearningStepItem",
+    "RichPathStepItem",
     "RichMOCItem",
     "CrossDomainInsightItem",
     "CrossDomainInsightsData",
@@ -2773,11 +2773,11 @@ __all__ = [
     "RequiredKnowledgeResult",
     "CurriculumExerciseResult",
     "RevisionChainResult",
-    "LsKnowledgeItemResult",
+    "PsKnowledgeItemResult",
     # LS Intelligence Result Types
-    "LsAnalyticsSummary",
-    "LsPerformanceAnalytics",
-    "LsDomainInsights",
+    "PsAnalyticsSummary",
+    "PsPerformanceAnalytics",
+    "PsDomainInsights",
     # LP Intelligence Result Types
     "LpAnalyticsSummary",
     "LpPerformanceAnalytics",

@@ -558,7 +558,7 @@ class AnalyticsUIComponents:
         avg_substance = substance_metrics.get("avg_substance_score", 0.0)
         embodied = substance_metrics.get("embodied_knowledge", 0)
         active_paths = curriculum_progress.get("active_learning_paths", 0)
-        in_progress_steps = curriculum_progress.get("in_progress_learning_steps", 0)
+        in_progress_steps = curriculum_progress.get("in_progress_path_steps", 0)
 
         return Card(
             H2("Layer 0: Knowledge & Learning", cls="text-xl font-semibold mb-4"),

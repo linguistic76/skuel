@@ -128,7 +128,7 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 | Lesson | A unit for learning | `l_{slug}_{random}` | Admin-created, shared |
 | Ku | Atomic knowledge unit | `ku_{slug}_{random}` | Admin-created, shared |
 | Resource | Curated content (books, talks, films) | N/A | Admin-created, shared |
-| LearningStep | A collection of lessons | `ls:{random}` | Admin-created, shared |
+| PathStep | A collection of lessons | `ps:{random}` | Admin-created, shared |
 | LearningPath | An ordered sequence of lesson collections | `lp:{random}` | Admin-created, shared |
 | Exercise | Instruction template for practicing curriculum | N/A | Admin-created, shared |
 | RevisedExercise | Targeted revision instructions after feedback | `re_{slug}_{random}` | Teacher-owned |
@@ -156,7 +156,7 @@ Entity types have behavioral traits — not category membership — that determi
 ### Entity Type Groups
 
 - **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence`, `.ai` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation. **Read-focused UI:** All 6 domains have dedicated list + detail views with cross-domain connections and `EntityRelationshipsSection` — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`), Choices (`/choices`), Principles (`/principles`). Principles use gravity-well pattern (incoming connections) like Goals. Activity data enters via `/upload`; also viewable via ActivityReport at `/activity-reports`.
-- **Curriculum (5):** Lesson, Ku, LearningStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
+- **Curriculum (5):** Lesson, Ku, PathStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
 - **Submissions/Reports (3):** ExerciseSubmission, ExerciseReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
 - **Journal (2):** JeInput, JeOutput — standalone journal domain. `JeInput(UserOwnedEntity)`, `JeOutput(UserOwnedEntity)`. Relationship: `(JeOutput)-[:TRANSFORMS]->(JeInput)`. Pipeline: JE_INPUT(audio) -> Deepgram -> JE_INPUT(text) -> LLM -> JE_OUTPUT. Models in `core/models/journal/`, services in `core/services/journal/` (`JournalInputService` — CRUD + file upload, `JournalOutputService` — LLM processing).
 - **Other:** Finance (admin-only), Resource (curated, not curriculum), Groups (ADR-040), RevisedExercise (teacher-owned hybrid), MOC (emergent via ORGANIZES), LifePath (the destination, alignment score 0.0-1.0).
@@ -224,7 +224,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- Task, Goal, Habit, Event, Choice, Principle  (Activity)
 |   +-- LifePath, ActivityReport, Submission, ExerciseReport, JeInput, JeOutput
 +-- Ku(Entity) -- atomic knowledge unit (namespace, ku_category, aliases, source, sel_category)
-+-- Curriculum(Entity) +21 fields -> Lesson, LearningStep, LearningPath, Exercise
++-- Curriculum(Entity) +21 fields -> Lesson, PathStep, LearningPath, Exercise
 +-- Resource(Entity) +7 fields (Curated content)
 ```
 
@@ -327,7 +327,7 @@ class NonKuDomain(str, Enum):
 
 | Tier | Services | Type Used | Why |
 |------|----------|-----------|-----|
-| **Facade** | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP | Concrete class | Facade IS the contract (~50 delegation methods) |
+| **Facade** | Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP | Concrete class | Facade IS the contract (~50 delegation methods) |
 | **Thin/ISP** | Groups, Submissions, Sharing, etc. | ISP protocol | Routes use a narrow slice; protocol makes it explicit |
 
 `*Operations` protocols in `domain_protocols.py` are **backend-level** — they type `self.backend` inside `BaseService[Op, T]`, NOT service-level contracts.
@@ -424,7 +424,7 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 | Pattern | Domains | Create | Read | Ownership Check |
 |---------|---------|--------|------|-----------------|
 | **USER_OWNED** | Activities, Submissions | User | Owner only | Yes (returns 404) |
-| **SHARED** | KU, LS, LP | Admin only | All users | No (public) |
+| **SHARED** | KU, PS, LP | Admin only | All users | No (public) |
 | **ADMIN_ONLY** | Finance | Admin only | Admin only | No (admin-gated) |
 
 **Route helpers** (`from adapters.inbound.route_factories`):
@@ -438,7 +438,7 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 | Tier | ContentOrigin | EntityTypes | Description |
 |------|--------------|---------|-------------|
 | A | `CURATED` | Resource | Admin-curated content |
-| B | `CURRICULUM` | Curriculum, LS, LP | Curriculum structure |
+| B | `CURRICULUM` | Curriculum, PS, LP | Curriculum structure |
 | C | `USER_CREATED` | Activities, Submission, JeInput, JeOutput, Life Path | User-generated |
 | D | `REPORT` | ActivityReport, ExerciseReport | Analysis/reports |
 
@@ -508,7 +508,7 @@ type Scorer[T] = Callable[[T], Score]
 
 - Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, Static in `/static/`
 - Navbar has icon links: **⚛️** (Knowledge, `/ku`) + **Tasks** (check-square icon, `/tasks`) + **Goals** (target icon, `/goals`) + **⇄** (Submissions, `/submissions`) + avatar **U** (click → `/profile`; hover → Activity dropdown with Habits, Events, Choices, Principles) + logout icon. Curriculum and Study navbar dropdowns removed (2026-03-29).
-- `/ku` is the Knowledge index — flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking). `/profile` is THE main hub — a **live actionable hub** (not a card grid): Knowledge (bookmarked + recent Kus with mastery %), Lessons (actively studying), Exercises (assigned work with inline Submit buttons), Submissions (tabbed: My Submissions | Submit | Request Report — Alpine.js tabs + HTMX lazy-loaded fragments), Reports (HTMX lazy-loaded summaries), Nous (community feed placeholder). Data sourced from `UserContext.build_rich()`. Tasks (`/tasks`) and Goals (`/goals`) have read-focused views with cross-domain connections, detail pages, and `EntityRelationshipsSection`. Other activity data viewed via ActivityReport at `/activity-reports`. `/lessons` lists all lessons with learning-state-aware enrollment buttons (Start Lesson / In Progress / Mastered); clicking a lesson navigates to `/lesson/{uid}/details` — a full reading page with markdown content, TOC sidebar, learning objectives, metadata badges, and action buttons (Start Lesson, Mark as Read, Bookmark) using `BasePage(CUSTOM)`. Other curriculum sub-pages (`/learning-steps`, `/learning-paths`, `/exercises`) and study sub-pages (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`) use `BasePage(STANDARD)` — **no sidebars** (curriculum + study sidebars removed 2026-03-29). Old `/submissions/*`, `/learn/*`, and `/ui/exercises` UI paths redirect 301 to the new top-level routes. `/transfer` retired (2026-03-29) — content moved to `/profile` Submissions section + entity-typed routes. `/upload` is the user-facing bulk upload page — drag-and-drop file upload with progress, uses `BasePage(STANDARD)`.
+- `/ku` is the Knowledge index — flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking). `/profile` is THE main hub — a **live actionable hub** (not a card grid): Knowledge (bookmarked + recent Kus with mastery %), Lessons (actively studying), Exercises (assigned work with inline Submit buttons), Submissions (tabbed: My Submissions | Submit | Request Report — Alpine.js tabs + HTMX lazy-loaded fragments), Reports (HTMX lazy-loaded summaries), Nous (community feed placeholder). Data sourced from `UserContext.build_rich()`. Tasks (`/tasks`) and Goals (`/goals`) have read-focused views with cross-domain connections, detail pages, and `EntityRelationshipsSection`. Other activity data viewed via ActivityReport at `/activity-reports`. `/lessons` lists all lessons with learning-state-aware enrollment buttons (Start Lesson / In Progress / Mastered); clicking a lesson navigates to `/lesson/{uid}/details` — a full reading page with markdown content, TOC sidebar, learning objectives, metadata badges, and action buttons (Start Lesson, Mark as Read, Bookmark) using `BasePage(CUSTOM)`. Other curriculum sub-pages (`/path-steps`, `/learning-paths`, `/exercises`) and study sub-pages (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`) use `BasePage(STANDARD)` — **no sidebars** (curriculum + study sidebars removed 2026-03-29). Old `/submissions/*`, `/learn/*`, and `/ui/exercises` UI paths redirect 301 to the new top-level routes. `/transfer` retired (2026-03-29) — content moved to `/profile` Submissions section + entity-typed routes. `/upload` is the user-facing bulk upload page — drag-and-drop file upload with progress, uses `BasePage(STANDARD)`.
 
 **Shared Components:** `PageHeader` (page title + subtitle + actions — adopted across all 6 Activity Domain dashboards, Study, Curriculum, Admin, Analytics, Calendar, and LifePath), `EmptyState` (empty lists — adopted across ~45 locations), `CardGenerator` (THE single card component — detail cards, list cards, teaching rows, insight cards; supports subtitle, metadata, extra, header_badges with FT pass-through), `StatsGrid`/`StatItem` (statistics grids), `StatusBadge` (delegates to `EntityStatus.get_badge_class()` for all 14 statuses), `render_error_banner`/`render_inline_error` (accessible error states — adopted across 25+ route files). All in `/ui/patterns/` or `/ui/feedback.py`.
 
@@ -545,7 +545,7 @@ type Scorer[T] = Callable[[T], Score]
 
 ## Lateral Relationships & Vis.js Graph Visualization
 
-All 9 domains deployed (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP).
+All 9 domains deployed (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP).
 
 **Three Components:** BlockingChainView (vertical flow), AlternativesComparisonGrid (side-by-side), RelationshipGraphView (Vis.js force-directed graph).
 
@@ -592,7 +592,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **Three Query Systems:** UnifiedQueryBuilder (default), QueryBuilder (optimization), CypherGenerator (pure Cypher).
 
-**Searchable Domains:** All 14 — Task, Goal, Habit, Event, Choice, Principle, Lesson, LS, LP, Exercise, RevisedExercise, Submission, FormTemplate, FormSubmission.
+**Searchable Domains:** All 14 — Task, Goal, Habit, Event, Choice, Principle, Lesson, PS, LP, Exercise, RevisedExercise, Submission, FormTemplate, FormSubmission.
 
 **DomainConfig** is THE single source of truth for BaseService configuration: `dto_class`, `model_class`, `search_fields`, `search_order_by`, `category_field`, `temporal_exclude_statuses`, `supports_user_progress`, `user_ownership_relationship`, `graph_enrichment_patterns`, etc.
 
@@ -612,7 +612,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **Core Principle:** "The hips of SKUEL — one of three foundational systems"
 
-One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, ingestion history, WebSocket progress, edge ingestion (relationship YAML files), full LS field wiring. 13 of 21 entity types are file-ingestible. **Markdown files require an explicit `type` field in frontmatter** — no silent defaults. **UID prefix validation** rejects UIDs that don't match the expected prefix for their entity type.
+One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, ingestion history, WebSocket progress, edge ingestion (relationship YAML files), full PS field wiring. 13 of 21 entity types are file-ingestible. **Markdown files require an explicit `type` field in frontmatter** — no silent defaults. **UID prefix validation** rejects UIDs that don't match the expected prefix for their entity type.
 
 **Default Vault:** `data/vault/` (`/home/mike/skuel/app/data/vault/`) — the default folder for all ingestion content. Ku YAMLs (`ku_*.yaml`), Lesson YAMLs (`lesson_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown files live here. Configurable via `INGESTION_PATH` env var.
 
@@ -630,10 +630,10 @@ One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, i
 |---------|-----------|----------|----------|
 | Ku | `ku_{slug}_{random}` | Atom | A single concept/fact |
 | Lesson | `l_{slug}_{random}` | Unit | A unit for learning (composes Kus) |
-| LS | `ls:{random}` | Collection | A collection of lessons |
+| PS | `ps:{random}` | Collection | A collection of lessons |
 | LP | `lp:{random}` | Path | An ordered sequence of lesson collections |
 
-**Two Paths to Knowledge:** LS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships.
+**Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships.
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
 
@@ -769,7 +769,7 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
 
 **Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default, everything + AI). All 6 Activity Domain facades + 3 Curriculum facades have `.ai` (optional, `None` when `INTELLIGENCE_TIER=core`).
 
-**UserContextIntelligence (Central Hub):** `get_ready_to_work_on_today()`, `get_optimal_next_learning_steps()`, `calculate_life_path_alignment()`, `get_schedule_aware_recommendations()`
+**UserContextIntelligence (Central Hub):** `get_ready_to_work_on_today()`, `get_optimal_next_path_steps()`, `calculate_life_path_alignment()`, `get_schedule_aware_recommendations()`
 
 **See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/decisions/ADR-043-intelligence-tier-toggle.md`
 
@@ -782,7 +782,7 @@ from core.utils.embedding_text_builder import build_embedding_text
 text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Details"})
 ```
 
-**Supported:** All 13 content-bearing entity types — Lesson, Ku, Exercise, LearningStep, LearningPath, Resource, RevisedExercise, Task, Goal, Habit, Event, Choice, Principle. Field mappings in `EMBEDDING_FIELD_MAPS`.
+**Supported:** All 13 content-bearing entity types — Lesson, Ku, Exercise, PathStep, LearningPath, Resource, RevisedExercise, Task, Goal, Habit, Event, Choice, Principle. Field mappings in `EMBEDDING_FIELD_MAPS`.
 
 ## Quick Reference: Key Files
 

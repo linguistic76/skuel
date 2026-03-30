@@ -30,8 +30,8 @@
 **Key Changes:**
 - Removed fail-fast ValueError raises
 - Created `LEARNING_CONFIG` using DomainRouteConfig
-- Handles LS routes as separate concern (outside config)
-- Learning Steps routes conditionally registered if service available
+- Handles PS routes as separate concern (outside config)
+- Path Steps routes conditionally registered if service available
 
 **Pattern:** Standard single-service with optional related service
 
@@ -169,7 +169,7 @@ ASKESIS_CONFIG = DomainRouteConfig(
 ### Successful Migrations
 | File | Before | After | Reduction | Pattern |
 |------|--------|-------|-----------|---------|
-| learning_routes.py | 89 | 72 | 19% | Single + optional LS routes |
+| learning_routes.py | 89 | 72 | 19% | Single + optional PS routes |
 | knowledge_routes.py | 76 | 49 | 35% | Single |
 | context_routes.py | 97 | 49 | 49% | Single |
 | reports_routes.py | 81 | 63 | 22% | Single |

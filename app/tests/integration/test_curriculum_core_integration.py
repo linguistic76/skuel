@@ -29,7 +29,7 @@ from core.models.enums import Domain, LearningLevel, SELCategory
 # Backend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.path_step import PathStep
 
 # ============================================================================
 # FIXTURES
@@ -53,10 +53,10 @@ def lp_backend(neo4j_driver) -> UniversalNeo4jBackend[LearningPath]:
 
 
 @pytest.fixture
-def ls_backend(neo4j_driver) -> UniversalNeo4jBackend[LearningStep]:
+def ps_backend(neo4j_driver) -> UniversalNeo4jBackend[PathStep]:
     """Create LS backend with real Neo4j."""
-    return UniversalNeo4jBackend[LearningStep](
-        neo4j_driver, NeoLabel.LEARNING_STEP, LearningStep, base_label=NeoLabel.ENTITY
+    return UniversalNeo4jBackend[PathStep](
+        neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY
     )
 
 
@@ -180,60 +180,60 @@ class TestKnowledgeUnitCRUD:
 # ============================================================================
 
 
-class TestLearningStepCRUD:
+class TestPathStepCRUD:
     """Test LS CRUD operations with real Neo4j."""
 
     @pytest.mark.asyncio
-    async def test_create_learning_step(self, ls_backend, clean_curriculum) -> None:
+    async def test_create_path_step(self, ps_backend, clean_curriculum) -> None:
         """Should create LS in Neo4j."""
-        ls = LearningStep(
-            uid="ls:test_step_1",
+        ls = PathStep(
+            uid="ps:test_step_1",
             title="Step 1: Learn Python Basics",
             intent="Master Python fundamentals",
             description="First step in Python journey",
             estimated_hours=1.0,
         )
 
-        result = await ls_backend.create(ls)
+        result = await ps_backend.create(ls)
 
         assert result.is_ok
-        assert result.value.uid == "ls:test_step_1"
+        assert result.value.uid == "ps:test_step_1"
         assert result.value.title == "Step 1: Learn Python Basics"
         assert result.value.intent == "Master Python fundamentals"
 
     @pytest.mark.asyncio
-    async def test_get_learning_step(self, ls_backend, clean_curriculum) -> None:
+    async def test_get_path_step(self, ps_backend, clean_curriculum) -> None:
         """Should retrieve LS from Neo4j."""
         # Create LS
-        ls = LearningStep(
-            uid="ls:test_get",
+        ls = PathStep(
+            uid="ps:test_get",
             title="Test Get Step",
             intent="Test learning objective",
             description="Test description",
         )
-        result = await ls_backend.create(ls)
+        result = await ps_backend.create(ls)
         assert result.is_ok, "Setup failed: Could not create LS"
 
         # Retrieve LS
-        result = await ls_backend.get("ls:test_get")
+        result = await ps_backend.get("ps:test_get")
 
         assert result.is_ok
         assert result.value is not None
-        assert result.value.uid == "ls:test_get"
+        assert result.value.uid == "ps:test_get"
         assert result.value.title == "Test Get Step"
 
     @pytest.mark.asyncio
-    async def test_update_learning_step(self, ls_backend, clean_curriculum) -> None:
+    async def test_update_path_step(self, ps_backend, clean_curriculum) -> None:
         """Should update LS in Neo4j."""
         # Create LS
-        ls = LearningStep(
-            uid="ls:test_update",
+        ls = PathStep(
+            uid="ps:test_update",
             title="Original Step Title",
             intent="Original learning objective",
             description="Original description",
             estimated_hours=1.0,
         )
-        create_result = await ls_backend.create(ls)
+        create_result = await ps_backend.create(ls)
         assert create_result.is_ok
 
         # Update LS with dictionary of changes
@@ -243,7 +243,7 @@ class TestLearningStepCRUD:
             "description": "Updated description",
             "estimated_hours": 2.0,
         }
-        update_result = await ls_backend.update("ls:test_update", updates)
+        update_result = await ps_backend.update("ps:test_update", updates)
 
         assert update_result.is_ok
         assert update_result.value.title == "Updated Step Title"
@@ -252,25 +252,25 @@ class TestLearningStepCRUD:
         assert update_result.value.estimated_hours == 2.0
 
     @pytest.mark.asyncio
-    async def test_delete_learning_step(self, ls_backend, clean_curriculum) -> None:
+    async def test_delete_path_step(self, ps_backend, clean_curriculum) -> None:
         """Should delete LS from Neo4j."""
         # Create LS
-        ls = LearningStep(
-            uid="ls:test_delete",
+        ls = PathStep(
+            uid="ps:test_delete",
             title="Test Delete Step",
             intent="Test deletion",
             description="This step will be deleted",
         )
-        result = await ls_backend.create(ls)
+        result = await ps_backend.create(ls)
         assert result.is_ok, "Setup failed: Could not create LS"
 
         # Delete LS
-        delete_result = await ls_backend.delete("ls:test_delete")
+        delete_result = await ps_backend.delete("ps:test_delete")
         assert delete_result.is_ok
         assert delete_result.value is True
 
         # Verify deletion
-        get_result = await ls_backend.get("ls:test_delete")
+        get_result = await ps_backend.get("ps:test_delete")
         assert get_result.is_ok
         assert get_result.value is None
 
@@ -436,10 +436,10 @@ class TestCurriculumRelationships:
                     updated_at: datetime()
                 })
                 CREATE (ls:Entity {
-                    uid: 'ls:step_1',
+                    uid: 'ps:step_1',
                     title: 'Step 1',
                     description: 'First step',
-                    entity_type: 'learning_step',
+                    entity_type: 'path_step',
                     order: 1,
                     created_at: datetime(),
                     updated_at: datetime()
@@ -450,14 +450,14 @@ class TestCurriculumRelationships:
         # Verify relationship exists
         async with neo4j_driver.session() as session:
             result = await session.run("""
-                MATCH (lp:Entity {uid: 'lp:python_journey'})-[r:CONTAINS]->(ls:Entity {uid: 'ls:step_1'})
-                RETURN lp.uid as lp_uid, ls.uid as ls_uid, r.order as step_order
+                MATCH (lp:Entity {uid: 'lp:python_journey'})-[r:CONTAINS]->(ls:Entity {uid: 'ps:step_1'})
+                RETURN lp.uid as lp_uid, ps.uid as ps_uid, r.order as step_order
             """)
             record = await result.single()
 
             assert record is not None
             assert record["lp_uid"] == "lp:python_journey"
-            assert record["ls_uid"] == "ls:step_1"
+            assert record["ps_uid"] == "ps:step_1"
             assert record["step_order"] == 1
 
 

@@ -201,7 +201,7 @@ class UserContextService:
 
             if ready_knowledge:
                 dashboard["predictions"] = {
-                    "next_learning_steps": [
+                    "next_path_steps": [
                         {
                             "ku_uid": ku_uid,
                             "title": ku_uid,  # Context only has UIDs, not titles

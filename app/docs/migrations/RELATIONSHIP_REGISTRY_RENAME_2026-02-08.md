@@ -35,7 +35,7 @@ PRINCIPLES_UNIFIED = DomainRelationshipConfig(...)
 
 # After
 TASKS_CONFIG = DomainRelationshipConfig(...)
-GOALS_CONFIG = DomainRelationshipConfig(...)
+GOAPS_CONFIG = DomainRelationshipConfig(...)
 HABITS_CONFIG = DomainRelationshipConfig(...)
 EVENTS_CONFIG = DomainRelationshipConfig(...)
 CHOICES_CONFIG = DomainRelationshipConfig(...)
@@ -51,7 +51,7 @@ LP_UNIFIED = DomainRelationshipConfig(...)
 
 # After
 KU_CONFIG = DomainRelationshipConfig(...)
-LS_CONFIG = DomainRelationshipConfig(...)
+PS_CONFIG = DomainRelationshipConfig(...)
 LP_CONFIG = DomainRelationshipConfig(...)
 ```
 
@@ -112,7 +112,7 @@ from core.models.relationship_registry import (
 # After
 from core.models.relationship_registry import (
     TASKS_CONFIG,
-    GOALS_CONFIG,
+    GOAPS_CONFIG,
     KU_CONFIG,
     DOMAIN_CONFIGS,
     LABEL_CONFIGS,

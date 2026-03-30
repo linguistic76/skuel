@@ -128,12 +128,12 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 | `LateralRelationshipItem`, `BlockingChainResult`, `RelationshipGraphData` | `LateralRelationshipOperations` | `get_lateral_relationships`, `get_blocking_chain`, `get_relationship_graph` |
 | `AnnotationResult`, `AnnotationState`, `PrivacySummary` | `ActivityReportOperations` | `annotate`, `get_annotation`, `get_privacy_summary` |
 | `SystemHealthStatus`, `HealthCheckValidation`, `ComponentHealthStatus`, `HealthCheckerValidationResult` | `SystemServiceOperations` | `get_health_status`, `validate_health_checkers` |
-| `RichEntityItem`, `RichKnowledgeUnitItem`, `RichLearningPathItem`, `RichLearningStepItem`, `RichMOCItem` | `UserContext` fields | `entities_rich`, `knowledge_units_rich`, `enrolled_paths_rich`, `active_learning_steps_rich`, `active_mocs_rich` |
+| `RichEntityItem`, `RichKnowledgeUnitItem`, `RichLearningPathItem`, `RichPathStepItem`, `RichMOCItem` | `UserContext` fields | `entities_rich`, `knowledge_units_rich`, `enrolled_paths_rich`, `active_path_steps_rich`, `active_mocs_rich` |
 | `UnsubmittedExerciseItem`, `PendingRevisedExerciseItem`, `FacetInteractionItem` | `UserContext` fields | `unsubmitted_exercises`, `pending_revised_exercises`, `facet_interaction_history` |
 | `CrossDomainInsightsData`, `CrossDomainInsightItem` | `UserContext` field | `cross_domain_insights` |
 | `NextActionResult`, `AtRiskHabitsResult`, `AdaptiveLearningPathResult`, `FutureContextStateResult`, `ContextHealthResult` | `ContextAwareOperations` | `get_next_action`, `get_at_risk_habits`, `get_adaptive_learning_path`, `predict_future_context_state`, `get_context_health` |
 | `GraphInfluenceItem`, `RelationshipSummaryResult` | `GraphEntity` | `get_upstream_influences`, `get_downstream_impacts`, `get_relationship_summary` |
-| `SubstantiationSummaryResult`, `LsKnowledgeSummaryResult`, `LsPracticeSummaryResult`, `UserProgressResult` | `CurriculumOperations`, `LsOperations` | `get_substantiation_summary`, `get_knowledge_summary`, `get_practice_summary`, `get_user_progress` |
+| `SubstantiationSummaryResult`, `PsKnowledgeSummaryResult`, `PsPracticeSummaryResult`, `UserProgressResult` | `CurriculumOperations`, `PsOperations` | `get_substantiation_summary`, `get_knowledge_summary`, `get_practice_summary`, `get_user_progress` |
 
 **Phase 5 — Route handler returns:** All 27 `*_api.py` route files narrowed from `Result[Any]` to specific types (267 → 2). The 2 remaining are intentional `# boundary:` annotations for FastHTML FT components without type stubs. Cross-type error propagation sites fixed using `Result.fail(result)` instead of bare `return result`.
 

@@ -168,7 +168,7 @@ async def graphql_test_data(neo4j_driver, clean_neo4j):
             """
         )
 
-        # Create learning steps
+        # Create path steps
         await session.run(
             """
             MATCH (lp:Lp {uid: 'lp.python_mastery'})

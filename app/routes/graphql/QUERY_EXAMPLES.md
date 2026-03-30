@@ -49,7 +49,7 @@ query GetLearningPathFull {
 # 1. Get learning path
 GET /api/learning?uid=lp.python_mastery
 
-# 2. Get learning steps
+# 2. Get path steps
 GET /api/learning/lp.python_mastery/steps
 
 # 3. For EACH step, get knowledge unit (N requests)

@@ -34,7 +34,7 @@ Eight methods that read the user's complete state (~250 fields from `UserContext
 | Method | Question It Answers |
 |--------|-------------------|
 | `get_daily_work_plan()` | "What should I focus on TODAY?" |
-| `get_optimal_next_learning_steps()` | "What should I learn next, considering prerequisites?" |
+| `get_optimal_next_path_steps()` | "What should I learn next, considering prerequisites?" |
 | `get_learning_path_critical_path()` | "What's the fastest route to my life path?" |
 | `get_knowledge_application_opportunities()` | "Where can I apply what I've learned?" |
 | `get_unblocking_priority_order()` | "Which knowledge unlocks the most downstream items?" |
@@ -91,13 +91,13 @@ This classification determines which context sections get included in the LLM pr
 - **Graph-based retrieval:** prerequisite chains, blocked knowledge, active tasks/goals — driven by the classified intent
 - **Semantic search enrichment:** for learning-related queries, finds semantically similar knowledge units via embedding comparison
 
-### Step 6: Load the LS Bundle
+### Step 6: Load the PS Bundle
 
-This is where the Socratic pipeline begins. `ContextRetriever.load_ls_bundle()` loads the user's **active Learning Step** — the first non-mastered step in their enrolled Learning Path — along with everything connected to it:
+This is where the Socratic pipeline begins. `ContextRetriever.load_ps_bundle()` loads the user's **active Path Step** — the first non-mastered step in their enrolled Learning Path — along with everything connected to it:
 
 ```
-LSBundle (frozen, loaded once per question)
-├── LearningStep        — the step itself (title, intent, mastery threshold)
+PsBundle (frozen, loaded once per question)
+├── PathStep        — the step itself (title, intent, mastery threshold)
 ├── LearningPath        — the parent path
 ├── Lessons            — units for learning linked to this step
 ├── KUs                 — atomic knowledge units trained by this step
@@ -114,17 +114,17 @@ The bundle is the **scope window**. Every pedagogical decision operates within i
 
 **Resource integration (March 2026):** After Lessons and KUs are fetched, ContextRetriever traverses `(Lesson/Ku)-[:CITES_RESOURCE]->(Resource)` to load cited reference material. Resources appear in `curriculum_context_text` as compact summaries and are referenced in guided prompts (SCAFFOLD, REDIRECT_TO_CURRICULUM, ENCOURAGING modes). This gives Askesis access to the full intellectual context — not just the teaching narrative, but the sources it draws from. Resources are also included in semantic search (embedding similarity).
 
-**Partial failure tolerance:** All 7 entity services (lessons, KUs, habits, tasks, events, principles, LP) are required at construction — missing services cause a clear construction-time error rather than silent empty bundles at query time. At runtime, the bundle fetches entities in parallel via `asyncio.gather(return_exceptions=True)`. If any individual fetch fails (e.g., a network timeout), that collection defaults to empty — the bundle is built from whatever succeeds. Resource fetching also degrades gracefully — a graph query failure yields an empty resource list. A minimal bundle (just the LearningStep) still enables GuidanceMode decisions like OUT_OF_SCOPE and REDIRECT_TO_CURRICULUM.
+**Partial failure tolerance:** All 7 entity services (lessons, KUs, habits, tasks, events, principles, LP) are required at construction — missing services cause a clear construction-time error rather than silent empty bundles at query time. At runtime, the bundle fetches entities in parallel via `asyncio.gather(return_exceptions=True)`. If any individual fetch fails (e.g., a network timeout), that collection defaults to empty — the bundle is built from whatever succeeds. Resource fetching also degrades gracefully — a graph query failure yields an empty resource list. A minimal bundle (just the PathStep) still enables GuidanceMode decisions like OUT_OF_SCOPE and REDIRECT_TO_CURRICULUM.
 
 **Token truncation:** `curriculum_context_text` (concatenated Lesson content + Resource references) is truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens) to prevent exceeding LLM context windows when the bundle has many Lessons.
 
-If no bundle is available (no active LS), Askesis falls back to context-aware LLM generation without the Socratic layer.
+If no bundle is available (no active PS), Askesis falls back to context-aware LLM generation without the Socratic layer.
 
 ### Step 7: Determine GuidanceMode
 
 This is the pedagogical heart. **Three sub-steps:**
 
-**7a.** `EntityExtractor.extract_from_bundle(question, ls_bundle)` finds which KU UIDs from the bundle match the question (fuzzy matching against titles and aliases).
+**7a.** `EntityExtractor.extract_from_bundle(question, ps_bundle)` finds which KU UIDs from the bundle match the question (fuzzy matching against titles and aliases).
 
 **7b.** `ZPDService.assess_ku_readiness(user_uid, target_ku_uids)` checks engagement evidence for those KUs. Evidence = has the user applied this KU via a task? Reinforced it via a habit? Reflected on it in a journal? Submitted work about it?
 
@@ -141,7 +141,7 @@ The decision tree always tutors to the **weakest** KU's evidence level. If the u
 
 ### Step 8: Build System Prompt
 
-`ResponseGenerator.build_guided_system_prompt(guidance, ls_bundle, user_context)` constructs a mode-specific system prompt. Each mode has its own builder:
+`ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context)` constructs a mode-specific system prompt. Each mode has its own builder:
 
 - **DIRECT:** "Gently redirect to the curriculum. Be encouraging, not dismissive."
 - **SOCRATIC:** "Ask the learner to explain. Do NOT give answers. Test understanding."
@@ -302,9 +302,9 @@ On timeout: `Result.fail()` with user message *"Your question is taking too long
 | **Intent classification** | Embeddings API unavailable | Defaults to `SPECIFIC` intent (lower precision, not a crash) |
 | **Intent classification** | Individual exemplar embedding fails | Skipped — classification works with fewer exemplars |
 | **Entity extraction** | Domain service unavailable | Continues with empty matches — LLM still answers using other context |
-| **LS bundle fetch** | One of 7 entity fetches times out | That collection defaults to empty; bundle built from what succeeds |
-| **LS bundle fetch** | All fetches fail | Minimal bundle (just the LearningStep) — still enables GuidanceMode |
-| **LS bundle fetch** | No active Learning Step | Falls back to context-aware generation without Socratic layer |
+| **PS bundle fetch** | One of 7 entity fetches times out | That collection defaults to empty; bundle built from what succeeds |
+| **PS bundle fetch** | All fetches fail | Minimal bundle (just the PathStep) — still enables GuidanceMode |
+| **PS bundle fetch** | No active Path Step | Falls back to context-aware generation without Socratic layer |
 | **ZPD assessment** | ZPD service fails | Continues with empty evidence — GuidanceMode still determined (less informed) |
 | **Citation formatting** | Citation service `None` or graph query fails | Citations omitted — answer still returned without source references |
 | **LLM generation** | LLM API error or timeout | `Result.fail()` — no fallback (this is the terminal step) |
@@ -318,7 +318,7 @@ The pipeline degrades in stages, not all-or-nothing:
 2. **Partial bundle** — some entity fetches failed → guided response with narrower scope
 3. **No ZPD evidence** — ZPD service failed → GuidanceMode defaults to EXPLORATORY (scaffold)
 4. **No entity matches** — extraction failed → LLM answers from UserContext summary alone
-5. **No bundle** — no active LS or bundle load failed → context-aware answer without Socratic layer
+5. **No bundle** — no active PS or bundle load failed → context-aware answer without Socratic layer
 6. **No enrollment** — user has no Learning Path → immediate redirect (no computation wasted)
 7. **Pipeline timeout** — 30s exceeded → clean failure with retry message
 
@@ -328,7 +328,7 @@ Stages 1–5 return a response (degraded but functional). Stages 6–7 return a 
 
 **`@with_error_handling` decorator** — wraps async methods with try/except, categorizes exceptions into 6 error types (validation, database, integration, business, not_found, system), and returns `Result.fail()` with rich `ErrorContext`. Used on all public methods in UserStateAnalyzer and ActionRecommendationEngine.
 
-**`asyncio.gather(return_exceptions=True)`** — used in LS bundle loading. Each entity fetch runs in parallel; if one raises, the others continue. Failed fetches are logged and defaulted to empty.
+**`asyncio.gather(return_exceptions=True)`** — used in PS bundle loading. Each entity fetch runs in parallel; if one raises, the others continue. Failed fetches are logged and defaulted to empty.
 
 **Result cascade** — the facade orchestration (state analysis) checks `result.is_error` at each step and substitutes empty defaults rather than propagating failures upward. The final assembly always runs.
 
@@ -338,7 +338,7 @@ Stages 1–5 return a response (degraded but functional). Stages 6–7 return a 
 
 Three things distinguish Askesis from a generic AI assistant:
 
-1. **Curriculum anchoring.** Every conversation is scoped to the user's Learning Path and current Learning Step. The LLM has access to the actual teaching content (Lessons), not just metadata.
+1. **Curriculum anchoring.** Every conversation is scoped to the user's Learning Path and current Path Step. The LLM has access to the actual teaching content (Lessons), not just metadata.
 
 2. **ZPD-driven pedagogy.** The mode of response is determined by measured engagement evidence, not heuristics or LLM judgment. A deterministic decision tree ensures consistent pedagogical behavior.
 
@@ -354,7 +354,7 @@ Three things distinguish Askesis from a generic AI assistant:
 | Neo4j conversation persistence | Deferred | Cross-session continuity ("last week we discussed X") |
 | Teacher interface | Deferred | Teachers shaping what Askesis says to their students |
 | Prompt template migration | **Partial** — guided system prompts (7 templates) migrated; LLM context assembly + Q&A/planning prompts remain programmatic | Editable pedagogical prompts without touching Python |
-| Events + Principles in LS bundle | Planned | Currently empty tuples — will populate from graph_context |
+| Events + Principles in PS bundle | Planned | Currently empty tuples — will populate from graph_context |
 | Resource access expansion | Planned | Broader resource discovery beyond CITES_RESOURCE — semantic search across all Resources |
 | Fine-tuned model | Deferred | Training on conversation data once volume exists |
 
@@ -370,14 +370,14 @@ Three things distinguish Askesis from a generic AI assistant:
 | Intent classification | `core/services/askesis/intent_classifier.py` |
 | System prompt generation | `core/services/askesis/response_generator.py` |
 | Entity extraction | `core/services/askesis/entity_extractor.py` |
-| Context + LS bundle loading | `core/services/askesis/context_retriever.py` |
+| Context + PS bundle loading | `core/services/askesis/context_retriever.py` |
 | State analysis | `core/services/askesis/user_state_analyzer.py` |
 | Recommendations | `core/services/askesis/action_recommendation_engine.py` |
 | Pure scoring functions | `core/services/askesis/state_scoring.py` |
 | Citation formatting | `core/services/askesis_citation_service.py` |
 | Citation Cypher queries | `adapters/persistence/neo4j/query/_provenance_queries.py` |
 | Types/dataclasses | `core/services/askesis/types.py` |
-| LS Bundle model | `core/models/askesis/ls_bundle.py` |
+| PS Bundle model | `core/models/askesis/ps_bundle.py` |
 | GuidanceMode enum | `core/models/enums/metadata_enums.py` |
 | PedagogicalIntent enum | `core/models/askesis/pedagogical_intent.py` |
 | Token truncation | `core/utils/text_truncation.py` |

@@ -242,7 +242,7 @@ Moved to `/skuel/app/zarchives/`:
 |----------|----------|------------|-----------------|
 | Activity Domains (6) | Tasks, Goals, Habits, Events, Choices, Principles | BaseService | Direct CRUD, entity creation |
 | Finance Domain (1) | Finance | Standalone facade | Admin-only, 5 sub-services |
-| Curriculum Domains (3) | KU, LS, LP | Standalone facades | Knowledge organization |
+| Curriculum Domains (3) | KU, PS, LP | Standalone facades | Knowledge organization |
 | Content/Organization (3) | Journals, Assignments, MOC | Standalone | File upload, AI processing, navigation |
 | **Transcription** | TranscriptionService | **Standalone** | Audio processing pipeline |
 

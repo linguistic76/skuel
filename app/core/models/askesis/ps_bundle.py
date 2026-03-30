@@ -25,14 +25,14 @@ if TYPE_CHECKING:
     from core.models.ku.ku import Ku
     from core.models.lesson.lesson import Lesson
     from core.models.pathways.learning_path import LearningPath
-    from core.models.pathways.learning_step import LearningStep
+    from core.models.pathways.path_step import PathStep
     from core.models.principle.principle import Principle
     from core.models.resource.resource import Resource
     from core.models.task.task import Task
 
 
 @dataclass(frozen=True)
-class LSBundle:
+class PsBundle:
     """Complete context for a user's active Learning Step.
 
     Contains the LS itself plus all entities reachable through its graph
@@ -43,7 +43,7 @@ class LSBundle:
     per Socratic turn and passed through the pipeline — never mutated.
     """
 
-    learning_step: LearningStep
+    path_step: PathStep
     learning_path: LearningPath | None = None
 
     # Curriculum content
@@ -84,7 +84,7 @@ class LSBundle:
     def get_all_entity_uids(self) -> set[str]:
         """All entity UIDs in the bundle — for scoping retrieval and matching."""
         uids: set[str] = set()
-        uids.add(self.learning_step.uid)
+        uids.add(self.path_step.uid)
         if self.learning_path:
             uids.add(self.learning_path.uid)
         for collection in (
@@ -103,7 +103,7 @@ class LSBundle:
     def get_all_titles(self) -> dict[str, str]:
         """Map of uid -> title for all bundle entities. Used for fuzzy matching."""
         titles: dict[str, str] = {}
-        titles[self.learning_step.uid] = self.learning_step.title or ""
+        titles[self.path_step.uid] = self.path_step.title or ""
         if self.learning_path:
             titles[self.learning_path.uid] = self.learning_path.title or ""
         for collection in (
@@ -162,7 +162,7 @@ class LSBundle:
 
     def __str__(self) -> str:
         return (
-            f"LSBundle(ls={self.learning_step.uid}, "
+            f"PsBundle(ls={self.path_step.uid}, "
             f"lessons={len(self.lessons)}, kus={len(self.kus)}, "
             f"resources={len(self.resources)}, "
             f"habits={len(self.habits)}, tasks={len(self.tasks)})"

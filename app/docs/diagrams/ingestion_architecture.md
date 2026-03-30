@@ -246,7 +246,7 @@ flowchart TD
 | Domain | API Endpoint | Default Source |
 |--------|-------------|----------------|
 | KU | `/api/ingest/domain/ku` | `/home/mike/0bsidian/skuel/docs/ku` |
-| LS | `/api/ingest/domain/ls` | `/home/mike/0bsidian/skuel/docs/ls` |
+| PS | `/api/ingest/domain/ls` | `/home/mike/0bsidian/skuel/docs/ls` |
 | LP | `/api/ingest/domain/lp` | `/home/mike/0bsidian/skuel/docs/lp` |
 | Tasks | `/api/ingest/domain/tasks` | `/home/mike/0bsidian/skuel/docs/tasks` |
 | Goals | `/api/ingest/domain/goals` | `/home/mike/0bsidian/skuel/docs/goals` |

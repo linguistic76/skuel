@@ -70,7 +70,7 @@ All 10 domain intelligence services correctly extend `BaseAnalyticsService` - th
 
 **What was the issue?**
 
-Nine intelligence services (6 Activity + 2 Curriculum Domains + LS) had repetitive initialization code:
+Nine intelligence services (6 Activity + 2 Curriculum Domains + PS) had repetitive initialization code:
 - Logger setup with hierarchical naming
 - Backend/graph_intel/relationships attribute assignment
 - Fail-fast validation for required dependencies
@@ -88,7 +88,7 @@ Each service duplicated ~15-20 lines of boilerplate initialization.
 
 **Extended to Curriculum Domains (2026-01-08):**
 - `KuIntelligenceService`
-- `LsIntelligenceService` (already using BaseIntelligenceService)
+- `PsIntelligenceService` (already using BaseIntelligenceService)
 - `LpIntelligenceService` (facade pattern with BaseIntelligenceService)
 
 ---
@@ -206,7 +206,7 @@ class TasksIntelligenceService(BaseIntelligenceService[TasksOperations, Task]):
 | Service | File | Lines Saved | Notes |
 |---------|------|-------------|-------|
 | KuIntelligenceService | `ku_intelligence_service.py` | ~18 | Standard migration, KuService creates intelligence internally |
-| LsIntelligenceService | `ls/ls_intelligence_service.py` | N/A | Already extended BaseIntelligenceService (2026-01-06) |
+| PsIntelligenceService | `ls/ps_intelligence_service.py` | N/A | Already extended BaseIntelligenceService (2026-01-06) |
 | LpIntelligenceService | `lp_intelligence_service.py` | ~22 | Facade pattern, maintains backward compatibility with LP-specific parameters |
 
 **Curriculum Domain Lines Saved:** ~40 lines
@@ -486,7 +486,7 @@ async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Task,
 | ChoicesIntelligenceService | ✅ | ✅ | Complete |
 | PrinciplesIntelligenceService | ✅ | ✅ | Complete |
 | KuIntelligenceService | ✅ | ✅ | Complete |
-| LsIntelligenceService | ✅ | ✅ | Complete |
+| PsIntelligenceService | ✅ | ✅ | Complete |
 | LpIntelligenceService | ✅ | ✅ | Complete |
 | MocIntelligenceService | ✅ | ✅ | Complete |
 

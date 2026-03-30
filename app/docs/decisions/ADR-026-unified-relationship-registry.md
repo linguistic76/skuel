@@ -45,7 +45,7 @@ TASK_CONFIG.outgoing_relationships = {
 1. **Drift risk**: Updates to one source don't propagate to the other
 2. **Maintenance burden**: Two files to update for every relationship change
 3. **Inconsistent formats**: Tuples vs. dataclasses for the same data
-4. **Curriculum gap**: Curriculum domains (KU, LS, LP) and MOC (Content/Organization) lacked RelationshipConfig, limiting their integration with UnifiedRelationshipService
+4. **Curriculum gap**: Curriculum domains (KU, PS, LP) and MOC (Content/Organization) lacked RelationshipConfig, limiting their integration with UnifiedRelationshipService
 
 **Constraints:**
 - Must maintain backward compatibility with existing imports
@@ -106,7 +106,7 @@ class PostProcessor:
 # Access by Domain enum (6 Activity + 2 Curriculum primaries)
 DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     Domain.TASKS: TASKS_CONFIG,
-    Domain.GOALS: GOALS_CONFIG,
+    Domain.GOALS: GOAPS_CONFIG,
     # ... 8 domains total
 }
 
@@ -139,8 +139,8 @@ def generate_relationship_config(domain: Domain) -> RelationshipConfig | None:
 4. **Post-Query Processors** for calculated fields (Phase 3):
 
 ```python
-# In relationship_registry.py - GOALS_CONFIG example
-GOALS_CONFIG = DomainRelationshipConfig(
+# In relationship_registry.py - GOAPS_CONFIG example
+GOAPS_CONFIG = DomainRelationshipConfig(
     # ... relationships ...
     post_processors=(
         PostProcessor(
@@ -283,9 +283,9 @@ TASK_CONFIG = generate_relationship_config(Domain.TASKS)
 # Curriculum Relationships (January 2026 - Phase 2 Consolidation)
 CONTAINS_KNOWLEDGE = "CONTAINS_KNOWLEDGE"  # (ls)-[:CONTAINS_KNOWLEDGE]->(ku)
 REQUIRES_STEP = "REQUIRES_STEP"            # (ls)-[:REQUIRES_STEP]->(ls)
-BUILDS_HABIT = "BUILDS_HABIT"              # (lesson)-[:BUILDS_HABIT]->(habit)  [moved from LS to Lesson, March 2026]
-ASSIGNS_TASK = "ASSIGNS_TASK"              # (lesson)-[:ASSIGNS_TASK]->(task)  [moved from LS to Lesson, March 2026]
-SCHEDULES_EVENT = "SCHEDULES_EVENT"        # (lesson)-[:SCHEDULES_EVENT]->(event)  [moved from LS to Lesson, March 2026]
+BUILDS_HABIT = "BUILDS_HABIT"              # (lesson)-[:BUILDS_HABIT]->(habit)  [moved from PS to Lesson, March 2026]
+ASSIGNS_TASK = "ASSIGNS_TASK"              # (lesson)-[:ASSIGNS_TASK]->(task)  [moved from PS to Lesson, March 2026]
+SCHEDULES_EVENT = "SCHEDULES_EVENT"        # (lesson)-[:SCHEDULES_EVENT]->(event)  [moved from PS to Lesson, March 2026]
 ALIGNED_WITH_GOAL = "ALIGNED_WITH_GOAL"    # (lp)-[:ALIGNED_WITH_GOAL]->(goal)
 HAS_MILESTONE_EVENT = "HAS_MILESTONE_EVENT"# (lp)-[:HAS_MILESTONE_EVENT]->(event)
 CONTAINS_PATH = "CONTAINS_PATH"            # (moc)-[:CONTAINS_PATH]->(lp)
@@ -377,7 +377,7 @@ with hardcoded `RelationshipConfig` dicts that drifted from the registry:
 | Choices | ✅ Domain.CHOICES | ✅ "Choice" | ✅ Generated |
 | Principles | ✅ Domain.PRINCIPLES | ✅ "Principle" | ✅ Generated |
 | KU | ✅ Domain.KNOWLEDGE | ✅ "Ku" | ✅ Generated |
-| LS | ✅ Domain.LEARNING | ✅ "Ls" | ✅ Generated |
+| PS | ✅ Domain.LEARNING | ✅ "Ls" | ✅ Generated |
 | LP | - | ✅ "Lp" | ✅ Generated |
 | MOC | - | ✅ "MapOfContent" | ✅ Generated |
 

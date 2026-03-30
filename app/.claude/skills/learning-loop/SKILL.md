@@ -454,7 +454,7 @@ the same method.
 1. Call `context_builder.build_rich(user_uid, time_period=...)` — MEGA_QUERY with
    activity window; `context.entities_rich` covers all 6 Activity Domains;
    `context.knowledge_units_rich`, `context.enrolled_paths_rich`,
-   `context.active_learning_steps_rich` cover the Curriculum track
+   `context.active_path_steps_rich` cover the Curriculum track
 2. Cross-reference active Insights
 3. Send stats as JSON context to LLM via activity_feedback.md prompt template
 4. LLM returns qualitative analysis with patterns, trends, recommendations

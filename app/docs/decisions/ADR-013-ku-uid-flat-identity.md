@@ -17,7 +17,7 @@ related: [ENTITY_TYPE_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md, UNIVERSA
 
 **Related ADRs:**
 - Related to: Entity Type Architecture
-- Related to: Curriculum Grouping Patterns (KU, LS, LP, MOC)
+- Related to: Curriculum Grouping Patterns (KU, PS, LP, MOC)
 
 ---
 
@@ -302,7 +302,7 @@ SET r.order = 1,
 
 ### Related Documentation
 - `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` - KU as "point" topology
-- `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - KU, LS, LP, MOC relationships
+- `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - KU, PS, LP, MOC relationships
 - `/CLAUDE.md` - UID prefix documentation
 
 ### CLAUDE.md Update Required

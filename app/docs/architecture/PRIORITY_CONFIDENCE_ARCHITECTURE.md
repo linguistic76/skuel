@@ -78,7 +78,7 @@ Priority.from_search_text("urgent")          # → [Priority.HIGH, Priority.CRIT
 
 **Request models:** `core/models/lesson/lesson_request.py` (LessonCreateRequest), `core/models/pathways/pathways_request.py` (LsCreateRequest, LpCreateRequest) — used by ingestion, not CRUD routes
 
-**Domains:** KU, LS (LearningStep), LP (LearningPath)
+**Domains:** KU, PS (PathStep), LP (LearningPath)
 
 Set by admins when creating or updating curriculum content — "how certain are we that this
 knowledge is accurate, pedagogically sound, and ready for learners?"
@@ -88,7 +88,7 @@ knowledge is accurate, pedagogically sound, and ready for learners?"
 **Property:** `rel.confidence` — stored as `float` (0.0–1.0) on all lateral relationship edges
 
 **Domains:** All 9 relationship-enabled domains (Tasks, Goals, Habits, Events, Choices, Principles,
-KU, LS, LP)
+KU, PS, LP)
 
 **Enum:** `Confidence` in `core/models/enums/activity_enums.py`
 
@@ -185,7 +185,7 @@ The cap of 3 prevents CRITICAL from becoming meaningless if users over-apply it.
 | `core/models/enums/activity_enums.py` | `Priority` and `Confidence` enum definitions |
 | `core/models/user_owned_entity.py` | `priority: str \| None` field declaration |
 | `core/models/curriculum.py` | `confidence: str \| None` field declaration |
-| `core/models/lesson/lesson_request.py`, `core/models/pathways/pathways_request.py` | `confidence` in Lesson/LS/LP create requests |
+| `core/models/lesson/lesson_request.py`, `core/models/pathways/pathways_request.py` | `confidence` in Lesson/PS/LP create requests |
 | `core/services/user/intelligence/daily_planning.py` | CRITICAL priority override in planning |
 | `core/services/lateral_relationships/lateral_relationship_service.py` | `confidence` + `priority` on graph edges |
 | `static/js/skuel.js` | vis.js edge styling by confidence and priority |
@@ -202,7 +202,7 @@ Future capabilities enabled by these dials:
 | **Uncertainty review queue** | Admin dashboard for UNCERTAIN curriculum items awaiting review |
 | **Priority-filtered notifications** | Push notifications only for CRITICAL items |
 | **Confidence decay** | Certainty degrades over time without active reinforcement |
-| **Cross-domain propagation** | If prerequisite KU is UNCERTAIN, dependent LS confidence drops automatically |
+| **Cross-domain propagation** | If prerequisite KU is UNCERTAIN, dependent PS confidence drops automatically |
 
 ---
 

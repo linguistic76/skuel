@@ -11,7 +11,7 @@
 | **Base** | `core/models/` | `curriculum.py` | `curriculum_dto.py` | — |
 | **Lesson** | `core/models/lesson/` | `lesson.py` (extends Curriculum) | `lesson_dto.py` | `lesson_request.py` |
 | **KU** | `core/models/ku/` | `ku.py` (extends Entity) | `ku_dto.py` | — |
-| **LS** | `core/models/pathways/` | `learning_step.py` | `learning_step_dto.py` | `pathways_request.py` |
+| **LS** | `core/models/pathways/` | `path_step.py` | `path_step_dto.py` | `pathways_request.py` |
 | **LP** | `core/models/pathways/` | `learning_path.py` | `learning_path_dto.py` | `pathways_request.py` |
 | **Exercise** | `core/models/exercises/` | `exercise.py` | `exercise_dto.py` | `exercise_request.py` |
 
@@ -20,7 +20,7 @@
 |--------|--------|------|--------|--------------|
 | Lesson | `core/services/lesson_service.py` | `lesson/lesson_core_service.py` | `lesson/lesson_search_service.py` | (via `lesson_adaptive_service.py`) |
 | KU | `core/services/ku_service.py` | `ku/ku_core_service.py` | `ku/ku_search_service.py` | `ku/ku_intelligence_service.py` |
-| LS | `core/services/ls_service.py` | `ls/ls_core_service.py` | `ls/ls_search_service.py` | `ls/ls_intelligence_service.py` |
+| LS | `core/services/ps_service.py` | `ls/ps_core_service.py` | `ls/ps_search_service.py` | `ls/ps_intelligence_service.py` |
 | LP | `core/services/lp_service.py` | `lp/lp_core_service.py` | `lp/lp_search_service.py` | `lp_intelligence_service.py` (top-level) |
 
 ### Lesson Sub-services (`core/services/lesson/`)
@@ -105,7 +105,7 @@
 | Relationship | Direction | Target | Purpose |
 |--------------|-----------|--------|---------|
 | `USES_KU` | incoming | Lesson | Composed into Lessons |
-| `TRAINS_KU` | incoming | LS | Trained by Learning Steps |
+| `TRAINS_KU` | incoming | LS | Trained by Path Steps |
 
 ### LS Relationships
 | Relationship | Direction | Target | Purpose |
@@ -145,8 +145,8 @@ from core.models.lesson.lesson import Lesson
 from core.models.lesson.lesson_dto import LessonDTO
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.models.pathways.learning_step import LearningStep
-from core.models.pathways.learning_step_dto import LearningStepDTO
+from core.models.pathways.path_step import PathStep
+from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
 
@@ -170,8 +170,8 @@ Services wired in: `services_bootstrap/_learning_services.py`
     # Curriculum services use factories
     lesson_service = LessonService(lesson_backend, graph_intel, event_bus)
     ku_service = KuService(ku_backend, event_bus)
-    ls_service = LsService(driver, graph_intel, event_bus)
-    lp_service = LpService(driver, ls_service, graph_intel, event_bus)  # Cross-domain dep
+    ps_service = PsService(driver, graph_intel, event_bus)
+    lp_service = LpService(driver, ps_service, graph_intel, event_bus)  # Cross-domain dep
 ```
 
 ## Intelligence Service Access
@@ -188,7 +188,7 @@ ku_service.search_service.search(...)
 ku_service.intelligence.get_usage_summary(ku_uid)
 
 # LS - 4 sub-services, generic factory
-ls_service.intelligence.is_ready(ls_uid, completed_uids)
+ps_service.intelligence.is_ready(ps_uid, completed_uids)
 
 # LP - 5 sub-services, specialized factory
 lp_service.intelligence.validate_path_prerequisites(lp_uid)

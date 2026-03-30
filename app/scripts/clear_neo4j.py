@@ -299,7 +299,7 @@ async def clear_domain_bundle_only(
             # For now, use UID prefix patterns
             uid_patterns = [
                 f"ku:{bundle_name}%",
-                f"ls:{bundle_name}%",
+                f"ps:{bundle_name}%",
                 f"lp:{bundle_name}%",
                 f"principle:{bundle_name}%",
                 f"choice:{bundle_name}%",

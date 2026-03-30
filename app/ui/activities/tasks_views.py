@@ -251,7 +251,7 @@ def ConnectionBadges(
         "goal": "target",
         "habit": "repeat",
         "ku": "atom",
-        "learning_step": "list",
+        "path_step": "list",
         "learning_path": "map",
         "principle": "compass",
         "event": "calendar",

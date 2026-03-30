@@ -79,7 +79,7 @@ def create_mock_tasks_service() -> Mock:
     task1.knowledge_uids = ["ku.python-basics"]
     # Additional attributes for learning style detection
     task1.parent_uid = None  # No parent = independent
-    task1.source_learning_step_uid = "ls.ml-intro"  # Has learning step
+    task1.source_path_step_uid = "ls.ml-intro"  # Has path step
     task1.knowledge_mastery_check = True  # Is a mastery check
     task1.tags = ["learning", "ml"]  # Tags for social detection
 
@@ -91,7 +91,7 @@ def create_mock_tasks_service() -> Mock:
     task2.knowledge_uids = ["ku.python-basics"]
     # Additional attributes
     task2.parent_uid = "task_001"  # Has parent = sequential
-    task2.source_learning_step_uid = None
+    task2.source_path_step_uid = None
     task2.knowledge_mastery_check = False
     task2.tags = ["practice"]
 
@@ -103,7 +103,7 @@ def create_mock_tasks_service() -> Mock:
     task3.completion_date = date.today()
     task3.knowledge_uids = ["ku.ml-basics"]
     task3.parent_uid = None
-    task3.source_learning_step_uid = "ls.ml-practice"
+    task3.source_path_step_uid = "ls.ml-practice"
     task3.knowledge_mastery_check = False
     task3.tags = ["project"]
 
@@ -114,7 +114,7 @@ def create_mock_tasks_service() -> Mock:
     task4.completion_date = date.today()
     task4.knowledge_uids = ["ku.algorithms"]
     task4.parent_uid = None
-    task4.source_learning_step_uid = None
+    task4.source_path_step_uid = None
     task4.knowledge_mastery_check = True
     task4.tags = ["theory"]
 
@@ -125,7 +125,7 @@ def create_mock_tasks_service() -> Mock:
     task5.completion_date = date.today()
     task5.knowledge_uids = ["ku.python-advanced"]
     task5.parent_uid = None
-    task5.source_learning_step_uid = None
+    task5.source_path_step_uid = None
     task5.knowledge_mastery_check = False
     task5.tags = ["team", "collaboration"]  # Social learning tags
 

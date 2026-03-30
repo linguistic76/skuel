@@ -130,12 +130,12 @@ class ExerciseEmbeddingRequested(EmbeddingRequested):
 
 
 @dataclass(frozen=True)
-class LearningStepEmbeddingRequested(EmbeddingRequested):
-    """LearningStep-specific embedding request."""
+class PathStepEmbeddingRequested(EmbeddingRequested):
+    """PathStep-specific embedding request."""
 
     @property
     def event_type(self) -> str:
-        return "learning_step.embedding_requested"
+        return "path_step.embedding_requested"
 
 
 @dataclass(frozen=True)

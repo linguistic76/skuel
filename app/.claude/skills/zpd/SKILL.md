@@ -57,7 +57,7 @@ ZPDAssessment (core/models/zpd/zpd_assessment.py)
     ↓  frozen dataclass snapshot consumed by:
     ├── UserContext.zpd_assessment (capstone of build_rich())
     ├── DailyPlanningMixin P5 (learning priority)
-    ├── LearningIntelligenceMixin (optimal next learning steps)
+    ├── LearningIntelligenceMixin (optimal next path steps)
     └── AskesisService (pedagogical scaffolding)
 ```
 
@@ -249,7 +249,7 @@ if neither:           behavioral = 0.5  # neutral default (CORE tier)
 | `SubmissionApproved` | Student work validated | Mastery signal |
 | `ReportSubmitted` | Teacher feedback delivered | Feedback loop closed |
 | `KnowledgeMastered` | KU mastery confirmed | Zone shift |
-| `LearningStepCompleted` | Curriculum progress | LP advancement |
+| `PathStepCompleted` | Curriculum progress | LP advancement |
 | `LearningPathProgressUpdated` | LP milestone | Path progression |
 
 **Snapshot Backend:** `adapters/persistence/neo4j/zpd_snapshot_backend.py`
@@ -278,7 +278,7 @@ if zpd_service is not None:
 
 **Consumers:**
 - `DailyPlanningMixin.get_ready_to_work_on_today()` — P5 Learning: uses `recommended_actions`
-- `LearningIntelligenceMixin.get_optimal_next_learning_steps()` — primary ranking signal
+- `LearningIntelligenceMixin.get_optimal_next_path_steps()` — primary ranking signal
 - `AskesisService` — reads assessment for scaffolding decisions
 
 ---

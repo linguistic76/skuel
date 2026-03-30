@@ -68,11 +68,11 @@ Replace domain-specific relationship services with a **configuration-driven gene
 | Pattern | Domains | Use Case |
 |---------|---------|----------|
 | **Config-driven (UnifiedRelationshipService)** | Tasks, Goals, Habits, Events, Choices, Principles | Semantic relationships, entity retrieval, cross-domain intelligence |
-| **Direct Driver (domain-specific services retained)** | Journal, LP, LS, MOC, User, Assignment, Report | Simple UID queries, read-heavy traversal, domain-specific complexity |
+| **Direct Driver (domain-specific services retained)** | Journal, LP, PS, MOC, User, Assignment, Report | Simple UID queries, read-heavy traversal, domain-specific complexity |
 
 **Why two patterns?**
 
-The Curriculum (KU, LP, LS), Content/Organization (MOC, Journal, Assignment), and system domains (User, Report) have:
+The Curriculum (KU, LP, PS), Content/Organization (MOC, Journal, Assignment), and system domains (User, Report) have:
 - Simpler relationship patterns (mostly UID lookups)
 - Direct Cypher queries that are clearer without abstraction
 - No need for the helper-based semantic relationship features
@@ -201,7 +201,7 @@ knowledge_uids = await tasks_service.get_related_uids("knowledge", task_uid)
 | Principles | Config-driven | ✅ Complete - old service DELETED |
 | Journal | Direct Driver | Retained (intentional) |
 | LP | Direct Driver | Retained (intentional) |
-| LS | Direct Driver | Retained (intentional) |
+| PS | Direct Driver | Retained (intentional) |
 | MOC | Direct Driver | Retained (intentional) |
 | User | Direct Driver | Retained (intentional) |
 | Assignment | Direct Driver | Retained (intentional) |

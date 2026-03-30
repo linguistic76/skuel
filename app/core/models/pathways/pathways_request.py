@@ -14,8 +14,8 @@ from core.models.enums.curriculum_enums import LpType, StepDifficulty
 from core.models.request_base import CreateRequestBase
 
 
-class LearningStepCreateRequest(CreateRequestBase):
-    """Create a LEARNING_STEP entity (a collection of lessons). Admin-only, shared."""
+class PathStepCreateRequest(CreateRequestBase):
+    """Create a PATH_STEP entity (a collection of lessons). Admin-only, shared."""
 
     title: str = Field(min_length=1, max_length=200, description="Step title")
     intent: str = Field(min_length=1, description="Step intent/purpose")
@@ -38,7 +38,7 @@ class LearningStepCreateRequest(CreateRequestBase):
     notes: str | None = Field(None, description="Additional notes")
     tags: list[str] = Field(default_factory=list, description="Tags")
     confidence: Confidence | None = Field(
-        None, description="Admin-assessed certainty about this learning step"
+        None, description="Admin-assessed certainty about this path step"
     )
 
     # Knowledge relationships
@@ -93,8 +93,8 @@ class LearningPathProgressRequest(BaseModel):
     notes: str | None = None
 
 
-class LearningStepPathRequest(BaseModel):
-    """Request to attach/detach a learning step to/from a learning path."""
+class PathStepPathRequest(BaseModel):
+    """Request to attach/detach a path step to/from a learning path."""
 
     path_uid: str = Field(..., description="Learning path UID")
     sequence: int | None = Field(None, ge=0, description="Position in path (for attach)")

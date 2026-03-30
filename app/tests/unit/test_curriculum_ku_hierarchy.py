@@ -6,7 +6,7 @@ Tests for the Curriculum base class and Lesson leaf class hierarchy. Verifies:
 
 1. Curriculum base class field inheritance from Entity (no type forcing)
 2. Lesson leaf class forces EntityType.LESSON in __post_init__
-3. LearningStep and LearningPath inherit from Curriculum (not Entity)
+3. PathStep and LearningPath inherit from Curriculum (not Entity)
 4. Substance methods work with real data (not stubs)
 5. Learning methods (complexity, SEL, level) work correctly
 6. DTO round-trip for Curriculum subclasses
@@ -21,8 +21,8 @@ from core.models.enums.entity_enums import EntityType
 from core.models.lesson.lesson import Lesson
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
-from core.models.pathways.learning_step import LearningStep
-from core.models.pathways.learning_step_dto import LearningStepDTO
+from core.models.pathways.path_step import PathStep
+from core.models.pathways.path_step_dto import PathStepDTO
 
 # =========================================================================
 # Curriculum creation and field defaults
@@ -104,16 +104,16 @@ class TestCurriculumKuCreation:
 
 
 # =========================================================================
-# Hierarchy: LearningStep and LearningPath inherit Curriculum
+# Hierarchy: PathStep and LearningPath inherit Curriculum
 # =========================================================================
 
 
 class TestCurriculumKuHierarchy:
-    """Verify LearningStep and LearningPath inherit from Curriculum."""
+    """Verify PathStep and LearningPath inherit from Curriculum."""
 
-    def test_learning_step_is_curriculum_ku(self):
-        """LearningStep IS a Curriculum."""
-        ls = LearningStep(uid="ls_test", title="Step 1")
+    def test_path_step_is_curriculum_ku(self):
+        """PathStep IS a Curriculum."""
+        ls = PathStep(uid="ls_test", title="Step 1")
         assert isinstance(ls, Curriculum)
         assert isinstance(ls, Entity)
 
@@ -123,9 +123,9 @@ class TestCurriculumKuHierarchy:
         assert isinstance(lp, Curriculum)
         assert isinstance(lp, Entity)
 
-    def test_learning_step_inherits_curriculum_fields(self):
-        """LearningStep has all Curriculum fields via inheritance."""
-        ls = LearningStep(
+    def test_path_step_inherits_curriculum_fields(self):
+        """PathStep has all Curriculum fields via inheritance."""
+        ls = PathStep(
             uid="ls_test",
             title="Step",
             complexity=KuComplexity.ADVANCED,
@@ -151,9 +151,9 @@ class TestCurriculumKuHierarchy:
         assert lp.estimated_time_minutes == 60
         assert lp.semantic_links == ("ku_a", "ku_b")
 
-    def test_learning_step_substance_score_overrides_stub(self):
-        """LearningStep substance_score comes from Curriculum, not Entity stub."""
-        ls = LearningStep(
+    def test_path_step_substance_score_overrides_stub(self):
+        """PathStep substance_score comes from Curriculum, not Entity stub."""
+        ls = PathStep(
             uid="ls_test",
             title="Step",
             times_applied_in_tasks=5,
@@ -162,7 +162,7 @@ class TestCurriculumKuHierarchy:
             last_practiced_date=datetime.now(),
         )
         score = ls.substance_score()
-        assert score > 0.0, "LearningStep should use Curriculum substance, not stub"
+        assert score > 0.0, "PathStep should use Curriculum substance, not stub"
 
 
 # =========================================================================
@@ -378,14 +378,14 @@ class TestCurriculumKuSEL:
 
 
 class TestCurriculumKuSubclassDTORoundTrip:
-    """Test DTO round-trip for LearningStep and LearningPath."""
+    """Test DTO round-trip for PathStep and LearningPath."""
 
-    def test_learning_step_dto_round_trip(self):
-        """LearningStep DTO round-trip preserves curriculum + step fields."""
-        dto = LearningStepDTO(
+    def test_path_step_dto_round_trip(self):
+        """PathStep DTO round-trip preserves curriculum + step fields."""
+        dto = PathStepDTO(
             uid="ls_test_abc",
             title="Learn Python Basics",
-            entity_type=EntityType.LEARNING_STEP,
+            entity_type=EntityType.PATH_STEP,
             complexity="advanced",
             learning_level=LearningLevel.INTERMEDIATE,
             difficulty_rating=0.7,
@@ -393,7 +393,7 @@ class TestCurriculumKuSubclassDTORoundTrip:
             semantic_links=["ku_python"],
         )
         ku = Entity.from_dto(dto)
-        assert isinstance(ku, LearningStep)
+        assert isinstance(ku, PathStep)
         assert isinstance(ku, Curriculum)
         assert ku.complexity == KuComplexity.ADVANCED
         assert ku.learning_level == LearningLevel.INTERMEDIATE

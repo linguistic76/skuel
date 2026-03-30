@@ -52,7 +52,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
 
 | # | Method | Mixin | Purpose |
 |---|--------|-------|---------|
-| 1 | `get_optimal_next_learning_steps()` | Learning | What should I learn next? |
+| 1 | `get_optimal_next_path_steps()` | Learning | What should I learn next? |
 | 2 | `get_learning_path_critical_path()` | Learning | Fastest route to life path? |
 | 3 | `get_knowledge_application_opportunities()` | Learning | Where can I apply this? |
 | 4 | `get_unblocking_priority_order()` | Learning | What unlocks the most? |
@@ -112,14 +112,14 @@ UserContextIntelligence = UserContext + 13 Domain Services
 
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
-| ZPDService | `self.zpd_service` | Curriculum-graph-aware ZPD ranking for `get_optimal_next_learning_steps()` |
+| ZPDService | `self.zpd_service` | Curriculum-graph-aware ZPD ranking for `get_optimal_next_path_steps()` |
 | Neo4jVectorSearchService | `self.vector_search` | Semantic search enhancements |
 
 Both are `None` in CORE tier — all methods gracefully degrade when absent.
 
 **ZPD (Zone of Proximal Development):**
 
-When `zpd_service` is set, `get_optimal_next_learning_steps()` uses a two-hop curriculum graph traversal to rank KUs by readiness:
+When `zpd_service` is set, `get_optimal_next_path_steps()` uses a two-hop curriculum graph traversal to rank KUs by readiness:
 
 ```python
 priority_score = readiness_score × (0.7 + 0.3 × behavioral_readiness)
@@ -155,7 +155,7 @@ factory = UserContextIntelligenceFactory(
 
 | Type | Purpose | Key Fields |
 |------|---------|------------|
-| `LearningStep` | Learning recommendation | `ku_uid`, `priority_score`, `aligns_with_goals` |
+| `PathStep` | Learning recommendation | `ku_uid`, `priority_score`, `aligns_with_goals` |
 | `DailyWorkPlan` | Daily work plan | `tasks`, `habits`, `learning`, `rationale` |
 | `LifePathAlignment` | Life path analysis | `overall_score`, `dimension_scores`, `gaps` |
 | `CrossDomainSynergy` | Synergy detection | `source_uid`, `target_uids`, `synergy_score` |
@@ -298,7 +298,7 @@ factory = UserContextIntelligenceFactory(
     principles=activity_services["principles"].relationships,
     # Curriculum (3)
     lesson=learning_services["lesson_service"],  # LessonService facade
-    ls=learning_services["learning_steps"].relationships,
+    ls=learning_services["path_steps"].relationships,
     lp=learning_services["learning_paths"].relationships,
     # Processing Domains (3)
     submissions=submissions_relationship_service,
@@ -483,9 +483,9 @@ from core.ports import KnowledgeAwareness, LearningPathAwareness
 
 # Adoption target — explicit ISP dependency
 class LearningIntelligenceMixin:
-    async def get_optimal_next_learning_steps(
+    async def get_optimal_next_path_steps(
         self, context: KnowledgeAwareness  # not UserContext
-    ) -> Result[list[LearningStep]]:
+    ) -> Result[list[PathStep]]:
         # Only knowledge-related fields accessible → MyPy-verified
         ready = context.get_ready_to_learn()
         ...
@@ -569,8 +569,8 @@ if plan_result.is_ok:
 ### Example 2: Learning Recommendations
 
 ```python
-# Get optimal next learning steps
-steps_result = await intelligence.get_optimal_next_learning_steps(
+# Get optimal next path steps
+steps_result = await intelligence.get_optimal_next_path_steps(
     max_steps=5,
     consider_goals=True,
     consider_capacity=True
@@ -686,7 +686,7 @@ intelligence = factory.create(context)
 | `/core/services/user/intelligence/__init__.py` | Package exports |
 | `/core/services/user/intelligence/core.py` | Main class |
 | `/core/services/user/intelligence/factory.py` | Factory pattern |
-| `/core/models/context_types.py` | Return types (LearningStep, DailyWorkPlan, etc.) |
+| `/core/models/context_types.py` | Return types (PathStep, DailyWorkPlan, etc.) |
 | `/core/services/user/intelligence/daily_planning.py` | Flagship method |
 | `/core/services/user/intelligence/learning_intelligence.py` | Methods 1-4 |
 | `/core/services/user/intelligence/life_path_intelligence.py` | Method 7 |

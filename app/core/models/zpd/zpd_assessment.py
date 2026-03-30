@@ -10,7 +10,7 @@ your life path most."
 
 Produced by ZPDService.assess_zone() and consumed by:
 - UserContext.zpd_assessment — computed as final step of build_rich()
-- UserContextIntelligence.get_optimal_next_learning_steps() — primary ranking signal
+- UserContextIntelligence.get_optimal_next_path_steps() — primary ranking signal
 - AskesisService — populates askesis_scaffold_entry and askesis_ku_bridge prompt slots
 - DailyPlanningMixin.get_ready_to_work_on_today() — P5 learning priority
 
@@ -98,7 +98,7 @@ class ZPDAssessment:
     proximal_zone : list[str]
         ku_uids structurally adjacent to the current zone but not yet engaged.
         Derived via PREREQUISITE_FOR, COMPLEMENTARY_TO, and LP ORGANIZES
-        traversal. These are the candidates for the user's next learning step.
+        traversal. These are the candidates for the user's next path step.
 
     engaged_paths : list[str]
         lp_uids (Learning Path UIDs) that the user has partially traversed —

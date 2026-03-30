@@ -61,10 +61,10 @@ class AskesisDeps:
     events_service: Any
     zpd_service: ZPDOperations            # Required for guided pipeline (LP gate ensures curriculum exists)
     citation_service: Any | None = None   # Wired in bootstrap via lesson backend
-    # LS bundle dependencies for ContextRetriever
-    ku_service: Any | None = None         # For LS bundle KU fetching
-    lp_service: Any | None = None         # For LS bundle LP fetching
-    principles_service: Any | None = None # For LS bundle principle fetching
+    # PS bundle dependencies for ContextRetriever
+    ku_service: Any | None = None         # For PS bundle KU fetching
+    lp_service: Any | None = None         # For PS bundle LP fetching
+    principles_service: Any | None = None # For PS bundle principle fetching
 
 
 class AskesisService:
@@ -76,7 +76,7 @@ class AskesisService:
         self.recommendation_engine = ActionRecommendationEngine()
         self.entity_extractor = EntityExtractor(...)
 
-        # ContextRetriever handles graph retrieval + LS bundle loading
+        # ContextRetriever handles graph retrieval + PS bundle loading
         self.context_retriever = ContextRetriever(
             graph_intelligence_service=deps.graph_intelligence_service,
             embeddings_service=deps.embeddings_service,
@@ -127,10 +127,10 @@ AskesisService (Facade)
 │   └── generate_suggested_actions()
 ├── EntityExtractor
 │   ├── extract_entities_from_query() ← global extraction
-│   └── extract_from_bundle()         ← LS-scoped extraction
+│   └── extract_from_bundle()         ← PS-scoped extraction
 ├── ContextRetriever
 │   ├── retrieve_relevant_context()   ← graph + semantic retrieval
-│   ├── load_ls_bundle()              ← loads LSBundle from UserContext
+│   ├── load_ps_bundle()              ← loads PsBundle from UserContext
 │   ├── get_learning_context()
 │   └── analyze_knowledge_gaps()
 ```
@@ -273,7 +273,7 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
 | `/core/services/askesis/intent_classifier.py` | Intent classification: embeddings (QueryIntent) + decision tree (GuidanceDetermination) |
 | `/core/services/askesis/response_generator.py` | LLM context, guided system prompts (4 modes), action generation |
 | `/core/services/askesis/entity_extractor.py` | Entity extraction: global + bundle-scoped |
-| `/core/services/askesis/context_retriever.py` | Graph + semantic retrieval + LS bundle loading |
+| `/core/services/askesis/context_retriever.py` | Graph + semantic retrieval + PS bundle loading |
 | `/core/services/askesis/askesis_core_service.py` | CRUD + `build_user_context()` (owns Neo4j driver) |
 | `/core/services/askesis/types.py` | Shared data classes |
 | `/core/ports/askesis_protocols.py` | Protocol definitions |
@@ -443,7 +443,7 @@ principles_rich = entities_rich.get("principles", [])
 | **March 2026** | 4 pedagogical prompt templates added: `askesis_scaffold_entry`, `askesis_socratic_turn`, `askesis_ku_bridge`, `askesis_journal_reflection` |
 | **March 2026** | Backwards compatibility removed: all `AskesisDeps` fields required, `zpd_service` required (LP gate ensures curriculum exists), keyword fallback deleted from IntentClassifier, template fallback deleted from QueryProcessor, Askesis creation gated behind `INTELLIGENCE_TIER=full` |
 | **March 2026** | `AskesisCitationService` wired in bootstrap — `create_askesis_service()` now requires `citation_service` param; QueryProcessor formats prerequisite-chain citations in responses |
-| **March 2026** | Socratic pipeline added (LSContextLoader, SocraticEngine) then absorbed into existing services: LSContextLoader → ContextRetriever.load_ls_bundle(), SocraticEngine → ResponseGenerator.build_guided_system_prompt(), GuidanceDetermination added to IntentClassifier. LP enrollment gate. GuidanceMode enum: DIRECT/SOCRATIC/EXPLORATORY/ENCOURAGING. ConversationStyle deleted. One pipeline. |
+| **March 2026** | Socratic pipeline added (LSContextLoader, SocraticEngine) then absorbed into existing services: LSContextLoader → ContextRetriever.load_ps_bundle(), SocraticEngine → ResponseGenerator.build_guided_system_prompt(), GuidanceDetermination added to IntentClassifier. LP enrollment gate. GuidanceMode enum: DIRECT/SOCRATIC/EXPLORATORY/ENCOURAGING. ConversationStyle deleted. One pipeline. |
 | **March 2026** | EntityExtractor DRY fix: 5 copy-pasted `_extract_*_entities()` methods → single generic `_extract_matching_entities()` with `_EntityLookup` protocol. -155 lines. |
 | **March 2026** | Guided system prompts migrated to PROMPT_REGISTRY: 7 `askesis_guided_*` templates replace hardcoded strings in ResponseGenerator. Prompt text editable without touching Python. |
 

@@ -8,7 +8,7 @@ How SKUEL stores and serves two distinct kinds of content: **Curriculum Content*
 
 | | Curriculum Content | Resource |
 |---|---|---|
-| **What it is** | The body text of a curriculum entity (Lesson, LS, LP) | A curated reference to external material (book, talk, film, podcast) |
+| **What it is** | The body text of a curriculum entity (Lesson, PS, LP) | A curated reference to external material (book, talk, film, podcast) |
 | **EntityType** | Not an entity — a facet attached via `HAS_CONTENT` | `EntityType.RESOURCE` — a first-class entity |
 | **Extends** | Standalone frozen dataclass (`CurriculumContent`) | `Entity` (7 resource-specific fields) |
 | **Ownership** | Attached to its parent curriculum entity | `ContentScope.SHARED` — admin-created, all users read |

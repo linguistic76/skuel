@@ -607,7 +607,7 @@ _user_ownership_relationship: ClassVar[str | None] = "OWNS"  # None for shared c
 
 ## Curriculum Domain Search Services (January 2026)
 
-Curriculum domains (LS, LP, MOC) use **standalone search services** that don't inherit from BaseService:
+Curriculum domains (PS, LP, MOC) use **standalone search services** that don't inherit from BaseService:
 
 ### Why Standalone Pattern?
 
@@ -616,13 +616,13 @@ Curriculum domains (LS, LP, MOC) use **standalone search services** that don't i
 - Simpler dependency graph
 - Following MocSearchService precedent
 
-### LsSearchService
+### PsSearchService
 
-**Location:** `/core/services/ls/ls_search_service.py`
+**Location:** `/core/services/ls/ps_search_service.py`
 
 ```python
-class LsSearchService:
-    """Standalone search service for Learning Steps."""
+class PsSearchService:
+    """Standalone search service for Path Steps."""
 
     def __init__(self, driver: Any) -> None:
         self.driver = driver
@@ -673,16 +673,16 @@ class LpSearchService:
 Curriculum services expose search via `.search` property like Activity Domains:
 
 ```python
-# LsService facade
-class LsService:
+# PsService facade
+class PsService:
     def __init__(self, driver, event_bus=None):
-        self.core = LsCoreService(driver=driver, event_bus=event_bus)
+        self.core = PsCoreService(driver=driver, event_bus=event_bus)
         self.relationship = LsRelationshipService(driver=driver)
-        self.search = LsSearchService(driver=driver)  # Search sub-service
+        self.search = PsSearchService(driver=driver)  # Search sub-service
 
 # LpService facade
 class LpService:
-    def __init__(self, driver, ls_service, ...):
+    def __init__(self, driver, ps_service, ...):
         self.core = LpCoreService(driver=driver, ...)
         self.search = LpSearchService(driver=driver)  # Search sub-service
         # ... other sub-services
@@ -708,6 +708,6 @@ class LpService:
 - `/core/models/search/search_router.py` - THE search orchestrator (One Path Forward)
 - `/core/services/goals/goal_search_service.py` - Reference implementation (uses inherited methods)
 - `/core/services/principles/principle_search_service.py` - Example of custom overrides
-- `/core/services/ls/ls_search_service.py` - Learning Steps search (standalone pattern)
+- `/core/services/ls/ps_search_service.py` - Path Steps search (standalone pattern)
 - `/core/services/lp/lp_search_service.py` - Learning Paths search (standalone pattern)
 - `/core/services/moc/moc_search_service.py` - MOC search (standalone pattern template)

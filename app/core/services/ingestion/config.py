@@ -216,11 +216,11 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("name",),
         relationship_config=generate_ingestion_relationship_config(EntityType.LEARNING_PATH),
     ),
-    EntityType.LEARNING_STEP: EntityIngestionConfig(
-        entity_label="LearningStep",
-        uid_prefix="ls",
+    EntityType.PATH_STEP: EntityIngestionConfig(
+        entity_label="PathStep",
+        uid_prefix="ps",
         required_fields=("title",),
-        relationship_config=generate_ingestion_relationship_config(EntityType.LEARNING_STEP),
+        relationship_config=generate_ingestion_relationship_config(EntityType.PATH_STEP),
     ),
     NonKuDomain.FINANCE: EntityIngestionConfig(
         entity_label="Expense",

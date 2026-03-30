@@ -786,7 +786,7 @@ result = await lp_intelligence.search_by_content_features(
 
 **LP-Specific Attributes:**
 - `self.progress_backend` - Progress backend for user mastery data
-- `self.backend` - Learning backend for LP/LS queries (inherited from BaseAnalyticsService)
+- `self.backend` - Learning backend for LP/PS queries (inherited from BaseAnalyticsService)
 - `self.user_service` - UserService for UserContext access
 
 **Sub-Service Attributes:**
@@ -916,7 +916,7 @@ class MyContentAdapter(ContentAdapter):
         return self._content.title
 ```
 
-This allows any content type (KU, LS, LP, MOC, even external content) to be analyzed.
+This allows any content type (KU, PS, LP, MOC, even external content) to be analyzed.
 
 ---
 

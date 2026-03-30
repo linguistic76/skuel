@@ -131,7 +131,7 @@ async def services(neo4j_container):
         choices: ChoicesService
         principles: PrinciplesService
         lp: LpService
-        ls: LsService
+        ls: PsService
         ku: KuService
         tasks: TasksService
         goals: GoalsService

@@ -202,7 +202,7 @@ A KU "is" a MOC when it has outgoing ORGANIZES relationships. MOC is NOT a separ
 
 ---
 
-#### LS (Learning Steps)
+#### PS (Path Steps)
 
 **UID Format:**
 ```
@@ -228,7 +228,7 @@ ls:x7y8z9w0v1u2
 **Before (Properties):**
 ```python
 # OLD - Properties
-class LS:
+class PS:
     knowledge_uids: tuple[str, ...] = ()
 ```
 
@@ -241,9 +241,9 @@ class LS:
 **Service Methods:**
 
 ```python
-# LS Knowledge Methods (pending implementation)
-await ls_service.add_knowledge_relationship(ls_uid, ku_uid, type="primary")
-await ls_service.get_contained_knowledge(ls_uid, type="primary")
+# PS Knowledge Methods (pending implementation)
+await ps_service.add_knowledge_relationship(ps_uid, ku_uid, type="primary")
+await ps_service.get_contained_knowledge(ps_uid, type="primary")
 ```
 
 ---
@@ -633,7 +633,7 @@ RETURN completed_weight / total_weight as progress_percentage
 ## Related Documentation
 
 ### Pattern Documentation
-- `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - KU, LS, LP patterns
+- `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - KU, PS, LP patterns
 - `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` - Domain overview
 
 ### Decision Records

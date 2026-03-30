@@ -418,7 +418,7 @@ def create_askesis_api_routes(
     # ========================================================================
     #
     # These endpoints leverage the full 13-domain architecture for comprehensive
-    # daily planning and learning step recommendations.
+    # daily planning and path step recommendations.
     #
     # Architecture:
     # UserContextIntelligence = UserContext + 13 Domain Services
@@ -507,9 +507,9 @@ def create_askesis_api_routes(
             }
         )
 
-    @rt("/api/askesis/learning-steps")
+    @rt("/api/askesis/path-steps")
     @boundary_handler()
-    async def get_optimal_learning_steps_route(
+    async def get_optimal_path_steps_route(
         request: Request, askesis_uid: str
     ) -> Result[dict[str, Any]]:
         """
@@ -534,7 +534,7 @@ def create_askesis_api_routes(
             consider_capacity (bool): Respect user capacity limits (default: true)
 
         Returns:
-            Result[list[LearningStep]]: Ranked list with:
+            Result[list[PathStep]]: Ranked list with:
                 - ku_uid, title, rationale
                 - prerequisites_met, aligns_with_goals
                 - unlocks_count, estimated_time_minutes
@@ -552,8 +552,8 @@ def create_askesis_api_routes(
 
         ctx = ctx_result.value
 
-        # Get optimal learning steps using 13-domain intelligence
-        steps_result = await askesis_service.get_optimal_next_learning_steps(
+        # Get optimal path steps using 13-domain intelligence
+        steps_result = await askesis_service.get_optimal_next_path_steps(
             ctx.user_context,
             max_steps=max_steps,
             consider_goals=consider_goals,
@@ -568,7 +568,7 @@ def create_askesis_api_routes(
         # Convert dataclass list to dict list for JSON response
         return Result.ok(
             {
-                "learning_steps": [
+                "path_steps": [
                     {
                         "ku_uid": step.ku_uid,
                         "title": step.title,

@@ -21,10 +21,10 @@ if TYPE_CHECKING:
     from routes.graphql.protocols import (
         KnowledgeNodeLike,
         LearningPathLike,
-        LearningStepMappable,
+        PathStepMappable,
         TaskLike,
     )
-    from routes.graphql.types import KnowledgeNode, LearningPath, LearningStep, Task
+    from routes.graphql.types import KnowledgeNode, LearningPath, PathStep, Task
 
 
 def knowledge_node_from_dto(dto: KnowledgeNodeLike) -> KnowledgeNode:
@@ -85,8 +85,8 @@ def learning_path_from_dto(dto: LearningPathLike) -> LearningPath:
     )
 
 
-def learning_step_from_domain(step: LearningStepMappable, step_number: int) -> LearningStep:
-    """Convert Ls domain model to GraphQL LearningStep DTO.
+def path_step_from_domain(step: PathStepMappable, step_number: int) -> PathStep:
+    """Convert Ls domain model to GraphQL PathStep DTO.
 
     This explicit conversion layer:
     - Catches type mismatches at conversion time
@@ -94,15 +94,15 @@ def learning_step_from_domain(step: LearningStepMappable, step_number: int) -> L
     - Eliminates need for defensive attribute-existence checks
 
     Args:
-        step: Ls domain model from service layer (satisfies LearningStepMappable)
+        step: Ls domain model from service layer (satisfies PathStepMappable)
         step_number: Step position in learning path (1-indexed)
 
     Returns:
-        LearningStep GraphQL DTO with only fields needed by API
+        PathStep GraphQL DTO with only fields needed by API
     """
-    from routes.graphql.types import LearningStep
+    from routes.graphql.types import PathStep
 
-    return LearningStep(
+    return PathStep(
         step_number=step_number,
         uid=step.uid,
         title=step.title,

@@ -14,7 +14,7 @@ Responsibilities:
 from typing import TYPE_CHECKING
 
 from core.events import LearningPathCompleted, LearningPathProgressUpdated, publish_event
-from core.events.curriculum_events import LearningStepCompleted
+from core.events.curriculum_events import PathStepCompleted
 from core.events.learning_events import KnowledgeMastered
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -125,9 +125,9 @@ class LpProgressService:
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Error handling knowledge_mastered event: {e}")
 
-    async def handle_step_completed(self, event: LearningStepCompleted) -> None:
+    async def handle_step_completed(self, event: PathStepCompleted) -> None:
         """
-        Update learning path progress when a learning step is completed.
+        Update learning path progress when a path step is completed.
 
         Finds all LPs containing this LS (via HAS_STEP) and rechecks
         LP progress. Reuses existing KU-based progress calculation
@@ -142,18 +142,18 @@ class LpProgressService:
 
             # Find LPs containing this LS via HAS_STEP
             query = """
-            MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ls:Entity {uid: $ls_uid})
+            MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ls:Entity {uid: $ps_uid})
             RETURN DISTINCT lp.uid as lp_uid
             """
-            result = await self.backend.execute_query(query, {"ls_uid": event.ls_uid})
+            result = await self.backend.execute_query(query, {"ps_uid": event.ps_uid})
             if result.is_error:
-                self.logger.error(f"Failed to query LPs for LS {event.ls_uid}: {result.error}")
+                self.logger.error(f"Failed to query LPs for LS {event.ps_uid}: {result.error}")
                 return
 
             lp_uids = [r["lp_uid"] for r in (result.value or [])]
 
             if not lp_uids:
-                self.logger.debug(f"No learning paths contain LS {event.ls_uid}")
+                self.logger.debug(f"No learning paths contain LS {event.ps_uid}")
                 return
 
             for lp_uid in lp_uids:
@@ -168,9 +168,9 @@ class LpProgressService:
                     self.logger.error(f"Failed to update LP {lp_uid} from LS completion: {e}")
 
         except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Error handling learning_step.completed event: {e}")
+            self.logger.error(f"Error handling path_step.completed event: {e}")
         except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Error handling learning_step.completed event: {e}")
+            self.logger.error(f"Error handling path_step.completed event: {e}")
 
     # FUTURE-IMPL: FUTURE-IMPL-009 - See docs/reference/DEFERRED_IMPLEMENTATIONS.md
     async def _update_lp_from_ku_mastery(self, lp_uid: str, user_uid: UserUID) -> None:

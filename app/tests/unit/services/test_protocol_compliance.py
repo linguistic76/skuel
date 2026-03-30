@@ -45,7 +45,7 @@ from core.services.habits_service import HabitsService
 # Facade services - Curriculum Domains
 from core.services.lesson_service import LessonService
 from core.services.lp_service import LpService
-from core.services.ls_service import LsService
+from core.services.ps_service import PsService
 
 # NOTE: MOCService removed (February 2026) - organization logic absorbed into LessonService
 from core.services.principles_service import PrinciplesService
@@ -111,7 +111,7 @@ class TestFacadeStructure:
         ChoicesService,
         PrinciplesService,
         LessonService,
-        LsService,
+        PsService,
         LpService,
     ]
 

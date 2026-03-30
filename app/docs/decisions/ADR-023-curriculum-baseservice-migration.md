@@ -26,7 +26,7 @@ related: [ADR-014-unified-ingestion.md, ADR-017-relationship-service-unification
 
 SKUEL had two base service classes:
 - `BaseService[B, T]` - Used by Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles)
-- `CurriculumBaseService[B, T]` - Extended BaseService for Curriculum Domains (KU, LS, LP) and MOC (Content/Organization)
+- `CurriculumBaseService[B, T]` - Extended BaseService for Curriculum Domains (KU, PS, LP) and MOC (Content/Organization)
 
 This created:
 1. **Artificial separation** - Activity and Curriculum domains treated as different categories
@@ -49,16 +49,16 @@ This created:
 ## Implementation
 
 **Related Skills:**
-- [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md) - Curriculum domain patterns (KU, LS, LP)
+- [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md) - Curriculum domain patterns (KU, PS, LP)
 
 **Architecture:**
-- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) - Three grouping patterns (KU, LS, LP)
+- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) - Three grouping patterns (KU, PS, LP)
 - [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - BaseService patterns
 
 **Code Locations:**
 - `/core/services/base_service.py` - Unified BaseService with curriculum methods
 - `/core/services/ku/ku_core_service.py` - KU service (extends BaseService)
-- `/core/services/ls/ls_core_service.py` - LS service (extends BaseService)
+- `/core/services/ls/ps_core_service.py` - PS service (extends BaseService)
 - `/core/services/lp/lp_core_service.py` - LP service (extends BaseService)
 
 ---
@@ -92,7 +92,7 @@ Added curriculum methods to BaseService:
 
 Search services now inherit from BaseService:
 ```python
-class LsSearchService(BaseService["LsUniversalBackend", Ls]):
+class PsSearchService(BaseService["LsUniversalBackend", Ls]):
     _supports_user_progress = True
 
 class LpSearchService(BaseService["LpUniversalBackend", Lp]):
@@ -103,7 +103,7 @@ class LpSearchService(BaseService["LpUniversalBackend", Lp]):
 
 Core services now also inherit from BaseService, sharing backends with search:
 ```python
-class LsCoreService(BaseService["BackendOperations[Ls]", Ls]):
+class PsCoreService(BaseService["BackendOperations[Ls]", Ls]):
     _user_ownership_relationship = None  # Shared curriculum content
     # Accesses driver via self.backend.driver for specialized queries
 
@@ -114,14 +114,14 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
 
 Facades create shared backends using `UniversalNeo4jBackend[T]` directly:
 ```python
-# LsService facade - uses UniversalNeo4jBackend directly (no wrapper)
-ls_backend = UniversalNeo4jBackend[Ls](driver, NeoLabel.LS, Ls)
-self.core = LsCoreService(backend=ls_backend, event_bus=event_bus)
-self.search = LsSearchService(backend=ls_backend)
+# PsService facade - uses UniversalNeo4jBackend directly (no wrapper)
+ls_backend = UniversalNeo4jBackend[Ls](driver, NeoLabel.PS, Ls)
+self.core = PsCoreService(backend=ls_backend, event_bus=event_bus)
+self.search = PsSearchService(backend=ls_backend)
 
 # LpService facade - uses UniversalNeo4jBackend directly (no wrapper)
 lp_backend = UniversalNeo4jBackend[Lp](driver, NeoLabel.LP, Lp)
-self.core = LpCoreService(backend=lp_backend, ls_service=ls_service, event_bus=event_bus)
+self.core = LpCoreService(backend=lp_backend, ps_service=ps_service, event_bus=event_bus)
 self.search = LpSearchService(backend=lp_backend)
 
 # MocService facade - uses UniversalNeo4jBackend directly (no wrapper)
@@ -241,9 +241,9 @@ Removed category helper methods from ParsedActivityLine and ParsedJournal:
 **Modified Files:**
 - `core/services/base_service.py` - Added curriculum methods (~270 lines)
 - `core/services/ku/ku_core_service.py` - Changed inheritance to BaseService
-- `core/services/ls/ls_core_service.py` - Changed inheritance to BaseService (January 2026)
-- `core/services/ls/ls_search_service.py` - Changed inheritance to BaseService
-- `core/services/ls_service.py` - Updated to use UniversalNeo4jBackend directly (January 2026)
+- `core/services/ls/ps_core_service.py` - Changed inheritance to BaseService (January 2026)
+- `core/services/ls/ps_search_service.py` - Changed inheritance to BaseService
+- `core/services/ps_service.py` - Updated to use UniversalNeo4jBackend directly (January 2026)
 - `core/services/lp/lp_core_service.py` - Changed inheritance to BaseService (January 2026)
 - `core/services/lp/lp_search_service.py` - Changed inheritance to BaseService
 - `core/services/lp_service.py` - Updated to use UniversalNeo4jBackend directly (January 2026)
@@ -261,9 +261,9 @@ Removed category helper methods from ParsedActivityLine and ParsedJournal:
 Services configure inherited behavior via class attributes:
 
 ```python
-class LsSearchService(BaseService["LsUniversalBackend", Ls]):
+class PsSearchService(BaseService["LsUniversalBackend", Ls]):
     # Required - DTO and model classes
-    _dto_class = LearningStepDTO
+    _dto_class = PathStepDTO
     _model_class = Ls
 
     # Search configuration
@@ -312,7 +312,7 @@ class LsSearchService(BaseService["LsUniversalBackend", Ls]):
 |------|--------|--------|---------|
 | 2026-01-05 | Claude | Initial implementation complete | 1.0 |
 | 2026-01-05 | Claude | Full unification - merged CurriculumBaseService, flattened EntityType | 2.0 |
-| 2026-01-06 | Claude | Phase 2b: Migrated LsCoreService and LpCoreService to BaseService | 2.1 |
+| 2026-01-06 | Claude | Phase 2b: Migrated PsCoreService and LpCoreService to BaseService | 2.1 |
 | 2026-01-06 | Claude | Phase 2c: Deleted curriculum backend wrappers (~2,000 lines) | 2.2 |
 | 2026-01-06 | Claude | Protocol cleanup: Removed 11 unused protocols, fixed wrong type hints | 2.3 |
 | 2026-01-20 | Claude | MOC cleanup: Removed MocOperations protocol, MOC events - MOC is KU-based | 2.4 |

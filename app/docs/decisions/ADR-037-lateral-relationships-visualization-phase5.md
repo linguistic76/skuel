@@ -362,7 +362,7 @@ async def detail_page(request: Any, uid: str) -> Any:
 5. Choices (`adapters/inbound/choice_ui.py`)
 6. Principles (`ui/principles/views.py`)
 7. KU (`adapters/inbound/learning_ui.py`)
-8. LS (`adapters/inbound/learning_ui.py`)
+8. PS (`adapters/inbound/learning_ui.py`)
 9. LP (`adapters/inbound/learning_ui.py`)
 
 **Time to integrate:** ~5 minutes per domain (import + 5 lines of code)

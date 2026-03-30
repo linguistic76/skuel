@@ -443,7 +443,7 @@ All 10 domain intelligence services implement the protocol:
 | ChoicesIntelligenceService | ✅ | ✅ | ✅ |
 | PrinciplesIntelligenceService | ✅ | ✅ | ✅ |
 | KuIntelligenceService | ✅ | ✅ | ✅ |
-| LsIntelligenceService | ✅ | ✅ | ✅ |
+| PsIntelligenceService | ✅ | ✅ | ✅ |
 | LpIntelligenceService | ✅ | ✅ | ✅ |
 | MocIntelligenceService | ✅ | ✅ | ✅ |
 

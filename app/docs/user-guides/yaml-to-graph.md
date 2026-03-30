@@ -199,17 +199,17 @@ The backtick escaping (`` item.`connections.enables` ``) handles the dotted key 
 
 ## The Learning Structure — Steps and Paths
 
-### LearningStep — The Cross-Domain Connector
+### PathStep — The Cross-Domain Connector
 
-A LearningStep is the richest entity type in SKUEL. It's where curriculum meets practice — connecting Lessons (what to learn) with Habits, Tasks, Choices, Events, and Principles (how to live it).
+A PathStep is the richest entity type in SKUEL. It's where curriculum meets practice — connecting Lessons (what to learn) with Habits, Tasks, Choices, Events, and Principles (how to live it).
 
-Every UID-list field on a LearningStep becomes a set of edges in the graph:
+Every UID-list field on a PathStep becomes a set of edges in the graph:
 
 | YAML Field | Relationship | Direction | Connects To |
 |---|---|---|---|
 | `knowledge_uids` | `CONTAINS_KNOWLEDGE` | outgoing | Lesson |
 | `trains_ku_uids` | `TRAINS_KU` | outgoing | Ku |
-| `prerequisite_step_uids` | `REQUIRES_STEP` | outgoing | LearningStep |
+| `prerequisite_step_uids` | `REQUIRES_STEP` | outgoing | PathStep |
 | `prerequisite_knowledge_uids` | `REQUIRES_KNOWLEDGE` | outgoing | Lesson |
 | `principle_uids` | `GUIDED_BY_PRINCIPLE` | outgoing | Principle |
 | `habit_uids` | `BUILDS_HABIT` | outgoing | Habit |
@@ -221,7 +221,7 @@ Every UID-list field on a LearningStep becomes a set of edges in the graph:
 
 ```yaml
 version: 1.0
-type: LearningStep
+type: PathStep
 
 uid: ls:mindfulness-101:step-1
 title: Two Minutes Today
@@ -260,11 +260,11 @@ estimated_hours: 0.5
 difficulty: easy
 ```
 
-This single YAML file produces one node and up to 10 edges. That's the power of the LearningStep — it's the hub where knowledge, practice, and intention converge.
+This single YAML file produces one node and up to 10 edges. That's the power of the PathStep — it's the hub where knowledge, practice, and intention converge.
 
 ### LearningPath — The Sequence
 
-A LearningPath sequences LearningSteps via `(LearningPath)-[:HAS_STEP]->(LearningStep)` edges. The `connections.contains_steps` list in YAML defines the order.
+A LearningPath sequences PathSteps via `(LearningPath)-[:HAS_STEP]->(PathStep)` edges. The `connections.contains_steps` list in YAML defines the order.
 
 **YAML** (`lp_mindfulness-101.yaml`):
 
@@ -485,7 +485,7 @@ Embedding text is built from entity-specific field maps. Each entity type contri
 |-------------|----------------------------|
 | Lesson | title, content, summary |
 | Ku | title, summary, description |
-| LearningStep | title, intent, description |
+| PathStep | title, intent, description |
 | LearningPath | title, description, outcomes |
 | Task | title, description |
 | Goal | title, description, vision_statement |
@@ -552,7 +552,7 @@ import_order:
     - event:practice-block-2min
     - goal:mindfulness-beginner
 
-  4_learning_steps:         # Steps — reference all of the above
+  4_path_steps:         # Steps — reference all of the above
     - ls:mindfulness-101:step-1
     - ls:mindfulness-101:step-2
 
@@ -610,7 +610,7 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 |-------------|-----------|------------------------|
 | Ku | `ku:{namespace}:{slug}` | `ku:mindfulness:breath` |
 | Lesson | `l:{namespace}:{slug}` | `l:mindfulness:breath-awareness-basics` |
-| LearningStep | `ls:{path}:{slug}` | `ls:mindfulness-101:step-1` |
+| PathStep | `ls:{path}:{slug}` | `ls:mindfulness-101:step-1` |
 | LearningPath | `lp:{slug}` | `lp:mindfulness-101` |
 | Task | `task:{slug}` | `task:log-first-5-sessions` |
 | Goal | `goal:{slug}` | `goal:mindfulness-beginner` |
@@ -626,7 +626,7 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 |-------------|----------------|
 | `Ku` | title |
 | `Lesson` | title, content |
-| `LearningStep` | title |
+| `PathStep` | title |
 | `LearningPath` | name |
 | `Task` | title |
 | `Goal` | title |
@@ -638,7 +638,7 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 
 ### YAML `type:` Values
 
-`Ku`, `Lesson`, `LearningStep`, `LearningPath`, `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Edge`
+`Ku`, `Lesson`, `PathStep`, `LearningPath`, `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Edge`
 
 ---
 
@@ -648,5 +648,5 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 - `yaml_templates/_schemas/` — Full field reference for every entity type
 - `yaml_templates/domains/mindfulness_101/README.md` — Bundle design principles
 - `docs/patterns/UNIFIED_INGESTION_GUIDE.md` — Ingestion API reference and modes
-- `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — Ku, Lesson, LS, LP topology
+- `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — Ku, Lesson, PS, LP topology
 - `docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` — Complete relationship catalog

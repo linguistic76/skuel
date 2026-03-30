@@ -1,9 +1,9 @@
 """
-LearningStep - A Collection of Lessons
+PathStep - A Collection of Lessons
 =============================================
 
-Frozen dataclass for learning step entities (EntityType.LEARNING_STEP).
-A LearningStep is a collection of lessons that forms a step in a learning path.
+Frozen dataclass for path step entities (EntityType.PATH_STEP).
+A PathStep is a collection of lessons that forms a step in a learning path.
 
 Inherits common fields from Entity via Curriculum. Adds 8 learning-step-specific fields:
 - Intent (1): intent
@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
-    from core.models.pathways.learning_step_dto import LearningStepDTO
+    from core.models.pathways.path_step_dto import PathStepDTO
 
 from core.models.curriculum import Curriculum
 from core.models.enums.curriculum_enums import StepDifficulty
@@ -31,19 +31,19 @@ from core.models.enums.entity_enums import EntityType
 
 
 @dataclass(frozen=True)
-class LearningStep(Curriculum):
+class PathStep(Curriculum):
     """
-    A collection of lessons (EntityType.LEARNING_STEP).
+    A collection of lessons (EntityType.PATH_STEP).
 
-    A LearningStep groups related lessons into a coherent collection within
+    A PathStep groups related lessons into a coherent collection within
     a learning path. Inherits ~50 fields from Curriculum. Adds 8 fields for
     intent, knowledge references, path relationship, and mastery tracking.
     """
 
     def __post_init__(self) -> None:
-        """Force entity_type=LEARNING_STEP, then delegate to Entity."""
-        if self.entity_type != EntityType.LEARNING_STEP:
-            object.__setattr__(self, "entity_type", EntityType.LEARNING_STEP)
+        """Force entity_type=PATH_STEP, then delegate to Entity."""
+        if self.entity_type != EntityType.PATH_STEP:
+            object.__setattr__(self, "entity_type", EntityType.PATH_STEP)
         super().__post_init__()
 
     # =========================================================================
@@ -105,7 +105,7 @@ class LearningStep(Curriculum):
     # =========================================================================
 
     def get_summary(self, max_length: int = 200) -> str:
-        """Get a summary of the learning step."""
+        """Get a summary of the path step."""
         text = self.intent or self.description or self.content or self.summary or ""
         if len(text) <= max_length:
             return text
@@ -116,18 +116,18 @@ class LearningStep(Curriculum):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | LearningStepDTO") -> "LearningStep":  # type: ignore[override]
-        """Create LearningStep from an EntityDTO or LearningStepDTO."""
+    def from_dto(cls, dto: "EntityDTO | PathStepDTO") -> "PathStep":  # type: ignore[override]
+        """Create PathStep from an EntityDTO or PathStepDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "LearningStepDTO":  # type: ignore[override]
-        """Convert LearningStep to domain-specific LearningStepDTO."""
+    def to_dto(self) -> "PathStepDTO":  # type: ignore[override]
+        """Convert PathStep to domain-specific PathStepDTO."""
         import dataclasses
         from typing import Any
 
-        from core.models.pathways.learning_step_dto import LearningStepDTO
+        from core.models.pathways.path_step_dto import PathStepDTO
 
-        dto_field_names = {f.name for f in dataclasses.fields(LearningStepDTO)}
+        dto_field_names = {f.name for f in dataclasses.fields(PathStepDTO)}
         kwargs: dict[str, Any] = {}
         for f in dataclasses.fields(self):
             if f.name.startswith("_"):
@@ -138,14 +138,14 @@ class LearningStep(Curriculum):
             if isinstance(value, tuple):
                 value = list(value)
             kwargs[f.name] = value
-        return LearningStepDTO(**kwargs)
+        return PathStepDTO(**kwargs)
 
     def __str__(self) -> str:
-        return f"LearningStep(uid={self.uid}, sequence={self.sequence}, title='{self.title}')"
+        return f"PathStep(uid={self.uid}, sequence={self.sequence}, title='{self.title}')"
 
     def __repr__(self) -> str:
         return (
-            f"LearningStep(uid='{self.uid}', title='{self.title}', "
+            f"PathStep(uid='{self.uid}', title='{self.title}', "
             f"status={self.status}, sequence={self.sequence}, "
             f"mastery={self.current_mastery}/{self.mastery_threshold})"
         )

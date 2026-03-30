@@ -60,7 +60,7 @@ All 14 domains are searchable via `SearchRouter` using `graph_aware_faceted_sear
 | Group | Domains | Ownership | Search Mode |
 |-------|---------|-----------|-------------|
 | Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | User-owned (`OWNS`) | Graph-Aware |
-| Curriculum (3) | Lesson, LS, LP | Shared content (no ownership filter) | Graph-Aware |
+| Curriculum (3) | Lesson, PS, LP | Shared content (no ownership filter) | Graph-Aware |
 | Learning Loop (3) | Exercise, RevisedExercise, Submission | User-owned (`OWNS`) | Graph-Aware |
 | Forms (2) | FormTemplate, FormSubmission | Template=shared, Submission=user-owned | Standard |
 
@@ -78,7 +78,7 @@ _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
     EntityType.TASK, EntityType.GOAL, EntityType.HABIT,
     EntityType.EVENT, EntityType.CHOICE, EntityType.PRINCIPLE,
     # Curriculum (3)
-    EntityType.LESSON, EntityType.LEARNING_STEP, EntityType.LEARNING_PATH,
+    EntityType.LESSON, EntityType.PATH_STEP, EntityType.LEARNING_PATH,
     # Learning Loop (3)
     EntityType.EXERCISE, EntityType.REVISED_EXERCISE, EntityType.EXERCISE_SUBMISSION,
 })
@@ -129,7 +129,7 @@ response = await search_router.faceted_search(request, user_uid)
 2. Domain service executes `graph_aware_faceted_search(request, user_uid, driver)`
 3. Builds Cypher with:
    - `OWNS` relationship filter for Activity Domains (user ownership)
-   - No ownership filter for KU/LS/LP (shared content)
+   - No ownership filter for KU/PS/LP (shared content)
    - Property filters from `SearchRequest`
    - Graph pattern filters (`ready_to_learn`, `supports_goals`, etc.)
 4. Enriches results with `_graph_context` (prerequisites, enables, relationships, learning state)
@@ -437,10 +437,10 @@ request = SearchRequest(
 All search services extend `BaseService[Backend, Model]` with `DomainConfig`. Activity domains use `create_activity_domain_config()`; curriculum domains use `create_curriculum_domain_config()`.
 
 ```python
-class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningStep]):
+class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
     _config = create_curriculum_domain_config(
-        dto_class=LearningStepDTO,
-        model_class=LearningStep,
+        dto_class=PathStepDTO,
+        model_class=PathStep,
         domain_name="ls",
         search_fields=("title", "intent", "description"),
         category_field="domain",
@@ -452,10 +452,10 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
 **Key per-domain methods:**
 
 ```python
-# LS (Learning Steps)
-await ls_service.search.search("python basics", limit=50)
-await ls_service.search.get_for_learning_path("lp_python-mastery_abc")
-await ls_service.search.get_standalone_steps()
+# PS (Path Steps)
+await ps_service.search.search("python basics", limit=50)
+await ps_service.search.get_for_learning_path("lp_python-mastery_abc")
+await ps_service.search.get_standalone_steps()
 
 # LP (Learning Paths)
 await lp_service.search.search("machine learning", limit=50)

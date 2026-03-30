@@ -152,7 +152,7 @@ This migration brings LifePath routes to 23 of 36 route files (64% adoption).
 Remaining route files for DomainRouteConfig migration:
 - search_routes.py
 - assignment_routes.py
-- learning_step_routes.py
+- path_step_routes.py
 - And 10+ others
 
 See `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` for migration guide.

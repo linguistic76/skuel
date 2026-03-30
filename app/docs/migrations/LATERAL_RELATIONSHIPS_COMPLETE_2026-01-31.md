@@ -22,7 +22,7 @@ Successfully implemented **comprehensive lateral relationship infrastructure** a
 
 **Domains Covered:**
 - Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
-- Curriculum Domains (3): KU (Knowledge Units), LS (Learning Steps), LP (Learning Paths)
+- Curriculum Domains (3): KU (Knowledge Units), PS (Path Steps), LP (Learning Paths)
 
 ---
 
@@ -143,7 +143,7 @@ class LateralRelationshipService:
 | **Choices** | `/core/services/choices/choices_lateral_service.py` | 360 | ALTERNATIVE_TO (mutually exclusive), BLOCKS |
 | **Principles** | `/core/services/principles/principles_lateral_service.py` | 390 | Value tensions, foundational principles |
 | **KU** | `/core/services/ku/ku_lateral_service.py` | 330 | ENABLES (learning unlocks), no ownership checks |
-| **LS** | `/core/services/ls/ls_lateral_service.py` | 350 | Step dependencies, alternative approaches |
+| **PS** | `/core/services/ls/ls_lateral_service.py` | 350 | Step dependencies, alternative approaches |
 | **LP** | `/core/services/lp/lp_lateral_service.py` | 340 | Path prerequisites, complementary paths |
 
 ### Pattern Example
@@ -817,7 +817,7 @@ Created full detail pages with relationships visualization:
 
 **Curriculum Domains (3):**
 - `/ku/{uid}` - Knowledge Unit detail (placeholder data, relationships ready)
-- `/ls/{uid}` - Learning Step detail (placeholder data, relationships ready)
+- `/ls/{uid}` - Path Step detail (placeholder data, relationships ready)
 - `/lp/{uid}` - Learning Path detail (placeholder data, relationships ready)
 
 ### Implementation Details

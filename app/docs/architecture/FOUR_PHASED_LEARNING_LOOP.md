@@ -47,7 +47,7 @@ Every measurement flows from real user behaviour, not self-reported progress.
 ║  ACTIVITY TRACK (aggregate-based)                                        ║
 ║  ────────────────────────────────────────────────────────────────────    ║
 ║  [Tasks + Goals + Habits + Events + Choices + Principles]                ║
-║       + [KU mastery + LP progress + LS progress]                         ║
+║       + [KU mastery + LP progress + PS progress]                         ║
 ║                    ↓ (over time window)                                   ║
 ║             [Activity Report] ←── AI or Admin                            ║
 ║                                                                          ║
@@ -148,7 +148,7 @@ Once in Neo4j, Lessons connect through graph relationships:
 (a1:Lesson)-[:ENABLES_KNOWLEDGE]->(a2:Lesson)        // What mastering this unlocks
 (moc:Lesson)-[:ORGANIZES]->(a:Lesson)                // MOC grouping (non-linear)
 (a:Lesson)-[:USES_KU]->(ku:Ku)                        // Composes atomic Kus
-(ls:LearningStep)-[:TRAINS_KU]->(ku:Ku)                // LS trains atomic Kus
+(ls:PathStep)-[:TRAINS_KU]->(ku:Ku)                // PS trains atomic Kus
 ```
 
 ### Layer 2: How You're Learning It — Mastery Tracking
@@ -354,7 +354,7 @@ on-demand AI (`LLM`), or admin-written (`HUMAN`).
 **EntityType:** `EntityType.ACTIVITY_REPORT`
 **Structural position:** Cross-domain aggregator — sits above the domain backends by design.
 Reads across all 6 Activity Domains **and** the Curriculum track (KU mastery, LP progress,
-LS progress) in a single MEGA_QUERY round-trip.
+PS progress) in a single MEGA_QUERY round-trip.
 
 **See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
 canonical taxonomy, all services, API routes, ProcessorType table, graph patterns.
@@ -445,7 +445,7 @@ with six activity-window CALL{} blocks (one per Activity Domain) plus curriculum
             │              │                      │
   context.entities_rich    │    context.knowledge_units_rich
   (6 Activity Domains)     │    context.enrolled_paths_rich
-                           │    context.active_learning_steps_rich
+                           │    context.active_path_steps_rich
                            │
               ProgressReportGenerator.generate()
                            │
@@ -484,7 +484,7 @@ New report sources add `ProcessorType` values; they do not create new EntityType
 | Lesson API routes | `adapters/inbound/lesson_api.py` |
 | Ingestion pipeline | `core/services/ingestion/` |
 | Substance philosophy | `docs/architecture/knowledge_substance_philosophy.md` |
-| Curriculum grouping patterns (KU / LS / LP) | `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` |
+| Curriculum grouping patterns (KU / PS / LP) | `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` |
 | RevisedExercise domain model | `core/models/exercises/revised_exercise.py` |
 | RevisedExercise service | `core/services/revised_exercises/revised_exercise_service.py` |
 | RevisedExercise API routes | `adapters/inbound/revised_exercises_api.py` |

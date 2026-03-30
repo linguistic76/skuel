@@ -131,7 +131,7 @@ async def get_learning_state(
         MATCH (u:User {uid: $user_uid})
         OPTIONAL MATCH (u)-[:MASTERED]->(ku:Entity)
         OPTIONAL MATCH (u)-[:ENROLLED_IN]->(lp:Lp)
-        OPTIONAL MATCH (lp)-[:CONTAINS]->(step:Ls)
+        OPTIONAL MATCH (lp)-[:CONTAINS]->(step:PathStep)
         WITH u,
              collect(DISTINCT ku.uid) as mastered,
              collect(DISTINCT {

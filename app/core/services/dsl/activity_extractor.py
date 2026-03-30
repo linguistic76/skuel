@@ -10,7 +10,7 @@ corresponding SKUEL entities across ALL 13 SKUEL domains:
 - Principles, Choices, Finance (added for 7-domain completeness)
 
 **Curriculum Domains (3) - What I LEARN:**
-- KnowledgeUnit (KU), LearningStep (LS), LearningPath (LP)
+- KnowledgeUnit (KU), PathStep (LS), LearningPath (LP)
 
 **Meta Domains (3) - How I ORGANIZE:**
 - Submissions, Analytics, Calendar
@@ -167,7 +167,7 @@ class ActivityExtractionResult:
 
     # Curriculum Domains (3)
     kus_found: int = 0
-    learning_steps_found: int = 0
+    path_steps_found: int = 0
     learning_paths_found: int = 0
 
     # Meta Domains (3)
@@ -193,7 +193,7 @@ class ActivityExtractionResult:
 
     # Curriculum Domains (3)
     kus_created: int = 0
-    learning_steps_created: int = 0
+    path_steps_created: int = 0
     learning_paths_created: int = 0
 
     # Meta Domains (3)
@@ -219,7 +219,7 @@ class ActivityExtractionResult:
 
     # Curriculum Domains (3)
     created_ku_uids: list[str] = field(default_factory=list)
-    created_ls_uids: list[str] = field(default_factory=list)
+    created_ps_uids: list[str] = field(default_factory=list)
     created_lp_uids: list[str] = field(default_factory=list)
 
     # Meta Domains (3)
@@ -252,7 +252,7 @@ class ActivityExtractionResult:
             + self.finances_created
             # Curriculum Domains (3)
             + self.kus_created
-            + self.learning_steps_created
+            + self.path_steps_created
             + self.learning_paths_created
             # Meta Domains (3)
             + self.reports_created
@@ -283,7 +283,7 @@ class ActivityExtractionResult:
             "finances_found": self.finances_found,
             # Curriculum Domains (3)
             "kus_found": self.kus_found,
-            "learning_steps_found": self.learning_steps_found,
+            "path_steps_found": self.path_steps_found,
             "learning_paths_found": self.learning_paths_found,
             # Meta Domains (3)
             "reports_found": self.reports_found,
@@ -303,7 +303,7 @@ class ActivityExtractionResult:
             "finances_created": self.finances_created,
             # Curriculum Domains (3)
             "kus_created": self.kus_created,
-            "learning_steps_created": self.learning_steps_created,
+            "path_steps_created": self.path_steps_created,
             "learning_paths_created": self.learning_paths_created,
             # Meta Domains (3)
             "reports_created": self.reports_created,
@@ -323,7 +323,7 @@ class ActivityExtractionResult:
             "created_finance_uids": self.created_finance_uids,
             # Curriculum Domains (3)
             "created_ku_uids": self.created_ku_uids,
-            "created_ls_uids": self.created_ls_uids,
+            "created_ps_uids": self.created_ps_uids,
             "created_lp_uids": self.created_lp_uids,
             # Meta Domains (3)
             "created_report_uids": self.created_report_uids,
@@ -365,7 +365,7 @@ class ActivityExtractorService:
 
     **Curriculum Domains (3) - What I LEARN:**
     - KnowledgeUnit (KU): Atomic unit of knowledge content
-    - LearningStep (LS): Single step in a learning journey
+    - PathStep (LS): Single step in a learning journey
     - LearningPath (LP): Complete learning sequence
 
     **Meta Domains (3) - How I ORGANIZE:**
@@ -390,7 +390,7 @@ class ActivityExtractorService:
         finance_service=finance_service,
         # Curriculum Domains (3)
         ku_service=ku_service,
-        ls_service=ls_service,
+        ps_service=ps_service,
         lp_service=lp_service,
         # Meta Domains (3)
         report_service=report_service,
@@ -434,7 +434,7 @@ class ActivityExtractorService:
         finance_service=None,  # FinanceCoreService
         # Curriculum Domains (3)
         ku_service=None,  # LessonCoreService
-        ls_service=None,  # LsCoreService
+        ps_service=None,  # PsCoreService
         lp_service=None,  # LpCoreService
         # Meta Domains (3)
         report_service=None,  # SubmissionsCoreService (for metadata updates)
@@ -461,7 +461,7 @@ class ActivityExtractorService:
 
             # Curriculum Domains (3)
             ku_service: Service for creating knowledge units
-            ls_service: Service for creating learning steps
+            ps_service: Service for creating path steps
             lp_service: Service for creating learning paths
 
             # Meta Domains (3)
@@ -483,7 +483,7 @@ class ActivityExtractorService:
 
         # Curriculum Domains (3)
         self.ku_service = ku_service
-        self.ls_service = ls_service
+        self.ps_service = ps_service
         self.lp_service = lp_service
 
         # Meta Domains (3)
@@ -556,7 +556,7 @@ class ActivityExtractorService:
 
         # Curriculum Domains (3)
         extraction.kus_found = len(parsed.get_knowledge_units())
-        extraction.learning_steps_found = len(parsed.get_learning_steps())
+        extraction.path_steps_found = len(parsed.get_path_steps())
         extraction.learning_paths_found = len(parsed.get_learning_paths())
 
         # Meta Domains (3)
@@ -574,7 +574,7 @@ class ActivityExtractorService:
             f"{extraction.principles_found} principles, {extraction.choices_found} choices, "
             f"{extraction.finances_found} finances, "
             # Curriculum Domains (3)
-            f"{extraction.kus_found} KUs, {extraction.learning_steps_found} LSs, "
+            f"{extraction.kus_found} KUs, {extraction.path_steps_found} LSs, "
             f"{extraction.learning_paths_found} LPs, "
             # Meta Domains (3)
             f"{extraction.reports_found} reports, "
@@ -692,12 +692,12 @@ class ActivityExtractorService:
                     )
 
         # Learning Steps (LS)
-        if self.ls_service and extraction.learning_steps_found > 0:
-            for activity in parsed.get_learning_steps():
+        if self.ps_service and extraction.path_steps_found > 0:
+            for activity in parsed.get_path_steps():
                 result = await self._create_ls(activity, user_uid)
                 if result.is_ok and result.value:
-                    extraction.learning_steps_created += 1
-                    extraction.created_ls_uids.append(result.value)
+                    extraction.path_steps_created += 1
+                    extraction.created_ps_uids.append(result.value)
                 elif result.is_error:
                     extraction.creation_errors.append(
                         f"LS '{activity.description[:30]}...': {result.error}"
@@ -1132,7 +1132,7 @@ class ActivityExtractorService:
         self, activity: ParsedActivityLine, user_uid: UserUID
     ) -> Result[str | None]:
         """
-        Create a LearningStep from parsed activity.
+        Create a PathStep from parsed activity.
 
         Returns the created LS UID or None if creation failed.
         """
@@ -1143,10 +1143,10 @@ class ActivityExtractorService:
         ls_dict = convert_result.value
 
         # Create LS via service
-        if getattr(self.ls_service, "create_ls", None):
-            create_result = await self.ls_service.create_ls(ls_dict, user_uid)
-        elif getattr(self.ls_service, "create", None):
-            create_result = await self.ls_service.create(ls_dict, user_uid)
+        if getattr(self.ps_service, "create_ls", None):
+            create_result = await self.ps_service.create_ls(ls_dict, user_uid)
+        elif getattr(self.ps_service, "create", None):
+            create_result = await self.ps_service.create(ls_dict, user_uid)
         else:
             return Result.fail(
                 Errors.system(
@@ -1158,11 +1158,11 @@ class ActivityExtractorService:
         if create_result.is_error:
             return Result.fail(create_result)
 
-        ls = create_result.value
-        ls_uid = ls.uid if getattr(ls, "uid", None) else ls.get("uid")
-        self.logger.debug(f"Created LS: {ls_uid}")
+        ps = create_result.value
+        ps_uid = ps.uid if getattr(ps, "uid", None) else ps.get("uid")
+        self.logger.debug(f"Created PS: {ps_uid}")
 
-        return Result.ok(ls_uid)
+        return Result.ok(ps_uid)
 
     @with_error_handling(error_type="system", operation="create_lp")
     async def _create_lp(
@@ -1519,13 +1519,13 @@ class ActivityExtractorService:
                 }
                 for a in parsed.get_knowledge_units()
             ],
-            "learning_steps": [
+            "path_steps": [
                 {
                     "description": a.description,
                     "duration_minutes": a.duration_minutes,
                     "primary_ku": a.primary_ku,
                 }
-                for a in parsed.get_learning_steps()
+                for a in parsed.get_path_steps()
             ],
             "learning_paths": [
                 {

@@ -128,7 +128,7 @@ Cross-domain aggregation stays in services — not raw persistence:
 **Curriculum Domains (5):**
 - `KuBackend` — ORGANIZES graph + usage summary + namespace/alias search + relationship queries (13 methods: +7 for related/broader/narrower/learning-path/task/event/habit UIDs)
 - `LessonBackend` — 59 methods across 5 mixins: `_OrganizesMixin` (12), `_LearningStateMixin` (13), `_SemanticMixin` (11), `_KnowledgeContextMixin` (13), `_AdaptiveMixin` (10)
-- `LsBackend` — CONTAINS_KNOWLEDGE CRUD (4 methods) + lesson progress tracking
+- `PsBackend` — CONTAINS_KNOWLEDGE CRUD (4 methods) + lesson progress tracking
 - `LpBackend` — HAS_STEP management (5 methods) + mastery progress queries
 - `ExerciseBackend` — curriculum links + OWNS/FOR_GROUP + student exercise queries (6 methods)
 
@@ -159,7 +159,7 @@ Cross-domain aggregation stays in services — not raw persistence:
 | `ad0a5dcb` | Phase 0-1: _HierarchyMixin + Tasks hierarchy |
 | `a9470fa2` | Phases 2-4: Remaining hierarchy + curriculum CRUD |
 | `35ad08e9` | Phase 5: Remaining 12 services + GroupBackend + NotificationBackend |
-| `e7be457b` | Phases 1-3: Inline Cypher migration (Goals, FormSubmission, Ku, LS) |
+| `e7be457b` | Phases 1-3: Inline Cypher migration (Goals, FormSubmission, Ku, PS) |
 | `17d0b1c5` | Phase 4: ActivityReport, TeacherReview, ExerciseBackend, GroupBackend |
 | `a1c264af` | Phase 5: LateralRelationshipBackend (14 methods) |
 | `84b2b9db` | Phase 6: Fail-fast sweep — eliminate optional-dep fallback patterns |

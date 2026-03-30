@@ -26,7 +26,7 @@ related_skills:
 
 **Skill:** [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
 
-Learning Paths represent complete, sequential learning journeys. They organize Learning Steps into a coherent curriculum with validation, adaptive sequencing, and progress tracking.
+Learning Paths represent complete, sequential learning journeys. They organize Path Steps into a coherent curriculum with validation, adaptive sequencing, and progress tracking.
 
 ## Service Architecture (ADR-030, ADR-031)
 
@@ -40,7 +40,7 @@ LpService coordinates 5 sub-services:
 | `.intelligence` | LpIntelligenceService | ALL intelligence operations (created internally) |
 | `.progress` | LpProgressService | Event-driven tracking |
 
-**Initialization:** Manual (non-standard core signature requires `ls_service`)
+**Initialization:** Manual (non-standard core signature requires `ps_service`)
 **Intelligence:** Created internally by LpService (January 2026 - unified pattern)
 **graph_intel:** REQUIRED (fail-fast validation)
 
@@ -50,7 +50,7 @@ from core.services.lp_service import LpService
 # In services_bootstrap.py
 lp_service = LpService(
     driver=driver,
-    ls_service=ls_service,           # REQUIRED - for step operations
+    ps_service=ps_service,           # REQUIRED - for step operations
     graph_intelligence_service=graph_intelligence,  # REQUIRED
     event_bus=event_bus,
     # Intelligence dependencies (created internally by LpService)
@@ -71,7 +71,7 @@ await lp_service.intelligence.get_next_adaptive_step(path_uid, user_uid)
 
 ## BaseService Inheritance
 
-Both LpCoreService and LpSearchService extend `BaseService` (January 2026 alignment with LS pattern):
+Both LpCoreService and LpSearchService extend `BaseService` (January 2026 alignment with PS pattern):
 
 ```python
 class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
@@ -164,7 +164,7 @@ LpIntelligenceService is created internally by LpService (January 2026 - unified
 
 **Internal creation pattern:**
 - LpService now creates LpIntelligenceService internally
-- Matches the unified pattern used by all other domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, MOC)
+- Matches the unified pattern used by all other domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, MOC)
 - Parameter count reduced from 11+ to 7
 
 ### Facade Aggregation Methods (March 2026)
@@ -188,10 +188,10 @@ Extracted from `pathways_ui.py` route handlers into `LpService` facade:
 | **Validation** | `get_optimal_path_recommendation(user_uid)` | `Result[Lp]` | Best path for user |
 | **Context** | `get_path_with_context(path_uid)` | `Result[dict]` | Path with graph context |
 | **Analysis** | `analyze_path_knowledge_scope(path_uid)` | `Result[dict]` | Knowledge coverage analysis |
-| **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Future* — traverses Lesson practice relationships via `(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:activity_rel]->` |
+| **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Future* — traverses Lesson practice relationships via `(PS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:activity_rel]->` |
 | **Adaptive** | `find_learning_sequence(goals, user_uid)` | `Result[list]` | Optimal step sequence |
 | **Adaptive** | `get_next_adaptive_step(path_uid, user_uid)` | `Result[Ls]` | Best next step |
-| **Adaptive** | `get_recommended_learning_steps(user_uid)` | `Result[list]` | Daily "what to learn" |
+| **Adaptive** | `get_recommended_path_steps(user_uid)` | `Result[list]` | Daily "what to learn" |
 | **State** | `analyze_learning_state(context)` | `Result[LearningAnalysis]` | Comprehensive state analysis |
 | **Content** | `recommend_content(context, pool)` | `Result[list]` | Content recommendations |
 
@@ -240,10 +240,10 @@ the concept but has no structured way to embody it.
 
 ### Existing Infrastructure (Already Built)
 
-The per-step practice analysis already works via `LsIntelligenceService`:
+The per-step practice analysis already works via `PsIntelligenceService`:
 
 ```python
-# These methods exist TODAY in /core/services/ls/ls_intelligence_service.py
+# These methods exist TODAY in /core/services/ls/ps_intelligence_service.py
 
 # Count practice items per step
 result = await ls_intelligence.get_practice_summary("ls:functions")
@@ -261,7 +261,7 @@ await ls_intelligence.has_practice_opportunities("ls:functions")  # → True
 The Cypher that powers this (two-hop traversal through Lessons):
 
 ```cypher
-MATCH (ls:Entity {uid: $ls_uid})
+MATCH (ls:Entity {uid: $ps_uid})
 OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:BUILDS_HABIT]->(h)
 OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:ASSIGNS_TASK]->(t)
 OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l3)-[:SCHEDULES_EVENT]->(e)
@@ -276,28 +276,28 @@ RETURN count(DISTINCT h) as habits,
        count(DISTINCT c) as choices
 ```
 
-### What's Missing (The Gap Between LS and LP)
+### What's Missing (The Gap Between PS and LP)
 
 The per-step methods work, but LP-level analysis needs **cross-service access**:
 
 ```
-LpIntelligenceService  ──needs──>  LsIntelligenceService
+LpIntelligenceService  ──needs──>  PsIntelligenceService
         │                                    │
         │  "For each step in this path,      │  "For this step, count
         │   what practice is missing?"       │   habits, tasks, events"
         └────────────────────────────────────┘
 ```
 
-**Current state:** `LpIntelligenceService` has no reference to `LsIntelligenceService`.
+**Current state:** `LpIntelligenceService` has no reference to `PsIntelligenceService`.
 **Required change:** Inject `ls_intelligence` as a constructor parameter, or access via
-`LsService.intelligence` through the existing `ls_service` dependency.
+`PsService.intelligence` through the existing `ps_service` dependency.
 
 ### Implementation Path
 
 When learning paths have content with practice relationships:
 
 1. **Wire the dependency** — `LpIntelligenceService.__init__` accepts `ls_intelligence` parameter
-   (or access `ls_service.intelligence` from the factory in `curriculum_domain_config.py`)
+   (or access `ps_service.intelligence` from the factory in `curriculum_domain_config.py`)
 
 2. **Implement the method:**
    ```python
@@ -305,7 +305,7 @@ When learning paths have content with practice relationships:
        # Get path and its steps
        path = await self.backend.get(path_uid)
 
-       # For each step, call existing LS intelligence
+       # For each step, call existing PS intelligence
        gaps = []
        for step in path.steps:
            score = await self.ls_intelligence.practice_completeness_score(step.uid)
@@ -365,12 +365,12 @@ When learning paths have content with practice relationships:
 SKUEL's [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md)
 measures knowledge by how it's *lived*. A learning path without practice relationships is
 a reading list — not a curriculum. Practice gap analysis ensures every step has concrete
-ways to embody the knowledge, connecting the curriculum domain (KU/LS/LP) to the activity
+ways to embody the knowledge, connecting the curriculum domain (KU/PS/LP) to the activity
 domains (Tasks, Habits, Events).
 
 ### See Also
 
-- [LS Domain: Practice Infrastructure](ls.md#cross-domain-practice-infrastructure)
+- [PS Domain: Practice Infrastructure](ls.md#cross-domain-practice-infrastructure)
 - [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md)
 - [Curriculum Grouping Patterns](../architecture/CURRICULUM_GROUPING_PATTERNS.md)
 
@@ -385,7 +385,7 @@ domains (Tasks, Habits, Events).
 
 ## See Also
 
-- [LS Domain](ls.md) - Paths contain steps
+- [PS Domain](ls.md) - Paths contain steps
 - [KU Domain](ku.md) - Steps contain KUs
 - [LifePath Domain](lifepath.md) - Ultimate learning goal
 - [Curriculum Grouping Patterns](../architecture/CURRICULUM_GROUPING_PATTERNS.md)

@@ -169,7 +169,7 @@ from core.services.user.intelligence import UserContextIntelligence
 
 | # | Method | Mixin | Purpose |
 |---|--------|-------|---------|
-| 1 | `get_optimal_next_learning_steps()` | LearningIntelligenceMixin | What should I learn next? |
+| 1 | `get_optimal_next_path_steps()` | LearningIntelligenceMixin | What should I learn next? |
 | 2 | `get_learning_path_critical_path()` | LearningIntelligenceMixin | Fastest route to life path? |
 | 3 | `get_knowledge_application_opportunities()` | LearningIntelligenceMixin | Where can I apply this? |
 | 4 | `get_unblocking_priority_order()` | LearningIntelligenceMixin | What unlocks the most? |

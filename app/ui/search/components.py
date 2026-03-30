@@ -232,7 +232,7 @@ def _render_entity_type_select() -> str:
     entity_types = [
         ("", "All Types"),
         ("ku", "Knowledge Units"),
-        ("ls", "Learning Steps"),
+        ("ps", "Path Steps"),
         ("lp", "Learning Paths"),
         ("moc", "Maps of Content"),
         ("task", "Tasks"),

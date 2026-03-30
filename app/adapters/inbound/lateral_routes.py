@@ -37,7 +37,7 @@ _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
     ("choices", "Choice", "choices"),
     ("principles", "Principle", "principles"),
     ("ku", "Knowledge Unit", None),
-    ("ls", "Learning Step", None),
+    ("ps", "Path Step", None),
     ("lp", "Learning Path", None),
 ]
 

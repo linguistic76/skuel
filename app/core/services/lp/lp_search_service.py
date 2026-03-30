@@ -194,12 +194,12 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
 
     async def get_by_knowledge(self, ku_uid: str, limit: int = 20) -> Result[list[LearningPath]]:
         """
-        Find learning paths that teach this knowledge (via learning steps).
+        Find learning paths that teach this knowledge (via path steps).
 
         Complementary to LessonGraphService.find_learning_paths_teaching().
         Returns full LP entities instead of just UIDs.
 
-        Graph Pattern: (Ku{learning_path})-[:HAS_STEP]->(Ku{learning_step})-[:CONTAINS_KNOWLEDGE]->(Ku)
+        Graph Pattern: (Ku{learning_path})-[:HAS_STEP]->(Ku{path_step})-[:CONTAINS_KNOWLEDGE]->(Ku)
 
         This is a 2-hop indirect relationship query. Uses DISTINCT since
         multiple steps within a path may contain the same knowledge.
@@ -217,7 +217,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Entity {entity_type: 'learning_step'})<-[:HAS_STEP]-(lp:Entity {entity_type: 'learning_path'})
+            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Entity {entity_type: 'path_step'})<-[:HAS_STEP]-(lp:Entity {entity_type: 'learning_path'})
             RETURN DISTINCT lp
             ORDER BY lp.created_at DESC
             LIMIT $limit

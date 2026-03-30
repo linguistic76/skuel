@@ -95,7 +95,7 @@ async def get_task(self, task_uid: EntityUID) -> Result[Task]:
 ### Dot Notation (Curriculum Domains)
 - Pattern: `prefix.parts...`
 - Examples: `ku.yoga.meditation`, `path.beginner.python`, `moc.tech.overview`
-- Used by: KU, LS, LP, MOC
+- Used by: KU, PS, LP, MOC
 
 ### Underscore Notation (Activity Domains)
 - Pattern: `prefix_slug_random` or `prefix_random`

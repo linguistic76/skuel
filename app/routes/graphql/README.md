@@ -92,7 +92,7 @@ routes/graphql/
 ├── context.py           # DataLoader + GraphQLContext (per-request)
 ├── config.py            # Guardrails configuration (GraphQLConfig)
 ├── auth.py              # require_user_uid(), resolve_target_user()
-├── protocols.py         # Structural protocols (LearningStepLike, etc.)
+├── protocols.py         # Structural protocols (PathStepLike, etc.)
 ├── GUARDRAILS.md        # Complete guardrails documentation
 ├── AUTHENTICATION.md    # Two-layer auth design
 ├── DATALOADER_GUIDE.md  # N+1 prevention patterns

@@ -14,10 +14,10 @@ from routes.graphql.mappers import (
     knowledge_node_from_dto,
     knowledge_node_from_search_dict,
     learning_path_from_dto,
-    learning_step_from_domain,
+    path_step_from_domain,
     task_from_dto,
 )
-from routes.graphql.types import KnowledgeNode, LearningPath, LearningStep, Task
+from routes.graphql.types import KnowledgeNode, LearningPath, PathStep, Task
 
 # --------------------------------------------------------------------------
 # Minimal protocol-satisfying stubs
@@ -60,7 +60,7 @@ class FakeLearningPath:
 
 
 @dataclass
-class FakeLearningStep:
+class FakePathStep:
     uid: str = "ls_test_abc"
     title: str = "Test Step"
     knowledge_uids: tuple[str, ...] = ("ku_primary",)
@@ -200,16 +200,16 @@ class TestLearningPathFromDto:
 
 
 # --------------------------------------------------------------------------
-# learning_step_from_domain
+# path_step_from_domain
 # --------------------------------------------------------------------------
 
 
-class TestLearningStepFromDomain:
+class TestPathStepFromDomain:
     def test_basic_conversion(self) -> None:
-        step = FakeLearningStep()
-        result = learning_step_from_domain(step, step_number=3)
+        step = FakePathStep()
+        result = path_step_from_domain(step, step_number=3)
 
-        assert isinstance(result, LearningStep)
+        assert isinstance(result, PathStep)
         assert result.step_number == 3
         assert result.uid == "ls_test_abc"
         assert result.title == "Test Step"
@@ -218,11 +218,11 @@ class TestLearningStepFromDomain:
         assert result.estimated_time == 2.5
 
     def test_empty_knowledge_uids(self) -> None:
-        step = FakeLearningStep(knowledge_uids=())
-        result = learning_step_from_domain(step, step_number=1)
+        step = FakePathStep(knowledge_uids=())
+        result = path_step_from_domain(step, step_number=1)
         assert result.knowledge_uid == ""
 
     def test_list_knowledge_uids(self) -> None:
-        step = FakeLearningStep(knowledge_uids=["ku_a", "ku_b"])
-        result = learning_step_from_domain(step, step_number=1)
+        step = FakePathStep(knowledge_uids=["ku_a", "ku_b"])
+        result = path_step_from_domain(step, step_number=1)
         assert result.knowledge_uid == "ku_a"

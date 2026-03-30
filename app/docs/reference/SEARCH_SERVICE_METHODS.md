@@ -15,7 +15,7 @@ Complete catalog of methods across all 10 domain search services. All services e
 
 Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-specific
 
-| Method | Tasks | Goals | Habits | Events | Choices | Principles | KU | LS | LP | MOC |
+| Method | Tasks | Goals | Habits | Events | Choices | Principles | KU | PS | LP | MOC |
 |--------|:-----:|:-----:|:------:|:------:|:-------:|:----------:|:--:|:--:|:--:|:---:|
 | **Inherited (BaseService)** |
 | `search()` | I | I | I | I | I | I | I | I | I | I |
@@ -444,9 +444,9 @@ _graph_enrichment_patterns = [
 
 ---
 
-### LsSearchService
+### PsSearchService
 
-**File:** `core/services/ls/ls_search_service.py`
+**File:** `core/services/ls/ps_search_service.py`
 
 **Configuration:**
 ```python
@@ -457,7 +457,7 @@ _user_ownership_relationship = None  # Shared content
 _graph_enrichment_patterns = [
     ("CONTAINS_KNOWLEDGE", "Ku", "knowledge_units", "outgoing"),
     ("HAS_STEP", "LearningPath", "parent_paths", "incoming"),
-    ("REQUIRES_STEP", "LearningStep", "prerequisite_steps", "outgoing"),
+    ("REQUIRES_STEP", "PathStep", "prerequisite_steps", "outgoing"),
 ]
 ```
 
@@ -483,7 +483,7 @@ _category_field = "domain"
 _supports_user_progress = True
 _user_ownership_relationship = None  # Shared content (can be user-created)
 _graph_enrichment_patterns = [
-    ("HAS_STEP", "LearningStep", "steps", "outgoing"),
+    ("HAS_STEP", "PathStep", "steps", "outgoing"),
     ("ALIGNED_WITH_GOAL", "Goal", "aligned_goals", "outgoing"),
     ("REQUIRES_KNOWLEDGE", "Ku", "prerequisite_knowledge", "outgoing"),
 ]

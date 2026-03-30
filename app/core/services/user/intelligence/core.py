@@ -15,14 +15,14 @@ UserContextIntelligence = UserContext + Domain Services
 **Entity Types:**
 
     Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
-    Curriculum: Lesson, Ku, LearningStep, LearningPath, Exercise
+    Curriculum: Lesson, Ku, PathStep, LearningPath, Exercise
     Curated Content: Resource
     Content processing: Submission, Journal, ActivityReport, ExerciseReport
     Destination: LifePath
     Cross-cutting: Calendar, Analytics, Report
 
 **The 8 Core Methods (via mixins):**
-1. get_optimal_next_learning_steps() - What should I learn next?
+1. get_optimal_next_path_steps() - What should I learn next?
 2. get_learning_path_critical_path() - Fastest route to life path?
 3. get_knowledge_application_opportunities() - Where can I apply this?
 4. get_unblocking_priority_order() - What unlocks the most?
@@ -82,7 +82,7 @@ class UserContextIntelligence(
 
     Curriculum Domains (3):
     - lesson: LessonService - What knowledge is ready?
-    - ls: UnifiedRelationshipService - Learning step relationships (unified)
+    - ps: UnifiedRelationshipService - Path step relationships (unified)
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
 
     Processing Domains (3):
@@ -101,7 +101,7 @@ class UserContextIntelligence(
 
     **Mixin Architecture:**
     This class composes functionality from specialized mixins:
-    - LearningIntelligenceMixin: Methods 1-4 (learning steps, critical path)
+    - LearningIntelligenceMixin: Methods 1-4 (path steps, critical path)
     - LifePathIntelligenceMixin: Method 7 (life path alignment)
     - SynergyIntelligenceMixin: Method 6 (cross-domain synergies)
     - ScheduleIntelligenceMixin: Method 8 (schedule-aware recommendations)
@@ -124,7 +124,7 @@ class UserContextIntelligence(
         principles: UnifiedRelationshipService,
         # Curriculum Domains (3) - REQUIRED
         lesson: LessonService,
-        ls: UnifiedRelationshipService,  # January 2026: Unified
+        ps: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
         submissions: SubmissionsRelationshipService,
@@ -134,7 +134,7 @@ class UserContextIntelligence(
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements
         vector_search: Any = None,
-        # Optional: ZPD service for curriculum-graph-aware learning step ranking
+        # Optional: ZPD service for curriculum-graph-aware path step ranking
         zpd_service: ZPDOperations | None = None,
         # Optional: FilteredContextProvider dict for on-demand domain queries
         filtered_providers: dict[str, FilteredContextProvider] | None = None,
@@ -155,7 +155,7 @@ class UserContextIntelligence(
 
             Curriculum Domains (3):
                 lesson: Lesson service for learning readiness
-                ls: Learning step service for step sequencing
+                ps: Path step service for step sequencing
                 lp: Learning path service for critical path analysis
 
             Processing Domains (3):
@@ -185,7 +185,7 @@ class UserContextIntelligence(
             "principles": principles,
             # Curriculum Domains (3)
             "lesson": lesson,
-            "ls": ls,
+            "ps": ps,
             "lp": lp,
             # Processing Domains (3)
             "submissions": submissions,
@@ -215,7 +215,7 @@ class UserContextIntelligence(
 
         # Curriculum domains (3)
         self.lesson = lesson
-        self.ls = ls
+        self.ps = ps
         self.lp = lp
 
         # Processing domains (3)
@@ -229,8 +229,8 @@ class UserContextIntelligence(
         # Optional: Vector search for semantic enhancements
         self.vector_search = vector_search
 
-        # Optional: ZPD service for curriculum-graph-aware learning step ranking.
-        # When set, get_optimal_next_learning_steps() uses ZPD proximal zone + readiness
+        # Optional: ZPD service for curriculum-graph-aware path step ranking.
+        # When set, get_optimal_next_path_steps() uses ZPD proximal zone + readiness
         # scores as the primary ranking signal (fallback: activity-based algorithm).
         # See: core/services/zpd/zpd_service.py, core/ports/zpd_protocols.py
         self.zpd_service = zpd_service

@@ -231,8 +231,8 @@ class AdaptiveLpCoreService:
 
             # Practical learners: apply knowledge immediately
             # GRAPH-NATIVE MIGRATION: applies_knowledge_uids removed from TaskDTO
-            # Use source_learning_step_uid or knowledge_mastery_check as proxy for learning tasks
-            if task.source_learning_step_uid or task.knowledge_mastery_check:
+            # Use source_path_step_uid or knowledge_mastery_check as proxy for learning tasks
+            if task.source_path_step_uid or task.knowledge_mastery_check:
                 style_scores[LearningStyle.PRACTICAL] += 0.3
 
             # Theoretical learners: knowledge mastery checks
@@ -250,8 +250,8 @@ class AdaptiveLpCoreService:
 
             # Independent learners: self-directed, no prerequisites
             # GRAPH-NATIVE MIGRATION: prerequisite fields removed from TaskDTO
-            # Use lack of parent_uid and learning_step as proxy for independent work
-            if not task.parent_uid and not task.source_learning_step_uid:
+            # Use lack of parent_uid and path_step as proxy for independent work
+            if not task.parent_uid and not task.source_path_step_uid:
                 style_scores[LearningStyle.INDEPENDENT] += 0.1
 
         # Normalize scores

@@ -12,7 +12,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
                         = User State + Complete Graph Intelligence
 
 **Package Structure:**
-- learning_intelligence.py: Methods 1-4 (learning steps, critical path)
+- learning_intelligence.py: Methods 1-4 (path steps, critical path)
 - life_path_intelligence.py: Method 7 (life path alignment)
 - synergy_intelligence.py: Method 6 (cross-domain synergies)
 - schedule_intelligence.py: Method 8 (schedule-aware recommendations)
@@ -21,7 +21,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
 - factory.py: UserContextIntelligenceFactory
 
 **The 8 Core Methods:**
-1. get_optimal_next_learning_steps() - What should I learn next?
+1. get_optimal_next_path_steps() - What should I learn next?
 2. get_learning_path_critical_path() - Fastest route to life path?
 3. get_knowledge_application_opportunities() - Where can I apply this?
 4. get_unblocking_priority_order() - What unlocks the most?
@@ -46,7 +46,7 @@ from core.services.user.intelligence import (
 from core.services.user.intelligence import (
     LifePathAlignment,
     CrossDomainSynergy,
-    LearningStep,
+    PathStep,
     DailyWorkPlan,
     ScheduleAwareRecommendation,
 )
@@ -58,7 +58,7 @@ from core.services.user.intelligence import (
 from core.models.context_types import (
     CrossDomainSynergy,
     DailyWorkPlan,
-    LearningStep,
+    PathStep,
     LifePathAlignment,
     ScheduleAwareRecommendation,
 )
@@ -87,7 +87,7 @@ __all__ = [
     # Data types
     "CrossDomainSynergy",
     "DailyWorkPlan",
-    "LearningStep",
+    "PathStep",
     "LifePathAlignment",
     "ScheduleAwareRecommendation",
 ]

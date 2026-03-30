@@ -10,7 +10,7 @@ Inherits common fields from UserOwnedEntity. Adds 26 event-specific fields:
 - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
 - Reminders (2): reminder_minutes, reminder_sent
 - Attendees (2): attendee_emails, max_attendees
-- Cross-domain links (3): reinforces_habit_uid, source_learning_step_uid,
+- Cross-domain links (3): reinforces_habit_uid, source_path_step_uid,
   source_learning_path_uid
 - Curriculum/milestone integration (4): milestone_celebration_for_goal,
   is_milestone_event, milestone_type, curriculum_week
@@ -18,7 +18,7 @@ Inherits common fields from UserOwnedEntity. Adds 26 event-specific fields:
   recurrence_maintains_habit, skip_breaks_habit_streak
 
 Event-specific methods: start_datetime, end_datetime, overlaps_with, is_past,
-get_summary, explain_existence, category, is_from_learning_step, from_dto.
+get_summary, explain_existence, category, is_from_path_step, from_dto.
 
 See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
@@ -93,7 +93,7 @@ class Event(UserOwnedEntity):
     # CROSS-DOMAIN LINKS
     # =========================================================================
     reinforces_habit_uid: str | None = None  # EVENT -> HABIT
-    source_learning_step_uid: str | None = None  # EVENT -> LS
+    source_path_step_uid: str | None = None  # EVENT -> LS
     source_learning_path_uid: str | None = None  # EVENT -> LP
 
     # =========================================================================
@@ -153,14 +153,14 @@ class Event(UserOwnedEntity):
         return self.domain.value if self.domain else None
 
     @property
-    def is_from_learning_step(self) -> bool:
-        """Check if this event originated from a learning step."""
-        return self.source_learning_step_uid is not None
+    def is_from_path_step(self) -> bool:
+        """Check if this event originated from a path step."""
+        return self.source_path_step_uid is not None
 
     @property
-    def fulfills_learning_step(self) -> bool:
-        """Check if this event fulfills a learning step."""
-        return self.source_learning_step_uid is not None
+    def fulfills_path_step(self) -> bool:
+        """Check if this event fulfills a path step."""
+        return self.source_path_step_uid is not None
 
     def get_summary(self, max_length: int = 200) -> str:
         """Get a summary of the event."""

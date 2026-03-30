@@ -41,7 +41,7 @@ The test suite runs 1966 tests without any API mocking for AI services. Services
 
 | Domain | Capability |
 |--------|-----------|
-| **Curriculum** | Lesson, Ku, Exercise, LearningStep, LearningPath authoring and ingestion |
+| **Curriculum** | Lesson, Ku, Exercise, PathStep, LearningPath authoring and ingestion |
 | **Activity** | Task, Goal, Habit, Event, Choice, Principle — full CRUD with status transitions |
 | **Search** | Keyword search across 15 domains via Neo4j fulltext indexes (auto-created at bootstrap) |
 | **User Context** | ~250-field UserContext built from MEGA-QUERY (standard + rich) |

@@ -143,7 +143,7 @@ When you talk to Askesis, it reads your ZPD assessment before responding. This s
 
 ### Learning Recommendations
 
-`UserContextIntelligence.get_optimal_next_learning_steps()` uses ZPD as its primary signal. The proximal zone KUs, ranked by readiness score, become the recommended next steps.
+`UserContextIntelligence.get_optimal_next_path_steps()` uses ZPD as its primary signal. The proximal zone KUs, ranked by readiness score, become the recommended next steps.
 
 ### Intelligence Tier
 

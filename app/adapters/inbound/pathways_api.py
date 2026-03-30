@@ -17,7 +17,7 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.result_helpers import require_found
-from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.path_step import PathStep
 from core.models.pathways.pathways_request import (
     LearningPathProgressRequest,
 )
@@ -58,13 +58,13 @@ def create_pathways_api_routes(
 
     @rt("/api/pathways/steps")
     @boundary_handler()
-    async def get_path_steps_route(request: Request, path_uid: str) -> Result[list[LearningStep]]:
+    async def get_path_steps_route(request: Request, path_uid: str) -> Result[list[PathStep]]:
         """Get all steps for a learning path."""
         return await learning_service.get_path_steps(path_uid)
 
     @rt("/api/pathways/current-step")
     @boundary_handler()
-    async def get_current_step_route(request: Request, path_uid: str) -> Result[LearningStep]:
+    async def get_current_step_route(request: Request, path_uid: str) -> Result[PathStep]:
         """Get the current (first incomplete) step in a learning path."""
 
         return require_found(
@@ -79,7 +79,7 @@ def create_pathways_api_routes(
     @rt("/api/pathways/progress")
     @boundary_handler(success_status=201)
     async def update_progress_route(request: Request) -> Result[dict[str, Any]]:
-        """Update progress for a learning step.
+        """Update progress for a path step.
 
         Resolves the step's knowledge UIDs and records mastery or progress
         for each via UserService delegation to UserProgressRecorderService.
@@ -92,7 +92,7 @@ def create_pathways_api_routes(
         # Resolve step to knowledge UIDs
         step_found = require_found(
             await learning_service.get_step(progress_req.step_uid),
-            "LearningStep",
+            "PathStep",
             progress_req.step_uid,
         )
         if step_found.is_error:

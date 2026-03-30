@@ -5,7 +5,7 @@ Text Truncation — Sentence-Boundary-Aware Truncation for LLM Context
 Truncates text to a character budget while preserving readability by
 cutting at sentence or paragraph boundaries where possible.
 
-Used by Askesis pipeline components (LSBundle, ResponseGenerator,
+Used by Askesis pipeline components (PsBundle, ResponseGenerator,
 QueryProcessor) to prevent unbounded context growth.
 
 March 2026: Created to fix unbounded LLM context in Askesis RAG pipeline.

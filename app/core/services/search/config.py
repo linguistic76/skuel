@@ -130,7 +130,7 @@ SEARCH_FIELD_CONFIG: dict[EntityType | NonKuDomain, SearchFieldConfig] = {
         filter_fields=("domain", "complexity", "learning_level", "status"),
         order_by="quality_score",
     ),
-    EntityType.LEARNING_STEP: SearchFieldConfig(
+    EntityType.PATH_STEP: SearchFieldConfig(
         text_fields=("title", "intent", "description"),
         array_fields=(),
         filter_fields=("domain", "status"),

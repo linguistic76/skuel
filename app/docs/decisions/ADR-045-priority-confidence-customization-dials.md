@@ -32,7 +32,7 @@ Two orthogonal concerns emerged from actual usage:
    (Tasks, Goals, Habits, Events, Choices, Principles) where urgency is user-controlled.
 
 2. **Epistemic certainty** — "How sure are we about this?" This belongs on *curriculum entities*
-   (KU, LS, LP) where knowledge confidence is admin-assessed, and on *lateral relationship edges*
+   (KU, PS, LP) where knowledge confidence is admin-assessed, and on *lateral relationship edges*
    where it represents the strength of the assertion that two entities are related.
 
 These dimensions appear together constantly in real planning:
@@ -55,7 +55,7 @@ class Priority(str, Enum):
     HIGH     = "high"      # → 3, amber
     CRITICAL = "critical"  # → 4, red  ← surfaces to top of daily plan
 
-# Confidence — on Curriculum (KU, LS, LP) + ALL lateral relationship edges
+# Confidence — on Curriculum (KU, PS, LP) + ALL lateral relationship edges
 class Confidence(str, Enum):
     UNCERTAIN = "uncertain"  # → 0.3, red    (exploratory, speculative)
     LOW       = "low"        # → 0.5, amber
@@ -70,7 +70,7 @@ Both enums live in `core/models/enums/activity_enums.py`.
 UserOwnedEntity hierarchy (Tasks, Goals, Habits, Events, Choices, Principles, Submissions, LifePath).
 
 **Confidence placement (two slots):**
-- Entity: `Curriculum.confidence: str | None` — present on KU, LS, LP (and their request models)
+- Entity: `Curriculum.confidence: str | None` — present on KU, PS, LP (and their request models)
 - Edge: `rel.confidence: float` — property on all lateral relationship edges across all 9 domains
 
 ---
@@ -172,7 +172,7 @@ Future capabilities enabled by these dials:
 | Uncertainty review queue | Admin dashboard for UNCERTAIN curriculum items | When curriculum grows >500 KUs |
 | Priority-filtered notifications | Push only CRITICAL items | When notification system is built |
 | Confidence decay | Certainty degrades over time without reinforcement | When longitudinal knowledge tracking is needed |
-| Cross-domain propagation | If prerequisite KU is UNCERTAIN, dependent LS confidence drops | When ZPD service is in production |
+| Cross-domain propagation | If prerequisite KU is UNCERTAIN, dependent PS confidence drops | When ZPD service is in production |
 
 ---
 

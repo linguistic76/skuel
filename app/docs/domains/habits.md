@@ -306,7 +306,7 @@ Unlike tasks which require knowledge mastery, habits require **prerequisite habi
 | `suggest_habit_frequency(user_uid, category)` | Recommend optimal frequency based on history |
 | `optimize_habit_schedule(habit_uid, context)` | Suggest schedule adjustments based on patterns |
 | `suggest_habit_stacking(user_uid)` | Find established habits to stack with (James Clear pattern) |
-| `create_habit_from_learning_step(step_uid, context)` | Generate practice habit from curriculum |
+| `create_habit_from_path_step(step_uid, context)` | Generate practice habit from curriculum |
 | `get_habit_load_by_day(user_uid)` | Calculate effort distribution across the week |
 
 ### Habit Load Capacity

@@ -51,10 +51,10 @@ All use `dto_from_dict` with automatic filtering:
 | Domain | Status | Notes |
 |--------|--------|-------|
 | **KU** | ✅ Aligned | Migrated to `dto_from_dict` |
-| **LS** | ⏭️ Different Pattern | Uses custom converters, no `from_dict` |
+| **PS** | ⏭️ Different Pattern | Uses custom converters, no `from_dict` |
 | **LP** | ⏭️ Different Pattern | Uses custom converters, no `from_dict` |
 
-**LS/LP:** Use `ls_create_request_to_dto()` and `lp_create_request_to_dto()` converters instead of `from_dict`. Not affected by this issue.
+**PS/LP:** Use `ls_create_request_to_dto()` and `lp_create_request_to_dto()` converters instead of `from_dict`. Not affected by this issue.
 
 ## Changes Made
 

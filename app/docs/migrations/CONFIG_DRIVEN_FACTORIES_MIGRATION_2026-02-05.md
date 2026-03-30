@@ -445,7 +445,7 @@ This order ensures factories with static params run first, then domain-specific 
 
 ### Potential Future Enhancements
 
-1. **Extend to Other Domains:** Curriculum domains (KU, LS, LP) could benefit if they adopt similar patterns
+1. **Extend to Other Domains:** Curriculum domains (KU, PS, LP) could benefit if they adopt similar patterns
 2. **Type Safety:** Add Protocol for factory function signatures
 3. **Validation:** Pre-flight checks for required services
 4. **Auto-Discovery:** Detect required services from factory signatures

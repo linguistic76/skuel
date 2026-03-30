@@ -256,10 +256,10 @@ class ActivityReportService:
                 ],
             }
 
-        # Curriculum track — active learning steps
-        if include_all or "learning_steps" in (domains or []):
-            ls_items = activity.get("learning_steps", [])
-            snapshot["domains"]["learning_steps"] = {
+        # Curriculum track — active path steps
+        if include_all or "path_steps" in (domains or []):
+            ls_items = activity.get("path_steps", [])
+            snapshot["domains"]["path_steps"] = {
                 "count": len(ls_items),
                 "items": [
                     {

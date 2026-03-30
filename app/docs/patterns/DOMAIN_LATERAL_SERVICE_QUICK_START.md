@@ -121,7 +121,7 @@ events_lateral = EventsLateralService(driver=driver, events_service=activity_ser
 choices_lateral = ChoicesLateralService(driver=driver, choices_service=activity_services["choices"])
 principles_lateral = PrinciplesLateralService(driver=driver, principles_service=activity_services["principles"])
 ku_lateral = KuLateralService(driver=driver, ku_service=learning_services["ku_service"])
-ls_lateral = LsLateralService(driver=driver, ls_service=learning_services["learning_steps"])
+ls_lateral = LsLateralService(driver=driver, ps_service=learning_services["path_steps"])
 lp_lateral = LpLateralService(driver=driver, lp_service=learning_services["learning_paths"])
 ```
 
@@ -346,7 +346,7 @@ class HabitsLateralService:
 - **RELATED_TO** - Topics in similar domain
 - **SIMILAR_TO** - Overlapping content
 
-### Learning Steps (LS)
+### Path Steps (PS)
 - **PREREQUISITE_FOR** - Step order in curriculum
 - **ALTERNATIVE_TO** - Different learning approaches
 
@@ -396,6 +396,6 @@ class HabitsLateralService:
 5. **Create Graph Visualizations** (interactive relationship maps)
 
 **Total domains to implement:** 8
-- Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP
+- Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP
 
 **Total estimated time:** 4-8 hours for all domains

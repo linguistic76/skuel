@@ -199,7 +199,7 @@ Lateral routes are the within-domain relationship API — how entities of the sa
 lateral_routes.py (Orchestrator)
     │
     ├── LateralRouteFactory × 9
-    │   (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP)
+    │   (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP)
     │   │
     │   └── Generates per domain:
     │       ├── POST .../blocks          (create blocking)

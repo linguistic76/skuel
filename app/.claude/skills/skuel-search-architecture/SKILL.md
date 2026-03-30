@@ -57,10 +57,10 @@ All search services extend `BaseService[Backend, Model]` using **DomainConfig** 
 
 ```python
 # Curriculum domain example (shared content, admin creates, all users read)
-class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningStep]):
+class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
     _config = create_curriculum_domain_config(
-        dto_class=LearningStepDTO,
-        model_class=LearningStep,
+        dto_class=PathStepDTO,
+        model_class=PathStep,
         domain_name="ls",
         search_fields=("title", "intent", "description"),
         category_field="domain",
@@ -130,7 +130,7 @@ result = await search_router.advanced_search(request)
 
 ```python
 # LS-specific (call on service directly, not via SearchRouter)
-await ls_service.search.get_for_learning_path("lp:python-mastery")
+await ps_service.search.get_for_learning_path("lp:python-mastery")
 
 # LP-specific
 await lp_service.search.get_aligned_with_goal("goal:learn-python")

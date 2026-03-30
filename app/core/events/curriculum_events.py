@@ -4,15 +4,15 @@ Curriculum Events (LS)
 
 *Last updated: 2026-01-20*
 
-Events published by curriculum services (LsService).
+Events published by curriculum services (PsService).
 
 These events complement learning_events.py which covers KU and LP events.
 
 Event Catalog:
-- learning_step.created - Learning step created
-- learning_step.updated - Learning step updated
-- learning_step.deleted - Learning step deleted
-- learning_step.completed - User completed a learning step
+- path_step.created - Learning step created
+- path_step.updated - Learning step updated
+- path_step.deleted - Learning step deleted
+- path_step.completed - User completed a path step
 
 NOTE: MOC events (moc.created, moc.updated, moc.deleted) removed January 2026.
 MOC is now KU-based - use KU events instead.
@@ -35,16 +35,16 @@ from core.models.type_hints import UserUID
 
 
 @dataclass(frozen=True)
-class LearningStepCreated(BaseEvent):
+class PathStepCreated(BaseEvent):
     """
-    Published when a new learning step is created.
+    Published when a new path step is created.
 
     Subscribers:
     - SearchService (index for discovery)
     - LpService (update path structure if linked to LP)
     """
 
-    ls_uid: str
+    ps_uid: str
     title: str
 
     # Step context
@@ -55,20 +55,20 @@ class LearningStepCreated(BaseEvent):
 
     @property
     def event_type(self) -> str:
-        return "learning_step.created"
+        return "path_step.created"
 
 
 @dataclass(frozen=True)
-class LearningStepUpdated(BaseEvent):
+class PathStepUpdated(BaseEvent):
     """
-    Published when a learning step is updated.
+    Published when a path step is updated.
 
     Subscribers:
     - SearchService (update index)
     - LpService (update path if relevant)
     """
 
-    ls_uid: str
+    ps_uid: str
 
     # Update context
     updated_fields: tuple[str, ...] = field(default_factory=tuple)
@@ -76,20 +76,20 @@ class LearningStepUpdated(BaseEvent):
 
     @property
     def event_type(self) -> str:
-        return "learning_step.updated"
+        return "path_step.updated"
 
 
 @dataclass(frozen=True)
-class LearningStepDeleted(BaseEvent):
+class PathStepDeleted(BaseEvent):
     """
-    Published when a learning step is deleted.
+    Published when a path step is deleted.
 
     Subscribers:
     - SearchService (remove from index)
     - LpService (update path structure)
     """
 
-    ls_uid: str
+    ps_uid: str
 
     # Deletion context
     linked_lp_uid: str | None = None
@@ -97,13 +97,13 @@ class LearningStepDeleted(BaseEvent):
 
     @property
     def event_type(self) -> str:
-        return "learning_step.deleted"
+        return "path_step.deleted"
 
 
 @dataclass(frozen=True)
-class LearningStepCompleted(BaseEvent):
+class PathStepCompleted(BaseEvent):
     """
-    Published when a user completes a learning step.
+    Published when a user completes a path step.
 
     Subscribers:
     - UserService (invalidate context)
@@ -111,7 +111,7 @@ class LearningStepCompleted(BaseEvent):
     - AchievementService (track milestone)
     """
 
-    ls_uid: str
+    ps_uid: str
     user_uid: UserUID
 
     # Completion context
@@ -121,7 +121,7 @@ class LearningStepCompleted(BaseEvent):
 
     @property
     def event_type(self) -> str:
-        return "learning_step.completed"
+        return "path_step.completed"
 
 
 # ============================================================================
@@ -145,16 +145,16 @@ class LearningStepCompleted(BaseEvent):
 Publishing Curriculum Events:
 =============================
 
-# In LsCoreService.create_step()
+# In PsCoreService.create_step()
 async def create_step(self, data: LsCreateRequest) -> Result[Ls]:
-    '''Create a new learning step.'''
+    '''Create a new path step.'''
 
     result = await self.backend.create(data)
 
     if result.is_ok and self.event_bus:
         step = result.value
-        event = LearningStepCreated(
-            ls_uid=step.uid,
+        event = PathStepCreated(
+            ps_uid=step.uid,
             title=step.title,
             intent=step.intent,
             linked_lp_uid=step.lp_uid,
@@ -173,7 +173,7 @@ def _wire_event_subscribers(event_bus: EventBusOperations, services: Services):
     '''Wire curriculum event subscribers.'''
 
     # Learning step events → LP progress tracking
-    event_bus.subscribe(LearningStepCompleted, services.lp.progress.handle_step_completed)
+    event_bus.subscribe(PathStepCompleted, services.lp.progress.handle_step_completed)
 
     logger.info("Curriculum event subscribers wired")
 

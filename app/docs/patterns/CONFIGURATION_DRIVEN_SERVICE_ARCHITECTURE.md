@@ -37,7 +37,7 @@ For implementation guidance, see:
 class TasksSearchService(BaseService[TasksOperations, Task]): ...
 
 # Curriculum domains used CurriculumBaseService (819 lines of separate code)
-class LsSearchService(CurriculumBaseService[LsOperations, Ls]): ...
+class PsSearchService(CurriculumBaseService[PsOperations, Ls]): ...
 ```
 
 **Phase 2 (2025):** Unified BaseService with class attributes
@@ -74,7 +74,7 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
 | Factory | Use For | Key Settings |
 |---------|---------|--------------|
 | `create_activity_domain_config()` | Tasks, Goals, Habits, Events, Choices, Principles | `user_ownership_relationship="OWNS"` |
-| `create_curriculum_domain_config()` | KU, LS, LP, MOC | `user_ownership_relationship=None` (shared) |
+| `create_curriculum_domain_config()` | KU, PS, LP, MOC | `user_ownership_relationship=None` (shared) |
 
 ### Activity Domain Configuration
 
@@ -99,7 +99,7 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
 ```python
 from core.services.domain_config import create_curriculum_domain_config
 
-class LsSearchService(BaseService[BackendOperations[Ls], Ls]):
+class PsSearchService(BaseService[BackendOperations[Ls], Ls]):
     _config = create_curriculum_domain_config(
         dto_class=LsDTO,
         model_class=Ls,
@@ -153,13 +153,13 @@ class LsSearchService(BaseService[BackendOperations[Ls], Ls]):
 ```python
 from core.services.base_service import BaseService
 from core.models.ls.ls import Ls
-from core.models.ls.ls_dto import LearningStepDTO
+from core.models.ls.ls_dto import PathStepDTO
 
-class LsSearchService(BaseService["BackendOperations[Ls]", Ls]):
-    """Learning Step search service - uses BaseService with curriculum configuration."""
+class PsSearchService(BaseService["BackendOperations[Ls]", Ls]):
+    """Path Step search service - uses BaseService with curriculum configuration."""
 
     # Required
-    _dto_class = LearningStepDTO
+    _dto_class = PathStepDTO
     _model_class = Ls
 
     # Search
@@ -275,16 +275,16 @@ results = await service.graph_aware_faceted_search(
 Facades create one backend, share with sub-services:
 
 ```python
-class LsService(BaseService[LsOperations, Ls]):
-    """Learning Step facade - uses UniversalNeo4jBackend directly."""
+class PsService(BaseService[PsOperations, Ls]):
+    """Path Step facade - uses UniversalNeo4jBackend directly."""
 
     def __init__(self, driver: Neo4jDriver, event_bus: EventBus | None = None):
         # ONE backend instance
-        ls_backend = UniversalNeo4jBackend[Ls](driver, NeoLabel.LS, Ls)
+        ls_backend = UniversalNeo4jBackend[Ls](driver, NeoLabel.PS, Ls)
 
         # Shared across sub-services
-        self.core = LsCoreService(backend=ls_backend, event_bus=event_bus)
-        self.search = LsSearchService(backend=ls_backend)
+        self.core = PsCoreService(backend=ls_backend, event_bus=event_bus)
+        self.search = PsSearchService(backend=ls_backend)
 
     # Explicit delegation methods (February 2026)
     async def create_ls(self, *args: Any, **kwargs: Any) -> Any:
@@ -310,7 +310,7 @@ class CurriculumBaseService(BaseService[B, T]):
     async def get_enables(self, uid, depth): ...
     # 819 lines of specialized code
 
-class LsSearchService(CurriculumBaseService[LsOperations, Ls]):
+class PsSearchService(CurriculumBaseService[PsOperations, Ls]):
     pass
 ```
 
@@ -319,7 +319,7 @@ class LsSearchService(CurriculumBaseService[LsOperations, Ls]):
 ```python
 # CurriculumBaseService DELETED
 
-class LsSearchService(BaseService[BackendOperations[Ls], Ls]):
+class PsSearchService(BaseService[BackendOperations[Ls], Ls]):
     _supports_user_progress = True
     _prerequisite_relationships = ["REQUIRES_STEP", "REQUIRES_KNOWLEDGE"]
     _enables_relationships = ["ENABLES_STEP"]

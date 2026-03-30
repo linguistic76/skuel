@@ -312,7 +312,7 @@ class UserContextBuilder:
         2. **Rich context fields** (full entities + graph neighborhoods)
            - entities_rich: {tasks, goals, habits, events, choices, principles}
              Each item: {"entity": {all properties}, "graph_context": {...}}
-           - knowledge_units_rich, enrolled_paths_rich, active_learning_steps_rich
+           - knowledge_units_rich, enrolled_paths_rich, active_path_steps_rich
 
         Args:
             user_uid: User's unique identifier
@@ -370,8 +370,8 @@ class UserContextBuilder:
         # {
         #     "uids": {active_task_uids, completed_task_uids, goal_progress, knowledge_mastery, ...},
         #     "entities": {tasks, goals, habits, events, choices, principles,
-        #                  learning_paths, learning_steps},  <- LP/LS normalized here
-        #     "rich": {knowledge, learning_paths, learning_steps},  <- curriculum only (backward compat)
+        #                  learning_paths, path_steps},  <- LP/LS normalized here
+        #     "rich": {knowledge, learning_paths, path_steps},  <- curriculum only (backward compat)
         #     "user_properties": {preferences, role, settings},
         #     "life_path": {uid, alignment_score, dimensions},
         #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},

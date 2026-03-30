@@ -70,8 +70,8 @@ FULLTEXT_INDEX_DEFINITIONS = {
         "fields": ["title", "description"],
         "description": "Knowledge Units - title and description",
     },
-    "LearningStep": {
-        "index_name": "learning_step_fulltext_idx",
+    "PathStep": {
+        "index_name": "path_step_fulltext_idx",
         "fields": ["title", "intent", "description"],
         "description": "Learning Steps - title, intent, and description",
     },

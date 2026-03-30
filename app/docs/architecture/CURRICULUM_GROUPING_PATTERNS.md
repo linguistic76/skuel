@@ -1,5 +1,5 @@
 ---
-title: Curriculum Grouping Patterns: KU, LS, LP + MOC Organization
+title: Curriculum Grouping Patterns: KU, PS, LP + MOC Organization
 updated: 2026-03-03
 status: current
 category: architecture
@@ -7,7 +7,7 @@ tags: [architecture, curriculum, grouping, patterns, moc, montessori]
 related: [ADR-023-curriculum-baseservice-migration, ADR-028-ku-moc-unified-relationship-migration]
 ---
 
-# Curriculum Grouping Patterns: KU, LS, LP + MOC Organization
+# Curriculum Grouping Patterns: KU, PS, LP + MOC Organization
 
 *Last updated: 2026-03-03*
 ## Related Skills
@@ -18,7 +18,7 @@ For implementation guidance, see:
 
 ## Core Philosophy
 
-SKUEL organizes knowledge through **three grouping patterns** and **two access paths**. The patterns (KU, LS, LP) are different perspectives on the same underlying content. The access paths (LS linear, MOC graph) provide different ways to navigate that content.
+SKUEL organizes knowledge through **three grouping patterns** and **two access paths**. The patterns (KU, PS, LP) are different perspectives on the same underlying content. The access paths (PS linear, MOC graph) provide different ways to navigate that content.
 
 **January 2026 - MOC as KU-Based Organization:**
 MOC is NOT a fourth pattern or separate entity type. MOC IS a KU that organizes other KUs via ORGANIZES relationships. This reflects the Montessori-inspired "two paths to knowledge" philosophy.
@@ -40,7 +40,7 @@ Type safety doesn't restrict - it **channels energy** so it flows and feeds back
 | Pattern | UID Format | Grouping Style | Topology | Metaphor |
 |---------|------------|----------------|----------|----------|
 | **KU** | `ku_{slug}_{random}` | Atomic unit | Point | A single brick |
-| **LS** | `ls:{random}` | Collection | Collection | A collection of lessons |
+| **PS** | `ls:{random}` | Collection | Collection | A collection of lessons |
 | **LP** | `lp:{random}` | Linear sequence | Path | An ordered sequence of lesson collections |
 
 **Note:** MOC uses the `ku_{slug}_{random}` format since MOC IS a Ku with ORGANIZES relationships — no separate UID prefix needed.
@@ -49,22 +49,22 @@ Type safety doesn't restrict - it **channels energy** so it flows and feeds back
 
 | Path | Topology | Purpose | Pedagogy |
 |------|----------|---------|----------|
-| **LS Path** | Linear | Structured curriculum | Teacher-directed |
+| **PS Path** | Linear | Structured curriculum | Teacher-directed |
 | **MOC Path** | Graph | Free exploration | Learner-directed |
 
 ```
-LS Path (Structured):              MOC Path (Exploratory):
+PS Path (Structured):              MOC Path (Exploratory):
                                         KU (root MOC)
 LP₁    LP₂    LP₃ (paths)             /    |    \
 /|\    /|\    /|\                   KU    KU    KU (topics/sections)
-LS LS LS LS LS LS (steps)          / \         / \
+PS PS PS PS PS PS (steps)          / \         / \
 |  |  |  |  |  |                 KU  KU     KU   KU (content)
 KU KU KU KU KU KU (content)
 
 Sequential "Learn A then B"      Non-linear "Explore what interests you"
 ```
 
-**Key Insight:** The same KU can appear in multiple LS, LP, and MOC contexts. Progress is tracked on the KU itself, unified across both paths.
+**Key Insight:** The same KU can appear in multiple PS, LP, and MOC contexts. Progress is tracked on the KU itself, unified across both paths.
 
 ---
 
@@ -75,7 +75,7 @@ Sequential "Learn A then B"      Non-linear "Explore what interests you"
 **What it is:** The smallest indivisible piece of knowledge content.
 
 **Python Class:** `Ku(Curriculum)` — the concrete leaf class for atomic knowledge units.
-`Curriculum` is the shared base class; `Ku`, `LearningStep`, `LearningPath`, and `Exercise` are the leaf types.
+`Curriculum` is the shared base class; `Ku`, `PathStep`, `LearningPath`, and `Exercise` are the leaf types.
 
 **Location:** `/core/models/ku/ku.py`
 
@@ -102,7 +102,7 @@ content: |
 
 ---
 
-### LS (Learning Step) - A Collection of Lessons
+### PS (Path Step) - A Collection of Lessons
 
 **What it is:** A collection of lessons that forms a step in a learning path.
 
@@ -123,7 +123,7 @@ knowledge_units:
 mastery_threshold: 0.8
 ```
 
-**Graph Role:** LS is the collection - grouping lessons into a directed sequence.
+**Graph Role:** PS is the collection - grouping lessons into a directed sequence.
 
 ---
 
@@ -132,7 +132,7 @@ mastery_threshold: 0.8
 **What it is:** A complete learning journey from start to finish.
 
 **Characteristics:**
-- Ordered sequence of Learning Steps
+- Ordered sequence of Path Steps
 - Has prerequisites and outcomes
 - Represents a full competency arc
 - Linear progression (Step 1 → 2 → 3 → Done)
@@ -164,7 +164,7 @@ outcomes:
 - A KU "is" a MOC when it has outgoing ORGANIZES relationships
 - Sections within MOCs are also KUs
 - Same KU can be in multiple MOCs (many-to-many)
-- Progress tracked on KU, unified across both LS and MOC paths
+- Progress tracked on KU, unified across both PS and MOC paths
 
 **Example:**
 ```cypher
@@ -180,16 +180,16 @@ outcomes:
 (section)-[:ORGANIZES {order: 2}]->(child2:Entity {uid: "ku_python-classes_d4e5f6"})
 ```
 
-**Graph Role:** MOC provides non-linear navigation by organizing KUs into a graph structure parallel to the linear LS/LP structure.
+**Graph Role:** MOC provides non-linear navigation by organizing KUs into a graph structure parallel to the linear PS/LP structure.
 
 ---
 
 ## How the Patterns Relate
 
-### The Curriculum Hierarchy (LS Path)
+### The Curriculum Hierarchy (PS Path)
 
 ```
-KU → LS → LP
+KU → PS → LP
 ```
 
 - KUs are atomic content
@@ -217,12 +217,12 @@ This is the **discovery structure** - how you explore content freely (learner-di
               ↓
    ┌──────────────────────────────────┐
    │                                  │
-   │  LS PATH          MOC PATH       │
+   │  PS PATH          MOC PATH       │
    │  (Linear)         (Graph)        │
    │                                  │
    │  LP──>LP──>LP     KU (root MOC)  │
    │  |    |    |      /  |  \        │
-   │  LS   LS   LS   KU  KU  KU       │
+   │  PS   PS   PS   KU  KU  KU       │
    │  |    |    |    |       |        │
    │  KU   KU   KU   KU      KU       │
    │                                  │
@@ -233,7 +233,7 @@ This is the **discovery structure** - how you explore content freely (learner-di
 ```
 
 **Progress Tracked on KU:**
-- Whether accessed via LS or MOC path, mastery is tracked on the KU itself
+- Whether accessed via PS or MOC path, mastery is tracked on the KU itself
 - Unified progress across both paths - no duplicate tracking
 
 ---
@@ -251,7 +251,7 @@ knowledge ----→ ???
 
 With type safety:
 ```
-KU ──────→ LS ──────→ LP
+KU ──────→ PS ──────→ LP
  ↑          ↑          ↑
  └────← MOC ←─────────┘  (energy feeds back - synergy)
 ```
@@ -269,26 +269,26 @@ class EntityType(str, Enum):
     # MOC is NOT a separate EntityType — any Ku can organize others via ORGANIZES
 
     # Curriculum structure
-    LEARNING_STEP = "learning_step"
+    PATH_STEP = "path_step"
     LEARNING_PATH = "learning_path"
     # ... plus 12 more (activity domains, content processing, destination)
 ```
 
-Curriculum patterns are EntityType values alongside activity domains. The grouping patterns (`KU`, `LEARNING_STEP`, `LEARNING_PATH`) form the shared knowledge organization system. MOC is not a separate EntityType — any Ku can organize others via ORGANIZES relationships (emergent identity).
+Curriculum patterns are EntityType values alongside activity domains. The grouping patterns (`KU`, `PATH_STEP`, `LEARNING_PATH`) form the shared knowledge organization system. MOC is not a separate EntityType — any Ku can organize others via ORGANIZES relationships (emergent identity).
 
 **Domain Classification:**
 - **Atomic knowledge:** `EntityType.KU` (any Ku can be an organizer via ORGANIZES)
-- **Curriculum structure:** `EntityType.LEARNING_STEP`, `EntityType.LEARNING_PATH`
+- **Curriculum structure:** `EntityType.PATH_STEP`, `EntityType.LEARNING_PATH`
 
 ### Relationship Types
 
 Type-safe relationships between patterns:
 
 ```python
-# LS Path (Linear)
-HAS_STEP           # LP → LS
-HAS_LESSON         # LS → Lesson (step contains lesson, progress tracking)
-CONTAINS_KNOWLEDGE # LS → KU (primary/supporting content)
+# PS Path (Linear)
+HAS_STEP           # LP → PS
+HAS_LESSON         # PS → Lesson (step contains lesson, progress tracking)
+CONTAINS_KNOWLEDGE # PS → KU (primary/supporting content)
 
 # MOC Path (Graph) - KU organizing KUs
 ORGANIZES          # KU → KU (with {order: int} property)
@@ -307,7 +307,7 @@ ENABLES            # KU → KU (what it unlocks)
 ### Creating Content (Organic Growth)
 
 1. **Start with KUs** - Write atomic markdown files about concepts
-2. **Organize into LSs** - Group related KUs into learning steps
+2. **Organize into LSs** - Group related KUs into path steps
 3. **Sequence into LPs** - Create learning journeys from steps
 4. **Map with MOCs** - Author non-linear navigation for discovery
 
@@ -348,13 +348,13 @@ The `UnifiedIngestionService` (at `core/services/ingestion/`) handles all curric
 | Component | File | Purpose |
 |-----------|------|---------|
 | Ku Model | `/core/models/ku/ku.py` | Ku leaf class (`Ku(Curriculum)`) |
-| LS Model | `/core/models/pathways/learning_step.py` | Learning Step definition |
+| PS Model | `/core/models/pathways/path_step.py` | Path Step definition |
 | LP Model | `/core/models/pathways/learning_path.py` | Learning Path definition |
-| Curriculum Base | `/core/models/curriculum.py` | Shared base class for Ku, LS, LP |
+| Curriculum Base | `/core/models/curriculum.py` | Shared base class for Ku, PS, LP |
 | KuService | `/core/services/ku_service.py` | Ku facade (CRUD, graph, semantics, organization) |
 | KuOrganizationService | `/core/services/ku/ku_organization_service.py` | ORGANIZES relationship management (MOC) |
 | KuIntelligenceService | `/core/services/ku_intelligence_service.py` | Standalone analytics for KU domain |
-| LsService | `/core/services/ls_service.py` | Learning Step facade |
+| PsService | `/core/services/ps_service.py` | Path Step facade |
 | LpService | `/core/services/lp_service.py` | Learning Path facade |
 | LpBackend | `/adapters/persistence/neo4j/domain_backends.py` | LP-specific graph queries |
 | KuBackend | `/adapters/persistence/neo4j/domain_backends.py` | Ku ORGANIZES operations |
@@ -376,7 +376,7 @@ Each Curriculum Domain follows the **decomposed facade pattern** with complexity
 |--------|---------|--------------------------|--------------|
 | **KU** | `KuService` | 9 in `ku/` package: Core, Search, Graph, Semantic, Practice, Interaction, Organization, AI, Adaptive | `KuIntelligenceService` (standalone at `ku_intelligence_service.py`) |
 | **LP** | `LpService` | 4 in `lp/` package: Core, Search, Progress, AI | `LpIntelligenceService` (standalone at `lp_intelligence_service.py`) |
-| **LS** | `LsService` | 5 in `ls/` package: Core, Search, Progress, Intelligence, AI | `LsIntelligenceService` (in `ls/` package) |
+| **PS** | `PsService` | 5 in `ls/` package: Core, Search, Progress, Intelligence, AI | `PsIntelligenceService` (in `ls/` package) |
 
 **MOC (January 2026 - KU-Based):** There is no `MOCService`. MOC is handled by `KuOrganizationService` (sub-service of KuService). A Ku "is a MOC" when it has outgoing ORGANIZES relationships — emergent identity, not a separate service or EntityType.
 
@@ -388,7 +388,7 @@ Each Curriculum Domain follows the **decomposed facade pattern** with complexity
 - Event-driven substance tracking (applied knowledge philosophy)
 - ORGANIZES relationship operations (MOC) via `KuOrganizationService`
 
-**LS is leaner** because steps aggregate Kus into ordered sequences:
+**PS is leaner** because steps aggregate Kus into ordered sequences:
 - 4 sub-services: core, search, intelligence, AI
 - Simple aggregation of Kus into ordered steps
 
@@ -399,7 +399,7 @@ Curriculum Domains use domain backend subclasses where relationship-specific Cyp
 | Domain | Backend | Domain-specific methods |
 |--------|---------|------------------------|
 | KU | `KuBackend` (extends `UniversalNeo4jBackend[Ku]`) | 7 ORGANIZES methods: `is_organizer`, `organize`, `unorganize`, `reorder`, `get_organized_children`, `find_organizers`, `list_root_organizers` |
-| LS | `LsBackend` (extends `UniversalNeo4jBackend[LearningStep]`) | `get_steps_containing_lesson`, `get_lesson_completion_progress` |
+| PS | `PsBackend` (extends `UniversalNeo4jBackend[PathStep]`) | `get_steps_containing_lesson`, `get_lesson_completion_progress` |
 | LP | `LpBackend` (extends `UniversalNeo4jBackend[LearningPath]`) | `get_paths_containing_ku`, `get_ku_mastery_progress` |
 | Exercise | `ExerciseBackend` (extends `UniversalNeo4jBackend[Exercise]`) | `link_to_curriculum`, `unlink_from_curriculum`, `get_required_knowledge` |
 
@@ -409,13 +409,13 @@ All domain backends in: `/adapters/persistence/neo4j/domain_backends.py`
 
 ### Search via BaseService (Unified Pattern)
 
-LS and LP search services inherit from `BaseService`, providing unified search infrastructure automatically:
+PS and LP search services inherit from `BaseService`, providing unified search infrastructure automatically:
 
 ```python
-class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningStep]):
+class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
     _config = create_curriculum_domain_config(
-        dto_class=LearningStepDTO,
-        model_class=LearningStep,
+        dto_class=PathStepDTO,
+        model_class=PathStep,
         domain_name="ls",
         search_fields=("title", "description"),
         category_field="domain",
@@ -428,7 +428,7 @@ class LsSearchService(BaseService["BackendOperations[LearningStep]", LearningSte
 
 Curriculum Domains use `_user_ownership_relationship = None`:
 - Content is shared (no per-user OWNS relationship)
-- Same KU, LS, LP available to all users
+- Same KU, PS, LP available to all users
 - User progress tracked separately via LEARNING, MASTERED relationships
 
 **See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` § "Curriculum Domain Service Architecture"

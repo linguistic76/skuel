@@ -369,7 +369,7 @@ task_result = await tasks_service.get_for_user(
 - Multi-tenant security: users can only access their own entities
 - Returns 404 for entities they don't own (not 403 - prevents enumeration)
 
-**Curriculum domains (KU, LS, LP) don't need ownership checks** - content is shared.
+**Curriculum domains (KU, PS, LP) don't need ownership checks** - content is shared.
 
 ---
 
@@ -575,7 +575,7 @@ _config = create_activity_domain_config(
     completed_statuses=("completed",),
 )
 
-# Curriculum Domains (KU, LS, LP)
+# Curriculum Domains (KU, PS, LP)
 from core.services.domain_config import create_curriculum_domain_config
 
 _config = create_curriculum_domain_config(

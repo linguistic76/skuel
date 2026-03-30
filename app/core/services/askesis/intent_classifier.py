@@ -32,7 +32,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.models.askesis.ls_bundle import LSBundle
+    from core.models.askesis.ps_bundle import PsBundle
     from core.models.zpd.zpd_assessment import ZoneEvidence
 
 
@@ -204,7 +204,7 @@ class IntentClassifier:
     def classify_pedagogical_intent(
         self,
         question: str,
-        ls_bundle: LSBundle,
+        ps_bundle: PsBundle,
         zone_evidence: dict[str, ZoneEvidence],
         target_ku_uids: list[str],
     ) -> PedagogicalIntent:
@@ -224,7 +224,7 @@ class IntentClassifier:
 
         Args:
             question: User's question text
-            ls_bundle: Complete LS bundle (scoped context)
+            ps_bundle: Complete LS bundle (scoped context)
             zone_evidence: Per-KU engagement evidence from ZPD
             target_ku_uids: KU UIDs extracted from question (scoped to bundle)
 
@@ -234,14 +234,14 @@ class IntentClassifier:
         # No matching KUs in bundle → OUT_OF_SCOPE
         if not target_ku_uids:
             # Check if the question matches any bundle entity titles at all
-            if self._question_matches_bundle(question, ls_bundle):
+            if self._question_matches_bundle(question, ps_bundle):
                 # Matches non-KU entities (habits, tasks, lessons)
                 return PedagogicalIntent.ENCOURAGE_PRACTICE
             return PedagogicalIntent.OUT_OF_SCOPE
 
         # Check if question touches edge-connected concepts
-        if len(target_ku_uids) >= 2 and ls_bundle.edges:
-            edge_uids = {e.get("target_uid") for e in ls_bundle.edges if isinstance(e, dict)}
+        if len(target_ku_uids) >= 2 and ps_bundle.edges:
+            edge_uids = {e.get("target_uid") for e in ps_bundle.edges if isinstance(e, dict)}
             if any(uid in edge_uids for uid in target_ku_uids):
                 return PedagogicalIntent.SURFACE_CONNECTION
 
@@ -276,10 +276,10 @@ class IntentClassifier:
         # signal_count == 0 but evidence exists (empty ZoneEvidence)
         return PedagogicalIntent.SCAFFOLD
 
-    def _question_matches_bundle(self, question: str, ls_bundle: LSBundle) -> bool:
+    def _question_matches_bundle(self, question: str, ps_bundle: PsBundle) -> bool:
         """Check if question text matches any bundle entity title."""
         question_lower = question.lower()
-        for title in ls_bundle.get_all_titles().values():
+        for title in ps_bundle.get_all_titles().values():
             if not title:
                 continue
             title_lower = title.lower()
@@ -298,7 +298,7 @@ class IntentClassifier:
     def determine_guidance_mode(
         self,
         question: str,
-        ls_bundle: LSBundle,
+        ps_bundle: PsBundle,
         zone_evidence: dict[str, Any],
         target_ku_uids: list[str],
     ) -> GuidanceDetermination:
@@ -312,7 +312,7 @@ class IntentClassifier:
 
         Args:
             question: User's question text
-            ls_bundle: Complete LS bundle (scoped context)
+            ps_bundle: Complete LS bundle (scoped context)
             zone_evidence: Per-KU engagement evidence from ZPD
             target_ku_uids: KU UIDs extracted from question
 
@@ -320,7 +320,7 @@ class IntentClassifier:
             GuidanceDetermination with mode, pedagogical detail, and evidence
         """
         intent = self.classify_pedagogical_intent(
-            question, ls_bundle, zone_evidence, target_ku_uids
+            question, ps_bundle, zone_evidence, target_ku_uids
         )
 
         mode = _INTENT_TO_GUIDANCE_MODE[intent]

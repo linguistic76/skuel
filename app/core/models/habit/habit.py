@@ -15,7 +15,7 @@ Inherits common fields from UserOwnedEntity. Adds 31 habit-specific fields:
 - Scheduling (6): duration_minutes, recurrence_pattern, recurrence_end_date,
   recurrence_parent_uid, target_days_per_week, preferred_time
 - Reminders (3): reminder_time, reminder_days, reminder_enabled
-- Cross-domain links (2): source_learning_step_uid, source_learning_path_uid
+- Cross-domain links (2): source_path_step_uid, source_learning_path_uid
 - Flags (1): curriculum_driven
 
 Habit-specific methods: calculate_consistency_score, is_keystone, should_do_today,
@@ -116,7 +116,7 @@ class Habit(UserOwnedEntity):
     # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
-    source_learning_step_uid: str | None = None  # HABIT -> LS
+    source_path_step_uid: str | None = None  # HABIT -> LS
     source_learning_path_uid: str | None = None  # HABIT -> LP
 
     # =========================================================================
@@ -247,9 +247,9 @@ class Habit(UserOwnedEntity):
         return self.domain.value if self.domain else None
 
     @property
-    def is_from_learning_step(self) -> bool:
-        """Check if this habit originated from a learning step."""
-        return self.source_learning_step_uid is not None
+    def is_from_path_step(self) -> bool:
+        """Check if this habit originated from a path step."""
+        return self.source_path_step_uid is not None
 
     # =========================================================================
     # CONVERSION (generic -- uses Entity._from_dto / to_dto)

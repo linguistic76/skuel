@@ -39,7 +39,7 @@ Everything in SKUEL is an **Entity** — a frozen Python dataclass stored as a N
 
 **Activities** (user-owned, daily life): Task, Goal, Habit, Event, Choice, Principle
 
-**Curriculum** (admin-created, shared): Lesson, Ku, LearningStep, LearningPath, Exercise, Resource
+**Curriculum** (admin-created, shared): Lesson, Ku, PathStep, LearningPath, Exercise, Resource
 
 **Submissions & Reports** (the learning loop): ExerciseSubmission, ExerciseReport, ActivityReport, RevisedExercise
 

@@ -50,7 +50,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | Group | EntityTypes | Ownership | Neo4j Labels |
 |-------|-------------|-----------|--------------|
 | **Knowledge** (atomic curriculum) | KU, RESOURCE | Admin-created, no user_uid | :Entity:Ku, :Entity:Resource |
-| **Curriculum Structure** | LESSON, LEARNING_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:Lesson, :Entity:LearningStep, :Entity:LearningPath, :Entity:Exercise |
+| **Curriculum Structure** | LESSON, PATH_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:Lesson, :Entity:PathStep, :Entity:LearningPath, :Entity:Exercise |
 | **Forms** | FORM_TEMPLATE, FORM_SUBMISSION | Template: admin-created; Submission: user-owned | :Entity:FormTemplate, :Entity:FormSubmission |
 | **Submissions** | EXERCISE_SUBMISSION | User-owned | :Entity:ExerciseSubmission:Submission |
 | **Reports** | EXERCISE_REPORT, ACTIVITY_REPORT | User-owned | :Entity:ExerciseReport, :Entity:ActivityReport |
@@ -63,7 +63,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | Tier | ContentOrigin | EntityTypes |
 |------|---------------|-------------|
 | A | CURATED | Resource, FormTemplate |
-| B | CURRICULUM | Lesson, KU, LearningStep, LearningPath, Exercise, RevisedExercise |
+| B | CURRICULUM | Lesson, KU, PathStep, LearningPath, Exercise, RevisedExercise |
 | C | USER_CREATED | All 6 Activity types + ExerciseSubmission, JeInput, JeOutput, LifePath, FormSubmission |
 | D | REPORT | ActivityReport, ExerciseReport |
 
@@ -136,7 +136,7 @@ Non-submission entity types can't use this path — they don't have SUBMITTED in
 | EntityType | Valid Statuses | Default |
 |------------|---------------|---------|
 | Ku, Resource, ExerciseReport | DRAFT, COMPLETED, ARCHIVED | DRAFT |
-| LearningStep, LearningPath, Exercise, Choice | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
+| PathStep, LearningPath, Exercise, Choice | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
 | ExerciseSubmission | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
 | ActivityReport | COMPLETED (always — created already complete) | COMPLETED |
 | Task | DRAFT, SCHEDULED, ACTIVE, PAUSED, BLOCKED, COMPLETED, CANCELLED, POSTPONED, FAILED | DRAFT |
@@ -228,9 +228,9 @@ Enums wire into the model layer through a class hierarchy. Each level inherits e
 |------------|-------------|--------|
 | Entity | entity_type, status, visibility | *(all 21 entity types)* |
 | UserOwnedEntity | *(inherits above)* | Task, Goal, Habit, Event, Choice, Principle, Submission types, LifePath |
-| Curriculum *(base class)* | + complexity, learning_level, sel_category | Lesson, LearningStep, LearningPath, Exercise |
+| Curriculum *(base class)* | + complexity, learning_level, sel_category | Lesson, PathStep, LearningPath, Exercise |
 
-Domain-specific enum fields: Goal (+3), Habit (+3), Principle (+4), Choice (+1), Submission (+1), LifePath (+1), LearningStep (+1), LearningPath (+1), Exercise (+1).
+Domain-specific enum fields: Goal (+3), Habit (+3), Principle (+4), Choice (+1), Submission (+1), LifePath (+1), PathStep (+1), LearningPath (+1), Exercise (+1).
 
 ---
 
@@ -241,7 +241,7 @@ Domain-specific enum fields: Goal (+3), Habit (+3), Principle (+4), Choice (+1),
 | Enum | File | Values | Used By |
 |------|------|--------|---------|
 | Priority | activity_enums.py | LOW, MEDIUM, HIGH, CRITICAL | All UserOwnedEntity nodes (Tasks, Goals, Habits, Events, Choices, Principles, Submissions, LifePath) |
-| Confidence | activity_enums.py | UNCERTAIN, LOW, MEDIUM, HIGH, CERTAIN | Curriculum entities (KU, LS, LP); lateral relationship edges (all 9 domains) |
+| Confidence | activity_enums.py | UNCERTAIN, LOW, MEDIUM, HIGH, CERTAIN | Curriculum entities (KU, PS, LP); lateral relationship edges (all 9 domains) |
 | ActivityType | activity_enums.py | TASK, HABIT, EVENT, LEARNING, MILESTONE, ... (12) | Calendar, scheduling |
 | RecurrencePattern | scheduling_enums.py | NONE, DAILY, WEEKLY, MONTHLY, ... (9+) | Habits, events, reports |
 | TimeOfDay | scheduling_enums.py | EARLY_MORNING, MORNING, ... ANYTIME (7) | Scheduling services |
@@ -476,7 +476,7 @@ way users and admins express dimensional weight across the graph.
 | Dial | Enum | Who Sets It | Where |
 |------|------|------------|-------|
 | Priority | Priority | User | All UserOwnedEntity nodes (Activity, Submissions, LifePath) |
-| Confidence | Confidence | Admin/User | Curriculum nodes (KU, LS, LP); all lateral relationship edges |
+| Confidence | Confidence | Admin/User | Curriculum nodes (KU, PS, LP); all lateral relationship edges |
 
 They are orthogonal: Priority says "how important", Confidence says "how certain".
 Both flow into the intelligence layer (planning) and graph visualization (vis.js):

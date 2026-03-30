@@ -23,7 +23,7 @@ class UserProgress:
     User progress tracking for any domain.
 
     Can represent:
-    - Learning progress (knowledge mastery, learning steps)
+    - Learning progress (knowledge mastery, path steps)
     - Task completion metrics
     - Habit consistency tracking
     - Goal achievement milestones
@@ -35,7 +35,7 @@ class UserProgress:
     uid: str  # Format: "progress.{user_uid}.{entity_uid}.{timestamp}"
     user_uid: UserUID  # User who achieved this progress
     entity_uid: EntityUID  # What was progressed (task, habit, goal, knowledge, etc.)
-    entity_type: str  # "task", "habit", "goal", "knowledge", "learning_step"
+    entity_type: str  # "task", "habit", "goal", "knowledge", "path_step"
 
     # Progress metrics
     progress_value: float  # 0.0-1.0 for percentage, or specific metric

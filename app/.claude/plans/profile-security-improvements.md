@@ -226,7 +226,7 @@ Calls UserContextIntelligence methods to get:
 - Daily work plan (THE flagship)
 - Life path alignment (5 dimensions)
 - Cross-domain synergies
-- Optimal learning steps
+- Optimal path steps
 
 Error Handling Strategy:
 - Configuration errors (AttributeError, TypeError, KeyError) → basic mode

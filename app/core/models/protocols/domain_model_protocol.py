@@ -75,7 +75,7 @@ class DomainModelProtocol(Protocol):
         - Habit (habit.py)
         - Goal (goal.py)
         - KnowledgeUnit (ku.py)
-        - LearningStep (ls.py)
+        - PathStep (ls.py)
         - LearningPath (lp.py)
         - Expense, Budget, JournalEntry, Choice, Principle, etc.
         Total: ~20 domain models

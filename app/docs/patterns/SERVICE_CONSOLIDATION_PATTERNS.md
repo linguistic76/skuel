@@ -84,7 +84,7 @@ Use the appropriate factory for your domain type:
 | Factory | Use For | Key Difference |
 |---------|---------|----------------|
 | `create_activity_domain_config()` | Tasks, Goals, Habits, Events, Choices, Principles | `user_ownership_relationship="OWNS"` |
-| `create_curriculum_domain_config()` | KU, LS, LP, MOC | `user_ownership_relationship=None` (shared content) |
+| `create_curriculum_domain_config()` | KU, PS, LP, MOC | `user_ownership_relationship=None` (shared content) |
 
 ### Activity Domain Factory
 
@@ -418,7 +418,7 @@ from core.models.relationship_registry import (
 | Choices | `"Choice"` | 3 | 1 | 1 |
 | Principles | `"Principle"` | 4 | 1 | 3 |
 | KU | `"Ku"` | 6 | 1 | 1 |
-| LS | `"Ls"` | 3 | 2 | 1 |
+| PS | `"Ls"` | 3 | 2 | 1 |
 | LP | `"Lp"` | 3 | 2 | 1 |
 ### Adding New Relationships
 
@@ -468,7 +468,7 @@ Define processors declaratively in the registry, implement once in `post_process
 
 ```python
 # In relationship_registry.py
-GOALS_CONFIG = DomainRelationshipConfig(
+GOAPS_CONFIG = DomainRelationshipConfig(
     # ... relationships ...
     post_processors=(
         PostProcessor(
@@ -561,8 +561,8 @@ Specialized factory functions for curriculum domains with complex initialization
 Activity domains use `create_common_sub_services()` with standard signatures. Some curriculum domains have non-standard requirements:
 
 - **Lesson**: 12 sub-services + circular dependency (intelligence must be created before core)
-- **LP**: 5 sub-services + cross-domain dependency (requires `ls_service`)
-- **KU, LS**: Use generic `create_curriculum_sub_services()` factory (4 sub-services each)
+- **LP**: 5 sub-services + cross-domain dependency (requires `ps_service`)
+- **KU, PS**: Use generic `create_curriculum_sub_services()` factory (4 sub-services each)
 
 ### The Solution
 
@@ -611,12 +611,12 @@ self.adaptive = subs.adaptive
 3. `LessonCoreService` (requires intelligence)
 4. `LessonSearchService`, `LessonGraphService`, `LessonSemanticService`, `LessonPracticeService`, `LessonMasteryService`, `LessonAdaptiveService`, `LessonApplicationDiscoveryService`, `LessonContextService`
 
-### KU and LS — Generic Factory
+### KU and PS — Generic Factory
 
-KU and LS both use `create_curriculum_sub_services()` for 4 standard sub-services:
+KU and PS both use `create_curriculum_sub_services()` for 4 standard sub-services:
 
 ```python
-# In KuService.__init__ (and LsService.__init__)
+# In KuService.__init__ (and PsService.__init__)
 from core.services.curriculum_domain_config import create_curriculum_sub_services
 
 common = create_curriculum_sub_services(
@@ -639,7 +639,7 @@ from core.services.curriculum_domain_config import create_lp_sub_services
 
 subs = create_lp_sub_services(
     driver=driver,
-    ls_service=ls_service,  # Cross-domain dependency
+    ps_service=ps_service,  # Cross-domain dependency
     graph_intelligence_service=graph_intelligence_service,
     event_bus=event_bus,
     embeddings_service=embeddings_service,
@@ -659,7 +659,7 @@ self.progress = subs.progress
 **Creation Order (handles cross-domain dependency):**
 1. `UniversalNeo4jBackend[Lp]` (shared by all sub-services)
 2. `LpSearchService`, `UnifiedRelationshipService`
-3. `LpCoreService` (requires `ls_service`)
+3. `LpCoreService` (requires `ps_service`)
 4. `LpProgressService`, `LpIntelligenceService`
 
 ### Factory Return Types
@@ -693,7 +693,7 @@ class LpSubServices:
 
 | Domain | Factory | Reason |
 |--------|---------|--------|
-| **LS** | `create_curriculum_sub_services()` | Standard 4-service pattern |
+| **PS** | `create_curriculum_sub_services()` | Standard 4-service pattern |
 | **Lesson** | `create_lesson_sub_services()` | 12 services + circular dependency |
 | **LP** | `create_lp_sub_services()` | 5 services + cross-domain dependency |
 | **MOC** | Manual in facade | Circular (core ↔ section) requires post-init wiring |

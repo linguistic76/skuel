@@ -101,7 +101,7 @@ await ku_service.get_lessons(ku_uid)
 
 ---
 
-## LS (Learning Step) - The Edge
+## LS (Path Step) - The Edge
 
 **Purpose:** A single step in a learning sequence — connects Lessons and Kus in meaningful order.
 
@@ -109,18 +109,18 @@ await ku_service.get_lessons(ku_uid)
 
 | Sub-service | Purpose |
 |-------------|---------|
-| `LsCoreService` | CRUD operations (extends BaseService) |
-| `LsSearchService` | Text search, filtering (extends BaseService) |
-| `LsProgressService` | Progress tracking from Lesson completion (event-driven) |
-| `LsIntelligenceService` | Readiness, practice analysis |
+| `PsCoreService` | CRUD operations (extends BaseService) |
+| `PsSearchService` | Text search, filtering (extends BaseService) |
+| `PsProgressService` | Progress tracking from Lesson completion (event-driven) |
+| `PsIntelligenceService` | Readiness, practice analysis |
 | `LsAiService` | AI-powered LS operations |
 
-**Factory:** `create_curriculum_sub_services()` - Generic (simplest pattern). Progress sub-service created directly in `LsService.__init__()`.
+**Factory:** `create_curriculum_sub_services()` - Generic (simplest pattern). Progress sub-service created directly in `PsService.__init__()`.
 
-**Backend:** `LsBackend` (extends `UniversalNeo4jBackend[LearningStep]`) — domain-specific methods: `get_steps_containing_lesson()`, `get_lesson_completion_progress()`.
+**Backend:** `PsBackend` (extends `UniversalNeo4jBackend[PathStep]`) — domain-specific methods: `get_steps_containing_lesson()`, `get_lesson_completion_progress()`.
 
 **Unique Features:**
-- **Event-driven progress** — `LsProgressService` subscribes to `LessonCompleted`, calculates LS progress from completed Lessons, publishes `LearningStepProgressUpdated` / `LearningStepCompleted`
+- **Event-driven progress** — `PsProgressService` subscribes to `LessonCompleted`, calculates LS progress from completed Lessons, publishes `PathStepProgressUpdated` / `PathStepCompleted`
 - **HAS_LESSON relationship** — `(LS)-[:HAS_LESSON]->(Lesson)` connects steps to their lessons. Derived from shared KU references during migration.
 - **Practice integration** - Links to Habits, Tasks, Events via relationships
 - **Guidance relationships** - GUIDED_BY_PRINCIPLE, INFORMS_CHOICE
@@ -129,16 +129,16 @@ await ku_service.get_lessons(ku_uid)
 **Key Methods:**
 ```python
 # Check if step is ready
-await ls_service.intelligence.is_ready(ls_uid, completed_step_uids)
+await ps_service.intelligence.is_ready(ps_uid, completed_step_uids)
 
 # Get practice summary (habits, tasks, events counts)
-await ls_service.intelligence.get_practice_summary(ls_uid)
+await ps_service.intelligence.get_practice_summary(ps_uid)
 
 # Calculate guidance strength (principles 40% + choices 60%)
-await ls_service.intelligence.calculate_guidance_strength(ls_uid)
+await ps_service.intelligence.calculate_guidance_strength(ps_uid)
 
 # Practice completeness score (0.0-1.0)
-await ls_service.intelligence.practice_completeness_score(ls_uid)
+await ps_service.intelligence.practice_completeness_score(ps_uid)
 ```
 
 **Relationships Used:**
@@ -160,18 +160,18 @@ await ls_service.intelligence.practice_completeness_score(ls_uid)
 
 | Sub-service | Purpose |
 |-------------|---------|
-| `LpCoreService` | CRUD operations (extends BaseService, requires LsService) |
+| `LpCoreService` | CRUD operations (extends BaseService, requires PsService) |
 | `LpSearchService` | Text search, filtering (extends BaseService) |
 | `LpProgressService` | Progress tracking (event-driven) |
 | `LpIntelligenceService` | Validation, analysis, adaptive, context (consolidated) |
 | `LpAiService` | AI-powered LP operations |
 
-**Factory:** `create_lp_sub_services()` - Specialized (requires cross-domain LsService dependency)
+**Factory:** `create_lp_sub_services()` - Specialized (requires cross-domain PsService dependency)
 
 **Intelligence Location:** `LpIntelligenceService` lives at `core/services/lp_intelligence_service.py` (top level, NOT inside `lp/` directory) with a companion `lp_intelligence/` package for helpers.
 
 **Unique Features:**
-- **Cross-domain dependency** - LpCoreService requires LsService
+- **Cross-domain dependency** - LpCoreService requires PsService
 - **Validation** - Ensures prerequisite chains are valid
 - **Adaptive sequencing** - Personalizes step order based on user progress
 - **Goal alignment** - ALIGNED_WITH_GOAL relationship
@@ -216,4 +216,4 @@ await lp_service.create_path_from_lessons(user_uid, name, lesson_uids)
 | **Key Relationship** | USES_KU | (composed into Lesson) | HAS_LESSON, TRAINS_KU | CONTAINS_STEP |
 | **Special Pattern** | Substance + Organization | Atomic reference | Practice + Progress | Validation |
 | **Navigation** | Point lookup + non-linear | Referenced from Lessons | Sequential | Linear path |
-| **Cross-Domain Dep** | None | None | None | LsService |
+| **Cross-Domain Dep** | None | None | None | PsService |

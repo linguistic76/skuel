@@ -1,15 +1,15 @@
 """
-LearningStepDTO - Learning Step-Specific DTO (Tier 2 - Transfer)
+PathStepDTO - Learning Step-Specific DTO (Tier 2 - Transfer)
 ==================================================================
 
 Extends CurriculumDTO with 8 learning-step-specific fields matching the
-LearningStep frozen dataclass (Tier 3): intent, knowledge references,
+PathStep frozen dataclass (Tier 3): intent, knowledge references,
 path relationship, and mastery tracking.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── CurriculumDTO(EntityDTO) +21 curriculum-specific fields
-        └── LearningStepDTO(CurriculumDTO) +9 learning-step-specific fields
+        └── PathStepDTO(CurriculumDTO) +9 learning-step-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -27,9 +27,9 @@ from core.ports import get_enum_value
 
 
 @dataclass
-class LearningStepDTO(CurriculumDTO):
+class PathStepDTO(CurriculumDTO):
     """
-    Mutable DTO for learning steps (EntityType.LEARNING_STEP).
+    Mutable DTO for path steps (EntityType.PATH_STEP).
 
     Extends CurriculumDTO with 8 learning-step-specific fields:
     - Intent (1): intent
@@ -90,8 +90,8 @@ class LearningStepDTO(CurriculumDTO):
     # =========================================================================
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> LearningStepDTO:
-        """Create LearningStepDTO from dictionary (from database)."""
+    def from_dict(cls, data: dict[str, Any]) -> PathStepDTO:
+        """Create PathStepDTO from dictionary (from database)."""
         from core.models.dto_helpers import dto_from_dict
 
         return dto_from_dict(
@@ -156,7 +156,7 @@ class LearningStepDTO(CurriculumDTO):
                 "semantic_links",
                 "target_age_range",
                 "learning_objectives",
-                # LearningStep-specific fields
+                # PathStep-specific fields
                 "intent",
                 "knowledge_uids",
                 "learning_path_uid",
@@ -179,6 +179,6 @@ class LearningStepDTO(CurriculumDTO):
 
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
-        if not isinstance(other, LearningStepDTO):
+        if not isinstance(other, PathStepDTO):
             return False
         return self.uid == other.uid

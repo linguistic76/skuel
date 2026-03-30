@@ -28,14 +28,14 @@ logger = get_logger("skuel.migrations.ls_knowledge")
 async def analyze_ls_knowledge(driver):
     """Find LS nodes with knowledge properties."""
     query = """
-    MATCH (ls:Ls)
+    MATCH (ps:PathStep)
     WHERE ls.primary_knowledge_uids IS NOT NULL
        OR ls.supporting_knowledge_uids IS NOT NULL
-    RETURN ls.uid as ls_uid,
-           ls.title as title,
+    RETURN ps.uid as ps_uid,
+           ps.title as title,
            size(coalesce(ls.primary_knowledge_uids, [])) as primary_count,
            size(coalesce(ls.supporting_knowledge_uids, [])) as supporting_count
-    ORDER BY ls.title
+    ORDER BY ps.title
     """
 
     result = await driver.execute_query(query, routing_="r")
@@ -47,10 +47,10 @@ async def migrate_ls_knowledge(driver, dry_run: bool = True):
 
     # Step 1: Find LS nodes with knowledge properties
     query = """
-    MATCH (ls:Ls)
+    MATCH (ps:PathStep)
     WHERE ls.primary_knowledge_uids IS NOT NULL
        OR ls.supporting_knowledge_uids IS NOT NULL
-    RETURN ls.uid as ls_uid,
+    RETURN ps.uid as ps_uid,
            ls.primary_knowledge_uids as primary_uids,
            ls.supporting_knowledge_uids as supporting_uids
     """
@@ -67,16 +67,16 @@ async def migrate_ls_knowledge(driver, dry_run: bool = True):
         logger.info("")
         logger.info("DRY RUN - Would migrate:")
         for record in result.records:
-            ls_uid = record["ls_uid"]
+            ps_uid = record["ps_uid"]
             primary_count = len(record["primary_uids"] or [])
             supporting_count = len(record["supporting_uids"] or [])
-            logger.info(f"  {ls_uid}: {primary_count} primary, {supporting_count} supporting")
+            logger.info(f"  {ps_uid}: {primary_count} primary, {supporting_count} supporting")
         return 0
 
     migrated = 0
 
     for record in result.records:
-        ls_uid = record["ls_uid"]
+        ps_uid = record["ps_uid"]
         primary_uids = record["primary_uids"] or []
         supporting_uids = record["supporting_uids"] or []
 
@@ -84,12 +84,12 @@ async def migrate_ls_knowledge(driver, dry_run: bool = True):
         for ku_uid in primary_uids:
             await driver.execute_query(
                 """
-                MATCH (ls:Ls {uid: $ls_uid})
+                MATCH (ps:PathStep {uid: $ps_uid})
                 MATCH (ku:Ku {uid: $ku_uid})
                 MERGE (ls)-[r:CONTAINS_KNOWLEDGE]->(ku)
                 SET r.type = 'primary', r.created_at = datetime()
                 """,
-                ls_uid=ls_uid,
+                ps_uid=ps_uid,
                 ku_uid=ku_uid,
             )
 
@@ -97,28 +97,28 @@ async def migrate_ls_knowledge(driver, dry_run: bool = True):
         for ku_uid in supporting_uids:
             await driver.execute_query(
                 """
-                MATCH (ls:Ls {uid: $ls_uid})
+                MATCH (ps:PathStep {uid: $ps_uid})
                 MATCH (ku:Ku {uid: $ku_uid})
                 MERGE (ls)-[r:CONTAINS_KNOWLEDGE]->(ku)
                 SET r.type = 'supporting', r.created_at = datetime()
                 """,
-                ls_uid=ls_uid,
+                ps_uid=ps_uid,
                 ku_uid=ku_uid,
             )
 
         # Remove properties
         await driver.execute_query(
             """
-            MATCH (ls:Ls {uid: $ls_uid})
+            MATCH (ps:PathStep {uid: $ps_uid})
             REMOVE ls.primary_knowledge_uids, ls.supporting_knowledge_uids
             SET ls.migrated_at = datetime()
             """,
-            ls_uid=ls_uid,
+            ps_uid=ps_uid,
         )
 
         migrated += 1
         logger.info(
-            f"  ✅ {ls_uid}: {len(primary_uids)} primary, {len(supporting_uids)} supporting"
+            f"  ✅ {ps_uid}: {len(primary_uids)} primary, {len(supporting_uids)} supporting"
         )
 
     logger.info(f"✅ Migrated {migrated} LS nodes")
@@ -129,7 +129,7 @@ async def verify_migration(driver):
     """Verify migration was successful."""
     # Check for remaining properties
     properties_query = """
-    MATCH (ls:Ls)
+    MATCH (ps:PathStep)
     WHERE ls.primary_knowledge_uids IS NOT NULL
        OR ls.supporting_knowledge_uids IS NOT NULL
     RETURN count(ls) as remaining
@@ -137,7 +137,7 @@ async def verify_migration(driver):
 
     # Check relationship creation
     relationships_query = """
-    MATCH (ls:Ls)-[r:CONTAINS_KNOWLEDGE]->(ku:Ku)
+    MATCH (ps:PathStep)-[r:CONTAINS_KNOWLEDGE]->(ku:Ku)
     RETURN count(DISTINCT ls) as ls_count,
            count(r) as relationship_count,
            count(DISTINCT ku) as ku_count

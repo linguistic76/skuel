@@ -32,14 +32,14 @@ from routes.graphql.config import get_graphql_config, validate_list_limit
 from routes.graphql.context import GraphQLContext
 
 if TYPE_CHECKING:
-    from core.models.pathways.learning_step import LearningStep as LsModel
+    from core.models.pathways.path_step import PathStep as LsModel
     from core.utils.result_simplified import Result
-    from routes.graphql.protocols import CurriculumEntityLike, LearningStepLike
+    from routes.graphql.protocols import CurriculumEntityLike, PathStepLike
 from routes.graphql.mappers import (
     knowledge_node_from_dto,
     knowledge_node_from_search_dict,
     learning_path_from_dto,
-    learning_step_from_domain,
+    path_step_from_domain,
     task_from_dto,
 )
 from routes.graphql.query_helpers import unwrap_list, unwrap_result
@@ -63,7 +63,7 @@ from routes.graphql.types import (
 
 
 def build_missing_prerequisite_blocker(
-    step: LearningStepLike,
+    step: PathStepLike,
     step_ku_uid: str,
     unmet_prereqs: list[Any],
 ) -> Blocker:
@@ -71,7 +71,7 @@ def build_missing_prerequisite_blocker(
     Build blocker for missing prerequisites using structural typing.
 
     Args:
-        step: Any object satisfying LearningStepLike protocol (has uid, title)
+        step: Any object satisfying PathStepLike protocol (has uid, title)
         step_ku_uid: Knowledge unit UID for the step
         unmet_prereqs: List of unmet prerequisite knowledge units
 
@@ -97,7 +97,7 @@ def build_missing_prerequisite_blocker(
 
 
 def build_low_progress_blocker(
-    step: LearningStepLike,
+    step: PathStepLike,
     step_ku_uid: str,
     progress: float,
 ) -> Blocker:
@@ -105,7 +105,7 @@ def build_low_progress_blocker(
     Build blocker for low progress using structural typing.
 
     Args:
-        step: Any object satisfying LearningStepLike protocol (has uid, title)
+        step: Any object satisfying PathStepLike protocol (has uid, title)
         step_ku_uid: Knowledge unit UID for the step
         progress: Current progress (0.0 - 1.0)
 
@@ -572,7 +572,7 @@ class Query:
                             if unmet_prereqs:
                                 # Use protocol-based helper function (Solution 3)
                                 blocker = build_missing_prerequisite_blocker(
-                                    step=step,  # Ls satisfies LearningStepLike protocol
+                                    step=step,  # Ls satisfies PathStepLike protocol
                                     step_ku_uid=step_ku_uid,
                                     unmet_prereqs=unmet_prereqs,
                                 )
@@ -590,7 +590,7 @@ class Query:
                         if in_progress and in_progress[0].progress < 0.3:
                             # Use protocol-based helper function (Solution 3)
                             blocker = build_low_progress_blocker(
-                                step=step,  # Ls satisfies LearningStepLike protocol
+                                step=step,  # Ls satisfies PathStepLike protocol
                                 step_ku_uid=step_ku_uid,
                                 progress=in_progress[0].progress,
                             )
@@ -600,7 +600,7 @@ class Query:
         # Use from_domain() for explicit DTO conversion
         next_steps = []
         for i, step in enumerate(steps[completed_steps : completed_steps + 3]):
-            next_steps.append(learning_step_from_domain(step, completed_steps + i + 1))
+            next_steps.append(path_step_from_domain(step, completed_steps + i + 1))
 
         # Check if prerequisites are met (simplified)
         prerequisites_met = len(blockers) == 0

@@ -50,7 +50,7 @@ async def _fetch_event_connections(
     OPTIONAL MATCH (e)-[r]->(target:Entity)
     WHERE type(r) IN [
         'REINFORCES_HABIT', 'MILESTONE_CELEBRATION_FOR_GOAL',
-        'PART_OF_LEARNING_STEP', 'PART_OF_LEARNING_PATH',
+        'PART_OF_PATH_STEP', 'PART_OF_LEARNING_PATH',
         'DEMONSTRATES_PRINCIPLE', 'APPLIES_KNOWLEDGE',
         'RELATED_TO'
     ]

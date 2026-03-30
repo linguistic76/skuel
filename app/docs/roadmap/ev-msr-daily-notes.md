@@ -16,7 +16,7 @@ Together with Daily Notes, these enable quantified self-tracking integrated into
 
 ### Event Instance (ev__)
 
-An `ev__` is a timestamped occurrence -- a "run" of a Learning Step or Exercise.
+An `ev__` is a timestamped occurrence -- a "run" of a Path Step or Exercise.
 
 ```yaml
 uid: ev:ls_track_coffee_buzzing:2026_03_06

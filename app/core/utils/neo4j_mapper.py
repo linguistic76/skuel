@@ -52,7 +52,7 @@ RELATIONSHIP_SKIP_FIELDS = {
     "featured_in_path_uids",
     # Learning Path/Step relationships
     "learning_path_uids",
-    "learning_step_uids",
+    "path_step_uids",
     "step_uids",
     "resource_uids",
     "exercise_uids",

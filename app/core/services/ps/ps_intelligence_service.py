@@ -28,10 +28,10 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
-from core.models.pathways.learning_step import LearningStep
-from core.models.pathways.learning_step_dto import LearningStepDTO
+from core.models.pathways.path_step import PathStep
+from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.type_hints import UserUID
-from core.ports.query_types import LsDomainInsights, LsPerformanceAnalytics, LsPracticeSummaryResult
+from core.ports.query_types import PsDomainInsights, PsPerformanceAnalytics, PsPracticeSummaryResult
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
 from core.utils.decorators import with_error_handling
@@ -45,9 +45,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class LsIntelligenceService(
-    BaseAnalyticsService["BackendOperations[LearningStep]", "LearningStep"]
-):
+class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", "PathStep"]):
     """
     Intelligence service for Learning Steps.
 
@@ -64,18 +62,18 @@ class LsIntelligenceService(
     generic UnifiedRelationshipService pattern.
     """
 
-    _service_name = "ls.intelligence"
+    _service_name = "ps.intelligence"
 
     def __init__(
         self,
-        backend: BackendOperations[LearningStep],
+        backend: BackendOperations[PathStep],
         graph_intelligence_service: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
         executor: Any | None = None,
     ) -> None:
         """
-        Initialize LsIntelligenceService.
+        Initialize PsIntelligenceService.
 
         NOTE: No embeddings_service or llm_service parameters (ADR-030).
         """
@@ -91,11 +89,11 @@ class LsIntelligenceService(
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[LearningStep, LearningStepDTO](
+            self.orchestrator = GraphContextOrchestrator[PathStep, PathStepDTO](
                 service=self,
                 backend_get_method="get",
-                dto_class=LearningStepDTO,
-                model_class=LearningStep,
+                dto_class=PathStepDTO,
+                model_class=PathStep,
                 domain=Domain.LEARNING,
             )
 
@@ -107,12 +105,12 @@ class LsIntelligenceService(
 
     async def get_with_context(
         self, uid: str, depth: int = 2
-    ) -> Result[tuple[LearningStep, GraphContext]]:
+    ) -> Result[tuple[PathStep, GraphContext]]:
         """
-        Get learning step with full graph context.
+        Get path step with full graph context.
 
         Protocol method: Uses GraphContextOrchestrator for generic pattern.
-        Used by IntelligenceRouteFactory for GET /api/learning-steps/context route.
+        Used by IntelligenceRouteFactory for GET /api/path-steps/context route.
 
         Args:
             uid: Learning Step UID
@@ -132,12 +130,12 @@ class LsIntelligenceService(
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[LsPerformanceAnalytics]:
+    ) -> Result[PsPerformanceAnalytics]:
         """
-        Get learning step analytics for a user.
+        Get path step analytics for a user.
 
-        Protocol method: Aggregates learning step metrics.
-        Used by IntelligenceRouteFactory for GET /api/learning-steps/analytics route.
+        Protocol method: Aggregates path step metrics.
+        Used by IntelligenceRouteFactory for GET /api/path-steps/analytics route.
 
         Args:
             user_uid: User UID
@@ -150,18 +148,18 @@ class LsIntelligenceService(
         This returns overall LS statistics rather than user-specific data.
         """
         # LS is shared content - get overall stats
-        ls_result = await self.backend.find_by()
-        if ls_result.is_error:
-            return Result.fail(ls_result)
+        ps_result = await self.backend.find_by()
+        if ps_result.is_error:
+            return Result.fail(ps_result)
 
-        all_steps = ls_result.value or []
+        all_steps = ps_result.value or []
         total_steps = len(all_steps)
 
         return Result.ok(
             {
                 "user_uid": user_uid,
                 "period_days": period_days,
-                "total_learning_steps": total_steps,
+                "total_path_steps": total_steps,
                 "analytics": {
                     "total": total_steps,
                     "note": "Learning Steps are shared curriculum content",
@@ -171,12 +169,12 @@ class LsIntelligenceService(
 
     async def get_domain_insights(
         self, uid: str, min_confidence: float = 0.7
-    ) -> Result[LsDomainInsights]:
+    ) -> Result[PsDomainInsights]:
         """
-        Get domain-specific insights for a learning step.
+        Get domain-specific insights for a path step.
 
         Protocol method: Provides LS-specific intelligence.
-        Used by IntelligenceRouteFactory for GET /api/learning-steps/insights route.
+        Used by IntelligenceRouteFactory for GET /api/path-steps/insights route.
 
         Args:
             uid: Learning Step UID
@@ -185,18 +183,18 @@ class LsIntelligenceService(
         Returns:
             Result containing insights data dict with practice analysis
         """
-        # Get learning step
-        ls_result = await self.backend.get(uid)
-        if ls_result.is_error:
-            return Result.fail(ls_result)
+        # Get path step
+        ps_result = await self.backend.get(uid)
+        if ps_result.is_error:
+            return Result.fail(ps_result)
 
-        ls = ls_result.value
-        if not ls:
-            return Result.fail(Errors.not_found(resource="LearningStep", identifier=uid))
+        ps = ps_result.value
+        if not ps:
+            return Result.fail(Errors.not_found(resource="PathStep", identifier=uid))
 
         # Get practice summary
         practice_result = await self.get_practice_summary(uid)
-        practice: LsPracticeSummaryResult = (
+        practice: PsPracticeSummaryResult = (
             practice_result.value
             if practice_result.is_ok
             else {
@@ -220,9 +218,9 @@ class LsIntelligenceService(
 
         return Result.ok(
             {
-                "ls_uid": uid,
-                "ls_title": ls.title,
-                "ls_intent": getattr(ls, "intent", None),
+                "ps_uid": uid,
+                "ps_title": ps.title,
+                "ps_intent": getattr(ps, "intent", None),
                 "practice_summary": practice,
                 "practice_completeness": completeness,
                 "has_prerequisites": has_prerequisites,
@@ -245,16 +243,16 @@ class LsIntelligenceService(
     # READINESS ASSESSMENT
     # ========================================================================
 
-    @with_error_handling("is_ready", error_type="database", uid_param="ls_uid")
-    async def is_ready(self, ls_uid: str, completed_step_uids: set[str]) -> Result[bool]:
+    @with_error_handling("is_ready", error_type="database", uid_param="ps_uid")
+    async def is_ready(self, ps_uid: str, completed_step_uids: set[str]) -> Result[bool]:
         """
-        Check if learning step is ready based on prerequisite completion.
+        Check if path step is ready based on prerequisite completion.
 
         A step is ready when ALL its prerequisite steps (via REQUIRES_STEP
         relationship) have been completed.
 
         Args:
-            ls_uid: UID of the learning step
+            ps_uid: UID of the path step
             completed_step_uids: Set of completed step UIDs
 
         Returns:
@@ -262,8 +260,8 @@ class LsIntelligenceService(
 
         Example:
             result = await intelligence.is_ready(
-                "ls:functions",
-                {"ls:intro", "ls:syntax"}
+                "ps:functions",
+                {"ps:intro", "ps:syntax"}
             )
             if result.is_ok and result.value:
                 print("Ready to learn functions!")
@@ -280,10 +278,10 @@ class LsIntelligenceService(
 
         return await executor_result.value.execute(
             query="""
-                MATCH (ls:Entity {uid: $ls_uid})-[:REQUIRES_STEP]->(prereq:Entity {entity_type: 'learning_step'})
+                MATCH (ps:Entity {uid: $ps_uid})-[:REQUIRES_STEP]->(prereq:Entity {entity_type: 'path_step'})
                 RETURN collect(prereq.uid) as prereq_uids
             """,
-            params={"ls_uid": ls_uid},
+            params={"ps_uid": ps_uid},
             processor=_check_readiness,
             operation="is_ready",
         )
@@ -292,16 +290,16 @@ class LsIntelligenceService(
     # PRACTICE ANALYSIS
     # ========================================================================
 
-    @with_error_handling("get_practice_summary", error_type="database", uid_param="ls_uid")
-    async def get_practice_summary(self, ls_uid: str) -> Result[LsPracticeSummaryResult]:
+    @with_error_handling("get_practice_summary", error_type="database", uid_param="ps_uid")
+    async def get_practice_summary(self, ps_uid: str) -> Result[PsPracticeSummaryResult]:
         """
-        Get summary of practice opportunities for a learning step.
+        Get summary of practice opportunities for a path step.
 
         Traverses through Lessons via HAS_LESSON to count all 6 activity
         domains: habits, tasks, events, goals, principles, choices.
 
         Args:
-            ls_uid: UID of the learning step
+            ps_uid: UID of the path step
 
         Returns:
             Result[dict] with structure:
@@ -309,7 +307,7 @@ class LsIntelligenceService(
              "goals": int, "principles": int, "choices": int, "total": int}
 
         Example:
-            result = await intelligence.get_practice_summary("ls:functions")
+            result = await intelligence.get_practice_summary("ps:functions")
             if result.is_ok:
                 print(f"Total practice: {result.value['total']} items")
         """
@@ -349,13 +347,13 @@ class LsIntelligenceService(
 
         return await executor_result.value.execute(
             query="""
-                MATCH (ls:Entity {uid: $ls_uid})
-                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:BUILDS_HABIT]->(h)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:ASSIGNS_TASK]->(t)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l3)-[:SCHEDULES_EVENT]->(e)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:SUPPORTS_GOAL]->(g)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:GUIDED_BY_PRINCIPLE]->(p)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:INFORMS_CHOICE]->(c)
+                MATCH (ps:Entity {uid: $ps_uid})
+                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:BUILDS_HABIT]->(h)
+                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:ASSIGNS_TASK]->(t)
+                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l3)-[:SCHEDULES_EVENT]->(e)
+                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:SUPPORTS_GOAL]->(g)
+                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:GUIDED_BY_PRINCIPLE]->(p)
+                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:INFORMS_CHOICE]->(c)
                 RETURN count(DISTINCT h) as habits,
                        count(DISTINCT t) as tasks,
                        count(DISTINCT e) as events,
@@ -363,13 +361,13 @@ class LsIntelligenceService(
                        count(DISTINCT p) as principles,
                        count(DISTINCT c) as choices
             """,
-            params={"ls_uid": ls_uid},
+            params={"ps_uid": ps_uid},
             processor=_process_summary,
             operation="get_practice_summary",
         )
 
-    @with_error_handling("practice_completeness_score", error_type="database", uid_param="ls_uid")
-    async def practice_completeness_score(self, ls_uid: str) -> Result[float]:
+    @with_error_handling("practice_completeness_score", error_type="database", uid_param="ps_uid")
+    async def practice_completeness_score(self, ps_uid: str) -> Result[float]:
         """
         Calculate practice completeness (0.0-1.0).
 
@@ -377,17 +375,17 @@ class LsIntelligenceService(
         Each domain contributes 1/6 of the score.
 
         Args:
-            ls_uid: UID of the learning step
+            ps_uid: UID of the path step
 
         Returns:
             Result[float] - Practice completeness score (0.0 to 1.0)
 
         Example:
-            result = await intelligence.practice_completeness_score("ls:functions")
+            result = await intelligence.practice_completeness_score("ps:functions")
             if result.is_ok:
                 print(f"Practice completeness: {result.value:.0%}")
         """
-        summary_result = await self.get_practice_summary(ls_uid)
+        summary_result = await self.get_practice_summary(ps_uid)
         if summary_result.is_error:
             return Result.fail(summary_result)
 
@@ -409,8 +407,8 @@ class LsIntelligenceService(
     # GUIDANCE ANALYSIS
     # ========================================================================
 
-    @with_error_handling("calculate_guidance_strength", error_type="database", uid_param="ls_uid")
-    async def calculate_guidance_strength(self, ls_uid: str) -> Result[float]:
+    @with_error_handling("calculate_guidance_strength", error_type="database", uid_param="ps_uid")
+    async def calculate_guidance_strength(self, ps_uid: str) -> Result[float]:
         """
         Calculate how well this step guides the learner (0.0-1.0).
 
@@ -419,13 +417,13 @@ class LsIntelligenceService(
         - Choices provide inspiration and options (60% max)
 
         Args:
-            ls_uid: UID of the learning step
+            ps_uid: UID of the path step
 
         Returns:
             Result[float] - Guidance strength score (0.0 to 1.0)
 
         Example:
-            result = await intelligence.calculate_guidance_strength("ls:functions")
+            result = await intelligence.calculate_guidance_strength("ps:functions")
             if result.is_ok:
                 print(f"Guidance strength: {result.value:.0%}")
         """
@@ -454,13 +452,13 @@ class LsIntelligenceService(
 
         return await executor_result.value.execute(
             query="""
-                MATCH (ls:Entity {uid: $ls_uid})
-                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:GUIDED_BY_PRINCIPLE]->(p)
-                OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:INFORMS_CHOICE]->(c)
+                MATCH (ps:Entity {uid: $ps_uid})
+                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:GUIDED_BY_PRINCIPLE]->(p)
+                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:INFORMS_CHOICE]->(c)
                 RETURN count(DISTINCT p) as principle_count,
                        count(DISTINCT c) as choice_count
             """,
-            params={"ls_uid": ls_uid},
+            params={"ps_uid": ps_uid},
             processor=_calculate_score,
             operation="calculate_guidance_strength",
         )
@@ -469,23 +467,23 @@ class LsIntelligenceService(
     # EXISTENCE CHECKS (Compound)
     # ========================================================================
 
-    @with_error_handling("has_prerequisites", error_type="database", uid_param="ls_uid")
-    async def has_prerequisites(self, ls_uid: str) -> Result[bool]:
+    @with_error_handling("has_prerequisites", error_type="database", uid_param="ps_uid")
+    async def has_prerequisites(self, ps_uid: str) -> Result[bool]:
         """
-        Check if learning step has any prerequisites.
+        Check if path step has any prerequisites.
 
         Checks for both:
         - REQUIRES_STEP relationships (other steps)
         - REQUIRES_KNOWLEDGE relationships (KU prerequisites)
 
         Args:
-            ls_uid: UID of the learning step
+            ps_uid: UID of the path step
 
         Returns:
             Result[bool] - True if step has prerequisites
 
         Example:
-            result = await intelligence.has_prerequisites("ls:functions")
+            result = await intelligence.has_prerequisites("ps:functions")
             if result.is_ok and result.value:
                 print("This step has prerequisites")
         """
@@ -496,29 +494,29 @@ class LsIntelligenceService(
 
         return await self.executor.execute_exists(
             query="""
-                MATCH (ls:Entity {uid: $ls_uid})
-                WHERE exists((ls)-[:REQUIRES_STEP]->()) OR exists((ls)-[:REQUIRES_KNOWLEDGE]->())
-                RETURN ls
+                MATCH (ps:Entity {uid: $ps_uid})
+                WHERE exists((ps)-[:REQUIRES_STEP]->()) OR exists((ps)-[:REQUIRES_KNOWLEDGE]->())
+                RETURN ps
             """,
-            params={"ls_uid": ls_uid},
+            params={"ps_uid": ps_uid},
             operation="has_prerequisites",
         )
 
-    @with_error_handling("has_guidance", error_type="database", uid_param="ls_uid")
-    async def has_guidance(self, ls_uid: str) -> Result[bool]:
+    @with_error_handling("has_guidance", error_type="database", uid_param="ps_uid")
+    async def has_guidance(self, ps_uid: str) -> Result[bool]:
         """
-        Check if learning step has guidance (principles or choices).
+        Check if path step has guidance (principles or choices).
 
         Traverses through Lessons via HAS_LESSON.
 
         Args:
-            ls_uid: UID of the learning step
+            ps_uid: UID of the path step
 
         Returns:
             Result[bool] - True if step has guidance
 
         Example:
-            result = await intelligence.has_guidance("ls:functions")
+            result = await intelligence.has_guidance("ps:functions")
             if result.is_ok and result.value:
                 print("This step has guidance")
         """
@@ -529,30 +527,30 @@ class LsIntelligenceService(
 
         return await self.executor.execute_exists(
             query="""
-                MATCH (ls:Entity {uid: $ls_uid})
-                WHERE exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:GUIDED_BY_PRINCIPLE]->())
-                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:INFORMS_CHOICE]->())
-                RETURN ls
+                MATCH (ps:Entity {uid: $ps_uid})
+                WHERE exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:GUIDED_BY_PRINCIPLE]->())
+                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:INFORMS_CHOICE]->())
+                RETURN ps
             """,
-            params={"ls_uid": ls_uid},
+            params={"ps_uid": ps_uid},
             operation="has_guidance",
         )
 
-    @with_error_handling("has_practice_opportunities", error_type="database", uid_param="ls_uid")
-    async def has_practice_opportunities(self, ls_uid: str) -> Result[bool]:
+    @with_error_handling("has_practice_opportunities", error_type="database", uid_param="ps_uid")
+    async def has_practice_opportunities(self, ps_uid: str) -> Result[bool]:
         """
-        Check if learning step has practice opportunities.
+        Check if path step has practice opportunities.
 
         Traverses through Lessons via HAS_LESSON to check all 6 activity domains.
 
         Args:
-            ls_uid: UID of the learning step
+            ps_uid: UID of the path step
 
         Returns:
             Result[bool] - True if step has practice opportunities
 
         Example:
-            result = await intelligence.has_practice_opportunities("ls:functions")
+            result = await intelligence.has_practice_opportunities("ps:functions")
             if result.is_ok and result.value:
                 print("This step has practice opportunities")
         """
@@ -566,15 +564,15 @@ class LsIntelligenceService(
 
         return await self.executor.execute_exists(
             query="""
-                MATCH (ls:Entity {uid: $ls_uid})
-                WHERE exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:BUILDS_HABIT]->())
-                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:ASSIGNS_TASK]->())
-                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:SCHEDULES_EVENT]->())
-                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:SUPPORTS_GOAL]->())
-                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:GUIDED_BY_PRINCIPLE]->())
-                   OR exists((ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:INFORMS_CHOICE]->())
-                RETURN ls
+                MATCH (ps:Entity {uid: $ps_uid})
+                WHERE exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:BUILDS_HABIT]->())
+                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:ASSIGNS_TASK]->())
+                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:SCHEDULES_EVENT]->())
+                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:SUPPORTS_GOAL]->())
+                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:GUIDED_BY_PRINCIPLE]->())
+                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:INFORMS_CHOICE]->())
+                RETURN ps
             """,
-            params={"ls_uid": ls_uid},
+            params={"ps_uid": ps_uid},
             operation="has_practice_opportunities",
         )

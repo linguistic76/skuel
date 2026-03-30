@@ -40,7 +40,7 @@ from core.events import (
     HabitEmbeddingRequested,
     KuEmbeddingRequested,
     LearningPathEmbeddingRequested,
-    LearningStepEmbeddingRequested,
+    PathStepEmbeddingRequested,
     LessonEmbeddingRequested,
     PrincipleEmbeddingRequested,
     ResourceEmbeddingRequested,
@@ -132,7 +132,7 @@ class EmbeddingBackgroundWorker:
         self.event_bus.subscribe(KuEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(ResourceEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(ExerciseEmbeddingRequested, self._queue_request)
-        self.event_bus.subscribe(LearningStepEmbeddingRequested, self._queue_request)
+        self.event_bus.subscribe(PathStepEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(LearningPathEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(RevisedExerciseEmbeddingRequested, self._queue_request)
 
@@ -343,7 +343,7 @@ class EmbeddingBackgroundWorker:
                 "ku": "Ku",
                 "resource": "Resource",
                 "exercise": "Exercise",
-                "learning_step": "LearningStep",
+                "path_step": "PathStep",
                 "learning_path": "LearningPath",
                 "revised_exercise": "RevisedExercise",
             }

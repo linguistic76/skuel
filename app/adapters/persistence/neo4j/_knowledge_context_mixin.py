@@ -198,13 +198,13 @@ class _KnowledgeContextMixin:
         """
         return await self.execute_query(query, params)
 
-    async def find_learning_steps_containing_ku(
+    async def find_path_steps_containing_ku(
         self, ku_uid: str, limit: int = 10
     ) -> Result[list[Neo4jProperties]]:
-        """Find learning steps that contain/teach a KU via CONTAINS_KNOWLEDGE."""
+        """Find path steps that contain/teach a KU via CONTAINS_KNOWLEDGE."""
         query = """
-        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)
-        RETURN ls.uid as step_uid
+        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep)
+        RETURN ps.uid as step_uid
         ORDER BY ls.sequence_number ASC
         LIMIT $limit
         """
@@ -215,7 +215,7 @@ class _KnowledgeContextMixin:
     ) -> Result[list[Neo4jProperties]]:
         """Find learning paths that teach a KU via LS chain."""
         query = """
-        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Ls)<-[:HAS_STEP]-(lp:Lp)
+        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep)<-[:HAS_STEP]-(lp:Lp)
         RETURN DISTINCT lp.uid as path_uid
         ORDER BY lp.created_at DESC
         LIMIT $limit

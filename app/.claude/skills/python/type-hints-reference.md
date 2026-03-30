@@ -276,11 +276,11 @@ from core.ports.query_types import (
     # Graph entity results
     GraphInfluenceItem, RelationshipSummaryResult,
     # Curriculum structure results
-    SubstantiationSummaryResult, LsKnowledgeSummaryResult,
-    LsPracticeSummaryResult, UserProgressResult,
+    SubstantiationSummaryResult, PsKnowledgeSummaryResult,
+    PsPracticeSummaryResult, UserProgressResult,
     # UserContext field types
     RichEntityItem, RichKnowledgeUnitItem, RichLearningPathItem,
-    RichLearningStepItem, CrossDomainInsightsData,
+    RichPathStepItem, CrossDomainInsightsData,
     UnsubmittedExerciseItem, FacetInteractionItem,
 )
 

@@ -94,9 +94,7 @@ def parse_enum_field(data: dict, field_name: str, enum_class: type[Enum]) -> Non
         if enum_class is EntityStatus:
             resolved = EntityStatus.from_string(data[field_name])
             if resolved is None:
-                raise ValueError(
-                    f"'{data[field_name]}' is not a valid EntityStatus"
-                )
+                raise ValueError(f"'{data[field_name]}' is not a valid EntityStatus")
             data[field_name] = resolved
         else:
             data[field_name] = enum_class(data[field_name])

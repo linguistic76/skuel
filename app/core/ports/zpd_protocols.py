@@ -96,7 +96,7 @@ class ZPDOperations(Protocol):
 
     Consumed by:
     - UserContextBuilder.build_rich() — capstone computation
-    - UserContextIntelligence.get_optimal_next_learning_steps()
+    - UserContextIntelligence.get_optimal_next_path_steps()
     - AskesisService.analyze_user_state() — ZPDAssessment in state snapshot
     """
 

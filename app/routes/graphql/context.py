@@ -45,7 +45,7 @@ class GraphQLContext:
     knowledge_loader: DataLoader[str, Any]
     task_loader: DataLoader[str, Any]
     learning_path_loader: DataLoader[str, Any]
-    learning_step_loader: DataLoader[str, Any]
+    path_step_loader: DataLoader[str, Any]
 
     # Request metadata (always set — auth enforced at HTTP layer)
     user_uid: UserUID = _EMPTY_USER_UID
@@ -102,7 +102,7 @@ def create_graphql_context(
         knowledge_loader=None,  # type: ignore[arg-type]  # Set below
         task_loader=None,  # type: ignore[arg-type]  # Set below
         learning_path_loader=None,  # type: ignore[arg-type]  # Set below
-        learning_step_loader=None,  # type: ignore[arg-type]  # Set below
+        path_step_loader=None,  # type: ignore[arg-type]  # Set below
         user_uid=user_uid,
     )
 
@@ -124,17 +124,15 @@ def create_graphql_context(
             keys, context.services.lp.get_learning_paths_batch, "learning paths"
         )
 
-    async def load_learning_steps(keys: list[str]) -> list[Any]:
-        if context.services.ls is None:
+    async def load_path_steps(keys: list[str]) -> list[Any]:
+        if context.services.ps is None:
             return [None] * len(keys)
-        return await _batch_load(
-            keys, context.services.ls.get_learning_steps_batch, "learning steps"
-        )
+        return await _batch_load(keys, context.services.ps.get_path_steps_batch, "path steps")
 
     # Create DataLoaders with named functions instead of lambdas
     context.knowledge_loader = DataLoader(load_fn=load_knowledge_units)
     context.task_loader = DataLoader(load_fn=load_tasks)
     context.learning_path_loader = DataLoader(load_fn=load_learning_paths)
-    context.learning_step_loader = DataLoader(load_fn=load_learning_steps)
+    context.path_step_loader = DataLoader(load_fn=load_path_steps)
 
     return context

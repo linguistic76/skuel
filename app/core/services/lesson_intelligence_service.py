@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
-from core.events.curriculum_events import LearningStepCompleted
+from core.events.curriculum_events import PathStepCompleted
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.enums import Domain
@@ -540,12 +540,12 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
     # EVENT HANDLERS - Learning Progress Tracking
     # ========================================================================
 
-    async def handle_learning_step_completed(self, event: LearningStepCompleted) -> None:
+    async def handle_path_step_completed(self, event: PathStepCompleted) -> None:
         """
-        Update knowledge substance when a learning step is completed.
+        Update knowledge substance when a path step is completed.
 
         This is a fire-and-forget event handler - logs errors but never fails.
-        When a user completes a learning step, we:
+        When a user completes a path step, we:
         1. Get all KUs linked to this LS via CONTAINS_KNOWLEDGE relationship
         2. For each linked KU, update the user's mastery progress
         3. Log structured learning progress insights
@@ -556,14 +556,14 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
         - This contributes to mastery but requires application for true substance
 
         Args:
-            event: LearningStepCompleted with ls_uid, user_uid, completion_score
+            event: PathStepCompleted with ps_uid, user_uid, completion_score
         """
         try:
             self.logger.info(
-                f"Processing learning step completed: {event.ls_uid}",
+                f"Processing path step completed: {event.ps_uid}",
                 extra={
-                    "event_type": "learning_step.completed",
-                    "ls_uid": event.ls_uid,
+                    "event_type": "path_step.completed",
+                    "ps_uid": event.ps_uid,
                     "user_uid": event.user_uid,
                     "completion_score": event.completion_score,
                     "linked_lp_uid": event.linked_lp_uid,
@@ -574,7 +574,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
             linked_ku_uids: list[str] = []
             if self.relationships:
                 rel_result = await self.relationships.get_related_uids(
-                    event.ls_uid,
+                    event.ps_uid,
                     RelationshipName.CONTAINS_KNOWLEDGE,
                     "outgoing",
                 )
@@ -582,12 +582,12 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
                     linked_ku_uids = rel_result.value
                 else:
                     self.logger.warning(
-                        f"Failed to get linked KUs for LS {event.ls_uid}: {rel_result.error}"
+                        f"Failed to get linked KUs for LS {event.ps_uid}: {rel_result.error}"
                     )
 
             if not linked_ku_uids:
                 self.logger.info(
-                    f"No KUs linked to learning step {event.ls_uid} - no substance update needed"
+                    f"No KUs linked to path step {event.ps_uid} - no substance update needed"
                 )
                 return
 
@@ -623,7 +623,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
                 f"Learning progress: {len(linked_ku_uids)} KUs advanced{path_context}",
                 extra={
                     "event_type": "learning_progress.insight",
-                    "ls_uid": event.ls_uid,
+                    "ps_uid": event.ps_uid,
                     "user_uid": event.user_uid,
                     "linked_ku_uids": linked_ku_uids,
                     "ku_count": len(linked_ku_uids),
@@ -638,7 +638,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
                         "type": "learning_progress",
                         "title": f"Learning step completed: {completion_quality}",
                         "description": (
-                            f"Completed learning step covering {len(linked_ku_uids)} knowledge units. "
+                            f"Completed path step covering {len(linked_ku_uids)} knowledge units. "
                             f"{mastery_message}."
                         ),
                         "confidence": event.completion_score,
@@ -666,10 +666,10 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             # Fire-and-forget: log error but don't propagate
             self.logger.error(
-                f"Error processing learning step completed event: {e}",
+                f"Error processing path step completed event: {e}",
                 extra={
-                    "event_type": "learning_step.completed.error",
-                    "ls_uid": event.ls_uid,
+                    "event_type": "path_step.completed.error",
+                    "ps_uid": event.ps_uid,
                     "user_uid": event.user_uid,
                     "error": str(e),
                 },
@@ -700,7 +700,7 @@ class LessonIntelligenceService(BaseAnalyticsService[LessonOperations, Entity]):
             )
             recommendations.append(
                 {
-                    "action": "Move to the next learning step",
+                    "action": "Move to the next path step",
                     "rationale": "You're ready to advance",
                 }
             )

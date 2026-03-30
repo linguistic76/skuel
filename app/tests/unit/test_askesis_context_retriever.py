@@ -26,12 +26,12 @@ def _make_graph_intel(resource_records: list[dict[str, Any]] | None = None) -> M
 def _make_user_context(
     active_ls_data: dict[str, Any] | None = None,
 ) -> MagicMock:
-    """Build a minimal mock UserContext with one active learning step."""
+    """Build a minimal mock UserContext with one active path step."""
     ctx = MagicMock()
     if active_ls_data is None:
         active_ls_data = {
             "entity": {
-                "uid": "ls:test_1",
+                "uid": "ps:test_1",
                 "title": "Test Step",
                 "current_mastery": 0.0,
                 "mastery_threshold": 0.7,
@@ -46,7 +46,7 @@ def _make_user_context(
                 "knowledge_relationships": [],
             },
         }
-    ctx.active_learning_steps_rich = [active_ls_data]
+    ctx.active_path_steps_rich = [active_ls_data]
     return ctx
 
 
@@ -107,11 +107,11 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ls_bundle("user_1", ctx)
+        result = await retriever.load_ps_bundle("user_1", ctx)
 
         assert result.is_ok
         bundle = result.value
-        assert bundle.learning_step.uid == "ls:test_1"
+        assert bundle.path_step.uid == "ps:test_1"
         assert len(bundle.lessons) == 1
         assert bundle.learning_path is not None
         assert len(bundle.habits) == 1
@@ -137,11 +137,11 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ls_bundle("user_1", ctx)
+        result = await retriever.load_ps_bundle("user_1", ctx)
 
         assert result.is_ok
         bundle = result.value
-        assert bundle.learning_step.uid == "ls:test_1"
+        assert bundle.path_step.uid == "ps:test_1"
         assert len(bundle.lessons) == 0  # Failed fetch → empty
         assert bundle.learning_path is not None  # LP succeeded
         assert len(bundle.habits) == 1
@@ -166,7 +166,7 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ls_bundle("user_1", ctx)
+        result = await retriever.load_ps_bundle("user_1", ctx)
 
         assert result.is_ok
         bundle = result.value
@@ -190,11 +190,11 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ls_bundle("user_1", ctx)
+        result = await retriever.load_ps_bundle("user_1", ctx)
 
         assert result.is_ok
         bundle = result.value
-        assert bundle.learning_step.uid == "ls:test_1"
+        assert bundle.path_step.uid == "ps:test_1"
         assert len(bundle.lessons) == 0
         assert len(bundle.kus) == 0
         assert bundle.learning_path is None
@@ -217,9 +217,9 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = MagicMock()
-        ctx.active_learning_steps_rich = []
+        ctx.active_path_steps_rich = []
 
-        result = await retriever.load_ls_bundle("user_1", ctx)
+        result = await retriever.load_ps_bundle("user_1", ctx)
         assert result.is_error
 
     @pytest.mark.anyio
@@ -242,7 +242,7 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ls_bundle("user_1", ctx)
+        result = await retriever.load_ps_bundle("user_1", ctx)
 
         assert result.is_ok
         bundle = result.value
@@ -283,7 +283,7 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ls_bundle("user_1", ctx)
+        result = await retriever.load_ps_bundle("user_1", ctx)
 
         assert result.is_ok
         bundle = result.value
@@ -311,7 +311,7 @@ class TestLoadLsBundlePartialFailure:
         )
 
         ctx = _make_user_context()
-        result = await retriever.load_ls_bundle("user_1", ctx)
+        result = await retriever.load_ps_bundle("user_1", ctx)
 
         assert result.is_ok
         bundle = result.value

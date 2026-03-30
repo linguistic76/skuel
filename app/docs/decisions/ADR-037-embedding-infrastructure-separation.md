@@ -87,7 +87,7 @@ All 6 Activity domains benefit from this filtering:
 
 **Plus Curriculum domains:**
 7. **KU** - `CurriculumDTO.from_dict()` *(was KuDTO, deleted 2026-02-23)*
-8. **LS** - `LsDTO.from_dict()`
+8. **PS** - `LsDTO.from_dict()`
 9. **LP** - `LpDTO.from_dict()`
 
 ## Consequences

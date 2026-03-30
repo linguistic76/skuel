@@ -108,10 +108,10 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
                 habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
                 # GRAPH-NATIVE: Check if habit is learning-related
-                # Check category and source fields (learning step/path linkage)
+                # Check category and source fields (path step/path linkage)
                 if (
                     (habit.habit_category and habit.habit_category == HabitCategory.LEARNING)
-                    or habit.source_learning_step_uid is not None
+                    or habit.source_path_step_uid is not None
                     or habit.source_learning_path_uid is not None
                 ):
                     learning_habits.append(habit)

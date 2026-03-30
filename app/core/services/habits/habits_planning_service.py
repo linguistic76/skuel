@@ -347,7 +347,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         Returns habits that:
         1. Practice knowledge units the user is actively learning
         2. Are in the LEARNING category
-        3. Come from curriculum (learning step/path source)
+        3. Come from curriculum (path step/path source)
 
         **Context Fields Used:**
         - in_progress_knowledge_uids: Knowledge being learned
@@ -404,7 +404,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
             # Check if habit reinforces learning knowledge
             is_learning_habit = (
                 habit.habit_category == HabitCategory.LEARNING
-                or habit.source_learning_step_uid is not None
+                or habit.source_path_step_uid is not None
                 or habit.source_learning_path_uid is not None
                 or any(ku in learning_ku for ku in knowledge_uids)
             )

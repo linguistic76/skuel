@@ -19,7 +19,7 @@ BACKENDS IN USE (services_bootstrap.py)
     SubmissionsBackend[Submission]
 
 **Generic backends (UniversalNeo4jBackend[T]):**
-    LearningStep, ExpensePure, InvoicePure, ActivityReport
+    PathStep, ExpensePure, InvoicePure, ActivityReport
     HabitCompletion, Transcription, PrincipleReflection, UserProgress, Askesis
 
 NOT USING THIS BACKEND
@@ -176,7 +176,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
 
     Supported Domains:
         - Activity: Tasks, Events, Habits, Goals, Choices, Principles
-        - Knowledge: KnowledgeUnit, LearningPath, LearningStep
+        - Knowledge: KnowledgeUnit, LearningPath, PathStep
         - Finance: Expenses, Budgets
         - Content: Journals, Transcriptions, Assignments
         - Identity: Users (with UserBackend extensions)

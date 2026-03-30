@@ -48,7 +48,7 @@ SKUEL separates analytics from AI with two base classes:
 | Principles | `PrinciplesIntelligenceService` | `BaseAnalyticsService[PrinciplesOperations, Principle]` | Alignment analysis |
 | **Curriculum (3)** |
 | KU | `KuIntelligenceService` | `BaseAnalyticsService[KuOperations, Entity]` | Knowledge graph analytics |
-| LS | `LsIntelligenceService` | `BaseAnalyticsService["BackendOperations[LearningStep]", LearningStep]` | Readiness checks |
+| LS | `PsIntelligenceService` | `BaseAnalyticsService["BackendOperations[PathStep]", PathStep]` | Readiness checks |
 | LP | `LpIntelligenceService` | `BaseAnalyticsService[Any, Entity]` | Learning state analysis |
 
 **Key pattern:** The second type parameter is the domain's own model (`Task`, `Goal`, `Habit`, etc.), not the generic `Ku`. Curriculum services use `Entity` as the second param since Ku nodes are base-class entities.

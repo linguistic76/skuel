@@ -58,7 +58,7 @@ Only curriculum entities with parent-child relationships use dot (`.`):
 - Knowledge Units: `ku.domain.topic.subtopic`
 - Domains: `dom.parent.child`
 - Learning Paths: `path.level.subject`
-- Learning Steps: `ls.parent.step` (if hierarchical)
+- Path Steps: `ls.parent.step` (if hierarchical)
 - Format: `{prefix}.{hierarchy}.{leaf}`
 
 **Rule 3: No Colons**
@@ -81,7 +81,7 @@ Colon notation is deprecated. All uses must be migrated to underscore.
 | KU | `ku.{hierarchy}` | `ku.yoga.meditation` (NO CHANGE) |
 | Domain | `dom.{hierarchy}` | `dom.technology.ai` (NO CHANGE) |
 | Path | `path.{hierarchy}` | `path.beginner.python` (NO CHANGE) |
-| LS | `ls.{hierarchy}` | `ls.parent.step` (NO CHANGE) |
+| PS | `ls.{hierarchy}` | `ls.parent.step` (NO CHANGE) |
 
 ## Migration Phases
 
@@ -556,7 +556,7 @@ Add validation to backends:
 ```python
 def _validate_uid_format(self, uid: str):
     """Warn if UID uses deprecated format."""
-    if self.label not in ["Ku", "Domain", "LearningPath", "LearningStep"]:
+    if self.label not in ["Ku", "Domain", "LearningPath", "PathStep"]:
         # Non-curriculum entity
         if "." in uid or ":" in uid:
             logger.warning(

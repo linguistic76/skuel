@@ -209,7 +209,7 @@ The helper integrates with SKUEL's learning path system via `LpPosition`:
 class LpPosition:
     active_paths: list[LearningPath]           # User's active learning paths
     completed_step_uids: set[str]              # Completed steps
-    current_steps: dict[str, LearningStep]     # Current step per path
+    current_steps: dict[str, PathStep]     # Current step per path
 ```
 
 **How it works:**
@@ -1096,7 +1096,7 @@ async def create_study_session(self, user_uid, learning_path_uid, ...):
 
     custom_fields = {
         "source_learning_path_uid": learning_path_uid,
-        "source_learning_step_uid": step_uid,
+        "source_path_step_uid": step_uid,
     }
 
     return await self.learning_helper.create_with_learning_alignment(

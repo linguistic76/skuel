@@ -78,7 +78,7 @@ class FakeLearningPath:
 
 
 @dataclass
-class FakeLearningStep:
+class FakePathStep:
     uid: str = "ls_test_1"
     title: str = "Test Step"
     knowledge_uids: tuple[str, ...] = ("ku_test_1",)
@@ -148,7 +148,7 @@ def _make_context(
         knowledge_loader=knowledge_loader or _make_loader(),
         task_loader=task_loader or _make_loader(),
         learning_path_loader=lp_loader or _make_loader(),
-        learning_step_loader=ls_loader or _make_loader(),
+        path_step_loader=ls_loader or _make_loader(),
         user_uid=user_uid,
     )
 
@@ -166,7 +166,7 @@ def _make_info(context: GraphQLContext) -> Info[GraphQLContext, Any]:
 
 class TestBuildMissingPrerequisiteBlocker:
     def test_single_prereq(self) -> None:
-        step = FakeLearningStep(title="Advanced Python")
+        step = FakePathStep(title="Advanced Python")
         unmet = [FakeKU(uid="ku_prereq", title="Python Basics")]
 
         blocker = build_missing_prerequisite_blocker(step, "ku_step_1", unmet)
@@ -181,7 +181,7 @@ class TestBuildMissingPrerequisiteBlocker:
 
     def test_multiple_prereqs_truncated(self) -> None:
         unmet = [FakeKU(title=f"Prereq {i}") for i in range(5)]
-        step = FakeLearningStep(title="Step X")
+        step = FakePathStep(title="Step X")
 
         blocker = build_missing_prerequisite_blocker(step, "ku_x", unmet)
 
@@ -190,7 +190,7 @@ class TestBuildMissingPrerequisiteBlocker:
 
     def test_exactly_three_prereqs_no_truncation(self) -> None:
         unmet = [FakeKU(title=f"P{i}") for i in range(3)]
-        step = FakeLearningStep(title="Step Y")
+        step = FakePathStep(title="Step Y")
 
         blocker = build_missing_prerequisite_blocker(step, "ku_y", unmet)
 
@@ -199,7 +199,7 @@ class TestBuildMissingPrerequisiteBlocker:
 
 class TestBuildLowProgressBlocker:
     def test_basic(self) -> None:
-        step = FakeLearningStep(title="Data Structures")
+        step = FakePathStep(title="Data Structures")
 
         blocker = build_low_progress_blocker(step, "ku_ds", 0.15)
 
@@ -209,7 +209,7 @@ class TestBuildLowProgressBlocker:
         assert blocker.knowledge_title == "Data Structures"
 
     def test_zero_progress(self) -> None:
-        step = FakeLearningStep(title="Intro")
+        step = FakePathStep(title="Intro")
         blocker = build_low_progress_blocker(step, "ku_intro", 0.0)
         assert "0%" in blocker.description
 
@@ -444,7 +444,7 @@ class TestCreateGraphqlContext:
         assert ctx.knowledge_loader is not None
         assert ctx.task_loader is not None
         assert ctx.learning_path_loader is not None
-        assert ctx.learning_step_loader is not None
+        assert ctx.path_step_loader is not None
 
 
 # ============================================================================
@@ -713,8 +713,8 @@ class TestLearningPathWithContextResolver:
     async def test_returns_context_with_progress(self) -> None:
         lp = FakeLearningPath(uid="lp_ctx", title="Context Path")
         steps = [
-            FakeLearningStep(uid="ls_1", knowledge_uids=("ku_1",)),
-            FakeLearningStep(uid="ls_2", knowledge_uids=("ku_2",)),
+            FakePathStep(uid="ls_1", knowledge_uids=("ku_1",)),
+            FakePathStep(uid="ls_2", knowledge_uids=("ku_2",)),
         ]
 
         services = MagicMock()
@@ -768,7 +768,7 @@ class TestLearningPathWithContextResolver:
     @pytest.mark.asyncio
     async def test_no_progress_service(self) -> None:
         lp = FakeLearningPath(uid="lp_np")
-        steps = [FakeLearningStep(uid="ls_1")]
+        steps = [FakePathStep(uid="ls_1")]
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
@@ -790,7 +790,7 @@ class TestLearningPathWithContextResolver:
     @pytest.mark.asyncio
     async def test_blocker_detection_low_progress(self) -> None:
         lp = FakeLearningPath(uid="lp_blk")
-        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_1",))]
+        steps = [FakePathStep(uid="ls_1", knowledge_uids=("ku_1",))]
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
@@ -823,7 +823,7 @@ class TestLearningPathWithContextResolver:
     @pytest.mark.asyncio
     async def test_blocker_detection_missing_prerequisite(self) -> None:
         lp = FakeLearningPath(uid="lp_prereq")
-        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_adv",))]
+        steps = [FakePathStep(uid="ls_1", knowledge_uids=("ku_adv",))]
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
@@ -1050,7 +1050,7 @@ class TestLearningPathBlockersResolver:
     @pytest.mark.asyncio
     async def test_missing_content_blocker(self) -> None:
         lp = FakeLearningPath(uid="lp_blk")
-        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_gone",))]
+        steps = [FakePathStep(uid="ls_1", knowledge_uids=("ku_gone",))]
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
@@ -1072,7 +1072,7 @@ class TestLearningPathBlockersResolver:
     @pytest.mark.asyncio
     async def test_deprecated_content_blocker(self) -> None:
         lp = FakeLearningPath(uid="lp_dep")
-        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_old",))]
+        steps = [FakePathStep(uid="ls_1", knowledge_uids=("ku_old",))]
 
         deprecated_ku = FakeKU(
             uid="ku_old",
@@ -1099,8 +1099,8 @@ class TestLearningPathBlockersResolver:
     @pytest.mark.asyncio
     async def test_circular_dependency_blocker(self) -> None:
         lp = FakeLearningPath(uid="lp_circ")
-        step1 = FakeLearningStep(uid="ls_1", knowledge_uids=("ku_1",))
-        step2 = FakeLearningStep(uid="ls_2", knowledge_uids=("ku_2",))
+        step1 = FakePathStep(uid="ls_1", knowledge_uids=("ku_1",))
+        step2 = FakePathStep(uid="ls_2", knowledge_uids=("ku_2",))
 
         ku1 = FakeKU(uid="ku_1", title="KU 1")
         ku2 = FakeKU(uid="ku_2", title="KU 2")
@@ -1157,7 +1157,7 @@ class TestLearningPathBlockersResolver:
     @pytest.mark.asyncio
     async def test_outdated_content_blocker(self) -> None:
         lp = FakeLearningPath(uid="lp_out")
-        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_stale",))]
+        steps = [FakePathStep(uid="ls_1", knowledge_uids=("ku_stale",))]
 
         stale_ku = FakeKU(
             uid="ku_stale",
@@ -1184,7 +1184,7 @@ class TestLearningPathBlockersResolver:
     @pytest.mark.asyncio
     async def test_step_with_no_knowledge_uid_skipped(self) -> None:
         lp = FakeLearningPath(uid="lp_skip")
-        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=())]
+        steps = [FakePathStep(uid="ls_1", knowledge_uids=())]
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
@@ -1474,8 +1474,8 @@ class TestLearningPathStepsResolver:
         from routes.graphql.types import LearningPath
 
         steps = [
-            FakeLearningStep(uid="ls_1", title="Step 1"),
-            FakeLearningStep(uid="ls_2", title="Step 2"),
+            FakePathStep(uid="ls_1", title="Step 1"),
+            FakePathStep(uid="ls_2", title="Step 2"),
         ]
 
         services = MagicMock()
@@ -1504,16 +1504,16 @@ class TestLearningPathStepsResolver:
         assert result == []
 
 
-class TestLearningStepKnowledgeResolver:
+class TestPathStepKnowledgeResolver:
     @pytest.mark.asyncio
     async def test_found(self) -> None:
-        from routes.graphql.types import LearningStep
+        from routes.graphql.types import PathStep
 
         ku = FakeKU(uid="ku_1", title="Found")
         ctx = _make_context(knowledge_loader=_make_loader({"ku_1": ku}))
         info = _make_info(ctx)
 
-        step = LearningStep(
+        step = PathStep(
             step_number=1,
             uid="ls_1",
             title="S",
@@ -1527,12 +1527,12 @@ class TestLearningStepKnowledgeResolver:
 
     @pytest.mark.asyncio
     async def test_not_found(self) -> None:
-        from routes.graphql.types import LearningStep
+        from routes.graphql.types import PathStep
 
         ctx = _make_context(knowledge_loader=_make_loader({}))
         info = _make_info(ctx)
 
-        step = LearningStep(
+        step = PathStep(
             step_number=1,
             uid="ls_1",
             title="S",
@@ -1630,8 +1630,8 @@ class TestLearningPathWithContextStepNoKuUid:
     async def test_step_with_empty_ku_uids_skipped(self) -> None:
         lp = FakeLearningPath(uid="lp_empty_ku")
         # Step has no knowledge UIDs — should be skipped in blocker analysis
-        step_no_ku = FakeLearningStep(uid="ls_no_ku", knowledge_uids=())
-        step_with_ku = FakeLearningStep(uid="ls_with_ku", knowledge_uids=("ku_1",))
+        step_no_ku = FakePathStep(uid="ls_no_ku", knowledge_uids=())
+        step_with_ku = FakePathStep(uid="ls_with_ku", knowledge_uids=("ku_1",))
 
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(
@@ -1730,7 +1730,7 @@ class TestLearningPathBlockersMasteryCheck:
     async def test_mastered_prereqs_no_blocker(self) -> None:
         """When user has mastered all prereqs, no blocker is created."""
         lp = FakeLearningPath(uid="lp_mastery")
-        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_adv",))]
+        steps = [FakePathStep(uid="ls_1", knowledge_uids=("ku_adv",))]
         ku_adv = FakeKU(uid="ku_adv", title="Advanced")
         prereq = FakeKU(uid="ku_basic", title="Basic")
 
@@ -1757,7 +1757,7 @@ class TestLearningPathBlockersMasteryCheck:
     async def test_low_mastery_creates_blocker(self) -> None:
         """When user mastery is below threshold, a blocker is created."""
         lp = FakeLearningPath(uid="lp_low")
-        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_adv",))]
+        steps = [FakePathStep(uid="ls_1", knowledge_uids=("ku_adv",))]
         ku_adv = FakeKU(uid="ku_adv", title="Advanced")
         prereq = FakeKU(uid="ku_basic", title="Basic")
 
@@ -1784,7 +1784,7 @@ class TestLearningPathBlockersMasteryCheck:
     async def test_mastery_error_treated_as_not_mastered(self) -> None:
         """When get_user_mastery returns error, treat as not mastered (line 924-926)."""
         lp = FakeLearningPath(uid="lp_err")
-        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_adv",))]
+        steps = [FakePathStep(uid="ls_1", knowledge_uids=("ku_adv",))]
         ku_adv = FakeKU(uid="ku_adv", title="Advanced")
         prereq = FakeKU(uid="ku_basic", title="Basic")
 
@@ -1815,7 +1815,7 @@ class TestLearningPathBlockersPrereqTruncation:
     @pytest.mark.asyncio
     async def test_four_plus_prereqs_truncated(self) -> None:
         lp = FakeLearningPath(uid="lp_trunc")
-        steps = [FakeLearningStep(uid="ls_1", knowledge_uids=("ku_main",))]
+        steps = [FakePathStep(uid="ls_1", knowledge_uids=("ku_main",))]
         ku_main = FakeKU(uid="ku_main", title="Main")
 
         # 5 unmet prerequisites
@@ -1848,8 +1848,8 @@ class TestLearningPathBlockersLaterStepNoKuUid:
     @pytest.mark.asyncio
     async def test_later_step_no_ku_uid_skipped(self) -> None:
         lp = FakeLearningPath(uid="lp_later_no_ku")
-        step1 = FakeLearningStep(uid="ls_1", knowledge_uids=("ku_1",))
-        step2 = FakeLearningStep(uid="ls_2", knowledge_uids=())  # No KU UID
+        step1 = FakePathStep(uid="ls_1", knowledge_uids=("ku_1",))
+        step2 = FakePathStep(uid="ls_2", knowledge_uids=())  # No KU UID
 
         ku1 = FakeKU(uid="ku_1", title="KU 1")
 
@@ -1908,7 +1908,7 @@ class TestLearningProgressSubscription:
             knowledge_loader=_make_loader(),
             task_loader=_make_loader(),
             learning_path_loader=_make_loader(),
-            learning_step_loader=_make_loader(),
+            path_step_loader=_make_loader(),
             user_uid="user.test",
         )
         info = _make_info(ctx)

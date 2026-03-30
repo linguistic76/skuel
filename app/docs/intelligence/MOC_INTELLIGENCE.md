@@ -58,11 +58,11 @@ The `MocNavigationService` provides:
 
 ## Two Paths to Knowledge
 
-MOC provides the **learner-directed exploration path** parallel to the **teacher-directed LS path**:
+MOC provides the **learner-directed exploration path** parallel to the **teacher-directed PS path**:
 
 | Path | Topology | Purpose | Pedagogy |
 |------|----------|---------|----------|
-| LS | Linear | Structured curriculum | Teacher-directed |
+| PS | Linear | Structured curriculum | Teacher-directed |
 | MOC | Graph | Free exploration | Learner-directed |
 
 Progress is tracked on the KU itself, unified across both paths.

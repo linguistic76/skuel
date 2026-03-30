@@ -486,7 +486,7 @@ connections:
 | `lesson` | `l.` | `:Entity:Lesson` | title, content | `l.intro-python.md` |
 | `exercise` | `ex.` | `:Entity:Exercise` | title, instructions | `exercise_know-yourself.yaml` |
 | `ku` | `ku.` | `:Entity:Ku` | title | `ku.python-basics.md` |
-| `ls` | `ls.` | `:Entity:LearningStep` | title | `ls.learn-variables.yaml` |
+| `ls` | `ls.` | `:Entity:PathStep` | title | `ls.learn-variables.yaml` |
 | `lp` | `lp.` | `:Entity:LearningPath` | name | `lp.python-journey.yaml` |
 | `task` | `task.` | `:Entity:Task` | title | `task.complete-exercise.yaml` |
 | `goal` | `goal.` | `:Entity:Goal` | title | `goal.learn-python.yaml` |
@@ -590,7 +590,7 @@ connections:
 |-----------|-------------------|--------|-----------|
 | `uses_kus` | USES_KU | Ku | outgoing |
 
-#### Learning Step Fields (11 total)
+#### Path Step Fields (11 total)
 
 | YAML Field | Relationship Type | Target | Direction |
 |-----------|-------------------|--------|-----------|

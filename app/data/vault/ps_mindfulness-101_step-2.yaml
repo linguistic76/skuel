@@ -1,7 +1,7 @@
 version: 1.0
-type: LearningStep
+type: PathStep
 
-uid: ls:mindfulness-101:step-2
+uid: ps:mindfulness-101:step-2
 title: Name The Wanders
 intent: Label mind-wanders without judgment once per session
 description: |
@@ -20,7 +20,7 @@ learning_path_uid: lp:mindfulness-101
 sequence: 2
 
 prerequisite_step_uids:
-  - ls:mindfulness-101:step-1
+  - ps:mindfulness-101:step-1
 prerequisite_knowledge_uids:
   - l:mindfulness:breath-awareness-basics
 

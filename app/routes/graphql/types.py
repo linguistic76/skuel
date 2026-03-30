@@ -21,7 +21,7 @@ from routes.graphql.context import GraphQLContext
 from routes.graphql.query_helpers import GraphQLQueryHelpers, unwrap_list
 
 if TYPE_CHECKING:
-    from core.models.pathways.learning_step import LearningStep as LsModel
+    from core.models.pathways.path_step import PathStep as LsModel
     from core.utils.result_simplified import Result
 
 
@@ -92,14 +92,14 @@ class LearningPath:
     estimated_hours: float
 
     @strawberry.field
-    async def steps(self, info: Info[GraphQLContext, Any]) -> list[LearningStep]:
+    async def steps(self, info: Info[GraphQLContext, Any]) -> list[PathStep]:
         """
         Get learning path steps.
 
         Each step can nest its knowledge unit, solving N+1 problems.
         Uses mapper for explicit DTO conversion.
         """
-        from routes.graphql.mappers import learning_step_from_domain
+        from routes.graphql.mappers import path_step_from_domain
 
         context: GraphQLContext = info.context
 
@@ -110,17 +110,17 @@ class LearningPath:
         result: Result[list[LsModel]] = await context.services.lp.get_path_steps(self.uid)
         steps: list[LsModel] = unwrap_list(result)
 
-        return [learning_step_from_domain(step, i + 1) for i, step in enumerate(steps)]
+        return [path_step_from_domain(step, i + 1) for i, step in enumerate(steps)]
 
 
 @strawberry.type
-class LearningStep:
+class PathStep:
     """
-    GraphQL-specific view of LearningStep (DTO pattern).
+    GraphQL-specific view of PathStep (DTO pattern).
 
     This is a flatter structure optimized for GraphQL queries,
     containing only the fields needed by the API layer.
-    Converted from Ls domain model via ``learning_step_from_domain()`` in mappers.
+    Converted from Ls domain model via ``path_step_from_domain()`` in mappers.
     """
 
     step_number: int
@@ -227,7 +227,7 @@ class LearningPathContext:
     completed_steps: int
     completion_percentage: float
     blockers: list[Blocker]
-    next_recommended_steps: list[LearningStep]
+    next_recommended_steps: list[PathStep]
     prerequisites_met: bool
 
 

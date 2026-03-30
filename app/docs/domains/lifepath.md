@@ -33,7 +33,7 @@ LifePath bridges the gap between:
 ```
 Activity (6)              Curriculum (3)         Content/Org (3)
 ├── Tasks                 ├── KU                 ├── Journals
-├── Goals                 ├── LS                 ├── Assignments
+├── Goals                 ├── PS                 ├── Assignments
 ├── Habits     ──────────►└── LP     ───────────►└── MOC (graph)
 ├── Events                      │                        │
 ├── Choices                     │                        │

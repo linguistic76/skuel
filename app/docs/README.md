@@ -164,7 +164,7 @@ related: [other_doc.md]
 | Events | Part of 6 Activity Domains |
 | Choices | Part of 6 Activity Domains |
 | Principles | Part of 6 Activity Domains |
-| KU/LS/LP/MOC | Curriculum domains - [CURRICULUM_GROUPING_PATTERNS.md](architecture/CURRICULUM_GROUPING_PATTERNS.md) |
+| KU/PS/LP/MOC | Curriculum domains - [CURRICULUM_GROUPING_PATTERNS.md](architecture/CURRICULUM_GROUPING_PATTERNS.md) |
 | Finance | Standalone - NOT an Activity Domain |
 
 ---

@@ -16,7 +16,7 @@ The DSL transforms freeform journal input into SKUEL's domain architecture:
 
 **Curriculum Domains (3):**
 - KnowledgeUnit (ku): Atomic unit of knowledge content
-- LearningStep (ls): Single step in a learning journey
+- PathStep (ls): Single step in a learning journey
 - LearningPath (lp): Complete learning sequence
 
 **Non-Ku Domains:**
@@ -60,10 +60,10 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 # DSL-specific aliases that map user-facing context strings to EntityType/NonKuDomain.
-# EntityType.from_string() handles most aliases (e.g. "ku" -> KU, "ls" -> LEARNING_STEP),
+# EntityType.from_string() handles most aliases (e.g. "ku" -> KU, "ps" -> PATH_STEP),
 # but DSL accepts some compound forms not in the EntityType alias table.
 _DSL_CONTEXT_ALIASES: dict[str, EntityType | NonKuDomain] = {
-    "learningstep": EntityType.LEARNING_STEP,
+    "learningstep": EntityType.PATH_STEP,
     "learningpath": EntityType.LEARNING_PATH,
     "life_path": EntityType.LIFE_PATH,
 }
@@ -252,12 +252,12 @@ class ParsedActivityLine:
 
     def is_ls(self) -> bool:
         """
-        Check if this is a LearningStep activity.
+        Check if this is a PathStep activity.
 
         Returns:
-            True if EntityType.LEARNING_STEP is in contexts
+            True if EntityType.PATH_STEP is in contexts
         """
-        return EntityType.LEARNING_STEP in self.contexts
+        return EntityType.PATH_STEP in self.contexts
 
     def is_lp(self) -> bool:
         """
@@ -444,8 +444,8 @@ class ParsedJournal:
         """Get all KnowledgeUnit activities."""
         return [a for a in self.activities if a.is_lesson()]
 
-    def get_learning_steps(self) -> list[ParsedActivityLine]:
-        """Get all LearningStep activities."""
+    def get_path_steps(self) -> list[ParsedActivityLine]:
+        """Get all PathStep activities."""
         return [a for a in self.activities if a.is_ls()]
 
     def get_learning_paths(self) -> list[ParsedActivityLine]:

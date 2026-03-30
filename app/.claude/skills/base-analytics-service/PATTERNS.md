@@ -500,20 +500,20 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
 Intelligence for shared curriculum content (no user ownership):
 
 ```python
-class LsIntelligenceService(BaseAnalyticsService[BackendOperations[Ls], Ls]):
-    """Analytics for Learning Steps - shared content."""
+class PsIntelligenceService(BaseAnalyticsService[BackendOperations[Ls], Ls]):
+    """Analytics for Path Steps - shared content."""
 
     _service_name = "ls.analytics"
 
     async def is_ready(
-        self, ls_uid: str, completed_step_uids: set[str]
+        self, ps_uid: str, completed_step_uids: set[str]
     ) -> Result[bool]:
-        """Check if learning step prerequisites are met."""
+        """Check if path step prerequisites are met."""
         self._require_relationship_service("is_ready")
 
         # Get prerequisite steps
         prereqs = await self.relationships.get_related_uids(
-            ls_uid, "REQUIRES_STEP", direction="outgoing"
+            ps_uid, "REQUIRES_STEP", direction="outgoing"
         )
 
         if prereqs.is_error:
@@ -523,7 +523,7 @@ class LsIntelligenceService(BaseAnalyticsService[BackendOperations[Ls], Ls]):
         ready = all(uid in completed_step_uids for uid in prereqs.value)
         return Result.ok(ready)
 
-    async def calculate_guidance_strength(self, ls_uid: str) -> Result[float]:
+    async def calculate_guidance_strength(self, ps_uid: str) -> Result[float]:
         """Calculate how well this step provides guidance (0.0-1.0).
 
         Note: Guidance relationships (GUIDED_BY_PRINCIPLE, INFORMS_CHOICE)
@@ -536,7 +536,7 @@ class LsIntelligenceService(BaseAnalyticsService[BackendOperations[Ls], Ls]):
         # MATCH (ls)-[:HAS_LESSON]->(l2)-[:INFORMS_CHOICE]->(c)
         ...
 
-    async def get_practice_summary(self, ls_uid: str) -> Result[dict[str, Any]]:
+    async def get_practice_summary(self, ps_uid: str) -> Result[dict[str, Any]]:
         """Get practice opportunities summary.
 
         Note: Practice relationships (BUILDS_HABIT, ASSIGNS_TASK, etc.)

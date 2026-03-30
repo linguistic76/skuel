@@ -267,18 +267,18 @@ class QueryProcessor:
             relevant_context["mentioned_entities"] = extracted_entities
 
         # Step 7: Run guided pipeline (ZPD + guidance mode)
-        guided_system_prompt, guidance_mode, ls_bundle = await self._run_guided_pipeline(
+        guided_system_prompt, guidance_mode, ps_bundle = await self._run_guided_pipeline(
             user_uid, question, user_context
         )
 
         # Step 8: Generate answer (guided or context-aware)
         if guided_system_prompt:
             answer = await self._generate_guided_answer(
-                question, guided_system_prompt, ls_bundle, conversation_history
+                question, guided_system_prompt, ps_bundle, conversation_history
             )
         else:
             llm_context = self.response_generator.build_llm_context(
-                user_context, question, intent, ls_bundle=ls_bundle
+                user_context, question, intent, ps_bundle=ps_bundle
             )
             answer = await self.llm_service.generate_context_aware_answer(
                 query=question,
@@ -416,7 +416,7 @@ class QueryProcessor:
         intent = intent_result.value
 
         # Step 4: Run guided pipeline (ZPD + guidance mode)
-        guided_system_prompt, guidance_mode, ls_bundle = await self._run_guided_pipeline(
+        guided_system_prompt, guidance_mode, ps_bundle = await self._run_guided_pipeline(
             user_uid, query_message, user_context
         )
 
@@ -428,7 +428,7 @@ class QueryProcessor:
 
         if guided_system_prompt:
             response = await self._generate_guided_answer(
-                query_message, guided_system_prompt, ls_bundle
+                query_message, guided_system_prompt, ps_bundle
             )
         else:
             response = await self._generate_context_aware_response(
@@ -472,14 +472,14 @@ class QueryProcessor:
         Load LS bundle and compute guided system prompt + guidance mode.
 
         Returns:
-            (guided_system_prompt, guidance_mode, ls_bundle) — all None if no bundle available.
+            (guided_system_prompt, guidance_mode, ps_bundle) — all None if no bundle available.
         """
-        bundle_result = await self.context_retriever.load_ls_bundle(user_uid, user_context)
+        bundle_result = await self.context_retriever.load_ps_bundle(user_uid, user_context)
         if bundle_result.is_error:
             return None, None, None
 
-        ls_bundle = bundle_result.value
-        target_ku_uids = self.entity_extractor.extract_from_bundle(question, ls_bundle)
+        ps_bundle = bundle_result.value
+        target_ku_uids = self.entity_extractor.extract_from_bundle(question, ps_bundle)
 
         zone_evidence: dict[str, Any] = {}
         if target_ku_uids:
@@ -488,18 +488,18 @@ class QueryProcessor:
                 zone_evidence = zpd_result.value
 
         guidance = self.intent_classifier.determine_guidance_mode(
-            question, ls_bundle, zone_evidence, target_ku_uids
+            question, ps_bundle, zone_evidence, target_ku_uids
         )
         guided_system_prompt = self.response_generator.build_guided_system_prompt(
-            guidance, ls_bundle, user_context
+            guidance, ps_bundle, user_context
         )
-        return guided_system_prompt, guidance.mode.value, ls_bundle
+        return guided_system_prompt, guidance.mode.value, ps_bundle
 
     async def _generate_guided_answer(
         self,
         question: str,
         guided_system_prompt: str,
-        ls_bundle: Any,
+        ps_bundle: Any,
         conversation_history: list[dict[str, str]] | None = None,
     ) -> str:
         """
@@ -509,9 +509,9 @@ class QueryProcessor:
         then calls LLM with the guided system prompt.
         """
         user_prompt = question
-        if ls_bundle and ls_bundle.curriculum_context_text:
+        if ps_bundle and ps_bundle.curriculum_context_text:
             curriculum_text = truncate_to_budget(
-                ls_bundle.curriculum_context_text,
+                ps_bundle.curriculum_context_text,
                 AskesisTokenBudget.MAX_USER_PROMPT_CURRICULUM_CHARS,
             )
             user_prompt = (

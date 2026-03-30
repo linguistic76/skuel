@@ -50,7 +50,7 @@ async def _fetch_task_connections(
     OPTIONAL MATCH (t)-[r]->(target:Entity)
     WHERE type(r) IN [
         'FULFILLS_GOAL', 'REINFORCES_HABIT', 'APPLIES_KNOWLEDGE',
-        'PART_OF_LEARNING_STEP', 'PART_OF_LEARNING_PATH',
+        'PART_OF_PATH_STEP', 'PART_OF_LEARNING_PATH',
         'INFORMED_BY_PRINCIPLE', 'RELATED_TO'
     ]
     RETURN t.uid AS task_uid,

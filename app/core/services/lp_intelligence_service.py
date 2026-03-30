@@ -15,7 +15,7 @@ This service is part of the refactored LpIntelligenceService architecture:
 This service now includes methods previously in standalone sub-services:
 - Validation methods: validate_path_prerequisites, identify_path_blockers, get_optimal_path_recommendation
 - Analysis methods: analyze_path_knowledge_scope
-- Adaptive methods: find_learning_sequence, get_next_adaptive_step, get_recommended_learning_steps
+- Adaptive methods: find_learning_sequence, get_next_adaptive_step, get_recommended_path_steps
 - Context methods: get_path_with_context
 
 Architecture (January 2026 - Unified Pattern):
@@ -533,7 +533,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         """
         cypher_query = f"""
         MATCH (path:Entity {{uid: $path_uid}})
-        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'learning_step'}})
+        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
         MATCH (k:Entity {{uid: step.knowledge_uid}})
 
         // Get all prerequisites using pure Cypher
@@ -541,7 +541,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
         // Check if prerequisites are in earlier steps
         WITH path, step, k, r.sequence as step_seq, prereqs
-        MATCH (path)-[r2:HAS_STEP]->(earlier:Entity {{entity_type: 'learning_step'}})
+        MATCH (path)-[r2:HAS_STEP]->(earlier:Entity {{entity_type: 'path_step'}})
         WHERE r2.sequence < step_seq
 
         WITH step, k, step_seq, prereqs,
@@ -628,7 +628,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         WITH u, path, collect(mastered.uid) as mastered_uids
 
         // Get path steps
-        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'learning_step'}})
+        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
         MATCH (k:Entity {{uid: step.knowledge_uid}})
 
         // Check prerequisites
@@ -740,7 +740,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         WHERE NOT (u)-[:COMPLETED]->(path) {domain_filter}
 
         // Calculate path readiness
-        MATCH (path)-[:HAS_STEP]->(step:Entity {{entity_type: 'learning_step'}})
+        MATCH (path)-[:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
         MATCH (k:Entity {{uid: step.knowledge_uid}})
 
         // Get prerequisites
@@ -868,21 +868,21 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     # ========================================================================
     # Blocked: Learning paths need content with practice relationships populated.
     #
-    # The per-step infrastructure ALREADY EXISTS in LsIntelligenceService:
-    # - get_practice_summary(ls_uid) → {"habits": int, "tasks": int, "events": int}
-    # - practice_completeness_score(ls_uid) → 0.0-1.0 (each type = 1/3)
+    # The per-step infrastructure ALREADY EXISTS in PsIntelligenceService:
+    # - get_practice_summary(ps_uid) → {"habits": int, "tasks": int, "events": int}
+    # - practice_completeness_score(ps_uid) → 0.0-1.0 (each type = 1/3)
     #
-    # Implementation: Inject ls_intelligence (or access via ls_service.intelligence),
+    # Implementation: Inject ls_intelligence (or access via ps_service.intelligence),
     # iterate path steps, call practice_completeness_score per step, aggregate.
     #
     # Wiring checklist:
-    # 1. Add ls_intelligence param to __init__ (or resolve from ls_service)
+    # 1. Add ls_intelligence param to __init__ (or resolve from ps_service)
     # 2. Implement identify_practice_gaps() calling LS per-step methods
     # 3. Add explicit delegation method to LpService
     # 4. Add API route
     #
     # Full design: /docs/domains/lp.md § "Future: Practice Gap Analysis"
-    # LS infrastructure: /docs/domains/ls.md § "Cross-Domain: Practice Infrastructure"
+    # LS infrastructure: /docs/domains/ps.md § "Cross-Domain: Practice Infrastructure"
     # ========================================================================
 
     # ========================================================================
@@ -956,7 +956,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         _user_performance: dict[str, float] | None = None,
     ) -> Result[str | None]:
         """
-        Get next learning step based on adaptive intelligence.
+        Get next path step based on adaptive intelligence.
 
         Uses edge metadata:
         - strength: How strongly concepts are related
@@ -1043,14 +1043,12 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
         return Result.ok(next_uid)
 
-    @with_error_handling(
-        "get_recommended_learning_steps", error_type="database", uid_param="user_uid"
-    )
-    async def get_recommended_learning_steps(
+    @with_error_handling("get_recommended_path_steps", error_type="database", uid_param="user_uid")
+    async def get_recommended_path_steps(
         self, user_uid: UserUID, max_difficulty: float = 0.5, limit: int = 5
     ) -> Result[list[LpRecommendedStep]]:
         """
-        Get recommended learning steps for a user based on their progress.
+        Get recommended path steps for a user based on their progress.
 
         Uses intelligence:
         - Semantic distance for related knowledge
@@ -1067,9 +1065,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         """
         if not self.executor:
             return Result.fail(
-                Errors.system(
-                    "QueryExecutor not available", operation="get_recommended_learning_steps"
-                )
+                Errors.system("QueryExecutor not available", operation="get_recommended_path_steps")
             )
 
         query = """
@@ -1186,7 +1182,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         {user_match}
 
         // Get all steps with knowledge
-        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'learning_step'}})
+        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
         MATCH (k:Entity {{uid: step.knowledge_uid}})
 
         // Get prerequisites using pure Cypher

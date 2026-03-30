@@ -1,7 +1,7 @@
 version: 1.0
-type: LearningStep
+type: PathStep
 
-uid: ls:self-reflection-101:step-2
+uid: ps:self-reflection-101:step-2
 title: Understand Your Values
 intent: Discover 2-3 personal values from evidence in your own life
 description: |
@@ -21,7 +21,7 @@ learning_path_uid: lp:self-reflection-101
 sequence: 2
 
 prerequisite_step_uids:
-  - ls:self-reflection-101:step-1
+  - ps:self-reflection-101:step-1
 prerequisite_knowledge_uids:
   - l:self-reflection:noticing-patterns
 

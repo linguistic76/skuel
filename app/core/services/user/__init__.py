@@ -44,7 +44,7 @@ UserContext contains cross-domain business logic and intelligence
 methods, making it a service-layer component rather than a simple data model.
 """
 
-from core.models.context_types import DailyWorkPlan, LearningStep
+from core.models.context_types import DailyWorkPlan, PathStep
 from core.services.user.intelligence import UserContextIntelligence
 from core.services.user.unified_user_context import UserContext
 from core.services.user.user_activity_service import (
@@ -87,7 +87,7 @@ __all__ = [
     "GraphSourcedData",
     "HabitRelationshipData",
     "KnowledgeRelationshipData",
-    "LearningStep",
+    "PathStep",
     "TaskRelationshipData",
     "UserActivityService",
     # Core context

@@ -170,14 +170,14 @@ NONE -> VIEWED -> IN_PROGRESS -> MASTERED
 **Responsibilities:**
 - Reverse relationship queries answering "where is this knowledge used?"
 - Activity domain discovery (events, habits, tasks, goals, choices, principles)
-- Curriculum navigation (learning steps, learning paths)
+- Curriculum navigation (path steps, learning paths)
 
 **Methods:**
 - `find_activities_connected_to_knowledge()` — generic method for all 6 activity domains
 - Domain wrappers: `find_events_applying_knowledge()`, `find_habits_reinforcing_knowledge()`,
   `find_tasks_applying_knowledge()`, `find_goals_requiring_knowledge()`,
   `find_choices_informed_by_knowledge()`, `find_principles_embodying_knowledge()`
-- Curriculum: `find_learning_steps_containing()`, `find_learning_paths_teaching()`
+- Curriculum: `find_path_steps_containing()`, `find_learning_paths_teaching()`
 
 ---
 

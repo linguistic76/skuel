@@ -13,7 +13,7 @@ related: []
 **Status:** ⚠️ Superseded (March 2026)
 **Impact:** 1,200 code replacements across 214 files (two migration passes)
 
-> **March 2026 Update:** The short labels `Lp` and `Ls` introduced by this migration have been reversed back to `LearningPath` and `LearningStep` in the ingestion pipeline and label registry (`ENTITY_TYPE_TO_LABEL`, `LABEL_CONFIGS`). This aligns with `NeoLabel.LEARNING_PATH = "LearningPath"` and `NeoLabel.LEARNING_STEP = "LearningStep"`. The old short keys are kept as backward-compat aliases in `LABEL_CONFIGS`. Additionally, all domain entities now use **multi-label** architecture (`:Entity:Task`, `:Entity:Lesson`, etc.) — ingestion creates both labels via `BulkIngestionEngine.base_label`. Domain indexes are automated via `Neo4jSchemaManager.sync_domain_indexes()` at bootstrap.
+> **March 2026 Update:** The short labels `Lp` and `Ls` introduced by this migration have been reversed back to `LearningPath` and `PathStep` in the ingestion pipeline and label registry (`ENTITY_TYPE_TO_LABEL`, `LABEL_CONFIGS`). This aligns with `NeoLabel.LEARNING_PATH = "LearningPath"` and `NeoLabel.PATH_STEP = "PathStep"`. The old short keys are kept as backward-compat aliases in `LABEL_CONFIGS`. Additionally, all domain entities now use **multi-label** architecture (`:Entity:Task`, `:Entity:Lesson`, etc.) — ingestion creates both labels via `BulkIngestionEngine.base_label`. Domain indexes are automated via `Neo4jSchemaManager.sync_domain_indexes()` at bootstrap.
 
 ## Objective
 
@@ -24,7 +24,7 @@ Standardize Neo4j node labels to match Python class names, aligning with CLAUDE.
 | Python Class | Old Neo4j Labels | UID Prefix | Status |
 |--------------|------------------|------------|--------|
 | `Lp` | `LearningPath` | `lp.` | ✅ Migrated to `Lp` |
-| `Ls` | `LearningStep` | `ls.` | ✅ Migrated to `Ls` |
+| `Ls` | `PathStep` | `ls.` | ✅ Migrated to `Ls` |
 | `Ku` | `Knowledge`, `KnowledgeUnit` | `ku.` | ✅ Migrated to `Ku` |
 | `Task` | `Task` | `task:` | ✅ No change needed |
 | `Goal` | `Goal` | `goal:` | ✅ No change needed |
@@ -46,10 +46,10 @@ Standardize Neo4j node labels to match Python class names, aligning with CLAUDE.
 | Pattern | Count | Files |
 |---------|-------|-------|
 | `"LearningPath"` string literals | ~60 | 40 |
-| `"LearningStep"` string literals | ~50 | 35 |
+| `"PathStep"` string literals | ~50 | 35 |
 | `"Knowledge"` string literals | ~77 | 50 |
 | `:LearningPath` Cypher patterns | ~180 | 60 |
-| `:LearningStep` Cypher patterns | ~120 | 45 |
+| `:PathStep` Cypher patterns | ~120 | 45 |
 | `:Knowledge` Cypher patterns | ~180 | 55 |
 | **Total** | **~667** | **100** |
 
@@ -80,17 +80,17 @@ Create automated script to replace patterns:
 REPLACEMENTS = [
     # Cypher patterns (in queries)
     (r':LearningPath\b', ':Lp'),
-    (r':LearningStep\b', ':Ls'),
+    (r':PathStep\b', ':Ls'),
     (r':Knowledge\b', ':Ku'),
 
     # String literals (backend labels)
     (r'"LearningPath"', '"Lp"'),
-    (r'"LearningStep"', '"Ls"'),
+    (r'"PathStep"', '"Ls"'),
     (r'"Knowledge"', '"Ku"'),
 
     # Variable names in Cypher (optional - for clarity)
     (r'\blp:LearningPath\b', 'lp:Lp'),
-    (r'\bls:LearningStep\b', 'ls:Ls'),
+    (r'\bls:PathStep\b', 'ls:Ls'),
     (r'\bku:Knowledge\b', 'ku:Ku'),
 ]
 ```
@@ -101,7 +101,7 @@ REPLACEMENTS = [
 ```cypher
 // Add new labels to existing nodes
 MATCH (n:LearningPath) SET n:Lp;
-MATCH (n:LearningStep) SET n:Ls;
+MATCH (n:PathStep) SET n:Ls;
 MATCH (n:Knowledge) SET n:Ku;
 
 // Verify
@@ -114,7 +114,7 @@ MATCH (n:Curriculum) RETURN count(n);
 ```cypher
 // Remove old labels after verification
 MATCH (n:Lp:LearningPath) REMOVE n:LearningPath;
-MATCH (n:Ls:LearningStep) REMOVE n:LearningStep;
+MATCH (n:Ls:PathStep) REMOVE n:PathStep;
 MATCH (n:Ku:Knowledge) REMOVE n:Knowledge;
 ```
 
@@ -123,12 +123,12 @@ MATCH (n:Ku:Knowledge) REMOVE n:Knowledge;
 ```cypher
 // Create new indexes
 CREATE INDEX lp_uid IF NOT EXISTS FOR (n:Lp) ON (n.uid);
-CREATE INDEX ls_uid IF NOT EXISTS FOR (n:Ls) ON (n.uid);
+CREATE INDEX ps_uid IF NOT EXISTS FOR (n:Ls) ON (n.uid);
 CREATE INDEX ku_uid IF NOT EXISTS FOR (n:Curriculum) ON (n.uid);
 
 // Drop old indexes (after verification)
 DROP INDEX learning_path_uid IF EXISTS;
-DROP INDEX learning_step_uid IF EXISTS;
+DROP INDEX path_step_uid IF EXISTS;
 DROP INDEX knowledge_uid IF EXISTS;
 ```
 

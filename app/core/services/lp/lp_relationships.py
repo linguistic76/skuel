@@ -73,7 +73,7 @@ class LpRelationships:
         return len(self.embodied_principle_uids) > 0
 
     def has_steps(self) -> bool:
-        """Check if learning path has learning steps."""
+        """Check if learning path has path steps."""
         return len(self.step_uids) > 0
 
     def is_complete_path(self) -> bool:
@@ -81,7 +81,7 @@ class LpRelationships:
         return self.has_steps() and (self.is_goal_aligned() or self.embodies_principles())
 
     def total_step_count(self) -> int:
-        """Get total number of learning steps."""
+        """Get total number of path steps."""
         return len(self.step_uids)
 
     def total_milestone_count(self) -> int:

@@ -30,7 +30,7 @@ from core.models.ku.ku import Ku
 from core.models.lesson.lesson import Lesson
 from core.models.life_path.life_path import LifePath
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
 from core.models.report.activity_report import ActivityReport
 from core.models.report.exercise_report import ExerciseReport
@@ -50,7 +50,7 @@ ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
 
 # Curriculum entities — carry learning_level, quality_score, sel_category, etc.
 # Lesson is the narrative curriculum leaf; Curriculum is the base class.
-CurriculumEntity = Lesson | LearningStep | LearningPath | Exercise
+CurriculumEntity = Lesson | PathStep | LearningPath | Exercise
 
 # Atomic Ku — lightweight ontology/reference node (extends Entity directly, not Curriculum)
 KuEntity = Ku
@@ -80,7 +80,7 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.LESSON: Lesson,
     EntityType.KU: Ku,
     EntityType.RESOURCE: Resource,
-    EntityType.LEARNING_STEP: LearningStep,
+    EntityType.PATH_STEP: PathStep,
     EntityType.LEARNING_PATH: LearningPath,
     EntityType.EXERCISE: Exercise,
     EntityType.REVISED_EXERCISE: RevisedExercise,

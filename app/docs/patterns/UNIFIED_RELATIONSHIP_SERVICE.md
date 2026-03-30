@@ -36,7 +36,7 @@ For implementation guidance, see:
 
 **Scope:** All 10 searchable domains now have relationship configs:
 - **Activity (6):** Tasks, Goals, Habits, Events, Choices, Principles (user-owned)
-- **Curriculum (3):** KU, LS, LP (shared content)
+- **Curriculum (3):** KU, PS, LP (shared content)
 - **Content/Organization Domains (3):** Journals, Assignments, MOC (MOC provides navigation across curriculum)
 - **Finance is NOT an Activity Domain** - it's a standalone expense/budget tracker
 
@@ -49,7 +49,7 @@ TasksRelationshipService, GoalsRelationshipService, HabitsRelationshipService...
 **After:**
 ```
 1 service + 9 configs = ~1,600 lines (67% reduction)
-UnifiedRelationshipService + TASKS_CONFIG, GOALS_CONFIG, HABITS_CONFIG...
+UnifiedRelationshipService + TASKS_CONFIG, GOAPS_CONFIG, HABITS_CONFIG...
 ```
 
 **Old services archived:** `zarchives/relationships/`
@@ -91,7 +91,7 @@ Need relationship data?
 Instead of subclassing for each domain, we use configuration objects:
 
 ```python
-from core.models.relationship_registry import TASKS_CONFIG, GOALS_CONFIG
+from core.models.relationship_registry import TASKS_CONFIG, GOAPS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
 # Create relationship service for tasks
@@ -105,7 +105,7 @@ tasks_relationship_service = UnifiedRelationshipService(
 goals_relationship_service = UnifiedRelationshipService(
     backend=goals_backend,
     graph_intel=graph_intel,
-    config=GOALS_CONFIG,
+    config=GOAPS_CONFIG,
 )
 ```
 
@@ -207,14 +207,14 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 |--------|--------|--------------|-------------------|
 | **Activity (6)** |
 | `TASKS_CONFIG` | TASKS | Task | APPLIES_KNOWLEDGE, FULFILLS_GOAL, DEPENDS_ON |
-| `GOALS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
+| `GOAPS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
 | `HABITS_CONFIG` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
 | `EVENTS_CONFIG` | EVENTS | Event | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, CONFLICTS_WITH |
 | `CHOICES_CONFIG` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMED_BY_PRINCIPLE, AFFECTS_GOAL |
 | `PRINCIPLES_CONFIG` | PRINCIPLES | Principle | GROUNDED_IN_KNOWLEDGE, GUIDES_GOAL, GUIDES_CHOICE |
 | **Curriculum (3)** |
 | `KU_CONFIG` | KNOWLEDGE | Ku | REQUIRES, ENABLES, ORGANIZES, HAS_NARROWER |
-| `LS_CONFIG` | LEARNING | Ls | CONTAINS_KNOWLEDGE, TRAINS_KU, REQUIRES_STEP (activity rels inherited from Lessons) |
+| `PS_CONFIG` | LEARNING | Ls | CONTAINS_KNOWLEDGE, TRAINS_KU, REQUIRES_STEP (activity rels inherited from Lessons) |
 | `LP_CONFIG` | LEARNING | Lp | HAS_STEP, ALIGNED_WITH_GOAL, HAS_MILESTONE_EVENT |
 
 **Notes:**
@@ -637,16 +637,16 @@ SKUEL uses two distinct relationship service patterns, each optimized for differ
 
 ### Direct Driver Pattern (Domain-Specific Services)
 
-**For:** Curriculum (3) + MOC - LP, LS, KU, and MOC (Content/Org navigation)
+**For:** Curriculum (3) + MOC - LP, PS, KU, and MOC (Content/Org navigation)
 
 **Characteristics:**
 - AsyncDriver + GraphQueryExecutor (raw Cypher)
 - Does NOT inherit from BaseService
 - Complex curriculum-specific calculations:
   - `calculate_motivational_strength()` (LP)
-  - `calculate_guidance_strength()` (LS)
-  - `practice_completeness_score()` (LS)
-  - `is_ready(completed_step_uids)` (LS)
+  - `calculate_guidance_strength()` (PS)
+  - `practice_completeness_score()` (PS)
+  - `is_ready(completed_step_uids)` (PS)
 - Recursive traversal patterns (MOC sections)
 - Sequence management (step reordering)
 - Read-heavy, traversal-oriented workloads

@@ -18,8 +18,8 @@ domain: personal
 
 connections:
   contains_steps:
-    - ls:mindfulness-101:step-1
-    - ls:mindfulness-101:step-2
+    - ps:mindfulness-101:step-1
+    - ps:mindfulness-101:step-2
 
 prerequisites: []
 

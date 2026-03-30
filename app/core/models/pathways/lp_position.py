@@ -2,14 +2,14 @@
 Simple Learning Path Position Context
 ====================================
 
-Leverages existing Entity model (entity_type='learning_path' / 'learning_step') to provide
+Leverages existing Entity model (entity_type='learning_path' / 'path_step') to provide
 learning path position context for service operations. This enables knowledge-first
 operations where learning path progression guides task, habit, goal, and other domain operations.
 
 Design Principle: "How does the user's learning path position frame this operation?"
 
-domain-first refactor: LpPosition uses LearningPath and LearningStep models directly.
-Steps are stored in path.metadata["steps"] (list[LearningStep]).
+domain-first refactor: LpPosition uses LearningPath and PathStep models directly.
+Steps are stored in path.metadata["steps"] (list[PathStep]).
 """
 
 from dataclasses import dataclass
@@ -18,18 +18,18 @@ from typing import Any
 
 from core.models.enums import Domain
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.path_step import PathStep
 from core.models.type_hints import UserUID
 
 
-def _get_path_steps(path: LearningPath) -> list[LearningStep]:
+def _get_path_steps(path: LearningPath) -> list[PathStep]:
     """Get steps from a LearningPath's metadata."""
     if path.metadata:
         return path.metadata.get("steps", [])
     return []
 
 
-def _get_next_step(path: LearningPath, completed_step_uids: set[str]) -> LearningStep | None:
+def _get_next_step(path: LearningPath, completed_step_uids: set[str]) -> PathStep | None:
     """Get the next incomplete step in a learning path."""
     steps = _get_path_steps(path)
     for step in steps:
@@ -49,7 +49,7 @@ class LpPosition:
 
     # Core Learning State
     active_paths: list[LearningPath]  # User's current learning paths
-    current_steps: dict[str, LearningStep]  # Current step in each path (path_uid -> step)
+    current_steps: dict[str, PathStep]  # Current step in each path (path_uid -> step)
     completed_step_uids: set[str]  # All completed step UIDs across paths
     next_recommended: list[str]  # Next step UIDs ready to start
 
@@ -131,7 +131,7 @@ class LpPosition:
             elif domain == Domain.LEARNING and habit_category in ["study", "learning", "education"]:
                 suggestions.extend(
                     [
-                        "Complete one learning step daily",
+                        "Complete one path step daily",
                         "Review previous learning concepts",
                         "Practice knowledge application",
                     ]
@@ -255,7 +255,7 @@ class LpPosition:
         # Practice opportunities based on learning progression
         practice_frame["practice_opportunities"] = [
             f"Apply {principle_category} during daily learning sessions",
-            f"Reflect on {principle_category} after completing learning steps",
+            f"Reflect on {principle_category} after completing path steps",
             f"Use {principle_category} to guide learning path decisions",
         ]
 
@@ -347,7 +347,7 @@ def create_lp_position(
         active_paths: User's active learning paths (LearningPath instances),
         completed_step_uids: Set of completed step UIDs
         readiness_map: Optional map of step UIDs to readiness status.
-                      If None, all steps assumed ready. Use LsIntelligenceService.is_ready()
+                      If None, all steps assumed ready. Use PsIntelligenceService.is_ready()
                       at service layer to populate this with real graph data.
 
     Returns:

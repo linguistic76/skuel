@@ -65,7 +65,7 @@ Located in: `/routes/graphql/context.py`
 | `knowledge_loader` | Load lessons by UID | `get_lessons_batch()` |
 | `task_loader` | Load tasks by UID | `get_tasks_batch()` |
 | `learning_path_loader` | Load learning paths by UID | `get_learning_paths_batch()` |
-| `learning_step_loader` | Load learning steps by UID | `get_learning_steps_batch()` |
+| `path_step_loader` | Load path steps by UID | `get_path_steps_batch()` |
 
 ---
 
@@ -89,7 +89,7 @@ def create_graphql_context(services, search_router, user_uid=None):
     async def load_tasks(keys: list[str]) -> list[Any]:
         return await _batch_load(keys, context.services.tasks.get_tasks_batch, "tasks")
 
-    # ... similar for learning_paths, learning_steps
+    # ... similar for learning_paths, path_steps
 
     context.knowledge_loader = DataLoader(load_fn=load_knowledge_units)
     context.task_loader = DataLoader(load_fn=load_tasks)
@@ -147,7 +147,7 @@ async def _batch_load(
 # routes/graphql/types.py
 
 @strawberry.type
-class LearningStep:
+class PathStep:
     """A step in a learning path."""
     step_number: int
     knowledge_uid: str
@@ -176,7 +176,7 @@ class LearningStep:
 
 1. **Request arrives** with query for 10 paths, each with 8 steps
 2. **GraphQL resolves** 10 LearningPath objects
-3. **GraphQL resolves** 80 LearningStep objects (8 per path)
+3. **GraphQL resolves** 80 PathStep objects (8 per path)
 4. **Each step resolver** calls `context.knowledge_loader.load(knowledge_uid)`
 5. **DataLoader collects** all 80 UIDs during this event loop tick
 6. **DataLoader batches** into `batch_load_knowledge_units([uid1, uid2, ..., uid80])`
@@ -215,8 +215,8 @@ query GetLearningPathsWithKnowledge {
 ```
 Database Queries:
 1. SELECT * FROM LearningPath WHERE ... LIMIT 10           [1 query]
-2. SELECT * FROM LearningStep WHERE path_uid = 'lp1'      [1 query]
-3. SELECT * FROM LearningStep WHERE path_uid = 'lp2'      [1 query]
+2. SELECT * FROM PathStep WHERE path_uid = 'lp1'      [1 query]
+3. SELECT * FROM PathStep WHERE path_uid = 'lp2'      [1 query]
 ... (8 more times)                                         [8 more queries]
 11. SELECT * FROM Knowledge WHERE uid = 'ku1'              [1 query]
 12. SELECT * FROM Knowledge WHERE uid = 'ku2'              [1 query]
@@ -230,7 +230,7 @@ TOTAL: 1 + 10 + 80 = 91 database queries
 ```
 Database Queries:
 1. SELECT * FROM LearningPath WHERE ... LIMIT 10                           [1 query]
-2. SELECT * FROM LearningStep WHERE path_uid IN ['lp1', 'lp2', ..., 'lp10'] [1 query]
+2. SELECT * FROM PathStep WHERE path_uid IN ['lp1', 'lp2', ..., 'lp10'] [1 query]
 3. SELECT * FROM Knowledge WHERE uid IN ['ku1', 'ku2', ..., 'ku80']       [1 query]
 
 TOTAL: 3 database queries
@@ -251,8 +251,8 @@ Batch loaded 80 knowledge units in 1 query
 DataLoader batching 10 learning paths
 Batch loaded 10 learning paths in 1 query
 
-DataLoader batching 5 learning steps
-Batch loaded 5 learning steps in 1 query
+DataLoader batching 5 path steps
+Batch loaded 5 path steps in 1 query
 ```
 
 **Benefits:**
@@ -271,13 +271,13 @@ For DataLoaders to work optimally, services must implement batch methods:
 All batch methods follow the same pattern — delegate to `backend.get_many()`:
 
 ```python
-# In LsService (Learning Steps Service)
+# In PsService (Path Steps Service)
 
-async def get_learning_steps_batch(
+async def get_path_steps_batch(
     self, uids: list[str]
-) -> Result[list[LearningStep | None]]:
+) -> Result[list[PathStep | None]]:
     """
-    Get multiple learning steps in one batched query.
+    Get multiple path steps in one batched query.
 
     Critical for GraphQL DataLoader batching to prevent N+1 queries.
     """
@@ -460,7 +460,7 @@ query TestBatching {
    - ✅ LessonService.get_lessons_batch()
    - ✅ TasksService.get_tasks_batch()
    - ✅ LpService.get_learning_paths_batch()
-   - ✅ LsService.get_learning_steps_batch()
+   - ✅ PsService.get_path_steps_batch()
 
 2. **Monitor performance** in production:
    - Track batch sizes (should be 10-100+)

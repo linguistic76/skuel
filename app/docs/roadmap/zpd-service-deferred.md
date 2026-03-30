@@ -168,18 +168,18 @@ class ZPDOperations(Protocol):
 2. `core/services/zpd/zpd_service.py` — `ZPDService` (business logic)
 3. `core/ports/zpd_protocols.py` — `ZPDBackendOperations` + `ZPDOperations` protocols
 4. `services_bootstrap/compose.py` — `services.zpd_service: ZPDOperations | None` (FULL tier only)
-5. `UserContextIntelligence.get_optimal_next_learning_steps()` — calls `ZPDService` when not `None`
+5. `UserContextIntelligence.get_optimal_next_path_steps()` — calls `ZPDService` when not `None`
 6. `AskesisService.analyze_user_state()` — reads `ZPDAssessment` in state snapshot
 
 ---
 
 ## Relationship to UserContextIntelligence
 
-`UserContextIntelligence.get_optimal_next_learning_steps()` uses ZPDService as its
+`UserContextIntelligence.get_optimal_next_path_steps()` uses ZPDService as its
 primary signal for curriculum-aligned recommendations:
 
 ```python
-async def get_optimal_next_learning_steps(self, context: UserContext) -> Result[list[dict]]:
+async def get_optimal_next_path_steps(self, context: UserContext) -> Result[list[dict]]:
     if self.zpd_service is not None:
         assessment = await self.zpd_service.assess_zone(context.user_uid)
         if not assessment.is_error:
@@ -230,7 +230,7 @@ ZPDService generates three types of recommended actions:
 ## What ZPDService Does NOT Do
 
 - It does not recommend content directly (Askesis does that, using ZPDAssessment as input)
-- It does not replace `get_optimal_next_learning_steps()` — it enriches it
+- It does not replace `get_optimal_next_path_steps()` — it enriches it
 - It does not contain Cypher queries (those live in ZPDBackend)
 
 ## ZPD Snapshot Persistence
@@ -242,7 +242,7 @@ A single `:ZPDHistory` node per user stores the latest snapshot state (MVP — n
 - `SubmissionApproved` — student work validated
 - `ReportSubmitted` — teacher feedback delivered
 - `KnowledgeMastered` — KU mastery confirmed
-- `LearningStepCompleted` — curriculum progress
+- `PathStepCompleted` — curriculum progress
 - `LearningPathProgressUpdated` — LP advancement
 
 **Fields on `:ZPDHistory`:** `latest_assessed_at`, `latest_current_zone_count`, `latest_proximal_zone_count`, `latest_confirmed_count`, `latest_behavioral_readiness`, `latest_life_path_alignment`, `latest_trigger_event`, `snapshot_count`.

@@ -323,10 +323,10 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         """
         Get all tasks that originated from the curriculum.
 
-        Uses Task.is_from_learning_step() to filter curriculum-driven tasks.
+        Uses Task.is_from_path_step() to filter curriculum-driven tasks.
 
         Returns:
-            Result containing list of tasks linked to learning steps
+            Result containing list of tasks linked to path steps
         """
         # Get all tasks
         all_tasks_result = await self.backend.list(QueryLimit.COMPREHENSIVE)
@@ -338,21 +338,21 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 
         # Filter using model method
         all_tasks = self._to_domain_models(tasks_data, TaskDTO, Task)
-        curriculum_tasks = [task for task in all_tasks if task.is_from_learning_step]
+        curriculum_tasks = [task for task in all_tasks if task.is_from_path_step]
 
         self.logger.info(f"Found {len(curriculum_tasks)} curriculum-driven tasks")
         return Result.ok(curriculum_tasks)
 
-    @with_error_handling("get_tasks_for_learning_step", error_type="database", uid_param="step_uid")
-    async def get_tasks_for_learning_step(self, step_uid: str) -> Result[list[Task]]:
+    @with_error_handling("get_tasks_for_path_step", error_type="database", uid_param="step_uid")
+    async def get_tasks_for_path_step(self, step_uid: str) -> Result[list[Task]]:
         """
-        Get all tasks linked to a specific learning step.
+        Get all tasks linked to a specific path step.
 
         Args:
-            step_uid: LearningStep UID
+            step_uid: PathStep UID
 
         Returns:
-            Result containing list of tasks for this learning step
+            Result containing list of tasks for this path step
         """
         # Get all tasks
         all_tasks_result = await self.backend.list(QueryLimit.COMPREHENSIVE)
@@ -364,9 +364,9 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
 
         # Filter using model method
         all_tasks = self._to_domain_models(tasks_data, TaskDTO, Task)
-        step_tasks = [task for task in all_tasks if task.source_learning_step_uid == step_uid]
+        step_tasks = [task for task in all_tasks if task.source_path_step_uid == step_uid]
 
-        self.logger.info(f"Found {len(step_tasks)} tasks for learning step {step_uid}")
+        self.logger.info(f"Found {len(step_tasks)} tasks for path step {step_uid}")
         return Result.ok(step_tasks)
 
     # ========================================================================

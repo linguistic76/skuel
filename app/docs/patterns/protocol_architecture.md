@@ -82,7 +82,7 @@ core/ports/
 ├── calendar_protocol.py               # CalendarTrackable entity protocol
 ├── content_protocols.py               # Content/media protocols
 ├── context_awareness_protocols.py     # UserContext slices (11 protocols)
-├── curriculum_protocols.py            # KU, LS, LP operations (4 protocols)
+├── curriculum_protocols.py            # KU, PS, LP operations (4 protocols)
 ├── domain_protocols.py                # Activity domain operations (9 protocols)
 ├── email_protocols.py                 # Email service protocol
 ├── form_protocols.py                  # Form backend + route protocols (4 protocols)
@@ -104,7 +104,7 @@ core/ports/
 |----------|------|---------|-------|
 | **Type Checking** | `core/protocols.py` | Attribute checking (replaces hasattr) | 30+ |
 | **Domain Operations** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 9 |
-| **Curriculum** | `curriculum_protocols.py` | KU, LS, LP operations (unified hierarchy) | 4 |
+| **Curriculum** | `curriculum_protocols.py` | KU, PS, LP operations (unified hierarchy) | 4 |
 | **Search** | `search_protocols.py` | Search and query operations | 8 |
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, User (3 ISP + 1 composed), Ingestion | 9 |
 | **Intelligence** | `intelligence_protocols.py` | Knowledge (shared) + Domain (per-service) + Composed | 3 |
@@ -243,7 +243,7 @@ def create_tasks_api_routes(
     await tasks_service.get_ready_to_work_on(...)  # ✓ Type-safe
 ```
 
-**Affected services:** `TasksService`, `GoalsService`, `HabitsService`, `EventsService`, `ChoicesService`, `PrinciplesService`, `KuService`, `LsService`, `LpService`
+**Affected services:** `TasksService`, `GoalsService`, `HabitsService`, `EventsService`, `ChoicesService`, `PrinciplesService`, `KuService`, `PsService`, `LpService`
 
 **Benefits:**
 - **MyPy-native** - No protocol workaround needed
@@ -289,7 +289,7 @@ class Services:
 
     # After: Protocol types (January 2026) / concrete types (February 2026 for facades)
     learning: "LpService | None" = None  # February 2026: concrete class (was LpFacadeProtocol)
-    learning_steps: LsOperations | None = None
+    path_steps: PsOperations | None = None
     learning_intelligence: IntelligenceOperations | None = None
     context_service: UserContextOperations | None = None
     askesis: AskesisOperations | None = None
@@ -312,7 +312,7 @@ All API route functions now use protocol types instead of concrete classes. Note
 **Curriculum (4) — now use concrete service class:**
 - `knowledge_api.py` → `KuService`
 - `pathways_api.py` → `LpService`
-- `learning_steps_api.py` → `LsService`
+- `path_steps_api.py` → `PsService`
 - `moc_api.py` → `KuService` (MOC is KU-based)
 
 **Other Domains (4):**
@@ -340,7 +340,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 - `SubmissionsService` → `BackendOperations[Entity]`
 
 ### Results
-- **Two-tier typing in route signatures** - Facade services (9: Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP) use concrete class types; thin/ISP services use protocol types
+- **Two-tier typing in route signatures** - Facade services (9: Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP) use concrete class types; thin/ISP services use protocol types
 - **Full type safety** with MyPy across all services
 - **Better IDE support** with complete method autocomplete
 - **Easier testing** with protocol-based mocking

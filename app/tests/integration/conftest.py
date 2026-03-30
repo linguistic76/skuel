@@ -419,7 +419,7 @@ async def services(neo4j_driver):
     from core.services.goals_service import GoalsService
     from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService
-    from core.services.ls_service import LsService
+    from core.services.ps_service import PsService
     from core.services.principles_service import PrinciplesService
     from core.services.tasks_service import TasksService
     from core.services.user_service import UserService
@@ -431,12 +431,12 @@ async def services(neo4j_driver):
         choices: ChoicesService
         principles: PrinciplesService
         lp: LpService
-        ls: LsService
+        ls: PsService
         lesson: LessonService
         ku: LessonService  # Alias for lesson (backward compat)
         knowledge: LessonService  # Alias for lesson (used by rich context tests)
         learning_paths: LpService  # Alias for lp (used by curriculum tests)
-        learning_steps: LsService  # Alias for ls (used by curriculum tests)
+        path_steps: PsService  # Alias for ls (used by curriculum tests)
         tasks: TasksService
         goals: GoalsService
         events: EventsService
@@ -507,12 +507,10 @@ async def services(neo4j_driver):
     )
     events_backend = TestBackendWrapper(raw_events_backend, Event)
 
-    from adapters.persistence.neo4j.domain_backends import LsBackend
+    from adapters.persistence.neo4j.domain_backends import PsBackend
 
-    raw_ls_backend = LsBackend(
-        neo4j_driver, NeoLabel.LEARNING_STEP, Entity, base_label=NeoLabel.ENTITY
-    )
-    ls_backend = TestBackendWrapper(raw_ls_backend, Entity)
+    raw_ps_backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, Entity, base_label=NeoLabel.ENTITY)
+    ps_backend = TestBackendWrapper(raw_ps_backend, Entity)
 
     raw_lp_backend = UniversalNeo4jBackend[Entity](
         neo4j_driver, NeoLabel.LEARNING_PATH, Entity, base_label=NeoLabel.ENTITY
@@ -552,8 +550,8 @@ async def services(neo4j_driver):
 
     # Create LS service (used by LP service)
     # January 2026: graph_intel now REQUIRED for unified Curriculum architecture
-    ls_service = LsService(
-        backend=ls_backend,
+    ps_service = PsService(
+        backend=ps_backend,
         executor=query_executor,
         graph_intel=mock_graph_intel,
     )
@@ -562,7 +560,7 @@ async def services(neo4j_driver):
     lp_service = LpService(
         backend=lp_backend,
         executor=query_executor,
-        ls_service=ls_service,
+        ps_service=ps_service,
         graph_intelligence_service=mock_graph_intel,
     )
 
@@ -603,7 +601,7 @@ async def services(neo4j_driver):
     tasks_service.core.backend = tasks_backend
     goals_service.core.backend = goals_backend
     events_service.core.backend = events_backend
-    ls_service.core.backend = ls_backend
+    ps_service.core.backend = ps_backend
     lp_service.core.backend = lp_backend
     principles_service.core.backend = principles_backend
 
@@ -616,7 +614,7 @@ async def services(neo4j_driver):
         goals_service.core,
         events_service.core,
         principles_service.core,
-        ls_service.core,
+        ps_service.core,
         lp_service.core,
     ]:
         core_service._dto_class = EntityDTO
@@ -626,12 +624,12 @@ async def services(neo4j_driver):
         choices=choices_service,
         principles=principles_service,
         lp=lp_service,
-        ls=ls_service,
+        ls=ps_service,
         lesson=ku_service,
         ku=ku_service,  # Alias for lesson (backward compat)
         knowledge=ku_service,  # Alias for lesson (used by rich context tests)
         learning_paths=lp_service,  # Alias for lp (used by curriculum tests)
-        learning_steps=ls_service,  # Alias for ls (used by curriculum tests)
+        path_steps=ps_service,  # Alias for ls (used by curriculum tests)
         tasks=tasks_service,
         goals=goals_service,
         events=events_service,

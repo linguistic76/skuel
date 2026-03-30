@@ -462,7 +462,7 @@ See: `/docs/migrations/SEL_UX_MODERNIZATION_2026-02-03.md`
 **Patterns:**
 - [UI Component Patterns](../patterns/UI_COMPONENT_PATTERNS.md) - CardGenerator, BasePage
 - [HTMX Accessibility Patterns](../patterns/HTMX_ACCESSIBILITY_PATTERNS.md) - ARIA announcements
-- [Curriculum Grouping](../architecture/CURRICULUM_GROUPING_PATTERNS.md) - KU/LS/LP
+- [Curriculum Grouping](../architecture/CURRICULUM_GROUPING_PATTERNS.md) - KU/PS/LP
 
 **Architecture:**
 - [Search Architecture](../architecture/SEARCH_ARCHITECTURE.md) - BaseService patterns

@@ -58,7 +58,7 @@ crud_factory = CRUDRouteFactory(
 crud_factory.register_routes(app, rt)
 
 # Curriculum domain (shared) — uses FormTemplate as example since
-# Lesson/LS/LP are created via ingestion, not CRUD
+# Lesson/PS/LP are created via ingestion, not CRUD
 crud_factory = CRUDRouteFactory(
     service=form_template_service,
     domain_name="form-templates",
@@ -326,7 +326,7 @@ class ContentScope(str, Enum):
 | Category | Domains | scope |
 |----------|---------|-------|
 | **Activity** | Tasks, Goals, Habits, Events, Choices, Principles, Finance, Journals | `ContentScope.USER_OWNED` |
-| **Curriculum** | KU, LS, LP, MOC | `ContentScope.SHARED` |
+| **Curriculum** | KU, PS, LP, MOC | `ContentScope.SHARED` |
 
 ### Relationship to require_role
 
@@ -465,7 +465,7 @@ When `scope=ContentScope.USER_OWNED` and `ownership_service` is provided:
 
 **Domain-to-Scope Mapping:**
 - **Activity Domains** (user-owned): Tasks, Goals, Habits, Events, Choices, Principles → `scope=ContentScope.USER_OWNED`
-- **Curriculum Domains** (shared): KU, LS, LP, MOC → `scope=ContentScope.SHARED`
+- **Curriculum Domains** (shared): KU, PS, LP, MOC → `scope=ContentScope.SHARED`
 
 ## QuickAddRouteFactory
 

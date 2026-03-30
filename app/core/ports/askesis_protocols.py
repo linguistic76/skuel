@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
-        LearningStep,
+        PathStep,
         LifePathAlignment,
         ScheduleAwareRecommendation,
     )
@@ -278,14 +278,14 @@ class AskesisDomainSynthesisOperations(Protocol):
         """
         ...
 
-    async def get_optimal_next_learning_steps(
+    async def get_optimal_next_path_steps(
         self,
         user_context: UserContext,
         max_steps: int = 5,
         consider_goals: bool = True,
         consider_capacity: bool = True,
-    ) -> Result[list[LearningStep]]:
-        """Get optimal next learning steps based on prerequisites and goals.
+    ) -> Result[list[PathStep]]:
+        """Get optimal next path steps based on prerequisites and goals.
 
         Analyzes:
         - Prerequisite completion status
@@ -300,14 +300,14 @@ class AskesisDomainSynthesisOperations(Protocol):
             consider_capacity: Respect learning capacity (default: True)
 
         Returns:
-            Result[list[LearningStep]]: Prioritized learning steps
+            Result[list[PathStep]]: Prioritized path steps
         """
         ...
 
     async def get_learning_path_critical_path(self, user_context: UserContext) -> Result[list[str]]:
         """Get the critical path to life path alignment.
 
-        Calculates the shortest sequence of learning steps that maximizes
+        Calculates the shortest sequence of path steps that maximizes
         life path alignment, considering current mastery state.
 
         Args:

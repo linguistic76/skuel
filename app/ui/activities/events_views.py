@@ -461,7 +461,7 @@ def _ConnectionBadges(connections: list[dict[str, str]]) -> "FT":
         "habit": ("repeat", "/habits/detail?uid="),
         "ku": ("atom", "/ku/get?uid="),
         "principle": ("compass", "/principles/detail?uid="),
-        "learning_step": ("list", "#"),
+        "path_step": ("list", "#"),
         "learning_path": ("map", "#"),
     }
 

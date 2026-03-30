@@ -227,7 +227,7 @@ where do you feel the breath most?
 
 **Format convention:**
 - **Lessons** → `.md` files with YAML frontmatter (content-heavy, prose-first)
-- **Everything else** (Kus, LS, LP, activities, edges) → `.yaml` files (metadata-heavy, little/no prose)
+- **Everything else** (Kus, PS, LP, activities, edges) → `.yaml` files (metadata-heavy, little/no prose)
 
 **Key fields:**
 
@@ -364,20 +364,20 @@ Each level uses some of the same Kus but adds new ones. The beginner lesson migh
 
 ## A Second Worked Example: Mindfulness 101 + Self-Reflection 101
 
-The SEL chain above is linear and self-contained. This example shows two things the SEL chain doesn't: **the full four-entity curriculum stack** (Ku → Lesson → LearningStep → LearningPath) and **cross-domain progression** (one learning path leading into another).
+The SEL chain above is linear and self-contained. This example shows two things the SEL chain doesn't: **the full four-entity curriculum stack** (Ku → Lesson → PathStep → LearningPath) and **cross-domain progression** (one learning path leading into another).
 
 ### The Two Domains
 
-**Mindfulness 101** teaches the foundational skill: noticing. Three lessons, two learning steps, one learning path.
+**Mindfulness 101** teaches the foundational skill: noticing. Three lessons, two path steps, one learning path.
 
-**Self-Reflection 101** builds on that skill: once you can notice your breath and label your wandering mind, turn that capacity toward your behavior, emotions, and values. Three lessons, two learning steps, one learning path. It declares Mindfulness 101 as a prerequisite.
+**Self-Reflection 101** builds on that skill: once you can notice your breath and label your wandering mind, turn that capacity toward your behavior, emotions, and values. Three lessons, two path steps, one learning path. It declares Mindfulness 101 as a prerequisite.
 
 ```
 Mindfulness 101                          Self-Reflection 101
-  LS Step 1: Two Minutes Today             LS Step 1: Notice Your Patterns
+  PS Step 1: Two Minutes Today             PS Step 1: Notice Your Patterns
     └── Lesson: Breath Awareness             └── Lesson: Noticing Patterns
     └── Lesson: Posture Basics               └── Lesson: Emotional Awareness
-  LS Step 2: Name The Wanders             LS Step 2: Understand Your Values
+  PS Step 2: Name The Wanders             PS Step 2: Understand Your Values
     └── Lesson: Mind Wandering               └── Lesson: Values Discovery
                                              └── Lesson: Emotional Awareness
          lp:mindfulness-101  ──PREREQUISITE_FOR──>  lp:self-reflection-101
@@ -391,7 +391,7 @@ This is the full curriculum hierarchy in action:
 |-------|-------------|---------|
 | **Ku** | Defines one atomic concept | `ku:mindfulness:breath` — "The natural rhythm of breathing, used as the primary anchor for attention" |
 | **Lesson** | Composes Kus into a teaching narrative with practice exercises | `l:mindfulness:breath-awareness-basics` — 10-minute lesson teaching the two-minute practice |
-| **LearningStep** | Groups related lessons into a step with a clear intent | `ls:mindfulness-101:step-1` — "Try one two-minute breath session and notice where you feel the breath" |
+| **PathStep** | Groups related lessons into a step with a clear intent | `ls:mindfulness-101:step-1` — "Try one two-minute breath session and notice where you feel the breath" |
 | **LearningPath** | Sequences steps into a learner journey | `lp:mindfulness-101` — beginner path from breath to labeling |
 
 Each layer has a distinct purpose. Kus don't teach. Lessons don't sequence. Steps don't define concepts. Paths don't contain content. Mixing these roles creates confusion.
@@ -453,7 +453,7 @@ data/vault/
   lesson_breath-awareness-basics.md       # Lessons (Markdown — content-heavy)
   lesson_posture-basics.md
   lesson_mind-wandering-happens.md
-  ls_mindfulness-101_step-1.yaml          # Learning Steps (YAML)
+  ls_mindfulness-101_step-1.yaml          # Path Steps (YAML)
   ls_mindfulness-101_step-2.yaml
   lp_mindfulness-101.yaml                 # Learning Path (YAML)
   edges/edge_mindfulness-101-curriculum.yaml  # Internal edges
@@ -517,15 +517,15 @@ choice_uids:
 
 Not every Lesson needs all 6. Use what fits the content.
 
-### LearningStep Inherits from Lessons
+### PathStep Inherits from Lessons
 
-LearningSteps do NOT have their own activity fields. They inherit activities from their Lessons via graph traversal:
+PathSteps do NOT have their own activity fields. They inherit activities from their Lessons via graph traversal:
 
 ```
-(LS)-[:CONTAINS_KNOWLEDGE]->(Lesson)-[:BUILDS_HABIT]->(Habit)
+(PS)-[:CONTAINS_KNOWLEDGE]->(Lesson)-[:BUILDS_HABIT]->(Habit)
 ```
 
-An LS with 3 Lessons automatically aggregates all their activities. Wire activity fields to the Lessons listed in `knowledge_uids`.
+An PS with 3 Lessons automatically aggregates all their activities. Wire activity fields to the Lessons listed in `knowledge_uids`.
 
 ### Substance Tracking
 
@@ -562,15 +562,15 @@ For each lesson, ask: what should the learner *do* with this knowledge?
 
 Not every lesson needs all six. Wire what fits.
 
-### Step 4: Build the Structure (LS, LP, edges)
+### Step 4: Build the Structure (PS, LP, edges)
 
-Group lessons into Learning Steps. Sequence steps into a Learning Path. Write edge files for the curriculum structure and any cross-domain connections.
+Group lessons into Path Steps. Sequence steps into a Learning Path. Write edge files for the curriculum structure and any cross-domain connections.
 
 ### Step 5: Review the Graph
 
 Before ingesting, mentally walk the graph:
 - Can a learner start from the LP and follow a clear path?
-- Does every LS have at least one lesson?
+- Does every PS have at least one lesson?
 - Does every lesson compose at least one Ku?
 - Are activities wired to the right lessons?
 - Are cross-domain connections declared in edge files?
@@ -581,13 +581,13 @@ Place files in `data/vault/` and ingest. The system handles node creation, relat
 
 ## What Comes Next
 
-This guide covers: Kus, Lessons, prerequisite chains, activity wiring, the four-entity curriculum stack (Ku → Lesson → LS → LP), cross-domain progression, and the practical workflow. Future guides will cover:
+This guide covers: Kus, Lessons, prerequisite chains, activity wiring, the four-entity curriculum stack (Ku → Lesson → PS → LP), cross-domain progression, and the practical workflow. Future guides will cover:
 
 - **Exercises and the Learning Loop** — attaching practice exercises to lessons, collecting student submissions, generating feedback reports, and creating targeted revisions
 - **The Askesis Companion** — how the AI tutor uses your curriculum graph to guide learners through their zone of proximal development
 - **Ingestion Workflows** — bulk ingestion, dry-run mode, incremental updates, and vault management
 
-Start small. Pick a domain. Define 2-4 Kus. Write 3 Lessons as `.md` files. Wire a few activities. Build the LS/LP structure. Write edge files. Ingest and see what the system builds.
+Start small. Pick a domain. Define 2-4 Kus. Write 3 Lessons as `.md` files. Wire a few activities. Build the PS/LP structure. Write edge files. Ingest and see what the system builds.
 
 The graph grows one node at a time.
 
@@ -601,7 +601,7 @@ The graph grows one node at a time.
 |------|-------|--------|
 | Ku files | `data/vault/ku_*.yaml` | YAML |
 | Lesson files | `data/vault/lesson_*.md` | Markdown + YAML frontmatter |
-| LearningStep files | `data/vault/ls_*.yaml` | YAML |
+| PathStep files | `data/vault/ls_*.yaml` | YAML |
 | LearningPath files | `data/vault/lp_*.yaml` | YAML |
 | Activity files | `data/vault/{type}_*.yaml` | YAML |
 | Edge files | `data/vault/edges/edge_*.yaml` | YAML |
@@ -614,7 +614,7 @@ The graph grows one node at a time.
 |--------|---------|---------|
 | Ku | `ku:{namespace}:{slug}` | `ku:mindfulness:breath` |
 | Lesson | `l:{namespace}:{slug}` | `l:mindfulness:breath-awareness-basics` |
-| LearningStep | `ls:{path}:{slug}` | `ls:mindfulness-101:step-1` |
+| PathStep | `ls:{path}:{slug}` | `ls:mindfulness-101:step-1` |
 | LearningPath | `lp:{slug}` | `lp:mindfulness-101` |
 | Activity | `{type}:{slug}` | `habit:daily-2min-breath` |
 

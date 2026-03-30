@@ -71,7 +71,7 @@ class OrderedRelationshipsMixin:
         Example:
             # Get LP steps in sequence order
             result = await lp_rel.get_ordered_related_uids("steps", "lp:python-basics")
-            # Returns: ["ls:intro", "ls:syntax", "ls:functions", ...]
+            # Returns: ["ps:intro", "ps:syntax", "ps:functions", ...]
         """
         spec = self.config.get_relationship_by_method(relationship_key)
         if not spec:
@@ -134,14 +134,14 @@ class OrderedRelationshipsMixin:
 
         Returns:
             Result[list[dict]] with structure:
-            [{"uid": "ls:1", "title": "...", "edge": {"sequence": 0, ...}}, ...]
+            [{"uid": "ps:1", "title": "...", "edge": {"sequence": 0, ...}}, ...]
 
         Example:
             # Get LP steps with sequence numbers
             result = await lp_rel.get_related_with_metadata("steps", "lp:python-basics")
             # Returns: [
-            #     {"uid": "ls:intro", "title": "Introduction", "edge": {"sequence": 0}},
-            #     {"uid": "ls:syntax", "title": "Basic Syntax", "edge": {"sequence": 1}},
+            #     {"uid": "ps:intro", "title": "Introduction", "edge": {"sequence": 0}},
+            #     {"uid": "ps:syntax", "title": "Basic Syntax", "edge": {"sequence": 1}},
             # ]
         """
         spec = self.config.get_relationship_by_method(relationship_key)
@@ -234,7 +234,7 @@ class OrderedRelationshipsMixin:
             await lp_rel.reorder_relationships(
                 "steps",
                 "lp:python-basics",
-                ["ls:syntax", "ls:intro", "ls:functions"],  # New order
+                ["ps:syntax", "ps:intro", "ps:functions"],  # New order
             )
         """
         spec = self.config.get_relationship_by_method(relationship_key)
@@ -313,7 +313,7 @@ class OrderedRelationshipsMixin:
             await lp_rel.create_relationship_with_properties(
                 "steps",
                 "lp:python-basics",
-                "ls:new-step",
+                "ps:new-step",
                 {"sequence": 5, "completed": False},
             )
         """
@@ -393,7 +393,7 @@ class OrderedRelationshipsMixin:
             )
             # Returns: [
             #     {
-            #         "uid": "ls:intro",
+            #         "uid": "ps:intro",
             #         "title": "Introduction",
             #         "edge": {"sequence": 0},
             #         "children": [

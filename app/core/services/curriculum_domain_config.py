@@ -18,7 +18,7 @@ Usage:
 
     # In facade __init__:
     common = create_curriculum_sub_services(
-        domain="ls",
+        domain="ps",
         backend=backend,
         graph_intel=graph_intelligence_service,
         event_bus=event_bus,
@@ -39,7 +39,7 @@ from core.models.relationship_registry import (
     KU_CONFIG,
     LESSON_CONFIG,
     LP_CONFIG,
-    LS_CONFIG,
+    PS_CONFIG,
 )
 from core.services.relationships import UnifiedRelationshipService
 
@@ -63,7 +63,7 @@ if TYPE_CHECKING:
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
     from core.services.lp_intelligence_service import LpIntelligenceService
-    from core.services.ls_service import LsService
+    from core.services.ps_service import PsService
 
 # Type vars for generics
 T = TypeVar("T")  # Domain model type
@@ -104,15 +104,15 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         domain_name="ku",
         entity_label="Ku",
     ),
-    "ls": CurriculumDomainConfig(
-        core_module="core.services.ls.ls_core_service",
-        core_class="LsCoreService",
-        search_module="core.services.ls.ls_search_service",
-        search_class="LsSearchService",
-        intelligence_module="core.services.ls.ls_intelligence_service",
-        intelligence_class="LsIntelligenceService",
-        relationship_config=LS_CONFIG,
-        domain_name="ls",
+    "ps": CurriculumDomainConfig(
+        core_module="core.services.ps.ps_core_service",
+        core_class="PsCoreService",
+        search_module="core.services.ps.ps_search_service",
+        search_class="PsSearchService",
+        intelligence_module="core.services.ps.ps_intelligence_service",
+        intelligence_class="PsIntelligenceService",
+        relationship_config=PS_CONFIG,
+        domain_name="ps",
         entity_label="Entity",
     ),
     "lp": CurriculumDomainConfig(
@@ -160,7 +160,7 @@ def create_curriculum_sub_services(
     It eliminates repetitive initialization code and ensures consistent wiring.
 
     Args:
-        domain: Domain name ("ku", "ls", "lp")
+        domain: Domain name ("ku", "ps", "lp")
         backend: Domain backend operations (UniversalNeo4jBackend[T])
         graph_intel: GraphIntelligenceService for analytics (REQUIRED for consistency)
         event_bus: Event bus for domain events (optional)
@@ -169,16 +169,16 @@ def create_curriculum_sub_services(
         CurriculumCommonSubServices dataclass with core, search, relationships, intelligence.
         Callers should annotate with specific intelligence type for type safety:
 
-            common: CurriculumCommonSubServices[LsIntelligenceService] = create_curriculum_sub_services(...)
+            common: CurriculumCommonSubServices[PsIntelligenceService] = create_curriculum_sub_services(...)
 
     Example:
-        common: CurriculumCommonSubServices[LsIntelligenceService] = create_curriculum_sub_services(
-            "ls", backend, graph_intel, event_bus
+        common: CurriculumCommonSubServices[PsIntelligenceService] = create_curriculum_sub_services(
+            "ps", backend, graph_intel, event_bus
         )
         self.core = common.core
         self.search = common.search
         self.relationships = common.relationships
-        self.intelligence = common.intelligence # Typed as LsIntelligenceService
+        self.intelligence = common.intelligence # Typed as PsIntelligenceService
 
     Note:
         For domains with non-standard core/search signatures (KU, LP, MOC),
@@ -408,7 +408,7 @@ def create_lesson_sub_services(
 def create_lp_sub_services(
     backend: Any,
     executor: Any,
-    ls_service: "LsService",
+    ps_service: "PsService",
     graph_intelligence_service: Any,
     event_bus: "EventBusOperations | None" = None,
     progress_backend: Any | None = None,
@@ -417,19 +417,19 @@ def create_lp_sub_services(
     """
     Factory function to create all 5 LpService sub-services.
 
-    Handles cross-domain dependency: LpCoreService requires ls_service.
+    Handles cross-domain dependency: LpCoreService requires ps_service.
 
     Creation Order:
     1. LpSearchService (backend)
     2. UnifiedRelationshipService (backend, config, graph_intel)
-    3. LpCoreService (backend, ls_service, event_bus)
+    3. LpCoreService (backend, ps_service, event_bus)
     4. LpProgressService (executor, event_bus)
     5. LpIntelligenceService (backend, graph_intel, progress_backend, event_bus, user_service, executor)
 
     Args:
         backend: BackendOperations for LP entities (REQUIRED — created by composition root)
         executor: QueryExecutor for raw Cypher (REQUIRED — created by composition root)
-        ls_service: LsService - REQUIRED for path-step operations
+        ps_service: PsService - REQUIRED for path-step operations
         graph_intelligence_service: GraphIntelligenceService - REQUIRED
         event_bus: Event bus for publishing domain events (optional)
         progress_backend: UserProgress backend for learning state (optional)
@@ -454,10 +454,10 @@ def create_lp_sub_services(
         graph_intel=graph_intelligence_service,
     )
 
-    # Step 3: Create core (requires ls_service)
+    # Step 3: Create core (requires ps_service)
     core = LpCoreService(
         backend=backend,
-        ls_service=ls_service,
+        ps_service=ps_service,
         event_bus=event_bus,
     )
 

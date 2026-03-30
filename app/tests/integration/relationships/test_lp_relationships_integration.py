@@ -13,7 +13,7 @@ Methods tested (4):
 1. has_relationship("milestones") - Check if learning path has milestone events
 2. has_relationship("goals") - Check if learning path supports goals
 3. has_relationship("principles") - Check if learning path embodies principles
-4. get_related_uids("steps") - Get list of learning step UIDs
+4. get_related_uids("steps") - Get list of path step UIDs
 
 Pattern: Real Neo4j testcontainer, generic relationship API.
 """
@@ -256,13 +256,13 @@ async def test_embodies_principles_false_integration(
 
 
 # ============================================================================
-# TESTS: get_related_uids("steps") - learning step UIDs
+# TESTS: get_related_uids("steps") - path step UIDs
 # ============================================================================
 
 
 @pytest.mark.asyncio
 async def test_get_step_uids_integration(clean_neo4j, lp_relationship_service, create_relationship):
-    """Test get_related_uids('steps') returns all learning step UIDs."""
+    """Test get_related_uids('steps') returns all path step UIDs."""
     # Arrange
     lp_uid = "lp:python_fundamentals"
 
@@ -270,7 +270,7 @@ async def test_get_step_uids_integration(clean_neo4j, lp_relationship_service, c
     await create_relationship(
         from_uid=lp_uid,
         from_label="Lp",
-        to_uid="ls:step_1_basics",
+        to_uid="ps:step_1_basics",
         to_label="Ls",
         rel_type="HAS_STEP",
     )
@@ -278,7 +278,7 @@ async def test_get_step_uids_integration(clean_neo4j, lp_relationship_service, c
     await create_relationship(
         from_uid=lp_uid,
         from_label="Lp",
-        to_uid="ls:step_2_functions",
+        to_uid="ps:step_2_functions",
         to_label="Ls",
         rel_type="HAS_STEP",
     )
@@ -286,7 +286,7 @@ async def test_get_step_uids_integration(clean_neo4j, lp_relationship_service, c
     await create_relationship(
         from_uid=lp_uid,
         from_label="Lp",
-        to_uid="ls:step_3_classes",
+        to_uid="ps:step_3_classes",
         to_label="Ls",
         rel_type="HAS_STEP",
     )
@@ -297,9 +297,9 @@ async def test_get_step_uids_integration(clean_neo4j, lp_relationship_service, c
     # Assert
     assert result.is_ok
     assert len(result.value) == 3
-    assert "ls:step_1_basics" in result.value
-    assert "ls:step_2_functions" in result.value
-    assert "ls:step_3_classes" in result.value
+    assert "ps:step_1_basics" in result.value
+    assert "ps:step_2_functions" in result.value
+    assert "ps:step_3_classes" in result.value
 
 
 @pytest.mark.asyncio

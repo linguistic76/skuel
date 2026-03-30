@@ -33,11 +33,11 @@ def _create_learning_services(
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
     from core.models.pathways.learning_path import LearningPath
-    from core.models.pathways.learning_step import LearningStep
+    from core.models.pathways.path_step import PathStep
     from core.services.entity_retrieval import EntityRetrieval
     from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService  # Intelligence created internally
-    from core.services.ls_service import LsService
+    from core.services.ps_service import PsService
     from core.services.query_builder import QueryBuilder
     from core.services.schema_service import Neo4jSchemaService
     from core.services.user_progress_service import UserProgressService
@@ -114,20 +114,20 @@ def _create_learning_services(
     user_progress = UserProgressService(query_executor)
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
 
-    # Create learning step service (LS operations)
+    # Create path step service (LS operations)
     # January 2026: graph_intel now REQUIRED for unified Curriculum architecture (ADR-030)
     # Backend created here (composition root) — core services never import adapters
-    from adapters.persistence.neo4j.domain_backends import LsBackend
+    from adapters.persistence.neo4j.domain_backends import PsBackend
 
-    ls_backend = LsBackend(driver, NeoLabel.LEARNING_STEP, LearningStep, base_label=NeoLabel.ENTITY)
-    ls_service = LsService(
-        backend=ls_backend,
+    ps_backend = PsBackend(driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    ps_service = PsService(
+        backend=ps_backend,
         executor=query_executor,
         graph_intel=graph_intelligence,
         event_bus=event_bus,
     )
 
-    # Create path service (LP operations - delegates LS operations to LsService)
+    # Create path service (LP operations - delegates LS operations to PsService)
     # January 2026: Intelligence created internally (unified with other domains)
     # Backend created here (composition root) — core services never import adapters
     from adapters.persistence.neo4j.domain_backends import LpBackend
@@ -136,7 +136,7 @@ def _create_learning_services(
     learning_paths = LpService(
         backend=lp_backend,
         executor=query_executor,
-        ls_service=ls_service,  # Delegate LS operations to LsService
+        ps_service=ps_service,  # Delegate LS operations to PsService
         ku_service=ku_service,
         progress_service=user_progress,
         graph_intelligence_service=graph_intelligence,  # 4 graph queries (REQUIRED)
@@ -175,7 +175,7 @@ def _create_learning_services(
         "user_progress": user_progress,
         # unified_progress DELETED (January 2026)
         "learning_paths": learning_paths,
-        "learning_steps": ls_service,  # NEW: Dedicated LS service
+        "path_steps": ps_service,  # NEW: Dedicated LS service
         "ku_retrieval": ku_retrieval,
         # NOTE: "askesis" MOVED to compose_services() (January 2026)
         "cross_domain": cross_domain_service,

@@ -129,7 +129,7 @@ result = await provider.get_filtered_context(user_uid, status_filter="active")
 |---------|-----------|
 | `LessonService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
 | `KuService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
-| `LsService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
+| `PsService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
 | `LpService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
 | `ExerciseService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
 

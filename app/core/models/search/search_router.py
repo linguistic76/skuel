@@ -237,7 +237,7 @@ class SearchRouter:
         NonKuDomain.FINANCE: "finance",
         # Curriculum Domains (3) - ku, ls, lp form the knowledge foundation
         EntityType.LESSON: "lesson",
-        EntityType.LEARNING_STEP: "ls",
+        EntityType.PATH_STEP: "ps",
         EntityType.LEARNING_PATH: "lp",
         # Learning Loop (3) - Exercise -> Submission -> RevisedExercise
         EntityType.EXERCISE: "exercises",
@@ -262,7 +262,7 @@ class SearchRouter:
             EntityType.PRINCIPLE,
             # Curriculum Domains (3) - Lesson, LS, LP
             EntityType.LESSON,
-            EntityType.LEARNING_STEP,
+            EntityType.PATH_STEP,
             EntityType.LEARNING_PATH,
             # Learning Loop (3) - Exercise, RevisedExercise, Submission
             EntityType.EXERCISE,
@@ -531,7 +531,7 @@ class SearchRouter:
             "choices",
             "principles",
             "ku",
-            "ls",
+            "ps",
             "lp",
             "exercises",
             "revised_exercises",
@@ -621,7 +621,8 @@ class SearchRouter:
             "knowledge": EntityType.LESSON,
             "ku": EntityType.LESSON,
             "lesson": EntityType.LESSON,
-            "ls": EntityType.LEARNING_STEP,
+            "ps": EntityType.PATH_STEP,
+            "ls": EntityType.PATH_STEP,  # backward-compat alias
             "lp": EntityType.LEARNING_PATH,
             "exercises": EntityType.EXERCISE,
             "exercise": EntityType.EXERCISE,

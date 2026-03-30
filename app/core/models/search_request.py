@@ -518,7 +518,7 @@ class SearchRequest(BaseModel):
             patterns["in_active_path"] = """
             EXISTS {
                 MATCH (user:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:Lp)
-                      -[:CONTAINS_STEP]->(ls:Ls)
+                      -[:CONTAINS_STEP]->(ps:PathStep)
                       -[:REQUIRES_KNOWLEDGE]->(ku)
                 WHERE lp.status = 'active'
             }

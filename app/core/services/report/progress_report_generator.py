@@ -904,8 +904,8 @@ class ProgressReportGenerator:
                 )
 
         # Learning Steps — curriculum track
-        if include_all or "learning_steps" in (domains or []):
-            for item in context.entities_rich.get("learning_steps", []):
+        if include_all or "path_steps" in (domains or []):
+            for item in context.entities_rich.get("path_steps", []):
                 entity = item.get("entity", {})
                 graph_ctx = item.get("graph_context", {})
                 result["ls_active"] += 1

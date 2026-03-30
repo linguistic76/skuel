@@ -50,9 +50,9 @@ from ui.profile.domain_stats_config import (
     learning_paths_active,
     learning_paths_count,
     learning_paths_status,
-    learning_steps_active,
-    learning_steps_count,
-    learning_steps_status,
+    path_steps_active,
+    path_steps_count,
+    path_steps_status,
 )
 from ui.profile.overview import render_domain_card_preview
 
@@ -343,7 +343,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         - Daily work plan (THE flagship)
         - Life path alignment (5 dimensions)
         - Cross-domain synergies
-        - Optimal learning steps
+        - Optimal path steps
 
         Each call is independent — a failure in one does not block the others.
         Partial failures are tracked in ``partial_errors`` so the UI can show
@@ -373,7 +373,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             return Result.ok(None)
 
         # Independent calls — partial failures are tracked, not propagated
-        daily_plan = alignment = synergies = learning_steps = None
+        daily_plan = alignment = synergies = path_steps = None
         partial_errors: list[str] = []
 
         try:
@@ -407,16 +407,16 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             partial_errors.append("Cross-domain synergies unavailable")
 
         try:
-            steps_result = await intelligence.get_optimal_next_learning_steps()
+            steps_result = await intelligence.get_optimal_next_path_steps()
             if steps_result.is_error:
                 partial_errors.append("Learning step recommendations unavailable")
             else:
-                learning_steps = steps_result.value
+                path_steps = steps_result.value
         except Exception as e:  # safety-net: individual intelligence call
             logger.warning(f"Learning steps call failed: {e}")
             partial_errors.append("Learning step recommendations unavailable")
 
-        if all(v is None for v in [daily_plan, alignment, synergies, learning_steps]):
+        if all(v is None for v in [daily_plan, alignment, synergies, path_steps]):
             return Result.fail(Errors.system("All intelligence calls failed"))
 
         return Result.ok(
@@ -424,7 +424,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 "daily_plan": daily_plan,
                 "alignment": alignment,
                 "synergies": synergies,
-                "learning_steps": learning_steps,
+                "path_steps": path_steps,
                 "partial_errors": partial_errors,
             }
         )
@@ -728,9 +728,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             ),
             (
                 "learning-steps",
-                learning_steps_count(context),
-                learning_steps_active(context),
-                learning_steps_status(context),
+                path_steps_count(context),
+                path_steps_active(context),
+                path_steps_status(context),
             ),
             (
                 "learning-paths",
@@ -769,7 +769,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         curriculum_redirects = {
             "knowledge": "/ku",
-            "learning-steps": "/learning-steps",
+            "learning-steps": "/path-steps",
             "learning-paths": "/learning-paths",
         }
         if domain in curriculum_redirects:
@@ -1259,7 +1259,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             _alignment_breakdown,
             _chart_visualizations_section,
             _daily_work_plan_card,
-            _learning_steps_card,
+            _path_steps_card,
             _synergies_card,
         )
 
@@ -1280,8 +1280,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             sections.append(_daily_work_plan_card(intel_data["daily_plan"]))
         if intel_data.get("synergies") is not None:
             sections.append(_synergies_card(intel_data["synergies"]))
-        if intel_data.get("learning_steps") is not None:
-            sections.append(_learning_steps_card(intel_data["learning_steps"]))
+        if intel_data.get("path_steps") is not None:
+            sections.append(_path_steps_card(intel_data["path_steps"]))
 
         return Div(*sections)
 

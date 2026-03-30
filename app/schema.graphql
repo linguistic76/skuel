@@ -33,10 +33,10 @@ type LearningPath {
   goal: String!
   totalSteps: Int!
   estimatedHours: Float!
-  steps: [LearningStep!]!
+  steps: [PathStep!]!
 }
 
-type LearningStep {
+type PathStep {
   stepNumber: Int!
   knowledgeUid: String!
   masteryThreshold: Float!

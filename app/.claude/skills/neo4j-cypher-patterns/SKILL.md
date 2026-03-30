@@ -26,7 +26,7 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | **Curriculum (5) — shared content** | | | |
 | Lessons | `Lesson` | `l_{slug}_{random}` | `l_intro-to-python_abc123` |
 | Knowledge Units | `Ku` | `ku_{slug}_{random}` | `ku_python-basics_abc123` |
-| Learning Steps | `LearningStep` | `ls:{random}` | `ls:intro-to-python` |
+| Path Steps | `PathStep` | `ls:{random}` | `ls:intro-to-python` |
 | Learning Paths | `LearningPath` | `lp:{random}` | `lp:become-python-developer` |
 | Exercises | `Exercise` | `ku_{slug}_{random}` | |
 | **Curated Content — shared content** | | | |

@@ -67,7 +67,7 @@ def _difficulty_label(rating: float) -> str:
 
 
 def _render_step_browser_card(step: Any) -> Any:
-    """Render a learning step as a browseable card using CardGenerator."""
+    """Render a path step as a browseable card using CardGenerator."""
 
     def render_difficulty(value: float) -> Any:
         if not value:
@@ -251,7 +251,7 @@ class PathwaysUIComponents:
 
     @staticmethod
     def render_step_item(step: Any, index: int, is_mastered: bool) -> Any:
-        """Render a single learning step in a path's curriculum list."""
+        """Render a single path step in a path's curriculum list."""
         mastery_badge = (
             Badge("Mastered", variant=BadgeT.success, size=Size.sm)
             if is_mastered
@@ -291,7 +291,7 @@ class PathwaysUIComponents:
         )
 
 
-def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_service=None):
+def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_service=None):
     """Create UI routes for pathway browsing and progress tracking."""
 
     routes: list[Any] = []
@@ -517,13 +517,13 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
     routes.append(browse_learning_paths)
 
     @rt("/pathways/steps")
-    async def browse_learning_steps(request) -> Any:
-        """Browse available learning steps."""
+    async def browse_path_steps(request) -> Any:
+        """Browse available path steps."""
         require_authenticated_user(request)
 
         steps: list[Any] = []
-        if ls_service:
-            steps_result = await ls_service.list_steps(limit=50)
+        if ps_service:
+            steps_result = await ps_service.list_steps(limit=50)
             if not steps_result.is_error and steps_result.value:
                 steps = steps_result.value
 
@@ -535,7 +535,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
         else:
             grid_content = Div(
                 P(
-                    "No learning steps available yet.",
+                    "No path steps available yet.",
                     cls="text-muted-foreground text-center py-8",
                 ),
             )
@@ -544,7 +544,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
             Header(
                 H1("Browse Learning Steps", cls="text-3xl font-bold text-primary"),
                 P(
-                    "Explore individual learning steps across all paths",
+                    "Explore individual path steps across all paths",
                     cls="text-lg text-muted-foreground mt-2",
                 ),
                 cls="mb-8",
@@ -565,7 +565,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
             active_page="pathways",
         )
 
-    routes.append(browse_learning_steps)
+    routes.append(browse_path_steps)
 
     @rt("/api/pathways/filter-paths", methods=["POST"])
     async def filter_learning_paths(request) -> Any:
@@ -857,7 +857,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ls_servi
 
         content = Div(
             detail_content,
-            EntityRelationshipsSection(entity_uid=uid, entity_type="ls"),
+            EntityRelationshipsSection(entity_uid=uid, entity_type="ps"),
             cls="container mx-auto p-6 max-w-4xl",
         )
 

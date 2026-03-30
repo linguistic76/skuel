@@ -1,9 +1,9 @@
-# LsIntelligenceService - Practice Integration & Guidance Assessment
+# PsIntelligenceService - Practice Integration & Guidance Assessment
 
 ## Overview
 
 **Architecture:** Extends `BaseAnalyticsService[BackendOperations[Ls], Ls]`
-**Location:** `/core/services/ls/ls_intelligence_service.py`
+**Location:** `/core/services/ls/ps_intelligence_service.py`
 **Service Name:** `ls.intelligence`
 **Lines:** ~530
 
@@ -11,9 +11,9 @@
 
 ## Purpose
 
-LsIntelligenceService provides lightweight intelligence for Learning Steps, focusing on practice integration and guidance assessment. It evaluates prerequisite readiness, analyzes practice opportunities across habits/tasks/events, and calculates guidance strength from principles and choices.
+PsIntelligenceService provides lightweight intelligence for Path Steps, focusing on practice integration and guidance assessment. It evaluates prerequisite readiness, analyzes practice opportunities across habits/tasks/events, and calculates guidance strength from principles and choices.
 
-**Design Philosophy:** Intentionally lightweight compared to Activity Domain intelligence services - Learning Steps serve as connective tissue between knowledge units and learning paths, emphasizing practice integration over complex analytics.
+**Design Philosophy:** Intentionally lightweight compared to Activity Domain intelligence services - Path Steps serve as connective tissue between knowledge units and learning paths, emphasizing practice integration over complex analytics.
 
 ---
 
@@ -21,19 +21,19 @@ LsIntelligenceService provides lightweight intelligence for Learning Steps, focu
 
 ### Method 1: is_ready()
 
-**Purpose:** Check if learning step is ready based on prerequisite completion. A step is ready when ALL its prerequisite steps (via REQUIRES_STEP relationship) have been completed.
+**Purpose:** Check if path step is ready based on prerequisite completion. A step is ready when ALL its prerequisite steps (via REQUIRES_STEP relationship) have been completed.
 
 **Signature:**
 ```python
 async def is_ready(
     self,
-    ls_uid: str,
+    ps_uid: str,
     completed_step_uids: set[str]
 ) -> Result[bool]:
 ```
 
 **Parameters:**
-- `ls_uid` (str) - UID of the learning step
+- `ps_uid` (str) - UID of the path step
 - `completed_step_uids` (set[str]) - Set of completed step UIDs
 
 **Returns:**
@@ -46,8 +46,8 @@ Result[bool]  # True if all prerequisites are met
 # Check if step is ready to learn
 completed_steps = {"ls.intro", "ls.syntax"}
 
-result = await ls_service.intelligence.is_ready(
-    ls_uid="ls.functions",
+result = await ps_service.intelligence.is_ready(
+    ps_uid="ls.functions",
     completed_step_uids=completed_steps
 )
 
@@ -70,18 +70,18 @@ else:
 
 ### Method 2: get_practice_summary()
 
-**Purpose:** Get summary of practice opportunities for a learning step. Counts habits, tasks, and events connected to this step's Lessons via HAS_LESSON graph traversal (activity relationships live on Lessons, LS inherits them).
+**Purpose:** Get summary of practice opportunities for a path step. Counts habits, tasks, and events connected to this step's Lessons via HAS_LESSON graph traversal (activity relationships live on Lessons, PS inherits them).
 
 **Signature:**
 ```python
 async def get_practice_summary(
     self,
-    ls_uid: str
+    ps_uid: str
 ) -> Result[dict[str, int]]:
 ```
 
 **Parameters:**
-- `ls_uid` (str) - UID of the learning step
+- `ps_uid` (str) - UID of the path step
 
 **Returns:**
 ```python
@@ -95,7 +95,7 @@ async def get_practice_summary(
 
 **Example:**
 ```python
-result = await ls_service.intelligence.get_practice_summary("ls.functions")
+result = await ps_service.intelligence.get_practice_summary("ls.functions")
 
 if result.is_ok:
     summary = result.value
@@ -113,7 +113,7 @@ if result.is_ok:
 **Implementation Notes:**
 - Returns zeros if step has no practice opportunities
 - Uses `count(DISTINCT ...)` to avoid double-counting
-- Six activity domain relationship types on Lessons: BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, SUPPORTS_GOAL, GUIDED_BY_PRINCIPLE, INFORMS_CHOICE (LS inherits via HAS_LESSON|CONTAINS_KNOWLEDGE traversal)
+- Six activity domain relationship types on Lessons: BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, SUPPORTS_GOAL, GUIDED_BY_PRINCIPLE, INFORMS_CHOICE (PS inherits via HAS_LESSON|CONTAINS_KNOWLEDGE traversal)
 
 ---
 
@@ -125,12 +125,12 @@ if result.is_ok:
 ```python
 async def practice_completeness_score(
     self,
-    ls_uid: str
+    ps_uid: str
 ) -> Result[float]:
 ```
 
 **Parameters:**
-- `ls_uid` (str) - UID of the learning step
+- `ps_uid` (str) - UID of the path step
 
 **Returns:**
 ```python
@@ -146,7 +146,7 @@ score = present / 6.0
 
 **Example:**
 ```python
-result = await ls_service.intelligence.practice_completeness_score("ls.functions")
+result = await ps_service.intelligence.practice_completeness_score("ls.functions")
 
 if result.is_ok:
     score = result.value
@@ -183,12 +183,12 @@ if result.is_ok:
 ```python
 async def calculate_guidance_strength(
     self,
-    ls_uid: str
+    ps_uid: str
 ) -> Result[float]:
 ```
 
 **Parameters:**
-- `ls_uid` (str) - UID of the learning step
+- `ps_uid` (str) - UID of the path step
 
 **Returns:**
 ```python
@@ -204,7 +204,7 @@ Total:      min(1.0, principles + choices)
 
 **Example:**
 ```python
-result = await ls_service.intelligence.calculate_guidance_strength("ls.functions")
+result = await ps_service.intelligence.calculate_guidance_strength("ls.functions")
 
 if result.is_ok:
     strength = result.value
@@ -220,7 +220,7 @@ if result.is_ok:
 
 **Dependencies:**
 - Neo4j driver (REQUIRED - uses direct Cypher via GraphQueryExecutor)
-- Uses GUIDED_BY_PRINCIPLE and INFORMS_CHOICE relationships (on Lessons, inherited by LS via HAS_LESSON graph traversal)
+- Uses GUIDED_BY_PRINCIPLE and INFORMS_CHOICE relationships (on Lessons, inherited by PS via HAS_LESSON graph traversal)
 
 **Implementation Notes:**
 - Principles provide values-based guidance (40% max contribution)
@@ -238,18 +238,18 @@ if result.is_ok:
 
 ### Method 5: has_prerequisites()
 
-**Purpose:** Check if learning step has any prerequisites. Checks for REQUIRES_STEP relationships (other steps) and REQUIRES_KNOWLEDGE {type: 'prerequisite'} relationships (prerequisite knowledge).
+**Purpose:** Check if path step has any prerequisites. Checks for REQUIRES_STEP relationships (other steps) and REQUIRES_KNOWLEDGE {type: 'prerequisite'} relationships (prerequisite knowledge).
 
 **Signature:**
 ```python
 async def has_prerequisites(
     self,
-    ls_uid: str
+    ps_uid: str
 ) -> Result[bool]:
 ```
 
 **Parameters:**
-- `ls_uid` (str) - UID of the learning step
+- `ps_uid` (str) - UID of the path step
 
 **Returns:**
 ```python
@@ -258,7 +258,7 @@ Result[bool]  # True if step has prerequisites
 
 **Example:**
 ```python
-result = await ls_service.intelligence.has_prerequisites("ls.functions")
+result = await ps_service.intelligence.has_prerequisites("ls.functions")
 
 if result.is_ok:
     if result.value:
@@ -280,18 +280,18 @@ if result.is_ok:
 
 ### Method 6: has_guidance()
 
-**Purpose:** Check if learning step has guidance (principles or choices). Quick boolean check for learner support.
+**Purpose:** Check if path step has guidance (principles or choices). Quick boolean check for learner support.
 
 **Signature:**
 ```python
 async def has_guidance(
     self,
-    ls_uid: str
+    ps_uid: str
 ) -> Result[bool]:
 ```
 
 **Parameters:**
-- `ls_uid` (str) - UID of the learning step
+- `ps_uid` (str) - UID of the path step
 
 **Returns:**
 ```python
@@ -300,7 +300,7 @@ Result[bool]  # True if step has guidance
 
 **Example:**
 ```python
-result = await ls_service.intelligence.has_guidance("ls.functions")
+result = await ps_service.intelligence.has_guidance("ls.functions")
 
 if result.is_ok:
     if result.value:
@@ -311,7 +311,7 @@ if result.is_ok:
 
 **Dependencies:**
 - GraphQueryExecutor (REQUIRED - uses `execute_exists()`)
-- Checks GUIDED_BY_PRINCIPLE or INFORMS_CHOICE relationships (on Lessons, inherited by LS via HAS_LESSON graph traversal)
+- Checks GUIDED_BY_PRINCIPLE or INFORMS_CHOICE relationships (on Lessons, inherited by PS via HAS_LESSON graph traversal)
 
 **Implementation Notes:**
 - Uses `execute_exists()` for efficient boolean check
@@ -322,18 +322,18 @@ if result.is_ok:
 
 ### Method 7: has_practice_opportunities()
 
-**Purpose:** Check if learning step has practice opportunities. Checks for any BUILDS_HABIT, ASSIGNS_TASK, or SCHEDULES_EVENT relationships on the step's Lessons (via HAS_LESSON traversal).
+**Purpose:** Check if path step has practice opportunities. Checks for any BUILDS_HABIT, ASSIGNS_TASK, or SCHEDULES_EVENT relationships on the step's Lessons (via HAS_LESSON traversal).
 
 **Signature:**
 ```python
 async def has_practice_opportunities(
     self,
-    ls_uid: str
+    ps_uid: str
 ) -> Result[bool]:
 ```
 
 **Parameters:**
-- `ls_uid` (str) - UID of the learning step
+- `ps_uid` (str) - UID of the path step
 
 **Returns:**
 ```python
@@ -342,7 +342,7 @@ Result[bool]  # True if step has practice opportunities
 
 **Example:**
 ```python
-result = await ls_service.intelligence.has_practice_opportunities("ls.functions")
+result = await ps_service.intelligence.has_practice_opportunities("ls.functions")
 
 if result.is_ok:
     if result.value:
@@ -367,8 +367,8 @@ if result.is_ok:
 ### Inherited Infrastructure
 
 **Fail-Fast Validation:**
-- `_require_graph_intelligence()` - Ensures graph_intel available (not used by LS)
-- `_require_relationship_service()` - Ensures relationships available (not used by LS)
+- `_require_graph_intelligence()` - Ensures graph_intel available (not used by PS)
+- `_require_relationship_service()` - Ensures relationships available (not used by PS)
 
 **Standard Attributes:**
 - `self.backend` - BackendOperations[Ls] (REQUIRED)
@@ -389,13 +389,13 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.ls.intelligence
 
 ---
 
-## Integration with LsService
+## Integration with PsService
 
 ### Facade Access
 
 ```python
-# LsService creates intelligence internally
-ls_service = LsService(
+# PsService creates intelligence internally
+ps_service = PsService(
     backend=ls_backend,
     graph_intelligence_service=graph_intelligence,
     relationship_service=relationship_service,
@@ -403,8 +403,8 @@ ls_service = LsService(
 )
 
 # Access via .intelligence attribute
-result = await ls_service.intelligence.is_ready(
-    ls_uid="ls.functions",
+result = await ps_service.intelligence.is_ready(
+    ps_uid="ls.functions",
     completed_step_uids={"ls.intro", "ls.syntax"}
 )
 ```
@@ -413,22 +413,22 @@ result = await ls_service.intelligence.is_ready(
 
 ```python
 # 1. Check readiness
-readiness = await ls_service.intelligence.is_ready(
-    ls_uid="ls.functions",
+readiness = await ps_service.intelligence.is_ready(
+    ps_uid="ls.functions",
     completed_step_uids=user_completed_steps
 )
 
 # 2. Analyze practice integration
-practice = await ls_service.intelligence.get_practice_summary("ls.functions")
-score = await ls_service.intelligence.practice_completeness_score("ls.functions")
+practice = await ps_service.intelligence.get_practice_summary("ls.functions")
+score = await ps_service.intelligence.practice_completeness_score("ls.functions")
 
 # 3. Evaluate guidance
-guidance = await ls_service.intelligence.calculate_guidance_strength("ls.functions")
+guidance = await ps_service.intelligence.calculate_guidance_strength("ls.functions")
 
 # 4. Quick boolean checks
-has_prereqs = await ls_service.intelligence.has_prerequisites("ls.functions")
-has_guidance = await ls_service.intelligence.has_guidance("ls.functions")
-has_practice = await ls_service.intelligence.has_practice_opportunities("ls.functions")
+has_prereqs = await ps_service.intelligence.has_prerequisites("ls.functions")
+has_guidance = await ps_service.intelligence.has_guidance("ls.functions")
+has_practice = await ps_service.intelligence.has_practice_opportunities("ls.functions")
 ```
 
 ---
@@ -437,19 +437,19 @@ has_practice = await ls_service.intelligence.has_practice_opportunities("ls.func
 
 ### Lightweight by Design
 
-LsIntelligenceService is **intentionally minimal** compared to Activity Domain intelligence:
-- **No knowledge generation** - Learning Steps organize existing KU content
+PsIntelligenceService is **intentionally minimal** compared to Activity Domain intelligence:
+- **No knowledge generation** - Path Steps organize existing KU content
 - **No behavioral insights** - Steps are structural, not behavioral entities
 - **No performance analytics** - Progress tracked at LP/KU level
 - **No LLM integration** - All intelligence is graph-based calculation
 
-This reflects Learning Steps' role as **connective tissue** in the curriculum architecture.
+This reflects Path Steps' role as **connective tissue** in the curriculum architecture.
 
 ### Practice Integration Focus
 
 The primary intelligence focus is **practice integration**:
 
-**Six Activity Domains (on Lessons, inherited by LS via HAS_LESSON|CONTAINS_KNOWLEDGE traversal):**
+**Six Activity Domains (on Lessons, inherited by PS via HAS_LESSON|CONTAINS_KNOWLEDGE traversal):**
 1. **Habits** (BUILDS_HABIT) - Behaviors to repeat
 2. **Tasks** (ASSIGNS_TASK) - Work to complete
 3. **Events** (SCHEDULES_EVENT) - Time to commit
@@ -477,7 +477,7 @@ The primary intelligence focus is **practice integration**:
    - Helps learner explore different approaches
    - Each choice adds up to 20% (capped at 60%)
 
-**Rationale:** Choices matter more (60%) than principles (40%) because Learning Steps are action-oriented - learners need concrete options more than abstract values.
+**Rationale:** Choices matter more (60%) than principles (40%) because Path Steps are action-oriented - learners need concrete options more than abstract values.
 
 ### Prerequisite Readiness
 
@@ -490,10 +490,10 @@ This supports LP's sequential progression model.
 
 ### Direct Cypher Queries
 
-Unlike Activity Domain intelligence services that use shared utilities, LsIntelligenceService uses **direct Cypher queries** via GraphQueryExecutor:
+Unlike Activity Domain intelligence services that use shared utilities, PsIntelligenceService uses **direct Cypher queries** via GraphQueryExecutor:
 
 **Why direct queries?**
-- Learning Step queries are domain-specific (practice aggregation, guidance scoring)
+- Path Step queries are domain-specific (practice aggregation, guidance scoring)
 - No shared patterns with Activity Domains
 - Lightweight service doesn't warrant abstraction overhead
 
@@ -501,8 +501,8 @@ Unlike Activity Domain intelligence services that use shared utilities, LsIntell
 ```python
 # All methods use GraphQueryExecutor
 return await self.executor.execute(
-    query="MATCH (ls:Ls {uid: $ls_uid})...",
-    params={"ls_uid": ls_uid},
+    query="MATCH (ls:Ls {uid: $ps_uid})...",
+    params={"ps_uid": ps_uid},
     processor=lambda records: ...,
     operation="method_name"
 )
@@ -514,7 +514,7 @@ return await self.executor.execute(
 
 ### Unit Tests
 ```bash
-uv run python -m pytest tests/unit/services/test_ls_intelligence_service.py -v
+uv run python -m pytest tests/unit/services/test_ps_intelligence_service.py -v
 ```
 
 ### Integration Tests
@@ -529,14 +529,14 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_is_ready" -v
 ### Example Test
 ```python
 from unittest.mock import Mock
-from core.services.ls.ls_intelligence_service import LsIntelligenceService
+from core.services.ps.ps_intelligence_service import PsIntelligenceService
 
 # Create mock backend with driver
 backend = Mock()
 backend.driver = Mock()
 
 # Instantiate service
-service = LsIntelligenceService(backend=backend)
+service = PsIntelligenceService(backend=backend)
 
 # Verify initialization
 assert service._service_name == "ls.intelligence"
@@ -571,6 +571,6 @@ async def test_practice_completeness_score():
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
 - `/core/services/base_intelligence_service.py` - Base implementation
-- `/core/services/ls/ls_service.py` - LsService facade
+- `/core/services/ls/ps_service.py` - PsService facade
 - `/core/services/graph_query_executor.py` - GraphQueryExecutor pattern
-- `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - Learning Step architecture
+- `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - Path Step architecture

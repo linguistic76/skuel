@@ -6,7 +6,7 @@ Wires the /curriculum hub routes: landing redirect + browser sub-pages.
 Routes:
 - GET /curriculum — 301 redirect to /profile
 - GET /lessons — Lesson browser
-- GET /learning-steps — Learning Steps browser
+- GET /path-steps — Learning Steps browser
 - GET /learning-paths — Learning Paths browser
 
 Exercises routes are registered separately via exercises_routes.py.
@@ -25,6 +25,6 @@ def create_curriculum_hub_routes(app: FastHTMLApp, rt: RouteDecorator, services:
     """Wire curriculum hub routes."""
     routes = create_curriculum_hub_ui_routes(app, rt, services)
     logger.info(
-        "Curriculum hub routes registered (/curriculum, /lessons, /learning-steps, /learning-paths)"
+        "Curriculum hub routes registered (/curriculum, /lessons, /path-steps, /learning-paths)"
     )
     return routes

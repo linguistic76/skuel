@@ -558,7 +558,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter learning paths for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_lp_nodes) > 0 THEN all_lp_nodes ELSE [null] END as lp
-OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:LearningStep)
+OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:PathStep)
 WHERE lp IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -645,7 +645,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 // LEARNING STEPS - Fetch active steps with rich data
 // ====================================================================
-OPTIONAL MATCH (user)-[:WORKING_ON|ENROLLED_IN]->(ls:LearningStep)
+OPTIONAL MATCH (user)-[:WORKING_ON|ENROLLED_IN]->(ps:PathStep)
 WHERE ls.status IN ['draft', 'active']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -658,9 +658,9 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      enrolled_path_uids, paths_rich,
      collect(ls) as all_ls_nodes
 
-// Filter learning steps for rich data (with graph neighborhoods)
+// Filter path steps for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_ls_nodes) > 0 THEN all_ls_nodes ELSE [null] END as ls
-OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:LearningStep)
+OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:PathStep)
 WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -1029,12 +1029,12 @@ RETURN {
         principles: [item IN principles_rich WHERE item.entity IS NOT NULL],
         choices: [item IN choices_rich WHERE item.entity IS NOT NULL],
         learning_paths: [item IN paths_rich WHERE item.path IS NOT NULL | {entity: item.path, graph_context: item.graph_context}],
-        learning_steps: [item IN steps_rich WHERE item.step IS NOT NULL | {entity: item.step, graph_context: item.graph_context}]
+        path_steps: [item IN steps_rich WHERE item.step IS NOT NULL | {entity: item.step, graph_context: item.graph_context}]
     },
     rich: {
         knowledge: knowledge_rich,
         learning_paths: [item IN paths_rich WHERE item.path IS NOT NULL],
-        learning_steps: [item IN steps_rich WHERE item.step IS NOT NULL]
+        path_steps: [item IN steps_rich WHERE item.step IS NOT NULL]
     },
     user_properties: {
         learning_level: user.learning_level,

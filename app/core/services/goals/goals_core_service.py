@@ -9,7 +9,7 @@ Responsibilities:
 - Delegates create/update/DETACH DELETE to backend via BaseService
 - Publishes domain events (GoalCreated, GoalAchieved, GoalProgressUpdated, GoalAbandoned)
 
-  RelationshipRegistry (GOALS_CONFIG). Shared-neighbor pattern for
+  RelationshipRegistry (GOAPS_CONFIG). Shared-neighbor pattern for
   related_goals is now defined in the registry.
   See: /core/models/relationship_registry.py
 - v2.2.0 (2025-11-28): Milestones as graph nodes.
@@ -199,7 +199,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # NOTE: get_with_context() is inherited from BaseService (January 2026)
     #
     # Uses registry-driven query generation from RelationshipRegistry.
-    # The GOALS_CONFIG config includes:
+    # The GOAPS_CONFIG config includes:
     # - contributing_tasks, contributing_habits (supporting activities)
     # - sub_goals, parent_goal (hierarchy)
     # - required_knowledge, aligned_principles (prerequisites and guidance)
@@ -208,7 +208,7 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     # - related_goals (shared-neighbor pattern via FULFILLS_GOAL|SUPPORTS_GOAL)
     # - milestone_progress (calculated in BaseService._parse_context_result)
     #
-    # See: /core/models/relationship_registry.py - GOALS_CONFIG
+    # See: /core/models/relationship_registry.py - GOAPS_CONFIG
     # See: /core/services/base_service.py - get_with_context()
     # ========================================================================
 

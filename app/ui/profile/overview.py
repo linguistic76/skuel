@@ -5,7 +5,7 @@ Contains:
 - _intelligence_unavailable_card: Shown when intelligence services are off
 - render_domain_card_preview: HTMX fragment for domain card item lists
 - Chart visualizations section (Visual Analytics tab)
-- All private helpers for daily plan, alignment, synergies, learning steps
+- All private helpers for daily plan, alignment, synergies, path steps
 
 See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
 """
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
-        LearningStep,
+        PathStep,
         LifePathAlignment,
     )
 
@@ -33,7 +33,7 @@ def OverviewView(
     daily_plan: "DailyWorkPlan | None" = None,
     alignment: "LifePathAlignment | None" = None,
     synergies: "list[CrossDomainSynergy] | None" = None,
-    learning_steps: "list[LearningStep] | None" = None,
+    path_steps: "list[PathStep] | None" = None,
 ) -> Div:
     """Overview: Life path alignment + intelligence recommendations + progress metrics.
 
@@ -46,7 +46,7 @@ def OverviewView(
     - Life path alignment breakdown (5 dimensions) - from intelligence
     - Daily work plan (today's optimal focus) - from intelligence
     - High-leverage actions (cross-domain synergies) - from intelligence
-    - Next learning steps - from intelligence
+    - Next path steps - from intelligence
 
     Displays (Both modes):
     - Current task focus (if set)
@@ -59,7 +59,7 @@ def OverviewView(
         daily_plan: DailyWorkPlan from intelligence service (optional)
         alignment: LifePathAlignment from intelligence service (optional)
         synergies: list of CrossDomainSynergy from intelligence service (optional)
-        learning_steps: list of LearningStep from intelligence service (optional)
+        path_steps: list of PathStep from intelligence service (optional)
     """
     # Check if intelligence is available (all params provided = full mode)
     _has_intelligence = daily_plan is not None and alignment is not None
@@ -140,7 +140,7 @@ def _intelligence_unavailable_card() -> Div:
         ("📋", "Daily Work Plan", "Prioritized tasks and habits for today"),
         ("🎯", "Life Path Alignment", "5-dimension alignment scoring"),
         ("🔗", "Cross-Domain Synergies", "High-leverage action identification"),
-        ("📚", "Learning Recommendations", "Optimal next learning steps"),
+        ("📚", "Learning Recommendations", "Optimal next path steps"),
     ]
 
     feature_items = [
@@ -921,13 +921,13 @@ def _synergies_card(synergies: "list[CrossDomainSynergy]") -> Div:
     )
 
 
-def _learning_steps_card(steps: "list[LearningStep]") -> Div:
-    """Next learning steps card showing prioritized learning recommendations.
+def _path_steps_card(steps: "list[PathStep]") -> Div:
+    """Next path steps card showing prioritized learning recommendations.
 
     Displays recommended knowledge units to learn with context.
 
     Args:
-        steps: List of LearningStep from intelligence service (REQUIRED, may be empty)
+        steps: List of PathStep from intelligence service (REQUIRED, may be empty)
     """
     # Empty list is valid data - no recommendations available
     if len(steps) == 0:

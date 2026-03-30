@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from core.services.ku_service import KuService
     from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService
-    from core.services.ls_service import LsService
+    from core.services.ps_service import PsService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
@@ -218,9 +218,7 @@ class Services:
     user_progress: "UserProgressService | None" = None
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
     lp: "LpService | None" = None  # LpService - All path management
-    ls: "LsService | None" = (
-        None  # LsService - Dedicated learning step management (NEW: October 24, 2025)
-    )
+    ps: "PsService | None" = None  # PsService - Dedicated path step management
     learning_intelligence: IntelligenceOperations | None = (
         None  # LpIntelligenceService - analysis and recommendations
     )

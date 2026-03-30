@@ -272,11 +272,11 @@ def find_statistical_references(query: str, docs_dir: Path) -> list[Path]:
 
 ```bash
 # 1. Developer completes work
-git add core/services/ls/ls_core_service.py
-git commit -m "Add DomainConfig to LsCoreService"
+git add core/services/ls/ps_core_service.py
+git commit -m "Add DomainConfig to PsCoreService"
 
 # 2. Git hook runs contextual check
-uv run python scripts/docs_contextual_check.py --changed-files "core/services/ls/ls_core_service.py"
+uv run python scripts/docs_contextual_check.py --changed-files "core/services/ls/ps_core_service.py"
 
 # 3. Output:
 # "🔍 Checking for related documentation...

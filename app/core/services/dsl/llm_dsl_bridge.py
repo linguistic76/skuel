@@ -88,7 +88,7 @@ class DSLTransformResult:
     choices_identified: int = 0
     finances_identified: int = 0
     kus_identified: int = 0
-    learning_steps_identified: int = 0
+    path_steps_identified: int = 0
     learning_paths_identified: int = 0
     reports_identified: int = 0
     analytics_identified: int = 0
@@ -119,7 +119,7 @@ class DSLTransformResult:
                 "finances": self.finances_identified,
                 # Curriculum Domains (3)
                 "kus": self.kus_identified,
-                "learning_steps": self.learning_steps_identified,
+                "path_steps": self.path_steps_identified,
                 "learning_paths": self.learning_paths_identified,
                 # Meta Domains (3)
                 "reports": self.reports_identified,
@@ -443,7 +443,7 @@ class LLMDSLBridgeService:
             elif "@context(ku)" in line_lower:
                 result.kus_identified += 1
             elif "@context(ls)" in line_lower:
-                result.learning_steps_identified += 1
+                result.path_steps_identified += 1
             elif "@context(lp)" in line_lower:
                 result.learning_paths_identified += 1
 

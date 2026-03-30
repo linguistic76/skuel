@@ -535,7 +535,7 @@ def task_pure_to_dto(task: Task) -> TaskDTO:
 5. Choices ✅
 6. Principles ✅
 7. KU (Knowledge Units) ✅
-8. LS (Learning Steps) ✅
+8. PS (Path Steps) ✅
 9. LP (Learning Paths) ✅
 10. Assignments ✅
 11. User ✅

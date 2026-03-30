@@ -48,7 +48,7 @@ if TYPE_CHECKING:
     from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
-        LearningStep,
+        PathStep,
         LifePathAlignment,
         ScheduleAwareRecommendation,
     )
@@ -393,7 +393,7 @@ class AskesisService:
     # ========================================================================
     #
     # These methods leverage the full 13-domain architecture for comprehensive
-    # daily planning and learning step recommendations.
+    # daily planning and path step recommendations.
     #
     # Architecture:
     # UserContextIntelligence = UserContext + 13 Domain Services
@@ -459,13 +459,13 @@ class AskesisService:
             )
         )
 
-    async def get_optimal_next_learning_steps(
+    async def get_optimal_next_path_steps(
         self,
         user_context: UserContext,
         max_steps: int = 5,
         consider_goals: bool = True,
         consider_capacity: bool = True,
-    ) -> Result[list[LearningStep]]:
+    ) -> Result[list[PathStep]]:
         """
         Determine what to learn next based on ALL factors.
 
@@ -489,7 +489,7 @@ class AskesisService:
             consider_capacity: Respect user capacity limits
 
         Returns:
-            Result[list[LearningStep]]: Ranked list with:
+            Result[list[PathStep]]: Ranked list with:
                 - ku_uid, title, rationale
                 - prerequisites_met, aligns_with_goals
                 - unlocks_count, estimated_time_minutes
@@ -498,17 +498,17 @@ class AskesisService:
         if not self.intelligence_factory:
             return Result.fail(
                 Errors.system(
-                    message="Intelligence factory not available - cannot get learning steps",
-                    operation="get_optimal_next_learning_steps",
+                    message="Intelligence factory not available - cannot get path steps",
+                    operation="get_optimal_next_path_steps",
                 )
             )
 
         # Create intelligence instance from factory with user context
         intelligence = self.intelligence_factory.create(user_context)
 
-        # Get optimal learning steps
+        # Get optimal path steps
         return Result.ok(
-            await intelligence.get_optimal_next_learning_steps(
+            await intelligence.get_optimal_next_path_steps(
                 max_steps=max_steps,
                 consider_goals=consider_goals,
                 consider_capacity=consider_capacity,

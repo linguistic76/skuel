@@ -41,7 +41,7 @@ MISSING_REVERSE_LINKS: dict[str, list[str]] = {
     "/docs/domains/habits.md": ["activity-domains"],
     "/docs/domains/tasks.md": ["activity-domains"],
     "/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md": ["activity-domains"],
-    "/docs/domains/ls.md": ["curriculum-domains"],
+    "/docs/domains/ps.md": ["curriculum-domains"],
     "/docs/domains/moc.md": ["curriculum-domains"],
     "/docs/domains/ku.md": ["curriculum-domains"],
     "/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md": ["curriculum-domains"],

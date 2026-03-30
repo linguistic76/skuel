@@ -79,11 +79,11 @@ class MetricsEventHandler:
         self.event_bus.subscribe(TranscriptionCreated, self._on_transcription_created)
 
         # Curriculum domains (3)
-        from core.events.curriculum_events import LearningStepCreated
+        from core.events.curriculum_events import PathStepCreated
         from core.events.learning_events import KnowledgeCreated, LearningPathStarted
 
         self.event_bus.subscribe(KnowledgeCreated, self._on_knowledge_created)
-        self.event_bus.subscribe(LearningStepCreated, self._on_ls_created)
+        self.event_bus.subscribe(PathStepCreated, self._on_ls_created)
         self.event_bus.subscribe(LearningPathStarted, self._on_lp_started)
 
         # Submission domain (1)
@@ -146,7 +146,7 @@ class MetricsEventHandler:
     async def _on_ls_created(self, event) -> None:
         """Track LS creation."""
 
-        self.prometheus_metrics.domains.entities_created.labels(entity_type="ls").inc()
+        self.prometheus_metrics.domains.entities_created.labels(entity_type="ps").inc()
 
     async def _on_lp_started(self, event) -> None:
         """Track LP start (proxy for creation tracking)."""

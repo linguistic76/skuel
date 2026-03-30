@@ -147,7 +147,7 @@ Key documentation links by topic:
 | Topic | Documentation |
 |-------|---------------|
 | Activity Domains | `/docs/domains/tasks.md`, `goals.md`, `habits.md`, `events.md`, `choices.md`, `principles.md` |
-| Curriculum Domains | `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/intelligence/KU_INTELLIGENCE.md`, `LS_INTELLIGENCE.md`, `LP_INTELLIGENCE.md`, `MOC_INTELLIGENCE.md` |
+| Curriculum Domains | `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/intelligence/KU_INTELLIGENCE.md`, `PS_INTELLIGENCE.md`, `LP_INTELLIGENCE.md`, `MOC_INTELLIGENCE.md` |
 | Intelligence Services | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md`, `/docs/decisions/ADR-030-analytics-vs-ai-separation.md` |
 | UI/UX Patterns | `/docs/patterns/UI_COMPONENT_PATTERNS.md`, `/docs/migrations/PROFILE_HUB_MODERNIZATION_2026-02-01.md`, `/ui/layouts/base_page.py`, `/ui/profile/layout.py` |
 | Error Handling | `/docs/patterns/ERROR_HANDLING.md` |

@@ -90,7 +90,7 @@ Implement consolidation in three phases:
 | ChoicesService | 4 | ~8 | - |
 | PrinciplesService | 4 | ~8 | - |
 | KuService | 7 | ~30 | ~69 |
-| LsService | 3 | 10 | ~114 |
+| PsService | 3 | 10 | ~114 |
 | LpService | 8 | ~19 | ~33 |
 | MocService | 6 | 18 | ~20 |
 

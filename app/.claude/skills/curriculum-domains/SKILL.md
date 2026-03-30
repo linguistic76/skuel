@@ -1,6 +1,6 @@
 # Curriculum Domains Skill
 
-> Use when building features for Lesson (units for learning), KU (atomic knowledge units), LS (Learning Steps), LP (Learning Paths), or MOC (Maps of Content).
+> Use when building features for Lesson (units for learning), KU (atomic knowledge units), LS (Path Steps), LP (Learning Paths), or MOC (Maps of Content).
 
 ## When to Use This Skill
 
@@ -78,7 +78,7 @@ Factory / Manual             <- Creates sub-services
 |--------|-----------|-------|-----|
 | **Lesson** | `core/models/lesson/` | `lesson.py` (extends Curriculum) | `lesson_dto.py` |
 | **KU** | `core/models/ku/` | `ku.py` (extends Entity) | `ku_dto.py` |
-| **LS** | `core/models/pathways/` | `learning_step.py` | `learning_step_dto.py` |
+| **LS** | `core/models/pathways/` | `path_step.py` | `path_step_dto.py` |
 | **LP** | `core/models/pathways/` | `learning_path.py` | `learning_path_dto.py` |
 | **Base** | `core/models/` | `curriculum.py` | `curriculum_dto.py` |
 
@@ -89,9 +89,9 @@ Factory / Manual             <- Creates sub-services
 result = await lesson_service.intelligence.get_lesson_with_context(uid)
 ```
 
-### Check learning step readiness
+### Check path step readiness
 ```python
-result = await ls_service.intelligence.is_ready(ls_uid, completed_step_uids)
+result = await ps_service.intelligence.is_ready(ps_uid, completed_step_uids)
 ```
 
 ### Validate learning path

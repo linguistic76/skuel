@@ -179,7 +179,7 @@ context_intelligence_factory = UserContextIntelligenceFactory(
     principles=activity_services["principles"].relationships,
     # Curriculum (3)
     lesson=learning_services["lesson_service"],  # LessonService facade
-    ls=learning_services["learning_steps"].relationships,
+    ls=learning_services["path_steps"].relationships,
     lp=learning_services["learning_paths"].relationships,
     # Processing (3)
     submissions=submissions_relationship_service,
@@ -195,7 +195,7 @@ context_intelligence_factory = UserContextIntelligenceFactory(
 services.context_intelligence = context_intelligence_factory
 ```
 
-The `filtered_providers` dict maps domain names (`"tasks"`, `"goals"`, ..., `"lessons"`, `"ku"`, `"learning_steps"`, `"learning_paths"`, `"exercises"`) to facades that implement `FilteredContextProvider`. Intelligence services access these via `self.filtered_providers["domain"].get_filtered_context(user_uid)` for on-demand, per-domain filtered queries. UserContext is the broad snapshot; `get_filtered_context()` is the zoom lens.
+The `filtered_providers` dict maps domain names (`"tasks"`, `"goals"`, ..., `"lessons"`, `"ku"`, `"path_steps"`, `"learning_paths"`, `"exercises"`) to facades that implement `FilteredContextProvider`. Intelligence services access these via `self.filtered_providers["domain"].get_filtered_context(user_uid)` for on-demand, per-domain filtered queries. UserContext is the broad snapshot; `get_filtered_context()` is the zoom lens.
 
 ### In Services Dataclass
 

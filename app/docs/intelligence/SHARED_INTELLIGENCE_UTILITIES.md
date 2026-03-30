@@ -15,7 +15,7 @@ SKUEL's intelligence services share common patterns across all 10 domain intelli
 
 **All Domain Intelligence Services:**
 - Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
-- Curriculum (3): KU (Knowledge Units), LS (Learning Steps), LP (Learning Paths)
+- Curriculum (3): KU (Knowledge Units), PS (Path Steps), LP (Learning Paths)
 - Finance (1): ExpenseIntelligence (admin-only)
 
 All extend `BaseAnalyticsService` for graph analytics WITHOUT AI dependencies.
@@ -245,7 +245,7 @@ All 10 Domain Intelligence Services extend BaseAnalyticsService:
 ├── choices/choices_intelligence_service.py
 ├── principles/principles_intelligence_service.py
 ├── ku/ku_intelligence_service.py
-├── ls/ls_intelligence_service.py
+├── ls/ps_intelligence_service.py
 ├── lp/lp_intelligence_service.py
 └── finance/finance_intelligence_service.py
 ```

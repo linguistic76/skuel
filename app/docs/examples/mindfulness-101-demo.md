@@ -27,7 +27,7 @@ uv run python scripts/fresh_start_mindfulness.py
 This will:
 - Create fresh constraints for the curriculum entities
 - Ingest all Knowledge Units (3)
-- Ingest all Learning Steps (2)
+- Ingest all Path Steps (2)
 - Ingest the Learning Path (1)
 - **Note**: Supporting entities (principles, habits, tasks, etc.) will show in the manifest but won't be ingested yet - they need handlers added to YamlIngestionService
 
@@ -58,7 +58,7 @@ RETURN lp, ls, ku
 
 **Core Curriculum Ingestion** (6 entities):
 - 3 Knowledge Units (ku)
-- 2 Learning Steps (ls)
+- 2 Path Steps (ls)
 - 1 Learning Path (lp)
 
 These use the YamlIngestionService and will ingest successfully.
@@ -129,7 +129,7 @@ To ingest the full bundle (all 19 entities), we need to add handlers to YamlInge
 5. **Events** - Add `ingest_event_yaml()`
 6. **Goals** - Add `ingest_goal_yaml()`
 
-Each follows the same pattern as Knowledge/LearningStep:
+Each follows the same pattern as Knowledge/PathStep:
 ```python
 async def ingest_principle_yaml(self, yaml_path: Path) -> Result[Principle]:
     # 1. Load YAML
@@ -150,7 +150,7 @@ MATCH (ku:Curriculum {uid: 'ku:breath-awareness-basics'})
 SET ku.content = 'Your updated content here'
 RETURN ku
 
-// Update a learning step
+// Update a path step
 MATCH (ls:Ls {uid: 'ls:mindfulness-101:step-1'})
 SET ls.title = 'Your new title'
 RETURN ls

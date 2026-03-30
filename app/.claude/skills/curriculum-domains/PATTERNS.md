@@ -60,20 +60,20 @@ nav = result.value  # KuNavigation(prev_uid, prev_title, next_uid, next_title)
 
 ## Pattern: LS Knowledge Relationship CRUD (Backend-Delegated)
 
-Knowledge relationships (CONTAINS_KNOWLEDGE) are managed via `LsBackend` — services delegate, no inline Cypher:
+Knowledge relationships (CONTAINS_KNOWLEDGE) are managed via `PsBackend` — services delegate, no inline Cypher:
 
 ```python
-# Backend (LsBackend) — owns the Cypher
-await backend.add_knowledge(ls_uid, ku_uid, "primary")
-await backend.remove_knowledge(ls_uid, ku_uid)
-knowledge = await backend.list_knowledge(ls_uid, knowledge_type="primary")
-summary = await backend.get_knowledge_summary(ls_uid)  # {primary_count, supporting_count, ...}
+# Backend (PsBackend) — owns the Cypher
+await backend.add_knowledge(ps_uid, ku_uid, "primary")
+await backend.remove_knowledge(ps_uid, ku_uid)
+knowledge = await backend.list_knowledge(ps_uid, knowledge_type="primary")
+summary = await backend.get_knowledge_summary(ps_uid)  # {primary_count, supporting_count, ...}
 
-# Service (LsCoreService) — validates + delegates
-async def add_knowledge_relationship(self, ls_uid, ku_uid, knowledge_type="primary"):
+# Service (PsCoreService) — validates + delegates
+async def add_knowledge_relationship(self, ps_uid, ku_uid, knowledge_type="primary"):
     if knowledge_type not in ("primary", "supporting"):
         return Result.fail(Errors.validation(...))
-    return await self.backend.add_knowledge(ls_uid, ku_uid, knowledge_type)
+    return await self.backend.add_knowledge(ps_uid, ku_uid, knowledge_type)
 ```
 
 ---
@@ -93,22 +93,22 @@ await backend.reorder_steps(path_uid, ["ls:step2", "ls:step1"])
 # Service (LpCoreService) — validates + converts to domain models
 async def get_steps(self, path_uid, depth=1):
     result = await self.backend.get_steps_raw(path_uid, depth)
-    return Result.ok([from_neo4j_node(data, LearningStep) for data in result.value])
+    return Result.ok([from_neo4j_node(data, PathStep) for data in result.value])
 ```
 
 ---
 
 ## Pattern: Cross-Domain LP → LS Dependency
 
-LP requires LsService injected at construction — the only cross-domain service dependency in the curriculum stack:
+LP requires PsService injected at construction — the only cross-domain service dependency in the curriculum stack:
 
 ```python
 # In services_bootstrap/_learning_services.py (order matters!)
-ls_service = LsService(driver, graph_intel, event_bus)
-lp_service = LpService(driver, ls_service, graph_intel, event_bus)  # <- ls_service required
+ps_service = PsService(driver, graph_intel, event_bus)
+lp_service = LpService(driver, ps_service, graph_intel, event_bus)  # <- ps_service required
 ```
 
-When adding a new LP feature that needs LS data, access it via `self.ls_service` (available on `LpCoreService`), not via direct Neo4j queries.
+When adding a new LP feature that needs LS data, access it via `self.ps_service` (available on `LpCoreService`), not via direct Neo4j queries.
 
 ---
 

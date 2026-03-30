@@ -396,7 +396,7 @@ skills:
     primary_docs:
       - /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
       - /docs/domains/ku.md
-      - /docs/domains/ls.md
+      - /docs/domains/ps.md
       - /docs/domains/lp.md
       - /docs/domains/moc.md
     related_adrs:

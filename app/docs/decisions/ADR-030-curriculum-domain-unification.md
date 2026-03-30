@@ -6,17 +6,17 @@
 
 ## Context
 
-Before this unification, Curriculum domains (KU, LS, LP) and MOC (Content/Organization domain that provides navigation) had inconsistent architectures:
+Before this unification, Curriculum domains (KU, PS, LP) and MOC (Content/Organization domain that provides navigation) had inconsistent architectures:
 
 1. **Different numbers of sub-services:**
    - KU: 9 sub-services (highest complexity)
    - LP: 8 sub-services
    - MOC: 6 sub-services (no intelligence)
-   - LS: 3 sub-services (no intelligence)
+   - PS: 3 sub-services (no intelligence)
 
 2. **Inconsistent `graph_intel` wiring:**
    - KU, LP: Correctly wired with GraphIntelligenceService
-   - LS, MOC: Passed `graph_intel=None` (bug)
+   - PS, MOC: Passed `graph_intel=None` (bug)
 
 3. **No factory pattern:**
    - Activity domains use `create_common_sub_services()` factory
@@ -24,10 +24,10 @@ Before this unification, Curriculum domains (KU, LS, LP) and MOC (Content/Organi
 
 4. **Missing intelligence services:**
    - KU, LP: Had intelligence services
-   - LS, MOC: No intelligence (inconsistent with Activity domains)
+   - PS, MOC: No intelligence (inconsistent with Activity domains)
 
 These inconsistencies meant:
-- LS and MOC couldn't access cross-domain intelligence
+- PS and MOC couldn't access cross-domain intelligence
 - KU couldn't reliably recommend Activity domains based on UserContext
 - Developer confusion about architectural patterns
 
@@ -66,9 +66,9 @@ self.relationships = UnifiedRelationshipService(
 )
 ```
 
-### 3. Factory pattern for LS (standard signatures)
+### 3. Factory pattern for PS (standard signatures)
 
-LsService uses `create_curriculum_sub_services()` factory since all its services have standard signatures:
+PsService uses `create_curriculum_sub_services()` factory since all its services have standard signatures:
 
 ```python
 from core.services.curriculum_domain_config import create_curriculum_sub_services
@@ -89,7 +89,7 @@ self.intelligence = common.intelligence
 
 These domains have non-standard core/intelligence dependencies:
 - **KU Core:** `repo, content_repo, intelligence, chunking, event_bus`
-- **LP Core:** `backend, ls_service, event_bus`
+- **LP Core:** `backend, ps_service, event_bus`
 - **LP Intelligence:** Standalone service (passed in from bootstrap)
 - **MOC Core:** `backend, driver, section_service, event_bus`
 
@@ -97,8 +97,8 @@ Following TasksService pattern, these create core/intelligence manually but ensu
 
 ```python
 # LpService - intelligence passed in from bootstrap
-def __init__(self, driver, ls_service, ..., intelligence_service=None):
-    self.core = LpCoreService(backend, ls_service, event_bus)  # Manual - non-standard
+def __init__(self, driver, ps_service, ..., intelligence_service=None):
+    self.core = LpCoreService(backend, ps_service, event_bus)  # Manual - non-standard
     self.search = LpSearchService(backend)
     self.relationships = UnifiedRelationshipService(...)
     self.intelligence = intelligence_service  # Passed in (standalone service)
@@ -130,7 +130,7 @@ class MocIntelligenceService(BaseAnalyticsService[...]):
 ### Positive
 
 1. **Cross-domain intelligence enabled for all domains:**
-   - LS can now access graph queries via `self.relationships` and `self.intelligence`
+   - PS can now access graph queries via `self.relationships` and `self.intelligence`
    - MOC can analyze content coverage and bridge strength
    - KU can recommend Activity domains based on UserContext
 
@@ -151,7 +151,7 @@ class MocIntelligenceService(BaseAnalyticsService[...]):
 1. **Breaking change:** Services now require `graph_intel` parameter
    - Mitigated: Only affects service composition in bootstrap
 
-2. **Factory limited to LS:** Only LsService can use the factory
+2. **Factory limited to PS:** Only PsService can use the factory
    - Other domains have non-standard signatures requiring manual init
    - This matches Activity domain pattern (TasksService also creates core manually)
 
@@ -163,7 +163,7 @@ class MocIntelligenceService(BaseAnalyticsService[...]):
 |------|--------|
 | `/core/services/curriculum_domain_config.py` | NEW: Factory module |
 | `/core/services/moc/moc_intelligence_service.py` | NEW: MOC intelligence |
-| `/core/services/ls_service.py` | Use factory, require `graph_intel` |
+| `/core/services/ps_service.py` | Use factory, require `graph_intel` |
 | `/core/services/lp_service.py` | Add `intelligence_service` param, require `graph_intel` |
 | `/core/services/ku_service.py` | Require `graph_intel` |
 | `/core/services/moc_service.py` | Add intelligence, require `graph_intel` |
@@ -174,15 +174,15 @@ class MocIntelligenceService(BaseAnalyticsService[...]):
 | Domain | Factory | Core Signature | Intelligence | graph_intel |
 |--------|---------|----------------|--------------|-------------|
 | **KU** | Manual | Non-standard | Created internally | REQUIRED |
-| **LS** | Factory | Standard | Created by factory | REQUIRED |
+| **PS** | Factory | Standard | Created by factory | REQUIRED |
 | **LP** | Manual | Non-standard | Passed in | REQUIRED |
 | **MOC** | Manual | Non-standard | Created internally | REQUIRED |
 
 ## Verification
 
-1. **Type check:** `uv run mypy core/services/ls_service.py core/services/lp_service.py core/services/ku_service.py core/services/moc_service.py`
+1. **Type check:** `uv run mypy core/services/ps_service.py core/services/lp_service.py core/services/ku_service.py core/services/moc_service.py`
 2. **Unit tests:** Verify all 4 curriculum services have `.intelligence` attribute
-3. **Integration:** Verify LS and MOC can now access graph queries
+3. **Integration:** Verify PS and MOC can now access graph queries
 
 ## Related Decisions
 

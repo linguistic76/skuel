@@ -2,7 +2,7 @@
 Unit tests for LpService facade orchestration methods.
 
 Tests focus on:
-- ls_service guard (create_step/get_step etc. return fail when ls_service is None)
+- ps_service guard (create_step/get_step etc. return fail when ps_service is None)
 - list() filtering: user_uid routing, sorting, pagination
 - create() keyword assembly from entity fields
 
@@ -37,7 +37,7 @@ def mock_executor() -> Mock:
 
 
 @pytest.fixture
-def mock_ls_service() -> Mock:
+def mock_ps_service() -> Mock:
     return Mock()
 
 
@@ -50,13 +50,13 @@ def mock_graph_intel() -> Mock:
 def lp_service(
     mock_backend: Mock,
     mock_executor: Mock,
-    mock_ls_service: Mock,
+    mock_ps_service: Mock,
     mock_graph_intel: Mock,
 ) -> LpService:
     service = LpService(
         backend=mock_backend,
         executor=mock_executor,
-        ls_service=mock_ls_service,
+        ps_service=mock_ps_service,
         graph_intelligence_service=mock_graph_intel,
     )
     # Replace sub-services with AsyncMocks AFTER construction
@@ -65,65 +65,65 @@ def lp_service(
     service.relationships = AsyncMock()
     service.intelligence = AsyncMock()
     service.progress = AsyncMock()
-    service.ls_service = mock_ls_service
+    service.ps_service = mock_ps_service
     return service
 
 
 # ---------------------------------------------------------------------------
-# TestLpServiceLsServiceGuard
+# TestLpServicePsServiceGuard
 # ---------------------------------------------------------------------------
 
 
-class TestLpServiceLsServiceGuard:
+class TestLpServicePsServiceGuard:
     @pytest.mark.asyncio
-    async def test_create_step_fails_when_ls_service_is_none(self, lp_service: LpService) -> None:
-        """create_step returns fail when ls_service is None."""
-        lp_service.ls_service = None
+    async def test_create_step_fails_when_ps_service_is_none(self, lp_service: LpService) -> None:
+        """create_step returns fail when ps_service is None."""
+        lp_service.ps_service = None
 
         result = await lp_service.create_step(Mock())
 
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_get_step_fails_when_ls_service_is_none(self, lp_service: LpService) -> None:
-        """get_step returns fail when ls_service is None."""
-        lp_service.ls_service = None
+    async def test_get_step_fails_when_ps_service_is_none(self, lp_service: LpService) -> None:
+        """get_step returns fail when ps_service is None."""
+        lp_service.ps_service = None
 
         result = await lp_service.get_step("ls_abc")
 
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_delete_step_fails_when_ls_service_is_none(self, lp_service: LpService) -> None:
-        """delete_step returns fail when ls_service is None."""
-        lp_service.ls_service = None
+    async def test_delete_step_fails_when_ps_service_is_none(self, lp_service: LpService) -> None:
+        """delete_step returns fail when ps_service is None."""
+        lp_service.ps_service = None
 
         result = await lp_service.delete_step("ls_abc")
 
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_list_steps_fails_when_ls_service_is_none(self, lp_service: LpService) -> None:
-        """list_steps returns fail when ls_service is None."""
-        lp_service.ls_service = None
+    async def test_list_steps_fails_when_ps_service_is_none(self, lp_service: LpService) -> None:
+        """list_steps returns fail when ps_service is None."""
+        lp_service.ps_service = None
 
         result = await lp_service.list_steps()
 
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_create_step_delegates_to_ls_service_when_available(
-        self, lp_service: LpService, mock_ls_service: Mock
+    async def test_create_step_delegates_to_ps_service_when_available(
+        self, lp_service: LpService, mock_ps_service: Mock
     ) -> None:
-        """create_step delegates to ls_service.create_step when available."""
+        """create_step delegates to ps_service.create_step when available."""
         mock_step = Mock()
-        mock_ls_service.create_step = AsyncMock(return_value=Result.ok(mock_step))
+        mock_ps_service.create_step = AsyncMock(return_value=Result.ok(mock_step))
         mock_path_uid = "lp_path_abc"
 
         result = await lp_service.create_step(mock_step, mock_path_uid)
 
         assert result.is_ok
-        mock_ls_service.create_step.assert_called_once_with(mock_step, mock_path_uid)
+        mock_ps_service.create_step.assert_called_once_with(mock_step, mock_path_uid)
 
 
 # ---------------------------------------------------------------------------

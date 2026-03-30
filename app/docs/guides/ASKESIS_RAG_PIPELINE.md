@@ -289,7 +289,7 @@ INTENT_CONTEXT_SECTIONS = {
 
 Always includes: user identity, workload/capacity, and alerts.
 
-**Token truncation:** The output of `build_llm_context()` is truncated to `AskesisTokenBudget.MAX_LLM_CONTEXT_CHARS` (~3000 tokens). When an LSBundle is present, its `curriculum_context_text` is separately truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens). Constants in `core/constants.py`.
+**Token truncation:** The output of `build_llm_context()` is truncated to `AskesisTokenBudget.MAX_LLM_CONTEXT_CHARS` (~3000 tokens). When an PsBundle is present, its `curriculum_context_text` is separately truncated to `AskesisTokenBudget.MAX_CURRICULUM_CHARS` (~2500 tokens). Constants in `core/constants.py`.
 
 ### Step 5f: Generate Answer via LLM
 
@@ -347,8 +347,8 @@ AskesisService (Facade — zero business logic)
 │   ├── IntentClassifier      ← embeds question, matches to intent exemplars
 │   │                           + determine_guidance_mode() for GuidanceMode selection
 │   ├── EntityExtractor       ← fuzzy-matches entities in the question
-│   │                           + extract_from_bundle() for LS-scoped extraction
-│   ├── ContextRetriever      ← graph traversal + semantic search + LS bundle loading
+│   │                           + extract_from_bundle() for PS-scoped extraction
+│   ├── ContextRetriever      ← graph traversal + semantic search + PS bundle loading
 │   └── ResponseGenerator     ← builds LLM context, guided system prompts, actions
 │
 ├── UserStateAnalyzer         ← comprehensive state analysis
@@ -366,7 +366,7 @@ AskesisService (Facade — zero business logic)
 
 ### One Pipeline — LP-Scoped, GuidanceMode-Aware
 
-Both `answer_user_question()` and `process_query_with_context()` run the same LP-scoped, ZPD-informed, GuidanceMode-aware pipeline. When an LS bundle is available, the pipeline loads ZPD evidence for target KUs, determines the GuidanceMode via `IntentClassifier.determine_guidance_mode()`, and builds a guided system prompt via `ResponseGenerator.build_guided_system_prompt()`. The guided pipeline activates even when no specific KUs are extracted from the question — `classify_pedagogical_intent()` handles this (returning OUT_OF_SCOPE or ENCOURAGE_PRACTICE). When no LS bundle is available (no active learning step), both methods fall back to standard global RAG.
+Both `answer_user_question()` and `process_query_with_context()` run the same LP-scoped, ZPD-informed, GuidanceMode-aware pipeline. When an PS bundle is available, the pipeline loads ZPD evidence for target KUs, determines the GuidanceMode via `IntentClassifier.determine_guidance_mode()`, and builds a guided system prompt via `ResponseGenerator.build_guided_system_prompt()`. The guided pipeline activates even when no specific KUs are extracted from the question — `classify_pedagogical_intent()` handles this (returning OUT_OF_SCOPE or ENCOURAGE_PRACTICE). When no PS bundle is available (no active path step), both methods fall back to standard global RAG.
 
 See: `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md`
 
@@ -449,9 +449,9 @@ Single-word titles under 4 characters won't match via partial word. Titles not i
 | `core/services/askesis/query_processor.py` | RAG orchestrator |
 | `core/services/askesis/intent_classifier.py` | Intent classification via embeddings |
 | `core/services/askesis/entity_extractor.py` | Entity extraction via fuzzy matching |
-| `core/services/askesis/context_retriever.py` | Graph + semantic retrieval + LS bundle loading |
+| `core/services/askesis/context_retriever.py` | Graph + semantic retrieval + PS bundle loading |
 | `core/services/askesis/response_generator.py` | LLM context, guided system prompts (4 modes), action generation |
-| `core/models/askesis/ls_bundle.py` | LSBundle frozen dataclass |
+| `core/models/askesis/ps_bundle.py` | PsBundle frozen dataclass |
 | `core/models/askesis/pedagogical_intent.py` | PedagogicalIntent enum (7 move types) |
 | `core/models/askesis/learning_objective.py` | StructuredLearningObjective |
 | `core/services/askesis/types.py` | Data classes (AskesisInsight, AskesisRecommendation, AskesisAnalysis) |
@@ -471,7 +471,7 @@ Single-word titles under 4 characters won't match via partial word. Titles not i
 
 - **How Askesis Works:** `/docs/architecture/ASKESIS_HOW_IT_WORKS.md` — plain-English explanation of both halves
 - **Askesis Architecture:** `/docs/architecture/ASKESIS_ARCHITECTURE.md` — facade pattern, sub-services, dependency graph
-- **Askesis Guided Pipeline:** `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md` — LS-scoped, ZPD-centered, GuidanceMode-aware pipeline
+- **Askesis Guided Pipeline:** `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md` — PS-scoped, ZPD-centered, GuidanceMode-aware pipeline
 - **Askesis Pedagogy:** `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — Socratic companion design, GuidanceMode detection
 - **Search Architecture:** `/docs/architecture/SEARCH_ARCHITECTURE.md` — SearchRouter, domain search
 - **UserContext:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — the MEGA-QUERY and ~250 fields

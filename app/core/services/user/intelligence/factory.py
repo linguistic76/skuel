@@ -15,7 +15,7 @@ UserContextIntelligence instances when given a UserContext.
 
 **Entity Types:**
 - Activity Domains (6): tasks, goals, habits, events, choices, principles
-- Curriculum Domains (3): ku, ls, lp
+- Curriculum Domains (3): ku, ps, lp
 - Processing Domains (3): submissions, report, analytics
 - Temporal Domain (1): calendar
 
@@ -69,7 +69,7 @@ class UserContextIntelligenceFactory:
 
     **Entity Types:**
     - Activity Domains (6): tasks, goals, habits, events, choices, principles
-    - Curriculum Domains (3): ku, ls, lp
+    - Curriculum Domains (3): ku, ps, lp
     - Processing Domains (3): submissions, report, analytics
     - Temporal Domain (1): calendar
 
@@ -101,7 +101,7 @@ class UserContextIntelligenceFactory:
         principles: UnifiedRelationshipService,
         # Curriculum Domains (3) - REQUIRED
         lesson: LessonService,
-        ls: UnifiedRelationshipService,  # January 2026: Unified
+        ps: UnifiedRelationshipService,  # January 2026: Unified
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
         submissions: SubmissionsRelationshipService,
@@ -111,7 +111,7 @@ class UserContextIntelligenceFactory:
         calendar: CalendarService,
         # Optional: Vector search for semantic enhancements
         vector_search_service: Any = None,
-        # Optional: ZPD service for curriculum-graph-aware learning step ranking
+        # Optional: ZPD service for curriculum-graph-aware path step ranking
         zpd_service: ZPDOperations | None = None,
         # Optional: FilteredContextProvider dict for on-demand domain-specific queries
         filtered_providers: dict[str, FilteredContextProvider] | None = None,
@@ -130,7 +130,7 @@ class UserContextIntelligenceFactory:
 
             Curriculum Domains (3):
                 lesson: Lesson graph service
-                ls: Learning step relationship service
+                ps: Path step relationship service
                 lp: Learning path relationship service
 
             Processing Domains (3):
@@ -160,7 +160,7 @@ class UserContextIntelligenceFactory:
             "principles": principles,
             # Curriculum Domains (3)
             "lesson": lesson,
-            "ls": ls,
+            "ps": ps,
             "lp": lp,
             # Processing Domains (3)
             "submissions": submissions,
@@ -187,7 +187,7 @@ class UserContextIntelligenceFactory:
         self._principles = principles
         # Curriculum domains (3)
         self._lesson = lesson
-        self._ls = ls
+        self._ps = ps
         self._lp = lp
         # Processing domains (3)
         self._submissions = submissions
@@ -197,7 +197,7 @@ class UserContextIntelligenceFactory:
         self._calendar = calendar
         # Optional: Vector search for semantic enhancements
         self._vector_search = vector_search_service
-        # Optional: ZPD service for curriculum-graph-aware learning step ranking
+        # Optional: ZPD service for curriculum-graph-aware path step ranking
         self._zpd_service = zpd_service
         # Optional: FilteredContextProvider dict for on-demand domain queries
         self._filtered_providers = filtered_providers or {}
@@ -223,7 +223,7 @@ class UserContextIntelligenceFactory:
             principles=self._principles,
             # Curriculum domains (3)
             lesson=self._lesson,
-            ls=self._ls,
+            ps=self._ps,
             lp=self._lp,
             # Processing domains (3)
             submissions=self._submissions,
@@ -233,7 +233,7 @@ class UserContextIntelligenceFactory:
             calendar=self._calendar,
             # Optional: Vector search for semantic enhancements
             vector_search=self._vector_search,
-            # Optional: ZPD service for curriculum-graph-aware learning step ranking
+            # Optional: ZPD service for curriculum-graph-aware path step ranking
             zpd_service=self._zpd_service,
             # Optional: FilteredContextProvider dict for on-demand domain queries
             filtered_providers=self._filtered_providers,

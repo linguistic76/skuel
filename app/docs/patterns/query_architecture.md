@@ -565,7 +565,7 @@ updates: GoalUpdatePayload = {
 | Category | TypedDicts |
 |----------|------------|
 | **Filter Specs** | `BaseFilterSpec`, `ActivityFilterSpec`, `CurriculumFilterSpec`, `PrinciplesFilterSpec`, `PropertyFilterSpec` |
-| **Update Payloads** | `TaskUpdatePayload`, `GoalUpdatePayload`, `HabitUpdatePayload`, `EventUpdatePayload`, `ChoiceUpdatePayload`, `PrincipleUpdatePayload`, `FinanceUpdatePayload`, `AssignmentUpdatePayload`, `KuUpdatePayload`, `LsUpdatePayload`, `LpUpdatePayload` |
+| **Update Payloads** | `TaskUpdatePayload`, `GoalUpdatePayload`, `HabitUpdatePayload`, `EventUpdatePayload`, `ChoiceUpdatePayload`, `PrincipleUpdatePayload`, `FinanceUpdatePayload`, `AssignmentUpdatePayload`, `KuUpdatePayload`, `PsUpdatePayload`, `LpUpdatePayload` |
 
 See [Three-Tier Type System](/docs/patterns/three_tier_type_system.md#typeddicts-for-service-operations-january-2026) for complete documentation.
 
@@ -628,7 +628,7 @@ Cypher Query → Raw Data → Post-Processor → Computed Field
 
 ```python
 # In relationship_registry.py
-GOALS_CONFIG = DomainRelationshipConfig(
+GOAPS_CONFIG = DomainRelationshipConfig(
     relationships=(...),
     post_processors=(
         PostProcessor(

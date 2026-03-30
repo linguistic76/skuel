@@ -36,9 +36,9 @@ logger = get_logger("skuel.routes.ai")
 class AIRouteSpec:
     """Specification for a single AI route endpoint."""
 
-    domain_attr: str  # services attribute: "tasks", "lesson", "ls"
+    domain_attr: str  # services attribute: "tasks", "lesson", "ps"
     domain_label: str  # human label for error messages: "Tasks", "Knowledge"
-    url_domain: str  # URL segment: "tasks", "knowledge", "learning-steps"
+    url_domain: str  # URL segment: "tasks", "knowledge", "path-steps"
     action: str  # URL action segment: "similar", "insight"
     method_name: str  # AI service method: "find_similar_tasks"
     signature: str  # "uid" | "uid_limit" | "query_limit" | "uid_level"
@@ -85,10 +85,10 @@ AI_ROUTE_SPECS: list[AIRouteSpec] = [
     AIRouteSpec("lesson", "Knowledge", "knowledge", "explain", "explain_at_level", "uid_level", "knowledge_ai_explain"),
     AIRouteSpec("lesson", "Knowledge", "knowledge", "applications", "suggest_applications", "uid", "knowledge_ai_applications"),
     # Learning Steps (4)
-    AIRouteSpec("ls", "Learning Steps", "learning-steps", "similar", "find_similar_steps", "uid_limit", "ls_ai_similar", "similar_steps"),
-    AIRouteSpec("ls", "Learning Steps", "learning-steps", "insight", "generate_step_insight", "uid", "ls_ai_insight", "insight"),
-    AIRouteSpec("ls", "Learning Steps", "learning-steps", "explain", "explain_step", "uid_level", "ls_ai_explain"),
-    AIRouteSpec("ls", "Learning Steps", "learning-steps", "practice", "suggest_practice_activities", "uid", "ls_ai_practice"),
+    AIRouteSpec("ps", "Path Steps", "path-steps", "similar", "find_similar_steps", "uid_limit", "ps_ai_similar", "similar_steps"),
+    AIRouteSpec("ps", "Path Steps", "path-steps", "insight", "generate_step_insight", "uid", "ps_ai_insight", "insight"),
+    AIRouteSpec("ps", "Path Steps", "path-steps", "explain", "explain_step", "uid_level", "ps_ai_explain"),
+    AIRouteSpec("ps", "Path Steps", "path-steps", "practice", "suggest_practice_activities", "uid", "ps_ai_practice"),
     # Learning Paths (4)
     AIRouteSpec("lp", "Learning Paths", "learning-paths", "similar", "find_similar_paths", "uid_limit", "lp_ai_similar", "similar_paths"),
     AIRouteSpec("lp", "Learning Paths", "learning-paths", "insight", "generate_path_insight", "uid", "lp_ai_insight", "insight"),
@@ -106,7 +106,7 @@ _AI_STATUS_DOMAINS: dict[str, str] = {
     "choices": "choices",
     "principles": "principles",
     "lesson": "knowledge",
-    "ls": "learning_steps",
+    "ps": "path_steps",
     "lp": "learning_paths",
 }
 

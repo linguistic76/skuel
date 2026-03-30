@@ -138,10 +138,10 @@ class DomainRelationshipConfig:
     scoring_weights: dict[str, float] = ...
     default_context_intent: QueryIntent = QueryIntent.HIERARCHICAL
     intent_mappings: dict[str, QueryIntent] = ...
-    is_shared_content: bool = False  # True for KU, LS, LP
+    is_shared_content: bool = False  # True for KU, PS, LP
 ```
 
-**Named configs:** `TASKS_CONFIG`, `GOALS_CONFIG`, `HABITS_CONFIG`, `EVENTS_CONFIG`, `CHOICES_CONFIG`, `PRINCIPLES_CONFIG`, `KU_CONFIG`, `LS_CONFIG`, `LP_CONFIG`
+**Named configs:** `TASKS_CONFIG`, `GOAPS_CONFIG`, `HABITS_CONFIG`, `EVENTS_CONFIG`, `CHOICES_CONFIG`, `PRINCIPLES_CONFIG`, `KU_CONFIG`, `PS_CONFIG`, `LP_CONFIG`
 
 ---
 
@@ -177,7 +177,7 @@ class DomainRelationshipConfig:
 | Category | Domains | `self.relationships` | Notes |
 |----------|---------|----------------------|-------|
 | **Activity (6)** | Tasks, Goals, Habits, Events, Choices, Principles | ✅ | Config-driven via registry |
-| **Curriculum (3)** | KU, LS, LP | ✅ | `is_shared_content=True`; ordered relationships for hierarchy |
+| **Curriculum (3)** | KU, PS, LP | ✅ | `is_shared_content=True`; ordered relationships for hierarchy |
 | **Submissions + Reports** | Submissions, Journals | ✅ | `SubmissionsBackend` owns SHARES_WITH Cypher |
 | **Life Path** | LifePath | ✅ | ULTIMATE_PATH + SERVES_LIFE_PATH |
 | **Finance** | Finance | ❌ | Standalone bookkeeping — no relationship service |
@@ -291,7 +291,7 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 | `RECOMMENDED_WITH` | Symmetric | Collaborative filtering — users who completed A also completed B |
 | `STACKS_WITH` | Directional | Habit chaining — do habit A after habit B |
 
-**Phase 5 deployed types** (fully tested across 9 domains — Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP):
+**Phase 5 deployed types** (fully tested across 9 domains — Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP):
 `BLOCKS/BLOCKED_BY`, `PREREQUISITE_FOR/DEPENDS_ON`, `ALTERNATIVE_TO`, `COMPLEMENTARY_TO`, `SIBLING`, `RELATED_TO`
 
 The extended types (`ENABLES`, `SIMILAR_TO`, `CONFLICTS_WITH`, `COUSIN`, `RECOMMENDED_WITH`, `STACKS_WITH`) are defined in `RelationshipName` and available to services but not yet wired to Phase 5 UI endpoints.

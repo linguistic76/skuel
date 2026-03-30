@@ -39,7 +39,7 @@ class UserContextIntelligence(
 **File:** `learning_intelligence.py` (~470 lines)
 
 **Methods:**
-1. `get_optimal_next_learning_steps()` - What should I learn next?
+1. `get_optimal_next_path_steps()` - What should I learn next?
 2. `get_learning_path_critical_path()` - Fastest route to life path?
 3. `get_knowledge_application_opportunities()` - Where can I apply this?
 4. `get_unblocking_priority_order()` - What unlocks the most?
@@ -62,12 +62,12 @@ class LearningIntelligenceMixin:
 - Finds application opportunities across tasks, habits, goals, events
 
 ```python
-async def get_optimal_next_learning_steps(
+async def get_optimal_next_path_steps(
     self,
     max_steps: int = 5,
     consider_goals: bool = True,
     consider_capacity: bool = True,
-) -> Result[list[LearningStep]]:
+) -> Result[list[PathStep]]:
     """
     Priority Path (when zpd_service is set — FULL tier):
     - Uses ZPDAssessment.recommended_actions when available on UserContext
@@ -414,12 +414,12 @@ def learning_service():
     return MockLearningService(context, tasks, ku)
 
 
-async def test_get_optimal_next_learning_steps(learning_service):
+async def test_get_optimal_next_path_steps(learning_service):
     learning_service.ku.get_ready_to_learn_for_user.return_value = Result.ok([
         MagicMock(uid="ku-2", title="Next KU", prerequisites_met=True, priority_score=0.8)
     ])
 
-    result = await learning_service.get_optimal_next_learning_steps(max_steps=3)
+    result = await learning_service.get_optimal_next_path_steps(max_steps=3)
 
     assert result.is_ok
     assert len(result.value) >= 1
@@ -512,14 +512,14 @@ __all__ = [
 ```python
 # WRONG - overriding defeats mixin purpose
 class UserContextIntelligence(...):
-    async def get_optimal_next_learning_steps(self, ...):
+    async def get_optimal_next_path_steps(self, ...):
         # Custom implementation breaks composition
         pass
 
 # CORRECT - extend in a new mixin
 class EnhancedLearningMixin(LearningIntelligenceMixin):
-    async def get_optimal_next_learning_steps(self, ...):
-        base_result = await super().get_optimal_next_learning_steps(...)
+    async def get_optimal_next_path_steps(self, ...):
+        base_result = await super().get_optimal_next_path_steps(...)
         # Enhance result
         return enhanced_result
 ```

@@ -1,7 +1,7 @@
 version: 1.0
-type: LearningStep
+type: PathStep
 
-uid: ls:mindfulness-101:step-1
+uid: ps:mindfulness-101:step-1
 title: Two Minutes Today
 intent: Try one two-minute breath session and notice where you feel the breath
 description: |

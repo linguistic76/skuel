@@ -11,7 +11,7 @@ Tests verify that:
 Test Coverage:
 - LearningPath service returns properly typed Ls objects
 - Knowledge service returns properly typed Ku objects
-- Protocol satisfaction (LearningStepLike, CurriculumEntityLike)
+- Protocol satisfaction (PathStepLike, CurriculumEntityLike)
 - DTO conversion (from_domain() methods)
 
 Run with:
@@ -33,14 +33,14 @@ from core.models.entity_dto import EntityDTO
 from core.models.enums.curriculum_enums import StepDifficulty
 from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.learning_step import LearningStep as LearningStepModel
+from core.models.pathways.path_step import PathStep as PathStepModel
 from core.services.lp_service import LpService
-from core.services.ls_service import LsService
-from routes.graphql.mappers import learning_step_from_domain
-from routes.graphql.types import LearningStep
+from core.services.ps_service import PsService
+from routes.graphql.mappers import path_step_from_domain
+from routes.graphql.types import PathStep
 
 if TYPE_CHECKING:
-    from routes.graphql.protocols import CurriculumEntityLike, LearningStepLike
+    from routes.graphql.protocols import CurriculumEntityLike, PathStepLike
 
 # ============================================================================
 # Test Fixtures
@@ -135,9 +135,9 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
             """
         )
 
-        # Create learning steps
+        # Create path steps
         # knowledge_uids is a list property
-        learning_steps = [
+        path_steps = [
             {
                 "uid": "ls.type_test_step_1",
                 "title": "Learn Type Testing Basics",
@@ -167,7 +167,7 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
             },
         ]
 
-        for step in learning_steps:
+        for step in path_steps:
             await session.run(
                 """
                 MERGE (s:Entity {uid: $uid})
@@ -177,7 +177,7 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
                     s.sequence = $sequence,
                     s.mastery_threshold = $mastery_threshold,
                     s.estimated_hours = $estimated_hours,
-                    s.entity_type = 'learning_step',
+                    s.entity_type = 'path_step',
                     s.created_at = datetime()
                 RETURN s
                 """,
@@ -228,23 +228,23 @@ async def lp_service(neo4j_driver):
     mock_graph_intel = MagicMock()
 
     # Create backends (composition root pattern)
-    ls_backend = UniversalNeo4jBackend[LearningStepModel](
-        neo4j_driver, NeoLabel.LEARNING_STEP, LearningStepModel, base_label=NeoLabel.ENTITY
+    ps_backend = UniversalNeo4jBackend[PathStepModel](
+        neo4j_driver, NeoLabel.PATH_STEP, PathStepModel, base_label=NeoLabel.ENTITY
     )
     lp_backend = UniversalNeo4jBackend[LearningPath](
         neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
     )
 
-    # Create LsService (required by LpService)
-    ls_service = LsService(
-        backend=ls_backend, executor=executor, graph_intel=mock_graph_intel, event_bus=None
+    # Create PsService (required by LpService)
+    ps_service = PsService(
+        backend=ps_backend, executor=executor, graph_intel=mock_graph_intel, event_bus=None
     )
 
     # Create LpService with REQUIRED dependencies
     service = LpService(
         backend=lp_backend,
         executor=executor,
-        ls_service=ls_service,
+        ps_service=ps_service,
         ku_service=None,  # Optional
         progress_service=None,  # Optional
         graph_intelligence_service=mock_graph_intel,  # REQUIRED
@@ -344,16 +344,16 @@ async def test_knowledge_service_returns_typed_ku(ku_service, type_contract_test
 
 
 @pytest.mark.asyncio
-async def test_ls_satisfies_learning_step_like_protocol(lp_service, type_contract_test_data):
+async def test_ls_satisfies_path_step_like_protocol(lp_service, type_contract_test_data):
     """
-    Verify that Ls domain model satisfies LearningStepLike protocol.
+    Verify that Ls domain model satisfies PathStepLike protocol.
 
     Protocol Contract:
         - Has uid: str attribute
         - Has title: str attribute
 
     This enables structural typing - any object with these attributes
-    can be used in functions expecting LearningStepLike.
+    can be used in functions expecting PathStepLike.
     """
     # Arrange
     result = await lp_service.get_path_steps("lp.type_test_path")
@@ -362,11 +362,11 @@ async def test_ls_satisfies_learning_step_like_protocol(lp_service, type_contrac
     assert len(steps) > 0
 
     # Act - Assign to protocol type (this would fail at mypy check if protocol not satisfied)
-    step: LearningStepLike = steps[0]
+    step: PathStepLike = steps[0]
 
     # Assert - Protocol guarantees these attributes exist
-    assert hasattr(step, "uid"), "LearningStepLike requires uid attribute"
-    assert hasattr(step, "title"), "LearningStepLike requires title attribute"
+    assert hasattr(step, "uid"), "PathStepLike requires uid attribute"
+    assert hasattr(step, "title"), "PathStepLike requires title attribute"
 
     # Assert - Types match protocol
     assert isinstance(step.uid, str), "uid should be string"
@@ -411,13 +411,13 @@ async def test_ku_satisfies_knowledge_unit_like_protocol(ku_service, type_contra
 
 
 @pytest.mark.asyncio
-async def test_learning_step_from_domain_conversion(lp_service, type_contract_test_data):
+async def test_path_step_from_domain_conversion(lp_service, type_contract_test_data):
     """
-    Verify LearningStep.from_domain() correctly converts Ls to GraphQL DTO.
+    Verify PathStep.from_domain() correctly converts Ls to GraphQL DTO.
 
     Conversion Contract:
         - Takes Ls domain model + step_number
-        - Returns LearningStep GraphQL DTO
+        - Returns PathStep GraphQL DTO
         - Maps fields correctly:
           - uid: direct copy
           - title: direct copy
@@ -436,10 +436,10 @@ async def test_learning_step_from_domain_conversion(lp_service, type_contract_te
     step_number = 1
 
     # Act - Convert using from_domain()
-    graphql_dto = learning_step_from_domain(ls_domain_model, step_number)
+    graphql_dto = path_step_from_domain(ls_domain_model, step_number)
 
     # Assert - DTO type
-    assert isinstance(graphql_dto, LearningStep), "Should return LearningStep instance"
+    assert isinstance(graphql_dto, PathStep), "Should return PathStep instance"
 
     # Assert - Field mappings
     assert graphql_dto.uid == ls_domain_model.uid, "uid should be copied directly"
@@ -466,7 +466,7 @@ async def test_learning_step_from_domain_conversion(lp_service, type_contract_te
 
 
 @pytest.mark.asyncio
-async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service):
+async def test_path_step_from_domain_handles_empty_knowledge_uids(lp_service):
     """
     Verify from_domain() handles edge case of empty knowledge_uids.
 
@@ -474,8 +474,8 @@ async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service
         - Ls with empty knowledge_uids tuple
         - Should return empty string for knowledge_uid (not crash)
     """
-    # Arrange - Create LearningStep domain model with empty knowledge_uids
-    ls_with_no_knowledge = LearningStepModel(
+    # Arrange - Create PathStep domain model with empty knowledge_uids
+    ls_with_no_knowledge = PathStepModel(
         uid="ls.test_no_knowledge",
         title="Test Step With No Knowledge",
         intent="Test intent",
@@ -490,7 +490,7 @@ async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service
     )
 
     # Act
-    graphql_dto = learning_step_from_domain(ls_with_no_knowledge, 1)
+    graphql_dto = path_step_from_domain(ls_with_no_knowledge, 1)
 
     # Assert - Should gracefully handle empty tuple
     assert graphql_dto.knowledge_uid == "", "Empty knowledge_uids should map to empty string"
@@ -498,7 +498,7 @@ async def test_learning_step_from_domain_handles_empty_knowledge_uids(lp_service
 
 
 @pytest.mark.asyncio
-async def test_learning_step_from_domain_preserves_step_number(lp_service, type_contract_test_data):
+async def test_path_step_from_domain_preserves_step_number(lp_service, type_contract_test_data):
     """
     Verify from_domain() correctly uses step_number parameter for sequencing.
 
@@ -513,7 +513,7 @@ async def test_learning_step_from_domain_preserves_step_number(lp_service, type_
     assert len(steps) >= 3
 
     # Act - Convert all steps with enumerate
-    graphql_steps = [learning_step_from_domain(step, i + 1) for i, step in enumerate(steps)]
+    graphql_steps = [path_step_from_domain(step, i + 1) for i, step in enumerate(steps)]
 
     # Assert - Step numbers are 1-indexed and sequential
     for i, graphql_step in enumerate(graphql_steps, 1):

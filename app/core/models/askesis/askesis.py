@@ -399,7 +399,7 @@ class AskesisResponse:
     # Knowledge graph integration
     related_knowledge_units: list[KnowledgeUnitDTO] = field(default_factory=list)
     prerequisite_units: list[str] = field(default_factory=list)  # UIDs of prerequisites,
-    next_units: list[str] = field(default_factory=list)  # UIDs of next learning steps
+    next_units: list[str] = field(default_factory=list)  # UIDs of next path steps
 
     # Nudging system
     nudges: list[NudgeContext] = field(default_factory=list)

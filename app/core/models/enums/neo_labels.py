@@ -75,7 +75,7 @@ class NeoLabel(StrEnum):
     LESSON = "Lesson"
     KU = "Ku"
     RESOURCE = "Resource"
-    LEARNING_STEP = "LearningStep"
+    PATH_STEP = "PathStep"
     LEARNING_PATH = "LearningPath"
 
     # Content Processing — user submissions and reports
@@ -253,7 +253,7 @@ def _init_ku_type_mapping() -> None:
             EntityType.LESSON: NeoLabel.LESSON,
             EntityType.KU: NeoLabel.KU,
             EntityType.RESOURCE: NeoLabel.RESOURCE,
-            EntityType.LEARNING_STEP: NeoLabel.LEARNING_STEP,
+            EntityType.PATH_STEP: NeoLabel.PATH_STEP,
             EntityType.LEARNING_PATH: NeoLabel.LEARNING_PATH,
             EntityType.EXERCISE: NeoLabel.EXERCISE,
             EntityType.REVISED_EXERCISE: NeoLabel.REVISED_EXERCISE,

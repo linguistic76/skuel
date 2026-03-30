@@ -19,7 +19,7 @@ The ingestion system supports two file formats. Use the one that matches the ent
 
 | Format | Extension | Best For | How Content Works |
 |--------|-----------|----------|-------------------|
-| **YAML** | `.yaml` | Kus, LS, LP, activities, edges | All fields in YAML. Content (if any) is a `content: \|` string block. |
+| **YAML** | `.yaml` | Kus, PS, LP, activities, edges | All fields in YAML. Content (if any) is a `content: \|` string block. |
 | **Markdown** | `.md` | Lessons | Metadata in YAML frontmatter (`---` delimiters), **must include `type: Lesson`**. Markdown body automatically becomes the `content` field. |
 
 **Why this split?** Lessons are content-heavy — long prose, headers, lists, emphasis. Writing that inside a YAML `|` block is awkward to author and impossible to preview in Obsidian. Everything else is metadata-heavy with little or no prose, so YAML is cleaner.
@@ -131,7 +131,7 @@ title: My Task Title    # Display title
 | `Ku` | — | `ku:` | `ku:attention:buzzing` |
 | `Lesson` | `Article`, `KnowledgeUnit` | `l:` | `l:mindfulness:breath-awareness-basics` |
 | `Exercise` | — | `ex:` | `ex:sel:know-yourself-check-in` |
-| `LearningStep` | `ls` | `ls:` | `ls:mindfulness-101:step-1` |
+| `PathStep` | `ls` | `ls:` | `ls:mindfulness-101:step-1` |
 | `LearningPath` | `lp` | `lp:` | `lp:mindfulness-101` |
 | `Task` | — | `task:` | `task:log-first-5-sessions` |
 | `Goal` | — | `goal:` | `goal:mindfulness-beginner` |
@@ -160,7 +160,7 @@ Many YAML fields are constrained by Python enums — using an invalid value will
 
 | YAML Field | Enum Class | Valid Values |
 |------------|------------|-------------|
-| `type` | `EntityType` | `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Ku`, `Lesson`, `LearningStep`, `LearningPath`, `ExerciseSubmission`, `LifePath` |
+| `type` | `EntityType` | `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Ku`, `Lesson`, `PathStep`, `LearningPath`, `ExerciseSubmission`, `LifePath` |
 | `status` | `EntityStatus` | Per-type subset (see [Entity Status](#entity-status) below) |
 | `priority` | `Priority` | `low`, `medium`, `high`, `critical` |
 | `polarity` | `HabitPolarity` | `build`, `break`, `neutral` |
@@ -197,7 +197,7 @@ The `status` field is governed by `EntityStatus` (14 values). Not every status i
 | Type | Valid Statuses | Default |
 |------|---------------|---------|
 | Ku, Lesson | `draft`, `completed`, `archived` | `draft` |
-| LearningStep, LearningPath | `draft`, `active`, `completed`, `archived` | `draft` |
+| PathStep, LearningPath | `draft`, `active`, `completed`, `archived` | `draft` |
 | Task | `draft`, `scheduled`, `active`, `paused`, `blocked`, `completed`, `cancelled`, `postponed`, `failed` | `draft` |
 | Goal | `draft`, `active`, `paused`, `completed`, `cancelled`, `failed`, `archived` | `draft` |
 | Habit | `active`, `paused`, `completed`, `cancelled`, `archived` | `active` |
@@ -231,7 +231,7 @@ See [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the full tr
 
 Activity domains (Task, Goal, Habit, Event, Choice, Principle), ExerciseSubmission, and LifePath are **user-owned** — they require a `user_uid`. If the YAML file omits `user_uid`, the ingestion engine sets it to the default (`SKUEL_DEFAULT_USER_UID` env var, or `user:system`).
 
-Curriculum types (Lesson, Ku, LearningStep, LearningPath) are **shared** — no `user_uid` needed; they are visible to all users.
+Curriculum types (Lesson, Ku, PathStep, LearningPath) are **shared** — no `user_uid` needed; they are visible to all users.
 
 Expense is **admin-only** and also requires `user_uid`.
 
@@ -396,21 +396,21 @@ uses_kus:
 
 # Learning Path
 connections:
-  contains_steps:                                    # HAS_STEP → LearningStep
+  contains_steps:                                    # HAS_STEP → PathStep
     - ls:path:step-1
     - ls:path:step-2
 ```
 
-### Learning Step Fields
+### Path Step Fields
 
-Learning Steps group Lessons into collections within a learning path. They have two types of knowledge references:
+Path Steps group Lessons into collections within a learning path. They have two types of knowledge references:
 
-- **`knowledge_uids`** — Lessons in this step. Creates `CONTAINS_KNOWLEDGE` edges. Activities on these Lessons are inherited by the LS via graph traversal.
+- **`knowledge_uids`** — Lessons in this step. Creates `CONTAINS_KNOWLEDGE` edges. Activities on these Lessons are inherited by the PS via graph traversal.
 
-Activity domain wiring (habits, tasks, events, goals, principles, choices) lives on **Lessons**, not on Learning Steps. See [Lesson Activity Wiring Guide](/docs/guides/LESSON_ACTIVITY_WIRING.md).
+Activity domain wiring (habits, tasks, events, goals, principles, choices) lives on **Lessons**, not on Path Steps. See [Lesson Activity Wiring Guide](/docs/guides/LESSON_ACTIVITY_WIRING.md).
 
 ```yaml
-type: LearningStep
+type: PathStep
 uid: ls:mindfulness-101:step-1
 knowledge_uids:
   - l:mindfulness:breath-awareness-basics
@@ -464,7 +464,7 @@ edges:
     to: ku:mindfulness:attention
     type: USES_KU
 
-  # Learning Steps → Lessons (HAS_LESSON)
+  # Path Steps → Lessons (HAS_LESSON)
   - from: ls:mindfulness-101:step-1
     to: l:mindfulness:breath-awareness-basics
     type: HAS_LESSON
@@ -557,7 +557,7 @@ import_order:
   5_paths: [lp:mindfulness-101]
 ```
 
-**Import order matters:** Kus first (referenced by Lessons), then Lessons (referenced by Activities), then Activities (referenced by Learning Steps), then Steps, then Paths.
+**Import order matters:** Kus first (referenced by Lessons), then Lessons (referenced by Activities), then Activities (referenced by Path Steps), then Steps, then Paths.
 
 ### Ingestion
 

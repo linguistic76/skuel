@@ -197,7 +197,7 @@ class ProgressiveLearningQueries:
         limit: int = 10,
     ) -> tuple[str, dict[str, Any]]:
         """
-        Find next learning steps appropriate for user's current difficulty level.
+        Find next path steps appropriate for user's current difficulty level.
 
         Returns concepts that are slightly harder than current level (progressive challenge).
 

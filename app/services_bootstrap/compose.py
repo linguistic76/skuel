@@ -837,7 +837,7 @@ async def compose_services(
             finance_service=core_services["finance"],
             # Curriculum Domains (3) - admin creates, all read
             ku_service=learning_services["lesson_service"],
-            ls_service=learning_services["learning_steps"],
+            ps_service=learning_services["path_steps"],
             lp_service=learning_services["learning_paths"],
             # Meta Domains (3)
             report_service=submissions_service,  # For metadata updates
@@ -1112,10 +1112,8 @@ async def compose_services(
             # Learning services
             user_progress=learning_services["user_progress"],
             # unified_progress DELETED (January 2026) - use user_progress
-            lp=learning_services["learning_paths"],  # ku, ls, lp short-name consistency
-            ls=learning_services[
-                "learning_steps"
-            ],  # Renamed from learning_steps (consistency: ku, ls, lp)
+            lp=learning_services["learning_paths"],  # ku, ps, lp short-name consistency
+            ps=learning_services["path_steps"],  # ku, ps, lp short-name consistency
             learning_intelligence=learning_services["learning_intelligence"],
             askesis=None,  # Created in PHASE 4 after intelligence_factory (January 2026)
             askesis_core=askesis_core_service,  # Priority 1.1: CRUD operations for Askesis AI

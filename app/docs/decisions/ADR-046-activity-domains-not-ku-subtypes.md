@@ -43,7 +43,7 @@ Knowledge relationships target `:Entity` nodes — both Lessons (teaching compos
 
 Lesson-to-Ku composition uses dedicated relationship types:
 - `(Lesson)-[:USES_KU]->(Ku)` — lesson composes atomic Kus into narrative
-- `(LearningStep)-[:TRAINS_KU]->(Ku)` — learning step trains specific Kus
+- `(PathStep)-[:TRAINS_KU]->(Ku)` — path step trains specific Kus
 
 These are curriculum-internal and unrelated to the Activity-to-Knowledge pattern.
 

@@ -18,7 +18,7 @@ Hierarchy:
     │   ├── Task, Goal, Habit, Event, Choice, Principle
     │   ├── Submission, ExerciseReport, ActivityReport, JeInput, JeOutput
     │   └── LifePath
-    ├── Curriculum(Entity) → LearningStep, LearningPath, Exercise
+    ├── Curriculum(Entity) → PathStep, LearningPath, Exercise
     └── Resource(Entity)
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md

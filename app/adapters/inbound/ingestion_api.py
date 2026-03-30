@@ -401,7 +401,8 @@ def create_ingestion_api_routes(
                 "lesson": EntityType.LESSON,
                 "article": EntityType.LESSON,
                 "ku": EntityType.LESSON,
-                "ls": EntityType.LEARNING_STEP,
+                "ps": EntityType.PATH_STEP,
+                "ls": EntityType.PATH_STEP,  # backward-compat alias
                 "lp": EntityType.LEARNING_PATH,
                 "tasks": EntityType.TASK,
                 "goals": EntityType.GOAL,

@@ -6,7 +6,7 @@ UI for curriculum browser sub-pages.
 Routes:
 - GET /curriculum — 301 redirect to /profile (shelved: landing page deprecated)
 - GET /lessons — Lesson browser
-- GET /learning-steps — Learning Steps browser
+- GET /path-steps — Learning Steps browser
 - GET /learning-paths — Learning Paths browser
 """
 
@@ -82,21 +82,21 @@ def create_curriculum_hub_ui_routes(
             active_page="curriculum",
         )
 
-    @rt("/learning-steps")
-    async def learning_steps_browser(request) -> Any:
+    @rt("/path-steps")
+    async def path_steps_browser(request) -> Any:
         """Learning Steps browser."""
         require_authenticated_user(request)
 
-        ls_service = services.ls
+        ps_service = services.ps
         items: list[Any] = []
-        if ls_service:
-            result = await ls_service.core.list(limit=50)
+        if ps_service:
+            result = await ps_service.core.list(limit=50)
             if not result.is_error:
                 items = result.value if isinstance(result.value, list) else result.value[0]
 
         content = Div(
             PageHeader("Learning Steps", subtitle="Collections of lessons grouped by theme"),
-            _entity_list(items, "learning-steps", "No learning steps found"),
+            _entity_list(items, "learning-steps", "No path steps found"),
             id="main-content",
         )
         return await BasePage(
@@ -119,7 +119,7 @@ def create_curriculum_hub_ui_routes(
                 items = result.value if isinstance(result.value, list) else result.value[0]
 
         content = Div(
-            PageHeader("Learning Paths", subtitle="Ordered sequences of learning step collections"),
+            PageHeader("Learning Paths", subtitle="Ordered sequences of path step collections"),
             _entity_list(items, "learning-paths", "No learning paths found"),
             id="main-content",
         )

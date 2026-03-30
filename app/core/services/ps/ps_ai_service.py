@@ -15,8 +15,8 @@ NOTE: LS is a Curriculum domain - content is SHARED (no user_uid ownership).
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.pathways.learning_step import LearningStep
-from core.ports import LsOperations
+from core.models.pathways.path_step import PathStep
+from core.ports import PsOperations
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from core.services.llm_service import LLMService
 
 
-class LsAIService(BaseAIService[LsOperations, LearningStep]):
+class PsAIService(BaseAIService[PsOperations, PathStep]):
     """
     AI-powered features for Learning Steps domain.
 
@@ -39,11 +39,11 @@ class LsAIService(BaseAIService[LsOperations, LearningStep]):
     - Prerequisite recommendations
     """
 
-    _service_name = "ls.ai"
+    _service_name = "ps.ai"
 
     def __init__(
         self,
-        backend: LsOperations,
+        backend: PsOperations,
         llm_service: "LLMService",
         embeddings_service: "HuggingFaceEmbeddingsService",
         event_bus: Any | None = None,
@@ -56,33 +56,33 @@ class LsAIService(BaseAIService[LsOperations, LearningStep]):
         )
 
     async def find_similar_steps(
-        self, ls_uid: str, limit: int = 5
+        self, ps_uid: str, limit: int = 5
     ) -> Result[list[tuple[str, float]]]:
-        """Find semantically similar learning steps using embeddings."""
-        ls_result = await self.backend.get(ls_uid)
-        if ls_result.is_error:
-            return Result.fail(ls_result)
+        """Find semantically similar path steps using embeddings."""
+        ps_result = await self.backend.get(ps_uid)
+        if ps_result.is_error:
+            return Result.fail(ps_result)
 
-        ls = ls_result.value
-        if not ls:
-            return Result.fail(Errors.not_found(resource="LearningStep", identifier=ls_uid))
+        ps = ps_result.value
+        if not ps:
+            return Result.fail(Errors.not_found(resource="PathStep", identifier=ps_uid))
 
-        search_text = f"{ls.title}"
-        if ls.intent:
-            search_text += f" {ls.intent}"
-        if ls.description:
-            search_text += f" {ls.description}"
+        search_text = f"{ps.title}"
+        if ps.intent:
+            search_text += f" {ps.intent}"
+        if ps.description:
+            search_text += f" {ps.description}"
 
         all_steps_result = await self.backend.list(limit=200)
         if all_steps_result.is_error:
             return Result.fail(all_steps_result)
 
         all_steps_data, _count = all_steps_result.value
-        all_steps: list[LearningStep] = all_steps_data or []
+        all_steps: list[PathStep] = all_steps_data or []
         candidates = [
             (s.uid, f"{s.title} {s.intent or ''} {s.description or ''}")
             for s in all_steps
-            if s.uid != ls_uid
+            if s.uid != ps_uid
         ]
 
         if not candidates:
@@ -90,15 +90,15 @@ class LsAIService(BaseAIService[LsOperations, LearningStep]):
 
         return await self._semantic_search(search_text, candidates, limit)
 
-    async def explain_step(self, ls_uid: str, detail_level: str = "standard") -> Result[str]:
-        """Generate an AI-powered explanation of a learning step."""
-        ls_result = await self.backend.get(ls_uid)
-        if ls_result.is_error:
-            return Result.fail(ls_result)
+    async def explain_step(self, ps_uid: str, detail_level: str = "standard") -> Result[str]:
+        """Generate an AI-powered explanation of a path step."""
+        ps_result = await self.backend.get(ps_uid)
+        if ps_result.is_error:
+            return Result.fail(ps_result)
 
-        ls = ls_result.value
-        if not ls:
-            return Result.fail(Errors.not_found(resource="LearningStep", identifier=ls_uid))
+        ps = ps_result.value
+        if not ps:
+            return Result.fail(Errors.not_found(resource="PathStep", identifier=ps_uid))
 
         level_guidance = {
             "brief": "Provide a 2-3 sentence overview.",
@@ -107,15 +107,15 @@ class LsAIService(BaseAIService[LsOperations, LearningStep]):
         }
 
         context = {
-            "title": ls.title,
-            "intent": ls.intent or "Not specified",
-            "description": ls.description or "No description",
-            "estimated_time": f"{ls.estimated_hours or 1.0} hours",
+            "title": ps.title,
+            "intent": ps.intent or "Not specified",
+            "description": ps.description or "No description",
+            "estimated_time": f"{ps.estimated_hours or 1.0} hours",
         }
 
         guidance = level_guidance.get(detail_level, level_guidance["standard"])
 
-        prompt = f"""Explain this learning step. {guidance}
+        prompt = f"""Explain this path step. {guidance}
 
 Focus on:
 1. What the learner will understand or be able to do
@@ -125,24 +125,24 @@ Focus on:
         return await self._generate_insight(prompt, context=context, max_tokens=300)
 
     async def suggest_practice_activities(
-        self, ls_uid: str, num_activities: int = 3
+        self, ps_uid: str, num_activities: int = 3
     ) -> Result[list[dict[str, str]]]:
-        """Suggest practice activities for a learning step."""
-        ls_result = await self.backend.get(ls_uid)
-        if ls_result.is_error:
-            return Result.fail(ls_result)
+        """Suggest practice activities for a path step."""
+        ps_result = await self.backend.get(ps_uid)
+        if ps_result.is_error:
+            return Result.fail(ps_result)
 
-        ls = ls_result.value
-        if not ls:
-            return Result.fail(Errors.not_found(resource="LearningStep", identifier=ls_uid))
+        ps = ps_result.value
+        if not ps:
+            return Result.fail(Errors.not_found(resource="PathStep", identifier=ps_uid))
 
         context = {
-            "title": ls.title,
-            "intent": ls.intent or "Not specified",
-            "description": ls.description or "No description",
+            "title": ps.title,
+            "intent": ps.intent or "Not specified",
+            "description": ps.description or "No description",
         }
 
-        prompt = f"""Suggest {num_activities} practice activities for this learning step.
+        prompt = f"""Suggest {num_activities} practice activities for this path step.
 
 Each activity should:
 - Be specific and actionable
@@ -180,23 +180,23 @@ DESCRIPTION: [what to do]"""
 
         return Result.ok(activities[:num_activities])
 
-    async def generate_step_insight(self, ls_uid: str) -> Result[str]:
-        """Generate AI-written insight about a learning step."""
-        ls_result = await self.backend.get(ls_uid)
-        if ls_result.is_error:
-            return Result.fail(ls_result)
+    async def generate_step_insight(self, ps_uid: str) -> Result[str]:
+        """Generate AI-written insight about a path step."""
+        ps_result = await self.backend.get(ps_uid)
+        if ps_result.is_error:
+            return Result.fail(ps_result)
 
-        ls = ls_result.value
-        if not ls:
-            return Result.fail(Errors.not_found(resource="LearningStep", identifier=ls_uid))
+        ps = ps_result.value
+        if not ps:
+            return Result.fail(Errors.not_found(resource="PathStep", identifier=ps_uid))
 
         context = {
-            "title": ls.title,
-            "intent": ls.intent or "Not specified",
-            "sequence": ls.sequence if ls.sequence else "Standalone",
+            "title": ps.title,
+            "intent": ps.intent or "Not specified",
+            "sequence": ps.sequence if ps.sequence else "Standalone",
         }
 
-        prompt = """Provide a brief, encouraging insight about this learning step.
+        prompt = """Provide a brief, encouraging insight about this path step.
 Focus on:
 1. The value of mastering this step
 2. A tip for staying motivated

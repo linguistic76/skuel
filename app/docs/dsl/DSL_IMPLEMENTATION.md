@@ -132,7 +132,7 @@ def parse_context(value: str) -> list[EntityType]:
 **Example:**
 ```python
 parse_context("task, learning")
-# Result: [EntityType.TASK, EntityType.LEARNING_STEP]
+# Result: [EntityType.TASK, EntityType.PATH_STEP]
 ```
 
 ---
@@ -552,7 +552,7 @@ CREATE (t)-[:FULFILLS_GOAL]->(g)
 def test_parse_context():
     assert parse_context("task") == [EntityType.TASK]
     assert parse_context("task, habit") == [EntityType.TASK, EntityType.HABIT]
-    assert parse_context("task,learning") == [EntityType.TASK, EntityType.LEARNING_STEP]
+    assert parse_context("task,learning") == [EntityType.TASK, EntityType.PATH_STEP]
 
 def test_parse_when():
     result = parse_when("2025-11-30T09:30")
@@ -593,7 +593,7 @@ def test_full_activity_line_parsing():
     assert result is not None
     assert result.description == "Draft lesson"
     assert EntityType.TASK in result.contexts
-    assert EntityType.LEARNING_STEP in result.contexts
+    assert EntityType.PATH_STEP in result.contexts
     assert result.when == datetime(2025, 11, 30, 9, 0)
     assert result.priority == 1
     assert result.duration_minutes == 90

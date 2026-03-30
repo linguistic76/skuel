@@ -78,7 +78,7 @@ def is_connected(self) -> bool:
 | Choice | 2 | 8+ | 10+ |
 | Principle | 2 | 6+ | 8+ |
 | KU | 13 | 2 | 15 |
-| LS | 6 | 2 | 8 |
+| PS | 6 | 2 | 8 |
 | LP | 1 | 0 | 1 |
 | MOC | 3 | 1 | 4 |
 | User | 4 | 2 | 6 |

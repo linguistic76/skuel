@@ -27,7 +27,7 @@ and learning path integration.
 - optimize_habit_schedule(): Find best days/times
 - suggest_habit_frequency(): Recommend frequency
 - suggest_habit_stacking(): Find habits to stack
-- create_habit_from_learning_step(): Generate practice habit
+- create_habit_from_path_step(): Generate practice habit
 """
 
 from __future__ import annotations
@@ -770,22 +770,22 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
     # LEARNING PATH INTEGRATION
     # ========================================================================
 
-    @with_error_handling("create_habit_from_learning_step", error_type="database")
-    async def create_habit_from_learning_step(
+    @with_error_handling("create_habit_from_path_step", error_type="database")
+    async def create_habit_from_path_step(
         self,
-        learning_step_uid: str,
+        path_step_uid: str,
         user_context: UserContext,
         frequency: RecurrencePattern = RecurrencePattern.DAILY,
         duration_minutes: int = 15,
     ) -> Result[Habit]:
         """
-        Generate a practice habit from a learning step.
+        Generate a practice habit from a path step.
 
-        Creates a habit designed to reinforce a specific learning step
+        Creates a habit designed to reinforce a specific path step
         through regular practice.
 
         Args:
-            learning_step_uid: UID of the learning step
+            path_step_uid: UID of the path step
             user_context: User context
             frequency: Practice frequency
             duration_minutes: Practice duration
@@ -813,15 +813,15 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         # Create habit for learning practice
         habit_dict = {
             "user_uid": user_context.user_uid,
-            "name": f"Practice: {learning_step_uid}",
-            "description": f"Daily practice to master learning step {learning_step_uid}",
+            "name": f"Practice: {path_step_uid}",
+            "description": f"Daily practice to master path step {path_step_uid}",
             "category": HabitCategory.LEARNING,
             "difficulty": HabitDifficulty.MODERATE,
             "recurrence_pattern": frequency,
             "target_days_per_week": 7 if frequency == RecurrencePattern.DAILY else 3,
             "duration_minutes": duration_minutes,
             "preferred_time": capacity_result.value.get("suggested_time", "morning"),
-            "source_learning_step_uid": learning_step_uid,
+            "source_path_step_uid": path_step_uid,
             "curriculum_practice_type": "daily_review",
             "priority": Priority.HIGH,
             "tags": ["learning", "practice", "curriculum"],
@@ -844,7 +844,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         await publish_event(self.event_bus, event, self.logger)
 
         self.logger.info(
-            f"Created learning practice habit '{habit.title}' from step {learning_step_uid}"
+            f"Created learning practice habit '{habit.title}' from step {path_step_uid}"
         )
 
         return Result.ok(habit)

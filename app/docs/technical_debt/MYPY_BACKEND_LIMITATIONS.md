@@ -203,7 +203,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol]:
 The backend received a cohesion pass that:
 - Fixed a tuple bug in `direction="both"` pattern
 - Added `_build_direction_pattern()` helper method (reduces 30 lines of duplication)
-- Removed unnecessary driver guards from LS/LP services (fail-fast alignment)
+- Removed unnecessary driver guards from PS/LP services (fail-fast alignment)
 
 These changes do not affect the documented MyPy limitations - they remain as expected static analysis limitations of the 100% dynamic pattern.
 

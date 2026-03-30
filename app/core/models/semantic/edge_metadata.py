@@ -92,7 +92,7 @@ class EdgeMetadata:
     How often these entities appear together in learning contexts.
 
     Incremented when:
-    - Both appear in same learning step
+    - Both appear in same path step
     - Both appear in same task
     - Both appear in same journal entry
     - Both appear in same conversation

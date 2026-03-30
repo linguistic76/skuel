@@ -84,7 +84,7 @@ UserContextIntelligenceFactory (13-Domain Synthesis)
 | Method | Description |
 |--------|-------------|
 | `get_daily_work_plan(context)` | **THE FLAGSHIP** - optimal daily plan |
-| `get_optimal_next_learning_steps(context)` | Prerequisite-aware learning sequence |
+| `get_optimal_next_path_steps(context)` | Prerequisite-aware learning sequence |
 | `get_learning_path_critical_path(context)` | Fastest route to life path |
 | `get_knowledge_application_opportunities(context, ku_uid)` | Where to apply knowledge |
 | `get_unblocking_priority_order(context)` | Learning order by unlock impact |
@@ -129,9 +129,9 @@ When generating recommendations, Askesis follows this priority order:
 | Dependency | Purpose |
 |------------|---------|
 | `citation_service` | Evidence transparency (Phase 4C) |
-| `ku_service` | LS bundle KU fetching (for ContextRetriever) |
-| `lp_service` | LS bundle LP fetching (for ContextRetriever) |
-| `principles_service` | LS bundle principle fetching (for ContextRetriever) |
+| `ku_service` | PS bundle KU fetching (for ContextRetriever) |
+| `lp_service` | PS bundle LP fetching (for ContextRetriever) |
+| `principles_service` | PS bundle principle fetching (for ContextRetriever) |
 
 **Note (January 2026):** `learning_orchestrator` and `cascade_manager` were removed per One Path Forward philosophy - unused dependencies eliminated.
 
@@ -246,7 +246,7 @@ if result.is_ok:
 - `answer_user_question()` - Full RAG with guided pipeline
 - `process_query_with_context()` - Context-enriched processing with guided pipeline
 
-Both methods run the same LP-scoped pipeline: LP enrollment gate → intent classification → LS bundle loading → ZPD evidence → GuidanceMode determination → guided system prompt → LLM generation. Falls back to standard global RAG when no LS bundle is available.
+Both methods run the same LP-scoped pipeline: LP enrollment gate → intent classification → PS bundle loading → ZPD evidence → GuidanceMode determination → guided system prompt → LLM generation. Falls back to standard global RAG when no PS bundle is available.
 
 **January 2026 Decomposition:** Intent classification and response generation extracted to separate services.
 
@@ -297,15 +297,15 @@ Both methods run the same LP-scoped pipeline: LP enrollment gate → intent clas
 
 **Strategies:** Exact match, partial word match, acronym match
 
-### ContextRetriever (March 2026 - Retrieval + LS Bundle Loading)
+### ContextRetriever (March 2026 - Retrieval + PS Bundle Loading)
 
-**Purpose:** Retrieve domain-specific context and load LS bundles for guided pipeline
+**Purpose:** Retrieve domain-specific context and load PS bundles for guided pipeline
 
 **Key Methods:**
 - `get_learning_context()` - Learning-focused context
 - `analyze_knowledge_gaps()` - Gap identification with prerequisite analysis
 - `retrieve_relevant_context()` - Multi-domain context
-- `load_ls_bundle()` - Load complete LS bundle from UserContext + service lookups (absorbed from LSContextLoader, March 2026)
+- `load_ps_bundle()` - Load complete PS bundle from UserContext + service lookups (absorbed from LSContextLoader, March 2026)
 
 **Internal Methods:**
 - `_find_similar_knowledge()` - Semantic search via EmbeddingsService (cosine similarity ≥0.6)
@@ -316,7 +316,7 @@ Both methods run the same LP-scoped pipeline: LP enrollment gate → intent clas
 - `_fetch_lessons()`, `_fetch_kus()`, `_fetch_entities_by_uid()` - Parallel entity fetching via `asyncio.gather()`
 - `_fetch_cited_resources()` - Resources via `LessonBackend.get_cited_resources()`
 
-**LS bundle deps** use `EntityLookup` protocol (async `get(uid) -> Result[Any]`): lesson_service, ku_service, habits_service, tasks_service, events_service, principles_service, lp_service.
+**PS bundle deps** use `EntityLookup` protocol (async `get(uid) -> Result[Any]`): lesson_service, ku_service, habits_service, tasks_service, events_service, principles_service, lp_service.
 
 **Backend deps** for graph queries (March 2026 — migrated from inline Cypher): `ku_backend` (KuBackend), `lesson_backend` (LessonBackend).
 
@@ -342,7 +342,7 @@ If `entities_rich` is empty, these mixins return empty signals and the daily pla
 The 13 domains used in Askesis intelligence:
 
 - **Activity (6):** Tasks, Goals, Habits, Events, Choices, Principles
-- **Curriculum (3):** KU, LS, LP
+- **Curriculum (3):** KU, PS, LP
 - **Processing (3):** Submissions, Journals, Feedback
 - **Temporal Domain (1):** Calendar
 
@@ -442,7 +442,7 @@ print('Protocol defined correctly')
 |-----------|--------|-------|
 | **IntentClassifier** | 100% | 7 intent types, 48 exemplars + GuidanceDetermination |
 | **EntityExtractor** | 100% | Multi-domain extraction + bundle-scoped extraction |
-| **ContextRetriever** | 100% | Semantic search, gap analysis, LS bundle loading (parallel fetching) |
+| **ContextRetriever** | 100% | Semantic search, gap analysis, PS bundle loading (parallel fetching) |
 | **QueryProcessor** | 100% | LP-scoped, GuidanceMode-aware pipeline in both entry points |
 | **ResponseGenerator** | 100% | Action generation, context building, 4 guided system prompt builders |
 | **UserStateAnalyzer** | 100% | State scoring via pure functions |

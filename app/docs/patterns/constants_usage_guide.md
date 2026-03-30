@@ -157,8 +157,8 @@ if user_mastery >= MasteryLevel.COMPETENT:
     # User is ready for advanced content
     ...
 
-# Create learning step with mastery threshold
-step = LearningStep(
+# Create path step with mastery threshold
+step = PathStep(
     knowledge_uid="ku.python_basics",
     mastery_threshold=MasteryLevel.PROFICIENT  # ✅ Clear expectation
 )
@@ -231,7 +231,7 @@ Character budgets for Askesis LLM context construction (~4 chars ≈ 1 token). P
 
 | Constant | Value | Purpose |
 |----------|-------|---------|
-| `MAX_CURRICULUM_CHARS` | 10000 | Cap for `LSBundle.curriculum_context_text` |
+| `MAX_CURRICULUM_CHARS` | 10000 | Cap for `PsBundle.curriculum_context_text` |
 | `MAX_LLM_CONTEXT_CHARS` | 12000 | Cap for `ResponseGenerator.build_llm_context()` output |
 | `MAX_USER_PROMPT_CURRICULUM_CHARS` | 10000 | Cap for curriculum injected into guided pipeline user prompt |
 

@@ -254,7 +254,7 @@ config = KU_CONFIG
 
 ## See Also
 
-- [LS Domain](ls.md) - Learning Steps aggregate KUs
+- [PS Domain](ls.md) - Path Steps aggregate KUs
 - [LP Domain](lp.md) - Learning Paths sequence KUs
 - [MOC Domain](moc.md) - MOCs navigate KUs
 - [Curriculum Grouping Patterns](../architecture/CURRICULUM_GROUPING_PATTERNS.md)

@@ -178,7 +178,7 @@ Entity (~19 fields)
 │   ├── ExerciseReport(UserOwnedEntity)  (NOT Submission — report fields only)
 │   ├── JeInput, JeOutput  (standalone journal domain)
 │   └── LifePath
-├── Curriculum(Entity) +21 fields → LearningStep, LearningPath, Exercise
+├── Curriculum(Entity) +21 fields → PathStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields
 ```
 
@@ -191,7 +191,7 @@ EntityDTO (~18 fields)
 ├── UserOwnedDTO → SubmissionDTO → ExerciseSubmissionDTO
 ├── UserOwnedDTO → ExerciseReportDTO
 ├── UserOwnedDTO → JeInputDTO, JeOutputDTO  (standalone journal domain)
-├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
+├── CurriculumDTO(EntityDTO) → PathStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
 
@@ -225,7 +225,7 @@ core/models/ku/                    # Domain models (Tier 3) + DTOs (Tier 2)
 ├── activity_report.py / activity_report_dto.py # ActivityReport(UserOwnedEntity) — no file fields
 ├── exercise_report.py / exercise_report_dto.py  # ExerciseReport(UserOwnedEntity)
 ├── curriculum.py / curriculum_dto.py # Curriculum base
-├── learning_step.py / learning_step_dto.py # LearningStep(Curriculum)
+├── path_step.py / path_step_dto.py # PathStep(Curriculum)
 ├── learning_path.py / learning_path_dto.py # LearningPath(Curriculum)
 ├── exercise.py / exercise_dto.py  # Exercise(Curriculum)
 ├── resource.py / resource_dto.py  # Resource(Entity)
@@ -328,7 +328,7 @@ See [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) for comprehensive v
 - Literal types for enums (ExpenseStatus, PaymentMethod, etc.)
 
 **Curriculum Domain** (`core/models/lesson/lesson_request.py` and `core/models/pathways/pathways_request.py`):
-- `LessonCreateRequest`, `LearningStepCreateRequest`, `LearningPathCreateRequest` (used by ingestion, not CRUD routes)
+- `LessonCreateRequest`, `PathStepCreateRequest`, `LearningPathCreateRequest` (used by ingestion, not CRUD routes)
 
 **Activity Domain Request Models** (domain-specific packages):
 - `TaskCreateRequest`, `TaskUpdateRequest` (`core/models/task/task_request.py`)
@@ -568,7 +568,7 @@ disable_error_code = [
 
 As of February 2026 (domain-first architecture complete):
 - All 6 Activity domains: Task, Goal, Habit, Event, Choice, Principle (extend `UserOwnedEntity`)
-- All 3 Curriculum domains: LearningStep, LearningPath, Exercise (extend `Curriculum`)
+- All 3 Curriculum domains: PathStep, LearningPath, Exercise (extend `Curriculum`)
 - Resource domain (extends `Entity`)
 - Submissions: ExerciseSubmission (extends `Submission(UserOwnedEntity)`)
 - Journal: JeInput, JeOutput (extend `UserOwnedEntity` directly — standalone domain)
@@ -645,7 +645,7 @@ Domain-specific TypedDicts for update operations:
 | `FinanceUpdatePayload` | Finance | `status`, `amount`, `paid_at`, `receipt_link`, `has_receipt` |
 | `SubmissionUpdatePayload` | Submissions | `status`, `processing_started_at`, `processing_completed_at` |
 | `KuUpdatePayload` | KU (cross-domain) | `status`, `difficulty`, `estimated_hours` |
-| `LsUpdatePayload` | LS | `status`, `sequence_number` |
+| `PsUpdatePayload` | PS | `status`, `sequence_number` |
 | `LpUpdatePayload` | LP | `progress`, `is_completed` |
 
 ### Filter Specification TypedDicts
@@ -810,7 +810,7 @@ SKUEL uses two approved patterns: **Domain-First (Pattern A)** for most domains,
 
 | Pattern | Files | Tiers | Use For | Domains |
 |---------|-------|-------|---------|---------|
-| **Domain-First** | Per-domain model + per-domain DTO | Pydantic -> DTO -> Entity hierarchy | All 15 EntityType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP, Reports, LifePath |
+| **Domain-First** | Per-domain model + per-domain DTO | Pydantic -> DTO -> Entity hierarchy | All 15 EntityType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP, Reports, LifePath |
 | **B: Two-Tier** | 2 | Pydantic -> DTO | Simple CRUD, minimal logic | Finance (1 domain) |
 
 **Decision Matrix:**

@@ -34,7 +34,7 @@ class LpType(StrEnum):
 class RecommendationType(StrEnum):
     """Types of adaptive recommendations."""
 
-    NEXT_STEP = "next_step"  # Logical next learning step
+    NEXT_STEP = "next_step"  # Logical next path step
     PREREQUISITE = "prerequisite"  # Missing prerequisites
     APPLICATION = "application"  # Practice/application opportunity
     REVIEW = "review"  # Reinforcement of existing knowledge

@@ -72,7 +72,7 @@ from core.services.user.intelligence import (
 from core.services.user.intelligence import (
     LifePathAlignment,
     CrossDomainSynergy,
-    LearningStep,
+    PathStep,
     DailyWorkPlan,
     ScheduleAwareRecommendation,
 )
@@ -96,7 +96,7 @@ UserContextIntelligence provides 8 core methods across 5 mixins:
 
 | # | Method | Mixin | Question Answered |
 |---|--------|-------|-------------------|
-| 1 | `get_optimal_next_learning_steps()` | LearningIntelligenceMixin | What should I learn next? |
+| 1 | `get_optimal_next_path_steps()` | LearningIntelligenceMixin | What should I learn next? |
 | 2 | `get_learning_path_critical_path()` | LearningIntelligenceMixin | Fastest route to life path? |
 | 3 | `get_knowledge_application_opportunities()` | LearningIntelligenceMixin | Where can I apply this knowledge? |
 | 4 | `get_unblocking_priority_order()` | LearningIntelligenceMixin | What unlocks the most? |
@@ -124,17 +124,17 @@ UserContextIntelligence requires ALL 13 domain services because each contributes
 | **choices** | What decisions await? | `choices_service.relationships` (UnifiedRelationshipService) |
 | **principles** | What values guide this? | `principles_service.relationships` (UnifiedRelationshipService) |
 
-### Curriculum (4) - LS/LP unified in January 2026, Lesson/KU split March 2026
+### Curriculum (4) - PS/LP unified in January 2026, Lesson/KU split March 2026
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
 | **lesson** | What teaching content is ready? | `lesson_service` (LessonService facade) |
 | **ku** | Atomic knowledge reference | `ku_service` (KuService) |
-| **ls** | Learning step relationships | `ls_service.relationships` (UnifiedRelationshipService) |
+| **ls** | Learning step relationships | `ps_service.relationships` (UnifiedRelationshipService) |
 | **lp** | Critical path to life path | `lp_service.relationships` (UnifiedRelationshipService) |
 
 **January 2026 Consolidation:**
-- `LsRelationshipService` DELETED → LS now uses `UnifiedRelationshipService` with LS domain config
+- `LsRelationshipService` DELETED → PS now uses `UnifiedRelationshipService` with PS domain config
 - `LpRelationshipService` DELETED → LP now uses `UnifiedRelationshipService` with LP domain config
 - All curriculum relationships now use the same unified service pattern as Activity domains
 
@@ -256,7 +256,7 @@ async def get_ready_to_work_on_today(self) -> Result[DailyWorkPlan]:
 
 ---
 
-## Method 1: get_optimal_next_learning_steps()
+## Method 1: get_optimal_next_path_steps()
 
 **Mixin:** LearningIntelligenceMixin
 
@@ -264,12 +264,12 @@ async def get_ready_to_work_on_today(self) -> Result[DailyWorkPlan]:
 
 **Signature:**
 ```python
-async def get_optimal_next_learning_steps(
+async def get_optimal_next_path_steps(
     self,
     max_steps: int = 5,
     consider_goals: bool = True,
     consider_capacity: bool = True,
-) -> list[LearningStep]:
+) -> list[PathStep]:
 ```
 
 **Parameters:**
@@ -280,7 +280,7 @@ async def get_optimal_next_learning_steps(
 **Returns:**
 ```python
 [
-    LearningStep(
+    PathStep(
         ku_uid="ku.python-async",
         title="Python Async Programming",
         rationale="Needed for 2 goals, unlocks 5 tasks, prerequisites met",
@@ -308,7 +308,7 @@ async def get_optimal_next_learning_steps(
 **Example:**
 ```python
 intelligence = factory.create(context)
-steps = await intelligence.get_optimal_next_learning_steps(
+steps = await intelligence.get_optimal_next_path_steps(
     max_steps=3,
     consider_goals=True,
     consider_capacity=True
@@ -329,7 +329,7 @@ for step in steps:
 
 **Mixin:** LearningIntelligenceMixin
 
-**Purpose:** Find the fastest route to the user's life path by identifying critical learning steps.
+**Purpose:** Find the fastest route to the user's life path by identifying critical path steps.
 
 **Signature:**
 ```python
@@ -337,7 +337,7 @@ async def get_learning_path_critical_path(
     self,
     life_path_uid: str | None = None,
     max_depth: int = 5,
-) -> list[LearningStep]:
+) -> list[PathStep]:
 ```
 
 **Parameters:**
@@ -345,7 +345,7 @@ async def get_learning_path_critical_path(
 - `max_depth` (int, default=5) - Maximum prerequisite chain depth
 
 **Returns:**
-Ordered list of LearningStep objects representing the critical path.
+Ordered list of PathStep objects representing the critical path.
 
 **Algorithm:**
 1. Get user's life path (from context or parameter)
@@ -858,7 +858,7 @@ class UserContextIntelligence(
 **Location:** `/core/services/user/intelligence/learning_intelligence.py` (445 lines)
 
 **Methods:**
-1. `get_optimal_next_learning_steps()` - What should I learn next?
+1. `get_optimal_next_path_steps()` - What should I learn next?
 2. `get_learning_path_critical_path()` - Fastest route to life path?
 3. `get_knowledge_application_opportunities()` - Where can I apply this?
 4. `get_unblocking_priority_order()` - What unlocks the most?
@@ -927,11 +927,11 @@ factory = UserContextIntelligenceFactory(
     principles=principles_service.relationships,
     # Curriculum (3)
     lesson=lesson_service,  # LessonService facade
-    ls=ls_service.relationships,
+    ls=ps_service.relationships,
     lp=lp_service.relationships,
     # Processing (3)
     assignments=assignments_service.relationships,
-    journals=journals_service.relationships,
+    journals=journaps_service.relationships,
     reports=reports_service.relationships,
     # Temporal Domain (1)
     calendar=calendar_service,
@@ -1073,11 +1073,11 @@ class CrossDomainSynergy:
     recommendations: list[str]
 ```
 
-### LearningStep
+### PathStep
 
 ```python
 @dataclass
-class LearningStep:
+class PathStep:
     ku_uid: str
     title: str
     rationale: str
@@ -1150,13 +1150,13 @@ class ScheduleAwareRecommendation:
 **Location:** `/tests/integration/`
 
 Test intelligence methods and user context workflow:
-async def test_get_optimal_next_learning_steps():
+async def test_get_optimal_next_path_steps():
     # Mock context and services
     context = create_mock_context()
     intelligence = create_test_intelligence(context)
 
     # Test
-    steps = await intelligence.get_optimal_next_learning_steps(max_steps=3)
+    steps = await intelligence.get_optimal_next_path_steps(max_steps=3)
 
     # Assert
     assert len(steps) <= 3
@@ -1224,7 +1224,7 @@ async def _get_intelligence_data(context: UserContext) -> Result[dict[str, Any] 
         return Result.ok(None)  # Configuration error → basic mode
 
     # Independent calls — partial failures tracked, not propagated
-    daily_plan = alignment = synergies = learning_steps = None
+    daily_plan = alignment = synergies = path_steps = None
     partial_errors: list[str] = []
 
     plan_result = await intelligence.get_ready_to_work_on_today()
@@ -1233,14 +1233,14 @@ async def _get_intelligence_data(context: UserContext) -> Result[dict[str, Any] 
     else:
         daily_plan = plan_result.value
 
-    # ... same pattern for alignment, synergies, learning_steps ...
+    # ... same pattern for alignment, synergies, path_steps ...
 
-    if all(v is None for v in [daily_plan, alignment, synergies, learning_steps]):
+    if all(v is None for v in [daily_plan, alignment, synergies, path_steps]):
         return Result.fail(Errors.system("All intelligence calls failed"))
 
     return Result.ok({
         "daily_plan": daily_plan, "alignment": alignment,
-        "synergies": synergies, "learning_steps": learning_steps,
+        "synergies": synergies, "path_steps": path_steps,
         "partial_errors": partial_errors,
     })
 ```
@@ -1263,7 +1263,7 @@ if intel_data.get("alignment") is not None:
     sections.append(_alignment_breakdown(intel_data["alignment"]))
 if intel_data.get("daily_plan") is not None:
     sections.append(_daily_work_plan_card(intel_data["daily_plan"]))
-# ... etc for synergies, learning_steps
+# ... etc for synergies, path_steps
 ```
 
 **Key Distinction:** `None` means "call failed" — distinct from empty list `[]` which is valid data (user has no synergies).
@@ -1301,13 +1301,13 @@ if intel_data.get("daily_plan") is not None:
 
 - **Domain Intelligence Services:**
   - `/docs/intelligence/TASKS_INTELLIGENCE.md`
-  - `/docs/intelligence/GOALS_INTELLIGENCE.md`
+  - `/docs/intelligence/GOAPS_INTELLIGENCE.md`
   - `/docs/intelligence/HABITS_INTELLIGENCE.md`
   - `/docs/intelligence/EVENTS_INTELLIGENCE.md`
   - `/docs/intelligence/CHOICES_INTELLIGENCE.md`
   - `/docs/intelligence/PRINCIPLES_INTELLIGENCE.md`
   - `/docs/intelligence/KU_INTELLIGENCE.md`
-  - `/docs/intelligence/LS_INTELLIGENCE.md`
+  - `/docs/intelligence/PS_INTELLIGENCE.md`
   - `/docs/intelligence/LP_INTELLIGENCE.md`
 
 - **UserContext:** `/core/services/user/unified_user_context.py`

@@ -344,7 +344,7 @@ ACTIVITY_REPORT node
 
 `ProgressReportGenerator` accepts a `UserContextBuilder` (primary data source). The primary data comes from `context_builder.build_rich(user_uid, window=...)` — MEGA_QUERY extended with six activity-window CALL{} blocks. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressReportGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
 
-`ActivityReportBackend` owns the ActivityReport entity's persistence and privacy audit queries (get_history, annotate, get_annotation, get_admin_snapshots, get_shares_granted, get_report_schedule). `ProgressReportGenerator` is the cross-domain *aggregation* layer that builds report *content* — the backend handles *storage*. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_learning_steps_rich`) gives the full cross-domain picture in a single Neo4j round-trip.
+`ActivityReportBackend` owns the ActivityReport entity's persistence and privacy audit queries (get_history, annotate, get_annotation, get_admin_snapshots, get_shares_granted, get_report_schedule). `ProgressReportGenerator` is the cross-domain *aggregation* layer that builds report *content* — the backend handles *storage*. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_path_steps_rich`) gives the full cross-domain picture in a single Neo4j round-trip.
 
 ### Summary
 

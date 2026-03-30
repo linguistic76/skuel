@@ -58,10 +58,10 @@ def _wire_event_subscribers(
         LearningPathCompleted,
         LearningPathProgressUpdated,
         LearningPathStarted,
-        LearningStepCompleted,
-        LearningStepCreated,
-        LearningStepDeleted,
-        LearningStepUpdated,
+        PathStepCompleted,
+        PathStepCreated,
+        PathStepDeleted,
+        PathStepUpdated,
         PrincipleAlignmentAssessed,
         PrincipleCreated,
         PrincipleDeleted,
@@ -241,10 +241,10 @@ def _wire_event_subscribers(
         LearningPathStarted,
         LearningPathCompleted,
         LearningPathProgressUpdated,
-        LearningStepCreated,
-        LearningStepUpdated,
-        LearningStepDeleted,
-        LearningStepCompleted,
+        PathStepCreated,
+        PathStepUpdated,
+        PathStepDeleted,
+        PathStepCompleted,
     ]
     for event_type in learning_context_events:
         event_bus.subscribe(event_type, invalidate_context_if_user)
@@ -278,7 +278,7 @@ def _wire_event_subscribers(
 
     # Knowledge mastery → Learning Path progress update
     lp_service = learning_services["learning_paths"]
-    ls_service = learning_services["learning_steps"]
+    ps_service = learning_services["path_steps"]
     ku_service_for_mastery = learning_services["lesson_service"]
 
     event_bus.subscribe(KnowledgeMastered, lp_service.progress.handle_knowledge_mastered)
@@ -293,14 +293,14 @@ def _wire_event_subscribers(
     )
 
     # Lesson completion → LS progress update
-    event_bus.subscribe(LessonCompleted, ls_service.progress.handle_lesson_completed)
+    event_bus.subscribe(LessonCompleted, ps_service.progress.handle_lesson_completed)
     logger.info(
-        "✅ LsProgressService subscribed to LessonCompleted (automatic LS progress updates)"
+        "✅ PsProgressService subscribed to LessonCompleted (automatic LS progress updates)"
     )
 
     # LS completion → LP progress update (chain: LS→LP)
-    event_bus.subscribe(LearningStepCompleted, lp_service.progress.handle_step_completed)
-    logger.info("✅ LpProgressService subscribed to LearningStepCompleted (LS→LP progress chain)")
+    event_bus.subscribe(PathStepCompleted, lp_service.progress.handle_step_completed)
+    logger.info("✅ LpProgressService subscribed to PathStepCompleted (LS→LP progress chain)")
 
     # Event completion → Knowledge practice tracking
     ku_service = learning_services["lesson_service"]
@@ -447,11 +447,9 @@ def _wire_event_subscribers(
     event_bus.subscribe(ChoiceMade, choices_service.event_handler.handle_choice_made)
     logger.info("✅ ChoiceEventHandlerService subscribed to ChoiceMade")
 
-    # KU intelligence - learning progress when learning steps are completed
-    event_bus.subscribe(
-        LearningStepCompleted, ku_service.intelligence.handle_learning_step_completed
-    )
-    logger.info("✅ LessonIntelligenceService subscribed to LearningStepCompleted")
+    # KU intelligence - learning progress when path steps are completed
+    event_bus.subscribe(PathStepCompleted, ku_service.intelligence.handle_path_step_completed)
+    logger.info("✅ LessonIntelligenceService subscribed to PathStepCompleted")
 
     # ── Tier 2 handlers: Pattern-based event intelligence ───────────────────
 
@@ -476,7 +474,7 @@ def _wire_event_subscribers(
     logger.info(
         "✅ Domain intelligence event subscriptions wired (8 handlers): "
         "Tier 1: HabitStreakBroken, ChoiceOutcomeRecorded, PrincipleStrengthChanged, "
-        "HabitMissed, ChoiceMade, LearningStepCompleted | "
+        "HabitMissed, ChoiceMade, PathStepCompleted | "
         "Tier 2: PrincipleReflectionRecorded, PrincipleConflictRevealed"
     )
 

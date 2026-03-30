@@ -19,8 +19,8 @@ Integration tests that exercise the full RAG pipeline: query -> intent classific
 ### 3. Learning-Aware Semantic Search
 Use `vector_search_service.learning_aware_search()` instead of generic `find_similar_by_text()`. This boosts unseen content (+15%), deprioritizes mastered content (-20%), and prioritizes in-progress content (+10%) — making "what should I learn next?" queries return personalized results.
 
-### 4. LS Bundle Semantic Enrichment
-When loading LS bundles, use semantic search to find related Resources beyond explicit `CITES_RESOURCE` edges. This surfaces content the curriculum author didn't explicitly link but is semantically relevant to the learning step.
+### 4. PS Bundle Semantic Enrichment
+When loading PS bundles, use semantic search to find related Resources beyond explicit `CITES_RESOURCE` edges. This surfaces content the curriculum author didn't explicitly link but is semantically relevant to the path step.
 
 ### 5. Citation Service Semantic Relationships
 Enrich `AskesisCitationService` with semantic relationship data. When formatting citations, include semantically related entities to give Askesis richer context for Socratic responses.

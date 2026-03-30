@@ -84,12 +84,12 @@ def _get_config_value(self, attr_name: str, default: Any = None) -> Any:
 Migrated all remaining BaseService subclasses outside Activity domains to achieve 100% DomainConfig coverage:
 
 **Curriculum Domains (2):**
-- `core/services/ls/ls_core_service.py` - Learning Sequence core operations
+- `core/services/ls/ps_core_service.py` - Learning Sequence core operations
 - `core/services/lp/lp_core_service.py` - Learning Path core operations
 
 **Content/Processing Domains (3):**
 - `core/services/content_enrichment_service.py` - Audio transcription processing
-- `core/services/journals/journals_core_service.py` - Journal entry management
+- `core/services/journals/journaps_core_service.py` - Journal entry management
 - `core/services/submissions/ + core/services/feedback/report_project_service.py` - Report project operations
 
 **Reports Domain (3):**
@@ -102,7 +102,7 @@ Migrated all remaining BaseService subclasses outside Activity domains to achiev
 
 **Pattern Used:**
 ```python
-class LsCoreService(BaseService[LsOperations, LearningSequence]):
+class PsCoreService(BaseService[PsOperations, LearningSequence]):
     _config = create_curriculum_domain_config(
         dto_class=LsDTO,
         model_class=LearningSequence,
@@ -152,7 +152,7 @@ TASKS_CONFIG = create_activity_domain_config(
     completed_statuses=(KuStatus.COMPLETED.value,),
 )
 
-GOALS_CONFIG = create_activity_domain_config(
+GOAPS_CONFIG = create_activity_domain_config(
     dto_class=GoalDTO,
     model_class=Goal,
     domain_name="goals",
@@ -208,12 +208,12 @@ GOALS_CONFIG = create_activity_domain_config(
 - `core/services/tasks/tasks_search_service.py` (removed redundant attributes)
 
 ### Curriculum Services (Phase 4) - 2 files
-- `core/services/ls/ls_core_service.py`
+- `core/services/ls/ps_core_service.py`
 - `core/services/lp/lp_core_service.py`
 
 ### Content Services (Phase 4) - 3 files
 - `core/services/content_enrichment_service.py`
-- `core/services/journals/journals_core_service.py`
+- `core/services/journals/journaps_core_service.py`
 - `core/services/submissions/ + core/services/feedback/report_project_service.py`
 
 ### Reports Services (Phase 4) - 3 files

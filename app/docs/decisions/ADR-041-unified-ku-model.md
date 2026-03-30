@@ -24,7 +24,7 @@ Migrated all entity types to use the unified `Ku` model:
 - Deleted `core/models/task/`, `core/models/goal/`, `core/models/habit/` (request models kept)
 - Deleted `core/models/event/`, `core/models/choice/`, `core/models/principle/`
 - Deleted `core/models/lifepath/`
-- Deleted three-tier LS, LP, KU models
+- Deleted three-tier PS, LP, KU models
 - **~18,000 lines of model code removed**
 
 Pydantic request models (`*_request.py`) remain in their domain packages for API validation.
@@ -91,7 +91,7 @@ Replaced 138-field KuDTO God Object with per-domain DTOs mirroring the model hie
 ```
 EntityDTO (~18 fields)
 ├── UserOwnedDTO(EntityDTO) +3 → TaskDTO, GoalDTO, HabitDTO, etc.
-├── CurriculumDTO(EntityDTO) → LearningStepDTO, LearningPathDTO, ExerciseDTO
+├── CurriculumDTO(EntityDTO) → PathStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
 

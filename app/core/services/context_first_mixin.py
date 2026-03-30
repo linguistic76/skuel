@@ -490,7 +490,7 @@ class ContextFirstMixin(ABC):
     # - Choices: "choices"
     # - Principles: "principles"
     # - KU: knowledge_units_rich (dict format — separate field)
-    # - LS: active_learning_steps_rich, "step"
+    # - LS: active_path_steps_rich, "step"
     # - LP: enrolled_paths_rich, "path"
     # =============================================================================
 

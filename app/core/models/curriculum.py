@@ -6,7 +6,7 @@ Frozen dataclass base for all curriculum-carrying entities. This is a BASE CLASS
 only — it does NOT represent a concrete entity type. Concrete leaf classes are:
 
     Lesson(Curriculum)       → EntityType.LESSON        — a unit for learning
-    LearningStep(Curriculum) → EntityType.LEARNING_STEP
+    PathStep(Curriculum) → EntityType.PATH_STEP
     LearningPath(Curriculum) → EntityType.LEARNING_PATH
     Exercise(Curriculum)     → EntityType.EXERCISE
 
@@ -22,7 +22,7 @@ Hierarchy:
     ├── Ku(Entity) +5 fields                           ← EntityType.KU (lightweight, no curriculum metadata)
     └── Curriculum(Entity) +21 fields, ~30 methods     ← BASE CLASS
         ├── Lesson(Curriculum)                          ← EntityType.LESSON
-        ├── LearningStep(Curriculum) +9 fields
+        ├── PathStep(Curriculum) +9 fields
         ├── LearningPath(Curriculum) +4 fields
         └── Exercise(Curriculum) +8 fields
 
@@ -53,7 +53,7 @@ class Curriculum(Entity):
     Base class for curriculum domain entities.
 
     Intermediate class adding learning metadata, substance tracking, and
-    curriculum-specific methods to Entity. Leaf classes (Lesson, LearningStep,
+    curriculum-specific methods to Entity. Leaf classes (Lesson, PathStep,
     LearningPath, Exercise) inherit from Curriculum and set their own entity_type.
 
     All curriculum-specific structure lives in Neo4j graph relationships
@@ -63,7 +63,7 @@ class Curriculum(Entity):
     """
 
     def __post_init__(self) -> None:
-        """Delegate to Entity. Leaf classes (Lesson, LearningStep, etc.) set their own entity_type."""
+        """Delegate to Entity. Leaf classes (Lesson, PathStep, etc.) set their own entity_type."""
         super().__post_init__()
 
     # =========================================================================

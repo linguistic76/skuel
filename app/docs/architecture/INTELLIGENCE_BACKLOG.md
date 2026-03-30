@@ -28,7 +28,7 @@ Each item has a clear trigger condition and implementation guide.
 ### `create_tasks_from_learning_path(learning_path_uid, _user_context)` (~line 302)
 
 Currently returns `Result.ok([])`. Real implementation needs:
-- Fetch LearningPath → LearningStep sequence (via LP backend)
+- Fetch LearningPath → PathStep sequence (via LP backend)
 - For each step: check user's `mastered_knowledge_uids`, prerequisite readiness
 - Create a Task per unmastered step, linked via `APPLIES_KNOWLEDGE`
 - Respect `user_context.available_minutes_daily` for capacity

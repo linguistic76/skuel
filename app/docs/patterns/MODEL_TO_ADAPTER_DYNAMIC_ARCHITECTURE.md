@@ -40,7 +40,7 @@ adapters/persistence/neo4j/
     _knowledge_context_mixin.py   # _KnowledgeContextMixin — context, discovery, readiness (13 methods)
     _adaptive_mixin.py            # _AdaptiveMixin — practice, search, adaptive mastery (10 methods)
     domain_backends.py            # 19 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
-                                  #   ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, LsBackend,
+                                  #   ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, PsBackend,
                                   #   LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend,
                                   #   RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend,
                                   #   ActivityReportBackend, LateralRelationshipBackend, GroupBackend
@@ -112,12 +112,12 @@ Four new domain backends added to `domain_backends.py`:
 
 | Backend | Methods Added |
 |---------|-------------|
-| `LsBackend` | 4 CONTAINS_KNOWLEDGE methods + 6 CRUD methods: `create_step_node`, `get_step_with_knowledge`, `get_step_with_context`, `update_step_fields`, `delete_step_node`, `list_steps_raw` |
+| `PsBackend` | 4 CONTAINS_KNOWLEDGE methods + 6 CRUD methods: `create_step_node`, `get_step_with_knowledge`, `get_step_with_context`, `update_step_fields`, `delete_step_node`, `list_steps_raw` |
 | `LpBackend` | 5 HAS_STEP methods: `get_steps_raw`, `get_parent_path_raw`, `add_step_to_path`, `remove_step_from_path`, `reorder_steps` |
 | `GoalsBackend` | 4 progress-helper methods: `find_linked_goals_for_task`, `count_linked_tasks`, `find_linked_goals_for_habit`, `count_linked_habits_avg_streak` |
 | `KuBackend` | 2 substance methods: `batch_increment_substance`, `increment_substance` |
 
-**Protocols updated:** `EventsOperations`, `ChoicesOperations`, `PrinciplesOperations` now extend `HierarchyOperations`. `LsOperations`, `LpOperations`, `GoalsOperations` gained method signatures for the new backend methods.
+**Protocols updated:** `EventsOperations`, `ChoicesOperations`, `PrinciplesOperations` now extend `HierarchyOperations`. `PsOperations`, `LpOperations`, `GoalsOperations` gained method signatures for the new backend methods.
 
 **March 24, 2026 Update: Remaining 12 Services Migrated**
 
@@ -180,7 +180,7 @@ Migrated 4 inline Cypher queries from `ContextRetriever` (which bypassed the bac
 **New backend methods:**
 - `KuBackend.get_unmastered_prerequisites()` — prerequisite chains (depth 1..3) filtered by mastery
 - `KuBackend.count_dependents()` — impact score for gap analysis
-- `_KnowledgeContextMixin.get_cited_resources()` — CITES_RESOURCE traversal for LS bundles
+- `_KnowledgeContextMixin.get_cited_resources()` — CITES_RESOURCE traversal for PS bundles
 - `_LearningStateMixin.get_user_learning_context()` — single-query learning state (mastered, learning, blocked, paths, tasks, goals)
 
 **ContextRetriever** now delegates to `ku_backend` and `lesson_backend` (injected via `AskesisDeps`). `_build_user_learning_context_query()` deleted. `@requires_graph_intelligence` decorator removed from methods that no longer use `graph_intel`.
@@ -201,7 +201,7 @@ Migrated 4 inline Cypher queries from `ContextRetriever` (which bypassed the bac
 
 Shared validation helpers (`_validate_rel_name`, `_ALLOWED_ORDER_BY`) extracted to `_backend_helpers.py`.
 
-**Reuse potential:** `_LearningStateMixin` methods are entity-agnostic internally — LsBackend, ExerciseBackend, or KuBackend can add it to their bases when learning state tracking is needed.
+**Reuse potential:** `_LearningStateMixin` methods are entity-agnostic internally — PsBackend, ExerciseBackend, or KuBackend can add it to their bases when learning state tracking is needed.
 
 ### March 26, 2026 Update: execute_query() Standardization (Phase 9)
 
@@ -246,7 +246,7 @@ The largest single migration — 35 inline Cypher queries from 8 lesson service 
 |----------|---------|-------------------|
 | **Practice + AI (3)** | `find_kus_practiced_by_event`, `increment_practice_count`, `semantic_search_chunks` | `_AdaptiveMixin` |
 | **Search (2)** | `find_similar_by_keywords`, `search_by_keywords` | `_AdaptiveMixin` |
-| **Application Discovery (3)** | `find_connected_activities`, `find_learning_steps_containing_ku`, `find_learning_paths_teaching_ku` | `_KnowledgeContextMixin` |
+| **Application Discovery (3)** | `find_connected_activities`, `find_path_steps_containing_ku`, `find_learning_paths_teaching_ku` | `_KnowledgeContextMixin` |
 | **Context (3)** | `find_ready_to_learn`, `find_learning_gaps`, `find_reinforcement_candidates` | `_KnowledgeContextMixin` |
 | **Semantic (6)** | `create_semantic_relationship`, `query_semantic_neighborhood`, `delete_semantic_relationship`, `query_relationships_by_type`, `discover_semantic_bridges`, `infer_transitive_relationships` | `_SemanticMixin` |
 | **Graph (9)** | `link_prerequisite`, `link_parent_child`, `query_user_mastery_for_prereqs`, `find_learning_recommendations`, `compute_hub_scores`, `query_foundational_knowledge`, `find_prerequisite_chain`, `find_next_steps`, `find_time_aware_paths` | `_SemanticMixin` + `_KnowledgeContextMixin` |
@@ -285,7 +285,7 @@ Also removed CalendarService exception from CLAUDE.md's fail-fast dependency phi
 
 ## January 2026 Update: Wrapper Classes Removed
 
-**Deleted ~2,000 lines** of wrapper code from curriculum domains (LS, LP, MOC).
+**Deleted ~2,000 lines** of wrapper code from curriculum domains (PS, LP, MOC).
 
 ### What Changed
 
@@ -324,8 +324,8 @@ def _build_direction_pattern(
 
 ### Fail-Fast Alignment
 
-Driver guards (`if not self.backend.driver: return Error`) were **removed** from LS/LP services:
-- `ls_core_service.py`: 6 guards removed
+Driver guards (`if not self.backend.driver: return Error`) were **removed** from PS/LP services:
+- `ps_core_service.py`: 6 guards removed
 - `lp_core_service.py`: 8 guards removed
 
 These violated fail-fast philosophy - driver is REQUIRED at bootstrap.

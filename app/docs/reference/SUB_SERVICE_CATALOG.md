@@ -157,7 +157,7 @@ metrics_result = await learning_metrics.analyze_task_learning_metrics(user_uid)
 - Querying cross-domain connections
 - Semantic relationship management
 
-**Configuration:** Uses `DomainRelationshipConfig` from registry (e.g., `TASKS_CONFIG`, `GOALS_CONFIG`)
+**Configuration:** Uses `DomainRelationshipConfig` from registry (e.g., `TASKS_CONFIG`, `GOAPS_CONFIG`)
 
 **Example:**
 ```python
@@ -366,7 +366,7 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 - `track_knowledge_application()` - Knowledge usage
 
 **When to use:**
-- Integrating domain entities with curriculum (KU/LS/LP)
+- Integrating domain entities with curriculum (KU/PS/LP)
 - Tracking knowledge application
 - Finding learning opportunities
 
@@ -613,7 +613,7 @@ What do you want to do?
 ├─ Get context-aware recommendations?
 │  └─ Use: PlanningService
 │
-├─ Integrate with learning path (KU/LS/LP)?
+├─ Integrate with learning path (KU/PS/LP)?
 │  └─ Use: LearningService
 │
 ├─ [Habits only] Track completions and streaks?

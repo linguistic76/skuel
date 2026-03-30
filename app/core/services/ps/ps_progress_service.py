@@ -2,63 +2,63 @@
 Learning Step Progress Service
 ===============================
 
-Handles learning step progress tracking based on Lesson completion.
+Handles path step progress tracking based on Lesson completion.
 
 Mirrors LpProgressService at the LS granularity level:
 - LpProgressService tracks LP progress from KU mastery
-- LsProgressService tracks LS progress from Lesson completion
+- PsProgressService tracks LS progress from Lesson completion
 
 Event Chain:
-    KnowledgeMastered → LessonCompleted → LsProgressService
-    → LearningStepProgressUpdated / LearningStepCompleted
+    KnowledgeMastered → LessonCompleted → PsProgressService
+    → PathStepProgressUpdated / PathStepCompleted
     → LpProgressService.handle_step_completed
 """
 
 from typing import TYPE_CHECKING
 
 from core.events import publish_event
-from core.events.curriculum_events import LearningStepCompleted
-from core.events.learning_events import LearningStepProgressUpdated, LessonCompleted
+from core.events.curriculum_events import PathStepCompleted
+from core.events.learning_events import PathStepProgressUpdated, LessonCompleted
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import LsBackend
+    from adapters.persistence.neo4j.domain_backends import PsBackend
 
 
-class LsProgressService:
+class PsProgressService:
     """
     Learning Step progress tracking and completion management service.
 
     Handles automatic progress updates when users complete Lessons,
-    eliminating direct dependencies between LessonMasteryService and LsService.
+    eliminating direct dependencies between LessonMasteryService and PsService.
 
     Event-Driven Architecture:
     - Subscribes to LessonCompleted events
     - Calculates LS progress from completed Lessons
-    - Publishes LearningStepProgressUpdated events
-    - Publishes LearningStepCompleted when all Lessons completed
+    - Publishes PathStepProgressUpdated events
+    - Publishes PathStepCompleted when all Lessons completed
     """
 
     def __init__(
         self,
-        backend: "LsBackend | None" = None,
+        backend: "PsBackend | None" = None,
         event_bus=None,
     ) -> None:
         self.backend = backend
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.ls.progress")
+        self.logger = get_logger("skuel.services.ps.progress")
 
     async def handle_lesson_completed(self, event: LessonCompleted) -> None:
         """
-        Update learning step progress when a Lesson is completed.
+        Update path step progress when a Lesson is completed.
 
         When a Lesson is completed:
         1. Find all LSs that contain this Lesson via HAS_LESSON
         2. For each LS, calculate new progress
-        3. Publish LearningStepProgressUpdated
-        4. If 100%, publish LearningStepCompleted
+        3. Publish PathStepProgressUpdated
+        4. If 100%, publish PathStepCompleted
 
         Errors are logged but not raised — progress updates are best-effort.
         """
@@ -69,29 +69,29 @@ class LsProgressService:
 
             result = await self.backend.get_steps_containing_lesson(event.lesson_uid)
             if result.is_error:
-                self.logger.error(f"Failed to query learning steps: {result.error}")
+                self.logger.error(f"Failed to query path steps: {result.error}")
                 return
 
-            ls_uids = result.value or []
+            ps_uids = result.value or []
 
-            if not ls_uids:
-                self.logger.debug(f"No learning steps contain Lesson {event.lesson_uid}")
+            if not ps_uids:
+                self.logger.debug(f"No path steps contain Lesson {event.lesson_uid}")
                 return
 
-            for ls_uid in ls_uids:
+            for ps_uid in ps_uids:
                 try:
                     await self._update_ls_from_lesson_completion(
-                        ls_uid=ls_uid,
+                        ps_uid=ps_uid,
                         user_uid=event.user_uid,
                         newly_mastered_lesson=event.lesson_uid,
                     )
                 except NEO4J_EXCEPTIONS as e:
                     self.logger.error(
-                        f"Failed to update learning step {ls_uid} from Lesson completion: {e}"
+                        f"Failed to update path step {ps_uid} from Lesson completion: {e}"
                     )
                 except Exception as e:  # safety-net: catch unexpected errors
                     self.logger.error(
-                        f"Failed to update learning step {ls_uid} from Lesson completion: {e}"
+                        f"Failed to update path step {ps_uid} from Lesson completion: {e}"
                     )
 
         except NEO4J_EXCEPTIONS as e:
@@ -100,15 +100,15 @@ class LsProgressService:
             self.logger.error(f"Error handling lesson.completed event: {e}")
 
     async def _update_ls_from_lesson_completion(
-        self, ls_uid: str, user_uid: UserUID, newly_mastered_lesson: str
+        self, ps_uid: str, user_uid: UserUID, newly_mastered_lesson: str
     ) -> None:
         """
-        Update a single learning step's progress from Lesson completion.
+        Update a single path step's progress from Lesson completion.
 
         Progress is calculated as: completed_lessons / total_lessons.
 
         Args:
-            ls_uid: Learning step to update
+            ps_uid: Learning step to update
             user_uid: User who completed the Lesson
             newly_mastered_lesson: UID of newly completed Lesson — semantically
                 mirrors LpProgressService's concept at the correct granularity
@@ -119,7 +119,7 @@ class LsProgressService:
         if not self.backend:
             return
 
-        result = await self.backend.get_lesson_completion_progress(ls_uid, user_uid)
+        result = await self.backend.get_lesson_completion_progress(ps_uid, user_uid)
         if result.is_error:
             self.logger.error(f"Failed to query LS progress: {result.error}")
             return
@@ -129,23 +129,23 @@ class LsProgressService:
         completed_lessons = int(progress_data.get("completed_lessons", 0))
 
         if total_lessons == 0:
-            self.logger.debug(f"No lessons found for learning step {ls_uid}")
+            self.logger.debug(f"No lessons found for path step {ps_uid}")
             return
 
         old_progress = max((completed_lessons - 1) / total_lessons, 0.0)
         new_progress = completed_lessons / total_lessons
 
         if abs(new_progress - old_progress) < 0.001:
-            self.logger.debug(f"LS {ls_uid} progress unchanged ({new_progress:.1%}), skipping")
+            self.logger.debug(f"LS {ps_uid} progress unchanged ({new_progress:.1%}), skipping")
             return
 
         self.logger.info(
-            f"Updated LS {ls_uid} progress: {old_progress:.1%} → {new_progress:.1%} "
+            f"Updated LS {ps_uid} progress: {old_progress:.1%} → {new_progress:.1%} "
             f"({completed_lessons}/{total_lessons} lessons completed)"
         )
 
-        progress_event = LearningStepProgressUpdated(
-            ls_uid=ls_uid,
+        progress_event = PathStepProgressUpdated(
+            ps_uid=ps_uid,
             user_uid=user_uid,
             old_progress=old_progress,
             new_progress=new_progress,
@@ -154,12 +154,12 @@ class LsProgressService:
         )
         await publish_event(self.event_bus, progress_event, self.logger)
 
-        # If step completed (100%), publish LearningStepCompleted
+        # If step completed (100%), publish PathStepCompleted
         if new_progress >= 1.0 and old_progress < 1.0:
-            completed_event = LearningStepCompleted(
-                ls_uid=ls_uid,
+            completed_event = PathStepCompleted(
+                ps_uid=ps_uid,
                 user_uid=user_uid,
                 completion_score=1.0,
             )
             await publish_event(self.event_bus, completed_event, self.logger)
-            self.logger.info(f"LS {ls_uid} completed!")
+            self.logger.info(f"LS {ps_uid} completed!")

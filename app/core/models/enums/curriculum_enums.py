@@ -23,7 +23,7 @@ class LpType(StrEnum):
 
 
 class StepDifficulty(StrEnum):
-    """Difficulty level of a learning step."""
+    """Difficulty level of a path step."""
 
     TRIVIAL = "trivial"
     EASY = "easy"

@@ -155,7 +155,7 @@ These are FastHTML component functions that accept parameters that are not yet r
 
 | File | Line | Function | Parameter | Notes |
 |------|------|----------|-----------|-------|
-| `ui/profile/domain_views.py` | 1084 | `LearningStepsDomainView()` | `_focus_uid` | Focus-on-UID not yet implemented |
+| `ui/profile/domain_views.py` | 1084 | `PathStepsDomainView()` | `_focus_uid` | Focus-on-UID not yet implemented |
 | `ui/admin/views.py` | 594 | `render_user_reports_list()` | `_user_uid` | UID passed but not used in query |
 | `ui/admin/views.py` | 658 | `render_user_projects_list()` | `_user_uid` | Same as above |
 

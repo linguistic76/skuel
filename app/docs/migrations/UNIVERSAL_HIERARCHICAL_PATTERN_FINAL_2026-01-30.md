@@ -22,7 +22,7 @@ This pattern extends SKUEL's graph-first philosophy to entity identity, ensuring
 **1. Code Changes** ✅
 - UID Generator: Flattened KU generation
 - KU Service: 5 hierarchical methods added
-- LS Service: 4 knowledge relationship methods added
+- PS Service: 4 knowledge relationship methods added
 - Models: Updated with GRAPH-NATIVE documentation
 
 **2. Documentation** ✅
@@ -33,7 +33,7 @@ This pattern extends SKUEL's graph-first philosophy to entity identity, ensuring
 
 **3. Migration Tools** ✅
 - KU UID flattening script (not needed - 0 KUs in database)
-- LS knowledge relationship migration script (ready if needed)
+- PS knowledge relationship migration script (ready if needed)
 - Analysis scripts for database state
 
 ---
@@ -103,7 +103,7 @@ await lesson_core.unorganize_lesson(parent_uid, child_uid)
 
 ---
 
-#### LS (Learning Steps)
+#### PS (Path Steps)
 
 **UID Format:** `ls:{random}`
 
@@ -114,10 +114,10 @@ await lesson_core.unorganize_lesson(parent_uid, child_uid)
 
 **Service Methods:**
 ```python
-await ls_service.add_knowledge_relationship(ls_uid, ku_uid, type)
-await ls_service.get_contained_knowledge(ls_uid, type)
-await ls_service.remove_knowledge_relationship(ls_uid, ku_uid)
-await ls_service.get_knowledge_summary(ls_uid)
+await ps_service.add_knowledge_relationship(ps_uid, ku_uid, type)
+await ps_service.get_contained_knowledge(ps_uid, type)
+await ps_service.remove_knowledge_relationship(ps_uid, ku_uid)
+await ps_service.get_knowledge_summary(ps_uid)
 ```
 
 **Status:** ✅ Complete (2026-01-30)
@@ -264,7 +264,7 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
    - Added 5 hierarchical methods
    - Added cycle prevention
 
-3. **`/core/services/ls/ls_core_service.py`** ✅
+3. **`/core/services/ls/ps_core_service.py`** ✅
    - Added 4 knowledge relationship methods
    - Query-based knowledge storage
 
@@ -301,7 +301,7 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
    - Documentation summary
 
 7. **`/docs/migrations/LS_KNOWLEDGE_RELATIONSHIPS_COMPLETE_2026-01-30.md`** ✅
-   - LS service completion
+   - PS service completion
 
 ---
 
@@ -312,7 +312,7 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
    - Not needed (0 KUs in database)
 
 2. **`/scripts/migrations/migrate_ls_knowledge_relationships.py`** ✅
-   - Migrates LS properties to relationships
+   - Migrates PS properties to relationships
    - Ready if needed
 
 3. **`/scripts/migrations/analyze_ku_uids.py`** ✅
@@ -333,7 +333,7 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
 **Relationships:**
 - 0 HAS_SUBTASK (no task hierarchy yet)
 - 0 ORGANIZES (no KU hierarchy yet)
-- 0 CONTAINS_KNOWLEDGE (no LS knowledge yet)
+- 0 CONTAINS_KNOWLEDGE (no PS knowledge yet)
 
 **Migration Status:** ✅ No migration needed - clean slate!
 
@@ -359,8 +359,8 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
 - [ ] Get subKUs (verify relationship traversal)
 - [ ] Reorganize KU (verify UID unchanged)
 - [ ] Multiple parents (verify DAG support)
-- [ ] Add LS knowledge (verify CONTAINS_KNOWLEDGE created)
-- [ ] Query LS knowledge (verify type filtering)
+- [ ] Add PS knowledge (verify CONTAINS_KNOWLEDGE created)
+- [ ] Query PS knowledge (verify type filtering)
 
 **Status:** Integration tests recommended
 
@@ -382,7 +382,7 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
 
 - [x] All domains use flat UIDs (code complete)
 - [x] KU service has hierarchical methods
-- [x] LS service has knowledge relationship methods
+- [x] PS service has knowledge relationship methods
 - [x] Migration scripts created
 - [x] Documentation comprehensive
 - [x] Pattern guide created
@@ -392,7 +392,7 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
 
 **Bonus achievements:**
 - [x] No database migration needed (0 KUs)
-- [x] Backward compatibility maintained (LS properties)
+- [x] Backward compatibility maintained (PS properties)
 - [x] Cycle prevention implemented
 - [x] 250+ lines of service methods
 - [x] 1,200+ lines of documentation
@@ -403,7 +403,7 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
 
 ### Code
 - **Lines Added:** 500+
-- **Methods Added:** 9 (5 KU + 4 LS)
+- **Methods Added:** 9 (5 KU + 4 PS)
 - **Classes Modified:** 3
 - **Error Handling:** Comprehensive (Result[T] pattern)
 
@@ -415,7 +415,7 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
 - **Cypher Patterns:** 15+
 
 ### Coverage
-- **Domains Covered:** 7 (Tasks, Goals, Habits, KU, LS, LP, MOC)
+- **Domains Covered:** 7 (Tasks, Goals, Habits, KU, PS, LP, MOC)
 - **Relationship Types:** 5 (HAS_SUBTASK, HAS_SUBGOAL, HAS_SUBHABIT, ORGANIZES, CONTAINS_KNOWLEDGE)
 - **Pattern Alignment:** 100%
 
@@ -428,14 +428,14 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
 1. **Clean Database** - 0 KUs meant no migration needed
 2. **Pattern Clarity** - One principle was easy to apply
 3. **Documentation First** - Analysis before implementation worked great
-4. **Incremental Approach** - Activity → KU → LS progression was logical
+4. **Incremental Approach** - Activity → KU → PS progression was logical
 5. **Service Methods** - Generic pattern (get_sub*, get_parent*, organize*) worked everywhere
 
 ### What Could Be Improved
 
 1. **Testing** - Should create automated tests
 2. **Migration Scripts** - Not needed now but good to have
-3. **Property Deprecation** - LS still has properties (transitional)
+3. **Property Deprecation** - PS still has properties (transitional)
 
 ---
 
@@ -446,15 +446,15 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
 1. **Create Tests**
    - Unit tests for UID generator
    - Integration tests for hierarchical methods
-   - Service method tests for LS knowledge
+   - Service method tests for PS knowledge
 
 2. **Update Callers**
    - Find code using `ls.knowledge_uids`
-   - Replace with `ls_service.get_contained_knowledge()`
+   - Replace with `ps_service.get_contained_knowledge()`
    - Migrate to relationship-based queries
 
 3. **Remove Transitional Code**
-   - Once LS properties unused, remove them
+   - Once PS properties unused, remove them
    - Full pattern compliance
 
 ### Future Enhancements
@@ -488,7 +488,7 @@ The Universal Hierarchical Pattern is **fully implemented and documented** acros
 ✅ Goal milestones (HAS_SUBGOAL)
 ✅ Habit routines (HAS_SUBHABIT)
 ✅ KU organization (ORGANIZES)
-✅ LS knowledge (CONTAINS_KNOWLEDGE)
+✅ PS knowledge (CONTAINS_KNOWLEDGE)
 ✅ LP steps (HAS_STEP)
 ✅ MOC structure (ORGANIZES)
 
@@ -525,7 +525,7 @@ The Universal Hierarchical Pattern extends SKUEL's graph-first philosophy to ent
 **Pattern Guide:** `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md`
 **Decision Record:** `/docs/decisions/ADR-013-ku-uid-flat-identity.md`
 **Quick Ref:** `/CLAUDE.md` (KU UID Format section)
-**LS Methods:** `/docs/migrations/LS_KNOWLEDGE_RELATIONSHIPS_COMPLETE_2026-01-30.md`
+**PS Methods:** `/docs/migrations/LS_KNOWLEDGE_RELATIONSHIPS_COMPLETE_2026-01-30.md`
 
 ---
 

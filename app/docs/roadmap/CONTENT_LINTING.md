@@ -15,7 +15,7 @@ This is **separate from** `scripts/lint_skuel.py` (Python code linter). Content 
 - **Edge block completeness:** Validate `type: Edge` YAML files have required fields (source, target, rel_type, evidence properties)
 - **Relationship type enforcement:** SCREAMING_SNAKE_CASE for relationship types, validated against `RelationshipName` enum
 - **Namespace registry:** Validate `ku_category` values against known namespaces (attention, emotion, cognition, etc.)
-- **Orphan detection:** Find content files not referenced by any LS or LP
+- **Orphan detection:** Find content files not referenced by any PS or LP
 - **Frontmatter schema validation:** Required fields per entity type (title, description, tags, etc.)
 
 ## Why Deferred

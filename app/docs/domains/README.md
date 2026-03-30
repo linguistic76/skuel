@@ -25,7 +25,7 @@ Each entity type is a peer — behavioral traits (not category membership) deter
 | [Principles](principles.md) | `principle:` | Values that guide goals and choices |
 | [Finance](finance.md) | `expense:` | Expense and budget tracking (admin-only) |
 | [KU](ku.md) | `ku:` | Atomic knowledge unit (point topology) |
-| [LS](ls.md) | `ls:` | Sequential learning steps (edge topology) |
+| [PS](ls.md) | `ls:` | Sequential path steps (edge topology) |
 | [LP](lp.md) | `lp:` | Complete learning sequences (path topology) |
 | [Journals](journals.md) | `journal:` | Two-tier system: Voice (ephemeral) + Curated (permanent) |
 | [Submissions](submissions.md) | N/A | Student work + feedback |
@@ -93,7 +93,7 @@ Domain intelligence services follow the **unified internal creation pattern**:
 | Domain Type | Domains | Intelligence Pattern |
 |-------------|---------|---------------------|
 | **Activity (6)** | Tasks, Goals, Habits, Events, Choices, Principles | Created internally by facade |
-| **Curriculum (3)** | KU, LS, LP | Created internally by facade |
+| **Curriculum (3)** | KU, PS, LP | Created internally by facade |
 | **Organizational (1)** | MOC | No intelligence (KU-based, uses KU intelligence) |
 
 **Unified Pattern:**
@@ -104,7 +104,7 @@ Domain intelligence services follow the **unified internal creation pattern**:
 ```python
 # Example: LpService creates intelligence internally
 class LpService(BaseService[LpOperations, LearningPath]):
-    def __init__(self, driver, ls_service, graph_intelligence_service, ...):
+    def __init__(self, driver, ps_service, graph_intelligence_service, ...):
         # Step 5: Create intelligence INTERNALLY (January 2026 - Unified Pattern)
         self.intelligence = LpIntelligenceService(
             backend=lp_backend,

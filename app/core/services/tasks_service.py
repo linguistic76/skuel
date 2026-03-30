@@ -475,8 +475,8 @@ class TasksService(BaseService["TasksOperations", Task]):
     async def get_curriculum_tasks(self) -> Result[list[Task]]:
         return await self.search.get_curriculum_tasks()
 
-    async def get_tasks_for_learning_step(self, step_uid: str) -> Result[list[Task]]:
-        return await self.search.get_tasks_for_learning_step(step_uid)
+    async def get_tasks_for_path_step(self, step_uid: str) -> Result[list[Task]]:
+        return await self.search.get_tasks_for_path_step(step_uid)
 
     # Progress delegations
     async def check_prerequisites(
@@ -545,10 +545,10 @@ class TasksService(BaseService["TasksOperations", Task]):
             learning_position, _task_domain, limit
         )
 
-    async def create_task_from_learning_step(
+    async def create_task_from_path_step(
         self, step_uid: str, task_title: str, knowledge_uids: list[str], _user_uid: UserUID
     ) -> Result[Task]:
-        return await self.scheduling.create_task_from_learning_step(
+        return await self.scheduling.create_task_from_path_step(
             step_uid, task_title, knowledge_uids, _user_uid
         )
 

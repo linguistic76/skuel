@@ -750,7 +750,7 @@ Card(
 **Key Insight:** Instead of a cascading fail-on-first-error chain, call each method independently, collect partial errors, and let the UI render whatever succeeded.
 
 ```python
-daily_plan = alignment = synergies = learning_steps = None
+daily_plan = alignment = synergies = path_steps = None
 partial_errors: list[str] = []
 
 plan_result = await intelligence.get_ready_to_work_on_today()
@@ -759,14 +759,14 @@ if plan_result.is_error:
 else:
     daily_plan = plan_result.value
 
-# ... same for alignment, synergies, learning_steps ...
+# ... same for alignment, synergies, path_steps ...
 
-if all(v is None for v in [daily_plan, alignment, synergies, learning_steps]):
+if all(v is None for v in [daily_plan, alignment, synergies, path_steps]):
     return Result.fail(Errors.system("All intelligence calls failed"))
 
 return Result.ok({
     "daily_plan": daily_plan, "alignment": alignment,
-    "synergies": synergies, "learning_steps": learning_steps,
+    "synergies": synergies, "path_steps": path_steps,
     "partial_errors": partial_errors,
 })
 ```

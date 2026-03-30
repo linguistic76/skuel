@@ -20,7 +20,7 @@ MATCH (n:Principle) WHERE n.entity_type IS NULL SET n.entity_type = "principle";
 // Curriculum domains (5)
 MATCH (n:Lesson) WHERE n.entity_type IS NULL SET n.entity_type = "lesson";
 MATCH (n:Ku) WHERE n.entity_type IS NULL SET n.entity_type = "ku";
-MATCH (n:LearningStep) WHERE n.entity_type IS NULL SET n.entity_type = "learning_step";
+MATCH (n:PathStep) WHERE n.entity_type IS NULL SET n.entity_type = "learning_step";
 MATCH (n:LearningPath) WHERE n.entity_type IS NULL SET n.entity_type = "learning_path";
 MATCH (n:Exercise) WHERE n.entity_type IS NULL SET n.entity_type = "exercise";
 

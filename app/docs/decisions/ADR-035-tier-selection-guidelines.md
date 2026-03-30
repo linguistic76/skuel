@@ -34,7 +34,7 @@ SKUEL uses a three-tier type system (Pydantic → DTO → Domain) for most domai
 
 **What triggered this decision?**
 
-User question (2026-01-29): "Should curriculum domains (KU, LS, LP) use a simpler pattern since they're more stable than Activity domains?"
+User question (2026-01-29): "Should curriculum domains (KU, PS, LP) use a simpler pattern since they're more stable than Activity domains?"
 
 Investigation revealed:
 - Curriculum domains are NOT more stable (users can create them)
@@ -346,7 +346,7 @@ Neo4j → DTO → Pydantic Response (no business logic)
 5. Choices ✅
 6. Principles ✅
 7. KU (Knowledge Units) ✅
-8. LS (Learning Steps) ✅
+8. PS (Path Steps) ✅
 9. LP (Learning Paths) ✅
 10. Assignments ✅
 11. User ✅ (special case - uses UserBackend, not UniversalBackend)

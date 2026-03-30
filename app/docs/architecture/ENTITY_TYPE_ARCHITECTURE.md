@@ -32,7 +32,7 @@ SKUEL is a **knowledge-centric productivity platform** where every operation con
 | Lesson | A unit for learning | Admin-created, shared |
 | Ku | Atomic knowledge unit (concept, principle, substance) | Admin-created, shared |
 | Resource | Curated content (books, talks, films) | Admin-created, shared |
-| LearningStep | A collection of lessons | Admin-created, shared |
+| PathStep | A collection of lessons | Admin-created, shared |
 | LearningPath | An ordered sequence of lesson collections | Admin-created, shared |
 | Exercise | Instruction template for practicing curriculum | Admin-created, shared |
 | FormTemplate | Reusable form definition (embeddable in Lessons) | Admin-created, shared |
@@ -115,7 +115,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- RevisedExercise(UserOwnedEntity)          REVISED_EXERCISE
 +-- FormTemplate(Entity) — reusable form definition (shared, embeddable)
 +-- Curriculum(Entity) +21 fields (base class only)
-|   +-- Lesson(Curriculum), LearningStep, LearningPath, Exercise
+|   +-- Lesson(Curriculum), PathStep, LearningPath, Exercise
 +-- Ku(Entity) — atomic knowledge unit
 +-- Resource(Entity) +7 fields
 ```
@@ -131,7 +131,7 @@ EntityDTO (~18 fields)
 +-- UserOwnedDTO -> ExerciseReportDTO  (NOT SubmissionDTO)
 +-- UserOwnedDTO -> JeInputDTO, JeOutputDTO        (standalone journal domain)
 +-- EntityDTO -> FormTemplateDTO                   (form_schema, instructions)
-+-- CurriculumDTO(EntityDTO) -> LessonDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
++-- CurriculumDTO(EntityDTO) -> LessonDTO, PathStepDTO, LearningPathDTO, ExerciseDTO
 +-- KuDTO(EntityDTO)
 +-- ResourceDTO(EntityDTO)
 ```
@@ -148,7 +148,7 @@ Every entity node gets two labels: `:Entity` (universal) + type-specific (`:Task
 |--------|
 | `:Entity` (universal — all entity nodes) |
 | `:Task`, `:Goal`, `:Habit`, `:Event`, `:Choice`, `:Principle` |
-| `:Curriculum`, `:Resource`, `:LearningStep`, `:LearningPath` |
+| `:Curriculum`, `:Resource`, `:PathStep`, `:LearningPath` |
 | `:FormTemplate`, `:FormSubmission` |
 | `:Submission`, `:ExerciseSubmission` |
 | `:ExerciseReport` |
@@ -212,7 +212,7 @@ Common sub-services created via `create_common_sub_services()` factory (`core/se
 
 Standalone facade with 4 sub-services (Core, Budget, Reporting, Invoice). No intelligence service, no relationship configuration. All Finance routes require ADMIN role. Does NOT use `BaseService` or `BaseAnalyticsService`.
 
-### Lesson, Ku, LearningStep, LearningPath, Exercise — Curriculum
+### Lesson, Ku, PathStep, LearningPath, Exercise — Curriculum
 
 Educational foundation. Lesson extends `Curriculum(Entity)`. Ku extends `Entity` directly (lightweight atomic unit). All admin-created, publicly readable via `ContentScope.SHARED`.
 
@@ -221,7 +221,7 @@ Educational foundation. Lesson extends `Curriculum(Entity)`. Ku extends `Entity`
 Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `Lesson → Exercise → Submission → Report → RevisedExercise` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
 
 **Two paths to knowledge (Montessori-inspired):**
-- **LS Path**: Structured, linear, teacher-directed (Lesson -> LS -> LP)
+- **PS Path**: Structured, linear, teacher-directed (Lesson -> PS -> LP)
 - **MOC Path**: Unstructured, graph, learner-directed (any Entity ORGANIZES others)
 
 **Service architecture:**
@@ -232,11 +232,11 @@ KuService (facade) — 4 sub-services via create_curriculum_sub_services()
 ├── relationships: UnifiedRelationshipService
 └── intelligence: KuIntelligenceService
 
-LsService (facade) — 4 sub-services via create_curriculum_sub_services()
-├── core: LsCoreService
-├── search: LsSearchService
+PsService (facade) — 4 sub-services via create_curriculum_sub_services()
+├── core: PsCoreService
+├── search: PsSearchService
 ├── relationships: UnifiedRelationshipService
-└── intelligence: LsIntelligenceService
+└── intelligence: PsIntelligenceService
 
 LpService (facade) — 5 sub-services via create_lp_sub_services()
 ├── core: LpCoreService
@@ -453,8 +453,8 @@ Natural Text
 (lesson:Lesson)-[:USES_KU]->(ku:Ku)
 (ku:Curriculum)-[:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
 (ku:Curriculum)-[:ENABLES_KNOWLEDGE]->(ku:Curriculum)
-(lp:LearningPath)-[:HAS_NARROWER]->(ls:LearningStep)
-(ls:LearningStep)-[:REQUIRES_PREREQUISITE]->(ku:Curriculum)
+(lp:LearningPath)-[:HAS_NARROWER]->(ls:PathStep)
+(ls:PathStep)-[:REQUIRES_PREREQUISITE]->(ku:Curriculum)
 
 // MOC organization
 (entity:Entity)-[:ORGANIZES {order: int}]->(entity:Entity)
@@ -511,7 +511,7 @@ Full taxonomy: 70+ typed relationship names in `RelationshipName` enum (`core/mo
 | [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) | User model, auth, roles, UserContext (~240 fields) |
 | [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) | ActivityReport, ExerciseReport, all report types |
 | [RELATIONSHIPS_ARCHITECTURE.md](RELATIONSHIPS_ARCHITECTURE.md) | UnifiedRelationshipService, relationship taxonomy |
-| [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) | KU/LS/LP/MOC patterns |
+| [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) | KU/PS/LP/MOC patterns |
 | [ANALYTICS_ARCHITECTURE.md](ANALYTICS_ARCHITECTURE.md) | Analytics meta-service |
 | [SEARCH_ARCHITECTURE.md](SEARCH_ARCHITECTURE.md) | Unified search across all entity types |
 | [/docs/patterns/protocol_architecture.md](../patterns/protocol_architecture.md) | Protocol-based dependency injection |

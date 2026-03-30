@@ -13,7 +13,7 @@ from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.enums import Domain, EntityStatus, Priority
-from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.path_step import PathStep
 from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -247,7 +247,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
 
             # Current step relevance
             current_step = learning_position.current_steps.get(path.uid)
-            if current_step and isinstance(current_step, LearningStep):
+            if current_step and isinstance(current_step, PathStep):
                 # Check if any knowledge UIDs from the step appear in the option
                 step_knowledge = current_step.get_all_knowledge_uids()
                 if any(ku.lower() in option_lower for ku in step_knowledge):
@@ -355,7 +355,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
 
             # Check current step relevance
             current_step = learning_position.current_steps.get(path.uid)
-            if current_step and isinstance(current_step, LearningStep):
+            if current_step and isinstance(current_step, PathStep):
                 # Check if any knowledge UIDs from the step appear in the choice text
                 step_knowledge = current_step.get_all_knowledge_uids()
                 if any(ku.lower() in choice_text for ku in step_knowledge):

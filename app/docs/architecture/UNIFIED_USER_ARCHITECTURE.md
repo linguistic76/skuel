@@ -206,7 +206,7 @@ UserContext (state)                  UserContextIntelligence (synthesis)
 ├── active_task_uids            →    get_ready_to_work_on_today()
 ├── goal_progress               →    calculate_life_path_alignment()
 ├── habit_streaks               →    get_cross_domain_synergies()
-├── knowledge_mastery           →    get_optimal_next_learning_steps()
+├── knowledge_mastery           →    get_optimal_next_path_steps()
 ├── in_progress_knowledge_uids  →    include_learning boost in planning
 ├── current_lesson_uids         →    lessons user is actively studying
 └── ~234 more fields            →    get_schedule_aware_recommendations()
@@ -287,10 +287,10 @@ The MEGA-QUERY in `user_context_queries.py` fetches UIDs and full entity data wi
 |-----|----------|
 | `"tasks"`, `"goals"`, `"habits"`, `"events"`, `"choices"`, `"principles"` | 6 Activity Domains — active always included, completed included if touched within `window` |
 | `"learning_paths"` | LP entities (normalised from `paths_rich`) |
-| `"learning_steps"` | LS entities (normalised from `steps_rich`) |
+| `"path_steps"` | PS entities (normalised from `steps_rich`) |
 | `"ku"` | Window-engaged KUs only (mastered or viewed within window); `graph_context.interaction_type` = `"mastered"` or `"viewed"` |
 
-`enrolled_paths_rich: list[RichLearningPathItem]`, `active_learning_steps_rich: list[RichLearningStepItem]`, and `knowledge_units_rich: dict[str, RichKnowledgeUnitItem]` are typed with their own TypedDicts. All 9 formerly-untyped `dict[str, Any]` UserContext fields now have TypedDict annotations (March 2026).
+`enrolled_paths_rich: list[RichLearningPathItem]`, `active_path_steps_rich: list[RichPathStepItem]`, and `knowledge_units_rich: dict[str, RichKnowledgeUnitItem]` are typed with their own TypedDicts. All 9 formerly-untyped `dict[str, Any]` UserContext fields now have TypedDict annotations (March 2026).
 
 ### ActivityReport Fields — Both Paths
 

@@ -20,7 +20,7 @@ import pytest
 
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.path_step import PathStep
 from core.models.pathways.lp_position import LpPosition
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
@@ -70,17 +70,17 @@ def user_context() -> UserContext:
 @pytest.fixture
 def learning_position() -> LpPosition:
     """Create sample learning position."""
-    # Create learning steps (Entity with entity_type=LEARNING_STEP)
-    step1 = LearningStep(
-        uid="ls:python_fundamentals",
+    # Create path steps (Entity with entity_type=PATH_STEP)
+    step1 = PathStep(
+        uid="ps:python_fundamentals",
         title="Python Fundamentals",
         intent="Learn Python basics",
         knowledge_uids=("ku.python.basics",),
         mastery_threshold=0.8,
         estimated_hours=10.0,
     )
-    step2 = LearningStep(
-        uid="ls:python_advanced",
+    step2 = PathStep(
+        uid="ps:python_advanced",
         title="Python Advanced",
         intent="Master advanced Python concepts",
         knowledge_uids=("ku.python.advanced",),
@@ -102,9 +102,9 @@ def learning_position() -> LpPosition:
         active_paths=[path],
         current_steps={"lp:python_mastery": step1},
         completed_step_uids=set(),
-        next_recommended=["ls:python_advanced"],
+        next_recommended=["ps:python_advanced"],
         generated_at=datetime.now(),
-        readiness_scores={"ls:python_advanced": 0.8},
+        readiness_scores={"ps:python_advanced": 0.8},
     )
 
 
@@ -348,14 +348,14 @@ async def test_suggest_tasks_includes_current_and_next_steps(scheduling_service,
 
 
 @pytest.mark.asyncio
-async def test_create_task_from_learning_step(scheduling_service, mock_backend):
-    """Test creating a task from a learning step."""
+async def test_create_task_from_path_step(scheduling_service, mock_backend):
+    """Test creating a task from a path step."""
     # Setup
     created_dto = TaskDTO(
         uid="task:curriculum_123",
         user_uid="user:123",
         title="Practice Python fundamentals",
-        source_learning_step_uid="ls:python_fundamentals",
+        source_path_step_uid="ps:python_fundamentals",
         knowledge_mastery_check=True,
         status=EntityStatus.DRAFT.value,
         priority=Priority.MEDIUM.value,
@@ -364,8 +364,8 @@ async def test_create_task_from_learning_step(scheduling_service, mock_backend):
     mock_backend.create.return_value = Result.ok(created_dto.to_dict())
 
     # Execute
-    result = await scheduling_service.create_task_from_learning_step(
-        step_uid="ls:python_fundamentals",
+    result = await scheduling_service.create_task_from_path_step(
+        step_uid="ps:python_fundamentals",
         task_title="Practice Python fundamentals",
         knowledge_uids=["ku.python.basics"],
         _user_uid="user:123",
@@ -374,7 +374,7 @@ async def test_create_task_from_learning_step(scheduling_service, mock_backend):
     # Verify
     assert result.is_ok
     task = result.value
-    assert task.source_learning_step_uid == "ls:python_fundamentals"
+    assert task.source_path_step_uid == "ps:python_fundamentals"
     assert task.knowledge_mastery_check is True
     # applies_knowledge_uids removed - query via UnifiedRelationshipService
 
@@ -382,12 +382,12 @@ async def test_create_task_from_learning_step(scheduling_service, mock_backend):
 @pytest.mark.asyncio
 async def test_create_curriculum_task_backend_error(scheduling_service, mock_backend):
     """Test curriculum task creation with backend error."""
-    # Setup: create_task_from_learning_step calls backend.create() (not create_task)
+    # Setup: create_task_from_path_step calls backend.create() (not create_task)
     mock_backend.create.return_value = Result.fail(Errors.database("create_task", "Database error"))
 
     # Execute
-    result = await scheduling_service.create_task_from_learning_step(
-        step_uid="ls:test", task_title="Test Task", knowledge_uids=["ku.test"], _user_uid="user:123"
+    result = await scheduling_service.create_task_from_path_step(
+        step_uid="ps:test", task_title="Test Task", knowledge_uids=["ku.test"], _user_uid="user:123"
     )
 
     # Verify
@@ -421,8 +421,8 @@ async def test_full_learning_workflow(
 async def test_multiple_active_paths_suggestions(scheduling_service):
     """Test suggestions generation with multiple active learning paths."""
     # Setup - multiple paths
-    python_step = LearningStep(
-        uid="ls:python_basics",
+    python_step = PathStep(
+        uid="ps:python_basics",
         title="Python Basics",
         intent="Learn Python basics",
         knowledge_uids=("ku.python.basics",),
@@ -437,8 +437,8 @@ async def test_multiple_active_paths_suggestions(scheduling_service):
         metadata={"steps": [python_step]},
     )
 
-    html_step = LearningStep(
-        uid="ls:html_basics",
+    html_step = PathStep(
+        uid="ps:html_basics",
         title="HTML Basics",
         intent="Learn HTML basics",
         knowledge_uids=("ku.html.basics",),
@@ -458,9 +458,9 @@ async def test_multiple_active_paths_suggestions(scheduling_service):
         active_paths=[path1, path2],
         current_steps={"lp:python": python_step, "lp:web_dev": html_step},
         completed_step_uids=set(),
-        next_recommended=["ls:python_basics", "ls:html_basics"],
+        next_recommended=["ps:python_basics", "ps:html_basics"],
         generated_at=datetime.now(),
-        readiness_scores={"ls:python_basics": 0.9, "ls:html_basics": 0.85},
+        readiness_scores={"ps:python_basics": 0.9, "ps:html_basics": 0.85},
     )
 
     # Execute

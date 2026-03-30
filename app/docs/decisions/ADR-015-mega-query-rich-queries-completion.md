@@ -36,7 +36,7 @@ The MEGA-QUERY in `user_context_builder.py` was designed to fetch user context d
 | Habits | Done | Done | COMPLETE |
 | Knowledge | Done | Done | COMPLETE |
 | Learning Paths | Done | Done | COMPLETE |
-| Learning Steps | Done | Done | COMPLETE |
+| Path Steps | Done | Done | COMPLETE |
 | **Events** | Done | **MISSING** | Only UIDs |
 | **Principles** | **MISSING** | **MISSING** | Not in query |
 | **Choices** | **MISSING** | **MISSING** | Not in query |

@@ -36,7 +36,7 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from core.models.askesis.ls_bundle import LSBundle
+    from core.models.askesis.ps_bundle import PsBundle
     from core.ports import (
         EventsOperations,
         GoalsOperations,
@@ -175,7 +175,7 @@ class EntityExtractor:
     # SOCRATIC PIPELINE — BUNDLE-SCOPED EXTRACTION
     # ========================================================================
 
-    def extract_from_bundle(self, question: str, ls_bundle: LSBundle) -> list[str]:
+    def extract_from_bundle(self, question: str, ps_bundle: PsBundle) -> list[str]:
         """Extract KU UIDs from the bundle that the question references.
 
         Uses fuzzy matching against bundle KU titles and aliases. Returns
@@ -187,7 +187,7 @@ class EntityExtractor:
 
         Args:
             question: User's natural language question
-            ls_bundle: Complete LS bundle with all entities
+            ps_bundle: Complete LS bundle with all entities
 
         Returns:
             List of KU UIDs from the bundle that match the question
@@ -195,7 +195,7 @@ class EntityExtractor:
         question_lower = question.lower()
         matched_uids: list[str] = []
 
-        for ku in ls_bundle.kus:
+        for ku in ps_bundle.kus:
             if self._fuzzy_match(ku.title, question_lower):
                 matched_uids.append(ku.uid)
                 continue
@@ -208,10 +208,10 @@ class EntityExtractor:
 
         # Also check Lesson titles — if a question references a Lesson,
         # match it to the KUs that Lesson teaches
-        for lesson in ls_bundle.lessons:
+        for lesson in ps_bundle.lessons:
             if self._fuzzy_match(lesson.title, question_lower):
                 # Find KUs linked to this Lesson
-                for ku in ls_bundle.kus:
+                for ku in ps_bundle.kus:
                     if ku.uid not in matched_uids:
                         # If the Lesson's semantic_links reference this KU
                         if ku.uid in (lesson.semantic_links or ()):
@@ -219,13 +219,13 @@ class EntityExtractor:
 
         # If no specific KU matched but the question is clearly about the LS topic,
         # return all KUs in the bundle (the question is about the LS as a whole)
-        if not matched_uids and ls_bundle.kus:
-            ls_title = ls_bundle.learning_step.title or ""
-            ls_intent = ls_bundle.learning_step.intent or ""
+        if not matched_uids and ps_bundle.kus:
+            ls_title = ps_bundle.path_step.title or ""
+            ls_intent = ps_bundle.path_step.intent or ""
             if self._fuzzy_match(ls_title, question_lower) or self._fuzzy_match(
                 ls_intent, question_lower
             ):
-                matched_uids = [ku.uid for ku in ls_bundle.kus]
+                matched_uids = [ku.uid for ku in ps_bundle.kus]
 
         return matched_uids
 

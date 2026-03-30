@@ -3,7 +3,7 @@ Learning Intelligence Mixin
 ============================
 
 Methods 1-4 of UserContextIntelligence:
-1. get_optimal_next_learning_steps() - What should I learn next?
+1. get_optimal_next_path_steps() - What should I learn next?
 2. get_learning_path_critical_path() - Fastest route to life path?
 3. get_knowledge_application_opportunities() - Where can I apply this?
 4. get_unblocking_priority_order() - What unlocks the most?
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.context_types import LearningStep
+from core.models.context_types import PathStep
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -43,12 +43,12 @@ class LearningIntelligenceMixin:
     # METHOD 1: Optimal Next Learning Steps
     # =========================================================================
 
-    async def get_optimal_next_learning_steps(
+    async def get_optimal_next_path_steps(
         self,
         max_steps: int = 5,
         consider_goals: bool = True,
         consider_capacity: bool = True,
-    ) -> Result[list[LearningStep]]:
+    ) -> Result[list[PathStep]]:
         """
         THE CORE METHOD - determine what to learn next based on ALL factors.
 
@@ -73,7 +73,7 @@ class LearningIntelligenceMixin:
             consider_capacity: Respect user capacity limits
 
         Returns:
-            Result[list[LearningStep]] ranked by priority with full context
+            Result[list[PathStep]] ranked by priority with full context
         """
         # ── ZPD path (highest priority when available) ─────────────────────────
         if self.zpd_service is not None:
@@ -91,8 +91,8 @@ class LearningIntelligenceMixin:
         assessment: Any,  # ZPDAssessment — typed via TYPE_CHECKING only
         max_steps: int,
         consider_capacity: bool,
-    ) -> Result[list[LearningStep]]:
-        """Rank learning steps using ZPD proximal zone, readiness scores, and evidence.
+    ) -> Result[list[PathStep]]:
+        """Rank path steps using ZPD proximal zone, readiness scores, and evidence.
 
         Uses ZPDAssessment.top_proximal_ku_uids() to get candidates, then enriches
         each with application opportunities, goal alignment, unblocking counts,
@@ -104,7 +104,7 @@ class LearningIntelligenceMixin:
         if assessment.recommended_actions:
             learn_actions = [a for a in assessment.recommended_actions if a.action_type == "learn"]
             if learn_actions:
-                learning_steps = []
+                path_steps = []
                 for action in learn_actions[: max_steps * 2]:
                     ku_uid = action.entity_uid
                     applications = await self._get_application_opportunities_for_ku(ku_uid)
@@ -112,7 +112,7 @@ class LearningIntelligenceMixin:
                     aligned_goals = self._find_aligned_goals(ku_uid)
                     readiness_score = assessment.readiness_scores.get(ku_uid, 0.0)
 
-                    step = LearningStep(
+                    step = PathStep(
                         ku_uid=ku_uid,
                         title=f"Knowledge Unit {ku_uid}",
                         rationale=action.rationale,
@@ -125,11 +125,11 @@ class LearningIntelligenceMixin:
                         priority_score=action.priority,
                         application_opportunities={k: tuple(v) for k, v in applications.items()},
                     )
-                    learning_steps.append(step)
+                    path_steps.append(step)
 
                 if consider_capacity:
-                    learning_steps = self._filter_by_capacity(learning_steps)
-                return Result.ok(learning_steps[:max_steps])
+                    path_steps = self._filter_by_capacity(path_steps)
+                return Result.ok(path_steps[:max_steps])
 
         proximal_uids = assessment.top_proximal_ku_uids(max_steps * 2)
         if not proximal_uids:
@@ -139,7 +139,7 @@ class LearningIntelligenceMixin:
         # Confirmed KUs in current zone get higher confidence base
         confirmed_uids = set(assessment.confirmed_zone_uids())
 
-        learning_steps = []
+        path_steps = []
         for ku_uid in proximal_uids:
             readiness_score = assessment.readiness_scores.get(ku_uid, 0.0)
             # Priority formula: readiness * 0.5 + life_path * 0.3 + behavioral * 0.2
@@ -164,7 +164,7 @@ class LearningIntelligenceMixin:
             unlocks_count = self._count_items_unlocked_by(ku_uid)
             aligned_goals = self._find_aligned_goals(ku_uid)
 
-            step = LearningStep(
+            step = PathStep(
                 ku_uid=ku_uid,
                 title=f"Knowledge Unit {ku_uid}",
                 rationale=self._generate_learning_rationale(
@@ -177,20 +177,20 @@ class LearningIntelligenceMixin:
                 priority_score=priority_score,
                 application_opportunities={k: tuple(v) for k, v in applications.items()},
             )
-            learning_steps.append(step)
+            path_steps.append(step)
 
         if consider_capacity:
-            learning_steps = self._filter_by_capacity(learning_steps)
+            path_steps = self._filter_by_capacity(path_steps)
 
-        return Result.ok(learning_steps[:max_steps])
+        return Result.ok(path_steps[:max_steps])
 
     async def _rank_by_activity(
         self,
         max_steps: int,
         consider_goals: bool,
         consider_capacity: bool,
-    ) -> Result[list[LearningStep]]:
-        """Activity-based learning step ranking (the original algorithm).
+    ) -> Result[list[PathStep]]:
+        """Activity-based path step ranking (the original algorithm).
 
         Tries vector search → KU service → context fallback, in that order.
         """
@@ -208,8 +208,8 @@ class LearningIntelligenceMixin:
             )
 
             if vector_result.is_ok and vector_result.value:
-                # Convert vector results to learning steps
-                return await self._vector_results_to_learning_steps(
+                # Convert vector results to path steps
+                return await self._vector_results_to_path_steps(
                     vector_result.value, max_steps, consider_goals, consider_capacity
                 )
 
@@ -221,10 +221,10 @@ class LearningIntelligenceMixin:
         if ready_result.is_error or not ready_result.value:
             # Fall back to context-based approach
             return Result.ok(
-                self._get_learning_steps_from_context(max_steps, consider_goals, consider_capacity)
+                self._get_path_steps_from_context(max_steps, consider_goals, consider_capacity)
             )
 
-        learning_steps = []
+        path_steps = []
         contextual_knowledge_list: list[ContextualKnowledge] = ready_result.value
 
         for contextual_ku in contextual_knowledge_list:
@@ -237,7 +237,7 @@ class LearningIntelligenceMixin:
             # Find aligned goals
             aligned_goals = self._find_aligned_goals(contextual_ku.uid)
 
-            step = LearningStep(
+            step = PathStep(
                 ku_uid=contextual_ku.uid,
                 title=contextual_ku.title,
                 rationale=self._generate_learning_rationale(
@@ -253,32 +253,32 @@ class LearningIntelligenceMixin:
                 application_opportunities={k: tuple(v) for k, v in applications.items()},
             )
 
-            learning_steps.append(step)
+            path_steps.append(step)
 
         # Sort by priority score (highest first)
         from core.utils.sort_functions import get_priority_score
 
-        learning_steps.sort(key=get_priority_score, reverse=True)
+        path_steps.sort(key=get_priority_score, reverse=True)
 
         # Apply capacity filter if requested
         if consider_capacity:
-            learning_steps = self._filter_by_capacity(learning_steps)
+            path_steps = self._filter_by_capacity(path_steps)
 
-        return Result.ok(learning_steps[:max_steps])
+        return Result.ok(path_steps[:max_steps])
 
-    def _get_learning_steps_from_context(
+    def _get_path_steps_from_context(
         self,
         max_steps: int,
         consider_goals: bool,
         consider_capacity: bool,
-    ) -> list[LearningStep]:
-        """Fallback: Get learning steps from context when service unavailable."""
+    ) -> list[PathStep]:
+        """Fallback: Get path steps from context when service unavailable."""
         ready_uids = self.context.get_ready_to_learn()
 
         if not ready_uids:
             return []
 
-        learning_steps = []
+        path_steps = []
 
         for ku_uid in ready_uids[: max_steps * 2]:
             priority_score = self._calculate_learning_priority(
@@ -296,7 +296,7 @@ class LearningIntelligenceMixin:
             unlocks_count = self._count_items_unlocked_by(ku_uid)
             aligned_goals = self._find_aligned_goals(ku_uid)
 
-            step = LearningStep(
+            step = PathStep(
                 ku_uid=ku_uid,
                 title=f"Knowledge Unit {ku_uid}",
                 rationale=self._generate_learning_rationale(
@@ -310,12 +310,12 @@ class LearningIntelligenceMixin:
                 application_opportunities={k: tuple(v) for k, v in applications.items()},
             )
 
-            learning_steps.append(step)
+            path_steps.append(step)
 
         from core.utils.sort_functions import get_priority_score
 
-        learning_steps.sort(key=get_priority_score, reverse=True)
-        return learning_steps[:max_steps]
+        path_steps.sort(key=get_priority_score, reverse=True)
+        return path_steps[:max_steps]
 
     def _calculate_learning_priority(
         self, ku_uid: str, consider_goals: bool, consider_capacity: bool
@@ -452,8 +452,8 @@ class LearningIntelligenceMixin:
 
         return opportunities
 
-    def _filter_by_capacity(self, steps: list[LearningStep]) -> list[LearningStep]:
-        """Filter learning steps by user capacity."""
+    def _filter_by_capacity(self, steps: list[PathStep]) -> list[PathStep]:
+        """Filter path steps by user capacity."""
         available = self.context.available_minutes_daily
         filtered = []
         total_time = 0
@@ -645,15 +645,15 @@ class LearningIntelligenceMixin:
 
         return " ".join(query_parts)
 
-    async def _vector_results_to_learning_steps(
+    async def _vector_results_to_path_steps(
         self,
         vector_results: list[dict[str, Any]],
         max_steps: int,
         consider_goals: bool,
         consider_capacity: bool,
-    ) -> Result[list[LearningStep]]:
+    ) -> Result[list[PathStep]]:
         """
-        Convert vector search results to LearningStep objects.
+        Convert vector search results to PathStep objects.
 
         Args:
             vector_results: Results from learning_aware_search()
@@ -662,9 +662,9 @@ class LearningIntelligenceMixin:
             consider_capacity: Whether to filter by capacity
 
         Returns:
-            Result[list[LearningStep]] with full context
+            Result[list[PathStep]] with full context
         """
-        learning_steps = []
+        path_steps = []
 
         for result in vector_results[: max_steps * 2]:
             node = result["node"]
@@ -687,7 +687,7 @@ class LearningIntelligenceMixin:
             ]
             prerequisites_met = len(unmet_prereqs) == 0
 
-            step = LearningStep(
+            step = PathStep(
                 ku_uid=ku_uid,
                 title=node.get("title", f"Knowledge Unit {ku_uid}"),
                 rationale=self._generate_learning_rationale(
@@ -701,13 +701,13 @@ class LearningIntelligenceMixin:
                 application_opportunities={k: tuple(v) for k, v in applications.items()},
             )
 
-            learning_steps.append(step)
+            path_steps.append(step)
 
         # Apply capacity filter if requested
         if consider_capacity:
-            learning_steps = self._filter_by_capacity(learning_steps)
+            path_steps = self._filter_by_capacity(path_steps)
 
-        return Result.ok(learning_steps[:max_steps])
+        return Result.ok(path_steps[:max_steps])
 
 
 __all__ = ["LearningIntelligenceMixin"]

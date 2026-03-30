@@ -147,7 +147,7 @@ class AnalyticsLifePathService:
             # Step 3: Get all Knowledge Units in Life Path
             # Get knowledge units for this learning path
             # Note: This assumes LpService can provide knowledge UIDs
-            # In practice, may need to query through learning steps
+            # In practice, may need to query through path steps
             kus_result = await self._get_life_path_knowledge_units(life_path_uid)
             if kus_result.is_error:
                 return Result.fail(kus_result)
@@ -242,8 +242,8 @@ class AnalyticsLifePathService:
             Result containing list of KnowledgeUnit objects
         """
         try:
-            # Get learning steps for this path
-            steps_result = await self.lp_service.get_learning_steps(life_path_uid)
+            # Get path steps for this path
+            steps_result = await self.lp_service.get_path_steps(life_path_uid)
             if steps_result.is_error:
                 return Result.fail(steps_result)
 

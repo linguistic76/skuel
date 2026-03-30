@@ -108,7 +108,7 @@ if TYPE_CHECKING:
         RichEntityItem,
         RichKnowledgeUnitItem,
         RichLearningPathItem,
-        RichLearningStepItem,
+        RichPathStepItem,
         RichMOCItem,
         UnsubmittedExerciseItem,
     )
@@ -275,7 +275,7 @@ class UserContext:
     prerequisites_needed: dict[str, list[str]] = field(default_factory=dict)
 
     # Learning path tracking
-    learning_path_step_uids: list[str] = field(default_factory=list)  # Active learning step UIDs
+    learning_path_step_uids: list[str] = field(default_factory=list)  # Active path step UIDs
     recently_mastered_uids: set[str] = field(
         default_factory=set
     )  # Recently mastered KU UIDs (for momentum)
@@ -510,10 +510,10 @@ class UserContext:
     # - path: Full LearningPath entity properties
     # - graph_context: {steps, prerequisite_knowledge, aligned_goals, embodied_principles, milestone_events, progress, etc.}
 
-    # Rich learning step data (full Ls objects with graph neighborhoods)
-    active_learning_steps_rich: list[RichLearningStepItem] = field(default_factory=list)
+    # Rich path step data (full Ls objects with graph neighborhoods)
+    active_path_steps_rich: list[RichPathStepItem] = field(default_factory=list)
     # Each dict contains:
-    # - step: Full LearningStep entity properties
+    # - step: Full PathStep entity properties
     # - graph_context: {knowledge, prerequisites, practice_opportunities, guiding_principles, learning_path, etc.}
 
     # =========================================================================
@@ -1017,7 +1017,7 @@ class UserContext:
 
         For comprehensive recommendations, use UserContextIntelligence methods:
         - get_ready_to_work_on_today()
-        - get_optimal_next_learning_steps()
+        - get_optimal_next_path_steps()
         - get_schedule_aware_recommendations()
 
         This method exists for:

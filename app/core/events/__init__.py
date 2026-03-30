@@ -61,7 +61,7 @@ User:
 
 Learning:
     KnowledgeMastered, LessonCompleted, LearningPathStarted, LearningPathCompleted,
-    LearningStepProgressUpdated, PrerequisitesAnalyzed
+    PathStepProgressUpdated, PrerequisitesAnalyzed
 
 References:
 ----------
@@ -102,10 +102,10 @@ from core.events.chunk_events import (
 # Curriculum events (LS)
 # NOTE: MOC events removed January 2026 - MOC is now KU-based
 from core.events.curriculum_events import (
-    LearningStepCompleted,
-    LearningStepCreated,
-    LearningStepDeleted,
-    LearningStepUpdated,
+    PathStepCompleted,
+    PathStepCreated,
+    PathStepDeleted,
+    PathStepUpdated,
 )
 
 # Embedding events (async background generation)
@@ -118,7 +118,7 @@ from core.events.embedding_events import (
     HabitEmbeddingRequested,
     KuEmbeddingRequested,
     LearningPathEmbeddingRequested,
-    LearningStepEmbeddingRequested,
+    PathStepEmbeddingRequested,
     LessonEmbeddingRequested,
     PrincipleEmbeddingRequested,
     ResourceEmbeddingRequested,
@@ -179,7 +179,7 @@ from core.events.learning_events import (
     LearningPathProgressUpdated,
     LearningPathStarted,
     LearningRecommendationGenerated,
-    LearningStepProgressUpdated,
+    PathStepProgressUpdated,
     LessonCompleted,
     PrerequisitesAnalyzed,
 )
@@ -271,7 +271,7 @@ __all__ = [
     "HabitEmbeddingRequested",
     "KuEmbeddingRequested",
     "LearningPathEmbeddingRequested",
-    "LearningStepEmbeddingRequested",
+    "PathStepEmbeddingRequested",
     "PrincipleEmbeddingRequested",
     "ResourceEmbeddingRequested",
     "RevisedExerciseEmbeddingRequested",
@@ -337,13 +337,13 @@ __all__ = [
     "LearningPathProgressUpdated",
     "LearningPathStarted",
     "LearningRecommendationGenerated",
-    "LearningStepProgressUpdated",
+    "PathStepProgressUpdated",
     # Curriculum (LS)
     # NOTE: MOC events removed January 2026 - MOC is now KU-based
-    "LearningStepCompleted",
-    "LearningStepCreated",
-    "LearningStepDeleted",
-    "LearningStepUpdated",
+    "PathStepCompleted",
+    "PathStepCreated",
+    "PathStepDeleted",
+    "PathStepUpdated",
     "PrerequisitesAnalyzed",
     "PrincipleAlignmentAssessed",
     # Principles
@@ -403,7 +403,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "ku.embedding_requested": KuEmbeddingRequested,
     "resource.embedding_requested": ResourceEmbeddingRequested,
     "exercise.embedding_requested": ExerciseEmbeddingRequested,
-    "learning_step.embedding_requested": LearningStepEmbeddingRequested,
+    "path_step.embedding_requested": PathStepEmbeddingRequested,
     "learning_path.embedding_requested": LearningPathEmbeddingRequested,
     "revised_exercise.embedding_requested": RevisedExerciseEmbeddingRequested,
     # Tasks
@@ -443,17 +443,17 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "knowledge.bulk_built_into_habit": KnowledgeBulkBuiltIntoHabit,
     "knowledge.bulk_informed_choice": KnowledgeBulkInformedChoice,
     "lesson.completed": LessonCompleted,
-    "learning_step.progress_updated": LearningStepProgressUpdated,
+    "path_step.progress_updated": PathStepProgressUpdated,
     "learning_path.started": LearningPathStarted,
     "learning_path.completed": LearningPathCompleted,
     "learning_path.progress_updated": LearningPathProgressUpdated,
     "prerequisites.analyzed": PrerequisitesAnalyzed,
     "learning.recommendation_generated": LearningRecommendationGenerated,
     # Learning Steps (LS)
-    "learning_step.created": LearningStepCreated,
-    "learning_step.updated": LearningStepUpdated,
-    "learning_step.deleted": LearningStepDeleted,
-    "learning_step.completed": LearningStepCompleted,
+    "path_step.created": PathStepCreated,
+    "path_step.updated": PathStepUpdated,
+    "path_step.deleted": PathStepDeleted,
+    "path_step.completed": PathStepCompleted,
     # Maps of Content (MOC) - removed January 2026
     # MOC is now KU-based - use KU events instead
     # Principles
@@ -625,7 +625,7 @@ LEARNING_EVENTS = [
     LearningPathStarted,
     LearningPathCompleted,
     LearningPathProgressUpdated,
-    LearningStepProgressUpdated,
+    PathStepProgressUpdated,
     PrerequisitesAnalyzed,
     LearningRecommendationGenerated,
 ]
@@ -641,11 +641,11 @@ KNOWLEDGE_SUBSTANCE_EVENTS = [
     KnowledgeBulkInformedChoice,
 ]
 
-LS_EVENTS = [
-    LearningStepCreated,
-    LearningStepUpdated,
-    LearningStepDeleted,
-    LearningStepCompleted,
+PS_EVENTS = [
+    PathStepCreated,
+    PathStepUpdated,
+    PathStepDeleted,
+    PathStepCompleted,
 ]
 
 
@@ -709,7 +709,7 @@ ALL_EVENTS = (
     + USER_EVENTS
     + LEARNING_EVENTS
     + KNOWLEDGE_SUBSTANCE_EVENTS
-    + LS_EVENTS
+    + PS_EVENTS
     + PRINCIPLE_EVENTS
     + CHOICE_EVENTS
     + CALENDAR_EVENT_EVENTS

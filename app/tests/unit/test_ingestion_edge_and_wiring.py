@@ -243,32 +243,32 @@ class TestLsFieldWiring:
     """Tests for Learning Step relationship field wiring in the registry."""
 
     def test_knowledge_uids(self):
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
+        config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
         assert "knowledge_uids" in config
         assert config["knowledge_uids"]["rel_type"] == "CONTAINS_KNOWLEDGE"
 
     def test_trains_ku_uids(self):
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
+        config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
         assert "trains_ku_uids" in config
         assert config["trains_ku_uids"]["rel_type"] == "TRAINS_KU"
         assert config["trains_ku_uids"]["target_label"] == "Ku"
 
     def test_prerequisite_step_uids(self):
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
+        config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
         assert "prerequisite_step_uids" in config
         assert config["prerequisite_step_uids"]["rel_type"] == "REQUIRES_STEP"
 
     def test_prerequisite_knowledge_uids(self):
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
+        config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
         assert "prerequisite_knowledge_uids" in config
         assert config["prerequisite_knowledge_uids"]["rel_type"] == "REQUIRES_KNOWLEDGE"
 
     def test_learning_path_uids(self):
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
+        config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
         assert "learning_path_uids" in config
         assert config["learning_path_uids"]["rel_type"] == "HAS_STEP"
@@ -276,7 +276,7 @@ class TestLsFieldWiring:
 
     def test_activity_wiring_removed(self):
         """Activity domain wiring moved from LS to Lessons (via HAS_LESSON)."""
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
+        config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
         for field in (
             "principle_uids",
@@ -289,7 +289,7 @@ class TestLsFieldWiring:
 
     def test_total_field_count(self):
         """LS should have 5 relationship fields wired (knowledge + steps + paths)."""
-        config = generate_ingestion_relationship_config(EntityType.LEARNING_STEP)
+        config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
         assert len(config) == 5
 
@@ -305,45 +305,45 @@ class TestLsPreparerNormalization:
     def test_learning_path_uid_to_list(self):
         """Single learning_path_uid should be converted to learning_path_uids list."""
         data = {
-            "type": "ls",
+            "type": "ps",
             "title": "Step 1",
             "learning_path_uid": "lp:mindfulness-101",
         }
-        result = prepare_entity_data(EntityType.LEARNING_STEP, data, None, Path("step1.yaml"))
+        result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
         assert "learning_path_uid" not in result
         assert result["learning_path_uids"] == ["lp.mindfulness-101"]
 
     def test_knowledge_uid_merged(self):
         """Single knowledge_uid should merge into knowledge_uids."""
         data = {
-            "type": "ls",
+            "type": "ps",
             "title": "Step 1",
             "knowledge_uid": "ku:breathing",
         }
-        result = prepare_entity_data(EntityType.LEARNING_STEP, data, None, Path("step1.yaml"))
+        result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
         assert "knowledge_uid" not in result
         assert "ku.breathing" in result["knowledge_uids"]
 
     def test_knowledge_uid_no_duplicate(self):
         """knowledge_uid should not duplicate existing knowledge_uids entry."""
         data = {
-            "type": "ls",
+            "type": "ps",
             "title": "Step 1",
             "knowledge_uid": "ku:breathing",
             "knowledge_uids": ["ku:breathing"],
         }
-        result = prepare_entity_data(EntityType.LEARNING_STEP, data, None, Path("step1.yaml"))
+        result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
         assert result["knowledge_uids"].count("ku.breathing") == 1
 
     def test_uid_normalization_in_list_fields(self):
         """All UID list fields should have colon→dot normalization."""
         data = {
-            "type": "ls",
+            "type": "ps",
             "title": "Step 1",
             "trains_ku_uids": ["ku:concept-a", "ku:concept-b"],
             "knowledge_uids": ["ku:concept-c"],
         }
-        result = prepare_entity_data(EntityType.LEARNING_STEP, data, None, Path("step1.yaml"))
+        result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
         assert result["trains_ku_uids"] == ["ku.concept-a", "ku.concept-b"]
         assert result["knowledge_uids"] == ["ku.concept-c"]
 

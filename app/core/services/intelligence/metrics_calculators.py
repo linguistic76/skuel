@@ -314,7 +314,7 @@ def calculate_knowledge_metrics(ku: Any, context: KnowledgeCrossContext) -> dict
     - prerequisite_count: Number of prerequisites
     - dependent_count: Number of dependents (who build on this)
     - application_count: Tasks applying this knowledge
-    - learning_step_count: Learning steps teaching this
+    - path_step_count: Learning steps teaching this
     - supported_goal_count: Goals this knowledge supports
     - is_foundational: Boolean if many dependents
     - is_applied: Boolean if being used in tasks
@@ -339,7 +339,7 @@ def calculate_knowledge_metrics(ku: Any, context: KnowledgeCrossContext) -> dict
         "prerequisite_count": len(context.prerequisite_knowledge_uids),
         "dependent_count": len(context.dependent_knowledge_uids),
         "application_count": len(context.applying_task_uids),
-        "learning_step_count": len(context.learning_step_uids),
+        "path_step_count": len(context.path_step_uids),
         "supported_goal_count": len(context.supported_goal_uids),
         "has_prerequisites": context.has_prerequisites(),
         "is_foundational": context.is_foundational(),

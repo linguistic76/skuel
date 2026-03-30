@@ -6,7 +6,7 @@ Wires Pathways API and UI routes using DomainRouteConfig pattern.
 
 This file handles:
 - LP (Learning Path) routes via DomainRouteConfig
-- LS (Learning Steps) routes as separate concern (optional)
+- PS (Path Steps) routes as separate concern (optional)
 
 Version: 3.0 (Renamed from learning_routes.py)
 """
@@ -14,7 +14,7 @@ Version: 3.0 (Renamed from learning_routes.py)
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
-from adapters.inbound.learning_steps_routes import LS_CONFIG
+from adapters.inbound.path_steps_routes import PS_CONFIG
 from adapters.inbound.pathways_api import create_pathways_api_routes
 from adapters.inbound.pathways_ui import create_pathways_ui_routes
 from adapters.inbound.route_factories import (
@@ -44,7 +44,7 @@ PATHWAYS_CONFIG = DomainRouteConfig(
     },
     ui_related_services={
         "user_progress": "user_progress",
-        "ls_service": "ls",
+        "ps_service": "ps",
     },
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
@@ -74,7 +74,7 @@ def create_pathways_routes(
     routes = register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
 
     # Handle LS routes separately (soft-fail if ls service missing)
-    routes.extend(register_domain_routes(app, rt, services, LS_CONFIG))
+    routes.extend(register_domain_routes(app, rt, services, PS_CONFIG))
 
     return routes
 

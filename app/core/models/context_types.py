@@ -1443,8 +1443,8 @@ class CrossDomainSynergy:
 
 
 @dataclass(frozen=True)
-class LearningStep:
-    """A recommended learning step with full context."""
+class PathStep:
+    """A recommended path step with full context."""
 
     ku_uid: str
     title: str
@@ -1609,6 +1609,6 @@ __all__ = [
     "DailyWorkPlan",
     "LifePathAlignment",
     "CrossDomainSynergy",
-    "LearningStep",
+    "PathStep",
     "ScheduleAwareRecommendation",
 ]

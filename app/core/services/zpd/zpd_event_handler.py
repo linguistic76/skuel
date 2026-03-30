@@ -6,7 +6,7 @@ Takes a ZPD snapshot when pedagogically significant events occur:
 - SubmissionApproved — student work validated
 - ReportSubmitted — teacher feedback delivered
 - KnowledgeMastered — KU mastery confirmed
-- LearningStepCompleted — curriculum progress
+- PathStepCompleted — curriculum progress
 - LearningPathProgressUpdated — LP advancement
 
 Each handler extracts the user_uid from the event and delegates to
@@ -25,7 +25,7 @@ from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.zpd_snapshot_backend import ZPDSnapshotBackend
-    from core.events.curriculum_events import LearningStepCompleted
+    from core.events.curriculum_events import PathStepCompleted
     from core.events.learning_events import KnowledgeMastered, LearningPathProgressUpdated
     from core.events.submission_events import ReportSubmitted, SubmissionApproved
     from core.services.zpd.zpd_service import ZPDService
@@ -58,9 +58,9 @@ class ZPDSnapshotHandler:
         """Snapshot when a KU is mastered — zone shift."""
         await self._take_snapshot(event.user_uid, "knowledge.mastered")
 
-    async def handle_learning_step_completed(self, event: LearningStepCompleted) -> None:
-        """Snapshot when a learning step is completed — curriculum progress."""
-        await self._take_snapshot(event.user_uid, "learning_step.completed")
+    async def handle_path_step_completed(self, event: PathStepCompleted) -> None:
+        """Snapshot when a path step is completed — curriculum progress."""
+        await self._take_snapshot(event.user_uid, "path_step.completed")
 
     async def handle_learning_path_progress(self, event: LearningPathProgressUpdated) -> None:
         """Snapshot when learning path progress changes — LP advancement."""

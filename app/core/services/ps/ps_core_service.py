@@ -2,7 +2,7 @@
 Learning Step Core Service
 ============================
 
-Core CRUD operations for learning steps.
+Core CRUD operations for path steps.
 
 This sub-service handles:
 - Step creation and persistence
@@ -11,7 +11,7 @@ This sub-service handles:
 - Step deletion
 - Path-filtered listings
 
-Part of LsService decomposition (October 24, 2025)
+Part of PsService decomposition (October 24, 2025)
 - Follows LessonService and LpService decomposition patterns
 - Clear separation of concerns
 - Single responsibility: CRUD operations
@@ -20,7 +20,7 @@ Part of LsService decomposition (October 24, 2025)
 - Extends BaseService[BackendOperations[Ls], Ls] for unified infrastructure
 - Uses specialized Cypher queries for knowledge relationships
 - Class attributes match unified domain conventions
-- Uses LsBackend methods for graph-native operations
+- Uses PsBackend methods for graph-native operations
 """
 
 from __future__ import annotations
@@ -29,15 +29,15 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.curriculum_events import (
-    LearningStepCreated,
-    LearningStepDeleted,
-    LearningStepUpdated,
+    PathStepCreated,
+    PathStepDeleted,
+    PathStepUpdated,
 )
-from core.models.pathways.learning_step import LearningStep
-from core.models.pathways.learning_step_dto import LearningStepDTO
+from core.models.pathways.path_step import PathStep
+from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.type_hints import UserUID
 from core.ports import get_enum_value
-from core.ports.query_types import LsKnowledgeItemResult, LsKnowledgeSummaryResult
+from core.ports.query_types import PsKnowledgeItemResult, PsKnowledgeSummaryResult
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
@@ -48,19 +48,19 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from core.ports.curriculum_protocols import LsOperations
+    from core.ports.curriculum_protocols import PsOperations
 
 logger = get_logger(__name__)
 
 
-class LsCoreService(BaseService["LsOperations", LearningStep]):
+class PsCoreService(BaseService["PsOperations", PathStep]):
     """
-    Core CRUD operations for learning steps.
+    Core CRUD operations for path steps.
 
     **Architecture (January 2026 Unified):**
     Extends BaseService[BackendOperations[Ls], Ls] for unified infrastructure.
     Uses specialized Cypher queries for knowledge relationships via
-    LsBackend named methods (protocol-compliant).
+    PsBackend named methods (protocol-compliant).
 
     This service owns:
     - Step creation and persistence to Neo4j
@@ -76,10 +76,10 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
     # All configuration in one place, using centralized relationship registry
     # See: /docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
     _config = create_curriculum_domain_config(
-        dto_class=LearningStepDTO,
-        model_class=LearningStep,
+        dto_class=PathStepDTO,
+        model_class=PathStep,
         entity_label="Entity",
-        domain_name="ls",
+        domain_name="ps",
         search_fields=("title", "intent", "description"),  # LS-specific fields
         search_order_by="updated_at",
         content_field="description",  # LS stores content in description field
@@ -90,7 +90,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         """Entity label for Neo4j queries."""
         return "Entity"
 
-    def __init__(self, backend: LsOperations, event_bus: Any = None) -> None:
+    def __init__(self, backend: PsOperations, event_bus: Any = None) -> None:
         """
         Initialize core step service.
 
@@ -105,9 +105,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         self.event_bus = event_bus
 
     @with_error_handling(operation="create_step", error_type="database", uid_param="step.uid")
-    async def create_step(
-        self, step: LearningStep, path_uid: str | None = None
-    ) -> Result[LearningStep]:
+    async def create_step(self, step: PathStep, path_uid: str | None = None) -> Result[PathStep]:
         """
         Create a standalone Ls or add to existing path.
 
@@ -155,11 +153,11 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
                 Errors.database(operation="create_step", message="Step creation failed")
             )
 
-        logger.info(f"✅ Created learning step {step.uid}")
+        logger.info(f"✅ Created path step {step.uid}")
 
         # Publish event
-        event = LearningStepCreated(
-            ls_uid=step.uid,
+        event = PathStepCreated(
+            ps_uid=step.uid,
             title=step.title,
             intent=step.intent,
             linked_lp_uid=path_uid,
@@ -171,9 +169,9 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         return Result.ok(step)
 
     @with_error_handling(operation="get_step", error_type="database", uid_param="step_uid")
-    async def get_step(self, step_uid: str) -> Result[LearningStep | None]:
+    async def get_step(self, step_uid: str) -> Result[PathStep | None]:
         """
-        Get a learning step by UID.
+        Get a path step by UID.
 
         GRAPH-NATIVE: Fetches knowledge relationships from graph.
 
@@ -197,10 +195,10 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         step_data = record["s"]
         knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
 
-        step = LearningStep(
+        step = PathStep(
             uid=step_data["uid"],
             title=step_data.get("title", "Learning Step"),
-            intent=step_data.get("intent", "Complete this learning step"),
+            intent=step_data.get("intent", "Complete this path step"),
             description=step_data.get("description"),
             knowledge_uids=tuple(knowledge_uids),
             learning_path_uid=step_data.get("learning_path_uid"),
@@ -223,9 +221,9 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         min_confidence: float = 0.7,
         include_relationships: Sequence[str] | None = None,
         exclude_relationships: Sequence[str] | None = None,
-    ) -> Result[LearningStep]:
+    ) -> Result[PathStep]:
         """
-        Get learning step with comprehensive graph context (SINGLE QUERY).
+        Get path step with comprehensive graph context (SINGLE QUERY).
 
         Overrides BaseService.get_with_context() with LS-specific graph patterns.
 
@@ -259,19 +257,19 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
 
         records = query_result.value or []
         if not records:
-            return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
+            return Result.fail(Errors.not_found(resource="path_step", identifier=step_uid))
 
         record = records[0]
-        step_data = record["ls"]
+        step_data = record["ps"]
 
         # Extract knowledge UIDs from graph context
         knowledge_uids = [rel["uid"] for rel in record["knowledge_rels"] if rel.get("uid")]
 
-        # Build LearningStep with knowledge UIDs
-        step = LearningStep(
+        # Build PathStep with knowledge UIDs
+        step = PathStep(
             uid=step_data["uid"],
             title=step_data.get("title", "Learning Step"),
-            intent=step_data.get("intent", "Complete this learning step"),
+            intent=step_data.get("intent", "Complete this path step"),
             description=step_data.get("description"),
             knowledge_uids=tuple(knowledge_uids),
             learning_path_uid=step_data.get("learning_path_uid"),
@@ -338,9 +336,9 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         return Result.ok(step)
 
     @with_error_handling(operation="update_step", error_type="database", uid_param="step_uid")
-    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[LearningStep]:
+    async def update_step(self, step_uid: str, updates: dict[str, Any]) -> Result[PathStep]:
         """
-        Update a learning step.
+        Update a path step.
 
         Args:
             step_uid: Ls UID to update
@@ -355,7 +353,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
             return Result.fail(get_result)
 
         if not get_result.value:
-            return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
+            return Result.fail(Errors.not_found(resource="path_step", identifier=step_uid))
 
         # Build SET clause dynamically
         set_clauses = []
@@ -384,7 +382,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         if not set_clauses:
             # No valid updates provided, return existing step
             if not get_result.value:
-                return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
+                return Result.fail(Errors.not_found(resource="path_step", identifier=step_uid))
             return Result.ok(get_result.value)
 
         result = await self.backend.update_step_fields(step_uid, set_clauses, params)
@@ -408,10 +406,10 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         step_data = record["s"]
         knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
 
-        updated_step = LearningStep(
+        updated_step = PathStep(
             uid=step_data["uid"],
             title=step_data.get("title", "Learning Step"),
-            intent=step_data.get("intent", "Complete this learning step"),
+            intent=step_data.get("intent", "Complete this path step"),
             description=step_data.get("description"),
             knowledge_uids=tuple(knowledge_uids),
             learning_path_uid=step_data.get("learning_path_uid"),
@@ -424,11 +422,11 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
             domain=step_data.get("domain", "PERSONAL"),
         )
 
-        logger.info(f"Updated learning step {step_uid}")
+        logger.info(f"Updated path step {step_uid}")
 
         # Publish event
-        event = LearningStepUpdated(
-            ls_uid=step_uid,
+        event = PathStepUpdated(
+            ps_uid=step_uid,
             updated_fields=tuple(updates.keys()),
             linked_lp_uid=updated_step.learning_path_uid,
         )
@@ -439,7 +437,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
     @with_error_handling(operation="delete_step", error_type="database", uid_param="step_uid")
     async def delete_step(self, step_uid: str) -> Result[bool]:
         """
-        DETACH DELETE a learning step.
+        DETACH DELETE a path step.
 
         Args:
             step_uid: Ls UID to DETACH DELETE
@@ -453,7 +451,7 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
             return Result.fail(get_result)
 
         if not get_result.value:
-            return Result.fail(Errors.not_found(resource="learning_step", identifier=step_uid))
+            return Result.fail(Errors.not_found(resource="path_step", identifier=step_uid))
 
         step = get_result.value
         had_ku_links = bool(step.knowledge_uids)
@@ -479,11 +477,11 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
                 )
             )
 
-        logger.info(f"✅ Deleted learning step {step_uid}")
+        logger.info(f"✅ Deleted path step {step_uid}")
 
         # Publish event
-        event = LearningStepDeleted(
-            ls_uid=step_uid,
+        event = PathStepDeleted(
+            ps_uid=step_uid,
             linked_lp_uid=linked_lp_uid,
             had_ku_links=had_ku_links,
         )
@@ -500,9 +498,9 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
         order_by: str | None = None,
         order_desc: bool = False,
         user_uid: UserUID | None = None,
-    ) -> Result[list[LearningStep]]:
+    ) -> Result[list[PathStep]]:
         """
-        List learning steps with pagination and sorting support.
+        List path steps with pagination and sorting support.
 
         Args:
             path_uid: Optional path UID to filter by
@@ -536,10 +534,10 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
             knowledge_uids = [uid for uid in record["knowledge_uids"] if uid]
 
             steps.append(
-                LearningStep(
+                PathStep(
                     uid=step_data["uid"],
                     title=step_data.get("title", "Learning Step"),
-                    intent=step_data.get("intent", "Complete this learning step"),
+                    intent=step_data.get("intent", "Complete this path step"),
                     description=step_data.get("description"),
                     knowledge_uids=tuple(knowledge_uids),
                     learning_path_uid=step_data.get("learning_path_uid"),
@@ -553,48 +551,48 @@ class LsCoreService(BaseService["LsOperations", LearningStep]):
                 )
             )
 
-        logger.info(f"✅ Listed {len(steps)} learning steps")
+        logger.info(f"✅ Listed {len(steps)} path steps")
         return Result.ok(steps)
 
     # ========================================================================
     # KNOWLEDGE RELATIONSHIP METHODS (Universal Hierarchical Pattern - 2026-01-30)
-    # Delegated to LsBackend (2026-03-24)
+    # Delegated to PsBackend (2026-03-24)
     # ========================================================================
 
     @track_query_metrics("ls_add_knowledge")
     @with_error_handling("add_knowledge_relationship", error_type="database")
-    async def add_knowledge_relationship(self, ls_uid: str, ku_uid: str) -> Result[bool]:
+    async def add_knowledge_relationship(self, ps_uid: str, ku_uid: str) -> Result[bool]:
         """Create CONTAINS_KNOWLEDGE relationship between LS and KU."""
-        return await self.backend.add_knowledge(ls_uid, ku_uid)
+        return await self.backend.add_knowledge(ps_uid, ku_uid)
 
     @track_query_metrics("ls_get_knowledge")
     @with_error_handling("get_contained_knowledge", error_type="database")
-    async def get_contained_knowledge(self, ls_uid: str) -> Result[list[LsKnowledgeItemResult]]:
+    async def get_contained_knowledge(self, ps_uid: str) -> Result[list[PsKnowledgeItemResult]]:
         """Get KUs contained in this LS via CONTAINS_KNOWLEDGE relationships."""
-        result = await self.backend.list_knowledge(ls_uid)
+        result = await self.backend.list_knowledge(ps_uid)
         if result.is_error:
             return Result.fail(result)
-        self.logger.info(f"Found {len(result.value)} KUs for LS {ls_uid}")
+        self.logger.info(f"Found {len(result.value)} KUs for LS {ps_uid}")
         return result
 
     @track_query_metrics("ls_remove_knowledge")
     @with_error_handling("remove_knowledge_relationship", error_type="database")
-    async def remove_knowledge_relationship(self, ls_uid: str, ku_uid: str) -> Result[bool]:
+    async def remove_knowledge_relationship(self, ps_uid: str, ku_uid: str) -> Result[bool]:
         """Remove CONTAINS_KNOWLEDGE relationship between LS and KU."""
-        result = await self.backend.remove_knowledge(ls_uid, ku_uid)
+        result = await self.backend.remove_knowledge(ps_uid, ku_uid)
         if result.is_error:
             return Result.fail(result)
         if not result.value:
-            self.logger.warning(f"No CONTAINS_KNOWLEDGE relationship found: {ls_uid} -> {ku_uid}")
+            self.logger.warning(f"No CONTAINS_KNOWLEDGE relationship found: {ps_uid} -> {ku_uid}")
         return result
 
     @track_query_metrics("ls_get_knowledge_summary")
     @with_error_handling("get_knowledge_summary", error_type="database")
-    async def get_knowledge_summary(self, ls_uid: str) -> Result[LsKnowledgeSummaryResult]:
+    async def get_knowledge_summary(self, ps_uid: str) -> Result[PsKnowledgeSummaryResult]:
         """Get summary of knowledge relationships (count and UIDs)."""
-        result = await self.backend.get_knowledge_summary(ls_uid)
+        result = await self.backend.get_knowledge_summary(ps_uid)
         if result.is_error:
             return Result.fail(result)
         summary = result.value
-        self.logger.info(f"Knowledge summary for {ls_uid}: {summary['count']} KUs")
+        self.logger.info(f"Knowledge summary for {ps_uid}: {summary['count']} KUs")
         return result

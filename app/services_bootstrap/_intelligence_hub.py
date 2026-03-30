@@ -76,7 +76,7 @@ async def _create_intelligence_hub(
         zpd_snapshot_backend = ZPDSnapshotBackend(driver)
         zpd_handler = ZPDSnapshotHandler(zpd_service, zpd_snapshot_backend)
 
-        from core.events.curriculum_events import LearningStepCompleted as ZPDLSCompleted
+        from core.events.curriculum_events import PathStepCompleted as ZPDPSCompleted
         from core.events.learning_events import KnowledgeMastered as ZPDKMastered
         from core.events.learning_events import (
             LearningPathProgressUpdated as ZPDLPProgress,
@@ -91,12 +91,12 @@ async def _create_intelligence_hub(
         event_bus.subscribe(ZPDSubApproved, zpd_handler.handle_submission_approved)
         event_bus.subscribe(ZPDReportSubmitted, zpd_handler.handle_report_submitted)
         event_bus.subscribe(ZPDKMastered, zpd_handler.handle_knowledge_mastered)
-        event_bus.subscribe(ZPDLSCompleted, zpd_handler.handle_learning_step_completed)
+        event_bus.subscribe(ZPDPSCompleted, zpd_handler.handle_path_step_completed)
         event_bus.subscribe(ZPDLPProgress, zpd_handler.handle_learning_path_progress)
         logger.info(
             "✅ ZPD snapshot handler subscribed to 5 events "
             "(SubmissionApproved, ReportSubmitted, KnowledgeMastered, "
-            "LearningStepCompleted, LearningPathProgressUpdated)"
+            "PathStepCompleted, LearningPathProgressUpdated)"
         )
     else:
         logger.info("⏭️  ZPDService skipped (intelligence tier: CORE)")
@@ -115,7 +115,7 @@ async def _create_intelligence_hub(
         # Curriculum Domains (4) — facades from learning_services
         "lessons": learning_services["lesson_service"],
         "ku": learning_services["atomic_ku_service"],
-        "learning_steps": learning_services["learning_steps"],
+        "path_steps": learning_services["path_steps"],
         "learning_paths": learning_services["learning_paths"],
     }
     # Exercise is created in compose_services, passed via services container
@@ -133,7 +133,7 @@ async def _create_intelligence_hub(
         principles=activity_services["principles"].relationships,
         # Curriculum Domains (3)
         lesson=learning_services["lesson_service"],  # LessonService facade
-        ls=learning_services["learning_steps"].relationships,  # Factory expects 'ls' parameter name
+        ps=learning_services["path_steps"].relationships,
         lp=learning_services["learning_paths"].relationships,  # Factory expects 'lp' parameter name
         # Processing Domains (3)
         submissions=submissions_relationship_service,  # SubmissionsRelationshipService
@@ -143,7 +143,7 @@ async def _create_intelligence_hub(
         calendar=calendar_service,
         # Optional: Vector search for semantic enhancements
         vector_search_service=vector_search_service,
-        # Optional: ZPD service for curriculum-graph-aware learning step ranking
+        # Optional: ZPD service for curriculum-graph-aware path step ranking
         zpd_service=zpd_service,
         # FilteredContextProvider dict for on-demand domain queries
         filtered_providers=filtered_providers,

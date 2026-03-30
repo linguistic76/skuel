@@ -205,7 +205,7 @@ class UserContextPopulator:
 
         # Learning paths and steps rich data
         context.enrolled_paths_rich = rich_data.get("learning_paths", [])
-        context.active_learning_steps_rich = rich_data.get("learning_steps", [])
+        context.active_path_steps_rich = rich_data.get("path_steps", [])
 
     def populate_ku_window_entities(
         self,

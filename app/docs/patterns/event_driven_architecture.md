@@ -128,7 +128,7 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 2. ✅ **Batch Event Publishing** - O(1) vs O(n) for bulk operations
 3. ✅ **Complete Event Registry** - All 60+ events registered for serialization/replay
 4. ✅ **Expanded Context Invalidation** - 49 events trigger context refresh (up from 31)
-5. ✅ **Curriculum Domain Events** - LS/MOC events wired for context invalidation
+5. ✅ **Curriculum Domain Events** - PS/MOC events wired for context invalidation
 6. ✅ **Performance Monitoring** - Handler execution timing and slow handler detection
 
 **Event Registry Groups:**
@@ -138,9 +138,9 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 - `EVENT_EVENTS` (7 events): CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, CalendarEventDeleted, CalendarEventRescheduled, EventAttendeeAdded, EventAttendeeRemoved
 - `CHOICE_EVENTS` (4 events): ChoiceCreated, ChoiceUpdated, ChoiceMade, ChoiceOutcomeRecorded
 - `PRINCIPLE_EVENTS` (4 events): PrincipleCreated, PrincipleUpdated, PrincipleStrengthChanged, PrincipleAlignmentAssessed
-- `LEARNING_EVENTS` (12 events): KnowledgeCreated, KnowledgeMastered, LessonCompleted, KnowledgePracticed, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, LearningStepProgressUpdated, PrerequisitesAnalyzed, LearningRecommendationGenerated, etc.
+- `LEARNING_EVENTS` (12 events): KnowledgeCreated, KnowledgeMastered, LessonCompleted, KnowledgePracticed, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, PathStepProgressUpdated, PrerequisitesAnalyzed, LearningRecommendationGenerated, etc.
 - `KNOWLEDGE_SUBSTANCE_EVENTS` (8 events): KnowledgeAppliedInTask, KnowledgeBuiltIntoHabit, etc.
-- `CURRICULUM_EVENTS` (4 events): LearningStepCreated/Updated/Deleted/Completed
+- `CURRICULUM_EVENTS` (4 events): PathStepCreated/Updated/Deleted/Completed
 - `SUBMISSION_EVENTS` (4 events): SubmissionCreated, ReportSubmitted, SubmissionApproved, SubmissionRevisionRequested
 - `ASSIGNMENT_EVENTS` (5 events): AssignmentSubmitted, AssignmentProcessingStarted/Completed/Failed, AssignmentDeleted
 - `TRANSCRIPTION_EVENTS` (3 events): TranscriptionCreated, TranscriptionCompleted, TranscriptionFailed
@@ -302,8 +302,8 @@ Event handlers across all 6 Activity Domains and the Learning Loop persist struc
 | Choices | ChoiceCreated, ChoiceUpdated, ChoiceMade, ChoiceOutcomeRecorded |
 | Principles | PrincipleCreated, PrincipleUpdated, PrincipleStrengthChanged, PrincipleAlignmentAssessed |
 | Finance | ExpenseCreated, ExpenseUpdated, ExpensePaid, ExpenseDeleted |
-| Learning | KnowledgeCreated, KnowledgeMastered, LessonCompleted, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, LearningStepProgressUpdated |
-| LS | LearningStepCreated, LearningStepUpdated, LearningStepDeleted, LearningStepCompleted |
+| Learning | KnowledgeCreated, KnowledgeMastered, LessonCompleted, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, PathStepProgressUpdated |
+| PS | PathStepCreated, PathStepUpdated, PathStepDeleted, PathStepCompleted |
 | Submissions | SubmissionCreated, ReportSubmitted, SubmissionApproved, SubmissionRevisionRequested |
 
 ---

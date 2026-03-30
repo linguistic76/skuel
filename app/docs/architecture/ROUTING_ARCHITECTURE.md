@@ -130,7 +130,7 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
 /core/
 ├── ports/                            # Protocol interfaces
 │   ├── domain_protocols.py          # TasksOperations, GoalsOperations, etc.
-│   ├── curriculum_protocols.py      # KuOperations, LsOperations, LpOperations
+│   ├── curriculum_protocols.py      # KuOperations, PsOperations, LpOperations
 │   ├── infrastructure_protocols.py  # EventBus, User ISP hierarchy, Schema, Ingestion
 │   ├── base_protocols.py            # BackendOperations[T] ISP hierarchy
 │   ├── search_protocols.py          # SearchRouter, domain search ops
@@ -397,7 +397,7 @@ RETURN t
 | Pattern | Factory | Used By |
 |---------|---------|---------|
 | `create_activity_domain_route_config()` | CRUD + Query + Intelligence factories in config | All 6 Activity Domains |
-| `DomainRouteConfig(crud=CRUDRouteConfig(...))` | CRUD (+ optional Intelligence) in config; domain-specific in api_factory | Lesson, Exercises, LP, LS, Groups, RevisedExercise, FormTemplate |
+| `DomainRouteConfig(crud=CRUDRouteConfig(...))` | CRUD (+ optional Intelligence) in config; domain-specific in api_factory | Lesson, Exercises, LP, PS, Groups, RevisedExercise, FormTemplate |
 | `DomainRouteConfig(...)` | API + UI factories only; no config-driven factories | KU, Askesis, Context, Search, etc. |
 
 Tasks and Goals have active read-focused UI views at `/tasks` and `/goals`. Habits, Events, Choices, and Principles read-focused UIs are planned.
@@ -488,7 +488,7 @@ CRUDRouteFactory(
     ...
 )
 
-# Curriculum domains (KU, LS, LP)
+# Curriculum domains (KU, PS, LP)
 CRUDRouteFactory(
     service=ku_service,
     scope=ContentScope.SHARED,  # No ownership checks - shared content
@@ -775,7 +775,7 @@ async def compose_services(neo4j_adapter, event_bus=None, config=None, ...) -> R
     2. Create domain backends (UniversalNeo4jBackend[T])
     3. _create_activity_services() — 6 Activity Domain facades
     4. _create_core_services() — Finance, Transcription, User passthrough
-    5. _create_learning_services() — Curriculum (Lesson, KU, LS, LP)
+    5. _create_learning_services() — Curriculum (Lesson, KU, PS, LP)
     6. _wire_ai_services() — 12 AI services into facades (FULL tier only)
     7. _wire_event_subscribers() — 43 context invalidation + cross-domain events
     8. _create_intelligence_hub() — UserContextIntelligence, ZPD, Askesis
@@ -795,7 +795,7 @@ async def compose_services(neo4j_adapter, event_bus=None, config=None, ...) -> R
     # 3-5. Delegate to helper functions
     activity_services = _create_activity_services(tasks_backend=..., ...)  # 6 facades
     core_services = _create_core_services(finance_backend=..., ...)  # Finance + Transcription
-    learning_services = _create_learning_services(driver=..., ...)  # Lesson, KU, LS, LP
+    learning_services = _create_learning_services(driver=..., ...)  # Lesson, KU, PS, LP
 
     # 6. Wire AI (FULL tier: 12 services — 6 Activity + 3 Curriculum + 2 cross-cutting + Askesis AI)
     _wire_ai_services(llm_service=..., activity_services=activity_services, ...)
@@ -931,7 +931,7 @@ async def complete_task_route(request: Request) -> Result[Task]:
 | Category | Domains | Content Scope |
 |----------|---------|---------------|
 | **User-Owned** | Tasks, Goals, Habits, Events, Choices, Principles, Submissions (incl. Journals) | `ContentScope.USER_OWNED` |
-| **Shared** | KU, LS, LP | `ContentScope.SHARED` |
+| **Shared** | KU, PS, LP | `ContentScope.SHARED` |
 | **Admin-Only** | Finance | `ContentScope.ADMIN_ONLY` |
 
 **Note:** MOC is not a domain — it's emergent identity (any Entity with outgoing ORGANIZES relationships).

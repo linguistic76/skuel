@@ -288,7 +288,7 @@ class AskesisTokenBudget:
     March 2026: Added to prevent unbounded context growth in RAG pipeline.
     """
 
-    # Maximum characters for curriculum content injected from LSBundle.
+    # Maximum characters for curriculum content injected from PsBundle.
     # ~2500 tokens — enough for 2-3 Lessons' worth of learning content.
     MAX_CURRICULUM_CHARS: Final = 10000
 

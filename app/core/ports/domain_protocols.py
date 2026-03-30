@@ -24,7 +24,7 @@ ENTITY TYPE PROTOCOLS
 
 **Curriculum Domain Protocols (3):**
     8. LessonOperations[Curriculum]             - Knowledge Units (ku:)
-    9. LsOperations[LearningStep]          - Learning Steps (ls:)
+    9. PsOperations[PathStep]          - Learning Steps (ls:)
     10. LpOperations[LearningPath]         - Learning Paths (lp:)
 
 **Removed protocols (historical note):**

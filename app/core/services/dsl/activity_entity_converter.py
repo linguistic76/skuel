@@ -128,7 +128,7 @@ _JOURNAL_DISPATCH: list[
     ("is_finance", activity_to_finance_dict, "finances", "Finance"),
     # Curriculum Domains (3)
     ("is_lesson", activity_to_ku_dict, "knowledge_units", "KU"),
-    ("is_ls", activity_to_ls_dict, "learning_steps", "LS"),
+    ("is_ls", activity_to_ls_dict, "path_steps", "LS"),
     ("is_lp", activity_to_lp_dict, "learning_paths", "LP"),
     # Meta Domains (2 — analytics has no is_analytics() guard)
     ("is_report", activity_to_report_dict, "reports", "Report"),
@@ -172,7 +172,7 @@ class ActivityEntityConverter:
 
         **Curriculum Domains (3) - What I LEARN:**
         - "knowledge_units": list of KU dicts
-        - "learning_steps": list of LS dicts
+        - "path_steps": list of LS dicts
         - "learning_paths": list of LP dicts
 
         **Meta Domains (3) - How I ORGANIZE:**
@@ -197,7 +197,7 @@ class ActivityEntityConverter:
             "finances": [],
             # Curriculum Domains (3)
             "knowledge_units": [],
-            "learning_steps": [],
+            "path_steps": [],
             "learning_paths": [],
             # Meta Domains (3)
             "reports": [],
@@ -232,7 +232,7 @@ class ActivityEntityConverter:
             f"{len(results['finances'])} finances, "
             # Curriculum domains
             f"{len(results['knowledge_units'])} KUs, "
-            f"{len(results['learning_steps'])} LSs, "
+            f"{len(results['path_steps'])} LSs, "
             f"{len(results['learning_paths'])} LPs, "
             # Meta domains
             f"{len(results['reports'])} reports, "
@@ -330,7 +330,7 @@ class ActivityEntityConverter:
             case EntityType.LESSON:
                 return activity_to_ku_dict(activity)
 
-            case EntityType.LEARNING_STEP:
+            case EntityType.PATH_STEP:
                 return activity_to_ls_dict(activity)
 
             case EntityType.LEARNING_PATH:

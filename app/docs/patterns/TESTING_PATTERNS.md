@@ -98,7 +98,7 @@ for uid in entity_uids:
 | **Choices** | ✅ Yes | HAS_CHOICE auto-created |
 | **Principles** | ✅ Yes | HAS_PRINCIPLE auto-created |
 | **KU** | ❌ No* | No ownership relationship |
-| **LS** | ❌ No* | No ownership relationship |
+| **PS** | ❌ No* | No ownership relationship |
 | **LP** | ❌ No* | No ownership relationship |
 | **MOC** | ❌ No* | No ownership relationship |
 

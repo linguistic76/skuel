@@ -2,7 +2,7 @@
 // Date: 2026-03-28
 // Context: Removes the 'type' property from CONTAINS_KNOWLEDGE relationships,
 // collapsing the primary/supporting distinction into a single graph-native pattern.
-// See: LearningStep knowledge normalization plan
+// See: PathStep knowledge normalization plan
 //
 // Safe to run multiple times (idempotent).
 

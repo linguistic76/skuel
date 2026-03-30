@@ -75,7 +75,7 @@ class SubstantiatedKnowledge(KnowledgeCarrier, Protocol):
 
 @runtime_checkable
 class CurriculumCarrier(KnowledgeCarrier, Protocol):
-    """Protocol for curriculum domains (KU, LS, LP, MOC)."""
+    """Protocol for curriculum domains (KU, PS, LP, MOC)."""
     def get_all_knowledge_uids(self) -> set[str] | tuple[str, ...]: ...
 
 @runtime_checkable
@@ -89,7 +89,7 @@ class ActivityCarrier(KnowledgeCarrier, Protocol):
 | Domain | knowledge_relevance() | get_knowledge_uids() |
 |--------|----------------------|---------------------|
 | **KU** | Always 1.0 (IS knowledge) | `(self.uid,)` |
-| **LS** | Always 1.0 (IS curriculum) | Via `get_all_knowledge_uids()` |
+| **PS** | Always 1.0 (IS curriculum) | Via `get_all_knowledge_uids()` |
 | **LP** | Always 1.0 (IS curriculum) | Via `get_all_knowledge_uids()` |
 | **MOC** | Always 1.0 (IS curriculum) | Via `get_all_knowledge_units()` |
 | **Task** | 0.0-1.0 based on learning alignment | `()` (graph-native) |
@@ -282,7 +282,7 @@ class KnowledgeCarrier(Protocol):
     def knowledge_relevance(self) -> float:
         """How relevant is knowledge to this entity? (0.0-1.0)
 
-        - Curriculum domains (KU, LS, LP) + MOC: Always 1.0
+        - Curriculum domains (KU, PS, LP) + MOC: Always 1.0
         - Activity domains: Based on learning alignment/category
         """
         ...
@@ -319,7 +319,7 @@ class Task:
     def knowledge_relevance(self) -> float:
         """Calculate knowledge relevance from existing fields."""
         score = 0.0
-        if self.source_learning_step_uid:
+        if self.source_path_step_uid:
             score += 0.4  # Derived from curriculum
         if self.fulfills_goal_uid:
             score += 0.2  # Goal-aligned

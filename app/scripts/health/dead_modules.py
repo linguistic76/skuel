@@ -164,7 +164,7 @@ def collect_imports(py_files: list[Path]) -> tuple[set[str], dict[str, set[str]]
       - Single-line:      from core.services.foo import Bar, Baz
       - Multi-line paren: from core.services.foo import (\\n    Bar,\\n)
         (with correct bracket matching — comments with parens handled)
-      - Relative:         from .ls_core_service import LsCoreService
+      - Relative:         from .ls_core_service import PsCoreService
     """
     direct_imports: set[str] = set()
     from_imports: dict[str, set[str]] = defaultdict(set)

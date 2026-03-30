@@ -34,13 +34,13 @@ SKUEL provides two fundamental ways to interact with Knowledge Units:
 
 | Path | Topology | Purpose | Pedagogy |
 |------|----------|---------|----------|
-| **LS** | Linear | Structured curriculum | Teacher-directed |
+| **PS** | Linear | Structured curriculum | Teacher-directed |
 | **MOC** | Graph | Free exploration | Learner-directed |
 
 Same KU, two access paths. Progress is tracked on the KU itself, not the path.
 
 ```
-LS Path (Structured):              MOC Path (Exploratory):
+PS Path (Structured):              MOC Path (Exploratory):
 KU → KU → KU → KU                      KU (root MOC)
 Sequential learning                   /    |    \
 "Learn this, then this"            KU    KU    KU (topics)
@@ -158,13 +158,13 @@ KU: "Python Reference" (root MOC)
 
 ## Progress Tracking
 
-Progress is tracked on the KU itself, unified across both LS and MOC paths:
+Progress is tracked on the KU itself, unified across both PS and MOC paths:
 
 ```python
 # Same KU, accessed via different paths
 # Progress is tracked on KU node, not path
 
-# Via LS path
+# Via PS path
 ku_progress = await ku_service.get_progress("ku.python-basics", user_uid)
 
 # Via MOC path - same progress!
@@ -187,6 +187,6 @@ The new architecture:
 ## Related Documentation
 
 - [KU Domain](ku.md) - The fundamental entity type
-- [LS Domain](ls.md) - Structured learning path (parallel to MOC)
+- [PS Domain](ls.md) - Structured learning path (parallel to MOC)
 - [LP Domain](lp.md) - Learning paths containing LSs
 - [Curriculum Grouping Patterns](../architecture/CURRICULUM_GROUPING_PATTERNS.md)

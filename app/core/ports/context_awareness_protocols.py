@@ -52,7 +52,7 @@ if TYPE_CHECKING:
         RichEntityItem,
         RichKnowledgeUnitItem,
         RichLearningPathItem,
-        RichLearningStepItem,
+        RichPathStepItem,
     )
 
 # =============================================================================
@@ -358,12 +358,12 @@ class LearningPathAwareness(Protocol):
 
     Use when:
     - Tracking learning path progress
-    - Finding next learning steps
+    - Finding next path steps
     - Analyzing learning state
 
     Example services:
     - LpIntelligenceService
-    - LsProgressService
+    - PsProgressService
     """
 
     # Core identity
@@ -380,7 +380,7 @@ class LearningPathAwareness(Protocol):
 
     # Rich context (optional)
     enrolled_paths_rich: list["RichLearningPathItem"]
-    active_learning_steps_rich: list["RichLearningStepItem"]
+    active_path_steps_rich: list["RichPathStepItem"]
 
 
 # =============================================================================

@@ -55,10 +55,10 @@ the same dependency pattern.
 **What the implementation needs to do:**
 
 1. **Fetch the LP sequence.** Use `LpService` (or `LpBackend` directly) to get the
-   ordered learning steps. The LP backend already has `get_paths_containing_ku()` and
+   ordered path steps. The LP backend already has `get_paths_containing_ku()` and
    `get_ku_mastery_progress()` — use `LpBackend` to get the step sequence:
    ```cypher
-   MATCH (lp:LearningPath {uid: $uid})-[:CONTAINS_STEP {order: order}]->(ls:LearningStep)
+   MATCH (lp:LearningPath {uid: $uid})-[:CONTAINS_STEP {order: order}]->(ls:PathStep)
          -[:TEACHES]->(ku:Entity)
    RETURN ku.uid, ku.title, ls.order
    ORDER BY ls.order

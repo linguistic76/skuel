@@ -593,7 +593,7 @@ class Neo4jSchemaManager:
             # Curriculum Domains (5)
             ("lesson_fulltext_idx", "Lesson", ["title", "content"]),
             ("ku_fulltext_idx", "Ku", ["title", "description"]),
-            ("learning_step_fulltext_idx", "LearningStep", ["title", "intent", "description"]),
+            ("path_step_fulltext_idx", "PathStep", ["title", "intent", "description"]),
             ("learning_path_fulltext_idx", "LearningPath", ["title", "goal", "description"]),
             ("exercise_fulltext_idx", "Exercise", ["title", "instructions"]),
             # Learning Loop (2)
@@ -698,14 +698,14 @@ class Neo4jSchemaManager:
 
         Stale indexes:
         - ai_report_uid_idx (label AiReport — reports use ExerciseReport/JeOutput)
-        - lpstep_embedding_idx (label LpStep — current label is LearningStep)
+        - lpstep_embedding_idx (label LpStep — current label is PathStep)
         - journal_submission_* (label JournalSubmission — renamed to JeInput)
         - journal_report_* (label JournalReport — renamed to JeOutput)
         - knowledge_fulltext (legacy — label Entity with old field set)
         - tasks_fulltext (legacy — replaced by task_fulltext_idx)
         - journals_fulltext (legacy — label Document no longer exists)
         - curriculum_fulltext_idx (legacy — Curriculum label replaced by Lesson)
-        - lpstep_fulltext_idx (legacy — label Lpstep renamed to LearningStep)
+        - lpstep_fulltext_idx (legacy — label Lpstep renamed to PathStep)
         """
         stale_indexes = [
             "ai_report_uid_idx",
@@ -783,7 +783,7 @@ class Neo4jSchemaManager:
             ("ku_uid_idx", "Ku"),
             ("exercise_uid_idx", "Exercise"),
             ("learning_path_uid_idx", "LearningPath"),
-            ("learning_step_uid_idx", "LearningStep"),
+            ("path_step_uid_idx", "PathStep"),
             ("life_path_uid_idx", "LifePath"),
             ("resource_uid_idx", "Resource"),
             ("submission_uid_idx", "Submission"),

@@ -19,8 +19,8 @@ domain: personal
 
 connections:
   contains_steps:
-    - ls:self-reflection-101:step-1
-    - ls:self-reflection-101:step-2
+    - ps:self-reflection-101:step-1
+    - ps:self-reflection-101:step-2
 
 prerequisites:
   - lp:mindfulness-101

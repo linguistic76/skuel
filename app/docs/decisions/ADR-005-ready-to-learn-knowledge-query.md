@@ -284,7 +284,7 @@ Fundamentally breaks the learning experience. SKUEL's value is in CORRECT prereq
 ### Code Location
 **Where is this decision implemented?**
 - Primary file: `/core/services/user/intelligence/learning_intelligence.py`
-- Method: `get_optimal_next_learning_steps()`
+- Method: `get_optimal_next_path_steps()`
 - Called from: User context intelligence, learning recommendations
 - Related files:
   - `/core/services/user/intelligence/learning_intelligence.py` (learning intelligence layer)

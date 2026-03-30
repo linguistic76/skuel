@@ -91,7 +91,7 @@ This allows raw, immature code to exist alongside mature code without architectu
 ## See Also
 
 - `/docs/domains/moc.md` — MOC as emergent identity
-- `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — LS Path vs MOC Path
+- `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — PS Path vs MOC Path
 - `/docs/patterns/HUB_PAGE_PATTERN.md` — implementation pattern and shared components
 - `/ui/patterns/hub.py` — shared hub card components
 - `/ui/profile/hub.py` — reference implementation (THE main hub)

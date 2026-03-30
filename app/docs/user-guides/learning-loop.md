@@ -169,12 +169,12 @@ The Pathways Dashboard at `/pathways` is your home base for tracking progress th
 
 ### Learning Paths and Steps
 
-A Learning Path is a structured sequence of Learning Steps. Each step references specific curriculum (Lessons, Kus) and tracks your mastery independently.
+A Learning Path is a structured sequence of Path Steps. Each step references specific curriculum (Lessons, Kus) and tracks your mastery independently.
 
 | Concept | What it is |
 |---------|-----------|
 | **Learning Path** | An ordered sequence of steps toward a learning goal. Has outcomes, estimated hours, and a difficulty level. |
-| **Learning Step** | One unit of work within a path. Has its own mastery threshold, difficulty, estimated hours, and links to knowledge units. |
+| **Path Step** | One unit of work within a path. Has its own mastery threshold, difficulty, estimated hours, and links to knowledge units. |
 | **Mastery** | Each step tracks mastery 0.0-1.0. A step is "mastered" when your score crosses its threshold (default 0.7). |
 
 **How paths connect to the loop:** Steps within a path point to Lessons and Exercises. When you complete an Exercise's submission-feedback cycle, your mastery on the related step increases. The path's progress is the ratio of mastered steps to total steps.
@@ -188,7 +188,7 @@ Visit `/pathways/browse` to see all available Learning Paths. Each card shows th
 Learning Paths are curriculum — created by teachers or admins, shared with all users. When you create a path:
 
 1. Define the path's title, description, outcomes, and estimated hours
-2. Create Learning Steps in sequence, each referencing the Articles and Kus students should engage with
+2. Create Path Steps in sequence, each referencing the Articles and Kus students should engage with
 3. Set mastery thresholds per step (higher for critical concepts, lower for introductory ones)
 4. Students enroll and progress through steps by completing the associated Exercises
 

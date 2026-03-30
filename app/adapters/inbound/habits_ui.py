@@ -50,7 +50,7 @@ async def _fetch_habit_connections(
     OPTIONAL MATCH (h)-[r]->(target:Entity)
     WHERE type(r) IN [
         'REINFORCES_GOAL', 'APPLIES_KNOWLEDGE', 'REINFORCED_BY_PRINCIPLE',
-        'PART_OF_LEARNING_STEP', 'PART_OF_LEARNING_PATH',
+        'PART_OF_PATH_STEP', 'PART_OF_LEARNING_PATH',
         'RELATED_TO'
     ]
     RETURN h.uid AS habit_uid,

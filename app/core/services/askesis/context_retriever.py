@@ -36,7 +36,7 @@ import asyncio
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.constants import GraphDepth
-from core.models.askesis.ls_bundle import LSBundle
+from core.models.askesis.ps_bundle import PsBundle
 from core.models.query_types import QueryIntent
 from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
@@ -48,9 +48,9 @@ if TYPE_CHECKING:
     from core.models.ku.ku import Ku
     from core.models.lesson.lesson import Lesson
     from core.models.pathways.learning_path import LearningPath
-    from core.models.pathways.learning_step import LearningStep
+    from core.models.pathways.path_step import PathStep
     from core.models.resource.resource import Resource
-    from core.ports.query_types import RichLearningStepItem
+    from core.ports.query_types import RichPathStepItem
     from core.services.user import UserContext
 
 
@@ -365,38 +365,38 @@ class ContextRetriever:
     # PUBLIC API - LS BUNDLE LOADING (absorbed from LSContextLoader)
     # ========================================================================
 
-    async def load_ls_bundle(
+    async def load_ps_bundle(
         self, user_uid: UserUID, user_context: UserContext
-    ) -> Result[LSBundle]:
+    ) -> Result[PsBundle]:
         """Load the complete LS bundle from UserContext + service lookups.
 
         Steps:
-        1. Find the active LS from user_context.active_learning_steps_rich
+        1. Find the active LS from user_context.active_path_steps_rich
         2. Extract graph_context (habits, tasks, knowledge UIDs)
         3. Fetch full Lesson content for primary + supporting knowledge UIDs
         4. Fetch full Ku objects for trains_ku_uids
         5. Fetch full activity entities from graph_context UIDs
-        6. Assemble into frozen LSBundle
+        6. Assemble into frozen PsBundle
 
         Args:
             user_uid: User's unique identifier
             user_context: Rich UserContext (must be build_rich() output)
 
         Returns:
-            Result[LSBundle] — the complete bundle, or not_found error
+            Result[PsBundle] — the complete bundle, or not_found error
         """
         # Step 1: Find active LS from rich context
         ls_rich = self._find_active_ls(user_context)
         if ls_rich is None:
-            return Result.fail(Errors.not_found("learning_step", "no_active_ls"))
+            return Result.fail(Errors.not_found("path_step", "no_active_ls"))
 
         step_data: dict[str, Any] = dict(ls_rich.get("step") or ls_rich.get("entity", {}))  # type: ignore[call-overload]
         graph_context: dict[str, Any] = dict(ls_rich.get("graph_context", {}))  # type: ignore[call-overload]
 
-        # Step 2: Build the LearningStep domain model
-        learning_step = self._build_learning_step(step_data)
-        if learning_step is None:
-            return Result.fail(Errors.not_found("learning_step", "malformed_ls_data"))
+        # Step 2: Build the PathStep domain model
+        path_step = self._build_path_step(step_data)
+        if path_step is None:
+            return Result.fail(Errors.not_found("path_step", "malformed_ls_data"))
 
         # Step 3: Fetch full entities in parallel (partial failure tolerant)
         #
@@ -404,8 +404,8 @@ class ContextRetriever:
         # We use return_exceptions=True so a single failure doesn't cancel
         # the others — a partial bundle (LS + whatever succeeded) is more
         # useful than no bundle at all.
-        lessons_coro = self._fetch_lessons(learning_step, graph_context)
-        kus_coro = self._fetch_kus(learning_step)
+        lessons_coro = self._fetch_lessons(path_step, graph_context)
+        kus_coro = self._fetch_kus(path_step)
         lp_coro = self._fetch_learning_path(graph_context)
         habits_coro = self._fetch_entities_by_uid(
             graph_context.get("practice_habits", []), self.habits_service
@@ -465,8 +465,8 @@ class ContextRetriever:
         # Step 5: Collect edges between bundle entities
         edges = self._extract_edges(graph_context)
 
-        bundle = LSBundle(
-            learning_step=learning_step,
+        bundle = PsBundle(
+            path_step=path_step,
             learning_path=learning_path,
             lessons=tuple(lessons),
             kus=tuple(kus),
@@ -490,15 +490,15 @@ class ContextRetriever:
     # PRIVATE - LS BUNDLE HELPERS (absorbed from LSContextLoader)
     # ========================================================================
 
-    def _find_active_ls(self, user_context: UserContext) -> RichLearningStepItem | None:
+    def _find_active_ls(self, user_context: UserContext) -> RichPathStepItem | None:
         """Find the first active (non-mastered) LS from rich context.
 
-        UserContext.active_learning_steps_rich contains LS items with:
+        UserContext.active_path_steps_rich contains LS items with:
         - entity/step: Full LS properties
         - graph_context: {prerequisite_steps, practice_habits, practice_tasks,
                           knowledge_relationships, learning_path}
         """
-        for ls_item in user_context.active_learning_steps_rich:
+        for ls_item in user_context.active_path_steps_rich:
             step_data: dict[str, Any] = dict(ls_item.get("step") or ls_item.get("entity", {}))  # type: ignore[call-overload]
             if not step_data:
                 continue
@@ -512,30 +512,30 @@ class ContextRetriever:
         # All steps mastered or no steps available
         return None
 
-    def _build_learning_step(self, step_data: dict[str, Any]) -> LearningStep | None:
-        """Build a LearningStep from MEGA-QUERY properties dict."""
-        from core.models.pathways.learning_step import LearningStep
-        from core.models.pathways.learning_step_dto import LearningStepDTO
+    def _build_path_step(self, step_data: dict[str, Any]) -> PathStep | None:
+        """Build a PathStep from MEGA-QUERY properties dict."""
+        from core.models.pathways.path_step import PathStep
+        from core.models.pathways.path_step_dto import PathStepDTO
 
         uid = step_data.get("uid")
         if not uid:
             return None
 
         try:
-            dto = LearningStepDTO()
+            dto = PathStepDTO()
             for key, value in step_data.items():
                 if getattr(dto, key, _SENTINEL) is not _SENTINEL:
                     setattr(dto, key, value)
-            return LearningStep.from_dto(dto)
+            return PathStep.from_dto(dto)
         except DATA_CONVERSION_EXCEPTIONS:
-            logger.warning("Failed to build LearningStep from data: %s", uid)
+            logger.warning("Failed to build PathStep from data: %s", uid)
             return None
         except Exception:  # safety-net: catch unexpected errors
-            logger.warning("Failed to build LearningStep from data (unexpected): %s", uid)
+            logger.warning("Failed to build PathStep from data (unexpected): %s", uid)
             return None
 
     async def _fetch_lessons(
-        self, learning_step: LearningStep, graph_context: dict[str, Any]
+        self, path_step: PathStep, graph_context: dict[str, Any]
     ) -> list[Lesson]:
         """Fetch full Lessons for knowledge UIDs.
 
@@ -547,8 +547,8 @@ class ContextRetriever:
             return []
 
         lesson_uids: set[str] = set()
-        if learning_step.knowledge_uids:
-            lesson_uids.update(learning_step.knowledge_uids)
+        if path_step.knowledge_uids:
+            lesson_uids.update(path_step.knowledge_uids)
 
         # Also check graph_context knowledge_relationships for additional UIDs
         for kr in graph_context.get("knowledge_relationships", []):
@@ -566,10 +566,10 @@ class ContextRetriever:
 
         return lessons
 
-    async def _fetch_kus(self, learning_step: LearningStep) -> list[Ku]:
+    async def _fetch_kus(self, path_step: PathStep) -> list[Ku]:
         """Fetch full Ku objects for trains_ku_uids on the LS.
 
-        Note: trains_ku_uids is not a field on LearningStep model directly;
+        Note: trains_ku_uids is not a field on PathStep model directly;
         it's derived from TRAINS_KU relationships. We check the LS's
         semantic_links and knowledge UIDs for KU-prefixed UIDs.
         """
@@ -578,10 +578,10 @@ class ContextRetriever:
 
         ku_uids: set[str] = set()
         # KU UIDs start with "ku_"
-        for uid in learning_step.knowledge_uids:
+        for uid in path_step.knowledge_uids:
             if uid.startswith("ku_"):
                 ku_uids.add(uid)
-        for uid in learning_step.semantic_links or ():
+        for uid in path_step.semantic_links or ():
             if uid.startswith("ku_"):
                 ku_uids.add(uid)
 

@@ -265,7 +265,7 @@ def test_user_uid_injection():
         assert config.requires_user_uid, f"{entity_type.value} should require user_uid"
 
     # Test 6: Curriculum domains should NOT require user_uid
-    curriculum_types = [EntityType.LESSON, EntityType.LEARNING_PATH, EntityType.LEARNING_STEP]
+    curriculum_types = [EntityType.LESSON, EntityType.LEARNING_PATH, EntityType.PATH_STEP]
     for entity_type in curriculum_types:
         config = ENTITY_CONFIGS[entity_type]
         assert not config.requires_user_uid, f"{entity_type.value} should NOT require user_uid"

@@ -79,7 +79,7 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │
 ├── Curriculum (+complexity, learning_level, sel_category, quality_score, +21 fields)
 │   ├── Ku ───────────── forces entity_type=KU (atomic knowledge unit)
-│   ├── LearningStep ─── + step_difficulty, order, lp_uid
+│   ├── PathStep ─── + step_difficulty, order, lp_uid
 │   ├── LearningPath ─── + path_type, step_count, total_duration
 │   └── Exercise ─────── + scope, expected_modality (FILE_UPLOAD or STRUCTURED_FORM)
 │
@@ -104,7 +104,7 @@ EntityDTO (~18 fields)
 │   ├── JeInputDTO, JeOutputDTO               (standalone journal domain)
 │   └── LifePathDTO
 ├── CurriculumDTO (+complexity, learning_level, ...)
-│   ├── KuDTO, LearningStepDTO, LearningPathDTO, ExerciseDTO
+│   ├── KuDTO, PathStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO (+source_url, author, ...)
 ```
 
@@ -138,7 +138,7 @@ core/models/{domain}/
 | `principle/` | Principle + PrincipleDTO + requests | Activity | + Reflection sub-entity, PrincipleIntelligence |
 | `lesson/` | Lesson + LessonDTO | Curriculum | Units for learning |
 | `exercises/` | Exercise, RevisedExercise + DTOs + requests | Curriculum | Exercise and revision models |
-| `pathways/` | LearningStep, LearningPath + DTOs, Mastery, LpPosition, LpRelationships, LearningProgress | Curriculum | LP/LS pathway models |
+| `pathways/` | PathStep, LearningPath + DTOs, Mastery, LpPosition, LpRelationships, LearningProgress | Curriculum | LP/PS pathway models |
 | `lesson_content/` | CurriculumContent, ContentChunk, ContentMetadata | Curriculum | Lesson body storage + RAG chunking |
 | `ku/` | Ku + KuDTO | Curriculum | Atomic knowledge units |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
@@ -205,7 +205,7 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
 
 # Type aliases for services that handle subsets
 ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
-CurriculumEntity = Ku | LearningStep | LearningPath | Exercise  # Ku is the atomic leaf
+CurriculumEntity = Ku | PathStep | LearningPath | Exercise  # Ku is the atomic leaf
 SubmissionEntity = Submission | ExerciseSubmission
 ```
 

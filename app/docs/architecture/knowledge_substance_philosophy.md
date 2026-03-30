@@ -22,7 +22,7 @@ Life Path (lp) - THE ONE ultimate convergence
     ↑ everything flows toward
 Learning Paths (lp) - sequences toward life goals
     ↑ composed of
-Learning Steps (ls) - curated knowledge + practice bundles
+Path Steps (ls) - curated knowledge + practice bundles
     ↑ built from
 Lessons (units for learning, compose atomic Kus)
     ↕ BIDIRECTIONAL enrichment

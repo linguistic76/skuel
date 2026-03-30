@@ -34,7 +34,7 @@ from core.prompts import PROMPT_REGISTRY
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from core.models.askesis.ls_bundle import LSBundle
+    from core.models.askesis.ps_bundle import PsBundle
     from core.services.askesis.intent_classifier import GuidanceDetermination
     from core.services.user import UserContext
 
@@ -106,20 +106,20 @@ class ResponseGenerator:
         user_context: UserContext,
         query: str,
         intent: QueryIntent,
-        ls_bundle: LSBundle | None = None,
+        ps_bundle: PsBundle | None = None,
     ) -> str:
         """
         Convert UserContext into LLM-friendly natural language.
 
         Uses the classified QueryIntent to select which context sections to include,
-        rather than re-detecting intent via keyword heuristics. When an LSBundle is
+        rather than re-detecting intent via keyword heuristics. When an PsBundle is
         available, appends curriculum content for grounded responses.
 
         Args:
             user_context: Complete user context with 240+ fields
             query: User's question (used only for activity report keyword matching)
             intent: Classified query intent from IntentClassifier
-            ls_bundle: Optional LS bundle with curriculum content
+            ps_bundle: Optional LS bundle with curriculum content
 
         Returns:
             Natural language context string for LLM consumption
@@ -177,9 +177,9 @@ class ResponseGenerator:
             self._append_activity_report_section(context_parts, user_context)
 
         # --- LS Bundle curriculum content ---
-        if ls_bundle and ls_bundle.curriculum_context_text:
+        if ps_bundle and ps_bundle.curriculum_context_text:
             context_parts.append("\n--- Curriculum Context ---")
-            context_parts.append(ls_bundle.curriculum_context_text)
+            context_parts.append(ps_bundle.curriculum_context_text)
 
         from core.constants import AskesisTokenBudget
         from core.utils.text_truncation import truncate_to_budget
@@ -195,7 +195,7 @@ class ResponseGenerator:
     def build_guided_system_prompt(
         self,
         guidance: GuidanceDetermination,
-        ls_bundle: LSBundle,
+        ps_bundle: PsBundle,
         user_context: UserContext,
     ) -> str:
         """Build a system prompt based on the guidance determination.
@@ -206,7 +206,7 @@ class ResponseGenerator:
 
         Args:
             guidance: GuidanceDetermination with mode and pedagogical detail
-            ls_bundle: Complete LS bundle (scoped context)
+            ps_bundle: Complete LS bundle (scoped context)
             user_context: User context for personalization
 
         Returns:
@@ -221,12 +221,12 @@ class ResponseGenerator:
             GuidanceMode.ENCOURAGING: self._build_encouraging_prompt,
         }
         builder = builders.get(guidance.mode, self._build_direct_prompt)
-        return builder(guidance, ls_bundle)
+        return builder(guidance, ps_bundle)
 
     def _build_direct_prompt(
         self,
         guidance: GuidanceDetermination,
-        ls_bundle: LSBundle,
+        ps_bundle: PsBundle,
     ) -> str:
         """DIRECT mode: redirect or out-of-scope responses.
 
@@ -236,37 +236,37 @@ class ResponseGenerator:
         if guidance.pedagogical_detail == PedagogicalIntent.REDIRECT_TO_CURRICULUM:
             lesson_refs = []
             for ku_uid in guidance.target_ku_uids:
-                lesson = ls_bundle.get_lesson_for_ku(ku_uid)
+                lesson = ps_bundle.get_lesson_for_ku(ku_uid)
                 if lesson:
                     lesson_refs.append(lesson.title or "Untitled Lesson")
 
             if not lesson_refs:
-                lesson_refs = [a.title or "Untitled Lesson" for a in ls_bundle.lessons]
+                lesson_refs = [a.title or "Untitled Lesson" for a in ps_bundle.lessons]
 
             return PROMPT_REGISTRY.render(
                 "askesis_guided_redirect",
                 lessons_text=", ".join(dict.fromkeys(lesson_refs)),
-                resource_refs=self._get_resource_references(ls_bundle),
+                resource_refs=self._get_resource_references(ps_bundle),
             )
 
         # OUT_OF_SCOPE
         return PROMPT_REGISTRY.render(
             "askesis_guided_out_of_scope",
-            ls_title=ls_bundle.learning_step.title or "your current step",
-            ls_intent=ls_bundle.learning_step.intent or "",
+            ls_title=ps_bundle.path_step.title or "your current step",
+            ls_intent=ps_bundle.path_step.intent or "",
         )
 
     def _build_socratic_prompt(
         self,
         guidance: GuidanceDetermination,
-        ls_bundle: LSBundle,
+        ps_bundle: PsBundle,
     ) -> str:
         """SOCRATIC mode: assess understanding or probe deeper.
 
         Covers ASSESS_UNDERSTANDING and PROBE_DEEPER pedagogical intents.
         Templates: askesis_guided_assess, askesis_guided_probe
         """
-        concepts = ", ".join(self._get_ku_names(ls_bundle, guidance.target_ku_uids))
+        concepts = ", ".join(self._get_ku_names(ps_bundle, guidance.target_ku_uids))
 
         if guidance.pedagogical_detail == PedagogicalIntent.ASSESS_UNDERSTANDING:
             return PROMPT_REGISTRY.render("askesis_guided_assess", concepts=concepts)
@@ -277,7 +277,7 @@ class ResponseGenerator:
     def _build_exploratory_prompt(
         self,
         guidance: GuidanceDetermination,
-        ls_bundle: LSBundle,
+        ps_bundle: PsBundle,
     ) -> str:
         """EXPLORATORY mode: scaffold or surface connections.
 
@@ -285,17 +285,17 @@ class ResponseGenerator:
         Templates: askesis_guided_scaffold, askesis_guided_connection
         """
         if guidance.pedagogical_detail == PedagogicalIntent.SCAFFOLD:
-            concepts = ", ".join(self._get_ku_names(ls_bundle, guidance.target_ku_uids))
+            concepts = ", ".join(self._get_ku_names(ps_bundle, guidance.target_ku_uids))
             return PROMPT_REGISTRY.render(
                 "askesis_guided_scaffold",
                 concepts=concepts,
-                resource_refs=self._get_resource_references(ls_bundle),
+                resource_refs=self._get_resource_references(ps_bundle),
             )
 
         # SURFACE_CONNECTION
         target_set = set(guidance.target_ku_uids)
         relevant_edges: list[dict] = []
-        for edge in ls_bundle.edges:
+        for edge in ps_bundle.edges:
             if isinstance(edge, dict):
                 source = edge.get("source_uid", "")
                 target = edge.get("target_uid", "")
@@ -316,7 +316,7 @@ class ResponseGenerator:
     def _build_encouraging_prompt(
         self,
         guidance: GuidanceDetermination,
-        ls_bundle: LSBundle,
+        ps_bundle: PsBundle,
     ) -> str:
         """ENCOURAGING mode: connect understanding to practice.
 
@@ -324,11 +324,11 @@ class ResponseGenerator:
         Template: askesis_guided_practice
         """
         practice_items = []
-        for habit in ls_bundle.habits:
+        for habit in ps_bundle.habits:
             practice_items.append(f"Habit: {habit.title}")
-        for task in ls_bundle.tasks:
+        for task in ps_bundle.tasks:
             practice_items.append(f"Task: {task.title}")
-        for event in ls_bundle.events:
+        for event in ps_bundle.events:
             practice_items.append(f"Event: {event.title}")
 
         practice_text = (
@@ -340,31 +340,31 @@ class ResponseGenerator:
         return PROMPT_REGISTRY.render(
             "askesis_guided_practice",
             practice_text=practice_text,
-            resource_refs=self._get_resource_references(ls_bundle),
+            resource_refs=self._get_resource_references(ps_bundle),
         )
 
     # ========================================================================
     # PRIVATE - GUIDED PROMPT HELPERS
     # ========================================================================
 
-    def _get_ku_names(self, ls_bundle: LSBundle, ku_uids: list[str]) -> list[str]:
+    def _get_ku_names(self, ps_bundle: PsBundle, ku_uids: list[str]) -> list[str]:
         """Get KU titles for the given UIDs from the bundle."""
         names = []
         uid_set = set(ku_uids)
-        for ku in ls_bundle.kus:
+        for ku in ps_bundle.kus:
             if ku.uid in uid_set:
                 names.append(ku.title or ku.uid)
         return names or ["(unknown concepts)"]
 
     @staticmethod
-    def _get_resource_references(ls_bundle: LSBundle) -> str:
+    def _get_resource_references(ps_bundle: PsBundle) -> str:
         """Format resource references for inclusion in guided prompts.
 
         Returns a compact summary of cited resources, or empty string if none.
         """
-        if not ls_bundle.resources:
+        if not ps_bundle.resources:
             return ""
-        refs = [r.explain_existence() for r in ls_bundle.resources]
+        refs = [r.explain_existence() for r in ps_bundle.resources]
         return "\nReferenced resources: " + "; ".join(refs)
 
     # ========================================================================

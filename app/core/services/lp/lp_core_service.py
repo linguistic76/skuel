@@ -34,7 +34,7 @@ from core.infrastructure.relationships.semantic_relationships import SemanticRel
 from core.models.enums import Domain
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
-from core.models.pathways.learning_step import LearningStep
+from core.models.pathways.path_step import PathStep
 from core.models.type_hints import UserUID
 from core.ports import HasUID, get_enum_value
 from core.ports.query_types import LpPathHierarchy
@@ -93,7 +93,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     def __init__(
         self,
         backend: BackendOperations[LearningPath],
-        ls_service: Any = None,
+        ps_service: Any = None,
         event_bus: Any = None,
     ) -> None:
         """
@@ -104,15 +104,15 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
         Args:
             backend: BackendOperations[Lp] for graph operations (REQUIRED)
-            ls_service: LsService for step operations (optional for get_path_steps)
+            ps_service: PsService for step operations (optional for get_path_steps)
             event_bus: Event bus for domain events (optional)
         """
         super().__init__(backend, "lp_core")
-        self.ls_service = ls_service
+        self.ps_service = ps_service
         self.event_bus = event_bus
 
     @staticmethod
-    def _build_lp_from_record(path_data: dict, steps: list[LearningStep]) -> LearningPath:
+    def _build_lp_from_record(path_data: dict, steps: list[PathStep]) -> LearningPath:
         """Build LearningPath from Neo4j node dict + pre-built step list.
 
         Uses from_neo4j_node for full field deserialization.
@@ -125,8 +125,8 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         return ku
 
     @staticmethod
-    def _build_steps_from_data(steps_data: list[dict]) -> list[LearningStep]:
-        """Build LearningStep list from step node dicts fetched via HAS_STEP join.
+    def _build_steps_from_data(steps_data: list[dict]) -> list[PathStep]:
+        """Build PathStep list from step node dicts fetched via HAS_STEP join.
 
         Uses from_neo4j_node for full field deserialization of each step.
         """
@@ -134,13 +134,13 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             return []
 
         sorted_steps = sorted(steps_data, key=get_sequence)
-        steps: list[LearningStep] = []
+        steps: list[PathStep] = []
         for step_info in sorted_steps:
             step_node = step_info.get("step") or step_info
             if step_node:
                 step_dict = dict(step_node) if not isinstance(step_node, dict) else step_node
                 if step_dict.get("uid"):
-                    steps.append(from_neo4j_node(step_dict, LearningStep))
+                    steps.append(from_neo4j_node(step_dict, PathStep))
         return steps
 
     def _build_prerequisite_query(self, knowledge_var: str = "k", depth: int = 3) -> str:
@@ -190,10 +190,10 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             step_uid = f"{path_uid}_step_{i + 1}"
             estimated_hours = 2
 
-            step = LearningStep(
+            step = PathStep(
                 uid=step_uid,
                 title=f"Step {i + 1}",
-                intent="Complete this learning step",
+                intent="Complete this path step",
                 knowledge_uids=tuple([unit.uid if isinstance(unit, HasUID) else str(unit)]),
                 sequence=i,
                 estimated_hours=estimated_hours,
@@ -236,7 +236,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         user_uid: UserUID,
         title: str,
         description: str,
-        steps: list[LearningStep],
+        steps: list[PathStep],
         domain: Domain = Domain.LEARNING,
     ) -> Result[LearningPath]:
         """
@@ -288,7 +288,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             """
             MATCH (p:Entity)
             WHERE p.uid IN $uids
-            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'learning_step'})
+            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'path_step'})
             WITH p, collect({step: s, sequence: r.sequence}) as steps_data
             ORDER BY p.uid
             RETURN p, steps_data
@@ -316,7 +316,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         query_result = await self.backend.execute_query(
             """
             MATCH (p:Entity {uid: $uid})
-            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'learning_step'})
+            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'path_step'})
             WITH p, collect({step: s, sequence: r.sequence}) as steps_data
             RETURN p, steps_data
             """,
@@ -380,7 +380,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             MATCH (lp:Entity {uid: $uid})
 
             // 1. Steps (with sequence and progress)
-            OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:Entity {entity_type: 'learning_step'})
+            OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:Entity {entity_type: 'path_step'})
             WITH lp, collect({
                 uid: step.uid,
                 title: step.title,
@@ -464,10 +464,10 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             for step_info in sorted_steps:
                 if step_info.get("uid"):
                     steps.append(
-                        LearningStep(
+                        PathStep(
                             uid=step_info["uid"],
                             title=step_info.get("title", "Learning Step"),
-                            intent=step_info.get("intent", "Complete this learning step"),
+                            intent=step_info.get("intent", "Complete this path step"),
                             sequence=step_info.get("sequence"),
                             current_mastery=step_info.get("current_mastery", 0.0),
                             estimated_hours=step_info.get("estimated_hours", 1.0),
@@ -539,7 +539,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         """List all learning paths for a specific user."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:HAS_PATH]->(p:Entity {entity_type: 'learning_path'})
-        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'learning_step'})
+        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'path_step'})
         WITH p, collect({step: s, sequence: r.sequence}) as steps_data
         ORDER BY p.uid DESC
         """
@@ -587,7 +587,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
         query = f"""
         MATCH (p:Entity {{entity_type: 'learning_path'}})
-        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{entity_type: 'learning_step'}})
+        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{entity_type: 'path_step'}})
         WITH p, collect({{step: s, sequence: r.sequence}}) as steps_data
         ORDER BY {order_field} {order_direction}
         """
@@ -614,7 +614,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
         return Result.ok(paths)
 
-    async def get_path_steps(self, path_uid: str) -> Result[list[LearningStep]]:
+    async def get_path_steps(self, path_uid: str) -> Result[list[PathStep]]:
         """
         Get steps for a learning path.
 
@@ -631,7 +631,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         steps = path.metadata.get("steps", []) if path.metadata else []
         return Result.ok(list(steps))
 
-    async def get_current_step(self, path_uid: str) -> Result[LearningStep | None]:
+    async def get_current_step(self, path_uid: str) -> Result[PathStep | None]:
         """
         Get the current (first incomplete) step in a learning path.
 
@@ -710,7 +710,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         query = f"""
         MATCH (p:Entity {{uid: $uid}})
         SET {", ".join(set_clauses)}
-        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{entity_type: 'learning_step'}})
+        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{entity_type: 'path_step'}})
         WITH p, collect(s) as steps
         RETURN p, steps
         """
@@ -735,7 +735,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         for step_node in steps_data:
             step_dict = dict(step_node) if not isinstance(step_node, dict) else step_node
             if step_dict.get("uid"):
-                steps.append(from_neo4j_node(step_dict, LearningStep))
+                steps.append(from_neo4j_node(step_dict, PathStep))
 
         updated_path = self._build_lp_from_record(path_data, steps)
 
@@ -760,7 +760,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         query_result = await self.backend.execute_query(
             """
             MATCH (p:Entity {uid: $uid})
-            OPTIONAL MATCH (p)-[:HAS_STEP]->(s:Entity {entity_type: 'learning_step'})
+            OPTIONAL MATCH (p)-[:HAS_STEP]->(s:Entity {entity_type: 'path_step'})
             DETACH DELETE p, s
             RETURN count(p) as deleted_count
             """,
@@ -788,12 +788,12 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     # ============================================================================
 
     @with_error_handling("get_steps", error_type="database", uid_param="path_uid")
-    async def get_steps(self, path_uid: str, depth: int = 1) -> Result[list[LearningStep]]:
+    async def get_steps(self, path_uid: str, depth: int = 1) -> Result[list[PathStep]]:
         """Get all steps in a learning path ordered by sequence."""
         result = await self.backend.get_steps_raw(path_uid, depth)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([from_neo4j_node(data, LearningStep) for data in result.value])
+        return Result.ok([from_neo4j_node(data, PathStep) for data in result.value])
 
     @with_error_handling("get_parent_path", error_type="database", uid_param="step_uid")
     async def get_parent_path(self, step_uid: str) -> Result[LearningPath | None]:
@@ -816,7 +816,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         Returns:
             Result containing hierarchy dict with keys:
             - current: Ku (the path itself)
-            - steps: list[Ku] (ordered learning steps)
+            - steps: list[Ku] (ordered path steps)
             - step_count: int (total number of steps)
         """
         # Get current path
@@ -845,7 +845,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     async def add_step_to_path(
         self, path_uid: str, step_uid: str, sequence: int, order: int = 0
     ) -> Result[bool]:
-        """Add a learning step to a path with sequence ordering."""
+        """Add a path step to a path with sequence ordering."""
         # Validate path exists
         path_result = await self.backend.get(path_uid)
         if path_result.is_error:
@@ -878,7 +878,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
     @with_error_handling("_persist_path", error_type="database", uid_param="user_uid")
     async def _persist_path(
-        self, path: LearningPath, steps: list[LearningStep], user_uid: UserUID
+        self, path: LearningPath, steps: list[PathStep], user_uid: UserUID
     ) -> Result[bool]:
         """Persist a learning path to Neo4j graph."""
         # Create path node with all fields
@@ -927,7 +927,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
                 MATCH (p:Entity {uid: $path_uid})
                 CREATE (s:Entity {
                     uid: $uid,
-                    entity_type: 'learning_step',
+                    entity_type: 'path_step',
                     title: $title,
                     intent: $intent,
                     description: $description,

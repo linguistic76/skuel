@@ -9,7 +9,7 @@ substance tracking. Curriculum types are shared content, not user-owned.
 Hierarchy:
     EntityDTO (~18 common fields)
     └── CurriculumDTO(EntityDTO) +21 curriculum-specific fields
-        ├── LearningStepDTO(CurriculumDTO) +9
+        ├── PathStepDTO(CurriculumDTO) +9
         ├── LearningPathDTO(CurriculumDTO) +4
         └── ExerciseDTO(CurriculumDTO) +7
 

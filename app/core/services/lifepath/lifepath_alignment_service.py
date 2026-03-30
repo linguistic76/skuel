@@ -8,7 +8,7 @@ This service answers: "Am I living my life path?"
 
 All queries use the Entity model with entity_type discriminator:
 - Life path: Entity {entity_type: 'life_path'}
-- Learning steps: Entity {entity_type: 'learning_step'}
+- Learning steps: Entity {entity_type: 'path_step'}
 - Knowledge: Entity {entity_type: 'curriculum'}
 - Tasks: Entity {entity_type: 'task'}
 - Habits: Entity {entity_type: 'habit'}
@@ -197,7 +197,7 @@ class LifePathAlignmentService:
             return 0.0
 
         query = """
-        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {entity_type: 'learning_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
+        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
         OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
         WITH ku, m,
              CASE WHEN m IS NOT NULL THEN m.mastery_level ELSE 0 END AS mastery
@@ -249,7 +249,7 @@ class LifePathAlignmentService:
 
         query = """
         // Get life path knowledge
-        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {entity_type: 'learning_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
+        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
         WITH collect(ku.uid) AS lp_knowledge
 
         // Count aligned activities
@@ -401,7 +401,7 @@ class LifePathAlignmentService:
         fourteen_days_ago = now - timedelta(days=14)
 
         query = """
-        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {entity_type: 'learning_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
+        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
         WITH collect(ku.uid) AS lp_knowledge
 
         // Recent week activities
@@ -463,7 +463,7 @@ class LifePathAlignmentService:
             return {"total": 0, "embodied": 0, "theoretical": 0}
 
         query = """
-        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {entity_type: 'learning_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
+        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ls:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
         OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
 
         WITH ku, COALESCE(m.substance_score, 0) AS substance

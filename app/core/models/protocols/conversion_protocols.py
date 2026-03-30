@@ -30,7 +30,7 @@ class DTOConvertible(Protocol):
     Implementations:
         - ExpenseDTO (finance_dto.py)
         - BudgetDTO (finance_dto.py)
-        - LearningStepDTO (ls_dto.py)
+        - PathStepDTO (ls_dto.py)
         - KnowledgeUnitDTO (ku_dto.py)
         - TaskDTO, GoalDTO, HabitDTO, EventDTO, etc.
         - Total: 16 DTOs across all domains
@@ -101,7 +101,7 @@ class DomainModelConvertible(Protocol):
     This protocol defines the standard conversion methods all models implement.
 
     Implementations:
-        - LearningStep (ls.py) - from_dto(), to_dto()
+        - PathStep (ls.py) - from_dto(), to_dto()
         - KnowledgeUnit (ku.py) - from_dto(), to_dto()
         - Task, Goal, Habit, Event, etc.
         - Total: 13 domain models across all domains
@@ -111,13 +111,13 @@ class DomainModelConvertible(Protocol):
 
     Usage:
         # Type-safe conversion
-        step_dto = LearningStepDTO.from_dict(data)
-        step = LearningStep.from_dto(step_dto)  # ✅ Immutable domain model
+        step_dto = PathStepDTO.from_dict(data)
+        step = PathStep.from_dto(step_dto)  # ✅ Immutable domain model
 
         # Update pattern
         updated_dto = step.to_dto()  # Get mutable DTO
         updated_dto.title = "New Title"  # Modify DTO
-        updated_step = LearningStep.from_dto(updated_dto)  # New immutable model
+        updated_step = PathStep.from_dto(updated_dto)  # New immutable model
     """
 
     @classmethod
@@ -138,10 +138,10 @@ class DomainModelConvertible(Protocol):
             Immutable domain model instance
 
         Example:
-            # LearningStep.from_dto()
-            step_dto = LearningStepDTO(uid="ls:...", title="...", ...)
-            step = LearningStep.from_dto(step_dto)
-            # → LearningStep(frozen=True, with business logic methods)
+            # PathStep.from_dto()
+            step_dto = PathStepDTO(uid="ps:...", title="...", ...)
+            step = PathStep.from_dto(step_dto)
+            # → PathStep(frozen=True, with business logic methods)
         """
         ...
 
@@ -163,9 +163,9 @@ class DomainModelConvertible(Protocol):
             Mutable DTO instance,
 
         Example:
-            # LearningStep.to_dto()
-            step = LearningStep(uid="ls:...", ...)
-            dto = step.to_dto()  # Returns LearningStepDTO (mutable)
+            # PathStep.to_dto()
+            step = PathStep(uid="ps:...", ...)
+            dto = step.to_dto()  # Returns PathStepDTO (mutable)
             dto.title = "Updated"  # ✅ Can modify
             # step.title = "Updated"  # ❌ FrozenInstanceError
         """

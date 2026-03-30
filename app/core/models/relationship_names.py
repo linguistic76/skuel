@@ -79,7 +79,7 @@ class RelationshipName(StrEnum):
 
     # Lesson → Ku composition
     USES_KU = "USES_KU"  # (Lesson)-[:USES_KU]->(Ku) — lesson composes atomic Ku
-    TRAINS_KU = "TRAINS_KU"  # (Ls)-[:TRAINS_KU]->(Ku) — learning step trains atomic Ku
+    TRAINS_KU = "TRAINS_KU"  # (Ls)-[:TRAINS_KU]->(Ku) — path step trains atomic Ku
 
     # =========================================================================
     # TASK RELATIONSHIPS
@@ -262,7 +262,7 @@ class RelationshipName(StrEnum):
     # Learning Step, Learning Path, and Map of Content relationships
     # =========================================================================
     # Learning Step (LS) relationships
-    HAS_LESSON = "HAS_LESSON"  # (LS)-[:HAS_LESSON]->(Lesson) — learning step contains lesson
+    HAS_LESSON = "HAS_LESSON"  # (LS)-[:HAS_LESSON]->(Lesson) — path step contains lesson
     CONTAINS_KNOWLEDGE = "CONTAINS_KNOWLEDGE"  # (ls)-[:CONTAINS_KNOWLEDGE]->(ku)
     REQUIRES_STEP = "REQUIRES_STEP"  # (ls)-[:REQUIRES_STEP]->(ls) - Step prerequisites
     BUILDS_HABIT = "BUILDS_HABIT"  # (lesson)-[:BUILDS_HABIT]->(habit) - Practice pattern (LS inherits via HAS_LESSON)

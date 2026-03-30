@@ -8,7 +8,7 @@ Provides:
 - Graph context retrieval (get_with_context)
 - Performance analytics (get_performance_analytics)
 - Domain insights (get_domain_insights)
-- Usage summary (lessons, learning steps, organized children)
+- Usage summary (lessons, path steps, organized children)
 - Organization depth (ORGANIZES tree traversal)
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
@@ -78,7 +78,7 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
     # ========================================================================
 
     async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Ku, GraphContext]]:
-        """Get Ku with full graph context (lessons, learning steps, children)."""
+        """Get Ku with full graph context (lessons, path steps, children)."""
         if self.orchestrator is None:
             return Result.fail(
                 Errors.system(
@@ -155,20 +155,20 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
 
     @with_error_handling("get_usage_summary", error_type="database", uid_param="ku_uid")
     async def get_usage_summary(self, ku_uid: str) -> Result[dict[str, int]]:
-        """Count lessons (USES_KU), learning steps (TRAINS_KU), and organized children (ORGANIZES)."""
+        """Count lessons (USES_KU), path steps (TRAINS_KU), and organized children (ORGANIZES)."""
         result = await self.backend.get_usage_summary(ku_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 
         records = result.value or []
         if not records:
-            return Result.ok({"lessons": 0, "learning_steps": 0, "organized_children": 0})
+            return Result.ok({"lessons": 0, "path_steps": 0, "organized_children": 0})
 
         row = records[0]
         return Result.ok(
             {
                 "lessons": row.get("lessons", 0),
-                "learning_steps": row.get("learning_steps", 0),
+                "path_steps": row.get("path_steps", 0),
                 "organized_children": row.get("organized_children", 0),
             }
         )

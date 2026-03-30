@@ -440,7 +440,7 @@ class KnowledgeCrossContext:
     - prerequisite_knowledge_uids: Knowledge required before this
     - dependent_knowledge_uids: Knowledge that builds on this
     - applying_task_uids: Tasks that apply this knowledge
-    - learning_step_uids: Learning steps that teach this
+    - path_step_uids: Learning steps that teach this
     - supported_goal_uids: Goals this knowledge supports
 
     Usage:
@@ -452,7 +452,7 @@ class KnowledgeCrossContext:
     prerequisite_knowledge_uids: list[str] = field(default_factory=list)
     dependent_knowledge_uids: list[str] = field(default_factory=list)
     applying_task_uids: list[str] = field(default_factory=list)
-    learning_step_uids: list[str] = field(default_factory=list)
+    path_step_uids: list[str] = field(default_factory=list)
     supported_goal_uids: list[str] = field(default_factory=list)
 
     @classmethod
@@ -462,7 +462,7 @@ class KnowledgeCrossContext:
             prerequisite_knowledge_uids=context_dict.get("prerequisites", []),
             dependent_knowledge_uids=context_dict.get("dependents", []),
             applying_task_uids=context_dict.get("tasks", []),
-            learning_step_uids=context_dict.get("learning_steps", []),
+            path_step_uids=context_dict.get("path_steps", []),
             supported_goal_uids=context_dict.get("goals", []),
         )
 
@@ -480,7 +480,7 @@ class KnowledgeCrossContext:
 
     def is_curriculum_integrated(self) -> bool:
         """Check if knowledge is part of learning paths."""
-        return bool(self.learning_step_uids)
+        return bool(self.path_step_uids)
 
 
 # Type alias for union of all context types

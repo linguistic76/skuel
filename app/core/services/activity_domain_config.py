@@ -36,7 +36,7 @@ from typing import Any, Generic, TypeVar
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
     EVENTS_CONFIG,
-    GOALS_CONFIG,
+    GOAPS_CONFIG,
     HABITS_CONFIG,
     PRINCIPLES_CONFIG,
     TASKS_CONFIG,
@@ -89,7 +89,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="GoalsSearchService",
         intelligence_module="core.services.goals",
         intelligence_class="GoalsIntelligenceService",
-        relationship_config=GOALS_CONFIG,
+        relationship_config=GOAPS_CONFIG,
         domain_name="goals",
         entity_label="Goal",
     ),

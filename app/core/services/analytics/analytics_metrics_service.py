@@ -851,8 +851,8 @@ class AnalyticsMetricsService:
             {
                 "active_learning_paths": 3,
                 "completed_learning_paths": 7,
-                "in_progress_learning_steps": 12,
-                "completed_learning_steps": 85,
+                "in_progress_path_steps": 12,
+                "completed_path_steps": 85,
                 "total_knowledge_units": 50,
                 "mastered_knowledge_units": 23,
                 "current_focus": {
@@ -874,8 +874,8 @@ class AnalyticsMetricsService:
                     {
                         "active_learning_paths": 0,
                         "completed_learning_paths": 0,
-                        "in_progress_learning_steps": 0,
-                        "completed_learning_steps": 0,
+                        "in_progress_path_steps": 0,
+                        "completed_path_steps": 0,
                         "total_knowledge_units": 0,
                         "mastered_knowledge_units": 0,
                         "current_focus": None,
@@ -901,8 +901,8 @@ class AnalyticsMetricsService:
                 else:
                     active_lps += 1
 
-                # Get learning steps
-                steps = getattr(lp, "learning_steps", [])
+                # Get path steps
+                steps = getattr(lp, "path_steps", [])
                 if steps:
                     total_steps += len(steps)
                     completed_steps += sum(1 for s in steps if getattr(s, "is_completed", False))
@@ -933,8 +933,8 @@ class AnalyticsMetricsService:
                 {
                     "active_learning_paths": active_lps,
                     "completed_learning_paths": completed_lps,
-                    "in_progress_learning_steps": total_steps - completed_steps,
-                    "completed_learning_steps": completed_steps,
+                    "in_progress_path_steps": total_steps - completed_steps,
+                    "completed_path_steps": completed_steps,
                     "total_knowledge_units": ku_metrics["total"],
                     "mastered_knowledge_units": ku_metrics["mastered"],
                     "current_focus": current_focus,

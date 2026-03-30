@@ -107,7 +107,7 @@ SKUEL organizes human experience into **17 entity types** with **5 cross-cutting
 │  ACTIVITY (6)          Tasks • Goals • Habits • Events           │
 │                        Choices • Principles                     │
 │  FINANCE               Expenses & budgets (admin-only)          │
-│  CURRICULUM            Lesson • Ku • LS • LP • Exercise          │
+│  CURRICULUM            Lesson • Ku • PS • LP • Exercise          │
 │  CURATED CONTENT       Resource (books, talks, films)           │
 │  CONTENT PROCESSING    Submission • Journal • ActivityReport    │
 │                        ExerciseReport                         │
@@ -381,7 +381,7 @@ uv run python scripts/fresh_start_mindfulness.py
 # Open: http://localhost:7474
 ```
 
-This demo creates 6 curriculum entities (3 KUs, 2 Learning Steps, 1 Learning Path) to explore SKUEL's knowledge-centric approach.
+This demo creates 6 curriculum entities (3 KUs, 2 Path Steps, 1 Learning Path) to explore SKUEL's knowledge-centric approach.
 
 **For complete demo documentation**, see `/docs/examples/mindfulness-101-demo.md`
 

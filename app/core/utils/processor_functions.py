@@ -21,7 +21,7 @@ def extract_field_list(field: str):
 
     Example:
         result = await executor.execute(
-            query='MATCH (p:Lp)-[:HAS_STEP]->(s:Ls) RETURN p.uid as path_uid',
+            query='MATCH (p:Lp)-[:HAS_STEP]->(s:PathStep) RETURN p.uid as path_uid',
             processor=extract_field_list("path_uid")
         )
 

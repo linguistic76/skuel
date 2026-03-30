@@ -681,7 +681,7 @@ class AnalyticsAggregationService:
         Compares active learning paths with activity patterns.
         """
         active_paths = curriculum_metrics.get("active_learning_paths", 0)
-        in_progress_steps = curriculum_metrics.get("in_progress_learning_steps", 0)
+        in_progress_steps = curriculum_metrics.get("in_progress_path_steps", 0)
         mastered_kus = curriculum_metrics.get("mastered_knowledge_units", 0)
 
         # Activity in knowledge-application domains
@@ -844,11 +844,11 @@ class AnalyticsAggregationService:
             balance = "well-balanced"
 
         if alignment_status == "high":
-            return f"Great alignment! Activities match {in_progress_steps} active learning steps. Learning-doing ratio: {learning_activity_ratio:.2f} ({balance})"
+            return f"Great alignment! Activities match {in_progress_steps} active path steps. Learning-doing ratio: {learning_activity_ratio:.2f} ({balance})"
         elif alignment_status == "medium":
-            return f"Moderate alignment with {in_progress_steps} learning steps (ratio: {learning_activity_ratio:.2f}, {balance}). {'Apply knowledge more in practice' if learning_activity_ratio > 1.5 else 'Add structured learning to guide practice' if learning_activity_ratio < 0.7 else 'Increase application activities'}"
+            return f"Moderate alignment with {in_progress_steps} path steps (ratio: {learning_activity_ratio:.2f}, {balance}). {'Apply knowledge more in practice' if learning_activity_ratio > 1.5 else 'Add structured learning to guide practice' if learning_activity_ratio < 0.7 else 'Increase application activities'}"
         else:
-            return f"Low alignment. {in_progress_steps} learning steps need more practical application (current ratio: {learning_activity_ratio:.2f}, {balance}). {'Balance theory with practice' if learning_activity_ratio > 1.5 else 'Add learning structure to guide your practice'}"
+            return f"Low alignment. {in_progress_steps} path steps need more practical application (current ratio: {learning_activity_ratio:.2f}, {balance}). {'Balance theory with practice' if learning_activity_ratio > 1.5 else 'Add learning structure to guide your practice'}"
 
     # ========================================================================
     # TEXT GENERATION

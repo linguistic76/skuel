@@ -24,7 +24,7 @@ Lesson (what to learn)
   └── INFORMS_CHOICE → Choice (decision to consider)
 ```
 
-LearningSteps inherit activities from their Lessons automatically — you never wire activities to an LS directly.
+PathSteps inherit activities from their Lessons automatically — you never wire activities to an PS directly.
 
 ---
 
@@ -224,30 +224,30 @@ tags:
 
 ---
 
-## How LearningStep Inherits
+## How PathStep Inherits
 
-When a LearningStep references Lessons via `knowledge_uids`, it automatically inherits all activity wiring through graph traversal:
+When a PathStep references Lessons via `knowledge_uids`, it automatically inherits all activity wiring through graph traversal:
 
 ```
-(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:BUILDS_HABIT]->(Habit)
-(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:ASSIGNS_TASK]->(Task)
-(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:SCHEDULES_EVENT]->(Event)
-(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:SUPPORTS_GOAL]->(Goal)
-(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:GUIDED_BY_PRINCIPLE]->(Principle)
-(LS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:INFORMS_CHOICE]->(Choice)
+(PS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:BUILDS_HABIT]->(Habit)
+(PS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:ASSIGNS_TASK]->(Task)
+(PS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:SCHEDULES_EVENT]->(Event)
+(PS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:SUPPORTS_GOAL]->(Goal)
+(PS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:GUIDED_BY_PRINCIPLE]->(Principle)
+(PS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:INFORMS_CHOICE]->(Choice)
 ```
 
 This means:
 
-- **Do NOT** add `habit_uids`, `task_uids`, etc. to LearningStep YAML
-- **DO** add them to the Lesson YAML files that the LS references via `knowledge_uids`
-- An LS with 3 Lessons automatically aggregates activities from all 3
+- **Do NOT** add `habit_uids`, `task_uids`, etc. to PathStep YAML
+- **DO** add them to the Lesson YAML files that the PS references via `knowledge_uids`
+- An PS with 3 Lessons automatically aggregates activities from all 3
 
-### Example LS (no activity fields)
+### Example PS (no activity fields)
 
 ```yaml
 version: 1.0
-type: LearningStep
+type: PathStep
 
 uid: ls:mindfulness-101:step-1
 title: Two Minutes Today
@@ -289,8 +289,8 @@ These counters measure how much the knowledge is being *lived*, not just read. A
 4. **Wire both directions:**
    - **Forward:** Add `habit_uids`, `task_uids`, etc. to the Lesson frontmatter
    - **Reverse:** Add `connections.reinforces_knowledge`, `connections.applies_knowledge`, etc. to each activity YAML
-5. **Group Lessons into LS** — `.yaml` files referencing Lessons via `knowledge_uids`
-6. **Sequence LS into LP** — `.yaml` file referencing Steps via `connections.contains_steps`
+5. **Group Lessons into PS** — `.yaml` files referencing Lessons via `knowledge_uids`
+6. **Sequence PS into LP** — `.yaml` file referencing Steps via `connections.contains_steps`
 7. **Write edge files** — `.yaml` files in `edges/` for curriculum structure and cross-domain connections
 
 Not every Lesson needs all 6 activity types. Start with what fits the content. The Mindfulness 101 bundle wires all 6 to its primary lesson (breath awareness) but only 3 to the secondary (mind wandering). The Self-Reflection 101 bundle has 2 habits, 2 principles, 2 tasks, 2 choices, 1 goal, and 1 event across 3 lessons — distributed by relevance, not evenly spread.

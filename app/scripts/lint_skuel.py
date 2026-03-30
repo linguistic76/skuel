@@ -1105,7 +1105,7 @@ class SkuelLinter:
             # Curriculum
             "lesson",
             "ku",
-            "learning_step",
+            "path_step",
             "learning_path",
             "exercise",
             "revised_exercise",

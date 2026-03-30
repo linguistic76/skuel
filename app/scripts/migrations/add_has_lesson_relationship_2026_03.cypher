@@ -5,7 +5,7 @@
 // that share KU references via CONTAINS_KNOWLEDGE/TRAINS_KU and USES_KU.
 //
 // This relationship enables LS progress tracking based on Lesson completion.
-// Run once after deploying the LsProgressService feature.
+// Run once after deploying the PsProgressService feature.
 
 MATCH (ls:Entity {entity_type: 'learning_step'})-[:CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity)
 MATCH (lesson:Entity {entity_type: 'lesson'})-[:USES_KU]->(ku)

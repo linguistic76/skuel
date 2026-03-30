@@ -523,8 +523,8 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
         """Get tasks related to curriculum learning."""
         ...
 
-    async def get_tasks_for_learning_step(self, step_uid: str) -> Result[list["Task"]]:
-        """Get tasks for a learning step."""
+    async def get_tasks_for_path_step(self, step_uid: str) -> Result[list["Task"]]:
+        """Get tasks for a path step."""
         ...
 
     async def get_user_assigned_tasks(
