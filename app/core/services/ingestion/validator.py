@@ -27,7 +27,13 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-from .config import DEFAULT_MAX_CONCURRENT_PARSING, DEFAULT_USER_UID, ENTITY_CONFIGS, collect_files
+from .config import (
+    DEFAULT_MAX_CONCURRENT_PARSING,
+    DEFAULT_USER_UID,
+    ENTITY_CONFIGS,
+    EntityIngestionConfig,
+    collect_files,
+)
 from .detector import detect_entity_type, detect_format
 from .parser import parse_markdown, parse_yaml
 from .preparer import prepare_entity_data
@@ -39,6 +45,61 @@ logger = get_logger("skuel.services.ingestion.validator")
 def _by_count_desc(item: tuple[str, int]) -> int:
     """Sort key for (uid, count) tuples - descending by count."""
     return -item[1]
+
+
+def validate_uid_format(
+    entity_type: EntityType | NonKuDomain,
+    data: dict[str, Any],
+    file_path: Path,
+) -> Result[None]:
+    """
+    Validate that an explicit UID starts with the correct prefix for its entity type.
+
+    If no explicit uid is declared (auto-generated from filename), validation is skipped.
+    Accepts both colon and dot notation (pre-normalization).
+
+    Args:
+        entity_type: EntityType | NonKuDomain enum value
+        data: Parsed frontmatter/YAML data (before preparation)
+        file_path: Source file path (for error context)
+
+    Returns:
+        Result[None] - Ok if valid or no explicit uid, Fail if prefix mismatch
+    """
+    raw_uid = data.get("uid")
+    if raw_uid is None:
+        return Result.ok(None)
+
+    raw_uid = str(raw_uid).strip()
+    if not raw_uid:
+        return Result.ok(None)
+
+    config: EntityIngestionConfig | None = ENTITY_CONFIGS.get(entity_type)
+    if not config:
+        return Result.ok(None)
+
+    expected_prefix = config.uid_prefix
+
+    # Normalize for comparison: accept both colon and dot separators
+    normalized = raw_uid.replace(":", ".")
+
+    # UID must start with "{prefix}." (e.g., "l.", "ku.", "ex.")
+    if not normalized.startswith(f"{expected_prefix}."):
+        return Result.fail(
+            Errors.validation(
+                f"UID '{raw_uid}' does not start with expected prefix '{expected_prefix}.' "
+                f"for entity type '{entity_type.value}'",
+                field="uid",
+                user_message=(
+                    f"File {file_path.name}: UID '{raw_uid}' must start with "
+                    f"'{expected_prefix}:' or '{expected_prefix}.' "
+                    f"for {entity_type.value} entities. "
+                    f"Example: '{expected_prefix}:{file_path.stem}'"
+                ),
+            )
+        )
+
+    return Result.ok(None)
 
 
 def validate_required_fields(
@@ -262,6 +323,12 @@ async def validate_file(
                     errors=[f"Unsupported entity type: {entity_type.value}"],
                 )
             )
+
+        # Validate UID format before preparation
+        uid_result = validate_uid_format(entity_type, data, file_path)
+        if uid_result.is_error:
+            error = uid_result.expect_error()
+            errors.append(error.user_message or error.message)
 
         # Validate required fields before preparation
         validation_result = validate_required_fields(entity_type, data, file_path)
@@ -609,4 +676,5 @@ __all__ = [
     "validate_file",
     "validate_relationship_targets",
     "validate_required_fields",
+    "validate_uid_format",
 ]

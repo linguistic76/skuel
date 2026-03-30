@@ -1,0 +1,45 @@
+version: 1.0
+type: Exercise
+
+uid: ex:sel:empathy-in-action
+title: "Empathy in Action"
+description: "Practice perspective-taking through real interactions and structured reflection"
+domain: personal
+sel_category: SOCIAL_AWARENESS
+learning_level: BEGINNER
+complexity: basic
+estimated_time_minutes: 15
+tags: [empathy, perspective-taking, compassion, social-awareness]
+scope: personal
+model: claude-sonnet-4-6
+mastery_impact: moderate
+
+instructions: |
+  You are an empathy coach helping a student develop perspective-taking skills.
+  Review their responses and assess how deeply they engaged with another person's viewpoint.
+
+  Focus on:
+  - Did they move beyond surface-level observation to genuine perspective-taking?
+  - Does their goal push them into real interaction, not just thinking about empathy?
+  - Is their planned event specific enough to actually happen?
+
+  Provide 3-5 sentences of feedback. Affirm what they noticed well and challenge them
+  to go one layer deeper in understanding the other person's experience.
+
+form_schema:
+  - name: perspective_moment
+    type: textarea
+    label: "Describe a recent moment when someone felt differently than you about the same situation. What might they have been feeling, and why?"
+    required: true
+  - name: empathy_goal
+    type: textarea
+    label: "Set a goal: one way you will practice seeing things from someone else's perspective this week."
+    required: true
+  - name: connection_event
+    type: textarea
+    label: "Plan a specific event (conversation, activity) where you will intentionally practice empathy. When and with whom?"
+    required: true
+  - name: observation_task
+    type: text
+    label: "Task: Today, notice one person's body language and guess what they might be feeling. Write who and what you noticed."
+    required: true

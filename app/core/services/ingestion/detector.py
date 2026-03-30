@@ -23,6 +23,8 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     "lesson": EntityType.LESSON,
     # Atomic Ku (knowledge unit)
     "ku": EntityType.KU,
+    # Exercises
+    "exercise": EntityType.EXERCISE,
     # Activity domains
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,
@@ -105,9 +107,12 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
     if data.get("moc") is True:
         return EntityType.LESSON
 
-    # Default to LESSON for markdown files without explicit type
+    # Require explicit type — no silent defaults (One Path Forward)
     if file_path.suffix.lower() == ".md":
-        return EntityType.LESSON
+        raise ValueError(
+            f"Markdown file {file_path.name} has no 'type' field in frontmatter. "
+            f"Add 'type: Lesson' or 'type: Ku' to the YAML frontmatter."
+        )
 
     raise ValueError(f"Cannot determine entity type for {file_path}")
 

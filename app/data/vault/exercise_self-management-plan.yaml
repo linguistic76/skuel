@@ -1,0 +1,50 @@
+version: 1.0
+type: Exercise
+
+uid: ex:sel:self-management-plan
+title: "Self-Management Action Plan"
+description: "Build a concrete plan connecting goals, habits, and scheduled events for self-management"
+domain: personal
+sel_category: SELF_MANAGEMENT
+learning_level: BEGINNER
+complexity: basic
+estimated_time_minutes: 20
+tags: [self-management, goals, habits, impulse-control, planning]
+scope: personal
+model: claude-sonnet-4-6
+mastery_impact: moderate
+
+instructions: |
+  You are a practical self-management coach. Review the student's action plan and evaluate
+  whether their goal, habit, and scheduled event form a coherent system.
+
+  Focus on:
+  - Is the goal specific and measurable?
+  - Does the habit directly support the goal (not just sound nice)?
+  - Is the event realistic given their schedule?
+  - Is the impulse-control strategy concrete or vague?
+
+  Provide 3-5 sentences of feedback. Highlight one strong connection in their plan
+  and suggest one way to tighten the weakest link.
+
+form_schema:
+  - name: weekly_goal
+    type: textarea
+    label: "Set one goal for this week. What does success look like?"
+    required: true
+  - name: supporting_habit
+    type: textarea
+    label: "Name a daily habit that directly supports your goal. When will you do it?"
+    required: true
+  - name: practice_event
+    type: textarea
+    label: "Schedule one event this week to practice self-management. What, when, where?"
+    required: true
+  - name: impulse_strategy
+    type: textarea
+    label: "Describe one impulse you want to manage better. What will you do instead when it arises?"
+    required: true
+  - name: task_first_step
+    type: text
+    label: "What is the first task you will do TODAY to start this plan?"
+    required: true

@@ -71,6 +71,7 @@ from .validator import (
     validate_entity_data,
     validate_file,
     validate_required_fields,
+    validate_uid_format,
 )
 
 logger = get_logger("skuel.services.unified_ingestion")
@@ -391,6 +392,11 @@ class UnifiedIngestionService:
                     field="type",
                 )
             )
+
+        # Validate UID format before preparation (early fail-fast)
+        uid_result = validate_uid_format(entity_type, data, file_path)
+        if uid_result.is_error:
+            return Result.fail(uid_result)
 
         # Validate required fields before preparation (early fail-fast)
         validation_result = validate_required_fields(entity_type, data, file_path)

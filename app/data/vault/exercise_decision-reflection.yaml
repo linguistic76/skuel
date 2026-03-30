@@ -1,0 +1,50 @@
+version: 1.0
+type: Exercise
+
+uid: ex:sel:decision-reflection
+title: "Decision Reflection"
+description: "Analyze a real decision through the lens of ethics, consequences, and personal values"
+domain: personal
+sel_category: RESPONSIBLE_DECISION_MAKING
+learning_level: BEGINNER
+complexity: basic
+estimated_time_minutes: 15
+tags: [decisions, ethics, consequences, reflection, choices]
+scope: personal
+model: claude-sonnet-4-6
+mastery_impact: moderate
+
+instructions: |
+  You are a decision-making coach helping a student develop reflective judgment.
+  Review their analysis of a real decision and assess the depth of their thinking.
+
+  Focus on:
+  - Did they consider consequences for others, not just themselves?
+  - Is their ethical reasoning specific or generic?
+  - Does their goal connect to improving future decision-making, not just this one instance?
+  - Is the choice they identified genuinely meaningful or trivial?
+
+  Provide 3-5 sentences of feedback. Validate their reasoning where it's strong
+  and ask one question that reveals a consequence they may not have considered.
+
+form_schema:
+  - name: decision_analysis
+    type: textarea
+    label: "Describe a choice you made recently. What were the options, and what did you decide?"
+    required: true
+  - name: consequence_map
+    type: textarea
+    label: "List the consequences of your choice — for yourself AND for at least one other person."
+    required: true
+  - name: ethical_lens
+    type: textarea
+    label: "Was this decision fair? What principle or value guided you?"
+    required: true
+  - name: improvement_goal
+    type: textarea
+    label: "Set a goal: one way you will make more thoughtful decisions this week."
+    required: true
+  - name: next_choice_task
+    type: text
+    label: "Task: Name one upcoming choice where you will deliberately pause and think before acting."
+    required: true

@@ -22,7 +22,7 @@ async def test_ingest_file_creates_chunks(neo4j_driver):
     """Test that ingesting a KU file automatically creates chunks"""
     # Given: A markdown file with curriculum content
     ku_content = """---
-type: knowledge
+type: Lesson
 title: Python Basics
 domain: technology
 ---
@@ -104,7 +104,7 @@ async def test_chunking_failure_does_not_fail_ingestion(neo4j_driver):
     """Test that chunking failure doesn't prevent successful ingestion"""
     # Given: A KU file
     ku_content = """---
-type: knowledge
+type: Lesson
 title: Short KU
 domain: technology
 ---
@@ -185,7 +185,7 @@ async def test_ku_with_minimal_content_generates_chunks(neo4j_driver):
     """Test that KU with minimal content still generates chunks"""
     # Given: A KU file with minimal content (just one sentence)
     ku_content = """---
-type: knowledge
+type: Lesson
 title: Minimal KU
 domain: technology
 ---

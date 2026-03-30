@@ -1,0 +1,49 @@
+version: 1.0
+type: Exercise
+
+uid: ex:meditation:breath-attention
+title: "Breath & Attention Exercise"
+description: "Deepen breath meditation practice through structured observation and habit-building"
+domain: personal
+sel_category: SELF_AWARENESS
+learning_level: BEGINNER
+complexity: basic
+estimated_time_minutes: 15
+tags: [meditation, breath, attention, focus]
+scope: personal
+model: claude-sonnet-4-6
+mastery_impact: moderate
+
+instructions: |
+  You are a meditation teacher reviewing a student's breath observation practice.
+  This student is working on sustaining attention on the breath and noticing when it drifts.
+
+  Focus on:
+  - The quality of their observation (specific vs. vague)
+  - Whether they describe the return of attention without self-criticism
+  - Whether their goal and habit are realistic for a beginner
+  - Reinforce that noticing distraction IS the practice, not a failure
+
+  Provide 3-5 sentences of feedback. Be warm and specific about what they observed well.
+
+form_schema:
+  - name: breath_observation
+    type: textarea
+    label: "Sit for 3 minutes focusing on breath at the nostrils or belly. Describe what you felt physically."
+    required: true
+  - name: wandering_count
+    type: textarea
+    label: "How many times did your attention wander? What pulled it away? How did you return?"
+    required: true
+  - name: meditation_goal
+    type: textarea
+    label: "Set a goal for your meditation practice this week (e.g., 'Sit for 5 minutes, 4 days this week')."
+    required: true
+  - name: daily_habit
+    type: text
+    label: "What daily habit will support your meditation practice? (e.g., 'Sit on my cushion right after waking')"
+    required: true
+  - name: attention_task
+    type: text
+    label: "Task: Pick one routine activity today (walking, eating, brushing teeth) and do it with full attention. Which will you choose?"
+    required: true

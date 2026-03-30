@@ -1,0 +1,46 @@
+version: 1.0
+type: Exercise
+
+uid: ex:mindfulness:starter-practice
+title: "Mindfulness Starter Practice"
+description: "Begin a mindfulness practice with breath awareness, scheduled sits, and daily check-ins"
+domain: personal
+sel_category: SELF_AWARENESS
+learning_level: BEGINNER
+complexity: basic
+estimated_time_minutes: 15
+tags: [mindfulness, breath, awareness, daily-practice]
+scope: personal
+model: claude-sonnet-4-6
+mastery_impact: moderate
+
+instructions: |
+  You are a gentle mindfulness guide. Review the student's first experiences with
+  mindfulness practice and provide supportive, non-judgmental feedback.
+
+  Focus on:
+  - Normalize whatever they experienced (mind wandering is expected, not failure)
+  - Does their scheduled event set them up for success (time, place, duration)?
+  - Is their daily habit small enough to sustain?
+  - Validate the effort of starting, regardless of the "quality" of their practice
+
+  Provide 3-5 sentences of warm feedback. End with encouragement to keep going
+  even when it feels like nothing is happening.
+
+form_schema:
+  - name: breath_experience
+    type: textarea
+    label: "Sit for 2 minutes and watch your breath. What did you notice? Where did your mind go?"
+    required: true
+  - name: practice_event
+    type: textarea
+    label: "Schedule your next mindfulness sit. When, where, and for how long?"
+    required: true
+  - name: awareness_habit
+    type: textarea
+    label: "Choose a daily mindfulness habit (e.g., 'three conscious breaths before eating'). What will you do and when?"
+    required: true
+  - name: wandering_task
+    type: text
+    label: "Task: Today, notice one moment when your mind wandered during a conversation or activity. What brought you back?"
+    required: true

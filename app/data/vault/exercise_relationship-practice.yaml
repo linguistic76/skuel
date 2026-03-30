@@ -1,0 +1,49 @@
+version: 1.0
+type: Exercise
+
+uid: ex:sel:relationship-practice
+title: "Relationship Practice Log"
+description: "Track and reflect on real listening, boundary-setting, and teamwork moments"
+domain: personal
+sel_category: RELATIONSHIP_SKILLS
+learning_level: BEGINNER
+complexity: basic
+estimated_time_minutes: 15
+tags: [relationships, listening, boundaries, teamwork]
+scope: personal
+model: claude-sonnet-4-6
+mastery_impact: moderate
+
+instructions: |
+  You are a relationship skills coach. Review the student's practice log and evaluate
+  the quality of their real-world relationship practice.
+
+  Focus on:
+  - Did they actually listen (not just hear) — can you tell from their description?
+  - Is their boundary concrete or abstract?
+  - Does their scheduled practice event involve a real person and a real situation?
+
+  Provide 3-5 sentences of feedback. Name one specific thing they did well
+  and one area where they could go deeper.
+
+form_schema:
+  - name: listening_moment
+    type: textarea
+    label: "Describe a conversation where you practiced active listening today. What did you hear beyond the words?"
+    required: true
+  - name: boundary_practice
+    type: textarea
+    label: "Name one boundary you set or need to set. How did (or will) you communicate it?"
+    required: true
+  - name: teamwork_event
+    type: textarea
+    label: "Plan an event this week where you will practice teamwork or collaboration. What is it and who is involved?"
+    required: true
+  - name: daily_habit
+    type: text
+    label: "What small daily habit will you build to strengthen one relationship? (e.g., 'Ask one genuine question at dinner')"
+    required: true
+  - name: action_task
+    type: text
+    label: "Task: What is one relationship-building action you will take today?"
+    required: true

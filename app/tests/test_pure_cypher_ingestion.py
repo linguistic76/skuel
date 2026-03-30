@@ -308,12 +308,13 @@ def test_entity_type_detection():
     result = service.detect_entity_type(data_with_ku, Path("/tmp/test.md"))
     assert result == EntityType.KU, f"Expected EntityType.KU, got {result}"
 
-    # Test 4: Default to KU for markdown without type
+    # Test 4: Markdown without type raises ValueError (no silent defaults)
     data_no_type = {"title": "Some Knowledge"}
-    result = service.detect_entity_type(data_no_type, Path("/tmp/test.md"))
-    assert result == EntityType.LESSON, (
-        f"Expected EntityType.LESSON (default for .md), got {result}"
-    )
+    try:
+        service.detect_entity_type(data_no_type, Path("/tmp/test.md"))
+        raise AssertionError("Expected ValueError for .md without type")
+    except ValueError as e:
+        assert "no 'type' field" in str(e), f"Unexpected error message: {e}"
 
     # Test 5: Case insensitivity
     data_uppercase = {"type": "HABIT", "title": "Exercise"}

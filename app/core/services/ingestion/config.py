@@ -132,8 +132,7 @@ class EntityIngestionConfig:
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration
 #
-# 12 of 21 entity types are file-ingestible. The following are excluded:
-#   - EXERCISE: Created via API by teachers, not from content files
+# 13 of 21 entity types are file-ingestible. The following are excluded:
 #   - REVISED_EXERCISE: Created via API as part of the feedback loop
 #   - RESOURCE: Created via API with curated metadata
 #   - FORM_TEMPLATE: Created via API by admins
@@ -156,6 +155,12 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         uid_prefix="l",
         required_fields=("title", "content"),
         relationship_config=generate_ingestion_relationship_config(EntityType.LESSON),
+    ),
+    EntityType.EXERCISE: EntityIngestionConfig(
+        entity_label="Exercise",
+        uid_prefix="ex",
+        required_fields=("title", "instructions"),
+        relationship_config=generate_ingestion_relationship_config(EntityType.EXERCISE),
     ),
     EntityType.KU: EntityIngestionConfig(
         entity_label="Ku",

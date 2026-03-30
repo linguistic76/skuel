@@ -212,7 +212,6 @@ class EntityType(StrEnum):
 
         Supports aliases for backward compatibility with DSL and ingestion:
             "ku" -> KU (canonical)
-            "knowledge" -> LESSON
             "ls" -> LEARNING_STEP
             "lp" -> LEARNING_PATH
             "submission_report" -> EXERCISE_REPORT
