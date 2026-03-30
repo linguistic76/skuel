@@ -1,7 +1,7 @@
 ---
 title: Submissions + Reports Domain
 created: 2025-12-04
-updated: 2026-03-22
+updated: 2026-03-29
 status: current
 category: domains
 tags: [submissions, reports, processing-domain, domain]
@@ -18,6 +18,8 @@ The Submissions + Reports domain handles the artifact-based side of SKUEL's Five
 
 ## Routes
 
+**Authentication:** All API routes require session authentication via `require_authenticated_user(request)`. User-owned routes verify ownership (return 404 for non-owned submissions). No route accepts `user_uid` as a query parameter or form field.
+
 | Route | Type | Purpose |
 |-------|------|---------|
 | `/study` | UI | Student workspace hub (no sidebar) |
@@ -27,7 +29,15 @@ The Submissions + Reports domain handles the artifact-based side of SKUEL's Five
 | `/activity-reports` | UI | AI and scheduled activity reports |
 | `/submit-activity-report` | UI | On-demand activity report request |
 | `/submissions/{uid}` | UI | Submission detail page |
-| `/api/submissions/upload` | API | File upload endpoint |
+| `/api/submissions/upload` | API | File upload (session auth) |
+| `/api/submissions/form` | API | Structured form submission (session auth) |
+| `/api/submissions` | API | List user's submissions (session auth) |
+| `/api/submissions/get` | API | Get submission details (ownership-verified) |
+| `/api/submissions/content` | API | Get processed content (ownership-verified) |
+| `/api/submissions/process` | API | Process submission (ownership-verified) |
+| `/api/submissions/download` | API | Download original file (ownership-verified) |
+| `/api/submissions/download-processed` | API | Download processed file (ownership-verified) |
+| `/api/submissions/statistics` | API | User submission statistics (session auth) |
 | `/api/submissions/progress/generate` | API | On-demand progress report generation |
 | `/api/submissions/progress` | API | List user's progress reports |
 | `/api/submissions/schedule` | API | Schedule CRUD (create, get, update, deactivate) |

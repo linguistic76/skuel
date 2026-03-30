@@ -137,6 +137,7 @@ https_only = True  # In production
 | IDOR fix — `GET /api/submissions/shared-users` | Ownership failure now returns 404 (not 403) — prevents UID enumeration; matches documented pattern |
 | Ownership bypass fix — `get_shared_users` | Route now fails fast with `Errors.system()` when `core_service` is absent instead of silently skipping ownership check |
 | Service name validation — `POST /api/services/register` | `service_name` validated against `^[a-zA-Z0-9_-]{1,64}$` pattern to prevent phantom service registration |
+| Submissions API session auth — all 19 routes in `submissions_api.py` | `user_uid` no longer accepted as query param or form field; all routes use `require_authenticated_user(request)` from session. Single-submission routes verify ownership via `_get_owned_submission()` returning 404 for non-owned resources. Closes IDOR where callers could submit files as or browse submissions of another user |
 
 ## Verification Checklist
 

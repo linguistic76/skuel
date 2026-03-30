@@ -461,25 +461,23 @@ Before the explicit delegation migration:
 ### ❌ Before (Unsafe Access)
 
 ```python
-@rt("/submissions/categorize")
-async def categorize_route(request, submission_uid: str) -> Result[Any]:
-    # Get submission
-    submission_result = await submission_service.get_submission(submission_uid)
+@rt("/api/lessons/get")
+@boundary_handler()
+async def get_lesson_route(request, uid: str) -> Result[Any]:
+    # Get lesson
+    lesson_result = await lesson_service.get(uid)
 
     # Check for errors
-    if submission_result.is_error:
-        return Result.fail(submission_result)
+    if lesson_result.is_error:
+        return Result.fail(lesson_result)
 
     # Extract value
-    submission = submission_result.value
+    lesson = lesson_result.value
 
-    # ERROR: Item "None" of "Submission | None" has no attribute "user_uid"
-    # Problem: get_submission returns Result[Submission | None]
+    # ERROR: Item "None" of "Lesson | None" has no attribute "title"
+    # Problem: get() returns Result[Lesson | None]
     # Even though is_error is False, value can still be None (not found case)
-    if submission.user_uid != user_uid:
-        return Result.fail(Errors.not_found(resource="Submission"))
-
-    return await submissions_core_service.categorize_submission(submission_uid, category)
+    return Result.ok({"title": lesson.title})
 ```
 
 **The Issue:** `Result[T | None]` pattern is common for "not found" cases:
@@ -490,24 +488,25 @@ async def categorize_route(request, submission_uid: str) -> Result[Any]:
 ### ✅ After (Safe with Guard)
 
 ```python
-@rt("/submissions/categorize")
-async def categorize_route(request, submission_uid: str) -> Result[Any]:
-    # Get submission
-    submission_result = await submission_service.get_submission(submission_uid)
+@rt("/api/lessons/get")
+@boundary_handler()
+async def get_lesson_route(request, uid: str) -> Result[Any]:
+    # Get lesson
+    lesson_result = await lesson_service.get(uid)
 
     # Check for errors
-    if submission_result.is_error:
-        return Result.fail(submission_result)
+    if lesson_result.is_error:
+        return Result.fail(lesson_result)
 
     # Extract value
-    submission = submission_result.value
+    lesson = lesson_result.value
 
     # ✅ Guard: Check for both error AND None
-    if submission is None or submission.user_uid != user_uid:
-        return Result.fail(Errors.not_found(resource="Submission"))
+    if lesson is None:
+        return Result.fail(Errors.not_found(resource="Lesson", identifier=uid))
 
-    # After this point, mypy knows submission is not None
-    return await submissions_core_service.categorize_submission(submission_uid, category)
+    # After this point, mypy knows lesson is not None
+    return Result.ok({"title": lesson.title})
 ```
 
 ### Alternative: Early Return Pattern

@@ -278,21 +278,23 @@ async def get_task(request, uid: str):
 
 ### require_found() — Fetch + Not-Found Guard
 
-For detail routes that fetch an entity and need to 404 if missing:
+For detail routes that fetch a shared entity and need to 404 if missing:
 
 ```python
 from adapters.inbound.result_helpers import require_found
 
-@rt("/api/submissions/get")
+@rt("/api/lessons/get")
 @boundary_handler()
-async def get_submission(request: Request, uid: str) -> Result[dict[str, Any]]:
-    found = require_found(await service.get(uid), "Submission", uid)
+async def get_lesson(request: Request, uid: str) -> Result[dict[str, Any]]:
+    found = require_found(await service.get(uid), "Lesson", uid)
     if found.is_error:
         return found
     return Result.ok(entity_to_response(found.value))
 ```
 
 Combines `is_error` check + `value is None` check into one call.
+
+**Note:** For user-owned entities, prefer ownership verification over `require_found` — it combines the fetch + not-found + ownership check in one step. See OWNERSHIP_VERIFICATION.md.
 
 ### Request Body Parsing → Result[T]
 
