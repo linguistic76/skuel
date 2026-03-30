@@ -282,7 +282,7 @@ Graph-aware search returns learning state in `_graph_context`:
 |-------|-------|-----------|
 | Mastered | ✅ Mastered | `badge-success` |
 | In Progress | 📖 Learning | `badge-info` |
-| Viewed | 👁️ Viewed (Nx) | `badge-warning` |
+| Studying | 📖 Studying | `badge-warning` |
 | Not Started | *(no badge)* | — |
 
 ---
@@ -754,7 +754,7 @@ Graph Relationships:
 | **UI Components** | `/ui/search/components.py` | Sidebar, results, learning badges |
 | **Intelligence** | `/core/services/search/search_intelligence_service.py` | Ranking, suggestions |
 | **MEGA-QUERY** | `/core/services/user/user_context_queries.py` | User state query |
-| **Ku Learning State** | `KuBackend` in `/adapters/persistence/neo4j/domain_backends.py` | MARKED_AS_READ, MASTERED (Ku-native) |
+| **Ku Learning State** | `KuBackend` in `/adapters/persistence/neo4j/domain_backends.py` | IN_PROGRESS, MASTERED (Ku-native two-tier: Studying + Understood) |
 | **Lesson Learning State** | `/core/services/lesson/lesson_mastery_service.py` | VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED/MARKED_AS_READ |
 | **Relationship Names** | `/core/models/relationship_names.py` | VIEWED, IN_PROGRESS, MASTERED |
 

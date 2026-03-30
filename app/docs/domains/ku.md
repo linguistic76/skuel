@@ -17,7 +17,7 @@ related_skills:
 # KU (Knowledge Unit) Domain
 
 **Type:** Curriculum Domain (1 of 4)
-**UID Prefix:** `ku.` (dot notation, NOT colon)
+**UID Prefix:** `ku_` (flat UIDs, hierarchy in ORGANIZES relationships)
 **Entity Label:** `Ku`
 **Topology:** Point (atomic content)
 
@@ -30,13 +30,13 @@ Knowledge Units are atomic pieces of knowledge content. They represent the funda
 ## UID Format
 
 ```
-ku.{filename}
+ku_{slug}_{random}
 ```
 
 **Examples:**
-- `ku.machine-learning`
-- `ku.python-basics`
-- `ku.meditation-fundamentals`
+- `ku_machine-learning_a1b2c3d4`
+- `ku_python-basics_e5f6g7h8`
+- `ku_meditation-fundamentals_i9j0k1l2`
 
 **Note:** UIDs are flat (not hierarchical). See ADR-013.
 
@@ -50,12 +50,12 @@ KuService coordinates 9 sub-services (4 common + 5 domain-specific):
 | `.search_service` | KuSearchService | Search and discovery |
 | `.relationships` | UnifiedRelationshipService | Prerequisite associations |
 | `.intelligence` | KuIntelligenceService | Knowledge suggestions, cross-domain |
-| `.backend` | KuBackend | Graph queries, mark-as-read, mastery (Ku-native) |
+| `.backend` | KuBackend | Graph queries, learning state (Studying + Understood), mastery (Ku-native) |
 
 **Initialization:** Via `create_curriculum_sub_services()` factory.
 **graph_intel:** REQUIRED (fail-fast validation)
 
-**Architectural principle:** Ku never depends on LessonService. Mark-as-read and mastery are Ku-native capabilities on `KuBackend`.
+**Architectural principle:** Ku never depends on LessonService. Learning state (Studying → Understood) and mastery are Ku-native capabilities on `KuBackend`.
 
 ```python
 from core.services.ku_service import KuService
@@ -91,7 +91,7 @@ await ku_service.get_lessons(ku_uid)
 | Routes | `/adapters/inbound/ku_routes.py` + `/adapters/inbound/ku_ui.py` |
 | Relationship Config | `KU_CONFIG` in `/core/models/relationship_registry.py` |
 
-**Architectural principle:** Ku is the atom, Lesson is the molecule. Ku never depends on LessonService. Mark-as-read and mastery are Ku-native capabilities on `KuBackend`.
+**Architectural principle:** Ku is the atom, Lesson is the molecule. Ku never depends on LessonService. Learning state (Studying → Understood) and mastery are Ku-native capabilities on `KuBackend`.
 
 ## Model Fields (Ku-Specific)
 
@@ -151,7 +151,7 @@ Requires authentication. Returns per-user substance score, activity breakdown, a
 
 ```json
 {
-    "ku_uid": "ku.python-basics",
+    "ku_uid": "ku_python-basics_e5f6",
     "user_substance_score": 0.45,
     "breakdown": {
         "tasks": {"count": 3, "uids": [...], "score": 0.15},
@@ -225,12 +225,12 @@ KU uses a **hybrid pattern** (January 2026):
 ```python
 # Via KuService facade - harmonious relationship access
 ku_service = services.ku
-enables = await ku_service.get_enables("ku.advanced-python")  # Uses UnifiedRelationshipService
+enables = await ku_service.get_enables("ku_advanced-python_a1b2")  # Uses UnifiedRelationshipService
 
 # Via specialized services - intelligence operations
-prereq_chain = await ku_service.graph.get_prerequisite_chain("ku.advanced-python")
-semantic_neighborhood = await ku_service.semantic.get_semantic_neighborhood("ku.ml-basics")
-suggestions = await ku_service.intelligence.get_knowledge_suggestions(user_uid, "ku.python")
+prereq_chain = await ku_service.graph.get_prerequisite_chain("ku_advanced-python_a1b2")
+semantic_neighborhood = await ku_service.semantic.get_semantic_neighborhood("ku_ml-basics_c3d4")
+suggestions = await ku_service.intelligence.get_knowledge_suggestions(user_uid, "ku_python_f7g8")
 ```
 
 ## Relationship Config
