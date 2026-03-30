@@ -88,6 +88,8 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-03-29):** `/profile` evolved from card grid to **live actionable hub**. Shows actual Kus (bookmarked + recent with mastery %), active lessons, assigned exercises with inline Submit buttons, HTMX lazy-loaded report summaries, and Nous placeholder. Data sourced from `UserContext.build_rich()`. See `ui/profile/hub.py`.
 
+**Evolution (2026-03-30):** Tasks UI restored as read-focused view at `/tasks` — not the shelved CRUD dashboard, but a clean list with HTMX status toggle, priority/status filtering, and knowledge connections. Tasks icon (check-square) added to navbar between Knowledge and Submissions. Other 5 Activity Domain UIs remain shelved. Navbar order: SKUEL logo → ⚛️ (Knowledge) → Tasks → ⇄ (Submissions) → avatar → logout.
+
 **Background Convention (2026-02-05):** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
 
 ### BasePage Usage

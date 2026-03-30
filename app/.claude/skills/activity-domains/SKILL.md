@@ -2,7 +2,7 @@
 
 > Use when building features for Tasks, Goals, Habits, Events, Choices, or Principles (the 6 Activity Domains).
 
-> **Shelved (2026-03-28):** Activity Domain CRUD UI (routes, views, dashboards) has been shelved to `_shelved/activity_ui/`. Activity data enters via bulk upload at `/upload` (any authenticated user) or via admin ingestion. Service facades and backends remain active. See `_shelved/activity_ui/README.md` for restore instructions.
+> **Partially Shelved (2026-03-28, updated 2026-03-30):** Activity Domain CRUD UI (routes, views, dashboards) shelved to `_shelved/activity_ui/`. **Exception:** Tasks has a read-focused view at `/tasks` (2026-03-30) with HTMX status toggle, filtering, and knowledge connections — see `adapters/inbound/tasks_routes.py` and `ui/activities/tasks_views.py`. Activity data enters via bulk upload at `/upload` (any authenticated user) or via admin ingestion. Service facades and backends remain active.
 
 ## When to Use This Skill
 
@@ -53,7 +53,7 @@ ActivityReport UI ← Service Facade (read path)
 - **6-13 Sub-services** - Specialized functionality (core, search, intelligence, event_handler, etc.)
 - **Domain Events** - Cross-service communication
 - **Event Handler Service** - Fire-and-forget reactive handlers (`*_event_handler_service.py`) — all 6 Activity Domains have dedicated handlers; all persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points (overdue tasks, priority inflation, goal stalls, rescheduling patterns, etc.). The Learning Loop has a parallel handler (`LearningLoopEventHandlerService`) tracking submission iterations, feedback turnaround, and mastery velocity.
-- **~~Three-View UI~~** - Shelved to `_shelved/activity_ui/` (2026-03-28). Activity data viewed via ActivityReport UI at `/activity-reports`.
+- **~~Three-View UI~~** - Shelved to `_shelved/activity_ui/` (2026-03-28). **Exception:** Tasks has a read-focused view at `/tasks` (2026-03-30). Other activity data viewed via ActivityReport UI at `/activity-reports`.
 
 ## Key Files Per Domain
 

@@ -430,12 +430,14 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
 
 ### Navbar Icon Links
 
-The navbar left section (after the SKUEL logo) has three icon links and a profile avatar:
+The navbar left section (after the SKUEL logo) has icon links and a profile avatar:
 - **⚛️** (Knowledge) → `/ku` — No dropdown, direct link to Knowledge index
-- **C** (Curriculum) → `/curriculum` — Dropdown: Lessons, Learning Steps, Learning Paths, Exercises
-- **S** (Study) → `/study` — Dropdown: Submit, My Submissions, Exercise Reports, Activity Reports, Submit Activity Report
-- **Avatar** (click → `/profile`; hover → Activity dropdown: Tasks, Goals, Habits, Events, Choices, Principles)
+- **Tasks** (check-square icon) → `/tasks` — No dropdown, direct link to read-focused task list with HTMX status toggle and filtering
+- **⇄** (Submissions) → `/submissions` — No dropdown, direct link
+- **Avatar** (click → `/profile`; hover → Activity dropdown, currently empty — activities shelved 2026-03-28)
 - **Logout icon** — always visible on main line
+
+Curriculum and Study navbar dropdowns **shelved** (2026-03-29).
 
 See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS`, `IconNavItem`, and `*_DROPDOWN_ITEMS`.
 

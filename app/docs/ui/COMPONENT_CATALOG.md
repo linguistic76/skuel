@@ -1031,11 +1031,21 @@ navbar = create_navbar_for_request(request)
 
 Domain-specific layout helpers.
 
-### Task Layout
+### Tasks Views (Active)
 
-**Location:** `/ui/tasks/layout.py`
+**Location:** `/ui/activities/tasks_views.py`
 
-Task-specific page layouts.
+Read-focused task view components (2026-03-30). Not the shelved CRUD dashboard — a clean list with HTMX status toggle, priority/status filtering, and knowledge connections.
+
+Components: `TaskStatsBar`, `TaskFilterBar`, `TaskList`, `TaskCard`, `filter_tasks`.
+
+Routes: `GET /tasks` (page), `GET /tasks/list-fragment` (HTMX), `POST /api/tasks/{uid}/status` (status update).
+
+### Task Layout (Shelved)
+
+**Location:** `/ui/tasks/layout.py` (shelved at `_shelved/activity_ui/`)
+
+Task-specific page layouts (shelved 2026-03-28).
 
 ### Habit Layout
 
