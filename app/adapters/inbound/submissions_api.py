@@ -3,16 +3,12 @@ Submissions API Routes
 ======================
 
 REST API for file submission and processing pipeline.
-
-- File upload (audio, text)
-- List submissions with filters
-- Get submission details
-- Process submission
-- Download original and processed files
-- Submission statistics
+All routes require session authentication via require_authenticated_user().
+User-owned routes verify ownership (return 404 for non-owned submissions).
 
 Routes:
 - POST /api/submissions/upload - Upload file
+- POST /api/submissions/form - Submit structured form data
 - GET /api/submissions - List submissions
 - GET /api/submissions/get?uid=... - Get submission details
 - POST /api/submissions/process?uid=... - Process submission
@@ -46,7 +42,6 @@ from starlette.responses import FileResponse
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
-from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import split_csv, verify_entity_ownership
 from core.models.entity_converters import entity_to_response
 from core.models.entity_requests import (
@@ -155,7 +150,6 @@ def create_submissions_api_routes(
 
         Form data:
         - file: File upload (required)
-        - user_uid: User identifier (required)
         - entity_type: Type (transcript, report, image_analysis, video_summary) (required)
         - processor_type: Processor (llm, human, hybrid, automatic) (default: automatic)
         - auto_process: Automatically process after upload (default: false)
@@ -163,17 +157,14 @@ def create_submissions_api_routes(
         Returns:
         - 201 Created with submission details
         """
+        user_uid = require_authenticated_user(request)
+
         # Get form data
         form = await request.form()
         uploaded_file = form.get("file")
 
         if not uploaded_file:
             return Result.fail(Errors.validation("No file provided", field="file"))
-
-        # Extract parameters
-        user_uid = form.get("user_uid")
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
         entity_type_str = form.get("entity_type", "transcript")
 
@@ -357,17 +348,15 @@ def create_submissions_api_routes(
     @boundary_handler()
     async def list_submissions_route(
         request: Request,
-        user_uid: UserUID | None = None,
         entity_type: str | None = None,
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> Result[dict[str, Any]]:
         """
-        List submissions for a user with filters.
+        List submissions for the authenticated user with filters.
 
         Query parameters:
-        - user_uid: User identifier (required)
         - entity_type: Filter by type (optional)
         - status: Filter by status (optional)
         - limit: Max results (default: 50)
@@ -376,8 +365,7 @@ def create_submissions_api_routes(
         Returns:
         - List of submissions
         """
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
+        user_uid = require_authenticated_user(request)
 
         # Parse optional enum filters
         parsed_entity_type = None
@@ -427,19 +415,21 @@ def create_submissions_api_routes(
     @boundary_handler()
     async def get_submission_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """
-        Get submission details by UID.
+        Get submission details by UID (ownership-verified).
 
         Query parameters:
         - uid: Submission UID
 
         Returns:
-        - Submission details
+        - Submission details (404 if not owned by requester)
         """
-        found = require_found(await submission_service.get_submission(uid), "Submission", uid)
-        if found.is_error:
-            return Result.fail(found)
+        user_uid = require_authenticated_user(request)
 
-        return Result.ok(entity_to_response(found.value))
+        result = await _get_owned_submission(uid, user_uid)
+        if result.is_error:
+            return Result.fail(result)
+
+        return Result.ok(entity_to_response(result.value))
 
     # ========================================================================
     # GET SUBMISSION PROCESSED CONTENT
@@ -449,20 +439,21 @@ def create_submissions_api_routes(
     @boundary_handler()
     async def get_submission_content_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """
-        Get processed content for a submission.
+        Get processed content for a submission (ownership-verified).
 
         Query parameters:
         - uid: Submission UID
 
         Returns:
-        - Processed content (transcript text)
+        - Processed content (transcript text), 404 if not owned by requester
         """
-        # Get submission
-        found = require_found(await submission_service.get_submission(uid), "Submission", uid)
-        if found.is_error:
-            return Result.fail(found)
+        user_uid = require_authenticated_user(request)
 
-        submission = found.value
+        result = await _get_owned_submission(uid, user_uid)
+        if result.is_error:
+            return Result.fail(result)
+
+        submission = result.value
 
         # If not completed, return pending status
         if not submission.is_completed:
@@ -493,7 +484,7 @@ def create_submissions_api_routes(
     @boundary_handler()
     async def process_submission_route(request: Request, uid: str) -> Result[dict[str, Any]]:
         """
-        Process a submission.
+        Process a submission (ownership-verified).
 
         Query parameters:
         - uid: Submission UID
@@ -504,6 +495,12 @@ def create_submissions_api_routes(
         Returns:
         - Updated submission with processed content
         """
+        user_uid = require_authenticated_user(request)
+
+        ownership_result = await _get_owned_submission(uid, user_uid)
+        if ownership_result.is_error:
+            return Result.fail(ownership_result)
+
         # Get optional instructions
         instructions = None
         if request.method == "POST":
@@ -534,30 +531,26 @@ def create_submissions_api_routes(
     @rt("/api/submissions/download")
     async def download_original_file_route(request: Request, uid: str):
         """
-        Download original uploaded file.
+        Download original uploaded file (ownership-verified).
 
         Query parameters:
         - uid: Submission UID
 
         Returns:
-        - File response with original file
+        - File response with original file, 404 if not owned by requester
         """
         from starlette.responses import Response
 
-        # Get submission
-        submission_result = await submission_service.get_submission(uid)
-        if submission_result.is_error:
-            return Response(
-                content=f"Error: {submission_result.error.user_message if submission_result.error else 'Submission not found'}",
-                status_code=404,
-                media_type="text/plain",
-            )
+        user_uid = require_authenticated_user(request)
 
-        submission = submission_result.value
-        if not submission:
+        # Get submission with ownership check
+        ownership_result = await _get_owned_submission(uid, user_uid)
+        if ownership_result.is_error:
             return Response(
                 content="Error: Submission not found", status_code=404, media_type="text/plain"
             )
+
+        submission = ownership_result.value
 
         # Get file content
         file_result = await submission_service.get_file_content(uid)
@@ -588,30 +581,26 @@ def create_submissions_api_routes(
     @rt("/api/submissions/download-processed")
     async def download_processed_file_route(request: Request, uid: str):
         """
-        Download processed file (if available).
+        Download processed file (ownership-verified).
 
         Query parameters:
         - uid: Submission UID
 
         Returns:
-        - File response with processed file
+        - File response with processed file, 404 if not owned by requester
         """
         from starlette.responses import Response
 
-        # Get submission
-        submission_result = await submission_service.get_submission(uid)
-        if submission_result.is_error:
-            return Response(
-                content=f"Error: {submission_result.error.user_message if submission_result.error else 'Submission not found'}",
-                status_code=404,
-                media_type="text/plain",
-            )
+        user_uid = require_authenticated_user(request)
 
-        submission = submission_result.value
-        if not submission:
+        # Get submission with ownership check
+        ownership_result = await _get_owned_submission(uid, user_uid)
+        if ownership_result.is_error:
             return Response(
                 content="Error: Submission not found", status_code=404, media_type="text/plain"
             )
+
+        submission = ownership_result.value
 
         if not submission.processed_file_path:
             return Response(
@@ -652,20 +641,14 @@ def create_submissions_api_routes(
 
     @rt("/api/submissions/statistics")
     @boundary_handler()
-    async def get_statistics_route(
-        request: Request, user_uid: UserUID | None = None
-    ) -> Result[SubmissionStatistics]:
+    async def get_statistics_route(request: Request) -> Result[SubmissionStatistics]:
         """
-        Get submission statistics for a user.
-
-        Query parameters:
-        - user_uid: User identifier (required)
+        Get submission statistics for the authenticated user.
 
         Returns:
         - Statistics by type and status
         """
-        if not user_uid:
-            return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
+        user_uid = require_authenticated_user(request)
 
         return await submission_service.get_submission_statistics(user_uid)
 
@@ -678,18 +661,19 @@ def create_submissions_api_routes(
         @rt("/api/submissions/categorize")
         @boundary_handler()
         async def categorize_submission_route(
-            request: Request, submission_uid: str, user_uid: UserUID
+            request: Request, submission_uid: str
         ) -> "Result[SubmissionEntity]":
             """
-            Categorize a submission.
+            Categorize a submission (ownership-verified).
 
             Query parameters:
             - submission_uid: Submission UID
-            - user_uid: User UID
 
             JSON body:
             - category: Category string
             """
+            user_uid = require_authenticated_user(request)
+
             parsed = await parse_json_body(request, CategorizeEntityRequest)
             if parsed.is_error:
                 return Result.fail(parsed)
@@ -706,18 +690,18 @@ def create_submissions_api_routes(
         @rt("/api/submissions/tags/add")
         @boundary_handler()
         async def add_tags_route(
-            request: Request, submission_uid: str, user_uid: UserUID
+            request: Request, submission_uid: str
         ) -> "Result[SubmissionEntity]":
             """
-            Add tags to a submission.
+            Add tags to a submission (ownership-verified).
 
             Query parameters:
             - submission_uid: Submission UID
-            - user_uid: User UID
 
             JSON body:
             - tags: List of tag strings
             """
+            user_uid = require_authenticated_user(request)
             parsed = await parse_json_body(request, AddTagsRequest)
             if parsed.is_error:
                 return Result.fail(parsed)
@@ -732,18 +716,18 @@ def create_submissions_api_routes(
         @rt("/api/submissions/tags/remove")
         @boundary_handler()
         async def remove_tags_route(
-            request: Request, submission_uid: str, user_uid: UserUID
+            request: Request, submission_uid: str
         ) -> "Result[SubmissionEntity]":
             """
-            Remove tags from a submission.
+            Remove tags from a submission (ownership-verified).
 
             Query parameters:
             - submission_uid: Submission UID
-            - user_uid: User UID
 
             JSON body:
             - tags: List of tag strings to remove
             """
+            user_uid = require_authenticated_user(request)
             parsed = await parse_json_body(request, RemoveTagsRequest)
             if parsed.is_error:
                 return Result.fail(parsed)
@@ -758,15 +742,15 @@ def create_submissions_api_routes(
         @rt("/api/submissions/publish")
         @boundary_handler()
         async def publish_submission_route(
-            request: Request, submission_uid: str, user_uid: UserUID
+            request: Request, submission_uid: str
         ) -> "Result[SubmissionEntity]":
             """
-            Publish a submission.
+            Publish a submission (ownership-verified).
 
             Query parameters:
             - submission_uid: Submission UID
-            - user_uid: User UID
             """
+            user_uid = require_authenticated_user(request)
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
                 return Result.fail(ownership_result)
@@ -776,15 +760,15 @@ def create_submissions_api_routes(
         @rt("/api/submissions/archive")
         @boundary_handler()
         async def archive_submission_route(
-            request: Request, submission_uid: str, user_uid: UserUID
+            request: Request, submission_uid: str
         ) -> "Result[SubmissionEntity]":
             """
-            Archive a submission.
+            Archive a submission (ownership-verified).
 
             Query parameters:
             - submission_uid: Submission UID
-            - user_uid: User UID
             """
+            user_uid = require_authenticated_user(request)
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
                 return Result.fail(ownership_result)
@@ -794,15 +778,15 @@ def create_submissions_api_routes(
         @rt("/api/submissions/draft")
         @boundary_handler()
         async def mark_as_draft_route(
-            request: Request, submission_uid: str, user_uid: UserUID
+            request: Request, submission_uid: str
         ) -> "Result[SubmissionEntity]":
             """
-            Mark submission as draft.
+            Mark submission as draft (ownership-verified).
 
             Query parameters:
             - submission_uid: Submission UID
-            - user_uid: User UID
             """
+            user_uid = require_authenticated_user(request)
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
             if ownership_result.is_error:
                 return Result.fail(ownership_result)
@@ -811,17 +795,15 @@ def create_submissions_api_routes(
 
         @rt("/api/submissions/bulk/categorize")
         @boundary_handler()
-        async def bulk_categorize_route(request: Request, user_uid: UserUID) -> Result[int]:
+        async def bulk_categorize_route(request: Request) -> Result[int]:
             """
-            Bulk categorize submissions.
-
-            Query parameters:
-            - user_uid: User UID
+            Bulk categorize submissions (ownership-verified).
 
             JSON body:
             - entity_uids: List of submission UIDs
             - category: Category string
             """
+            user_uid = require_authenticated_user(request)
             parsed = await parse_json_body(request, BulkCategorizeRequest)
             if parsed.is_error:
                 return Result.fail(parsed)
@@ -837,17 +819,15 @@ def create_submissions_api_routes(
 
         @rt("/api/submissions/bulk/tag")
         @boundary_handler()
-        async def bulk_tag_route(request: Request, user_uid: UserUID) -> Result[int]:
+        async def bulk_tag_route(request: Request) -> Result[int]:
             """
-            Bulk tag submissions.
-
-            Query parameters:
-            - user_uid: User UID
+            Bulk tag submissions (ownership-verified).
 
             JSON body:
             - entity_uids: List of submission UIDs
             - tags: List of tag strings
             """
+            user_uid = require_authenticated_user(request)
             parsed = await parse_json_body(request, BulkTagRequest)
             if parsed.is_error:
                 return Result.fail(parsed)
@@ -861,17 +841,15 @@ def create_submissions_api_routes(
 
         @rt("/api/submissions/bulk/delete")
         @boundary_handler()
-        async def bulk_delete_route(request: Request, user_uid: UserUID) -> Result[int]:
+        async def bulk_delete_route(request: Request) -> Result[int]:
             """
-            Bulk delete submissions.
-
-            Query parameters:
-            - user_uid: User UID
+            Bulk delete submissions (ownership-verified).
 
             JSON body:
             - entity_uids: List of submission UIDs
             - soft_delete: Boolean (default True)
             """
+            user_uid = require_authenticated_user(request)
             parsed = await parse_json_body(request, BulkDeleteRequest)
             if parsed.is_error:
                 return Result.fail(parsed)
@@ -888,16 +866,16 @@ def create_submissions_api_routes(
         @rt("/api/submissions/by-category")
         @boundary_handler()
         async def get_by_category_route(
-            request: Request, user_uid: UserUID, category: str, limit: int = 50
+            request: Request, category: str, limit: int = 50
         ) -> "Result[list[SubmissionEntity]]":
             """
-            Get submissions by category.
+            Get submissions by category (ownership-scoped).
 
             Query parameters:
-            - user_uid: User UID
             - category: Category string
             - limit: Max results (default 50)
             """
+            user_uid = require_authenticated_user(request)
             return await submissions_core_service.get_submissions_by_category(
                 category=category, limit=limit, user_uid=user_uid
             )
@@ -905,15 +883,15 @@ def create_submissions_api_routes(
         @rt("/api/submissions/recent")
         @boundary_handler()
         async def get_recent_route(
-            request: Request, user_uid: UserUID, limit: int = 10
+            request: Request, limit: int = 10
         ) -> "Result[list[SubmissionEntity]]":
             """
-            Get recent submissions.
+            Get recent submissions (ownership-scoped).
 
             Query parameters:
-            - user_uid: User UID
             - limit: Max results (default 10)
             """
+            user_uid = require_authenticated_user(request)
             return await submissions_core_service.get_recent_submissions(
                 limit=limit, user_uid=user_uid
             )
