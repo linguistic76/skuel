@@ -208,10 +208,20 @@ MSG="$MSG
 
 ACTION: Using your understanding of what this commit changed and why, determine if any of the flagged docs are actually stale. For each stale doc, apply targeted updates. Also check flagged skills for stale content. If nothing is stale, just confirm no updates needed. Do NOT update docs for trivial changes (typo fixes, formatting, import reordering)."
 
+# Build a short user-visible summary
+SUMMARY="📄 Post-commit docs check: $FILE_COUNT files changed"
+if [[ "$DOC_COUNT" -gt 0 ]]; then
+    SUMMARY="$SUMMARY, $DOC_COUNT docs may need review"
+fi
+if [[ "$SKILL_COUNT" -gt 0 ]]; then
+    SUMMARY="$SUMMARY, $SKILL_COUNT skills flagged"
+fi
+
 # Use Python for reliable JSON escaping
+# additionalContext = full detail for Claude; systemMessage = visible summary for user
 python3 -c "
 import json, sys
-print(json.dumps({'additionalContext': sys.argv[1]}))
-" "$MSG"
+print(json.dumps({'additionalContext': sys.argv[1], 'systemMessage': sys.argv[2]}))
+" "$MSG" "$SUMMARY"
 
 exit 0
