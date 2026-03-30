@@ -75,6 +75,14 @@ class _URLLike(Protocol):
     path: str
 
 
+class _FormDataLike(Protocol):
+    """Protocol for Starlette's FormData (multidict with file upload support)."""
+
+    def get(self, key: str, default: Any = None) -> Any: ...
+    def getlist(self, key: str) -> list[Any]: ...
+    def __getitem__(self, key: str) -> Any: ...
+
+
 class Request(Protocol):
     """
     Protocol for Starlette/FastHTML request objects.
@@ -94,7 +102,7 @@ class Request(Protocol):
     path_params: dict[str, str]
     client: _ClientLike | None
 
-    async def form(self) -> dict[str, Any]: ...
+    async def form(self) -> _FormDataLike: ...
     async def json(self) -> Any: ...
 
 
