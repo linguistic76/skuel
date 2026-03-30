@@ -230,5 +230,5 @@ app/core/models/cosmetics
 # YAML templates (local content, not tracked)
 app/yaml_templates/
 
-# User vault content (per-user Activity Domain YAML files, local only)
-app/data/user_vaults/
+# Application data (vaults, user uploads, screenshots, local content)
+app/data/
