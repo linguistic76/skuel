@@ -97,7 +97,7 @@ def ProfileHubView(context: UserContext) -> Div:
     return Div(
         _personal_header(context),          # Focus + Velocity indicators
         _knowledge_section(context),        # Bookmarked + recent Kus (mastery %, namespace)
-        _lessons_section(context),          # Lessons being studied (via in-progress KUs)
+        _lessons_section(context),          # Lessons being studied (via IN_PROGRESS relationship)
         _exercises_section(context),        # Assigned exercises with Submit buttons
         _reports_section(),                 # HTMX lazy-loaded report summaries
         _nous_section(),                    # Community feed (placeholder)

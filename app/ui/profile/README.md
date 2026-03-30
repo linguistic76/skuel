@@ -10,7 +10,7 @@ This directory contains the Profile Hub UI — a **live actionable hub** that su
 
 The Profile Hub (`/profile`) shows live content from `UserContext.build_rich()`:
 - **Knowledge** — Bookmarked + recently viewed Kus with mastery %, namespace badges
-- **Lessons** — Lessons being studied (via in-progress KUs)
+- **Lessons** — Lessons the user is actively studying (via IN_PROGRESS relationship)
 - **Exercises** — Assigned work with inline Submit buttons + pending revisions
 - **Reports** — HTMX lazy-loaded summaries (exercise + activity reports)
 - **Nous** — Community knowledge feed (placeholder)

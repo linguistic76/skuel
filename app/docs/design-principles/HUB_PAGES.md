@@ -38,7 +38,7 @@ SKUEL values standards-compliant, non-cutting-edge UI. Hub pages are the oldest 
 Profile is the top-level entry point for the user's world. It is a **live actionable hub** — not a card grid. Each section surfaces real items from `UserContext.build_rich()`:
 
 - **Knowledge** — Bookmarked + recently viewed Kus with mastery %, namespace badges. Links to `/ku`
-- **Lessons** — Lessons the user is actively studying (via in-progress KUs). Links to `/lessons`
+- **Lessons** — Lessons the user is actively studying (via IN_PROGRESS relationship). Links to `/lessons`
 - **Exercises** — Assigned exercises with inline **Submit** buttons + pending revisions. Links to `/exercises`
 - **Reports** — HTMX lazy-loaded summaries of recent Exercise Reports and Activity Reports. Links to `/exercise-reports` and `/activity-reports`
 - **Nous** — Community knowledge feed (placeholder for future development)

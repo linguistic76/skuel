@@ -169,7 +169,7 @@ def _knowledge_section(context: UserContext) -> Div:
 
 
 def _lessons_section(context: UserContext) -> Div:
-    """Lessons the user is actively studying (via in-progress KUs)."""
+    """Lessons the user is actively studying (via IN_PROGRESS relationship)."""
     rows: list[Div] = []
     for lesson in context.current_lessons:
         rows.append(

@@ -518,7 +518,7 @@ class LearningIntelligenceMixin:
 | `prerequisites_needed` | `dict[str, list[str]]` | Prerequisite chains |
 | `mastered_knowledge_uids` | `set[str]` | Mastery tracking |
 | `in_progress_knowledge_uids` | `set[str]` | KUs with 0 < mastery < 0.8 — used by `include_learning` boost |
-| `current_lesson_uids` | `set[str]` | Lessons using in-progress KUs (via USES_KU relationships) |
+| `current_lesson_uids` | `set[str]` | Lessons user is actively studying (via IN_PROGRESS relationship) |
 | `estimated_time_to_mastery` | `dict[str, int]` | Time estimates |
 | `learning_goals` | `list[str]` | Learning alignment |
 | `primary_goal_focus` | `str \| None` | Goal prioritization |
