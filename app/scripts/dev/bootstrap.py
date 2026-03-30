@@ -521,8 +521,11 @@ async def _wire_all_routes(
     create_askesis_routes(app, rt, services, None)
 
     # -- Activity Domain CRUD UI shelved (2026-03-28) --
-    # Routes moved to _shelved/activity_ui/adapters/
-    # Activity data enters via ingestion, viewed via ActivityReport UI
+    # Full CRUD routes in _shelved/activity_ui/adapters/
+    # Read-focused Tasks view (status controls, filters) is active:
+    from adapters.inbound.tasks_routes import create_tasks_routes
+
+    create_tasks_routes(app, rt, services)
 
     # -- Submissions --
     from adapters.inbound.submissions_routes import create_submissions_routes

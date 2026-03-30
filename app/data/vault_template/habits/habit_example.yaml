@@ -15,8 +15,8 @@ tags:
 
 # Habit-specific (all optional)
 polarity: build
-category: self-reflection
-difficulty: easy
+habit_category: mindfulness
+habit_difficulty: easy
 recurrence_pattern: daily
 target_days_per_week: 7
 preferred_time: morning

@@ -85,6 +85,14 @@ STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
     IconNavItem("Knowledge", "\u269b\ufe0f", "/ku", "knowledge", has_dropdown=False),
     IconNavItem(
+        "Tasks",
+        "",
+        "/tasks",
+        "tasks",
+        has_dropdown=False,
+        icon="check-square",
+    ),
+    IconNavItem(
         "Submissions",
         "",
         "/submissions",
