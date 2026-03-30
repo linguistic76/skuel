@@ -145,7 +145,7 @@ items = [
     SidebarItem("My Submissions", "/submissions", "submissions", icon="📝"),
     SidebarItem("Exercise Reports", "/exercise-reports", "exercise-reports", icon="📋"),
     SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="📊"),
-    SidebarItem("Generate Reports", "/generate-reports", "generate-reports", icon="⚡"),
+    SidebarItem("Submit Activity Report", "/submit-activity-report", "submit-activity-report", icon="⚡"),
 ]
 
 return await SidebarPage(
