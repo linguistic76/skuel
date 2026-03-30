@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activities.habits_views import HabitCard
 from ui.patterns.error_banner import render_error_banner
@@ -15,7 +16,6 @@ from ui.patterns.error_banner import render_error_banner
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import (
         FastHTMLApp,
-        Request,
         RouteDecorator,
         RouteList,
     )
