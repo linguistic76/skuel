@@ -1,0 +1,43 @@
+version: 1.0
+type: Goal
+
+uid: goal:self-reflection-beginner
+title: Develop a Weekly Self-Reflection Practice
+
+description: |
+  Spend 15 minutes each Sunday reviewing the week — what went well, what was
+  hard, what to adjust. This is not journaling for its own sake but a
+  feedback loop that makes all other goals and habits more effective.
+
+goal_type: process
+domain: personal
+timeframe: monthly
+measurement_type: numeric
+target_value: 4.0
+current_value: 0.0
+unit_of_measurement: weekly reflections
+status: planned
+priority: medium
+
+connections:
+  aligned_with_principle:
+    - principle:attention-is-the-real-currency
+
+why_important: |
+  Without reflection, effort is blind. A weekly check-in creates the
+  awareness needed to adjust course before small drift becomes big drift.
+
+success_criteria: Complete 4 weekly reflections in 30 days
+
+potential_obstacles:
+  - Sundays feel like rest days, not work days
+  - Reflection feels vague without a prompt
+
+strategies:
+  - Use a fixed 3-question template (What worked? What didn't? What will I change?)
+  - Pair reflection with a pleasant Sunday ritual (coffee, music)
+
+tags:
+  - reflection
+  - self-awareness
+  - weekly-review

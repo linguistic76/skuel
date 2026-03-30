@@ -1,0 +1,37 @@
+version: 1.0
+type: Principle
+
+uid: principle:attention-is-the-real-currency
+name: Attention Is the Real Currency
+statement: Where you direct your attention determines who you become
+
+principle_category: intellectual
+principle_source: philosophical
+strength: strong
+current_alignment: exploring
+
+description: |
+  Time management is a surface-level game. The deeper game is attention
+  management. Two people can spend the same hour studying — one with
+  full presence, the other distracted — and get radically different results.
+  Protecting and directing attention is the highest-leverage skill.
+
+supported_knowledge_domains:
+  - personal
+  - professional
+
+example_applications:
+  - Turn off notifications during focused work blocks
+  - Name the current distraction before returning to the task
+  - Start each study session by stating the single question you want to answer
+
+measurement_criteria: |
+  You are living this principle when:
+  - You can recall what you studied without checking notes
+  - You notice mind-wandering within 30 seconds and redirect
+  - You feel energized rather than drained after focused sessions
+
+tags:
+  - attention
+  - mindfulness
+  - focus

@@ -1,0 +1,33 @@
+version: 1.0
+type: Habit
+
+uid: habit:pause-and-name
+title: Pause and Name the Distraction
+
+description: |
+  Whenever you notice your attention has drifted during focused work,
+  pause and silently name what pulled you away ("social media," "worry about
+  meeting," "hunger"). Naming breaks the autopilot loop and returns control.
+
+polarity: build
+habit_category: mindfulness
+habit_difficulty: moderate
+recurrence_pattern: daily
+target_days_per_week: 5
+preferred_time: morning
+duration_minutes: 1
+
+connections:
+  embodies_principle:
+    - principle:attention-is-the-real-currency
+  supports_goal:
+    - goal:build-daily-learning-practice
+
+cue: Notice that attention has wandered during a focused block
+routine: Pause, silently name the distraction, take one breath, return to the task
+reward: Feel the clarity of chosen attention versus default distraction
+
+tags:
+  - mindfulness
+  - attention
+  - self-awareness

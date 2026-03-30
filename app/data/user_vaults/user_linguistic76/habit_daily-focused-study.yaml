@@ -1,0 +1,34 @@
+version: 1.0
+type: Habit
+
+uid: habit:daily-focused-study
+title: Daily 25-Minute Focused Study Block
+
+description: |
+  One uninterrupted 25-minute study session per day. Phone silenced,
+  notifications off, single topic chosen in advance. The goal is presence,
+  not speed.
+
+polarity: build
+habit_category: learning
+habit_difficulty: easy
+recurrence_pattern: daily
+target_days_per_week: 5
+preferred_time: morning
+duration_minutes: 25
+
+connections:
+  supports_goal:
+    - goal:build-daily-learning-practice
+  embodies_principle:
+    - principle:consistency-over-intensity
+
+cue: After morning coffee, before opening email
+routine: Choose topic from backlog, set 25-minute timer, study with full attention, log completion
+reward: Check off the day, watch the streak grow
+
+tags:
+  - learning
+  - focus
+  - pomodoro
+  - daily

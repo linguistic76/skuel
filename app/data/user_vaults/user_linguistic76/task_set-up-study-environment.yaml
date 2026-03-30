@@ -1,0 +1,28 @@
+version: 1.0
+type: Task
+
+uid: task:set-up-study-environment
+title: Set Up a Distraction-Free Study Environment
+
+description: |
+  Prepare a physical or digital workspace optimized for focused study:
+  - Choose a consistent location
+  - Remove or silence phone
+  - Close unnecessary browser tabs
+  - Have water and materials ready before the timer starts
+
+  This is a one-time setup task that makes the daily habit frictionless.
+
+duration_minutes: 30
+priority: high
+status: ready
+estimated_effort: low
+
+connections:
+  fulfills_goal:
+    - goal:build-daily-learning-practice
+
+tags:
+  - setup
+  - environment
+  - one-time

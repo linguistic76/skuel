@@ -1,0 +1,36 @@
+version: 1.0
+type: Choice
+
+uid: choice:depth-or-breadth
+title: Go Deep on One Topic or Sample Several
+
+description: |
+  When starting a learning practice, you face this fork: spend the first
+  week going deep on one subject, or sample three different topics to find
+  what resonates. Neither is wrong — but making the choice consciously
+  prevents the drift of doing neither well.
+
+choice_type: binary
+status: pending
+priority: medium
+domain: personal
+
+decision_criteria:
+  - Do I already know what subject excites me most?
+  - Am I more motivated by depth or variety right now?
+  - What will keep me showing up for day 2, 3, 4?
+
+outcomes:
+  - Depth path — faster mastery signal, risk of boredom
+  - Breadth path — discovery of interests, risk of shallow skimming
+
+connections:
+  guided_by_principle:
+    - principle:attention-is-the-real-currency
+  affects_goal:
+    - goal:build-daily-learning-practice
+
+tags:
+  - learning-strategy
+  - decision
+  - self-awareness

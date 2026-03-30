@@ -194,10 +194,15 @@ def _prepare_core(
 
     # Flatten relationship data for BulkIngestionEngine
     # Format: "connections.requires" -> flat key in metadata
+    # Target UIDs must be normalized (colon -> dot) to match stored UIDs
     connections = entity_data.pop("connections", {})
     if connections:
         for key, value in connections.items():
             if value:
+                if isinstance(value, list):
+                    value = [normalize_uid(v) if isinstance(v, str) else v for v in value]
+                elif isinstance(value, str):
+                    value = normalize_uid(value)
                 entity_data[f"connections.{key}"] = value
 
     # Flatten contains/recommends for organizing KUs
