@@ -29,7 +29,7 @@ All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 
 | **Feedback** | Alert, Badge, StatusBadge, PriorityBadge, Loading, Progress, RadialProgress | `ui/feedback.py` |
 | **Layout** | DivHStacked, DivVStacked, DivFullySpaced, DivCentered, Grid, Container, Row, Stack, FlexItem, Size | `ui/layout.py` |
 | **Typography** | PageTitle, SectionTitle, CardTitle, Subtitle, BodyText, SmallText, Caption, TruncatedText | `ui/text.py` |
-| **Patterns** | PageHeader, CardGenerator, StatsGrid, EmptyState, ErrorBanner, etc. | `ui/patterns/*.py` |
+| **Patterns** | PageHeader, CardGenerator, StatsGrid, EmptyState, ErrorBanner, MetadataBadge, etc. | `ui/patterns/*.py` |
 | **Layouts** | BasePage, Navbar, Domain Layouts | `ui/layouts/*.py` |
 
 ---
@@ -1343,6 +1343,7 @@ Quick alphabetical index:
 - **CardGenerator** - `/ui/patterns/card_generator.py`
 - **EmptyState** - `/ui/patterns/empty_state.py`
 - **ErrorBanner** - `/ui/patterns/error_banner.py`
+- **MetadataBadge** - `/ui/patterns/metadata_badge.py`
 - **Navbar (layout)** - `/ui/layouts/navbar.py`
 - **PageHeader** - `/ui/patterns/page_header.py`
 - **Relationships** - `/ui/patterns/relationships/*.py`

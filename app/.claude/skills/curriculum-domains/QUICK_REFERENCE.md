@@ -56,7 +56,7 @@
 | Domain | Route file |
 |--------|-----------|
 | Lesson | `adapters/inbound/lesson_routes.py` (LessonService) |
-| Lesson UI | `adapters/inbound/lesson_ui.py` (detail page, discovery, analytics) |
+| Lesson UI | `adapters/inbound/lesson_ui.py` (detail page + learning actions) |
 | Lesson Listing | `adapters/inbound/curriculum_hub_ui.py` (`/lessons` browser with enrollment) |
 | KU | `adapters/inbound/ku_routes.py` + `ku_ui.py` (KuService — index, detail, studying/understood) |
 | LS + LP | `adapters/inbound/pathways_routes.py` |
