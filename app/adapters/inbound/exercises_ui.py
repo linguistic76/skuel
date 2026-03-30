@@ -15,7 +15,7 @@ Formerly assignments_ui.py — renamed per of Ku hierarchy refactoring.
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, A, Code, Div, Form, Li, Option, P, Pre, Span, Ul
+from fasthtml.common import H2, H3, A, Code, Div, Form, Li, Option, P, Pre, Span, Ul
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from core.utils.logging import get_logger
@@ -25,7 +25,6 @@ from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
-from ui.layouts.navbar import create_navbar_for_request
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
@@ -40,39 +39,6 @@ logger = get_logger("skuel.routes.exercises.ui")
 
 class ExerciseUIComponents:
     """Reusable exercise UI components."""
-
-    @staticmethod
-    def render_exercises_dashboard(exercises=None, request=None, user_uid=None) -> Any:
-        """Main exercises dashboard."""
-        exercises = exercises or []
-
-        navbar = create_navbar_for_request(request, active_page="exercises")
-
-        return Div(
-            navbar,
-            H1("Exercises", cls="text-2xl font-bold mb-6"),
-            P(
-                "Create instruction sets for AI feedback on your entries. "
-                "Full transparency - you write the instructions, select the model, "
-                "and see exactly what's sent to the LLM.",
-                cls="text-muted-foreground mb-6",
-            ),
-            # Action button
-            Div(
-                Button(
-                    "Create New Exercise",
-                    hx_get=f"/exercises/new?user_uid={user_uid}",
-                    hx_target="#main-content",
-                    variant=ButtonT.primary,
-                    cls="mb-6",
-                ),
-                cls="mb-6",
-            ),
-            # Exercises list
-            ExerciseUIComponents.render_exercises_list(exercises),
-            cls="container mx-auto p-6",
-            id="main-content",
-        )
 
     @staticmethod
     def render_exercises_list(exercises) -> Any:
