@@ -51,6 +51,12 @@ Html(build_head("Title", extra_css=["/static/css/calendar.css"]), Body(...))
 | **HUB** | Admin dashboard with fixed sidebar | Fixed left (256px) | Flexible |
 | **CUSTOM** | Collapsible sidebar with persistence | Custom via `SidebarPage()` | Flexible |
 
+**Notable STANDARD pages:**
+
+| Route | Page | Type | Notes |
+|-------|------|------|-------|
+| `/upload` | Upload Activity Data | `STANDARD` | HTMX file upload + results display |
+
 ```python
 from ui.layouts.page_types import PageType
 
@@ -472,7 +478,7 @@ for item in ICON_NAV_ITEMS:  # ⚛️, C, S
 
 ## 4. Sidebar Pages
 
-Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation (Activity domains, Curriculum, Study, KU, Askesis). Note: `/profile` is a **live actionable hub** using `BasePage` directly — it surfaces Kus, lessons, exercises (with Submit buttons), and report summaries from `UserContext.build_rich()`. See `ui/profile/hub.py`.
+Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation (Activity domains, Curriculum, Study, KU, Askesis). Note: `/profile` is a **live actionable hub** using `BasePage` directly — it surfaces Kus, lessons, exercises (with Submit buttons), report summaries, and an upload link (`/upload`) from `UserContext.build_rich()`. See `ui/profile/hub.py`.
 
 ### SidebarItem
 

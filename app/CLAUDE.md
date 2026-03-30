@@ -508,7 +508,7 @@ type Scorer[T] = Callable[[T], Score]
 
 - Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, Static in `/static/`
 - Navbar has icon links: **⚛️** (Knowledge, `/ku`) + **⇄** (Submissions, `/submissions`) + avatar **U** (click → `/profile`; hover → Activity dropdown, currently empty — activities shelved 2026-03-28) + logout icon. Curriculum and Study navbar dropdowns **shelved** (2026-03-29).
-- `/ku` is the Knowledge index — flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking). `/profile` is THE main hub — a **live actionable hub** (not a card grid): Knowledge (bookmarked + recent Kus with mastery %), Lessons (actively studying), Exercises (assigned work with inline Submit buttons), Submissions (tabbed: My Submissions | Submit | Request Report — Alpine.js tabs + HTMX lazy-loaded fragments), Reports (HTMX lazy-loaded summaries), Nous (community feed placeholder). Data sourced from `UserContext.build_rich()`. Activity Domain dedicated dashboards at `/activities/{domain}` are **shelved** (2026-03-28) — activity data is viewed via ActivityReport at `/activity-reports`. `/lessons` lists all lessons with learning-state-aware enrollment buttons (Start Lesson / In Progress / Mastered); clicking a lesson navigates to `/lesson/{uid}/details` — a full reading page with markdown content, TOC sidebar, learning objectives, metadata badges, and action buttons (Start Lesson, Mark as Read, Bookmark) using `BasePage(CUSTOM)`. Other curriculum sub-pages (`/learning-steps`, `/learning-paths`, `/exercises`) and study sub-pages (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`) use `BasePage(STANDARD)` — **no sidebars** (curriculum + study sidebars shelved 2026-03-29). Old `/submissions/*`, `/learn/*`, and `/ui/exercises` UI paths redirect 301 to the new top-level routes. `/transfer` retired (2026-03-29) — content moved to `/profile` Submissions section + entity-typed routes.
+- `/ku` is the Knowledge index — flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking). `/profile` is THE main hub — a **live actionable hub** (not a card grid): Knowledge (bookmarked + recent Kus with mastery %), Lessons (actively studying), Exercises (assigned work with inline Submit buttons), Submissions (tabbed: My Submissions | Submit | Request Report — Alpine.js tabs + HTMX lazy-loaded fragments), Reports (HTMX lazy-loaded summaries), Nous (community feed placeholder). Data sourced from `UserContext.build_rich()`. Activity Domain dedicated dashboards at `/activities/{domain}` are **shelved** (2026-03-28) — activity data is viewed via ActivityReport at `/activity-reports`. `/lessons` lists all lessons with learning-state-aware enrollment buttons (Start Lesson / In Progress / Mastered); clicking a lesson navigates to `/lesson/{uid}/details` — a full reading page with markdown content, TOC sidebar, learning objectives, metadata badges, and action buttons (Start Lesson, Mark as Read, Bookmark) using `BasePage(CUSTOM)`. Other curriculum sub-pages (`/learning-steps`, `/learning-paths`, `/exercises`) and study sub-pages (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`) use `BasePage(STANDARD)` — **no sidebars** (curriculum + study sidebars shelved 2026-03-29). Old `/submissions/*`, `/learn/*`, and `/ui/exercises` UI paths redirect 301 to the new top-level routes. `/transfer` retired (2026-03-29) — content moved to `/profile` Submissions section + entity-typed routes. `/upload` is the user-facing bulk upload page — drag-and-drop file upload with progress, uses `BasePage(STANDARD)`.
 
 **Shared Components:** `PageHeader` (page title + subtitle + actions — adopted across all 6 Activity Domain dashboards, Study, Curriculum, Admin, Analytics, Calendar, and LifePath), `EmptyState` (empty lists — adopted across ~45 locations), `CardGenerator` (THE single card component — detail cards, list cards, teaching rows, insight cards; supports subtitle, metadata, extra, header_badges with FT pass-through), `StatsGrid`/`StatItem` (statistics grids), `StatusBadge` (delegates to `EntityStatus.get_badge_class()` for all 14 statuses), `render_error_banner`/`render_inline_error` (accessible error states — adopted across 25+ route files). All in `/ui/patterns/` or `/ui/feedback.py`.
 
@@ -619,6 +619,8 @@ One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, i
 **Import:** `from core.services.ingestion import UnifiedIngestionService`
 
 **API:** `POST /api/ingest/file`, `POST /api/ingest/directory`, `POST /api/ingest/vault`, `POST /api/ingest/domain/{domain_name}`, `WS /ws/ingest/progress/{operation_id}`
+
+**Per-User Upload:** `UserUploadService` enables authenticated users to bulk-upload content into isolated per-user vaults. Files are validated, stored under `VaultConfig.user_vaults_root/{user_uid}/`, and ingested via `UnifiedIngestionService`. **API:** `POST /api/upload` (file upload), **UI:** `GET /upload` (upload page), `POST /upload/files` (form submission). Import: `from core.services.ingestion.user_upload_service import UserUploadService`.
 
 **See:** `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md`, `/docs/patterns/UNIFIED_INGESTION_GUIDE.md`
 
@@ -743,7 +745,7 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
     return register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
 
-**Adoption:** 42 of 46 route files. **Patterns proven:** Standard, API-only, UI-only, Multi-factory, Config-Driven.
+**Adoption:** 42 of 46 route files. **Patterns proven:** Standard, API-only, UI-only, Multi-factory, Config-Driven. Upload routes (`upload_routes.py`) use DomainRouteConfig registration.
 
 **See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`
 
@@ -798,6 +800,7 @@ text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description":
 | Error boundary | `/core/utils/error_boundary.py` |
 | Result helpers | `/adapters/inbound/result_helpers.py` (`require_found`) |
 | Route factories | `/adapters/inbound/route_factories/` |
+| User upload service | `/core/services/ingestion/user_upload_service.py` |
 | Page contexts | `/ui/page_contexts.py` |
 | Deepgram config | `/config/deepgram.toml` |
 | ADRs | `/docs/decisions/` |

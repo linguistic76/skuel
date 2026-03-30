@@ -292,6 +292,22 @@ The manual block follows the same service-null-guard pattern that `register_doma
 
 ---
 
+### Upload Routes (Simple Two-Factory)
+
+```python
+# adapters/inbound/upload_routes.py — manual two-factory registration
+def create_upload_routes(app, rt, services):
+    upload_service = services.user_upload_service
+    if upload_service is None:
+        return []
+    routes = []
+    routes.extend(create_upload_api_routes(app, rt, upload_service))
+    routes.extend(create_upload_ui_routes(app, rt, upload_service))
+    return routes
+```
+
+---
+
 ### 5. Config-Driven CRUDRouteConfig — Role-Gated Non-Activity Domains
 
 **When to use:** Non-activity domains that need CRUDRouteFactory with role-based access control. The `crud` field on `DomainRouteConfig` auto-registers create/get/list/update/delete routes before `api_factory` runs. The `intelligence` field auto-registers context/analytics/insights routes. The API factory then only needs domain-specific routes.

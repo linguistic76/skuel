@@ -42,6 +42,9 @@ stats = await service.ingest_directory(
     validate_targets=True,        # Validate relationship UIDs exist
 )
 
+# Per-user ingestion (user_uid override)
+result = await service.ingest_file(Path("task_example.yaml"), user_uid=UserUID("user_mike"))
+
 # Ingest an Obsidian vault
 stats = await service.ingest_vault(Path("/vault"), subdirs=["docs", "notes"])
 
@@ -197,6 +200,20 @@ POST /api/ingest/domain/ku
 
 **See:** `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md` for ingestion architecture
 
+### Per-User Bulk Upload
+
+Authenticated users can upload Activity Domain YAML files (Task, Goal, Habit, Event, Choice, Principle) via the upload UI or API. Files are written to per-user vault directories and ingested with the user's UID.
+
+**UI:** `GET /upload` — drag-and-drop upload page
+**HTMX:** `POST /upload/files` — returns HTML results fragment
+**API:** `POST /api/upload` — multipart form, returns JSON
+
+**Service:** `UserUploadService` (`core/services/ingestion/user_upload_service.py`) orchestrates filename validation, type restriction, vault provisioning, and delegation to `UnifiedIngestionService.ingest_file(user_uid=...)`.
+
+**Config:** `SKUEL_USER_VAULTS_ROOT` env var (default: `data/user_vaults`). Per-user directories: `{base}/{sanitized_uid}/tasks/`, `goals/`, etc.
+
+**Vault Template:** Downloadable at `/static/templates/activity-vault-template.zip` with example YAMLs for all 6 Activity Domain types.
+
 ---
 
 ## Package Structure
@@ -212,7 +229,8 @@ core/services/ingestion/
 ├── preparer.py                    # Data preparation
 ├── validator.py                   # Validation pipeline
 ├── batch.py                       # Concurrent operations
-└── ingestion_tracker.py           # Incremental ingestion state
+├── ingestion_tracker.py           # Incremental ingestion state
+└── user_upload_service.py         # Per-user bulk upload orchestration
 ```
 
 **Import (One Path Forward):**

@@ -187,6 +187,37 @@ Form(
 )
 ```
 
+### File Upload with HTMX
+
+HTMX handles multipart file uploads natively via `hx-encoding`:
+
+```python
+Form(
+    Input(type="file", name="files", accept=".yaml,.yml", multiple=True),
+    Button("Upload", type="submit", cls="uk-button uk-button-primary"),
+    Span("", id="spinner", cls="htmx-indicator", **{"uk-spinner": "ratio: 0.6"}),
+    **{
+        "hx-post": "/upload/files",
+        "hx-target": "#results",
+        "hx-swap": "innerHTML",
+        "hx-encoding": "multipart/form-data",
+        "hx-indicator": "#spinner",
+    },
+)
+```
+
+**Server handler** reads `UploadFile` objects from form data:
+```python
+form = await request.form()
+raw_files = form.getlist("files")
+for f in raw_files:
+    if isinstance(f, UploadFile):
+        content = await f.read()
+        filename = f.filename
+```
+
+**Example:** `/upload` page — see `adapters/inbound/upload_ui.py`.
+
 ### HTMX Response Headers (Server → Browser)
 
 ```python

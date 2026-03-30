@@ -2,7 +2,7 @@
 
 > Use when building features for Tasks, Goals, Habits, Events, Choices, or Principles (the 6 Activity Domains).
 
-> **Shelved (2026-03-28):** Activity Domain CRUD UI (routes, views, dashboards) has been shelved to `_shelved/activity_ui/`. Activity data now enters via UnifiedIngestionService (mixed markdown + YAML from Obsidian) and is viewed via ActivityReport UI at `/activity-reports`. Service facades and backends remain active. See `_shelved/activity_ui/README.md` for restore instructions.
+> **Shelved (2026-03-28):** Activity Domain CRUD UI (routes, views, dashboards) has been shelved to `_shelved/activity_ui/`. Activity data enters via bulk upload at `/upload` (any authenticated user) or via admin ingestion. Service facades and backends remain active. See `_shelved/activity_ui/README.md` for restore instructions.
 
 ## When to Use This Skill
 
@@ -43,7 +43,8 @@ These edges are created at ingestion time from YAML templates. At runtime, domai
 ## Architecture Overview
 
 ```
-Obsidian YAML/Markdown → UnifiedIngestionService → Service Facade → Backend → Neo4j
+User YAML upload (/upload) → UserUploadService → UnifiedIngestionService → Neo4j
+Admin YAML/Markdown → UnifiedIngestionService → Service Facade → Backend → Neo4j
 ActivityReport UI ← Service Facade (read path)
 ```
 

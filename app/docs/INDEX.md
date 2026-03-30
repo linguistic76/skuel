@@ -345,6 +345,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | Document | Updated | Lines |
 |----------|---------|-------|
 | **[SEL Adaptive Curriculum](features/SEL_ADAPTIVE_CURRICULUM.md)** | **2026-02-03** | **850** |
+| **[Per-User Bulk Upload](roadmap/obsidian-headless-sync.md)** | **2026-03-30** | — |
 
 ## Migrations
 

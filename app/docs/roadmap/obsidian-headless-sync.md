@@ -164,6 +164,24 @@ less responsive. Incremental mode makes this cheap even if nothing changed.
 
 ---
 
+## Relationship to Per-User Bulk Upload (2026-03-30)
+
+Obsidian Headless Sync and per-user bulk upload serve **different audiences**:
+
+| | Obsidian Headless Sync | Per-User Bulk Upload |
+|---|---|---|
+| **Audience** | Admin/teachers (curriculum) | Individual users (Activity Domains) |
+| **Content** | Kus, Lessons, Exercises, LPs, LSs | Tasks, Goals, Habits, Events, Choices, Principles |
+| **Scope** | `SHARED` (all users read) | `USER_OWNED` (user's data) |
+| **Delivery** | Automatic (file watcher) | Manual (upload via `/upload`) |
+| **Server infra** | 1 headless process | None (HTTP upload) |
+
+Both coexist — Headless Sync for curriculum, bulk upload for user activity data.
+
+**See:** `core/services/ingestion/user_upload_service.py`, `adapters/inbound/upload_ui.py`
+
+---
+
 ## What This Replaces
 
 | Current State | With Headless Sync |
