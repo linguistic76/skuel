@@ -218,6 +218,13 @@ class KuService:
         is_understood = bool(rec.get("is_understood"))
         return Result.ok({"is_studying": is_studying, "is_understood": is_understood})
 
+    async def get_user_learning_states(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
+        """Get all Kus with learning state for a user (for sidebar display)."""
+        result = await self.backend.get_user_learning_states(user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
     # =========================================================================
     # QUERY LAYER (FilteredContextProvider)
     # =========================================================================

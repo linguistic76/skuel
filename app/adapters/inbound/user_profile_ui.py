@@ -853,17 +853,17 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             """Render a knowledge entity card with status badges."""
             ku_title = ku.get("title") or ku.get("uid") or "Untitled"
             ku_domain = ku.get("domain", "")
-            is_viewed = ku.get("viewed", False)
             is_bookmarked = ku.get("bookmarked", False)
             is_mastered = ku.get("mastered", False)
+            is_studying = ku.get("studying", False)
 
             badges = []
             if is_mastered:
-                badges.append(Badge("Mastered", variant=BadgeT.success, size=Size.xs))
+                badges.append(Badge("Understood", variant=BadgeT.success, size=Size.xs))
+            elif is_studying:
+                badges.append(Badge("Studying", variant=BadgeT.warning, size=Size.xs))
             if is_bookmarked:
                 badges.append(Badge("Bookmarked", variant=BadgeT.info, size=Size.xs))
-            if is_viewed and not is_mastered:
-                badges.append(Badge("Viewed", variant=BadgeT.ghost, size=Size.xs))
 
             return A(
                 Card(

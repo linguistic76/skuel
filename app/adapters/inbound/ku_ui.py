@@ -162,8 +162,10 @@ def _render_ku_row(ku: Ku, pinned_uids: set[str]) -> Any:
 def _build_sidebar_items(
     pinned_kus: list[Ku],
     latest_kus: list[Ku],
+    studying_kus: list[Ku] | None = None,
+    understood_kus: list[Ku] | None = None,
 ) -> tuple[list[SidebarItem], list[Any]]:
-    """Build sidebar items: Bookmarks section + Latest section."""
+    """Build sidebar items: Studying, Understood, Bookmarks, Latest sections."""
     from fasthtml.common import H4
 
     items: list[SidebarItem] = [
@@ -171,6 +173,35 @@ def _build_sidebar_items(
     ]
 
     extra_sections: list[Any] = []
+    section_header_cls = (
+        "text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2"
+    )
+
+    # Studying section
+    if studying_kus:
+        studying_links = [
+            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in studying_kus[:10]
+        ]
+        extra_sections.append(
+            Li(
+                H4("Studying", cls=section_header_cls),
+                Ul(*studying_links, cls="list-none p-0"),
+                cls="mt-1",
+            )
+        )
+
+    # Understood section
+    if understood_kus:
+        understood_links = [
+            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in understood_kus[:10]
+        ]
+        extra_sections.append(
+            Li(
+                Li(cls="border-t border-border my-2") if studying_kus else Span(),
+                H4("Understood", cls=section_header_cls),
+                Ul(*understood_links, cls="list-none p-0"),
+            )
+        )
 
     # Bookmarks section
     if pinned_kus:
@@ -179,22 +210,9 @@ def _build_sidebar_items(
         ]
         extra_sections.append(
             Li(
-                H4(
-                    "Bookmarked",
-                    cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2",
-                ),
+                Li(cls="border-t border-border my-2") if studying_kus or understood_kus else Span(),
+                H4("Bookmarked", cls=section_header_cls),
                 Ul(*bookmark_links, cls="list-none p-0"),
-                cls="mt-1",
-            )
-        )
-    else:
-        extra_sections.append(
-            Li(
-                H4(
-                    "Bookmarked",
-                    cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2",
-                ),
-                P("No bookmarks yet", cls="text-xs text-muted-foreground/60 italic px-3 py-1"),
                 cls="mt-1",
             )
         )
@@ -205,10 +223,7 @@ def _build_sidebar_items(
         extra_sections.append(
             Li(
                 Li(cls="border-t border-border my-2"),
-                H4(
-                    "Latest",
-                    cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2",
-                ),
+                H4("Latest", cls=section_header_cls),
                 Ul(*latest_links, cls="list-none p-0"),
             )
         )
@@ -333,26 +348,46 @@ def create_ku_ui_routes(
             elif result.value:
                 kus = result.value
 
-        # Fetch pinned entity UIDs for the current user
+        # Per-user data: bookmarks + learning states
         pinned_uids: set[str] = set()
         pinned_kus: list[Ku] = []
-        if user_relationship_service and is_authenticated(request):
-            user_uid = require_authenticated_user(request)
-            pins_result = await user_relationship_service.get_pinned_entities(user_uid)
-            if pins_result.is_error:
-                logger.warning(f"Failed to load bookmarks: {pins_result.error}")
-            elif pins_result.value:
-                pinned_uids = set(pins_result.value)
-
-        # Build pinned Kus list (matching pinned UIDs to Ku objects)
+        studying_kus: list[Ku] = []
+        understood_kus: list[Ku] = []
         ku_by_uid = {ku.uid: ku for ku in kus}
+
+        if is_authenticated(request):
+            user_uid = require_authenticated_user(request)
+
+            # Bookmarks
+            if user_relationship_service:
+                pins_result = await user_relationship_service.get_pinned_entities(user_uid)
+                if pins_result.is_error:
+                    logger.warning(f"Failed to load bookmarks: {pins_result.error}")
+                elif pins_result.value:
+                    pinned_uids = set(pins_result.value)
+
+            # Learning states (Studying / Understood sidebar sections)
+            if ku_service:
+                states_result = await ku_service.get_user_learning_states(user_uid)
+                if states_result.is_ok and states_result.value:
+                    for rec in states_result.value:
+                        ku_obj = ku_by_uid.get(rec.get("uid", ""))
+                        if not ku_obj:
+                            continue
+                        if rec.get("is_understood"):
+                            understood_kus.append(ku_obj)
+                        elif rec.get("is_studying"):
+                            studying_kus.append(ku_obj)
+
         pinned_kus = [ku_by_uid[uid] for uid in pinned_uids if uid in ku_by_uid]
 
         # Latest Kus (first 5 from the list)
         latest_kus = kus[:5]
 
         # Build sidebar
-        sidebar_items, extra_sections = _build_sidebar_items(pinned_kus, latest_kus)
+        sidebar_items, extra_sections = _build_sidebar_items(
+            pinned_kus, latest_kus, studying_kus, understood_kus
+        )
 
         # Build main content — flat listing
         if ku_load_error:

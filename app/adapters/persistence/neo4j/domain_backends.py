@@ -2278,6 +2278,21 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
 
+    async def get_user_learning_states(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
+        """Get all Kus with their learning state for a user."""
+        query = """
+        MATCH (ku:Entity:Ku)
+        WHERE EXISTS { (u:User {uid: $user_uid})-[:IN_PROGRESS|MASTERED|MARKED_AS_READ]->(ku) }
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[p:IN_PROGRESS]->(ku)
+        OPTIONAL MATCH (u2:User {uid: $user_uid})-[m:MASTERED]->(ku)
+        OPTIONAL MATCH (u3:User {uid: $user_uid})-[mr:MARKED_AS_READ]->(ku)
+        RETURN ku.uid AS uid, ku.title AS title,
+               (p IS NOT NULL OR mr IS NOT NULL) AS is_studying,
+               m IS NOT NULL AS is_understood
+        ORDER BY ku.title ASC
+        """
+        return await self.execute_query(query, {"user_uid": user_uid})
+
 
 class LsBackend(UniversalNeo4jBackend[LearningStep]):
     """

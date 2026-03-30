@@ -253,16 +253,18 @@ class _LearningStateMixin:
     async def get_all_user_knowledge_status(
         self, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
-        """Get all knowledge entities with per-user interaction status."""
+        """Get all Ku entities with per-user interaction status."""
         query = """
-        MATCH (ku:Entity)
+        MATCH (ku:Entity:Ku)
         OPTIONAL MATCH (u:User {uid: $user_uid})-[v:VIEWED]->(ku)
         OPTIONAL MATCH (u2:User {uid: $user_uid})-[b:BOOKMARKED]->(ku)
         OPTIONAL MATCH (u3:User {uid: $user_uid})-[m:MASTERED]->(ku)
+        OPTIONAL MATCH (u4:User {uid: $user_uid})-[ip:IN_PROGRESS]->(ku)
         RETURN ku.uid AS uid, ku.title AS title, ku.domain AS domain,
                v IS NOT NULL AS viewed,
                b IS NOT NULL AS bookmarked,
-               m IS NOT NULL AS mastered
+               m IS NOT NULL AS mastered,
+               ip IS NOT NULL AS studying
         ORDER BY ku.title ASC, ku.uid ASC
         """
         return await self.execute_query(query, {"user_uid": user_uid})
