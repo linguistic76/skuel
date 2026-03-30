@@ -159,7 +159,7 @@ def render_filters_section() -> Any:
                             Option("Journal", value="journal"),
                             Option("Progress Report", value="progress"),
                             Option("Assessment", value="assessment"),
-                            name="report_type",
+                            name="entity_type",
                         ),
                         cls="flex-1",
                     ),
@@ -195,7 +195,7 @@ def render_filters_section() -> Any:
 def render_submissions_grid_container() -> Any:
     """Render the HTMX-loading reports grid container."""
     return Div(
-        P("Loading reports...", cls="text-center text-muted-foreground"),
+        P("Loading submissions...", cls="text-center text-muted-foreground"),
         id="submissions-grid-container",
         cls="mt-4",
         **{

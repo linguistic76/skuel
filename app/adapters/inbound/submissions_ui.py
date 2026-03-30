@@ -77,14 +77,14 @@ logger = get_logger("skuel.routes.submissions.ui")
 class SubmissionFilters:
     """Typed filters for submission list queries."""
 
-    report_type: str
+    entity_type: str
     status: str
 
 
 def parse_submission_filters(request: Request) -> SubmissionFilters:
     """Extract submission filter parameters from request query params."""
     return SubmissionFilters(
-        report_type=request.query_params.get("report_type", ""),
+        entity_type=request.query_params.get("entity_type", ""),
         status=request.query_params.get("status", ""),
     )
 
@@ -346,8 +346,8 @@ def create_submissions_ui_routes(
             filters = parse_submission_filters(request)
 
             kwargs = {"user_uid": user_uid, "limit": 50}
-            if filters.report_type:
-                kwargs["report_type"] = filters.report_type
+            if filters.entity_type:
+                kwargs["entity_type"] = filters.entity_type
             if filters.status:
                 kwargs["status"] = filters.status
 

@@ -20,13 +20,13 @@ _get_status_badge_class = get_submission_status_badge_class
 
 
 def get_submission_identifier(submission: Any) -> str:
-    """Extract the identifier from submission metadata, falling back to report_type."""
+    """Extract the identifier from submission metadata, falling back to entity_type."""
     metadata = getattr(submission, "metadata", None)
     if isinstance(metadata, dict):
         identifier = metadata.get("identifier")
         if identifier:
             return str(identifier)
-    return getattr(submission, "report_type", "unknown")
+    return getattr(submission, "entity_type", "unknown")
 
 
 def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:

@@ -156,7 +156,7 @@ def create_submissions_api_routes(
         Form data:
         - file: File upload (required)
         - user_uid: User identifier (required)
-        - report_type: Type (transcript, report, image_analysis, video_summary) (required)
+        - entity_type: Type (transcript, report, image_analysis, video_summary) (required)
         - processor_type: Processor (llm, human, hybrid, automatic) (default: automatic)
         - auto_process: Automatically process after upload (default: false)
 
@@ -175,22 +175,22 @@ def create_submissions_api_routes(
         if not user_uid:
             return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
-        report_type_str = form.get("report_type", "transcript")
+        entity_type_str = form.get("entity_type", "transcript")
 
         # Debug logging
         logger.info(
-            f"Received report_type from form: '{report_type_str}' (type: {type(report_type_str).__name__})"
+            f"Received entity_type from form: '{entity_type_str}' (type: {type(entity_type_str).__name__})"
         )
         logger.info(f"All form fields: {dict(form)}")
 
-        # Validate report_type
+        # Validate entity_type
         try:
-            report_type = EntityType(report_type_str)
+            entity_type = EntityType(entity_type_str)
         except ValueError:
             return Result.fail(
                 Errors.validation(
-                    f"Invalid report type: '{report_type_str}' (received as {type(report_type_str).__name__})",
-                    field="report_type",
+                    f"Invalid entity type: '{entity_type_str}' (received as {type(entity_type_str).__name__})",
+                    field="entity_type",
                 )
             )
 
@@ -246,7 +246,7 @@ def create_submissions_api_routes(
                 applies_knowledge_uids = split_csv(applies_knowledge_str)
 
         logger.info(
-            f"File upload: {filename} ({len(file_content)} bytes, type={report_type.value}, "
+            f"File upload: {filename} ({len(file_content)} bytes, type={entity_type.value}, "
             f"applies_knowledge={len(applies_knowledge_uids)} KUs)"
         )
 
@@ -261,7 +261,7 @@ def create_submissions_api_routes(
             file_content=file_content,
             original_filename=filename,
             user_uid=user_uid,
-            entity_type=report_type,
+            entity_type=entity_type,
             processor_type=processor_type,
             applies_knowledge_uids=applies_knowledge_uids if applies_knowledge_uids else None,
             fulfills_exercise_uid=fulfills_exercise_uid if fulfills_exercise_uid else None,
@@ -358,35 +358,35 @@ def create_submissions_api_routes(
     async def list_submissions_route(
         request: Request,
         user_uid: UserUID | None = None,
-        report_type: str | None = None,
+        entity_type: str | None = None,
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> Result[dict[str, Any]]:
         """
-        List reports for a user with filters.
+        List submissions for a user with filters.
 
         Query parameters:
         - user_uid: User identifier (required)
-        - report_type: Filter by type (optional)
+        - entity_type: Filter by type (optional)
         - status: Filter by status (optional)
         - limit: Max results (default: 50)
         - offset: Pagination offset (default: 0)
 
         Returns:
-        - List of reports
+        - List of submissions
         """
         if not user_uid:
             return Result.fail(Errors.validation("user_uid is required", field="user_uid"))
 
         # Parse optional enum filters
-        parsed_report_type = None
-        if report_type:
+        parsed_entity_type = None
+        if entity_type:
             try:
-                parsed_report_type = EntityType(report_type)
+                parsed_entity_type = EntityType(entity_type)
             except ValueError:
                 return Result.fail(
-                    Errors.validation(f"Invalid report type: {report_type}", field="report_type")
+                    Errors.validation(f"Invalid entity type: {entity_type}", field="entity_type")
                 )
 
         parsed_status = None
@@ -396,10 +396,10 @@ def create_submissions_api_routes(
             except ValueError:
                 return Result.fail(Errors.validation(f"Invalid status: {status}", field="status"))
 
-        # List reports
+        # List submissions
         result = await submission_service.list_submissions(
             user_uid=user_uid,
-            entity_type=parsed_report_type,
+            entity_type=parsed_entity_type,
             status=parsed_status,
             limit=limit,
             offset=offset,
@@ -408,19 +408,19 @@ def create_submissions_api_routes(
         if result.is_error:
             return Result.fail(result)
 
-        reports = result.value
+        submissions = result.value
 
         return Result.ok(
             {
-                "reports": [entity_to_response(a) for a in reports],
-                "count": len(reports),
+                "submissions": [entity_to_response(a) for a in submissions],
+                "count": len(submissions),
                 "limit": limit,
                 "offset": offset,
             }
         )
 
     # ========================================================================
-    # GET REPORT DETAILS
+    # GET SUBMISSION DETAILS
     # ========================================================================
 
     @rt("/api/submissions/get")
@@ -430,10 +430,10 @@ def create_submissions_api_routes(
         Get submission details by UID.
 
         Query parameters:
-        - uid: Report UID
+        - uid: Submission UID
 
         Returns:
-        - Report details
+        - Submission details
         """
         found = require_found(await submission_service.get_submission(uid), "Submission", uid)
         if found.is_error:
@@ -442,7 +442,7 @@ def create_submissions_api_routes(
         return Result.ok(entity_to_response(found.value))
 
     # ========================================================================
-    # GET REPORT PROCESSED CONTENT
+    # GET SUBMISSION PROCESSED CONTENT
     # ========================================================================
 
     @rt("/api/submissions/content")
@@ -452,7 +452,7 @@ def create_submissions_api_routes(
         Get processed content for a submission.
 
         Query parameters:
-        - uid: Report UID
+        - uid: Submission UID
 
         Returns:
         - Processed content (transcript text)
@@ -486,7 +486,7 @@ def create_submissions_api_routes(
         )
 
     # ========================================================================
-    # PROCESS REPORT
+    # PROCESS SUBMISSION
     # ========================================================================
 
     @rt("/api/submissions/process")
@@ -496,7 +496,7 @@ def create_submissions_api_routes(
         Process a submission.
 
         Query parameters:
-        - uid: Report UID
+        - uid: Submission UID
 
         JSON body (optional):
         - instructions: Processor-specific instructions
@@ -537,7 +537,7 @@ def create_submissions_api_routes(
         Download original uploaded file.
 
         Query parameters:
-        - uid: Report UID
+        - uid: Submission UID
 
         Returns:
         - File response with original file
@@ -591,7 +591,7 @@ def create_submissions_api_routes(
         Download processed file (if available).
 
         Query parameters:
-        - uid: Report UID
+        - uid: Submission UID
 
         Returns:
         - File response with processed file
@@ -684,7 +684,7 @@ def create_submissions_api_routes(
             Categorize a submission.
 
             Query parameters:
-            - report_uid: Report UID
+            - submission_uid: Submission UID
             - user_uid: User UID
 
             JSON body:
@@ -712,7 +712,7 @@ def create_submissions_api_routes(
             Add tags to a submission.
 
             Query parameters:
-            - report_uid: Report UID
+            - submission_uid: Submission UID
             - user_uid: User UID
 
             JSON body:
@@ -738,7 +738,7 @@ def create_submissions_api_routes(
             Remove tags from a submission.
 
             Query parameters:
-            - report_uid: Report UID
+            - submission_uid: Submission UID
             - user_uid: User UID
 
             JSON body:
@@ -764,7 +764,7 @@ def create_submissions_api_routes(
             Publish a submission.
 
             Query parameters:
-            - report_uid: Report UID
+            - submission_uid: Submission UID
             - user_uid: User UID
             """
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
@@ -782,7 +782,7 @@ def create_submissions_api_routes(
             Archive a submission.
 
             Query parameters:
-            - report_uid: Report UID
+            - submission_uid: Submission UID
             - user_uid: User UID
             """
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
@@ -800,7 +800,7 @@ def create_submissions_api_routes(
             Mark submission as draft.
 
             Query parameters:
-            - report_uid: Report UID
+            - submission_uid: Submission UID
             - user_uid: User UID
             """
             ownership_result = await _get_owned_submission(submission_uid, user_uid)
@@ -813,7 +813,7 @@ def create_submissions_api_routes(
         @boundary_handler()
         async def bulk_categorize_route(request: Request, user_uid: UserUID) -> Result[int]:
             """
-            Bulk categorize reports.
+            Bulk categorize submissions.
 
             Query parameters:
             - user_uid: User UID
@@ -839,7 +839,7 @@ def create_submissions_api_routes(
         @boundary_handler()
         async def bulk_tag_route(request: Request, user_uid: UserUID) -> Result[int]:
             """
-            Bulk tag reports.
+            Bulk tag submissions.
 
             Query parameters:
             - user_uid: User UID
@@ -863,7 +863,7 @@ def create_submissions_api_routes(
         @boundary_handler()
         async def bulk_delete_route(request: Request, user_uid: UserUID) -> Result[int]:
             """
-            Bulk delete reports.
+            Bulk delete submissions.
 
             Query parameters:
             - user_uid: User UID
@@ -891,7 +891,7 @@ def create_submissions_api_routes(
             request: Request, user_uid: UserUID, category: str, limit: int = 50
         ) -> "Result[list[SubmissionEntity]]":
             """
-            Get reports by category.
+            Get submissions by category.
 
             Query parameters:
             - user_uid: User UID
@@ -908,7 +908,7 @@ def create_submissions_api_routes(
             request: Request, user_uid: UserUID, limit: int = 10
         ) -> "Result[list[SubmissionEntity]]":
             """
-            Get recent reports.
+            Get recent submissions.
 
             Query parameters:
             - user_uid: User UID

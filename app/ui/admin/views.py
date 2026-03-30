@@ -542,7 +542,7 @@ class AdminUIComponents:
 
         body_data = []
         for report in reports:
-            report_type = report.report_type.value if report.report_type else "unknown"
+            report_type = report.entity_type.value if report.entity_type else "unknown"
             status = report.status.value if report.status else "unknown"
             title = report.title or getattr(report, "original_filename", None) or report.uid
             created = report.created_at.strftime("%Y-%m-%d") if report.created_at else "Unknown"
