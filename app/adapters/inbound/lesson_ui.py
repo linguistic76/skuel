@@ -214,7 +214,10 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
                     Card(
                         CardBody(
                             H3("Lesson Not Found", cls="text-lg font-bold"),
-                            P(f"No lesson with identifier: {uid}", cls="text-muted-foreground mt-2"),
+                            P(
+                                f"No lesson with identifier: {uid}",
+                                cls="text-muted-foreground mt-2",
+                            ),
                             ButtonLink(
                                 "← Back to Lessons",
                                 href="/lessons",
@@ -242,7 +245,9 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
         state_result = await lesson_service.mastery.get_learning_state(user_uid, uid)
         is_marked_read = state_result.value.is_marked_as_read if state_result.is_ok else False
         is_bookmarked = state_result.value.is_bookmarked if state_result.is_ok else False
-        is_in_progress = state_result.value.state.value == "in_progress" if state_result.is_ok else False
+        is_in_progress = (
+            state_result.value.state.value == "in_progress" if state_result.is_ok else False
+        )
         is_mastered = state_result.value.state.value == "mastered" if state_result.is_ok else False
 
         # Render markdown with TOC
@@ -277,7 +282,10 @@ def create_lesson_ui_routes(_app, rt, lesson_service):
             objectives_section = Div(
                 H3("Learning Objectives", cls="text-base font-semibold mb-2"),
                 Ul(
-                    *[Li(obj, cls="text-sm text-muted-foreground") for obj in lesson.learning_objectives],
+                    *[
+                        Li(obj, cls="text-sm text-muted-foreground")
+                        for obj in lesson.learning_objectives
+                    ],
                     cls="list-disc pl-5 space-y-1 mb-6",
                 ),
             )

@@ -6,9 +6,10 @@ Wires all Ku routes using DomainRouteConfig pattern.
 KuService is the only service dependency — no LessonService.
 
 Routes:
-- GET  /ku                      — Knowledge index
-- GET  /ku/{uid}                — Ku detail page
-- POST /api/ku/{uid}/mark-read  — Mark Ku as read
+- GET  /ku                           — Knowledge index
+- GET  /ku/{uid}                     — Ku detail page
+- POST /api/ku/{uid}/mark-studying   — Mark Ku as studying (IN_PROGRESS)
+- POST /api/ku/{uid}/mark-understood — Mark Ku as understood (MASTERED)
 """
 
 from typing import TYPE_CHECKING, Any

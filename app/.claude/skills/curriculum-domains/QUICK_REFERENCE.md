@@ -71,7 +71,8 @@
 **Ku UI Routes:**
 - `GET /ku` — Knowledge index with bookmarks sidebar
 - `GET /ku/{uid}` — Ku detail page (description content, metadata, exercises)
-- `POST /api/ku/{uid}/mark-read` — Mark Ku as read (Ku-native, via KuBackend)
+- `POST /api/ku/{uid}/mark-studying` — Mark Ku as studying (IN_PROGRESS)
+- `POST /api/ku/{uid}/mark-understood` — Mark Ku as understood (MASTERED)
 
 **Note**: Ku has its own dedicated route config (`KU_CONFIG` in `ku_routes.py`), separate from Lesson routes. No separate `ls_routes.py`, `lp_routes.py`, or `moc_routes.py` files exist.
 

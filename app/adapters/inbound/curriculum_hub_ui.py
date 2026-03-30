@@ -64,7 +64,9 @@ def create_curriculum_hub_ui_routes(
             # Fetch learning states for all lessons
             if items:
                 uids = [getattr(item, "uid", "") for item in items if getattr(item, "uid", "")]
-                states_result = await lesson_service.mastery.get_learning_states_batch(user_uid, uids)
+                states_result = await lesson_service.mastery.get_learning_states_batch(
+                    user_uid, uids
+                )
                 if states_result.is_ok:
                     learning_states = {k: v.value for k, v in states_result.value.items()}
 

@@ -183,19 +183,40 @@ class KuService:
         return await self.backend.get_lessons_using(ku_uid)
 
     # =========================================================================
-    # LEARNING STATE (Ku-native — no LessonService dependency)
+    # LEARNING STATE (Ku-native — two-tier: Studying + Understood)
     # =========================================================================
 
-    async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
-        """Mark a Ku as read by the user."""
-        result = await self.backend.mark_as_read(user_uid, ku_uid)
+    async def mark_as_studying(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
+        """Mark a Ku as actively being studied (IN_PROGRESS relationship)."""
+        result = await self.backend.mark_in_progress(user_uid, ku_uid)
         if result.is_error:
             return Result.fail(result)
         return Result.ok(True)
 
-    async def is_marked_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
-        """Check if a Ku has been marked as read by the user."""
-        return await self.backend.is_marked_as_read(user_uid, ku_uid)
+    async def mark_as_understood(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
+        """Mark a Ku as understood (MASTERED relationship, self-reported)."""
+        result = await self.backend.mark_mastered(
+            user_uid, ku_uid, mastery_score=0.7, method="self_report"
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(True)
+
+    async def get_ku_learning_state(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[dict[str, bool]]:
+        """Get learning state: {is_studying, is_understood}."""
+        result = await self.backend.get_ku_learning_state(user_uid, ku_uid)
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok({"is_studying": False, "is_understood": False})
+        rec = records[0]
+        # MARKED_AS_READ treated as equivalent to studying for backward compat
+        is_studying = bool(rec.get("is_studying")) or bool(rec.get("is_marked_as_read"))
+        is_understood = bool(rec.get("is_understood"))
+        return Result.ok({"is_studying": is_studying, "is_understood": is_understood})
 
     # =========================================================================
     # QUERY LAYER (FilteredContextProvider)

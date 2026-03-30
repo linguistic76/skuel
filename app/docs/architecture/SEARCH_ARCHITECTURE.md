@@ -238,15 +238,13 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 
 ### Ku Learning State
 
-Ku has native mark-as-read and mastery tracking on `KuBackend` (no LessonService dependency):
+Ku has native two-tier learning state on `KuBackend` (no LessonService dependency):
 
 ```python
-# Mark-as-read (Ku-native, via KuService -> KuBackend)
-await ku_service.mark_as_read(user_uid, ku_uid)
-is_read = await ku_service.is_marked_as_read(user_uid, ku_uid)
-
-# Mastery stub (KuBackend — for future mastery logic)
-await ku_backend.mark_mastered(user_uid, ku_uid)
+# Two-tier learning state (Ku-native, via KuService -> KuBackend)
+await ku_service.mark_as_studying(user_uid, ku_uid)   # IN_PROGRESS
+await ku_service.mark_as_understood(user_uid, ku_uid)  # MASTERED (self-reported, score=0.7)
+state = await ku_service.get_ku_learning_state(user_uid, ku_uid)  # {is_studying, is_understood}
 ```
 
 Lesson has richer learning state via `LessonMasteryService` (VIEWED, IN_PROGRESS, MASTERED, BOOKMARKED, MARKED_AS_READ).

@@ -2202,46 +2202,79 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return await self.execute_query(query, {"ku_uid": ku_uid})
 
     # ========================================================================
-    # LEARNING STATE (Ku-native — no LessonService dependency)
+    # LEARNING STATE (Ku-native — two-tier: Studying + Understood)
     # ========================================================================
 
-    async def mark_as_read(
+    async def mark_in_progress(
         self, user_uid: UserUID, ku_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Mark a Ku as read by the user."""
+        """Mark a Ku as actively being studied (IN_PROGRESS relationship)."""
         query = """
         MATCH (user:User {uid: $user_uid})
         MATCH (ku:Entity:Ku {uid: $ku_uid})
-        MERGE (user)-[r:MARKED_AS_READ]->(ku)
-        ON CREATE SET r.marked_at = datetime()
+        MERGE (user)-[r:IN_PROGRESS]->(ku)
+        ON CREATE SET
+            r.started_at = datetime(),
+            r.last_activity_at = datetime(),
+            r.progress_score = 0.0
+        ON MATCH SET
+            r.last_activity_at = datetime()
         RETURN ku.uid AS uid
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
 
-    async def is_marked_as_read(
-        self, user_uid: UserUID, ku_uid: str
-    ) -> Result[bool]:
-        """Check if a Ku has been marked as read by the user."""
-        query = """
-        MATCH (user:User {uid: $user_uid})-[:MARKED_AS_READ]->(ku:Entity:Ku {uid: $ku_uid})
-        RETURN count(*) > 0 AS is_read
-        """
-        result = await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        return Result.ok(records[0]["is_read"] if records else False)
-
     async def mark_mastered(
-        self, user_uid: UserUID, ku_uid: str
+        self,
+        user_uid: UserUID,
+        ku_uid: str,
+        mastery_score: float = 0.7,
+        method: str = "self_report",
     ) -> Result[list[Neo4jProperties]]:
-        """Mark a Ku as mastered by the user (stub for future mastery logic)."""
+        """Mark a Ku as understood/mastered by the user."""
         query = """
         MATCH (user:User {uid: $user_uid})
         MATCH (ku:Entity:Ku {uid: $ku_uid})
         MERGE (user)-[r:MASTERED]->(ku)
-        ON CREATE SET r.mastered_at = datetime()
+        ON CREATE SET
+            r.mastered_at = datetime(),
+            r.mastery_score = $mastery_score,
+            r.confidence = $mastery_score,
+            r.method = $method
+        ON MATCH SET
+            r.mastery_score = CASE
+                WHEN $mastery_score > r.mastery_score THEN $mastery_score
+                ELSE r.mastery_score
+            END,
+            r.confidence = CASE
+                WHEN $mastery_score > coalesce(r.confidence, 0) THEN $mastery_score
+                ELSE r.confidence
+            END,
+            r.method = $method
         RETURN ku.uid AS uid
+        """
+        return await self.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "ku_uid": ku_uid,
+                "mastery_score": mastery_score,
+                "method": method,
+            },
+        )
+
+    async def get_ku_learning_state(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get user's learning state for a Ku (IN_PROGRESS, MASTERED, MARKED_AS_READ)."""
+        query = """
+        MATCH (ku:Entity:Ku {uid: $ku_uid})
+        OPTIONAL MATCH (u:User {uid: $user_uid})-[p:IN_PROGRESS]->(ku)
+        OPTIONAL MATCH (u2:User {uid: $user_uid})-[m:MASTERED]->(ku)
+        OPTIONAL MATCH (u3:User {uid: $user_uid})-[mr:MARKED_AS_READ]->(ku)
+        RETURN
+            p IS NOT NULL AS is_studying,
+            m IS NOT NULL AS is_understood,
+            mr IS NOT NULL AS is_marked_as_read
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
 

@@ -71,7 +71,8 @@ atomic_ku_service = KuService(
 await ku_service.core.create(ku)
 await ku_service.search_service.search(query)
 await ku_service.intelligence.get_usage_summary(ku_uid)
-await ku_service.mark_as_read(user_uid, ku_uid)
+await ku_service.mark_as_studying(user_uid, ku_uid)
+await ku_service.mark_as_understood(user_uid, ku_uid)
 await ku_service.get_lessons(ku_uid)
 ```
 

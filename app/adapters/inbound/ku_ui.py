@@ -7,7 +7,8 @@ All Ku routes in one file, backed by KuService only (no LessonService dependency
 Routes:
 - GET  /ku           — Knowledge index with bookmarks sidebar
 - GET  /ku/{uid}     — Ku detail page with content, metadata, exercises
-- POST /api/ku/{uid}/mark-read — Mark Ku as read (returns updated button)
+- POST /api/ku/{uid}/mark-studying   — Mark Ku as studying (IN_PROGRESS)
+- POST /api/ku/{uid}/mark-understood — Mark Ku as understood (MASTERED)
 """
 
 import json
@@ -41,6 +42,52 @@ logger = get_logger("skuel.routes.ku.ui")
 # =============================================================================
 # Shared helpers
 # =============================================================================
+
+
+def _ku_learning_buttons(uid: str, is_studying: bool, is_understood: bool) -> Any:
+    """Render progressive learning state buttons for a Ku.
+
+    States: Not started → Studying → Understood (no regression).
+    Wrapped in id="ku-learning-actions" for HTMX outerHTML swap.
+    """
+    if is_understood:
+        return Div(
+            Badge("Understood", variant=BadgeT.success),
+            id="ku-learning-actions",
+        )
+    if is_studying:
+        return Div(
+            Badge("Studying", variant=BadgeT.secondary),
+            Button(
+                "Mark as Understood",
+                variant=ButtonT.success,
+                size=Size.sm,
+                hx_post=f"/api/ku/{uid}/mark-understood",
+                hx_swap="outerHTML",
+                hx_target="#ku-learning-actions",
+            ),
+            id="ku-learning-actions",
+            cls="flex gap-2 items-center",
+        )
+    # Not started
+    return Div(
+        Button(
+            "Mark as Studying",
+            variant=ButtonT.primary,
+            size=Size.sm,
+            hx_post=f"/api/ku/{uid}/mark-studying",
+            hx_swap="outerHTML",
+            hx_target="#ku-learning-actions",
+        ),
+        Button(
+            "Mark as Understood",
+            variant=ButtonT.ghost,
+            size=Size.sm,
+            disabled=True,
+        ),
+        id="ku-learning-actions",
+        cls="flex gap-2 items-center",
+    )
 
 
 def _metadata_badge(label: str, value: str, variant: BadgeT = BadgeT.ghost) -> Any:
@@ -154,9 +201,7 @@ def _build_sidebar_items(
 
     # Latest section
     if latest_kus:
-        latest_links = [
-            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in latest_kus[:5]
-        ]
+        latest_links = [SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in latest_kus[:5]]
         extra_sections.append(
             Li(
                 Li(cls="border-t border-border my-2"),
@@ -384,11 +429,11 @@ def create_ku_ui_routes(
         ku = ku_result.value
         content_body = ku.description or ""
 
-        # Check mark-as-read state
-        is_marked_read = False
-        read_result = await ku_service.is_marked_as_read(user_uid, uid)
-        if read_result.is_ok:
-            is_marked_read = read_result.value
+        # Get learning state (Studying / Understood)
+        learning_state = {"is_studying": False, "is_understood": False}
+        state_result = await ku_service.get_ku_learning_state(user_uid, uid)
+        if state_result.is_ok:
+            learning_state = state_result.value
 
         # Check bookmark state
         is_pinned = False
@@ -444,15 +489,9 @@ def create_ku_ui_routes(
             cls="prose prose-lg max-w-none",
         )
 
-        # Action buttons
-        mark_read_btn = Button(
-            "Marked as Read" if is_marked_read else "Mark as Read",
-            variant=ButtonT.success if is_marked_read else ButtonT.primary,
-            size=Size.sm,
-            hx_post=f"/api/ku/{uid}/mark-read",
-            hx_swap="outerHTML",
-            hx_target="this",
-            disabled=is_marked_read,
+        # Action buttons — progressive learning state
+        learning_buttons = _ku_learning_buttons(
+            uid, learning_state["is_studying"], learning_state["is_understood"]
         )
 
         # Metadata footer
@@ -473,9 +512,9 @@ def create_ku_ui_routes(
             reading_content,
             # Actions below content
             Div(
-                mark_read_btn,
+                learning_buttons,
                 PinButton(entity_uid=uid, is_pinned=is_pinned),
-                cls="flex gap-2 border-t border-border pt-6 mt-8",
+                cls="flex gap-2 items-center border-t border-border pt-6 mt-8",
             ),
             metadata_footer,
             _exercises_for_ku_section(exercises_for_ku),
@@ -509,32 +548,35 @@ def create_ku_ui_routes(
         )
 
     # -----------------------------------------------------------------
-    # POST /api/ku/{uid}/mark-read — Mark Ku as read
+    # POST /api/ku/{uid}/mark-studying — Mark Ku as studying
     # -----------------------------------------------------------------
 
-    @rt("/api/ku/{uid}/mark-read", methods=["POST"])
-    async def mark_ku_as_read(request: Request, uid: str) -> Any:
-        """Mark Ku as read. Returns updated button HTML for HTMX swap."""
+    @rt("/api/ku/{uid}/mark-studying", methods=["POST"])
+    async def mark_ku_as_studying(request: Request, uid: str) -> Any:
+        """Mark Ku as studying. Returns updated learning buttons for HTMX swap."""
         user_uid = require_authenticated_user(request)
-
-        result = await ku_service.mark_as_read(user_uid, uid)
-
+        result = await ku_service.mark_as_studying(user_uid, uid)
         if result.is_error:
-            return Button(
-                "Error",
-                variant=ButtonT.error,
-                size=Size.sm,
-                disabled=True,
-            )
+            return _ku_learning_buttons(uid, False, False)
+        return _ku_learning_buttons(uid, is_studying=True, is_understood=False)
 
-        return Button(
-            "Marked as Read",
-            variant=ButtonT.success,
-            size=Size.sm,
-            disabled=True,
-        )
+    # -----------------------------------------------------------------
+    # POST /api/ku/{uid}/mark-understood — Mark Ku as understood
+    # -----------------------------------------------------------------
 
-    logger.info("Ku UI routes registered: /ku, /ku/{uid}, /api/ku/{uid}/mark-read")
+    @rt("/api/ku/{uid}/mark-understood", methods=["POST"])
+    async def mark_ku_as_understood(request: Request, uid: str) -> Any:
+        """Mark Ku as understood. Returns updated learning buttons for HTMX swap."""
+        user_uid = require_authenticated_user(request)
+        result = await ku_service.mark_as_understood(user_uid, uid)
+        if result.is_error:
+            return _ku_learning_buttons(uid, True, False)
+        return _ku_learning_buttons(uid, is_studying=True, is_understood=True)
+
+    logger.info(
+        "Ku UI routes registered: /ku, /ku/{uid}, "
+        "/api/ku/{uid}/mark-studying, /api/ku/{uid}/mark-understood"
+    )
 
     return []  # Routes registered via @rt() decorators
 
