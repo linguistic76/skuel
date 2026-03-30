@@ -178,10 +178,10 @@ def create_submissions_api_routes(
         entity_type_str = form.get("entity_type", "transcript")
 
         # Debug logging
-        logger.info(
+        logger.debug(
             f"Received entity_type from form: '{entity_type_str}' (type: {type(entity_type_str).__name__})"
         )
-        logger.info(f"All form fields: {dict(form)}")
+        logger.debug(f"All form fields: {dict(form)}")
 
         # Validate entity_type
         try:
