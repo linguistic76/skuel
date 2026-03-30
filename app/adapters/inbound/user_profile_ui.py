@@ -630,6 +630,56 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             )
         return Div(*rows)
 
+    # ------------------------------------------------------------------
+    # HTMX submission tab fragments for profile hub
+    # ------------------------------------------------------------------
+
+    @rt("/api/profile/submissions/submit-form")
+    async def profile_submit_form(request: Request) -> Any:
+        """HTMX fragment: upload form for the Submit tab on the profile hub."""
+        from fasthtml.common import Div
+
+        try:
+            user_uid = require_authenticated_user(request)
+
+            assigned_exercises: list[Any] = []
+            exercises_service = getattr(services, "exercises", None)
+            if exercises_service:
+                exercises_result = await exercises_service.get_student_exercises(user_uid)
+                if not exercises_result.is_error and exercises_result.value:
+                    assigned_exercises = exercises_result.value
+
+            from ui.submissions.forms import render_upload_form, upload_form_script
+
+            return Div(
+                render_upload_form(assigned_exercises),
+                upload_form_script(),
+            )
+        except Exception as e:  # safety-net: HTMX fragment error boundary
+            logger.error(f"Error loading submit form: {e}", exc_info=True)
+            from ui.patterns.error_banner import render_error_banner
+
+            return Div(render_error_banner("Failed to load submit form", str(e)))
+
+    @rt("/api/profile/submissions/report-form")
+    async def profile_report_form(request: Request) -> Any:
+        """HTMX fragment: activity report request form for the Request Report tab."""
+        from fasthtml.common import Div
+
+        try:
+            require_authenticated_user(request)
+            from ui.patterns.generate_report import (
+                render_activity_report_request_card,
+                render_recent_reports_section,
+            )
+
+            return Div(render_activity_report_request_card(), render_recent_reports_section())
+        except Exception as e:  # safety-net: HTMX fragment error boundary
+            logger.error(f"Error loading report form: {e}", exc_info=True)
+            from ui.patterns.error_banner import render_error_banner
+
+            return Div(render_error_banner("Failed to load report form", str(e)))
+
     @rt("/api/sidebar/badges")
     async def sidebar_badges(request: Request) -> Any:
         """HTMX OOB-swap endpoint: async-loaded count + status badges for sidebar items.

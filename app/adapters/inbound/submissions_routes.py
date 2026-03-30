@@ -2,7 +2,7 @@
 ================================================================
 
 Wires Submissions API and Sharing routes using DomainRouteConfig.
-UI routes are top-level (/submit, /submissions, etc. — see study_routes.py / study_ui.py).
+UI routes are top-level (/submit, /submissions, etc. — see study_routes.py).
 Old /submissions/* and /learn/* UI paths redirect 301 to the new top-level routes.
 
 Standard factories (via DomainRouteConfig):

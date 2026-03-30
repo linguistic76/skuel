@@ -1,50 +1,67 @@
-"""Study Routes — Student Workspace Hub Orchestrator
-=====================================================
+"""Study Routes — Orchestrator for Submission + Report UI Routes
+================================================================
 
-Wires the /study workspace routes with all needed submission services.
-Sub-pages are top-level routes (/submit, /submissions, etc.) with shared sidebar.
+Wires the decomposed submission and report UI routes:
+- submissions_ui.py → /submit, /submissions, /submissions/{uid}, fragments
+- exercise_reports_ui.py → /exercise-reports, /reports/list
+- activity_reports_ui.py → /activity-reports, /submit-activity-report, fragments
 
-Routes:
-- GET /study — Dashboard landing (no sidebar)
-- GET /submit — File upload form
-- GET /submissions — My submitted work
-- GET /exercise-reports — Teacher assessments
-- GET /activity-reports — Activity feedback
-- GET /submit-activity-report — Activity report request
-- GET /submissions/{uid} — Submission detail
-- HTMX fragments for all above
+The /study route itself redirects to /profile (301).
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
 from typing import Any
 
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
+
+from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
+from adapters.inbound.exercise_reports_ui import create_exercise_reports_ui_routes
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
-from adapters.inbound.study_ui import create_study_ui_routes
+from adapters.inbound.submissions_ui import create_submissions_ui_routes
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.routes.study")
 
 
-STUDY_CONFIG = DomainRouteConfig(
-    domain_name="study",
-    primary_service_attr="submissions",
-    ui_factory=create_study_ui_routes,
-    ui_related_services={
-        "processing_service": "submissions_processor",
-        "user_service": "user_service",
-        "exercises_service": "exercises",
-        "submissions_search_service": "submissions_search",
-        "submissions_core_service": "submissions_core",
-        "activity_report_service": "activity_report",
-        "teacher_review_service": "teacher_review",
-    },
-)
-
-
 def create_study_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
 ) -> RouteList:
-    """Wire study routes via DomainRouteConfig."""
-    return register_domain_routes(app, rt, services, STUDY_CONFIG)
+    """Wire study routes via decomposed UI files."""
+
+    # /study redirect
+    @rt("/study")
+    async def study_landing(request: Request) -> Any:
+        """Study hub shelved — redirect to Profile (THE main hub)."""
+        return RedirectResponse(url="/profile", status_code=301)
+
+    # Submissions UI
+    create_submissions_ui_routes(
+        app,
+        rt,
+        submissions_service=services.submissions,
+        processing_service=getattr(services, "submissions_processor", None),
+        exercises_service=getattr(services, "exercises", None),
+        submissions_search_service=getattr(services, "submissions_search", None),
+        submissions_core_service=getattr(services, "submissions_core", None),
+        teacher_review_service=getattr(services, "teacher_review", None),
+    )
+
+    # Exercise Reports UI
+    create_exercise_reports_ui_routes(
+        app,
+        rt,
+        submissions_core_service=getattr(services, "submissions_core", None),
+    )
+
+    # Activity Reports UI
+    create_activity_reports_ui_routes(
+        app,
+        rt,
+        submissions_service=services.submissions,
+        activity_report_service=getattr(services, "activity_report", None),
+    )
+
+    logger.info("Study routes wired (submissions + exercise reports + activity reports)")
+    return []

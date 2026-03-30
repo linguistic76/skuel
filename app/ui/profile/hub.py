@@ -2,7 +2,8 @@
 
 The /profile page shows the user's active learning state: Kus they're
 interacting with, lessons being studied, exercises with Submit buttons,
-and recent reports. /transfer remains the full submission archive.
+submissions (tabbed: My Submissions | Submit | Request Report),
+and recent reports.
 
 See: /docs/patterns/HUB_PAGE_PATTERN.md
 """
@@ -24,6 +25,7 @@ def ProfileHubView(context: UserContext) -> Div:
         _knowledge_section(context),
         _lessons_section(context),
         _exercises_section(context),
+        _submissions_section(),
         _reports_section(),
         _nous_section(),
         _settings_link(),
@@ -258,6 +260,69 @@ def _exercises_section(context: UserContext) -> Div:
     return Div(
         _section_header("Exercises", "/exercises", context.assigned_exercise_count),
         content,
+        cls="mb-6",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Submissions section — tabbed (My Submissions | Submit | Request Report)
+# ---------------------------------------------------------------------------
+
+
+def _sub_tab_button(label: str, tab_id: str) -> Any:
+    """Tab button for the submissions section (Alpine.js state)."""
+    return A(
+        label,
+        role="tab",
+        cls="px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors rounded-t border-b-2",
+        **{
+            ":aria-selected": f"subTab === '{tab_id}'",
+            "@click": f"subTab = '{tab_id}'; htmx.trigger('#sub-tab-panel-{tab_id}', 'tab-activate')",
+            ":class": f"subTab === '{tab_id}' ? 'border-primary text-primary bg-background' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
+        },
+    )
+
+
+def _sub_tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
+    """Tab panel with HTMX lazy-loaded content for submissions section."""
+    attrs: dict[str, str] = {
+        "x-show": f"subTab === '{tab_id}'",
+        "hx-get": hx_get,
+        "hx-trigger": "load" if default else "tab-activate once",
+        "hx-swap": "innerHTML",
+    }
+    if not default:
+        attrs["x-cloak"] = ""
+
+    return Div(
+        P("Loading...", cls="text-center text-muted-foreground py-4"),
+        id=f"sub-tab-panel-{tab_id}",
+        role="tabpanel",
+        **attrs,
+    )
+
+
+def _submissions_section() -> Div:
+    """Submissions section with Alpine.js tabs: My Submissions | Submit | Request Report."""
+    return Div(
+        Span(
+            "Submissions",
+            cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground",
+        ),
+        Div(
+            Div(
+                _sub_tab_button("My Submissions", "list"),
+                _sub_tab_button("Submit", "submit"),
+                _sub_tab_button("Request Report", "report"),
+                role="tablist",
+                cls="flex gap-1 border-b border-border mb-3",
+            ),
+            _sub_tab_panel("list", "/submissions/list", default=True),
+            _sub_tab_panel("submit", "/api/profile/submissions/submit-form"),
+            _sub_tab_panel("report", "/api/profile/submissions/report-form"),
+            **{"x-data": "{ subTab: 'list' }"},
+            cls="mt-3",
+        ),
         cls="mb-6",
     )
 

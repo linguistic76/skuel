@@ -25,11 +25,11 @@ This document covers *how to build one*.
 | `/ku` | Knowledge browsing (ORGANIZES-driven) | Active |
 | `/lessons` | Enrolled + available lessons | Active |
 | `/exercises` | Practice linked to lessons and Kus | Active |
-| `/transfer` | Submission hub (tabbed: My Submissions, Submit, Generate) | Active |
+| `/submissions` | Full submission list + browse | Active |
 | `/exercise-reports` | Teacher and AI feedback on submissions | Active |
 | `/activity-reports` | Activity progress reports | Active |
 
-Domain hubs are NOT simple card grids — they have real capabilities (forms, entity lists, actions). `/transfer` uses Alpine.js tabs + HTMX lazy-loaded fragments.
+Domain hubs are NOT simple card grids — they have real capabilities (forms, entity lists, actions). `/profile` Submissions section uses Alpine.js tabs + HTMX lazy-loaded fragments.
 
 ## Shared Components
 

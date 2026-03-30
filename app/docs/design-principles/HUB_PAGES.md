@@ -49,7 +49,7 @@ The pages that Profile links to are rich functional hubs:
 
 - **KU hub** — ORGANIZES-driven knowledge navigation with bookmarks
 - **Lessons hub** — enrolled lessons, available lessons, enrolled LPs/LSs
-- **Transfer hub** (`/transfer`) — full submission archive (tabbed: My Submissions, Submit, Generate)
+- **Submissions** — on `/profile` (tabbed: My Submissions, Submit, Request Report) + `/submissions` full list
 - **Reports hubs** — `/exercise-reports` and `/activity-reports` with filtering
 
 Each is more than a card grid — they have real capabilities (forms, entity lists, actions).

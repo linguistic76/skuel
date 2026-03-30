@@ -1,14 +1,17 @@
 """
-Submissions UI Routes
-=====================
+Submissions UI Routes — ExerciseSubmission Pages
+=================================================
 
-File submission with sidebar navigation (Submit / Browse / Your Submissions).
-Regular users upload files here to share with teachers, peers, or mentors.
-Processor type is auto-set to HUMAN — AI processing lives in Report Projects
-(role-gated to TEACHER+).
+Routes for submitting work, browsing submissions, and viewing submission details.
 
-Layout: Unified sidebar (Tailwind + Alpine) with 5 nav items.
-Desktop: collapsible sidebar. Mobile: horizontal tabs.
+Routes:
+- GET /submit — File upload form (standalone, deep-linked from exercises)
+- GET /submissions — My submitted work list + browse
+- GET /submissions/{uid} — Submission detail page
+- HTMX fragments: /submissions/list, /upload, /grid,
+  /submissions/{uid}/{info,content,report,exercise,category-selector,tags-manager,shared-users}
+
+See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
 from dataclasses import dataclass
@@ -19,9 +22,6 @@ from fasthtml.common import (
     H3,
     H4,
     Div,
-    Form,
-    Label,
-    Option,
     P,
     Span,
 )
@@ -29,19 +29,17 @@ from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import RouteDecorator, RouteList
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonLink, ButtonT
+from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT, Badge, BadgeT
-from ui.forms import Select
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.error_banner import render_inline_error
+from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
-from ui.patterns.sidebar import SidebarItem, SidebarPage
-from ui.submissions.assignments import render_assignments_list
 from ui.submissions.cards import (
     render_processed_content,
     render_submission_detail,
@@ -58,14 +56,11 @@ from ui.submissions.forms import (
     upload_form_script,
 )
 from ui.submissions.report import (
-    render_activity_report_list,
-    render_progress_report_list,
-    render_received_report_list,
     render_yours_list,
 )
 from ui.submissions.sharing import render_sharing_section
 
-logger = get_logger("skuel.routes.submissions.ui")
+logger = get_logger("skuel.routes.submissions")
 
 
 # ============================================================================
@@ -77,30 +72,16 @@ logger = get_logger("skuel.routes.submissions.ui")
 class SubmissionFilters:
     """Typed filters for submission list queries."""
 
-    entity_type: str
+    report_type: str
     status: str
 
 
 def parse_submission_filters(request: Request) -> SubmissionFilters:
     """Extract submission filter parameters from request query params."""
     return SubmissionFilters(
-        entity_type=request.query_params.get("entity_type", ""),
+        report_type=request.query_params.get("report_type", ""),
         status=request.query_params.get("status", ""),
     )
-
-
-# ============================================================================
-# SIDEBAR NAVIGATION
-# ============================================================================
-
-SUBMISSIONS_SIDEBAR_ITEMS = [
-    SidebarItem("Assignments", "/submissions/assignments", "assignments", icon="📋"),
-    SidebarItem("Submit", "/submissions/submit", "submit", icon="📤"),
-    SidebarItem("Browse", "/submissions/browse", "browse", icon="📂"),
-    SidebarItem("Your Submissions", "/submissions/yours", "yours", icon="📝"),
-    SidebarItem("Reports", "/submissions/reports", "reports", icon="💬"),
-    SidebarItem("Progress", "/submissions/progress", "progress", icon="📊"),
-]
 
 
 # ============================================================================
@@ -109,57 +90,43 @@ SUBMISSIONS_SIDEBAR_ITEMS = [
 
 
 def create_submissions_ui_routes(
-    _app,
-    rt,
-    _submissions_service,
-    _processing_service,
-    _exercises_service=None,
-    _submissions_search_service=None,
-    _submissions_core_service=None,
-    _activity_report_service=None,
-    _teacher_review_service=None,
-):
-    """
-    Create all submission UI routes.
+    _app: Any,
+    rt: RouteDecorator,
+    submissions_service: Any,
+    processing_service: Any,
+    exercises_service: Any = None,
+    submissions_search_service: Any = None,
+    submissions_core_service: Any = None,
+    teacher_review_service: Any = None,
+) -> RouteList:
+    """Create /submit and /submissions UI routes.
 
     Args:
-        app: FastHTML application instance
+        _app: FastHTML application instance
         rt: Router instance
-        report_service: SubmissionsService
+        submissions_service: SubmissionsService
         processing_service: SubmissionsProcessingService
-        _exercises_service: ExerciseService for exercise dropdown (optional)
-        _submissions_search_service: SubmissionsSearchService for feedback status queries (optional)
-        _submissions_core_service: SubmissionsCoreService for received assessments (optional)
-        _activity_report_service: ActivityReportService for activity feedback history (optional)
+        exercises_service: ExerciseService for exercise dropdown
+        submissions_search_service: SubmissionsSearchService for feedback status queries
+        submissions_core_service: SubmissionsCoreService for received assessments
+        teacher_review_service: TeacherReviewService for feedback on submissions
     """
 
-    logger.info("Creating Submissions UI routes")
-
     # ========================================================================
-    # SIDEBAR PAGES
+    # SUBMIT PAGE (standalone — deep-linked from exercises)
     # ========================================================================
 
-    @rt("/submissions")
-    async def submissions_landing(request: Request) -> Any:
-        """Submissions landing — defaults to Submit page."""
-        return await _render_submit_page(request)
-
-    @rt("/submissions/submit")
-    async def submissions_submit_page(request: Request) -> Any:
-        """Submit page: upload form."""
-        return await _render_submit_page(request)
-
-    async def _render_submit_page(request: Request) -> Any:
+    @rt("/submit")
+    async def submit_page(request: Request) -> Any:
+        """Submit page: upload form with optional exercise selector."""
         user_uid = require_authenticated_user(request)
 
-        # Fetch assigned exercises for exercise dropdown (via group membership)
         assigned_exercises: list[Any] = []
-        if _exercises_service:
-            exercises_result = await _exercises_service.get_student_exercises(user_uid)
+        if exercises_service:
+            exercises_result = await exercises_service.get_student_exercises(user_uid)
             if not exercises_result.is_error and exercises_result.value:
                 assigned_exercises = exercises_result.value
 
-        # Pre-select exercise if arriving from assignments page
         selected_exercise_uid = request.query_params.get("exercise_uid")
 
         content = Div(
@@ -167,123 +134,68 @@ def create_submissions_ui_routes(
             render_upload_form(assigned_exercises, selected_exercise_uid=selected_exercise_uid),
             upload_form_script(),
         )
-        return await SidebarPage(
+        return await BasePage(
             content=content,
-            items=SUBMISSIONS_SIDEBAR_ITEMS,
-            active="submit",
-            title="Submissions",
-            subtitle="Submit and manage files",
-            storage_key="submissions-sidebar",
-            page_title="Submit",
+            title="Submit",
             request=request,
             active_page="submissions",
-            title_href="/submissions",
         )
 
-    @rt("/submissions/assignments")
-    async def submissions_assignments_page(request: Request) -> Any:
-        """Assignments page: exercises assigned to this student via group membership."""
-        user_uid = require_authenticated_user(request)
+    # ========================================================================
+    # MY SUBMISSIONS PAGE — merges yours + browse
+    # ========================================================================
 
-        exercises: list[dict[str, Any]] = []
-        if _exercises_service:
-            result = await _exercises_service.get_student_exercises_with_status(user_uid)
-            if not result.is_error and result.value:
-                exercises = result.value
-
-        content = Div(
-            PageHeader(
-                "Assignments",
-                subtitle="Exercises assigned by your teachers",
-            ),
-            render_assignments_list(exercises),
-        )
-        return await SidebarPage(
-            content=content,
-            items=SUBMISSIONS_SIDEBAR_ITEMS,
-            active="assignments",
-            title="Submissions",
-            subtitle="Submit and manage files",
-            storage_key="submissions-sidebar",
-            page_title="Assignments",
-            request=request,
-            active_page="submissions",
-            title_href="/submissions",
-        )
-
-    @rt("/submissions/browse")
-    async def submissions_browse_page(request: Request) -> Any:
-        """Browse page: filters + results grid."""
+    @rt("/submissions")
+    async def submissions_page(request: Request) -> Any:
+        """My Submissions: your submitted work with review status + browse/filter."""
         require_authenticated_user(request)
         content = Div(
-            PageHeader("Browse Submissions", subtitle="Filter and find submissions"),
+            PageHeader(
+                "My Submissions",
+                subtitle="Your submitted work and review status",
+            ),
+            render_yours_list_container(),
+            H3("Browse All", cls="font-semibold mt-8 mb-4"),
             render_filters_section(),
             render_submissions_grid_container(),
         )
-        return await SidebarPage(
+        return await BasePage(
             content=content,
-            items=SUBMISSIONS_SIDEBAR_ITEMS,
-            active="browse",
-            title="Submissions",
-            subtitle="Submit and manage files",
-            storage_key="submissions-sidebar",
-            page_title="Browse Submissions",
+            title="My Submissions",
             request=request,
             active_page="submissions",
-            title_href="/submissions",
-        )
-
-    @rt("/submissions/yours")
-    async def submissions_yours_page(request: Request) -> Any:
-        """Your Submissions page: list with teacher review status badges."""
-        require_authenticated_user(request)
-        content = Div(
-            PageHeader(
-                "Your Submissions",
-                subtitle="See which submissions have been reviewed by a teacher",
-            ),
-            render_yours_list_container(),
-        )
-        return await SidebarPage(
-            content=content,
-            items=SUBMISSIONS_SIDEBAR_ITEMS,
-            active="yours",
-            title="Submissions",
-            subtitle="Submit and manage files",
-            storage_key="submissions-sidebar",
-            page_title="Your Submissions",
-            request=request,
-            active_page="submissions",
-            title_href="/submissions",
         )
 
     # ========================================================================
     # HTMX ENDPOINTS
     # ========================================================================
 
-    @rt("/submissions/yours/list")
-    async def submissions_yours_list(request: Request) -> Any:
+    @rt("/submissions/list")
+    async def submissions_list(request: Request) -> Any:
         """HTMX fragment: student's submissions with teacher review status."""
         try:
             user_uid = require_authenticated_user(request)
-            if not _submissions_search_service:
+            if not submissions_search_service:
                 return Div(
-                    render_inline_error("Submissions service unavailable"),
+                    render_error_banner("Submissions service unavailable"),
                     id="submissions-yours-list",
                 )
-            result = await _submissions_search_service.get_submissions_with_feedback_status(
-                user_uid
-            )
-            items = result.value if not result.is_error else []
-            return render_yours_list(items)
+            result = await submissions_search_service.get_submissions_with_feedback_status(user_uid)
+            if result.is_error:
+                logger.error(f"Error loading submissions history: {result.error}")
+                return Div(
+                    render_error_banner("Failed to load submissions", str(result.error)),
+                    id="submissions-yours-list",
+                )
+            return render_yours_list(result.value or [])
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading submissions history: {e}", exc_info=True)
             return Div(
-                render_inline_error("Error loading submissions"),
+                render_error_banner("Error loading submissions", str(e)),
                 id="submissions-yours-list",
             )
 
-    @rt("/submissions/upload")
+    @rt("/upload")
     async def upload_submission(request: Request) -> Any:
         """HTMX endpoint for submission file upload (human review)."""
         try:
@@ -306,14 +218,12 @@ def create_submissions_ui_routes(
                 f"Report upload: {filename} ({len(file_content)} bytes, identifier={identifier})"
             )
 
-            # Extract optional exercise link
             raw_exercise_uid = form.get("fulfills_exercise_uid")
             fulfills_exercise_uid = (
                 str(raw_exercise_uid).strip() or None if raw_exercise_uid else None
             )
 
-            # Submit for human review — processor_type always HUMAN for regular users
-            result = await _submissions_service.submit_file(
+            result = await submissions_service.submit_file(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
@@ -333,29 +243,29 @@ def create_submissions_ui_routes(
                 submission_uid=submission.uid,
             )
 
-        except Exception as e:  # safety-net: HTMX upload error boundary
+        except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error uploading submission: {e}", exc_info=True)
             return render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
-    @rt("/submissions/grid")
+    @rt("/grid")
     async def get_submissions_grid(request: Request) -> Any:
-        """HTMX endpoint for loading reports grid with filters."""
+        """HTMX endpoint for loading submissions grid with filters."""
         try:
             user_uid = require_authenticated_user(request)
 
             filters = parse_submission_filters(request)
 
             kwargs = {"user_uid": user_uid, "limit": 50}
-            if filters.entity_type:
-                kwargs["entity_type"] = filters.entity_type
+            if filters.report_type:
+                kwargs["report_type"] = filters.report_type
             if filters.status:
                 kwargs["status"] = filters.status
 
-            result = await _submissions_service.list_submissions(**kwargs)
+            result = await submissions_service.list_submissions(**kwargs)
 
             if result.is_error:
                 return Div(
-                    render_inline_error("Failed to load reports"),
+                    render_error_banner("Failed to load reports", str(result.error)),
                     id="submissions-grid-container",
                 )
 
@@ -365,15 +275,19 @@ def create_submissions_ui_routes(
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading reports: {e}", exc_info=True)
             return Div(
-                render_inline_error(f"Error: {e}"),
+                render_error_banner("Error loading reports", str(e)),
                 id="submissions-grid-container",
             )
+
+    # ========================================================================
+    # SUBMISSION DETAIL HTMX ENDPOINTS
+    # ========================================================================
 
     @rt("/submissions/{uid}/info")
     async def get_submission_info(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading submission detail info."""
         try:
-            result = await _submissions_service.get_submission(uid)
+            result = await submissions_service.get_submission(uid)
 
             if result.is_error:
                 return Div(
@@ -409,7 +323,7 @@ def create_submissions_ui_routes(
     async def get_submission_content(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading submission processed content."""
         try:
-            result = await _submissions_service.get_submission(uid)
+            result = await submissions_service.get_submission(uid)
 
             if result.is_error or not result.value:
                 return render_processed_content(None, False)
@@ -422,10 +336,6 @@ def create_submissions_ui_routes(
             logger.error(f"Error loading submission content: {e}", exc_info=True)
             return render_processed_content(None, False)
 
-    # ========================================================================
-    # FEEDBACK & EXERCISE LINK HTMX ENDPOINTS
-    # ========================================================================
-
     @rt("/submissions/{uid}/report")
     async def get_submission_report(request: Request, uid: str) -> Any:
         """HTMX endpoint: report received on this submission."""
@@ -434,21 +344,26 @@ def create_submissions_ui_routes(
         try:
             user_uid = require_authenticated_user(request)
 
-            # Verify ownership
-            sub_result = await _submissions_service.get_submission(uid)
+            sub_result = await submissions_service.get_submission(uid)
             if sub_result.is_error or not sub_result.value:
-                return Div(P("Submission not found.", cls="text-error"), id="feedback-section")
+                return Div(render_inline_error("Submission not found"), id="feedback-section")
             if sub_result.value.user_uid != user_uid:
-                return Div(P("Access denied.", cls="text-error"), id="feedback-section")
+                return Div(render_inline_error("Access denied"), id="feedback-section")
 
-            if not _teacher_review_service:
+            if not teacher_review_service:
                 return Div(
                     EmptyState(title="No feedback yet"),
                     id="feedback-section",
                 )
 
-            history_result = await _teacher_review_service.get_report_history(uid)
-            items = history_result.value if not history_result.is_error else []
+            history_result = await teacher_review_service.get_report_history(uid)
+            if history_result.is_error:
+                logger.error(f"Error loading feedback for {uid}: {history_result.error}")
+                return Div(
+                    render_error_banner("Failed to load feedback", str(history_result.error)),
+                    id="feedback-section",
+                )
+            items = history_result.value or []
 
             if not items:
                 return Div(
@@ -465,7 +380,7 @@ def create_submissions_ui_routes(
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading feedback for {uid}: {e}", exc_info=True)
             return Div(
-                P("Error loading feedback.", cls="text-error"),
+                render_error_banner("Error loading feedback", str(e)),
                 id="feedback-section",
             )
 
@@ -475,10 +390,10 @@ def create_submissions_ui_routes(
         try:
             require_authenticated_user(request)
 
-            if not _exercises_service:
+            if not exercises_service:
                 return Div(id="exercise-link")
 
-            result = await _exercises_service.get_exercise_for_submission(uid)
+            result = await exercises_service.get_exercise_for_submission(uid)
 
             if result.is_error or not result.value:
                 return Div(id="exercise-link")
@@ -496,15 +411,11 @@ def create_submissions_ui_routes(
             logger.error(f"Error loading exercise link for {uid}: {e}", exc_info=True)
             return Div(id="exercise-link")
 
-    # ========================================================================
-    # CONTENT MANAGEMENT UI ROUTES
-    # ========================================================================
-
     @rt("/submissions/{uid}/category-selector")
     async def get_category_selector(request: Request, uid: str) -> Any:
         """HTMX endpoint for category selector."""
         try:
-            result = await _submissions_service.get_submission(uid)
+            result = await submissions_service.get_submission(uid)
             if result.is_error:
                 return render_inline_error("Report not found")
 
@@ -519,7 +430,7 @@ def create_submissions_ui_routes(
     async def get_tags_manager(request: Request, uid: str) -> Any:
         """HTMX endpoint for tags manager."""
         try:
-            result = await _submissions_service.get_submission(uid)
+            result = await submissions_service.get_submission(uid)
             if result.is_error:
                 return render_inline_error("Report not found")
 
@@ -529,213 +440,6 @@ def create_submissions_ui_routes(
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error loading tags manager: {e}", exc_info=True)
             return render_inline_error("Error loading tags manager")
-
-    # ========================================================================
-    # FEEDBACK PAGE (assessments received)
-    # ========================================================================
-
-    @rt("/submissions/reports")
-    async def submissions_reports_page(request: Request) -> Any:
-        """Reports page: assessments received from teachers + AI activity reports."""
-        require_authenticated_user(request)
-
-        teacher_section = Card(
-            H3("Teacher Assessments", cls="font-semibold mb-4"),
-            Div(
-                P("Loading feedback...", cls="text-center text-muted-foreground"),
-                id="feedback-list",
-                cls="mt-2",
-                **{
-                    "hx-get": "/submissions/reports/list",
-                    "hx-trigger": "load",
-                    "hx-swap": "outerHTML",
-                },
-            ),
-            cls="bg-background shadow-sm p-4 mb-6",
-        )
-
-        activity_feedback_section = Card(
-            H3("Activity Feedback", cls="font-semibold mb-4"),
-            Div(
-                P("Loading activity feedback...", cls="text-center text-muted-foreground"),
-                id="activity-feedback-list",
-                cls="mt-2",
-                **{
-                    "hx-get": "/submissions/reports/activity-list",
-                    "hx-trigger": "load",
-                    "hx-swap": "outerHTML",
-                },
-            ),
-            cls="bg-background shadow-sm p-4",
-        )
-
-        content = Div(
-            PageHeader("Submission Reports", subtitle="Assessments and feedback from teachers"),
-            teacher_section,
-            activity_feedback_section,
-        )
-        return await SidebarPage(
-            content=content,
-            items=SUBMISSIONS_SIDEBAR_ITEMS,
-            active="reports",
-            title="Submissions",
-            subtitle="Submit and manage files",
-            storage_key="submissions-sidebar",
-            page_title="Submission Reports",
-            request=request,
-            active_page="submissions",
-            title_href="/submissions",
-        )
-
-    @rt("/submissions/reports/list")
-    async def submissions_reports_list(request: Request) -> Any:
-        """HTMX fragment: server-rendered list of teacher assessments received."""
-        try:
-            user_uid = require_authenticated_user(request)
-            if not _submissions_core_service:
-                return Div(
-                    P("Feedback service unavailable.", cls="text-center text-error"),
-                    id="feedback-list",
-                )
-            result = await _submissions_core_service.get_assessments_for_student(
-                student_uid=user_uid
-            )
-            items = result.value if not result.is_error else []
-            return render_received_report_list(items)
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error loading feedback list: {e}", exc_info=True)
-            return Div(
-                P("Error loading feedback.", cls="text-center text-error"),
-                id="feedback-list",
-            )
-
-    @rt("/submissions/reports/activity-list")
-    async def submissions_activity_report_list(request: Request) -> Any:
-        """HTMX fragment: server-rendered list of activity reports."""
-        try:
-            user_uid = require_authenticated_user(request)
-            if not _activity_report_service:
-                return Div(
-                    P(
-                        "Activity feedback unavailable.",
-                        cls="text-center text-muted-foreground py-4",
-                    ),
-                    id="activity-feedback-list",
-                )
-            result = await _activity_report_service.get_history(subject_uid=user_uid, limit=10)
-            items = result.value if not result.is_error else []
-            return render_activity_report_list(items)
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error loading activity feedback list: {e}", exc_info=True)
-            return Div(
-                P("Error loading activity feedback.", cls="text-center text-error"),
-                id="activity-feedback-list",
-            )
-
-    # ========================================================================
-    # PROGRESS PAGE (submit activity report request + view reports)
-    # ========================================================================
-
-    @rt("/submissions/progress")
-    async def submissions_progress_page(request: Request) -> Any:
-        """Progress page: submit activity report request and view reports."""
-        require_authenticated_user(request)
-
-        generate_card = Card(
-            CardBody(
-                H3("Submit Activity Report Request", cls="font-semibold mb-4"),
-                Form(
-                    Div(
-                        Label("Time Period", cls="label"),
-                        Select(
-                            Option("Last 7 days", value="7d", selected=True),
-                            Option("Last 14 days", value="14d"),
-                            Option("Last 30 days", value="30d"),
-                            Option("Last 90 days", value="90d"),
-                            name="time_period",
-                        ),
-                        cls="mb-3",
-                    ),
-                    Div(
-                        Label("Depth", cls="label"),
-                        Select(
-                            Option("Summary (counts only)", value="summary"),
-                            Option("Standard (counts + examples)", value="standard", selected=True),
-                            Option("Detailed (full breakdown)", value="detailed"),
-                            name="depth",
-                        ),
-                        cls="mb-4",
-                    ),
-                    Div(
-                        Button(
-                            "Submit Request",
-                            type="submit",
-                            variant=ButtonT.primary,
-                        ),
-                        cls="text-center",
-                    ),
-                    Div(id="generate-status", cls="mt-4"),
-                    **{
-                        "hx-post": "/api/reports/progress/generate",
-                        "hx-target": "#generate-status",
-                        "hx-swap": "innerHTML",
-                        "hx-vals": 'js:JSON.stringify({time_period: document.querySelector("[name=time_period]").value, depth: document.querySelector("[name=depth]").value, include_insights: true})',
-                        "hx-headers": '{"Content-Type": "application/json"}',
-                    },
-                ),
-            ),
-            cls="bg-background shadow-sm mb-6",
-        )
-
-        recent_reports = Div(
-            H3("Recent Progress Reports", cls="font-semibold mb-4"),
-            Div(
-                P("Loading...", cls="text-center text-muted-foreground"),
-                id="progress-list",
-                **{
-                    "hx-get": "/submissions/progress/list",
-                    "hx-trigger": "load",
-                    "hx-swap": "outerHTML",
-                },
-            ),
-        )
-
-        content = Div(
-            PageHeader("Progress Reports", subtitle="Track your activity over time"),
-            generate_card,
-            recent_reports,
-        )
-        return await SidebarPage(
-            content=content,
-            items=SUBMISSIONS_SIDEBAR_ITEMS,
-            active="progress",
-            title="Submissions",
-            subtitle="Submit and manage files",
-            storage_key="submissions-sidebar",
-            page_title="Progress Reports",
-            request=request,
-            active_page="submissions",
-            title_href="/submissions",
-        )
-
-    @rt("/submissions/progress/list")
-    async def submissions_progress_list(request: Request) -> Any:
-        """HTMX fragment: server-rendered list of progress reports."""
-        try:
-            user_uid = require_authenticated_user(request)
-            result = await _submissions_service.list_submissions(
-                user_uid=user_uid,
-                entity_type=EntityType.ACTIVITY_REPORT,
-                limit=10,
-            )
-            items = result.value if not result.is_error else []
-            return render_progress_report_list(items)
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error loading progress report list: {e}", exc_info=True)
-            return Div(
-                P("Error loading progress reports.", cls="text-center text-error"),
-                id="progress-list",
-            )
 
     @rt("/submissions/{uid}/shared-users")
     async def get_shared_users_ui(request: Request, uid: str) -> Any:
@@ -757,28 +461,15 @@ def create_submissions_ui_routes(
             return render_inline_error("Error loading shared users")
 
     # ========================================================================
-    # REPORT DETAIL VIEW - HTMX-powered
-    # ========================================================================
-    # IMPORTANT: This route MUST be defined LAST because /submissions/{uid}
-    # is a catch-all pattern that would match specific routes like
-    # /reports/grid, /reports/upload, etc.
+    # SUBMISSION DETAIL PAGE — MUST BE LAST (catch-all pattern)
     # ========================================================================
 
     @rt("/submissions/{uid}")
     async def submission_detail(request: Request, uid: str) -> Any:
-        """
-        Report detail view.
-
-        Shows:
-        - Report metadata (loaded via HTMX)
-        - Processing status and duration
-        - Processed content (formatted)
-        - Download links for original and processed files
-        - Sharing controls (visibility, share button, shared users)
-        """
+        """Submission detail view with HTMX-loaded sections."""
         user_uid = require_authenticated_user(request)
 
-        submission_result = await _submissions_service.get_submission(uid)
+        submission_result = await submissions_service.get_submission(uid)
         is_owner = False
         if not submission_result.is_error and submission_result.value is not None:
             is_owner = submission_result.value.user_uid == user_uid
@@ -863,28 +554,21 @@ def create_submissions_ui_routes(
             active_page="submissions",
         )
 
-    logger.info("Submissions UI routes created successfully")
+    logger.info("Submissions UI routes created (/submit, /submissions, /submissions/{uid})")
 
-    # Route order matters! Specific routes must come BEFORE parameterized routes.
-    # Otherwise /submissions/grid would match /submissions/{uid} with uid="grid"
+    # Route order matters! Specific routes before parameterized routes.
     return [
-        submissions_landing,  # /submissions (exact)
-        submissions_assignments_page,  # /submissions/assignments (specific)
-        submissions_submit_page,  # /submissions/submit (specific)
-        submissions_browse_page,  # /submissions/browse (specific)
-        submissions_yours_page,  # /submissions/yours (specific)
-        submissions_reports_page,  # /submissions/reports (specific)
-        submissions_activity_report_list,  # /submissions/reports/activity-list (HTMX fragment)
-        submissions_progress_page,  # /submissions/progress (specific)
-        submissions_progress_list,  # /submissions/progress/list (HTMX fragment)
-        upload_submission,  # /reports/upload (specific, HTMX POST)
-        get_submissions_grid,  # /reports/grid (specific, HTMX GET)
-        get_submission_info,  # /submissions/{uid}/info (pattern + suffix)
-        get_submission_content,  # /submissions/{uid}/content (pattern + suffix)
-        get_submission_report,  # /submissions/{uid}/report (pattern + suffix)
-        get_submission_exercise,  # /submissions/{uid}/exercise (pattern + suffix)
-        get_category_selector,  # /submissions/{uid}/category-selector (pattern + suffix)
-        get_tags_manager,  # /submissions/{uid}/tags-manager (pattern + suffix)
-        get_shared_users_ui,  # /submissions/{uid}/shared-users (pattern + suffix)
-        submission_detail,  # /submissions/{uid} (catch-all - MUST BE LAST)
+        submit_page,  # /submit
+        submissions_page,  # /submissions
+        submissions_list,  # /submissions/list (HTMX)
+        upload_submission,  # /upload (HTMX POST)
+        get_submissions_grid,  # /grid (HTMX GET)
+        get_submission_info,  # /submissions/{uid}/info
+        get_submission_content,  # /submissions/{uid}/content
+        get_submission_report,  # /submissions/{uid}/report
+        get_submission_exercise,  # /submissions/{uid}/exercise
+        get_category_selector,  # /submissions/{uid}/category-selector
+        get_tags_manager,  # /submissions/{uid}/tags-manager
+        get_shared_users_ui,  # /submissions/{uid}/shared-users
+        submission_detail,  # /submissions/{uid} (catch-all — LAST)
     ]

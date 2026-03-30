@@ -77,7 +77,7 @@ ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 CURRICULUM_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 
 # Study workspace dropdown items — SHELVED (2026-03-29)
-# Study sidebar removed; pages accessible via /profile hub cards + /transfer
+# Study sidebar removed; pages accessible via /profile hub cards
 STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 
 
@@ -85,7 +85,12 @@ STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
     IconNavItem("Knowledge", "\u269b\ufe0f", "/ku", "knowledge", has_dropdown=False),
     IconNavItem(
-        "Transfer", "", "/transfer", "transfer", has_dropdown=False, icon="arrow-left-right"
+        "Submissions",
+        "",
+        "/submissions",
+        "submissions",
+        has_dropdown=False,
+        icon="arrow-left-right",
     ),
 )
 

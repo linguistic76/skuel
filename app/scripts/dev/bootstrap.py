@@ -626,10 +626,6 @@ async def _wire_all_routes(
 
     create_curriculum_hub_routes(app, rt, services)
 
-    from adapters.inbound.transfer_ui import create_transfer_ui_routes
-
-    create_transfer_ui_routes(app, rt, services)
-
     # ========================================================================
     # Section 3: MANUAL ROUTES (custom wiring — not DomainRouteConfig)
     # ========================================================================
