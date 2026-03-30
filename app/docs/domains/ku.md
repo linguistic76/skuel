@@ -47,37 +47,32 @@ KuService coordinates 9 sub-services (4 common + 5 domain-specific):
 | Sub-service | Class | Purpose |
 |-------------|-------|---------|
 | `.core` | KuCoreService | CRUD operations |
-| `.search` | KuSearchService | Search and discovery |
+| `.search_service` | KuSearchService | Search and discovery |
 | `.relationships` | UnifiedRelationshipService | Prerequisite associations |
 | `.intelligence` | KuIntelligenceService | Knowledge suggestions, cross-domain |
-| `.graph` | KuGraphService | Graph navigation, prerequisites |
-| `.semantic` | KuSemanticService | Semantic relationships, RDF-style |
-| `.learning_paths` | KuLpService | Learning path operations (optional) |
-| `.practice` | KuPracticeService | Practice tracking (event-driven) |
-| `.interaction` | KuInteractionService | Pedagogical state tracking |
+| `.backend` | KuBackend | Graph queries, mark-as-read, mastery (Ku-native) |
 
-**Initialization:** Manual (non-standard core signature requires multiple dependencies)
+**Initialization:** Via `create_curriculum_sub_services()` factory.
 **graph_intel:** REQUIRED (fail-fast validation)
+
+**Architectural principle:** Ku never depends on LessonService. Mark-as-read and mastery are Ku-native capabilities on `KuBackend`.
 
 ```python
 from core.services.ku_service import KuService
 
-# In services_bootstrap.py
-ku_service = KuService(
-    repo=ku_backend,
-    graph_intelligence_service=graph_intelligence,  # REQUIRED
-    embeddings_service=embeddings_service,
-    llm_service=llm_service,
+# In services_bootstrap/_learning_services.py
+atomic_ku_service = KuService(
+    backend=atomic_ku_backend,
+    graph_intel=graph_intelligence,  # REQUIRED
     event_bus=event_bus,
 )
 
 # Access sub-services
 await ku_service.core.create(ku)
-await ku_service.search.search_by_title_template(query)
-await ku_service.relationships.get_related_uids("prerequisites", ku_uid)
-await ku_service.intelligence.get_knowledge_suggestions(user_uid, ku_uid)
-await ku_service.graph.get_prerequisite_chain(ku_uid)
-await ku_service.semantic.get_semantic_neighborhood(ku_uid)
+await ku_service.search_service.search(query)
+await ku_service.intelligence.get_usage_summary(ku_uid)
+await ku_service.mark_as_read(user_uid, ku_uid)
+await ku_service.get_lessons(ku_uid)
 ```
 
 ## Key Files
@@ -87,16 +82,15 @@ await ku_service.semantic.get_semantic_neighborhood(ku_uid)
 | Facade | `/core/services/ku_service.py` |
 | Core Service | `/core/services/ku/ku_core_service.py` |
 | Search Service | `/core/services/ku/ku_search_service.py` |
-| Intelligence Service | `/core/services/ku_intelligence_service.py` |
-| Graph Service | `/core/services/ku/ku_graph_service.py` |
-| Semantic Service | `/core/services/ku/ku_semantic_service.py` |
-| LP Service | `/core/services/ku/ku_lp_service.py` |
-| Practice Service | `/core/services/ku/ku_practice_service.py` |
-| Interaction Service | `/core/services/ku/ku_interaction_service.py` |
+| Intelligence Service | `/core/services/ku/ku_intelligence_service.py` |
+| Backend | `/adapters/persistence/neo4j/domain_backends.py` (`KuBackend`) |
 | Model | `/core/models/ku/ku.py` |
 | DTO | `/core/models/ku/ku_dto.py` |
 | Relationships Container | `/core/services/ku/ku_relationships.py` (delegates to `KuBackend` for graph queries) |
+| Routes | `/adapters/inbound/ku_routes.py` + `/adapters/inbound/ku_ui.py` |
 | Relationship Config | `KU_CONFIG` in `/core/models/relationship_registry.py` |
+
+**Architectural principle:** Ku is the atom, Lesson is the molecule. Ku never depends on LessonService. Mark-as-read and mastery are Ku-native capabilities on `KuBackend`.
 
 ## Model Fields (Ku-Specific)
 

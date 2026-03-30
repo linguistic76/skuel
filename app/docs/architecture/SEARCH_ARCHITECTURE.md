@@ -236,32 +236,20 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 | `IN_PROGRESS` | `(User)-[:IN_PROGRESS]->(KU)` | User is actively learning |
 | `MASTERED` | `(User)-[:MASTERED]->(KU)` | User has acquired knowledge |
 
-### KuInteractionService
+### Ku Learning State
+
+Ku has native mark-as-read and mastery tracking on `KuBackend` (no LessonService dependency):
 
 ```python
-from core.services.ku.ku_interaction_service import KuInteractionService, LearningState
+# Mark-as-read (Ku-native, via KuService -> KuBackend)
+await ku_service.mark_as_read(user_uid, ku_uid)
+is_read = await ku_service.is_marked_as_read(user_uid, ku_uid)
 
-await interaction_service.record_view(user_uid, ku_uid, time_spent_seconds=120)
-await interaction_service.mark_in_progress(user_uid, ku_uid)
-
-progress = await interaction_service.get_learning_state(user_uid, ku_uid)
-# Returns: UserKuProgress(state=LearningState.VIEWED, view_count=3, ...)
-
-# Batch lookup for search results
-states = await interaction_service.get_learning_states_batch(user_uid, ku_uids)
-# Returns: {"ku_python-basics_abc": LearningState.MASTERED, ...}
+# Mastery stub (KuBackend — for future mastery logic)
+await ku_backend.mark_mastered(user_uid, ku_uid)
 ```
 
-### Automatic View Tracking
-
-When users visit `/nous/{section}/{topic}`, views are recorded automatically:
-
-```python
-# In nous_routes.py — transparent to users
-user_uid = get_current_user(request)
-if user_uid and ku_content:
-    await services.ku.interaction.record_view(user_uid, ku_uid)
-```
+Lesson has richer learning state via `LessonMasteryService` (VIEWED, IN_PROGRESS, MASTERED, BOOKMARKED, MARKED_AS_READ).
 
 ### Learning Progress Filters
 
@@ -768,7 +756,8 @@ Graph Relationships:
 | **UI Components** | `/ui/search/components.py` | Sidebar, results, learning badges |
 | **Intelligence** | `/core/services/search/search_intelligence_service.py` | Ranking, suggestions |
 | **MEGA-QUERY** | `/core/services/user/user_context_queries.py` | User state query |
-| **Interaction Tracking** | `/core/services/ku/ku_interaction_service.py` | VIEWED/IN_PROGRESS tracking |
+| **Ku Learning State** | `KuBackend` in `/adapters/persistence/neo4j/domain_backends.py` | MARKED_AS_READ, MASTERED (Ku-native) |
+| **Lesson Learning State** | `/core/services/lesson/lesson_mastery_service.py` | VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED/MARKED_AS_READ |
 | **Relationship Names** | `/core/models/relationship_names.py` | VIEWED, IN_PROGRESS, MASTERED |
 
 ---
