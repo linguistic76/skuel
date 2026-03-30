@@ -57,53 +57,12 @@ class FastHTMLApp(Protocol):
         ...
 
 
-class _HeadersLike(Protocol):
-    """Protocol for request headers (Starlette's Headers)."""
-
-    def get(self, key: str, default: str | None = None) -> str | None: ...
-
-
-class _ClientLike(Protocol):
-    """Protocol for request client info (Starlette's Address)."""
-
-    host: str
-
-
-class _URLLike(Protocol):
-    """Protocol for request URL (Starlette's URL)."""
-
-    path: str
-
-
-class _FormDataLike(Protocol):
-    """Protocol for Starlette's FormData (multidict with file upload support)."""
-
-    def get(self, key: str, default: Any = None) -> Any: ...
-    def getlist(self, key: str) -> list[Any]: ...
-    def __getitem__(self, key: str) -> Any: ...
-
-
-class Request(Protocol):
-    """
-    Protocol for Starlette/FastHTML request objects.
-
-    Captures the fields that SKUEL route handlers actually access.
-    FastHTML wraps Starlette's Request; using a Protocol here avoids importing
-    Starlette directly and keeps the dependency lightweight.
-
-    Note: ``session`` is intentionally omitted — it is middleware-injected,
-    not part of the base Request.  Access via ``getattr(request, "session", None)``.
-    """
-
-    query_params: dict[str, str]
-    headers: _HeadersLike
-    method: str
-    url: _URLLike
-    path_params: dict[str, str]
-    client: _ClientLike | None
-
-    async def form(self) -> _FormDataLike: ...
-    async def json(self) -> Any: ...
+# Re-export the concrete Starlette Request class.
+# FastHTML resolves route-handler type annotations at runtime and instantiates
+# the annotated class (anno(**cargs)).  A Protocol cannot be instantiated, so
+# route handlers MUST annotate with the real class.  Re-exporting here keeps
+# all imports centralized through the hexagonal boundary.
+from starlette.requests import Request as Request  # noqa: F401 — re-export
 
 
 # Type alias for the return value of route factory functions.
