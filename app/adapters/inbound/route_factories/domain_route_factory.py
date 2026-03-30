@@ -119,7 +119,7 @@ class DomainRouteConfig:
     Attributes:
         domain_name: Human-readable domain name for logging (e.g., "tasks", "goals")
         primary_service_attr: Attribute name on services container (e.g., "tasks", "goals")
-        api_factory: Function to create API routes - signature:
+        api_factory: Optional function to create API routes - signature:
             (app, rt, primary_service, **related_services) -> list[Any]
         ui_factory: Optional function to create UI routes - signature:
             (app, rt, primary_service, **ui_related_services) -> list[Any]
@@ -135,7 +135,7 @@ class DomainRouteConfig:
 
     domain_name: str
     primary_service_attr: str
-    api_factory: Callable[..., list[Any]]
+    api_factory: Callable[..., list[Any]] | None = None
     ui_factory: Callable[..., list[Any]] | None = None
     api_related_services: dict[str, str] = field(default_factory=dict)
     ui_related_services: dict[str, str] = field(default_factory=dict)
@@ -193,17 +193,18 @@ def register_domain_routes(
 
     # 2. Extract related services for API factory (kwarg_name -> value)
     _missing = object()
-    api_related = {}
-    for kwarg_name, container_attr in config.api_related_services.items():
-        value = getattr(services, container_attr, _missing) if services else None
-        if value is _missing:
-            logger.warning(
-                f"{config.domain_name}: api_related_services['{kwarg_name}'] "
-                f"-> '{container_attr}' not found on services container. "
-                f"Verify the attribute name."
-            )
-            value = None
-        api_related[kwarg_name] = value
+    api_related: dict[str, Any] = {}
+    if config.api_factory:
+        for kwarg_name, container_attr in config.api_related_services.items():
+            value = getattr(services, container_attr, _missing) if services else None
+            if value is _missing:
+                logger.warning(
+                    f"{config.domain_name}: api_related_services['{kwarg_name}'] "
+                    f"-> '{container_attr}' not found on services container. "
+                    f"Verify the attribute name."
+                )
+                value = None
+            api_related[kwarg_name] = value
 
     registered: RouteList = []
 
@@ -262,7 +263,8 @@ def register_domain_routes(
         ).register_routes(app, rt)
 
     # 4. Wire API routes (Status, Analytics, manual routes)
-    registered.extend(config.api_factory(app, rt, primary_service, **api_related) or [])
+    if config.api_factory:
+        registered.extend(config.api_factory(app, rt, primary_service, **api_related) or [])
 
     # 5. Wire UI routes (optional)
     if config.ui_factory:

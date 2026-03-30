@@ -30,8 +30,8 @@ logger = get_logger("skuel.routes.study")
 STUDY_CONFIG = DomainRouteConfig(
     domain_name="study",
     primary_service_attr="submissions",
-    api_factory=create_study_ui_routes,
-    api_related_services={
+    ui_factory=create_study_ui_routes,
+    ui_related_services={
         "processing_service": "submissions_processor",
         "user_service": "user_service",
         "exercises_service": "exercises",
