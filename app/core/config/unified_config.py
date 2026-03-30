@@ -612,6 +612,9 @@ class VaultConfig:
     # Ingestion data directory (where files are staged for ingestion)
     ingestion_root: str = os.getenv("INGESTION_PATH", "data/vault")
 
+    # Per-user vault uploads directory
+    user_vaults_root: str = os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults")
+
     # Sync settings
     auto_sync: bool = os.getenv("AUTO_SYNC_VAULT", "true").lower() == "true"
     watch_vault: bool = os.getenv("WATCH_VAULT", "false").lower() == "true"
@@ -643,6 +646,12 @@ class VaultConfig:
         return p if p.is_absolute() else Path.cwd() / p
 
     @property
+    def user_vaults_path(self) -> Path:
+        """Get per-user vaults base directory as absolute Path"""
+        p = Path(self.user_vaults_root)
+        return p if p.is_absolute() else Path.cwd() / p
+
+    @property
     def import_path(self) -> Path:
         """Get Neo4j import path"""
         return self.vault_path / self.neo4j_import_dir
@@ -662,6 +671,7 @@ class VaultConfig:
             watch_vault=os.getenv("WATCH_VAULT", "false").lower() == "true",
             sync_interval_minutes=int(os.getenv("SYNC_INTERVAL_MINUTES", "30")),
             ingestion_root=os.getenv("INGESTION_PATH", "data/vault"),
+            user_vaults_root=os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults"),
         )
 
 

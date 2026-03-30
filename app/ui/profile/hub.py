@@ -485,13 +485,22 @@ def _nous_section() -> Div:
 
 
 def _settings_link() -> Div:
-    """Compact settings link at the bottom."""
+    """Compact settings + upload links at the bottom."""
     return Div(
-        A(
-            Span("\u2699\ufe0f", cls="mr-2"),
-            "Settings",
-            href="/profile/settings",
-            cls="text-sm text-muted-foreground hover:text-foreground",
+        Div(
+            A(
+                Span("\u2699\ufe0f", cls="mr-2"),
+                "Settings",
+                href="/profile/settings",
+                cls="text-sm text-muted-foreground hover:text-foreground",
+            ),
+            A(
+                Span("\u2b06\ufe0f", cls="mr-2"),
+                "Upload Activity Data",
+                href="/upload",
+                cls="text-sm text-muted-foreground hover:text-foreground ml-6",
+            ),
+            cls="flex items-center gap-2",
         ),
         cls="mt-4 pt-6 border-t border-border",
     )

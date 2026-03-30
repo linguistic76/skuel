@@ -1,0 +1,30 @@
+version: 1.0
+type: Event
+
+# Required
+title: Philosophy reading group
+
+# Optional
+description: Weekly discussion of assigned readings with study partners.
+status: active
+priority: medium
+tags:
+  - study-group
+  - philosophy
+  - weekly
+
+# Event-specific (all optional)
+event_type: study
+event_date: null
+start_time: null
+end_time: null
+duration_minutes: 60
+location: Library room 204
+is_online: false
+recurrence_pattern: weekly
+
+# Cross-domain connections (all optional)
+connections:
+  achieves_goal_milestone: []
+  executes_task: []
+  embodies_principle: []

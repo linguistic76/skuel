@@ -281,8 +281,14 @@ class IngestionOperations(Protocol):
     See: /docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md
     """
 
-    async def ingest_file(self, file_path: Path) -> Result[dict[str, Any]]:
+    async def ingest_file(
+        self, file_path: Path, *, user_uid: UserUID | None = None
+    ) -> Result[dict[str, Any]]:
         """Ingest a single MD or YAML file into Neo4j.
+
+        Args:
+            file_path: Path to file to ingest
+            user_uid: Override user UID for multi-tenant entities.
 
         boundary: Two code paths — node ingestion returns {uid, title, entity_type,
         format, success, nodes_created, nodes_updated, relationships_created,

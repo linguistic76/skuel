@@ -341,7 +341,9 @@ class UnifiedIngestionService:
     # ========================================================================
 
     @with_error_handling("ingest_file", error_type="system")
-    async def ingest_file(self, file_path: Path) -> Result[dict[str, Any]]:
+    async def ingest_file(
+        self, file_path: Path, *, user_uid: UserUID | None = None
+    ) -> Result[dict[str, Any]]:
         """
         Ingest a single file (MD or YAML) into Neo4j.
 
@@ -351,6 +353,8 @@ class UnifiedIngestionService:
 
         Args:
             file_path: Path to file to ingest
+            user_uid: Override user UID for multi-tenant entities.
+                      If not provided, uses self.default_user_uid.
 
         Returns:
             Result with ingestion details including uid, title, entity_type
@@ -404,12 +408,13 @@ class UnifiedIngestionService:
             return Result.fail(validation_result)
 
         # Prepare entity data (async path generates embeddings if service available)
+        effective_user_uid = user_uid or self.default_user_uid
         entity_data = await prepare_entity_data_async(
             entity_type,
             data,
             body,
             file_path,
-            self.default_user_uid,
+            effective_user_uid,
             embeddings_service=self.embeddings,
         )
 
@@ -496,6 +501,8 @@ class UnifiedIngestionService:
         validate_targets: bool = False,
         progress_callback: ProgressCallback | None = None,
         dry_run: bool = False,
+        *,
+        user_uid: UserUID | None = None,
     ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
         """
         Ingest all supported files in a directory.
@@ -527,7 +534,7 @@ class UnifiedIngestionService:
             pattern=pattern,
             batch_size=batch_size,
             max_concurrent=max_concurrent,
-            default_user_uid=self.default_user_uid,
+            default_user_uid=user_uid or self.default_user_uid,
             max_file_size_bytes=self.max_file_size_bytes,
             ingestion_mode=ingestion_mode,
             validate_targets=validate_targets,

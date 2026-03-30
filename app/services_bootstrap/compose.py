@@ -448,6 +448,15 @@ async def compose_services(
             embeddings_service=None,  # Optional - will be created later in learning_services
             chunking_service=chunking_service,  # Automatic chunk generation for KU entities
         )
+
+        # Per-user bulk upload service (wraps UnifiedIngestionService)
+        from core.services.ingestion.user_upload_service import UserUploadService
+
+        user_upload_service = UserUploadService(
+            ingestion_service=unified_ingestion,
+            user_vaults_base=config.vault.user_vaults_path,
+        )
+
         logger.info(
             "✅ Content services created (includes UnifiedIngestionService with automatic chunking)"
         )
@@ -1089,6 +1098,7 @@ async def compose_services(
             # System
             # Note: sync field removed (January 2026) - use unified_ingestion
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion
+            user_upload_service=user_upload_service,  # Per-user bulk upload
             calendar=calendar_service,
             system_service=system_service,
             admin_stats=AdminStatsService(query_executor=query_executor),

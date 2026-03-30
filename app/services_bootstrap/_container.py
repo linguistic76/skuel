@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
+    from core.services.ingestion.user_upload_service import UserUploadService
     from core.services.insight.insight_store import InsightStore
     from core.services.journal import JournalInputService, JournalOutputService
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
@@ -249,6 +250,8 @@ class Services:
     unified_ingestion: IngestionOperations | None = (
         None  # UnifiedIngestionService - handles both MD and YAML for all entity types
     )
+    # Per-user bulk upload service (wraps UnifiedIngestionService)
+    user_upload_service: "UserUploadService | None" = None
 
     # The Destination - LifePath (Domain #14)
     # "Everything flows toward the life path"

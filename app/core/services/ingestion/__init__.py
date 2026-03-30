@@ -83,6 +83,9 @@ from .types import (
 # Primary service
 from .unified_ingestion_service import UnifiedIngestionService
 
+# User upload service
+from .user_upload_service import FileUploadResult, UploadBatchResult, UserUploadService
+
 # Validator functions
 from .validator import (
     validate_directory,
@@ -121,6 +124,10 @@ __all__ = [
     "IngestionHistoryService",
     # Primary service
     "UnifiedIngestionService",
+    # User upload
+    "FileUploadResult",
+    "UploadBatchResult",
+    "UserUploadService",
     # Detector
     "detect_entity_type",
     "detect_format",
