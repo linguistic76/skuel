@@ -23,7 +23,6 @@ if TYPE_CHECKING:
     from core.models.event.event import Event
     from core.models.habit.habit import Habit
     from core.models.ku.ku import Ku
-    from core.models.lesson.lesson import Lesson
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
     from core.models.principle.principle import Principle
@@ -35,8 +34,8 @@ if TYPE_CHECKING:
 class PsBundle:
     """Complete context for a user's active Learning Step.
 
-    Contains the LS itself plus all entities reachable through its graph
-    relationships: primary/supporting Lessons, trained KUs, linked Habits,
+    Contains the PathStep itself plus all entities reachable through its graph
+    relationships: related PathSteps, trained KUs, linked Habits,
     Tasks, Events, Principles, and semantic edges between bundle entities.
 
     All collection fields are tuples (immutable). The bundle is built once
@@ -47,11 +46,11 @@ class PsBundle:
     learning_path: LearningPath | None = None
 
     # Curriculum content
-    lessons: tuple[Lesson, ...] = ()  # primary + supporting knowledge
-    kus: tuple[Ku, ...] = ()  # via trains_ku_uids on LS
+    related_steps: tuple[PathStep, ...] = ()  # supporting PathSteps in context
+    kus: tuple[Ku, ...] = ()  # via trains_ku_uids on PS
 
-    # Reference material cited by curriculum in this LS
-    resources: tuple[Resource, ...] = ()  # via CITES_RESOURCE on Lessons/KUs
+    # Reference material cited by curriculum in this PS
+    resources: tuple[Resource, ...] = ()  # via CITES_RESOURCE on PathSteps/KUs
 
     # Activity entities linked to this LS
     principles: tuple[Principle, ...] = ()  # via EMBODIES_PRINCIPLE
@@ -69,16 +68,17 @@ class PsBundle:
         """Check if a KU is part of this bundle."""
         return any(ku.uid == ku_uid for ku in self.kus)
 
-    def get_lesson_for_ku(self, ku_uid: str) -> Lesson | None:
-        """Find the Lesson that USES_KU for the given KU UID.
+    def get_step_for_ku(self, ku_uid: str) -> PathStep | None:
+        """Find the PathStep that USES_KU for the given KU UID.
 
-        Searches lesson content fields for KU references. Returns the first
-        match — in practice, one Lesson covers one KU within a single LS.
+        Searches step content fields for KU references. Returns the first
+        match — checks the primary path_step first, then related_steps.
         """
-        for lesson in self.lessons:
-            # Lessons reference KUs via semantic_links (from Curriculum base)
-            if ku_uid in (lesson.semantic_links or ()):
-                return lesson
+        if ku_uid in (self.path_step.semantic_links or ()):
+            return self.path_step
+        for step in self.related_steps:
+            if ku_uid in (step.semantic_links or ()):
+                return step
         return None
 
     def get_all_entity_uids(self) -> set[str]:
@@ -88,7 +88,7 @@ class PsBundle:
         if self.learning_path:
             uids.add(self.learning_path.uid)
         for collection in (
-            self.lessons,
+            self.related_steps,
             self.kus,
             self.resources,
             self.principles,
@@ -107,7 +107,7 @@ class PsBundle:
         if self.learning_path:
             titles[self.learning_path.uid] = self.learning_path.title or ""
         for collection in (
-            self.lessons,
+            self.related_steps,
             self.kus,
             self.resources,
             self.principles,
@@ -129,23 +129,28 @@ class PsBundle:
 
     @property
     def curriculum_context_text(self) -> str:
-        """Concatenated Lesson content + Resource references for LLM context.
+        """Concatenated PathStep content + Resource references for LLM context.
 
         Used by ResponseGenerator when the pedagogical move needs the curriculum
         as reference (e.g., SCAFFOLD, REDIRECT_TO_CURRICULUM).
 
-        Includes resource summaries after lesson content so Askesis can
+        Includes resource summaries after step content so Askesis can
         reference cited material (books, talks, films) in conversations.
 
         Truncated to AskesisTokenBudget.MAX_CURRICULUM_CHARS to prevent
-        exceeding LLM context windows when the bundle has many Lessons.
+        exceeding LLM context windows when the bundle has many PathSteps.
         """
         from core.constants import AskesisTokenBudget
         from core.utils.text_truncation import truncate_to_budget
 
-        parts = [
-            f"## {lesson.title}\n\n{lesson.content}" for lesson in self.lessons if lesson.content
-        ]
+        # Primary step content first
+        parts: list[str] = []
+        if self.path_step.content:
+            parts.append(f"## {self.path_step.title}\n\n{self.path_step.content}")
+        # Then related steps
+        parts.extend(
+            f"## {step.title}\n\n{step.content}" for step in self.related_steps if step.content
+        )
 
         # Append resource references — compact summaries, not full content
         if self.resources:
@@ -162,8 +167,8 @@ class PsBundle:
 
     def __str__(self) -> str:
         return (
-            f"PsBundle(ls={self.path_step.uid}, "
-            f"lessons={len(self.lessons)}, kus={len(self.kus)}, "
+            f"PsBundle(ps={self.path_step.uid}, "
+            f"related_steps={len(self.related_steps)}, kus={len(self.kus)}, "
             f"resources={len(self.resources)}, "
             f"habits={len(self.habits)}, tasks={len(self.tasks)})"
         )

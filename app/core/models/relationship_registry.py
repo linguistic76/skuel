@@ -39,7 +39,7 @@ from typing import Any
 
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.choice.choice_dto import ChoiceDTO
-from core.models.curriculum_dto import CurriculumDTO
+
 
 # Curriculum domain imports - (February 2026): LS/LP unified into Entity model
 # NOTE (February 2026): Habit imports removed — Habit merged into Entity model
@@ -1617,24 +1617,109 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 
 # KU (Knowledge Unit)
-LESSON_CONFIG = DomainRelationshipConfig(
+# Ku (Atomic Knowledge Unit) — lightweight ontology/reference node
+KU_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,
+    entity_label="Ku",
+    dto_class=KuDTO,
+    model_class=Ku,
+    backend_get_method="get",
+    ownership_relationship=None,  # Shared content
+    is_shared_content=True,
+    relationships=(
+        # Incoming: PathSteps that compose this atomic Ku
+        UnifiedRelationshipDefinition(
+            RelationshipName.USES_KU,
+            "Entity",
+            "incoming",
+            "used_by_steps",
+            "used_by",
+        ),
+        # Incoming: PathSteps that train this Ku
+        UnifiedRelationshipDefinition(
+            RelationshipName.TRAINS_KU,
+            "Entity",
+            "incoming",
+            "trained_by_steps",
+            "trained_by",
+        ),
+    ),
+    prerequisite_relationship_names=(),
+    enables_relationship_names=(),
+    bidirectional_relationships=(
+        # Ku hierarchy / MOC structure
+        UnifiedRelationshipDefinition(
+            RelationshipName.ORGANIZES,
+            "Ku",
+            "outgoing",
+            "organized_children",
+            "organizes",
+        ),
+    ),
+    semantic_types=(),
+    scoring_weights=_build_scoring_weights(knowledge=0.5),
+    default_context_intent=QueryIntent.EXPLORATORY,
+    intent_mappings={
+        "context": QueryIntent.EXPLORATORY,
+        "learning": QueryIntent.HIERARCHICAL,
+    },
+)
+
+# PathStep (PS) — THE curriculum content entity (Lesson merged into PathStep)
+# 3-level hierarchy: LP -> PS -> Ku
+PS_CONFIG = DomainRelationshipConfig(
+    domain=Domain.LEARNING,
     entity_label="Entity",
-    dto_class=CurriculumDTO,
+    dto_class=PathStepDTO,
     model_class=Entity,
     backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
     relationships=(
-        # Outgoing: Ku → Ku (prerequisites with confidence)
+        # === Knowledge composition (from former LESSON_CONFIG) ===
+        # Outgoing: PS composes atomic Kus
+        UnifiedRelationshipDefinition(
+            RelationshipName.USES_KU,
+            "Ku",
+            "outgoing",
+            "used_kus",
+            "uses_ku",
+            yaml_field_path="uses_kus",
+        ),
+        # Outgoing: PS references knowledge
+        UnifiedRelationshipDefinition(
+            RelationshipName.CONTAINS_KNOWLEDGE,
+            "Entity",
+            "outgoing",
+            "knowledge_units",
+            "knowledge",
+            yaml_field_path="knowledge_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.TRAINS_KU,
+            "Ku",
+            "outgoing",
+            "trained_kus",
+            "trains_ku",
+            yaml_field_path="trains_ku_uids",
+        ),
+        # === Prerequisites ===
+        UnifiedRelationshipDefinition(
+            RelationshipName.REQUIRES_STEP,
+            "Entity",
+            "outgoing",
+            "prerequisites",
+            "prerequisite_steps",
+            yaml_field_path="prerequisite_step_uids",
+        ),
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
             "Entity",
             "outgoing",
-            "prerequisites",
-            "requires",
-            use_confidence=True,  # Context: filter by confidence
-            yaml_field_path="connections.requires",
+            "prerequisite_knowledge_units",
+            "prerequisite_knowledge",
+            yaml_field_path="prerequisite_knowledge_uids",
+            use_confidence=True,
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.ENABLES_KNOWLEDGE,
@@ -1644,7 +1729,7 @@ LESSON_CONFIG = DomainRelationshipConfig(
             "enables",
             yaml_field_path="connections.enables",
         ),
-        # Incoming: Other Entity → This Entity (dependents)
+        # === Incoming: dependents and reverse queries ===
         UnifiedRelationshipDefinition(
             RelationshipName.REQUIRES_KNOWLEDGE,
             "Entity",
@@ -1652,7 +1737,14 @@ LESSON_CONFIG = DomainRelationshipConfig(
             "dependents",
             "required_by",
         ),
-        # Related KUs (bidirectional)
+        UnifiedRelationshipDefinition(
+            RelationshipName.ENABLES_KNOWLEDGE,
+            "Entity",
+            "incoming",
+            "enabled_by_kus",
+            "enabled_by",
+        ),
+        # Related (bidirectional)
         UnifiedRelationshipDefinition(
             RelationshipName.RELATED_TO,
             "Entity",
@@ -1661,7 +1753,7 @@ LESSON_CONFIG = DomainRelationshipConfig(
             "related",
             yaml_field_path="connections.related",
         ),
-        # Incoming: Activity domains applying knowledge
+        # === Incoming: Activity domains applying knowledge ===
         UnifiedRelationshipDefinition(
             RelationshipName.APPLIES_KNOWLEDGE,
             "Task",
@@ -1690,23 +1782,7 @@ LESSON_CONFIG = DomainRelationshipConfig(
             "informs_choices",
             "informs_choices",
         ),
-        # Curriculum relationships (LS is now :Entity with entity_type='path_step')
-        UnifiedRelationshipDefinition(
-            RelationshipName.CONTAINS_KNOWLEDGE,
-            "Entity",
-            "incoming",
-            "in_path_steps",
-            "in_steps",
-        ),
-        # Incoming: enables (other KU enables this KU)
-        UnifiedRelationshipDefinition(
-            RelationshipName.ENABLES_KNOWLEDGE,
-            "Entity",
-            "incoming",
-            "enabled_by_kus",
-            "enabled_by",
-        ),
-        # Organization (any KU can organize others via ORGANIZES relationships)
+        # === Organization (ORGANIZES — emergent MOC identity) ===
         UnifiedRelationshipDefinition(
             RelationshipName.ORGANIZES,
             "Entity",
@@ -1725,18 +1801,7 @@ LESSON_CONFIG = DomainRelationshipConfig(
             "organized_by",
             "organized_by",
         ),
-        # Composition: Lesson → atomic Ku
-        UnifiedRelationshipDefinition(
-            RelationshipName.USES_KU,
-            "Ku",
-            "outgoing",
-            "used_kus",
-            "uses_ku",
-            yaml_field_path="uses_kus",
-        ),
-        # Activity domain wiring: Lesson → Activity entities
-        # Lessons are self-contained learning units with practice integration.
-        # LS inherits activities via (LS)-[:HAS_LESSON]->(Lesson)-[:rel]->(Activity).
+        # === Activity domain wiring: PS → Activity entities ===
         UnifiedRelationshipDefinition(
             RelationshipName.BUILDS_HABIT,
             "Entity",
@@ -1785,116 +1850,8 @@ LESSON_CONFIG = DomainRelationshipConfig(
             "choices",
             yaml_field_path="choice_uids",
         ),
-    ),
-    prerequisite_relationship_names=(RelationshipName.REQUIRES_KNOWLEDGE,),
-    enables_relationship_names=(RelationshipName.ENABLES_KNOWLEDGE,),
-    bidirectional_relationships=(),
-    semantic_types=(
-        SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-        SemanticRelationshipType.BUILDS_ON_FOUNDATION,
-    ),
-    scoring_weights=_build_scoring_weights(knowledge=0.5, goals=0.3, tasks=0.2),
-    default_context_intent=QueryIntent.PREREQUISITE,
-    intent_mappings={
-        "context": QueryIntent.PREREQUISITE,
-        "learning": QueryIntent.HIERARCHICAL,
-    },
-)
-
-# Ku (Atomic Knowledge Unit) — lightweight ontology/reference node
-KU_CONFIG = DomainRelationshipConfig(
-    domain=Domain.KNOWLEDGE,
-    entity_label="Ku",
-    dto_class=KuDTO,
-    model_class=Ku,
-    backend_get_method="get",
-    ownership_relationship=None,  # Shared content
-    is_shared_content=True,
-    relationships=(
-        # Incoming: Lessons that compose this atomic Ku
-        UnifiedRelationshipDefinition(
-            RelationshipName.USES_KU,
-            "Entity",
-            "incoming",
-            "used_by_lessons",
-            "used_by",
-        ),
-        # Incoming: Learning Steps that train this Ku
-        UnifiedRelationshipDefinition(
-            RelationshipName.TRAINS_KU,
-            "Entity",
-            "incoming",
-            "trained_by_steps",
-            "trained_by",
-        ),
-    ),
-    prerequisite_relationship_names=(),
-    enables_relationship_names=(),
-    bidirectional_relationships=(
-        # Ku hierarchy / MOC structure
-        UnifiedRelationshipDefinition(
-            RelationshipName.ORGANIZES,
-            "Ku",
-            "outgoing",
-            "organized_children",
-            "organizes",
-        ),
-    ),
-    semantic_types=(),
-    scoring_weights=_build_scoring_weights(knowledge=0.5),
-    default_context_intent=QueryIntent.EXPLORATORY,
-    intent_mappings={
-        "context": QueryIntent.EXPLORATORY,
-        "learning": QueryIntent.HIERARCHICAL,
-    },
-)
-
-# LS (Learning Step) — Entity with entity_type='path_step'
-PS_CONFIG = DomainRelationshipConfig(
-    domain=Domain.LEARNING,
-    entity_label="Entity",
-    dto_class=PathStepDTO,
-    model_class=Entity,
-    backend_get_method="get",
-    ownership_relationship=None,  # Shared content
-    is_shared_content=True,
-    relationships=(
-        # Outgoing: Ls → Other
-        UnifiedRelationshipDefinition(
-            RelationshipName.CONTAINS_KNOWLEDGE,
-            "Entity",
-            "outgoing",
-            "knowledge_units",
-            "knowledge",
-            yaml_field_path="knowledge_uids",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.TRAINS_KU,
-            "Ku",
-            "outgoing",
-            "trained_kus",
-            "trains_ku",
-            yaml_field_path="trains_ku_uids",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.REQUIRES_STEP,
-            "Entity",
-            "outgoing",
-            "prerequisites",
-            "prerequisite_steps",
-            yaml_field_path="prerequisite_step_uids",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.REQUIRES_KNOWLEDGE,
-            "Entity",
-            "outgoing",
-            "prerequisite_knowledge_units",
-            "prerequisite_knowledge",
-            yaml_field_path="prerequisite_knowledge_uids",
-        ),
-        # Activity domain wiring removed from LS — now lives on Lessons.
-        # LS inherits via (LS)-[:HAS_LESSON]->(Lesson)-[:activity_rel]->(Activity).
-        # Incoming: Other → Ls (LP is now also :Entity)
+        # === Path membership ===
+        # Incoming: Other → PS (LP is now also :Entity)
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_STEP,
             "Entity",
@@ -1909,17 +1866,19 @@ PS_CONFIG = DomainRelationshipConfig(
         RelationshipName.REQUIRES_STEP,
         RelationshipName.REQUIRES_KNOWLEDGE,
     ),
-    enables_relationship_names=(),
+    enables_relationship_names=(RelationshipName.ENABLES_KNOWLEDGE,),
     bidirectional_relationships=(),
     semantic_types=(
         SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
         SemanticRelationshipType.PROVIDES_PRACTICAL_APPLICATION,
+        SemanticRelationshipType.BUILDS_ON_FOUNDATION,
     ),
     scoring_weights=_build_scoring_weights(knowledge=0.4, goals=0.3, habits=0.2, tasks=0.1),
     default_context_intent=QueryIntent.PREREQUISITE,
     intent_mappings={
         "context": QueryIntent.PREREQUISITE,
         "practice": QueryIntent.PRACTICE,
+        "learning": QueryIntent.HIERARCHICAL,
     },
 )
 
@@ -2140,7 +2099,7 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     # Curriculum Domains - Shared content
     # Note: LS and LP both use Domain.LEARNING
     # Use LABEL_CONFIGS for unambiguous lookup
-    Domain.KNOWLEDGE: LESSON_CONFIG,  # Primary for Domain.KNOWLEDGE
+    Domain.KNOWLEDGE: PS_CONFIG,  # PathStep is now THE curriculum content entity
     Domain.LEARNING: PS_CONFIG,  # Primary for Domain.LEARNING
 }
 
@@ -2161,14 +2120,14 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # Principle Reflection (January 2026)
     "PrincipleReflection": PRINCIPLE_REFLECTION_CONFIG,
     # Curriculum Domains — correct Neo4j label keys
-    "Lesson": LESSON_CONFIG,
     "Ku": KU_CONFIG,
     "PathStep": PS_CONFIG,
     "LearningPath": LP_CONFIG,
     "Exercise": EXERCISE_CONFIG,
     "RevisedExercise": REVISED_EXERCISE_CONFIG,
     # Backward-compat aliases (old label keys used by DomainConfig files)
-    "Entity": LESSON_CONFIG,
+    "Entity": PS_CONFIG,  # PathStep is THE curriculum content entity
+    "Lesson": PS_CONFIG,  # backward-compat alias (Lesson merged into PathStep)
     "Ls": PS_CONFIG,
     "Lp": LP_CONFIG,
 }

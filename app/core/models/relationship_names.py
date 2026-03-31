@@ -78,8 +78,8 @@ class RelationshipName(StrEnum):
     BLOCKED_BY_KNOWLEDGE = "BLOCKED_BY_KNOWLEDGE"  # Tasks blocked by lack of knowledge
 
     # Lesson → Ku composition
-    USES_KU = "USES_KU"  # (Lesson)-[:USES_KU]->(Ku) — lesson composes atomic Ku
-    TRAINS_KU = "TRAINS_KU"  # (Ls)-[:TRAINS_KU]->(Ku) — path step trains atomic Ku
+    USES_KU = "USES_KU"  # (PathStep)-[:USES_KU]->(Ku) — path step composes atomic Kus
+    TRAINS_KU = "TRAINS_KU"  # (PathStep)-[:TRAINS_KU]->(Ku) — path step trains atomic Ku
 
     # =========================================================================
     # TASK RELATIONSHIPS
@@ -261,24 +261,23 @@ class RelationshipName(StrEnum):
     # CURRICULUM RELATIONSHIPS (January 2026 - Consolidation)
     # Learning Step, Learning Path, and Map of Content relationships
     # =========================================================================
-    # Learning Step (LS) relationships
-    HAS_LESSON = "HAS_LESSON"  # (LS)-[:HAS_LESSON]->(Lesson) — path step contains lesson
-    CONTAINS_KNOWLEDGE = "CONTAINS_KNOWLEDGE"  # (ls)-[:CONTAINS_KNOWLEDGE]->(ku)
-    REQUIRES_STEP = "REQUIRES_STEP"  # (ls)-[:REQUIRES_STEP]->(ls) - Step prerequisites
-    BUILDS_HABIT = "BUILDS_HABIT"  # (lesson)-[:BUILDS_HABIT]->(habit) - Practice pattern (LS inherits via HAS_LESSON)
-    ASSIGNS_TASK = "ASSIGNS_TASK"  # (lesson)-[:ASSIGNS_TASK]->(task) - Practice pattern (LS inherits via HAS_LESSON)
-    SCHEDULES_EVENT = "SCHEDULES_EVENT"  # (lesson)-[:SCHEDULES_EVENT]->(event) - Practice pattern (LS inherits via HAS_LESSON)
+    # PathStep (PS) relationships
+    CONTAINS_KNOWLEDGE = "CONTAINS_KNOWLEDGE"  # (ps)-[:CONTAINS_KNOWLEDGE]->(ku)
+    REQUIRES_STEP = "REQUIRES_STEP"  # (ps)-[:REQUIRES_STEP]->(ps) - Step prerequisites
+    BUILDS_HABIT = "BUILDS_HABIT"  # (ps)-[:BUILDS_HABIT]->(habit) - Practice pattern
+    ASSIGNS_TASK = "ASSIGNS_TASK"  # (ps)-[:ASSIGNS_TASK]->(task) - Practice pattern
+    SCHEDULES_EVENT = "SCHEDULES_EVENT"  # (ps)-[:SCHEDULES_EVENT]->(event) - Practice pattern
 
     # Learning Path (LP) relationships
     ALIGNED_WITH_GOAL = "ALIGNED_WITH_GOAL"  # (lp)-[:ALIGNED_WITH_GOAL]->(goal)
     HAS_MILESTONE_EVENT = "HAS_MILESTONE_EVENT"  # (lp)-[:HAS_MILESTONE_EVENT]->(event)
 
     # =========================================================================
-    # MOC ORGANIZATIONAL RELATIONSHIPS (MOC = KU organizing KUs)
-    # MOC is not a separate entity - it's a KU with ORGANIZES relationships.
-    # A KU "is" a MOC when it has outgoing ORGANIZES relationships.
+    # MOC ORGANIZATIONAL RELATIONSHIPS (MOC = Entity organizing Entities)
+    # MOC is not a separate entity - it's a PathStep/Ku with ORGANIZES relationships.
+    # An Entity "is" a MOC when it has outgoing ORGANIZES relationships.
     # =========================================================================
-    ORGANIZES = "ORGANIZES"  # (ku)-[:ORGANIZES {order: int}]->(ku) - KU organizing other KUs
+    ORGANIZES = "ORGANIZES"  # (entity)-[:ORGANIZES {order: int}]->(entity) - Hierarchical organization
 
     # =========================================================================
     # LIFE PATH RELATIONSHIPS (The Destination)

@@ -71,8 +71,7 @@ class NeoLabel(StrEnum):
     CHOICE = "Choice"
     PRINCIPLE = "Principle"
 
-    # Curriculum Domains (5) — shared content
-    LESSON = "Lesson"
+    # Curriculum Domains (4) — shared content
     KU = "Ku"
     RESOURCE = "Resource"
     PATH_STEP = "PathStep"
@@ -250,7 +249,6 @@ def _init_ku_type_mapping() -> None:
             EntityType.EVENT: NeoLabel.EVENT,
             EntityType.CHOICE: NeoLabel.CHOICE,
             EntityType.PRINCIPLE: NeoLabel.PRINCIPLE,
-            EntityType.LESSON: NeoLabel.LESSON,
             EntityType.KU: NeoLabel.KU,
             EntityType.RESOURCE: NeoLabel.RESOURCE,
             EntityType.PATH_STEP: NeoLabel.PATH_STEP,

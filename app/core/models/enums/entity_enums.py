@@ -6,7 +6,7 @@ Core enums for entity type discrimination, processing lifecycle,
 content origin, and domain classification.
 
 Organized in 5 sections:
-1. Core Identity: EntityType (21 values), ContentOrigin (4 tiers)
+1. Core Identity: EntityType (20 values), ContentOrigin (4 tiers)
 2. Processing Lifecycle: EntityStatus (14 values), ProcessorType (4 values)
 3. Domain Classification: Domain, NonKuDomain, DomainIdentifier
 4. Analytics: AnalyticsDomain
@@ -24,7 +24,7 @@ from enum import StrEnum
 
 class EntityType(StrEnum):
     """
-    Type of Entity — 21 entity types in SKUEL.
+    Type of Entity — 20 entity types in SKUEL.
 
     Discriminator for the `entity_type` field on Entity.
 
@@ -42,27 +42,26 @@ class EntityType(StrEnum):
         JE_INPUT             → Raw journal entry (audio or text, user-initiated)
         JE_OUTPUT            → LLM-processed transformation of a je_input
         KU                   → Atomic knowledge unit (concept, state, principle)
-        LEARNING_PATH        → Ordered sequence of steps
-        LESSON               → A unit for learning
-        PATH_STEP        → A collection of lessons
+        LEARNING_PATH        → Ordered sequence of path steps
+        PATH_STEP            → THE curriculum content entity (composes Kus, sits in learning paths)
         LIFE_PATH            → Knowledge about your life direction
         PRINCIPLE            → Knowledge about what you believe
         RESOURCE             → Books, talks, films, music (admin-only)
         REVISED_EXERCISE     → Targeted revision instructions after feedback
         TASK                 → Knowledge about what needs doing
 
-    Any Lesson can organize other Lessons via ORGANIZES relationships (emergent
+    Any PathStep can organize other PathSteps via ORGANIZES relationships (emergent
     identity — no separate MOC type needed).
 
     Content origin tiers (see ContentOrigin):
         A  CURATED      → RESOURCE
-        B  CURRICULUM   → LESSON, KU, PATH_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
+        B  CURRICULUM   → KU, PATH_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
         C  USER_CREATED → Activities (6), EXERCISE_SUBMISSION, JE_INPUT, JE_OUTPUT, LIFE_PATH,
                           FORM_SUBMISSION
         D  REPORT       → ACTIVITY_REPORT, EXERCISE_REPORT
 
     Ownership rules:
-        Curriculum (Lesson, KU, LS, LP, Exercise) + Resource + FormTemplate: user_uid = None (shared content, admin-created)
+        Curriculum (KU, PS, LP, Exercise) + Resource + FormTemplate: user_uid = None (shared content, admin-created)
         Content processing:    user_uid = student/teacher (user-owned)
         Activity (6):          user_uid = student (user-owned)
         Destination:           user_uid = student (user-owned)
@@ -70,7 +69,6 @@ class EntityType(StrEnum):
     """
 
     # Curriculum (admin-created, shared)
-    LESSON = "lesson"
     KU = "ku"
     PATH_STEP = "path_step"
     LEARNING_PATH = "learning_path"
@@ -119,11 +117,11 @@ class EntityType(StrEnum):
     # -------------------------------------------------------------------------
 
     def is_knowledge(self) -> bool:
-        """Check if this is curriculum knowledge content (Lesson or Ku)."""
+        """Check if this is curriculum knowledge content (PathStep or Ku)."""
         return self in _KNOWLEDGE_TYPES
 
     def is_curriculum_structure(self) -> bool:
-        """Check if this is curriculum structure (LS or LP)."""
+        """Check if this is curriculum structure (LP)."""
         return self in _CURRICULUM_STRUCTURE_TYPES
 
     def is_activity(self) -> bool:
@@ -222,10 +220,9 @@ class EntityType(StrEnum):
 
 # EntityType lookup tables (module-level for performance)
 _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
-    EntityType.LESSON: "Lesson",
     EntityType.KU: "Knowledge Unit",
     EntityType.RESOURCE: "Resource",
-    EntityType.PATH_STEP: "Learning Step",
+    EntityType.PATH_STEP: "PathStep",
     EntityType.LEARNING_PATH: "Learning Path",
     EntityType.EXERCISE_SUBMISSION: "Exercise Submission",
     EntityType.ACTIVITY_REPORT: "Activity Report",
@@ -245,9 +242,9 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.LIFE_PATH: "Life Path",
 }
 
-_KNOWLEDGE_TYPES = frozenset({EntityType.LESSON, EntityType.KU})
+_KNOWLEDGE_TYPES = frozenset({EntityType.PATH_STEP, EntityType.KU})
 _CURRICULUM_STRUCTURE_TYPES = frozenset(
-    {EntityType.PATH_STEP, EntityType.LEARNING_PATH, EntityType.EXERCISE}
+    {EntityType.LEARNING_PATH, EntityType.EXERCISE}
 )
 _CONTENT_PROCESSING_TYPES = frozenset(
     {
@@ -274,7 +271,6 @@ _ACTIVITY_TYPES = frozenset(
 )
 _SHARED_TYPES = frozenset(
     {
-        EntityType.LESSON,
         EntityType.KU,
         EntityType.RESOURCE,
         EntityType.PATH_STEP,
@@ -308,7 +304,6 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.RESOURCE: ContentOrigin.CURATED,
     EntityType.FORM_TEMPLATE: ContentOrigin.CURATED,
     # B — Curriculum structure and organization
-    EntityType.LESSON: ContentOrigin.CURRICULUM,
     EntityType.KU: ContentOrigin.CURRICULUM,
     EntityType.PATH_STEP: ContentOrigin.CURRICULUM,
     EntityType.LEARNING_PATH: ContentOrigin.CURRICULUM,
@@ -333,7 +328,6 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
 
 _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     # Canonical values
-    "lesson": EntityType.LESSON,
     "ku": EntityType.KU,
     "resource": EntityType.RESOURCE,
     "path_step": EntityType.PATH_STEP,
@@ -358,6 +352,8 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "ps": EntityType.PATH_STEP,
     "step": EntityType.PATH_STEP,
     "learning_step": EntityType.PATH_STEP,  # backward-compat alias
+    "lesson": EntityType.PATH_STEP,  # backward-compat alias (Lesson merged into PathStep)
+    "l": EntityType.PATH_STEP,  # backward-compat alias for lesson UID prefix
     "lp": EntityType.LEARNING_PATH,
     "path": EntityType.LEARNING_PATH,
     "exercise": EntityType.EXERCISE,
@@ -715,13 +711,6 @@ _VALID_TRANSITIONS: dict[EntityStatus, set[EntityStatus]] = {
 
 # Valid statuses per EntityType (from plan specification)
 _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
-    EntityType.LESSON: frozenset(
-        {
-            EntityStatus.DRAFT,
-            EntityStatus.COMPLETED,
-            EntityStatus.ARCHIVED,
-        }
-    ),
     EntityType.KU: frozenset(
         {
             EntityStatus.DRAFT,
@@ -894,7 +883,6 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
 }
 
 _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
-    EntityType.LESSON: EntityStatus.COMPLETED,
     EntityType.KU: EntityStatus.COMPLETED,
     EntityType.RESOURCE: EntityStatus.COMPLETED,
     EntityType.PATH_STEP: EntityStatus.DRAFT,
@@ -1045,7 +1033,7 @@ class NonKuDomain(StrEnum):
 
 
 # Union type for any domain identifier in SKUEL.
-# EntityType covers all 21 entity types; NonKuDomain covers the 4 non-entity domains.
+# EntityType covers all 20 entity types; NonKuDomain covers the 4 non-entity domains.
 DomainIdentifier = EntityType | NonKuDomain
 
 

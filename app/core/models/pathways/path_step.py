@@ -1,20 +1,28 @@
 """
-PathStep - A Collection of Lessons
-=============================================
+PathStep - THE Curriculum Content Entity
+=========================================
 
 Frozen dataclass for path step entities (EntityType.PATH_STEP).
-A PathStep is a collection of lessons that forms a step in a learning path.
+A PathStep is THE unit for learning — it composes atomic Kus into coherent
+learning content and sits within a LearningPath. This is the result of
+merging the former Lesson entity into PathStep (2026-04).
 
-Inherits common fields from Entity via Curriculum. Adds 8 learning-step-specific fields:
+3-level hierarchy: LearningPath -> PathStep -> Ku
+
+Inherits common fields from Entity via Curriculum. Adds 8 path-step-specific fields:
 - Intent (1): intent
 - Knowledge references (1): knowledge_uids (graph-native, reconstructed from CONTAINS_KNOWLEDGE)
 - Path relationship (2): learning_path_uid, sequence
 - Mastery (4): mastery_threshold, current_mastery, estimated_hours, step_difficulty
 
-Learning-step-specific methods: get_combined_knowledge_uids, get_all_knowledge_uids,
-calculate_mastery_progress, is_mastered, calculate_learning_impact, get_summary, from_dto.
+Key relationships:
+- USES_KU -> Ku (content composition)
+- CONTAINS_KNOWLEDGE -> Ku (knowledge reference)
+- TRAINS_KU -> Ku (learning objectives)
+- ORGANIZES -> PathStep (emergent MOC identity)
+- Activity wiring: BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, etc.
+- Learning states: VIEWED, IN_PROGRESS, MASTERED, BOOKMARKED (on user relationships)
 
-See: /.claude/plans/crispy-spinning-wozniak.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
@@ -33,11 +41,11 @@ from core.models.enums.entity_enums import EntityType
 @dataclass(frozen=True)
 class PathStep(Curriculum):
     """
-    A collection of lessons (EntityType.PATH_STEP).
+    THE curriculum content entity (EntityType.PATH_STEP).
 
-    A PathStep groups related lessons into a coherent collection within
-    a learning path. Inherits ~50 fields from Curriculum. Adds 8 fields for
-    intent, knowledge references, path relationship, and mastery tracking.
+    A PathStep composes atomic Kus into coherent learning content and sits
+    within a LearningPath. Inherits ~50 fields from Curriculum. Adds 8 fields
+    for intent, knowledge references, path relationship, and mastery tracking.
     """
 
     def __post_init__(self) -> None:

@@ -2,7 +2,7 @@
 Entity Type Aliases and Class Dispatch Map
 ==========================================
 
-Type aliases and the EntityType→class map for all 21 entity types.
+Type aliases and the EntityType→class map for all 20 entity types.
 
 For construction: Use the specific subclass (Task, Ku, Goal, etc.)
 For dispatched deserialization: Use Entity.from_dto(dto)
@@ -27,7 +27,6 @@ from core.models.habit.habit import Habit
 from core.models.journal.je_input import JeInput
 from core.models.journal.je_output import JeOutput
 from core.models.ku.ku import Ku
-from core.models.lesson.lesson import Lesson
 from core.models.life_path.life_path import LifePath
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
@@ -49,8 +48,8 @@ from core.models.task.task import Task
 ActivityEntity = Task | Goal | Habit | Event | Choice | Principle
 
 # Curriculum entities — carry learning_level, quality_score, sel_category, etc.
-# Lesson is the narrative curriculum leaf; Curriculum is the base class.
-CurriculumEntity = Lesson | PathStep | LearningPath | Exercise
+# PathStep is THE curriculum content entity; Curriculum is the base class.
+CurriculumEntity = PathStep | LearningPath | Exercise
 
 # Atomic Ku — lightweight ontology/reference node (extends Entity directly, not Curriculum)
 KuEntity = Ku
@@ -77,7 +76,6 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.EVENT: Event,
     EntityType.CHOICE: Choice,
     EntityType.PRINCIPLE: Principle,
-    EntityType.LESSON: Lesson,
     EntityType.KU: Ku,
     EntityType.RESOURCE: Resource,
     EntityType.PATH_STEP: PathStep,
