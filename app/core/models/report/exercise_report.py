@@ -47,6 +47,7 @@ class ExerciseReport(UserOwnedEntity):
     processor_type: ProcessorType | None = None  # HUMAN/LLM/AUTOMATIC
     assessment_outcome: AssessmentOutcome | None = None  # APPROVED/NEEDS_REVISION/AI_EVALUATED
     report_file_path: str | None = None  # Generated output file path
+    assessment_score: float | None = None  # 0.0-1.0 score for ASSESSMENT-scope exercises
 
     # =========================================================================
     # CONVERSION

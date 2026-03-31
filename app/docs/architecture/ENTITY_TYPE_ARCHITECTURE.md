@@ -34,7 +34,7 @@ SKUEL is a **knowledge-centric productivity platform** where every operation con
 | Resource | Curated content (books, talks, films) | Admin-created, shared |
 | PathStep | A collection of lessons | Admin-created, shared |
 | LearningPath | An ordered sequence of lesson collections | Admin-created, shared |
-| Exercise | Instruction template for practicing curriculum | Admin-created, shared |
+| Exercise | Instruction template, assignment, or formal assessment | Admin-created, shared |
 | FormTemplate | Reusable form definition (embeddable in Lessons) | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | User-owned |
 | ExerciseSubmission | Student-uploaded work against an exercise | User-owned |
@@ -258,6 +258,24 @@ LpService (facade) — 5 sub-services via create_lp_sub_services()
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
 
+### Exercise Scope — Three Modes of Assessment
+
+Exercise is a single entity type serving three distinct pedagogical roles via `ExerciseScope`:
+
+| Scope | Purpose | Key Fields | Mastery Signal |
+|-------|---------|------------|----------------|
+| `PERSONAL` | User's own AI feedback template (default) | `instructions`, `model` | Soft — AI-evaluated |
+| `ASSIGNED` | Teacher assigns to a group | `group_uid` (required), `due_date` | Medium — teacher-approved |
+| `ASSESSMENT` | Formal test/exam with scoring rubric | `scoring_rubric` (required), `pass_threshold` | Hard — objective score |
+
+**ASSESSMENT scope** adds two fields to Exercise:
+- `scoring_rubric`: List of criteria, each with `name`, `weight` (must sum to 1.0), and optional `description`
+- `pass_threshold`: Minimum score (0.0-1.0) to pass; defaults to 0.7
+
+**ExerciseReport** carries `assessment_score` (0.0-1.0) for ASSESSMENT-scope exercises — the numeric result evaluated against the rubric. This is the **objective measurement layer** that substance tracking and ExerciseReports don't otherwise provide.
+
+**Design rationale:** A Test is an Exercise with `scope=ASSESSMENT` and a scoring rubric — not a separate entity type. The learning loop (`Exercise → Submission → Report → RevisedExercise`) applies identically to all three scopes. What differs is the evaluation mechanism (AI feedback vs teacher review vs rubric scoring) and the strength of the mastery signal.
+
 ### FormTemplate + FormSubmission — General-Purpose Forms
 
 A general-purpose form system decoupled from the learning loop. Admin creates reusable form templates, embeds them in Lessons via `EMBEDS_FORM` relationships, and users submit structured responses. Submissions flow through the existing sharing infrastructure (groups, direct sharing, admin).
@@ -293,7 +311,7 @@ The educational loop: `Lesson -> Exercise -> ExerciseSubmission -> ExerciseRepor
 | `EXERCISE_REPORT` | `ExerciseReport(UserOwnedEntity)` | `HUMAN` or `LLM` | Assessment tied to a submission via `subject_uid` |
 | `ACTIVITY_REPORT` | `UserOwnedEntity` **directly** | `AUTOMATIC`, `LLM`, or `HUMAN` | Activity-level feedback (no file fields; covers a time window) |
 
-**Key structural note:** `ExerciseReport` extends `UserOwnedEntity` directly — NOT `Submission`. It has 6 report-specific fields (`report_content`, `report_generated_at`, `subject_uid`, `processor_type`, `assessment_outcome`, `report_file_path`) but no file/processing fields. `assessment_outcome` (`AssessmentOutcome` enum: APPROVED, NEEDS_REVISION, AI_EVALUATED) makes each report self-describing — the report records what decision was made, not just feedback text.
+**Key structural note:** `ExerciseReport` extends `UserOwnedEntity` directly — NOT `Submission`. It has 7 report-specific fields (`report_content`, `report_generated_at`, `subject_uid`, `processor_type`, `assessment_outcome`, `report_file_path`, `assessment_score`) but no file/processing fields. `assessment_outcome` (`AssessmentOutcome` enum: APPROVED, NEEDS_REVISION, AI_EVALUATED) makes each report self-describing — the report records what decision was made, not just feedback text. `assessment_score` (0.0-1.0) carries the numeric result for ASSESSMENT-scope exercises.
 
 `ACTIVITY_REPORT` also inherits `UserOwnedEntity` directly — no file fields. It responds to aggregate activity patterns over a time period, not to a specific artifact.
 

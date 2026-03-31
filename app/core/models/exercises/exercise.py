@@ -65,17 +65,19 @@ class Exercise(Curriculum):
     - User controls the model
     - ExerciseReport = instructions + entry content -> LLM -> response
 
-    Exercise-specific fields (10):
+    Exercise-specific fields (12):
     - instructions: LLM prompt for processing
     - model: Which LLM to use
-    - scope: ExerciseScope.PERSONAL (user's own template) or ASSIGNED (teacher → group)
-    - due_date: Due date for ASSIGNED scope
+    - scope: ExerciseScope.PERSONAL (user's own template), ASSIGNED (teacher → group), or ASSESSMENT (formal test)
+    - due_date: Due date for ASSIGNED/ASSESSMENT scope
     - group_uid: Target group for ASSIGNED scope
     - enrichment_mode: Processing strategy
     - context_notes: Reference materials
     - form_schema: Optional inline form definition for structured submissions
     - expected_modality: What submission format this exercise expects (FILE_UPLOAD or STRUCTURED_FORM)
     - mastery_impact: How aggressively completing this exercise advances mastery (MINOR → CERTIFICATION)
+    - scoring_rubric: Assessment criteria with weights (required for ASSESSMENT scope)
+    - pass_threshold: Minimum score (0.0-1.0) to pass an assessment
     """
 
     def __post_init__(self) -> None:
@@ -94,6 +96,15 @@ class Exercise(Curriculum):
             self.enrichment_mode, EnrichmentMode
         ):
             object.__setattr__(self, "enrichment_mode", EnrichmentMode(self.enrichment_mode))
+        # Neo4j stores scoring_rubric as JSON string — parse on construction
+        if isinstance(self.scoring_rubric, str):
+            try:
+                parsed_rubric = json.loads(self.scoring_rubric)
+                object.__setattr__(
+                    self, "scoring_rubric", tuple(parsed_rubric) if parsed_rubric else None
+                )
+            except (json.JSONDecodeError, TypeError):
+                object.__setattr__(self, "scoring_rubric", None)
         # Auto-derive expected_modality from form_schema when not explicitly set
         if self.expected_modality is None:
             derived = (
@@ -116,6 +127,10 @@ class Exercise(Curriculum):
     form_schema: tuple[dict[str, Any], ...] | None = None  # Inline form definition
     expected_modality: SubmissionModality | None = None  # Auto-derived in __post_init__
     mastery_impact: MasteryImpact = MasteryImpact.MODERATE  # How much mastery this exercise carries
+    scoring_rubric: tuple[dict[str, Any], ...] | None = (
+        None  # Assessment rubric: criteria, weights, pass threshold
+    )
+    pass_threshold: float | None = None  # Minimum score (0.0-1.0) to pass an assessment
 
     # =========================================================================
     # EXERCISE-SPECIFIC METHODS
@@ -159,11 +174,17 @@ class Exercise(Curriculum):
         base_valid = bool(self.title and self.instructions and self.model)
         if self.scope == ExerciseScope.ASSIGNED:
             return base_valid and bool(self.group_uid)
+        if self.scope == ExerciseScope.ASSESSMENT:
+            return base_valid and bool(self.scoring_rubric)
         return base_valid
 
     def is_assigned(self) -> bool:
         """Check if this is a teacher-assigned exercise (scope == ASSIGNED)."""
         return self.scope == ExerciseScope.ASSIGNED
+
+    def is_assessment(self) -> bool:
+        """Check if this is a formal assessment/test (scope == ASSESSMENT)."""
+        return self.scope == ExerciseScope.ASSESSMENT
 
     def is_overdue(self) -> bool:
         """Check if exercise is past due date."""

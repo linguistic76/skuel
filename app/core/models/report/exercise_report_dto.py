@@ -51,6 +51,7 @@ class ExerciseReportDTO(UserOwnedDTO):
     processor_type: ProcessorType | None = None
     assessment_outcome: AssessmentOutcome | None = None
     report_file_path: str | None = None
+    assessment_score: float | None = None  # 0.0-1.0 score for assessments
 
     # =========================================================================
     # SERIALIZATION
@@ -70,6 +71,7 @@ class ExerciseReportDTO(UserOwnedDTO):
                 "processor_type": get_enum_value(self.processor_type),
                 "assessment_outcome": get_enum_value(self.assessment_outcome),
                 "report_file_path": self.report_file_path,
+                "assessment_score": self.assessment_score,
             }
         )
 
@@ -138,6 +140,7 @@ class ExerciseReportDTO(UserOwnedDTO):
                 "processor_type",
                 "assessment_outcome",
                 "report_file_path",
+                "assessment_score",
             },
             enum_mappings={
                 "entity_type": EntityType,

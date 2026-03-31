@@ -27,10 +27,12 @@ class ExerciseScope(StrEnum):
 
     PERSONAL: User's own AI feedback template (default)
     ASSIGNED: Teacher-created, assigned to a group (ADR-040)
+    ASSESSMENT: Formal test/exam with scoring rubric and pass/fail criteria
     """
 
     PERSONAL = "personal"
     ASSIGNED = "assigned"
+    ASSESSMENT = "assessment"
 
 
 class FormattingStyle(StrEnum):

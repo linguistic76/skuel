@@ -78,6 +78,45 @@ class ExerciseCreateRequest(BaseModel):
         description="How aggressively completing this exercise advances mastery (minor, moderate, major, certification)",
     )
 
+    scoring_rubric: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Assessment rubric: list of criteria with name, weight, and description",
+    )
+
+    pass_threshold: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Minimum score (0.0-1.0) to pass an assessment",
+    )
+
+    @field_validator("scoring_rubric")
+    @classmethod
+    def validate_scoring_rubric(cls, v: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
+        """Validate each rubric criterion has required keys and valid weight."""
+        if v is None:
+            return None
+        if not v:
+            msg = "scoring_rubric must contain at least one criterion"
+            raise ValueError(msg)
+        total_weight = 0.0
+        for i, criterion in enumerate(v):
+            if "name" not in criterion:
+                msg = f"scoring_rubric[{i}] missing required key 'name'"
+                raise ValueError(msg)
+            if "weight" not in criterion:
+                msg = f"scoring_rubric[{i}] missing required key 'weight'"
+                raise ValueError(msg)
+            weight = criterion["weight"]
+            if not isinstance(weight, int | float) or weight <= 0:
+                msg = f"scoring_rubric[{i}] weight must be a positive number"
+                raise ValueError(msg)
+            total_weight += weight
+        if abs(total_weight - 1.0) > 0.01:
+            msg = f"scoring_rubric weights must sum to 1.0, got {total_weight:.2f}"
+            raise ValueError(msg)
+        return v
+
     @field_validator("form_schema")
     @classmethod
     def validate_form_schema(cls, v: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
@@ -105,9 +144,12 @@ class ExerciseCreateRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_exercise_fields(self) -> "ExerciseCreateRequest":
-        """If scope=assigned, group_uid is required."""
+        """Validate scope-specific requirements."""
         if self.scope == ExerciseScope.ASSIGNED and not self.group_uid:
             msg = "group_uid is required when scope is 'assigned'"
+            raise ValueError(msg)
+        if self.scope == ExerciseScope.ASSESSMENT and not self.scoring_rubric:
+            msg = "scoring_rubric is required when scope is 'assessment'"
             raise ValueError(msg)
         return self
 
@@ -140,6 +182,24 @@ class ExerciseUpdateRequest(BaseModel):
         default=None,
         description="How aggressively completing this exercise advances mastery",
     )
+
+    scoring_rubric: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Assessment rubric (replaces existing). Pass empty list to clear.",
+    )
+
+    pass_threshold: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Minimum score (0.0-1.0) to pass an assessment",
+    )
+
+    @field_validator("scoring_rubric")
+    @classmethod
+    def validate_scoring_rubric(cls, v: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
+        """Reuse same validation as create."""
+        return ExerciseCreateRequest.validate_scoring_rubric(v)
 
     @field_validator("form_schema")
     @classmethod

@@ -59,6 +59,8 @@ class ExerciseDTO(CurriculumDTO):
     form_schema: list[dict[str, Any]] | None = None  # Inline form definition
     expected_modality: SubmissionModality | None = None
     mastery_impact: MasteryImpact | None = None
+    scoring_rubric: list[dict[str, Any]] | None = None  # Assessment rubric
+    pass_threshold: float | None = None  # Minimum score (0.0-1.0) to pass
 
     # =========================================================================
     # SERIALIZATION
@@ -82,6 +84,8 @@ class ExerciseDTO(CurriculumDTO):
                 "form_schema": self.form_schema,
                 "expected_modality": get_enum_value(self.expected_modality),
                 "mastery_impact": get_enum_value(self.mastery_impact),
+                "scoring_rubric": self.scoring_rubric,
+                "pass_threshold": self.pass_threshold,
             }
         )
 
@@ -98,15 +102,21 @@ class ExerciseDTO(CurriculumDTO):
         """Create ExerciseDTO from dictionary (from database)."""
         from core.models.dto_helpers import dto_from_dict
 
-        # Neo4j stores form_schema as JSON string — parse before dto_from_dict
+        # Neo4j stores form_schema and scoring_rubric as JSON strings — parse before dto_from_dict
         raw_schema = data.get("form_schema")
-        if isinstance(raw_schema, str):
-            try:
-                data = dict(data)  # Don't mutate caller's dict
-                data["form_schema"] = json.loads(raw_schema)
-            except (json.JSONDecodeError, TypeError):
-                data = dict(data)
-                data["form_schema"] = None
+        raw_rubric = data.get("scoring_rubric")
+        if isinstance(raw_schema, str) or isinstance(raw_rubric, str):
+            data = dict(data)  # Don't mutate caller's dict
+            if isinstance(raw_schema, str):
+                try:
+                    data["form_schema"] = json.loads(raw_schema)
+                except (json.JSONDecodeError, TypeError):
+                    data["form_schema"] = None
+            if isinstance(raw_rubric, str):
+                try:
+                    data["scoring_rubric"] = json.loads(raw_rubric)
+                except (json.JSONDecodeError, TypeError):
+                    data["scoring_rubric"] = None
 
         return dto_from_dict(
             cls,
@@ -184,6 +194,8 @@ class ExerciseDTO(CurriculumDTO):
                 "form_schema",
                 "expected_modality",
                 "mastery_impact",
+                "scoring_rubric",
+                "pass_threshold",
             },
             enum_mappings={
                 "entity_type": EntityType,

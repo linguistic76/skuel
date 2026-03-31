@@ -65,6 +65,9 @@ def _compute_exercise_stats(all_exercises: list[Any]) -> dict[str, int | float]:
         "assigned": sum(
             1 for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.ASSIGNED
         ),
+        "assessment": sum(
+            1 for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.ASSESSMENT
+        ),
     }
 
 
@@ -145,6 +148,8 @@ class ExerciseService(BaseService):
         processor_type: ProcessorType = ProcessorType.LLM,
         group_uid: str | None = None,
         form_schema: list[dict[str, Any]] | None = None,
+        scoring_rubric: list[dict[str, Any]] | None = None,
+        pass_threshold: float | None = None,
     ) -> Result[Exercise]:
         """
         Create a new Exercise.
@@ -153,6 +158,10 @@ class ExerciseService(BaseService):
         - group_uid is required
         - Creates a FOR_GROUP relationship to the target group
 
+        For ASSESSMENT scope (formal tests):
+        - scoring_rubric is required
+        - pass_threshold defaults to 0.7 if not specified
+
         Args:
             user_uid: User who owns this exercise
             name: Display name
@@ -160,10 +169,13 @@ class ExerciseService(BaseService):
             model: LLM model to use
             context_notes: Optional reference materials
             domain: Optional domain categorization
-            scope: PERSONAL (default) or ASSIGNED (teacher exercise)
-            due_date: Due date for ASSIGNED scope
+            scope: PERSONAL (default), ASSIGNED (teacher exercise), or ASSESSMENT (formal test)
+            due_date: Due date for ASSIGNED/ASSESSMENT scope
             processor_type: LLM, HUMAN, or HYBRID
             group_uid: Target group UID for ASSIGNED scope
+            form_schema: Optional inline form definition
+            scoring_rubric: Assessment criteria with weights (required for ASSESSMENT)
+            pass_threshold: Minimum score to pass (0.0-1.0, default 0.7 for ASSESSMENT)
 
         Returns:
             Result[Exercise] - The created exercise
@@ -172,8 +184,19 @@ class ExerciseService(BaseService):
             return Result.fail(
                 Errors.validation("group_uid is required for assigned exercises", field="group_uid")
             )
+        if scope == ExerciseScope.ASSESSMENT and not scoring_rubric:
+            return Result.fail(
+                Errors.validation(
+                    "scoring_rubric is required for assessment exercises",
+                    field="scoring_rubric",
+                )
+            )
 
         uid = UIDGenerator.generate_uid("ex", name)
+
+        # Default pass_threshold to 0.7 for assessments
+        if scope == ExerciseScope.ASSESSMENT and pass_threshold is None:
+            pass_threshold = 0.7
 
         exercise = Exercise(
             uid=uid,
@@ -188,6 +211,8 @@ class ExerciseService(BaseService):
             group_uid=group_uid,
             enrichment_mode=None,
             form_schema=tuple(form_schema) if form_schema else None,
+            scoring_rubric=tuple(scoring_rubric) if scoring_rubric else None,
+            pass_threshold=pass_threshold,
         )
 
         result = await self.backend.create(exercise)
@@ -631,6 +656,12 @@ class ExerciseService(BaseService):
             elif status_filter == ExerciseScope.ASSIGNED:
                 return [
                     e for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.ASSIGNED
+                ]
+            elif status_filter == ExerciseScope.ASSESSMENT:
+                return [
+                    e
+                    for e in all_exercises
+                    if getattr(e, "scope", None) == ExerciseScope.ASSESSMENT
                 ]
             return all_exercises
 
