@@ -1,4 +1,4 @@
-"""Curriculum service creation — Lesson, KU, LS, LP, embeddings, vector search."""
+"""Curriculum service creation — KU, PS, LP, embeddings, vector search."""
 
 from typing import TYPE_CHECKING, Any
 
@@ -34,7 +34,6 @@ def _create_learning_services(
     """Create all learning-related services using 100% dynamic backends."""
     from core.models.pathways.learning_path import LearningPath
     from core.services.entity_retrieval import EntityRetrieval
-    from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService  # Intelligence created internally
     from core.services.ps_service import PsService
     from core.services.query_builder import QueryBuilder
@@ -83,23 +82,6 @@ def _create_learning_services(
     schema_service = Neo4jSchemaService(driver)
     unified_query_builder = QueryBuilder(schema_service)
 
-    # Create knowledge service using dynamic backends with REQUIRED query_builder
-    # January 2026: LessonIntelligenceService created internally, no longer passed in
-    # January 2026 - GenAI Integration: Pass vector search and embeddings services
-    ku_service = LessonService(
-        repo=knowledge_backend,
-        content_repo=content_adapter,  # Neo4jContentAdapter implements ContentOperations protocol
-        ku_backend=atomic_ku_backend,
-        chunking_service=chunking_service,
-        graph_intelligence_service=graph_intelligence,
-        query_builder=unified_query_builder,  # QueryBuilder is now REQUIRED
-        event_bus=event_bus,  # Event-driven architecture
-        # executor removed: LessonOrganizationService now uses backend directly
-        user_service=user_service,  # January 2026: KU-Activity Integration
-        vector_search_service=vector_search_service,  # January 2026: GenAI vector search
-        embeddings_service=embeddings_service,  # March 2026: HuggingFace embeddings (bge-large-en-v1.5)
-    )
-
     # Create atomic Ku service (lightweight ontology/reference nodes)
     from core.services.ku_service import KuService
 
@@ -113,16 +95,25 @@ def _create_learning_services(
     user_progress = UserProgressService(query_executor)
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
 
-    # Create path step service (PS operations)
-    # PsBackend now passed in from _backends.py (merged Lesson capabilities)
+    # Create path step service (PS operations — merged Lesson capabilities)
+    # PsBackend now passed in from _backends.py with all 5 lesson mixins
+    # PsService absorbs ALL former LessonService capabilities (Phase 3-4 merge)
     ps_service = PsService(
         backend=knowledge_backend,
         executor=query_executor,
         graph_intel=graph_intelligence,
         event_bus=event_bus,
+        # Merged lesson dependencies
+        content_repo=content_adapter,  # Neo4jContentAdapter implements ContentOperations protocol
+        ku_backend=atomic_ku_backend,
+        chunking_service=chunking_service,
+        query_builder=unified_query_builder,  # QueryBuilder is now REQUIRED
+        user_service=user_service,  # KU-Activity Integration
+        vector_search_service=vector_search_service,  # GenAI vector search
+        embeddings_service=embeddings_service,  # HuggingFace embeddings (bge-large-en-v1.5)
     )
 
-    # Create path service (LP operations - delegates LS operations to PsService)
+    # Create path service (LP operations - delegates PS operations to PsService)
     # January 2026: Intelligence created internally (unified with other domains)
     # Backend created here (composition root) — core services never import adapters
     from adapters.persistence.neo4j.domain_backends import LpBackend
@@ -131,8 +122,8 @@ def _create_learning_services(
     learning_paths = LpService(
         backend=lp_backend,
         executor=query_executor,
-        ps_service=ps_service,  # Delegate LS operations to PsService
-        ku_service=ku_service,
+        ps_service=ps_service,  # Delegate PS operations to PsService
+        ku_service=ps_service,  # PsService absorbs former LessonService role
         progress_service=user_progress,
         graph_intelligence_service=graph_intelligence,  # 4 graph queries (REQUIRED)
         event_bus=event_bus,  # Event-driven architecture
@@ -149,12 +140,8 @@ def _create_learning_services(
         chunking_service=chunking_service,
     )
 
-    # Adaptive SEL removed — now LessonService.adaptive sub-service (February 2026)
-
     # NOTE: Askesis creation MOVED to compose_services() (January 2026)
     # This allows intelligence_factory to be passed at construction time (not post-wired)
-    # Askesis needs: learning_paths.intelligence, graph_intelligence, user_service, llm_service,
-    # embeddings_service, ku_service, tasks/goals/habits/events services
 
     # Create cross-domain service (circular import resolved via adaptive_lp_models.py)
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
@@ -165,12 +152,12 @@ def _create_learning_services(
 
     return {
         "learning_intelligence": learning_paths.intelligence,  # Access via facade
-        "lesson_service": ku_service,
+        "lesson_service": ps_service,  # Backward compat alias — PsService IS the merged entity
         "atomic_ku_service": atomic_ku_service,
         "user_progress": user_progress,
         # unified_progress DELETED (January 2026)
         "learning_paths": learning_paths,
-        "path_steps": ps_service,  # NEW: Dedicated LS service
+        "path_steps": ps_service,  # Same instance as "lesson_service"
         "ku_retrieval": ku_retrieval,
         # NOTE: "askesis" MOVED to compose_services() (January 2026)
         "cross_domain": cross_domain_service,

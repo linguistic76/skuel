@@ -664,7 +664,7 @@ async def compose_services(
                 llm_caller=llm_caller,
                 executor=query_executor,  # Creates ExerciseReport entity + REPORT_FOR relationship
                 ku_interaction_service=learning_services[
-                    "lesson_service"
+                    "path_steps"
                 ].mastery,  # Closes mastery loop
             )
 
@@ -752,7 +752,7 @@ async def compose_services(
             submissions_backend=submissions_backend,
             exercise_backend=exercise_backend,
             group_backend=group_backend,
-            ku_interaction_service=learning_services["lesson_service"].mastery,
+            ku_interaction_service=learning_services["path_steps"].mastery,
             event_bus=event_bus,
         )
         logger.info("✅ TeacherReviewService created (ADR-040)")
@@ -816,7 +816,7 @@ async def compose_services(
         lifepath_service = LifePathService(
             executor=query_executor,
             lp_service=learning_services["learning_paths"],
-            ku_service=learning_services["lesson_service"],
+            ku_service=learning_services["path_steps"],
             user_service=user_service,
             llm_service=llm_service,
         )
@@ -836,7 +836,7 @@ async def compose_services(
             # Finance Domain (1) - admin-only bookkeeping
             finance_service=core_services["finance"],
             # Curriculum Domains (3) - admin creates, all read
-            ku_service=learning_services["lesson_service"],
+            ku_service=learning_services["path_steps"],
             ps_service=learning_services["path_steps"],
             lp_service=learning_services["learning_paths"],
             # Meta Domains (3)
@@ -993,7 +993,7 @@ async def compose_services(
             principle_service=activity_services["principles"],
             content_enrichment=content_enrichment,  # ✅ ContentEnrichmentService - Layer 2 reporting
             user_service=user_service,  # Life path alignment
-            ku_service=learning_services["lesson_service"],  # Layer 0 reporting
+            ku_service=learning_services["path_steps"],  # Layer 0 reporting
             lp_service=learning_services["learning_paths"],  # Layer 0 reporting
             event_bus=event_bus,  # Event-driven report generation
         )
@@ -1060,8 +1060,8 @@ async def compose_services(
             principles=activity_services["principles"],
             # Finance (NOT an Activity Domain - separate facade)
             finance=core_services["finance"],
-            # Knowledge
-            lesson=learning_services["lesson_service"],
+            # Knowledge (Lesson merged into PathStep — both point to PsService)
+            lesson=learning_services["path_steps"],
             ku=learning_services["atomic_ku_service"],
             activity_knowledge_intelligence=learning_services["activity_knowledge_intelligence"],
             cross_domain=learning_services["cross_domain"],

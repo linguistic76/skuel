@@ -279,23 +279,23 @@ def _wire_event_subscribers(
     # Knowledge mastery → Learning Path progress update
     lp_service = learning_services["learning_paths"]
     ps_service = learning_services["path_steps"]
-    ku_service_for_mastery = learning_services["lesson_service"]
+    ku_service_for_mastery = learning_services["path_steps"]
 
     event_bus.subscribe(KnowledgeMastered, lp_service.progress.handle_knowledge_mastered)
     logger.info(
         "✅ LpProgressService subscribed to KnowledgeMastered (automatic LP progress updates)"
     )
 
-    # Knowledge mastery → Lesson completion detection
+    # Knowledge mastery → PathStep completion detection
     event_bus.subscribe(KnowledgeMastered, ku_service_for_mastery.mastery.handle_knowledge_mastered)
     logger.info(
-        "✅ LessonMasteryService subscribed to KnowledgeMastered (lesson completion detection)"
+        "✅ PsMasteryService subscribed to KnowledgeMastered (path step completion detection)"
     )
 
-    # Lesson completion → LS progress update
+    # PathStep completion → PS progress update
     event_bus.subscribe(LessonCompleted, ps_service.progress.handle_lesson_completed)
     logger.info(
-        "✅ PsProgressService subscribed to LessonCompleted (automatic LS progress updates)"
+        "✅ PsProgressService subscribed to LessonCompleted (automatic PS progress updates)"
     )
 
     # LS completion → LP progress update (chain: LS→LP)
@@ -303,10 +303,10 @@ def _wire_event_subscribers(
     logger.info("✅ LpProgressService subscribed to PathStepCompleted (LS→LP progress chain)")
 
     # Event completion → Knowledge practice tracking
-    ku_service = learning_services["lesson_service"]
+    ku_service = learning_services["path_steps"]
     event_bus.subscribe(CalendarEventCompleted, ku_service.practice.handle_event_completed)
     logger.info(
-        "✅ LessonPracticeService subscribed to CalendarEventCompleted (automatic practice tracking)"
+        "✅ PsPracticeService subscribed to CalendarEventCompleted (automatic practice tracking)"
     )
 
     # Habit streak milestone → Achievement badges
@@ -379,7 +379,7 @@ def _wire_event_subscribers(
         KnowledgeBulkInformedChoice, ku_service.handle_knowledge_bulk_informed_choice
     )
 
-    logger.info("✅ LessonService subscribed to substance tracking events:")
+    logger.info("✅ PsService subscribed to substance tracking events:")
     logger.info("   - KnowledgeAppliedInTask (weight: 0.05)")
     logger.info("   - KnowledgePracticedInEvent (weight: 0.05)")
     logger.info("   - KnowledgeBuiltIntoHabit (weight: 0.10, lifestyle integration)")

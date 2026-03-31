@@ -29,7 +29,6 @@ def _wire_ai_services(
     from core.services.events.events_ai_service import EventsAIService
     from core.services.goals.goals_ai_service import GoalsAIService
     from core.services.habits.habits_ai_service import HabitsAIService
-    from core.services.lesson.lesson_ai_service import LessonAIService
     from core.services.lp.lp_ai_service import LpAIService
     from core.services.ps.ps_ai_service import PsAIService
     from core.services.principles.principles_ai_service import PrinciplesAIService
@@ -52,13 +51,8 @@ def _wire_ai_services(
             embeddings_service=embeddings_service,
         )
 
-    # Create AI services for Curriculum Domains (3)
-    ku_ai = LessonAIService(
-        backend=learning_services["lesson_service"].core.backend,
-        llm_service=llm_service,
-        embeddings_service=embeddings_service,
-    )
-    ls_ai = PsAIService(
+    # Create AI services for Curriculum Domains (2 — Lesson merged into PathStep)
+    ps_ai = PsAIService(
         backend=learning_services["path_steps"].core.backend,
         llm_service=llm_service,
         embeddings_service=embeddings_service,
@@ -69,8 +63,8 @@ def _wire_ai_services(
         embeddings_service=embeddings_service,
     )
     # Wire AI services into Curriculum Domain facades (post-construction)
-    learning_services["lesson_service"].ai = ku_ai
-    learning_services["path_steps"].ai = ls_ai
+    # lesson_service and path_steps are the same PsService instance
+    learning_services["path_steps"].ai = ps_ai
     learning_services["learning_paths"].ai = lp_ai
 
     # Create cross-cutting AI services (2)
@@ -88,6 +82,6 @@ def _wire_ai_services(
     )
 
     logger.info(
-        "✅ AI services created and wired (11 services: 6 Activity + 3 Curriculum + 2 cross-cutting)"
+        "✅ AI services created and wired (10 services: 6 Activity + 2 Curriculum + 2 cross-cutting)"
     )
     return askesis_ai, context_aware_ai

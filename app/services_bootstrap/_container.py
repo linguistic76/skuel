@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
     from core.services.ku_service import KuService
-    from core.services.lesson_service import LessonService
+    from core.services.ps_service import PsService
     from core.services.lp_service import LpService
     from core.services.ps_service import PsService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
@@ -124,12 +124,12 @@ class Services:
     # ========================================================================
     # CURRICULUM DOMAINS (3) - KU, LS, LP
     # ========================================================================
-    lesson: "LessonService | None" = None  # LessonService (units for learning)
+    lesson: "PsService | None" = None  # PsService (merged Lesson into PathStep)
     ku: "KuService | None" = None  # KuService (atomic knowledge units)
     activity_knowledge_intelligence: "ActivityKnowledgeIntelligenceService | None" = (
         None  # Knowledge intelligence for all 6 activity domains (March 2026)
     )
-    # adaptive_sel removed — absorbed into LessonService.adaptive (February 2026)
+    # adaptive_sel removed — absorbed into PsService.adaptive (February 2026)
     cross_domain: "AdaptiveLpCrossDomainService | None" = None
 
     # Content services
