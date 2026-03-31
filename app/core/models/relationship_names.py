@@ -277,7 +277,9 @@ class RelationshipName(StrEnum):
     # MOC is not a separate entity - it's a PathStep/Ku with ORGANIZES relationships.
     # An Entity "is" a MOC when it has outgoing ORGANIZES relationships.
     # =========================================================================
-    ORGANIZES = "ORGANIZES"  # (entity)-[:ORGANIZES {order: int}]->(entity) - Hierarchical organization
+    ORGANIZES = (
+        "ORGANIZES"  # (entity)-[:ORGANIZES {order: int}]->(entity) - Hierarchical organization
+    )
 
     # =========================================================================
     # LIFE PATH RELATIONSHIPS (The Destination)

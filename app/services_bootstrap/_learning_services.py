@@ -33,7 +33,6 @@ def _create_learning_services(
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
     from core.models.pathways.learning_path import LearningPath
-    from core.models.pathways.path_step import PathStep
     from core.services.entity_retrieval import EntityRetrieval
     from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService  # Intelligence created internally
@@ -114,14 +113,10 @@ def _create_learning_services(
     user_progress = UserProgressService(query_executor)
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
 
-    # Create path step service (LS operations)
-    # January 2026: graph_intel now REQUIRED for unified Curriculum architecture (ADR-030)
-    # Backend created here (composition root) — core services never import adapters
-    from adapters.persistence.neo4j.domain_backends import PsBackend
-
-    ps_backend = PsBackend(driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    # Create path step service (PS operations)
+    # PsBackend now passed in from _backends.py (merged Lesson capabilities)
     ps_service = PsService(
-        backend=ps_backend,
+        backend=knowledge_backend,
         executor=query_executor,
         graph_intel=graph_intelligence,
         event_bus=event_bus,

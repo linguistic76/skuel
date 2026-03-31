@@ -209,7 +209,7 @@ class UnifiedSharingService:
         has_share = record["has_direct_share"] or record["has_group_share"]
 
         # Curriculum entities are always accessible (shared curriculum content)
-        if entity_type in (EntityType.LESSON.value, EntityType.KU.value):
+        if entity_type in (EntityType.PATH_STEP.value, EntityType.KU.value):
             return Result.ok(True)
         if user_uid == owner_uid_val:
             return Result.ok(True)

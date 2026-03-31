@@ -855,7 +855,7 @@ class AnalyticsEngine:
             # Extract domain from ku.domain.specific format
             parts = ku_uid.split(".")
             if len(parts) >= 2 and parts[0] in (
-                EntityType.LESSON.value,
+                EntityType.PATH_STEP.value,
                 EntityType.KU.value,
                 "a",
             ):  # UID prefix, not Neo4j label

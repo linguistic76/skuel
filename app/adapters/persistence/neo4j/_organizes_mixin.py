@@ -5,7 +5,7 @@ Organizes Mixin
 ORGANIZES relationship management for domain backends.
 
 Provides hierarchy operations via ORGANIZES relationships: create, delete,
-reorder, traverse, cycle detection, and root discovery. Used by LessonBackend
+reorder, traverse, cycle detection, and root discovery. Used by PsBackend
 (and potentially KuBackend) for content organization.
 
 Requires on concrete class:

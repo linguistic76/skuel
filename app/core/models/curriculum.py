@@ -5,7 +5,7 @@ Curriculum - Curriculum Domain Base Class
 Frozen dataclass base for all curriculum-carrying entities. This is a BASE CLASS
 only — it does NOT represent a concrete entity type. Concrete leaf classes are:
 
-    Lesson(Curriculum)       → EntityType.LESSON        — a unit for learning
+    Lesson(Curriculum)       → EntityType.PATH_STEP        — a unit for learning
     PathStep(Curriculum) → EntityType.PATH_STEP
     LearningPath(Curriculum) → EntityType.LEARNING_PATH
     Exercise(Curriculum)     → EntityType.EXERCISE
@@ -21,7 +21,7 @@ Hierarchy:
     Entity (~29 fields)
     ├── Ku(Entity) +5 fields                           ← EntityType.KU (lightweight, no curriculum metadata)
     └── Curriculum(Entity) +21 fields, ~30 methods     ← BASE CLASS
-        ├── Lesson(Curriculum)                          ← EntityType.LESSON
+        ├── Lesson(Curriculum)                          ← EntityType.PATH_STEP
         ├── PathStep(Curriculum) +9 fields
         ├── LearningPath(Curriculum) +4 fields
         └── Exercise(Curriculum) +8 fields

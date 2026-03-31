@@ -53,7 +53,6 @@ from core.models.exercises.exercise import Exercise
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.ku.ku import Ku
-from core.models.lesson.lesson import Lesson
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
@@ -1289,28 +1288,6 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
         return await self.create_user_relationship(user_uid, principle_uid)
 
 
-class LessonBackend(
-    _OrganizesMixin,
-    _LearningStateMixin,
-    _SemanticMixin,
-    _KnowledgeContextMixin,
-    _AdaptiveMixin,
-    UniversalNeo4jBackend[Lesson],
-):
-    """Domain backend for Lesson (unit for learning) entities.
-
-    All methods live in focused mixins:
-    - ``_OrganizesMixin`` — ORGANIZES relationship management (12 methods)
-    - ``_LearningStateMixin`` — user progress tracking: VIEWED, IN_PROGRESS,
-      MASTERED, BOOKMARKED, MARKED_AS_READ (13 methods)
-    - ``_SemanticMixin`` — semantic relationships + graph analysis (11 methods)
-    - ``_KnowledgeContextMixin`` — context, discovery, readiness (13 methods)
-    - ``_AdaptiveMixin`` — practice, search, adaptive mastery tracking (10 methods)
-    """
-
-    # All methods provided by mixins — see class docstring for inventory.
-
-
 class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     """
     Domain backend for Submission entities.
@@ -2294,13 +2271,25 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return await self.execute_query(query, {"user_uid": user_uid})
 
 
-class PsBackend(UniversalNeo4jBackend[PathStep]):
-    """
-    Domain backend for PathStep entities.
+class PsBackend(
+    _OrganizesMixin,
+    _LearningStateMixin,
+    _SemanticMixin,
+    _KnowledgeContextMixin,
+    _AdaptiveMixin,
+    UniversalNeo4jBackend[PathStep],
+):
+    """Domain backend for PathStep entities (merged Lesson capabilities).
 
     Extends UniversalNeo4jBackend[PathStep] with:
-    - Knowledge relationship CRUD (CONTAINS_KNOWLEDGE edges)
-    - Lesson completion progress tracking
+    - Knowledge relationship CRUD (CONTAINS_KNOWLEDGE / USES_KU edges)
+    - KU completion progress tracking
+    - ``_OrganizesMixin`` — ORGANIZES relationship management (12 methods)
+    - ``_LearningStateMixin`` — user progress tracking: VIEWED, IN_PROGRESS,
+      MASTERED, BOOKMARKED, MARKED_AS_READ (13 methods)
+    - ``_SemanticMixin`` — semantic relationships + graph analysis (11 methods)
+    - ``_KnowledgeContextMixin`` — context, discovery, readiness (13 methods)
+    - ``_AdaptiveMixin`` — practice, search, adaptive mastery tracking (10 methods)
     """
 
     # ========================================================================
@@ -2386,70 +2375,40 @@ class PsBackend(UniversalNeo4jBackend[PathStep]):
         )
 
     # ========================================================================
-    # LESSON PROGRESS TRACKING
+    # KU COMPLETION PROGRESS TRACKING
     # ========================================================================
 
-    async def get_steps_containing_lesson(self, lesson_uid: str) -> Result[list[str]]:
-        """
-        Find all LSs that contain a Lesson via HAS_LESSON.
-
-        Used by PsProgressService to find which LSs to update
-        when a Lesson is completed.
-
-        Args:
-            lesson_uid: Lesson UID
-
-        Returns:
-            Result containing list of LS UIDs
-        """
-        query = """
-        MATCH (ps:Entity {entity_type: 'path_step'})-[:HAS_LESSON]->(lesson:Entity {uid: $lesson_uid})
-        RETURN DISTINCT ps.uid as ps_uid
-        """
-        result = await self.execute_query(query, {"lesson_uid": lesson_uid})
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        return Result.ok([record["ps_uid"] for record in records])
-
-    async def get_lesson_completion_progress(
+    async def get_ku_completion_progress(
         self, ps_uid: str, user_uid: UserUID
     ) -> Result[Neo4jProperties]:
-        """
-        Return total and completed Lesson counts for LS progress calculation.
+        """Return total and mastered KU counts for PathStep progress calculation.
 
-        A Lesson is "completed" when all its KUs are mastered by the user.
+        Progress = mastered_kus / total_kus (via USES_KU + CONTAINS_KNOWLEDGE).
 
         Args:
-            ps_uid: Learning Step UID
+            ps_uid: PathStep UID
             user_uid: User UID
 
         Returns:
-            Result containing dict with total_lessons and completed_lessons
+            Result containing dict with total_kus and mastered_kus
         """
         query = """
-        MATCH (ps:Entity {uid: $ps_uid})-[:HAS_LESSON]->(lesson:Entity {entity_type: 'lesson'})
-        WITH ps, collect(DISTINCT lesson) as all_lessons, count(DISTINCT lesson) as total
-        UNWIND all_lessons as lesson
-        OPTIONAL MATCH (lesson)-[:USES_KU]->(ku:Entity)
-        WITH ps, lesson, total, collect(DISTINCT ku.uid) as ku_uids, count(DISTINCT ku) as ku_count
+        MATCH (ps:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity)
+        WITH collect(DISTINCT ku) as all_kus, count(DISTINCT ku) as total
         OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
-        WHERE mastered.uid IN ku_uids
-        WITH ps, lesson, total, ku_count, count(DISTINCT mastered) as mastered_count
-        WITH total, collect(CASE WHEN ku_count > 0 AND mastered_count = ku_count THEN lesson.uid END) as completed
-        RETURN total as total_lessons,
-               size([x IN completed WHERE x IS NOT NULL]) as completed_lessons
+        WHERE mastered IN all_kus
+        RETURN total as total_kus, count(DISTINCT mastered) as mastered_kus
         """
         result = await self.execute_query(query, {"ps_uid": ps_uid, "user_uid": user_uid})
         if result.is_error:
             return Result.fail(result)
         if not result.value:
-            return Result.ok({"total_lessons": 0, "completed_lessons": 0})
+            return Result.ok({"total_kus": 0, "mastered_kus": 0})
         record = result.value[0]
         return Result.ok(
             {
-                "total_lessons": record["total_lessons"],
-                "completed_lessons": record["completed_lessons"],
+                "total_kus": record["total_kus"],
+                "mastered_kus": record["mastered_kus"],
             }
         )
 
@@ -2540,54 +2499,54 @@ class PsBackend(UniversalNeo4jBackend[PathStep]):
             title: prereq_ku.title
         }) as prereq_knowledge
 
-        // 4. Guiding principles (via Lessons)
-        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
+        // 4. Guiding principles (direct on PathStep)
+        OPTIONAL MATCH (ps)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)
         WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, collect(DISTINCT {
             uid: principle.uid,
             title: principle.title
         }) as principles
 
-        // 5. Informed choices (via Lessons)
-        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:INFORMS_CHOICE]->(choice:Choice)
+        // 5. Informed choices (direct on PathStep)
+        OPTIONAL MATCH (ps)-[:INFORMS_CHOICE]->(choice:Choice)
         WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, collect(DISTINCT {
             uid: choice.uid,
             title: choice.title
         }) as choices
 
-        // 6. Practice opportunities: Habits (via Lessons)
-        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:BUILDS_HABIT]->(habit:Habit)
+        // 6. Practice opportunities: Habits (direct on PathStep)
+        OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(habit:Habit)
         WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, collect(DISTINCT {
             uid: habit.uid,
             title: habit.title,
             current_streak: habit.current_streak
         }) as habits
 
-        // 7. Practice opportunities: Tasks (via Lessons)
-        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l7)-[:ASSIGNS_TASK]->(task:Task)
+        // 7. Practice opportunities: Tasks (direct on PathStep)
+        OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(task:Task)
         WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, collect(DISTINCT {
             uid: task.uid,
             title: task.title,
             status: task.status
         }) as tasks
 
-        // 8. Practice opportunities: Events (via Lessons)
-        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l8)-[:SCHEDULES_EVENT]->(event:Event)
+        // 8. Practice opportunities: Events (direct on PathStep)
+        OPTIONAL MATCH (ps)-[:SCHEDULES_EVENT]->(event:Event)
         WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, collect(DISTINCT {
             uid: event.uid,
             title: event.title,
             event_date: event.event_date
         }) as events
 
-        // 9. Practice opportunities: Goals (via Lessons)
-        OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l9)-[:SUPPORTS_GOAL]->(goal:Goal)
-        With ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, collect(DISTINCT {
+        // 9. Practice opportunities: Goals (direct on PathStep)
+        OPTIONAL MATCH (ps)-[:SUPPORTS_GOAL]->(goal:Goal)
+        WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, collect(DISTINCT {
             uid: goal.uid,
             title: goal.title,
             status: goal.status
         }) as goals
 
         // 10. Learning path context (if part of sequence)
-        OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ls)
+        OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[r_path:HAS_STEP|CONTAINS_STEP]->(ps)
         WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, {
             uid: lp.uid,
             name: lp.title,
@@ -2596,14 +2555,14 @@ class PsBackend(UniversalNeo4jBackend[PathStep]):
         } as path_context
 
         // 11. Dependent steps (steps that require this one)
-        OPTIONAL MATCH (dependent:Entity {entity_type: 'path_step'})-[:REQUIRES_STEP]->(ls)
+        OPTIONAL MATCH (dependent:Entity {entity_type: 'path_step'})-[:REQUIRES_STEP]->(ps)
         WITH ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices, habits, tasks, events, goals, path_context, collect({
             uid: dependent.uid,
             title: dependent.title,
             completed: dependent.completed
         }) as dependent_steps
 
-        RETURN ls, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices,
+        RETURN ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices,
                habits, tasks, events, goals, path_context, dependent_steps
         """
         return await self.execute_query(query, {"uid": uid})
@@ -2691,7 +2650,7 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
         """Get ordered steps in a learning path as raw dicts."""
         query = f"""
         MATCH (lp:Entity {{uid: $path_uid}})-[r:HAS_STEP*1..{depth}]->(ps:Entity {{entity_type: 'path_step'}})
-        RETURN ls, r[0].sequence as sequence
+        RETURN ps, r[0].sequence as sequence
         ORDER BY sequence
         """
         result = await self.execute_query(query, {"path_uid": path_uid})
@@ -2720,7 +2679,7 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
         query = """
         MATCH (lp:Entity {uid: $path_uid})
         MATCH (ps:Entity {uid: $step_uid})
-        MERGE (lp)-[r:HAS_STEP]->(ls)
+        MERGE (lp)-[r:HAS_STEP]->(ps)
         ON CREATE SET
             r.sequence = $sequence,
             r.order = $order,
@@ -2761,7 +2720,7 @@ class LpBackend(UniversalNeo4jBackend[LearningPath]):
         MATCH (lp:Entity {uid: $path_uid})-[r:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})
         WITH ps, r
         ORDER BY r.sequence
-        WITH collect(ls) as steps
+        WITH collect(ps) as steps
         UNWIND range(0, size(steps)-1) as idx
         MATCH (lp:Entity {uid: $path_uid})-[r:HAS_STEP]->(steps[idx])
         SET r.sequence = idx
@@ -3377,7 +3336,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     predicates. Typed to Entity (the base class) since sharing spans all entity types.
 
     Moves sharing Cypher from the service layer into the persistence boundary,
-    following the same pattern as LessonBackend (ORGANIZES), LpBackend (progress),
+    following the same pattern as PsBackend (ORGANIZES), LpBackend (progress),
     and ExerciseBackend (curriculum linking).
 
     See: /docs/patterns/SHARING_PATTERNS.md
@@ -4634,7 +4593,6 @@ __all__ = [
     "JournalOutputBackend",
     "KuBackend",
     "LateralRelationshipBackend",
-    "LessonBackend",
     "LpBackend",
     "PsBackend",
     "NotificationBackend",

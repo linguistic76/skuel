@@ -26,7 +26,7 @@ class HasAttributes(Protocol):
 
 # Single source of truth for embedding field mappings
 EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
-    EntityType.LESSON: ("title", "content", "summary"),
+    EntityType.PATH_STEP: ("title", "content", "summary"),
     EntityType.KU: ("title", "summary", "description"),
     EntityType.RESOURCE: ("title", "author", "content", "summary"),
     EntityType.TASK: ("title", "description"),
@@ -90,7 +90,7 @@ def build_embedding_text(
         ...     "content": "A programming language",
         ...     "summary": "High-level",
         ... }
-        >>> build_embedding_text(EntityType.LESSON, ku_data)
+        >>> build_embedding_text(EntityType.PATH_STEP, ku_data)
         'Python\\n\\nA programming language\\n\\nHigh-level'
 
         >>> # Missing fields handled gracefully
@@ -120,7 +120,7 @@ def build_embedding_text(
     # Curriculum and Resource types use double newlines for better semantic separation
     # (title, content blocks, summary are distinct concepts)
     _curriculum_types = {
-        EntityType.LESSON,
+        EntityType.PATH_STEP,
         EntityType.KU,
         EntityType.RESOURCE,
         EntityType.EXERCISE,

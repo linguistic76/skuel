@@ -20,7 +20,7 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 # Map YAML type values to EntityType/NonKuDomain (handles aliases)
 TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     # Lessons (units for learning)
-    "lesson": EntityType.LESSON,
+    "lesson": EntityType.PATH_STEP,
     # Atomic Ku (knowledge unit)
     "ku": EntityType.KU,
     # Exercises
@@ -107,7 +107,7 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
 
     # Check for MOC flag (markdown convention) — MOC is now LESSON
     if data.get("moc") is True:
-        return EntityType.LESSON
+        return EntityType.PATH_STEP
 
     # Require explicit type — no silent defaults (One Path Forward)
     if file_path.suffix.lower() == ".md":

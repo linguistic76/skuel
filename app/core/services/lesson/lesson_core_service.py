@@ -240,7 +240,7 @@ class LessonCoreService(BaseService[CurriculumOperations[Entity], Entity], Entit
         from core.utils.embedding_text_builder import build_embedding_text
 
         embedding_text = build_embedding_text(
-            EntityType.LESSON,
+            EntityType.PATH_STEP,
             {"title": title.strip(), "content": body, "summary": summary or title[:100]},
         )
         if embedding_text:

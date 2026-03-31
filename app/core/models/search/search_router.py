@@ -50,7 +50,7 @@ Usage:
     # Advanced search with graph and tag filters
     request = SearchRequest(
         query_text="machine learning",
-        entity_types=[EntityType.LESSON],
+        entity_types=[EntityType.PATH_STEP],
         connected_to_uid="ku.python-basics",
         connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
         tags_contain=["python"],
@@ -236,7 +236,7 @@ class SearchRouter:
         # Finance (singular - standalone domain group)
         NonKuDomain.FINANCE: "finance",
         # Curriculum Domains (3) - ku, ls, lp form the knowledge foundation
-        EntityType.LESSON: "lesson",
+        EntityType.PATH_STEP: "lesson",
         EntityType.PATH_STEP: "ps",
         EntityType.LEARNING_PATH: "lp",
         # Learning Loop (3) - Exercise -> Submission -> RevisedExercise
@@ -261,7 +261,7 @@ class SearchRouter:
             EntityType.CHOICE,
             EntityType.PRINCIPLE,
             # Curriculum Domains (3) - Lesson, LS, LP
-            EntityType.LESSON,
+            EntityType.PATH_STEP,
             EntityType.PATH_STEP,
             EntityType.LEARNING_PATH,
             # Learning Loop (3) - Exercise, RevisedExercise, Submission
@@ -618,9 +618,9 @@ class SearchRouter:
 
         # Map domain string to EntityType
         domain_to_entity = {
-            "knowledge": EntityType.LESSON,
-            "ku": EntityType.LESSON,
-            "lesson": EntityType.LESSON,
+            "knowledge": EntityType.PATH_STEP,
+            "ku": EntityType.PATH_STEP,
+            "lesson": EntityType.PATH_STEP,
             "ps": EntityType.PATH_STEP,
             "ls": EntityType.PATH_STEP,  # backward-compat alias
             "lp": EntityType.LEARNING_PATH,
@@ -829,7 +829,7 @@ class SearchRouter:
 
             request = SearchRequest(
                 query_text="machine learning",
-                entity_types=[EntityType.LESSON],
+                entity_types=[EntityType.PATH_STEP],
                 connected_to_uid="ku.python-basics",
                 connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
                 tags_contain=["python"],

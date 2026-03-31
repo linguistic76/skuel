@@ -2358,8 +2358,7 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # Maps EntityType to registry config key (Neo4j label string).
 # All domain entities are :Entity nodes; virtual config keys kept for lookup.
 ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
-    # Curriculum (5)
-    EntityType.LESSON: "Lesson",
+    # Curriculum (4)
     EntityType.KU: "Ku",
     EntityType.PATH_STEP: "PathStep",
     EntityType.LEARNING_PATH: "LearningPath",
@@ -2389,8 +2388,8 @@ ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
 }
 
 LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
-    # Curriculum (5)
-    "Lesson": EntityType.LESSON,
+    # Curriculum (4)
+    "Lesson": EntityType.PATH_STEP,  # alias: Lesson merged into PathStep
     "Ku": EntityType.KU,
     "PathStep": EntityType.PATH_STEP,
     "LearningPath": EntityType.LEARNING_PATH,
@@ -2418,7 +2417,7 @@ LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     # Destination (1)
     "LifePath": EntityType.LIFE_PATH,
     # Backward-compat aliases for old label keys
-    "Entity": EntityType.LESSON,
+    "Entity": EntityType.PATH_STEP,
     "Lp": EntityType.LEARNING_PATH,
     "Ls": EntityType.PATH_STEP,
 }

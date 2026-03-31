@@ -131,11 +131,11 @@ def _prepare_core(
         entity_data["uid"] = generate_uid(entity_type, file_path)
 
     # Handle content for markdown files (type-safe check)
-    if body is not None and entity_type in (EntityType.LESSON, EntityType.EXERCISE_SUBMISSION):
+    if body is not None and entity_type in (EntityType.PATH_STEP, EntityType.EXERCISE_SUBMISSION):
         entity_data["content"] = body
 
     # Lesson: normalize USES_KU UIDs and activity domain UIDs
-    if entity_type == EntityType.LESSON:
+    if entity_type == EntityType.PATH_STEP:
         lesson_uid_fields = [
             "uses_kus",
             "habit_uids",
@@ -295,7 +295,7 @@ def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
     """
     embeddable_types = {
         # Curriculum
-        EntityType.LESSON,
+        EntityType.PATH_STEP,
         EntityType.KU,
         EntityType.EXERCISE,
         EntityType.PATH_STEP,

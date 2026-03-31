@@ -37,7 +37,6 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from core.models.relationship_registry import (
     KU_CONFIG,
-    LESSON_CONFIG,
     LP_CONFIG,
     PS_CONFIG,
 )
@@ -63,6 +62,17 @@ if TYPE_CHECKING:
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
     from core.services.lp_intelligence_service import LpIntelligenceService
+    from core.services.ps.ps_adaptive_service import PsAdaptiveService
+    from core.services.ps.ps_application_discovery_service import PsApplicationDiscoveryService
+    from core.services.ps.ps_context_service import PsContextService
+    from core.services.ps.ps_core_service import PsCoreService
+    from core.services.ps.ps_graph_service import PsGraphService
+    from core.services.ps.ps_intelligence_service import PsIntelligenceService
+    from core.services.ps.ps_mastery_service import PsMasteryService
+    from core.services.ps.ps_organization_service import PsOrganizationService
+    from core.services.ps.ps_practice_service import PsPracticeService
+    from core.services.ps.ps_search_service import PsSearchService
+    from core.services.ps.ps_semantic_service import PsSemanticService
     from core.services.ps_service import PsService
 
 # Type vars for generics
@@ -231,11 +241,140 @@ def create_curriculum_sub_services(
     )
 
 
+def create_ps_sub_services(
+    backend: Any,
+    content_repo: Any | None,
+    chunking_service: Any | None,
+    graph_intelligence_service: Any,
+    query_builder: "QueryBuilderOperations | None",
+    event_bus: "EventBusOperations | None",
+    executor: Any | None = None,
+    user_service: Any | None = None,
+    vector_search_service: Any | None = None,
+    embeddings_service: Any | None = None,
+) -> "PsSubServices":
+    """Factory function to create all 12 PsService sub-services.
+
+    Mirrors create_lesson_sub_services() — PsService absorbs all Lesson capabilities.
+
+    Creation Order:
+    1. UnifiedRelationshipService (backend, config, graph_intel)
+    2. PsIntelligenceService (backend, graph_intel, relationships, user_service)
+    3. PsCoreService (backend, event_bus)
+    4. PsSearchService (backend, content_repo, intelligence, query_builder, vector_search, embeddings)
+    5. PsGraphService (repo, graph_intel)
+    6. PsSemanticService (repo, intelligence)
+    7. PsPracticeService (backend, event_bus)
+    8. PsMasteryService (backend, event_bus)
+    9. PsAdaptiveService (backend, user_service)
+    10. PsApplicationDiscoveryService (repo)
+    11. PsContextService (repo)
+    12. PsOrganizationService (created by facade — needs service reference)
+    """
+    from core.services.ps.ps_adaptive_service import PsAdaptiveService
+    from core.services.ps.ps_application_discovery_service import PsApplicationDiscoveryService
+    from core.services.ps.ps_context_service import PsContextService
+    from core.services.ps.ps_core_service import PsCoreService
+    from core.services.ps.ps_graph_service import PsGraphService
+    from core.services.ps.ps_mastery_service import PsMasteryService
+    from core.services.ps.ps_organization_service import PsOrganizationService
+    from core.services.ps.ps_practice_service import PsPracticeService
+    from core.services.ps.ps_search_service import PsSearchService
+    from core.services.ps.ps_semantic_service import PsSemanticService
+    from core.services.ps.ps_intelligence_service import PsIntelligenceService
+
+    # Step 1: Create relationship service (needed by intelligence)
+    relationships = UnifiedRelationshipService(
+        backend=backend,
+        config=PS_CONFIG,
+        graph_intel=graph_intelligence_service,
+    )
+
+    # Step 2: Create intelligence BEFORE core (circular dependency)
+    intelligence = PsIntelligenceService(
+        backend=backend,
+        graph_intelligence_service=graph_intelligence_service,
+        relationship_service=relationships,
+        user_service=user_service,
+    )
+
+    # Step 3: Create core
+    core = PsCoreService(backend=backend, event_bus=event_bus)
+
+    # Step 4: Create search (with optional vector search)
+    search = PsSearchService(
+        backend=backend,
+        content_repo=content_repo,
+        intelligence=intelligence,
+        query_builder=query_builder,
+        vector_search_service=vector_search_service,
+        embeddings_service=embeddings_service,
+    )
+
+    # Step 5: Create graph
+    graph = PsGraphService(repo=backend, graph_intel=graph_intelligence_service)
+
+    # Step 6: Create semantic
+    semantic = PsSemanticService(repo=backend, intelligence=intelligence)
+
+    # Step 7: Create practice (event-driven)
+    practice = PsPracticeService(backend=backend, event_bus=event_bus)
+
+    # Step 8: Create mastery (pedagogical tracking)
+    mastery = PsMasteryService(backend=backend, event_bus=event_bus)
+
+    # Step 9: Create adaptive
+    adaptive = PsAdaptiveService(backend=backend, user_service=user_service)
+
+    # Step 10: Create application discovery
+    application_discovery = PsApplicationDiscoveryService(repo=backend)
+
+    # Step 11: Create context service
+    context_service = PsContextService(repo=backend)
+
+    # Step 12: Organization — placeholder, needs facade reference (set by facade post-init)
+    organization = PsOrganizationService(ps_service=None, backend=backend)  # type: ignore[arg-type]
+
+    return PsSubServices(
+        core=core,
+        search=search,
+        graph=graph,
+        semantic=semantic,
+        practice=practice,
+        mastery=mastery,
+        relationships=relationships,
+        intelligence=intelligence,
+        adaptive=adaptive,
+        application_discovery=application_discovery,
+        context_service=context_service,
+        organization=organization,
+    )
+
+
 # =============================================================================
-# DOMAIN-SPECIFIC FACTORIES
-# Lesson and LP have complex dependencies that require specialized factories.
-# LS uses the generic create_curriculum_sub_services() above.
+# DOMAIN-SPECIFIC FACTORIES (LEGACY — retained for backward compat until Phase 4+)
 # =============================================================================
+
+
+@dataclass
+class PsSubServices:
+    """Container for all PsService sub-services created by the factory.
+
+    PsService absorbs all LessonService capabilities (Phase 3 merge).
+    """
+
+    core: "PsCoreService"
+    search: "PsSearchService"
+    graph: "PsGraphService"
+    semantic: "PsSemanticService"
+    practice: "PsPracticeService"
+    mastery: "PsMasteryService"
+    relationships: "UnifiedRelationshipService"
+    intelligence: "PsIntelligenceService"
+    adaptive: "PsAdaptiveService"
+    application_discovery: "PsApplicationDiscoveryService"
+    context_service: "PsContextService"
+    organization: "PsOrganizationService"
 
 
 @dataclass
@@ -331,7 +470,7 @@ def create_lesson_sub_services(
     # Step 1: Create relationship service (needed by intelligence)
     relationships = UnifiedRelationshipService(
         backend=backend,
-        config=LESSON_CONFIG,
+        config=PS_CONFIG,  # LESSON_CONFIG merged into PS_CONFIG
         graph_intel=graph_intelligence_service,
     )
 

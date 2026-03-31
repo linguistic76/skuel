@@ -243,9 +243,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
 }
 
 _KNOWLEDGE_TYPES = frozenset({EntityType.PATH_STEP, EntityType.KU})
-_CURRICULUM_STRUCTURE_TYPES = frozenset(
-    {EntityType.LEARNING_PATH, EntityType.EXERCISE}
-)
+_CURRICULUM_STRUCTURE_TYPES = frozenset({EntityType.LEARNING_PATH, EntityType.EXERCISE})
 _CONTENT_PROCESSING_TYPES = frozenset(
     {
         EntityType.EXERCISE_SUBMISSION,

@@ -246,9 +246,9 @@ class ParsedActivityLine:
         Check if this is a Lesson activity.
 
         Returns:
-            True if EntityType.LESSON is in contexts
+            True if EntityType.PATH_STEP is in contexts
         """
-        return EntityType.LESSON in self.contexts
+        return EntityType.PATH_STEP in self.contexts
 
     def is_ls(self) -> bool:
         """
@@ -346,7 +346,7 @@ class ParsedActivityLine:
             [
                 link["id"]
                 for link in self.links
-                if link.get("type") in (EntityType.LESSON.value, EntityType.KU.value)
+                if link.get("type") in (EntityType.PATH_STEP.value, EntityType.KU.value)
             ]
         )
         return uids
@@ -1023,7 +1023,7 @@ class ActivityDSLParser:
                     link_id = parts[1].strip()
 
                     # Normalize DSL prefix to EntityType value
-                    # e.g. @link(ku:...) -> type="lesson" (EntityType.LESSON)
+                    # e.g. @link(ku:...) -> type="lesson" (EntityType.PATH_STEP)
                     normalized = EntityType.from_string(link_type)
                     if normalized is not None:
                         link_type = normalized.value

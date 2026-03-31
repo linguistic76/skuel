@@ -15,11 +15,11 @@ BACKENDS IN USE (services_bootstrap.py)
 **Domain-specific backends:**
     TasksBackend[Task], GoalsBackend[Goal], HabitsBackend[Habit]
     EventsBackend[Event], ChoicesBackend[Choice], PrinciplesBackend[Principle]
-    LessonBackend[Lesson], LpBackend[LearningPath], ExerciseBackend[Exercise]
+    PsBackend[PathStep], LpBackend[LearningPath], ExerciseBackend[Exercise]
     SubmissionsBackend[Submission]
 
 **Generic backends (UniversalNeo4jBackend[T]):**
-    PathStep, ExpensePure, InvoicePure, ActivityReport
+    ExpensePure, InvoicePure, ActivityReport
     HabitCompletion, Transcription, PrincipleReflection, UserProgress, Askesis
 
 NOT USING THIS BACKEND

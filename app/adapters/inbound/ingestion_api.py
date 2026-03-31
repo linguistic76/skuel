@@ -398,9 +398,9 @@ def create_ingestion_api_routes(
             from core.models.enums.entity_enums import EntityType
 
             domain_to_entity = {
-                "lesson": EntityType.LESSON,
-                "article": EntityType.LESSON,
-                "ku": EntityType.LESSON,
+                "lesson": EntityType.PATH_STEP,
+                "article": EntityType.PATH_STEP,
+                "ku": EntityType.PATH_STEP,
                 "ps": EntityType.PATH_STEP,
                 "ls": EntityType.PATH_STEP,  # backward-compat alias
                 "lp": EntityType.LEARNING_PATH,

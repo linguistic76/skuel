@@ -8,7 +8,7 @@ Manages learning-state relationships between User and Entity nodes:
 VIEWED, IN_PROGRESS, MASTERED, MARKED_AS_READ, BOOKMARKED.
 
 These methods are entity-agnostic internally (they operate on :Entity + :User
-nodes), enabling reuse by any curriculum backend — not just LessonBackend.
+nodes), enabling reuse by any curriculum backend — not just PsBackend.
 
 Requires on concrete class:
     execute_query, logger  (provided by UniversalNeo4jBackend)

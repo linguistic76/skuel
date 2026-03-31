@@ -150,11 +150,11 @@ class EntityIngestionConfig:
 # See: core/models/relationship_registry.py (single source of truth)
 # See: /docs/decisions/ADR-026-unified-relationship-registry.md
 ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
-    EntityType.LESSON: EntityIngestionConfig(
+    EntityType.PATH_STEP: EntityIngestionConfig(
         entity_label="Lesson",
         uid_prefix="l",
         required_fields=("title", "content"),
-        relationship_config=generate_ingestion_relationship_config(EntityType.LESSON),
+        relationship_config=generate_ingestion_relationship_config(EntityType.PATH_STEP),
     ),
     EntityType.EXERCISE: EntityIngestionConfig(
         entity_label="Exercise",

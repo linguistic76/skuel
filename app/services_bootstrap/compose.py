@@ -262,7 +262,7 @@ async def compose_services(
         invoice_backend = backends["invoice_backend"]
         transcription_backend = backends["transcription_backend"]
         users_backend = backends["users_backend"]
-        knowledge_backend = backends["knowledge_backend"]
+        ps_backend = backends["ps_backend"]
         ku_backend = backends["ku_backend"]
         principles_backend = backends["principles_backend"]
         # reflection_backend shelved (2026-03-28)
@@ -499,7 +499,7 @@ async def compose_services(
         learning_services = _create_learning_services(
             driver=driver,
             progress_backend=progress_backend,
-            knowledge_backend=knowledge_backend,
+            knowledge_backend=ps_backend,
             atomic_ku_backend=ku_backend,
             content_adapter=content_adapter,
             chunking_service=chunking_service,

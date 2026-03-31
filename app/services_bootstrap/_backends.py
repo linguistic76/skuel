@@ -25,8 +25,8 @@ def create_all_backends(
         GoalsBackend,
         HabitsBackend,
         KuBackend,
-        LessonBackend,
         PrinciplesBackend,
+        PsBackend,
         SubmissionsBackend,
         TasksBackend,
     )
@@ -91,13 +91,13 @@ def create_all_backends(
 
     # IDENTITY/FOUNDATION - Use dedicated UserBackend (no DTO conversion lifecycle)
     from adapters.persistence.neo4j.user_backend import UserBackend
-    from core.models.lesson.lesson import Lesson
+    from core.models.pathways.path_step import PathStep
 
     users_backend = UserBackend(driver)
-    knowledge_backend = LessonBackend(
+    ps_backend = PsBackend(
         driver,
-        NeoLabel.LESSON,
-        Lesson,
+        NeoLabel.PATH_STEP,
+        PathStep,
         prometheus_metrics=prometheus_metrics,
         base_label=NeoLabel.ENTITY,
     )
@@ -169,7 +169,7 @@ def create_all_backends(
         "invoice_backend": invoice_backend,
         "transcription_backend": transcription_backend,
         "users_backend": users_backend,
-        "knowledge_backend": knowledge_backend,
+        "ps_backend": ps_backend,
         "ku_backend": ku_backend,
         "principles_backend": principles_backend,
         "reflection_backend": reflection_backend,
