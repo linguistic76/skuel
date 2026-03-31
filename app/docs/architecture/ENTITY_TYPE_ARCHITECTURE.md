@@ -353,7 +353,7 @@ Teacher-created revision of an Exercise that addresses specific `ExerciseReport`
 - `FULFILLS_EXERCISE` ← Submission (student submits against this)
 
 **Service:** `core/services/revised_exercises/revised_exercise_service.py`
-**See:** `/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md`
+**See:** `/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md`
 
 ### Groups — Teacher-Student Organization
 

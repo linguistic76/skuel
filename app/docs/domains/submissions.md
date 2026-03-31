@@ -112,6 +112,6 @@ Created via `AssessmentService.create_assessment()` (delegated from `Submissions
 ## See Also
 
 - [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md) - Content/Processing section
-- [Four-Phased Learning Loop](../architecture/FOUR_PHASED_LEARNING_LOOP.md) - The core loop
+- [Learning Loop Architecture](../architecture/LEARNING_LOOP_ARCHITECTURE.md) - The core loop
 - [Sharing Patterns](../patterns/SHARING_PATTERNS.md) - Three-level visibility
 - [ADR-040](../decisions/ADR-040-teacher-assignment-workflow.md) - Teacher assignment workflow

@@ -162,7 +162,7 @@ def create_day_cell(
     # Build occurrence indicators
     occurrence_elements = []
     for occ in occurrences:
-        icon = "✅" if occ.status == "done" else "⏭️" if occ.status == "skipped" else "❌"
+        icon = occ.status.get_emoji()
         occurrence_elements.append(Span(icon, cls="text-xs mr-1", title=occ.notes or ""))
 
     # More indicator

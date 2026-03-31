@@ -16,7 +16,7 @@ from core.models.type_hints import EntityUID
 
 
 class ReportCreateRequest(CreateRequestBase):
-    """Create a submission report (SUBMISSION_REPORT type)."""
+    """Create an exercise report (EXERCISE_REPORT type)."""
 
     title: str = Field(min_length=1, max_length=200, description="Report title")
     parent_entity_uid: EntityUID = Field(description="Assignment Ku being reviewed")
@@ -28,7 +28,7 @@ class ReportCreateRequest(CreateRequestBase):
 
 
 class AssessmentCreateRequest(BaseModel):
-    """Request model for creating a teacher assessment (SUBMISSION_REPORT entity)."""
+    """Request model for creating a teacher assessment (ExerciseReport entity)."""
 
     subject_uid: str = Field(..., description="Student being assessed")
     title: str = Field(..., min_length=1, max_length=500, description="Assessment title")

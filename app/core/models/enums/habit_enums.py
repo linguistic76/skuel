@@ -53,6 +53,7 @@ class CompletionStatus(StrEnum):
     More nuanced than just complete/incomplete to track quality.
     """
 
+    PENDING = "pending"
     DONE = "done"
     PARTIAL = "partial"
     SKIPPED = "skipped"
@@ -66,6 +67,7 @@ class CompletionStatus(StrEnum):
     def get_emoji(self) -> str:
         """Get emoji representation."""
         emojis = {
+            CompletionStatus.PENDING: "⏳",
             CompletionStatus.DONE: "✅",
             CompletionStatus.PARTIAL: "⚡",
             CompletionStatus.SKIPPED: "⏭️",

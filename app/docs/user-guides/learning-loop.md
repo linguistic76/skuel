@@ -279,7 +279,7 @@ The loop (Layer 1) generates graph relationships (Layer 4) as the learner works.
 
 ## Reference Documentation
 
-- `/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md` — Architecture overview
+- `/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md` — Architecture overview
 - `/docs/architecture/REPORT_ARCHITECTURE.md` — Report system design
 - `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — Askesis vision and pedagogy
 - `/docs/decisions/ADR-038-content-sharing-model.md` — Content sharing model

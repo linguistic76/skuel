@@ -14,7 +14,7 @@ Teacher actions produce student notifications:
 
 Event handlers are registered in bootstrap via functools.partial for dependency injection.
 
-See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
+See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 
 from core.events.submission_events import (

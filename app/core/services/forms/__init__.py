@@ -2,7 +2,7 @@
 Forms Services
 ==============
 
-FormTemplateService — CRUD + article linking for admin-created form templates.
+FormTemplateService — CRUD + PathStep linking for admin-created form templates.
 FormSubmissionService — Submit, list, delete, and share user form responses.
 """
 

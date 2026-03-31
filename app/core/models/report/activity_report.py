@@ -5,7 +5,7 @@ ActivityReport - Activity Report Domain Model
 Frozen dataclass for AI-generated (or human-written) feedback about a user's
 activity patterns over a time period (EntityType.ACTIVITY_REPORT).
 
-Distinct from SUBMISSION_REPORT — which responds to a specific submitted artifact.
+Distinct from ExerciseReport — which responds to a specific submitted artifact.
 ActivityReport responds to a user's aggregate behavior over a time window.
 
 ProcessorType discriminates the source:
@@ -16,7 +16,7 @@ ProcessorType discriminates the source:
 Inherits from UserOwnedEntity directly (NOT Submission — no file fields apply).
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
-See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
+See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass, field
@@ -39,7 +39,7 @@ class ActivityReport(UserOwnedEntity):
     Immutable domain model for Activity Report entities (EntityType.ACTIVITY_REPORT).
 
     Represents feedback about a user's aggregate activity patterns over a time period.
-    Distinct from SUBMISSION_REPORT (which responds to a specific submission artifact).
+    Distinct from ExerciseReport (which responds to a specific submission artifact).
 
     Fields:
         processor_type: Source of the feedback (AUTOMATIC/LLM/HUMAN)

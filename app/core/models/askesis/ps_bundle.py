@@ -61,7 +61,7 @@ class PsBundle:
     # Semantic relationships between bundle entities
     edges: tuple[dict, ...] = ()
 
-    # Learning objectives extracted from Lessons in the bundle
+    # Learning objectives extracted from PathSteps in the bundle
     learning_objectives: tuple[str, ...] = ()
 
     def contains_ku(self, ku_uid: str) -> bool:

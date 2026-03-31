@@ -397,7 +397,7 @@ def create_progress_report_api_routes(
                                    to this user's entities (entity, role, when shared)
                 report_schedule  — active automatic report schedule + last generated
 
-            See: Privacy declaration in /docs/architecture/FEEDBACK_ARCHITECTURE.md
+            See: Privacy declaration in /docs/architecture/REPORT_ARCHITECTURE.md
             See: ADR-042 (Privacy as First-Class Citizen)
             """
             user_uid = require_authenticated_user(request)

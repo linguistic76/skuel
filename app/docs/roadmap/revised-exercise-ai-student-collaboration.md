@@ -4,7 +4,7 @@ created: 2026-03-07
 status: deferred
 priority: post-mvp
 related:
-- FOUR_PHASED_LEARNING_LOOP.md
+- LEARNING_LOOP_ARCHITECTURE.md
 - REPORT_ARCHITECTURE.md
 ---
 

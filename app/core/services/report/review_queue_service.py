@@ -12,7 +12,7 @@ is a different entity type with a different lifecycle:
 ReviewRequest nodes are not ActivityReport entities. They are transient workflow
 markers consumed when the admin completes the review.
 
-See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
+See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 from datetime import datetime

@@ -141,7 +141,7 @@ class ReportSubmitted(BaseEvent):
     Published when a teacher submits written feedback on a submission.
 
     Distinct from SubmissionApproved: this fires when the teacher writes
-    feedback text (creating a SUBMISSION_REPORT entity) but the submission
+    feedback text (creating an ExerciseReport entity) but the submission
     is not necessarily approved. The student is informed their work has
     been reviewed and feedback is waiting.
 
@@ -227,7 +227,7 @@ class ActivitySnapshotAccessed(BaseEvent):
     - Trust and transparency: users can query their own audit log
 
     See: ADR-042 (Privacy as First-Class Citizen)
-    See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
+    See: /docs/architecture/REPORT_ARCHITECTURE.md
     """
 
     subject_uid: str  # User whose activity data was accessed

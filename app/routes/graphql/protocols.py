@@ -51,7 +51,7 @@ class CurriculumEntityLike(Protocol):
 
     Any object satisfying this protocol can be used in GraphQL resolvers
     that need curriculum entity data. This includes:
-    - Lesson, Ku (domain models)
+    - PathStep, Ku (domain models)
     - EntityDTO (data transfer object)
     - Any other object with these attributes
 
@@ -75,7 +75,7 @@ class KnowledgeNodeLike(Protocol):
     Structural contract for objects convertible to KnowledgeNode.
 
     Captures the implicit contract that KnowledgeNode.from_dto() relied on
-    via ``Any``. Satisfied by Lesson, CurriculumDTO, EntityDTO, etc.
+    via ``Any``. Satisfied by PathStep, CurriculumDTO, EntityDTO, etc.
     """
 
     uid: str

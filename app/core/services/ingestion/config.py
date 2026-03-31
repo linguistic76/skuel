@@ -119,7 +119,7 @@ def generate_ingestion_relationship_config(
 class EntityIngestionConfig:
     """Configuration for ingesting a specific entity type."""
 
-    entity_label: str  # Neo4j domain label (e.g., "Lesson", "Task")
+    entity_label: str  # Neo4j domain label (e.g., "PathStep", "Task")
     uid_prefix: str  # UID prefix (e.g., "ku", "task")
     relationship_config: dict[str, RelationshipConfig] | None = None
     required_fields: tuple[str, ...] = ()

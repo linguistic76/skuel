@@ -100,7 +100,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Enum Architecture](architecture/ENUM_ARCHITECTURE.md)** | **2026-03-05** | **~330** |
 | **[Priority & Confidence Architecture](architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md)** | **2026-03-05** | **~130** |
 | [Finance Categories System](architecture/FINANCE_CATEGORIES_GUIDE.md) | 2025-11-27 | 562 |
-| **[Five-Phased Learning Loop](architecture/FOUR_PHASED_LEARNING_LOOP.md)** | **2026-03-07** | **~130** |
+| **[Learning Loop Architecture](architecture/LEARNING_LOOP_ARCHITECTURE.md)** | **2026-03-07** | **~130** |
 | **[Learning Progress Event Chain](architecture/LEARNING_PROGRESS_EVENT_CHAIN.md)** | **2026-03-15** | **~120** |
 | [Knowledge Substance Philosophy](architecture/knowledge_substance_philosophy.md) | 2025-10-17 | 371 |
 | **[Type Safety Design Philosophy](architecture/TYPE_SAFETY_DESIGN_PHILOSOPHY.md)** | **2026-03-27** | **Why types matter for SKUEL's ontology, security, and raw-to-typed lifecycle** |

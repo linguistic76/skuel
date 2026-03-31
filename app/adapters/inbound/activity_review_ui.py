@@ -16,7 +16,7 @@ Routes:
 - GET /activity-review/snapshot-fragment  — HTMX domain snapshot fragment
 - POST /activity-review/submit-feedback   — HTMX feedback submission fragment
 
-See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
+See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 from typing import TYPE_CHECKING, Any

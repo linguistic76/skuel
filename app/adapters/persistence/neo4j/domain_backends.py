@@ -1293,7 +1293,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     Domain backend for Submission entities.
 
     Uses NeoLabel.ENTITY (not NeoLabel.SUBMISSION) because submissions span
-    3 EntityTypes: SUBMISSION, JOURNAL, SUBMISSION_REPORT.
+    2 EntityTypes: SUBMISSION and EXERCISE_REPORT (via SubmissionsBackend).
 
     Sharing and access control live in SharingBackend + UnifiedSharingService,
     operating across all entity types.
@@ -1648,7 +1648,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         return await self.execute_query(query, params)
 
     async def get_report_history(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get all SUBMISSION_REPORT nodes linked to a submission via REPORT_FOR."""
+        """Get all ExerciseReport nodes linked to a submission via REPORT_FOR."""
         query = f"""
         MATCH (fb:Entity:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(submission:Entity:Submission {{uid: $submission_uid}})
         OPTIONAL MATCH (teacher:User)-[:{RelationshipName.OWNS.value}]->(fb)
@@ -1664,7 +1664,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         return await self.execute_query(query, {"submission_uid": submission_uid})
 
     async def create_report_node(self, params: dict[str, Any]) -> Result[list[Neo4jProperties]]:
-        """Create SUBMISSION_REPORT node, link via REPORT_FOR, share with student, update submission.
+        """Create ExerciseReport node, link via REPORT_FOR, share with student, update submission.
 
         Requires ``allowed_from_statuses`` in params — a Cypher-level guard that
         ensures the submission's current status is valid for the requested transition.

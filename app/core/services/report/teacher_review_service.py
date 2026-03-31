@@ -14,7 +14,7 @@ report round a first-class graph entity — searchable, queryable, and
 supporting revision cycles.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
-See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
+See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 
 from datetime import datetime

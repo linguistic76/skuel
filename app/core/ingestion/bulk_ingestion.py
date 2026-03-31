@@ -512,9 +512,9 @@ RETURN count(n) as processed
 
             # CALL unit subquery: uses MATCH (not MERGE) to only link existing
             # targets. The old FOREACH/MERGE pattern created stub nodes with
-            # incomplete labels (e.g., :Entity without :Lesson), causing
+            # incomplete labels (e.g., :Entity without :PathStep), causing
             # duplicate nodes when the real entity was later ingested with
-            # its full multi-label set (:Entity:Lesson).
+            # its full multi-label set (:Entity:PathStep).
             #
             # MATCH silently skips missing targets (0 rows → no relationship).
             # Unit subqueries (no RETURN) preserve outer rows regardless of

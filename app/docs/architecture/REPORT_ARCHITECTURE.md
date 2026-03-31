@@ -12,7 +12,7 @@ tags:
 - submissions
 - exercise
 related:
-- FOUR_PHASED_LEARNING_LOOP.md
+- LEARNING_LOOP_ARCHITECTURE.md
 - ADR-038-content-sharing-model.md
 - ADR-040-teacher-assignment-workflow.md
 related_skills:
@@ -562,7 +562,7 @@ User annotates report (additive or revision mode)
 
 ## See Also
 
-- [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) — Entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
+- [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — Entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
 - [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md)
 - [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md)

@@ -14,7 +14,7 @@ ActivityReport is NOT a Submission subtype — it has no file fields. It
 responds to a user's aggregate activity patterns over a time window.
 
 See: /docs/patterns/three_tier_type_system.md
-See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
+See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 from __future__ import annotations

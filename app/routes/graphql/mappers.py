@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 def knowledge_node_from_dto(dto: KnowledgeNodeLike) -> KnowledgeNode:
     """Convert any curriculum-like object to KnowledgeNode.
 
-    Accepts Lesson, CurriculumDTO, EntityDTO, or any object satisfying
+    Accepts PathStep, CurriculumDTO, EntityDTO, or any object satisfying
     KnowledgeNodeLike protocol.
     """
     from routes.graphql.types import KnowledgeNode

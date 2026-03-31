@@ -5,7 +5,7 @@ RevisedExercise - Five-Phase Learning Loop Domain Model
 Frozen dataclass for teacher-created revised exercise instructions that
 address specific feedback gaps. Part of the five-phase learning loop:
 
-    Lesson → Exercise v1 → Submission v1 → ExerciseReport v1
+    PathStep → Exercise v1 → Submission v1 → ExerciseReport v1
                                                   ↓
                                             RevisedExercise v2 → Submission v2 → ...
 
@@ -18,7 +18,7 @@ Hierarchy:
     └── UserOwnedEntity(Entity) +2 fields (user_uid, priority)
         └── RevisedExercise(UserOwnedEntity) +12 fields
 
-See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
+See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 
 import json

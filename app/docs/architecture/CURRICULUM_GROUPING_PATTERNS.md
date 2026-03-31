@@ -287,8 +287,7 @@ Type-safe relationships between patterns:
 ```python
 # PS Path (Linear)
 HAS_STEP           # LP → PS
-HAS_LESSON         # PS → Lesson (step contains lesson, progress tracking)
-CONTAINS_KNOWLEDGE # PS → KU (primary/supporting content)
+USES_KU            # PS → KU (primary/supporting content)
 
 # MOC Path (Graph) - KU organizing KUs
 ORGANIZES          # KU → KU (with {order: int} property)

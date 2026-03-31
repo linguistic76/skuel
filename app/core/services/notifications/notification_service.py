@@ -10,7 +10,7 @@ This is infrastructure, not a domain — uses NotificationBackend for all Cypher
 Notifications are created by event handlers and consumed by the navbar badge
 and /notifications page.
 
-See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
+See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 
 from datetime import datetime

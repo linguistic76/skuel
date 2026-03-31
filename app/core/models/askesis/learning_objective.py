@@ -5,7 +5,7 @@ Structured Learning Objective — Curriculum-Aligned Assessment Target
 Extends string-based learning_objectives with structured assessment data.
 Progressive enhancement: when populated, the Socratic engine uses structured
 objectives for evaluation rubrics. When empty, falls back to string
-learning_objectives from the Lesson.
+learning_objectives from the PathStep.
 
 See: /docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md
 """

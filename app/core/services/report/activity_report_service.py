@@ -12,7 +12,7 @@ Three creation paths all converge here:
 
 Review queue management (ReviewRequest nodes) lives in ReviewQueueService.
 
-See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
+See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 from datetime import datetime, timedelta

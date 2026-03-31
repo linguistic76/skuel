@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.habit_enums import CompletionStatus
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarItem,
@@ -753,7 +754,7 @@ class CalendarService:
         return CalendarOccurrence(
             calendar_item_uid=habit.uid,
             date=occurrence_date,
-            status="pending",  # Will be updated from actual occurrence data
+            status=CompletionStatus.PENDING,
             notes="",
         )
 

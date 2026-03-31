@@ -15,7 +15,7 @@ Result stored as ActivityReport entity (EntityType.ACTIVITY_REPORT):
 
 When no LLM is configured, falls back to programmatic markdown (AUTOMATIC).
 
-See: /docs/architecture/FEEDBACK_ARCHITECTURE.md
+See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 import json

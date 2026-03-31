@@ -4,12 +4,14 @@ updated: 2026-03-15
 status: current
 category: architecture
 related:
-- FOUR_PHASED_LEARNING_LOOP.md
+- LEARNING_LOOP_ARCHITECTURE.md
 - CURRICULUM_GROUPING_PATTERNS.md
 - ../patterns/event_driven_architecture.md
 ---
 
 # Learning Progress Event Chain
+
+> **STALE (2026-03-31):** This document predates the Lesson→PathStep merge. References to "Lesson" progression and the KU→Lesson→PS→LP chain need updating. The event chain concept is still valid but entity names are outdated. Full rewrite is separate scope.
 
 > "KU mastery ripples upward through the curriculum hierarchy automatically."
 
@@ -174,7 +176,7 @@ earlier AI score.
 
 | Document | What It Covers |
 |----------|---------------|
-| [FOUR_PHASED_LEARNING_LOOP.md](/docs/architecture/FOUR_PHASED_LEARNING_LOOP.md) | The five-phase loop this chain supports |
+| [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) | The five-phase loop this chain supports |
 | [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) | KU / PS / LP hierarchy and relationships |
 | [event_driven_architecture.md](/docs/patterns/event_driven_architecture.md) | Event bus infrastructure and patterns |
 | [adaptive-learning-loop-roadmap.md](/docs/roadmap/adaptive-learning-loop-roadmap.md) | Roadmap for closing remaining feedback loops |

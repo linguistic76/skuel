@@ -15,6 +15,8 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
 
+from core.models.enums.habit_enums import CompletionStatus
+
 
 def _default_all_item_types() -> Any:
     """Default factory for all calendar item types."""
@@ -114,7 +116,7 @@ class CalendarOccurrence:
 
     calendar_item_uid: str
     date: date
-    status: str  # "done", "skipped", "partial", "missed"
+    status: CompletionStatus
     notes: str = ""
     completion_time: datetime | None = None
     value: float | None = None  # For quantified habits

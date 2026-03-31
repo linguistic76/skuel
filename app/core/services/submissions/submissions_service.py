@@ -7,7 +7,7 @@ Handles file uploads and submission record creation.
 Responsibilities:
 - Store uploaded files (local or cloud)
 - Create submission records in Neo4j
-- Basic CRUD for user-owned submissions (SUBMISSION, ACTIVITY_REPORT, SUBMISSION_REPORT)
+- Basic CRUD for user-owned submissions (SUBMISSION, ACTIVITY_REPORT, EXERCISE_REPORT)
 - Query by type, status, user
 
 Does NOT handle:
