@@ -212,15 +212,15 @@ class PsService:
         # Create all 12 sub-services via factory
         subs: PsSubServices = create_ps_sub_services(
             backend=backend,
-            content_repo=content_repo,
-            chunking_service=chunking_service,
+            _content_repo=content_repo,
+            _chunking_service=chunking_service,
             graph_intelligence_service=graph_intel,
-            query_builder=query_builder,
+            _query_builder=query_builder,
             event_bus=event_bus,
-            executor=executor,
+            _executor=executor,
             user_service=user_service,
-            vector_search_service=vector_search_service,
-            embeddings_service=embeddings_service,
+            _vector_search_service=vector_search_service,
+            _embeddings_service=embeddings_service,
         )
 
         # Assign sub-services from factory
@@ -289,65 +289,24 @@ class PsService:
     # CRUD OPERATIONS PROTOCOL COMPATIBILITY
     # ============================================================================
 
-    async def create(
-        self,
-        title: str,
-        body: str,
-        summary: str = "",
-        tags: list[str] | None = None,
-        **metadata: Any,
-    ) -> Result[CurriculumDTO]:
-        return await self.core.create(title, body, summary, tags, **metadata)
-
-    async def get(self, uid: str) -> Result[PathStep | None]:
-        """Get method for compatibility."""
+    async def get(self, uid: str) -> Result[PathStep]:
+        """Get a path step by UID."""
         return await self.core.get(uid)
 
-    async def update(self, uid: str, **updates: Any) -> Result[CurriculumDTO]:
-        return await self.core.update(uid, **updates)
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[PathStep]:
+        """Update a path step."""
+        return await self.core.update(uid, updates)
 
     async def delete(self, uid: str) -> Result[bool]:
         return await self.core.delete(uid)
-
-    async def publish(self, uid: str) -> Result[CurriculumDTO]:
-        return await self.core.publish(uid)
-
-    async def archive(self, uid: str) -> Result[CurriculumDTO]:
-        return await self.core.archive(uid)
-
-    async def get_user_mastery(self, user_uid: UserUID, ku_uid: str) -> Result[float]:
-        return await self.core.get_user_mastery(user_uid, ku_uid)
 
     async def get_all_user_knowledge_status(
         self, user_uid: UserUID
     ) -> Result[list[dict[str, Any]]]:
         return await self.mastery.get_all_user_knowledge_status(user_uid)
 
-    async def get_chunks(self, uid: str, chunk_type: Any = None) -> Result[list[Any]]:
-        return await self.core.get_chunks(uid, chunk_type)
-
-    async def analyze_content(self, uid: str) -> Result[dict[str, Any]]:
-        return await self.core.analyze_content(uid)
-
-    async def get_with_content(self, uid: str) -> Result[tuple[PathStep, str]]:
+    async def get_with_content(self, uid: str) -> Result[tuple[PathStep, str | None]]:
         return await self.core.get_with_content(uid)
-
-    async def list(
-        self,
-        limit: int = 100,
-        offset: int = 0,
-        order_by: str | None = None,
-        order_desc: bool = False,
-        user_uid: UserUID | None = None,
-    ) -> Result[builtins.list[PathStep]]:
-        """List path steps with pagination and sorting support."""
-        return await self.list_steps(
-            limit=limit,
-            offset=offset,
-            order_by=order_by,
-            order_desc=order_desc,
-            user_uid=user_uid,
-        )
 
     async def get_steps_batch(self, uids: list[str]) -> Result[list[Any]]:
         """Get multiple path steps in one batched query."""
@@ -792,14 +751,14 @@ class PsService:
 
     async def update_step_content(
         self, uid: str, content: str, title: str | None = None
-    ) -> Result[CurriculumDTO]:
+    ) -> Result[PathStep]:
         """Update a path step's content."""
         updates: dict[str, Any] = {"content": content}
         if title:
             updates["title"] = title
         return await self.core.update(uid, updates)
 
-    async def add_step_tags(self, uid: str, tags: list[str]) -> Result[CurriculumDTO]:
+    async def add_step_tags(self, uid: str, tags: list[str]) -> Result[PathStep]:
         """Add tags to a path step."""
         result = await self.core.get(uid)
         if result.is_error:
@@ -811,7 +770,7 @@ class PsService:
         updated_tags = list(set(current_tags + tags))
         return await self.core.update(uid, {"tags": updated_tags})
 
-    async def remove_step_tags(self, uid: str, tags: list[str]) -> Result[CurriculumDTO]:
+    async def remove_step_tags(self, uid: str, tags: list[str]) -> Result[PathStep]:
         """Remove tags from a path step."""
         result = await self.core.get(uid)
         if result.is_error:
@@ -1031,10 +990,18 @@ class PsService:
     # ============================================================================
 
     async def get_user_step_context(
-        self, ku_uid: str, user_context: UserContext
+        self, ku_uid: str, _user_context: UserContext
     ) -> Result[dict[str, Any]]:
-        """Get personalized path step context for a user."""
-        return await self.intelligence.calculate_user_substance(ku_uid, user_context)
+        """Get personalized path step context for a user.
+
+        TODO: Migrate calculate_user_substance from shelved LessonIntelligenceService.
+        """
+        return Result.fail(
+            Errors.system(
+                message="User substance calculation not yet migrated to PsIntelligenceService",
+                operation="get_user_step_context",
+            )
+        )
 
     # =========================================================================
     # QUERY LAYER (FilteredContextProvider)

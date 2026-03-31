@@ -229,15 +229,15 @@ def create_curriculum_sub_services(
 
 def create_ps_sub_services(
     backend: Any,
-    content_repo: Any | None,
-    chunking_service: Any | None,
+    _content_repo: Any | None,
+    _chunking_service: Any | None,
     graph_intelligence_service: Any,
-    query_builder: "QueryBuilderOperations | None",
+    _query_builder: "QueryBuilderOperations | None",
     event_bus: "EventBusOperations | None",
-    executor: Any | None = None,
+    _executor: Any | None = None,
     user_service: Any | None = None,
-    vector_search_service: Any | None = None,
-    embeddings_service: Any | None = None,
+    _vector_search_service: Any | None = None,
+    _embeddings_service: Any | None = None,
 ) -> "PsSubServices":
     """Factory function to create all 12 PsService sub-services.
 

@@ -23,6 +23,7 @@ from adapters.inbound.route_factories import parse_int_query_param
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity_requests import AddTagsRequest, RemoveTagsRequest
+from core.models.pathways.path_step import PathStep
 from core.models.pathways.pathways_request import (
     PathStepPathRequest,
     StepContentUpdateRequest,
@@ -159,7 +160,7 @@ def create_path_steps_api_routes(
     @boundary_handler()
     async def update_step_content_route(
         request: Request, current_user: Any, uid: str
-    ) -> Result[CurriculumDTO]:
+    ) -> Result[PathStep]:
         """Update path step content. Requires ADMIN role."""
         result = await parse_json_body(request, StepContentUpdateRequest)
         if result.is_error:
@@ -172,7 +173,7 @@ def create_path_steps_api_routes(
     @boundary_handler()
     async def add_step_tags_route(
         request: Request, current_user: Any, uid: str
-    ) -> Result[CurriculumDTO]:
+    ) -> Result[PathStep]:
         """Add tags to a path step. Requires ADMIN role."""
         result = await parse_json_body(request, AddTagsRequest)
         if result.is_error:
@@ -185,7 +186,7 @@ def create_path_steps_api_routes(
     @boundary_handler()
     async def remove_step_tags_route(
         request: Request, current_user: Any, uid: str
-    ) -> Result[CurriculumDTO]:
+    ) -> Result[PathStep]:
         """Remove tags from a path step. Requires ADMIN role."""
         result = await parse_json_body(request, RemoveTagsRequest)
         if result.is_error:

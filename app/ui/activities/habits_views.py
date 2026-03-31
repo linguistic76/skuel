@@ -596,11 +596,20 @@ def filter_habits(
         ]
 
     # Sort
+    def by_streak(h: Any) -> int:
+        return -(h.current_streak or 0)
+
+    def by_name(h: Any) -> str:
+        return (h.title or "").lower()
+
+    def by_created(h: Any) -> str:
+        return str(h.created_at or "")
+
     if sort_by == "streak":
-        filtered.sort(key=lambda h: -(h.current_streak or 0))
+        filtered.sort(key=by_streak)
     elif sort_by == "name":
-        filtered.sort(key=lambda h: (h.title or "").lower())
+        filtered.sort(key=by_name)
     elif sort_by == "created":
-        filtered.sort(key=lambda h: str(h.created_at or ""), reverse=True)
+        filtered.sort(key=by_created, reverse=True)
 
     return filtered

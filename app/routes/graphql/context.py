@@ -110,7 +110,7 @@ def create_graphql_context(
     async def load_knowledge_units(keys: list[str]) -> list[Any]:
         if context.services.ps is None:
             return [None] * len(keys)
-        return await _batch_load(keys, context.services.ps.get_lessons_batch, "knowledge units")
+        return await _batch_load(keys, context.services.ps.get_steps_batch, "knowledge units")
 
     async def load_tasks(keys: list[str]) -> list[Any]:
         if context.services.tasks is None:

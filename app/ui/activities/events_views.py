@@ -559,11 +559,20 @@ def filter_events(
         filtered = [e for e in filtered if e.status and e.status.value == "completed"]
 
     # Sort
+    def by_date(e: Any) -> str:
+        return str(e.event_date or "9999-12-31")
+
+    def by_title(e: Any) -> str:
+        return (e.title or "").lower()
+
+    def by_created(e: Any) -> str:
+        return str(e.created_at or "")
+
     if sort_by == "date":
-        filtered.sort(key=lambda e: str(e.event_date or "9999-12-31"))
+        filtered.sort(key=by_date)
     elif sort_by == "title":
-        filtered.sort(key=lambda e: (e.title or "").lower())
+        filtered.sort(key=by_title)
     elif sort_by == "created":
-        filtered.sort(key=lambda e: str(e.created_at or ""), reverse=True)
+        filtered.sort(key=by_created, reverse=True)
 
     return filtered

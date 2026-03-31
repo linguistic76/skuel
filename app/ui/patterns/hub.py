@@ -103,7 +103,11 @@ def hub_cards_from_organizers(
     Returns:
         List of HubCardData sorted by order.
     """
-    sorted_children = sorted(children, key=lambda c: c.get("order") or 0)
+
+    def by_order(c: OrganizerResult) -> int:
+        return c.get("order") or 0
+
+    sorted_children = sorted(children, key=by_order)
     return [
         HubCardData(
             icon=default_icon,

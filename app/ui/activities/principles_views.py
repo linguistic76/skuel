@@ -367,7 +367,7 @@ def PrincipleDetailView(
     expr_items: list[Any] = []
     if principle.expressions:
         for expr in principle.expressions:
-            expr_text = expr.text if hasattr(expr, "text") else str(expr)
+            expr_text = getattr(expr, "text", None) or str(expr)
             expr_items.append(Li(expr_text))
     if expr_items:
         expressions_section = Div(
@@ -407,12 +407,8 @@ def PrincipleDetailView(
         if principle.alignment_history:
             history_items = []
             for assessment in principle.alignment_history[-5:]:  # Show last 5
-                al_level = (
-                    assessment.alignment_level
-                    if hasattr(assessment, "alignment_level")
-                    else str(assessment)
-                )
-                assessed_at = assessment.assessed_at if hasattr(assessment, "assessed_at") else ""
+                al_level = getattr(assessment, "alignment_level", None) or str(assessment)
+                assessed_at = getattr(assessment, "assessed_date", "")
                 h_cls = _ALIGNMENT_COLORS.get(str(al_level), "uk-text-muted")
                 history_items.append(
                     Li(
@@ -687,11 +683,20 @@ def filter_principles(
         filtered = [p for p in filtered if p.strength and p.strength.value == strength_filter]
 
     # Sort
+    def by_strength(p: Any) -> int:
+        return _STRENGTH_ORDER.get(p.strength.value if p.strength else "", 5)
+
+    def by_name(p: Any) -> str:
+        return (p.title or "").lower()
+
+    def by_created(p: Any) -> str:
+        return str(p.created_at or "")
+
     if sort_by == "strength":
-        filtered.sort(key=lambda p: _STRENGTH_ORDER.get(p.strength.value if p.strength else "", 5))
+        filtered.sort(key=by_strength)
     elif sort_by == "name":
-        filtered.sort(key=lambda p: (p.title or "").lower())
+        filtered.sort(key=by_name)
     elif sort_by == "created":
-        filtered.sort(key=lambda p: str(p.created_at or ""), reverse=True)
+        filtered.sort(key=by_created, reverse=True)
 
     return filtered

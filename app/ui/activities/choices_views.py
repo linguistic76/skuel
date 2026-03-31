@@ -537,13 +537,25 @@ def filter_choices(
         ]
 
     # Sort
+    def by_deadline(c: Any) -> str:
+        return str(c.decision_deadline or "9999-12-31")[:10]
+
+    def by_priority(c: Any) -> int:
+        return _PRIORITY_ORDER.get(str(c.priority) if c.priority else "", 4)
+
+    def by_title(c: Any) -> str:
+        return (c.title or "").lower()
+
+    def by_created(c: Any) -> str:
+        return str(c.created_at or "")
+
     if sort_by == "deadline":
-        filtered.sort(key=lambda c: str(c.decision_deadline or "9999-12-31")[:10])
+        filtered.sort(key=by_deadline)
     elif sort_by == "priority":
-        filtered.sort(key=lambda c: _PRIORITY_ORDER.get(str(c.priority) if c.priority else "", 4))
+        filtered.sort(key=by_priority)
     elif sort_by == "title":
-        filtered.sort(key=lambda c: (c.title or "").lower())
+        filtered.sort(key=by_title)
     elif sort_by == "created":
-        filtered.sort(key=lambda c: str(c.created_at or ""), reverse=True)
+        filtered.sort(key=by_created, reverse=True)
 
     return filtered
