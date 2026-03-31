@@ -24,12 +24,13 @@ When working in a file or area of the codebase, address problems you encounter �
 
 **Core Principle:** "Entity is the universal base. Ku is one type of Entity."
 
-`Entity` is the base frozen dataclass for all 19 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
+`Entity` is the base frozen dataclass for all 20 domain types. The `entity_type` field discriminates which kind of entity it is. The `parent_entity_uid` field tracks derivation chains.
 
-- **Lesson** (`EntityType.LESSON`, extends `Curriculum`) — a unit for learning. Services in `core/services/lesson/`.
+- **PathStep** (`EntityType.PATH_STEP`, extends `Curriculum`) — THE curriculum content entity. Composes Kus into learning content and sits within LearningPaths. Services in `core/services/ps/`. Facade: `PsService` in `core/services/ps_service.py`.
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
-- **Composition:** `(Lesson)-[:USES_KU]->(Ku)` — Lessons compose atomic Kus into coherent learning content.
-- **Learning loop:** Lesson -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...
+- **Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content.
+- **Learning loop:** PathStep -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...
+- **Lesson merged into PathStep** (2026-04): The former `Lesson` entity type was merged into `PathStep`. `"lesson"` and `"l"` are aliases in `_ENTITY_TYPE_ALIASES` for backward compatibility.
 
 ## Naming Conventions
 
@@ -78,7 +79,7 @@ See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete 
 
 **Content Location (different purpose):** `/home/mike/0bsidian/skuel/docs/` contains Knowledge Unit content for ingestion, NOT technical documentation.
 
-**Default Ingestion Vault:** `data/vault/` (i.e., `/home/mike/skuel/app/data/vault/`) is the default folder for content ingestion — Ku YAMLs, Lesson YAMLs, edge YAMLs, and markdown files. Configurable via `INGESTION_PATH` env var. The Obsidian vault at `/home/mike/0bsidian/skuel/data/vault/` mirrors this as the authoring source.
+**Default Ingestion Vault:** `data/vault/` (i.e., `/home/mike/skuel/app/data/vault/`) is the default folder for content ingestion — Ku YAMLs, PathStep YAMLs, edge YAMLs, and markdown files. Configurable via `INGESTION_PATH` env var. The Obsidian vault at `/home/mike/0bsidian/skuel/data/vault/` mirrors this as the authoring source.
 
 ## Docstring Philosophy
 
@@ -108,11 +109,11 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **See:** `/docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md`, `/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md`
 
-## SKUEL's 21 Entity Types + 5 Cross-Cutting Systems
+## SKUEL's 20 Entity Types + 5 Cross-Cutting Systems
 
 **Core Principle:** "Everything flows toward the life path"
 
-### The 21 Entity Types
+### The 20 Entity Types
 
 | EntityType | What It Is | UID Format | Ownership |
 |------------|-----------|-----------|-----------|
@@ -125,11 +126,10 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 | FormTemplate | General-purpose form definition | `ft_{slug}_{random}` | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | `fs_{slug}_{random}` | User-owned |
 | Finance | Admin-only bookkeeping | `expense_{random}` | Admin-only |
-| Lesson | A unit for learning | `l_{slug}_{random}` | Admin-created, shared |
 | Ku | Atomic knowledge unit | `ku_{slug}_{random}` | Admin-created, shared |
 | Resource | Curated content (books, talks, films) | N/A | Admin-created, shared |
-| PathStep | A collection of lessons | `ps:{random}` | Admin-created, shared |
-| LearningPath | An ordered sequence of lesson collections | `lp:{random}` | Admin-created, shared |
+| PathStep | THE curriculum content entity (composes Kus) | `ps:{random}` | Admin-created, shared |
+| LearningPath | An ordered sequence of path steps | `lp:{random}` | Admin-created, shared |
 | Exercise | Instruction template for practicing curriculum | N/A | Admin-created, shared |
 | RevisedExercise | Targeted revision instructions after feedback | `re_{slug}_{random}` | Teacher-owned |
 | ExerciseSubmission | Student work submitted against an Exercise | `es_{slug}_{random}` | User-owned |
@@ -156,7 +156,7 @@ Entity types have behavioral traits — not category membership — that determi
 ### Entity Type Groups
 
 - **Activity (6):** Task, Goal, Habit, Event, Choice, Principle — facade pattern with `.core`, `.search`, `.intelligence`, `.ai` sub-services. Created via `create_common_sub_services()`. Events additionally has integration sub-services; **Calendar** cross-cutting system handles scheduling aggregation. **Read-focused UI:** All 6 domains have dedicated list + detail views with cross-domain connections and `EntityRelationshipsSection` — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`), Choices (`/choices`), Principles (`/principles`). Principles use gravity-well pattern (incoming connections) like Goals. Activity data enters via `/upload`; also viewable via ActivityReport at `/activity-reports`.
-- **Curriculum (5):** Lesson, Ku, PathStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
+- **Curriculum (4):** Ku, PathStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read.
 - **Submissions/Reports (3):** ExerciseSubmission, ExerciseReport, ActivityReport — the learning loop. Services in `core/services/submissions/` + `core/services/report/`.
 - **Journal (2):** JeInput, JeOutput — standalone journal domain. `JeInput(UserOwnedEntity)`, `JeOutput(UserOwnedEntity)`. Relationship: `(JeOutput)-[:TRANSFORMS]->(JeInput)`. Pipeline: JE_INPUT(audio) -> Deepgram -> JE_INPUT(text) -> LLM -> JE_OUTPUT. Models in `core/models/journal/`, services in `core/services/journal/` (`JournalInputService` — CRUD + file upload, `JournalOutputService` — LLM processing).
 - **Other:** Finance (admin-only), Resource (curated, not curriculum), Groups (ADR-040), RevisedExercise (teacher-owned hybrid), MOC (emergent via ORGANIZES), LifePath (the destination, alignment score 0.0-1.0).
@@ -224,13 +224,13 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- Task, Goal, Habit, Event, Choice, Principle  (Activity)
 |   +-- LifePath, ActivityReport, Submission, ExerciseReport, JeInput, JeOutput
 +-- Ku(Entity) -- atomic knowledge unit (namespace, ku_category, aliases, source, sel_category)
-+-- Curriculum(Entity) +21 fields -> Lesson, PathStep, LearningPath, Exercise
++-- Curriculum(Entity) +21 fields -> PathStep, LearningPath, Exercise
 +-- Resource(Entity) +7 fields (Curated content)
 ```
 
-**DTOs** mirror the hierarchy: `EntityDTO -> UserOwnedDTO, KuDTO, CurriculumDTO -> LessonDTO, ResourceDTO`
+**DTOs** mirror the hierarchy: `EntityDTO -> UserOwnedDTO, KuDTO, CurriculumDTO -> PathStepDTO, ResourceDTO`
 
-**Key enums:** `EntityType` (18 values), `EntityStatus` (14 values) — both in `entity_enums.py`.
+**Key enums:** `EntityType` (20 values), `EntityStatus` (14 values) — both in `entity_enums.py`.
 
 **Neo4j Multi-Label:** `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`.
 
@@ -462,7 +462,7 @@ SKUEL measures knowledge by how it's LIVED. Substance tracking: Habits (0.10, ma
 
 ## Generic Programming Patterns
 
-**Core Principle:** "One generic backend serves all 21 entity types"
+**Core Principle:** "One generic backend serves all 20 entity types"
 
 ```python
 # Generic backend -- T constrained by DomainModelProtocol
@@ -508,7 +508,7 @@ type Scorer[T] = Callable[[T], Score]
 
 - Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, Static in `/static/`
 - Navbar has icon links: **⚛️** (Knowledge, `/ku`) + **Tasks** (check-square icon, `/tasks`) + **Goals** (target icon, `/goals`) + **⇄** (Submissions, `/submissions`) + avatar **U** (click → `/profile`; hover → Activity dropdown with Habits, Events, Choices, Principles) + logout icon. Curriculum and Study navbar dropdowns removed (2026-03-29).
-- `/ku` is the Knowledge index — flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking). `/profile` is THE main hub — a **live actionable hub** (not a card grid): Knowledge (bookmarked + recent Kus with mastery %), Lessons (actively studying), Exercises (assigned work with inline Submit buttons), Submissions (tabbed: My Submissions | Submit | Request Report — Alpine.js tabs + HTMX lazy-loaded fragments), Reports (HTMX lazy-loaded summaries), Nous (community feed placeholder). Data sourced from `UserContext.build_rich()`. Tasks (`/tasks`) and Goals (`/goals`) have read-focused views with cross-domain connections, detail pages, and `EntityRelationshipsSection`. Other activity data viewed via ActivityReport at `/activity-reports`. `/lessons` lists all lessons with learning-state-aware enrollment buttons (Start Lesson / In Progress / Mastered); clicking a lesson navigates to `/lesson/{uid}/details` — a full reading page with markdown content, TOC sidebar, learning objectives, metadata badges, and action buttons (Start Lesson, Mark as Read, Bookmark) using `BasePage(CUSTOM)`. Other curriculum sub-pages (`/path-steps`, `/learning-paths`, `/exercises`) and study sub-pages (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`) use `BasePage(STANDARD)` — **no sidebars** (curriculum + study sidebars removed 2026-03-29). Old `/submissions/*`, `/learn/*`, and `/ui/exercises` UI paths redirect 301 to the new top-level routes. `/transfer` retired (2026-03-29) — content moved to `/profile` Submissions section + entity-typed routes. `/upload` is the user-facing bulk upload page — drag-and-drop file upload with progress, uses `BasePage(STANDARD)`.
+- `/ku` is the Knowledge index — flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking). `/profile` is THE main hub — a **live actionable hub** (not a card grid): Knowledge (bookmarked + recent Kus with mastery %), PathSteps (actively studying), Exercises (assigned work with inline Submit buttons), Submissions (tabbed: My Submissions | Submit | Request Report — Alpine.js tabs + HTMX lazy-loaded fragments), Reports (HTMX lazy-loaded summaries), Nous (community feed placeholder). Data sourced from `UserContext.build_rich()`. Tasks (`/tasks`) and Goals (`/goals`) have read-focused views with cross-domain connections, detail pages, and `EntityRelationshipsSection`. Other activity data viewed via ActivityReport at `/activity-reports`. `/path-steps` lists all PathSteps with learning-state-aware enrollment buttons (Start / In Progress / Mastered); clicking a PathStep navigates to `/path-steps/get?uid={uid}` — a reading page with markdown content, learning objectives, and action buttons using `BasePage(CUSTOM)`. Other curriculum sub-pages (`/learning-paths`, `/exercises`) and study sub-pages (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`) use `BasePage(STANDARD)` — **no sidebars** (curriculum + study sidebars removed 2026-03-29). Old `/submissions/*`, `/learn/*`, and `/ui/exercises` UI paths redirect 301 to the new top-level routes. `/transfer` retired (2026-03-29) — content moved to `/profile` Submissions section + entity-typed routes. `/upload` is the user-facing bulk upload page — drag-and-drop file upload with progress, uses `BasePage(STANDARD)`.
 
 **Shared Components:** `PageHeader` (page title + subtitle + actions — adopted across all 6 Activity Domain dashboards, Study, Curriculum, Admin, Analytics, Calendar, and LifePath), `EmptyState` (empty lists — adopted across ~45 locations), `CardGenerator` (THE single card component — detail cards, list cards, teaching rows, insight cards; supports subtitle, metadata, extra, header_badges with FT pass-through), `StatsGrid`/`StatItem` (statistics grids), `StatusBadge` (delegates to `EntityStatus.get_badge_class()` for all 14 statuses), `render_error_banner`/`render_inline_error` (accessible error states — adopted across 25+ route files). All in `/ui/patterns/` or `/ui/feedback.py`.
 
@@ -576,13 +576,13 @@ await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_ui
 
 **4-Layer Architecture:** `*Operations protocol -> *Backend subclass -> *Service facade -> sub-services`
 
-**Domain Backends** (19 in `domain_backends.py`): TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, SubmissionsBackend, SharingBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend, ActivityReportBackend, LateralRelationshipBackend, GroupBackend, NotificationBackend.
+**Domain Backends** (18 in `domain_backends.py`): TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, KuBackend, PsBackend, SubmissionsBackend, SharingBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend, ActivityReportBackend, LateralRelationshipBackend, GroupBackend, NotificationBackend.
 
 Domain-specific relationship Cypher belongs on the domain backend. Cross-domain aggregation stays in services. Services call `self.backend.method_name()` — never inline Cypher via `execute_query()`. Use `cascade=True` for Activity Domains.
 
 **`UniversalNeo4jBackend` is the hexagonal boundary** — Neo4j-specific code stops here. Neo4j is a committed architectural choice (ADR-044), not a swappable adapter.
 
-**File Layout:** `universal_backend.py` is a shell; methods live in 6 mixin files: `_crud_mixin.py`, `_search_mixin.py`, `_relationship_query_mixin.py`, `_relationship_crud_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py`. `_hierarchy_mixin.py` provides `_HierarchyMixin` — generic parent-child hierarchy ops shared by all 6 Activity Domain backends (parameterized via `HierarchyConfig`). `LessonBackend` is further decomposed into 5 domain-specific mixins: `_organizes_mixin.py` (ORGANIZES relationships), `_learning_state_mixin.py` (VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED/MARKED_AS_READ), `_semantic_mixin.py` (semantic relationships + graph analysis), `_knowledge_context_mixin.py` (context, discovery, readiness), `_adaptive_mixin.py` (practice, search, adaptive mastery). Shared validation helpers (`_validate_rel_name`, `_ALLOWED_ORDER_BY`) in `_backend_helpers.py`.
+**File Layout:** `universal_backend.py` is a shell; methods live in 6 mixin files: `_crud_mixin.py`, `_search_mixin.py`, `_relationship_query_mixin.py`, `_relationship_crud_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py`. `_hierarchy_mixin.py` provides `_HierarchyMixin` — generic parent-child hierarchy ops shared by all 6 Activity Domain backends (parameterized via `HierarchyConfig`). `PsBackend` is further decomposed into 5 domain-specific mixins: `_organizes_mixin.py` (ORGANIZES relationships), `_learning_state_mixin.py` (VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED/MARKED_AS_READ), `_semantic_mixin.py` (semantic relationships + graph analysis), `_knowledge_context_mixin.py` (context, discovery, readiness), `_adaptive_mixin.py` (practice, search, adaptive mastery). Shared validation helpers (`_validate_rel_name`, `_ALLOWED_ORDER_BY`) in `_backend_helpers.py`.
 
 **See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`
 
@@ -592,7 +592,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **Three Query Systems:** UnifiedQueryBuilder (default), QueryBuilder (optimization), CypherGenerator (pure Cypher).
 
-**Searchable Domains:** All 14 — Task, Goal, Habit, Event, Choice, Principle, Lesson, PS, LP, Exercise, RevisedExercise, Submission, FormTemplate, FormSubmission.
+**Searchable Domains:** All 13 — Task, Goal, Habit, Event, Choice, Principle, PS, LP, Exercise, RevisedExercise, Submission, FormTemplate, FormSubmission.
 
 **DomainConfig** is THE single source of truth for BaseService configuration: `dto_class`, `model_class`, `search_fields`, `search_order_by`, `category_field`, `temporal_exclude_statuses`, `supports_user_progress`, `user_ownership_relationship`, `graph_enrichment_patterns`, etc.
 
@@ -612,9 +612,9 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **Core Principle:** "The hips of SKUEL — one of three foundational systems"
 
-One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, ingestion history, WebSocket progress, edge ingestion (relationship YAML files), full PS field wiring. 13 of 21 entity types are file-ingestible. **Markdown files require an explicit `type` field in frontmatter** — no silent defaults. **UID prefix validation** rejects UIDs that don't match the expected prefix for their entity type.
+One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, ingestion history, WebSocket progress, edge ingestion (relationship YAML files), full PS field wiring. 12 of 20 entity types are file-ingestible. **Markdown files require an explicit `type` field in frontmatter** — no silent defaults. **UID prefix validation** rejects UIDs that don't match the expected prefix for their entity type.
 
-**Default Vault:** `data/vault/` (`/home/mike/skuel/app/data/vault/`) — the default folder for all ingestion content. Ku YAMLs (`ku_*.yaml`), Lesson YAMLs (`lesson_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown files live here. Configurable via `INGESTION_PATH` env var.
+**Default Vault:** `data/vault/` (`/home/mike/skuel/app/data/vault/`) — the default folder for all ingestion content. Ku YAMLs (`ku_*.yaml`), PathStep YAMLs (`ps_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown files live here. Configurable via `INGESTION_PATH` env var.
 
 **Import:** `from core.services.ingestion import UnifiedIngestionService`
 
@@ -629,9 +629,8 @@ One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, i
 | Pattern | UID Format | Topology | Metaphor |
 |---------|-----------|----------|----------|
 | Ku | `ku_{slug}_{random}` | Atom | A single concept/fact |
-| Lesson | `l_{slug}_{random}` | Unit | A unit for learning (composes Kus) |
-| PS | `ps:{random}` | Collection | A collection of lessons |
-| LP | `lp:{random}` | Path | An ordered sequence of lesson collections |
+| PS | `ps:{random}` | Content Unit | THE curriculum content entity (composes Kus) |
+| LP | `lp:{random}` | Path | An ordered sequence of path steps |
 
 **Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships.
 
@@ -782,7 +781,7 @@ from core.utils.embedding_text_builder import build_embedding_text
 text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Details"})
 ```
 
-**Supported:** All 13 content-bearing entity types — Lesson, Ku, Exercise, PathStep, LearningPath, Resource, RevisedExercise, Task, Goal, Habit, Event, Choice, Principle. Field mappings in `EMBEDDING_FIELD_MAPS`.
+**Supported:** All 12 content-bearing entity types — PathStep, Ku, Exercise, LearningPath, Resource, RevisedExercise, Task, Goal, Habit, Event, Choice, Principle. Field mappings in `EMBEDDING_FIELD_MAPS`.
 
 ## Quick Reference: Key Files
 

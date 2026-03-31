@@ -405,8 +405,9 @@ class Neo4jGenericMapper:
             # Convert string back to enum
             if isinstance(value, str):
                 # Use alias-aware from_string for EntityStatus
-                if hasattr(target_type, "from_string"):
-                    resolved = target_type.from_string(value)
+                from_string = getattr(target_type, "from_string", None)
+                if from_string is not None:
+                    resolved = from_string(value)
                     if resolved is not None:
                         return resolved
                 try:

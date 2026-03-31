@@ -386,19 +386,23 @@ class TestKuRelationships:
     @pytest.mark.asyncio
     async def test_ku_relationships_fetch_basic(self, services):
         """Test fetch() method with real services (basic mode)."""
-        # Create a test knowledge unit using core service
-        ku_result = await services.lesson.core.create(
+        # Create a test knowledge unit using backend directly
+        from core.models.curriculum_dto import CurriculumDTO
+        from core.models.enums.entity_enums import EntityType
+        from core.utils.uid_generator import UIDGenerator
+
+        ku_dto = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
             title="Test KU for Relationships",
-            body="Testing relationship fetching",
-            summary="Test KU",
-            user_uid="test_user",
-            domain="TECH",  # Required for CurriculumDTO
+            entity_type=EntityType.PATH_STEP,
+            domain="TECH",
         )
+        ku_result = await services.ps.core.backend.create(ku_dto.to_dict())
         assert ku_result.is_ok, f"Failed to create KU: {ku_result.error}"
         ku = ku_result.value
 
         # Fetch relationships (basic mode - no semantic context)
-        rels = await KuRelationships.fetch(ku.uid, services.lesson.graph)
+        rels = await KuRelationships.fetch(ku.uid, services.ps.graph)
 
         # Verify structure
         assert isinstance(rels, KuRelationships)
@@ -416,22 +420,26 @@ class TestKuRelationships:
     @pytest.mark.asyncio
     async def test_ku_relationships_fetch_with_semantic_context(self, services):
         """Test fetch() method with semantic context enabled."""
-        # Create a test knowledge unit using core service
-        ku_result = await services.lesson.core.create(
+        # Create a test knowledge unit using backend directly
+        from core.models.curriculum_dto import CurriculumDTO
+        from core.models.enums.entity_enums import EntityType
+        from core.utils.uid_generator import UIDGenerator
+
+        ku_dto = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
             title="Test KU with Semantic Context",
-            body="Testing semantic relationship fetching",
-            summary="Test KU with semantics",
-            user_uid="test_user",
-            domain="TECH",  # Required for CurriculumDTO
+            entity_type=EntityType.PATH_STEP,
+            domain="TECH",
         )
+        ku_result = await services.ps.core.backend.create(ku_dto.to_dict())
         assert ku_result.is_ok, f"Failed to create KU: {ku_result.error}"
         ku = ku_result.value
 
         # Fetch relationships with semantic context
         rels = await KuRelationships.fetch(
             ku.uid,
-            services.lesson.graph,
-            semantic_service=services.lesson.semantic,
+            services.ps.graph,
+            semantic_service=services.ps.semantic,
             include_semantic_context=True,
         )
 

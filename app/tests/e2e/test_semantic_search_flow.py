@@ -54,7 +54,7 @@ async def test_complete_semantic_search_flow(
     from pathlib import Path
 
     prepared = await prepare_entity_data_async(
-        entity_type=EntityType.LESSON,
+        entity_type=EntityType.PATH_STEP,
         data=ku_data,
         body=body_content.strip(),
         file_path=Path("/fake/path/test.md"),

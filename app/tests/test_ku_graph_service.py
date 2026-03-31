@@ -2,7 +2,7 @@
 Test KU Graph Service
 ======================
 
-Tests for the LessonGraphService focused sub-service.
+Tests for the PsGraphService focused sub-service.
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -11,7 +11,7 @@ import pytest
 
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain
-from core.services.lesson.lesson_graph_service import LessonGraphService
+from core.services.ps.ps_graph_service import PsGraphService
 from core.utils.result_simplified import Result
 
 
@@ -30,14 +30,14 @@ def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech"):
 
 
 class TestKuGraphServiceInitialization:
-    """Test LessonGraphService initialization."""
+    """Test PsGraphService initialization."""
 
     def test_initialization_with_all_dependencies(self):
         """Test successful initialization with all dependencies."""
         repo = MagicMock()
         graph_intel = MagicMock()
 
-        service = LessonGraphService(repo=repo, graph_intel=graph_intel)
+        service = PsGraphService(repo=repo, graph_intel=graph_intel)
 
         assert service.repo == repo
         assert service.graph_intel == graph_intel
@@ -46,25 +46,25 @@ class TestKuGraphServiceInitialization:
         """Test initialization works without optional graph_intel."""
         repo = MagicMock()
 
-        service = LessonGraphService(repo=repo)
+        service = PsGraphService(repo=repo)
 
         assert service.repo == repo
         assert service.graph_intel is None
 
     def test_initialization_fails_without_repo(self):
         """Test that initialization fails without required repo."""
-        with pytest.raises(ValueError, match="KU repository is required"):
-            LessonGraphService(repo=None)
+        with pytest.raises(ValueError, match="repository is required"):
+            PsGraphService(repo=None)
 
 
 class TestGraphTraversal:
     """Test graph traversal operations."""
 
     @pytest.fixture
-    def service(self) -> LessonGraphService:
+    def service(self) -> PsGraphService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
-        return LessonGraphService(repo=repo)
+        return PsGraphService(repo=repo)
 
     @pytest.mark.asyncio
     async def test_find_prerequisites_unit_not_found(self, service):
@@ -154,7 +154,7 @@ class TestGraphTraversal:
             return_value=Result.ok([make_ku_dto("ku.next.1", "Next")])
         )
 
-        result = await service.get_lesson_with_context("ku.test.1", depth=2)
+        result = await service.get_step_with_context("ku.test.1", depth=2)
 
         assert result.is_ok
         context = result.value
@@ -169,10 +169,10 @@ class TestRelationshipManagement:
     """Test relationship creation and management."""
 
     @pytest.fixture
-    def service(self) -> LessonGraphService:
+    def service(self) -> PsGraphService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
-        return LessonGraphService(repo=repo)
+        return PsGraphService(repo=repo)
 
     @pytest.mark.asyncio
     async def test_link_prerequisite_unit_not_found(self, service):
@@ -218,11 +218,11 @@ class TestAnalysisRecommendations:
     """Test analysis and recommendation operations."""
 
     @pytest.fixture
-    def service(self) -> LessonGraphService:
+    def service(self) -> PsGraphService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
         graph_intel = MagicMock()
-        return LessonGraphService(repo=repo, graph_intel=graph_intel)
+        return PsGraphService(repo=repo, graph_intel=graph_intel)
 
     @pytest.mark.asyncio
     async def test_get_prerequisite_chain_success(self, service):

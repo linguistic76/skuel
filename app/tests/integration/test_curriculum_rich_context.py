@@ -47,27 +47,27 @@ class TestCurriculumRichContext:
         primary_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Functions",
-            entity_type=EntityType.LESSON,
+            entity_type=EntityType.PATH_STEP,
             domain=Domain.TECH,
         )
-        await services.lesson.core.backend.create(primary_ku.to_dict())
+        await services.ps.core.backend.create(primary_ku.to_dict())
 
         supporting_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Variables",
-            entity_type=EntityType.LESSON,
+            entity_type=EntityType.PATH_STEP,
             domain=Domain.TECH,
         )
-        await services.lesson.core.backend.create(supporting_ku.to_dict())
+        await services.ps.core.backend.create(supporting_ku.to_dict())
 
         # Create prerequisite knowledge
         prereq_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Basics",
-            entity_type=EntityType.LESSON,
+            entity_type=EntityType.PATH_STEP,
             domain=Domain.TECH,
         )
-        await services.lesson.core.backend.create(prereq_ku.to_dict())
+        await services.ps.core.backend.create(prereq_ku.to_dict())
 
         # Create guiding principle
         principle = PrincipleDTO(
@@ -183,7 +183,7 @@ class TestCurriculumRichContext:
             """
             MATCH (lp:Entity {uid: $lp_uid})
             OPTIONAL MATCH (lp)-[r:HAS_STEP|CONTAINS_STEP]->(ls:Entity {uid: $ps_uid})
-            RETURN lp.uid as lp_uid, lp.title as lp_name, type(r) as rel_type, r.sequence as sequence, ps.uid as ps_uid
+            RETURN lp.uid as lp_uid, lp.title as lp_name, type(r) as rel_type, r.sequence as sequence, ls.uid as ps_uid
             """,
             {"lp_uid": learning_path.uid, "ps_uid": main_step.uid},
         )
@@ -232,10 +232,10 @@ class TestCurriculumRichContext:
         prereq_ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Programming Fundamentals",
-            entity_type=EntityType.LESSON,
+            entity_type=EntityType.PATH_STEP,
             domain=Domain.TECH,
         )
-        await services.lesson.core.backend.create(prereq_ku.to_dict())
+        await services.ps.core.backend.create(prereq_ku.to_dict())
 
         # Create aligned goal
         goal = GoalDTO.create_goal(
@@ -393,10 +393,10 @@ class TestCurriculumRichContext:
         ku = CurriculumDTO(
             uid=UIDGenerator.generate_random_uid("ku"),
             title="Python Functions",
-            entity_type=EntityType.LESSON,
+            entity_type=EntityType.PATH_STEP,
             domain=Domain.TECH,
         )
-        await services.lesson.core.backend.create(ku.to_dict())
+        await services.ps.core.backend.create(ku.to_dict())
 
         # Wait for persistence
         await asyncio.sleep(0.1)
@@ -429,23 +429,23 @@ class TestCurriculumRichContext:
             // Add step to path
             WITH lp
             MATCH (ps:PathStep {uid: $ps_uid})
-            CREATE (lp)-[:CONTAINS_STEP {sequence: 1}]->(ls)
+            CREATE (lp)-[:CONTAINS_STEP {sequence: 1}]->(ps)
 
             // Align path with goal
-            WITH lp, ls
+            WITH lp, ps
             MATCH (goal:Goal {uid: $goal_uid})
             CREATE (lp)-[:ALIGNED_WITH_GOAL]->(goal)
 
             // Step teaches knowledge
-            WITH ls
+            WITH ps
             MATCH (ku:Entity {uid: $ku_uid})
-            CREATE (ls)-[:CONTAINS_KNOWLEDGE]->(ku)
+            CREATE (ps)-[:CONTAINS_KNOWLEDGE]->(ku)
 
             // User working on step
-            WITH ls
+            WITH ps
             MATCH (user:User {uid: $user_uid})
-            CREATE (user)-[:WORKING_ON]->(ls)
-            SET ls.status = 'active'
+            CREATE (user)-[:WORKING_ON]->(ps)
+            SET ps.status = 'active'
             """,
             {
                 "user_uid": test_user.uid,

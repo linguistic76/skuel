@@ -40,7 +40,7 @@ from core.models.pathways.path_step import PathStep
 def ku_backend(neo4j_driver) -> UniversalNeo4jBackend[Curriculum]:
     """Create KU backend with real Neo4j."""
     return UniversalNeo4jBackend[Curriculum](
-        neo4j_driver, NeoLabel.LESSON, Curriculum, base_label=NeoLabel.ENTITY
+        neo4j_driver, NeoLabel.PATH_STEP, Curriculum, base_label=NeoLabel.ENTITY
     )
 
 
@@ -451,7 +451,7 @@ class TestCurriculumRelationships:
         async with neo4j_driver.session() as session:
             result = await session.run("""
                 MATCH (lp:Entity {uid: 'lp:python_journey'})-[r:CONTAINS]->(ls:Entity {uid: 'ps:step_1'})
-                RETURN lp.uid as lp_uid, ps.uid as ps_uid, r.order as step_order
+                RETURN lp.uid as lp_uid, ls.uid as ps_uid, r.order as step_order
             """)
             record = await result.single()
 

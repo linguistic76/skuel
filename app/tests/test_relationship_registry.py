@@ -17,8 +17,8 @@ from core.models.relationship_registry import (
     EVENTS_CONFIG,
     GOAPS_CONFIG,
     HABITS_CONFIG,
+    KU_CONFIG,
     LABEL_CONFIGS,
-    LESSON_CONFIG,
     LP_CONFIG,
     PRINCIPLES_CONFIG,
     PS_CONFIG,
@@ -63,7 +63,6 @@ class TestUnifiedRegistry:
             "Choice",
             "Principle",
             # Curriculum Domains — correct Neo4j label keys
-            "Lesson",
             "Ku",
             "PathStep",
             "LearningPath",
@@ -71,6 +70,7 @@ class TestUnifiedRegistry:
             "RevisedExercise",
             # Backward-compat aliases (old label keys)
             "Entity",
+            "Lesson",  # backward-compat alias -> PS_CONFIG
             "Ls",
             "Lp",
             # Other entities
@@ -270,11 +270,11 @@ class TestNamedUnifiedConfigs:
 
     def test_curriculum_unified_configs_match_label_registry(self):
         """Verify curriculum *_CONFIG configs match LABEL_CONFIGS entries."""
-        assert LESSON_CONFIG is LABEL_CONFIGS["Lesson"]
         assert PS_CONFIG is LABEL_CONFIGS["PathStep"]
         assert LP_CONFIG is LABEL_CONFIGS["LearningPath"]
         # Backward-compat aliases still work
-        assert LESSON_CONFIG is LABEL_CONFIGS["Entity"]
+        assert PS_CONFIG is LABEL_CONFIGS["Entity"]
+        assert PS_CONFIG is LABEL_CONFIGS["Lesson"]  # Lesson merged into PathStep
         assert PS_CONFIG is LABEL_CONFIGS["Ls"]
         assert LP_CONFIG is LABEL_CONFIGS["Lp"]
 
@@ -287,7 +287,7 @@ class TestNamedUnifiedConfigs:
             EVENTS_CONFIG,
             CHOICES_CONFIG,
             PRINCIPLES_CONFIG,
-            LESSON_CONFIG,
+            KU_CONFIG,
             PS_CONFIG,
             LP_CONFIG,
         ]:
@@ -336,14 +336,14 @@ class TestRegistryIntegration:
         assert steps_rel.order_direction == "ASC"
         assert steps_rel.include_edge_properties == ("sequence", "completed")
 
-    def test_ku_organizes_have_ordering(self):
-        """Verify KU config has ordering on organizes relationships."""
+    def test_ku_organizes_exists(self):
+        """Verify KU config has organizes in bidirectional relationships."""
         organizes_rel = None
-        for rel in LESSON_CONFIG.relationships:
+        for rel in KU_CONFIG.bidirectional_relationships:
             if rel.method_key == "organizes":
                 organizes_rel = rel
                 break
         assert organizes_rel is not None
-        assert organizes_rel.order_by_property == "order"
-        assert organizes_rel.order_direction == "ASC"
-        assert organizes_rel.include_edge_properties == ("order",)
+        assert organizes_rel.relationship == RelationshipName.ORGANIZES
+        assert organizes_rel.target_label == "Ku"
+        assert organizes_rel.direction == "outgoing"

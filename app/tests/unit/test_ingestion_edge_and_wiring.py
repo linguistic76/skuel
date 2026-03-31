@@ -207,7 +207,7 @@ class TestLessonUsesKuWiring:
     """Tests for Lesson USES_KU ingestion wiring."""
 
     def test_registry_includes_uses_kus(self):
-        config = generate_ingestion_relationship_config(EntityType.LESSON)
+        config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
         assert "uses_kus" in config
         assert config["uses_kus"]["rel_type"] == "USES_KU"
@@ -220,7 +220,7 @@ class TestLessonUsesKuWiring:
             "title": "Test Lesson",
             "uses_kus": ["ku:meditation-basics", "ku:breathwork"],
         }
-        result = prepare_entity_data(EntityType.LESSON, data, "body content", Path("test.md"))
+        result = prepare_entity_data(EntityType.PATH_STEP, data, "body content", Path("test.md"))
         assert result["uses_kus"] == ["ku.meditation-basics", "ku.breathwork"]
 
     def test_preparer_skips_non_list_uses_kus(self):
@@ -229,7 +229,7 @@ class TestLessonUsesKuWiring:
             "title": "Test Lesson",
             "uses_kus": "not-a-list",
         }
-        result = prepare_entity_data(EntityType.LESSON, data, "body content", Path("test.md"))
+        result = prepare_entity_data(EntityType.PATH_STEP, data, "body content", Path("test.md"))
         # Non-list value left unchanged
         assert result["uses_kus"] == "not-a-list"
 
@@ -274,8 +274,8 @@ class TestLsFieldWiring:
         assert config["learning_path_uids"]["rel_type"] == "HAS_STEP"
         assert config["learning_path_uids"]["direction"] == "incoming"
 
-    def test_activity_wiring_removed(self):
-        """Activity domain wiring moved from LS to Lessons (via HAS_LESSON)."""
+    def test_activity_wiring_present(self):
+        """Activity domain wiring on PathStep (absorbed from Lesson merge)."""
         config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
         for field in (
@@ -285,13 +285,13 @@ class TestLsFieldWiring:
             "task_uids",
             "event_template_uids",
         ):
-            assert field not in config
+            assert field in config
 
     def test_total_field_count(self):
-        """LS should have 5 relationship fields wired (knowledge + steps + paths)."""
+        """PS should have 15 relationship fields wired (knowledge + steps + paths + activity wiring + connections)."""
         config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
-        assert len(config) == 5
+        assert len(config) == 15
 
 
 # ============================================================================

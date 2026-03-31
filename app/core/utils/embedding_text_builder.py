@@ -26,7 +26,7 @@ class HasAttributes(Protocol):
 
 # Single source of truth for embedding field mappings
 EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
-    EntityType.PATH_STEP: ("title", "content", "summary"),
+    EntityType.PATH_STEP: ("title", "intent", "description", "content", "summary"),
     EntityType.KU: ("title", "summary", "description"),
     EntityType.RESOURCE: ("title", "author", "content", "summary"),
     EntityType.TASK: ("title", "description"),
@@ -37,7 +37,6 @@ EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
     EntityType.PRINCIPLE: ("title", "statement", "description"),
     EntityType.REVISED_EXERCISE: ("title", "instructions", "revision_rationale"),
     EntityType.EXERCISE: ("title", "instructions", "description"),
-    EntityType.PATH_STEP: ("title", "intent", "description"),
     EntityType.LEARNING_PATH: ("title", "description", "outcomes"),
     EntityType.EXERCISE_SUBMISSION: ("title", "original_filename", "processed_content"),
     EntityType.JE_INPUT: ("title", "original_filename", "processed_content"),
@@ -124,7 +123,6 @@ def build_embedding_text(
         EntityType.KU,
         EntityType.RESOURCE,
         EntityType.EXERCISE,
-        EntityType.PATH_STEP,
         EntityType.LEARNING_PATH,
         EntityType.REVISED_EXERCISE,
     }

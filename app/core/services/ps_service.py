@@ -655,33 +655,53 @@ class PsService:
     # ORGANIZATION - Delegated to PsOrganizationService
     # ============================================================================
 
+    _ORG_UNAVAILABLE = Errors.system("Organization service is not available")
+
     async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
+        if self.organization is None:
+            return Result.fail(self._ORG_UNAVAILABLE)
         return await self.organization.organize(parent_uid, child_uid, order)
 
     async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        if self.organization is None:
+            return Result.fail(self._ORG_UNAVAILABLE)
         return await self.organization.unorganize(parent_uid, child_uid)
 
     async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
+        if self.organization is None:
+            return Result.fail(self._ORG_UNAVAILABLE)
         return await self.organization.reorder(parent_uid, child_uid, new_order)
 
     async def is_organizer(self, ku_uid: str) -> Result[bool]:
+        if self.organization is None:
+            return Result.fail(self._ORG_UNAVAILABLE)
         return await self.organization.is_organizer(ku_uid)
 
     async def get_organization_view(
         self, ku_uid: str, max_depth: int = 3
     ) -> Result[StepOrganizationView]:
+        if self.organization is None:
+            return Result.fail(self._ORG_UNAVAILABLE)
         return await self.organization.get_organization_view(ku_uid, max_depth)
 
     async def get_navigation(self, ku_uid: str) -> Result[StepNavigation]:
+        if self.organization is None:
+            return Result.fail(self._ORG_UNAVAILABLE)
         return await self.organization.get_navigation(ku_uid)
 
     async def find_organizers(self, ku_uid: str) -> Result[list[OrganizerResult]]:
+        if self.organization is None:
+            return Result.fail(self._ORG_UNAVAILABLE)
         return await self.organization.find_organizers(ku_uid)
 
     async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
+        if self.organization is None:
+            return Result.fail(self._ORG_UNAVAILABLE)
         return await self.organization.list_root_organizers(limit)
 
     async def get_organized_children(self, ku_uid: str) -> Result[list[OrganizerResult]]:
+        if self.organization is None:
+            return Result.fail(self._ORG_UNAVAILABLE)
         return await self.organization.get_organized_children(ku_uid)
 
     # ============================================================================

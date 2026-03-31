@@ -281,21 +281,13 @@ def create_ps_sub_services(
         backend=backend,
         graph_intelligence_service=graph_intelligence_service,
         relationship_service=relationships,
-        user_service=user_service,
     )
 
     # Step 3: Create core
     core = PsCoreService(backend=backend, event_bus=event_bus)
 
-    # Step 4: Create search (with optional vector search)
-    search = PsSearchService(
-        backend=backend,
-        content_repo=content_repo,
-        intelligence=intelligence,
-        query_builder=query_builder,
-        vector_search_service=vector_search_service,
-        embeddings_service=embeddings_service,
-    )
+    # Step 4: Create search
+    search = PsSearchService(backend=backend)
 
     # Step 5: Create graph
     graph = PsGraphService(repo=backend, graph_intel=graph_intelligence_service)

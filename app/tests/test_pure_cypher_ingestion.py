@@ -157,7 +157,7 @@ def test_required_field_validation():
 
     # Test 1: Valid KU data (has title and content is skipped for early validation)
     valid_ku_data = {"title": "Test KU", "content": "Some content"}
-    result = service.validate_required_fields(EntityType.LESSON, valid_ku_data, mock_path)
+    result = service.validate_required_fields(EntityType.PATH_STEP, valid_ku_data, mock_path)
     assert result.is_ok, f"Expected OK for valid KU data, got: {result}"
 
     # Test 2: Missing required field for principle (needs 'statement')
@@ -182,17 +182,17 @@ def test_required_field_validation():
     assert result.is_ok, f"Expected OK for valid finance data, got: {result}"
 
     # Test 5: validate_entity_data - check post-preparation validation
-    # Simulate prepared entity data missing content
-    incomplete_ku_data = {"uid": "ku.test", "title": "Test"}  # Missing 'content'
-    result = service.validate_entity_data(EntityType.LESSON, incomplete_ku_data, mock_path)
-    assert result.is_error, "Expected error for KU missing 'content' after preparation"
+    # Simulate prepared entity data missing title
+    incomplete_ps_data = {"uid": "ps:test"}  # Missing 'title'
+    result = service.validate_entity_data(EntityType.PATH_STEP, incomplete_ps_data, mock_path)
+    assert result.is_error, "Expected error for PathStep missing 'title' after preparation"
     error = result.expect_error()
-    assert "content" in error.message, f"Expected 'content' in error: {error.message}"
+    assert "title" in error.message, f"Expected 'title' in error: {error.message}"
 
-    # Test 6: Complete KU data passes validation
-    complete_ku_data = {"uid": "ku.test", "title": "Test", "content": "Body content"}
-    result = service.validate_entity_data(EntityType.LESSON, complete_ku_data, mock_path)
-    assert result.is_ok, f"Expected OK for complete KU data, got: {result}"
+    # Test 6: Complete PathStep data passes validation
+    complete_ps_data = {"uid": "ps:test", "title": "Test"}
+    result = service.validate_entity_data(EntityType.PATH_STEP, complete_ps_data, mock_path)
+    assert result.is_ok, f"Expected OK for complete PathStep data, got: {result}"
 
     print("✅ Required field validation works correctly!")
     print("   - Uses EntityType/NonKuDomain enum for type-safe validation")
@@ -239,7 +239,7 @@ def test_user_uid_injection():
     # Test 3: Curriculum domain (ku) should NOT get user_uid (shared knowledge)
     ku_data = {"title": "Test KU", "content": "Body content"}
     prepared = service.prepare_entity_data(
-        EntityType.LESSON, ku_data, "Body content", Path("/tmp/test-ku.md")
+        EntityType.PATH_STEP, ku_data, "Body content", Path("/tmp/test-ku.md")
     )
     assert "user_uid" not in prepared, "KU should not have user_uid (shared knowledge)"
 
@@ -265,7 +265,7 @@ def test_user_uid_injection():
         assert config.requires_user_uid, f"{entity_type.value} should require user_uid"
 
     # Test 6: Curriculum domains should NOT require user_uid
-    curriculum_types = [EntityType.LESSON, EntityType.LEARNING_PATH, EntityType.PATH_STEP]
+    curriculum_types = [EntityType.PATH_STEP, EntityType.LEARNING_PATH]
     for entity_type in curriculum_types:
         config = ENTITY_CONFIGS[entity_type]
         assert not config.requires_user_uid, f"{entity_type.value} should NOT require user_uid"
@@ -301,7 +301,7 @@ def test_entity_type_detection():
     # Test 2: Canonical type names work
     data_with_lesson = {"type": "lesson", "title": "Test Lesson"}
     result = service.detect_entity_type(data_with_lesson, Path("/tmp/test.yaml"))
-    assert result == EntityType.LESSON, f"Expected EntityType.LESSON, got {result}"
+    assert result == EntityType.PATH_STEP, f"Expected EntityType.PATH_STEP, got {result}"
 
     # Test 3: KU type detection
     data_with_ku = {"type": "ku", "title": "Atomic Knowledge"}
@@ -335,7 +335,7 @@ def test_entity_type_detection():
 
     # Canonical lesson type
     result = service.detect_entity_type({"type": "lesson"}, Path("/tmp/test.yaml"))
-    assert result == EntityType.LESSON, "lesson should return EntityType.LESSON"
+    assert result == EntityType.PATH_STEP, "lesson should return EntityType.PATH_STEP"
 
     print("✅ Entity type detection works correctly!")
     print("   - Returns EntityType/NonKuDomain enum (type-safe!)")
@@ -373,8 +373,8 @@ This is the content of the knowledge unit.
         assert result.is_ok
         validation = result.value
         assert validation.valid, f"Expected valid, got errors: {validation.errors}"
-        assert validation.entity_type == "lesson"
-        assert validation.uid == "l.test-knowledge"
+        assert validation.entity_type == "path_step"
+        assert validation.uid == "ps.test-knowledge"
         assert validation.title == "Test Knowledge Unit"
         assert validation.format == "markdown"
         assert validation.prepared_data is not None
@@ -503,7 +503,7 @@ description: Description for task {i}
         entity_type, entity_data, error = parse_file_sync(test_file)
         assert error is None, f"Should parse successfully: {error}"
         assert entity_type is not None
-        assert entity_type.value == "lesson"
+        assert entity_type.value == "path_step"
         assert entity_data is not None
         assert entity_data["title"] == "Lesson 0"
 

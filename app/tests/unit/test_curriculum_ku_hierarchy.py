@@ -2,10 +2,10 @@
 Curriculum Hierarchy Tests
 =============================
 
-Tests for the Curriculum base class and Lesson leaf class hierarchy. Verifies:
+Tests for the Curriculum base class and leaf class hierarchy. Verifies:
 
 1. Curriculum base class field inheritance from Entity (no type forcing)
-2. Lesson leaf class forces EntityType.LESSON in __post_init__
+2. PathStep leaf class forces EntityType.PATH_STEP in __post_init__
 3. PathStep and LearningPath inherit from Curriculum (not Entity)
 4. Substance methods work with real data (not stubs)
 5. Learning methods (complexity, SEL, level) work correctly
@@ -13,8 +13,6 @@ Tests for the Curriculum base class and Lesson leaf class hierarchy. Verifies:
 """
 
 from datetime import datetime, timedelta
-
-from core.models.lesson.lesson import Lesson
 
 from core.models.curriculum import Curriculum
 from core.models.entity import Entity
@@ -47,18 +45,18 @@ class TestCurriculumKuCreation:
         cu = Curriculum(uid="ku_test", title="Test", entity_type=EntityType.TASK)
         assert cu.entity_type == EntityType.TASK  # Not overridden
 
-    def test_lesson_leaf_forces_lesson_type(self):
-        """Lesson leaf class forces entity_type=EntityType.LESSON in __post_init__."""
-        lesson = Lesson(uid="l_test", title="Test", entity_type=EntityType.TASK)
-        assert lesson.entity_type == EntityType.LESSON  # Lesson always forces LESSON type
+    def test_path_step_leaf_forces_path_step_type(self):
+        """PathStep leaf class forces entity_type=EntityType.PATH_STEP in __post_init__."""
+        ps = PathStep(uid="ps:test", title="Test", entity_type=EntityType.TASK)
+        assert ps.entity_type == EntityType.PATH_STEP  # PathStep always forces PATH_STEP type
 
-    def test_lesson_basic_creation(self):
-        """Lesson can be created and is a Curriculum instance."""
-        lesson = Lesson(uid="l_python_abc123", title="Python Basics")
-        assert lesson.uid == "l_python_abc123"
-        assert lesson.entity_type == EntityType.LESSON
-        assert isinstance(lesson, Curriculum)
-        assert isinstance(lesson, Entity)
+    def test_path_step_basic_creation(self):
+        """PathStep can be created and is a Curriculum instance."""
+        ps = PathStep(uid="ps:python_abc123", title="Python Basics")
+        assert ps.uid == "ps:python_abc123"
+        assert ps.entity_type == EntityType.PATH_STEP
+        assert isinstance(ps, Curriculum)
+        assert isinstance(ps, Entity)
 
     def test_learning_field_defaults(self):
         """Learning metadata fields have correct defaults."""

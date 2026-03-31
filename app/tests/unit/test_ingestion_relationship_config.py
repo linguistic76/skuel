@@ -39,25 +39,22 @@ class TestIngestionRelationshipConfig:
             == RelationshipName.INFORMED_BY_PRINCIPLE.value
         )
 
-    def test_ku_uses_requires_knowledge(self):
-        """KU ingestion uses REQUIRES_KNOWLEDGE (unified with registry).
-
-        Previously used PREREQUISITE — accidental divergence from the registry.
-        Now unified: all services query REQUIRES_KNOWLEDGE for KU prerequisites.
-        """
-        config = ENTITY_CONFIGS[EntityType.LESSON].relationship_config
+    def test_ps_uses_requires_knowledge(self):
+        """PathStep ingestion uses REQUIRES_KNOWLEDGE for prerequisites."""
+        config = ENTITY_CONFIGS[EntityType.PATH_STEP].relationship_config
         assert config is not None
         assert (
-            config["connections.requires"]["rel_type"] == RelationshipName.REQUIRES_KNOWLEDGE.value
+            config["prerequisite_knowledge_uids"]["rel_type"]
+            == RelationshipName.REQUIRES_KNOWLEDGE.value
         )
-        assert config["connections.requires"]["direction"] == "outgoing"
+        assert config["prerequisite_knowledge_uids"]["direction"] == "outgoing"
 
     def test_ku_uses_enables_knowledge(self):
         """KU ingestion uses ENABLES_KNOWLEDGE (unified with registry).
 
         Previously used ENABLES — accidental divergence from the registry.
         """
-        config = ENTITY_CONFIGS[EntityType.LESSON].relationship_config
+        config = ENTITY_CONFIGS[EntityType.PATH_STEP].relationship_config
         assert config is not None
         assert config["connections.enables"]["rel_type"] == RelationshipName.ENABLES_KNOWLEDGE.value
 
@@ -85,7 +82,7 @@ class TestIngestionRelationshipConfig:
 
     def test_curriculum_gets_organizes_relationship(self):
         """CURRICULUM config includes ORGANIZES for organization functionality."""
-        config = ENTITY_CONFIGS[EntityType.LESSON].relationship_config
+        config = ENTITY_CONFIGS[EntityType.PATH_STEP].relationship_config
         assert config is not None
         assert "organizes" in config
         assert config["organizes"]["rel_type"] == RelationshipName.ORGANIZES.value

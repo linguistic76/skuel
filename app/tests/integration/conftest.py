@@ -194,7 +194,7 @@ def temp_yaml_dir() -> Generator[Path, None, None]:
 
 @pytest_asyncio.fixture
 async def ku_backend(neo4j_driver):
-    """Create real LessonService backend."""
+    """Create real PsService backend."""
     from core.models.curriculum_dto import CurriculumDTO
 
     # Use "Entity" to match what UnifiedIngestionService creates
@@ -206,7 +206,7 @@ async def ku_backend(neo4j_driver):
 
 @pytest.fixture
 def mock_intelligence_service() -> AsyncMock:
-    """Create mock intelligence service for LessonService."""
+    """Create mock intelligence service for PsService."""
     from unittest.mock import AsyncMock
 
     return AsyncMock()
@@ -225,23 +225,11 @@ def mock_graph_intel():
 
 
 @pytest.fixture
-def ku_service(ku_backend, mock_graph_intel):
-    """Create real LessonService with Neo4j backend."""
-    from unittest.mock import AsyncMock, MagicMock
-
-    from core.services.lesson_service import LessonService
-
-    # Create mock dependencies (required by fail-fast pattern)
-    mock_content_repo = AsyncMock()
-    mock_query_builder = MagicMock()
-
-    # January 2026: graph_intelligence_service now REQUIRED for unified Curriculum architecture
-    return LessonService(
-        repo=ku_backend,
-        content_repo=mock_content_repo,
-        graph_intelligence_service=mock_graph_intel,  # REQUIRED for cross-domain queries
-        query_builder=mock_query_builder,
-    )
+def ku_service(ku_backend):
+    """Backend with .get() for integration tests that only need read access."""
+    # PsService facade requires many sub-services; for round-trip tests
+    # the backend's .get() method is sufficient.
+    return ku_backend
 
 
 @pytest_asyncio.fixture
@@ -404,8 +392,8 @@ async def services(neo4j_driver):
     - services.choices.relationships
     - services.principles.relationships
     - services.lp.relationships
-    - services.lesson.graph
-    - services.lesson.semantic
+    - services.ps.graph
+    - services.ps.semantic
     """
     from dataclasses import dataclass
     from unittest.mock import AsyncMock, MagicMock
@@ -417,7 +405,6 @@ async def services(neo4j_driver):
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
-    from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService
     from core.services.principles_service import PrinciplesService
     from core.services.ps_service import PsService
@@ -431,12 +418,10 @@ async def services(neo4j_driver):
         choices: ChoicesService
         principles: PrinciplesService
         lp: LpService
-        ls: PsService
-        lesson: LessonService
-        ku: LessonService  # Alias for lesson (backward compat)
-        knowledge: LessonService  # Alias for lesson (used by rich context tests)
+        ps: PsService
+        knowledge: PsService  # Alias for ps (used by rich context tests)
         learning_paths: LpService  # Alias for lp (used by curriculum tests)
-        path_steps: PsService  # Alias for ls (used by curriculum tests)
+        path_steps: PsService  # Alias for ps (used by curriculum tests)
         tasks: TasksService
         goals: GoalsService
         events: EventsService
@@ -478,20 +463,14 @@ async def services(neo4j_driver):
             return getattr(self.backend, name)
 
     # Create backends with test wrappers
-    from core.models.lesson.lesson import Lesson as LessonModel
-
-    from adapters.persistence.neo4j.domain_backends import LessonBackend
+    from adapters.persistence.neo4j.domain_backends import PsBackend
     from core.models.choice.choice import Choice
     from core.models.enums.neo_labels import NeoLabel
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
+    from core.models.pathways.path_step import PathStep
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
-
-    raw_ku_backend = LessonBackend(
-        neo4j_driver, NeoLabel.LESSON, LessonModel, base_label=NeoLabel.ENTITY
-    )
-    ku_backend = TestBackendWrapper(raw_ku_backend, EntityDTO)
 
     raw_tasks_backend = UniversalNeo4jBackend[Task](
         neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
@@ -507,8 +486,6 @@ async def services(neo4j_driver):
         neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY
     )
     events_backend = TestBackendWrapper(raw_events_backend, Event)
-
-    from adapters.persistence.neo4j.domain_backends import PsBackend
 
     raw_ps_backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, Entity, base_label=NeoLabel.ENTITY)
     ps_backend = TestBackendWrapper(raw_ps_backend, Entity)
@@ -565,17 +542,6 @@ async def services(neo4j_driver):
         graph_intelligence_service=mock_graph_intel,
     )
 
-    # Create KU service (mock dependencies)
-    mock_content_repo = AsyncMock()
-    mock_query_builder = MagicMock()
-
-    ku_service = LessonService(
-        repo=ku_backend,
-        content_repo=mock_content_repo,
-        query_builder=mock_query_builder,
-        graph_intelligence_service=mock_graph_intel,
-    )
-
     # Create Tasks service
     tasks_service = TasksService(backend=tasks_backend)
 
@@ -598,7 +564,6 @@ async def services(neo4j_driver):
     # Tests expect services.{domain}.core.backend.driver
     # But core services have .repo, not .backend
     # Add .backend as an alias for .repo + driver access
-    ku_service.core.backend = ku_backend
     tasks_service.core.backend = tasks_backend
     goals_service.core.backend = goals_backend
     events_service.core.backend = events_backend
@@ -625,12 +590,10 @@ async def services(neo4j_driver):
         choices=choices_service,
         principles=principles_service,
         lp=lp_service,
-        ls=ps_service,
-        lesson=ku_service,
-        ku=ku_service,  # Alias for lesson (backward compat)
-        knowledge=ku_service,  # Alias for lesson (used by rich context tests)
+        ps=ps_service,
+        knowledge=ps_service,  # Alias for ps (used by rich context tests)
         learning_paths=lp_service,  # Alias for lp (used by curriculum tests)
-        path_steps=ps_service,  # Alias for ls (used by curriculum tests)
+        path_steps=ps_service,  # Alias for ps (used by curriculum tests)
         tasks=tasks_service,
         goals=goals_service,
         events=events_service,

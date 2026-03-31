@@ -104,7 +104,7 @@ class MockDailyPlanningService(TemporalMomentumMixin, DailyPlanningMixin):
         self.events = no_op
         self.choices = no_op
         self.principles = no_op
-        self.lesson = no_op
+        self.ps = no_op
         self.report = no_op
         self.vector_search = None
         self.filtered_providers = filtered_providers or {}

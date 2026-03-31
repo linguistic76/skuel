@@ -74,7 +74,7 @@ class TestZPDAction:
     def test_basic_action(self) -> None:
         action = ZPDAction(
             entity_uid="ku_1",
-            entity_type="lesson",
+            entity_type="path_step",
             action_type="learn",
             priority=0.8,
             rationale="all prerequisites met",

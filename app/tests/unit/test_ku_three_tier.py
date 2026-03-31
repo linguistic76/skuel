@@ -37,7 +37,7 @@ class TestKuThreeTierRoundTrip:
         return CurriculumDTO(
             uid="l_test_abc123",
             title="Test Knowledge",
-            entity_type=EntityType.LESSON,
+            entity_type=EntityType.PATH_STEP,
             domain=Domain.KNOWLEDGE,
             word_count=42,
             quality_score=0.85,
@@ -137,7 +137,7 @@ class TestKuThreeTierRoundTrip:
         dto = CurriculumDTO(
             uid="l_test_none",
             title="No SEL",
-            entity_type=EntityType.LESSON,
+            entity_type=EntityType.PATH_STEP,
             domain=Domain.TECH,
             sel_category=None,
         )
@@ -420,7 +420,7 @@ class TestCurriculumFieldSeparation:
         dto = CurriculumDTO(
             uid="l_test_crt",
             title="Curriculum RT",
-            entity_type=EntityType.LESSON,
+            entity_type=EntityType.PATH_STEP,
             complexity=KuComplexity.ADVANCED,
             learning_level=LearningLevel.EXPERT,
             sel_category=SELCategory.SELF_AWARENESS,

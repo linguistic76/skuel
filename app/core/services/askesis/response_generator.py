@@ -236,12 +236,12 @@ class ResponseGenerator:
         if guidance.pedagogical_detail == PedagogicalIntent.REDIRECT_TO_CURRICULUM:
             lesson_refs = []
             for ku_uid in guidance.target_ku_uids:
-                lesson = ps_bundle.get_lesson_for_ku(ku_uid)
-                if lesson:
-                    lesson_refs.append(lesson.title or "Untitled Lesson")
+                step = ps_bundle.get_step_for_ku(ku_uid)
+                if step:
+                    lesson_refs.append(step.title or "Untitled Step")
 
             if not lesson_refs:
-                lesson_refs = [a.title or "Untitled Lesson" for a in ps_bundle.lessons]
+                lesson_refs = [a.title or "Untitled Step" for a in ps_bundle.related_steps]
 
             return PROMPT_REGISTRY.render(
                 "askesis_guided_redirect",

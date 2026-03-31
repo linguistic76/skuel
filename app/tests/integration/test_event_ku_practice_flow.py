@@ -24,14 +24,12 @@ from datetime import date, datetime
 
 import pytest
 import pytest_asyncio
-from core.models.lesson.lesson import Lesson
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.domain_backends import LessonBackend
+from adapters.persistence.neo4j.domain_backends import PsBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.calendar_event_events import CalendarEventCompleted
 from core.events.knowledge_substance_events import KnowledgePracticed
-from core.models.curriculum import Curriculum
 from core.models.enums import (
     Domain,
     EntityStatus,
@@ -39,7 +37,8 @@ from core.models.enums import (
 )
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
-from core.services.lesson.lesson_practice_service import LessonPracticeService
+from core.models.pathways.path_step import PathStep
+from core.services.ps.ps_practice_service import PsPracticeService
 
 
 @pytest.mark.asyncio
@@ -53,8 +52,8 @@ class TestEventKuPracticeFlow:
 
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
-        """Create Lesson backend with clean database."""
-        return LessonBackend(neo4j_driver, NeoLabel.LESSON, Lesson, base_label=NeoLabel.ENTITY)
+        """Create PathStep backend with clean database."""
+        return PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
 
     @pytest_asyncio.fixture
     async def event_backend(self, neo4j_driver, clean_neo4j):
@@ -65,8 +64,8 @@ class TestEventKuPracticeFlow:
 
     @pytest_asyncio.fixture
     async def ku_practice_service(self, event_bus, ku_backend):
-        """Create LessonPracticeService with event bus and backend."""
-        return LessonPracticeService(
+        """Create PsPracticeService with event bus and backend."""
+        return PsPracticeService(
             backend=ku_backend,  # For Event→KU Cypher queries
             event_bus=event_bus,
         )
@@ -98,7 +97,7 @@ class TestEventKuPracticeFlow:
         # Create 2 KUs related to meditation
         kus = []
         for i, title in enumerate(["Mindfulness Breathing", "Body Scan Technique"], start=1):
-            ku = Curriculum(
+            ku = PathStep(
                 uid=f"ku.meditation_{i}",
                 title=title,
                 domain=Domain.HEALTH,

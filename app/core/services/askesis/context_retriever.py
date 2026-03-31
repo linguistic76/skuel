@@ -467,7 +467,7 @@ class ContextRetriever:
         bundle = PsBundle(
             path_step=path_step,
             learning_path=learning_path,
-            lessons=tuple(lessons),
+            related_steps=tuple(lessons),
             kus=tuple(kus),
             resources=tuple(resources),
             principles=tuple(principles),

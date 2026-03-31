@@ -206,9 +206,9 @@ class EntityExtractor:
                     matched_uids.append(ku.uid)
                     break
 
-        # Also check Lesson titles — if a question references a Lesson,
-        # match it to the KUs that Lesson teaches
-        for lesson in ps_bundle.lessons:
+        # Also check related PathStep titles — if a question references one,
+        # match it to the KUs that PathStep teaches
+        for lesson in ps_bundle.related_steps:
             if self._fuzzy_match(lesson.title, question_lower):
                 # Find KUs linked to this Lesson
                 for ku in ps_bundle.kus:

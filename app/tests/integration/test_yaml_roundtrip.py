@@ -30,12 +30,9 @@ class TestYAMLRoundTrip:
         3. Export from Neo4j
         4. Verify data matches
         """
-        from unittest.mock import AsyncMock, MagicMock
-
         from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
         from core.models.curriculum_dto import CurriculumDTO
         from core.services.ingestion import UnifiedIngestionService
-        from core.services.lesson_service import LessonService
 
         # Verify connection and clean database
         async with neo4j_driver.session() as session:
@@ -49,22 +46,14 @@ class TestYAMLRoundTrip:
         # Use "Entity" to match what UnifiedIngestionService creates
         # IMPORTANT: Backend must use CurriculumDTO (mutable), not Curriculum (immutable)
         ku_backend = UniversalNeo4jBackend[CurriculumDTO](neo4j_driver, "Entity", CurriculumDTO)
-        # Create mock dependencies (required by fail-fast pattern)
-        mock_content_repo = AsyncMock()
-        mock_query_builder = MagicMock()
-        mock_graph_intelligence = MagicMock()  # Required by fail-fast architecture
-        ku_service = LessonService(
-            repo=ku_backend,
-            content_repo=mock_content_repo,
-            query_builder=mock_query_builder,
-            graph_intelligence_service=mock_graph_intelligence,  # Required for cross-domain queries
-        )
+        # Use backend directly for get() — no facade needed for round-trip tests
+        ku_service = ku_backend
 
         # Step 1: Create initial YAML file
         # Note: Use dot notation (l.xxx) as ingestion normalizes colons to dots
         yaml_content = """---
 type: Lesson
-uid: l.simple-test
+uid: ps.simple-test
 title: Simple Test
 content: Test content for basic round-trip
 domain: tech
@@ -89,14 +78,14 @@ This is test content for verifying basic round-trip functionality.
         )
 
         # Step 3: Retrieve KU from Neo4j (use dot notation)
-        get_result = await ku_service.get("l.simple-test")
+        get_result = await ku_service.get("ps.simple-test")
         assert get_result.is_ok, (
             f"Get failed: {get_result.error if not get_result.is_ok else 'Unknown'}"
         )
         ku_dto = get_result.value
 
         # Step 4: Verify retrieved data matches original
-        assert ku_dto.uid == "l.simple-test"
+        assert ku_dto.uid == "ps.simple-test"
         assert ku_dto.title == "Simple Test"
         # domain may be a Domain enum or string depending on deserialization
         domain_val = getattr(ku_dto.domain, "value", ku_dto.domain)
@@ -126,7 +115,7 @@ This is test content for verifying basic round-trip functionality.
         # Step 1: Create prerequisite YAML (use dot notation)
         prereq_yaml = """---
 type: Lesson
-uid: l.prereq
+uid: ps.prereq
 title: Prerequisite Topic
 content: Foundation knowledge
 domain: tech
@@ -135,7 +124,7 @@ complexity: basic
 connections:
   requires: []
   enables:
-    - l.main-topic
+    - ps.main-topic
   related: []
 ---
 
@@ -149,7 +138,7 @@ Foundation content.
         # Step 2: Create main topic YAML (use dot notation)
         main_yaml = """---
 type: Lesson
-uid: l.main-topic
+uid: ps.main-topic
 title: Main Topic
 content: Main knowledge content
 domain: tech
@@ -157,7 +146,7 @@ quality_score: 0.9
 complexity: medium
 connections:
   requires:
-    - l.prereq
+    - ps.prereq
   enables:
     - l.advanced-topic
   related:
@@ -184,14 +173,14 @@ Main content.
         )
 
         # Step 5: Retrieve main topic from Neo4j (use dot notation)
-        get_result = await ku_service.get("l.main-topic")
+        get_result = await ku_service.get("ps.main-topic")
         assert get_result.is_ok, (
             f"Get failed: {get_result.error if not get_result.is_ok else 'Unknown'}"
         )
         ku_dto = get_result.value
 
         # Step 6: Verify core metadata preserved
-        assert ku_dto.uid == "l.main-topic"
+        assert ku_dto.uid == "ps.main-topic"
         assert ku_dto.title == "Main Topic"
         domain_val = getattr(ku_dto.domain, "value", ku_dto.domain)
         assert domain_val == "tech"
@@ -211,7 +200,7 @@ Main content.
         # Step 1: Create and import initial YAML (use dot notation)
         initial_yaml = """---
 type: Lesson
-uid: l.cycle-test
+uid: ps.cycle-test
 title: Cycle Test
 content: Testing full cycle
 domain: tech
@@ -237,12 +226,12 @@ Content for testing full round-trip.
         assert import1.is_ok
 
         # Step 2: First retrieval (use dot notation)
-        get1_result = await ku_service.get("l.cycle-test")
+        get1_result = await ku_service.get("ps.cycle-test")
         assert get1_result.is_ok
         ku_dto_1 = get1_result.value
 
         # Step 3: Verify initial data
-        assert ku_dto_1.uid == "l.cycle-test"
+        assert ku_dto_1.uid == "ps.cycle-test"
         assert ku_dto_1.title == "Cycle Test"
         domain_val = getattr(ku_dto_1.domain, "value", ku_dto_1.domain)
         assert domain_val == "tech"
@@ -269,7 +258,7 @@ Content for testing full round-trip.
         # Create YAML with all relationship types (use dot notation)
         comprehensive_yaml = """---
 type: Lesson
-uid: l.comprehensive
+uid: ps.comprehensive
 title: Comprehensive Test
 content: Testing all relationship types
 domain: tech
@@ -280,8 +269,8 @@ tags:
   - all-types
 connections:
   requires:
-    - l.prereq-1
-    - l.prereq-2
+    - ps.prereq-1
+    - ps.prereq-2
   enables:
     - l.enabled-1
     - l.enabled-2
@@ -303,12 +292,12 @@ Content with all relationship types.
         assert import_result.is_ok
 
         # Retrieve from Neo4j (use dot notation)
-        get_result = await ku_service.get("l.comprehensive")
+        get_result = await ku_service.get("ps.comprehensive")
         assert get_result.is_ok
         ku_dto = get_result.value
 
         # Verify core data
-        assert ku_dto.uid == "l.comprehensive"
+        assert ku_dto.uid == "ps.comprehensive"
         assert ku_dto.title == "Comprehensive Test"
         domain_val = getattr(ku_dto.domain, "value", ku_dto.domain)
         assert domain_val == "tech"

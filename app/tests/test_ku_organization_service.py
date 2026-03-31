@@ -3,9 +3,9 @@
 KU Organization Service Test Suite
 ====================================
 
-Tests for LessonOrganizationService — ORGANIZES relationship management.
+Tests for PsOrganizationService — ORGANIZES relationship management.
 
-Any Ku can organize other Kus via ORGANIZES relationships (emergent identity).
+Any PathStep can organize other PathSteps via ORGANIZES relationships (emergent identity).
 This test suite covers:
 - Organizer identity operations (is_organizer)
 - Organization view operations (get hierarchical view)
@@ -17,10 +17,10 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.services.lesson.lesson_organization_service import (
-    LessonOrganizationService,
-    OrganizationView,
-    OrganizedKu,
+from core.services.ps.ps_organization_service import (
+    PsOrganizationService,
+    StepOrganizationView,
+    OrganizedStep,
 )
 from core.utils.result_simplified import Errors, Result
 
@@ -31,7 +31,7 @@ from core.utils.result_simplified import Errors, Result
 
 @pytest.fixture
 def mock_ku_service() -> Mock:
-    """Create mock LessonService."""
+    """Create mock PsService."""
     ku_service = Mock()
     ku_service.get = AsyncMock()
     return ku_service
@@ -39,7 +39,7 @@ def mock_ku_service() -> Mock:
 
 @pytest.fixture
 def mock_backend() -> Mock:
-    """Create mock LessonBackend with all organization methods."""
+    """Create mock PsBackend with all organization methods."""
     backend = Mock()
     backend.is_organizer = AsyncMock()
     backend.organize = AsyncMock()
@@ -52,9 +52,9 @@ def mock_backend() -> Mock:
 
 
 @pytest.fixture
-def organization_service(mock_ku_service, mock_backend) -> LessonOrganizationService:
-    """Create LessonOrganizationService instance for testing."""
-    return LessonOrganizationService(ku_service=mock_ku_service, backend=mock_backend)
+def organization_service(mock_ku_service, mock_backend) -> PsOrganizationService:
+    """Create PsOrganizationService instance for testing."""
+    return PsOrganizationService(ps_service=mock_ku_service, backend=mock_backend)
 
 
 @pytest.fixture
@@ -129,7 +129,7 @@ async def test_get_organization_view_success(
 
     assert result.is_ok
     view = result.value
-    assert isinstance(view, OrganizationView)
+    assert isinstance(view, StepOrganizationView)
     assert view.root_uid == "ku.python-reference"
     assert view.root_title == "Python Reference"
 
@@ -273,9 +273,9 @@ async def test_get_organized_children_success(organization_service, mock_backend
 
 
 def test_organized_ku_to_dict():
-    """Test OrganizedKu.to_dict() conversion."""
-    child = OrganizedKu(uid="ku.child", title="Child", order=0, children=[])
-    parent = OrganizedKu(uid="ku.parent", title="Parent", order=0, children=[child])
+    """Test OrganizedStep.to_dict() conversion."""
+    child = OrganizedStep(uid="ku.child", title="Child", order=0, children=[])
+    parent = OrganizedStep(uid="ku.parent", title="Parent", order=0, children=[child])
 
     result = parent.to_dict()
 
@@ -287,13 +287,13 @@ def test_organized_ku_to_dict():
 
 
 def test_organization_view_to_dict():
-    """Test OrganizationView.to_dict() conversion."""
-    child = OrganizedKu(uid="ku.child", title="Child", order=0, children=[])
-    view = OrganizationView(
+    """Test StepOrganizationView.to_dict() conversion."""
+    child = OrganizedStep(uid="ku.child", title="Child", order=0, children=[])
+    view = StepOrganizationView(
         root_uid="ku.root",
         root_title="Root Organizer",
         children=[child],
-        total_kus=1,
+        total_steps=1,
     )
 
     result = view.to_dict()
@@ -301,17 +301,17 @@ def test_organization_view_to_dict():
     assert result["root_uid"] == "ku.root"
     assert result["root_title"] == "Root Organizer"
     assert result["is_organizer"] is True
-    assert result["total_kus"] == 1
+    assert result["total_steps"] == 1
     assert len(result["children"]) == 1
 
 
 def test_organization_view_not_organizer_when_no_children():
-    """Test OrganizationView.is_organizer is False when no children."""
-    view = OrganizationView(
+    """Test StepOrganizationView.is_organizer is False when no children."""
+    view = StepOrganizationView(
         root_uid="ku.standalone",
         root_title="Standalone Ku",
         children=[],
-        total_kus=0,
+        total_steps=0,
     )
 
     result = view.to_dict()

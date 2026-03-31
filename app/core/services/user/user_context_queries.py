@@ -645,7 +645,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 // LEARNING STEPS - Fetch active steps with rich data
 // ====================================================================
-OPTIONAL MATCH (user)-[:WORKING_ON|ENROLLED_IN]->(ps:PathStep)
+OPTIONAL MATCH (user)-[:WORKING_ON|ENROLLED_IN]->(ls:PathStep)
 WHERE ls.status IN ['draft', 'active']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,

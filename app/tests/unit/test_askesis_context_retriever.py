@@ -97,7 +97,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            lesson_service=_ok_service(lesson),
+            ps_service=_ok_service(lesson),
             ku_service=MagicMock(get=AsyncMock()),  # no KU UIDs to fetch
             habits_service=_ok_service(habit),
             tasks_service=_ok_service(task),
@@ -112,7 +112,7 @@ class TestLoadLsBundlePartialFailure:
         assert result.is_ok
         bundle = result.value
         assert bundle.path_step.uid == "ps:test_1"
-        assert len(bundle.lessons) == 1
+        assert len(bundle.related_steps) == 1
         assert bundle.learning_path is not None
         assert len(bundle.habits) == 1
         assert len(bundle.tasks) == 1
@@ -127,7 +127,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            lesson_service=_failing_service("lesson service down"),
+            ps_service=_failing_service("lesson service down"),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
             tasks_service=_ok_service(task),
@@ -142,7 +142,7 @@ class TestLoadLsBundlePartialFailure:
         assert result.is_ok
         bundle = result.value
         assert bundle.path_step.uid == "ps:test_1"
-        assert len(bundle.lessons) == 0  # Failed fetch → empty
+        assert len(bundle.related_steps) == 0  # Failed fetch → empty
         assert bundle.learning_path is not None  # LP succeeded
         assert len(bundle.habits) == 1
 
@@ -156,7 +156,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            lesson_service=_ok_service(lesson),
+            ps_service=_ok_service(lesson),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
             tasks_service=_ok_service(task),
@@ -171,7 +171,7 @@ class TestLoadLsBundlePartialFailure:
         assert result.is_ok
         bundle = result.value
         assert bundle.learning_path is None  # Failed → default
-        assert len(bundle.lessons) == 1
+        assert len(bundle.related_steps) == 1
         assert len(bundle.habits) == 1
 
     @pytest.mark.anyio
@@ -180,7 +180,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            lesson_service=_failing_service("lessons down"),
+            ps_service=_failing_service("lessons down"),
             ku_service=_failing_service("kus down"),
             habits_service=_failing_service("habits down"),
             tasks_service=_failing_service("tasks down"),
@@ -195,7 +195,7 @@ class TestLoadLsBundlePartialFailure:
         assert result.is_ok
         bundle = result.value
         assert bundle.path_step.uid == "ps:test_1"
-        assert len(bundle.lessons) == 0
+        assert len(bundle.related_steps) == 0
         assert len(bundle.kus) == 0
         assert bundle.learning_path is None
         assert len(bundle.habits) == 0
@@ -207,7 +207,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            lesson_service=MagicMock(),
+            ps_service=MagicMock(),
             ku_service=MagicMock(),
             habits_service=MagicMock(),
             tasks_service=MagicMock(),
@@ -232,7 +232,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            lesson_service=_ok_service(lesson),
+            ps_service=_ok_service(lesson),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_failing_service("habits timeout"),
             tasks_service=_ok_service(task),
@@ -248,7 +248,7 @@ class TestLoadLsBundlePartialFailure:
         bundle = result.value
         assert len(bundle.habits) == 0  # Failed
         assert len(bundle.tasks) == 1  # Succeeded independently
-        assert len(bundle.lessons) == 1
+        assert len(bundle.related_steps) == 1
 
     @pytest.mark.anyio
     async def test_resources_fetched_via_cites_resource(self) -> None:
@@ -272,14 +272,14 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            lesson_service=_ok_service(lesson),
+            ps_service=_ok_service(lesson),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
             tasks_service=MagicMock(get=AsyncMock()),
             events_service=MagicMock(),
             principles_service=MagicMock(),
             lp_service=_ok_service(lp),
-            lesson_backend=lesson_backend,
+            ps_backend=lesson_backend,
         )
 
         ctx = _make_user_context()
@@ -300,7 +300,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            lesson_service=_ok_service(lesson),
+            ps_service=_ok_service(lesson),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
             tasks_service=MagicMock(get=AsyncMock()),
@@ -316,7 +316,7 @@ class TestLoadLsBundlePartialFailure:
         assert result.is_ok
         bundle = result.value
         assert len(bundle.resources) == 0  # Graceful degradation
-        assert len(bundle.lessons) == 1  # Other fetches unaffected
+        assert len(bundle.related_steps) == 1  # Other fetches unaffected
 
 
 class TestRelationshipNameCitesResource:

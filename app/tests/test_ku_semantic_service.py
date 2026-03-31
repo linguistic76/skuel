@@ -2,7 +2,7 @@
 Test KU Semantic Service
 =========================
 
-Tests for the LessonSemanticService focused sub-service.
+Tests for the PsSemanticService focused sub-service.
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -16,7 +16,7 @@ from core.infrastructure.relationships.semantic_relationships import (
 )
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.enums import Domain
-from core.services.lesson.lesson_semantic_service import LessonSemanticService
+from core.services.ps.ps_semantic_service import PsSemanticService
 from core.utils.result_simplified import Result
 
 
@@ -35,14 +35,14 @@ def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech"):
 
 
 class TestKuSemanticServiceInitialization:
-    """Test LessonSemanticService initialization."""
+    """Test PsSemanticService initialization."""
 
     def test_initialization_with_all_dependencies(self):
         """Test successful initialization with all dependencies."""
         repo = MagicMock()
         intelligence = MagicMock()
 
-        service = LessonSemanticService(repo=repo, intelligence=intelligence)
+        service = PsSemanticService(repo=repo, intelligence=intelligence)
 
         assert service.repo == repo
         assert service.intelligence == intelligence
@@ -51,25 +51,25 @@ class TestKuSemanticServiceInitialization:
         """Test initialization works without optional intelligence service."""
         repo = MagicMock()
 
-        service = LessonSemanticService(repo=repo)
+        service = PsSemanticService(repo=repo)
 
         assert service.repo == repo
         assert service.intelligence is None
 
     def test_initialization_fails_without_repo(self):
         """Test that initialization fails without required repo."""
-        with pytest.raises(ValueError, match="KU repository is required"):
-            LessonSemanticService(repo=None)
+        with pytest.raises(ValueError, match="repository is required"):
+            PsSemanticService(repo=None)
 
 
 class TestCreateWithSemanticRelationships:
     """Test creating knowledge units with semantic relationships."""
 
     @pytest.fixture
-    def service(self) -> LessonSemanticService:
+    def service(self) -> PsSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
-        return LessonSemanticService(repo=repo)
+        return PsSemanticService(repo=repo)
 
     @pytest.mark.asyncio
     async def test_create_with_relationships_success(self, service):
@@ -124,10 +124,10 @@ class TestSemanticNeighborhood:
     """Test semantic neighborhood operations."""
 
     @pytest.fixture
-    def service(self) -> LessonSemanticService:
+    def service(self) -> PsSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
-        return LessonSemanticService(repo=repo)
+        return PsSemanticService(repo=repo)
 
     @pytest.mark.asyncio
     async def test_get_semantic_neighborhood_unit_not_found(self, service):
@@ -212,10 +212,10 @@ class TestRelationshipManagement:
     """Test semantic relationship management operations."""
 
     @pytest.fixture
-    def service(self) -> LessonSemanticService:
+    def service(self) -> PsSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
-        return LessonSemanticService(repo=repo)
+        return PsSemanticService(repo=repo)
 
     @pytest.mark.asyncio
     async def test_add_semantic_relationship_success(self, service):
@@ -334,10 +334,10 @@ class TestRelationshipDiscovery:
     """Test relationship discovery and inference operations."""
 
     @pytest.fixture
-    def service(self) -> LessonSemanticService:
+    def service(self) -> PsSemanticService:
         """Create service with mocked dependencies."""
         repo = MagicMock()
-        return LessonSemanticService(repo=repo)
+        return PsSemanticService(repo=repo)
 
     @pytest.mark.asyncio
     async def test_discover_semantic_bridges_success(self, service):
@@ -442,33 +442,15 @@ class TestRelationshipDiscovery:
 
 
 class TestFacadeDelegation:
-    """Test that LessonService facade correctly delegates to semantic service."""
+    """Test that PsService facade correctly delegates to semantic service."""
 
-    @pytest.mark.asyncio
-    async def test_facade_delegates_semantic_methods(self):
-        """Test that all semantic methods are delegated."""
-        from core.services.lesson_service import LessonService
-
-        # Create facade with mocked dependencies
-        repo = MagicMock()
-        content_repo = MagicMock()
-        query_builder = MagicMock()  # Required for LessonSearchService
-        graph_intel = MagicMock()
-
-        service = LessonService(
-            repo=repo,
-            content_repo=content_repo,
-            query_builder=query_builder,
-            graph_intelligence_service=graph_intel,
-        )
-
-        # Verify semantic sub-service exists
-        assert hasattr(service, "semantic")
-        assert service.semantic is not None
+    def test_facade_has_semantic_methods(self):
+        """Test that all semantic methods exist on PsService."""
+        from core.services.ps_service import PsService
 
         # Verify all semantic methods exist on facade
-        assert callable(service.create_with_semantic_relationships)
-        assert callable(service.get_semantic_neighborhood)
+        assert callable(getattr(PsService, "create_with_semantic_relationships", None))
+        assert callable(getattr(PsService, "get_semantic_neighborhood", None))
 
 
 if __name__ == "__main__":
