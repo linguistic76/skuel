@@ -58,9 +58,9 @@ def ChoiceStatsBar(choices: list["Choice"]) -> "FT":
     )
 
     stats = [
-        StatItem(label="Total", value=total),
-        StatItem(label="Pending", value=pending, color="warning" if pending > 0 else None),
-        StatItem(label="Decided", value=decided, color="success"),
+        StatItem(label="Total", value=total, href="/choices?status=all"),
+        StatItem(label="Pending", value=pending, color="warning" if pending > 0 else None, href="/choices?status=pending"),
+        StatItem(label="Decided", value=decided, color="success", href="/choices?status=decided"),
         StatItem(
             label="Avg Satisfaction",
             value=f"{avg_satisfaction:.1f}/5" if avg_satisfaction > 0 else "-",

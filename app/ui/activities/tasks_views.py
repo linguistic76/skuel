@@ -46,10 +46,10 @@ def TaskStatsBar(tasks: list["Task"]) -> "FT":
     overdue = sum(1 for t in tasks if _is_overdue(t))
 
     stats = [
-        StatItem(label="Total", value=total),
-        StatItem(label="Active", value=active, color="primary"),
-        StatItem(label="Completed", value=completed, color="success"),
-        StatItem(label="Overdue", value=overdue, color="error" if overdue > 0 else None),
+        StatItem(label="Total", value=total, href="/tasks?status=all"),
+        StatItem(label="Active", value=active, color="primary", href="/tasks?status=active"),
+        StatItem(label="Completed", value=completed, color="success", href="/tasks?status=completed"),
+        StatItem(label="Overdue", value=overdue, color="error" if overdue > 0 else None, href="/tasks?status=overdue"),
     ]
     return StatsGrid(stats, cols=4)
 
@@ -67,6 +67,7 @@ def TaskFilterBar(
                 Select(
                     Option("Active", value="active", selected=status_filter == "active"),
                     Option("Completed", value="completed", selected=status_filter == "completed"),
+                    Option("Overdue", value="overdue", selected=status_filter == "overdue"),
                     Option("All", value="all", selected=status_filter == "all"),
                     name="status",
                     cls="uk-select uk-form-small",
@@ -468,6 +469,8 @@ def filter_tasks(
         ]
     elif status_filter == "completed":
         filtered = [t for t in filtered if t.status and t.status.value == "completed"]
+    elif status_filter == "overdue":
+        filtered = [t for t in filtered if _is_overdue(t)]
 
     # Priority filter
     if priority_filter != "all":

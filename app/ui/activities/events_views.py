@@ -44,10 +44,10 @@ def EventStatsBar(events: list["Event"]) -> "FT":
     completed = sum(1 for e in events if e.status and e.status.value == "completed")
 
     stats = [
-        StatItem(label="Total", value=total),
-        StatItem(label="Upcoming", value=upcoming, color="primary"),
-        StatItem(label="Today", value=today, color="warning" if today > 0 else None),
-        StatItem(label="Completed", value=completed, color="success"),
+        StatItem(label="Total", value=total, href="/events?status=all"),
+        StatItem(label="Upcoming", value=upcoming, color="primary", href="/events?status=upcoming"),
+        StatItem(label="Today", value=today, color="warning" if today > 0 else None, href="/events?status=today"),
+        StatItem(label="Completed", value=completed, color="success", href="/events?status=completed"),
     ]
     return StatsGrid(stats, cols=4)
 
@@ -63,6 +63,7 @@ def EventFilterBar(
                 Label("Status", cls="uk-form-label"),
                 Select(
                     Option("Upcoming", value="upcoming", selected=status_filter == "upcoming"),
+                    Option("Today", value="today", selected=status_filter == "today"),
                     Option("Completed", value="completed", selected=status_filter == "completed"),
                     Option("All", value="all", selected=status_filter == "all"),
                     name="status",
@@ -555,6 +556,8 @@ def filter_events(
     # Status filter
     if status_filter == "upcoming":
         filtered = [e for e in filtered if _is_upcoming(e)]
+    elif status_filter == "today":
+        filtered = [e for e in filtered if _is_today(e)]
     elif status_filter == "completed":
         filtered = [e for e in filtered if e.status and e.status.value == "completed"]
 

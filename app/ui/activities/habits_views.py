@@ -46,14 +46,14 @@ def HabitStatsBar(habits: list["Habit"]) -> "FT":
     keystone = sum(1 for h in habits if _is_keystone(h))
 
     stats = [
-        StatItem(label="Total", value=total),
-        StatItem(label="Active", value=active, color="primary"),
+        StatItem(label="Total", value=total, href="/habits?status=all"),
+        StatItem(label="Active", value=active, color="primary", href="/habits?status=active"),
         StatItem(
             label="Avg Streak",
             value=f"{avg_streak:.1f}",
             color="success" if avg_streak > 0 else None,
         ),
-        StatItem(label="Keystone", value=keystone, color="warning" if keystone > 0 else None),
+        StatItem(label="Keystone", value=keystone, color="warning" if keystone > 0 else None, href="/habits?status=keystone"),
     ]
     return StatsGrid(stats, cols=4)
 
@@ -72,6 +72,7 @@ def HabitFilterBar(
                     Option("Active", value="active", selected=status_filter == "active"),
                     Option("Paused", value="paused", selected=status_filter == "paused"),
                     Option("Completed", value="completed", selected=status_filter == "completed"),
+                    Option("Keystone", value="keystone", selected=status_filter == "keystone"),
                     Option("All", value="all", selected=status_filter == "all"),
                     name="status",
                     cls="uk-select uk-form-small",
@@ -588,6 +589,8 @@ def filter_habits(
         filtered = [h for h in filtered if h.status and h.status.value == "paused"]
     elif status_filter == "completed":
         filtered = [h for h in filtered if h.status and h.status.value == "completed"]
+    elif status_filter == "keystone":
+        filtered = [h for h in filtered if _is_keystone(h)]
 
     # Category filter
     if category_filter != "all":
