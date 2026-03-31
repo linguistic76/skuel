@@ -606,11 +606,11 @@ class VaultConfig:
     """Configuration for Obsidian vault and file sync"""
 
     # Vault location
-    vault_root: str = os.getenv("VAULT_ROOT", "/home/mike/0bsidian/skuel")
+    vault_root: str = os.getenv("VAULT_ROOT", "/home/mike/0bsidian/0vault")
     vault_enabled: bool = os.getenv("VAULT_ENABLED", "true").lower() == "true"
 
     # Ingestion data directory (where files are staged for ingestion)
-    ingestion_root: str = os.getenv("INGESTION_PATH", "data/vault")
+    ingestion_root: str = os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault")
 
     # Per-user vault uploads directory
     user_vaults_root: str = os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults")
@@ -665,12 +665,12 @@ class VaultConfig:
     def from_env(cls) -> "VaultConfig":
         """Create config from environment variables"""
         return cls(
-            vault_root=os.getenv("VAULT_ROOT", "/home/mike/0bsidian/skuel"),
+            vault_root=os.getenv("VAULT_ROOT", "/home/mike/0bsidian/0vault"),
             vault_enabled=os.getenv("VAULT_ENABLED", "true").lower() == "true",
             auto_sync=os.getenv("AUTO_SYNC_VAULT", "true").lower() == "true",
             watch_vault=os.getenv("WATCH_VAULT", "false").lower() == "true",
             sync_interval_minutes=int(os.getenv("SYNC_INTERVAL_MINUTES", "30")),
-            ingestion_root=os.getenv("INGESTION_PATH", "data/vault"),
+            ingestion_root=os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"),
             user_vaults_root=os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults"),
         )
 

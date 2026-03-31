@@ -77,9 +77,9 @@ See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete 
 
 **CLAUDE.md Purpose:** Quick-reference with pointers to detailed docs. Sections should be 10-20 lines max with `**See:**` pointers.
 
-**Content Location (different purpose):** `/home/mike/0bsidian/skuel/docs/` contains Knowledge Unit content for ingestion, NOT technical documentation.
+**Content Location (different purpose):** `/home/mike/0bsidian/0vault/` is the Obsidian vault for content authoring (KU YAMLs, PathStep YAMLs, edge YAMLs). NOT technical documentation.
 
-**Default Ingestion Vault:** `data/vault/` (i.e., `/home/mike/skuel/app/data/vault/`) is the default folder for content ingestion — Ku YAMLs, PathStep YAMLs, edge YAMLs, and markdown files. Configurable via `INGESTION_PATH` env var. The Obsidian vault at `/home/mike/0bsidian/skuel/data/vault/` mirrors this as the authoring source.
+**Default Ingestion Vault:** `/home/mike/0bsidian/0vault/` is the default folder for content ingestion — Ku YAMLs, PathStep YAMLs, edge YAMLs, and markdown files. Configurable via `INGESTION_PATH` env var. This is the Obsidian vault authoring source.
 
 ## Docstring Philosophy
 
@@ -614,7 +614,7 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, ingestion history, WebSocket progress, edge ingestion (relationship YAML files), full PS field wiring. 12 of 20 entity types are file-ingestible. **Markdown files require an explicit `type` field in frontmatter** — no silent defaults. **UID prefix validation** rejects UIDs that don't match the expected prefix for their entity type.
 
-**Default Vault:** `data/vault/` (`/home/mike/skuel/app/data/vault/`) — the default folder for all ingestion content. Ku YAMLs (`ku_*.yaml`), PathStep YAMLs (`ps_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown files live here. Configurable via `INGESTION_PATH` env var.
+**Default Vault:** `/home/mike/0bsidian/0vault/` — the default folder for all ingestion content. Ku YAMLs (`ku_*.yaml`), PathStep YAMLs (`ps_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown files live here. Configurable via `INGESTION_PATH` env var.
 
 **Import:** `from core.services.ingestion import UnifiedIngestionService`
 
