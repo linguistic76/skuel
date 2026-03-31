@@ -10,8 +10,8 @@ description: |
   to sit comfortably, find your anchor point, and follow your breath.
 
 knowledge_uids:
-  - l:mindfulness:breath-awareness-basics
-  - l:mindfulness:posture-basics
+  - ps:mindfulness:breath-awareness-basics
+  - ps:mindfulness:posture-basics
 
 trains_ku_uids:
   - ku:mindfulness:breath

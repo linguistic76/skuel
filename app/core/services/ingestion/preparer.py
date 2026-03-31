@@ -8,7 +8,7 @@ relationship data flattening, and embedding generation.
 Extracted from unified_ingestion_service.py for separation of concerns.
 
 NEO4J GENAI INTEGRATION (January 2026):
-- Automatically generates embeddings for priority entities (Ku, Task, Goal, LpStep)
+- Automatically generates embeddings for priority entities (Ku, Task, Goal, PathStep)
 - Uses HuggingFaceEmbeddingsService if available
 - Graceful degradation - ingestion works without embeddings
 """
@@ -134,9 +134,9 @@ def _prepare_core(
     if body is not None and entity_type in (EntityType.PATH_STEP, EntityType.EXERCISE_SUBMISSION):
         entity_data["content"] = body
 
-    # Lesson: normalize USES_KU UIDs and activity domain UIDs
+    # PathStep: normalize USES_KU UIDs and activity domain UIDs
     if entity_type == EntityType.PATH_STEP:
-        lesson_uid_fields = [
+        ps_uid_fields = [
             "uses_kus",
             "habit_uids",
             "task_uids",
@@ -145,11 +145,11 @@ def _prepare_core(
             "principle_uids",
             "choice_uids",
         ]
-        for field in lesson_uid_fields:
+        for field in ps_uid_fields:
             if field in entity_data and isinstance(entity_data[field], list):
                 entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
 
-    # Learning Step: normalize relationship fields
+    # PathStep: normalize relationship fields
     if entity_type == EntityType.PATH_STEP:
         # Convert single learning_path_uid to list
         lp_uid = entity_data.pop("learning_path_uid", None)
@@ -165,7 +165,7 @@ def _prepare_core(
                 entity_data.setdefault("knowledge_uids", []).insert(0, normalized)
 
         # Normalize UIDs in all relationship list fields
-        # Activity domain fields removed — now live on Lessons
+        # Activity domain fields handled above via ps_uid_fields
         uid_list_fields = [
             "knowledge_uids",
             "trains_ku_uids",
@@ -290,7 +290,7 @@ def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
     Determine if entity type should have embeddings.
 
     All content-bearing entity types receive embeddings for semantic search:
-    - Curriculum: Lesson, Ku, Exercise, PathStep, LearningPath, Resource, RevisedExercise
+    - Curriculum: PathStep, Ku, Exercise, LearningPath, Resource, RevisedExercise
     - Activity: Task, Goal, Habit, Event, Choice, Principle
     """
     embeddable_types = {
@@ -298,7 +298,6 @@ def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> bool:
         EntityType.PATH_STEP,
         EntityType.KU,
         EntityType.EXERCISE,
-        EntityType.PATH_STEP,
         EntityType.LEARNING_PATH,
         EntityType.RESOURCE,
         EntityType.REVISED_EXERCISE,

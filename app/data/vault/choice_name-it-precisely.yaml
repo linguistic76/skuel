@@ -22,7 +22,7 @@ constraints:
 
 connections:
   informed_by_knowledge:
-    - l:self-reflection:emotional-awareness
+    - ps:self-reflection:emotional-awareness
 
 stakeholders:
   - self

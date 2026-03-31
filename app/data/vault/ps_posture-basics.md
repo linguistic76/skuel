@@ -1,6 +1,6 @@
 ---
-type: Lesson
-uid: l:mindfulness:posture-basics
+type: PathStep
+uid: ps:mindfulness:posture-basics
 title: Posture — Basics
 sel_category: self_awareness
 learning_level: beginner
@@ -19,7 +19,7 @@ uses_kus:
 
 connections:
   requires:
-    - l:mindfulness:breath-awareness-basics
+    - ps:mindfulness:breath-awareness-basics
   enables: []
 
 quality_score: 0.82

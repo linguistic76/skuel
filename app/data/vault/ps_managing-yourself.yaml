@@ -1,7 +1,7 @@
 version: 1.0
-type: Lesson
+type: PathStep
 
-uid: l:sel:managing-yourself
+uid: ps:sel:managing-yourself
 title: Managing Yourself — Goals, Habits, and Impulse Control
 sel_category: self_management
 learning_level: beginner
@@ -89,9 +89,9 @@ uses_kus:
 
 connections:
   requires:
-    - l:sel:knowing-yourself
+    - ps:sel:knowing-yourself
   enables:
-    - l:sel:understanding-others
+    - ps:sel:understanding-others
 
 tags:
   - sel

@@ -1,6 +1,6 @@
 ---
-type: Lesson
-uid: l:mindfulness:breath-awareness-basics
+type: PathStep
+uid: ps:mindfulness:breath-awareness-basics
 title: Breath Awareness — Basics
 sel_category: self_awareness
 learning_level: beginner
@@ -21,8 +21,8 @@ uses_kus:
 connections:
   requires: []
   enables:
-    - l:mindfulness:posture-basics
-    - l:mindfulness:mind-wandering-happens
+    - ps:mindfulness:posture-basics
+    - ps:mindfulness:mind-wandering-happens
 
 quality_score: 0.88
 

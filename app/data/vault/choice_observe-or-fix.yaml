@@ -22,7 +22,7 @@ constraints:
 
 connections:
   informed_by_knowledge:
-    - l:self-reflection:noticing-patterns
+    - ps:self-reflection:noticing-patterns
 
 stakeholders:
   - self

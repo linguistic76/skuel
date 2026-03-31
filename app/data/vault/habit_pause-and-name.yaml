@@ -16,7 +16,7 @@ duration_minutes: 0
 
 connections:
   reinforces_knowledge:
-    - l:self-reflection:noticing-patterns
+    - ps:self-reflection:noticing-patterns
   supports_goal:
     - goal:self-reflection-beginner
   embodies_principle:

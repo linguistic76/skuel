@@ -1,6 +1,6 @@
 ---
-type: Lesson
-uid: l:self-reflection:emotional-awareness
+type: PathStep
+uid: ps:self-reflection:emotional-awareness
 title: Emotional Awareness — Feeling Without Fixing
 sel_category: self_awareness
 learning_level: beginner
@@ -20,9 +20,9 @@ uses_kus:
 
 connections:
   requires:
-    - l:self-reflection:noticing-patterns
+    - ps:self-reflection:noticing-patterns
   enables:
-    - l:self-reflection:values-discovery
+    - ps:self-reflection:values-discovery
 
 quality_score: 0.90
 

@@ -1,7 +1,7 @@
 version: 1.0
-type: Lesson
+type: PathStep
 
-uid: l:sel:making-good-decisions
+uid: ps:sel:making-good-decisions
 title: Making Good Decisions — Ethics, Consequences, and Reflection
 sel_category: responsible_decision_making
 learning_level: beginner
@@ -105,7 +105,7 @@ uses_kus:
 
 connections:
   requires:
-    - l:sel:building-relationships
+    - ps:sel:building-relationships
   enables: []
 
 tags:

@@ -19,9 +19,9 @@ target_date: null
 
 connections:
   requires_knowledge:
-    - l:self-reflection:noticing-patterns
-    - l:self-reflection:emotional-awareness
-    - l:self-reflection:values-discovery
+    - ps:self-reflection:noticing-patterns
+    - ps:self-reflection:emotional-awareness
+    - ps:self-reflection:values-discovery
   supporting_habits:
     - habit:daily-check-in
     - habit:pause-and-name

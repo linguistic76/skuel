@@ -1,6 +1,6 @@
 ---
-type: Lesson
-uid: l:self-awareness:understanding-your-emotions
+type: PathStep
+uid: ps:self-awareness:understanding-your-emotions
 title: Understanding Your Emotions
 sel_category: self_awareness
 learning_level: beginner
@@ -21,8 +21,8 @@ uses_kus:
 connections:
   requires: []
   enables:
-    - l:self-reflection:noticing-patterns
-    - l:self-management:managing-your-reactions
+    - ps:self-reflection:noticing-patterns
+    - ps:self-management:managing-your-reactions
 
 quality_score: 0.88
 

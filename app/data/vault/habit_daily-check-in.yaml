@@ -16,8 +16,8 @@ duration_minutes: 2
 
 connections:
   reinforces_knowledge:
-    - l:self-reflection:emotional-awareness
-    - l:self-reflection:noticing-patterns
+    - ps:self-reflection:emotional-awareness
+    - ps:self-reflection:noticing-patterns
   supports_goal:
     - goal:self-reflection-beginner
   embodies_principle:

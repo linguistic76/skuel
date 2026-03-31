@@ -1,6 +1,6 @@
 ---
-type: Lesson
-uid: l:self-management:managing-your-reactions
+type: PathStep
+uid: ps:self-management:managing-your-reactions
 title: Managing Your Reactions
 sel_category: self_management
 learning_level: beginner
@@ -20,9 +20,9 @@ uses_kus:
 
 connections:
   requires:
-    - l:self-awareness:understanding-your-emotions
+    - ps:self-awareness:understanding-your-emotions
   enables:
-    - l:sel:setting-your-first-goal
+    - ps:sel:setting-your-first-goal
 
 quality_score: 0.88
 

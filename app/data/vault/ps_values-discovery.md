@@ -1,6 +1,6 @@
 ---
-type: Lesson
-uid: l:self-reflection:values-discovery
+type: PathStep
+uid: ps:self-reflection:values-discovery
 title: Values Discovery — What Actually Matters to You
 sel_category: self_awareness
 learning_level: beginner
@@ -20,8 +20,8 @@ uses_kus:
 
 connections:
   requires:
-    - l:self-reflection:noticing-patterns
-    - l:self-reflection:emotional-awareness
+    - ps:self-reflection:noticing-patterns
+    - ps:self-reflection:emotional-awareness
   enables: []
 
 quality_score: 0.88

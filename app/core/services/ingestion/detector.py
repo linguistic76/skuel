@@ -19,7 +19,7 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 
 # Map YAML type values to EntityType/NonKuDomain (handles aliases)
 TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
-    # Lessons (units for learning)
+    # PathStep (curriculum content — "lesson" is a backward-compat alias)
     "lesson": EntityType.PATH_STEP,
     # Atomic Ku (knowledge unit)
     "ku": EntityType.KU,
@@ -105,7 +105,7 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
         if non_ku:
             return non_ku
 
-    # Check for MOC flag (markdown convention) — MOC is now LESSON
+    # Check for MOC flag (markdown convention) — MOC is PathStep
     if data.get("moc") is True:
         return EntityType.PATH_STEP
 
@@ -113,7 +113,7 @@ def detect_entity_type(data: dict[str, Any], file_path: Path) -> EntityType | No
     if file_path.suffix.lower() == ".md":
         raise ValueError(
             f"Markdown file {file_path.name} has no 'type' field in frontmatter. "
-            f"Add 'type: Lesson' or 'type: Ku' to the YAML frontmatter."
+            f"Add 'type: PathStep' or 'type: Ku' to the YAML frontmatter."
         )
 
     raise ValueError(f"Cannot determine entity type for {file_path}")

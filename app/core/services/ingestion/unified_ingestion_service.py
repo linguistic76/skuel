@@ -83,7 +83,7 @@ class UnifiedIngestionService:
 
     Orchestrates capabilities from decomposed modules:
     - Auto-detects file format (MD vs YAML)
-    - Routes to appropriate entity type (21 entity types)
+    - Routes to appropriate entity type (20 entity types)
     - Normalizes UIDs to dot notation
     - Uses BulkIngestionEngine for batch performance
     - Creates graph-native relationships
@@ -154,11 +154,11 @@ class UnifiedIngestionService:
         # Log chunking availability
         if self.chunking:
             self.logger.info(
-                "✅ Chunking service available - will generate chunks during KU ingestion"
+                "✅ Chunking service available - will generate chunks during PathStep ingestion"
             )
         else:
             self.logger.warning(
-                "⚠️ Chunking service not available - KU ingestion will work without chunks"
+                "⚠️ Chunking service not available - PathStep ingestion will work without chunks"
             )
 
         # Lazy-initialized engines per domain type (keyed by EntityType/NonKuDomain)
@@ -423,7 +423,7 @@ class UnifiedIngestionService:
         if validation_result.is_error:
             return Result.fail(validation_result)
 
-        # For Lesson: pop content before Neo4j storage — content lives on :Content node, not :Entity node
+        # For PathStep: pop content before Neo4j storage — content lives on :Content node, not :Entity node
         ku_content_body = ""
         if entity_type == EntityType.PATH_STEP:
             ku_content_body = entity_data.pop("content", "")
@@ -446,8 +446,8 @@ class UnifiedIngestionService:
         stats = result.value
         self.logger.info(f"Ingested {entity_type.value}: {entity_data['uid']}")
 
-        # Automatic chunking for Lesson entities (January 2026)
-        # Generate chunks immediately after successful Lesson ingestion for RAG-readiness
+        # Automatic chunking for PathStep entities
+        # Generate chunks immediately after successful PathStep ingestion for RAG-readiness
         chunks_generated = False
         if entity_type == EntityType.PATH_STEP and self.chunking:
             content_body = ku_content_body  # Already popped above

@@ -132,7 +132,7 @@ class EntityIngestionConfig:
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration
 #
-# 13 of 21 entity types are file-ingestible. The following are excluded:
+# 12 of 20 entity types are file-ingestible. The following are excluded:
 #   - REVISED_EXERCISE: Created via API as part of the feedback loop
 #   - RESOURCE: Created via API with curated metadata
 #   - FORM_TEMPLATE: Created via API by admins
@@ -150,12 +150,6 @@ class EntityIngestionConfig:
 # See: core/models/relationship_registry.py (single source of truth)
 # See: /docs/decisions/ADR-026-unified-relationship-registry.md
 ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
-    EntityType.PATH_STEP: EntityIngestionConfig(
-        entity_label="Lesson",
-        uid_prefix="l",
-        required_fields=("title", "content"),
-        relationship_config=generate_ingestion_relationship_config(EntityType.PATH_STEP),
-    ),
     EntityType.EXERCISE: EntityIngestionConfig(
         entity_label="Exercise",
         uid_prefix="ex",

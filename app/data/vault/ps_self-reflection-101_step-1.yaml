@@ -10,8 +10,8 @@ description: |
   clearly what's already happening.
 
 knowledge_uids:
-  - l:self-reflection:noticing-patterns
-  - l:self-reflection:emotional-awareness
+  - ps:self-reflection:noticing-patterns
+  - ps:self-reflection:emotional-awareness
 
 trains_ku_uids:
   - ku:self-reflection:self-observation

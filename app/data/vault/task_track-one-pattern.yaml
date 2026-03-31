@@ -20,7 +20,7 @@ scheduled_date: null
 
 connections:
   applies_knowledge:
-    - l:self-reflection:noticing-patterns
+    - ps:self-reflection:noticing-patterns
   fulfills_goal:
     - goal:self-reflection-beginner
   reinforces_habit:

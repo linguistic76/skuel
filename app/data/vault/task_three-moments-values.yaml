@@ -21,7 +21,7 @@ scheduled_date: null
 
 connections:
   applies_knowledge:
-    - l:self-reflection:values-discovery
+    - ps:self-reflection:values-discovery
   fulfills_goal:
     - goal:self-reflection-beginner
 

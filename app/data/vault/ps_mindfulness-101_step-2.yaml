@@ -10,8 +10,8 @@ description: |
   the ability to observe your own thinking process.
 
 knowledge_uids:
-  - l:mindfulness:mind-wandering-happens
-  - l:mindfulness:breath-awareness-basics
+  - ps:mindfulness:mind-wandering-happens
+  - ps:mindfulness:breath-awareness-basics
 
 trains_ku_uids:
   - ku:mindfulness:attention
@@ -22,7 +22,7 @@ sequence: 2
 prerequisite_step_uids:
   - ps:mindfulness-101:step-1
 prerequisite_knowledge_uids:
-  - l:mindfulness:breath-awareness-basics
+  - ps:mindfulness:breath-awareness-basics
 
 mastery_threshold: 0.7
 current_mastery: 0.0

@@ -1,7 +1,7 @@
 version: 1.0
-type: Lesson
+type: PathStep
 
-uid: l:meditation:basics
+uid: ps:meditation:basics
 title: "Meditation Basics — Breath and Attention"
 description: "Introduction to meditation focusing on breath awareness and sustained attention"
 domain: SPIRITUAL

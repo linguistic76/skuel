@@ -11,8 +11,8 @@ description: |
   of what actually matters to you.
 
 knowledge_uids:
-  - l:self-reflection:values-discovery
-  - l:self-reflection:emotional-awareness
+  - ps:self-reflection:values-discovery
+  - ps:self-reflection:emotional-awareness
 
 trains_ku_uids:
   - ku:self-reflection:personal-values
@@ -23,7 +23,7 @@ sequence: 2
 prerequisite_step_uids:
   - ps:self-reflection-101:step-1
 prerequisite_knowledge_uids:
-  - l:self-reflection:noticing-patterns
+  - ps:self-reflection:noticing-patterns
 
 mastery_threshold: 0.7
 current_mastery: 0.0

@@ -1,6 +1,6 @@
 ---
-type: Lesson
-uid: l:self-reflection:noticing-patterns
+type: PathStep
+uid: ps:self-reflection:noticing-patterns
 title: Noticing Your Patterns
 sel_category: self_awareness
 learning_level: beginner
@@ -21,8 +21,8 @@ uses_kus:
 connections:
   requires: []
   enables:
-    - l:self-reflection:emotional-awareness
-    - l:self-reflection:values-discovery
+    - ps:self-reflection:emotional-awareness
+    - ps:self-reflection:values-discovery
 
 quality_score: 0.88
 
