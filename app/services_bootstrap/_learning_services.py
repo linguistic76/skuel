@@ -97,7 +97,7 @@ def _create_learning_services(
 
     # Create path step service (PS operations — merged Lesson capabilities)
     # PsBackend now passed in from _backends.py with all 5 lesson mixins
-    # PsService absorbs ALL former LessonService capabilities (Phase 3-4 merge)
+    # PsService absorbs ALL former Lesson capabilities (Phase 3-4 merge)
     ps_service = PsService(
         backend=knowledge_backend,
         executor=query_executor,
@@ -123,7 +123,7 @@ def _create_learning_services(
         backend=lp_backend,
         executor=query_executor,
         ps_service=ps_service,  # Delegate PS operations to PsService
-        ku_service=ps_service,  # PsService absorbs former LessonService role
+        ku_service=ps_service,  # PsService absorbs former Lesson role
         progress_service=user_progress,
         graph_intelligence_service=graph_intelligence,  # 4 graph queries (REQUIRED)
         event_bus=event_bus,  # Event-driven architecture

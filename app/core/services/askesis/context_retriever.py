@@ -403,7 +403,7 @@ class ContextRetriever:
         # We use return_exceptions=True so a single failure doesn't cancel
         # the others — a partial bundle (LS + whatever succeeded) is more
         # useful than no bundle at all.
-        lessons_coro = self._fetch_lessons(path_step, graph_context)
+        related_ps_coro = self._fetch_related_path_steps(path_step, graph_context)
         kus_coro = self._fetch_kus(path_step)
         lp_coro = self._fetch_learning_path(graph_context)
         habits_coro = self._fetch_entities_by_uid(
@@ -414,7 +414,7 @@ class ContextRetriever:
         )
 
         raw_results = await asyncio.gather(
-            lessons_coro,
+            related_ps_coro,
             kus_coro,
             lp_coro,
             habits_coro,
@@ -422,7 +422,7 @@ class ContextRetriever:
             return_exceptions=True,
         )
 
-        fetch_labels = ("lessons", "kus", "learning_path", "habits", "tasks")
+        fetch_labels = ("related_ps", "kus", "learning_path", "habits", "tasks")
         defaults: tuple[Any, ...] = ([], [], None, [], [])
 
         resolved: list[Any] = []
@@ -433,16 +433,16 @@ class ContextRetriever:
             else:
                 resolved.append(raw)
 
-        lessons, kus, learning_path, habits, tasks = resolved
+        related_ps, kus, learning_path, habits, tasks = resolved
         events: list[Any] = []  # Event templates not yet in graph_context
         principles: list[Any] = []  # Principles not yet in graph_context
 
         # Step 3b: Fetch Resources cited by bundle PathSteps/KUs (Ring 2 context)
         # Done after path_steps/kus resolve so we know which UIDs to traverse from.
-        lesson_uids = [a.uid for a in lessons]
+        related_ps_uids = [a.uid for a in related_ps]
         ku_uids_list = [k.uid for k in kus]
         try:
-            resources = await self._fetch_cited_resources(lesson_uids + ku_uids_list)
+            resources = await self._fetch_cited_resources(related_ps_uids + ku_uids_list)
         except NEO4J_EXCEPTIONS as exc:
             logger.warning("LS bundle fetch failed for resources (user %s): %s", user_uid, exc)
             resources = []
@@ -455,11 +455,11 @@ class ContextRetriever:
             )
             resources = []
 
-        # Step 4: Collect learning objectives from lessons
+        # Step 4: Collect learning objectives from related path steps
         learning_objectives: list[str] = []
-        for lesson in lessons:
-            if lesson.learning_objectives:
-                learning_objectives.extend(lesson.learning_objectives)
+        for ps in related_ps:
+            if ps.learning_objectives:
+                learning_objectives.extend(ps.learning_objectives)
 
         # Step 5: Collect edges between bundle entities
         edges = self._extract_edges(graph_context)
@@ -467,7 +467,7 @@ class ContextRetriever:
         bundle = PsBundle(
             path_step=path_step,
             learning_path=learning_path,
-            related_steps=tuple(lessons),
+            related_steps=tuple(related_ps),
             kus=tuple(kus),
             resources=tuple(resources),
             principles=tuple(principles),
@@ -533,37 +533,37 @@ class ContextRetriever:
             logger.warning("Failed to build PathStep from data (unexpected): %s", uid)
             return None
 
-    async def _fetch_lessons(
+    async def _fetch_related_path_steps(
         self, path_step: PathStep, graph_context: dict[str, Any]
     ) -> list[PathStep]:
         """Fetch full PathSteps for knowledge UIDs.
 
-        The LS has knowledge_uids pointing to PathSteps/KUs via CONTAINS_KNOWLEDGE.
+        The PathStep has knowledge_uids pointing to PathSteps/KUs via CONTAINS_KNOWLEDGE.
         The graph_context also has knowledge_relationships with UIDs.
         We fetch full content so the Socratic engine can use it as curriculum context.
         """
         if not self.ps_service:
             return []
 
-        lesson_uids: set[str] = set()
+        ps_uids: set[str] = set()
         if path_step.knowledge_uids:
-            lesson_uids.update(path_step.knowledge_uids)
+            ps_uids.update(path_step.knowledge_uids)
 
         # Also check graph_context knowledge_relationships for additional UIDs
         for kr in graph_context.get("knowledge_relationships", []):
             if isinstance(kr, dict) and kr.get("uid"):
-                lesson_uids.add(kr["uid"])
+                ps_uids.add(kr["uid"])
 
-        results = await asyncio.gather(*(self.ps_service.get(uid) for uid in lesson_uids))
+        results = await asyncio.gather(*(self.ps_service.get(uid) for uid in ps_uids))
 
-        lessons: list[PathStep] = []
-        for uid, result in zip(lesson_uids, results, strict=False):
+        path_steps: list[PathStep] = []
+        for uid, result in zip(ps_uids, results, strict=False):
             if result.is_ok and result.value:
-                lessons.append(result.value)
+                path_steps.append(result.value)
             else:
-                logger.debug("Could not fetch path step %s for LS bundle", uid)
+                logger.debug("Could not fetch path step %s for PS bundle", uid)
 
-        return lessons
+        return path_steps
 
     async def _fetch_kus(self, path_step: PathStep) -> list[Ku]:
         """Fetch full Ku objects for trains_ku_uids on the LS.

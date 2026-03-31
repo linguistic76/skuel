@@ -18,9 +18,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.services.ps.ps_organization_service import (
+    OrganizedStep,
     PsOrganizationService,
     StepOrganizationView,
-    OrganizedStep,
 )
 from core.utils.result_simplified import Errors, Result
 

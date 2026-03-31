@@ -62,7 +62,7 @@ class AnalyticsLifePathService:
 
         Args:
             user_service: UserService for getting UserContext
-            ku_service: LessonService for knowledge substance scores
+            ku_service: PsService for knowledge substance scores
             lp_service: LpService for Learning Path details
         """
         self.user_service = user_service

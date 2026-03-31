@@ -63,7 +63,7 @@ def _wire_ai_services(
         embeddings_service=embeddings_service,
     )
     # Wire AI services into Curriculum Domain facades (post-construction)
-    # lesson_service and path_steps are the same PsService instance
+    # path_steps is the PsService instance (Lesson merged into PathStep)
     learning_services["path_steps"].ai = ps_ai
     learning_services["learning_paths"].ai = lp_ai
 

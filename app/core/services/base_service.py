@@ -6,7 +6,7 @@ Unified Base Service - Relationship-Centric Architecture
 SKUEL's Entity Type Architecture - Service Foundation
 ------------------------------------------------------
 
-This module provides the base service class for 6 entity type services.
+This module provides the base service class for all entity type services.
 Core principle: Everything has relationships - that's what makes SKUEL
 powerful as a knowledge graph platform.
 
@@ -31,8 +31,8 @@ ENTITY TYPES NOT USING THIS BASE SERVICE
     7. FinanceService - Expenses and budgets (standalone facade)
 
 **Curriculum Domain Services (3)** - Standalone facades:
-    8. LessonService - Knowledge Units (ku:)
-    9. PsService - Learning Steps (ls:)
+    8. KuService - Knowledge Units (ku:)
+    9. PsService - PathSteps (ps:)
     10. LpService - Learning Paths (lp:)
 
 **Content/Organization Domains (3)** - Cross-domain composition:

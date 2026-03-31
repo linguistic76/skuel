@@ -1359,9 +1359,9 @@ class UserContextQueryExecutor:
     ) -> Result[list[CurrentPathStepItem]]:
         """Fetch path steps the user is actively studying (IN_PROGRESS relationship)."""
         query = """
-        MATCH (user:User {uid: $user_uid})-[:IN_PROGRESS]->(lesson:Entity:PathStep)
-        RETURN lesson.uid as uid, lesson.title as title
-        ORDER BY lesson.title
+        MATCH (user:User {uid: $user_uid})-[:IN_PROGRESS]->(ps:Entity:PathStep)
+        RETURN ps.uid as uid, ps.title as title
+        ORDER BY ps.title
         """
         result = await self.executor.execute_query(query, {"user_uid": user_uid})
         if result.is_error:

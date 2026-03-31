@@ -29,7 +29,7 @@ class LpProgressService:
     Learning Path progress tracking and completion management service.
 
     Handles automatic progress updates when users master knowledge units,
-    eliminating direct dependencies between LessonService and LpService.
+    eliminating direct dependencies between PsService and LpService.
 
     Event-Driven Architecture:
     - Subscribes to KnowledgeMastered events
@@ -63,7 +63,7 @@ class LpProgressService:
         Update learning path progress when a knowledge unit is mastered.
 
         This handler implements event-driven LP progress updates,
-        eliminating direct dependency between LessonService and LpService.
+        eliminating direct dependency between PsService and LpService.
 
         When a KU is mastered:
         1. Find all learning paths that contain this KU

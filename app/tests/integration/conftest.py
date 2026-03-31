@@ -396,7 +396,7 @@ async def services(neo4j_driver):
     - services.ps.semantic
     """
     from dataclasses import dataclass
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
 
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.entity import Entity
@@ -468,7 +468,6 @@ async def services(neo4j_driver):
     from core.models.enums.neo_labels import NeoLabel
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
-    from core.models.pathways.path_step import PathStep
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
 

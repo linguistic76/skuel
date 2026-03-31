@@ -234,18 +234,18 @@ class ResponseGenerator:
         Templates: askesis_guided_redirect, askesis_guided_out_of_scope
         """
         if guidance.pedagogical_detail == PedagogicalIntent.REDIRECT_TO_CURRICULUM:
-            lesson_refs = []
+            step_refs = []
             for ku_uid in guidance.target_ku_uids:
                 step = ps_bundle.get_step_for_ku(ku_uid)
                 if step:
-                    lesson_refs.append(step.title or "Untitled Step")
+                    step_refs.append(step.title or "Untitled Step")
 
-            if not lesson_refs:
-                lesson_refs = [a.title or "Untitled Step" for a in ps_bundle.related_steps]
+            if not step_refs:
+                step_refs = [a.title or "Untitled Step" for a in ps_bundle.related_steps]
 
             return PROMPT_REGISTRY.render(
                 "askesis_guided_redirect",
-                lessons_text=", ".join(dict.fromkeys(lesson_refs)),
+                path_steps_text=", ".join(dict.fromkeys(step_refs)),
                 resource_refs=self._get_resource_references(ps_bundle),
             )
 

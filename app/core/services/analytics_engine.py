@@ -3,7 +3,7 @@ Knowledge Analytics Engine
 ======================================
 
 **UTILITY SERVICE** - Injected dependency, not a standalone service.
-This service is used BY LessonService and TasksService, not a duplicate.
+This service is used BY PsService and TasksService, not a duplicate.
 
 Advanced analytics and insights for knowledge-aware learning patterns.
 Provides learning pattern recognition, knowledge-aware priority scoring,
@@ -13,7 +13,7 @@ Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
 - Injected into TasksService for knowledge-aware task analysis
 - Specialized utility, not part of core KU CRUD operations
-- See `/core/services/lesson/README.md` for architecture overview
+- See `/core/services/ps/` for architecture overview
 """
 
 import asyncio

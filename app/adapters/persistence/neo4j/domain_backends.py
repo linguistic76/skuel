@@ -1954,16 +1954,16 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
     """Domain backend for atomic Knowledge Unit entities.
 
     Lightweight reference nodes with reverse-traversal methods:
-    - get_lessons_using(ku_uid) — Lessons that USES_KU this Ku
+    - get_path_steps_using(ku_uid) — PathSteps that USES_KU this Ku
     """
 
-    async def get_lessons_using(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get all Lessons that use this atomic Ku via USES_KU."""
+    async def get_path_steps_using(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get all PathSteps that use this atomic Ku via USES_KU."""
         query = """
-        MATCH (lesson:Entity)-[:USES_KU]->(ku:Entity {uid: $ku_uid})
-        RETURN lesson.uid AS uid, lesson.title AS title,
-               lesson.description AS description
-        ORDER BY lesson.title
+        MATCH (ps:Entity)-[:USES_KU]->(ku:Entity {uid: $ku_uid})
+        RETURN ps.uid AS uid, ps.title AS title,
+               ps.description AS description
+        ORDER BY ps.title
         """
         result = await self.execute_query(query, {"ku_uid": ku_uid})
         if result.is_error:
@@ -1971,14 +1971,14 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return Result.ok(result.value or [])
 
     async def get_usage_summary(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """Count lessons (USES_KU), path steps (TRAINS_KU), organized children."""
+        """Count path steps using (USES_KU), training (TRAINS_KU), and organized children."""
         query = """
         MATCH (ku:Entity:Ku {uid: $ku_uid})
-        OPTIONAL MATCH (lesson:Entity)-[:USES_KU]->(ku)
-        OPTIONAL MATCH (ps:Entity)-[:TRAINS_KU]->(ku)
+        OPTIONAL MATCH (uses:Entity)-[:USES_KU]->(ku)
+        OPTIONAL MATCH (trains:Entity)-[:TRAINS_KU]->(ku)
         OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
-        RETURN count(DISTINCT lesson) as lessons,
-               count(DISTINCT ps) as path_steps,
+        RETURN count(DISTINCT uses) as path_steps_using,
+               count(DISTINCT trains) as path_steps_training,
                count(DISTINCT child) as organized_children
         """
         return await self.execute_query(query, {"ku_uid": ku_uid})

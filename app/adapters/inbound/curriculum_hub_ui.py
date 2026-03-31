@@ -5,8 +5,8 @@ UI for curriculum browser sub-pages.
 
 Routes:
 - GET /curriculum — 301 redirect to /profile (shelved: landing page deprecated)
-- GET /lessons — Lesson browser
-- GET /path-steps — Learning Steps browser
+- GET /lessons — 301 redirect to /path-steps (Lesson merged into PathStep)
+- GET /path-steps — PathStep browser
 - GET /learning-paths — Learning Paths browser
 """
 
@@ -18,9 +18,6 @@ from starlette.responses import RedirectResponse
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
-from ui.feedback import Badge, BadgeT
-from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
@@ -30,8 +27,7 @@ logger = get_logger("skuel.routes.curriculum_hub")
 
 # Detail route patterns per domain slug
 _DETAIL_ROUTES: dict[str, str] = {
-    "lessons": "/lesson/{uid}/details",
-    "learning-steps": "/ls/{uid}",
+    "path-steps": "/path-steps/{uid}/details",
     "learning-paths": "/lp/{uid}",
 }
 
@@ -49,36 +45,9 @@ def create_curriculum_hub_ui_routes(
         return RedirectResponse(url="/profile", status_code=301)
 
     @rt("/lessons")
-    async def lessons_browser(request) -> Any:
-        """Lesson browser."""
-        user_uid = require_authenticated_user(request)
-
-        ps_service = services.ps
-        items: list[Any] = []
-        learning_states: dict[str, str] = {}
-        if ps_service:
-            result = await ps_service.core.list(limit=50)
-            if not result.is_error:
-                items = result.value if isinstance(result.value, list) else result.value[0]
-
-            # Fetch learning states for all path steps
-            if items:
-                uids = [getattr(item, "uid", "") for item in items if getattr(item, "uid", "")]
-                states_result = await ps_service.mastery.get_learning_states_batch(user_uid, uids)
-                if states_result.is_ok:
-                    learning_states = {k: v.value for k, v in states_result.value.items()}
-
-        content = Div(
-            PageHeader("Lessons", subtitle="Units for learning that compose atomic knowledge"),
-            _lesson_list(items, learning_states),
-            id="main-content",
-        )
-        return await BasePage(
-            content=content,
-            title="Lessons",
-            request=request,
-            active_page="curriculum",
-        )
+    async def lessons_redirect(request: Any) -> RedirectResponse:
+        """Lesson merged into PathStep — redirect to /path-steps."""
+        return RedirectResponse(url="/path-steps", status_code=301)
 
     @rt("/path-steps")
     async def path_steps_browser(request) -> Any:
@@ -93,13 +62,13 @@ def create_curriculum_hub_ui_routes(
                 items = result.value if isinstance(result.value, list) else result.value[0]
 
         content = Div(
-            PageHeader("Learning Steps", subtitle="Collections of lessons grouped by theme"),
-            _entity_list(items, "learning-steps", "No path steps found"),
+            PageHeader("Path Steps", subtitle="Curriculum content that composes atomic knowledge"),
+            _entity_list(items, "path-steps", "No path steps found"),
             id="main-content",
         )
         return await BasePage(
             content=content,
-            title="Learning Steps",
+            title="Path Steps",
             request=request,
             active_page="curriculum",
         )
@@ -129,49 +98,6 @@ def create_curriculum_hub_ui_routes(
         )
 
     return []  # Routes registered via @rt() decorators
-
-
-def _enrollment_button(uid: str, state: str) -> Any:
-    """Render enrollment button based on learning state."""
-    if state == "mastered":
-        return Badge("Mastered", variant=BadgeT.success, size=Size.sm)
-    if state == "in_progress":
-        return Badge("In Progress", variant=BadgeT.secondary, size=Size.sm)
-    return Button(
-        "Start Lesson",
-        variant=ButtonT.primary,
-        size=Size.sm,
-        hx_post=f"/api/lesson/{uid}/start",
-        hx_swap="outerHTML",
-        hx_target="this",
-    )
-
-
-def _lesson_list(items: list[Any], learning_states: dict[str, str]) -> Div:
-    """Render lesson list with enrollment buttons."""
-    if not items:
-        return EmptyState(title="No lessons found")
-
-    detail_pattern = _DETAIL_ROUTES.get("lessons")
-    rows = []
-    for item in items:
-        title = getattr(item, "title", "Untitled")
-        description = getattr(item, "description", "") or ""
-        uid = getattr(item, "uid", "")
-        href = detail_pattern.format(uid=uid) if detail_pattern and uid else None
-        state = learning_states.get(uid, "none")
-
-        rows.append(
-            CardGenerator.from_dataclass(
-                {"title": title, "description": description},
-                display_fields=["description"],
-                show_labels=False,
-                metadata=[uid] if uid else None,
-                title_href=href,
-                actions=_enrollment_button(uid, state),
-            )
-        )
-    return Div(*rows, cls="space-y-3")
 
 
 def _entity_list(items: list[Any], domain_slug: str, empty_msg: str) -> Div:

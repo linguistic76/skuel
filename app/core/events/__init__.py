@@ -118,7 +118,6 @@ from core.events.embedding_events import (
     HabitEmbeddingRequested,
     KuEmbeddingRequested,
     LearningPathEmbeddingRequested,
-    LessonEmbeddingRequested,
     PathStepEmbeddingRequested,
     PrincipleEmbeddingRequested,
     ResourceEmbeddingRequested,
@@ -170,6 +169,16 @@ from core.events.journal_events import (
     JeInputProcessingStarted,
     JeOutputGenerated,
 )
+from core.events.knowledge_substance_events import (
+    KnowledgeAppliedInTask,
+    KnowledgeBuiltIntoHabit,
+    KnowledgeBulkAppliedInTask,
+    KnowledgeBulkBuiltIntoHabit,
+    KnowledgeBulkInformedChoice,
+    KnowledgeInformedChoice,
+    KnowledgePracticed,
+    KnowledgePracticedInEvent,
+)
 
 # Learning events
 from core.events.learning_events import (
@@ -181,16 +190,6 @@ from core.events.learning_events import (
     LearningRecommendationGenerated,
     PathStepProgressUpdated,
     PrerequisitesAnalyzed,
-)
-from core.events.knowledge_substance_events import (
-    KnowledgeAppliedInTask,
-    KnowledgeBuiltIntoHabit,
-    KnowledgeBulkAppliedInTask,
-    KnowledgeBulkBuiltIntoHabit,
-    KnowledgeBulkInformedChoice,
-    KnowledgeInformedChoice,
-    KnowledgePracticed,
-    KnowledgePracticedInEvent,
 )
 
 # Principle events
@@ -261,7 +260,6 @@ __all__ = [
     "ChunkEmbeddingRequested",
     "ChunkEmbeddingsCompleted",
     # Embedding events (async background generation)
-    "LessonEmbeddingRequested",
     "ChoiceEmbeddingRequested",
     "EmbeddingRequested",
     "EventEmbeddingRequested",
@@ -397,7 +395,6 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "event.embedding_requested": EventEmbeddingRequested,
     "choice.embedding_requested": ChoiceEmbeddingRequested,
     "principle.embedding_requested": PrincipleEmbeddingRequested,
-    "lesson.embedding_requested": LessonEmbeddingRequested,
     "ku.embedding_requested": KuEmbeddingRequested,
     "resource.embedding_requested": ResourceEmbeddingRequested,
     "exercise.embedding_requested": ExerciseEmbeddingRequested,

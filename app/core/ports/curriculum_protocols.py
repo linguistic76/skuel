@@ -55,9 +55,9 @@ This aligns with Activity domain patterns per CLAUDE.md.
 
 Usage
 -----
-    from core.ports import CurriculumOperations, LessonOperations
+    from core.ports import CurriculumOperations, PsOperations
 
-    class LessonCoreService(BaseService[LessonOperations, Lesson]):
+    class PsCoreService(BaseService[PsOperations, PathStep]):
         @property
         def entity_label(self) -> str:
             return "Entity"
@@ -1373,7 +1373,7 @@ class RevisedExerciseOperations(Protocol):
 # This is an emergent identity pattern, not a separate entity type.
 #
 # For organization operations, use:
-# - LessonOrganizationService (sub-service of LessonService) for graph navigation
-# - LessonOperations protocol for type-safe access
+# - PsGraphService (sub-service of PsService) for graph navigation
+# - PsOperations protocol for type-safe access
 #
 # See: /docs/domains/moc.md for full architecture documentation

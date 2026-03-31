@@ -106,7 +106,7 @@ class TestKuIntelligenceDomainInsights:
         ku = _make_ku(namespace="body", ku_category="substance", aliases=("coffee", "java"))
         backend.get.return_value = Result.ok(ku)
         backend.get_usage_summary.return_value = Result.ok(
-            [{"lessons": 3, "path_steps": 1, "organized_children": 0}]
+            [{"path_steps_using": 3, "path_steps_training": 1, "organized_children": 0}]
         )
         backend.get_organization_depth.return_value = Result.ok([{"max_depth": 2}])
         service = KuIntelligenceService(backend=backend)
@@ -118,7 +118,7 @@ class TestKuIntelligenceDomainInsights:
         assert data["ku_title"] == "Test Ku"
         assert data["namespace"] == "body"
         assert data["alias_count"] == 2
-        assert data["usage"]["lessons"] == 3
+        assert data["usage"]["path_steps_using"] == 3
 
     @pytest.mark.asyncio
     async def test_returns_not_found_for_missing_ku(self):
@@ -138,7 +138,7 @@ class TestKuIntelligenceUsageSummary:
     async def test_returns_counts(self):
         backend = _make_backend()
         backend.get_usage_summary.return_value = Result.ok(
-            [{"lessons": 5, "path_steps": 2, "organized_children": 3}]
+            [{"path_steps_using": 5, "path_steps_training": 2, "organized_children": 3}]
         )
         service = KuIntelligenceService(backend=backend)
 
@@ -146,8 +146,8 @@ class TestKuIntelligenceUsageSummary:
 
         assert result.is_ok
         assert result.value == {
-            "lessons": 5,
-            "path_steps": 2,
+            "path_steps_using": 5,
+            "path_steps_training": 2,
             "organized_children": 3,
         }
 
@@ -160,7 +160,11 @@ class TestKuIntelligenceUsageSummary:
         result = await service.get_usage_summary("ku_test_abc123")
 
         assert result.is_ok
-        assert result.value == {"lessons": 0, "path_steps": 0, "organized_children": 0}
+        assert result.value == {
+            "path_steps_using": 0,
+            "path_steps_training": 0,
+            "organized_children": 0,
+        }
 
 
 class TestKuIntelligenceIsTrained:

@@ -2,7 +2,7 @@
 Ku UI Routes — Knowledge Index + Detail Page + API
 ====================================================
 
-All Ku routes in one file, backed by KuService only (no LessonService dependency).
+All Ku routes in one file, backed by KuService only (no PsService dependency).
 
 Routes:
 - GET  /ku           — Knowledge index with bookmarks sidebar
@@ -313,7 +313,7 @@ def create_ku_ui_routes(
     Create all /ku UI + API routes using KuService.
 
     Args:
-        ku_service: KuService (services.ku) — NOT LessonService.
+        ku_service: KuService (services.ku) — NOT PsService.
         user_relationship_service: UserRelationshipService for pinned Kus.
         exercises_service: Exercise service (for REQUIRES_KNOWLEDGE reverse lookup).
         form_template_service: FormTemplate service (for EMBEDS_FORM reverse lookup).

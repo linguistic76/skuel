@@ -3,7 +3,7 @@ Ku Routes - Configuration-Driven Registration
 ==============================================
 
 Wires all Ku routes using DomainRouteConfig pattern.
-KuService is the only service dependency — no LessonService.
+KuService is the only service dependency — no PsService.
 
 Routes:
 - GET  /ku                           — Knowledge index

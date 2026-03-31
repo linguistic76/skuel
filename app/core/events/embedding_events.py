@@ -94,15 +94,6 @@ class PrincipleEmbeddingRequested(EmbeddingRequested):
 
 
 @dataclass(frozen=True)
-class LessonEmbeddingRequested(EmbeddingRequested):
-    """Lesson-specific embedding request."""
-
-    @property
-    def event_type(self) -> str:
-        return "lesson.embedding_requested"
-
-
-@dataclass(frozen=True)
 class KuEmbeddingRequested(EmbeddingRequested):
     """Ku-specific embedding request."""
 
