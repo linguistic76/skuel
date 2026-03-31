@@ -272,9 +272,18 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
         for di in ACTIVITY_DROPDOWN_ITEMS
     ]
 
+    logout_item = A(
+        UkIcon("log-out", cls="size-4", aria_hidden="true"),
+        Span("Sign out"),
+        href="/logout",
+        cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
+    )
+
     dropdown_menu = Div(
         *dropdown_items,
-        cls="absolute left-0 top-full mt-1 w-44 bg-background border border-border rounded-lg shadow-lg py-1 z-50 "
+        Div(cls="my-1 border-t border-border"),
+        logout_item,
+        cls="absolute right-0 top-full mt-1 w-44 bg-background border border-border rounded-lg shadow-lg py-1 z-50 "
         "opacity-0 invisible group-hover:opacity-100 group-hover:visible "
         "transition-all duration-150",
         role="menu",
@@ -434,10 +443,8 @@ def create_navbar(
         profile_section = _admin_profile_section(current_user)
     elif is_authenticated and current_user:
         profile_section = Div(
-            _avatar_dropdown(current_user, active_page),
-            _logout_button(),
-            _search_button(active_page),
             _notification_button(unread_insights),
+            _avatar_dropdown(current_user, active_page),
             cls="flex items-center gap-2",
         )
     else:
@@ -445,22 +452,19 @@ def create_navbar(
 
     return Nav(
         Div(
-            # Left column: Mobile menu button + Logo + Icon Nav + Profile + Notifications
+            # Left column: Mobile menu button + Icon Nav
             Div(
                 _mobile_menu_button(),
-                A(
-                    "SKUEL",
-                    href="/",
-                    cls="text-xl font-bold text-primary flex-shrink-0",
-                ),
                 *icon_links,
-                profile_section,
                 cls="flex items-center gap-2 flex-1",
             ),
             # Center column: Desktop navigation links
             desktop_links,
-            # Right column: Empty for centering balance
-            Div(cls="flex-1 hidden sm:block"),
+            # Right column: Profile + Notifications
+            Div(
+                profile_section,
+                cls="flex items-center justify-end flex-1",
+            ),
             cls="flex items-center h-16 flex-1 px-4 sm:px-6 lg:px-8",
         ),
         mobile_links,
