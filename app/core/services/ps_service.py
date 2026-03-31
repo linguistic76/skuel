@@ -31,7 +31,13 @@ from core.infrastructure.relationships.semantic_relationships import SemanticRel
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.type_hints import UserUID
 from core.ports.base_protocols import HasUID
-from core.ports.query_types import ListContext, OrganizerResult, RootOrganizerResult
+from core.ports.query_types import (
+    ListContext,
+    OrganizerResult,
+    RootOrganizerResult,
+    StepApplicationsResult,
+    StepLearningSequenceResult,
+)
 from core.services.filtered_context import build_filtered_context
 from core.services.ps.ps_ai_service import PsAIService
 from core.services.ps.ps_progress_service import PsProgressService
@@ -347,6 +353,51 @@ class PsService:
     async def search_steps(self, query: str, limit: int = 50) -> Result[list[Any]]:
         """Search path steps by text query."""
         return await self.search.search(query=query, limit=limit)
+
+    async def search_by_semantic_query(
+        self, query_text: str, limit: int = 20, min_score: float = 0.5
+    ) -> Result[list[Any]]:
+        """Search path steps by semantic meaning using embeddings (FULL tier).
+
+        Falls back to keyword search at CORE tier.
+        """
+        if self.ai is None:
+            return await self.search.search(query=query_text, limit=limit)
+        return await self.ai.search_by_semantic_query(query_text, limit, min_score)
+
+    # ============================================================================
+    # AI OPERATIONS - Delegated to PsAIService (FULL tier only)
+    # ============================================================================
+
+    async def suggest_step_applications(self, ps_uid: str) -> Result[StepApplicationsResult]:
+        """Suggest how to apply a path step across activity domains (tasks, habits, goals).
+
+        Requires FULL intelligence tier (LLM).
+        """
+        if self.ai is None:
+            return Result.fail(
+                Errors.system(
+                    message="AI service required for step application suggestions",
+                    operation="suggest_step_applications",
+                )
+            )
+        return await self.ai.suggest_step_applications(ps_uid)
+
+    async def suggest_learning_sequence(
+        self, ps_uid: str, max_suggestions: int = 5
+    ) -> Result[StepLearningSequenceResult]:
+        """Suggest prerequisite and next steps for a path step.
+
+        Requires FULL intelligence tier (LLM).
+        """
+        if self.ai is None:
+            return Result.fail(
+                Errors.system(
+                    message="AI service required for learning sequence suggestions",
+                    operation="suggest_learning_sequence",
+                )
+            )
+        return await self.ai.suggest_learning_sequence(ps_uid, max_suggestions)
 
     # ============================================================================
     # GRAPH OPERATIONS - Delegated to PsGraphService

@@ -22,6 +22,7 @@ from core.models.enums import Domain
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.type_hints import UserUID
+from core.ports.query_types import KuUserSubstanceResult
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import GraphContextOrchestrator
 from core.utils.decorators import with_error_handling
@@ -31,6 +32,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.ports import BackendOperations
+    from core.services.user import UserContext
 
 logger = get_logger(__name__)
 
@@ -194,6 +196,140 @@ class KuIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", "Ku"])
 
         records = result.value or []
         return Result.ok(records[0].get("organized", False) if records else False)
+
+    async def calculate_user_substance(
+        self, ku_uid: str, user_context: UserContext
+    ) -> Result[KuUserSubstanceResult]:
+        """Calculate how much a user has applied a Ku's knowledge in their life.
+
+        Reads activity channel data from UserContext and applies Knowledge Substance
+        Philosophy weights to produce a per-user substance score for this Ku.
+
+        Weights (from CLAUDE.md Knowledge Substance Philosophy):
+        - Habits: 0.10 per habit, max 0.30 (lifestyle integration)
+        - Journals: 0.07 per entry, max 0.20 (metacognition)
+        - Choices: 0.07 per choice, max 0.15 (decision-making)
+        - Principles: 0.07 per principle, max 0.15 (value embodiment)
+        - Events: 0.05 per event, max 0.25 (dedicated practice)
+        - Tasks: 0.05 per task, max 0.25 (practical application)
+
+        See: /docs/architecture/knowledge_substance_philosophy.md
+        """
+        # Fetch Ku for global substance score and mastery state
+        ku_result = await self.backend.get(ku_uid)
+        if ku_result.is_error:
+            return Result.fail(ku_result)
+
+        ku = ku_result.value
+        if not ku:
+            return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
+
+        # Count activity associations per channel from UserContext
+        task_uids = [
+            uid for uid, ku_list in user_context.task_knowledge_applied.items() if ku_uid in ku_list
+        ]
+        habit_uids = [
+            uid
+            for uid, ku_list in user_context.habit_knowledge_applied.items()
+            if ku_uid in ku_list
+        ]
+        event_uids = [
+            uid
+            for uid, ku_list in user_context.event_knowledge_applied.items()
+            if ku_uid in ku_list
+        ]
+        choice_uids = [
+            uid
+            for uid, ku_list in user_context.choice_knowledge_informed.items()
+            if ku_uid in ku_list
+        ]
+        principle_uids = [
+            uid
+            for uid, ku_list in user_context.principle_knowledge_grounded.items()
+            if ku_uid in ku_list
+        ]
+        # Journals not yet tracked in UserContext — JeInput/JeOutput are submissions,
+        # not activities, so MEGA_QUERY doesn't collect journal→KU relationships
+        journal_count = 0
+
+        # Apply Knowledge Substance Philosophy weights with per-channel caps
+        task_score = min(0.25, len(task_uids) * 0.05)
+        habit_score = min(0.30, len(habit_uids) * 0.10)
+        event_score = min(0.25, len(event_uids) * 0.05)
+        journal_score = min(0.20, journal_count * 0.07)
+        choice_score = min(0.15, len(choice_uids) * 0.07)
+        principle_score = min(0.15, len(principle_uids) * 0.07)
+
+        user_substance_score = min(
+            1.0,
+            task_score + habit_score + event_score + journal_score + choice_score + principle_score,
+        )
+
+        breakdown = {
+            "tasks": round(task_score, 3),
+            "habits": round(habit_score, 3),
+            "events": round(event_score, 3),
+            "journals": round(journal_score, 3),
+            "choices": round(choice_score, 3),
+            "principles": round(principle_score, 3),
+        }
+
+        # Global substance score from the Ku node itself
+        global_substance_score: float | None = getattr(ku, "substance_score", None)
+        if callable(global_substance_score):
+            global_substance_score = global_substance_score()
+
+        # Mastery level from UserContext (0.0-1.0 float from [:MASTERED] relationships)
+        mastery_score = user_context.knowledge_mastery.get(ku_uid, 0.0)
+        if mastery_score >= 0.8:
+            mastery_level = "mastered"
+        elif mastery_score >= 0.5:
+            mastery_level = "in_progress"
+        elif mastery_score > 0.0:
+            mastery_level = "started"
+        else:
+            mastery_level = "unstarted"
+
+        # Readiness: meaningful engagement in at least one channel
+        is_ready_to_learn = user_substance_score >= 0.05
+
+        # Per-channel recommendations for empty channels
+        recommendations: list[str] = []
+        if not task_uids:
+            recommendations.append(f"Create a task that applies '{ku.title}' in your work")
+        if not habit_uids:
+            recommendations.append(f"Build a habit that reinforces '{ku.title}' daily")
+        if not event_uids:
+            recommendations.append(f"Schedule a practice session to deepen '{ku.title}'")
+        if not choice_uids:
+            recommendations.append(f"Record a choice informed by '{ku.title}'")
+        if not principle_uids:
+            recommendations.append(f"Write a principle grounded in '{ku.title}'")
+
+        # Status message based on score range
+        if user_substance_score >= 0.7:
+            status_message = "Deep integration — this knowledge is woven into your life"
+        elif user_substance_score >= 0.4:
+            status_message = "Active engagement — you are applying this knowledge regularly"
+        elif user_substance_score >= 0.1:
+            status_message = "Beginning to apply — keep connecting this to your activities"
+        else:
+            status_message = "Theoretical only — try applying this knowledge in daily life"
+
+        result: KuUserSubstanceResult = {
+            "user_substance_score": round(user_substance_score, 3),
+            "global_substance_score": (
+                round(float(global_substance_score), 3)
+                if global_substance_score is not None
+                else None
+            ),
+            "breakdown": breakdown,
+            "mastery_level": mastery_level,
+            "is_ready_to_learn": is_ready_to_learn,
+            "recommendations": recommendations[:3],
+            "status_message": status_message,
+        }
+        return Result.ok(result)
 
     @with_error_handling("get_organization_depth", error_type="database", uid_param="ku_uid")
     async def get_organization_depth(self, ku_uid: str) -> Result[int]:

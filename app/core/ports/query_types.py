@@ -2618,6 +2618,61 @@ class CleanupStats(TypedDict):
 
 
 # ============================================================================
+# PS AI SERVICE RESULT TYPES
+# ============================================================================
+
+
+class StepApplicationsResult(TypedDict):
+    """Return shape for PsAIService.suggest_step_applications()."""
+
+    ps_uid: str
+    ps_title: str
+    tasks: list[str]
+    habits: list[str]
+    goals: list[str]
+    real_world_examples: list[str]
+
+
+class StepLearningSequenceItem(TypedDict):
+    """A single step in a learning sequence (prerequisite or next step)."""
+
+    title: str
+    reason: str
+
+
+class StepLearningSequenceResult(TypedDict):
+    """Return shape for PsAIService.suggest_learning_sequence()."""
+
+    ps_uid: str
+    ps_title: str
+    prerequisites: list[StepLearningSequenceItem]
+    next_steps: list[StepLearningSequenceItem]
+
+
+# ============================================================================
+# KU INTELLIGENCE RESULT TYPES
+# ============================================================================
+
+
+class KuUserSubstanceResult(TypedDict):
+    """Return shape for KuIntelligenceService.calculate_user_substance().
+
+    Measures how much a specific user has applied a Ku's knowledge in their life,
+    per the Knowledge Substance Philosophy.
+
+    See: /docs/architecture/knowledge_substance_philosophy.md
+    """
+
+    user_substance_score: float
+    global_substance_score: float | None
+    breakdown: dict[str, float]
+    mastery_level: str
+    is_ready_to_learn: bool
+    recommendations: list[str]
+    status_message: str
+
+
+# ============================================================================
 # EXPLICIT EXPORTS
 # ============================================================================
 
@@ -2801,4 +2856,10 @@ __all__ = [
     "RelationshipGraphRow",
     # Journal Result Types
     "CleanupStats",
+    # PS AI Service Result Types
+    "StepApplicationsResult",
+    "StepLearningSequenceItem",
+    "StepLearningSequenceResult",
+    # Ku Intelligence Result Types
+    "KuUserSubstanceResult",
 ]

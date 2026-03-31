@@ -26,8 +26,9 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j.domain_backends import KuBackend
     from core.models.graph_context import GraphContext
     from core.models.ku.ku import Ku
-    from core.ports.query_types import ListContext
+    from core.ports.query_types import KuUserSubstanceResult, ListContext
     from core.services.ku.ku_intelligence_service import KuIntelligenceService
+    from core.services.user import UserContext
 
 logger = get_logger(__name__)
 
@@ -169,6 +170,15 @@ class KuService:
     async def get_usage_summary(self, ku_uid: str) -> Result[dict[str, int]]:
         """Count path steps and organized children for a Ku."""
         return await self.intelligence.get_usage_summary(ku_uid)
+
+    async def calculate_user_substance(
+        self, ku_uid: str, user_context: UserContext
+    ) -> Result[KuUserSubstanceResult]:
+        """Calculate how much a user has applied this Ku's knowledge in their life.
+
+        See: KuIntelligenceService.calculate_user_substance
+        """
+        return await self.intelligence.calculate_user_substance(ku_uid, user_context)
 
     # =========================================================================
     # GRAPH (reverse traversal via backend)
