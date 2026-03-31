@@ -444,7 +444,7 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 
 ### AIService (Optional)
 
-**Domains:** Tasks, Goals, Habits (optional in others)
+**Domains:** All 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles) + PS and LP (Curriculum)
 **File:** `{domain}_ai_service.py`
 **Extends:** `BaseAIService`
 
@@ -455,12 +455,20 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 - `semantic_search()` - Vector similarity search
 - `suggest_knowledge_connections()` - AI-powered suggestions
 
+**PS-specific methods (PsAIService):**
+- `suggest_step_applications(ps_uid)` — LLM categorized by task/habit/goal/real-world. Returns `StepApplicationsResult`.
+- `suggest_learning_sequence(ps_uid, max_suggestions=5)` — prerequisite/next-step recommendations. Returns `StepLearningSequenceResult`.
+- `search_by_semantic_query(query_text, limit, min_score)` — two-tier semantic/keyword search.
+- `explain_step(ps_uid, target_level)` — 6 target levels: beginner/intermediate/advanced/standard/brief/detailed.
+- `suggest_practice_activities(ps_uid)` — JSON-based practice suggestions.
+- TypedDicts: `StepApplicationsResult`, `StepLearningSequenceResult` (`core/ports/query_types.py`)
+
 **When to use:**
 - Semantic search features
 - AI-powered recommendations
 - Content generation
 
-**Important:** Optional service - app works without AI features
+**Important:** Optional service - app works without AI features (`INTELLIGENCE_TIER=core` sets `.ai` to `None` on all facades)
 
 ---
 
@@ -481,7 +489,7 @@ Quick lookup table for finding the right sub-service:
 | **Habit-specific completions** | CompletionsService | Habits only |
 | **Habit-event integration** | EventIntegrationService | Habits only |
 | **Event-driven handlers** | EventHandlerService | Tasks, Goals, Habits, Events, Choices, Principles |
-| **AI/LLM features** | AIService | Tasks, Goals, Habits (optional) |
+| **AI/LLM features** | AIService | All 6 Activity Domains + PS, LP (optional — FULL tier) |
 | **LLM routing** | UnifiedLLMCaller | Journals, Reports (routes gpt*/claude* models) |
 | **Instruction resolution** | InstructionResolver | Journals, Batch (custom > exercise > mode > default) |
 | **Batch audio transcription** | BatchTranscriptionService | Journals batch (Tier 1: audio → txt) |

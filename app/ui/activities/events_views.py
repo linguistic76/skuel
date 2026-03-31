@@ -46,8 +46,15 @@ def EventStatsBar(events: list["Event"]) -> "FT":
     stats = [
         StatItem(label="Total", value=total, href="/events?status=all"),
         StatItem(label="Upcoming", value=upcoming, color="primary", href="/events?status=upcoming"),
-        StatItem(label="Today", value=today, color="warning" if today > 0 else None, href="/events?status=today"),
-        StatItem(label="Completed", value=completed, color="success", href="/events?status=completed"),
+        StatItem(
+            label="Today",
+            value=today,
+            color="warning" if today > 0 else None,
+            href="/events?status=today",
+        ),
+        StatItem(
+            label="Completed", value=completed, color="success", href="/events?status=completed"
+        ),
     ]
     return StatsGrid(stats, cols=4)
 

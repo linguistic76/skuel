@@ -46,14 +46,21 @@ SKUEL separates intelligence into two layers:
 ```
 BaseAIService[B, T]
     │
-    ├── TasksAIService        (planned)
-    ├── GoalsAIService        (planned)
-    ├── HabitsAIService       (planned)
+    ├── TasksAIService        (implemented)
+    ├── GoalsAIService        (implemented)
+    ├── HabitsAIService       (implemented)
+    ├── EventsAIService       (implemented)
+    ├── ChoicesAIService      (implemented)
+    ├── PrinciplesAIService   (implemented)
+    ├── PsAIService           (implemented — Curriculum)
+    ├── LpAIService           (implemented — Curriculum)
+    ├── AskesisAIService      (implemented — cross-cutting)
+    ├── ContextAwareAIService (implemented — cross-cutting)
     ├── KuAIService           (planned)
     └── ... (domain AI services as needed)
 ```
 
-**Note:** As of January 2026, domain AI services are planned but not yet implemented. All 10 domain intelligence services currently extend `BaseAnalyticsService` (pure graph analytics).
+**Note:** All 6 Activity Domain AI services and the PS and LP Curriculum AI services are implemented and wired via `services_bootstrap/_ai_wiring.py`. KuAIService remains planned.
 
 ---
 

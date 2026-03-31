@@ -53,7 +53,12 @@ def HabitStatsBar(habits: list["Habit"]) -> "FT":
             value=f"{avg_streak:.1f}",
             color="success" if avg_streak > 0 else None,
         ),
-        StatItem(label="Keystone", value=keystone, color="warning" if keystone > 0 else None, href="/habits?status=keystone"),
+        StatItem(
+            label="Keystone",
+            value=keystone,
+            color="warning" if keystone > 0 else None,
+            href="/habits?status=keystone",
+        ),
     ]
     return StatsGrid(stats, cols=4)
 

@@ -82,7 +82,12 @@ def PrincipleStatsBar(principles: list["Principle"]) -> "FT":
 
     stats = [
         StatItem(label="Total", value=total, href="/principles?status=all"),
-        StatItem(label="Core", value=core, color="primary" if core > 0 else None, href="/principles?strength=core"),
+        StatItem(
+            label="Core",
+            value=core,
+            color="primary" if core > 0 else None,
+            href="/principles?strength=core",
+        ),
         StatItem(label="Active", value=active, color="success", href="/principles?status=active"),
         StatItem(
             label="Well-Aligned", value=well_aligned, color="success" if well_aligned > 0 else None

@@ -19,10 +19,18 @@ Four structural patterns for organizing knowledge:
 |--------|-----------|----------|---------|--------------|---------|
 | **Lesson** | `l_{slug}_{random}` | Unit | A unit for learning (composes Kus) | 12 | Specialized (`create_lesson_sub_services`) |
 | **KU** | `ku_{slug}_{random}` | Atom | Atomic knowledge unit (concept, principle, practice) | 4 | Generic (`create_curriculum_sub_services`) |
-| **LS** | `ls:{random}` | Collection | Collections of lessons | 4 | Generic (`create_curriculum_sub_services`) |
+| **LS** | `ls:{random}` | Collection | Collections of lessons | 5 | Generic (`create_curriculum_sub_services`) |
 | **LP** | `lp:{random}` | Path | Complete learning sequences | 5 | Specialized (`create_lp_sub_services`) |
 
 **Composition:** `(Lesson)-[:USES_KU]->(Ku)` — Lessons compose atomic Kus into coherent learning content. `(Ls)-[:TRAINS_KU]->(Ku)` — Learning steps train specific Kus.
+
+**PS AI Sub-Service (PsAIService, FULL tier):** The 5th PS sub-service is `.ai` — wired when `INTELLIGENCE_TIER=full`. Key methods:
+- `suggest_step_applications(ps_uid)` — LLM categorized applications (tasks/habits/goals/real-world). Returns `StepApplicationsResult`.
+- `suggest_learning_sequence(ps_uid, max_suggestions=5)` — prerequisite/next-step recommendations. Returns `StepLearningSequenceResult`.
+- `search_by_semantic_query(query_text, limit, min_score)` — two-tier semantic/keyword search.
+- `explain_step(ps_uid, target_level=...)` — 6 levels: beginner/intermediate/advanced/standard/brief/detailed.
+- `suggest_practice_activities(ps_uid)` — JSON-based practice suggestions.
+TypedDicts `StepApplicationsResult` and `StepLearningSequenceResult` are in `core/ports/query_types.py`.
 
 **Note on MOC:** MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer. This emergent identity is managed via `LessonOrganizationService` — a sub-service of `LessonService`. See `core/services/lesson/lesson_organization_service.py`.
 

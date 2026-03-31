@@ -2,9 +2,9 @@
 
 ## Overview
 
-**Architecture:** Extends `BaseAnalyticsService[BackendOperations[Ls], Ls]`
+**Architecture:** Extends `BaseAnalyticsService[BackendOperations[PathStep], PathStep]`
 **Location:** `/core/services/ps/ps_intelligence_service.py`
-**Service Name:** `ls.intelligence`
+**Service Name:** `ps.intelligence`
 **Lines:** ~530
 
 ---
@@ -70,7 +70,7 @@ else:
 
 ### Method 2: get_practice_summary()
 
-**Purpose:** Get summary of practice opportunities for a path step. Counts habits, tasks, and events connected to this step's Lessons via HAS_LESSON graph traversal (activity relationships live on Lessons, PS inherits them).
+**Purpose:** Get summary of practice opportunities for a path step. Counts habits, tasks, and events connected to this path step via direct activity domain relationships.
 
 **Signature:**
 ```python
@@ -113,7 +113,7 @@ if result.is_ok:
 **Implementation Notes:**
 - Returns zeros if step has no practice opportunities
 - Uses `count(DISTINCT ...)` to avoid double-counting
-- Six activity domain relationship types on Lessons: BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, SUPPORTS_GOAL, GUIDED_BY_PRINCIPLE, INFORMS_CHOICE (PS inherits via HAS_LESSON|CONTAINS_KNOWLEDGE traversal)
+- Six activity domain relationship types: BUILDS_HABIT, ASSIGNS_TASK, SCHEDULES_EVENT, SUPPORTS_GOAL, GUIDED_BY_PRINCIPLE, INFORMS_CHOICE
 
 ---
 
@@ -220,7 +220,7 @@ if result.is_ok:
 
 **Dependencies:**
 - Neo4j driver (REQUIRED - uses direct Cypher via GraphQueryExecutor)
-- Uses GUIDED_BY_PRINCIPLE and INFORMS_CHOICE relationships (on Lessons, inherited by PS via HAS_LESSON graph traversal)
+- Uses GUIDED_BY_PRINCIPLE and INFORMS_CHOICE relationships
 
 **Implementation Notes:**
 - Principles provide values-based guidance (40% max contribution)
@@ -311,7 +311,7 @@ if result.is_ok:
 
 **Dependencies:**
 - GraphQueryExecutor (REQUIRED - uses `execute_exists()`)
-- Checks GUIDED_BY_PRINCIPLE or INFORMS_CHOICE relationships (on Lessons, inherited by PS via HAS_LESSON graph traversal)
+- Checks GUIDED_BY_PRINCIPLE or INFORMS_CHOICE relationships
 
 **Implementation Notes:**
 - Uses `execute_exists()` for efficient boolean check
@@ -441,15 +441,15 @@ PsIntelligenceService is **intentionally minimal** compared to Activity Domain i
 - **No knowledge generation** - Path Steps organize existing KU content
 - **No behavioral insights** - Steps are structural, not behavioral entities
 - **No performance analytics** - Progress tracked at LP/KU level
-- **No LLM integration** - All intelligence is graph-based calculation
+- **LLM integration via PsAIService** - AI features are FULL-tier only, separate from analytics (see below)
 
-This reflects Path Steps' role as **connective tissue** in the curriculum architecture.
+This reflects Path Steps' role as **connective tissue** in the curriculum architecture. LLM-powered features live in `PsAIService` (FULL tier).
 
 ### Practice Integration Focus
 
 The primary intelligence focus is **practice integration**:
 
-**Six Activity Domains (on Lessons, inherited by PS via HAS_LESSON|CONTAINS_KNOWLEDGE traversal):**
+**Six Activity Domains (direct relationships on PathStep):**
 1. **Habits** (BUILDS_HABIT) - Behaviors to repeat
 2. **Tasks** (ASSIGNS_TASK) - Work to complete
 3. **Events** (SCHEDULES_EVENT) - Time to commit
@@ -467,12 +467,12 @@ The primary intelligence focus is **practice integration**:
 
 **Two Guidance Dimensions:**
 
-1. **Values-Based (40% max)** - GUIDED_BY_PRINCIPLE relationships (on Lessons, inherited via HAS_LESSON traversal)
+1. **Values-Based (40% max)** - GUIDED_BY_PRINCIPLE relationships
    - Provides ethical/philosophical context
    - Helps learner understand "why" to learn
    - Each principle adds up to 15% (capped at 40%)
 
-2. **Decision-Making (60% max)** - INFORMS_CHOICE relationships (on Lessons, inherited via HAS_LESSON traversal)
+2. **Decision-Making (60% max)** - INFORMS_CHOICE relationships
    - Provides options and alternatives
    - Helps learner explore different approaches
    - Each choice adds up to 20% (capped at 60%)
@@ -510,6 +510,72 @@ return await self.executor.execute(
 
 ---
 
+## PsAIService (FULL Tier)
+
+**Architecture:** Extends `BaseAIService[PsOperations, PathStep]`
+**Location:** `/core/services/ps/ps_ai_service.py`
+**Service Name:** `ps.ai`
+**Tier:** FULL only (`None` when `INTELLIGENCE_TIER=core`)
+**Access:** `ps_service.ai`
+
+PsAIService provides LLM-powered features for PathSteps, separated from graph analytics per ADR-030. All methods require the AI service to be wired (check `ps_service.ai is not None`).
+
+### AI Methods
+
+**`suggest_step_applications(ps_uid)`** → `Result[StepApplicationsResult]`
+Suggests how to apply this path step across activity domains. Returns categorized suggestions: tasks (concrete work), habits (behaviors to build), goals (outcomes enabled), and real-world examples.
+
+**`suggest_learning_sequence(ps_uid, max_suggestions=5)`** → `Result[StepLearningSequenceResult]`
+Suggests prerequisite steps (what to learn first) and next steps (natural progressions). Each item includes a title and reason. Uses JSON prompts for reliable structured output.
+
+**`search_by_semantic_query(query_text, limit=20, min_score=0.5)`** → `Result[list[PathStep]]`
+Two-tier semantic search: FULL tier uses embedding similarity across all PathSteps; CORE tier falls back to keyword search.
+
+**`explain_step(ps_uid, target_level="standard")`** → `Result[str]`
+AI explanation at a specific level. `target_level` values: `beginner` (no assumed knowledge), `intermediate` (assumes familiarity), `advanced` (in-depth, connects to broader concepts), `standard` (default), `brief` (2-3 sentences), `detailed` (comprehensive with examples).
+
+**`suggest_practice_activities(ps_uid, num_activities=3)`** → `Result[list[dict[str, str]]]`
+Suggests practice activities (name, type, description). Uses JSON prompts for structured output.
+
+**`generate_step_insight(ps_uid)`** → `Result[str]`
+Brief encouraging insight about a path step (value + motivation tip).
+
+**`find_similar_steps(ps_uid, limit=5)`** → `Result[list[tuple[str, float]]]`
+Finds semantically similar path steps using embedding similarity.
+
+### TypedDicts
+
+```python
+from core.ports.query_types import StepApplicationsResult, StepLearningSequenceResult, StepLearningSequenceItem
+```
+
+`StepApplicationsResult` — `{ps_uid, ps_title, tasks, habits, goals, real_world_examples}` (each a `list[str]`)
+`StepLearningSequenceResult` — `{ps_uid, ps_title, prerequisites, next_steps}` (each a `list[StepLearningSequenceItem]`)
+`StepLearningSequenceItem` — `{title, reason}`
+
+### Usage Example
+
+```python
+# Only available in FULL tier
+if ps_service.ai:
+    # Categorized applications across activity domains
+    apps = await ps_service.suggest_step_applications(ps_uid)
+    # {"tasks": [...], "habits": [...], "goals": [...], "real_world_examples": [...]}
+
+    # Learning sequence
+    seq = await ps_service.suggest_learning_sequence(ps_uid, max_suggestions=5)
+    # {"prerequisites": [{"title": ..., "reason": ...}], "next_steps": [...]}
+
+    # Semantic search (falls back to keyword on CORE)
+    results = await ps_service.search_by_semantic_query("introduction to functions", limit=10)
+
+    # Explanation at a level
+    explanation = await ps_service.suggest_step_applications(ps_uid)
+    explanation = await ps_service.ai.explain_step(ps_uid, target_level="beginner")
+```
+
+---
+
 ## Testing
 
 ### Unit Tests
@@ -539,7 +605,7 @@ backend.driver = Mock()
 service = PsIntelligenceService(backend=backend)
 
 # Verify initialization
-assert service._service_name == "ls.intelligence"
+assert service._service_name == "ps.intelligence"
 assert service.backend == backend
 assert service.driver == backend.driver
 assert service.executor is not None
@@ -557,7 +623,7 @@ async def test_practice_completeness_score():
         "total": 5
     }))
 
-    result = await service.practice_completeness_score("ls.test")
+    result = await service.practice_completeness_score("ps:test")
 
     assert result.is_ok
     # Two types (habits + events) = 2/3 = 0.67
@@ -572,5 +638,6 @@ async def test_practice_completeness_score():
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
 - `/core/services/base_intelligence_service.py` - Base implementation
 - `/core/services/ps/ps_service.py` - PsService facade
+- `/core/services/ps/ps_ai_service.py` - PsAIService (FULL tier AI features)
 - `/core/services/graph_query_executor.py` - GraphQueryExecutor pattern
 - `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - Path Step architecture

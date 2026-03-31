@@ -766,7 +766,7 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
 | Analytics | `BaseAnalyticsService` | Graph + Python (NO AI) |
 | AI | `BaseAIService` | LLM + Embeddings (optional) |
 
-**Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default, everything + AI). All 6 Activity Domain facades + 3 Curriculum facades have `.ai` (optional, `None` when `INTELLIGENCE_TIER=core`).
+**Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default, everything + AI). All 6 Activity Domain facades + 2 Curriculum facades (PS, LP) have `.ai` (optional, `None` when `INTELLIGENCE_TIER=core`).
 
 **UserContextIntelligence (Central Hub):** `get_ready_to_work_on_today()`, `get_optimal_next_path_steps()`, `calculate_life_path_alignment()`, `get_schedule_aware_recommendations()`
 

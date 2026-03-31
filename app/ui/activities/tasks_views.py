@@ -48,8 +48,15 @@ def TaskStatsBar(tasks: list["Task"]) -> "FT":
     stats = [
         StatItem(label="Total", value=total, href="/tasks?status=all"),
         StatItem(label="Active", value=active, color="primary", href="/tasks?status=active"),
-        StatItem(label="Completed", value=completed, color="success", href="/tasks?status=completed"),
-        StatItem(label="Overdue", value=overdue, color="error" if overdue > 0 else None, href="/tasks?status=overdue"),
+        StatItem(
+            label="Completed", value=completed, color="success", href="/tasks?status=completed"
+        ),
+        StatItem(
+            label="Overdue",
+            value=overdue,
+            color="error" if overdue > 0 else None,
+            href="/tasks?status=overdue",
+        ),
     ]
     return StatsGrid(stats, cols=4)
 
