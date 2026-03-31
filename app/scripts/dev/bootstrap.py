@@ -496,10 +496,6 @@ async def _wire_all_routes(
     # ========================================================================
 
     # -- Curriculum --
-    from adapters.inbound.lesson_routes import create_lesson_routes
-
-    create_lesson_routes(app, rt, services, None)
-
     from adapters.inbound.ku_routes import create_ku_routes
 
     create_ku_routes(app, rt, services, None)
@@ -664,14 +660,7 @@ async def _wire_all_routes(
 
         register_analytics_routes(app, services)
 
-    if services.lesson:
-        from adapters.inbound.lesson_organization_api import (
-            create_lesson_organization_api_routes,
-        )
-
-        create_lesson_organization_api_routes(
-            app, rt, lesson_service=services.lesson, user_service=services.user_service
-        )
+    # ORGANIZES hierarchy routes absorbed into path_steps_api.py (Lesson→PathStep merge)
 
     from adapters.inbound.ai_routes import create_ai_routes
 

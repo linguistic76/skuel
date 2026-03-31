@@ -108,8 +108,8 @@ if TYPE_CHECKING:
         RichEntityItem,
         RichKnowledgeUnitItem,
         RichLearningPathItem,
-        RichPathStepItem,
         RichMOCItem,
+        RichPathStepItem,
         UnsubmittedExerciseItem,
     )
 

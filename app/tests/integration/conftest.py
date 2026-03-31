@@ -419,8 +419,8 @@ async def services(neo4j_driver):
     from core.services.goals_service import GoalsService
     from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService
-    from core.services.ps_service import PsService
     from core.services.principles_service import PrinciplesService
+    from core.services.ps_service import PsService
     from core.services.tasks_service import TasksService
     from core.services.user_service import UserService
 
@@ -478,12 +478,13 @@ async def services(neo4j_driver):
             return getattr(self.backend, name)
 
     # Create backends with test wrappers
+    from core.models.lesson.lesson import Lesson as LessonModel
+
     from adapters.persistence.neo4j.domain_backends import LessonBackend
     from core.models.choice.choice import Choice
     from core.models.enums.neo_labels import NeoLabel
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
-    from core.models.lesson.lesson import Lesson as LessonModel
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
 

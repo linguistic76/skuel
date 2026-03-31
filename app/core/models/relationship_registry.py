@@ -40,7 +40,6 @@ from typing import Any
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.choice.choice_dto import ChoiceDTO
 
-
 # Curriculum domain imports - (February 2026): LS/LP unified into Entity model
 # NOTE (February 2026): Habit imports removed — Habit merged into Entity model
 # NOTE (February 2026): Ku is now a Union type alias; use Entity (the actual class) for model_class

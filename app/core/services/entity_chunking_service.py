@@ -24,6 +24,7 @@ from operator import itemgetter
 from typing import Any, TypedDict
 
 from core.models.lesson.lesson import Lesson
+
 from core.models.lesson_content.content import CurriculumContent
 from core.models.lesson_content.content_chunks import ContentChunk, ContentChunkType
 from core.models.lesson_content.content_metadata import ContentMetadata

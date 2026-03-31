@@ -19,6 +19,13 @@ Usage:
 
 from typing import Any, Protocol
 
+# Re-export the concrete Starlette Request class.
+# FastHTML resolves route-handler type annotations at runtime and instantiates
+# the annotated class (anno(**cargs)).  A Protocol cannot be instantiated, so
+# route handlers MUST annotate with the real class.  Re-exporting here keeps
+# all imports centralized through the hexagonal boundary.
+from starlette.requests import Request as Request
+
 
 class RouteDecorator(Protocol):
     """
@@ -55,14 +62,6 @@ class FastHTMLApp(Protocol):
     def get(self, path: str) -> Any:
         """Register a GET route handler (Starlette-style decorator)."""
         ...
-
-
-# Re-export the concrete Starlette Request class.
-# FastHTML resolves route-handler type annotations at runtime and instantiates
-# the annotated class (anno(**cargs)).  A Protocol cannot be instantiated, so
-# route handlers MUST annotate with the real class.  Re-exporting here keeps
-# all imports centralized through the hexagonal boundary.
-from starlette.requests import Request as Request  # noqa: F401 — re-export
 
 
 # Type alias for the return value of route factory functions.

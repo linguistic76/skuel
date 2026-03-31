@@ -221,12 +221,12 @@ from .query_types import (
     IntelligenceResult,
     KuUpdatePayload,
     LpUpdatePayload,
-    PsUpdatePayload,
     # Query Building Types
     OrderBySpec,
     PaginationSpec,
     PrincipleUpdatePayload,
     ProgressResult,
+    PsUpdatePayload,
     TaskUpdatePayload,
     WhereClauseSpec,
 )

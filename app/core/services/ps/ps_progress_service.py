@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 from core.events import publish_event
 from core.events.curriculum_events import PathStepCompleted
-from core.events.learning_events import PathStepProgressUpdated, LessonCompleted
+from core.events.learning_events import LessonCompleted, PathStepProgressUpdated
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger

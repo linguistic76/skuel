@@ -20,8 +20,8 @@ import pytest
 
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.path_step import PathStep
 from core.models.pathways.lp_position import LpPosition
+from core.models.pathways.path_step import PathStep
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 from core.services.tasks.tasks_scheduling_service import TasksSchedulingService

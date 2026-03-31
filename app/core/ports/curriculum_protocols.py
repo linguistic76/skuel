@@ -85,11 +85,11 @@ from core.ports.query_types import (
     CurriculumExerciseResult,
     LearningGapResult,
     LearningRecommendationResult,
+    OrganizerResult,
+    PrereqMasteryResult,
     PsKnowledgeItemResult,
     PsKnowledgeSummaryResult,
     PsPracticeSummaryResult,
-    OrganizerResult,
-    PrereqMasteryResult,
     ReadyToLearnResult,
     ReinforcementCandidateResult,
     RequiredKnowledgeResult,
@@ -106,10 +106,11 @@ from .base_protocols import BackendOperations, GraphRelationshipOperations
 if TYPE_CHECKING:
     from datetime import date
 
+    from core.models.lesson.lesson import Lesson
+
     from core.models.enums.neo_labels import NeoLabel
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
-    from core.models.lesson.lesson import Lesson
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
     from core.models.relationship_names import RelationshipName
@@ -1083,8 +1084,8 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         self,
         ku_uid: str,
         user_uid: UserUID,
-        node_label: "NeoLabel",
-        rel_types: "list[RelationshipName | str]",
+        node_label: NeoLabel,
+        rel_types: list[RelationshipName | str],
         filters: dict[str, Any] | None = None,
         order_by: str = "created_at",
         limit: int = 10,

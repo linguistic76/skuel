@@ -24,12 +24,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from core.models.lesson.lesson import Lesson
+
 from core.constants import QueryLimit
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.enums import KuComplexity
 from core.models.enums.neo_labels import NeoLabel
-from core.models.lesson.lesson import Lesson
 from core.models.relationship_names import RelationshipName
 from core.ports import LessonOperations
 from core.services.base_service import BaseService

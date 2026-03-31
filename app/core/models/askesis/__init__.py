@@ -74,8 +74,8 @@ from .askesis_request import (
 
 # Socratic tutoring models (Askesis RAG pipeline refactor)
 from .learning_objective import StructuredLearningObjective
-from .ps_bundle import PsBundle
 from .pedagogical_intent import PedagogicalIntent
+from .ps_bundle import PsBundle
 
 __all__ = [
     # Core domain models

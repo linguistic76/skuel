@@ -20,9 +20,10 @@ import contextlib
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from core.models.lesson.lesson import Lesson
+
 from core.models.curriculum import Curriculum
 from core.models.enums import Domain, LearningLevel, SELCategory
-from core.models.lesson.lesson import Lesson
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
 from core.models.pathways.mastery import (

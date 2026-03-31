@@ -30,8 +30,8 @@ def _wire_ai_services(
     from core.services.goals.goals_ai_service import GoalsAIService
     from core.services.habits.habits_ai_service import HabitsAIService
     from core.services.lp.lp_ai_service import LpAIService
-    from core.services.ps.ps_ai_service import PsAIService
     from core.services.principles.principles_ai_service import PrinciplesAIService
+    from core.services.ps.ps_ai_service import PsAIService
     from core.services.tasks.tasks_ai_service import TasksAIService
 
     # Create AI services for Activity Domains (6)

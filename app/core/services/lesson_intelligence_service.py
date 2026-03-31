@@ -22,13 +22,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.lesson.lesson import Lesson
+
 from core.constants import GraphDepth
 from core.events.curriculum_events import PathStepCompleted
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
-from core.models.lesson.lesson import Lesson
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.ports import LessonOperations

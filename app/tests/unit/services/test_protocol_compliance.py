@@ -45,10 +45,10 @@ from core.services.habits_service import HabitsService
 # Facade services - Curriculum Domains
 from core.services.lesson_service import LessonService
 from core.services.lp_service import LpService
-from core.services.ps_service import PsService
 
 # NOTE: MOCService removed (February 2026) - organization logic absorbed into LessonService
 from core.services.principles_service import PrinciplesService
+from core.services.ps_service import PsService
 from core.services.tasks_service import TasksService
 
 

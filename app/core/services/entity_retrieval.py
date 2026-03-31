@@ -21,13 +21,14 @@ from dataclasses import dataclass
 from operator import attrgetter
 from typing import Any, Protocol, runtime_checkable
 
+from core.models.lesson.lesson import Lesson
+
 from adapters.persistence.neo4j.query import (
     QueryElements,
     analyze_query_intent,
     create_search_request,
 )
 from core.constants import GraphDepth
-from core.models.lesson.lesson import Lesson
 from core.models.query_types import IndexStrategy, QueryIntent
 
 # Use protocol interfaces instead of ports

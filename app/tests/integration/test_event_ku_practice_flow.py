@@ -24,6 +24,7 @@ from datetime import date, datetime
 
 import pytest
 import pytest_asyncio
+from core.models.lesson.lesson import Lesson
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.domain_backends import LessonBackend
@@ -38,7 +39,6 @@ from core.models.enums import (
 )
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
-from core.models.lesson.lesson import Lesson
 from core.services.lesson.lesson_practice_service import LessonPracticeService
 
 

@@ -28,11 +28,12 @@ Handles basic create, read, update, DETACH DELETE operations for knowledge units
 from datetime import UTC, datetime
 from typing import Any
 
+from core.models.lesson.lesson import Lesson
+
 from core.events import publish_event
 from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity import Entity
 from core.models.enums import Domain, KnowledgeStatus
-from core.models.lesson.lesson import Lesson
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.content_protocols import ensure_content_protocol

@@ -95,7 +95,7 @@ def _render_step_browser_card(step: Any) -> Any:
         step,
         display_fields=["description", "difficulty_rating", "estimated_hours", "sequence"],
         show_labels=False,
-        title_href=f"/ls/{step.uid}",
+        title_href=f"/path-steps/{step.uid}/details",
         field_renderers={
             "description": render_description,
             "difficulty_rating": render_difficulty,
@@ -814,60 +814,15 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
     routes.append(learning_analytics)
 
     # ========================================================================
-    # LEARNING STEP DETAIL PAGE
+    # LEARNING STEP DETAIL PAGE — redirects to rich detail view
     # ========================================================================
 
     @rt("/ls/{uid}")
-    async def ls_detail_view(request, uid: str) -> Any:
-        """Learning Step detail view with full context and relationships."""
-        step_result = await lp_service.get_step(uid)
+    async def ls_detail_view(request: Any, uid: str) -> Any:
+        """Redirect /ls/{uid} to the rich path step detail page."""
+        from starlette.responses import RedirectResponse
 
-        if not step_result.is_error and step_result.value:
-            step = step_result.value
-            difficulty = _difficulty_label(step.difficulty_rating) if step.difficulty_rating else ""
-            hours_text = f"{step.estimated_hours:.1f} hours" if step.estimated_hours else ""
-
-            detail_content = Card(
-                H1(step.title or f"Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
-                P(step.description or step.intent or "", cls="text-muted-foreground mb-4"),
-                Div(
-                    Badge(f"Sequence: {step.sequence}", variant=BadgeT.info, cls="mr-2")
-                    if step.sequence
-                    else None,
-                    Badge(difficulty.title(), variant=BadgeT.primary, cls="mr-2")
-                    if difficulty
-                    else None,
-                    Badge(hours_text, variant=BadgeT.secondary, cls="mr-2") if hours_text else None,
-                    Badge(
-                        f"Mastery: {step.current_mastery * 100:.0f}%",
-                        variant=BadgeT.success if step.is_mastered() else BadgeT.outline,
-                    ),
-                    cls="flex flex-wrap gap-2 mb-4",
-                ),
-                ButtonLink("← Back to Pathways", href="/pathways", variant=ButtonT.ghost),
-                cls="p-6 mb-4",
-            )
-        else:
-            detail_content = Card(
-                H1(f"Learning Step: {uid}", cls="text-2xl font-bold mb-4"),
-                P("Learning step not found.", cls="text-muted-foreground mb-4"),
-                ButtonLink("← Back to Pathways", href="/pathways", variant=ButtonT.ghost),
-                cls="p-6 mb-4",
-            )
-
-        content = Div(
-            detail_content,
-            EntityRelationshipsSection(entity_uid=uid, entity_type="ps"),
-            cls="container mx-auto p-6 max-w-4xl",
-        )
-
-        return await BasePage(
-            content=content,
-            title=f"LS: {uid}",
-            page_type=PageType.STANDARD,
-            request=request,
-            active_page="pathways",
-        )
+        return RedirectResponse(url=f"/path-steps/{uid}/details", status_code=301)
 
     routes.append(ls_detail_view)
 

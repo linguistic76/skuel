@@ -276,12 +276,12 @@ def create_ps_sub_services(
     from core.services.ps.ps_context_service import PsContextService
     from core.services.ps.ps_core_service import PsCoreService
     from core.services.ps.ps_graph_service import PsGraphService
+    from core.services.ps.ps_intelligence_service import PsIntelligenceService
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.ps.ps_organization_service import PsOrganizationService
     from core.services.ps.ps_practice_service import PsPracticeService
     from core.services.ps.ps_search_service import PsSearchService
     from core.services.ps.ps_semantic_service import PsSemanticService
-    from core.services.ps.ps_intelligence_service import PsIntelligenceService
 
     # Step 1: Create relationship service (needed by intelligence)
     relationships = UnifiedRelationshipService(

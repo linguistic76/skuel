@@ -58,8 +58,8 @@ from core.services.user.intelligence import (
 from core.models.context_types import (
     CrossDomainSynergy,
     DailyWorkPlan,
-    PathStep,
     LifePathAlignment,
+    PathStep,
     ScheduleAwareRecommendation,
 )
 from core.services.user.intelligence.core import UserContextIntelligence

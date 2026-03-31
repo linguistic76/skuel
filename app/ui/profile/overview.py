@@ -23,8 +23,8 @@ if TYPE_CHECKING:
     from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
-        PathStep,
         LifePathAlignment,
+        PathStep,
     )
 
 

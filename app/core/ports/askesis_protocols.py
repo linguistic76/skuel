@@ -49,8 +49,8 @@ if TYPE_CHECKING:
     from core.models.context_types import (
         CrossDomainSynergy,
         DailyWorkPlan,
-        PathStep,
         LifePathAlignment,
+        PathStep,
         ScheduleAwareRecommendation,
     )
     from core.services.askesis.types import (

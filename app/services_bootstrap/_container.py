@@ -34,13 +34,12 @@ if TYPE_CHECKING:
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
     from core.services.ku_service import KuService
-    from core.services.ps_service import PsService
     from core.services.lp_service import LpService
-    from core.services.ps_service import PsService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
     from core.services.principles_service import PrinciplesService
+    from core.services.ps_service import PsService
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.report.progress_report_generator import ProgressReportGenerator
     from core.services.report.progress_schedule_service import ProgressScheduleService

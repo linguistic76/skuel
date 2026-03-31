@@ -118,8 +118,8 @@ from core.events.embedding_events import (
     HabitEmbeddingRequested,
     KuEmbeddingRequested,
     LearningPathEmbeddingRequested,
-    PathStepEmbeddingRequested,
     LessonEmbeddingRequested,
+    PathStepEmbeddingRequested,
     PrincipleEmbeddingRequested,
     ResourceEmbeddingRequested,
     RevisedExerciseEmbeddingRequested,
@@ -179,8 +179,8 @@ from core.events.learning_events import (
     LearningPathProgressUpdated,
     LearningPathStarted,
     LearningRecommendationGenerated,
-    PathStepProgressUpdated,
     LessonCompleted,
+    PathStepProgressUpdated,
     PrerequisitesAnalyzed,
 )
 from core.events.lesson_events import (

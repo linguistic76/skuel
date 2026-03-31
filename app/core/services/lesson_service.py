@@ -25,10 +25,11 @@ from core.models.type_hints import UserUID
 from core.ports.query_types import ListContext, OrganizerResult, RootOrganizerResult
 
 if TYPE_CHECKING:
+    from core.models.lesson.lesson import Lesson
+
     from core.infrastructure.relationships.semantic_relationships import SemanticTriple
     from core.models.context_types import ContextualKnowledge
     from core.models.enums.learning_enums import SELCategory
-    from core.models.lesson.lesson import Lesson
     from core.models.pathways.learning_progress import LearningJourney
     from core.ports import (
         EventBusOperations,
