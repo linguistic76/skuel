@@ -29,9 +29,9 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
     category_title = f"{get_sel_icon(category.value)} {category.value.replace('_', ' ').title()}"
 
     metadata = [
-        f"{progress.lessons_mastered} mastered",
-        f"{progress.lessons_in_progress} in progress",
-        f"{progress.lessons_available} available",
+        f"{progress.steps_mastered} mastered",
+        f"{progress.steps_in_progress} in progress",
+        f"{progress.steps_available} available",
     ]
 
     card = CardGenerator.from_dataclass(
@@ -49,8 +49,8 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
 
     progress_section = Div(
         Progress(
-            value=progress.lessons_mastered,
-            max_val=progress.total_lessons,
+            value=progress.steps_mastered,
+            max_val=progress.total_steps,
             cls="w-full",
         ),
         P(

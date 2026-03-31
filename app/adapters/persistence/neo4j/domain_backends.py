@@ -3628,7 +3628,7 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
     Domain backend for FormTemplate entities.
 
     Provides:
-    - get_forms_for_lesson — Query FormTemplates linked to a lesson via EMBEDS_FORM
+    - get_forms_for_path_step — Query FormTemplates linked to a path step via EMBEDS_FORM
     - count_submissions    — Count submissions linked to a template via RESPONDS_TO_FORM
     """
 
@@ -3645,34 +3645,34 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
             return Result.ok(0)
         return Result.ok(result.value[0].get("count", 0))
 
-    async def get_forms_for_lesson(self, lesson_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all FormTemplates embedded in a lesson."""
+    async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all FormTemplates embedded in a path step."""
         result = await self.execute_query(
             f"""
-            MATCH (a:Entity {{uid: $lesson_uid}})
+            MATCH (a:Entity {{uid: $ps_uid}})
                   -[:{RelationshipName.EMBEDS_FORM}]->
                   (ft:Entity {{entity_type: 'form_template'}})
             RETURN ft
             ORDER BY ft.title ASC
             """,
-            {"lesson_uid": lesson_uid},
+            {"ps_uid": ps_uid},
         )
         if result.is_error:
             return Result.fail(result)
         return Result.ok([dict(record["ft"]) for record in (result.value or [])])
 
-    async def link_to_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]:
-        """Create EMBEDS_FORM relationship from lesson to form template."""
+    async def link_to_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]:
+        """Create EMBEDS_FORM relationship from path step to form template."""
         result = await self.execute_query(
             f"""
-            MATCH (a:Entity {{uid: $lesson_uid}})
-            WHERE a.entity_type IN ['lesson', 'ku']
+            MATCH (a:Entity {{uid: $ps_uid}})
+            WHERE a.entity_type IN ['path_step', 'ku']
             MATCH (ft:Entity {{uid: $ft_uid, entity_type: 'form_template'}})
             MERGE (a)-[r:{RelationshipName.EMBEDS_FORM}]->(ft)
             ON CREATE SET r.created_at = datetime()
             RETURN true as success
             """,
-            {"lesson_uid": lesson_uid, "ft_uid": form_template_uid},
+            {"ps_uid": ps_uid, "ft_uid": form_template_uid},
         )
         if result.is_error:
             return Result.fail(result)
@@ -3680,23 +3680,23 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
         if not records:
             return Result.fail(
                 Errors.not_found(
-                    resource="Lesson or FormTemplate",
-                    identifier=f"{lesson_uid} -> {form_template_uid}",
+                    resource="PathStep or FormTemplate",
+                    identifier=f"{ps_uid} -> {form_template_uid}",
                 )
             )
         return Result.ok(True)
 
-    async def unlink_from_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]:
+    async def unlink_from_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]:
         """Remove EMBEDS_FORM relationship."""
         result = await self.execute_query(
             f"""
-            MATCH (a:Entity {{uid: $lesson_uid}})
+            MATCH (a:Entity {{uid: $ps_uid}})
                   -[r:{RelationshipName.EMBEDS_FORM}]->
                   (ft:Entity {{uid: $ft_uid}})
             DELETE r
             RETURN true as success
             """,
-            {"lesson_uid": lesson_uid, "ft_uid": form_template_uid},
+            {"ps_uid": ps_uid, "ft_uid": form_template_uid},
         )
         if result.is_error:
             return Result.fail(result)

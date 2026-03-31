@@ -889,10 +889,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         from fasthtml.common import H2, H4, A, Div, P, Span
 
-        # Query all KUs with user's relationship status via LessonService
+        # Query all KUs with user's relationship status via PsService
         all_kus: list[dict] = []
-        if services.lesson:
-            result = await services.lesson.get_all_user_knowledge_status(user_uid)
+        if services.ps:
+            result = await services.ps.get_all_user_knowledge_status(user_uid)
             if result.is_error:
                 logger.warning(f"Failed to fetch KUs: {result.expect_error()}")
             else:

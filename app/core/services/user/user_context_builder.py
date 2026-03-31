@@ -278,10 +278,10 @@ class UserContextBuilder:
         self._populator.populate_from_consolidated_data(context, query_result.value)
 
         # Fetch current lessons (lightweight secondary query)
-        lesson_result = await self._query_executor.fetch_current_lessons(user_uid)
-        if lesson_result.is_ok:
-            context.current_lessons = lesson_result.value
-            context.current_lesson_uids = {item["uid"] for item in lesson_result.value}
+        ps_result = await self._query_executor.fetch_current_path_steps(user_uid)
+        if ps_result.is_ok:
+            context.current_path_steps = ps_result.value
+            context.current_ps_uids = {item["uid"] for item in ps_result.value}
 
         # Calculate derived fields
         self._finalize_context(context)
@@ -391,10 +391,10 @@ class UserContextBuilder:
         self._populator.populate_standard_fields(context, uids_data)
 
         # Fetch current lessons (lightweight secondary query)
-        lesson_result = await self._query_executor.fetch_current_lessons(user_uid)
-        if lesson_result.is_ok:
-            context.current_lessons = lesson_result.value
-            context.current_lesson_uids = {item["uid"] for item in lesson_result.value}
+        ps_result = await self._query_executor.fetch_current_path_steps(user_uid)
+        if ps_result.is_ok:
+            context.current_path_steps = ps_result.value
+            context.current_ps_uids = {item["uid"] for item in ps_result.value}
 
         # Populate activity domain entities (all 6 domains, unified shape)
         self._populator.populate_entities_rich(context, entities_data)

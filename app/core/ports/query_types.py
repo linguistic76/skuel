@@ -1854,8 +1854,8 @@ class PrivacySummary(TypedDict, total=False):
 # ============================================================================
 
 
-class CurrentLessonItem(TypedDict):
-    """Shape for UserContext.current_lessons items."""
+class CurrentPathStepItem(TypedDict):
+    """Shape for UserContext.current_path_steps items."""
 
     uid: str
     title: str
@@ -2389,9 +2389,9 @@ class ParentProgressResult(TypedDict, total=False):
 
 
 # ============================================================================
-# CURRICULUM BACKEND RESULT TYPES — LessonOperations Cypher returns
+# CURRICULUM BACKEND RESULT TYPES — PsOperations Cypher returns
 # ============================================================================
-# TypedDicts for stable Cypher RETURN shapes from LessonBackend mixins.
+# TypedDicts for stable Cypher RETURN shapes from PsBackend mixins.
 # Methods that return variable-depth graph traversals or arbitrary Cypher
 # remain as dict[str, Any] with # boundary: comments in the protocol.
 

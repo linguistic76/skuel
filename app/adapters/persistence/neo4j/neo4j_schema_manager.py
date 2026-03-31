@@ -590,8 +590,7 @@ class Neo4jSchemaManager:
             ("event_fulltext_idx", "Event", ["title", "description"]),
             ("choice_fulltext_idx", "Choice", ["title", "description", "context"]),
             ("principle_fulltext_idx", "Principle", ["title", "statement", "description"]),
-            # Curriculum Domains (5)
-            ("lesson_fulltext_idx", "Lesson", ["title", "content"]),
+            # Curriculum Domains (4)
             ("ku_fulltext_idx", "Ku", ["title", "description"]),
             ("path_step_fulltext_idx", "PathStep", ["title", "intent", "description"]),
             ("learning_path_fulltext_idx", "LearningPath", ["title", "goal", "description"]),
@@ -704,7 +703,7 @@ class Neo4jSchemaManager:
         - knowledge_fulltext (legacy — label Entity with old field set)
         - tasks_fulltext (legacy — replaced by task_fulltext_idx)
         - journals_fulltext (legacy — label Document no longer exists)
-        - curriculum_fulltext_idx (legacy — Curriculum label replaced by Lesson)
+        - curriculum_fulltext_idx (legacy — Curriculum label replaced by PathStep)
         - lpstep_fulltext_idx (legacy — label Lpstep renamed to PathStep)
         """
         stale_indexes = [
@@ -779,7 +778,6 @@ class Neo4jSchemaManager:
             ("event_uid_idx", "Event"),
             ("choice_uid_idx", "Choice"),
             ("principle_uid_idx", "Principle"),
-            ("lesson_uid_idx", "Lesson"),
             ("ku_uid_idx", "Ku"),
             ("exercise_uid_idx", "Exercise"),
             ("learning_path_uid_idx", "LearningPath"),

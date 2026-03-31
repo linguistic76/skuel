@@ -295,7 +295,7 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         """
         Get summary of practice opportunities for a path step.
 
-        Traverses through Lessons via HAS_LESSON to count all 6 activity
+        Counts all 6 activity
         domains: habits, tasks, events, goals, principles, choices.
 
         Args:
@@ -348,12 +348,12 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         return await executor_result.value.execute(
             query="""
                 MATCH (ps:Entity {uid: $ps_uid})
-                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:BUILDS_HABIT]->(h)
-                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:ASSIGNS_TASK]->(t)
-                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l3)-[:SCHEDULES_EVENT]->(e)
-                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:SUPPORTS_GOAL]->(g)
-                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:GUIDED_BY_PRINCIPLE]->(p)
-                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:INFORMS_CHOICE]->(c)
+                OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(h)
+                OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(t)
+                OPTIONAL MATCH (ps)-[:SCHEDULES_EVENT]->(e)
+                OPTIONAL MATCH (ps)-[:SUPPORTS_GOAL]->(g)
+                OPTIONAL MATCH (ps)-[:GUIDED_BY_PRINCIPLE]->(p)
+                OPTIONAL MATCH (ps)-[:INFORMS_CHOICE]->(c)
                 RETURN count(DISTINCT h) as habits,
                        count(DISTINCT t) as tasks,
                        count(DISTINCT e) as events,
@@ -453,8 +453,8 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         return await executor_result.value.execute(
             query="""
                 MATCH (ps:Entity {uid: $ps_uid})
-                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:GUIDED_BY_PRINCIPLE]->(p)
-                OPTIONAL MATCH (ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:INFORMS_CHOICE]->(c)
+                OPTIONAL MATCH (ps)-[:GUIDED_BY_PRINCIPLE]->(p)
+                OPTIONAL MATCH (ps)-[:INFORMS_CHOICE]->(c)
                 RETURN count(DISTINCT p) as principle_count,
                        count(DISTINCT c) as choice_count
             """,
@@ -507,7 +507,7 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         """
         Check if path step has guidance (principles or choices).
 
-        Traverses through Lessons via HAS_LESSON.
+        Checks direct activity domain relationships.
 
         Args:
             ps_uid: UID of the path step
@@ -528,8 +528,8 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         return await self.executor.execute_exists(
             query="""
                 MATCH (ps:Entity {uid: $ps_uid})
-                WHERE exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:GUIDED_BY_PRINCIPLE]->())
-                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:INFORMS_CHOICE]->())
+                WHERE exists((ps)-[:GUIDED_BY_PRINCIPLE]->())
+                   OR exists((ps)-[:INFORMS_CHOICE]->())
                 RETURN ps
             """,
             params={"ps_uid": ps_uid},
@@ -541,7 +541,7 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         """
         Check if path step has practice opportunities.
 
-        Traverses through Lessons via HAS_LESSON to check all 6 activity domains.
+        Checks all 6 activity domain relationships.
 
         Args:
             ps_uid: UID of the path step
@@ -565,12 +565,12 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         return await self.executor.execute_exists(
             query="""
                 MATCH (ps:Entity {uid: $ps_uid})
-                WHERE exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:BUILDS_HABIT]->())
-                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:ASSIGNS_TASK]->())
-                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:SCHEDULES_EVENT]->())
-                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:SUPPORTS_GOAL]->())
-                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:GUIDED_BY_PRINCIPLE]->())
-                   OR exists((ps)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->()-[:INFORMS_CHOICE]->())
+                WHERE exists((ps)-[:BUILDS_HABIT]->())
+                   OR exists((ps)-[:ASSIGNS_TASK]->())
+                   OR exists((ps)-[:SCHEDULES_EVENT]->())
+                   OR exists((ps)-[:SUPPORTS_GOAL]->())
+                   OR exists((ps)-[:GUIDED_BY_PRINCIPLE]->())
+                   OR exists((ps)-[:INFORMS_CHOICE]->())
                 RETURN ps
             """,
             params={"ps_uid": ps_uid},

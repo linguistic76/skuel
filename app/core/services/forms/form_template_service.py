@@ -151,17 +151,17 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
         return result.value
 
     # ========================================================================
-    # LESSON LINKING (domain-specific, not part of CRUDOperations)
+    # PATH STEP LINKING (domain-specific, not part of CRUDOperations)
     # ========================================================================
 
-    async def link_to_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]:
-        """Link a FormTemplate to a Lesson via EMBEDS_FORM."""
-        return await self.backend.link_to_lesson(form_template_uid, lesson_uid)
+    async def link_to_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]:
+        """Link a FormTemplate to a PathStep via EMBEDS_FORM."""
+        return await self.backend.link_to_path_step(form_template_uid, ps_uid)
 
-    async def unlink_from_lesson(self, form_template_uid: str, lesson_uid: str) -> Result[bool]:
-        """Remove EMBEDS_FORM link between FormTemplate and Lesson."""
-        return await self.backend.unlink_from_lesson(form_template_uid, lesson_uid)
+    async def unlink_from_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]:
+        """Remove EMBEDS_FORM link between FormTemplate and PathStep."""
+        return await self.backend.unlink_from_path_step(form_template_uid, ps_uid)
 
-    async def get_for_lesson(self, lesson_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get all FormTemplates embedded in a lesson."""
-        return await self.backend.get_forms_for_lesson(lesson_uid)
+    async def get_for_path_step(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all FormTemplates embedded in a path step."""
+        return await self.backend.get_forms_for_path_step(ps_uid)

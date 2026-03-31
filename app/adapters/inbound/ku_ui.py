@@ -501,7 +501,7 @@ def create_ku_ui_routes(
         # FormTemplates
         form_templates: list[dict] = []
         if form_template_service:
-            ft_result = await form_template_service.get_for_lesson(uid)
+            ft_result = await form_template_service.get_for_path_step(uid)
             form_templates = ft_result.value if ft_result.is_ok else []
 
         # Breadcrumbs

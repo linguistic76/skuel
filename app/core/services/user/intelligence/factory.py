@@ -4,7 +4,7 @@ User Context Intelligence Factory
 
 Factory for creating UserContextIntelligence instances.
 
-This factory holds all 13 required domain services and creates
+This factory holds all 12 required domain services and creates
 UserContextIntelligence instances when given a UserContext.
 
 **Why a Factory?**
@@ -15,7 +15,7 @@ UserContextIntelligence instances when given a UserContext.
 
 **Entity Types:**
 - Activity Domains (6): tasks, goals, habits, events, choices, principles
-- Curriculum Domains (3): ku, ps, lp
+- Curriculum Domains (2): ps, lp
 - Processing Domains (3): submissions, report, analytics
 - Temporal Domain (1): calendar
 
@@ -58,7 +58,7 @@ class UserContextIntelligenceFactory:
     """
     Factory for creating UserContextIntelligence instances.
 
-    This factory holds all 13 required domain services and creates
+    This factory holds all 12 required domain services and creates
     UserContextIntelligence instances when given a UserContext.
 
     **Why a Factory?**
@@ -69,7 +69,7 @@ class UserContextIntelligenceFactory:
 
     **Entity Types:**
     - Activity Domains (6): tasks, goals, habits, events, choices, principles
-    - Curriculum Domains (3): ku, ps, lp
+    - Curriculum Domains (2): ps, lp
     - Processing Domains (3): submissions, report, analytics
     - Temporal Domain (1): calendar
 
@@ -99,9 +99,8 @@ class UserContextIntelligenceFactory:
         events: UnifiedRelationshipService,
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
-        # Curriculum Domains (3) - REQUIRED
-        lesson: PsService,
-        ps: UnifiedRelationshipService,  # January 2026: Unified
+        # Curriculum Domains (2) - REQUIRED
+        ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
         submissions: SubmissionsRelationshipService,
@@ -117,7 +116,7 @@ class UserContextIntelligenceFactory:
         filtered_providers: dict[str, FilteredContextProvider] | None = None,
     ) -> None:
         """
-        Initialize factory with all 13 required domain services.
+        Initialize factory with all 12 required domain services.
 
         Args:
             Activity Domains (6) - All UnifiedRelationshipService with domain configs:
@@ -128,9 +127,8 @@ class UserContextIntelligenceFactory:
                 choices: Choices relationship service
                 principles: Principles relationship service
 
-            Curriculum Domains (3):
-                lesson: Lesson graph service
-                ps: Path step relationship service
+            Curriculum Domains (2):
+                ps: PathStep service facade (merged Lesson into PathStep)
                 lp: Learning path relationship service
 
             Processing Domains (3):
@@ -141,7 +139,7 @@ class UserContextIntelligenceFactory:
             Temporal Domain (1):
                 calendar: Calendar service for schedule awareness
 
-            Optional Services:
+            Optional:
                 vector_search_service: Neo4jVectorSearchService for semantic/learning-aware search
                 zpd_service: ZPDOperations for curriculum-graph-aware step ranking
                 filtered_providers: Dict mapping domain names to FilteredContextProvider facades.
@@ -158,8 +156,7 @@ class UserContextIntelligenceFactory:
             "events": events,
             "choices": choices,
             "principles": principles,
-            # Curriculum Domains (3)
-            "lesson": lesson,
+            # Curriculum Domains (2)
             "ps": ps,
             "lp": lp,
             # Processing Domains (3)
@@ -173,7 +170,7 @@ class UserContextIntelligenceFactory:
         missing = [name for name, service in required.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligenceFactory requires all 13 domain services. "
+                f"UserContextIntelligenceFactory requires all 12 domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 
@@ -185,8 +182,7 @@ class UserContextIntelligenceFactory:
         self._events = events
         self._choices = choices
         self._principles = principles
-        # Curriculum domains (3)
-        self._lesson = lesson
+        # Curriculum domains (2)
         self._ps = ps
         self._lp = lp
         # Processing domains (3)
@@ -221,8 +217,7 @@ class UserContextIntelligenceFactory:
             events=self._events,
             choices=self._choices,
             principles=self._principles,
-            # Curriculum domains (3)
-            lesson=self._lesson,
+            # Curriculum domains (2)
             ps=self._ps,
             lp=self._lp,
             # Processing domains (3)

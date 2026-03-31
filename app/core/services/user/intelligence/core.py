@@ -64,11 +64,11 @@ class UserContextIntelligence(
     DailyPlanningMixin,
 ):
     """
-    Learning journey intelligence = Context + 13 Domain Services.
+    Learning journey intelligence = Context + 12 Domain Services.
 
     **Architecture:**
     This service synthesizes user state (UserContext) with graph
-    intelligence (13 domain services) to answer: "What should I work on?"
+    intelligence (12 domain services) to answer: "What should I work on?"
 
     **Required Dependencies (entity types):**
 
@@ -80,9 +80,8 @@ class UserContextIntelligence(
     - choices: UnifiedRelationshipService - What decisions await?
     - principles: UnifiedRelationshipService - What values guide this?
 
-    Curriculum Domains (3):
-    - lesson: PsService - What knowledge is ready? (merged Lesson into PathStep)
-    - ps: UnifiedRelationshipService - Path step relationships (unified)
+    Curriculum Domains (2):
+    - ps: PsService - What knowledge is ready? (merged Lesson into PathStep)
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
 
     Processing Domains (3):
@@ -122,9 +121,8 @@ class UserContextIntelligence(
         events: UnifiedRelationshipService,
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
-        # Curriculum Domains (3) - REQUIRED
-        lesson: PsService,
-        ps: UnifiedRelationshipService,  # January 2026: Unified
+        # Curriculum Domains (2) - REQUIRED
+        ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
         # Processing Domains (3) - REQUIRED
         submissions: SubmissionsRelationshipService,
@@ -140,7 +138,7 @@ class UserContextIntelligence(
         filtered_providers: dict[str, FilteredContextProvider] | None = None,
     ) -> None:
         """
-        Initialize with user context and all 13 required relationship services.
+        Initialize with user context and all 12 required relationship services.
 
         Args:
             context: Complete UserContext snapshot (~240 fields)
@@ -153,9 +151,8 @@ class UserContextIntelligence(
                 choices: Choices relationship service for pending decisions
                 principles: Principles relationship service for value alignment
 
-            Curriculum Domains (3):
-                lesson: Lesson service for learning readiness
-                ps: Path step service for step sequencing
+            Curriculum Domains (2):
+                ps: PathStep service facade for learning readiness (merged Lesson into PathStep)
                 lp: Learning path service for critical path analysis
 
             Processing Domains (3):
@@ -183,8 +180,7 @@ class UserContextIntelligence(
             "events": events,
             "choices": choices,
             "principles": principles,
-            # Curriculum Domains (3)
-            "lesson": lesson,
+            # Curriculum Domains (2)
             "ps": ps,
             "lp": lp,
             # Processing Domains (3)
@@ -198,7 +194,7 @@ class UserContextIntelligence(
         missing = [name for name, service in required.items() if service is None]
         if missing:
             raise ValueError(
-                f"UserContextIntelligence requires all 13 domain services. "
+                f"UserContextIntelligence requires all 12 domain services. "
                 f"Missing: {', '.join(missing)}"
             )
 
@@ -213,8 +209,7 @@ class UserContextIntelligence(
         self.choices = choices
         self.principles = principles
 
-        # Curriculum domains (3)
-        self.lesson = lesson
+        # Curriculum domains (2)
         self.ps = ps
         self.lp = lp
 

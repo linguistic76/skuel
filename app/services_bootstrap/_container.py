@@ -121,9 +121,8 @@ class Services:
     finance: FinancesOperations | None = None
 
     # ========================================================================
-    # CURRICULUM DOMAINS (3) - KU, LS, LP
+    # CURRICULUM DOMAINS (3) - PS, KU, LP
     # ========================================================================
-    lesson: "PsService | None" = None  # PsService (merged Lesson into PathStep)
     ku: "KuService | None" = None  # KuService (atomic knowledge units)
     activity_knowledge_intelligence: "ActivityKnowledgeIntelligenceService | None" = (
         None  # Knowledge intelligence for all 6 activity domains (March 2026)

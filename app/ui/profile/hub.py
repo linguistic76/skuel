@@ -401,9 +401,9 @@ def _knowledge_section(context: UserContext) -> Div:
 
 
 def _lessons_section(context: UserContext) -> Div:
-    """Lessons the user is actively studying (via IN_PROGRESS relationship)."""
+    """Path steps the user is actively studying (via IN_PROGRESS relationship)."""
     rows: list[Div] = []
-    for lesson in context.current_lessons:
+    for lesson in context.current_path_steps:
         rows.append(
             _compact_row(
                 lesson["title"],

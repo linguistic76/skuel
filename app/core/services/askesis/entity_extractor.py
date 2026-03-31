@@ -41,7 +41,7 @@ if TYPE_CHECKING:
         EventsOperations,
         GoalsOperations,
         HabitsOperations,
-        LessonOperations,
+        PsOperations,
         TasksOperations,
     )
     from core.services.user import UserContext
@@ -75,7 +75,7 @@ class EntityExtractor:
 
     def __init__(
         self,
-        knowledge_service: LessonOperations,
+        knowledge_service: PsOperations,
         tasks_service: TasksOperations,
         goals_service: GoalsOperations,
         habits_service: HabitsOperations,
@@ -85,13 +85,13 @@ class EntityExtractor:
         Initialize entity extractor.
 
         Args:
-            knowledge_service: LessonOperations for knowledge entity lookup
+            knowledge_service: PsOperations for knowledge entity lookup
             tasks_service: TasksOperations for task entity lookup
             goals_service: GoalsOperations for goal entity lookup
             habits_service: HabitsOperations for habit entity lookup
             events_service: EventsOperations for event entity lookup
         """
-        self.knowledge_service: LessonOperations = knowledge_service
+        self.knowledge_service: PsOperations = knowledge_service
         self.tasks_service: TasksOperations = tasks_service
         self.goals_service: GoalsOperations = goals_service
         self.habits_service: HabitsOperations = habits_service

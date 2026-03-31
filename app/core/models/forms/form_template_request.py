@@ -72,7 +72,7 @@ class FormTemplateUpdateRequest(BaseModel):
 
 
 class FormLessonLinkRequest(BaseModel):
-    """Request to link/unlink a FormTemplate to/from a Lesson."""
+    """Request to link/unlink a FormTemplate to/from a PathStep."""
 
     form_template_uid: str = Field(..., description="FormTemplate UID")
-    lesson_uid: str = Field(..., description="Lesson UID")
+    ps_uid: str = Field(..., description="PathStep UID")

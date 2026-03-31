@@ -152,12 +152,11 @@ def _create_learning_services(
 
     return {
         "learning_intelligence": learning_paths.intelligence,  # Access via facade
-        "lesson_service": ps_service,  # Backward compat alias — PsService IS the merged entity
         "atomic_ku_service": atomic_ku_service,
         "user_progress": user_progress,
         # unified_progress DELETED (January 2026)
         "learning_paths": learning_paths,
-        "path_steps": ps_service,  # Same instance as "lesson_service"
+        "path_steps": ps_service,
         "ku_retrieval": ku_retrieval,
         # NOTE: "askesis" MOVED to compose_services() (January 2026)
         "cross_domain": cross_domain_service,

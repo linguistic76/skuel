@@ -45,8 +45,6 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.lesson.lesson import Lesson
-
     from core.models.ku.ku import Ku
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
@@ -98,7 +96,7 @@ class ContextRetriever:
         embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
         vector_search_service: Any | None = None,  # boundary: Neo4jVectorSearchService
         # LS bundle dependencies — all required (fail-fast per SKUEL philosophy)
-        lesson_service: EntityLookup | None = None,
+        ps_service: EntityLookup | None = None,
         ku_service: EntityLookup | None = None,
         habits_service: EntityLookup | None = None,
         tasks_service: EntityLookup | None = None,
@@ -107,7 +105,7 @@ class ContextRetriever:
         lp_service: EntityLookup | None = None,
         # Backends for graph queries (migrated from inline Cypher)
         ku_backend: Any | None = None,  # boundary: KuBackend
-        lesson_backend: Any | None = None,  # boundary: LessonBackend
+        ps_backend: Any | None = None,  # boundary: PsBackend
     ) -> None:
         """
         Initialize context retriever.
@@ -121,7 +119,7 @@ class ContextRetriever:
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
             embeddings_service: EmbeddingsService for semantic search
             vector_search_service: Neo4jVectorSearchService for native vector index search
-            lesson_service: For fetching full Lesson content (LS bundle)
+            ps_service: For fetching full PathStep content (LS bundle)
             ku_service: For fetching full Ku objects from trains_ku_uids (LS bundle)
             habits_service: For fetching full Habit objects from graph_context (LS bundle)
             tasks_service: For fetching full Task objects from graph_context (LS bundle)
@@ -129,14 +127,14 @@ class ContextRetriever:
             principles_service: For fetching full Principle objects from graph_context (LS bundle)
             lp_service: For fetching full LearningPath from graph_context (LS bundle)
             ku_backend: KuBackend for prerequisite/dependency queries
-            lesson_backend: LessonBackend for learning context and resource queries
+            ps_backend: PsBackend for learning context and resource queries
         """
         self.graph_intel = graph_intelligence_service
         self.embeddings_service = embeddings_service
         self.vector_search_service = vector_search_service
 
         # LS bundle dependencies
-        self.lesson_service = lesson_service
+        self.ps_service = ps_service
         self.ku_service = ku_service
         self.habits_service = habits_service
         self.tasks_service = tasks_service
@@ -146,7 +144,7 @@ class ContextRetriever:
 
         # Backends for graph queries
         self.ku_backend = ku_backend
-        self.lesson_backend = lesson_backend
+        self.ps_backend = ps_backend
 
         logger.info("ContextRetriever initialized")
 
@@ -246,7 +244,7 @@ class ContextRetriever:
         """
         Get user's complete learning context
 
-        Retrieves in single query via LessonBackend:
+        Retrieves in single query via PsBackend:
         - Current knowledge state (mastered, learning, blocked)
         - Active learning paths with progress
         - Related tasks and goals
@@ -259,15 +257,15 @@ class ContextRetriever:
         Returns:
             Result containing complete learning context
         """
-        if not self.lesson_backend:
+        if not self.ps_backend:
             return Result.fail(
                 Errors.system(
-                    message="LessonBackend not available — learning context queries disabled",
+                    message="PsBackend not available — learning context queries disabled",
                     operation="get_learning_context",
                 )
             )
 
-        result = await self.lesson_backend.get_user_learning_context(user_uid)
+        result = await self.ps_backend.get_user_learning_context(user_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -374,7 +372,7 @@ class ContextRetriever:
         Steps:
         1. Find the active LS from user_context.active_path_steps_rich
         2. Extract graph_context (habits, tasks, knowledge UIDs)
-        3. Fetch full Lesson content for primary + supporting knowledge UIDs
+        3. Fetch full PathStep content for primary + supporting knowledge UIDs
         4. Fetch full Ku objects for trains_ku_uids
         5. Fetch full activity entities from graph_context UIDs
         6. Assemble into frozen PsBundle
@@ -439,8 +437,8 @@ class ContextRetriever:
         events: list[Any] = []  # Event templates not yet in graph_context
         principles: list[Any] = []  # Principles not yet in graph_context
 
-        # Step 3b: Fetch Resources cited by bundle Lessons/KUs (Ring 2 context)
-        # Done after lessons/kus resolve so we know which UIDs to traverse from.
+        # Step 3b: Fetch Resources cited by bundle PathSteps/KUs (Ring 2 context)
+        # Done after path_steps/kus resolve so we know which UIDs to traverse from.
         lesson_uids = [a.uid for a in lessons]
         ku_uids_list = [k.uid for k in kus]
         try:
@@ -537,14 +535,14 @@ class ContextRetriever:
 
     async def _fetch_lessons(
         self, path_step: PathStep, graph_context: dict[str, Any]
-    ) -> list[Lesson]:
-        """Fetch full Lessons for knowledge UIDs.
+    ) -> list[PathStep]:
+        """Fetch full PathSteps for knowledge UIDs.
 
-        The LS has knowledge_uids pointing to Lessons/KUs via CONTAINS_KNOWLEDGE.
+        The LS has knowledge_uids pointing to PathSteps/KUs via CONTAINS_KNOWLEDGE.
         The graph_context also has knowledge_relationships with UIDs.
         We fetch full content so the Socratic engine can use it as curriculum context.
         """
-        if not self.lesson_service:
+        if not self.ps_service:
             return []
 
         lesson_uids: set[str] = set()
@@ -556,14 +554,14 @@ class ContextRetriever:
             if isinstance(kr, dict) and kr.get("uid"):
                 lesson_uids.add(kr["uid"])
 
-        results = await asyncio.gather(*(self.lesson_service.get(uid) for uid in lesson_uids))
+        results = await asyncio.gather(*(self.ps_service.get(uid) for uid in lesson_uids))
 
-        lessons: list[Lesson] = []
+        lessons: list[PathStep] = []
         for uid, result in zip(lesson_uids, results, strict=False):
             if result.is_ok and result.value:
                 lessons.append(result.value)
             else:
-                logger.debug("Could not fetch lesson %s for LS bundle", uid)
+                logger.debug("Could not fetch path step %s for LS bundle", uid)
 
         return lessons
 
@@ -636,24 +634,24 @@ class ContextRetriever:
         return [result.value for result in results if result.is_ok and result.value]
 
     async def _fetch_cited_resources(self, source_uids: list[str]) -> list[Resource]:
-        """Fetch Resources cited by Lessons/KUs via CITES_RESOURCE relationships.
+        """Fetch Resources cited by PathSteps/KUs via CITES_RESOURCE relationships.
 
-        Traverses (Lesson/Ku)-[:CITES_RESOURCE]->(Resource) for the given
+        Traverses (PathStep/Ku)-[:CITES_RESOURCE]->(Resource) for the given
         source UIDs and builds Resource domain models from the results.
 
         Args:
-            source_uids: UIDs of Lessons/KUs to traverse from.
+            source_uids: UIDs of PathSteps/KUs to traverse from.
 
         Returns:
             List of Resource domain models (may be empty).
         """
-        if not source_uids or not self.lesson_backend:
+        if not source_uids or not self.ps_backend:
             return []
 
         from core.models.resource.resource import Resource
         from core.models.resource.resource_dto import ResourceDTO
 
-        result = await self.lesson_backend.get_cited_resources(source_uids)
+        result = await self.ps_backend.get_cited_resources(source_uids)
         if result.is_error or not result.value:
             return []
 

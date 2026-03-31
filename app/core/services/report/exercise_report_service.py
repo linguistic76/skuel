@@ -35,7 +35,7 @@ from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
-    from core.services.lesson.lesson_mastery_service import LessonMasteryService
+    from core.services.ps.ps_mastery_service import PsMasteryService
 
 logger = get_logger(__name__)
 
@@ -55,7 +55,7 @@ class ExerciseReportService:
         self,
         llm_caller: LLMCallerProtocol,
         executor: "QueryExecutor | None" = None,
-        ku_interaction_service: "LessonMasteryService | None" = None,
+        ku_interaction_service: "PsMasteryService | None" = None,
     ) -> None:
         """
         Initialize with LLM caller and query executor.

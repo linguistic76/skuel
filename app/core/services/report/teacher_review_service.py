@@ -51,7 +51,7 @@ if TYPE_CHECKING:
         SubmissionsBackend,
     )
     from core.ports.infrastructure_protocols import EventBusOperations
-    from core.services.lesson.lesson_mastery_service import LessonMasteryService
+    from core.services.ps.ps_mastery_service import PsMasteryService
 
 logger = get_logger("skuel.services.teacher_review")
 
@@ -64,7 +64,7 @@ class TeacherReviewService:
         submissions_backend: "SubmissionsBackend",
         exercise_backend: "ExerciseBackend",
         group_backend: "GroupBackend",
-        ku_interaction_service: "LessonMasteryService",
+        ku_interaction_service: "PsMasteryService",
         event_bus: "EventBusOperations",
     ) -> None:
         """

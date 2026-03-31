@@ -152,7 +152,7 @@ class KnowledgeAwareness(Protocol):
     knowledge_mastery: dict[str, float]  # uid -> mastery (0.0-1.0)
     mastered_knowledge_uids: set[str]
     in_progress_knowledge_uids: set[str]
-    current_lesson_uids: set[str]
+    current_ps_uids: set[str]
 
     # Prerequisites
     prerequisites_needed: dict[str, list[str]]  # blocked_uid -> [prereq_uids]
@@ -425,7 +425,7 @@ class CrossDomainAwareness(Protocol):
     knowledge_mastery: dict[str, float]
     mastered_knowledge_uids: set[str]
     in_progress_knowledge_uids: set[str]
-    current_lesson_uids: set[str]
+    current_ps_uids: set[str]
 
 
 @runtime_checkable
@@ -477,7 +477,7 @@ class FullAwareness(Protocol):
     knowledge_mastery: dict[str, float]
     mastered_knowledge_uids: set[str]
     in_progress_knowledge_uids: set[str]
-    current_lesson_uids: set[str]
+    current_ps_uids: set[str]
     prerequisites_needed: dict[str, list[str]]
 
     # Event awareness

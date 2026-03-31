@@ -18,7 +18,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
-from core.ports.query_types import CurrentLessonItem
+from core.ports.query_types import CurrentPathStepItem
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -673,7 +673,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      enrolled_path_uids, paths_rich,
      ls, collect(DISTINCT {uid: prereq_step.uid, title: prereq_step.title, completed: prereq_step.completed}) as ls_prereq_steps
 
-OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(ls_lesson)-[:BUILDS_HABIT]->(ls_habit:Habit)
+OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(ls_habit:Habit)
 WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -687,7 +687,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ls, ls_prereq_steps,
      collect(DISTINCT {uid: ls_habit.uid, title: ls_habit.title}) as ls_habits
 
-OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(ls_lesson2)-[:ASSIGNS_TASK]->(ls_task:Task)
+OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(ls_task:Task)
 WHERE ls IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -1345,19 +1345,21 @@ class UserContextQueryExecutor:
 
         return Result.ok(record["result"])
 
-    @with_error_handling("fetch_current_lesson_uids", error_type="database", uid_param="user_uid")
-    async def fetch_current_lesson_uids(self, user_uid: UserUID) -> Result[list[str]]:
+    @with_error_handling("fetch_current_ps_uids", error_type="database", uid_param="user_uid")
+    async def fetch_current_ps_uids(self, user_uid: UserUID) -> Result[list[str]]:
         """Fetch lesson UIDs the user is actively studying."""
-        result = await self.fetch_current_lessons(user_uid)
+        result = await self.fetch_current_path_steps(user_uid)
         if result.is_error:
             return Result.fail(result)
         return Result.ok([item["uid"] for item in result.value])
 
-    @with_error_handling("fetch_current_lessons", error_type="database", uid_param="user_uid")
-    async def fetch_current_lessons(self, user_uid: UserUID) -> Result[list[CurrentLessonItem]]:
-        """Fetch lessons the user is actively studying (IN_PROGRESS relationship)."""
+    @with_error_handling("fetch_current_path_steps", error_type="database", uid_param="user_uid")
+    async def fetch_current_path_steps(
+        self, user_uid: UserUID
+    ) -> Result[list[CurrentPathStepItem]]:
+        """Fetch path steps the user is actively studying (IN_PROGRESS relationship)."""
         query = """
-        MATCH (user:User {uid: $user_uid})-[:IN_PROGRESS]->(lesson:Entity:Lesson)
+        MATCH (user:User {uid: $user_uid})-[:IN_PROGRESS]->(lesson:Entity:PathStep)
         RETURN lesson.uid as uid, lesson.title as title
         ORDER BY lesson.title
         """
@@ -1367,7 +1369,7 @@ class UserContextQueryExecutor:
         records = result.value or []
         return Result.ok(
             [
-                CurrentLessonItem(uid=str(r["uid"]), title=str(r.get("title", "Untitled")))
+                CurrentPathStepItem(uid=str(r["uid"]), title=str(r.get("title", "Untitled")))
                 for r in records
             ]
         )

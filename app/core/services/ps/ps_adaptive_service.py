@@ -291,8 +291,8 @@ class PsAdaptiveService:
             return CurriculumProgress(
                 user_uid=user_uid,
                 sel_category=category,
-                lessons_mastered=mastered,
-                total_lessons=total,
+                steps_mastered=mastered,
+                total_steps=total,
             )
 
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
@@ -301,7 +301,7 @@ class PsAdaptiveService:
                 extra={"user_uid": user_uid, "category": category.value, "error": str(e)},
             )
             return CurriculumProgress(
-                user_uid=user_uid, sel_category=category, lessons_mastered=0, total_lessons=0
+                user_uid=user_uid, sel_category=category, steps_mastered=0, total_steps=0
             )
 
     # ==========================================================================

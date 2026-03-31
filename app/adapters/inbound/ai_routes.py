@@ -36,7 +36,7 @@ logger = get_logger("skuel.routes.ai")
 class AIRouteSpec:
     """Specification for a single AI route endpoint."""
 
-    domain_attr: str  # services attribute: "tasks", "lesson", "ps"
+    domain_attr: str  # services attribute: "tasks", "ps", "lp"
     domain_label: str  # human label for error messages: "Tasks", "Knowledge"
     url_domain: str  # URL segment: "tasks", "knowledge", "path-steps"
     action: str  # URL action segment: "similar", "insight"
@@ -78,12 +78,12 @@ AI_ROUTE_SPECS: list[AIRouteSpec] = [
     AIRouteSpec("principles", "Principles", "principles", "insight", "generate_principle_insight", "uid", "principles_ai_insight", "insight"),
     AIRouteSpec("principles", "Principles", "principles", "deepen", "deepen_principle", "uid", "principles_ai_deepen"),
     AIRouteSpec("principles", "Principles", "principles", "practices", "suggest_practices", "uid", "principles_ai_practices"),
-    # Knowledge / Lesson (5)
-    AIRouteSpec("lesson", "Knowledge", "knowledge", "related", "find_related_lessons", "uid_limit", "knowledge_ai_related", "related_knowledge"),
-    AIRouteSpec("lesson", "Knowledge", "knowledge", "search", "semantic_search", "query_limit", "knowledge_ai_search", "results", default_limit=10),
-    AIRouteSpec("lesson", "Knowledge", "knowledge", "summary", "generate_summary", "uid", "knowledge_ai_summary", "summary"),
-    AIRouteSpec("lesson", "Knowledge", "knowledge", "explain", "explain_at_level", "uid_level", "knowledge_ai_explain"),
-    AIRouteSpec("lesson", "Knowledge", "knowledge", "applications", "suggest_applications", "uid", "knowledge_ai_applications"),
+    # Knowledge / PathStep (5)
+    AIRouteSpec("ps", "Knowledge", "knowledge", "related", "find_related_lessons", "uid_limit", "knowledge_ai_related", "related_knowledge"),
+    AIRouteSpec("ps", "Knowledge", "knowledge", "search", "semantic_search", "query_limit", "knowledge_ai_search", "results", default_limit=10),
+    AIRouteSpec("ps", "Knowledge", "knowledge", "summary", "generate_summary", "uid", "knowledge_ai_summary", "summary"),
+    AIRouteSpec("ps", "Knowledge", "knowledge", "explain", "explain_at_level", "uid_level", "knowledge_ai_explain"),
+    AIRouteSpec("ps", "Knowledge", "knowledge", "applications", "suggest_applications", "uid", "knowledge_ai_applications"),
     # Learning Steps (4)
     AIRouteSpec("ps", "Path Steps", "path-steps", "similar", "find_similar_steps", "uid_limit", "ps_ai_similar", "similar_steps"),
     AIRouteSpec("ps", "Path Steps", "path-steps", "insight", "generate_step_insight", "uid", "ps_ai_insight", "insight"),
@@ -105,7 +105,6 @@ _AI_STATUS_DOMAINS: dict[str, str] = {
     "events": "events",
     "choices": "choices",
     "principles": "principles",
-    "lesson": "knowledge",
     "ps": "path_steps",
     "lp": "learning_paths",
 }

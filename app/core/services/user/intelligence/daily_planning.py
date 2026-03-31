@@ -41,7 +41,7 @@ class DailyPlanningMixin:
     Requires self.context (UserContext) and domain relationship services:
     - self.tasks, self.habits, self.goals, self.events
     - self.choices, self.principles
-    - self.lesson
+    - self.ps
     - self.report  (ReportRelationshipService — for unsubmitted exercises)
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     """
@@ -53,7 +53,7 @@ class DailyPlanningMixin:
     events: Any  # UnifiedRelationshipService
     choices: Any  # UnifiedRelationshipService
     principles: Any  # UnifiedRelationshipService
-    lesson: Any  # LessonService facade
+    ps: Any  # PsService facade
 
     # Stubs for methods provided by TemporalMomentumMixin in the composed class.
     if TYPE_CHECKING:
@@ -91,7 +91,7 @@ class DailyPlanningMixin:
         - principles.get_aligned_principles_for_user() - Values to embody
 
         Curriculum Domains (3):
-        - lesson.get_ready_to_learn_for_user() - Ready knowledge
+        - ps.get_ready_to_learn_for_user() - Ready knowledge
         - ls: Learning step sequencing
         - lp: Life path alignment
 
@@ -266,8 +266,8 @@ class DailyPlanningMixin:
                             learning_uids.append(ku_uid)
                             estimated_time += est_time
                 else:
-                    # Fallback to standard lesson service
-                    estimated_time = await self._add_lesson_items(
+                    # Fallback to standard ps service
+                    estimated_time = await self._add_ps_items(
                         learning_uids,
                         contextual_knowledge_list,
                         estimated_time,
@@ -275,8 +275,8 @@ class DailyPlanningMixin:
                         respect_capacity,
                     )
             else:
-                # Standard path: Use lesson service
-                estimated_time = await self._add_lesson_items(
+                # Standard path: Use ps service
+                estimated_time = await self._add_ps_items(
                     learning_uids,
                     contextual_knowledge_list,
                     estimated_time,
@@ -463,7 +463,7 @@ class DailyPlanningMixin:
     # Learning Helpers
     # =========================================================================
 
-    async def _add_lesson_items(
+    async def _add_ps_items(
         self,
         learning_uids: list[str],
         contextual_knowledge_list: list[Any],
@@ -472,12 +472,12 @@ class DailyPlanningMixin:
         respect_capacity: bool,
         limit: int = 3,
     ) -> int:
-        """Fetch lessons ready to learn and add them respecting capacity.
+        """Fetch path steps ready to learn and add them respecting capacity.
 
         Mutates *learning_uids* and *contextual_knowledge_list* in place.
         Returns the updated *estimated_time*.
         """
-        learning_result = await self.lesson.get_ready_to_learn_for_user(self.context, limit=limit)
+        learning_result = await self.ps.get_ready_to_learn_for_user(self.context, limit=limit)
         if learning_result.is_ok and learning_result.value:
             for contextual_ku in learning_result.value:
                 est_time = self.context.estimated_time_to_mastery.get(contextual_ku.uid, 30)

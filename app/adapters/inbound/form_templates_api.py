@@ -40,31 +40,33 @@ def create_form_templates_api_routes(
     get_user_service = make_service_getter(user_service)
 
     # ========================================================================
-    # LESSON LINKING
+    # PATH STEP LINKING
     # ========================================================================
 
     @rt("/api/form-templates/link-lesson", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler()
-    async def link_form_to_lesson(request: Request, current_user: Any = None) -> Result[bool]:
-        """Link a FormTemplate to a Lesson via EMBEDS_FORM."""
+    async def link_form_to_path_step(request: Request, current_user: Any = None) -> Result[bool]:
+        """Link a FormTemplate to a PathStep via EMBEDS_FORM."""
         parsed = await parse_json_body(request, FormLessonLinkRequest)
         if parsed.is_error:
             return parsed  # type: ignore[return-value]
         req = parsed.value
 
-        return await form_template_service.link_to_lesson(req.form_template_uid, req.lesson_uid)
+        return await form_template_service.link_to_path_step(req.form_template_uid, req.ps_uid)
 
     @rt("/api/form-templates/unlink-lesson", methods=["POST"])
     @require_admin(get_user_service)
     @boundary_handler()
-    async def unlink_form_from_lesson(request: Request, current_user: Any = None) -> Result[bool]:
-        """Remove EMBEDS_FORM link between FormTemplate and Lesson."""
+    async def unlink_form_from_path_step(
+        request: Request, current_user: Any = None
+    ) -> Result[bool]:
+        """Remove EMBEDS_FORM link between FormTemplate and PathStep."""
         parsed = await parse_json_body(request, FormLessonLinkRequest)
         if parsed.is_error:
             return parsed  # type: ignore[return-value]
         req = parsed.value
 
-        return await form_template_service.unlink_from_lesson(req.form_template_uid, req.lesson_uid)
+        return await form_template_service.unlink_from_path_step(req.form_template_uid, req.ps_uid)
 
     return []

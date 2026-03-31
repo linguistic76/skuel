@@ -100,7 +100,7 @@ class AskesisDeps:
     principles_service: Any | None = None
     # Backends for ContextRetriever graph queries (migrated from inline Cypher)
     ku_backend: Any | None = None  # boundary: KuBackend
-    lesson_backend: Any | None = None  # boundary: LessonBackend
+    ps_backend: Any | None = None  # boundary: PsBackend
 
 
 class AskesisService:
@@ -189,7 +189,7 @@ class AskesisService:
             embeddings_service=deps.embeddings_service,
             vector_search_service=deps.vector_search_service,
             # LS bundle dependencies (absorbed from LSContextLoader)
-            lesson_service=deps.knowledge_service,
+            ps_service=deps.knowledge_service,
             ku_service=deps.ku_service,
             habits_service=deps.habits_service,
             tasks_service=deps.tasks_service,
@@ -198,7 +198,7 @@ class AskesisService:
             lp_service=deps.lp_service,
             # Backends for graph queries (migrated from inline Cypher)
             ku_backend=deps.ku_backend,
-            lesson_backend=deps.lesson_backend,
+            ps_backend=deps.ps_backend,
         )
 
         # January 2026: IntentClassifier and ResponseGenerator extracted from QueryProcessor

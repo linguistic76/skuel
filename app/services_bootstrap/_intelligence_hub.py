@@ -123,7 +123,7 @@ async def _create_intelligence_hub(
     if services.exercises is not None:
         filtered_providers["exercises"] = services.exercises  # type: ignore[assignment]  # ExerciseOperations satisfies FilteredContextProvider protocol
 
-    # ── UserContextIntelligence factory (13-domain architecture) ────────────
+    # ── UserContextIntelligence factory (12-domain architecture) ────────────
     context_intelligence_factory = UserContextIntelligenceFactory(
         # Activity Domains (6) - All from unified activity_services
         tasks=activity_services["tasks"].relationships,
@@ -132,9 +132,8 @@ async def _create_intelligence_hub(
         events=activity_services["events"].relationships,
         choices=activity_services["choices"].relationships,
         principles=activity_services["principles"].relationships,
-        # Curriculum Domains (3)
-        lesson=learning_services["path_steps"],  # PsService (merged Lesson into PathStep)
-        ps=learning_services["path_steps"].relationships,
+        # Curriculum Domains (2)
+        ps=learning_services["path_steps"],  # PsService facade (merged Lesson into PathStep)
         lp=learning_services["learning_paths"].relationships,  # Factory expects 'lp' parameter name
         # Processing Domains (3)
         submissions=submissions_relationship_service,  # SubmissionsRelationshipService

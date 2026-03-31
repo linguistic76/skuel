@@ -65,6 +65,6 @@ def create_askesis_service(
         principles_service=activity_services.get("principles"),
         # Backends for ContextRetriever graph queries (migrated from inline Cypher)
         ku_backend=getattr(learning_services.get("atomic_ku_service"), "backend", None),
-        lesson_backend=getattr(learning_services.get("path_steps"), "repo", None),
+        ps_backend=getattr(learning_services.get("path_steps"), "repo", None),
     )
     return AskesisService(deps)

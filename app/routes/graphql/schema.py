@@ -191,7 +191,7 @@ class Query:
         """
         context: GraphQLContext = info.context
 
-        if not context.services.lesson:
+        if not context.services.ps:
             return []
 
         # GUARDRAIL: Validate list limit
@@ -207,7 +207,7 @@ class Query:
                 return []
 
         # Delegate to service layer (guardrail #1: no Cypher in resolvers)
-        result = await context.services.lesson.core.list(limit=safe_limit, filters=filters)
+        result = await context.services.ps.core.list(limit=safe_limit, filters=filters)
 
         entities, _count = unwrap_result(result, ([], 0))
 
@@ -558,10 +558,8 @@ class Query:
                         continue  # Skip steps with no knowledge UID
 
                     # Get prerequisites for this step's knowledge
-                    if context.services.lesson:
-                        prereqs_result = await context.services.lesson.get_prerequisites(
-                            step_ku_uid
-                        )
+                    if context.services.ps:
+                        prereqs_result = await context.services.ps.get_prerequisites(step_ku_uid)
 
                         if prereqs_result.is_ok and prereqs_result.value:
                             # Check for unmet prerequisites
@@ -647,7 +645,7 @@ class Query:
         # Validate max_depth
         safe_max_depth = min(max_depth, 10)
 
-        if not context.services.lesson:
+        if not context.services.ps:
             return None
 
         # Load target knowledge unit
@@ -688,10 +686,10 @@ class Query:
             visited.add(ku_uid)
 
             # Get prerequisites for this knowledge unit
-            if not context.services.lesson:
+            if not context.services.ps:
                 return ([], 0, 0.0)
 
-            prereqs_result = await context.services.lesson.get_prerequisites(ku_uid)
+            prereqs_result = await context.services.ps.get_prerequisites(ku_uid)
             prereqs = unwrap_list(prereqs_result)
             if not prereqs:
                 return ([], 0, 0.0)
@@ -783,7 +781,7 @@ class Query:
         # Validate depth
         safe_depth = min(depth, 3)
 
-        if not context.services.lesson:
+        if not context.services.ps:
             return None
 
         # Load center knowledge unit
@@ -792,8 +790,8 @@ class Query:
             return None
 
         # Get all relationships (prerequisites + enables)
-        prerequisites_result = await context.services.lesson.get_prerequisites(knowledge_uid)
-        enables_result = await context.services.lesson.get_enables(knowledge_uid)
+        prerequisites_result = await context.services.ps.get_prerequisites(knowledge_uid)
+        enables_result = await context.services.ps.get_enables(knowledge_uid)
 
         prerequisites = unwrap_list(prerequisites_result)
         enables = unwrap_list(enables_result)
@@ -864,7 +862,7 @@ class Query:
         context: GraphQLContext = info.context
         target_user_uid = await resolve_target_user(info, user_uid)
 
-        if not context.services.lp or not context.services.lesson:
+        if not context.services.lp or not context.services.ps:
             return []
 
         # Load the learning path
@@ -902,7 +900,7 @@ class Query:
                 continue
 
             # Check prerequisites and mastery status
-            prereqs_result = await context.services.lesson.get_prerequisites(step_ku_uid)
+            prereqs_result = await context.services.ps.get_prerequisites(step_ku_uid)
             if prereqs_result.is_ok and prereqs_result.value:
                 # Check user mastery for each prerequisite
                 unmet_prereqs = []

@@ -33,7 +33,6 @@ if TYPE_CHECKING:
     from core.models.pathways.path_step import PathStep
     from core.ports import EventBusOperations
     from core.ports.query_types import ListContext
-    from core.services.lesson_service import LessonService
     from core.services.ps_service import PsService
     from ui.ui_types import ActivePathData
 
@@ -109,7 +108,7 @@ class LpService:
         backend: Any,
         executor: Any,
         ps_service: PsService,
-        ku_service: LessonService | None = None,
+        ku_service: PsService | None = None,
         progress_service: Any | None = None,
         graph_intelligence_service: Any | None = None,
         event_bus: EventBusOperations | None = None,
@@ -132,7 +131,7 @@ class LpService:
             backend: BackendOperations for LP entities (REQUIRED — created by composition root)
             executor: QueryExecutor for raw Cypher (REQUIRED — created by composition root)
             ps_service: PsService for path step operations - REQUIRED
-            ku_service: Optional LessonService for prerequisite queries
+            ku_service: Optional PsService for prerequisite queries
             progress_service: Optional UserProgressService for progress tracking
             graph_intelligence_service: GraphIntelligenceService - REQUIRED for cross-domain queries
             event_bus: Event bus for publishing domain events (optional)

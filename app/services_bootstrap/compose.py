@@ -1060,8 +1060,7 @@ async def compose_services(
             principles=activity_services["principles"],
             # Finance (NOT an Activity Domain - separate facade)
             finance=core_services["finance"],
-            # Knowledge (Lesson merged into PathStep — both point to PsService)
-            lesson=learning_services["path_steps"],
+            # Curriculum
             ku=learning_services["atomic_ku_service"],
             activity_knowledge_intelligence=learning_services["activity_knowledge_intelligence"],
             cross_domain=learning_services["cross_domain"],

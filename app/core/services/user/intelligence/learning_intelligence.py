@@ -28,14 +28,14 @@ class LearningIntelligenceMixin:
     """
     Mixin providing learning intelligence methods.
 
-    Requires self.context (UserContext) and self.tasks, self.lesson (relationship services).
+    Requires self.context (UserContext) and self.tasks, self.ps (relationship services).
     Optional: self.vector_search (Neo4jVectorSearchService) for semantic/learning-aware search.
     Optional: self.zpd_service (ZPDOperations) for curriculum-graph-aware step ranking.
     """
 
     context: UserContext
     tasks: Any  # UnifiedRelationshipService
-    lesson: Any  # LessonService facade
+    ps: Any  # PsService facade
     vector_search: Any = None  # Neo4jVectorSearchService (optional)
     zpd_service: Any = None  # ZPDOperations (optional — see core/ports/zpd_protocols.py)
 
@@ -214,9 +214,7 @@ class LearningIntelligenceMixin:
                 )
 
         # Fallback: Get knowledge ready to learn from KU relationship service
-        ready_result = await self.lesson.get_ready_to_learn_for_user(
-            self.context, limit=max_steps * 2
-        )
+        ready_result = await self.ps.get_ready_to_learn_for_user(self.context, limit=max_steps * 2)
 
         if ready_result.is_error or not ready_result.value:
             # Fall back to context-based approach
@@ -401,7 +399,7 @@ class LearningIntelligenceMixin:
         """
         Get application opportunities using DIRECT graph queries.
 
-        Uses LessonService reverse relationship queries to find where
+        Uses PsService reverse relationship queries to find where
         knowledge is being applied across all activity domains.
 
         Fail-fast: All queries are REQUIRED. No graceful degradation.
@@ -423,8 +421,8 @@ class LearningIntelligenceMixin:
         if tasks_result.is_ok and tasks_result.value:
             opportunities["tasks"] = [t.uid for t in tasks_result.value[:5]]
 
-        # Get habits reinforcing this knowledge (NEW - graph query via LessonService)
-        habits_result = await self.lesson.find_habits_reinforcing_knowledge(
+        # Get habits reinforcing this knowledge (NEW - graph query via PsService)
+        habits_result = await self.ps.find_habits_reinforcing_knowledge(
             ku_uid, self.context.user_uid, only_active=True
         )
         if habits_result.is_ok:
@@ -435,8 +433,8 @@ class LearningIntelligenceMixin:
                 f"Failed to find habits for KU {ku_uid}: {habits_result.expect_error()}"
             )
 
-        # Get events applying this knowledge (NEW - graph query via LessonService)
-        events_result = await self.lesson.find_events_applying_knowledge(
+        # Get events applying this knowledge (NEW - graph query via PsService)
+        events_result = await self.ps.find_events_applying_knowledge(
             ku_uid, self.context.user_uid, upcoming_only=True
         )
         if events_result.is_ok:

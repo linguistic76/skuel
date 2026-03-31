@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from core.models.relationship_names import RelationshipName
-from core.services.lesson.lesson_graph_service import LessonGraphService
-from core.services.lesson.lesson_semantic_service import LessonSemanticService
+from core.services.ps.ps_graph_service import PsGraphService
+from core.services.ps.ps_semantic_service import PsSemanticService
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 from core.utils.result_simplified import Result
@@ -49,7 +49,7 @@ class KuRelationships:
     Hybrid Design: Simple UID lists + Optional rich semantic context.
 
     Two fetch paths:
-    - fetch() — via LessonGraphService + KuBackend (supports semantic context)
+    - fetch() — via PsGraphService + KuBackend (supports semantic context)
     - fetch_via_unified() — via UnifiedRelationshipService (consistent pattern)
     """
 
@@ -73,16 +73,16 @@ class KuRelationships:
     async def fetch(
         cls,
         ku_uid: str,
-        graph_service: LessonGraphService,
-        semantic_service: LessonSemanticService | None = None,
+        graph_service: PsGraphService,
+        semantic_service: PsSemanticService | None = None,
         include_semantic_context: bool = False,
         ku_backend: KuBackend | None = None,
     ) -> KuRelationships:
         """Fetch all relationship data from graph in parallel.
 
-        Uses LessonGraphService for prerequisite/enables queries, and
+        Uses PsGraphService for prerequisite/enables queries, and
         KuBackend for direct relationship queries (related, broader, narrower, etc.).
-        Falls back to LessonGraphService.repo.execute_query if ku_backend not provided.
+        Falls back to PsGraphService.repo.execute_query if ku_backend not provided.
         """
         backend = ku_backend or graph_service.repo
 
@@ -241,19 +241,19 @@ class KuRelationships:
 
 
 # ========================================================================
-# HELPER QUERY FUNCTIONS (for LessonGraphService fetch path)
+# HELPER QUERY FUNCTIONS (for PsGraphService fetch path)
 # ========================================================================
 
 
 async def _get_prerequisites(
-    graph_service: LessonGraphService, ku_uid: str
+    graph_service: PsGraphService, ku_uid: str
 ) -> Result[list[Any]]:  # boundary: graph traversal returns mixed entity shapes
     """Get prerequisite knowledge units (REQUIRES relationship)."""
     return await graph_service.find_prerequisites(ku_uid, depth=1)
 
 
 async def _get_enables(
-    graph_service: LessonGraphService, ku_uid: str
+    graph_service: PsGraphService, ku_uid: str
 ) -> Result[list[Any]]:  # boundary: graph traversal returns mixed entity shapes
     """Get knowledge units this KU enables (ENABLES relationship)."""
     return await graph_service.find_next_steps(ku_uid, limit=100)

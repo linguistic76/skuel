@@ -14,14 +14,14 @@ Architecture:
 - Lives at `/core/services/` level (not in `/ku/` directory)
 - Injected into search routes, personalized discovery adapter
 - Specialized utility for multi-strategy knowledge retrieval
-- See `/core/services/lesson/README.md` for architecture overview
+- See `/core/services/ps/` for architecture overview
 """
 
 from dataclasses import dataclass
 from operator import attrgetter
 from typing import Any, Protocol, runtime_checkable
 
-from core.models.lesson.lesson import Lesson
+from core.models.pathways.path_step import PathStep
 
 from adapters.persistence.neo4j.query import (
     QueryElements,
@@ -32,7 +32,7 @@ from core.constants import GraphDepth
 from core.models.query_types import IndexStrategy, QueryIntent
 
 # Use protocol interfaces instead of ports
-from core.ports.curriculum_protocols import LessonOperations
+from core.ports.curriculum_protocols import PsOperations
 from core.services.embeddings_service import HuggingFaceEmbeddingsService
 from core.services.user import UserContext
 from core.utils.logging import get_logger
@@ -72,7 +72,7 @@ logger = get_logger(__name__)
 class EnhancedResult:
     """A knowledge unit with retrieval enhancements"""
 
-    unit: Lesson
+    unit: PathStep
     base_score: float  # Original search score
     vector_score: float  # Semantic similarity score
     graph_score: float  # Graph relevance score
@@ -101,7 +101,7 @@ class EntityRetrieval:
 
     def __init__(
         self,
-        knowledge_repo: LessonOperations,
+        knowledge_repo: PsOperations,
         embeddings_service: HuggingFaceEmbeddingsService | None = None,
         unified_query_builder=None,  # Use the unified query builder service
         user_progress_service=None,  # Optional progress service for intelligent ranking

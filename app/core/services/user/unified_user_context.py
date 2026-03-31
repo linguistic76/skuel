@@ -102,7 +102,7 @@ if TYPE_CHECKING:
     from core.models.zpd.zpd_assessment import ZPDAssessment
     from core.ports.query_types import (
         CrossDomainInsightsData,
-        CurrentLessonItem,
+        CurrentPathStepItem,
         FacetInteractionItem,
         PendingRevisedExerciseItem,
         RichEntityItem,
@@ -257,8 +257,8 @@ class UserContext:
     knowledge_mastery: dict[str, float] = field(default_factory=dict)  # uid -> mastery %
     mastered_knowledge_uids: set[str] = field(default_factory=set)
     in_progress_knowledge_uids: set[str] = field(default_factory=set)
-    current_lesson_uids: set[str] = field(default_factory=set)  # Lessons user is studying
-    current_lessons: list[CurrentLessonItem] = field(
+    current_ps_uids: set[str] = field(default_factory=set)  # Lessons user is studying
+    current_path_steps: list[CurrentPathStepItem] = field(
         default_factory=list
     )  # {uid, title} for lessons with IN_PROGRESS relationship
 

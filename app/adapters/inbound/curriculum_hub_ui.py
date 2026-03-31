@@ -53,20 +53,18 @@ def create_curriculum_hub_ui_routes(
         """Lesson browser."""
         user_uid = require_authenticated_user(request)
 
-        lesson_service = services.lesson
+        ps_service = services.ps
         items: list[Any] = []
         learning_states: dict[str, str] = {}
-        if lesson_service:
-            result = await lesson_service.core.list(limit=50)
+        if ps_service:
+            result = await ps_service.core.list(limit=50)
             if not result.is_error:
                 items = result.value if isinstance(result.value, list) else result.value[0]
 
-            # Fetch learning states for all lessons
+            # Fetch learning states for all path steps
             if items:
                 uids = [getattr(item, "uid", "") for item in items if getattr(item, "uid", "")]
-                states_result = await lesson_service.mastery.get_learning_states_batch(
-                    user_uid, uids
-                )
+                states_result = await ps_service.mastery.get_learning_states_batch(user_uid, uids)
                 if states_result.is_ok:
                     learning_states = {k: v.value for k, v in states_result.value.items()}
 

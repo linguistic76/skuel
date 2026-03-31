@@ -31,8 +31,8 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
-    from core.services.lesson_service import LessonService
     from core.services.lp_service import LpService
+    from core.services.ps_service import PsService
     from core.services.user.unified_user_context import UserContext
 
 logger = get_logger(__name__)
@@ -57,7 +57,7 @@ class LifePathAlignmentService:
         self,
         executor: QueryExecutor | None = None,
         lp_service: LpService | None = None,
-        ku_service: LessonService | None = None,
+        ku_service: PsService | None = None,
     ) -> None:
         """
         Initialize alignment service.

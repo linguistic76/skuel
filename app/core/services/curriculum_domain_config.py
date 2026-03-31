@@ -43,21 +43,7 @@ from core.models.relationship_registry import (
 from core.services.relationships import UnifiedRelationshipService
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
-
-    from core.ports import EventBusOperations, LessonOperations, QueryBuilderOperations
-    from core.services.lesson.lesson_adaptive_service import LessonAdaptiveService
-    from core.services.lesson.lesson_application_discovery_service import (
-        LessonApplicationDiscoveryService,
-    )
-    from core.services.lesson.lesson_context_service import LessonContextService
-    from core.services.lesson.lesson_core_service import LessonCoreService
-    from core.services.lesson.lesson_graph_service import LessonGraphService
-    from core.services.lesson.lesson_mastery_service import LessonMasteryService
-    from core.services.lesson.lesson_practice_service import LessonPracticeService
-    from core.services.lesson.lesson_search_service import LessonSearchService
-    from core.services.lesson.lesson_semantic_service import LessonSemanticService
-    from core.services.lesson_intelligence_service import LessonIntelligenceService
+    from core.ports import EventBusOperations, QueryBuilderOperations
     from core.services.lp.lp_core_service import LpCoreService
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
@@ -351,11 +337,6 @@ def create_ps_sub_services(
     )
 
 
-# =============================================================================
-# DOMAIN-SPECIFIC FACTORIES (LEGACY — retained for backward compat until Phase 4+)
-# =============================================================================
-
-
 @dataclass
 class PsSubServices:
     """Container for all PsService sub-services created by the factory.
@@ -378,23 +359,6 @@ class PsSubServices:
 
 
 @dataclass
-class LessonSubServices:
-    """Container for all LessonService sub-services created by the factory."""
-
-    core: "LessonCoreService"
-    search: "LessonSearchService"
-    graph: "LessonGraphService"
-    semantic: "LessonSemanticService"
-    practice: "LessonPracticeService"
-    mastery: "LessonMasteryService"
-    relationships: "UnifiedRelationshipService"
-    intelligence: "LessonIntelligenceService"
-    adaptive: "LessonAdaptiveService"
-    application_discovery: "LessonApplicationDiscoveryService"
-    context_service: "LessonContextService"
-
-
-@dataclass
 class LpSubServices:
     """Container for all LpService sub-services created by the factory."""
 
@@ -404,144 +368,6 @@ class LpSubServices:
     intelligence: "LpIntelligenceService"
     progress: "LpProgressService"
     backend: Any  # BackendOperations[Ku] — protocol-typed to avoid adapter import
-
-
-def create_lesson_sub_services(
-    backend: "LessonOperations",
-    content_repo: Any | None,
-    chunking_service: Any | None,
-    graph_intelligence_service: Any,
-    query_builder: "QueryBuilderOperations | None",
-    event_bus: "EventBusOperations | None",
-    _driver: "AsyncDriver | None",
-    user_service: Any | None = None,
-    vector_search_service: Any | None = None,
-    embeddings_service: Any | None = None,
-    _ku_backend: Any | None = None,
-) -> LessonSubServices:
-    """
-    Factory function to create all 11 LessonService sub-services.
-
-    Handles the circular dependency: Intelligence must be created
-    BEFORE Core (Core depends on intelligence for content analysis).
-
-    Creation Order:
-    1. UnifiedRelationshipService (backend, config, graph_intel)
-    2. LessonIntelligenceService (backend, graph_intel, relationships, embeddings, llm)
-    3. LessonCoreService (repo, content_repo, intelligence, chunking, event_bus)
-    4. LessonSearchService (backend, content_repo, intelligence, query_builder, vector_search, embeddings)
-    5. LessonGraphService (repo, graph_intel)
-    6. LessonSemanticService (repo, intelligence)
-    7. LessonPracticeService (backend, event_bus)
-    8. LessonMasteryService (backend, event_bus)
-    9. LessonAdaptiveService (backend, user_service)
-    10. LessonApplicationDiscoveryService (repo)
-    11. LessonContextService (repo)
-
-    Args:
-        backend: LessonOperations backend - REQUIRED
-        content_repo: Content storage backend (optional)
-        chunking_service: Chunking service for RAG (optional)
-        graph_intelligence_service: GraphIntelligenceService - REQUIRED
-        query_builder: QueryBuilder service for optimized queries (optional)
-        event_bus: Event bus for publishing domain events (optional)
-        driver: Neo4j async driver for event-driven operations (optional)
-        user_service: UserService for UserContext access (January 2026 - KU-Activity Integration)
-        vector_search_service: Optional Neo4jVectorSearchService for semantic search (January 2026 - GenAI)
-        embeddings_service: Optional HuggingFaceEmbeddingsService for embedding generation (January 2026 - GenAI)
-
-    Returns:
-        LessonSubServices dataclass with all 11 sub-services
-    """
-    # Lazy imports to avoid circular dependencies
-    from core.services.lesson.lesson_adaptive_service import LessonAdaptiveService
-    from core.services.lesson.lesson_application_discovery_service import (
-        LessonApplicationDiscoveryService,
-    )
-    from core.services.lesson.lesson_context_service import LessonContextService
-    from core.services.lesson.lesson_core_service import LessonCoreService
-    from core.services.lesson.lesson_graph_service import LessonGraphService
-    from core.services.lesson.lesson_mastery_service import LessonMasteryService
-    from core.services.lesson.lesson_practice_service import LessonPracticeService
-    from core.services.lesson.lesson_search_service import LessonSearchService
-    from core.services.lesson.lesson_semantic_service import LessonSemanticService
-    from core.services.lesson_intelligence_service import LessonIntelligenceService
-
-    # Step 1: Create relationship service (needed by intelligence)
-    relationships = UnifiedRelationshipService(
-        backend=backend,
-        config=PS_CONFIG,  # LESSON_CONFIG merged into PS_CONFIG
-        graph_intel=graph_intelligence_service,
-    )
-
-    # Step 2: Create intelligence BEFORE core (circular dependency)
-    # ADR-030: Analytics services have zero AI dependencies
-    intelligence = LessonIntelligenceService(
-        backend=backend,
-        graph_intelligence_service=graph_intelligence_service,
-        relationship_service=relationships,
-        user_service=user_service,
-    )
-
-    # Step 3: Create core (requires intelligence)
-    core = LessonCoreService(
-        repo=backend,
-        content_repo=content_repo,
-        intelligence=intelligence,
-        chunking=chunking_service,
-        event_bus=event_bus,
-    )
-
-    # Step 4: Create search (with optional vector search - January 2026 GenAI)
-    search = LessonSearchService(
-        backend=backend,
-        content_repo=content_repo,
-        intelligence=intelligence,
-        query_builder=query_builder,
-        vector_search_service=vector_search_service,  # Optional - graceful degradation
-        embeddings_service=embeddings_service,  # Optional - graceful degradation
-    )
-
-    # Step 5: Create graph
-    graph = LessonGraphService(
-        repo=backend,
-        graph_intel=graph_intelligence_service,
-    )
-
-    # Step 6: Create semantic
-    semantic = LessonSemanticService(
-        repo=backend,
-        intelligence=intelligence,
-    )
-
-    # Step 7: Create practice (event-driven)
-    practice = LessonPracticeService(backend=backend, event_bus=event_bus)
-
-    # Step 8: Create mastery (pedagogical tracking)
-    mastery = LessonMasteryService(backend=backend, event_bus=event_bus)
-
-    # Step 9: Create adaptive curriculum service
-    adaptive = LessonAdaptiveService(backend=backend, user_service=user_service)
-
-    # Step 10: Create application discovery (reverse relationship queries)
-    application_discovery = LessonApplicationDiscoveryService(repo=backend)
-
-    # Step 11: Create context service (context-first knowledge recommendations)
-    context_service = LessonContextService(repo=backend)
-
-    return LessonSubServices(
-        core=core,
-        search=search,
-        graph=graph,
-        semantic=semantic,
-        practice=practice,
-        mastery=mastery,
-        relationships=relationships,
-        intelligence=intelligence,
-        adaptive=adaptive,
-        application_discovery=application_discovery,
-        context_service=context_service,
-    )
 
 
 def create_lp_sub_services(
