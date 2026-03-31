@@ -23,12 +23,11 @@ ENTITY TYPE PROTOCOLS
     7. FinancesOperations[ExpensePure]     - Expenses and budgets (admin-only, not an Activity Domain)
 
 **Curriculum Domain Protocols (3):**
-    8. PsOperations[PathStep]          - PathSteps (ps:) — merged Lesson capabilities
+    8. PsOperations[PathStep]          - PathSteps (ps:)
     9. LpOperations[LearningPath]         - Learning Paths (lp:)
     10. (KU uses BackendOperations directly)
 
 **Removed protocols (historical note):**
-    - LessonOperations removed Mar 2026 — merged into PsOperations
     - JournalsOperations removed Feb 2026 — Journal merged into Reports domain
     - MocOperations removed Jan 2026 — MOC is emergent identity, uses PsOperations
     - AnalyticsLifePathService, AnalyticsService — no protocol (internal services)

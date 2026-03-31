@@ -41,7 +41,7 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
         metadata=metadata,
         actions=ButtonLink(
             "Continue Learning →",
-            href=f"/lessons?sel={category.value}",
+            href=f"/path-steps?sel={category.value}",
             variant=ButtonT.primary,
             cls="w-full",
         ),

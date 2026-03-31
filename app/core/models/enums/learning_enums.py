@@ -16,7 +16,7 @@ class MasteryImpact(StrEnum):
     """
     Impact on student mastery progression when completing an Exercise.
 
-    Controls how aggressively LessonMasteryService advances a user's
+    Controls how aggressively PsMasteryService advances a user's
     MasteryLevel upon learning loop completion. Each Exercise declares its
     impact — a vocabulary quiz (MINOR) advances mastery less than a capstone
     project (CERTIFICATION).

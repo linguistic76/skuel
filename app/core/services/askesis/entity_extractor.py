@@ -208,13 +208,13 @@ class EntityExtractor:
 
         # Also check related PathStep titles — if a question references one,
         # match it to the KUs that PathStep teaches
-        for lesson in ps_bundle.related_steps:
-            if self._fuzzy_match(lesson.title, question_lower):
-                # Find KUs linked to this Lesson
+        for related_step in ps_bundle.related_steps:
+            if self._fuzzy_match(related_step.title, question_lower):
+                # Find KUs linked to this PathStep
                 for ku in ps_bundle.kus:
                     if ku.uid not in matched_uids:
-                        # If the Lesson's semantic_links reference this KU
-                        if ku.uid in (lesson.semantic_links or ()):
+                        # If the PathStep's semantic_links reference this KU
+                        if ku.uid in (related_step.semantic_links or ()):
                             matched_uids.append(ku.uid)
 
         # If no specific KU matched but the question is clearly about the LS topic,

@@ -2027,7 +2027,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return await self.execute_query(query, {"alias": alias})
 
     # ========================================================================
-    # SUBSTANCE METRICS (migrated from LessonService)
+    # SUBSTANCE METRICS
     # ========================================================================
 
     async def batch_increment_substance(

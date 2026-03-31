@@ -79,7 +79,7 @@ AI_ROUTE_SPECS: list[AIRouteSpec] = [
     AIRouteSpec("principles", "Principles", "principles", "deepen", "deepen_principle", "uid", "principles_ai_deepen"),
     AIRouteSpec("principles", "Principles", "principles", "practices", "suggest_practices", "uid", "principles_ai_practices"),
     # Knowledge / PathStep (5)
-    AIRouteSpec("ps", "Knowledge", "knowledge", "related", "find_related_lessons", "uid_limit", "knowledge_ai_related", "related_knowledge"),
+    AIRouteSpec("ps", "Knowledge", "knowledge", "related", "find_related_steps", "uid_limit", "knowledge_ai_related", "related_knowledge"),
     AIRouteSpec("ps", "Knowledge", "knowledge", "search", "semantic_search", "query_limit", "knowledge_ai_search", "results", default_limit=10),
     AIRouteSpec("ps", "Knowledge", "knowledge", "summary", "generate_summary", "uid", "knowledge_ai_summary", "summary"),
     AIRouteSpec("ps", "Knowledge", "knowledge", "explain", "explain_at_level", "uid_level", "knowledge_ai_explain"),
@@ -144,7 +144,7 @@ async def _ai_route(
     Args:
         request: Starlette request
         services: Service container
-        domain_attr: Attribute name on services (e.g. "tasks", "lesson")
+        domain_attr: Attribute name on services (e.g. "tasks", "ps")
         domain_label: Human-readable domain name for error messages
         method_name: AI service method to call
         args: Positional args to pass to the method

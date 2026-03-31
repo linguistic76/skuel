@@ -241,9 +241,9 @@ class ParsedActivityLine:
     # CURRICULUM DOMAINS (3) - Type-Safe Checks
     # ========================================================================
 
-    def is_lesson(self) -> bool:
+    def is_path_step(self) -> bool:
         """
-        Check if this is a Lesson activity.
+        Check if this is a PathStep activity.
 
         Returns:
             True if EntityType.PATH_STEP is in contexts
@@ -442,7 +442,7 @@ class ParsedJournal:
 
     def get_knowledge_units(self) -> list[ParsedActivityLine]:
         """Get all KnowledgeUnit activities."""
-        return [a for a in self.activities if a.is_lesson()]
+        return [a for a in self.activities if a.is_path_step()]
 
     def get_path_steps(self) -> list[ParsedActivityLine]:
         """Get all PathStep activities."""

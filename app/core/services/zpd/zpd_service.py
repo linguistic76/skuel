@@ -352,7 +352,7 @@ class ZPDService:
             actions.append(
                 ZPDAction(
                     entity_uid=gap_uid,
-                    entity_type="lesson",
+                    entity_type="path_step",
                     action_type="unblock",
                     priority=0.9,
                     rationale="blocking gap — unlocks further progress",
@@ -379,7 +379,7 @@ class ZPDService:
             actions.append(
                 ZPDAction(
                     entity_uid=ku_uid,
-                    entity_type="lesson",
+                    entity_type="path_step",
                     action_type="learn",
                     priority=priority,
                     rationale="; ".join(rationale_parts) if rationale_parts else "ready to learn",
@@ -402,7 +402,7 @@ class ZPDService:
                 actions.append(
                     ZPDAction(
                         entity_uid=ku_uid,
-                        entity_type="lesson",
+                        entity_type="path_step",
                         action_type="reinforce",
                         priority=priority,
                         rationale=f"{evidence.signal_count}/4 evidence types — needs compound mastery",

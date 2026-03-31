@@ -224,7 +224,7 @@ class _LearningStateMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uids": ku_uids})
 
-    async def detect_lesson_completion(
+    async def detect_path_step_completion(
         self, ku_uid: str, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
         """Find PathSteps where all KUs are mastered after a KU mastery event."""

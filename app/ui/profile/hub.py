@@ -64,7 +64,7 @@ def ProfileHubView(context: UserContext) -> Div:
         _personal_header(context),
         _activities_section(context),
         _knowledge_section(context),
-        _lessons_section(context),
+        _path_steps_section(context),
         _exercises_section(context),
         _submissions_section(),
         _reports_section(),
@@ -396,18 +396,18 @@ def _knowledge_section(context: UserContext) -> Div:
 
 
 # ---------------------------------------------------------------------------
-# Lessons section — currently studying
+# Path Steps section — currently studying
 # ---------------------------------------------------------------------------
 
 
-def _lessons_section(context: UserContext) -> Div:
+def _path_steps_section(context: UserContext) -> Div:
     """Path steps the user is actively studying (via IN_PROGRESS relationship)."""
     rows: list[Div] = []
-    for lesson in context.current_path_steps:
+    for ps in context.current_path_steps:
         rows.append(
             _compact_row(
-                lesson["title"],
-                f"/lessons/read?uid={lesson['uid']}",
+                ps["title"],
+                f"/path-steps/get?uid={ps['uid']}",
             )
         )
 
@@ -416,15 +416,15 @@ def _lessons_section(context: UserContext) -> Div:
         content = Div(*rows)
     else:
         content = EmptyState(
-            "No active lessons",
-            description="Lessons appear here when you start learning their knowledge units.",
-            action_text="Browse Lessons",
-            action_href="/lessons",
+            "No active path steps",
+            description="Path steps appear here when you start learning their knowledge units.",
+            action_text="Browse Path Steps",
+            action_href="/path-steps",
             cls="py-6",
         )
 
     return Div(
-        _section_header("Lessons", "/lessons", len(rows)),
+        _section_header("Path Steps", "/path-steps", len(rows)),
         content,
         cls="mb-6",
     )

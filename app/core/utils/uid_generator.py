@@ -39,7 +39,7 @@ class UIDGenerator:
     """
 
     # Prefixes for different entity types
-    LESSON_PREFIX = "l"
+    PATH_STEP_PREFIX = "l"  # Historical prefix from Lesson era; kept for backward compat
     KNOWLEDGE_PREFIX = "ku"
     DOMAIN_PREFIX = "dom"
     PATH_PREFIX = "path"
@@ -88,7 +88,7 @@ class UIDGenerator:
 
         Note:
             - Hierarchy stored in (ku)-[:ORGANIZES]->(ku) relationships
-            - Use LessonCoreService.organize_lesson() to create parent-child relationships
+            - Use PsCoreService to create parent-child relationships
             - See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
         """
         slug = cls.slugify(title)
@@ -96,23 +96,23 @@ class UIDGenerator:
         return f"{cls.KNOWLEDGE_PREFIX}_{slug}_{random_suffix}"
 
     @classmethod
-    def generate_lesson_uid(cls, title: str) -> str:
+    def generate_path_step_uid(cls, title: str) -> str:
         """
-        Generate a flat lesson UID.
+        Generate a flat PathStep UID.
 
         Args:
-            title: Lesson title
+            title: PathStep title
 
         Returns:
-            Flat UID with format: a_{slug}_{random}
+            Flat UID with format: l_{slug}_{random}
 
         Examples:
-            >>> generate_lesson_uid("Meditation Basics")
-            'a_meditation-basics_a1b2c3d4'
+            >>> generate_path_step_uid("Meditation Basics")
+            'l_meditation-basics_a1b2c3d4'
         """
         slug = cls.slugify(title)
         random_suffix = uuid.uuid4().hex[:8]
-        return f"{cls.LESSON_PREFIX}_{slug}_{random_suffix}"
+        return f"{cls.PATH_STEP_PREFIX}_{slug}_{random_suffix}"
 
     @classmethod
     def generate_domain_uid(cls, name: str, parent_domain_uid: str | None = None) -> str:

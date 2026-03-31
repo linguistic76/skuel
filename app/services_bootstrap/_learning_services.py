@@ -95,15 +95,14 @@ def _create_learning_services(
     user_progress = UserProgressService(query_executor)
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
 
-    # Create path step service (PS operations — merged Lesson capabilities)
-    # PsBackend now passed in from _backends.py with all 5 lesson mixins
-    # PsService absorbs ALL former Lesson capabilities (Phase 3-4 merge)
+    # Create path step service (PS operations)
+    # PsBackend passed in from _backends.py with all 5 domain mixins
     ps_service = PsService(
         backend=knowledge_backend,
         executor=query_executor,
         graph_intel=graph_intelligence,
         event_bus=event_bus,
-        # Merged lesson dependencies
+        # Content and search dependencies
         content_repo=content_adapter,  # Neo4jContentAdapter implements ContentOperations protocol
         ku_backend=atomic_ku_backend,
         chunking_service=chunking_service,
@@ -123,7 +122,7 @@ def _create_learning_services(
         backend=lp_backend,
         executor=query_executor,
         ps_service=ps_service,  # Delegate PS operations to PsService
-        ku_service=ps_service,  # PsService absorbs former Lesson role
+        ku_service=ps_service,  # PsService handles curriculum content
         progress_service=user_progress,
         graph_intelligence_service=graph_intelligence,  # 4 graph queries (REQUIRED)
         event_bus=event_bus,  # Event-driven architecture

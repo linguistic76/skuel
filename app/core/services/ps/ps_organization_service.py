@@ -17,8 +17,13 @@ Same PathStep, two access paths — progress is tracked on the PathStep itself.
 See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from core.services.ps_service import PsService
 
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from core.utils.logging import get_logger
@@ -34,7 +39,7 @@ class OrganizedStep:
     uid: str
     title: str
     order: int
-    children: list["OrganizedStep"] = field(default_factory=list)
+    children: list[OrganizedStep] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
@@ -87,7 +92,7 @@ class PsOrganizationService:
 
     def __init__(
         self,
-        ps_service: "PsService",  # noqa: F821 — string literal to avoid circular import
+        ps_service: PsService,
         backend: Any,  # PsBackend — Any to avoid circular import
     ) -> None:
         self.ps_service = ps_service

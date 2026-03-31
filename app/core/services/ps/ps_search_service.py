@@ -183,7 +183,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
         """
         Find path steps that contain/teach this knowledge.
 
-        Complementary to LessonGraphService.find_path_steps_containing().
+        Complementary to PsGraphService.find_path_steps_containing().
         Returns full LS entities instead of just UIDs.
 
         Graph Pattern: (Ls)-[:CONTAINS_KNOWLEDGE]->(Ku)

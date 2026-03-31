@@ -109,35 +109,35 @@ class _KnowledgeContextMixin:
         return await self.execute_query(query, {"uid": uid, "min_confidence": min_confidence})
 
     # ========================================================================
-    # LESSON-KU LINKING
+    # PATHSTEP-KU LINKING
     # ========================================================================
 
-    async def link_to_ku(self, lesson_uid: str, ku_uid: str) -> Result[bool]:
-        """Create USES_KU relationship from Lesson to atomic Ku."""
+    async def link_to_ku(self, ps_uid: str, ku_uid: str) -> Result[bool]:
+        """Create USES_KU relationship from PathStep to atomic Ku."""
         query = """
-        MATCH (lesson:Entity {uid: $lesson_uid})
+        MATCH (ps:Entity {uid: $ps_uid})
         MATCH (ku:Entity {uid: $ku_uid})
-        MERGE (lesson)-[r:USES_KU]->(ku)
+        MERGE (ps)-[r:USES_KU]->(ku)
         RETURN true AS success
         """
-        result = await self.execute_query(query, {"lesson_uid": lesson_uid, "ku_uid": ku_uid})
+        result = await self.execute_query(query, {"ps_uid": ps_uid, "ku_uid": ku_uid})
         if result.is_error:
             return Result.fail(result)
         if not result.value:
             return Result.fail(
-                Errors.not_found(resource="Lesson or Ku", identifier=f"{lesson_uid} / {ku_uid}")
+                Errors.not_found(resource="PathStep or Ku", identifier=f"{ps_uid} / {ku_uid}")
             )
         return Result.ok(True)
 
-    async def get_used_kus(self, lesson_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get all atomic Kus used by a Lesson via USES_KU."""
+    async def get_used_kus(self, ps_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get all atomic Kus used by a PathStep via USES_KU."""
         query = """
-        MATCH (lesson:Entity {uid: $lesson_uid})-[:USES_KU]->(ku:Entity)
+        MATCH (ps:Entity {uid: $ps_uid})-[:USES_KU]->(ku:Entity)
         RETURN ku.uid AS uid, ku.title AS title, ku.namespace AS namespace,
                ku.ku_category AS ku_category
         ORDER BY ku.title
         """
-        result = await self.execute_query(query, {"lesson_uid": lesson_uid})
+        result = await self.execute_query(query, {"ps_uid": ps_uid})
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value or [])

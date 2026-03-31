@@ -185,7 +185,7 @@ class BulkIngestionEngine[T]:
         Args:
             driver: Neo4j async driver,
             entity_type: Type of entities to ingest,
-            entity_label: Neo4j domain label (e.g., "Task", "Lesson"),
+            entity_label: Neo4j domain label (e.g., "Task", "PathStep"),
             template_dir: Directory containing Cypher templates,
             base_label: Optional base label for multi-label nodes (e.g., "Entity").
                          When set, creates nodes with both labels: :Entity:Task

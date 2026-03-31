@@ -360,7 +360,7 @@ class PsMasteryService:
                 self.logger.warning("No backend available for KU→PathStep completion detection")
                 return
 
-            result = await self.backend.detect_lesson_completion(event.ku_uid, event.user_uid)  # type: ignore[attr-defined]
+            result = await self.backend.detect_path_step_completion(event.ku_uid, event.user_uid)  # type: ignore[attr-defined]
 
             if result.is_error:
                 self.logger.error(f"Failed to check path step completion: {result.error}")

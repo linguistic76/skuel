@@ -167,7 +167,7 @@ class KuService:
         return await self.intelligence.get_with_context(uid, depth)
 
     async def get_usage_summary(self, ku_uid: str) -> Result[dict[str, int]]:
-        """Count lessons, path steps, and organized children for a Ku."""
+        """Count path steps and organized children for a Ku."""
         return await self.intelligence.get_usage_summary(ku_uid)
 
     # =========================================================================

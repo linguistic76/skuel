@@ -4,7 +4,7 @@ Submissions Service Package
 
 Sub-services for the Submission stage of SKUEL's educational loop:
 
-    Lesson → Exercise → Submission → Report
+    PathStep → Exercise → Submission → Report
                          ↑
                student produces work
 

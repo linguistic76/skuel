@@ -3,7 +3,7 @@ PathStep Service - Facade
 ==========================
 
 THE single owner for all path step management in SKUEL.
-Absorbs all former LessonService capabilities (Phase 3 merge).
+Covers all path step management including CRUD, search, and curriculum delivery.
 
 Delegates to specialized sub-services:
 - PsCoreService: CRUD operations + persistence (extends BaseService)

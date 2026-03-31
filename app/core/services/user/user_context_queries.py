@@ -1347,7 +1347,7 @@ class UserContextQueryExecutor:
 
     @with_error_handling("fetch_current_ps_uids", error_type="database", uid_param="user_uid")
     async def fetch_current_ps_uids(self, user_uid: UserUID) -> Result[list[str]]:
-        """Fetch lesson UIDs the user is actively studying."""
+        """Fetch PathStep UIDs the user is actively studying."""
         result = await self.fetch_current_path_steps(user_uid)
         if result.is_error:
             return Result.fail(result)

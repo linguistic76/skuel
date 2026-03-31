@@ -73,7 +73,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
 
     Uses an Entity-level backend (NeoLabel.ENTITY) so queries like
     find_by(user_uid=...) return user-owned activity entities across all
-    domains. Shared entities (Lesson, Ku, etc.) lack user_uid and naturally
+    domains. Shared entities (PathStep, Ku, etc.) lack user_uid and naturally
     filter out.
 
     NOTE: This service does NOT use AI (LLM/embeddings).

@@ -105,7 +105,7 @@ class PrinciplesPageContext(TypedDict):
 class CurriculumHubContext(TypedDict, total=False):
     """Curriculum landing page context."""
 
-    lesson_count: int
+    path_step_count: int
     ls_count: int
     lp_count: int
     exercise_count: int

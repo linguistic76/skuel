@@ -279,7 +279,7 @@ class AskesisTokenBudget:
 
     Askesis builds context from multiple sources (UserContext, curriculum content,
     activity reports) before sending to the LLM. Without truncation, a rich
-    UserContext or a bundle with many Lessons can exceed the LLM context window
+    UserContext or a bundle with many PathSteps can exceed the LLM context window
     or waste tokens on low-value content.
 
     These budgets use characters (~4 chars ≈ 1 token) as a practical proxy.

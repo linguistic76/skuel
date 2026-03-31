@@ -3,7 +3,7 @@ Form Template Routes - Configuration-Driven Registration
 ==========================================================
 
 Wires FormTemplate API routes using DomainRouteConfig.
-Admin-only CRUD (via CRUDRouteFactory) + lesson linking (manual).
+Admin-only CRUD (via CRUDRouteFactory) + PathStep linking (manual).
 """
 
 from typing import TYPE_CHECKING, Any
@@ -29,7 +29,7 @@ FORM_TEMPLATES_CONFIG = DomainRouteConfig(
     domain_name="form-templates",
     primary_service_attr="form_templates",
     api_factory=create_form_templates_api_routes,
-    ui_factory=None,  # No dedicated UI routes — forms render inline in lessons
+    ui_factory=None,  # No dedicated UI routes — forms render inline in path steps
     api_related_services={
         "user_service": "user_service",
     },

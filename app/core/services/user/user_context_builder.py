@@ -277,7 +277,7 @@ class UserContextBuilder:
         # Populate context from query results
         self._populator.populate_from_consolidated_data(context, query_result.value)
 
-        # Fetch current lessons (lightweight secondary query)
+        # Fetch current path steps (lightweight secondary query)
         ps_result = await self._query_executor.fetch_current_path_steps(user_uid)
         if ps_result.is_ok:
             context.current_path_steps = ps_result.value
@@ -390,7 +390,7 @@ class UserContextBuilder:
         # Populate standard context fields (UIDs, relationships, metadata)
         self._populator.populate_standard_fields(context, uids_data)
 
-        # Fetch current lessons (lightweight secondary query)
+        # Fetch current path steps (lightweight secondary query)
         ps_result = await self._query_executor.fetch_current_path_steps(user_uid)
         if ps_result.is_ok:
             context.current_path_steps = ps_result.value

@@ -140,7 +140,7 @@ class KnowledgeAwareness(Protocol):
     - Analyzing learning gaps
 
     Example services:
-    - LessonGraphService
+    - PsGraphService
     - LpIntelligenceService
     - GoalsLearningService
     """

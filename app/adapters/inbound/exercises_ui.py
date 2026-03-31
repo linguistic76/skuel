@@ -390,7 +390,7 @@ def create_exercises_ui_routes(
             content = Div(
                 PageHeader(
                     "Exercises",
-                    subtitle="Practice with exercises linked to lessons and knowledge units",
+                    subtitle="Practice with exercises linked to path steps and knowledge units",
                 ),
                 ExerciseUIComponents.render_exercises_list(exercises),
                 id="main-content",

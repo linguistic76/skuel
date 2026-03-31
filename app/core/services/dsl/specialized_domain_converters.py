@@ -158,7 +158,7 @@ def activity_to_ku_dict(activity: ParsedActivityLine) -> Result[ConversionResult
     Returns:
         Result containing dict for KnowledgeUnit creation
     """
-    if not activity.is_lesson():
+    if not activity.is_path_step():
         return Result.fail(
             Errors.validation(
                 message="Activity is not a KU (missing 'ku' or 'knowledge' in @context)",

@@ -127,7 +127,7 @@ _JOURNAL_DISPATCH: list[
     ("is_choice", activity_to_choice_dict, "choices", "Choice"),
     ("is_finance", activity_to_finance_dict, "finances", "Finance"),
     # Curriculum Domains (3)
-    ("is_lesson", activity_to_ku_dict, "knowledge_units", "KU"),
+    ("is_path_step", activity_to_ku_dict, "knowledge_units", "KU"),
     ("is_ls", activity_to_ls_dict, "path_steps", "LS"),
     ("is_lp", activity_to_lp_dict, "learning_paths", "LP"),
     # Meta Domains (2 — analytics has no is_analytics() guard)

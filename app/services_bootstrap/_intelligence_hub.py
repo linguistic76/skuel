@@ -113,8 +113,6 @@ async def _create_intelligence_hub(
         "choices": activity_services["choices"],
         "principles": activity_services["principles"],
         # Curriculum Domains (3) — facades from learning_services
-        # "lessons" key uses PsService (merged Lesson into PathStep)
-        "lessons": learning_services["path_steps"],
         "ku": learning_services["atomic_ku_service"],
         "path_steps": learning_services["path_steps"],
         "learning_paths": learning_services["learning_paths"],

@@ -433,7 +433,7 @@ class ActivityExtractorService:
         choices_service=None,  # ChoicesCoreService
         finance_service=None,  # FinanceCoreService
         # Curriculum Domains (3)
-        ku_service=None,  # LessonCoreService
+        ku_service=None,  # PsCoreService
         ps_service=None,  # PsCoreService
         lp_service=None,  # LpCoreService
         # Meta Domains (3)

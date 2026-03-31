@@ -236,7 +236,6 @@ class SearchRouter:
         # Finance (singular - standalone domain group)
         NonKuDomain.FINANCE: "finance",
         # Curriculum Domains (3) - ku, ls, lp form the knowledge foundation
-        EntityType.PATH_STEP: "lesson",
         EntityType.PATH_STEP: "ps",
         EntityType.LEARNING_PATH: "lp",
         # Learning Loop (3) - Exercise -> Submission -> RevisedExercise

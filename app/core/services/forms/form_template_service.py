@@ -2,7 +2,7 @@
 FormTemplate Service
 ====================
 
-CRUD + lesson linking for admin-created form templates.
+CRUD + PathStep linking for admin-created form templates.
 FormTemplates are shared content (no user_uid).
 
 Implements CRUDOperations via BaseService inheritance (CrudOperationsMixin).
@@ -35,7 +35,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
     CRUD service for FormTemplates (general-purpose form definitions).
 
     FormTemplates are shared content created by admins. They define form_schema
-    (field specs) that get rendered as inline forms in Lessons.
+    (field specs) that get rendered as inline forms in PathSteps.
 
     Inherits CRUDOperations from CrudOperationsMixin (via BaseService):
     create, get, update, delete, list, get_for_user, update_for_user, delete_for_user.

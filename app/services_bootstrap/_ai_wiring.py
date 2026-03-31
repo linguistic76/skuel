@@ -51,7 +51,7 @@ def _wire_ai_services(
             embeddings_service=embeddings_service,
         )
 
-    # Create AI services for Curriculum Domains (2 — Lesson merged into PathStep)
+    # Create AI services for Curriculum Domains (2)
     ps_ai = PsAIService(
         backend=learning_services["path_steps"].core.backend,
         llm_service=llm_service,
@@ -63,7 +63,7 @@ def _wire_ai_services(
         embeddings_service=embeddings_service,
     )
     # Wire AI services into Curriculum Domain facades (post-construction)
-    # path_steps is the PsService instance (Lesson merged into PathStep)
+    # path_steps is the PsService instance
     learning_services["path_steps"].ai = ps_ai
     learning_services["learning_paths"].ai = lp_ai
 

@@ -1,8 +1,8 @@
 """
-Lesson Content Metadata Model
-================================
+Curriculum Content Metadata Model
+====================================
 
-Analytics and search optimization metadata for lesson content.
+Analytics and search optimization metadata for curriculum content.
 This is computed metadata that can be regenerated from the content.
 
 Useful for search indexing, content analytics, and learning recommendations.

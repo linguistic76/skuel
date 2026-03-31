@@ -9,7 +9,7 @@ Modules:
     _backends.py          — UniversalNeo4jBackend instantiation
     _core_services.py     — Finance, Transcription, Orchestration, Advanced
     _activity_services.py — 6 Activity Domain facades
-    _learning_services.py — Lesson, KU, LS, LP, embeddings
+    _learning_services.py — PS, KU, LP, embeddings
     _ai_wiring.py         — Conditional AI service wiring (FULL tier)
     _event_wiring.py      — 45+ event bus subscriptions
     _intelligence_hub.py  — UserContextIntelligence, ZPD, Askesis

@@ -16,13 +16,13 @@ Design Principle: "Curriculum domains follow the same patterns as Activity domai
 
 The Three Curriculum Domains + Exercise:
     - KU (Point topology): Atomic knowledge unit
-    - PS (Edge topology): Sequential step aggregating KUs (merged Lesson capabilities)
+    - PS (Edge topology): Sequential step aggregating KUs
     - LP (Path topology): Complete learning sequence of PSs
     - Exercise (Template): LLM instruction template for student submissions
 
 Protocol Hierarchy:
     - CurriculumOperations[T]: Base protocol inheriting BackendOperations
-    - PsOperations: Extends CurriculumOperations[PathStep] with PS-specific methods (merged Lesson)
+    - PsOperations: Extends CurriculumOperations[PathStep] with PS-specific methods
     - LpOperations: Extends CurriculumOperations[LearningPath] with LP-specific methods
     - ExerciseOperations: Standalone protocol for Exercise instruction templates
 
@@ -526,8 +526,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # SEMANTIC RELATIONSHIPS (merged from LessonOperations)
-    # =========================================================================
+    # SEMANTIC RELATIONSHIPS    # =========================================================================
 
     async def get_semantic_links(self, uid: str) -> Result[list[str]]:
         """Get semantically related entity UIDs."""
@@ -542,8 +541,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # SUBSTANCE TRACKING (merged from LessonOperations)
-    # =========================================================================
+    # SUBSTANCE TRACKING    # =========================================================================
 
     async def get_substance_score(self, uid: str) -> Result[float]:
         """Get the substance score for a PathStep (0.0-1.0)."""
@@ -554,8 +552,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # CURRICULUM INTEGRATION (merged from LessonOperations)
-    # =========================================================================
+    # CURRICULUM INTEGRATION    # =========================================================================
 
     async def get_path_steps_using(self, uid: str) -> Result[list[str]]:
         """Get PS UIDs that include this entity via USES_KU."""
@@ -604,8 +601,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # PRACTICE + AI (merged from LessonOperations)
-    # =========================================================================
+    # PRACTICE + AI    # =========================================================================
 
     async def find_kus_practiced_by_event(
         self, event_uid: str
@@ -631,8 +627,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # SEARCH (merged from LessonOperations)
-    # =========================================================================
+    # SEARCH    # =========================================================================
 
     async def find_similar_by_keywords(
         self, uid: str, limit: int
@@ -647,8 +642,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # APPLICATION DISCOVERY (merged from LessonOperations)
-    # =========================================================================
+    # APPLICATION DISCOVERY    # =========================================================================
 
     async def find_connected_activities(
         self,
@@ -677,8 +671,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # CONTEXT (merged from LessonOperations)
-    # =========================================================================
+    # CONTEXT    # =========================================================================
 
     async def find_ready_to_learn(
         self, mastered_uids: list[str], domain: str | None, limit: int
@@ -699,8 +692,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # SEMANTIC OPERATIONS (merged from LessonOperations)
-    # =========================================================================
+    # SEMANTIC OPERATIONS    # =========================================================================
 
     async def create_semantic_relationship(
         self, cypher: str, params: dict[str, Any]
@@ -742,8 +734,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # GRAPH (merged from LessonOperations)
-    # =========================================================================
+    # GRAPH    # =========================================================================
 
     async def link_prerequisite(
         self, unit_uid: str, prereq_uid: str, is_mandatory: bool
@@ -806,8 +797,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # ADAPTIVE (merged from LessonOperations)
-    # =========================================================================
+    # ADAPTIVE    # =========================================================================
 
     async def track_mastery_completion(
         self, user_uid: UserUID, ku_uid: str, completion_time_minutes: int

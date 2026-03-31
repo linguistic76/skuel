@@ -3,7 +3,7 @@ PathStep Adaptive Curriculum Service
 =====================================
 
 Personalized path step curriculum delivery based on user readiness, prerequisites,
-and learning velocity. Mirrors LessonAdaptiveService for the PathStep domain.
+and learning velocity.
 
 Algorithm:
 1. Load user's learning intelligence (masteries, paths, velocity)
@@ -286,7 +286,7 @@ class PsAdaptiveService:
             if not user_intel:
                 user_intel = self._create_default_intelligence(user_uid)
 
-            mastered = sum(1 for ps in all_ps if ps.uid in user_intel.current_masteries)
+            mastered = sum(ps.uid in user_intel.current_masteries for ps in all_ps)
 
             return CurriculumProgress(
                 user_uid=user_uid,

@@ -15,7 +15,7 @@ UserContextIntelligence = UserContext + Domain Services
 **Entity Types:**
 
     Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
-    Curriculum: Lesson, Ku, PathStep, LearningPath, Exercise
+    Curriculum: Ku, PathStep, LearningPath, Exercise
     Curated Content: Resource
     Content processing: Submission, Journal, ActivityReport, ExerciseReport
     Destination: LifePath
@@ -81,7 +81,7 @@ class UserContextIntelligence(
     - principles: UnifiedRelationshipService - What values guide this?
 
     Curriculum Domains (2):
-    - ps: PsService - What knowledge is ready? (merged Lesson into PathStep)
+    - ps: PsService - What knowledge is ready?
     - lp: UnifiedRelationshipService - Critical path to life path (unified)
 
     Processing Domains (3):
@@ -152,7 +152,7 @@ class UserContextIntelligence(
                 principles: Principles relationship service for value alignment
 
             Curriculum Domains (2):
-                ps: PathStep service facade for learning readiness (merged Lesson into PathStep)
+                ps: PathStep service facade for learning readiness
                 lp: Learning path service for critical path analysis
 
             Processing Domains (3):

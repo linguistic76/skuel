@@ -17,7 +17,7 @@ Services Using This Mixin (as of January 2026):
 - MocSectionService - timestamp_properties() + update_properties()
 - MocCoreService - update_properties() for MOC metadata updates
 - TranscriptionService - update_properties() for transcription updates
-- LessonCoreService - timestamp_properties(use_utc=True) for KU creation/updates
+- PsCoreService - timestamp_properties(use_utc=True) for PS creation/updates
 
 Usage:
     from core.services.entity_timestamp_mixin import EntityTimestampMixin
