@@ -260,16 +260,30 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice]):
         )
         await publish_event(self.event_bus, event, self.logger)
 
-        # Publish batch knowledge event for substance tracking (O(1) vs O(n))
+        # Publish knowledge substance event: single-item for 1 KU, bulk for 2+
         if choice_request.informed_by_knowledge_uids:
-            from core.events.knowledge_substance_events import KnowledgeBulkInformedChoice
-
-            knowledge_event = KnowledgeBulkInformedChoice(
-                knowledge_uids=tuple(choice_request.informed_by_knowledge_uids),
-                choice_uid=choice.uid,
-                user_uid=choice.user_uid,
-                choice_title=choice.title,
+            from core.events.knowledge_substance_events import (
+                KnowledgeBulkInformedChoice,
+                KnowledgeInformedChoice,
             )
+
+            ku_uids = choice_request.informed_by_knowledge_uids
+            if len(ku_uids) == 1:
+                knowledge_event: KnowledgeInformedChoice | KnowledgeBulkInformedChoice = (
+                    KnowledgeInformedChoice(
+                        knowledge_uid=ku_uids[0],
+                        choice_uid=choice.uid,
+                        user_uid=choice.user_uid,
+                        choice_title=choice.title,
+                    )
+                )
+            else:
+                knowledge_event = KnowledgeBulkInformedChoice(
+                    knowledge_uids=tuple(ku_uids),
+                    choice_uid=choice.uid,
+                    user_uid=choice.user_uid,
+                    choice_title=choice.title,
+                )
             await publish_event(self.event_bus, knowledge_event, self.logger)
 
         # Publish embedding request event for async background generation

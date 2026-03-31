@@ -291,96 +291,20 @@ class KnowledgeBulkInformedChoice(BaseEvent):
 
 
 # ============================================================================
-# USAGE EXAMPLES
+# DISPATCH RULE
 # ============================================================================
 
-"""
-Publishing Knowledge Substance Events:
-=======================================
-
-# In TasksService.create()
-async def create_task(self, task: Task) -> Result[Task]:
-    result = await self.backend.create(task)
-
-    if result.is_ok and self.event_bus and task.applies_knowledge_uids:
-        # Publish substance event for each knowledge UID
-        for knowledge_uid in task.applies_knowledge_uids:
-            event = KnowledgeAppliedInTask(
-                knowledge_uid=knowledge_uid,
-                task_uid=task.uid,
-                user_uid=task.user_uid,
-                task_title=task.title,
-                task_priority=task.priority or "medium"
-            )
-            await self.event_bus.publish_async(event)
-            self.logger.debug(f"Published {event.event_type} for {knowledge_uid}")
-
-    return result
-
-
-# In HabitsService.create()
-async def create_habit(self, habit: Habit) -> Result[Habit]:
-    result = await self.backend.create(habit)
-
-    if result.is_ok and self.event_bus and habit.builds_on_knowledge_uids:
-        for knowledge_uid in habit.builds_on_knowledge_uids:
-            event = KnowledgeBuiltIntoHabit(
-                knowledge_uid=knowledge_uid,
-                habit_uid=habit.uid,
-                user_uid=habit.user_uid,
-                habit_title=habit.title,
-                frequency=habit.frequency.value
-            )
-            await self.event_bus.publish_async(event)
-            # HIGH IMPACT - log at info level
-            self.logger.info(f"Knowledge {knowledge_uid} built into habit (substance +0.10)")
-
-    return result
-
-
-Subscribing to Knowledge Substance Events:
-===========================================
-
-# In PsService
-async def handle_knowledge_applied_in_task(self, event: KnowledgeAppliedInTask) -> None:
-    '''Increment substance metric when knowledge applied in task.'''
-    try:
-        await self.increment_substance_metric(
-            ku_uid=event.knowledge_uid,
-            metric='times_applied_in_tasks',
-            timestamp_field='last_applied_date',
-            timestamp=event.occurred_at
-        )
-        self.logger.debug(f"Substance updated for {event.knowledge_uid}")
-    except Exception as e:  # intentional-broad: event handler must not propagate
-        self.logger.error(f"Error incrementing substance: {e}")
-
-
-async def increment_substance_metric(
-    self,
-    ku_uid: str,
-    metric: str,
-    timestamp_field: str,
-    timestamp: datetime
-) -> None:
-    '''Atomically increment a substance metric in Neo4j.'''
-    query = f'''
-    MATCH (ku:Entity {{uid: $ku_uid}})
-    SET ku.{metric} = COALESCE(ku.{metric}, 0) + 1,
-        ku.{timestamp_field} = $timestamp,
-        ku._substance_cache_timestamp = NULL  # Invalidate cache
-    RETURN ku
-    '''
-    await self.backend.execute_query(query, {
-        'ku_uid': ku_uid,
-        'timestamp': timestamp.isoformat()
-    })
-
-
-# In Bootstrap (services_bootstrap.py)
-# Wire up substance tracking event listeners
-event_bus.subscribe(KnowledgeAppliedInTask, ku_service.handle_knowledge_applied_in_task)
-event_bus.subscribe(KnowledgePracticedInEvent, ku_service.handle_knowledge_practiced_in_event)
-event_bus.subscribe(KnowledgeBuiltIntoHabit, ku_service.handle_knowledge_built_into_habit)
-event_bus.subscribe(KnowledgeInformedChoice, ku_service.handle_knowledge_informed_choice)
-"""
+# Publishers choose single vs bulk based on count — never both for the same
+# connection (that would double-increment substance metrics):
+#
+#   ku_uids = request.applies_knowledge_uids
+#   if len(ku_uids) == 1:
+#       event = KnowledgeAppliedInTask(knowledge_uid=ku_uids[0], ...)
+#   else:
+#       event = KnowledgeBulkAppliedInTask(knowledge_uids=tuple(ku_uids), ...)
+#   await publish_event(self.event_bus, event, self.logger)
+#
+# Subscribers for all 8 events (4 channels × 2 forms) are wired in:
+#   services_bootstrap/_event_wiring.py → PsService handlers
+#
+# See: /docs/architecture/knowledge_substance_philosophy.md

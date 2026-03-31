@@ -310,17 +310,32 @@ class TasksCoreService(BaseService["TasksOperations", Task]):
         )
         await publish_event(self.event_bus, event, self.logger)
 
-        # Publish batch knowledge event for substance tracking (O(1) vs O(n))
+        # Publish knowledge substance event: single-item for 1 KU, bulk for 2+
         if task_request.applies_knowledge_uids:
-            from core.events.knowledge_substance_events import KnowledgeBulkAppliedInTask
-
-            knowledge_event = KnowledgeBulkAppliedInTask(
-                knowledge_uids=tuple(task_request.applies_knowledge_uids),
-                task_uid=task.uid,
-                user_uid=task.user_uid,
-                task_title=task.title,
-                task_priority=task.priority or "medium",
+            from core.events.knowledge_substance_events import (
+                KnowledgeAppliedInTask,
+                KnowledgeBulkAppliedInTask,
             )
+
+            ku_uids = task_request.applies_knowledge_uids
+            if len(ku_uids) == 1:
+                knowledge_event: KnowledgeAppliedInTask | KnowledgeBulkAppliedInTask = (
+                    KnowledgeAppliedInTask(
+                        knowledge_uid=ku_uids[0],
+                        task_uid=task.uid,
+                        user_uid=task.user_uid,
+                        task_title=task.title,
+                        task_priority=task.priority or "medium",
+                    )
+                )
+            else:
+                knowledge_event = KnowledgeBulkAppliedInTask(
+                    knowledge_uids=tuple(ku_uids),
+                    task_uid=task.uid,
+                    user_uid=task.user_uid,
+                    task_title=task.title,
+                    task_priority=task.priority or "medium",
+                )
             await publish_event(self.event_bus, knowledge_event, self.logger)
 
         # Publish embedding request event for async background generation

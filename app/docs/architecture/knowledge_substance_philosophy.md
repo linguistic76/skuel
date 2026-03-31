@@ -245,22 +245,25 @@ connections:
 
 ### Publishing Events
 
+Single-item event when exactly 1 KU is connected; bulk event when 2+. Never publish both for the same connection.
+
 ```python
-# Supporting domains publish events when entities reference knowledge UIDs
-class TasksService:
-    async def create(self, task: Task) -> Result[Task]:
-        result = await self.backend.create(task)
-
-        # Publish substance event for each knowledge UID
-        for knowledge_uid in task.applies_knowledge_uids:
-            event = KnowledgeAppliedInTask(
-                knowledge_uid=knowledge_uid,
-                task_uid=task.uid,
-                user_uid=task.user_uid,
-            )
-            await self.event_bus.publish_async(event)
-
-        return result
+# Single when 1 KU, bulk when 2+ — actual pattern in TasksCoreService
+ku_uids = task_request.applies_knowledge_uids
+if len(ku_uids) == 1:
+    event = KnowledgeAppliedInTask(
+        knowledge_uid=ku_uids[0],
+        task_uid=task.uid,
+        user_uid=task.user_uid,
+        task_title=task.title,
+    )
+else:
+    event = KnowledgeBulkAppliedInTask(
+        knowledge_uids=tuple(ku_uids),
+        task_uid=task.uid,
+        user_uid=task.user_uid,
+    )
+await publish_event(self.event_bus, event, self.logger)
 ```
 
 ### Subscribing to Events
@@ -307,40 +310,44 @@ RETURN ku.times_applied_in_tasks as new_count
 
 ## Substance Events Catalog
 
-**Location:** `/core/events/ku_events.py`
+**Location:** `/core/events/knowledge_substance_events.py`
 
-### 1. KnowledgeAppliedInTask
+Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk** event (2+ KU connections). Publishers dispatch based on count — never double-publish both forms for the same connection. Subscribers for both forms are wired in `_event_wiring.py`.
+
+| Channel | Single-item event | Bulk event |
+|---------|-------------------|------------|
+| Task | `KnowledgeAppliedInTask` | `KnowledgeBulkAppliedInTask` |
+| Event | `KnowledgePracticedInEvent` | *(always single — events link one KU at a time)* |
+| Habit | `KnowledgeBuiltIntoHabit` | `KnowledgeBulkBuiltIntoHabit` |
+| Choice | `KnowledgeInformedChoice` | `KnowledgeBulkInformedChoice` |
+
+### 1. KnowledgeAppliedInTask / KnowledgeBulkAppliedInTask
 - **Increments:** `times_applied_in_tasks`
 - **Updates:** `last_applied_date`
-- **Weight:** 0.05 per task
-- **Published by:** TasksService
+- **Weight:** 0.05 per task (max 0.25)
+- **Published by:** `TasksCoreService` — single when 1 KU, bulk when 2+
 
 ### 2. KnowledgePracticedInEvent
 - **Increments:** `times_practiced_in_events`
 - **Updates:** `last_practiced_date`
-- **Weight:** 0.05 per event
-- **Published by:** EventsService
+- **Weight:** 0.05 per event (max 0.25)
+- **Published by:** `EventsService` — always single-item (events link one KU at a time)
 
-### 3. KnowledgeBuiltIntoHabit
+### 3. KnowledgeBuiltIntoHabit / KnowledgeBulkBuiltIntoHabit
 - **Increments:** `times_built_into_habits`
 - **Updates:** `last_built_into_habit_date`
-- **Weight:** 0.10 per habit (HIGHEST)
-- **Published by:** HabitsService
-- **Rationale:** Habits represent lifestyle integration
+- **Weight:** 0.10 per habit (max 0.30) — HIGHEST weight
+- **Published by:** `HabitsLearningService` — single when 1 KU, bulk when 2+
+- **Rationale:** Habits represent lifestyle integration = deepest form of applied knowledge
 
-### 4. KnowledgeReflectedInJournal
-- **Increments:** `journal_reflections_count`
-- **Updates:** `last_reflected_date`
-- **Weight:** 0.07 per reflection
-- **Published by:** JournalService
-- **Rationale:** Reflection demonstrates metacognition
-
-### 5. KnowledgeInformedChoice
+### 4. KnowledgeInformedChoice / KnowledgeBulkInformedChoice
 - **Increments:** `choices_informed_count`
 - **Updates:** `last_choice_informed_date`
-- **Weight:** 0.07 per choice
-- **Published by:** ChoiceService
-- **Rationale:** Applying knowledge to decisions = practical wisdom
+- **Weight:** 0.07 per choice (max 0.15)
+- **Published by:** `ChoicesCoreService` — single when 1 KU, bulk when 2+
+- **Rationale:** Applying knowledge to real decisions demonstrates practical wisdom
+
+> **Journal channel (not yet implemented):** The substance philosophy reserves weight 0.07 (max 0.20) for journal reflections. No `KnowledgeReflectedInJournal` event exists yet — the Journal domain uses a separate submission pipeline. Implement when JeOutput processing is wired to substance tracking.
 
 ---
 
@@ -414,7 +421,7 @@ All 6 activity channels tracked (journals deferred — submissions, not activiti
 |-----------|----------|---------|
 | **Substance Fields** | `/core/models/curriculum.py` | Substance fields + methods on `Curriculum` base class |
 | **Decay Algorithm** | `/core/models/curriculum.py` | Exponential decay, spaced repetition |
-| **Domain Events** | `/core/events/ku_events.py` | 5 substance events |
+| **Domain Events** | `/core/events/knowledge_substance_events.py` | 8 substance events (4 channels × single + bulk) |
 | **Event Handlers** | `/core/services/ps_service.py` | `PsService.increment_substance_metric()` |
 | **Backend Write** | `/adapters/persistence/neo4j/domain_backends.py` | `KuBackend.increment_substance()` + PathStep fan-out |
 | **Event Wiring** | `/services_bootstrap/_event_wiring.py` | Subscribe PsService to substance events |

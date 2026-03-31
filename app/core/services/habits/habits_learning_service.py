@@ -229,17 +229,32 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
             )
             await publish_event(self.event_bus, event, self.logger)
 
-            # Publish batch knowledge event for substance tracking (O(1) vs O(n))
+            # Publish knowledge substance event: single-item for 1 KU, bulk for 2+
             if habit_request.linked_knowledge_uids:
-                from core.events.knowledge_substance_events import KnowledgeBulkBuiltIntoHabit
-
-                knowledge_event = KnowledgeBulkBuiltIntoHabit(
-                    knowledge_uids=tuple(habit_request.linked_knowledge_uids),
-                    habit_uid=habit.uid,
-                    user_uid=habit.user_uid,
-                    habit_title=habit.title,
-                    frequency=habit.recurrence_pattern,
+                from core.events.knowledge_substance_events import (
+                    KnowledgeBuiltIntoHabit,
+                    KnowledgeBulkBuiltIntoHabit,
                 )
+
+                ku_uids = habit_request.linked_knowledge_uids
+                if len(ku_uids) == 1:
+                    knowledge_event: KnowledgeBuiltIntoHabit | KnowledgeBulkBuiltIntoHabit = (
+                        KnowledgeBuiltIntoHabit(
+                            knowledge_uid=ku_uids[0],
+                            habit_uid=habit.uid,
+                            user_uid=habit.user_uid,
+                            habit_title=habit.title,
+                            frequency=habit.recurrence_pattern,
+                        )
+                    )
+                else:
+                    knowledge_event = KnowledgeBulkBuiltIntoHabit(
+                        knowledge_uids=tuple(ku_uids),
+                        habit_uid=habit.uid,
+                        user_uid=habit.user_uid,
+                        habit_title=habit.title,
+                        frequency=habit.recurrence_pattern,
+                    )
                 await publish_event(self.event_bus, knowledge_event, self.logger)
 
         return result
