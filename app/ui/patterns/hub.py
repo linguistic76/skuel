@@ -1,7 +1,7 @@
 """Hub page components — shared card grid infrastructure for hub pages.
 
 Hub pages are standalone pages that organize navigation through card grids.
-Profile is THE main hub; domain pages (KU, Lessons, Submissions, Reports)
+Profile is THE main hub; domain pages (KU, PathSteps, Submissions, Reports)
 are rich functional hubs that may use these components for sections.
 
 See: /docs/patterns/HUB_PAGE_PATTERN.md
@@ -88,7 +88,7 @@ def HubSection(title: str | None, cards: list[HubCardData], cols: int = 2) -> Di
 
 def hub_cards_from_organizers(
     children: list[OrganizerResult],
-    href_template: str = "/ku/read?uid={uid}",
+    href_template: str = "/ku/{uid}",
     default_icon: str = "\U0001f4d6",
     default_description: str = "",
 ) -> list[HubCardData]:
@@ -121,7 +121,7 @@ def hub_cards_from_organizers(
 
 def hub_cards_from_root_organizers(
     roots: list[RootOrganizerResult],
-    href_template: str = "/ku/read?uid={uid}",
+    href_template: str = "/ku/{uid}",
     default_icon: str = "\U0001f4d6",
     default_description: str = "",
 ) -> list[HubCardData]:

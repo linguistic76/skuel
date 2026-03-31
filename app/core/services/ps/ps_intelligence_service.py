@@ -1,12 +1,12 @@
 """
-Learning Step Intelligence Service
-===================================
+PathStep Intelligence Service
+===============================
 
-Intelligence service for Learning Steps - scoring, readiness, practice calculations.
+Intelligence service for PathSteps - scoring, readiness, practice calculations.
 
 **January 2026 - Unified Architecture:**
 This service follows the Activity Domain pattern, extending BaseIntelligenceService.
-Complex scoring and aggregation methods consolidated here from the former LsRelationshipService.
+Complex scoring and aggregation methods consolidated here from the former PsRelationshipService.
 
 Methods:
 - is_ready(): Check if step is ready based on prerequisite completion
@@ -18,7 +18,7 @@ Methods:
 - has_practice_opportunities(): Check if step has practice opportunities
 
 Architecture:
-- Extends BaseIntelligenceService[BackendOperations[Ls], Ls]
+- Extends BaseAnalyticsService[BackendOperations[PathStep], PathStep]
 - Uses direct Cypher for complex aggregation queries
 """
 
@@ -47,7 +47,7 @@ logger = get_logger(__name__)
 
 class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", "PathStep"]):
     """
-    Intelligence service for Learning Steps.
+    Intelligence service for PathSteps.
 
     NOTE: This service extends BaseAnalyticsService (ADR-030) and has NO AI dependencies.
     It uses pure graph queries and Python calculations - no LLM or embeddings.

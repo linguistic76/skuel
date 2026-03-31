@@ -26,7 +26,6 @@ from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.exercises.inline_form import render_inline_exercise_form
 from ui.feedback import Badge, BadgeT
-from ui.forms.inline_form_template import render_inline_form_template
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
@@ -268,34 +267,6 @@ def _exercises_for_ku_section(exercises: list[dict]) -> Any:
     )
 
 
-def _form_templates_section(form_templates: list[dict]) -> Any:
-    """Render embedded FormTemplates as inline forms."""
-    if not form_templates:
-        return Div()
-
-    rows = []
-    for ft in form_templates:
-        form_schema = _parse_form_schema(ft.get("form_schema"))
-        if form_schema:
-            rows.append(
-                render_inline_form_template(
-                    form_template_uid=ft.get("uid", ""),
-                    form_schema=form_schema,
-                    title=ft.get("title"),
-                    instructions=ft.get("instructions"),
-                )
-            )
-
-    if not rows:
-        return Div()
-
-    return Div(
-        H3("Forms", cls="text-base font-semibold mb-3"),
-        Div(*rows, cls="space-y-4"),
-        cls="border-t border-border pt-6 mt-8",
-    )
-
-
 # =============================================================================
 # Route factory
 # =============================================================================
@@ -307,7 +278,6 @@ def create_ku_ui_routes(
     ku_service: Any,
     user_relationship_service: Any = None,
     exercises_service: Any = None,
-    form_template_service: Any = None,
 ) -> list[Any]:
     """
     Create all /ku UI + API routes using KuService.
@@ -316,7 +286,6 @@ def create_ku_ui_routes(
         ku_service: KuService (services.ku) — NOT PsService.
         user_relationship_service: UserRelationshipService for pinned Kus.
         exercises_service: Exercise service (for REQUIRES_KNOWLEDGE reverse lookup).
-        form_template_service: FormTemplate service (for EMBEDS_FORM reverse lookup).
     """
 
     # -----------------------------------------------------------------
@@ -498,12 +467,6 @@ def create_ku_ui_routes(
             exercises_result = await exercises_service.get_exercises_for_curriculum(uid)
             exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
 
-        # FormTemplates
-        form_templates: list[dict] = []
-        if form_template_service:
-            ft_result = await form_template_service.get_for_path_step(uid)
-            form_templates = ft_result.value if ft_result.is_ok else []
-
         # Breadcrumbs
         breadcrumb_path = [
             {"uid": "knowledge", "title": "Knowledge", "url": "/ku"},
@@ -544,7 +507,6 @@ def create_ku_ui_routes(
             ),
             metadata_footer,
             _exercises_for_ku_section(exercises_for_ku),
-            _form_templates_section(form_templates),
             Div(
                 EntityRelationshipsSection(entity_uid=uid, entity_type="ku"),
                 cls="mt-8",

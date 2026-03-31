@@ -1984,7 +1984,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return await self.execute_query(query, {"ku_uid": ku_uid})
 
     async def is_trained(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """Check if any Learning Step trains this Ku via TRAINS_KU."""
+        """Check if any PathStep trains this Ku via TRAINS_KU."""
         query = """
         MATCH (ps:Entity)-[:TRAINS_KU]->(ku:Entity:Ku {uid: $ku_uid})
         RETURN count(ps) > 0 as trained
@@ -2279,7 +2279,7 @@ class PsBackend(
     _AdaptiveMixin,
     UniversalNeo4jBackend[PathStep],
 ):
-    """Domain backend for PathStep entities (merged Lesson capabilities).
+    """Domain backend for PathStep entities.
 
     Extends UniversalNeo4jBackend[PathStep] with:
     - Knowledge relationship CRUD (CONTAINS_KNOWLEDGE / USES_KU edges)
@@ -2297,7 +2297,7 @@ class PsBackend(
     # ========================================================================
 
     async def add_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """MERGE CONTAINS_KNOWLEDGE relationship between LS and KU."""
+        """MERGE CONTAINS_KNOWLEDGE relationship between PS and KU."""
         query = """
         MATCH (ps:Entity {uid: $ps_uid})
         MATCH (ku:Entity {uid: $ku_uid})
@@ -2315,7 +2315,7 @@ class PsBackend(
         return Result.ok(success)
 
     async def remove_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """DELETE CONTAINS_KNOWLEDGE relationship between LS and KU."""
+        """DELETE CONTAINS_KNOWLEDGE relationship between PS and KU."""
         query = """
         MATCH (ps:Entity {uid: $ps_uid})-[r:CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
         DELETE r

@@ -72,8 +72,8 @@ from core.services.dsl.activity_entity_converter import (
     # The Destination (+1)
     activity_to_lifepath_dict,
     activity_to_lp_dict,
-    activity_to_ls_dict,
     activity_to_principle_dict,
+    activity_to_ps_dict,
     activity_to_report_dict,
     # Activity Domains (7)
     activity_to_task_request,
@@ -1134,9 +1134,9 @@ class ActivityExtractorService:
         """
         Create a PathStep from parsed activity.
 
-        Returns the created LS UID or None if creation failed.
+        Returns the created PathStep UID or None if creation failed.
         """
-        convert_result = activity_to_ls_dict(activity)
+        convert_result = activity_to_ps_dict(activity)
         if convert_result.is_error:
             return Result.fail(convert_result)
 

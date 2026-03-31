@@ -17,10 +17,11 @@ Handles all graph operations for path steps.
 - GraphIntelligence service (smart traversal)
 """
 
+from dataclasses import asdict
 from typing import Any
 
 from core.constants import GraphDepth, QueryLimit
-from core.models.curriculum_dto import CurriculumDTO
+from core.models.pathways.path_step import PathStep
 from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -60,7 +61,7 @@ class PsGraphService:
         depth: int = 3,
         _include_optional: bool = False,
         min_confidence: float = 0.7,
-    ) -> Result[list[CurriculumDTO]]:
+    ) -> Result[list[PathStep]]:
         """
         Find all prerequisites for a path step.
 
@@ -110,7 +111,7 @@ class PsGraphService:
         return Result.ok(prerequisites)
 
     @with_error_handling("find_next_steps", error_type="database", uid_param="uid")
-    async def find_next_steps(self, uid: str, limit: int = 10) -> Result[list[CurriculumDTO]]:
+    async def find_next_steps(self, uid: str, limit: int = 10) -> Result[list[PathStep]]:
         """
         Find path steps that build on this one.
 
@@ -176,11 +177,11 @@ class PsGraphService:
 
         # Build enriched context
         context = {
-            "unit": unit_dto.to_dict(),
-            "prerequisites": [p.to_dict() for p in prereq_result.value]
+            "unit": asdict(unit_dto),
+            "prerequisites": [asdict(p) for p in prereq_result.value]
             if prereq_result.is_ok
             else [],
-            "next_steps": [n.to_dict() for n in next_result.value] if next_result.is_ok else [],
+            "next_steps": [asdict(n) for n in next_result.value] if next_result.is_ok else [],
             "depth": depth,
             "total_prerequisites": len(prereq_result.value) if prereq_result.is_ok else 0,
             "total_next_steps": len(next_result.value) if next_result.is_ok else 0,
@@ -283,7 +284,7 @@ class PsGraphService:
         # Build chain metadata
         chain = {
             "target_uid": uid,
-            "prerequisites": [p.to_dict() for p in prerequisites],
+            "prerequisites": [asdict(p) for p in prerequisites],
             "total_count": len(prerequisites),
             "estimated_hours": sum(p.metadata.get("estimated_hours", 1.0) for p in prerequisites),
             "ordered": True,  # Already in dependency order from query
@@ -642,7 +643,7 @@ class PsGraphService:
     @with_error_handling("get_foundational_knowledge", error_type="database")
     async def get_foundational_knowledge(
         self, domain: str | None = None, min_hub_score: int = 10, limit: int = 20
-    ) -> Result[list[CurriculumDTO]]:
+    ) -> Result[list[PathStep]]:
         """
         Get high-hub path steps (foundational concepts).
 

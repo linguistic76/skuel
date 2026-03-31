@@ -205,7 +205,7 @@ class _KnowledgeContextMixin:
         query = """
         MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep)
         RETURN ps.uid as step_uid
-        ORDER BY ls.sequence_number ASC
+        ORDER BY ps.sequence_number ASC
         LIMIT $limit
         """
         return await self.execute_query(query, {"ku_uid": ku_uid, "limit": limit})
@@ -213,7 +213,7 @@ class _KnowledgeContextMixin:
     async def find_learning_paths_teaching_ku(
         self, ku_uid: str, limit: int = 10
     ) -> Result[list[Neo4jProperties]]:
-        """Find learning paths that teach a KU via LS chain."""
+        """Find learning paths that teach a KU via PathStep chain."""
         query = """
         MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep)<-[:HAS_STEP]-(lp:Lp)
         RETURN DISTINCT lp.uid as path_uid
@@ -450,10 +450,10 @@ class _KnowledgeContextMixin:
     async def get_cited_resources(
         self, source_uids: list[str], limit: int = 20
     ) -> Result[list[Neo4jProperties]]:
-        """Get Resources cited by Lessons/KUs via CITES_RESOURCE.
+        """Get Resources cited by PathSteps/KUs via CITES_RESOURCE.
 
         Args:
-            source_uids: UIDs of Lessons/KUs to traverse from.
+            source_uids: UIDs of PathSteps/KUs to traverse from.
             limit: Maximum number of resources to return.
 
         Returns:

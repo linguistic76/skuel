@@ -50,25 +50,25 @@ class _OrganizesMixin:
             self, query: str, params: dict[str, Any] | None = None
         ) -> Result[builtins.list[dict[str, Any]]]: ...
 
-    async def is_organizer(self, ku_uid: str) -> Result[bool]:
-        """Check if a Lesson has organized children. Returns error if not found."""
+    async def is_organizer(self, entity_uid: str) -> Result[bool]:
+        """Check if an entity has organized children. Returns error if not found."""
         query = """
-        MATCH (ku:Entity {uid: $ku_uid})
-        OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
-        RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
+        MATCH (n:Entity {uid: $entity_uid})
+        OPTIONAL MATCH (n)-[:ORGANIZES]->(child:Entity)
+        RETURN n IS NOT NULL AS entity_exists, count(child) > 0 AS is_organizer
         """
-        result = await self.execute_query(query, {"ku_uid": ku_uid})
+        result = await self.execute_query(query, {"entity_uid": entity_uid})
         if result.is_error:
             return Result.fail(result)
         if not result.value:
-            return Result.fail(Errors.not_found(resource="Lesson", identifier=ku_uid))
+            return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
         record = result.value[0]
-        if not record["ku_exists"]:
-            return Result.fail(Errors.not_found(resource="Lesson", identifier=ku_uid))
+        if not record["entity_exists"]:
+            return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
         return Result.ok(record["is_organizer"])
 
     async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
-        """Create ORGANIZES relationship between two Lessons."""
+        """Create ORGANIZES relationship between two entities."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})
         MATCH (child:Entity {uid: $child_uid})
@@ -84,11 +84,11 @@ class _OrganizesMixin:
             return Result.fail(result)
         success = bool(result.value and result.value[0]["success"])
         if success:
-            self.logger.info(f"Organized Lesson {child_uid} under {parent_uid} at position {order}")
+            self.logger.info(f"Organized {child_uid} under {parent_uid} at position {order}")
         return Result.ok(success)
 
     async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """Remove ORGANIZES relationship between two Lessons."""
+        """Remove ORGANIZES relationship between two entities."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
         DELETE r
@@ -106,7 +106,7 @@ class _OrganizesMixin:
         return Result.ok(success)
 
     async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        """Change the order of a child Lesson within its parent organizer."""
+        """Change the order of a child entity within its parent organizer."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
         SET r.order = $new_order
@@ -123,7 +123,7 @@ class _OrganizesMixin:
     async def get_organized_children(
         self, parent_uid: str, limit: int | None = None
     ) -> Result[list[OrganizerResult]]:
-        """Get direct ORGANIZES children of a Lesson, ordered by position."""
+        """Get direct ORGANIZES children of an entity, ordered by position."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
         RETURN child.uid AS uid, child.title AS title, r.order AS order
@@ -142,14 +142,14 @@ class _OrganizesMixin:
         ]
         return Result.ok(children)
 
-    async def find_organizers(self, ku_uid: str) -> Result[list[OrganizerResult]]:
-        """Find all parent Lessons that organize the given Lesson."""
+    async def find_organizers(self, entity_uid: str) -> Result[list[OrganizerResult]]:
+        """Find all parent entities that organize the given entity."""
         query = """
-        MATCH (parent:Entity)-[r:ORGANIZES]->(ku:Entity {uid: $ku_uid})
+        MATCH (parent:Entity)-[r:ORGANIZES]->(n:Entity {uid: $entity_uid})
         RETURN parent.uid AS uid, parent.title AS title, r.order AS order
         ORDER BY parent.title
         """
-        result = await self.execute_query(query, {"ku_uid": ku_uid})
+        result = await self.execute_query(query, {"entity_uid": entity_uid})
         if result.is_error:
             return Result.fail(result)
         organizers: list[OrganizerResult] = [
@@ -159,7 +159,7 @@ class _OrganizesMixin:
         return Result.ok(organizers)
 
     async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
-        """List Kus that organize others but are not themselves organized (root organizers)."""
+        """List entities that organize others but are not themselves organized (root organizers)."""
         query = """
         MATCH (root:Entity)-[:ORGANIZES]->(:Entity)
         WHERE NOT EXISTS((:Entity)-[:ORGANIZES]->(root))

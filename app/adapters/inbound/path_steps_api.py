@@ -21,7 +21,6 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import parse_int_query_param
 from adapters.inbound.route_factories.analytics_route_factory import AnalyticsRouteFactory
-from core.models.curriculum_dto import CurriculumDTO
 from core.models.entity_requests import AddTagsRequest, RemoveTagsRequest
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.pathways_request import (
@@ -145,9 +144,7 @@ def create_path_steps_api_routes(
 
     @rt("/api/path-steps/dependencies")
     @boundary_handler()
-    async def get_step_dependencies_route(
-        request: Request, uid: str
-    ) -> Result[list[CurriculumDTO]]:
+    async def get_step_dependencies_route(request: Request, uid: str) -> Result[list[PathStep]]:
         """Get what depends on this path step."""
         return await ps_service.get_step_dependencies(uid)
 
@@ -210,7 +207,7 @@ def create_path_steps_api_routes(
 
     @rt("/api/path-steps/related")
     @boundary_handler()
-    async def find_related_steps_route(request: Request, uid: str) -> Result[list[CurriculumDTO]]:
+    async def find_related_steps_route(request: Request, uid: str) -> Result[list[PathStep]]:
         """Find path steps related to the given one."""
         params = dict(request.query_params)
         similarity_threshold = float(params.get("threshold", 0.7))
@@ -220,9 +217,7 @@ def create_path_steps_api_routes(
 
     @rt("/api/path-steps/recommendations")
     @boundary_handler()
-    async def get_step_recommendations_route(
-        request: Request, uid: str
-    ) -> Result[list[CurriculumDTO]]:
+    async def get_step_recommendations_route(request: Request, uid: str) -> Result[list[PathStep]]:
         """Get personalized path step recommendations."""
         params = dict(request.query_params)
         user_uid = params.get("user_uid")

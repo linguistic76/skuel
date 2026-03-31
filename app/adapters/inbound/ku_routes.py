@@ -35,7 +35,6 @@ KU_CONFIG = DomainRouteConfig(
     ui_related_services={
         "user_relationship_service": "user_relationships",
         "exercises_service": "exercises",
-        "form_template_service": "form_templates",
     },
 )
 

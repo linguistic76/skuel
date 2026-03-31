@@ -158,7 +158,7 @@ def activity_to_ku_dict(activity: ParsedActivityLine) -> Result[ConversionResult
     Returns:
         Result containing dict for KnowledgeUnit creation
     """
-    if not activity.is_path_step():
+    if not activity.is_ku():
         return Result.fail(
             Errors.validation(
                 message="Activity is not a KU (missing 'ku' or 'knowledge' in @context)",
@@ -215,8 +215,8 @@ def activity_to_ku_dict(activity: ParsedActivityLine) -> Result[ConversionResult
     return Result.ok(ku_dict)
 
 
-@with_error_handling(error_type="system", operation="activity_to_ls_dict")
-def activity_to_ls_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
+@with_error_handling(error_type="system", operation="activity_to_ps_dict")
+def activity_to_ps_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
     """
     Convert ParsedActivityLine to PathStep creation dict.
 
@@ -229,10 +229,10 @@ def activity_to_ls_dict(activity: ParsedActivityLine) -> Result[ConversionResult
     Returns:
         Result containing dict for PathStep creation
     """
-    if not activity.is_ls():
+    if not activity.is_path_step():
         return Result.fail(
             Errors.validation(
-                message="Activity is not a PathStep (missing 'ls' or 'learningstep' in @context)",
+                message="Activity is not a PathStep (missing 'ps' or 'pathstep' in @context)",
                 field="context",
                 value=",".join(activity.context_values),
             )

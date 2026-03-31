@@ -40,7 +40,7 @@ from core.services.dsl.specialized_domain_converters import (
     activity_to_ku_dict,
     activity_to_lifepath_dict,
     activity_to_lp_dict,
-    activity_to_ls_dict,
+    activity_to_ps_dict,
     activity_to_report_dict,
 )
 from core.utils.logging import get_logger
@@ -62,7 +62,7 @@ __all__ = [
     "activity_to_ku_dict",
     "activity_to_lifepath_dict",
     "activity_to_lp_dict",
-    "activity_to_ls_dict",
+    "activity_to_ps_dict",
     "activity_to_principle_dict",
     "activity_to_report_dict",
     "activity_to_task_request",
@@ -127,8 +127,8 @@ _JOURNAL_DISPATCH: list[
     ("is_choice", activity_to_choice_dict, "choices", "Choice"),
     ("is_finance", activity_to_finance_dict, "finances", "Finance"),
     # Curriculum Domains (3)
-    ("is_path_step", activity_to_ku_dict, "knowledge_units", "KU"),
-    ("is_ls", activity_to_ls_dict, "path_steps", "LS"),
+    ("is_ku", activity_to_ku_dict, "knowledge_units", "KU"),
+    ("is_path_step", activity_to_ps_dict, "path_steps", "PathStep"),
     ("is_lp", activity_to_lp_dict, "learning_paths", "LP"),
     # Meta Domains (2 — analytics has no is_analytics() guard)
     ("is_report", activity_to_report_dict, "reports", "Report"),
@@ -327,11 +327,11 @@ class ActivityEntityConverter:
             # ================================================================
             # CURRICULUM DOMAINS (3) - EntityType
             # ================================================================
-            case EntityType.PATH_STEP:
+            case EntityType.KU:
                 return activity_to_ku_dict(activity)
 
             case EntityType.PATH_STEP:
-                return activity_to_ls_dict(activity)
+                return activity_to_ps_dict(activity)
 
             case EntityType.LEARNING_PATH:
                 return activity_to_lp_dict(activity)

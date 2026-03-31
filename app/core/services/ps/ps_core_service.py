@@ -1,6 +1,6 @@
 """
-Learning Step Core Service
-============================
+PathStep Core Service
+=======================
 
 Core CRUD operations for path steps.
 
@@ -17,7 +17,7 @@ Part of PsService decomposition (October 24, 2025)
 - Single responsibility: CRUD operations
 
 **Architecture (January 2026 Unified):**
-- Extends BaseService[BackendOperations[Ls], Ls] for unified infrastructure
+- Extends BaseService[BackendOperations[PathStep], PathStep] for unified infrastructure
 - Uses specialized Cypher queries for knowledge relationships
 - Class attributes match unified domain conventions
 - Uses PsBackend methods for graph-native operations
@@ -58,7 +58,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
     Core CRUD operations for path steps.
 
     **Architecture (January 2026 Unified):**
-    Extends BaseService[BackendOperations[Ls], Ls] for unified infrastructure.
+    Extends BaseService[BackendOperations[PathStep], PathStep] for unified infrastructure.
     Uses specialized Cypher queries for knowledge relationships via
     PsBackend named methods (protocol-compliant).
 
@@ -80,9 +80,9 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         model_class=PathStep,
         entity_label="Entity",
         domain_name="ps",
-        search_fields=("title", "intent", "description"),  # LS-specific fields
+        search_fields=("title", "intent", "description"),  # PS-specific fields
         search_order_by="updated_at",
-        content_field="description",  # LS stores content in description field
+        content_field="description",  # PS stores content in description field
     )
 
     @property
@@ -98,16 +98,16 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         The backend is REQUIRED. Services run at full capacity or fail immediately.
 
         Args:
-            backend: BackendOperations[Ls] for graph operations (REQUIRED)
+            backend: BackendOperations[PathStep] for graph operations (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
         """
-        super().__init__(backend, "ls_core")
+        super().__init__(backend, "ps_core")
         self.event_bus = event_bus
 
     @with_error_handling(operation="create_step", error_type="database", uid_param="step.uid")
     async def create_step(self, step: PathStep, path_uid: str | None = None) -> Result[PathStep]:
         """
-        Create a standalone Ls or add to existing path.
+        Create a standalone PathStep or add to existing path.
 
         GRAPH-NATIVE: Knowledge UIDs stored as relationships, not properties.
 
@@ -197,7 +197,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
 
         step = PathStep(
             uid=step_data["uid"],
-            title=step_data.get("title", "Learning Step"),
+            title=step_data.get("title", "Path Step"),
             intent=step_data.get("intent", "Complete this path step"),
             description=step_data.get("description"),
             knowledge_uids=tuple(knowledge_uids),
@@ -268,7 +268,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         # Build PathStep with knowledge UIDs
         step = PathStep(
             uid=step_data["uid"],
-            title=step_data.get("title", "Learning Step"),
+            title=step_data.get("title", "Path Step"),
             intent=step_data.get("intent", "Complete this path step"),
             description=step_data.get("description"),
             knowledge_uids=tuple(knowledge_uids),
@@ -408,7 +408,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
 
         updated_step = PathStep(
             uid=step_data["uid"],
-            title=step_data.get("title", "Learning Step"),
+            title=step_data.get("title", "Path Step"),
             intent=step_data.get("intent", "Complete this path step"),
             description=step_data.get("description"),
             knowledge_uids=tuple(knowledge_uids),
@@ -536,7 +536,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
             steps.append(
                 PathStep(
                     uid=step_data["uid"],
-                    title=step_data.get("title", "Learning Step"),
+                    title=step_data.get("title", "Path Step"),
                     intent=step_data.get("intent", "Complete this path step"),
                     description=step_data.get("description"),
                     knowledge_uids=tuple(knowledge_uids),
@@ -559,26 +559,26 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
     # Delegated to PsBackend (2026-03-24)
     # ========================================================================
 
-    @track_query_metrics("ls_add_knowledge")
+    @track_query_metrics("ps_add_knowledge")
     @with_error_handling("add_knowledge_relationship", error_type="database")
     async def add_knowledge_relationship(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """Create CONTAINS_KNOWLEDGE relationship between LS and KU."""
+        """Create CONTAINS_KNOWLEDGE relationship between PathStep and KU."""
         return await self.backend.add_knowledge(ps_uid, ku_uid)
 
-    @track_query_metrics("ls_get_knowledge")
+    @track_query_metrics("ps_get_knowledge")
     @with_error_handling("get_contained_knowledge", error_type="database")
     async def get_contained_knowledge(self, ps_uid: str) -> Result[list[PsKnowledgeItemResult]]:
-        """Get KUs contained in this LS via CONTAINS_KNOWLEDGE relationships."""
+        """Get KUs contained in this PathStep via CONTAINS_KNOWLEDGE relationships."""
         result = await self.backend.list_knowledge(ps_uid)
         if result.is_error:
             return Result.fail(result)
-        self.logger.info(f"Found {len(result.value)} KUs for LS {ps_uid}")
+        self.logger.info(f"Found {len(result.value)} KUs for PathStep {ps_uid}")
         return result
 
-    @track_query_metrics("ls_remove_knowledge")
+    @track_query_metrics("ps_remove_knowledge")
     @with_error_handling("remove_knowledge_relationship", error_type="database")
     async def remove_knowledge_relationship(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """Remove CONTAINS_KNOWLEDGE relationship between LS and KU."""
+        """Remove CONTAINS_KNOWLEDGE relationship between PathStep and KU."""
         result = await self.backend.remove_knowledge(ps_uid, ku_uid)
         if result.is_error:
             return Result.fail(result)
@@ -586,7 +586,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
             self.logger.warning(f"No CONTAINS_KNOWLEDGE relationship found: {ps_uid} -> {ku_uid}")
         return result
 
-    @track_query_metrics("ls_get_knowledge_summary")
+    @track_query_metrics("ps_get_knowledge_summary")
     @with_error_handling("get_knowledge_summary", error_type="database")
     async def get_knowledge_summary(self, ps_uid: str) -> Result[PsKnowledgeSummaryResult]:
         """Get summary of knowledge relationships (count and UIDs)."""

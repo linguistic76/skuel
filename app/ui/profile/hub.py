@@ -1,7 +1,7 @@
 """Profile hub page — live actionable hub for learning state.
 
 The /profile page shows the user's active learning state: Kus they're
-interacting with, lessons being studied, exercises with Submit buttons,
+interacting with, path steps being studied, exercises with Submit buttons,
 submissions (tabbed: My Submissions | Submit | Request Report),
 and recent reports.
 
@@ -374,7 +374,7 @@ def _knowledge_section(context: UserContext) -> Div:
                 )
             )
 
-        rows.append(_compact_row(title, f"/ku/read?uid={uid}", badges))
+        rows.append(_compact_row(title, f"/ku/{uid}", badges))
 
     content: Div
     if rows:
@@ -454,9 +454,7 @@ def _exercises_section(context: UserContext) -> Div:
             href=f"/submit?exercise_uid={ex['uid']}",
             cls="text-xs font-medium bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 whitespace-nowrap",
         )
-        rows.append(
-            _compact_row(ex["title"], f"/exercises/read?uid={ex['uid']}", badges, submit_btn)
-        )
+        rows.append(_compact_row(ex["title"], f"/exercises/{ex['uid']}/view", badges, submit_btn))
 
     # Pending revised exercises — revision requests
     for rev in context.pending_revised_exercises:
@@ -472,7 +470,7 @@ def _exercises_section(context: UserContext) -> Div:
             cls="text-xs font-medium bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 whitespace-nowrap",
         )
         rows.append(
-            _compact_row(rev["title"], f"/exercises/read?uid={rev['uid']}", badges_rev, submit_btn)
+            _compact_row(rev["title"], f"/exercises/{rev['uid']}/view", badges_rev, submit_btn)
         )
 
     content: Div

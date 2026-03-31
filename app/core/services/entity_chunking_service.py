@@ -23,10 +23,10 @@ Architecture:
 from operator import itemgetter
 from typing import Any, TypedDict
 
-from core.models.lesson_content.content import CurriculumContent
-from core.models.lesson_content.content_chunks import ContentChunk, ContentChunkType
-from core.models.lesson_content.content_metadata import ContentMetadata
 from core.models.pathways.path_step import PathStep
+from core.models.ps_content.content import CurriculumContent
+from core.models.ps_content.content_chunks import ContentChunk, ContentChunkType
+from core.models.ps_content.content_metadata import ContentMetadata
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -151,7 +151,7 @@ class EntityChunkingService:
                 )
             )
 
-    async def process_ku_content(
+    async def process_ps_content(
         self,
         knowledge: PathStep,
         content_body: str,
@@ -195,12 +195,12 @@ class EntityChunkingService:
         except (TypeError, AttributeError, KeyError) as e:
             self.logger.error(f"Failed to process content: {e}")
             return Result.fail(
-                Errors.system(f"Content processing failed: {e!s}", operation="process_ku_content")
+                Errors.system(f"Content processing failed: {e!s}", operation="process_ps_content")
             )
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Failed to process content: {e}")
             return Result.fail(
-                Errors.system(f"Content processing failed: {e!s}", operation="process_ku_content")
+                Errors.system(f"Content processing failed: {e!s}", operation="process_ps_content")
             )
 
     async def update_path_step_content(
@@ -226,7 +226,7 @@ class EntityChunkingService:
         format = existing.format if existing else "markdown"
         source_path = existing.source_path if existing else None
 
-        return await self.process_ku_content(
+        return await self.process_ps_content(
             knowledge=knowledge,
             content_body=new_content_body,
             format=format,
@@ -508,7 +508,7 @@ class EntityChunkingService:
         total_words = 0
 
         for knowledge, content_body in knowledge_items:
-            result = await self.process_ku_content(
+            result = await self.process_ps_content(
                 knowledge=knowledge, content_body=content_body, format=format
             )
 

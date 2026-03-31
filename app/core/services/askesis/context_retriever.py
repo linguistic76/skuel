@@ -384,24 +384,24 @@ class ContextRetriever:
         Returns:
             Result[PsBundle] — the complete bundle, or not_found error
         """
-        # Step 1: Find active LS from rich context
-        ls_rich = self._find_active_ls(user_context)
-        if ls_rich is None:
-            return Result.fail(Errors.not_found("path_step", "no_active_ls"))
+        # Step 1: Find active PathStep from rich context
+        ps_rich = self._find_active_ps(user_context)
+        if ps_rich is None:
+            return Result.fail(Errors.not_found("path_step", "no_active_ps"))
 
-        step_data: dict[str, Any] = dict(ls_rich.get("step") or ls_rich.get("entity", {}))  # type: ignore[call-overload]
-        graph_context: dict[str, Any] = dict(ls_rich.get("graph_context", {}))  # type: ignore[call-overload]
+        step_data: dict[str, Any] = dict(ps_rich.get("step") or ps_rich.get("entity", {}))  # type: ignore[call-overload]
+        graph_context: dict[str, Any] = dict(ps_rich.get("graph_context", {}))  # type: ignore[call-overload]
 
         # Step 2: Build the PathStep domain model
         path_step = self._build_path_step(step_data)
         if path_step is None:
-            return Result.fail(Errors.not_found("path_step", "malformed_ls_data"))
+            return Result.fail(Errors.not_found("path_step", "malformed_ps_data"))
 
         # Step 3: Fetch full entities in parallel (partial failure tolerant)
         #
         # Each fetch can fail independently (network errors, malformed data).
         # We use return_exceptions=True so a single failure doesn't cancel
-        # the others — a partial bundle (LS + whatever succeeded) is more
+        # the others — a partial bundle (PS + whatever succeeded) is more
         # useful than no bundle at all.
         related_ps_coro = self._fetch_related_path_steps(path_step, graph_context)
         kus_coro = self._fetch_kus(path_step)
@@ -486,27 +486,27 @@ class ContextRetriever:
         return Result.ok(bundle)
 
     # ========================================================================
-    # PRIVATE - LS BUNDLE HELPERS (absorbed from LSContextLoader)
+    # PRIVATE - PS BUNDLE HELPERS
     # ========================================================================
 
-    def _find_active_ls(self, user_context: UserContext) -> RichPathStepItem | None:
-        """Find the first active (non-mastered) LS from rich context.
+    def _find_active_ps(self, user_context: UserContext) -> RichPathStepItem | None:
+        """Find the first active (non-mastered) PathStep from rich context.
 
-        UserContext.active_path_steps_rich contains LS items with:
-        - entity/step: Full LS properties
+        UserContext.active_path_steps_rich contains PathStep items with:
+        - entity/step: Full PathStep properties
         - graph_context: {prerequisite_steps, practice_habits, practice_tasks,
                           knowledge_relationships, learning_path}
         """
-        for ls_item in user_context.active_path_steps_rich:
-            step_data: dict[str, Any] = dict(ls_item.get("step") or ls_item.get("entity", {}))  # type: ignore[call-overload]
+        for ps_item in user_context.active_path_steps_rich:
+            step_data: dict[str, Any] = dict(ps_item.get("step") or ps_item.get("entity", {}))  # type: ignore[call-overload]
             if not step_data:
                 continue
 
-            # Check the LS is not already mastered
+            # Check the PathStep is not already mastered
             current_mastery = step_data.get("current_mastery", 0.0) or 0.0
             mastery_threshold = step_data.get("mastery_threshold", 0.7) or 0.7
             if current_mastery < mastery_threshold:
-                return ls_item
+                return ps_item
 
         # All steps mastered or no steps available
         return None

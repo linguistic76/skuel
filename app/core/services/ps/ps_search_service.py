@@ -1,19 +1,19 @@
 """
-LS Search Service - BaseService Pattern
-========================================
+PathStep Search Service - BaseService Pattern
+===============================================
 
-Search operations for Learning Steps extending BaseService for
+Search operations for PathSteps extending BaseService for
 unified search architecture.
 
 This service provides:
 - Text search on title/intent/description (inherited from BaseService)
 - Graph-aware faceted search with relationship traversal
-- LS-specific methods: get_for_learning_path(), get_standalone_steps()
+- PS-specific methods: get_for_learning_path(), get_standalone_steps()
 
 Architecture (January 2026 Unified):
-- Extends BaseService[BackendOperations[Ls], Ls]
+- Extends BaseService[BackendOperations[PathStep], PathStep]
 - Inherits: search(), get_by_status(), get_by_domain(), get_with_content(), etc.
-- Adds: LS-specific methods for learning path integration
+- Adds: PS-specific methods for learning path integration
 - No wrapper backend - uses UniversalNeo4jBackend directly
 """
 
@@ -42,9 +42,9 @@ logger = get_logger(__name__)
 
 class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
     """
-    Search service for Learning Steps - BaseService pattern.
+    Search service for PathSteps - BaseService pattern.
 
-    Implements DomainSearchOperations[Ls] protocol for integration with
+    Implements DomainSearchOperations[PathStep] protocol for integration with
     SearchRouter and unified search infrastructure.
 
     Inherited Methods (from BaseService):
@@ -57,10 +57,10 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
     - get_with_context(uid, depth) - Entity with graph neighborhood
     - get_prerequisites(uid, depth) - Prerequisite chain
     - get_enables(uid, depth) - What this enables
-    - get_hierarchy(uid) - Position in KU → LS → LP hierarchy
+    - get_hierarchy(uid) - Position in KU → PS → LP hierarchy
     - get_user_progress(user_uid, entity_uid) - User mastery data
 
-    LS-Specific Methods:
+    PS-Specific Methods:
     - get_for_learning_path(path_uid) - Steps in a specific learning path
     - get_standalone_steps() - Steps not in any learning path
     - get_prioritized(user_uid, context) - Context-aware prioritization
@@ -126,12 +126,6 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
         if not path_uid:
             return Result.fail(Errors.validation(message="path_uid is required", field="path_uid"))
 
-        # Use backend method if available
-        backend_method = getattr(self.backend, "get_path_steps", None)
-        if backend_method:
-            return await backend_method(path_uid, limit)
-
-        # Fallback to direct query
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """

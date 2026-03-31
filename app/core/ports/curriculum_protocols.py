@@ -1,14 +1,14 @@
 """
-Curriculum Protocols - Consistent Protocol Hierarchy for KU, LS, LP
+Curriculum Protocols - Consistent Protocol Hierarchy for KU, PS, LP
 ====================================================================
 
-*Last updated: 2026-02-27*
+*Last updated: 2026-03-31*
 
 This module provides a CONSISTENT protocol hierarchy for the three
 curriculum domains (KU, PS, LP) plus Exercise, parallel to BackendOperations
 for Activity domains.
 
-Any Ku can organize other Kus via ORGANIZES relationships (emergent identity).
+Any entity can organize other entities via ORGANIZES relationships (emergent identity).
 Organization methods are part of PsOperations protocol.
 
 Design Principle: "Curriculum domains follow the same patterns as Activity domains"
@@ -118,7 +118,7 @@ if TYPE_CHECKING:
 @runtime_checkable
 class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations, Protocol):
     """
-    Base protocol for all curriculum domain backends (KU, LS, LP).
+    Base protocol for all curriculum domain backends (KU, PS, LP).
 
     Inherits:
         - BackendOperations[T]: Full CRUD, relationships, traversal, search
@@ -137,15 +137,15 @@ class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations,
         Curriculum domains share patterns that Activity domains don't need:
         - Content retrieval (markdown, learning materials)
         - Prerequisite chains (knowledge dependencies)
-        - Hierarchical structures (KU→LS→LP aggregation)
+        - Hierarchical structures (KU→PS→LP aggregation)
 
         By inheriting BackendOperations, curriculum domains get ALL the same
         capabilities as Activity domains (CRUD, relationships, search, traversal)
         PLUS these curriculum-specific additions.
 
     Example:
-        class KuUniversalBackend(UniversalNeo4jBackend[Lesson], CurriculumOperations[Lesson]):
-            async def get_with_content(self, uid: str) -> Result[Lesson]:
+        class KuUniversalBackend(UniversalNeo4jBackend[Ku], CurriculumOperations[Ku]):
+            async def get_with_content(self, uid: str) -> Result[Ku]:
                 # Implementation
                 ...
     """
@@ -237,8 +237,8 @@ class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations,
         Get hierarchical structure for this entity.
 
         Returns the entity's position in the curriculum hierarchy:
-        - For KU: Which LS and LP contain it
-        - For LS: Which LP contains it, which KUs it aggregates
+        - For KU: Which PS and LP contain it
+        - For PS: Which LP contains it, which KUs it aggregates
         - For LP: Its step sequence and knowledge coverage
 
         Args:
@@ -315,60 +315,16 @@ class KuInteractionOperations(Protocol):
 @runtime_checkable
 class PsOperations(CurriculumOperations["PathStep"], Protocol):
     """
-    Learning Step (LS) specific operations.
+    PathStep (PS) specific operations.
 
-    Extends CurriculumOperations with LS-specific methods for:
-    - Knowledge aggregation (LS aggregates KUs)
+    Extends CurriculumOperations with PS-specific methods for:
+    - Knowledge aggregation (PS aggregates KUs)
     - Practice integration (habits, tasks, events)
-    - Path integration (LS can be standalone or part of LP)
+    - Path integration (PS can be standalone or part of LP)
 
-    Neo4j: LS nodes are :Entity:PathStep{entity_type='path_step'}
+    Neo4j: PS nodes are :Entity:PathStep{entity_type='path_step'}
     UID Format: "ps:{random}" (e.g., "ps:a1b2c3d4")
     """
-
-    # =========================================================================
-    # LS-SPECIFIC RETRIEVAL
-    # =========================================================================
-    # boundary: LS/LP backend methods below return list[dict[str, Any]] — raw Cypher
-    # results from multi-hop graph traversals (step→lesson→ku chains) or full node
-    # property sets. Column names vary by query depth and optional joins.
-
-    async def get_ls(self, uid: str) -> Result[PathStep]:
-        """
-        Get a Learning Step by UID.
-
-        Args:
-            uid: LS UID (e.g., "ps:a1b2c3d4")
-
-        Returns:
-            Result[PathStep]: The path step or not-found error
-        """
-        ...
-
-    async def get_user_steps(self, user_uid: UserUID) -> Result[list[PathStep]]:
-        """
-        Get all path steps for a user.
-
-        Args:
-            user_uid: User UID
-
-        Returns:
-            Result[list[PathStep]]: User's path steps
-        """
-        ...
-
-    async def get_path_steps_batch(self, uids: list[str]) -> Result[list[PathStep | None]]:
-        """
-        Batch load path steps by UIDs.
-
-        Args:
-            uids: List of LS UIDs to load
-
-        Returns:
-            Result[list[PathStep | None]]: Learning steps in same order as input UIDs,
-                                     None for UIDs that don't exist
-        """
-        ...
 
     # =========================================================================
     # KNOWLEDGE AGGREGATION
@@ -381,7 +337,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         Returns both primary and supporting knowledge UIDs.
 
         Args:
-            uid: LS UID
+            uid: PS UID
 
         Returns:
             Result[list[str]]: All KU UIDs in this step
@@ -393,11 +349,11 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     # =========================================================================
 
     async def add_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """MERGE CONTAINS_KNOWLEDGE relationship between LS and KU."""
+        """MERGE CONTAINS_KNOWLEDGE relationship between PathStep and KU."""
         ...
 
     async def remove_knowledge(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """DELETE CONTAINS_KNOWLEDGE relationship between LS and KU."""
+        """DELETE CONTAINS_KNOWLEDGE relationship between PathStep and KU."""
         ...
 
     async def list_knowledge(self, ps_uid: str) -> Result[list[PsKnowledgeItemResult]]:
@@ -426,7 +382,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         Get task UIDs for practicing this step.
 
         Args:
-            uid: LS UID
+            uid: PS UID
 
         Returns:
             Result[list[str]]: Task UIDs
@@ -438,7 +394,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         Get habit UIDs that reinforce this step.
 
         Args:
-            uid: LS UID
+            uid: PS UID
 
         Returns:
             Result[list[str]]: Habit UIDs
@@ -450,7 +406,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         Get event UIDs associated with this step.
 
         Args:
-            uid: LS UID
+            uid: PS UID
 
         Returns:
             Result[list[str]]: Event UIDs
@@ -478,7 +434,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         Get the parent LP UID for this step, if any.
 
         Args:
-            uid: LS UID
+            uid: PS UID
 
         Returns:
             Result[str | None]: Parent LP UID or None if standalone
@@ -490,7 +446,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         Check if this step exists independently (not part of a path).
 
         Args:
-            uid: LS UID
+            uid: PS UID
 
         Returns:
             Result[bool]: True if standalone
@@ -506,7 +462,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         Get principle UIDs that guide this step.
 
         Args:
-            uid: LS UID
+            uid: PS UID
 
         Returns:
             Result[list[str]]: Principle UIDs
@@ -563,40 +519,40 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         ...
 
     # =========================================================================
-    # ORGANIZATION (ORGANIZES relationships — merged from LessonOperations)
+    # ORGANIZATION (ORGANIZES relationships)
     # =========================================================================
 
     async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
-        """Create ORGANIZES relationship between two PathSteps."""
+        """Create ORGANIZES relationship between two entities."""
         ...
 
     async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """Remove ORGANIZES relationship between two PathSteps."""
+        """Remove ORGANIZES relationship between two entities."""
         ...
 
     async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        """Change the order of a child PathStep within its parent."""
+        """Change the order of a child entity within its parent."""
         ...
 
-    async def is_organizer(self, ku_uid: str) -> Result[bool]:
-        """Check if a PathStep has organized children."""
+    async def is_organizer(self, entity_uid: str) -> Result[bool]:
+        """Check if an entity has organized children."""
         ...
 
     async def get_organization_view(
-        self, ku_uid: str, max_depth: int = 3
+        self, entity_uid: str, max_depth: int = 3
     ) -> Result[StepOrganizationView]:
-        """Get a PathStep with its organized children hierarchy."""
+        """Get an entity with its organized children hierarchy."""
         ...
 
-    async def find_organizers(self, ku_uid: str) -> Result[list[OrganizerResult]]:
-        """Find all parent PathSteps that organize the given PathStep."""
+    async def find_organizers(self, entity_uid: str) -> Result[list[OrganizerResult]]:
+        """Find all parent entities that organize the given entity."""
         ...
 
     async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
-        """List PathSteps that organize others but are not themselves organized."""
+        """List entities that organize others but are not themselves organized."""
         ...
 
-    async def get_organized_children(self, ku_uid: str) -> Result[list[OrganizerResult]]:
+    async def get_organized_children(self, entity_uid: str) -> Result[list[OrganizerResult]]:
         """Get direct children organized by ORGANIZES relationship."""
         ...
 

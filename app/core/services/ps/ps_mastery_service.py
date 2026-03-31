@@ -83,7 +83,7 @@ class PsMasteryService:
 
     def __init__(
         self,
-        backend: "BackendOperations[Any] | None" = None,
+        backend: "BackendOperations[Any]",
         event_bus=None,
     ) -> None:
         self.backend = backend
@@ -101,9 +101,6 @@ class PsMasteryService:
 
         Creates or updates VIEWED relationship with timestamps and counts.
         """
-        if not self.backend:
-            return Result.fail(Errors.database("record_view", "Backend not available"))
-
         now = datetime.now(UTC).isoformat()
         result = await self.backend.record_view(user_uid, ku_uid, now, time_spent_seconds)  # type: ignore[attr-defined]
 
@@ -128,9 +125,6 @@ class PsMasteryService:
         ku_uid: str,
     ) -> Result[bool]:
         """Mark a knowledge unit as in-progress for a user."""
-        if not self.backend:
-            return Result.fail(Errors.database("mark_in_progress", "Backend not available"))
-
         now = datetime.now(UTC).isoformat()
         result = await self.backend.mark_in_progress(user_uid, ku_uid, now)  # type: ignore[attr-defined]
 
@@ -154,9 +148,6 @@ class PsMasteryService:
         Checks for MASTERED, IN_PROGRESS, and VIEWED relationships in that order
         to determine the highest state achieved.
         """
-        if not self.backend:
-            return Result.fail(Errors.database("get_learning_state", "Backend not available"))
-
         result = await self.backend.get_learning_state_raw(user_uid, ku_uid)  # type: ignore[attr-defined]
 
         if result.is_error:
@@ -215,11 +206,6 @@ class PsMasteryService:
         ku_uids: list[str],
     ) -> Result[dict[str, LearningState]]:
         """Get learning states for multiple KUs in one query."""
-        if not self.backend:
-            return Result.fail(
-                Errors.database("get_learning_states_batch", "Backend not available")
-            )
-
         if not ku_uids:
             return Result.ok({})
 
@@ -252,9 +238,6 @@ class PsMasteryService:
         ku_uid: str,
     ) -> Result[None]:
         """Mark a KU as read by the user."""
-        if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="PsMasteryService"))
-
         result = await self.backend.mark_as_read(user_uid, ku_uid)  # type: ignore[attr-defined]
 
         if result.is_error:
@@ -269,9 +252,6 @@ class PsMasteryService:
         ku_uid: str,
     ) -> Result[bool]:
         """Toggle bookmark state for a KU."""
-        if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="PsMasteryService"))
-
         # Check if bookmark exists
         check_result = await self.backend.check_bookmark(user_uid, ku_uid)  # type: ignore[attr-defined]
 
@@ -313,9 +293,6 @@ class PsMasteryService:
 
         See: core/models/enums/learning_enums.py - MasteryImpact
         """
-        if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="PsMasteryService"))
-
         now = datetime.now(UTC).isoformat()
         result = await self.backend.mark_mastered(user_uid, ku_uid, now, mastery_score, method)  # type: ignore[attr-defined]
 
@@ -356,10 +333,6 @@ class PsMasteryService:
         KU mastery from failing if path step detection fails.
         """
         try:
-            if not self.backend:
-                self.logger.warning("No backend available for KU→PathStep completion detection")
-                return
-
             result = await self.backend.detect_path_step_completion(event.ku_uid, event.user_uid)  # type: ignore[attr-defined]
 
             if result.is_error:
@@ -387,9 +360,6 @@ class PsMasteryService:
         user_uid: UserUID,
     ) -> Result[list[str]]:
         """Get list of bookmarked KU UIDs for user."""
-        if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="PsMasteryService"))
-
         result = await self.backend.get_bookmarked_kus(user_uid)  # type: ignore[attr-defined]
 
         if result.is_error:
@@ -404,9 +374,6 @@ class PsMasteryService:
         self, user_uid: UserUID
     ) -> Result[list[dict[str, Any]]]:
         """Get all knowledge entities with per-user VIEWED/BOOKMARKED/MASTERED status."""
-        if not self.backend:
-            return Result.fail(Errors.system("Backend required", service="PsMasteryService"))
-
         result = await self.backend.get_all_user_knowledge_status(user_uid)  # type: ignore[attr-defined]
 
         if result.is_error:

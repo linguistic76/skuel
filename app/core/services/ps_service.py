@@ -358,10 +358,10 @@ class PsService:
         depth: int = 3,
         _include_optional: bool = False,
         min_confidence: float = 0.7,
-    ) -> Result[list[CurriculumDTO]]:
+    ) -> Result[list[PathStep]]:
         return await self.graph.find_prerequisites(uid, depth, _include_optional, min_confidence)
 
-    async def find_next_steps(self, uid: str, limit: int = 10) -> Result[list[CurriculumDTO]]:
+    async def find_next_steps(self, uid: str, limit: int = 10) -> Result[list[PathStep]]:
         return await self.graph.find_next_steps(uid, limit)
 
     async def get_step_with_context(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
@@ -407,18 +407,18 @@ class PsService:
 
     async def get_foundational_knowledge(
         self, domain: str | None = None, min_hub_score: int = 10, limit: int = 20
-    ) -> Result[list[CurriculumDTO]]:
+    ) -> Result[list[PathStep]]:
         return await self.graph.get_foundational_knowledge(domain, min_hub_score, limit)
 
-    async def get_prerequisites(self, uid: str) -> Result[list[CurriculumDTO]]:
+    async def get_prerequisites(self, uid: str) -> Result[list[PathStep]]:
         """Get prerequisite entities (alias for find_prerequisites with defaults)."""
         return await self.graph.find_prerequisites(uid=uid, depth=GraphDepth.DEFAULT)
 
-    async def get_enables(self, uid: str) -> Result[list[CurriculumDTO]]:
+    async def get_enables(self, uid: str) -> Result[list[PathStep]]:
         """Get entities enabled by this one."""
         return await self.graph.find_next_steps(uid=uid)
 
-    async def get_step_dependencies(self, uid: str, limit: int = 10) -> Result[list[CurriculumDTO]]:
+    async def get_step_dependencies(self, uid: str, limit: int = 10) -> Result[list[PathStep]]:
         """Get entities that depend on this one."""
         return await self.graph.find_next_steps(uid=uid, limit=limit)
 
@@ -567,7 +567,7 @@ class PsService:
 
     async def find_related_steps(
         self, uid: str, similarity_threshold: float = 0.7, limit: int = 10
-    ) -> Result[list[CurriculumDTO]]:
+    ) -> Result[list[PathStep]]:
         """Find related path steps via semantic neighborhood."""
         neighborhood_result = await self.semantic.get_semantic_neighborhood(
             uid=uid, depth=2, min_confidence=similarity_threshold
@@ -631,37 +631,37 @@ class PsService:
             return Result.fail(self._ORG_UNAVAILABLE)
         return await self.organization.reorder(parent_uid, child_uid, new_order)
 
-    async def is_organizer(self, ku_uid: str) -> Result[bool]:
+    async def is_organizer(self, entity_uid: str) -> Result[bool]:
         if self.organization is None:
             return Result.fail(self._ORG_UNAVAILABLE)
-        return await self.organization.is_organizer(ku_uid)
+        return await self.organization.is_organizer(entity_uid)
 
     async def get_organization_view(
-        self, ku_uid: str, max_depth: int = 3
+        self, entity_uid: str, max_depth: int = 3
     ) -> Result[StepOrganizationView]:
         if self.organization is None:
             return Result.fail(self._ORG_UNAVAILABLE)
-        return await self.organization.get_organization_view(ku_uid, max_depth)
+        return await self.organization.get_organization_view(entity_uid, max_depth)
 
-    async def get_navigation(self, ku_uid: str) -> Result[StepNavigation]:
+    async def get_navigation(self, entity_uid: str) -> Result[StepNavigation]:
         if self.organization is None:
             return Result.fail(self._ORG_UNAVAILABLE)
-        return await self.organization.get_navigation(ku_uid)
+        return await self.organization.get_navigation(entity_uid)
 
-    async def find_organizers(self, ku_uid: str) -> Result[list[OrganizerResult]]:
+    async def find_organizers(self, entity_uid: str) -> Result[list[OrganizerResult]]:
         if self.organization is None:
             return Result.fail(self._ORG_UNAVAILABLE)
-        return await self.organization.find_organizers(ku_uid)
+        return await self.organization.find_organizers(entity_uid)
 
     async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
         if self.organization is None:
             return Result.fail(self._ORG_UNAVAILABLE)
         return await self.organization.list_root_organizers(limit)
 
-    async def get_organized_children(self, ku_uid: str) -> Result[list[OrganizerResult]]:
+    async def get_organized_children(self, entity_uid: str) -> Result[list[OrganizerResult]]:
         if self.organization is None:
             return Result.fail(self._ORG_UNAVAILABLE)
-        return await self.organization.get_organized_children(ku_uid)
+        return await self.organization.get_organized_children(entity_uid)
 
     # ============================================================================
     # MASTERY OPERATIONS - Delegated to PsMasteryService
@@ -938,7 +938,7 @@ class PsService:
         uid: str,
         user_uid: UserUID | None = None,
         recommendation_type: str = "learning",
-    ) -> Result[list[CurriculumDTO]]:
+    ) -> Result[list[PathStep]]:
         """Get personalized step recommendations."""
         if recommendation_type == "next":
             return await self.graph.find_next_steps(uid=uid, limit=5)
