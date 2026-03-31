@@ -2,13 +2,14 @@
 CurriculumDTO - Curriculum-Specific DTO (Tier 2 - Transfer)
 =============================================================
 
-Extends EntityDTO (NOT UserOwnedDTO) with 21 curriculum-specific fields
-matching the Curriculum frozen dataclass (Tier 3): learning metadata and
-substance tracking. Curriculum types are shared content, not user-owned.
+Extends EntityDTO (NOT UserOwnedDTO) with ~22 curriculum-specific fields
+matching the Curriculum frozen dataclass (Tier 3): confidence, learning
+metadata, and substance tracking. Curriculum types are shared content,
+not user-owned.
 
 Hierarchy:
     EntityDTO (~18 common fields)
-    └── CurriculumDTO(EntityDTO) +21 curriculum-specific fields
+    └── CurriculumDTO(EntityDTO) +22 curriculum-specific fields
         ├── PathStepDTO(CurriculumDTO) +9
         ├── LearningPathDTO(CurriculumDTO) +4
         └── ExerciseDTO(CurriculumDTO) +7
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
 
 from core.models.entity_dto import EntityDTO
 from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
+from core.models.enums.activity_enums import Confidence
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.ports import get_enum_value
 
@@ -33,13 +35,20 @@ from core.ports import get_enum_value
 @dataclass
 class CurriculumDTO(EntityDTO):
     """
-    Mutable DTO for curriculum entities (EntityType.KU).
+    Mutable DTO for curriculum entities.
 
-    Extends EntityDTO (NOT UserOwnedDTO) with 21 curriculum-specific fields:
-    - Learning metadata (9): complexity, learning_level, sel_category, quality_score,
-      estimated_time_minutes, difficulty_rating, semantic_links, target_age_range, learning_objectives
+    Extends EntityDTO (NOT UserOwnedDTO) with ~22 curriculum-specific fields:
+    - Confidence (1): admin-assessed content certainty
+    - Learning metadata (10): complexity, learning_level, sel_category, quality_score,
+      estimated_time_minutes, difficulty_rating, semantic_links, target_age_range,
+      learning_objectives, structured_learning_objectives
     - Substance tracking (10): 5 counters + 5 last-dates
     """
+
+    # =========================================================================
+    # CONFIDENCE (admin-assessed certainty about this curriculum content)
+    # =========================================================================
+    confidence: Confidence | None = None
 
     # =========================================================================
     # LEARNING METADATA
@@ -82,6 +91,8 @@ class CurriculumDTO(EntityDTO):
 
         data.update(
             {
+                # Confidence
+                "confidence": get_enum_value(self.confidence),
                 # Learning metadata
                 "complexity": get_enum_value(self.complexity),
                 "learning_level": get_enum_value(self.learning_level),
@@ -140,6 +151,7 @@ class CurriculumDTO(EntityDTO):
                 "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
+                "confidence": Confidence,
                 "complexity": KuComplexity,
                 "learning_level": LearningLevel,
                 "sel_category": SELCategory,
@@ -185,6 +197,7 @@ class CurriculumDTO(EntityDTO):
                 "tags",
                 "metadata",
                 # Curriculum-specific fields
+                "confidence",
                 "complexity",
                 "learning_level",
                 "sel_category",
@@ -210,6 +223,7 @@ class CurriculumDTO(EntityDTO):
                 "entity_type": EntityType,
                 "status": EntityStatus,
                 "domain": Domain,
+                "confidence": Confidence,
                 "complexity": KuComplexity,
                 "learning_level": LearningLevel,
                 "sel_category": SELCategory,

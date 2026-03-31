@@ -2037,14 +2037,20 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         timestamp_field: str,
         timestamp_str: str,
     ) -> Result[int]:
-        """Atomically increment a substance metric for multiple KUs in one query."""
+        """Atomically increment a substance metric for multiple KUs and connected PathSteps."""
         query = f"""
         UNWIND $ku_uids AS ku_uid
         MATCH (ku:Entity {{uid: ku_uid}})
         SET ku.{metric} = COALESCE(ku.{metric}, 0) + 1,
             ku.{timestamp_field} = datetime($timestamp),
             ku._substance_cache_timestamp = NULL
-        RETURN count(ku) as updated_count
+        WITH ku
+        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
+        WITH ps WHERE ps IS NOT NULL
+        SET ps.{metric} = COALESCE(ps.{metric}, 0) + 1,
+            ps.{timestamp_field} = datetime($timestamp),
+            ps._substance_cache_timestamp = NULL
+        RETURN count(ps) as updated_count
         """
         result = await self.execute_query(query, {"ku_uids": ku_uids, "timestamp": timestamp_str})
         if result.is_error:
@@ -2059,12 +2065,18 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         timestamp_field: str,
         timestamp_str: str,
     ) -> Result[int]:
-        """Atomically increment a substance metric for a single KU."""
+        """Atomically increment a substance metric for a single KU and connected PathSteps."""
         query = f"""
         MATCH (ku:Entity {{uid: $ku_uid}})
         SET ku.{metric} = COALESCE(ku.{metric}, 0) + 1,
             ku.{timestamp_field} = datetime($timestamp),
             ku._substance_cache_timestamp = NULL
+        WITH ku
+        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
+        WITH ku, ps WHERE ps IS NOT NULL
+        SET ps.{metric} = COALESCE(ps.{metric}, 0) + 1,
+            ps.{timestamp_field} = datetime($timestamp),
+            ps._substance_cache_timestamp = NULL
         RETURN ku.{metric} as new_count
         """
         result = await self.execute_query(query, {"ku_uid": ku_uid, "timestamp": timestamp_str})

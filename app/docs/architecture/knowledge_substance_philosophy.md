@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-03-21
+updated: 2026-03-31
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -22,28 +22,28 @@ Life Path (lp) - THE ONE ultimate convergence
     ↑ everything flows toward
 Learning Paths (lp) - sequences toward life goals
     ↑ composed of
-Path Steps (ls) - curated knowledge + practice bundles
+Path Steps (ps) - curated knowledge + practice bundles
     ↑ built from
-Lessons (units for learning, compose atomic Kus)
+Kus (atomic knowledge units, composed into PathSteps via USES_KU)
     ↕ BIDIRECTIONAL enrichment
 Supporting Domains - tasks, events, habits, journals, choices, principles
 ```
 
-**Philosophy:** Everything in SKUEL ultimately flows toward your life path - the ONE ultimate vision of who you want to become.
+**Philosophy:** Everything in SKUEL ultimately flows toward your life path — the ONE ultimate vision of who you want to become.
 
 ---
 
-## Bidirectional Relationship: Lesson/KU ↔ Supporting Domains
+## Bidirectional Relationship: Ku/PathStep ↔ Supporting Domains
 
-**Lessons (units for learning) and atomic Kus mutually enrich Supporting Domains.** Substance scoring applies to Lessons — the learning units that users interact with. Atomic Kus (`EntityType.KU`) are lightweight reference nodes composed into Lessons via `USES_KU`.
+**Kus and PathSteps mutually enrich Supporting Domains.** Kus are atomic knowledge units; PathSteps compose Kus into learning content via `USES_KU`/`CONTAINS_KNOWLEDGE`/`TRAINS_KU` relationships. Substance scoring tracks how knowledge is applied across both levels.
 
-### 1. Forward Direction (Lesson → Supporting)
+### 1. Forward Direction (Knowledge → Supporting)
 - Knowledge guides what tasks to create
 - Knowledge informs which events to schedule
 - Knowledge shapes which habits to build
 - Knowledge influences decisions/choices
 
-### 2. Reverse Direction (Supporting → Lesson)
+### 2. Reverse Direction (Supporting → Knowledge)
 - Tasks give knowledge substance (practical application)
 - Events provide practice opportunities (repetition)
 - Habits integrate knowledge into lifestyle (automaticity)
@@ -51,6 +51,54 @@ Supporting Domains - tasks, events, habits, journals, choices, principles
 - Choices show decision-making capacity (judgment)
 
 **Implementation:** Event-driven architecture enables this bidirectionality without coupling.
+
+---
+
+## Data Flow: Where Substance Lives
+
+Substance data flows through two layers:
+
+### Write Path (Event-Driven)
+
+1. Activity domain services publish substance events (e.g., `KnowledgeBulkAppliedInTask`) when entities are created with knowledge UIDs
+2. `_event_wiring.py` subscribes events to `PsService` handlers (aliased as `ku_service`)
+3. `PsService.increment_substance_metric()` delegates to `KuBackend.increment_substance()`
+4. `KuBackend` atomically updates the Ku node **and fans out to connected PathStep nodes** via `(ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)`
+
+```
+Activity Event → PsService handler → KuBackend.increment_substance()
+                                        ├── UPDATE Ku node (primary)
+                                        └── UPDATE connected PathStep nodes (fan-out)
+```
+
+### Read Path (Model Construction)
+
+When Ku or PathStep models are constructed from Neo4j (`from_neo4j_node()`), the generic mapper populates substance fields from node properties. The `Curriculum` base class methods (`substance_score()`, `is_well_practiced()`, etc.) then operate on real data.
+
+### Storage Summary
+
+| Node Type | Substance Data | Source |
+|-----------|---------------|--------|
+| **Ku** | Primary — event handlers write directly | `KuBackend.increment_substance()` |
+| **PathStep** | Propagated — fan-out from connected Kus | Same Cypher query, traverses USES_KU/CONTAINS_KNOWLEDGE/TRAINS_KU |
+
+---
+
+## Confidence: Admin-Assessed Content Certainty
+
+`Curriculum.confidence` tracks the admin's certainty about a piece of curriculum content — how reliable, well-sourced, and pedagogically sound it is.
+
+| Level | Meaning |
+|-------|---------|
+| `UNCERTAIN` | Unverified, needs review |
+| `LOW` | Some basis, but gaps or contradictions |
+| `MEDIUM` | Reasonable basis, standard review |
+| `HIGH` | Well-sourced, peer-reviewed |
+| `CERTAIN` | Authoritative, fully verified |
+
+**Distinct from substance:** Confidence is about *content quality* (admin assessment); substance is about *knowledge application* (user behavior). A PathStep can have HIGH confidence (well-written, accurate) but LOW substance (nobody has applied it yet).
+
+**Wiring:** Stored on Curriculum model, round-trips through `CurriculumDTO` (`confidence: Confidence | None`), ingestible via `PathStepCreateRequest`.
 
 ---
 
@@ -77,6 +125,21 @@ Supporting Domains - tasks, events, habits, journals, choices, principles
 | **0.3-0.5** | Applied knowledge | Tried it, some practice |
 | **0.6-0.7** | Well-practiced | Regular use, developing mastery |
 | **0.8-1.0** | Lifestyle-integrated | Automatic, embodied, second nature |
+
+### Model Methods
+
+These methods live on `Curriculum` (base class for PathStep, Exercise, LearningPath) and read from substance fields populated via Neo4j:
+
+| Method | Returns | What It Tells You |
+|--------|---------|-------------------|
+| `substance_score()` | `float` (0.0-1.0) | Overall substance with time decay |
+| `is_theoretical_only()` | `bool` | Score < 0.2 — no real application |
+| `is_well_practiced()` | `bool` | Score >= 0.7 — deeply embedded |
+| `needs_more_practice()` | `bool` | Below thresholds on tasks/events/habits |
+| `get_substantiation_gaps()` | `list[str]` | Which channels are missing |
+| `needs_review()` | `bool` | Once-practiced knowledge decayed below 0.5 |
+| `days_until_review_needed()` | `int | None` | Predicted days until decay hits 0.5 |
+| `get_substantiation_summary()` | `dict` | Full breakdown for UI display |
 
 ---
 
@@ -136,7 +199,7 @@ uid: choice:2-minutes-right-now
 title: Do Two Minutes Right Now
 connections:
   informed_by_knowledge:
-    - l:mindfulness:breath-awareness-basics
+    - ku_breath_awareness_basics_a1b2
 
 # Principle — grounded in knowledge (creates GROUNDED_IN_KNOWLEDGE edge)
 type: Principle
@@ -144,8 +207,8 @@ uid: principle:small-steps
 name: Small Steps Beat Big Bursts
 connections:
   grounded_in_knowledge:
-    - l:mindfulness:breath-awareness-basics
-    - l:mindfulness:mind-wandering-happens
+    - ku_breath_awareness_basics_a1b2
+    - ku_mind_wandering_happens_c3d4
 
 # Task — applies knowledge (creates APPLIES_KNOWLEDGE edge)
 type: Task
@@ -153,7 +216,7 @@ uid: task:log-first-5-sessions
 title: Log First 5 Sessions
 connections:
   applies_knowledge:
-    - l:mindfulness:breath-awareness-basics
+    - ku_breath_awareness_basics_a1b2
 
 # Habit — reinforces knowledge (creates REINFORCES_KNOWLEDGE edge)
 type: Habit
@@ -161,7 +224,7 @@ uid: habit:daily-2min-breath
 title: Daily 2-Minute Breath
 connections:
   reinforces_knowledge:
-    - l:mindfulness:breath-awareness-basics
+    - ku_breath_awareness_basics_a1b2
 ```
 
 ### How It Works
@@ -172,7 +235,7 @@ connections:
 4. `bulk_ingestion.py` generates `MERGE (n)-[:REL_TYPE]->(target)` Cypher
 5. Edge created in Neo4j — substance tracking is now structural
 
-**See:** `_schemas/` for complete field reference, `mindfulness_101/` for working examples.
+**See:** `_schemas/` for complete field reference.
 
 ---
 
@@ -183,7 +246,7 @@ connections:
 ### Publishing Events
 
 ```python
-# Supporting domains publish events
+# Supporting domains publish events when entities reference knowledge UIDs
 class TasksService:
     async def create(self, task: Task) -> Result[Task]:
         result = await self.backend.create(task)
@@ -203,8 +266,9 @@ class TasksService:
 ### Subscribing to Events
 
 ```python
-# KuService subscribes and updates substance atomically
-class KuService:
+# PsService subscribes and updates substance atomically
+# (aliased as ku_service in _event_wiring.py)
+class PsService:
     async def handle_knowledge_applied_in_task(self, event):
         await self.increment_substance_metric(
             ku_uid=event.knowledge_uid,
@@ -214,255 +278,30 @@ class KuService:
         )
 ```
 
+### KuBackend Fan-Out
+
+```cypher
+-- Atomically updates the Ku node AND connected PathStep nodes
+MATCH (ku:Entity {uid: $ku_uid})
+SET ku.times_applied_in_tasks = COALESCE(ku.times_applied_in_tasks, 0) + 1,
+    ku.last_applied_date = datetime($timestamp),
+    ku._substance_cache_timestamp = NULL
+WITH ku
+OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
+WITH ku, ps WHERE ps IS NOT NULL
+SET ps.times_applied_in_tasks = COALESCE(ps.times_applied_in_tasks, 0) + 1,
+    ps.last_applied_date = datetime($timestamp),
+    ps._substance_cache_timestamp = NULL
+RETURN ku.times_applied_in_tasks as new_count
+```
+
 ### Benefits
 
 - **Zero coupling** between domains
 - **Atomic Neo4j updates** (race-condition safe)
+- **Fan-out propagation** — Ku substance automatically flows to composing PathSteps
 - **Full audit trail** (every application tracked)
 - **Flexible weighting** (adjust philosophy without code changes)
-
----
-
-## Per-User Substance (January 2026)
-
-**Global vs. Personal:** While global substance tracks how knowledge is applied across all users, **per-user substance** answers "How am I personally using this knowledge?"
-
-### API Endpoint
-
-```
-GET /api/ku/{uid}/my-context
-```
-
-Requires authentication. Returns personalized substance data for the current user.
-
-### Per-User Calculation
-
-Uses the same weighted scoring, but only counts THIS user's applications:
-
-```python
-# Extract from UserContext (activity_uid -> ku_uids mapping, reversed lookup)
-task_uids = [uid for uid, ku_list in user_context.task_knowledge_applied.items()
-             if ku_uid in ku_list]
-habit_uids = [uid for uid, ku_list in user_context.habit_knowledge_applied.items()
-              if ku_uid in ku_list]
-event_uids = [uid for uid, ku_list in user_context.event_knowledge_applied.items()
-              if ku_uid in ku_list]
-choice_uids = [uid for uid, ku_list in user_context.choice_knowledge_informed.items()
-               if ku_uid in ku_list]
-principle_uids = [uid for uid, ku_list in user_context.principle_knowledge_grounded.items()
-                  if ku_uid in ku_list]
-
-# Calculate user's substance score (6 channels, capped at 1.0)
-task_score = min(0.25, len(task_uids) * 0.05)
-habit_score = min(0.30, len(habit_uids) * 0.10)
-event_score = min(0.25, len(event_uids) * 0.05)
-journal_score = min(0.20, len(journal_uids) * 0.07)  # deferred — journals are submissions
-choice_score = min(0.15, len(choice_uids) * 0.07)
-principle_score = min(0.15, len(principle_uids) * 0.07)
-user_substance_score = min(1.0, task_score + habit_score + event_score + journal_score + choice_score + principle_score)
-```
-
-### Response Structure
-
-```json
-{
-    "ku_uid": "ku.python-basics",
-    "user_uid": "user.mike",
-    "user_substance_score": 0.45,
-    "global_substance_score": 0.72,
-    "breakdown": {
-        "tasks": {"count": 3, "uids": [...], "score": 0.15},
-        "habits": {"count": 1, "uids": [...], "score": 0.10},
-        "events": {"count": 2, "uids": [...], "score": 0.10},
-        "journals": {"count": 0, "uids": [], "score": 0.00},
-        "choices": {"count": 1, "uids": [...], "score": 0.07},
-        "principles": {"count": 1, "uids": [...], "score": 0.07}
-    },
-    "recommendations": [
-        {"type": "journal", "message": "Reflect on this knowledge", "impact": "+0.07"}
-    ],
-    "status_message": "Applied but not yet integrated. Build habits."
-}
-```
-
-### Status Messages
-
-| User Score | Status |
-|------------|--------|
-| 0.8+ | "Mastered! Consider teaching others." |
-| 0.7-0.79 | "Well practiced! Keep it up." |
-| 0.5-0.69 | "Solid foundation. Practice more to deepen mastery." |
-| 0.3-0.49 | "Applied but not yet integrated. Build habits." |
-| 0.01-0.29 | "Theoretical knowledge. Apply in projects." |
-| 0.0 | "Pure theory. Create tasks and practice." |
-
-### Implementation
-
-- **Service:** `LessonIntelligenceService.calculate_user_substance(lesson_uid, user_context)`
-- **Facade:** `LessonService.get_user_lesson_context(lesson_uid, user_context)`
-- **Route:** `/adapters/inbound/lesson_api.py` (`get_lesson_user_context_route`)
-- **Wiring:** `user_service` passed through `services_bootstrap/compose.py` → `LessonService` → `LessonIntelligenceService`
-
-### UserContext Knowledge Fields
-
-All 6 activity channels tracked (journals deferred — submissions, not activities):
-- `task_knowledge_applied` - Tasks applying KU
-- `habit_knowledge_applied` - Habits reinforcing KU
-- `event_knowledge_applied` - Events practicing KU
-- `choice_knowledge_informed` - Choices informed by KU
-- `principle_knowledge_grounded` - Principles grounded in KU
-
-Planned addition:
-- `journal_knowledge_applied` - Journals reflecting on KU (requires MEGA_QUERY journal→KU collection)
-
----
-
-## Life Path Alignment
-
-**Everything flows toward the life path.** UnifiedUserContext tracks alignment:
-
-```python
-class UnifiedUserContext:
-    # The ONE ultimate learning path
-    life_path_uid: str | None
-    life_path_milestones: list[str]
-    life_path_alignment_score: float  # 0.0-1.0
-
-    def calculate_life_alignment(self, life_path_knowledge_uids: list[str]) -> float:
-        """
-        Calculate alignment based on substance scores of life path knowledge.
-
-        Philosophy: Life alignment is NOT about completion,
-        it's about LIVING the knowledge in your life path.
-        """
-        # Average substance across all life path knowledge
-        avg_substance = sum(substance_scores) / len(life_path_knowledge_uids)
-        return avg_substance
-```
-
-### Philosophy
-
-- Your life path represents who you want to **BECOME**
-- Alignment measures how much you're **LIVING** that vision
-- High alignment (0.7+) = knowledge is embodied in daily life
-- Low alignment (<0.5) = knowledge is theoretical, not practiced
-
----
-
-## Substance Dashboard UI
-
-**Visibility drives action.** UI components visualize substance with color-coded feedback to guide users toward mastery.
-
-### SubstanceScoreCard Component
-
-**Location:** `/ui/substance_dashboard.py` (lines 47-80)
-
-The primary component displaying substance status with color-coded visual feedback:
-
-```python
-def SubstanceScoreCard(score: float, ku_title: str) -> FT:
-    """
-    Display substance score with color-coded status levels.
-
-    Status Levels:
-    - Theoretical (<0.2): Red - No application
-    - Building (0.2-0.4): Orange - Early practice
-    - Practicing (0.4-0.7): Yellow - Developing mastery
-    - Well-practiced (≥0.7): Light green - Strong foundation
-    - Mastered (≥0.8): Dark green - Lifestyle integrated
-    """
-```
-
-**Status Level Table:**
-
-| Score Range | Status | Color | Badge | Message |
-|-------------|--------|-------|-------|---------|
-| **0.0-0.19** | Theoretical | Red | `badge-error` | Pure theory - no application yet |
-| **0.2-0.39** | Building | Orange | `badge-warning` | Early practice - keep applying |
-| **0.4-0.69** | Practicing | Yellow | `badge-info` | Developing mastery - practice more |
-| **0.7-0.79** | Well-practiced | Light green | `badge-success` | Strong foundation - maintain practice |
-| **0.8-1.0** | Mastered | Dark green | `badge-success` | Lifestyle integrated - embodied knowledge |
-
-**Color-Coded Feedback System:**
-
-The component uses MonsterUI badge classes to provide immediate visual feedback:
-- **Red (badge-error):** Signals urgent need for practice
-- **Orange (badge-warning):** Encourages initial application
-- **Yellow (badge-info):** Motivates continued practice
-- **Green (badge-success):** Reinforces mastery achievement
-
-**Example Rendering:**
-
-```python
-# score = 0.15 → Red "Theoretical"
-Div(
-    Span("15%", cls="text-2xl font-bold"),
-    Badge("Theoretical", variant=BadgeT.error, cls="ml-2"),
-    Div("Pure theory - no application yet", cls="text-sm text-base-content/70"),
-    cls="substance-score-card"
-)
-
-# score = 0.85 → Dark Green "Mastered"
-Div(
-    Span("85%", cls="text-2xl font-bold"),
-    Badge("Mastered", variant=BadgeT.success, cls="ml-2"),
-    Div("Lifestyle integrated - embodied knowledge", cls="text-sm text-base-content/70"),
-    cls="substance-score-card"
-)
-```
-
-### Other Dashboard Components
-
-- **SubstanceBreakdownCard** - Detailed view showing substance by type (tasks: 0.15, habits: 0.30, etc.)
-- **SubstanceRecommendationsCard** - Actionable suggestions to increase substance ("Build a daily habit")
-- **SubstanceReviewCard** - Spaced repetition schedule based on decay predictions
-
-**Philosophy:** Users should SEE how knowledge is (or isn't) integrated into life. Color-coded status provides intuitive guidance toward mastery without cognitive load.
-
----
-
-## Implementation Files
-
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| **Substance Fields** | `/core/models/lesson/lesson.py` | Substance fields on `Lesson` model (extends Curriculum → Entity) |
-| **Decay Algorithm** | `/core/models/lesson/lesson.py` | Exponential decay, spaced repetition |
-| **Domain Events** | `/core/events/ku_events.py` | 5 substance events |
-| **Event Listeners** | `/core/services/lesson_service.py` | Atomic substance updates |
-| **Event Wiring** | `/services_bootstrap/_event_wiring.py` | Subscribe KuService to events |
-| **Dashboard UI** | `/ui/substance_dashboard.py` | Substance visualization (Lesson-level) |
-| **Life Path Fields** | `/core/services/user/unified_user_context.py` | Life alignment tracking |
-
----
-
-## Design Decisions
-
-### Why bidirectional?
-- Knowledge without practice = pure theory (useless)
-- Practice without knowledge = trial and error (inefficient)
-- Bidirectional = theory + practice = applied knowledge
-
-### Why weighted scoring?
-- Not all practice demonstrates equal understanding
-- Habits > Journals > Tasks reflects ontological hierarchy
-- Lifestyle integration > metacognition > application
-
-### Why time decay?
-- Models real forgetting curves (Ebbinghaus)
-- Encourages spaced repetition (proven learning science)
-- Knowledge you don't use regularly isn't truly mastered
-
-### Why event-driven?
-- Zero coupling between KU and supporting domains
-- Atomic updates prevent race conditions
-- Full audit trail for analytics
-- Easy to add new substance types (extensible)
-
-### Why life path convergence?
-- Users need ONE ultimate goal (prevent diffusion)
-- Life path represents who you want to BECOME
-- All learning should flow toward that vision
-- Alignment score measures embodiment, not completion
 
 ---
 
@@ -505,79 +344,121 @@ Div(
 
 ---
 
-## Example: Full Lifecycle
+## Per-User Substance
 
-### 1. User Creates Task
+**Global vs. Personal:** While global substance tracks how knowledge is applied across all users, **per-user substance** answers "How am I personally using this knowledge?"
+
+### API Endpoint
+
+```
+GET /api/ku/{uid}/my-context
+```
+
+Requires authentication. Returns personalized substance data for the current user.
+
+### Per-User Calculation
+
+Uses the same weighted scoring, but only counts THIS user's applications:
+
 ```python
-task = Task(
-    title="Write Python type hints for API endpoints",
-    applies_knowledge_uids=["ku.python.type_hints"]
-)
-await tasks_service.create(task)
+# Extract from UserContext (activity_uid -> ku_uids mapping, reversed lookup)
+task_uids = [uid for uid, ku_list in user_context.task_knowledge_applied.items()
+             if ku_uid in ku_list]
+habit_uids = [uid for uid, ku_list in user_context.habit_knowledge_applied.items()
+              if ku_uid in ku_list]
+# ... same for events, choices, principles
+
+# Calculate user's substance score (6 channels, capped at 1.0)
+task_score = min(0.25, len(task_uids) * 0.05)
+habit_score = min(0.30, len(habit_uids) * 0.10)
+# ... etc.
+user_substance_score = min(1.0, sum_of_scores)
 ```
 
-### 2. Event Published
-```python
-event = KnowledgeAppliedInTask(
-    knowledge_uid="ku.python.type_hints",
-    task_uid="task.123",
-    user_uid="user.mike",
-)
-```
+### Status Messages
 
-### 3. KuService Updates Substance
-```cypher
-MATCH (ku:Curriculum {uid: "ku.python.type_hints"})
-SET ku.times_applied_in_tasks = COALESCE(ku.times_applied_in_tasks, 0) + 1,
-    ku.last_applied_date = $timestamp,
-    ku._substance_cache_timestamp = NULL
-```
+| User Score | Status |
+|------------|--------|
+| 0.8+ | "Mastered! Consider teaching others." |
+| 0.7-0.79 | "Well practiced! Keep it up." |
+| 0.5-0.69 | "Solid foundation. Practice more to deepen mastery." |
+| 0.3-0.49 | "Applied but not yet integrated. Build habits." |
+| 0.01-0.29 | "Theoretical knowledge. Apply in projects." |
+| 0.0 | "Pure theory. Create tasks and practice." |
 
-### 4. Substance Score Recalculated
-```python
-substance_score = min(1.0, sum([
-    min(0.25, tasks * 0.05),    # 1 task = 0.05
-    min(0.25, events * 0.05),   # 0 events = 0.00
-    min(0.30, habits * 0.10),   # 0 habits = 0.00
-    min(0.20, journals * 0.07), # 0 journals = 0.00
-    min(0.15, choices * 0.07)   # 0 choices = 0.00
-]) * decay_weight)
-# = 0.05 * 1.0 (no decay yet) = 0.05 (Pure theory → Applied)
-```
+### UserContext Knowledge Fields
 
-### 5. User Sees Dashboard
-- Substance Score: 5% (Applied knowledge)
-- Status: "Needs more practice"
-- Recommendation: "Build habit to practice Python type hints daily"
+All 6 activity channels tracked (journals deferred — submissions, not activities):
+- `task_knowledge_applied` - Tasks applying KU
+- `habit_knowledge_applied` - Habits reinforcing KU
+- `event_knowledge_applied` - Events practicing KU
+- `choice_knowledge_informed` - Choices informed by KU
+- `principle_knowledge_grounded` - Principles grounded in KU
 
 ---
 
-## Related Documentation
+## Life Path Alignment
 
-- [Substance Tracking Implementation](/home/mike/skuel/app/SUBSTANCE_TRACKING_IMPLEMENTATION.md)
-- [Knowledge Events Catalog](/home/mike/skuel/app/core/events/ku_events.py)
-- [Substance Dashboard Components](/home/mike/skuel/app/ui/substance_dashboard.py)
-- [Lesson Model Implementation](/home/mike/skuel/app/core/models/lesson/lesson.py)
-- [Event-Driven Architecture Guide](/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md)
+**Everything flows toward the life path.** UnifiedUserContext tracks alignment:
 
----
-
-## Future Enhancements
-
-### Planned
-- **Substance decay alerts** - Notify before knowledge drops below 0.5
-- **Practice reminders** - Suggested tasks/events to maintain substance
-- **Substance leaderboards** - Gamify knowledge application
-- **Cross-domain substance** - Track how KUs are applied across domains
-
-### Under Consideration
-- **Collaborative substance** - Share substance data with learning partners
-- **Substance predictions** - ML-based predictions of decay curves
-- **Adaptive weighting** - Personalize weights based on learning style
-- **Substance badges** - Visual achievements for well-practiced knowledge
+- Your life path represents who you want to **BECOME**
+- Alignment measures how much you're **LIVING** that vision
+- High alignment (0.7+) = knowledge is embodied in daily life
+- Low alignment (<0.5) = knowledge is theoretical, not practiced
 
 ---
 
-**Last Updated:** March 21, 2026
-**Status:** Active - Core philosophy driving substance tracking feature
-**Recent:** Complete substance data pipeline — all 6 activity channels (Tasks, Habits, Events, Choices, Principles + Journals deferred) now flow through UserContext into `calculate_user_substance()`
+## Implementation Files
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| **Substance Fields** | `/core/models/curriculum.py` | Substance fields + methods on `Curriculum` base class |
+| **Decay Algorithm** | `/core/models/curriculum.py` | Exponential decay, spaced repetition |
+| **Domain Events** | `/core/events/ku_events.py` | 5 substance events |
+| **Event Handlers** | `/core/services/ps_service.py` | `PsService.increment_substance_metric()` |
+| **Backend Write** | `/adapters/persistence/neo4j/domain_backends.py` | `KuBackend.increment_substance()` + PathStep fan-out |
+| **Event Wiring** | `/services_bootstrap/_event_wiring.py` | Subscribe PsService to substance events |
+| **Life Path Fields** | `/core/services/user/unified_user_context.py` | Life alignment tracking |
+| **Confidence Enum** | `/core/models/enums/activity_enums.py` | `Confidence` enum (UNCERTAIN → CERTAIN) |
+
+---
+
+## Design Decisions
+
+### Why bidirectional?
+- Knowledge without practice = pure theory (useless)
+- Practice without knowledge = trial and error (inefficient)
+- Bidirectional = theory + practice = applied knowledge
+
+### Why weighted scoring?
+- Not all practice demonstrates equal understanding
+- Habits > Journals > Tasks reflects ontological hierarchy
+- Lifestyle integration > metacognition > application
+
+### Why time decay?
+- Models real forgetting curves (Ebbinghaus)
+- Encourages spaced repetition (proven learning science)
+- Knowledge you don't use regularly isn't truly mastered
+
+### Why event-driven?
+- Zero coupling between KU and supporting domains
+- Atomic updates prevent race conditions
+- Full audit trail for analytics
+- Easy to add new substance types (extensible)
+
+### Why fan-out from Ku to PathStep?
+- Substance data originates at Ku (the atom events reference)
+- PathStep composes Kus — its substance is the aggregate of its Kus' substance
+- Fan-out ensures PathStep models read real data via the generic Neo4j mapper
+- Single atomic Cypher query handles both layers
+
+### Why life path convergence?
+- Users need ONE ultimate goal (prevent diffusion)
+- Life path represents who you want to BECOME
+- All learning should flow toward that vision
+- Alignment score measures embodiment, not completion
+
+---
+
+**Last Updated:** March 31, 2026
+**Status:** Active — substance writes now propagate from Ku to connected PathStep nodes

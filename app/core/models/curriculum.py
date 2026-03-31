@@ -9,17 +9,22 @@ only — it does NOT represent a concrete entity type. Concrete leaf classes are
     LearningPath(Curriculum) → EntityType.LEARNING_PATH
     Exercise(Curriculum)     → EntityType.EXERCISE
 
-Adds 22 fields to Entity:
-- Learning metadata (9): complexity, learning_level, sel_category, quality_score,
+Adds ~23 fields to Entity:
+- Confidence (1): admin-assessed certainty about content quality/accuracy
+- Learning metadata (10): complexity, learning_level, sel_category, quality_score,
   estimated_time_minutes, difficulty_rating, semantic_links, target_age_range,
-  learning_objectives
-- Substance tracking (10): 5 counters + 5 last-dates
+  learning_objectives, structured_learning_objectives
+- Substance tracking (10): 5 counters + 5 last-dates — tracks how knowledge is
+  LIVED (applied in tasks, practiced in events, built into habits, reflected in
+  journals, informed choices). Data flows from Neo4j via event-driven fan-out:
+  KuBackend.increment_substance() writes to Ku nodes AND propagates to connected
+  PathStep nodes via USES_KU/CONTAINS_KNOWLEDGE/TRAINS_KU relationships.
 - Cache (2): _cached_substance_score, _substance_cache_timestamp
 
 Hierarchy:
     Entity (~29 fields)
     ├── Ku(Entity) +5 fields                           ← EntityType.KU (lightweight, no curriculum metadata)
-    └── Curriculum(Entity) +21 fields, ~30 methods     ← BASE CLASS
+    └── Curriculum(Entity) +23 fields, ~30 methods     ← BASE CLASS
         ├── PathStep(Curriculum) +9 fields             ← EntityType.PATH_STEP
         ├── LearningPath(Curriculum) +4 fields
         └── Exercise(Curriculum) +8 fields
@@ -50,9 +55,18 @@ class Curriculum(Entity):
     """
     Base class for curriculum domain entities.
 
-    Intermediate class adding learning metadata, substance tracking, and
-    curriculum-specific methods to Entity. Leaf classes (PathStep,
+    Intermediate class adding confidence, learning metadata, substance tracking,
+    and curriculum-specific methods to Entity. Leaf classes (PathStep,
     LearningPath, Exercise) inherit from Curriculum and set their own entity_type.
+
+    Confidence: Admin-assessed certainty about content quality/accuracy
+    (UNCERTAIN → LOW → MEDIUM → HIGH → CERTAIN). Distinct from substance —
+    confidence is about content quality, substance is about user application.
+
+    Substance: Tracks how knowledge is LIVED — applied in tasks, practiced in
+    events, built into habits, reflected in journals, informed choices. Data
+    is written to Neo4j by event handlers and propagated from Ku nodes to
+    connected PathStep nodes. See: /docs/architecture/knowledge_substance_philosophy.md
 
     All curriculum-specific structure lives in Neo4j graph relationships
     (ORGANIZES, PRIMARY_KNOWLEDGE, SUPPORTING_KNOWLEDGE).
