@@ -1134,7 +1134,7 @@ class EventsService(BaseService["EventsOperations", Event]):
 
         # Publish KnowledgePracticedInEvent events for substance tracking
         if event_data.practices_knowledge_uids:
-            from core.events.lesson_events import KnowledgePracticedInEvent
+            from core.events.knowledge_substance_events import KnowledgePracticedInEvent
 
             for knowledge_uid in event_data.practices_knowledge_uids:
                 knowledge_event = KnowledgePracticedInEvent(

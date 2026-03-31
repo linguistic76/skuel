@@ -227,17 +227,17 @@ class _LearningStateMixin:
     async def detect_lesson_completion(
         self, ku_uid: str, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
-        """Find lessons where all KUs are mastered after a KU mastery event."""
+        """Find PathSteps where all KUs are mastered after a KU mastery event."""
         query = """
-        MATCH (lesson:Entity {entity_type: 'lesson'})-[:USES_KU]->(ku:Entity {uid: $ku_uid})
-        WITH lesson
-        MATCH (lesson)-[:USES_KU]->(all_ku:Entity)
-        WITH lesson, collect(DISTINCT all_ku.uid) as all_ku_uids, count(DISTINCT all_ku) as total
+        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        WITH ps
+        MATCH (ps)-[:USES_KU|CONTAINS_KNOWLEDGE]->(all_ku:Entity)
+        WITH ps, collect(DISTINCT all_ku.uid) as all_ku_uids, count(DISTINCT all_ku) as total
         OPTIONAL MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered_ku:Entity)
         WHERE mastered_ku.uid IN all_ku_uids
-        WITH lesson, total, count(DISTINCT mastered_ku) as mastered_count, all_ku_uids
+        WITH ps, total, count(DISTINCT mastered_ku) as mastered_count, all_ku_uids
         WHERE mastered_count = total
-        RETURN lesson.uid as lesson_uid, lesson.title as lesson_title, all_ku_uids
+        RETURN ps.uid as ps_uid, ps.title as ps_title, all_ku_uids
         """
         return await self.execute_query(query, {"ku_uid": ku_uid, "user_uid": user_uid})
 

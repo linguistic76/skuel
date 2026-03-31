@@ -60,7 +60,7 @@ User:
     UserContextInvalidated, UserPreferencesChanged,
 
 Learning:
-    KnowledgeMastered, LessonCompleted, LearningPathStarted, LearningPathCompleted,
+    KnowledgeMastered, LearningPathStarted, LearningPathCompleted,
     PathStepProgressUpdated, PrerequisitesAnalyzed
 
 References:
@@ -179,11 +179,10 @@ from core.events.learning_events import (
     LearningPathProgressUpdated,
     LearningPathStarted,
     LearningRecommendationGenerated,
-    LessonCompleted,
     PathStepProgressUpdated,
     PrerequisitesAnalyzed,
 )
-from core.events.lesson_events import (
+from core.events.knowledge_substance_events import (
     KnowledgeAppliedInTask,
     KnowledgeBuiltIntoHabit,
     KnowledgeBulkAppliedInTask,
@@ -329,7 +328,6 @@ __all__ = [
     "KnowledgeCreated",
     "KnowledgeInformedChoice",
     # Learning
-    "LessonCompleted",
     "KnowledgeMastered",
     "KnowledgePracticed",
     "KnowledgePracticedInEvent",
@@ -442,7 +440,6 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "knowledge.bulk_applied_in_task": KnowledgeBulkAppliedInTask,
     "knowledge.bulk_built_into_habit": KnowledgeBulkBuiltIntoHabit,
     "knowledge.bulk_informed_choice": KnowledgeBulkInformedChoice,
-    "lesson.completed": LessonCompleted,
     "path_step.progress_updated": PathStepProgressUpdated,
     "learning_path.started": LearningPathStarted,
     "learning_path.completed": LearningPathCompleted,
@@ -621,7 +618,6 @@ USER_EVENTS = [
 LEARNING_EVENTS = [
     KnowledgeMastered,
     KnowledgeCreated,
-    LessonCompleted,
     LearningPathStarted,
     LearningPathCompleted,
     LearningPathProgressUpdated,

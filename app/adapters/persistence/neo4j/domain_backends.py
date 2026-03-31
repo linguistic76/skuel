@@ -2413,6 +2413,21 @@ class PsBackend(
         )
 
     # ========================================================================
+    # KU → PATHSTEP LOOKUP (for progress tracking)
+    # ========================================================================
+
+    async def find_path_steps_for_ku(self, ku_uid: str) -> Result[list[str]]:
+        """Find all PathStep UIDs that contain a given KU via USES_KU or CONTAINS_KNOWLEDGE."""
+        query = """
+        MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        RETURN ps.uid as ps_uid
+        """
+        result = await self.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["ps_uid"] for record in (result.value or [])])
+
+    # ========================================================================
     # CORE CRUD QUERIES (migrated from PsCoreService)
     # ========================================================================
 

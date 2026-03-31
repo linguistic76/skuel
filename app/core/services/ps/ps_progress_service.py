@@ -1,24 +1,21 @@
 """
-Learning Step Progress Service
-===============================
+PathStep Progress Service
+==========================
 
-Handles path step progress tracking based on Lesson completion.
-
-Mirrors LpProgressService at the LS granularity level:
-- LpProgressService tracks LP progress from KU mastery
-- PsProgressService tracks LS progress from Lesson completion
+Handles path step progress tracking based on KU mastery.
 
 Event Chain:
-    KnowledgeMastered → LessonCompleted → PsProgressService
+    KnowledgeMastered → PsProgressService.handle_knowledge_mastered()
     → PathStepProgressUpdated / PathStepCompleted
-    → LpProgressService.handle_step_completed
+    → LpProgressService.handle_step_completed()
+
+Progress is calculated as: kus_mastered / total_kus (via USES_KU + CONTAINS_KNOWLEDGE).
 """
 
 from typing import TYPE_CHECKING
 
 from core.events import publish_event
-from core.events.curriculum_events import PathStepCompleted
-from core.events.learning_events import LessonCompleted, PathStepProgressUpdated
+from core.events.learning_events import KnowledgeMastered, PathStepProgressUpdated
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -29,16 +26,17 @@ if TYPE_CHECKING:
 
 class PsProgressService:
     """
-    Learning Step progress tracking and completion management service.
+    PathStep progress tracking service.
 
-    Handles automatic progress updates when users complete Lessons,
-    eliminating direct dependencies between LessonMasteryService and PsService.
+    Handles automatic progress updates when users master KUs,
+    calculating progress as kus_mastered / total_kus for each
+    PathStep that contains the mastered KU.
 
     Event-Driven Architecture:
-    - Subscribes to LessonCompleted events
-    - Calculates LS progress from completed Lessons
+    - Subscribes to KnowledgeMastered events
+    - Finds PathSteps containing the mastered KU via USES_KU/CONTAINS_KNOWLEDGE
+    - Calculates progress from KU mastery counts
     - Publishes PathStepProgressUpdated events
-    - Publishes PathStepCompleted when all Lessons completed
     """
 
     def __init__(
@@ -50,98 +48,82 @@ class PsProgressService:
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.ps.progress")
 
-    async def handle_lesson_completed(self, event: LessonCompleted) -> None:
+    async def handle_knowledge_mastered(self, event: KnowledgeMastered) -> None:
         """
-        Update path step progress when a Lesson is completed.
+        Update path step progress when a KU is mastered.
 
-        When a Lesson is completed:
-        1. Find all LSs that contain this Lesson via HAS_LESSON
-        2. For each LS, calculate new progress
-        3. Publish PathStepProgressUpdated
-        4. If 100%, publish PathStepCompleted
+        When a KU is mastered:
+        1. Find all PathSteps containing this KU via USES_KU/CONTAINS_KNOWLEDGE
+        2. For each PathStep, calculate kus_mastered / total_kus
+        3. Publish PathStepProgressUpdated if progress changed
 
         Errors are logged but not raised — progress updates are best-effort.
         """
         try:
             if not self.backend:
-                self.logger.warning("No backend available for Lesson→LS progress tracking")
+                self.logger.warning("No backend available for KU→PathStep progress tracking")
                 return
 
-            result = await self.backend.get_steps_containing_lesson(event.lesson_uid)
+            # Find PathSteps that contain this KU
+            result = await self.backend.find_path_steps_for_ku(event.ku_uid)  # type: ignore[attr-defined]
             if result.is_error:
-                self.logger.error(f"Failed to query path steps: {result.error}")
+                self.logger.error(f"Failed to query path steps for KU: {result.error}")
                 return
 
             ps_uids = result.value or []
 
             if not ps_uids:
-                self.logger.debug(f"No path steps contain Lesson {event.lesson_uid}")
+                self.logger.debug(f"No path steps contain KU {event.ku_uid}")
                 return
 
             for ps_uid in ps_uids:
                 try:
-                    await self._update_ls_from_lesson_completion(
+                    await self._update_ps_from_ku_mastery(
                         ps_uid=ps_uid,
                         user_uid=event.user_uid,
-                        newly_mastered_lesson=event.lesson_uid,
                     )
                 except NEO4J_EXCEPTIONS as e:
-                    self.logger.error(
-                        f"Failed to update path step {ps_uid} from Lesson completion: {e}"
-                    )
+                    self.logger.error(f"Failed to update path step {ps_uid} from KU mastery: {e}")
                 except Exception as e:  # safety-net: catch unexpected errors
-                    self.logger.error(
-                        f"Failed to update path step {ps_uid} from Lesson completion: {e}"
-                    )
+                    self.logger.error(f"Failed to update path step {ps_uid} from KU mastery: {e}")
 
         except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Error handling lesson.completed event: {e}")
+            self.logger.error(f"Error handling knowledge.mastered event: {e}")
         except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Error handling lesson.completed event: {e}")
+            self.logger.error(f"Error handling knowledge.mastered event: {e}")
 
-    async def _update_ls_from_lesson_completion(
-        self, ps_uid: str, user_uid: UserUID, newly_mastered_lesson: str
-    ) -> None:
+    async def _update_ps_from_ku_mastery(self, ps_uid: str, user_uid: UserUID) -> None:
         """
-        Update a single path step's progress from Lesson completion.
+        Update a single path step's progress from KU mastery.
 
-        Progress is calculated as: completed_lessons / total_lessons.
-
-        Args:
-            ps_uid: Learning step to update
-            user_uid: User who completed the Lesson
-            newly_mastered_lesson: UID of newly completed Lesson — semantically
-                mirrors LpProgressService's concept at the correct granularity
-                (Lesson completion drives LS progress, KU mastery drives LP progress).
-                Currently unused (progress recalculated fresh), but semantically
-                correct for future optimization.
+        Progress is calculated as: kus_mastered / total_kus.
         """
         if not self.backend:
             return
 
-        result = await self.backend.get_lesson_completion_progress(ps_uid, user_uid)
+        result = await self.backend.get_ku_completion_progress(ps_uid, user_uid)
         if result.is_error:
-            self.logger.error(f"Failed to query LS progress: {result.error}")
+            self.logger.error(f"Failed to query PS progress: {result.error}")
             return
 
         progress_data = result.value or {}
-        total_lessons = int(progress_data.get("total_lessons", 0))
-        completed_lessons = int(progress_data.get("completed_lessons", 0))
+        total_kus = int(progress_data.get("total_kus", 0))
+        mastered_kus = int(progress_data.get("mastered_kus", 0))
 
-        if total_lessons == 0:
-            self.logger.debug(f"No lessons found for path step {ps_uid}")
+        if total_kus == 0:
+            self.logger.debug(f"No KUs found for path step {ps_uid}")
             return
 
-        old_progress = max((completed_lessons - 1) / total_lessons, 0.0)
-        new_progress = completed_lessons / total_lessons
+        old_progress = max((mastered_kus - 1) / total_kus, 0.0)
+        new_progress = mastered_kus / total_kus
 
         if abs(new_progress - old_progress) < 0.001:
-            self.logger.debug(f"LS {ps_uid} progress unchanged ({new_progress:.1%}), skipping")
+            self.logger.debug(f"PS {ps_uid} progress unchanged ({new_progress:.1%}), skipping")
             return
 
         self.logger.info(
-            f"Updated LS {ps_uid} progress: {old_progress:.1%} → {new_progress:.1%} "
-            f"({completed_lessons}/{total_lessons} lessons completed)"
+            f"Updated PS {ps_uid} progress: {old_progress:.1%} → {new_progress:.1%} "
+            f"({mastered_kus}/{total_kus} KUs mastered)"
         )
 
         progress_event = PathStepProgressUpdated(
@@ -149,17 +131,7 @@ class PsProgressService:
             user_uid=user_uid,
             old_progress=old_progress,
             new_progress=new_progress,
-            lessons_completed=completed_lessons,
-            lessons_total=total_lessons,
+            kus_mastered=mastered_kus,
+            kus_total=total_kus,
         )
         await publish_event(self.event_bus, progress_event, self.logger)
-
-        # If step completed (100%), publish PathStepCompleted
-        if new_progress >= 1.0 and old_progress < 1.0:
-            completed_event = PathStepCompleted(
-                ps_uid=ps_uid,
-                user_uid=user_uid,
-                completion_score=1.0,
-            )
-            await publish_event(self.event_bus, completed_event, self.logger)
-            self.logger.info(f"LS {ps_uid} completed!")

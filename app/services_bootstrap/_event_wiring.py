@@ -81,8 +81,7 @@ def _wire_event_subscribers(
         handle_revision_requested,
         handle_submission_approved,
     )
-    from core.events.learning_events import LessonCompleted
-    from core.events.lesson_events import (
+    from core.events.knowledge_substance_events import (
         KnowledgeAppliedInTask,
         KnowledgeBuiltIntoHabit,
         KnowledgeBulkAppliedInTask,
@@ -292,10 +291,10 @@ def _wire_event_subscribers(
         "✅ PsMasteryService subscribed to KnowledgeMastered (path step completion detection)"
     )
 
-    # PathStep completion → PS progress update
-    event_bus.subscribe(LessonCompleted, ps_service.progress.handle_lesson_completed)
+    # Knowledge mastery → PathStep progress update
+    event_bus.subscribe(KnowledgeMastered, ps_service.progress.handle_knowledge_mastered)
     logger.info(
-        "✅ PsProgressService subscribed to LessonCompleted (automatic PS progress updates)"
+        "✅ PsProgressService subscribed to KnowledgeMastered (automatic PS progress updates)"
     )
 
     # LS completion → LP progress update (chain: LS→LP)

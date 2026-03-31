@@ -15,7 +15,7 @@ from typing import Any
 
 from core.events import publish_event
 from core.events.calendar_event_events import CalendarEventCompleted
-from core.events.lesson_events import KnowledgePracticed
+from core.events.knowledge_substance_events import KnowledgePracticed
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger

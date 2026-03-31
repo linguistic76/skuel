@@ -2,7 +2,7 @@
 Path Step Mastery Service - Pedagogical Tracking
 ==================================================
 
-Tracks user mastery transitions for Path Steps (collections of lessons).
+Tracks user mastery transitions for PathSteps (curriculum content units).
 
 State Progression:
     NONE -> VIEWED -> IN_PROGRESS -> MASTERED
@@ -12,6 +12,7 @@ Responsibilities:
 - Track in-progress learning state
 - Manage MASTERED transitions
 - Support pedagogical search filters
+- Detect PathStep completion when all KUs are mastered
 
 Architecture:
 - Delegates Cypher to PathStep backend
@@ -346,7 +347,10 @@ class PsMasteryService:
 
     async def handle_knowledge_mastered(self, event: KnowledgeMastered) -> None:
         """
-        Detect path step completion when a KU is mastered.
+        Detect PathStep completion when a KU is mastered.
+
+        Checks if all KUs linked via USES_KU/CONTAINS_KNOWLEDGE are now mastered.
+        If so, publishes PathStepCompleted.
 
         Best-effort: errors are logged but not raised to prevent
         KU mastery from failing if path step detection fails.
@@ -364,12 +368,12 @@ class PsMasteryService:
 
             for record in result.value or []:
                 ps_event = PathStepCompleted(
-                    ps_uid=record["lesson_uid"],
+                    ps_uid=record["ps_uid"],
                     user_uid=event.user_uid,
                 )
                 await publish_event(self.event_bus, ps_event, self.logger)
                 self.logger.info(
-                    f"Path step completed: {record['lesson_uid']} "
+                    f"Path step completed: {record['ps_uid']} "
                     f"(all KUs mastered by {event.user_uid})"
                 )
 
