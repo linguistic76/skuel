@@ -212,8 +212,8 @@ class UIDGenerator:
     #
     # Hierarchy is now stored in graph relationships:
     # - (parent:Entity)-[:ORGANIZES {order}]->(child:Entity)
-    # - Use LessonCoreService.get_parents() to find parents
-    # - Use LessonCoreService.get_hierarchy() for full hierarchy context
+    # - Use PsCoreService.get_parents() to find parents
+    # - Use PsCoreService.get_hierarchy() for full hierarchy context
     #
     # See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
 

@@ -60,11 +60,6 @@ FULLTEXT_INDEX_DEFINITIONS = {
         "description": "Principles - title, statement, and description",
     },
     # Curriculum Domains (5)
-    "Lesson": {
-        "index_name": "lesson_fulltext_idx",
-        "fields": ["title", "content"],
-        "description": "Lessons - title and content",
-    },
     "Ku": {
         "index_name": "ku_fulltext_idx",
         "fields": ["title", "description"],

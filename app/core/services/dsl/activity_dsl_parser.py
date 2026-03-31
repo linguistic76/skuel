@@ -1013,7 +1013,7 @@ class ActivityDSLParser:
                     link_id = parts[1].strip()
 
                     # Normalize DSL prefix to EntityType value
-                    # e.g. @link(ku:...) -> type="lesson" (EntityType.PATH_STEP)
+                    # e.g. @link(ku:...) -> type="ku" (EntityType.KU)
                     normalized = EntityType.from_string(link_type)
                     if normalized is not None:
                         link_type = normalized.value

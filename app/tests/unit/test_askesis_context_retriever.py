@@ -35,7 +35,7 @@ def _make_user_context(
                 "title": "Test Step",
                 "current_mastery": 0.0,
                 "mastery_threshold": 0.7,
-                "knowledge_uids": ["l_lesson_1"],
+                "knowledge_uids": ["ku_lesson_1"],
                 "semantic_links": [],
                 "intent": "Understand testing",
             },
@@ -89,7 +89,7 @@ class TestLoadLsBundlePartialFailure:
     @pytest.mark.anyio
     async def test_all_fetches_succeed(self) -> None:
         """Happy path: all fetches succeed, bundle is fully populated."""
-        lesson = _make_entity("l_lesson_1", "Test Lesson")
+        ku = _make_entity("ku_lesson_1", "Test KU")
         habit = _make_entity("habit_1", "Test Habit")
         task = _make_entity("task_1", "Test Task")
         lp = _make_entity("lp:test", "Test LP")
@@ -97,7 +97,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            ps_service=_ok_service(lesson),
+            ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),  # no KU UIDs to fetch
             habits_service=_ok_service(habit),
             tasks_service=_ok_service(task),
@@ -127,7 +127,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            ps_service=_failing_service("lesson service down"),
+            ps_service=_failing_service("ps service down"),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
             tasks_service=_ok_service(task),
@@ -149,14 +149,14 @@ class TestLoadLsBundlePartialFailure:
     @pytest.mark.anyio
     async def test_lp_fetch_raises_bundle_has_none_lp(self) -> None:
         """LP fetch crashes — bundle is built with learning_path=None."""
-        lesson = _make_entity("l_lesson_1", "Test Lesson")
+        ku = _make_entity("ku_lesson_1", "Test KU")
         habit = _make_entity("habit_1", "Test Habit")
         task = _make_entity("task_1", "Test Task")
 
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            ps_service=_ok_service(lesson),
+            ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
             tasks_service=_ok_service(task),
@@ -225,14 +225,14 @@ class TestLoadLsBundlePartialFailure:
     @pytest.mark.anyio
     async def test_habits_fetch_raises_tasks_still_succeed(self) -> None:
         """Habits crash but tasks succeed — both are independent."""
-        lesson = _make_entity("l_lesson_1", "Test Lesson")
+        ku = _make_entity("ku_lesson_1", "Test KU")
         task = _make_entity("task_1", "Test Task")
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            ps_service=_ok_service(lesson),
+            ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_failing_service("habits timeout"),
             tasks_service=_ok_service(task),
@@ -253,7 +253,7 @@ class TestLoadLsBundlePartialFailure:
     @pytest.mark.anyio
     async def test_resources_fetched_via_cites_resource(self) -> None:
         """Resources cited by lessons are included in the bundle."""
-        lesson = _make_entity("l_lesson_1", "Test Lesson")
+        ku = _make_entity("ku_lesson_1", "Test KU")
         lp = _make_entity("lp:test", "Test LP")
 
         # lesson_backend returns a Resource record from get_cited_resources
@@ -272,7 +272,7 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            ps_service=_ok_service(lesson),
+            ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
             tasks_service=MagicMock(get=AsyncMock()),
@@ -294,13 +294,13 @@ class TestLoadLsBundlePartialFailure:
     @pytest.mark.anyio
     async def test_resource_fetch_failure_does_not_break_bundle(self) -> None:
         """Resource fetch crash → bundle built with empty resources (no lesson_backend)."""
-        lesson = _make_entity("l_lesson_1", "Test Lesson")
+        ku = _make_entity("ku_lesson_1", "Test KU")
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            ps_service=_ok_service(lesson),
+            ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
             tasks_service=MagicMock(get=AsyncMock()),

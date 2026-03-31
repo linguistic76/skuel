@@ -400,7 +400,7 @@ def create_ingestion_api_routes(
             domain_to_entity = {
                 "lesson": EntityType.PATH_STEP,
                 "article": EntityType.PATH_STEP,
-                "ku": EntityType.PATH_STEP,
+                "ku": EntityType.KU,
                 "ps": EntityType.PATH_STEP,
                 "ls": EntityType.PATH_STEP,  # backward-compat alias
                 "lp": EntityType.LEARNING_PATH,

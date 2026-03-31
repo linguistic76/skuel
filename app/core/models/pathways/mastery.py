@@ -3,10 +3,10 @@ Mastery & Learning Intelligence Models
 =======================================
 
 Persistent entities for learning intelligence across the curriculum domain.
-Mastery applies to both Lessons (units for learning) and atomic Kus
+Mastery applies to both PathSteps (curriculum content entities) and atomic Kus
 (reference nodes) — the class names are entity-agnostic by design.
 
-See: /docs/architecture/FOUR_PHASED_LEARNING_LOOP.md
+See: /docs/architecture/FIVE_PHASED_LEARNING_LOOP.md
 """
 
 from dataclasses import dataclass, field
@@ -315,7 +315,7 @@ def create_mastery(
     initial_level: MasteryLevel = MasteryLevel.INTRODUCED,
     evidence: list[str] | None = None,
 ) -> Mastery:
-    """Create initial mastery tracking for a Lesson or atomic Ku."""
+    """Create initial mastery tracking for a PathStep or atomic Ku."""
     mastery_uid = f"mastery_{user_uid}_{knowledge_uid}"
 
     return Mastery(

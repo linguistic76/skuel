@@ -536,10 +536,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         user_uid = require_authenticated_user(request)
 
-        if services.submission_report is None:
+        if services.exercise_report is None:
             return P("Reports not available", cls="text-sm text-muted-foreground py-2")
 
-        result = await services.submission_report.get_assessments_for_student(user_uid, limit=5)
+        result = await services.exercise_report.get_assessments_for_student(user_uid, limit=5)
         if result.is_error:
             return P("Unable to load reports", cls="text-sm text-muted-foreground py-2")
 

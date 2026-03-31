@@ -98,7 +98,7 @@ class IntelligenceRouteConfig:
     """Configuration for IntelligenceRouteFactory.
 
     Activity Domains use the default (USER_OWNED).
-    Curriculum Domains (Lesson, LP, LS) use SHARED.
+    Curriculum Domains (PS, LP, Exercise) use SHARED.
 
     See: /docs/patterns/ROUTE_FACTORIES.md
     """

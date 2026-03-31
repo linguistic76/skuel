@@ -501,7 +501,7 @@ class TestKnowledgeUnitsResolver:
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_no_lesson_service_returns_empty(self) -> None:
+    async def test_no_ps_service_returns_empty(self) -> None:
         services = MagicMock()
         services.ps = None
         ctx = _make_context(services=services)
@@ -900,7 +900,7 @@ class TestPrerequisiteChainResolver:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_no_lesson_service(self) -> None:
+    async def test_no_ps_service(self) -> None:
         services = MagicMock()
         services.ps = None
         ctx = _make_context(services=services, user_uid="user.test")
@@ -1018,7 +1018,7 @@ class TestKnowledgeDependenciesResolver:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_no_lesson_service(self) -> None:
+    async def test_no_ps_service(self) -> None:
         services = MagicMock()
         services.ps = None
         ctx = _make_context(services=services, user_uid="user.test")
@@ -1656,16 +1656,16 @@ class TestLearningPathWithContextStepNoKuUid:
         assert result.prerequisites_met is True
 
 
-class TestPrerequisiteChainLessonNullInRecursion:
-    """Cover line 692: lesson service becomes None during recursive build."""
+class TestPrerequisiteChainPsNullInRecursion:
+    """Cover line 692: PS service becomes None during recursive build."""
 
     @pytest.mark.asyncio
-    async def test_lesson_service_none_during_recursion(self) -> None:
+    async def test_ps_service_none_during_recursion(self) -> None:
         ku = FakeKU(uid="ku_root", title="Root")
         prereq = FakeKU(uid="ku_child", title="Child")
 
         services = MagicMock()
-        # First call returns prereqs; then we set lesson to None so the
+        # First call returns prereqs; then we set ps to None so the
         # recursive call for ku_child hits line 692
         call_count = 0
 

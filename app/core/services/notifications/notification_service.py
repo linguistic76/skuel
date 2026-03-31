@@ -48,7 +48,7 @@ class NotificationService:
             title: Short display title
             message: Longer description
             source_uid: The entity UID that triggered this
-            source_type: Entity type (e.g., "submission_report")
+            source_type: Entity type (e.g., "exercise_report")
 
         Returns:
             Result containing the notification UID

@@ -38,6 +38,3 @@ lifted  # noqa: F821, B018
 
 # Intentional: Alpine.js expanded state placeholder (tree_view.py)
 is_expanded  # noqa: F821, B018
-
-# Intentional: existing_dto kept for type contract clarity (lesson_core_service.py)
-existing_dto  # noqa: F821, B018

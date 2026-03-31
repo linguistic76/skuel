@@ -4,9 +4,9 @@ Submission Protocols
 
 Route-facing protocols for the Submission stage of SKUEL's core educational loop:
 
-    Lesson → Exercise → Submission → Report
-                         ↑
-               student produces work
+    PathStep → Exercise → Submission → Report
+                           ↑
+                 student produces work
 
 Three protocols covering CRUD, processing, and search for
 EntityType.EXERCISE_SUBMISSION (student work products).

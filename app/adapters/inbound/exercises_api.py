@@ -33,7 +33,7 @@ def create_exercises_api_routes(
     rt: Any,
     exercises_service: ExerciseService,
     transcript_service: ContentEnrichmentService | None,
-    submission_report_service: ExerciseReportService | None,
+    exercise_report_service: ExerciseReportService | None,
     user_service: Any = None,
 ) -> list[Any]:
     """
@@ -44,7 +44,7 @@ def create_exercises_api_routes(
         rt: Route decorator
         exercises_service: ExerciseService instance
         transcript_service: ContentEnrichmentService for entry lookup
-        submission_report_service: ExerciseReportService for AI reports
+        exercise_report_service: ExerciseReportService for AI reports
         user_service: UserService for role checks
     """
 
@@ -76,7 +76,7 @@ def create_exercises_api_routes(
         - 404: Entry or exercise not found
         - 503: Service not available
         """
-        if not submission_report_service:
+        if not exercise_report_service:
             return Result.fail(
                 Errors.system("Report service not available", service="ExerciseReportService")
             )
@@ -110,7 +110,7 @@ def create_exercises_api_routes(
         exercise = exercise_result.value
 
         # Generate report — creates ExerciseReport entity + REPORT_FOR relationship
-        report_result = await submission_report_service.generate_report(
+        report_result = await exercise_report_service.generate_report(
             entry=entry,
             exercise=exercise,
             user_uid=user_uid,

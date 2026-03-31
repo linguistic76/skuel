@@ -5,7 +5,7 @@ Covers:
 - Edge detection (is_edge_type)
 - Edge validation (validate_edge_data)
 - Edge preparation (prepare_edge_data)
-- Lesson USES_KU wiring via registry
+- PathStep USES_KU wiring via registry
 - LS relationship field wiring (all 10+ fields)
 - LS preparer normalization (single→list, UID normalization)
 - Evidence relationship types on RelationshipName
@@ -199,12 +199,12 @@ class TestEdgePreparer:
 
 
 # ============================================================================
-# LESSON USES_KU WIRING
+# PATHSTEP USES_KU WIRING
 # ============================================================================
 
 
-class TestLessonUsesKuWiring:
-    """Tests for Lesson USES_KU ingestion wiring."""
+class TestPathStepUsesKuWiring:
+    """Tests for PathStep USES_KU ingestion wiring."""
 
     def test_registry_includes_uses_kus(self):
         config = generate_ingestion_relationship_config(EntityType.PATH_STEP)

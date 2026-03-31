@@ -29,13 +29,13 @@ from core.models.task.task_dto import TaskDTO
 
 
 class TestKuThreeTierRoundTrip:
-    """Test lossless DTO ↔ Lesson (Curriculum) conversion."""
+    """Test lossless DTO ↔ PathStep (Curriculum) conversion."""
 
     def _make_full_dto(self) -> CurriculumDTO:
         """Create a CurriculumDTO with all fields populated."""
         now = datetime.now()
         return CurriculumDTO(
-            uid="l_test_abc123",
+            uid="ps:test_abc123",
             title="Test Knowledge",
             entity_type=EntityType.PATH_STEP,
             domain=Domain.KNOWLEDGE,
@@ -135,7 +135,7 @@ class TestKuThreeTierRoundTrip:
     def test_none_sel_category_preserved(self):
         """sel_category=None must survive round-trip (not default to SELF_AWARENESS)."""
         dto = CurriculumDTO(
-            uid="l_test_none",
+            uid="ps:test_none",
             title="No SEL",
             entity_type=EntityType.PATH_STEP,
             domain=Domain.TECH,
@@ -418,7 +418,7 @@ class TestCurriculumFieldSeparation:
         """Curriculum round-trip via DTO preserves all curriculum fields."""
         now = datetime.now()
         dto = CurriculumDTO(
-            uid="l_test_crt",
+            uid="ps:test_crt",
             title="Curriculum RT",
             entity_type=EntityType.PATH_STEP,
             complexity=KuComplexity.ADVANCED,

@@ -34,7 +34,7 @@ class TestRichContextPattern:
 
     async def test_knowledge_get_with_context(self, services, test_user):
         """
-        Test LessonCoreService.get_with_context() fetches KU + graph neighborhood.
+        Test PsCoreService.get_with_context() fetches KU + graph neighborhood.
 
         Validates that prerequisites, dependents, related KUs, and mastery
         stats are all fetched in a single query.

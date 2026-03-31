@@ -994,7 +994,7 @@ class PsService:
     ) -> Result[dict[str, Any]]:
         """Get personalized path step context for a user.
 
-        TODO: Migrate calculate_user_substance from shelved LessonIntelligenceService.
+        TODO (deferred): Migrate calculate_user_substance to PsIntelligenceService.
         """
         return Result.fail(
             Errors.system(

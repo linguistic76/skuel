@@ -658,9 +658,9 @@ async def compose_services(
             logger.info("✅ UnifiedLLMCaller created")
 
         # ExerciseReportService: None in CORE tier — report generation requires AI
-        submission_report_service = None
+        exercise_report_service = None
         if llm_caller:
-            submission_report_service = ExerciseReportService(
+            exercise_report_service = ExerciseReportService(
                 llm_caller=llm_caller,
                 executor=query_executor,  # Creates ExerciseReport entity + REPORT_FOR relationship
                 ku_interaction_service=learning_services[
@@ -1066,7 +1066,7 @@ async def compose_services(
             cross_domain=learning_services["cross_domain"],
             # Content
             content_enrichment=content_enrichment,
-            submission_report=submission_report_service,  # LLM report on submissions/journals
+            exercise_report=exercise_report_service,  # LLM report on submissions/journals
             exercises=exercise_service,  # Reusable LLM instruction templates
             revised_exercises=revised_exercise_service,  # Five-phase learning loop revisions
             form_templates=form_template_service,  # General-purpose form templates

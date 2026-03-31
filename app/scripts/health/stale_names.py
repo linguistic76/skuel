@@ -43,8 +43,8 @@ SCAN_DIRS = [
 #
 RENAMED: dict[str, str] = {
     # EntityType enum values (Feb–Mar 2026)
-    "EntityType.CURRICULUM": "EntityType.LESSON",
-    "EntityType.ARTICLE": "EntityType.LESSON",
+    "EntityType.CURRICULUM": "EntityType.PATH_STEP",
+    "EntityType.ARTICLE": "EntityType.PATH_STEP",
     "EntityType.AI_FEEDBACK": "EntityType.ACTIVITY_REPORT",
     "EntityType.FEEDBACK_REPORT": "EntityType.EXERCISE_REPORT",
     # Submission/Report hierarchy refactoring (Mar 2026)

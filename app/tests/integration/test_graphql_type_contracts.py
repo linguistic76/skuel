@@ -309,7 +309,7 @@ async def test_learning_path_service_returns_typed_steps(lp_service, type_contra
 @pytest.mark.asyncio
 async def test_knowledge_service_returns_typed_ku(ku_service, type_contract_test_data):
     """
-    Verify LessonService returns properly typed EntityDTO objects.
+    Verify KU service returns properly typed EntityDTO objects.
 
     Type Contract:
         - Returns Result[EntityDTO | None]

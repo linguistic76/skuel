@@ -6,6 +6,7 @@ Renderers for teacher assessments, activity reports, and progress report cards.
 Includes intelligence sections: trends, recommendations, life path, knowledge.
 """
 
+from enum import Enum
 from typing import Any
 
 from fasthtml.common import (
@@ -328,7 +329,7 @@ def render_domain_summary_card(domain_name: str, data: dict[str, Any]) -> Any:
         status = item.get("status", "")
         extra_parts = []
         if status:
-            status_str = status.value if hasattr(status, "value") else str(status)
+            status_str = status.value if isinstance(status, Enum) else str(status)
             extra_parts.append(status_str)
         if item.get("progress") is not None:
             extra_parts.append(f"{item['progress']}%")

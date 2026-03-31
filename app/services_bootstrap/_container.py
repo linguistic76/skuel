@@ -135,7 +135,7 @@ class Services:
     transcription: "TranscriptionService | None" = None
 
     # Report services (LLM-based processing)
-    submission_report: ExerciseReportOperations | None = (
+    exercise_report: ExerciseReportOperations | None = (
         None  # ExerciseReportService - LLM report on submission content
     )
     exercises: ExerciseOperations | None = (

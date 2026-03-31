@@ -5,8 +5,8 @@ Wires the /curriculum hub routes: landing redirect + browser sub-pages.
 
 Routes:
 - GET /curriculum — 301 redirect to /profile
-- GET /lessons — Lesson browser
-- GET /path-steps — Learning Steps browser
+- GET /lessons — 301 redirect to /path-steps
+- GET /path-steps — PathStep browser
 - GET /learning-paths — Learning Paths browser
 
 Exercises routes are registered separately via exercises_routes.py.

@@ -79,7 +79,7 @@ Real Examples from SKUEL Services
 
 QueryExecutor — the most common focused protocol:
 
-    # Used by: LessonOrganizationService,
+    # Used by: PsGraphService,
     #          UserContextQueryExecutor, UserStatsAggregator, ReportSharingService,
     #          ProgressReportGenerator, Neo4jVectorSearchService,
     #          HuggingFaceEmbeddingsService, UserProgressService

@@ -145,17 +145,17 @@ class TestCurriculumRichContext:
             MATCH (prereq_step:Entity {uid: $prereq_step})
             CREATE (ls)-[:REQUIRES_STEP]->(prereq_step)
 
-            // HAS_LESSON to primary knowledge (for activity inheritance)
+            // USES_KU to primary knowledge
             WITH ls
             MATCH (primary:Entity {uid: $primary_ku})
-            CREATE (ls)-[:HAS_LESSON]->(primary)
+            CREATE (ls)-[:USES_KU]->(primary)
 
-            // Guiding principle (on Lesson, LS inherits via HAS_LESSON)
+            // Guiding principle
             WITH primary
             MATCH (principle:Principle {uid: $principle_uid})
             CREATE (primary)-[:GUIDED_BY_PRINCIPLE]->(principle)
 
-            // Practice task (on Lesson, LS inherits via HAS_LESSON)
+            // Practice task
             WITH primary
             MATCH (task:Task {uid: $task_uid})
             CREATE (primary)-[:ASSIGNS_TASK]->(task)

@@ -259,8 +259,8 @@ class SearchRouter:
             EntityType.EVENT,
             EntityType.CHOICE,
             EntityType.PRINCIPLE,
-            # Curriculum Domains (3) - Lesson, LS, LP
-            EntityType.PATH_STEP,
+            # Curriculum Domains (3) - KU, PS, LP
+            EntityType.KU,
             EntityType.PATH_STEP,
             EntityType.LEARNING_PATH,
             # Learning Loop (3) - Exercise, RevisedExercise, Submission
