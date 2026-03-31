@@ -177,8 +177,12 @@ def _prepare_core(
             if field in entity_data and isinstance(entity_data[field], list):
                 entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
 
+    # Normalize name → title: YAML files may use `name:` but the domain model uses `title`
+    if "name" in entity_data and "title" not in entity_data:
+        entity_data["title"] = entity_data.pop("name")
+
     # Handle title fallback from filename
-    if "title" not in entity_data and "name" not in entity_data:
+    if "title" not in entity_data:
         entity_data["title"] = file_path.stem.replace("-", " ").title()
 
     # Apply default values
