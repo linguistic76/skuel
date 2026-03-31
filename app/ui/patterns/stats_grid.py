@@ -23,6 +23,7 @@ class StatItem:
     change: str | None = None
     trend: str | None = None
     color: str | None = None
+    href: str | None = None
 
 
 def StatCard(
@@ -31,6 +32,7 @@ def StatCard(
     change: str | None = None,
     trend: str | None = None,
     color: str | None = None,
+    href: str | None = None,
     **kwargs: Any,
 ) -> Div:
     """Single statistic card.
@@ -43,6 +45,7 @@ def StatCard(
             Used to color the change text
         color: Optional semantic color token (e.g., "primary", "success",
             "accent", "secondary", "error"). Applied as text-{color} to the value.
+        href: Optional URL — makes the entire card a clickable link.
         **kwargs: Additional attributes passed to Card
 
     Returns:
@@ -54,8 +57,11 @@ def StatCard(
             value=42,
             change="+5 this week",
             trend="up",
+            href="/tasks?status=active",
         )
     """
+    from fasthtml.common import A as Anchor
+
     trend_colors = {
         "up": "text-success",
         "down": "text-error",
@@ -66,7 +72,7 @@ def StatCard(
         f"text-3xl font-bold text-{color}" if color else "text-3xl font-bold text-foreground"
     )
 
-    content = [
+    content: list[Any] = [
         Caption(label),
         Div(
             Span(str(value), cls=value_cls),
@@ -78,7 +84,17 @@ def StatCard(
         trend_cls = trend_colors.get(trend, "text-muted-foreground")
         content.append(Span(change, cls=f"text-sm {trend_cls} mt-1 block"))
 
-    return Card(CardBody(*content), **kwargs)
+    card = Card(CardBody(*content), **kwargs)
+
+    if href:
+        return Anchor(
+            card,
+            href=href,
+            cls="uk-link-reset",
+            style="display: block; transition: transform 0.15s; cursor: pointer;",
+        )
+
+    return card
 
 
 def StatsGrid(
@@ -110,6 +126,7 @@ def StatsGrid(
             change=s.change,
             trend=s.trend,
             color=s.color,
+            href=s.href,
         )
         for s in stats
     ]

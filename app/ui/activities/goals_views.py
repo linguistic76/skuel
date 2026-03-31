@@ -38,19 +38,46 @@ if TYPE_CHECKING:
 
 
 def GoalStatsBar(goals: list["Goal"]) -> "FT":
-    """Quick stats bar showing goal counts by status."""
+    """Quick stats bar showing goal counts by status.
+
+    "Wobbly" is the opposite of "On Track" — goals that need attention:
+    behind schedule (progress < expected) or overdue (past target date).
+    """
     total = len(goals)
     active = sum(1 for g in goals if g.status and g.status.value in ("active", "in_progress"))
     on_track = sum(1 for g in goals if g.is_on_track() and not g.is_completed)
     completed = sum(1 for g in goals if g.is_completed)
-    overdue = sum(1 for g in goals if g.is_overdue())
+
+    # Wobbly = goals that are NOT on track and NOT completed
+    overdue = [g for g in goals if g.is_overdue()]
+    behind = [g for g in goals if not g.is_on_track() and not g.is_completed and not g.is_overdue()]
+    wobbly_count = len(overdue) + len(behind)
+
+    # Build a breakdown sub-label for the Wobbly card
+    wobbly_detail = None
+    if wobbly_count > 0:
+        parts = []
+        if behind:
+            parts.append(f"{len(behind)} behind")
+        if overdue:
+            parts.append(f"{len(overdue)} overdue")
+        wobbly_detail = ", ".join(parts)
 
     stats = [
-        StatItem(label="Total", value=total),
-        StatItem(label="Active", value=active, color="primary"),
-        StatItem(label="On Track", value=on_track, color="success"),
-        StatItem(label="Completed", value=completed, color="success"),
-        StatItem(label="Overdue", value=overdue, color="error" if overdue > 0 else None),
+        StatItem(label="Total", value=total, href="/goals?status=all"),
+        StatItem(label="Active", value=active, color="primary", href="/goals?status=active"),
+        StatItem(label="On Track", value=on_track, color="success", href="/goals?status=on_track"),
+        StatItem(
+            label="Completed", value=completed, color="success", href="/goals?status=completed"
+        ),
+        StatItem(
+            label="Wobbly",
+            value=wobbly_count,
+            color="error" if wobbly_count > 0 else None,
+            change=wobbly_detail,
+            trend="down" if wobbly_count > 0 else None,
+            href="/goals?status=wobbly",
+        ),
     ]
     return StatsGrid(stats, cols=5)
 
@@ -66,6 +93,8 @@ def GoalFilterBar(
                 Label("Status", cls="uk-form-label"),
                 Select(
                     Option("Active", value="active", selected=status_filter == "active"),
+                    Option("On Track", value="on_track", selected=status_filter == "on_track"),
+                    Option("Wobbly", value="wobbly", selected=status_filter == "wobbly"),
                     Option("Completed", value="completed", selected=status_filter == "completed"),
                     Option("All", value="all", selected=status_filter == "all"),
                     name="status",
@@ -545,6 +574,10 @@ def filter_goals(
         ]
     elif status_filter == "completed":
         filtered = [g for g in filtered if g.is_completed]
+    elif status_filter == "on_track":
+        filtered = [g for g in filtered if g.is_on_track() and not g.is_completed]
+    elif status_filter == "wobbly":
+        filtered = [g for g in filtered if not g.is_on_track() and not g.is_completed]
 
     # Sort
     if sort_by == "target_date":
