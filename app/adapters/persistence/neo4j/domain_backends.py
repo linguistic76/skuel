@@ -1633,11 +1633,11 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[r:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
+        MATCH (teacher:User {{uid: $teacher_uid}})-[r:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{entity_type: 'exercise_submission'}})
         {where_clause}
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(project:Entity:Exercise)
-        OPTIONAL MATCH (fb:Entity:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
+        OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
         WITH ku, student, project, r, count(fb) as feedback_count
         RETURN ku.uid as ku_uid,
                ku.title as title,
@@ -1658,7 +1658,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     async def get_report_history(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
         """Get all ExerciseReport nodes linked to a submission via REPORT_FOR."""
         query = f"""
-        MATCH (fb:Entity:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(submission:Entity:Submission {{uid: $submission_uid}})
+        MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(submission:Entity {{uid: $submission_uid}})
         OPTIONAL MATCH (teacher:User)-[:{RelationshipName.OWNS.value}]->(fb)
         RETURN fb.uid as uid,
                fb.title as title,
@@ -1765,9 +1765,9 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     ) -> Result[list[Neo4jProperties]]:
         """Get all submissions against a specific exercise (teacher review view)."""
         query = f"""
-        MATCH (s:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
+        MATCH (s:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
-        OPTIONAL MATCH (fb:Entity:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(s)
+        OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
         WITH s, student, count(fb) AS feedback_count
         RETURN s.uid AS uid, s.title AS title,
                s.original_filename AS original_filename, s.status AS status,
@@ -1780,7 +1780,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
         """Get students who shared work with teacher, with counts."""
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{entity_type: 'exercise_submission'}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
         WITH student, count(ku) AS submission_count,
              count(CASE WHEN ku.status = 'completed' THEN 1 END) AS reviewed_count
@@ -1797,9 +1797,9 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     ) -> Result[list[Neo4jProperties]]:
         """Get submissions from a student that were shared with this teacher."""
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{entity_type: 'exercise_submission'}})
         MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku)
-        OPTIONAL MATCH (fb:Entity:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(ku)
+        OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         WITH ku, count(fb) AS feedback_count, ex
         RETURN ku.uid AS uid, ku.title AS title,
@@ -1817,7 +1817,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     ) -> Result[list[Neo4jProperties]]:
         """Get full submission detail for teacher review (access-checked via SHARES_WITH)."""
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(s:Entity:Submission {{uid: $submission_uid}})
+        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(s:Entity {{entity_type: 'exercise_submission', uid: $submission_uid}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         RETURN s.uid AS uid,
@@ -1842,7 +1842,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         """Get at-a-glance stats for the teacher dashboard."""
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})
-        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity:Submission)
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{entity_type: 'exercise_submission'}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
@@ -3244,7 +3244,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         """Get teacher's exercises with submission and reviewed counts."""
         query = f"""
         MATCH (user:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
-        OPTIONAL MATCH (s:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
+        OPTIONAL MATCH (s:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
         WITH exercise, count(s) AS total_count,
              count(CASE WHEN s.status = 'completed' THEN 1 END) AS reviewed_count
         RETURN exercise.uid AS uid, exercise.title AS title,
@@ -4167,7 +4167,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         OPTIONAL MATCH (member:User)-[:{RelationshipName.MEMBER_OF.value}]->(g)
         OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.FOR_GROUP.value}]->(g)
-        OPTIONAL MATCH (sub:Entity:Submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
+        OPTIONAL MATCH (sub:Entity {{entity_type: 'exercise_submission'}})-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
           WHERE sub.status NOT IN ['completed', 'archived']
         RETURN g.uid AS uid,
                g.name AS name,
@@ -4187,7 +4187,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group {{uid: $group_uid}})
         MATCH (member:User)-[r:{RelationshipName.MEMBER_OF.value}]->(g)
-        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(sub:Entity:Submission)
+        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(sub:Entity {{entity_type: 'exercise_submission'}})
           WHERE (member)-[:{RelationshipName.OWNS.value}]->(sub)
         RETURN member.uid AS user_uid,
                member.name AS user_name,
