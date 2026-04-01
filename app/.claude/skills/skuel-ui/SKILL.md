@@ -443,7 +443,7 @@ The navbar left section has 4 icon links (in order), avatar, and logout:
 | 1st | ⚛️ (emoji) | `/ku` | `"knowledge"` | Knowledge index — flat Ku list |
 | 2nd | `book` | `/path-steps` | `"path-steps"` | PathStep catalog |
 | 3rd | `arrow-left-right` | `/submissions` | `"submissions"` | Tabbed hub: My Submissions \| Submit \| Request Report |
-| 4th | `book-open` | `/library` | `"library"` | Learning hub: Curriculum \| Resources \| Exercise Reports \| Activity Reports |
+| 4th | `book-open` | `/library` | `"library"` | Learning hub: Exercises \| Submissions \| Resources \| Ku \| Path Steps \| Exercise Reports \| Activity Reports |
 | — | Avatar | `/profile` | — | Click → profile; dropdown → Tasks, Goals, Habits, Events, Choices, Principles |
 | — | `log-out` | `/logout` | — | Always visible |
 
@@ -1051,7 +1051,7 @@ When building a new SKUEL page or feature, verify:
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
 | `/ui/profile/hub.py` | `ProfileHubView` — live actionable hub. Also exports `submissions_section()` (reused by `/submissions`) |
-| `/adapters/inbound/library_ui.py` | `/library` hub — 4 tabs + HTMX fragment endpoints `/library/curriculum`, `/library/resources` |
+| `/adapters/inbound/library_ui.py` | `/library` hub — 7 tabs + HTMX fragments: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/submissions`, `/library/resources`, `/library/ku` (PINNED only), `/library/path-steps` (IN_PROGRESS only) |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, LS, LP profile views |
