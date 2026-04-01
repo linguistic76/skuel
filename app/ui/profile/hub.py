@@ -34,14 +34,10 @@ _ACTIVITY_TABS: list[tuple[str, str, str, str]] = [
 
 
 def ProfileHubView(context: UserContext) -> Div:
-    """Profile hub — live learning state with actionable sections."""
+    """Profile hub — Activity Domains + activity report request."""
     return Div(
         _activities_section(),
-        _knowledge_section(context),
-        _path_steps_section(context),
-        _exercises_section(context),
-        submissions_section(),
-        _reports_section(),
+        _request_activity_report_section(),
         _nous_section(),
         _settings_link(),
         _personal_header(context),
@@ -183,6 +179,25 @@ def _activities_section() -> Div:
             for i, (_, tab_id, _, _) in enumerate(_ACTIVITY_TABS)
         ],
         **{"x-data": "{ actTab: 'tasks' }"},
+        cls="mb-6",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Request Activity Report section — inline form below Activity Domains
+# ---------------------------------------------------------------------------
+
+
+def _request_activity_report_section() -> Div:
+    """Activity Report request form — lazily loaded below the Activity Domains tabs."""
+    from ui.patterns.generate_report import (
+        render_activity_report_request_card,
+        render_recent_reports_section,
+    )
+
+    return Div(
+        render_activity_report_request_card(),
+        render_recent_reports_section(),
         cls="mb-6",
     )
 
