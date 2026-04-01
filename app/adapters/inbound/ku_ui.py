@@ -370,7 +370,7 @@ def _build_sidebar_sections(
     # Available section
     if available_kus:
         available_links = [
-            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in available_kus[:20]
+            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in available_kus[:5]
         ]
         extra_sections.append(
             Li(
