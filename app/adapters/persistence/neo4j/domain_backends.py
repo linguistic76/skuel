@@ -2267,6 +2267,14 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
 
+    async def count_studying_kus(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
+        """Count Kus the user has marked as studying (IN_PROGRESS or MARKED_AS_READ)."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:IN_PROGRESS|MARKED_AS_READ]->(ku:Entity:Ku)
+        RETURN count(ku) AS cnt
+        """
+        return await self.execute_query(query, {"user_uid": user_uid})
+
     async def get_user_learning_states(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Get all Kus with their learning state for a user."""
         query = """

@@ -291,25 +291,8 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
 
     @rt("/api/path-steps/{uid}/bookmark", methods=["POST"])
     async def toggle_step_bookmark(request: Request, uid: str) -> Any:
-        """Toggle path step bookmark. Returns updated button HTML.
-
-        Enforces a limit of 5 bookmarked Kus when adding a new bookmark.
-        """
+        """Toggle path step bookmark. Returns updated button HTML."""
         user_uid = require_authenticated_user(request)
-
-        # Enforce 5-bookmark cap: fetch current bookmarks once, check both state + count
-        bm_result = await ps_service.get_bookmarked_kus(user_uid)
-        if not bm_result.is_error:
-            bookmarked_uids = bm_result.value or []
-            currently_bookmarked = uid in bookmarked_uids
-            if not currently_bookmarked and len(bookmarked_uids) >= 5:
-                return Button(
-                    "Bookmark limit (5)",
-                    variant=ButtonT.error,
-                    size=Size.sm,
-                    disabled=True,
-                    title="You can bookmark at most 5 Kus",
-                )
 
         result = await ps_service.mastery.toggle_bookmark(user_uid, uid)
 

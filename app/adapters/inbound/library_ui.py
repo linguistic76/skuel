@@ -144,7 +144,7 @@ def render_curriculum_list(kus: list[Any], path_steps: list[Any], exercises: lis
     if not kus and not path_steps and not exercises:
         return EmptyState(
             title="No personal curriculum yet",
-            description="Bookmark up to 5 Kus and enrol in up to 2 Path Steps to see them here.",
+            description="Mark up to 5 Kus as studying and enrol in up to 2 Path Steps to see them here.",
         )
 
     filter_row = Div(
@@ -380,8 +380,8 @@ def create_library_ui_routes(
         path_steps: list[Any] = []
         exercises: list[Any] = []
 
-        # --- Resolve user's bookmarked Ku UIDs and enrolled PathStep UIDs ---
-        bookmarked_ku_uids: list[str] = []
+        # --- Resolve user's studying Ku UIDs and enrolled PathStep UIDs ---
+        studying_ku_uids: list[str] = []
         enrolled_ps_uids: list[str] = []
 
         if user_service:
@@ -390,17 +390,19 @@ def create_library_ui_routes(
                 logger.error(f"Library: failed to load user context: {ctx_result.error}")
             else:
                 ctx = ctx_result.value
-                bookmarked_ku_uids = sorted(ctx.ku_bookmarked_uids)[:5]
                 enrolled_ps_uids = list(ctx.current_ps_uids)[:2]
-        elif ps_service:
-            # Fallback: derive from mastery service if user_service unavailable
-            bm_result = await ps_service.get_bookmarked_kus(user_uid)
-            if not bm_result.is_error:
-                bookmarked_ku_uids = (bm_result.value or [])[:5]
 
-        # --- Fetch bookmarked Kus (max 5) ---
-        if ku_service and bookmarked_ku_uids:
-            for ku_uid in bookmarked_ku_uids:
+        # Always fetch studying Ku UIDs from ku_service (source of truth for is_studying flag)
+        if ku_service:
+            studying_result = await ku_service.get_studying_ku_uids(user_uid)
+            if studying_result.is_error:
+                logger.error(f"Library: failed to load studying Kus: {studying_result.error}")
+            else:
+                studying_ku_uids = (studying_result.value or [])[:5]
+
+        # --- Fetch studying Kus (max 5) ---
+        if ku_service and studying_ku_uids:
+            for ku_uid in studying_ku_uids:
                 ku_result = await ku_service.get_ku(ku_uid)
                 if not ku_result.is_error and ku_result.value:
                     kus.append(ku_result.value)

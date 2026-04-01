@@ -775,8 +775,17 @@ def create_ku_ui_routes(
 
     @rt("/api/ku/{uid}/mark-studying", methods=["POST"])
     async def mark_ku_as_studying(request: Request, uid: str) -> Any:
-        """Mark Ku as studying. Returns updated learning buttons for HTMX swap."""
+        """Mark Ku as studying. Returns updated learning buttons for HTMX swap.
+
+        Enforces a limit of 5 simultaneously studying Kus.
+        """
         user_uid = require_authenticated_user(request)
+
+        # Enforce 5-Ku studying limit
+        count_result = await ku_service.count_studying_kus(user_uid)
+        if not count_result.is_error and (count_result.value or 0) >= 5:
+            return _ku_learning_buttons(uid, False, False)
+
         result = await ku_service.mark_as_studying(user_uid, uid)
         if result.is_error:
             return _ku_learning_buttons(uid, False, False)

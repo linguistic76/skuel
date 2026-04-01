@@ -196,6 +196,22 @@ class KuService:
     # LEARNING STATE (Ku-native — two-tier: Studying + Understood)
     # =========================================================================
 
+    async def count_studying_kus(self, user_uid: UserUID) -> Result[int]:
+        """Count Kus the user is currently studying (IN_PROGRESS or MARKED_AS_READ)."""
+        result = await self.backend.count_studying_kus(user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        return Result.ok(int(records[0]["cnt"]) if records else 0)
+
+    async def get_studying_ku_uids(self, user_uid: UserUID) -> Result[list[str]]:
+        """Get UIDs of Kus the user is studying (IN_PROGRESS or MARKED_AS_READ), ordered by title."""
+        result = await self.get_user_learning_states(user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        uids = [rec["uid"] for rec in (result.value or []) if rec.get("is_studying") and rec.get("uid")]
+        return Result.ok(uids)
+
     async def mark_as_studying(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
         """Mark a Ku as actively being studied (IN_PROGRESS relationship)."""
         result = await self.backend.mark_in_progress(user_uid, ku_uid)
