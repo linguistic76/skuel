@@ -31,8 +31,8 @@ _ACTIVITY_DOMAINS: tuple[tuple[str, str, str, str, str], ...] = (
 # Breakout from uk-container-small padding (UIKit default gutter = 30px)
 # plus BasePage top padding flush
 _BAND_STYLE = (
-    "margin-top: -1rem; "           # flush against main navbar (BasePage p-4)
-    "margin-left: -30px; "          # negate UIKit container gutter
+    "margin-top: -1rem; "  # flush against main navbar (BasePage p-4)
+    "margin-left: -30px; "  # negate UIKit container gutter
     "margin-right: -30px; "
     "width: calc(100% + 60px); "
     "background-color: var(--background); "

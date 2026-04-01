@@ -76,6 +76,8 @@ def create_learning_loop_routes(
         resource_service=getattr(services, "resource", None),
         ku_service=getattr(services, "ku", None),
         ps_service=getattr(services, "ps", None),
+        submissions_service=getattr(services, "submissions", None),
+        user_relationship_service=getattr(services, "user_relationships", None),
     )
 
     logger.info("Learning loop routes wired (submissions + reports + library hub)")

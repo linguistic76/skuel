@@ -31,7 +31,11 @@ from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports import get_enum_value
-from core.ports.query_types import CurriculumExerciseResult, RequiredKnowledgeResult
+from core.ports.query_types import (
+    CurriculumExerciseResult,
+    ExerciseStatusRow,
+    RequiredKnowledgeResult,
+)
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.filtered_context import build_filtered_context
@@ -386,22 +390,34 @@ class ExerciseService(BaseService):
     @with_error_handling("get_student_exercises_with_status", error_type="database")
     async def get_student_exercises_with_status(
         self, user_uid: UserUID
-    ) -> Result[list[dict[str, Any]]]:
-        """Get assigned exercises with submission status for the student assignments page.
+    ) -> Result[list[ExerciseStatusRow]]:
+        """Get assigned exercises with submission + report status for the library exercises tab.
 
-        Returns exercise properties enriched with has_submission flag and group_name.
+        Returns exercise properties enriched with has_submission, submission_uid,
+        submission_status, has_report, report_uid, report_outcome, and group_name.
         """
         result = await self.backend.get_student_exercises_with_status(user_uid)
 
         if result.is_error:
             return Result.fail(result)
 
-        exercises = []
+        exercises: list[ExerciseStatusRow] = []
         for record in result.value or []:
             props = dict(record["exercise"])
-            props["has_submission"] = record.get("has_submission", False)
-            props["group_name"] = record.get("group_name", "")
-            exercises.append(props)
+            row: ExerciseStatusRow = {
+                "uid": props.get("uid", ""),
+                "title": props.get("title", ""),
+                "description": props.get("description"),
+                "due_date": props.get("due_date"),
+                "group_name": record.get("group_name") or "",
+                "has_submission": bool(record.get("has_submission", False)),
+                "submission_uid": record.get("submission_uid"),
+                "submission_status": record.get("submission_status"),
+                "has_report": bool(record.get("has_report", False)),
+                "report_uid": record.get("report_uid"),
+                "report_outcome": record.get("report_outcome"),
+            }
+            exercises.append(row)
 
         self.logger.info(f"Found {len(exercises)} exercises with status for student {user_uid}")
         return Result.ok(exercises)
@@ -613,7 +629,7 @@ class ExerciseService(BaseService):
     @with_error_handling("get_exercises_for_path_steps", error_type="database")
     async def get_exercises_for_path_steps(
         self, ps_uids: list[str]
-    ) -> "Result[list[dict[str, Any]]]":
+    ) -> Result[list[dict[str, Any]]]:
         """Get exercises associated with the given PathStep UIDs.
 
         Traverses PathStep -[:USES_KU|CONTAINS_KNOWLEDGE]-> Ku <-[:REQUIRES_KNOWLEDGE]- Exercise.

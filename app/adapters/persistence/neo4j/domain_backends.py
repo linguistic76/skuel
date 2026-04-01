@@ -86,6 +86,7 @@ if TYPE_CHECKING:
     from core.models.group.group import Group  # noqa: F401
     from core.models.journal.je_input import JeInput  # noqa: F401
     from core.models.journal.je_output import JeOutput  # noqa: F401
+    from core.models.resource.resource import Resource  # noqa: F401
 
 
 class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
@@ -3047,9 +3048,16 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     async def get_student_exercises_with_status(
         self, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
-        """Get assigned exercises with submission status for a student.
+        """Get assigned exercises with submission + report status for a student.
 
-        Returns exercise properties enriched with has_submission flag and group_name.
+        Returns exercise properties enriched with:
+        - has_submission: bool
+        - submission_uid: str | None (most recent submission)
+        - submission_status: str | None
+        - has_report: bool
+        - report_uid: str | None (most recent report)
+        - report_outcome: str | None (assessment_outcome on the report)
+        - group_name: str
 
         Args:
             user_uid: Student UID
@@ -3063,7 +3071,20 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.FOR_GROUP}]->(group)
             WHERE exercise.scope = 'assigned'
             OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
-            RETURN exercise, sub IS NOT NULL AS has_submission, group.title AS group_name
+            OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
+            WITH exercise, group, sub, report
+            ORDER BY sub.created_at DESC
+            WITH exercise, group,
+                 collect(sub)[0] AS latest_sub,
+                 collect(report)[0] AS latest_report
+            RETURN exercise,
+                   latest_sub.uid AS submission_uid,
+                   latest_sub.status AS submission_status,
+                   latest_sub IS NOT NULL AS has_submission,
+                   latest_report.uid AS report_uid,
+                   latest_report.assessment_outcome AS report_outcome,
+                   latest_report IS NOT NULL AS has_report,
+                   group.title AS group_name
             ORDER BY exercise.due_date ASC, exercise.created_at DESC
             """,
             {"user_uid": user_uid},
@@ -3131,7 +3152,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
 
     async def get_exercises_for_path_steps(
         self, ps_uids: list[str]
-    ) -> Result[list["Neo4jProperties"]]:
+    ) -> Result[list[Neo4jProperties]]:
         """Get exercises associated with a list of PathStep UIDs.
 
         Traverses PathStep -[:USES_KU|CONTAINS_KNOWLEDGE]-> Ku <-[:REQUIRES_KNOWLEDGE]- Exercise

@@ -15,8 +15,21 @@ Routes:
 import json
 from typing import Any
 
-from fasthtml.common import Form, H3, H4, Input, Option, Select
-from fasthtml.common import Div, Li, NotStr, P, Request, Span, Ul
+from fasthtml.common import (
+    H3,
+    H4,
+    Div,
+    Form,
+    Input,
+    Li,
+    NotStr,
+    Option,
+    P,
+    Request,
+    Select,
+    Span,
+    Ul,
+)
 from fasthtml.common import A as Anchor
 
 from adapters.inbound.auth import get_current_user, is_authenticated, require_authenticated_user
@@ -33,9 +46,9 @@ from ui.layouts.base_page import BasePage
 from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.metadata_badge import metadata_badge
+from ui.patterns.page_header import PageHeader
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
-from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarLink, SidebarPage
 
 logger = get_logger("skuel.routes.ku.ui")
@@ -164,12 +177,14 @@ def _render_ku_search_panel(
     """
     # Dropdown options
     type_options = [Option("All Types", value="")]
-    for cat in sorted(set(categories)):
-        type_options.append(Option(cat.replace("_", " ").title(), value=cat))
+    type_options.extend(
+        Option(cat.replace("_", " ").title(), value=cat) for cat in sorted(set(categories))
+    )
 
     ns_options = [Option("All Namespaces", value="")]
-    for ns in sorted(set(namespaces)):
-        ns_options.append(Option(ns.replace("_", " ").title(), value=ns))
+    ns_options.extend(
+        Option(ns.replace("_", " ").title(), value=ns) for ns in sorted(set(namespaces))
+    )
 
     sort_options = [
         Option("Title A–Z", value="title"),
@@ -332,8 +347,6 @@ def _render_ku_row(ku: Ku, pinned_uids: set[str]) -> Any:
     )
 
 
-
-
 def _render_ku_sections(
     pinned_kus: list[Ku],
     available_kus: list[Ku],
@@ -358,7 +371,7 @@ def _render_ku_sections(
             'viewBox="0 0 24 24" fill="none" stroke="currentColor" '
             'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
             'class="transition-transform duration-200" '
-            ':class="open ? \'rotate-180\' : \'\'">'
+            ":class=\"open ? 'rotate-180' : ''\">"
             '<path d="m6 9 6 6 6-6"/>'
             "</svg>"
         )
@@ -374,7 +387,10 @@ def _render_ku_sections(
                     **{"@click": "open = !open"},
                 ),
                 Div(
-                    Ul(*[_render_ku_row(ku, pinned_uids) for ku in available_kus], cls="list-none p-0"),
+                    Ul(
+                        *[_render_ku_row(ku, pinned_uids) for ku in available_kus],
+                        cls="list-none p-0",
+                    ),
                     x_show="open",
                     **{"x-transition": ""},
                 ),
@@ -518,18 +534,21 @@ def create_ku_ui_routes(
     @rt("/ku")
     async def ku_index(request: Request) -> Any:
         """Main Ku index — search panel + flat listing with bookmarks/latest sidebar."""
-        kus, ku_load_error, pinned_uids, pinned_kus, studying_kus, understood_kus = (
-            await _load_ku_index_data(request)
-        )
+        (
+            kus,
+            ku_load_error,
+            pinned_uids,
+            _pinned_kus,
+            studying_kus,
+            _understood_kus,
+        ) = await _load_ku_index_data(request)
 
         # Studying = bookmarked for Kus. Available = everything not actively studying.
         studying_uids = {ku.uid for ku in studying_kus}
         available_kus = [ku for ku in kus if ku.uid not in studying_uids]
 
         # Collect filter facets from loaded Kus
-        all_tags = sorted(
-            {t for ku in kus for t in (ku.tags or ())} - {""}
-        )
+        all_tags = sorted({t for ku in kus for t in (ku.tags or ())} - {""})
         namespaces = sorted({ku.namespace for ku in kus if ku.namespace})
         categories = sorted({ku.ku_category for ku in kus if ku.ku_category})
 
@@ -570,8 +589,8 @@ def create_ku_ui_routes(
         sort: str = "title",
     ) -> Any:
         """Return filtered Ku list HTML fragment for HTMX swap into #ku-list."""
-        kus, _error, pinned_uids, _pinned, _studying, _understood = (
-            await _load_ku_index_data(request)
+        kus, _error, pinned_uids, _pinned, _studying, _understood = await _load_ku_index_data(
+            request
         )
 
         filtered = _filter_kus(kus, q.strip(), namespace, ku_type, tag, sort)

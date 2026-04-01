@@ -39,6 +39,7 @@ from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
+from ui.profile.hub import submissions_section
 from ui.submissions.cards import (
     render_processed_content,
     render_submission_detail,
@@ -54,7 +55,6 @@ from ui.submissions.forms import (
 from ui.submissions.report import (
     render_yours_list,
 )
-from ui.profile.hub import submissions_section
 from ui.submissions.sharing import render_sharing_section
 
 logger = get_logger("skuel.routes.submissions")

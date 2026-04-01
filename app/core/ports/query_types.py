@@ -2524,6 +2524,26 @@ class CurriculumExerciseResult(TypedDict, total=False):
     form_schema: str | None
 
 
+class ExerciseStatusRow(TypedDict):
+    """Return shape for ExerciseBackend/ExerciseService.get_student_exercises_with_status().
+
+    Enriches exercise properties with the student's latest submission and report info
+    so the Library Exercises tab can display submission/feedback status inline.
+    """
+
+    uid: str
+    title: str
+    description: str | None
+    due_date: str | None
+    group_name: str
+    has_submission: bool
+    submission_uid: str | None
+    submission_status: str | None
+    has_report: bool
+    report_uid: str | None
+    report_outcome: str | None
+
+
 class RevisionChainResult(TypedDict):
     """Return shape for RevisedExerciseBackend.get_revision_chain()."""
 

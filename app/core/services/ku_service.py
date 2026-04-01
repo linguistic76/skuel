@@ -209,7 +209,9 @@ class KuService:
         result = await self.get_user_learning_states(user_uid)
         if result.is_error:
             return Result.fail(result)
-        uids = [rec["uid"] for rec in (result.value or []) if rec.get("is_studying") and rec.get("uid")]
+        uids = [
+            rec["uid"] for rec in (result.value or []) if rec.get("is_studying") and rec.get("uid")
+        ]
         return Result.ok(uids)
 
     async def mark_as_studying(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:

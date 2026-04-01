@@ -142,7 +142,9 @@ class _LearningStateMixin:
             },
         )
 
-    async def count_in_progress_path_steps(self, user_uid: UserUID) -> Result[list["Neo4jProperties"]]:
+    async def count_in_progress_path_steps(
+        self, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]:
         """Count PathSteps with an IN_PROGRESS relationship for a user."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:IN_PROGRESS]->(ps:Entity:PathStep)
@@ -150,7 +152,9 @@ class _LearningStateMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 
-    async def get_in_progress_path_step_uids(self, user_uid: UserUID) -> Result[list["Neo4jProperties"]]:
+    async def get_in_progress_path_step_uids(
+        self, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]:
         """Get UIDs of PathSteps the user is enrolled in (IN_PROGRESS)."""
         query = """
         MATCH (u:User {uid: $user_uid})-[:IN_PROGRESS]->(ps:Entity:PathStep)

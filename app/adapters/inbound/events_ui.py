@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
-from ui.activities.nav import ActivityDomainNav
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activities.events_views import (
@@ -22,6 +21,7 @@ from ui.activities.events_views import (
     EventStatsBar,
     filter_events,
 )
+from ui.activities.nav import ActivityDomainNav
 from ui.layouts.base_page import BasePage
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner

@@ -304,7 +304,7 @@ class KnowledgeBulkInformedChoice(BaseEvent):
 #       event = KnowledgeBulkAppliedInTask(knowledge_uids=tuple(ku_uids), ...)
 #   await publish_event(self.event_bus, event, self.logger)
 #
-# Subscribers for all 8 events (4 channels × 2 forms) are wired in:
+# Subscribers for all 8 events (4 channels x 2 forms) are wired in:
 #   services_bootstrap/_event_wiring.py → PsService handlers
 #
 # See: /docs/architecture/knowledge_substance_philosophy.md

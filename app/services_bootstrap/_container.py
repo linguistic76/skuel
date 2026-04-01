@@ -34,7 +34,6 @@ if TYPE_CHECKING:
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
     from core.services.ku_service import KuService
-    from core.services.resource_service import ResourceService
     from core.services.lp_service import LpService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
@@ -45,6 +44,7 @@ if TYPE_CHECKING:
     from core.services.report.progress_report_generator import ProgressReportGenerator
     from core.services.report.progress_schedule_service import ProgressScheduleService
     from core.services.report.review_queue_service import ReviewQueueService
+    from core.services.resource_service import ResourceService
     from core.services.tasks_service import TasksService
     from core.services.transcription.batch_processing_service import BatchProcessingService
     from core.services.transcription.batch_transcription_service import BatchTranscriptionService
@@ -125,7 +125,9 @@ class Services:
     # CURRICULUM DOMAINS (3) - PS, KU, LP
     # ========================================================================
     ku: "KuService | None" = None  # KuService (atomic knowledge units)
-    resource: "ResourceService | None" = None  # ResourceService (curated content — books, talks, films)
+    resource: "ResourceService | None" = (
+        None  # ResourceService (curated content — books, talks, films)
+    )
     activity_knowledge_intelligence: "ActivityKnowledgeIntelligenceService | None" = (
         None  # Knowledge intelligence for all 6 activity domains (March 2026)
     )

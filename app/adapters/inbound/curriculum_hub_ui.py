@@ -12,7 +12,7 @@ Routes:
 
 from typing import Any
 
-from fasthtml.common import Div, H4, Li, NotStr, Span, Ul
+from fasthtml.common import H4, Div, NotStr, Span
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import get_current_user
@@ -125,11 +125,8 @@ def _ps_list(enrolled_steps: list[Any], available_steps: list[Any]) -> Div:
     rows: list[Any] = []
 
     if enrolled_steps:
-        rows.append(
-            H4("Registered In", cls="text-sm font-semibold text-foreground mt-2 mb-2")
-        )
-        for step in enrolled_steps:
-            rows.append(_ps_card(step, enrolled=True))
+        rows.append(H4("Registered In", cls="text-sm font-semibold text-foreground mt-2 mb-2"))
+        rows.extend(_ps_card(step, enrolled=True) for step in enrolled_steps)
 
     if available_steps:
         open_by_default = "true" if not enrolled_steps else "false"
@@ -138,7 +135,7 @@ def _ps_list(enrolled_steps: list[Any], available_steps: list[Any]) -> Div:
             'viewBox="0 0 24 24" fill="none" stroke="currentColor" '
             'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
             'class="transition-transform duration-200" '
-            ':class="open ? \'rotate-180\' : \'\'">'
+            ":class=\"open ? 'rotate-180' : ''\">"
             '<path d="m6 9 6 6 6-6"/>'
             "</svg>"
         )

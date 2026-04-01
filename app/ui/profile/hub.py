@@ -165,7 +165,10 @@ def _activities_section() -> Div:
     """
     return Div(
         Div(
-            *[_activity_tab_button(label, tab_id, icon, color) for label, tab_id, icon, color in _ACTIVITY_TABS],
+            *[
+                _activity_tab_button(label, tab_id, icon, color)
+                for label, tab_id, icon, color in _ACTIVITY_TABS
+            ],
             role="tablist",
             style=(
                 "display: flex; flex-wrap: wrap; "

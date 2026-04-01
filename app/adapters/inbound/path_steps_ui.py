@@ -118,7 +118,9 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
             is_in_progress = (
                 state_result.value.state.value == "in_progress" if state_result.is_ok else False
             )
-            is_mastered = state_result.value.state.value == "mastered" if state_result.is_ok else False
+            is_mastered = (
+                state_result.value.state.value == "mastered" if state_result.is_ok else False
+            )
 
         # Sidebar — in-progress path steps for contextual navigation
         sidebar_steps: list[PathStep] = []
