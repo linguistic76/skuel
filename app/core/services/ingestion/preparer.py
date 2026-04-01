@@ -130,8 +130,11 @@ def _prepare_core(
     else:
         entity_data["uid"] = generate_uid(entity_type, file_path)
 
-    # Handle content for markdown files (type-safe check)
-    if body is not None and entity_type in (EntityType.PATH_STEP, EntityType.EXERCISE_SUBMISSION):
+    # Handle content for markdown files (type-safe check).
+    # Only set body content if it's non-empty — an empty body means all content
+    # is in the frontmatter (e.g. content: | in the YAML), and overwriting with ""
+    # would erase the frontmatter-provided content before chunking.
+    if body and entity_type in (EntityType.PATH_STEP, EntityType.EXERCISE_SUBMISSION):
         entity_data["content"] = body
 
     # PathStep: normalize USES_KU UIDs and activity domain UIDs
