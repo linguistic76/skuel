@@ -5,8 +5,9 @@ Ku UI Routes — Knowledge Index + Detail Page + API
 All Ku routes in one file, backed by KuService only (no PsService dependency).
 
 Routes:
-- GET  /ku           — Knowledge index with bookmarks sidebar
-- GET  /ku/{uid}     — Ku detail page with content, metadata, exercises
+- GET  /ku                           — Knowledge index with search panel + bookmarks sidebar
+- GET  /api/ku/search                — HTMX fragment: filtered Ku list
+- GET  /ku/{uid}                     — Ku detail page with content, metadata, exercises
 - POST /api/ku/{uid}/mark-studying   — Mark Ku as studying (IN_PROGRESS)
 - POST /api/ku/{uid}/mark-understood — Mark Ku as understood (MASTERED)
 """
@@ -14,7 +15,8 @@ Routes:
 import json
 from typing import Any
 
-from fasthtml.common import H3, Div, Li, NotStr, P, Request, Span, Ul
+from fasthtml.common import Form, H3, Input, Option, Select
+from fasthtml.common import Div, Li, NotStr, P, Request, Span, Ul
 from fasthtml.common import A as Anchor
 
 from adapters.inbound.auth import is_authenticated, require_authenticated_user
@@ -108,6 +110,187 @@ def _parse_form_schema(raw: Any) -> list[dict] | None:
 # =============================================================================
 # Index page helpers
 # =============================================================================
+
+
+def _filter_kus(
+    kus: list[Ku],
+    q: str,
+    namespace: str,
+    ku_type: str,
+    tag: str,
+    sort: str,
+) -> list[Ku]:
+    """Filter and sort a Ku list by search params."""
+    results = kus
+
+    if namespace:
+        results = [k for k in results if getattr(k, "namespace", None) == namespace]
+
+    if ku_type:
+        results = [k for k in results if getattr(k, "ku_category", None) == ku_type]
+
+    if tag:
+        tag_lower = tag.lower()
+        results = [k for k in results if any(t.lower() == tag_lower for t in (k.tags or ()))]
+
+    if q:
+        q_lower = q.lower()
+        results = [
+            k
+            for k in results
+            if q_lower in (k.title or "").lower()
+            or q_lower in (k.description or "").lower()
+            or any(q_lower in t.lower() for t in (k.tags or ()))
+        ]
+
+    if sort == "created_at":
+        results = sorted(results, key=lambda k: getattr(k, "created_at", None) or "", reverse=True)
+    else:
+        results = sorted(results, key=lambda k: (k.title or "").lower())
+
+    return results
+
+
+def _render_ku_search_panel(
+    all_tags: list[str],
+    namespaces: list[str],
+    categories: list[str],
+    suggested_kus: list[Ku],
+) -> Any:
+    """Clean search + filter panel — search box, type/namespace/sort dropdowns, tag chips.
+
+    Uses HTMX to stream filtered results into #ku-list.
+    Alpine.js tracks query state to show/hide the "for you" suggestions row.
+    """
+    # Dropdown options
+    type_options = [Option("All Types", value="")]
+    for cat in sorted(set(categories)):
+        type_options.append(Option(cat.replace("_", " ").title(), value=cat))
+
+    ns_options = [Option("All Namespaces", value="")]
+    for ns in sorted(set(namespaces)):
+        ns_options.append(Option(ns.replace("_", " ").title(), value=ns))
+
+    sort_options = [
+        Option("Title A–Z", value="title"),
+        Option("Newest First", value="created_at"),
+    ]
+
+    # Tag chips
+    tag_chips = [
+        Span(
+            f"#{tag}",
+            cls="cursor-pointer text-xs px-2 py-0.5 rounded-full border border-border "
+            "text-muted-foreground hover:border-foreground hover:text-foreground "
+            "transition-colors select-none",
+            x_on_click=f"setTag('{tag}')",
+        )
+        for tag in all_tags[:24]
+    ]
+
+    # "For you" suggestion chips (studying + bookmarked)
+    suggestion_chips: list[Any] = [
+        Anchor(
+            ku.title,
+            href=f"/ku/{ku.uid}",
+            cls="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground "
+            "hover:bg-primary/10 hover:text-primary transition-colors whitespace-nowrap",
+        )
+        for ku in suggested_kus[:8]
+    ]
+
+    suggestions_row = (
+        Div(
+            Span("For you", cls="text-xs text-muted-foreground shrink-0 pt-0.5"),
+            Div(*suggestion_chips, cls="flex flex-wrap gap-1.5"),
+            cls="flex items-start gap-3 pt-3 border-t border-border",
+            x_show="!query",
+        )
+        if suggestion_chips
+        else None
+    )
+
+    dropdown_cls = (
+        "text-sm border border-border rounded-md px-2 py-1.5 bg-background "
+        "text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+    )
+
+    return Div(
+        Form(
+            # Row 1: search input
+            Div(
+                Span(
+                    NotStr(
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" '
+                        'viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                        'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
+                        'class="text-muted-foreground shrink-0">'
+                        '<circle cx="11" cy="11" r="8"/>'
+                        '<path d="m21 21-4.35-4.35"/>'
+                        "</svg>"
+                    ),
+                    cls="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none",
+                ),
+                Input(
+                    name="q",
+                    type="search",
+                    placeholder="Search knowledge units...",
+                    autocomplete="off",
+                    cls="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg "
+                    "bg-background focus:outline-none focus:ring-1 focus:ring-primary "
+                    "focus:border-primary",
+                    x_model="query",
+                    x_ref="searchInput",
+                    hx_get="/api/ku/search",
+                    hx_target="#ku-list",
+                    hx_trigger="input delay:250ms",
+                    hx_include="closest form",
+                ),
+                cls="relative",
+            ),
+            # Row 2: dropdowns
+            Div(
+                Select(
+                    *type_options,
+                    name="ku_type",
+                    cls=dropdown_cls,
+                    hx_get="/api/ku/search",
+                    hx_target="#ku-list",
+                    hx_trigger="change",
+                    hx_include="closest form",
+                ),
+                Select(
+                    *ns_options,
+                    name="namespace",
+                    cls=dropdown_cls,
+                    hx_get="/api/ku/search",
+                    hx_target="#ku-list",
+                    hx_trigger="change",
+                    hx_include="closest form",
+                ),
+                Select(
+                    *sort_options,
+                    name="sort",
+                    cls=dropdown_cls,
+                    hx_get="/api/ku/search",
+                    hx_target="#ku-list",
+                    hx_trigger="change",
+                    hx_include="closest form",
+                ),
+                cls="flex flex-wrap gap-2",
+            ),
+            # Row 3: tags
+            Div(*tag_chips, cls="flex flex-wrap gap-1.5") if tag_chips else None,
+            # Hidden input for active tag (set by Alpine.js)
+            Input(name="tag", type="hidden", x_bind_value="activeTag"),
+            cls="flex flex-col gap-3",
+        ),
+        # Row 4: for-you suggestions
+        suggestions_row,
+        cls="p-4 mb-5 border border-border rounded-xl bg-background flex flex-col gap-3",
+        x_data="kuSearch()",
+        x_init="init()",
+    )
 
 
 def _render_ku_row(ku: Ku, pinned_uids: set[str]) -> Any:
@@ -286,18 +469,22 @@ def create_ku_ui_routes(
         ku_service: KuService (services.ku) — NOT PsService.
         user_relationship_service: UserRelationshipService for pinned Kus.
         exercises_service: Exercise service (for REQUIRES_KNOWLEDGE reverse lookup).
+
+    Routes registered:
+        GET  /ku                  — Knowledge index with search panel + sidebar
+        GET  /api/ku/search       — HTMX fragment: filtered Ku list
+        GET  /ku/{uid}            — Ku detail page
+        POST /api/ku/{uid}/mark-* — Learning state mutations
     """
 
     # -----------------------------------------------------------------
     # GET /ku — Knowledge index
     # -----------------------------------------------------------------
 
-    @rt("/ku")
-    async def ku_index(request: Request) -> Any:
-        """Main Ku index — flat listing with bookmarks/latest sidebar."""
-        from ui.patterns.page_header import PageHeader
-
-        # Fetch all Kus
+    async def _load_ku_index_data(
+        request: Request,
+    ) -> tuple[list[Ku], bool, set[str], list[Ku], list[Ku], list[Ku]]:
+        """Load all Ku index data — Kus, pinned UIDs, and learning states."""
         kus: list[Ku] = []
         ku_load_error = False
         if ku_service and getattr(ku_service, "core", None):
@@ -308,7 +495,6 @@ def create_ku_ui_routes(
             elif result.value:
                 kus = result.value
 
-        # Per-user data: bookmarks + learning states
         pinned_uids: set[str] = set()
         pinned_kus: list[Ku] = []
         studying_kus: list[Ku] = []
@@ -318,7 +504,6 @@ def create_ku_ui_routes(
         if is_authenticated(request):
             user_uid = require_authenticated_user(request)
 
-            # Bookmarks
             if user_relationship_service:
                 pins_result = await user_relationship_service.get_pinned_entities(user_uid)
                 if pins_result.is_error:
@@ -326,7 +511,6 @@ def create_ku_ui_routes(
                 elif pins_result.value:
                     pinned_uids = set(pins_result.value)
 
-            # Learning states (Studying / Understood sidebar sections)
             if ku_service:
                 states_result = await ku_service.get_user_learning_states(user_uid)
                 if states_result.is_ok and states_result.value:
@@ -340,25 +524,44 @@ def create_ku_ui_routes(
                             studying_kus.append(ku_obj)
 
         pinned_kus = [ku_by_uid[uid] for uid in pinned_uids if uid in ku_by_uid]
+        return kus, ku_load_error, pinned_uids, pinned_kus, studying_kus, understood_kus
 
-        # Latest Kus (first 5 from the list)
+    @rt("/ku")
+    async def ku_index(request: Request) -> Any:
+        """Main Ku index — search panel + flat listing with bookmarks/latest sidebar."""
+        from ui.patterns.page_header import PageHeader
+
+        kus, ku_load_error, pinned_uids, pinned_kus, studying_kus, understood_kus = (
+            await _load_ku_index_data(request)
+        )
+
         latest_kus = kus[:5]
 
-        # Build sidebar
+        # Collect filter facets from loaded Kus
+        all_tags = sorted(
+            {t for ku in kus for t in (ku.tags or ())} - {""}
+        )
+        namespaces = sorted({ku.namespace for ku in kus if ku.namespace})
+        categories = sorted({ku.ku_category for ku in kus if ku.ku_category})
+
+        # Suggestions: studying first, then bookmarked, up to 8 total
+        suggested_kus = (studying_kus + pinned_kus)[:8]
+
         sidebar_items, extra_sections = _build_sidebar_items(
             pinned_kus, latest_kus, studying_kus, understood_kus
         )
 
-        # Build main content — flat listing
         if ku_load_error:
-            ku_list = render_error_banner("Unable to load knowledge units. Please try again later.")
+            ku_list_content: Any = render_error_banner(
+                "Unable to load knowledge units. Please try again later."
+            )
         elif kus:
-            ku_list = Ul(
+            ku_list_content = Ul(
                 *[_render_ku_row(ku, pinned_uids) for ku in kus],
                 cls="list-none p-0",
             )
         else:
-            ku_list = Div(
+            ku_list_content = Div(
                 P(
                     "No knowledge units yet. Ingest Ku YAML files to populate this page.",
                     cls="text-muted-foreground italic py-8 text-center",
@@ -366,11 +569,9 @@ def create_ku_ui_routes(
             )
 
         content = Div(
-            PageHeader(
-                "Knowledge",
-                subtitle="Atomic knowledge units",
-            ),
-            ku_list,
+            PageHeader("Knowledge", subtitle="Atomic knowledge units"),
+            _render_ku_search_panel(all_tags, namespaces, categories, suggested_kus),
+            Div(ku_list_content, id="ku-list"),
         )
 
         return await SidebarPage(
@@ -385,6 +586,39 @@ def create_ku_ui_routes(
             request=request,
             active_page="knowledge",
             title_href="/ku",
+        )
+
+    # -----------------------------------------------------------------
+    # GET /api/ku/search — HTMX fragment: filtered Ku list
+    # -----------------------------------------------------------------
+
+    @rt("/api/ku/search")
+    async def ku_search(
+        request: Request,
+        q: str = "",
+        namespace: str = "",
+        ku_type: str = "",
+        tag: str = "",
+        sort: str = "title",
+    ) -> Any:
+        """Return filtered Ku list HTML fragment for HTMX swap into #ku-list."""
+        kus, _error, pinned_uids, _pinned, _studying, _understood = (
+            await _load_ku_index_data(request)
+        )
+
+        filtered = _filter_kus(kus, q.strip(), namespace, ku_type, tag, sort)
+
+        if not filtered:
+            return Div(
+                P(
+                    "No knowledge units match your search.",
+                    cls="text-muted-foreground italic py-8 text-center",
+                ),
+            )
+
+        return Ul(
+            *[_render_ku_row(ku, pinned_uids) for ku in filtered],
+            cls="list-none p-0",
         )
 
     # -----------------------------------------------------------------
@@ -562,7 +796,7 @@ def create_ku_ui_routes(
         return _ku_learning_buttons(uid, is_studying=True, is_understood=True)
 
     logger.info(
-        "Ku UI routes registered: /ku, /ku/{uid}, "
+        "Ku UI routes registered: /ku, /api/ku/search, /ku/{uid}, "
         "/api/ku/{uid}/mark-studying, /api/ku/{uid}/mark-understood"
     )
 
