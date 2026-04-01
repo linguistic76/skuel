@@ -154,6 +154,11 @@ def _exercise_item(row: "ExerciseStatusRow") -> Div:
                 cls="text-sm font-medium text-foreground hover:text-primary hover:underline ml-2 mr-auto",
             ),
             Span(status_label, cls=status_cls),
+            A(
+                "Download",
+                href=f"/api/exercises/md?uid={row['uid']}",
+                cls="text-xs text-muted-foreground hover:underline shrink-0",
+            ),
             _exercise_action_link(row),
             cls="flex items-center gap-2",
         ),

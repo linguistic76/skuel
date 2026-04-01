@@ -225,12 +225,12 @@ def create_exercises_api_routes(
 
         return await exercises_service.get_exercises_for_curriculum(curriculum_uid)
 
-    @rt("/api/exercises/pdf")
-    async def download_exercise_pdf(request, uid: str) -> Any:
-        """Download an exercise as a printable PDF worksheet."""
+    @rt("/api/exercises/md")
+    async def download_exercise_md(request, uid: str) -> Any:
+        """Download an exercise as a Markdown worksheet (.md)."""
         from starlette.responses import Response
 
-        from adapters.outbound.exercise_renderer import render_exercise_pdf
+        from adapters.outbound.exercise_renderer import render_exercise_md
 
         require_authenticated_user(request)
 
@@ -242,24 +242,17 @@ def create_exercises_api_routes(
                 media_type="text/plain",
             )
 
-        try:
-            pdf_bytes = render_exercise_pdf(result.value)
-        except ImportError:
-            return Response(
-                content="PDF generation unavailable (WeasyPrint not installed)",
-                status_code=503,
-                media_type="text/plain",
-            )
+        md_content = render_exercise_md(result.value)
 
         safe_title = "".join(
             c if c.isalnum() or c in "-_" else "-"
             for c in (result.value.title or uid).lower().replace(" ", "-")
         ).strip("-")
-        filename = f"exercise-{safe_title}.pdf"
+        filename = f"exercise-{safe_title}.md"
 
         return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
+            content=md_content,
+            media_type="text/markdown",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 

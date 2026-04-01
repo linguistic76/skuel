@@ -555,7 +555,7 @@ def create_exercises_ui_routes(
             actions = Div(
                 ButtonLink(
                     "Download",
-                    href=f"/api/exercises/pdf?uid={exercise.uid}",
+                    href=f"/api/exercises/md?uid={exercise.uid}",
                     variant=ButtonT.ghost,
                 ),
                 ButtonLink(
