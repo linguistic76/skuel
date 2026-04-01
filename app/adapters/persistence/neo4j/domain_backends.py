@@ -1389,14 +1389,21 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     # ========================================================================
 
     async def get_exercise_context(self, exercise_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get exercise scope, teacher, group info for submission processing."""
+        """Get exercise scope, teacher, group info for submission processing.
+
+        Teacher is identified via the OWNS relationship — Exercise extends
+        Curriculum(Entity), not UserOwnedEntity, so exercise.user_uid is always
+        None in Neo4j. COALESCE falls back to the stored property for
+        RevisedExercise (UserOwnedEntity) and any future user-owned exercise types.
+        """
         query = """
         MATCH (exercise:Entity {uid: $exercise_uid})
         WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
+        OPTIONAL MATCH (teacher:User)-[:OWNS]->(exercise)
         OPTIONAL MATCH (exercise)-[:FOR_GROUP]->(g:Group)
         RETURN exercise.entity_type as exercise_entity_type,
                exercise.scope as scope,
-               exercise.user_uid as teacher_uid,
+               COALESCE(teacher.uid, exercise.user_uid) as teacher_uid,
                exercise.student_uid as student_uid,
                exercise.title as exercise_title,
                g.uid as group_uid

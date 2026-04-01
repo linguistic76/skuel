@@ -49,6 +49,7 @@ class ExerciseDTO(CurriculumDTO):
     # =========================================================================
     # EXERCISE-SPECIFIC FIELDS
     # =========================================================================
+    exercise_number: int | None = None
     instructions: str | None = None
     model: str = "claude-sonnet-4-6"
     scope: ExerciseScope = ExerciseScope.PERSONAL
@@ -74,6 +75,7 @@ class ExerciseDTO(CurriculumDTO):
 
         data.update(
             {
+                "exercise_number": self.exercise_number,
                 "instructions": self.instructions,
                 "model": self.model,
                 "scope": get_enum_value(self.scope),
@@ -184,6 +186,7 @@ class ExerciseDTO(CurriculumDTO):
                 "target_age_range",
                 "learning_objectives",
                 # Exercise-specific fields
+                "exercise_number",
                 "instructions",
                 "model",
                 "scope",

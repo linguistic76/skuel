@@ -659,6 +659,42 @@ class TestProcessExerciseSubmission:
         assert result.is_ok
         assert result.value is True
 
+    @pytest.mark.asyncio
+    async def test_no_teacher_uid_skips_auto_share(self):
+        """Exercise with no OWNS relationship (e.g. YAML-ingested) skips auto-share gracefully."""
+        backend = _make_backend()
+        backend.get_exercise_context = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "exercise_entity_type": "exercise",
+                        "scope": "assigned",
+                        "teacher_uid": None,  # no OWNS relationship → COALESCE returns None
+                        "student_uid": None,
+                        "exercise_title": "Group Exercise",
+                        "group_uid": "grp_1",
+                    }
+                ]
+            )
+        )
+        backend.verify_student_group_membership = AsyncMock(
+            return_value=Result.ok([{"student_uid": "user_1", "member_of_group": "grp_1"}])
+        )
+        backend.get_submission_owner = AsyncMock(
+            return_value=Result.ok([{"student_uid": "user_1"}])
+        )
+        backend.count_submissions_for_exercise = AsyncMock(return_value=Result.ok(0))
+        backend.update = AsyncMock(return_value=Result.ok(True))
+        backend.link_to_exercise = AsyncMock(return_value=Result.ok([{"success": True}]))
+        backend.auto_share_with_teacher = AsyncMock(return_value=Result.ok([{"success": True}]))
+        service = _make_service(backend=backend)
+
+        result = await service.process_exercise_submission("sub_1", "ex_1")
+
+        assert result.is_ok
+        assert result.value is True
+        backend.auto_share_with_teacher.assert_not_called()
+
 
 # ===========================================================================
 # D. Content Management

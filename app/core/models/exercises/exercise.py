@@ -115,8 +115,9 @@ class Exercise(Curriculum):
             object.__setattr__(self, "expected_modality", derived)
 
     # =========================================================================
-    # EXERCISE-SPECIFIC FIELDS (10)
+    # EXERCISE-SPECIFIC FIELDS (11)
     # =========================================================================
+    exercise_number: int | None = None  # Human-readable exercise number (set in YAML, embedded in downloaded .md)
     instructions: str | None = None  # LLM prompt for processing
     model: str = "claude-sonnet-4-6"  # Which LLM to use
     scope: ExerciseScope = ExerciseScope.PERSONAL

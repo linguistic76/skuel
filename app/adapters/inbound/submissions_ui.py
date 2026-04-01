@@ -60,6 +60,32 @@ from ui.submissions.sharing import render_sharing_section
 logger = get_logger("skuel.routes.submissions")
 
 
+def _parse_md_frontmatter(content: bytes) -> dict[str, str]:
+    """Parse simple YAML frontmatter from a Markdown file's bytes.
+
+    Reads the block between the opening and closing ``---`` lines and
+    returns a flat key→value mapping.  Only the scalar ``key: value``
+    lines produced by the exercise renderer are expected — no nested
+    structures or multi-line values.
+    """
+    try:
+        text = content.decode("utf-8", errors="replace")
+    except Exception:  # safety-net: malformed bytes should not crash upload
+        return {}
+    if not text.startswith("---"):
+        return {}
+    end = text.find("\n---", 3)
+    if end == -1:
+        return {}
+    block = text[3:end].strip()
+    result: dict[str, str] = {}
+    for line in block.splitlines():
+        if ":" in line:
+            key, _, val = line.partition(":")
+            result[key.strip()] = val.strip().strip('"').strip("'")
+    return result
+
+
 # ============================================================================
 # TYPED QUERY PARAMETERS
 # ============================================================================
@@ -127,7 +153,7 @@ def create_submissions_ui_routes(
         selected_exercise_uid = request.query_params.get("exercise_uid")
 
         content = Div(
-            PageHeader("Submit", subtitle="Upload a file linked to a Knowledge Unit"),
+            PageHeader("Submit", subtitle="Upload your completed exercise worksheet"),
             render_upload_form(assigned_exercises, selected_exercise_uid=selected_exercise_uid),
             upload_form_script(),
         )
@@ -189,17 +215,17 @@ def create_submissions_ui_routes(
                 id="submissions-yours-list",
             )
 
-    @rt("/upload")
+    @rt("/submissions/upload")
     async def upload_submission(request: Request) -> Any:
-        """HTMX endpoint for submission file upload (human review)."""
+        """HTMX endpoint for submission file upload (human review).
+
+        For .md files with YAML frontmatter (downloaded from /api/exercises/md),
+        exercise_uid and revision are read directly from the file — no extra
+        form fields required.
+        """
         try:
             form = await request.form()
             uploaded_file = form.get("file")
-            raw_identifier = form.get("identifier")
-            identifier = str(raw_identifier).strip() if raw_identifier else ""
-
-            if not identifier:
-                return render_upload_status("error", "Identifier is required", is_error=True)
 
             if not uploaded_file or not isinstance(uploaded_file, UploadFile):
                 return render_upload_status("error", "No file provided", is_error=True)
@@ -208,13 +234,33 @@ def create_submissions_ui_routes(
             file_content = await uploaded_file.read()
             filename = uploaded_file.filename or "unknown"
 
-            logger.info(
-                f"Report upload: {filename} ({len(file_content)} bytes, identifier={identifier})"
-            )
+            # Parse YAML frontmatter from .md files (exercise worksheets)
+            frontmatter: dict[str, str] = {}
+            if filename.endswith(".md"):
+                frontmatter = _parse_md_frontmatter(file_content)
 
+            # exercise_uid: form selector wins; fallback to frontmatter
             raw_exercise_uid = form.get("fulfills_exercise_uid")
             fulfills_exercise_uid = (
                 str(raw_exercise_uid).strip() or None if raw_exercise_uid else None
+            ) or frontmatter.get("exercise_uid") or None
+
+            # revision from frontmatter (default 1)
+            revision_str = frontmatter.get("revision", "1")
+            try:
+                revision_number = int(revision_str)
+            except ValueError:
+                revision_number = 1
+
+            submission_metadata: dict[str, Any] = {}
+            if frontmatter.get("exercise_number"):
+                submission_metadata["exercise_number"] = frontmatter["exercise_number"]
+            if revision_number != 1:
+                submission_metadata["revision_number"] = revision_number
+
+            logger.info(
+                f"Submission upload: {filename} ({len(file_content)} bytes, "
+                f"exercise={fulfills_exercise_uid}, revision={revision_number})"
             )
 
             result = await submissions_service.submit_file(
@@ -223,7 +269,7 @@ def create_submissions_ui_routes(
                 user_uid=user_uid,
                 entity_type=EntityType.EXERCISE_SUBMISSION,
                 processor_type=ProcessorType.HUMAN,
-                metadata={"identifier": identifier},
+                metadata=submission_metadata,
                 fulfills_exercise_uid=fulfills_exercise_uid,
             )
 

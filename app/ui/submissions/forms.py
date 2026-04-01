@@ -28,7 +28,12 @@ def render_upload_form(
     assigned_exercises: list[Any] | None = None,
     selected_exercise_uid: str | None = None,
 ) -> Any:
-    """Render the file upload form card with optional exercise selector."""
+    """Render the file upload form card with optional exercise selector.
+
+    When selected_exercise_uid is provided (deep-linked from an exercise page)
+    but the user has no assigned exercises to show in a dropdown, a hidden
+    field carries the UID so the submission still links to that exercise.
+    """
     exercise_section: Any = ""
     if assigned_exercises:
         exercise_options = [Option("None \u2014 standalone submission", value="")]
@@ -51,25 +56,18 @@ def render_upload_form(
             ),
             cls="mb-4",
         )
+    elif selected_exercise_uid:
+        # Deep-linked from an exercise page — carry the UID as a hidden field
+        exercise_section = Input(
+            type="hidden",
+            name="fulfills_exercise_uid",
+            value=selected_exercise_uid,
+        )
 
     return Card(
         CardBody(
             Form(
                 exercise_section,
-                Div(
-                    Label("Identifier", cls="label"),
-                    Input(
-                        type="text",
-                        name="identifier",
-                        placeholder="e.g. meditation-basics, yoga-101",
-                        required=True,
-                    ),
-                    P(
-                        "A short label linking this submission to a Knowledge Unit",
-                        cls="text-xs text-muted-foreground mt-1",
-                    ),
-                    cls="mb-4",
-                ),
                 Div(
                     Label(
                         Div(
@@ -85,7 +83,6 @@ def render_upload_form(
                             name="file",
                             accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
                             cls="hidden",
-                            required=True,
                         ),
                         cls="w-full cursor-pointer",
                     ),
@@ -101,7 +98,7 @@ def render_upload_form(
                 ),
                 Div(id="upload-status", cls="mt-4 text-center"),
                 **{
-                    "hx-post": "/upload",
+                    "hx-post": "/submissions/upload",
                     "hx-target": "#upload-status",
                     "hx-swap": "outerHTML",
                     "hx-encoding": "multipart/form-data",

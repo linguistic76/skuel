@@ -232,7 +232,7 @@ def create_exercises_api_routes(
 
         from adapters.outbound.exercise_renderer import render_exercise_md
 
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
 
         result = await exercises_service.get_exercise(uid)
         if result.is_error or not result.value:
@@ -242,7 +242,7 @@ def create_exercises_api_routes(
                 media_type="text/plain",
             )
 
-        md_content = render_exercise_md(result.value)
+        md_content = render_exercise_md(result.value, user_uid=user_uid)
 
         safe_title = "".join(
             c if c.isalnum() or c in "-_" else "-"

@@ -52,19 +52,23 @@ def _field_block_md(field: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def render_exercise_md(exercise: Exercise) -> str:
+def render_exercise_md(exercise: Exercise, user_uid: str | None = None) -> str:
     """
-    Render an exercise to a Markdown string.
+    Render an exercise to a Markdown worksheet.
 
-    Produces a clean worksheet students can fill in directly — metadata
-    header, description, response fields with blank space, and feedback
-    instructions. Plain text, no dependencies.
+    Produces a file students download, fill in, and submit back. The YAML
+    frontmatter carries submission metadata (exercise_uid, exercise_number,
+    user_uid, revision) so the upload handler can route the submission
+    automatically — no Identifier field needed on the submit form.
 
     Args:
         exercise: Exercise domain model
+        user_uid: Authenticated user's UID — pre-filled in the frontmatter
+            so the student doesn't have to look it up. Pass None to emit a
+            placeholder string instead.
 
     Returns:
-        Markdown document string
+        Markdown document string with YAML frontmatter
     """
     today = date.today().isoformat()
     title = exercise.title or exercise.uid
@@ -81,6 +85,18 @@ def render_exercise_md(exercise: Exercise) -> str:
         meta_parts.append(f"{exercise.estimated_time_minutes} min")
 
     sections: list[str] = []
+
+    # YAML frontmatter — submission metadata the upload handler reads back
+    uid_value = user_uid or "your_user_uid_here"
+    num_value = str(exercise.exercise_number) if exercise.exercise_number is not None else ""
+    sections.append("---")
+    sections.append(f"exercise_uid: {exercise.uid}")
+    if num_value:
+        sections.append(f"exercise_number: {num_value}")
+    sections.append(f"user_uid: {uid_value}")
+    sections.append("revision: 1")
+    sections.append("---")
+    sections.append("")
 
     # Header
     sections.append(f"# {title}")

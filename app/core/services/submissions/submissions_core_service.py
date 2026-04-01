@@ -980,13 +980,17 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if fulfills_result.is_error:
             self.logger.warning(f"Failed to create FULFILLS_EXERCISE: {fulfills_result.error}")
 
-        # 2. Auto-share with teacher
-        share_result = await self.backend.auto_share_with_teacher(  # type: ignore[attr-defined]
-            teacher_uid, submission_uid, datetime.now().isoformat()
-        )
-
-        if share_result.is_error:
-            self.logger.warning(f"Failed to auto-share with teacher: {share_result.error}")
+        # 2. Auto-share with teacher (skipped for exercises with no owner, e.g. YAML-ingested)
+        if teacher_uid:
+            share_result = await self.backend.auto_share_with_teacher(  # type: ignore[attr-defined]
+                teacher_uid, submission_uid, datetime.now().isoformat()
+            )
+            if share_result.is_error:
+                self.logger.warning(f"Failed to auto-share with teacher: {share_result.error}")
+        else:
+            self.logger.info(
+                f"Exercise {exercise_uid} has no teacher owner — skipping auto-share"
+            )
 
         self.logger.info(
             f"Exercise submission processed: submission={submission_uid} -> exercise={exercise_uid}, "
