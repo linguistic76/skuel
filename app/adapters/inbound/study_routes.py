@@ -68,15 +68,12 @@ def create_study_routes(
     # Reports Hub UI — /reports (standalone tabs, kept for direct access)
     create_reports_ui_routes(app, rt)
 
-    # Library Hub UI — /library (unified: Curriculum + Resources + Reports)
+    # Library Hub UI — /library (unified: Exercises + Resources + Reports)
     create_library_ui_routes(
         app,
         rt,
-        ku_service=getattr(services, "ku", None),
-        ps_service=getattr(services, "ps", None),
         exercises_service=getattr(services, "exercises", None),
         resource_service=getattr(services, "resource", None),
-        user_service=getattr(services, "user_service", None),
     )
 
     logger.info("Study routes wired (submissions + reports + library hub)")
