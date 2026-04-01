@@ -7,6 +7,7 @@ import pytest
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.services.submissions.submissions_core_service import (
+    ProcessingOutcome,
     ReportCategory,
     SubmissionsCoreService,
 )
@@ -461,7 +462,7 @@ class TestProcessExerciseSubmission:
         result = await service.process_exercise_submission("sub_1", "ex_1")
 
         assert result.is_ok
-        assert result.value is True
+        assert result.value == ProcessingOutcome.PROCESSED
 
     @pytest.mark.asyncio
     async def test_not_assigned_scope_returns_false(self):
@@ -485,7 +486,7 @@ class TestProcessExerciseSubmission:
         result = await service.process_exercise_submission("sub_1", "ex_1")
 
         assert result.is_ok
-        assert result.value is False
+        assert result.value == ProcessingOutcome.NOT_ASSIGNED
 
     @pytest.mark.asyncio
     async def test_exercise_not_found(self):
@@ -496,7 +497,7 @@ class TestProcessExerciseSubmission:
         result = await service.process_exercise_submission("sub_1", "ex_missing")
 
         assert result.is_ok
-        assert result.value is False
+        assert result.value == ProcessingOutcome.NOT_EXERCISE
 
     @pytest.mark.asyncio
     async def test_query_failure_returns_false(self):
@@ -509,7 +510,7 @@ class TestProcessExerciseSubmission:
         result = await service.process_exercise_submission("sub_1", "ex_1")
 
         assert result.is_ok
-        assert result.value is False
+        assert result.value == ProcessingOutcome.NOT_EXERCISE
 
     @pytest.mark.asyncio
     async def test_revised_exercise_path(self):
@@ -540,7 +541,7 @@ class TestProcessExerciseSubmission:
         result = await service.process_exercise_submission("sub_1", "re_1")
 
         assert result.is_ok
-        assert result.value is True
+        assert result.value == ProcessingOutcome.PROCESSED
 
     @pytest.mark.asyncio
     async def test_wrong_student_for_revised_exercise(self):
@@ -568,7 +569,7 @@ class TestProcessExerciseSubmission:
         result = await service.process_exercise_submission("sub_1", "re_1")
 
         assert result.is_ok
-        assert result.value is False
+        assert result.value == ProcessingOutcome.WRONG_STUDENT
 
     @pytest.mark.asyncio
     async def test_not_in_group(self):
@@ -596,7 +597,7 @@ class TestProcessExerciseSubmission:
         result = await service.process_exercise_submission("sub_1", "ex_1")
 
         assert result.is_ok
-        assert result.value is False
+        assert result.value == ProcessingOutcome.NOT_IN_GROUP
 
     @pytest.mark.asyncio
     async def test_auto_title_generated(self):
@@ -628,7 +629,7 @@ class TestProcessExerciseSubmission:
         result = await service.process_exercise_submission("sub_1", "ex_1")
 
         assert result.is_ok
-        assert result.value is True
+        assert result.value == ProcessingOutcome.PROCESSED
         # Title update should have been called
         backend.update.assert_awaited()
 
@@ -657,7 +658,7 @@ class TestProcessExerciseSubmission:
         result = await service.process_exercise_submission("sub_1", "ex_1")
 
         assert result.is_ok
-        assert result.value is True
+        assert result.value == ProcessingOutcome.PROCESSED
 
     @pytest.mark.asyncio
     async def test_no_teacher_uid_skips_auto_share(self):
@@ -692,7 +693,7 @@ class TestProcessExerciseSubmission:
         result = await service.process_exercise_submission("sub_1", "ex_1")
 
         assert result.is_ok
-        assert result.value is True
+        assert result.value == ProcessingOutcome.NO_TEACHER
         backend.auto_share_with_teacher.assert_not_called()
 
 

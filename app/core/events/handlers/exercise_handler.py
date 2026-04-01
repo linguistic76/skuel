@@ -12,9 +12,13 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
 from core.events.submission_events import SubmissionCreated
+from core.services.submissions.submissions_core_service import ProcessingOutcome
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.events.exercise_handler")
+
+# Outcomes that indicate a genuine configuration problem the teacher should know about.
+_WARN_OUTCOMES = {ProcessingOutcome.NO_TEACHER, ProcessingOutcome.NOT_IN_GROUP}
 
 
 async def handle_exercise_submission(
@@ -25,10 +29,14 @@ async def handle_exercise_submission(
     Handle SubmissionCreated events that fulfill an exercise.
 
     When fulfills_exercise_uid is present, delegates to
-    reports_core_service.process_exercise_submission() which:
-    1. Creates FULFILLS_EXERCISE relationship
-    2. Auto-shares with teacher via SHARES_WITH
-    3. Sets status to SUBMITTED if processor_type is HUMAN
+    reports_core_service.process_exercise_submission() and logs the
+    outcome at the appropriate level:
+      PROCESSED      → info  (success)
+      NOT_ASSIGNED   → debug (expected no-op for personal/assessment exercises)
+      NOT_EXERCISE   → debug (exercise uid not found — probably a stale uid)
+      NO_TEACHER     → warning (exercise has no owner; submission not routed)
+      NOT_IN_GROUP   → warning (student not in the exercise's group)
+      WRONG_STUDENT  → warning (RevisedExercise targets a different student)
 
     Args:
         event: The SubmissionCreated event
@@ -37,11 +45,6 @@ async def handle_exercise_submission(
     if not event.fulfills_exercise_uid:
         return
 
-    logger.info(
-        f"Exercise submission detected: submission={event.submission_uid} "
-        f"-> exercise={event.fulfills_exercise_uid}"
-    )
-
     result = await reports_core_service.process_exercise_submission(  # type: ignore[attr-defined]
         submission_uid=event.submission_uid,
         exercise_uid=event.fulfills_exercise_uid,
@@ -49,11 +52,18 @@ async def handle_exercise_submission(
 
     if result.is_error:
         logger.error(
-            f"Failed to process exercise submission: submission={event.submission_uid}, "
-            f"exercise={event.fulfills_exercise_uid}, error={result.error}"
+            f"process_exercise_submission error: submission={event.submission_uid} "
+            f"exercise={event.fulfills_exercise_uid} error={result.error}"
         )
-    elif result.value:
-        logger.info(
-            f"Exercise submission processed: submission={event.submission_uid} "
-            f"-> exercise={event.fulfills_exercise_uid}"
-        )
+        return
+
+    outcome = result.value
+    ctx = f"submission={event.submission_uid} exercise={event.fulfills_exercise_uid}"
+
+    if outcome == ProcessingOutcome.PROCESSED:
+        logger.info(f"Exercise submission routed to teacher queue: {ctx}")
+    elif outcome in _WARN_OUTCOMES:
+        logger.warning(f"Exercise submission not routed [{outcome}]: {ctx}")
+    else:
+        # NOT_EXERCISE, NOT_ASSIGNED, WRONG_STUDENT — expected no-ops
+        logger.debug(f"Exercise submission skipped [{outcome}]: {ctx}")

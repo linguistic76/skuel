@@ -121,7 +121,36 @@ class ReportCategory:
         ]
 
 
+class ProcessingOutcome(str):
+    """
+    Outcome token returned by process_exercise_submission().
+
+    Use string constants rather than an Enum so callers can log/compare without
+    importing an extra enum type.  The value is the human-readable reason.
+
+    Expected no-ops (debug/info):
+        NOT_EXERCISE     — exercise_uid not found or wrong entity_type
+        NOT_ASSIGNED     — exercise scope is not 'assigned' (e.g. personal/assessment)
+
+    Configuration problems (info/warning — teacher should know):
+        NO_TEACHER       — exercise has no OWNS relationship; can't route to anyone
+        NOT_IN_GROUP     — student is not a member of the exercise's target group
+        WRONG_STUDENT    — RevisedExercise targets a different student
+
+    Success:
+        PROCESSED        — FULFILLS_EXERCISE + SHARES_WITH created
+    """
+
+    NOT_EXERCISE: str = "not_exercise"
+    NOT_ASSIGNED: str = "not_assigned"
+    NO_TEACHER: str = "no_teacher"
+    NOT_IN_GROUP: str = "not_in_group"
+    WRONG_STUDENT: str = "wrong_student"
+    PROCESSED: str = "processed"
+
+
 __all__ = [
+    "ProcessingOutcome",
     "ReportCategory",
     "SubmissionsCoreService",
 ]
@@ -861,7 +890,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         self,
         submission_uid: str,
         exercise_uid: str,
-    ) -> Result[bool]:
+    ) -> Result[str]:
         """
         Process an entity submitted against an ASSIGNED Exercise.
 
@@ -869,27 +898,28 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         1. Create FULFILLS_EXERCISE relationship
         2. Look up the exercise's owner (teacher)
         3. Auto-create SHARES_WITH from teacher to submission
-        4. Set submission status to SUBMITTED if processor_type is HUMAN
 
-        Called by routes after submission creation when exercise_uid is provided.
+        Called by the exercise event handler after SubmissionCreated is published.
 
         Args:
             submission_uid: The submitted submission UID
             exercise_uid: The Exercise UID this submission fulfills
 
         Returns:
-            Result[bool]: True if exercise processing was applied
+            Result[str]: A ProcessingOutcome constant describing what happened.
+            The caller is responsible for logging non-PROCESSED outcomes at the
+            appropriate level (info for expected no-ops, warning for config problems).
         """
         # Check if the exercise is ASSIGNED scope and get group info
         exercise_result = await self.backend.get_exercise_context(exercise_uid)  # type: ignore[attr-defined]
 
         if exercise_result.is_error:
             self.logger.error(f"Error querying exercise: {exercise_result.error}")
-            return Result.ok(False)  # Non-fatal
+            return Result.ok(ProcessingOutcome.NOT_EXERCISE)
 
         records = exercise_result.value or []
         if not records:
-            return Result.ok(False)  # Exercise not found — not an error
+            return Result.ok(ProcessingOutcome.NOT_EXERCISE)
 
         exercise_entity_type = records[0]["exercise_entity_type"]
         teacher_uid = records[0]["teacher_uid"]
@@ -899,33 +929,27 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             # RevisedExercise path: always "assigned", targets a specific student
             re_student_uid = records[0]["student_uid"]
 
-            # Verify submitting student matches the targeted student
             submitter_result = await self.backend.get_submission_owner(submission_uid)  # type: ignore[attr-defined]
             if submitter_result.is_error:
                 self.logger.error(f"Error querying submitter: {submitter_result.error}")
-                return Result.ok(False)
+                return Result.ok(ProcessingOutcome.NOT_EXERCISE)
 
             submitter_records = submitter_result.value or []
             if not submitter_records:
-                return Result.ok(False)
+                return Result.ok(ProcessingOutcome.NOT_EXERCISE)
 
             submitter_uid = submitter_records[0]["student_uid"]
             if submitter_uid != re_student_uid:
-                self.logger.warning(
-                    f"Student {submitter_uid} submitted against RevisedExercise "
-                    f"{exercise_uid} targeting {re_student_uid}"
-                )
-                return Result.ok(False)
+                return Result.ok(ProcessingOutcome.WRONG_STUDENT)
             # Skip group membership check — RevisedExercises target students directly
         else:
             # Standard Exercise path: check scope and group membership
             scope = records[0]["scope"]
             if scope != ExerciseScope.ASSIGNED:
-                return Result.ok(False)  # Not an assigned exercise
+                return Result.ok(ProcessingOutcome.NOT_ASSIGNED)
 
             group_uid = records[0]["group_uid"]
 
-            # Verify student is a member of the target group (if group exists)
             if group_uid:
                 student_result = await self.backend.verify_student_group_membership(  # type: ignore[attr-defined]
                     submission_uid, group_uid
@@ -933,16 +957,11 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
 
                 if student_result.is_error:
                     self.logger.error(f"Error verifying student membership: {student_result.error}")
-                    return Result.ok(False)
+                    return Result.ok(ProcessingOutcome.NOT_IN_GROUP)
 
                 student_records = student_result.value or []
                 if student_records and not student_records[0]["member_of_group"]:
-                    student_uid = student_records[0]["student_uid"]
-                    self.logger.warning(
-                        f"Student {student_uid} is not a member of group {group_uid} "
-                        f"for exercise {exercise_uid}"
-                    )
-                    return Result.ok(False)
+                    return Result.ok(ProcessingOutcome.NOT_IN_GROUP)
 
         # 0. Auto-generate canonical title from exercise
         if exercise_title:
@@ -952,7 +971,6 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                 if student_uid_records:
                     submitter_uid = student_uid_records[0]["student_uid"]
 
-                    # Count prior submissions already linked to this exercise by this student
                     prior_count_result = await self.backend.count_submissions_for_exercise(  # type: ignore[attr-defined]
                         submitter_uid, exercise_uid
                     )
@@ -980,23 +998,18 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if fulfills_result.is_error:
             self.logger.warning(f"Failed to create FULFILLS_EXERCISE: {fulfills_result.error}")
 
-        # 2. Auto-share with teacher (skipped for exercises with no owner, e.g. YAML-ingested)
-        if teacher_uid:
-            share_result = await self.backend.auto_share_with_teacher(  # type: ignore[attr-defined]
-                teacher_uid, submission_uid, datetime.now().isoformat()
-            )
-            if share_result.is_error:
-                self.logger.warning(f"Failed to auto-share with teacher: {share_result.error}")
-        else:
-            self.logger.info(
-                f"Exercise {exercise_uid} has no teacher owner — skipping auto-share"
-            )
+        # 2. Auto-share with teacher
+        if not teacher_uid:
+            # Exercise has no OWNS relationship (e.g. YAML-ingested without a teacher)
+            return Result.ok(ProcessingOutcome.NO_TEACHER)
 
-        self.logger.info(
-            f"Exercise submission processed: submission={submission_uid} -> exercise={exercise_uid}, "
-            f"teacher={teacher_uid}"
+        share_result = await self.backend.auto_share_with_teacher(  # type: ignore[attr-defined]
+            teacher_uid, submission_uid, datetime.now().isoformat()
         )
-        return Result.ok(True)
+        if share_result.is_error:
+            self.logger.warning(f"Failed to auto-share with teacher: {share_result.error}")
+
+        return Result.ok(ProcessingOutcome.PROCESSED)
 
     # ========================================================================
     # ASSESSMENT DELEGATION (→ AssessmentService)
