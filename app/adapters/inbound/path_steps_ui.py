@@ -13,6 +13,7 @@ from typing import Any
 from fasthtml.common import H3, Div, Li, NotStr, P, Request, Ul
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
+from core.models.pathways.path_step import PathStep
 from core.services.ps_service import PsService
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
@@ -21,10 +22,10 @@ from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.relationships import EntityRelationshipsSection
+from ui.patterns.sidebar import SidebarItem, SidebarLink, SidebarPage
 
 logger = get_logger("skuel.routes.path_steps.ui")
 
@@ -118,6 +119,17 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
                 state_result.value.state.value == "in_progress" if state_result.is_ok else False
             )
             is_mastered = state_result.value.state.value == "mastered" if state_result.is_ok else False
+
+        # Sidebar — in-progress path steps for contextual navigation
+        sidebar_steps: list[PathStep] = []
+        if user_uid:
+            in_progress_result = await ps_service.mastery.get_in_progress_step_uids(user_uid)
+            if in_progress_result.is_ok and in_progress_result.value:
+                in_progress_uids = [u for u in in_progress_result.value if u != uid][:5]
+                if in_progress_uids:
+                    batch_result = await ps_service.get_steps_batch(in_progress_uids)
+                    if batch_result.is_ok and batch_result.value:
+                        sidebar_steps = list(batch_result.value)
 
         # Render markdown with TOC
         content_html, toc_html = render_markdown_with_toc(content_body or "")
@@ -220,7 +232,7 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
             Div(tags_section, cls="border-t border-border pt-6 mt-8") if step.tags else Div(),
             # Lateral relationships
             EntityRelationshipsSection(entity_uid=uid, entity_type="ps"),
-            cls="flex-1 min-w-0 max-w-4xl mx-auto px-6 lg:px-8 py-4 lg:py-6",
+            cls="flex-1 min-w-0 max-w-4xl",
         )
 
         if has_toc:
@@ -235,16 +247,40 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
                 ),
                 cls="hidden lg:block w-56 shrink-0 border-l border-border",
             )
-            content = Div(main_column, toc_sidebar, cls="flex")
+            content = Div(main_column, toc_sidebar, cls="flex gap-6")
         else:
             content = main_column
 
-        return await BasePage(
+        ps_sidebar_items = [SidebarItem(label="All Path Steps", href="/path-steps", slug="all")]
+        ps_sidebar_extra = []
+        if sidebar_steps:
+            ps_sidebar_extra.append(
+                Li(
+                    P(
+                        "In Progress",
+                        cls="text-xs font-semibold uppercase text-muted-foreground px-4 pt-3 pb-1",
+                    ),
+                    Ul(
+                        *[
+                            SidebarLink(text=s.title, href=f"/path-steps/{s.uid}/details")
+                            for s in sidebar_steps
+                        ],
+                        cls="list-none p-0",
+                    ),
+                )
+            )
+
+        return await SidebarPage(
             content=content,
-            title=step.title,
+            items=ps_sidebar_items,
+            active="all",
+            title="Path Steps",
+            storage_key="ps-detail-sidebar",
+            extra_sidebar_sections=ps_sidebar_extra or None,
+            page_title=step.title,
             request=request,
             active_page="pathways",
-            page_type=PageType.CUSTOM,
+            title_href="/path-steps",
         )
 
     # ========================================================================

@@ -30,13 +30,13 @@ from ui.exercises.inline_form import render_inline_exercise_form
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.patterns.page_header import PageHeader
+from ui.patterns.sidebar import SidebarItem, SidebarLink, SidebarPage
 
 logger = get_logger("skuel.routes.ku.ui")
 
@@ -619,6 +619,20 @@ def create_ku_ui_routes(
                 if pins_result.is_ok and pins_result.value:
                     is_pinned = uid in set(pins_result.value)
 
+        # Sidebar — studying KUs for contextual navigation
+        sidebar_kus: list[Ku] = []
+        if user_uid and ku_service:
+            studying_uids_result = await ku_service.get_studying_ku_uids(user_uid)
+            if studying_uids_result.is_ok and studying_uids_result.value:
+                for studying_uid in studying_uids_result.value[:6]:
+                    if studying_uid == uid:
+                        continue
+                    ku_r = await ku_service.get_ku(studying_uid)
+                    if ku_r.is_ok and ku_r.value:
+                        sidebar_kus.append(ku_r.value)
+                    if len(sidebar_kus) >= 5:
+                        break
+
         # Render markdown content with TOC
         content_html, toc_html = render_markdown_with_toc(content_body)
         has_toc = bool(toc_html and toc_html.strip())
@@ -703,7 +717,7 @@ def create_ku_ui_routes(
                 EntityRelationshipsSection(entity_uid=uid, entity_type="ku"),
                 cls="mt-8",
             ),
-            cls="flex-1 min-w-0 max-w-4xl mx-auto px-6 lg:px-8 py-4 lg:py-6",
+            cls="flex-1 min-w-0 max-w-4xl",
         )
 
         if has_toc:
@@ -715,16 +729,37 @@ def create_ku_ui_routes(
                 ),
                 cls="hidden lg:block w-56 shrink-0 border-l border-border",
             )
-            content = Div(main_column, toc_sidebar, cls="flex")
+            content = Div(main_column, toc_sidebar, cls="flex gap-6")
         else:
             content = main_column
 
-        return await BasePage(
+        ku_sidebar_items = [SidebarItem(label="All Knowledge", href="/ku", slug="all")]
+        ku_sidebar_extra = []
+        if sidebar_kus:
+            ku_sidebar_extra.append(
+                Li(
+                    P(
+                        "Studying",
+                        cls="text-xs font-semibold uppercase text-muted-foreground px-4 pt-3 pb-1",
+                    ),
+                    Ul(
+                        *[SidebarLink(text=k.title, href=f"/ku/{k.uid}") for k in sidebar_kus],
+                        cls="list-none p-0",
+                    ),
+                )
+            )
+
+        return await SidebarPage(
             content=content,
-            title=ku.title,
+            items=ku_sidebar_items,
+            active="all",
+            title="Knowledge",
+            storage_key="ku-detail-sidebar",
+            extra_sidebar_sections=ku_sidebar_extra or None,
+            page_title=ku.title,
             request=request,
             active_page="knowledge",
-            page_type=PageType.CUSTOM,
+            title_href="/ku",
         )
 
     # -----------------------------------------------------------------
