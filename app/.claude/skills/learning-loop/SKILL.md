@@ -229,6 +229,7 @@ processed and then evaluated. Two leaf types share the same base model.
 **Model:** `ExerciseSubmission(Submission)` — frozen dataclass
 **Base:** `core/models/submissions/submission.py` — `Submission(UserOwnedEntity)`
 **Neo4j labels:** `:Entity:ExerciseSubmission:Submission`
+**UID prefix:** `es_` (e.g. `es_a1b2c3d4`)
 
 > **Note:** Journals (JE_INPUT/JE_OUTPUT) were extracted to a standalone domain in March 2026.
 > They are no longer submissions. See `core/models/journal/`, `core/services/journal/`.
@@ -254,6 +255,19 @@ modality: SubmissionModality | None  # FILE_UPLOAD | STRUCTURED_FORM (None for l
 
 # Subject (for feedback entities only)
 subject_uid: str | None          # UID of the submission being evaluated
+
+# Derivation chain — set at creation, no graph query needed
+parent_entity_uid: str | None    # UID of the Exercise or RevisedExercise this fulfills.
+                                  # Mirror of the FULFILLS_EXERCISE graph edge. Both
+                                  # submit_file() and submit_form() set this automatically
+                                  # from fulfills_exercise_uid.
+
+# Revision tracking — set at creation, no graph query needed
+revision_number: int             # Which attempt against this exercise (1 = first, 2 = second, ...).
+                                  # Auto-computed by process_exercise_submission() as
+                                  # prior_submission_count + 1 for this student×exercise pair.
+                                  # Written to DB alongside the auto-generated title.
+                                  # Default: 1 (for submissions not linked to an exercise).
 ```
 
 **SubmissionModality vs ProcessorType:** `SubmissionModality` records *how* the submission was
@@ -274,16 +288,26 @@ Student uploads file                      Student fills form in lesson page
 SubmissionsService.submit_file()          SubmissionsService.submit_form()
  → file stored to disk                    → form_data in metadata + processed_content
  → Entity with status: SUBMITTED          → Entity with status: SUBMITTED
+ → parent_entity_uid = exercise_uid  ←→   → parent_entity_uid = exercise_uid
         ↓                                         ↓
 Route by MIME type:                       (no processing needed — data is structured)
   audio/* → TranscriptionService                  ↓
   text/*  → Read raw content              ┌───────┘
         ↓                                 ↓
 Status: PROCESSING → COMPLETED      SubmissionCreated event fires:
-        ↓                             FULFILLS_EXERCISE (Submission → Exercise)
-SubmissionCreated event fires:        SHARES_WITH {role: 'teacher'} (if ASSIGNED)
-  Same as form path →
+        ↓                             process_exercise_submission() called:
+SubmissionCreated event fires:          → FULFILLS_EXERCISE (Submission → Exercise)
+  Same as form path →                   → SHARES_WITH {role: 'teacher'} (if ASSIGNED)
+                                        → revision_number written to DB
+                                        → canonical title written to DB
 ```
+
+> **Derivation chain:** `parent_entity_uid` is set on the model at creation time in both
+> `submit_file()` and `submit_form()` — it equals the `fulfills_exercise_uid`. The
+> `FULFILLS_EXERCISE` graph edge and `parent_entity_uid` carry the same information: the
+> graph edge for Cypher traversals, the model field for Python-layer queries. `revision_number`
+> is set in `process_exercise_submission()` (called after creation) and equals
+> `prior_submission_count + 1` for that student×exercise pair.
 
 **Status transition enforcement:**
 `SubmissionsService.update_submission_status()` validates every status change via
@@ -490,6 +514,7 @@ Lesson → Exercise v1 → Submission v1 → ExerciseReport v1
 - `revision_number` auto-determined from existing chain length
 - `feedback_points: tuple[FeedbackPoint, ...]` — typed feedback using `FeedbackCategory` enum (ACCURACY, COMPLETENESS, DEPTH, CLARITY, APPLICATION, METHODOLOGY) + free-text detail. Enables pattern tracking across submissions.
 - `expected_modality` and `submission_uid` auto-resolved by service on creation — teacher doesn't provide these
+- `parent_entity_uid` set to `report_uid` at `create()` time — the ExerciseReport is the direct derivation parent. Makes the chain navigable via Python model: no graph query needed to answer "which report prompted this revision?" The `RESPONDS_TO_REPORT` graph edge and `parent_entity_uid` carry the same information.
 
 **Services:**
 ```python
@@ -508,6 +533,8 @@ await backend.get_revision_chain(exercise_uid)             # All revisions order
 ```cypher
 (teacher:User)-[:OWNS]->(re:Entity:RevisedExercise {
     original_exercise_uid: '...',
+    report_uid: '...',              // domain-specific field
+    parent_entity_uid: '...',       // = report_uid — derivation chain mirror
     submission_uid: '...',
     student_uid: '...',
     revision_number: 2,

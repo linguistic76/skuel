@@ -321,6 +321,12 @@ structured form (`STRUCTURED_FORM` — inline form responses stored as JSON). Th
 **Loop role:** The *evidence* — the student's demonstration of engagement with Lesson content.
 Without it, the Curriculum Track has no student voice.
 
+**Derivation chain fields (set at creation, no graph query needed):**
+- `parent_entity_uid` — UID of the Exercise or RevisedExercise this submission fulfills. Set automatically by `submit_file()` and `submit_form()` from `fulfills_exercise_uid`. Mirror of the `FULFILLS_EXERCISE` graph edge.
+- `revision_number` — which attempt this is (1 = first; auto-computed by `process_exercise_submission()` as `prior_submission_count + 1` for this student×exercise pair). Written to DB alongside the auto-generated canonical title.
+
+Both fields make the Python model self-describing: `submission.revision_number` and `submission.parent_entity_uid` answer loop-position questions without a round-trip to the graph.
+
 **See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
 full pipeline from upload to sharing and teacher review queue.
 
@@ -389,11 +395,14 @@ revision cycle explicitly rather than implicitly.
 - `revision_number` auto-determined from existing chain length
 - `feedback_points` carries typed `FeedbackPoint` objects (`FeedbackCategory` + free-text detail) — enables pattern tracking across submissions
 - `expected_modality` and `submission_uid` auto-resolved by service on creation from the original Exercise and authority check
+- `parent_entity_uid` set to `report_uid` at `create()` time — the ExerciseReport is the direct derivation parent. Mirror of the `RESPONDS_TO_REPORT` graph edge; makes the chain Python-model-readable without a graph query.
 
 **Graph relationships:**
 ```cypher
 (teacher:User)-[:OWNS]->(re:Entity:RevisedExercise {
     original_exercise_uid: '...',
+    report_uid: '...',              // domain-specific field
+    parent_entity_uid: '...',       // = report_uid — derivation chain mirror
     submission_uid: '...',
     student_uid: '...',
     revision_number: 2
