@@ -15,7 +15,7 @@ Routes:
 import json
 from typing import Any
 
-from fasthtml.common import Form, H3, Input, Option, Select
+from fasthtml.common import Form, H3, H4, Input, Option, Select
 from fasthtml.common import Div, Li, NotStr, P, Request, Span, Ul
 from fasthtml.common import A as Anchor
 
@@ -332,15 +332,11 @@ def _render_ku_row(ku: Ku, pinned_uids: set[str]) -> Any:
     )
 
 
-def _build_sidebar_items(
+def _build_sidebar_sections(
     pinned_kus: list[Ku],
-    latest_kus: list[Ku],
-    studying_kus: list[Ku] | None = None,
-    understood_kus: list[Ku] | None = None,
+    available_kus: list[Ku],
 ) -> tuple[list[SidebarItem], list[Any]]:
-    """Build sidebar items: Studying, Understood, Bookmarks, Latest sections."""
-    from fasthtml.common import H4
-
+    """Build sidebar items: Bookmarked + Available sections."""
     items: list[SidebarItem] = [
         SidebarItem(label="All Knowledge", href="/ku", slug="all"),
     ]
@@ -350,58 +346,77 @@ def _build_sidebar_items(
         "text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2"
     )
 
-    # Studying section
-    if studying_kus:
-        studying_links = [
-            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in studying_kus[:10]
-        ]
-        extra_sections.append(
-            Li(
-                H4("Studying", cls=section_header_cls),
-                Ul(*studying_links, cls="list-none p-0"),
-                cls="mt-1",
-            )
-        )
-
-    # Understood section
-    if understood_kus:
-        understood_links = [
-            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in understood_kus[:10]
-        ]
-        extra_sections.append(
-            Li(
-                Li(cls="border-t border-border my-2") if studying_kus else Span(),
-                H4("Understood", cls=section_header_cls),
-                Ul(*understood_links, cls="list-none p-0"),
-            )
-        )
-
-    # Bookmarks section
+    # Bookmarked section (always shown)
     if pinned_kus:
         bookmark_links = [
-            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in pinned_kus[:10]
+            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in pinned_kus[:5]
         ]
         extra_sections.append(
             Li(
-                Li(cls="border-t border-border my-2") if studying_kus or understood_kus else Span(),
                 H4("Bookmarked", cls=section_header_cls),
                 Ul(*bookmark_links, cls="list-none p-0"),
                 cls="mt-1",
             )
         )
+    else:
+        extra_sections.append(
+            Li(
+                H4("Bookmarked", cls=section_header_cls),
+                Li("None yet", cls="text-xs text-muted-foreground px-3 py-1"),
+                cls="mt-1",
+            )
+        )
 
-    # Latest section
-    if latest_kus:
-        latest_links = [SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in latest_kus[:5]]
+    # Available section
+    if available_kus:
+        available_links = [
+            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in available_kus[:20]
+        ]
         extra_sections.append(
             Li(
                 Li(cls="border-t border-border my-2"),
-                H4("Latest", cls=section_header_cls),
-                Ul(*latest_links, cls="list-none p-0"),
+                H4("Available", cls=section_header_cls),
+                Ul(*available_links, cls="list-none p-0"),
             )
         )
 
     return items, extra_sections
+
+
+def _render_ku_sections(
+    pinned_kus: list[Ku],
+    available_kus: list[Ku],
+    pinned_uids: set[str],
+) -> Any:
+    """Render Ku list split into Bookmarked + Available sections."""
+    rows: list[Any] = []
+
+    if pinned_kus:
+        rows.append(H4("Bookmarked", cls="text-sm font-semibold text-foreground mt-2 mb-2"))
+        rows.append(
+            Ul(*[_render_ku_row(ku, pinned_uids) for ku in pinned_kus], cls="list-none p-0")
+        )
+
+    if available_kus:
+        rows.append(
+            H4(
+                "Available",
+                cls=f"text-sm font-semibold text-foreground {'mt-6' if pinned_kus else 'mt-2'} mb-2",
+            )
+        )
+        rows.append(
+            Ul(*[_render_ku_row(ku, pinned_uids) for ku in available_kus], cls="list-none p-0")
+        )
+
+    if not rows:
+        return Div(
+            P(
+                "No knowledge units yet. Ingest Ku YAML files to populate this page.",
+                cls="text-muted-foreground italic py-8 text-center",
+            ),
+        )
+
+    return Div(*rows)
 
 
 # =============================================================================
@@ -533,7 +548,9 @@ def create_ku_ui_routes(
             await _load_ku_index_data(request)
         )
 
-        latest_kus = kus[:5]
+        # Studying = bookmarked for Kus. Available = everything not actively studying.
+        studying_uids = {ku.uid for ku in studying_kus}
+        available_kus = [ku for ku in kus if ku.uid not in studying_uids]
 
         # Collect filter facets from loaded Kus
         all_tags = sorted(
@@ -542,29 +559,17 @@ def create_ku_ui_routes(
         namespaces = sorted({ku.namespace for ku in kus if ku.namespace})
         categories = sorted({ku.ku_category for ku in kus if ku.ku_category})
 
-        # Suggestions: studying first, then bookmarked, up to 8 total
-        suggested_kus = (studying_kus + pinned_kus)[:8]
+        # Suggestions: bookmarked (studying) first
+        suggested_kus = studying_kus[:8]
 
-        sidebar_items, extra_sections = _build_sidebar_items(
-            pinned_kus, latest_kus, studying_kus, understood_kus
-        )
+        sidebar_items, extra_sections = _build_sidebar_sections(studying_kus, available_kus)
 
         if ku_load_error:
             ku_list_content: Any = render_error_banner(
                 "Unable to load knowledge units. Please try again later."
             )
-        elif kus:
-            ku_list_content = Ul(
-                *[_render_ku_row(ku, pinned_uids) for ku in kus],
-                cls="list-none p-0",
-            )
         else:
-            ku_list_content = Div(
-                P(
-                    "No knowledge units yet. Ingest Ku YAML files to populate this page.",
-                    cls="text-muted-foreground italic py-8 text-center",
-                ),
-            )
+            ku_list_content = _render_ku_sections(studying_kus, available_kus, pinned_uids)
 
         content = Div(
             _render_ku_search_panel(all_tags, namespaces, categories, suggested_kus),
@@ -576,7 +581,7 @@ def create_ku_ui_routes(
             items=sidebar_items,
             active="all",
             title="Knowledge",
-            subtitle="Bookmarks & Latest",
+            subtitle="Bookmarked · Available",
             storage_key="ku-sidebar",
             extra_sidebar_sections=extra_sections,
             page_title="Knowledge",
