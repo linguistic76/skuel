@@ -25,7 +25,7 @@ from typing import Any
 
 from fasthtml.common import A, Div, P, Span
 
-from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator, RouteList
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
@@ -261,8 +261,11 @@ def create_library_ui_routes(
 
     @rt("/library")
     async def library_page(request: Request) -> Any:
-        """Library hub: Exercises | Resources | Exercise Reports | Activity Reports."""
-        require_authenticated_user(request)
+        """Library hub: Exercises | Resources | Exercise Reports | Activity Reports.
+
+        Public: shared curriculum content (Resources) is readable without authentication.
+        Exercises tab requires authentication (user-specific group membership data).
+        """
         content = Div(
             PageHeader(
                 "Library",
@@ -302,9 +305,7 @@ def create_library_ui_routes(
 
     @rt("/library/resources")
     async def library_resources(request: Request) -> Any:
-        """HTMX fragment: admin-curated Resource entity list."""
-        require_authenticated_user(request)
-
+        """HTMX fragment: admin-curated Resource entity list. Public: shared content."""
         if not resource_service:
             return render_error_banner("Resource service unavailable")
 

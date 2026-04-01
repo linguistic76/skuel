@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-02-02'
+updated: '2026-04-01'
 category: patterns
 related_skills: []
 related_docs: []
@@ -12,14 +12,55 @@ This document describes the authentication and authorization patterns used throu
 
 ## Overview
 
-SKUEL uses **graph-native authentication** (sessions stored in Neo4j) with cookie-based session management. There are three main patterns for handling user identity in routes:
+SKUEL uses **graph-native authentication** (sessions stored in Neo4j) with cookie-based session management. The access model follows `ContentScope` directly: shared content is publicly readable, user-owned content requires authentication.
 
 | Pattern | Function | Returns | Use Case |
 |---------|----------|---------|----------|
-| **Strict** | `require_authenticated_user(request)` | `UserUID` | API routes requiring auth |
-| **Lenient** | `get_current_user_or_default(request)` | `UserUID` | UI routes (dev-friendly) |
+| **Strict** | `require_authenticated_user(request)` | `UserUID` | API routes, USER_OWNED UI pages |
+| **Optional** | `get_current_user(request)` | `UserUID \| None` | SHARED content pages (enrich if authenticated) |
+| **Lenient** | `get_current_user_or_default(request)` | `UserUID` | Dev-only fallback (raises 401 in prod) |
 | **Role-Based** | `@require_admin(service_getter)` | `current_user: User` | Protected admin/teacher routes |
 | **WebSocket** | `await require_websocket_admin(ws)` | `UserUID \| None` | WebSocket routes (admin-only) |
+
+## Page Access Model
+
+`ContentScope` is the single source of truth for page access. Do not make ad-hoc auth decisions at the route level — derive the pattern from the content type.
+
+```
+PUBLIC (no auth required)
+  ContentScope.SHARED read views:
+    /ku, /ku/{uid}, /path-steps, /path-steps/{uid}/details,
+    /learning-paths, /lp/{uid}, /library, /library/resources
+  Auth pages: /login, /register, /forgot-password, /reset-password
+
+AUTHENTICATED (require_authenticated_user)
+  ContentScope.USER_OWNED:
+    /profile, /tasks, /goals, /habits, /events, /choices, /principles,
+    /submissions, /upload, /calendar, /activity-reports, /library/exercises
+  All API mutation routes (POST, PUT, DELETE)
+
+ROLE-GATED
+  TEACHER+: create/edit curriculum (API routes)
+  ADMIN:    user management, finance, admin dashboard
+```
+
+### Optional Auth Pattern (SHARED pages with user enhancements)
+
+Shared content pages can enrich the view with user-specific state (bookmarks, learning progress) when the user is authenticated, without requiring it:
+
+```python
+# CORRECT: optional auth for SHARED content
+user_uid: str | None = get_current_user(request)
+if user_uid:
+    state_result = await service.get_learning_state(user_uid, uid)
+    # populate learning state variables
+# render page; show "Log in to track progress" link when user_uid is None
+
+# WRONG: blocking SHARED content behind auth
+user_uid = require_authenticated_user(request)  # ← do not use for SHARED pages
+```
+
+The `/ku` index established this pattern (line 470 in `ku_ui.py`); all other SHARED content pages follow it.
 
 ## The UserUID Type
 
@@ -350,10 +391,11 @@ return create_docs_page(
 
 ## Security Principles
 
-1. **Fail-Fast**: Invalid auth = immediate 401/403, no silent fallbacks
-2. **IDOR Protection**: `verify_ownership()` returns "not found" not "access denied"
-3. **Role Hierarchy**: ADMIN > TEACHER > MEMBER > REGISTERED
-4. **Graph-Native**: Sessions stored in Neo4j, no external auth dependencies
+1. **ContentScope Drives Access**: SHARED content is public; USER_OWNED content requires auth — no ad-hoc per-route decisions
+2. **Fail-Fast**: Invalid auth = immediate 401/403, no silent fallbacks
+3. **IDOR Protection**: `verify_ownership()` returns "not found" not "access denied"
+4. **Role Hierarchy**: ADMIN > TEACHER > MEMBER > REGISTERED
+5. **Graph-Native**: Sessions stored in Neo4j, no external auth dependencies
 
 ## Files Reference
 

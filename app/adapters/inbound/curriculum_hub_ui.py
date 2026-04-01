@@ -15,7 +15,7 @@ from typing import Any
 from fasthtml.common import Div, H4, Li, Ul
 from starlette.responses import RedirectResponse
 
-from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth import get_current_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
@@ -54,8 +54,12 @@ def create_curriculum_hub_ui_routes(
 
     @rt("/path-steps")
     async def path_steps_browser(request: Request) -> Any:
-        """PathStep browser — Registered In + Available sections."""
-        user_uid = require_authenticated_user(request)
+        """PathStep browser — Registered In + Available sections.
+
+        Public: shared curriculum content is readable without authentication.
+        Enrolled steps section only populates for authenticated users.
+        """
+        user_uid: str | None = get_current_user(request)
 
         ps_service = services.ps
         all_steps: list[Any] = []
@@ -67,9 +71,10 @@ def create_curriculum_hub_ui_routes(
                 raw = list_result.value
                 all_steps = raw if isinstance(raw, list) else raw[0]
 
-            uid_result = await ps_service.mastery.get_in_progress_step_uids(user_uid)
-            if not uid_result.is_error:
-                enrolled_uids = set(uid_result.value or [])
+            if user_uid:
+                uid_result = await ps_service.mastery.get_in_progress_step_uids(user_uid)
+                if not uid_result.is_error:
+                    enrolled_uids = set(uid_result.value or [])
 
         enrolled_steps = [s for s in all_steps if s.uid in enrolled_uids]
         available_steps = [s for s in all_steps if s.uid not in enrolled_uids]
@@ -89,9 +94,7 @@ def create_curriculum_hub_ui_routes(
 
     @rt("/learning-paths")
     async def learning_paths_browser(request: Request) -> Any:
-        """Learning Paths browser."""
-        require_authenticated_user(request)
-
+        """Learning Paths browser. Public: shared curriculum content."""
         lp_service = services.lp
         items: list[Any] = []
         if lp_service:

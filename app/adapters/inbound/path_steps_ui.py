@@ -12,7 +12,7 @@ from typing import Any
 
 from fasthtml.common import H3, Div, Li, NotStr, P, Request, Ul
 
-from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth import get_current_user, require_authenticated_user
 from core.services.ps_service import PsService
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
@@ -65,8 +65,12 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
 
     @rt("/path-steps/{uid}/details")
     async def step_detail_page(request: Request, uid: str) -> Any:
-        """Path step detail page with full content rendering."""
-        user_uid = require_authenticated_user(request)
+        """Path step detail page with full content rendering.
+
+        Public: shared curriculum content is readable without authentication.
+        Learning state tracking (view, bookmark, progress) requires authentication.
+        """
+        user_uid: str | None = get_current_user(request)
 
         # Fetch step with content body
         result = await ps_service.get_with_content(uid)
@@ -100,17 +104,20 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
         if not content_body and getattr(step, "content", None):
             content_body = str(step.content)
 
-        # Record view
-        await ps_service.mastery.record_view(user_uid, uid)
-
-        # Get learning state
-        state_result = await ps_service.mastery.get_learning_state(user_uid, uid)
-        is_marked_read = state_result.value.is_marked_as_read if state_result.is_ok else False
-        is_bookmarked = state_result.value.is_bookmarked if state_result.is_ok else False
-        is_in_progress = (
-            state_result.value.state.value == "in_progress" if state_result.is_ok else False
-        )
-        is_mastered = state_result.value.state.value == "mastered" if state_result.is_ok else False
+        # Learning state — only available for authenticated users
+        is_marked_read = False
+        is_bookmarked = False
+        is_in_progress = False
+        is_mastered = False
+        if user_uid:
+            await ps_service.mastery.record_view(user_uid, uid)
+            state_result = await ps_service.mastery.get_learning_state(user_uid, uid)
+            is_marked_read = state_result.value.is_marked_as_read if state_result.is_ok else False
+            is_bookmarked = state_result.value.is_bookmarked if state_result.is_ok else False
+            is_in_progress = (
+                state_result.value.state.value == "in_progress" if state_result.is_ok else False
+            )
+            is_mastered = state_result.value.state.value == "mastered" if state_result.is_ok else False
 
         # Render markdown with TOC
         content_html, toc_html = render_markdown_with_toc(content_body or "")
@@ -166,27 +173,41 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
             cls="prose prose-lg max-w-none",
         )
 
-        # Action buttons
-        mark_read_btn = Button(
-            "Marked as Read" if is_marked_read else "Mark as Read",
-            variant=ButtonT.success if is_marked_read else ButtonT.primary,
-            size=Size.sm,
-            hx_post=f"/api/path-steps/{uid}/mark-read",
-            hx_swap="outerHTML",
-            hx_target="this",
-            disabled=is_marked_read,
-        )
-
-        bookmark_btn = Button(
-            "Bookmarked" if is_bookmarked else "Bookmark",
-            variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
-            size=Size.sm,
-            hx_post=f"/api/path-steps/{uid}/bookmark",
-            hx_swap="outerHTML",
-            hx_target="this",
-        )
-
-        start_btn = _start_step_button(uid, is_in_progress, is_mastered)
+        # Action buttons — learning state tracking requires authentication
+        if user_uid:
+            mark_read_btn = Button(
+                "Marked as Read" if is_marked_read else "Mark as Read",
+                variant=ButtonT.success if is_marked_read else ButtonT.primary,
+                size=Size.sm,
+                hx_post=f"/api/path-steps/{uid}/mark-read",
+                hx_swap="outerHTML",
+                hx_target="this",
+                disabled=is_marked_read,
+            )
+            bookmark_btn = Button(
+                "Bookmarked" if is_bookmarked else "Bookmark",
+                variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
+                size=Size.sm,
+                hx_post=f"/api/path-steps/{uid}/bookmark",
+                hx_swap="outerHTML",
+                hx_target="this",
+            )
+            action_area: Any = Div(
+                _start_step_button(uid, is_in_progress, is_mastered),
+                mark_read_btn,
+                bookmark_btn,
+                cls="flex gap-2 border-t border-border pt-6 mt-8",
+            )
+        else:
+            action_area = Div(
+                ButtonLink(
+                    "Log in to track your progress",
+                    href="/login",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                ),
+                cls="border-t border-border pt-6 mt-8",
+            )
 
         # Main content column
         main_column = Div(
@@ -194,13 +215,7 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
             metadata_section,
             objectives_section,
             reading_content,
-            # Actions below content
-            Div(
-                start_btn,
-                mark_read_btn,
-                bookmark_btn,
-                cls="flex gap-2 border-t border-border pt-6 mt-8",
-            ),
+            action_area,
             # Metadata footer
             Div(tags_section, cls="border-t border-border pt-6 mt-8") if step.tags else Div(),
             # Lateral relationships

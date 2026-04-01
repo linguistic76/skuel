@@ -19,7 +19,7 @@ from fasthtml.common import Form, H3, H4, Input, Option, Select
 from fasthtml.common import Div, Li, NotStr, P, Request, Span, Ul
 from fasthtml.common import A as Anchor
 
-from adapters.inbound.auth import is_authenticated, require_authenticated_user
+from adapters.inbound.auth import get_current_user, is_authenticated, require_authenticated_user
 from core.models.enums.submissions_enums import ExerciseScope
 from core.models.ku.ku import Ku
 from core.utils.logging import get_logger
@@ -572,8 +572,12 @@ def create_ku_ui_routes(
 
     @rt("/ku/{uid}")
     async def ku_detail_page(request: Request, uid: str) -> Any:
-        """Ku detail page — renders atomic Ku entities from KuService."""
-        user_uid = require_authenticated_user(request)
+        """Ku detail page — renders atomic Ku entities from KuService.
+
+        Public: shared curriculum content is readable without authentication.
+        Learning state tracking (studying, understood, bookmark) requires authentication.
+        """
+        user_uid: str | None = get_current_user(request)
 
         # Fetch atomic Ku
         ku_result = await ku_service.get_ku(uid) if ku_service else None
@@ -603,18 +607,17 @@ def create_ku_ui_routes(
         ku = ku_result.value
         content_body = ku.description or ""
 
-        # Get learning state (Studying / Understood)
-        learning_state = {"is_studying": False, "is_understood": False}
-        state_result = await ku_service.get_ku_learning_state(user_uid, uid)
-        if state_result.is_ok:
-            learning_state = state_result.value
-
-        # Check bookmark state
+        # Learning state — only available for authenticated users
+        learning_state: dict[str, bool] = {"is_studying": False, "is_understood": False}
         is_pinned = False
-        if user_relationship_service:
-            pins_result = await user_relationship_service.get_pinned_entities(user_uid)
-            if pins_result.is_ok and pins_result.value:
-                is_pinned = uid in set(pins_result.value)
+        if user_uid:
+            state_result = await ku_service.get_ku_learning_state(user_uid, uid)
+            if state_result.is_ok:
+                learning_state = state_result.value
+            if user_relationship_service:
+                pins_result = await user_relationship_service.get_pinned_entities(user_uid)
+                if pins_result.is_ok and pins_result.value:
+                    is_pinned = uid in set(pins_result.value)
 
         # Render markdown content with TOC
         content_html, toc_html = render_markdown_with_toc(content_body)
@@ -657,10 +660,25 @@ def create_ku_ui_routes(
             cls="prose prose-lg max-w-none",
         )
 
-        # Action buttons — progressive learning state
-        learning_buttons = _ku_learning_buttons(
-            uid, learning_state["is_studying"], learning_state["is_understood"]
-        )
+        # Action buttons — learning state tracking requires authentication
+        if user_uid:
+            ku_action_area: Any = Div(
+                _ku_learning_buttons(
+                    uid, learning_state["is_studying"], learning_state["is_understood"]
+                ),
+                PinButton(entity_uid=uid, is_pinned=is_pinned),
+                cls="flex gap-2 items-center border-t border-border pt-6 mt-8",
+            )
+        else:
+            ku_action_area = Div(
+                ButtonLink(
+                    "Log in to track your progress",
+                    href="/login",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                ),
+                cls="border-t border-border pt-6 mt-8",
+            )
 
         # Metadata footer
         metadata_footer_items = []
@@ -678,12 +696,7 @@ def create_ku_ui_routes(
         main_column = Div(
             Breadcrumbs(path=breadcrumb_path, show_home=False),
             reading_content,
-            # Actions below content
-            Div(
-                learning_buttons,
-                PinButton(entity_uid=uid, is_pinned=is_pinned),
-                cls="flex gap-2 items-center border-t border-border pt-6 mt-8",
-            ),
+            ku_action_area,
             metadata_footer,
             _exercises_for_ku_section(exercises_for_ku),
             Div(
