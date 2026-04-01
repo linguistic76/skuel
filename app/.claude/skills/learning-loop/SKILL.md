@@ -157,6 +157,9 @@ with an LLM prompt embedded for AI-assisted feedback.
 
 **Key fields:**
 ```python
+exercise_number: int | None       # Human-readable number (set in YAML, e.g. exercise_number: 7).
+                                  # Embedded in the downloaded .md worksheet's frontmatter so
+                                  # the submission handler can read it back without a DB query.
 instructions: str                 # Teacher's directive — ALSO used as LLM prompt
 model: str                        # LLM to use: "claude-sonnet-4-6"
 scope: ExerciseScope              # PERSONAL (self-directed) | ASSIGNED (classroom)
@@ -225,9 +228,38 @@ await backend.get_enrolled_ps_exercises_with_status(user_uid)  # PERSONAL exerci
 (user:User)-[:IN_PROGRESS]->(ps)
 ```
 
+**Download worksheet — frictionless submit flow:**
+
+`GET /api/exercises/md?uid=` downloads a Markdown worksheet (`adapters/outbound/exercise_renderer.py`)
+with YAML frontmatter pre-filled from the session:
+
+```markdown
+---
+exercise_uid: ex.mindfulness.small-steps-design
+exercise_number: 7
+user_uid: user_abc123          ← pre-filled from authenticated session
+revision: 1                    ← student increments for resubmissions
+---
+# Exercise Title
+...
+```
+
+The student fills in responses and submits the file at `POST /submissions/upload`.
+The upload handler parses the frontmatter to auto-detect `exercise_uid` and `revision` —
+no Identifier field or exercise selector required. Non-md files (audio, images) use the
+exercise selector dropdown or the `?exercise_uid=` deep-link hidden field instead.
+
 **Student-facing routes:**
 - `GET /exercises/get?uid=` — detail page: metadata, form field prompts, instructions, Submit + Download buttons
-- `GET /api/exercises/pdf?uid=` — PDF worksheet download via WeasyPrint (`adapters/outbound/exercise_renderer.py`)
+- `GET /api/exercises/md?uid=` — Markdown worksheet download (pre-filled frontmatter)
+- `POST /submissions/upload` — HTMX upload endpoint; parses .md frontmatter if present
+
+> **Critical:** The teacher queue depends on the `(teacher:User)-[:OWNS]->(exercise)` graph
+> relationship. `Exercise` extends `Curriculum(Entity)`, NOT `UserOwnedEntity` — so
+> `exercise.user_uid` is always `None` in Neo4j. Teacher identity is resolved via OWNS,
+> not via a node property. See `SubmissionsBackend.get_exercise_context()` for the
+> `COALESCE(teacher.uid, exercise.user_uid)` pattern and the "Ownership Queries" pattern
+> in the neo4j-cypher-patterns skill.
 
 **Loop role:** Exercise is the *how* — it operationalizes Ku into a concrete task.
 Its `instructions` field serves double duty: directive for the student AND prompt for

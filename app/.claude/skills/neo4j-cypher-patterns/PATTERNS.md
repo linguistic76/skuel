@@ -397,6 +397,68 @@ deserialize_json_fields(insight_data, "related_entities", "recommended_actions",
 
 ---
 
+## Pattern 9: Ownership Queries — OWNS Relationship vs `user_uid` Property
+
+**Problem:** Finding who owns a shared/curriculum entity when writing Cypher. Not all
+entity types have a `user_uid` node property — only `UserOwnedEntity` subtypes do.
+
+**The distinction:**
+
+| Entity hierarchy | `user_uid` property in Neo4j | How to find owner in Cypher |
+|-----------------|----------------------------|-----------------------------|
+| `UserOwnedEntity` (Task, Goal, Habit, Event, Choice, Principle, Submission, ExerciseReport, RevisedExercise, ...) | ✅ Present — stored as node property | `WHERE n.user_uid = $uid` OR `(User)-[:OWNS]->(n)` |
+| `Curriculum` (Exercise, PathStep, LearningPath) | ❌ Missing — `Entity.user_uid` property returns `None` | `(User)-[:OWNS]->(n)` only |
+| `Entity` base (Ku, Resource) | ❌ Missing | `(User)-[:OWNS]->(n)` only |
+
+**Key rule:** `Exercise` extends `Curriculum(Entity)`, not `UserOwnedEntity`.
+The Python `Entity.user_uid` property returns `None` for non-user-owned types.
+Neo4j nodes for curriculum entities carry no `user_uid` property.
+**Teacher identity for exercises is ONLY available via the OWNS relationship.**
+
+**Wrong (silently returns NULL for Exercise):**
+```cypher
+MATCH (exercise:Entity {uid: $exercise_uid})
+RETURN exercise.user_uid as teacher_uid  -- always NULL for Exercise
+```
+
+**Correct:**
+```cypher
+MATCH (exercise:Entity {uid: $exercise_uid})
+OPTIONAL MATCH (teacher:User)-[:OWNS]->(exercise)
+RETURN teacher.uid as teacher_uid  -- works for all entity types
+```
+
+**COALESCE for hybrid queries** (supports both curriculum and user-owned types in one query):
+```cypher
+-- SubmissionsBackend.get_exercise_context() — works for Exercise AND RevisedExercise
+MATCH (exercise:Entity {uid: $exercise_uid})
+WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
+OPTIONAL MATCH (teacher:User)-[:OWNS]->(exercise)
+RETURN COALESCE(teacher.uid, exercise.user_uid) as teacher_uid
+-- Exercise: OWNS relationship → teacher.uid ✓
+-- RevisedExercise: both OWNS + stored user_uid agree ✓
+-- YAML-ingested exercise, no owner: both NULL → auto-share skipped ✓
+```
+
+**When `teacher_uid` can be NULL:** Exercises ingested via YAML with no authenticated
+teacher context have no OWNS relationship and no `user_uid`. The service layer must
+guard against `None` before calling downstream methods that require a teacher UID.
+
+```python
+# process_exercise_submission() — services/submissions/submissions_core_service.py
+if teacher_uid:
+    await self.backend.auto_share_with_teacher(teacher_uid, submission_uid, now)
+else:
+    self.logger.info(f"Exercise {exercise_uid} has no teacher owner — skipping auto-share")
+```
+
+**Real-world usage:** `SubmissionsBackend.get_exercise_context()`,
+`ExerciseBackend.get_exercises_with_submission_counts()` (`MATCH (user)-[:OWNS]->(exercise)`),
+`TeacherReviewService.get_review_queue()` (filters via `SHARES_WITH {role:'teacher'}`
+relationship created by `auto_share_with_teacher()`).
+
+---
+
 ## Key Rules
 
 1. **Always use parameters** (`$uid`, never string interpolation) — prevents injection
