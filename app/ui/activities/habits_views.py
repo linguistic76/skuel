@@ -23,6 +23,7 @@ from fasthtml.common import (
     Span,
 )
 
+from ui.activities.nav import ActivityDomainNav
 from ui.feedback import PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -509,6 +510,7 @@ def HabitDetailView(
     )
 
     return Div(
+        ActivityDomainNav("habits"),
         header,
         Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-bottom")
         if badges
