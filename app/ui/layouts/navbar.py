@@ -390,10 +390,14 @@ def create_navbar(
     if is_admin:
         nav_items.insert(0, ADMIN_NAV_ITEM)
 
-    # Icon navigation links (Knowledge, PathSteps, Submissions)
+    # Icon navigation links — shown when not admin; public items shown to all users
     icon_links: list[Any] = []
-    if is_authenticated and not is_admin:
-        icon_links = [_icon_nav_link(item, active_page) for item in ICON_NAV_ITEMS]
+    if not is_admin:
+        icon_links = [
+            _icon_nav_link(item, active_page)
+            for item in ICON_NAV_ITEMS
+            if not item.requires_auth or is_authenticated
+        ]
 
     # Desktop navigation links
     desktop_links = Div(
@@ -404,22 +408,25 @@ def create_navbar(
     # Mobile navigation links — expand all dropdowns (activity + icon nav) into individual links
     mobile_nav_items = list(nav_items)
     mobile_icon_links: list[Any] = []
-    if is_authenticated and not is_admin:
-        # Activity domains (from avatar dropdown, not in ICON_NAV_ITEMS)
-        for di in ACTIVITY_DROPDOWN_ITEMS:
-            mobile_icon_links.append(
-                _nav_link(
-                    NavItem(
-                        f"{di.icon} {di.label}" if di.icon else di.label,
-                        di.href,
-                        di.label.lower(),
-                    ),
-                    active_page,
-                    mobile=True,
+    if not is_admin:
+        if is_authenticated:
+            # Activity domains only shown to authenticated users
+            for di in ACTIVITY_DROPDOWN_ITEMS:
+                mobile_icon_links.append(
+                    _nav_link(
+                        NavItem(
+                            f"{di.icon} {di.label}" if di.icon else di.label,
+                            di.href,
+                            di.label.lower(),
+                        ),
+                        active_page,
+                        mobile=True,
+                    )
                 )
-            )
-        # Icon nav items (Curriculum, Study)
+        # Icon nav items — respect requires_auth flag
         for item in ICON_NAV_ITEMS:
+            if item.requires_auth and not is_authenticated:
+                continue
             if item.has_dropdown:
                 for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
                     mobile_icon_links.append(

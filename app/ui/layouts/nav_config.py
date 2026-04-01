@@ -87,13 +87,16 @@ STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 
 
 # Icon navigation items — rendered as circular icon buttons in the left navbar section
+# requires_auth=False → visible to unauthenticated users (ContentScope.SHARED pages)
+# requires_auth=True  → visible only when authenticated (ContentScope.USER_OWNED pages)
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
-    IconNavItem("Knowledge", "\u269b\ufe0f", "/ku", "knowledge", has_dropdown=False),
+    IconNavItem("Knowledge", "\u269b\ufe0f", "/ku", "knowledge", requires_auth=False, has_dropdown=False),
     IconNavItem(
         "Path Steps",
         "",
         "/path-steps",
         "path-steps",
+        requires_auth=False,
         has_dropdown=False,
         icon="book",
     ),
@@ -110,6 +113,7 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         "",
         "/library",
         "library",
+        requires_auth=False,
         has_dropdown=False,
         icon="book-open",
     ),
