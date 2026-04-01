@@ -128,6 +128,14 @@ class PsMasteryService:
         count = records[0]["cnt"] if records else 0
         return Result.ok(int(count))
 
+    async def get_in_progress_step_uids(self, user_uid: UserUID) -> Result[list[str]]:
+        """Get UIDs of PathSteps the user is enrolled in (IN_PROGRESS)."""
+        result = await self.backend.get_in_progress_path_step_uids(user_uid)  # type: ignore[attr-defined]
+        if result.is_error:
+            return Result.fail(result)
+        uids = [rec["uid"] for rec in (result.value or []) if rec.get("uid")]
+        return Result.ok(uids)
+
     async def mark_in_progress(
         self,
         user_uid: UserUID,

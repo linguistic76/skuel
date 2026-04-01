@@ -150,6 +150,15 @@ class _LearningStateMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 
+    async def get_in_progress_path_step_uids(self, user_uid: UserUID) -> Result[list["Neo4jProperties"]]:
+        """Get UIDs of PathSteps the user is enrolled in (IN_PROGRESS)."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:IN_PROGRESS]->(ps:Entity:PathStep)
+        RETURN ps.uid AS uid
+        ORDER BY ps.title
+        """
+        return await self.execute_query(query, {"user_uid": user_uid})
+
     # ========================================================================
     # BOOKMARK OPERATIONS
     # ========================================================================
