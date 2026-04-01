@@ -3090,6 +3090,47 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             {"user_uid": user_uid},
         )
 
+    async def get_enrolled_ps_exercises_with_status(
+        self, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]:
+        """Get personal exercises linked to PathSteps the user is enrolled in.
+
+        Returns the same shape as get_student_exercises_with_status() so results
+        can be merged at the service layer. Exercises are discovered via:
+            (user)-[:IN_PROGRESS]->(ps)-[:RELATED_TO]->(exercise {scope: 'personal'})
+
+        Args:
+            user_uid: Student UID
+
+        Returns:
+            Result containing enriched exercise records (group_name is empty string)
+        """
+        return await self.execute_query(
+            f"""
+            MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.IN_PROGRESS}]->(ps:Entity)
+            MATCH (ps)-[:{RelationshipName.RELATED_TO}]->(exercise:Entity {{entity_type: 'exercise'}})
+            WHERE exercise.scope = 'personal'
+            WITH DISTINCT user, exercise
+            OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
+            OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
+            WITH exercise, sub, report
+            ORDER BY sub.created_at DESC
+            WITH exercise,
+                 collect(sub)[0] AS latest_sub,
+                 collect(report)[0] AS latest_report
+            RETURN exercise,
+                   latest_sub.uid AS submission_uid,
+                   latest_sub.status AS submission_status,
+                   latest_sub IS NOT NULL AS has_submission,
+                   latest_report.uid AS report_uid,
+                   latest_report.assessment_outcome AS report_outcome,
+                   latest_report IS NOT NULL AS has_report,
+                   '' AS group_name
+            ORDER BY exercise.created_at DESC
+            """,
+            {"user_uid": user_uid},
+        )
+
     async def get_exercises_for_curriculum(
         self, curriculum_uid: str
     ) -> Result[list[CurriculumExerciseResult]]:

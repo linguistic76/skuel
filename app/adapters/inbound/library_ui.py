@@ -167,7 +167,7 @@ def render_exercise_list(exercises: list["ExerciseStatusRow"]) -> Div:
     if not exercises:
         return EmptyState(
             title="No exercises yet",
-            description="Exercises assigned by your teacher will appear here once you join a group.",
+            description="Exercises appear here when you enroll in a Path Step or are assigned one by a teacher.",
         )
 
     count_note = Span(

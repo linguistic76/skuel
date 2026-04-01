@@ -15,11 +15,11 @@ Formerly assignments_ui.py — renamed per of Ku hierarchy refactoring.
 
 from typing import Any
 
-from fasthtml.common import H2, H3, A, Code, Div, Form, Li, Option, P, Pre, Span, Ul
+from fasthtml.common import H2, H3, H4, A, Code, Div, Form, Li, Option, P, Pre, Span, Ul
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
@@ -28,6 +28,7 @@ from ui.layouts.base_page import BasePage
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
+from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.exercises.ui")
 
@@ -454,6 +455,141 @@ def create_exercises_ui_routes(
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error viewing exercise: {e}")
             return render_inline_error(f"Error: {e}")
+
+    @app.get("/exercises/get")
+    async def exercise_detail(request, uid: str) -> Any:
+        """Student-facing exercise detail page.
+
+        Shows title, description, form fields, and instructions so a student
+        knows exactly what is expected before submitting. Linked from the
+        Library Exercises tab.
+        """
+        try:
+            require_authenticated_user(request)
+
+            result = await exercises_service.get_exercise(uid)
+            if result.is_error or not result.value:
+                return await BasePage(
+                    Div(
+                        PageHeader("Exercise Not Found"),
+                        P("This exercise could not be found.", cls="text-base-content/70"),
+                        A("← Back to Library", href="/library", cls="text-primary hover:underline text-sm"),
+                        cls=f"{Container.STANDARD} {Spacing.PAGE}",
+                    ),
+                    title="Exercise Not Found",
+                    request=request,
+                    active_page="library",
+                )
+
+            exercise = result.value
+
+            # ── Metadata badges ───────────────────────────────────────────────
+            meta_items = []
+            if exercise.sel_category:
+                label = getattr(exercise.sel_category, "value", str(exercise.sel_category))
+                meta_items.append(Badge(label.replace("_", " ").title(), variant=BadgeT.primary))
+            if exercise.learning_level:
+                level = getattr(exercise.learning_level, "value", str(exercise.learning_level))
+                meta_items.append(Badge(level.title(), variant=BadgeT.ghost))
+            if exercise.estimated_time_minutes:
+                meta_items.append(Badge(f"{exercise.estimated_time_minutes} min", variant=BadgeT.ghost))
+            if exercise.mastery_impact:
+                impact = getattr(exercise.mastery_impact, "value", str(exercise.mastery_impact))
+                meta_items.append(Badge(f"{impact.title()} impact", variant=BadgeT.info))
+            metadata_row = Div(*meta_items, cls="flex flex-wrap gap-2 mb-6") if meta_items else Div()
+
+            # ── Description ───────────────────────────────────────────────────
+            description_section = (
+                P(exercise.description, cls="text-base-content/70 mb-6")
+                if exercise.description
+                else Div()
+            )
+
+            # ── Form fields preview ───────────────────────────────────────────
+            form_fields_section = Div()
+            if exercise.form_schema:
+                field_rows = []
+                for field in exercise.form_schema:
+                    label_text = field.get("label", field.get("name", ""))
+                    required = field.get("required", False)
+                    field_type = field.get("type", "text")
+                    options = field.get("options", [])
+
+                    type_hint = field_type
+                    if options:
+                        type_hint = f"select: {', '.join(str(o) for o in options)}"
+
+                    field_rows.append(
+                        Div(
+                            Div(
+                                Span(label_text, cls="text-sm font-medium text-base-content"),
+                                Span(" *", cls="text-error text-sm") if required else Span(),
+                                cls="flex items-baseline gap-0.5",
+                            ),
+                            Span(type_hint, cls="text-xs text-base-content/50 mt-0.5"),
+                            cls="py-3 border-b border-base-200 last:border-0",
+                        )
+                    )
+
+                form_fields_section = Div(
+                    H4("What You'll Submit", cls="text-base font-semibold mb-3"),
+                    Div(*field_rows, cls="bg-base-200/40 rounded-lg px-4 mb-6"),
+                )
+
+            # ── Instructions (transparency) ────────────────────────────────────
+            instructions_section = Div()
+            if exercise.instructions:
+                instructions_section = Div(
+                    H4("Feedback Instructions", cls="text-base font-semibold mb-2"),
+                    P(
+                        "These are the exact instructions sent to the AI when generating your feedback.",
+                        cls="text-xs text-base-content/50 mb-3",
+                    ),
+                    Pre(
+                        Code(exercise.instructions, cls="text-xs leading-relaxed"),
+                        cls="bg-base-200/60 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap mb-6",
+                    ),
+                )
+
+            # ── Actions ───────────────────────────────────────────────────────
+            actions = Div(
+                ButtonLink(
+                    "Download",
+                    href=f"/api/exercises/pdf?uid={exercise.uid}",
+                    variant=ButtonT.ghost,
+                ),
+                ButtonLink(
+                    "Submit →",
+                    href=f"/submit?exercise_uid={exercise.uid}",
+                    variant=ButtonT.primary,
+                ),
+                cls="flex gap-2",
+            )
+
+            content = Div(
+                PageHeader(
+                    exercise.title,
+                    subtitle=f"Exercise · {getattr(exercise.scope, 'value', str(exercise.scope)).title()}",
+                    actions=actions,
+                ),
+                metadata_row,
+                description_section,
+                form_fields_section,
+                instructions_section,
+                A("← Back to Library", href="/library", cls="text-sm text-base-content/50 hover:text-primary"),
+                cls=f"{Container.STANDARD} {Spacing.PAGE}",
+            )
+
+            return await BasePage(
+                content,
+                title=exercise.title,
+                request=request,
+                active_page="library",
+            )
+
+        except Exception as e:  # safety-net: HTTP error boundary
+            logger.error(f"Error rendering exercise detail {uid}: {e}")
+            return render_error_banner("Error loading exercise", technical_details=str(e))
 
     logger.info("Exercises UI routes registered")
     return []

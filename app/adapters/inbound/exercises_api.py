@@ -225,5 +225,43 @@ def create_exercises_api_routes(
 
         return await exercises_service.get_exercises_for_curriculum(curriculum_uid)
 
+    @rt("/api/exercises/pdf")
+    async def download_exercise_pdf(request, uid: str) -> Any:
+        """Download an exercise as a printable PDF worksheet."""
+        from starlette.responses import Response
+
+        from adapters.outbound.exercise_renderer import render_exercise_pdf
+
+        require_authenticated_user(request)
+
+        result = await exercises_service.get_exercise(uid)
+        if result.is_error or not result.value:
+            return Response(
+                content="Exercise not found",
+                status_code=404,
+                media_type="text/plain",
+            )
+
+        try:
+            pdf_bytes = render_exercise_pdf(result.value)
+        except ImportError:
+            return Response(
+                content="PDF generation unavailable (WeasyPrint not installed)",
+                status_code=503,
+                media_type="text/plain",
+            )
+
+        safe_title = "".join(
+            c if c.isalnum() or c in "-_" else "-"
+            for c in (result.value.title or uid).lower().replace(" ", "-")
+        ).strip("-")
+        filename = f"exercise-{safe_title}.pdf"
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
     logger.info("Exercises API routes registered (Factory pattern + curriculum linking)")
     return []

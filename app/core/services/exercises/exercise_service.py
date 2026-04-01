@@ -391,21 +391,34 @@ class ExerciseService(BaseService):
     async def get_student_exercises_with_status(
         self, user_uid: UserUID
     ) -> Result[list[ExerciseStatusRow]]:
-        """Get assigned exercises with submission + report status for the library exercises tab.
+        """Get exercises with submission + report status for the library exercises tab.
+
+        Combines two sources:
+        - Assigned exercises (scope=assigned, via FOR_GROUP → group membership)
+        - PathStep-linked exercises (scope=personal, via RELATED_TO from enrolled PathSteps)
 
         Returns exercise properties enriched with has_submission, submission_uid,
         submission_status, has_report, report_uid, report_outcome, and group_name.
         """
-        result = await self.backend.get_student_exercises_with_status(user_uid)
+        assigned_result = await self.backend.get_student_exercises_with_status(user_uid)
+        if assigned_result.is_error:
+            return Result.fail(assigned_result)
 
-        if result.is_error:
-            return Result.fail(result)
+        ps_result = await self.backend.get_enrolled_ps_exercises_with_status(user_uid)
+        if ps_result.is_error:
+            return Result.fail(ps_result)
 
+        seen_uids: set[str] = set()
         exercises: list[ExerciseStatusRow] = []
-        for record in result.value or []:
+
+        for record in (assigned_result.value or []) + (ps_result.value or []):
             props = dict(record["exercise"])
+            uid = props.get("uid", "")
+            if uid in seen_uids:
+                continue
+            seen_uids.add(uid)
             row: ExerciseStatusRow = {
-                "uid": props.get("uid", ""),
+                "uid": uid,
                 "title": props.get("title", ""),
                 "description": props.get("description"),
                 "due_date": props.get("due_date"),
