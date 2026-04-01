@@ -218,9 +218,9 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
                     ),
                     cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
                 ),
-                cls="hidden lg:block w-56 shrink-0 border-r border-border",
+                cls="hidden lg:block w-56 shrink-0 border-l border-border",
             )
-            content = Div(toc_sidebar, main_column, cls="flex")
+            content = Div(main_column, toc_sidebar, cls="flex")
         else:
             content = main_column
 

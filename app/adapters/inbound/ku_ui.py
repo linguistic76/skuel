@@ -5,7 +5,7 @@ Ku UI Routes — Knowledge Index + Detail Page + API
 All Ku routes in one file, backed by KuService only (no PsService dependency).
 
 Routes:
-- GET  /ku                           — Knowledge index with search panel + bookmarks sidebar
+- GET  /ku                           — Knowledge index with search panel + bookmarks/available sections
 - GET  /api/ku/search                — HTMX fragment: filtered Ku list
 - GET  /ku/{uid}                     — Ku detail page with content, metadata, exercises
 - POST /api/ku/{uid}/mark-studying   — Mark Ku as studying (IN_PROGRESS)
@@ -36,7 +36,7 @@ from ui.patterns.error_banner import render_error_banner
 from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
-from ui.patterns.sidebar import SidebarItem, SidebarLink, SidebarPage
+from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.ku.ui")
 
@@ -332,55 +332,6 @@ def _render_ku_row(ku: Ku, pinned_uids: set[str]) -> Any:
     )
 
 
-def _build_sidebar_sections(
-    pinned_kus: list[Ku],
-    available_kus: list[Ku],
-) -> tuple[list[SidebarItem], list[Any]]:
-    """Build sidebar items: Bookmarked + Available sections."""
-    items: list[SidebarItem] = [
-        SidebarItem(label="All Knowledge", href="/ku", slug="all"),
-    ]
-
-    extra_sections: list[Any] = []
-    section_header_cls = (
-        "text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2"
-    )
-
-    # Bookmarked section (always shown)
-    if pinned_kus:
-        bookmark_links = [
-            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in pinned_kus[:5]
-        ]
-        extra_sections.append(
-            Li(
-                H4("Bookmarked", cls=section_header_cls),
-                Ul(*bookmark_links, cls="list-none p-0"),
-                cls="mt-1",
-            )
-        )
-    else:
-        extra_sections.append(
-            Li(
-                H4("Bookmarked", cls=section_header_cls),
-                Li("None yet", cls="text-xs text-muted-foreground px-3 py-1"),
-                cls="mt-1",
-            )
-        )
-
-    # Available section
-    if available_kus:
-        available_links = [
-            SidebarLink(text=ku.title, href=f"/ku/{ku.uid}") for ku in available_kus[:5]
-        ]
-        extra_sections.append(
-            Li(
-                Li(cls="border-t border-border my-2"),
-                H4("Available", cls=section_header_cls),
-                Ul(*available_links, cls="list-none p-0"),
-            )
-        )
-
-    return items, extra_sections
 
 
 def _render_ku_sections(
@@ -562,8 +513,6 @@ def create_ku_ui_routes(
         # Suggestions: bookmarked (studying) first
         suggested_kus = studying_kus[:8]
 
-        sidebar_items, extra_sections = _build_sidebar_sections(studying_kus, available_kus)
-
         if ku_load_error:
             ku_list_content: Any = render_error_banner(
                 "Unable to load knowledge units. Please try again later."
@@ -572,22 +521,16 @@ def create_ku_ui_routes(
             ku_list_content = _render_ku_sections(studying_kus, available_kus, pinned_uids)
 
         content = Div(
+            PageHeader("Knowledge", subtitle="Bookmarked · Available"),
             _render_ku_search_panel(all_tags, namespaces, categories, suggested_kus),
             Div(ku_list_content, id="ku-list"),
         )
 
-        return await SidebarPage(
+        return await BasePage(
             content=content,
-            items=sidebar_items,
-            active="all",
             title="Knowledge",
-            subtitle="Bookmarked · Available",
-            storage_key="ku-sidebar",
-            extra_sidebar_sections=extra_sections,
-            page_title="Knowledge",
             request=request,
             active_page="knowledge",
-            title_href="/ku",
         )
 
     # -----------------------------------------------------------------
@@ -757,9 +700,9 @@ def create_ku_ui_routes(
                     Div(NotStr(toc_html), cls="prose prose-sm max-w-none toc-nav"),
                     cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
                 ),
-                cls="hidden lg:block w-56 shrink-0 border-r border-border",
+                cls="hidden lg:block w-56 shrink-0 border-l border-border",
             )
-            content = Div(toc_sidebar, main_column, cls="flex")
+            content = Div(main_column, toc_sidebar, cls="flex")
         else:
             content = main_column
 

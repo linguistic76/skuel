@@ -6,7 +6,7 @@ UI for curriculum browser sub-pages.
 Routes:
 - GET /curriculum — 301 redirect to /profile (shelved: landing page deprecated)
 - GET /lessons — 301 redirect to /path-steps (Lesson merged into PathStep)
-- GET /path-steps — PathStep browser with sidebar (Registered In / Available)
+- GET /path-steps — PathStep browser (Registered In / Available)
 - GET /learning-paths — Learning Paths browser
 """
 
@@ -25,13 +25,8 @@ from ui.layouts.base_page import BasePage
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
-from ui.patterns.sidebar import SidebarItem, SidebarLink, SidebarPage
 
 logger = get_logger("skuel.routes.curriculum_hub")
-
-_SECTION_HEADER_CLS = (
-    "text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 py-2"
-)
 
 # Detail route patterns per domain slug
 _DETAIL_ROUTES: dict[str, str] = {
@@ -59,7 +54,7 @@ def create_curriculum_hub_ui_routes(
 
     @rt("/path-steps")
     async def path_steps_browser(request: Request) -> Any:
-        """PathStep browser with sidebar: Registered In + Available sections."""
+        """PathStep browser — Registered In + Available sections."""
         user_uid = require_authenticated_user(request)
 
         ps_service = services.ps
@@ -79,62 +74,15 @@ def create_curriculum_hub_ui_routes(
         enrolled_steps = [s for s in all_steps if s.uid in enrolled_uids]
         available_steps = [s for s in all_steps if s.uid not in enrolled_uids]
 
-        # ---- Sidebar sections ----
-        extra_sections: list[Any] = []
-
-        # Section 1: Registered In
-        if enrolled_steps:
-            links = [
-                SidebarLink(text=s.title or s.uid, href=f"/path-steps/{s.uid}/details")
-                for s in enrolled_steps
-            ]
-            extra_sections.append(
-                Li(
-                    H4("Registered In", cls=_SECTION_HEADER_CLS),
-                    Ul(*links, cls="list-none p-0"),
-                    cls="mt-1",
-                )
-            )
-        else:
-            extra_sections.append(
-                Li(
-                    H4("Registered In", cls=_SECTION_HEADER_CLS),
-                    Li(
-                        "None yet",
-                        cls="text-xs text-muted-foreground px-3 py-1",
-                    ),
-                    cls="mt-1",
-                )
-            )
-
-        # Section 2: Available
-        if available_steps:
-            links = [
-                SidebarLink(text=s.title or s.uid, href=f"#ps-{s.uid}")
-                for s in available_steps[:5]
-            ]
-            extra_sections.append(
-                Li(
-                    Li(cls="border-t border-border my-2"),
-                    H4("Available", cls=_SECTION_HEADER_CLS),
-                    Ul(*links, cls="list-none p-0"),
-                )
-            )
-
-        # ---- Main content ----
         content = Div(
+            PageHeader("Path Steps"),
             _ps_list(enrolled_steps, available_steps),
             id="main-content",
         )
 
-        return await SidebarPage(
+        return await BasePage(
             content=content,
-            items=[SidebarItem(label="Path Steps", href="/path-steps", slug="path-steps")],
-            active="path-steps",
             title="Path Steps",
-            storage_key="path-steps-sidebar",
-            extra_sidebar_sections=extra_sections,
-            page_title="Path Steps",
             request=request,
             active_page="curriculum",
         )
