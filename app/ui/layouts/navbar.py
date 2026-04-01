@@ -236,38 +236,46 @@ def _logout_button() -> A:
 
 
 def _avatar_dropdown(current_user: str, active_page: str) -> Div:
-    """Profile avatar with hover dropdown showing activity domain links.
+    """Profile avatar with click-toggle dropdown showing profile + activity domain links.
 
-    Click navigates to /profile; hover reveals activity dropdown.
-    Uses the same relative group + group-hover pattern as icon nav dropdowns.
+    Click on avatar opens/closes the dropdown. Profile link is the first item.
+    Uses Alpine.js x-data/x-show pattern (same as mobile menu) for reliable show/hide.
     """
     initial = current_user[0].upper() if current_user else "U"
     hue = _avatar_hue(current_user)
 
-    trigger = A(
-        Span("Go to profile", cls="sr-only"),
+    trigger = Button(
+        Span("Open user menu", cls="sr-only"),
         Div(
             initial,
-            cls="size-8 rounded-full flex items-center justify-center text-white font-medium text-sm cursor-pointer",
+            cls="size-8 rounded-full flex items-center justify-center text-white font-medium text-sm",
             style=f"background-color: hsl({hue}, 65%, 45%);",
             aria_hidden="true",
         ),
-        href="/profile",
+        type="button",
         cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
-        role="button",
-        aria_haspopup="true",
-        tabindex="0",
+        **{
+            "@click": "avatarOpen = !avatarOpen",
+            "aria-haspopup": "true",
+            ":aria-expanded": "avatarOpen.toString()",
+        },
     )
 
-    if not ACTIVITY_DROPDOWN_ITEMS:
-        return Div(trigger)
+    profile_item = A(
+        UkIcon("user", cls="size-4", aria_hidden="true"),
+        Span("Profile"),
+        href="/profile",
+        cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
+        **{"@click": "avatarOpen = false"},
+    )
 
-    dropdown_items = [
+    activity_items = [
         A(
             UkIcon(di.icon, cls="size-4", aria_hidden="true") if di.icon else None,
             Span(di.label),
             href=di.href,
             cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
+            **{"@click": "avatarOpen = false"},
         )
         for di in ACTIVITY_DROPDOWN_ITEMS
     ]
@@ -280,19 +288,26 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
     )
 
     dropdown_menu = Div(
-        *dropdown_items,
+        profile_item,
+        Div(cls="my-1 border-t border-border"),
+        *activity_items,
         Div(cls="my-1 border-t border-border"),
         logout_item,
-        cls="absolute right-0 top-full mt-1 w-44 bg-background border border-border rounded-lg shadow-lg py-1 z-50 "
-        "opacity-0 invisible group-hover:opacity-100 group-hover:visible "
-        "transition-all duration-150",
+        cls="absolute left-0 top-full mt-1 w-48 bg-background border border-border rounded-lg shadow-lg py-1 z-50",
         role="menu",
+        **{
+            "x-show": "avatarOpen",
+            "x-transition": "",
+            "@click.outside": "avatarOpen = false",
+            "x-cloak": "",
+        },
     )
 
     return Div(
         trigger,
         dropdown_menu,
-        cls="relative group",
+        cls="relative",
+        **{"x-data": "{ avatarOpen: false }"},
     )
 
 
