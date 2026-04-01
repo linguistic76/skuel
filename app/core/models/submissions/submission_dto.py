@@ -78,6 +78,11 @@ class SubmissionDTO(UserOwnedDTO):
     subject_uid: str | None = None
 
     # =========================================================================
+    # REVISION
+    # =========================================================================
+    revision_number: int = 1
+
+    # =========================================================================
     # SERIALIZATION
     # =========================================================================
 
@@ -107,6 +112,8 @@ class SubmissionDTO(UserOwnedDTO):
                 "modality": get_enum_value(self.modality),
                 # Subject
                 "subject_uid": self.subject_uid,
+                # Revision
+                "revision_number": self.revision_number,
             }
         )
 
@@ -184,6 +191,7 @@ class SubmissionDTO(UserOwnedDTO):
                 "max_retention",
                 "modality",
                 "subject_uid",
+                "revision_number",
             },
             enum_mappings={
                 "entity_type": EntityType,

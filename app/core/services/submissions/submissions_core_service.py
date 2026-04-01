@@ -399,6 +399,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             "visibility",
             "instructions",
             "max_retention",
+            "revision_number",
         }
 
         # Filter updates to allowed fields
@@ -969,7 +970,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                     )
                     await self.backend.update(
                         submission_uid,
-                        {"title": new_title},
+                        {"title": new_title, "revision_number": prior_count + 1},
                     )
                     self.logger.info(f"Updated submission title to: {new_title}")
 

@@ -139,7 +139,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing created submission entity
         """
-        uid = UIDGenerator.generate_random_uid("ku")
+        uid = UIDGenerator.generate_random_uid("es")
 
         if not file_type:
             file_type = self._detect_mime_type(original_filename)
@@ -160,7 +160,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             title=title or original_filename,
             entity_type=entity_type,
             user_uid=user_uid,
-            parent_entity_uid=parent_entity_uid,
+            parent_entity_uid=parent_entity_uid or fulfills_exercise_uid,
             status=EntityStatus.SUBMITTED,
             original_filename=original_filename,
             file_path=str(file_path),
@@ -250,6 +250,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             title=title or f"Form response — {datetime.now():%Y-%m-%d}",
             entity_type=EntityType.EXERCISE_SUBMISSION,
             user_uid=user_uid,
+            parent_entity_uid=exercise_uid,
             status=EntityStatus.SUBMITTED,
             processed_content=json.dumps(form_data),
             metadata={"submission_mode": "form", "form_data": form_data},

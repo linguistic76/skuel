@@ -161,6 +161,7 @@ class RevisedExerciseService(BaseService):
             title=display_title,
             submission_uid=submission_uid,
             expected_modality=expected_modality,
+            parent_entity_uid=entity.report_uid,
         )
 
         result = await self.backend.create(enriched)

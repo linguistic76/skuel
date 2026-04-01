@@ -113,6 +113,11 @@ class Submission(UserOwnedEntity):
     subject_uid: str | None = None  # Who this report is about
 
     # =========================================================================
+    # REVISION
+    # =========================================================================
+    revision_number: int = 1  # Which attempt against the exercise (1 = first, 2 = second, ...)
+
+    # =========================================================================
     # TITLE GENERATION
     # =========================================================================
 
