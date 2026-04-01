@@ -128,6 +128,7 @@ def SidebarNav(
     extra_mobile_sections: list[Any] | None = None,
     item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     title_href: str = "",
+    default_collapsed: bool = False,
 ) -> "FT":
     """Build sidebar navigation (desktop) + horizontal tabs (mobile).
 
@@ -208,7 +209,7 @@ def SidebarNav(
         hx_get="/api/sidebar/badges",
         hx_trigger="load",
         hx_swap="none",
-        **{"x-data": f"collapsibleSidebar('{storage_key}')"},
+        **{"x-data": f"collapsibleSidebar('{storage_key}', {str(default_collapsed).lower()})"},
     )
 
     # --- Mobile tabs (hidden at lg: and above) ---
@@ -258,6 +259,7 @@ async def SidebarPage(
     active_page: str = "",
     item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     title_href: str = "",
+    default_collapsed: bool = False,
 ) -> "FT":
     """Create a full page with collapsible sidebar navigation.
 
@@ -276,8 +278,10 @@ async def SidebarPage(
         extra_mobile_sections=extra_mobile_sections,
         item_renderer=item_renderer,
         title_href=title_href,
+        default_collapsed=default_collapsed,
     )
 
+    collapsed_default = str(default_collapsed).lower()
     # Content area with responsive margin
     page_content = Div(
         nav,
@@ -289,7 +293,7 @@ async def SidebarPage(
             cls="lg:ml-64 lg:transition-[margin-left] lg:duration-300 min-h-[calc(100vh-64px)]",
             id="sidebar-content",
             **{
-                "x-data": f"collapsibleSidebar('{storage_key}')",
+                "x-data": f"collapsibleSidebar('{storage_key}', {collapsed_default})",
                 ":class": "collapsed ? 'lg:ml-12' : 'lg:ml-64'",
             },
         ),

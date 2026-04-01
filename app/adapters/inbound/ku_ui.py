@@ -642,7 +642,7 @@ def create_ku_ui_routes(
                 if pins_result.is_ok and pins_result.value:
                     is_pinned = uid in set(pins_result.value)
 
-        # Sidebar — studying KUs for contextual navigation
+        # Sidebar — studying KUs + available KUs for contextual navigation
         sidebar_kus: list[Ku] = []
         if user_uid and ku_service:
             studying_uids_result = await ku_service.get_studying_ku_uids(user_uid)
@@ -654,6 +654,17 @@ def create_ku_ui_routes(
                     if ku_r.is_ok and ku_r.value:
                         sidebar_kus.append(ku_r.value)
                     if len(sidebar_kus) >= 5:
+                        break
+
+        available_kus: list[Ku] = []
+        if ku_service and getattr(ku_service, "core", None):
+            all_kus_result = await ku_service.core.list(limit=6)
+            if all_kus_result.is_ok and all_kus_result.value:
+                studying_uid_set = {k.uid for k in sidebar_kus} | {uid}
+                for k in all_kus_result.value:
+                    if k.uid not in studying_uid_set:
+                        available_kus.append(k)
+                    if len(available_kus) >= 5:
                         break
 
         # Render markdown content with TOC
@@ -756,7 +767,7 @@ def create_ku_ui_routes(
         else:
             content = main_column
 
-        ku_sidebar_items = [SidebarItem(label="All Knowledge", href="/ku", slug="all")]
+        ku_sidebar_items: list[SidebarItem] = []
         ku_sidebar_extra = []
         if sidebar_kus:
             ku_sidebar_extra.append(
@@ -771,11 +782,24 @@ def create_ku_ui_routes(
                     ),
                 )
             )
+        if available_kus:
+            ku_sidebar_extra.append(
+                Li(
+                    P(
+                        "Available",
+                        cls="text-xs font-semibold uppercase text-muted-foreground px-4 pt-3 pb-1",
+                    ),
+                    Ul(
+                        *[SidebarLink(text=k.title, href=f"/ku/{k.uid}") for k in available_kus],
+                        cls="list-none p-0",
+                    ),
+                )
+            )
 
         return await SidebarPage(
             content=content,
             items=ku_sidebar_items,
-            active="all",
+            active="",
             title="Knowledge",
             storage_key="ku-detail-sidebar",
             extra_sidebar_sections=ku_sidebar_extra or None,
@@ -783,6 +807,7 @@ def create_ku_ui_routes(
             request=request,
             active_page="knowledge",
             title_href="/ku",
+            default_collapsed=True,
         )
 
     # -----------------------------------------------------------------

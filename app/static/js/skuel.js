@@ -573,7 +573,7 @@
         // Unified sidebar for all pages: Profile, KU, Reports, Journals, Askesis.
         // Desktop: collapsible with toggle. Mobile: hidden (tabs shown instead).
         // Multiple instances share state via storageKey parameter.
-        Alpine.data('collapsibleSidebar', function(storageKey) {
+        Alpine.data('collapsibleSidebar', function(storageKey, defaultCollapsed) {
             return {
                 // Local getter reads from shared store
                 get collapsed() {
@@ -584,9 +584,10 @@
                 init: function() {
                     // Register shared store if not yet created
                     if (!Alpine.store(storageKey)) {
-                        var initial = false;
+                        var initial = defaultCollapsed === true;
                         if (window.innerWidth >= 1024) {
-                            initial = localStorage.getItem(storageKey + '-collapsed') === 'true';
+                            var stored = localStorage.getItem(storageKey + '-collapsed');
+                            initial = stored !== null ? stored === 'true' : (defaultCollapsed === true);
                         }
                         Alpine.store(storageKey, { collapsed: initial });
                     }

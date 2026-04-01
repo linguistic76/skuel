@@ -131,6 +131,16 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
                     if batch_result.is_ok and batch_result.value:
                         sidebar_steps = list(batch_result.value)
 
+        available_steps: list[PathStep] = []
+        available_result = await ps_service.list_steps(limit=6)
+        if available_result.is_ok and available_result.value:
+            in_progress_uid_set = {s.uid for s in sidebar_steps} | {uid}
+            for s in available_result.value:
+                if s.uid not in in_progress_uid_set:
+                    available_steps.append(s)
+                if len(available_steps) >= 5:
+                    break
+
         # Render markdown with TOC
         content_html, toc_html = render_markdown_with_toc(content_body or "")
         has_toc = bool(toc_html and toc_html.strip())
@@ -251,7 +261,7 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
         else:
             content = main_column
 
-        ps_sidebar_items = [SidebarItem(label="All Path Steps", href="/path-steps", slug="all")]
+        ps_sidebar_items: list[SidebarItem] = []
         ps_sidebar_extra = []
         if sidebar_steps:
             ps_sidebar_extra.append(
@@ -269,11 +279,27 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
                     ),
                 )
             )
+        if available_steps:
+            ps_sidebar_extra.append(
+                Li(
+                    P(
+                        "Available",
+                        cls="text-xs font-semibold uppercase text-muted-foreground px-4 pt-3 pb-1",
+                    ),
+                    Ul(
+                        *[
+                            SidebarLink(text=s.title, href=f"/path-steps/{s.uid}/details")
+                            for s in available_steps
+                        ],
+                        cls="list-none p-0",
+                    ),
+                )
+            )
 
         return await SidebarPage(
             content=content,
             items=ps_sidebar_items,
-            active="all",
+            active="",
             title="Path Steps",
             storage_key="ps-detail-sidebar",
             extra_sidebar_sections=ps_sidebar_extra or None,
@@ -281,6 +307,7 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
             request=request,
             active_page="pathways",
             title_href="/path-steps",
+            default_collapsed=True,
         )
 
     # ========================================================================
