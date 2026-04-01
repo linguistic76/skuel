@@ -12,7 +12,8 @@ Usage:
 
 from typing import TYPE_CHECKING
 
-from fasthtml.common import A, Div, Span
+from fasthtml.common import A, Div
+from monsterui.franken import UkIcon
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -27,14 +28,41 @@ _ACTIVITY_DOMAINS: tuple[tuple[str, str, str, str, str], ...] = (
     ("principles", "Principles", "compass", "/principles", "#EC4899"),
 )
 
+# Breakout from uk-container-small padding (UIKit default gutter = 30px)
+# plus BasePage top padding flush
+_BAND_STYLE = (
+    "margin-top: -1rem; "           # flush against main navbar (BasePage p-4)
+    "margin-left: -30px; "          # negate UIKit container gutter
+    "margin-right: -30px; "
+    "width: calc(100% + 60px); "
+    "background-color: var(--background); "
+    "border-top: 1px solid var(--border); "
+    "border-bottom: 2px solid var(--border); "
+    "margin-bottom: 2rem; "
+)
+
+_LINK_BASE = (
+    "display: inline-flex !important; "
+    "align-items: center; "
+    "gap: 0.4rem; "
+    "padding: 0.75rem 1.1rem; "
+    "font-size: 0.72rem; "
+    "font-weight: 600; "
+    "letter-spacing: 0.07em; "
+    "text-transform: uppercase; "
+    "text-decoration: none !important; "
+    "border-bottom: 3px solid transparent; "
+    "white-space: nowrap; "
+    "color: var(--muted-foreground); "
+    "transition: opacity 0.15s; "
+)
+
 
 def ActivityDomainNav(current_domain: str) -> "FT":
     """Full-width editorial nav band for all 6 Activity Domains.
 
-    Inactive items: muted gray text, no decoration.
-    Active item: domain color text + 3px colored bottom border.
-
-    Breaks out of uk-container-small padding via .activity-domain-nav-bar CSS.
+    Sits flush against the main navbar via negative top margin.
+    Inactive items: muted gray text. Active: domain color + bottom border.
 
     Args:
         current_domain: The active domain key (e.g. "goals", "tasks").
@@ -44,18 +72,20 @@ def ActivityDomainNav(current_domain: str) -> "FT":
         is_active = key == current_domain
 
         if is_active:
-            link_cls = "activity-domain-nav-link activity-domain-nav-link-active"
-            link_style = f"color: {color}; border-bottom-color: {color};"
+            link_style = (
+                f"{_LINK_BASE}"
+                f"color: {color} !important; "
+                f"border-bottom-color: {color}; "
+                "font-weight: 800; "
+            )
         else:
-            link_cls = "activity-domain-nav-link"
-            link_style = ""
+            link_style = _LINK_BASE
 
         items.append(
             A(
-                Span(cls="uk-icon", **{"uk-icon": f"icon: {icon}; ratio: 0.75"}),
+                UkIcon(icon, cls="size-3"),
                 label,
                 href=href,
-                cls=link_cls,
                 style=link_style,
             )
         )
@@ -65,5 +95,5 @@ def ActivityDomainNav(current_domain: str) -> "FT":
             *items,
             style="display: flex; justify-content: center; flex-wrap: wrap;",
         ),
-        cls="activity-domain-nav-bar",
+        style=_BAND_STYLE,
     )

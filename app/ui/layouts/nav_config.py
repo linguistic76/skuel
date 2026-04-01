@@ -67,8 +67,9 @@ class DropdownItem:
 
 
 # Activity domain dropdown items — shown in avatar hover dropdown
-# Tasks and Goals are promoted to top-level navbar icons (ICON_NAV_ITEMS)
 ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
+    DropdownItem("Tasks", "/tasks", icon="check-square"),
+    DropdownItem("Goals", "/goals", icon="target"),
     DropdownItem("Habits", "/habits", icon="repeat"),
     DropdownItem("Events", "/events", icon="calendar"),
     DropdownItem("Choices", "/choices", icon="git-branch"),
@@ -85,24 +86,16 @@ CURRICULUM_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 
 
-# Icon navigation items — rendered as circular letter buttons in the left navbar section
+# Icon navigation items — rendered as circular icon buttons in the left navbar section
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
     IconNavItem("Knowledge", "\u269b\ufe0f", "/ku", "knowledge", has_dropdown=False),
     IconNavItem(
-        "Tasks",
+        "Path Steps",
         "",
-        "/tasks",
-        "tasks",
+        "/path-steps",
+        "path-steps",
         has_dropdown=False,
-        icon="check-square",
-    ),
-    IconNavItem(
-        "Goals",
-        "",
-        "/goals",
-        "goals",
-        has_dropdown=False,
-        icon="target",
+        icon="book",
     ),
     IconNavItem(
         "Submissions",

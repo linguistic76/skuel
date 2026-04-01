@@ -375,7 +375,7 @@ def create_navbar(
     if is_admin:
         nav_items.insert(0, ADMIN_NAV_ITEM)
 
-    # Icon navigation links (Activities with dropdown, Study)
+    # Icon navigation links (Knowledge, PathSteps, Submissions)
     icon_links: list[Any] = []
     if is_authenticated and not is_admin:
         icon_links = [_icon_nav_link(item, active_page) for item in ICON_NAV_ITEMS]
@@ -438,31 +438,41 @@ def create_navbar(
         **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
     )
 
-    # Profile section
+    # Left section: avatar (non-admin authenticated users)
+    left_avatar: Any = None
+    if is_authenticated and current_user and not is_admin:
+        left_avatar = _avatar_dropdown(current_user, active_page)
+
+    # Right section: search + notifications (or admin profile / auth buttons)
     if is_authenticated and current_user and is_admin:
-        profile_section = _admin_profile_section(current_user)
-    elif is_authenticated and current_user:
-        profile_section = Div(
+        right_section: Any = _admin_profile_section(current_user)
+    elif is_authenticated:
+        right_section = Div(
+            _search_button(active_page),
             _notification_button(unread_insights),
-            _avatar_dropdown(current_user, active_page),
             cls="flex items-center gap-2",
         )
     else:
-        profile_section = _auth_buttons()
+        right_section = _auth_buttons()
+
+    # Build left column items
+    left_col: list[Any] = [_mobile_menu_button()]
+    if left_avatar is not None:
+        left_col.append(left_avatar)
+    left_col.extend(icon_links)
 
     return Nav(
         Div(
-            # Left column: Mobile menu button + Icon Nav
+            # Left column: Mobile menu button + Avatar + Icon Nav
             Div(
-                _mobile_menu_button(),
-                *icon_links,
+                *left_col,
                 cls="flex items-center gap-2 flex-1",
             ),
             # Center column: Desktop navigation links
             desktop_links,
-            # Right column: Profile + Notifications
+            # Right column: Search + Notifications
             Div(
-                profile_section,
+                right_section,
                 cls="flex items-center justify-end flex-1",
             ),
             cls="flex items-center h-16 flex-1 px-4 sm:px-6 lg:px-8",
