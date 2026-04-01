@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import A, Div, P, Span
+from monsterui.franken import UkIcon
 
 from core.services.user.unified_user_context import UserContext
 from ui.patterns.empty_state import EmptyState
@@ -21,20 +22,20 @@ from ui.patterns.empty_state import EmptyState
 # Activity domain tab configuration
 # ---------------------------------------------------------------------------
 
-_ACTIVITY_TABS: list[tuple[str, str, str]] = [
-    ("Tasks", "tasks", "bg-blue-500"),
-    ("Goals", "goals", "bg-emerald-500"),
-    ("Habits", "habits", "bg-violet-500"),
-    ("Events", "events", "bg-orange-500"),
-    ("Choices", "choices", "bg-pink-500"),
-    ("Principles", "principles", "bg-slate-500"),
+# (label, tab_id, icon, hex_color) — mirrors ActivityDomainNav domain config
+_ACTIVITY_TABS: list[tuple[str, str, str, str]] = [
+    ("Tasks", "tasks", "check-square", "#3B82F6"),
+    ("Goals", "goals", "target", "#F59E0B"),
+    ("Habits", "habits", "repeat", "#10B981"),
+    ("Events", "events", "calendar", "#8B5CF6"),
+    ("Choices", "choices", "git-branch", "#F97316"),
+    ("Principles", "principles", "compass", "#EC4899"),
 ]
 
 
 def ProfileHubView(context: UserContext) -> Div:
     """Profile hub — live learning state with actionable sections."""
     return Div(
-        _personal_header(context),
         _activities_section(),
         _knowledge_section(context),
         _path_steps_section(context),
@@ -43,6 +44,7 @@ def ProfileHubView(context: UserContext) -> Div:
         _reports_section(),
         _nous_section(),
         _settings_link(),
+        _personal_header(context),
     )
 
 
@@ -108,17 +110,31 @@ def _compact_row(
 # ---------------------------------------------------------------------------
 
 
-def _activity_tab_button(label: str, tab_id: str, dot_cls: str) -> Any:
-    """Tab button for the activities section (Alpine.js state)."""
+_TAB_LINK_BASE = (
+    "display: inline-flex; align-items: center; gap: 0.4rem; "
+    "padding: 0.65rem 1rem; font-size: 0.72rem; font-weight: 600; "
+    "letter-spacing: 0.07em; text-transform: uppercase; "
+    "text-decoration: none; border-bottom: 3px solid transparent; "
+    "white-space: nowrap; cursor: pointer; transition: opacity 0.15s; "
+    "background: none; border-top: none; border-left: none; border-right: none;"
+)
+
+
+def _activity_tab_button(label: str, tab_id: str, icon: str, color: str) -> Any:
+    """Tab button styled to match ActivityDomainNav — icon + uppercase + colored border."""
     return A(
-        Span(cls=f"inline-block w-2 h-2 rounded-full mr-1.5 {dot_cls}"),
+        UkIcon(icon, cls="size-3"),
         label,
         role="tab",
-        cls="px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors rounded-t border-b-2 flex items-center",
+        style=_TAB_LINK_BASE,
         **{
             ":aria-selected": f"actTab === '{tab_id}'",
             "@click": f"actTab = '{tab_id}'; htmx.trigger('#act-tab-panel-{tab_id}', 'tab-activate')",
-            ":class": f"actTab === '{tab_id}' ? 'border-primary text-primary bg-background' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
+            ":style": (
+                f"actTab === '{tab_id}' ? "
+                f"'{_TAB_LINK_BASE} color: {color}; border-bottom-color: {color}; font-weight: 800;' : "
+                f"'{_TAB_LINK_BASE} color: var(--muted-foreground);'"
+            ),
         },
     )
 
@@ -148,23 +164,22 @@ def _activities_section() -> Div:
     Each tab lazily loads its domain list-fragment (same view as the full domain page).
     """
     return Div(
-        Span(
-            "Activities",
-            cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground",
-        ),
         Div(
-            Div(
-                *[_activity_tab_button(label, tab_id, dot_cls) for label, tab_id, dot_cls in _ACTIVITY_TABS],
-                role="tablist",
-                cls="flex gap-1 border-b border-border mb-3 flex-wrap",
+            *[_activity_tab_button(label, tab_id, icon, color) for label, tab_id, icon, color in _ACTIVITY_TABS],
+            role="tablist",
+            style=(
+                "display: flex; flex-wrap: wrap; "
+                "border-top: 1px solid var(--border); "
+                "border-bottom: 2px solid var(--border); "
+                "background-color: var(--background); "
+                "margin-bottom: 1.25rem;"
             ),
-            *[
-                _activity_tab_panel(tab_id, default=(i == 0))
-                for i, (_, tab_id, _) in enumerate(_ACTIVITY_TABS)
-            ],
-            **{"x-data": "{ actTab: 'tasks' }"},
-            cls="mt-3",
         ),
+        *[
+            _activity_tab_panel(tab_id, default=(i == 0))
+            for i, (_, tab_id, _, _) in enumerate(_ACTIVITY_TABS)
+        ],
+        **{"x-data": "{ actTab: 'tasks' }"},
         cls="mb-6",
     )
 
