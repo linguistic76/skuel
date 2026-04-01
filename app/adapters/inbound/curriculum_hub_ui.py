@@ -184,7 +184,7 @@ def _ps_list(enrolled_steps: list[Any], available_steps: list[Any]) -> Div:
                 cls=f"text-sm font-semibold text-foreground {'mt-6' if enrolled_steps else 'mt-2'} mb-2",
             )
         )
-        for step in available_steps:
+        for step in available_steps[:5]:
             rows.append(_ps_card(step, enrolled=False))
 
     if not enrolled_steps and not available_steps:
