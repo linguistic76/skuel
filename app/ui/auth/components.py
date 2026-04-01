@@ -42,7 +42,7 @@ class AuthComponents:
     <title>Sign In | SKUEL</title>
     <link rel="stylesheet" href="/static/css/output.css?v=4">
 </head>
-<body class="h-full bg-secondary">
+<body class="h-full bg-background">
     <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
         <div class="sm:mx-auto sm:w-full sm:max-w-sm">
             <h1 class="text-center text-3xl font-bold text-primary">SKUEL</h1>
@@ -131,7 +131,7 @@ class AuthComponents:
     <title>Create Account | SKUEL</title>
     <link rel="stylesheet" href="/static/css/output.css?v=4">
 </head>
-<body class="h-full bg-secondary">
+<body class="h-full bg-background">
     <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
         <div class="sm:mx-auto sm:w-full sm:max-w-sm">
             <h1 class="text-center text-3xl font-bold text-primary">SKUEL</h1>

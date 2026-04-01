@@ -12,7 +12,7 @@ Routes:
 
 from typing import Any
 
-from fasthtml.common import Div, H4, Li, Ul
+from fasthtml.common import Div, H4, Li, NotStr, Span, Ul
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import get_current_user
@@ -118,7 +118,10 @@ def create_curriculum_hub_ui_routes(
 
 
 def _ps_list(enrolled_steps: list[Any], available_steps: list[Any]) -> Div:
-    """Render PathStep list split into Registered and Available sections."""
+    """Render PathStep list: Registered In expanded, Available in an accordion.
+
+    Accordion opens by default when user has no enrolled steps.
+    """
     rows: list[Any] = []
 
     if enrolled_steps:
@@ -129,14 +132,35 @@ def _ps_list(enrolled_steps: list[Any], available_steps: list[Any]) -> Div:
             rows.append(_ps_card(step, enrolled=True))
 
     if available_steps:
+        open_by_default = "true" if not enrolled_steps else "false"
+        chevron_svg = NotStr(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" '
+            'viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
+            'class="transition-transform duration-200" '
+            ':class="open ? \'rotate-180\' : \'\'">'
+            '<path d="m6 9 6 6 6-6"/>'
+            "</svg>"
+        )
         rows.append(
-            H4(
-                "Available",
-                cls=f"text-sm font-semibold text-foreground {'mt-6' if enrolled_steps else 'mt-2'} mb-2",
+            Div(
+                Div(
+                    Span(
+                        f"Available ({len(available_steps)})",
+                        cls=f"text-sm font-semibold text-foreground {'mt-6' if enrolled_steps else 'mt-2'}",
+                    ),
+                    chevron_svg,
+                    cls="flex items-center justify-between cursor-pointer py-1 select-none",
+                    **{"@click": "open = !open"},
+                ),
+                Div(
+                    *[_ps_card(step, enrolled=False) for step in available_steps[:5]],
+                    x_show="open",
+                    **{"x-transition": ""},
+                ),
+                x_data=f"{{ open: {open_by_default} }}",
             )
         )
-        for step in available_steps[:5]:
-            rows.append(_ps_card(step, enrolled=False))
 
     if not enrolled_steps and not available_steps:
         return EmptyState(title="No path steps found")

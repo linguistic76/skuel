@@ -339,7 +339,10 @@ def _render_ku_sections(
     available_kus: list[Ku],
     pinned_uids: set[str],
 ) -> Any:
-    """Render Ku list split into Bookmarked + Available sections."""
+    """Render Ku list: Bookmarked expanded, Available in an accordion.
+
+    Accordion opens by default when user has no bookmarked Kus.
+    """
     rows: list[Any] = []
 
     if pinned_kus:
@@ -349,14 +352,34 @@ def _render_ku_sections(
         )
 
     if available_kus:
-        rows.append(
-            H4(
-                "Available",
-                cls=f"text-sm font-semibold text-foreground {'mt-6' if pinned_kus else 'mt-2'} mb-2",
-            )
+        open_by_default = "true" if not pinned_kus else "false"
+        chevron_svg = NotStr(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" '
+            'viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
+            'class="transition-transform duration-200" '
+            ':class="open ? \'rotate-180\' : \'\'">'
+            '<path d="m6 9 6 6 6-6"/>'
+            "</svg>"
         )
         rows.append(
-            Ul(*[_render_ku_row(ku, pinned_uids) for ku in available_kus], cls="list-none p-0")
+            Div(
+                Div(
+                    Span(
+                        f"Available ({len(available_kus)})",
+                        cls=f"text-sm font-semibold text-foreground {'mt-6' if pinned_kus else 'mt-2'}",
+                    ),
+                    chevron_svg,
+                    cls="flex items-center justify-between cursor-pointer py-1 select-none",
+                    **{"@click": "open = !open"},
+                ),
+                Div(
+                    Ul(*[_render_ku_row(ku, pinned_uids) for ku in available_kus], cls="list-none p-0"),
+                    x_show="open",
+                    **{"x-transition": ""},
+                ),
+                x_data=f"{{ open: {open_by_default} }}",
+            )
         )
 
     if not rows:

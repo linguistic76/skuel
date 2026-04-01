@@ -70,9 +70,9 @@ def _section_header(title: str, view_all_href: str, count: int = 0) -> Div:
         )
     parts.append(
         A(
-            "View all",
+            "View all →",
             href=view_all_href,
-            cls="ml-auto text-xs text-muted-foreground hover:text-primary",
+            cls="ml-auto text-xs font-medium text-primary/60 hover:text-primary transition-colors",
         )
     )
     return Div(*parts, cls="flex items-center gap-2 mb-3")

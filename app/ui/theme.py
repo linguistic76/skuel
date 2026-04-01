@@ -25,13 +25,17 @@ from monsterui.core import Theme as MonsterTheme
 # Re-export MonsterUI Theme for direct access
 Theme = MonsterTheme
 
+# Single source of truth for SKUEL's brand color.
+# Change this to switch the entire app's primary color (buttons, links, focus rings).
+BRAND_THEME = MonsterTheme.blue
+
 # Version constants for self-hosted dependencies
 HTMX_VERSION = "1.9.10"
 ALPINE_VERSION = "3.14.8"
 
 
 def monster_headers(
-    theme: MonsterTheme = MonsterTheme.blue,
+    theme: MonsterTheme = BRAND_THEME,
     htmx_version: str = HTMX_VERSION,
     alpine_version: str = ALPINE_VERSION,
 ) -> tuple[Any, ...]:
@@ -169,6 +173,7 @@ def chartjs_headers() -> tuple[Any, ...]:
 
 __all__ = [
     "Theme",
+    "BRAND_THEME",
     "monster_headers",
     "pwa_headers",
     "dark_mode_script",
