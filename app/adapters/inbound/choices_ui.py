@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
+from ui.activities.nav import ActivityDomainNav
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activities.choices_views import (
@@ -104,6 +105,7 @@ def create_choices_ui_routes(
         if result.is_error:
             error = result.expect_error()
             content = Div(
+                ActivityDomainNav("choices"),
                 PageHeader("Choices"),
                 render_error_banner(error.user_message or error.message),
                 cls="uk-container uk-container-small",
@@ -131,6 +133,7 @@ def create_choices_ui_routes(
         subtitle = f"{choice_count} choice{'s' if choice_count != 1 else ''}"
 
         content = Div(
+            ActivityDomainNav("choices"),
             PageHeader("Choices", subtitle=subtitle),
             ChoiceStatsBar(all_choices),
             ChoiceFilterBar(status_filter, sort_by),

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
+from ui.activities.nav import ActivityDomainNav
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activities.principles_views import (
@@ -106,6 +107,7 @@ def create_principles_ui_routes(
         if result.is_error:
             error = result.expect_error()
             content = Div(
+                ActivityDomainNav("principles"),
                 PageHeader("Principles"),
                 render_error_banner(error.user_message or error.message),
                 cls="uk-container uk-container-small",
@@ -137,6 +139,7 @@ def create_principles_ui_routes(
         subtitle = f"{principle_count} principle{'s' if principle_count != 1 else ''}"
 
         content = Div(
+            ActivityDomainNav("principles"),
             PageHeader("Principles", subtitle=subtitle),
             PrincipleStatsBar(all_principles),
             PrincipleFilterBar(status_filter, category_filter, strength_filter, sort_by),

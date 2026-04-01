@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
+from ui.activities.nav import ActivityDomainNav
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activities.tasks_views import (
@@ -103,6 +104,7 @@ def create_tasks_ui_routes(
         if result.is_error:
             error = result.expect_error()
             content = Div(
+                ActivityDomainNav("tasks"),
                 PageHeader("Tasks"),
                 render_error_banner(error.user_message or error.message),
                 cls="uk-container uk-container-small",
@@ -131,6 +133,7 @@ def create_tasks_ui_routes(
         subtitle = f"{task_count} task{'s' if task_count != 1 else ''}"
 
         content = Div(
+            ActivityDomainNav("tasks"),
             PageHeader("Tasks", subtitle=subtitle),
             TaskStatsBar(all_tasks),
             TaskFilterBar(status_filter, priority_filter, sort_by),
