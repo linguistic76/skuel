@@ -16,7 +16,7 @@ from fasthtml.common import Div, H4, Li, Ul
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.feedback import Badge, BadgeT
@@ -48,17 +48,17 @@ def create_curriculum_hub_ui_routes(
     """Register curriculum hub UI routes."""
 
     @rt("/curriculum")
-    async def curriculum_landing(request: Any) -> RedirectResponse:
+    async def curriculum_landing(request: Request) -> RedirectResponse:
         """Curriculum hub shelved — redirect to Profile (THE main hub)."""
         return RedirectResponse(url="/profile", status_code=301)
 
     @rt("/lessons")
-    async def lessons_redirect(request: Any) -> RedirectResponse:
+    async def lessons_redirect(request: Request) -> RedirectResponse:
         """Lesson merged into PathStep — redirect to /path-steps."""
         return RedirectResponse(url="/path-steps", status_code=301)
 
     @rt("/path-steps")
-    async def path_steps_browser(request: Any) -> Any:
+    async def path_steps_browser(request: Request) -> Any:
         """PathStep browser with sidebar: Registered In + Available sections."""
         user_uid = require_authenticated_user(request)
 
@@ -141,7 +141,7 @@ def create_curriculum_hub_ui_routes(
         )
 
     @rt("/learning-paths")
-    async def learning_paths_browser(request: Any) -> Any:
+    async def learning_paths_browser(request: Request) -> Any:
         """Learning Paths browser."""
         require_authenticated_user(request)
 
