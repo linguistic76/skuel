@@ -111,7 +111,7 @@ def create_curriculum_hub_ui_routes(
         if available_steps:
             links = [
                 SidebarLink(text=s.title or s.uid, href=f"#ps-{s.uid}")
-                for s in available_steps[:20]
+                for s in available_steps[:5]
             ]
             extra_sections.append(
                 Li(
