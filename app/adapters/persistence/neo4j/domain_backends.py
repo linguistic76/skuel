@@ -1623,11 +1623,11 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         params: dict[str, Any] = {"teacher_uid": teacher_uid}
 
         if status_filter:
-            where_clauses.append("report.status = $status_filter")
+            where_clauses.append("ku.status = $status_filter")
             params["status_filter"] = status_filter
 
         if entity_type_filter:
-            where_clauses.append("report.entity_type = $entity_type_filter")
+            where_clauses.append("ku.entity_type = $entity_type_filter")
             params["entity_type_filter"] = entity_type_filter
 
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
