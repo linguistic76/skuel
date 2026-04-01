@@ -184,7 +184,7 @@ auto-share with teacher).
 
 | Scope | Created by | Targets | Due date | Purpose |
 |-------|-----------|---------|----------|---------|
-| `PERSONAL` | User | Self | Optional | Self-directed AI feedback |
+| `PERSONAL` | User/Admin | Self / PathStep enrollment | Optional | Self-directed AI feedback |
 | `ASSIGNED` | Teacher | Group | Required | Teacher assigns to class |
 
 **Services:**
@@ -200,19 +200,34 @@ await backend.link_to_curriculum(exercise_uid, ku_uid)      # REQUIRES_KNOWLEDGE
 await backend.unlink_from_curriculum(exercise_uid, ku_uid)  # DELETE relationship
 await backend.get_required_knowledge(exercise_uid)          # list KUs required
 await backend.get_exercise_for_submission(submission_uid)   # FULFILLS_EXERCISE lookup
+await backend.get_student_exercises_with_status(user_uid)   # ASSIGNED exercises via group membership
+await backend.get_enrolled_ps_exercises_with_status(user_uid)  # PERSONAL exercises via enrolled PathSteps
 ```
+
+**Library surface — two discovery paths:**
+
+| Path | Relationship | Scope | Trigger |
+|------|-------------|-------|---------|
+| Group assignment | `(exercise)-[:FOR_GROUP]->(group)<-[:MEMBER_OF]-(user)` | `ASSIGNED` | Teacher assigns to group |
+| PathStep enrollment | `(ps)-[:RELATED_TO]->(exercise)` + `(user)-[:IN_PROGRESS]->(ps)` | `PERSONAL` | User enrolls in PathStep |
+
+`ExerciseService.get_student_exercises_with_status()` merges both paths and deduplicates by UID. The Library Exercises tab calls this method via `GET /library/exercises`.
 
 **Graph pattern:**
 ```cypher
-(teacher:User)-[:OWNS]->(exercise:Entity:Exercise {
-    scope: 'assigned',
-    instructions: '...',         // This IS the LLM prompt for feedback generation
-    model: 'claude-sonnet-4-6',
-    group_uid: 'group_abc123'
-})
-(exercise)-[:FOR_GROUP]->(group:Group)           // classroom targeting
-(exercise)-[:REQUIRES_KNOWLEDGE]->(ku:Entity:Ku) // which Ku this exercise covers
+// Assigned exercise (classroom)
+(teacher:User)-[:OWNS]->(exercise:Entity:Exercise {scope: 'assigned'})
+(exercise)-[:FOR_GROUP]->(group:Group)
+(exercise)-[:REQUIRES_KNOWLEDGE]->(ku:Entity:Ku)
+
+// Personal exercise linked to PathStep (self-directed)
+(ps:Entity)-[:RELATED_TO]->(exercise:Entity:Exercise {scope: 'personal'})
+(user:User)-[:IN_PROGRESS]->(ps)
 ```
+
+**Student-facing routes:**
+- `GET /exercises/get?uid=` — detail page: metadata, form field prompts, instructions, Submit + Download buttons
+- `GET /api/exercises/pdf?uid=` — PDF worksheet download via WeasyPrint (`adapters/outbound/exercise_renderer.py`)
 
 **Loop role:** Exercise is the *how* — it operationalizes Ku into a concrete task.
 Its `instructions` field serves double duty: directive for the student AND prompt for
