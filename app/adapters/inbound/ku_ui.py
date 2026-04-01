@@ -529,8 +529,6 @@ def create_ku_ui_routes(
     @rt("/ku")
     async def ku_index(request: Request) -> Any:
         """Main Ku index — search panel + flat listing with bookmarks/latest sidebar."""
-        from ui.patterns.page_header import PageHeader
-
         kus, ku_load_error, pinned_uids, pinned_kus, studying_kus, understood_kus = (
             await _load_ku_index_data(request)
         )
@@ -569,7 +567,6 @@ def create_ku_ui_routes(
             )
 
         content = Div(
-            PageHeader("Knowledge", subtitle="Atomic knowledge units"),
             _render_ku_search_panel(all_tags, namespaces, categories, suggested_kus),
             Div(ku_list_content, id="ku-list"),
         )

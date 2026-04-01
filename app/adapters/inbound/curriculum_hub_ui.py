@@ -123,7 +123,6 @@ def create_curriculum_hub_ui_routes(
 
         # ---- Main content ----
         content = Div(
-            PageHeader("Path Steps", subtitle="Curriculum content that composes atomic knowledge"),
             _ps_list(enrolled_steps, available_steps),
             id="main-content",
         )
