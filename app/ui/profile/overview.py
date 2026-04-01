@@ -346,16 +346,17 @@ _PREVIEW_PRIORITY_LABELS: dict[Priority, str] = {
 
 
 def render_domain_card_preview(items: list[Any], slug: str) -> Div:
-    """Render domain card preview HTML fragment.
+    """Render domain card preview as a 2×2 grid of square cards.
 
     Called from the /api/profile/{slug}/preview endpoint.
-    Shows up to 5 active items sorted by priority with a "View all" link.
+    Shows up to 4 active items sorted by priority, then a "View all" link.
 
     Args:
-        items: Pre-filtered and pre-sorted list of domain items (max 5).
-        slug: Domain slug used for the "View all" link.
+        items: Pre-filtered and pre-sorted list of domain items (max 4).
+        slug: Domain slug used for the detail link and "View all" link.
     """
     view_href = _PREVIEW_DOMAIN_HREFS.get(slug, f"/{slug}")
+    detail_base = f"/{slug}/detail"
 
     if not items:
         return Div(
@@ -371,9 +372,8 @@ def render_domain_card_preview(items: list[Any], slug: str) -> Div:
         )
 
     def _priority_dot(item: Any) -> Span:
-        """Compact priority indicator: colored dot + P-label."""
+        """Colored priority dot."""
         raw = getattr(item, "priority", Priority.LOW)
-        # Services may return string values instead of Priority enum instances
         if not isinstance(raw, Priority):
             try:
                 raw = Priority(str(raw).lower())
@@ -383,25 +383,33 @@ def render_domain_card_preview(items: list[Any], slug: str) -> Div:
         label = _PREVIEW_PRIORITY_LABELS.get(raw, "P4")
         return Span(
             Span(cls=f"w-2 h-2 rounded-full {color} shrink-0"),
-            Span(label, cls="text-xs font-medium text-muted-foreground w-5"),
-            cls="inline-flex items-center gap-1 shrink-0",
+            Span(label, cls="text-[10px] font-medium text-muted-foreground"),
+            cls="inline-flex items-center gap-1",
             title=f"Priority: {raw.value.title()}",
         )
 
-    rows = [
-        Li(
+    def _square_card(item: Any) -> A:
+        """Compact square card — clickable, links to detail page."""
+        uid = getattr(item, "uid", "")
+        title = getattr(item, "title", "Untitled") or "Untitled"
+        return A(
             _priority_dot(item),
             Span(
-                getattr(item, "title", "Untitled"),
-                cls="text-sm text-foreground truncate flex-1 min-w-0",
+                title,
+                cls="text-xs font-medium text-foreground line-clamp-3 leading-snug mt-1 min-h-[3rem]",
             ),
-            cls="flex items-center gap-2 py-1.5",
+            href=f"{detail_base}?uid={uid}" if uid else view_href,
+            cls=(
+                "flex flex-col justify-between p-2.5 rounded-lg border border-border "
+                "bg-muted/30 hover:bg-muted/60 hover:border-primary/30 transition-colors "
+                "min-h-[80px] no-underline"
+            ),
         )
-        for item in items
-    ]
+
+    cards = [_square_card(item) for item in items]
 
     return Div(
-        Ul(*rows, cls="divide-y divide-border"),
+        Div(*cards, cls="grid grid-cols-2 gap-2"),
         A(
             f"View all {slug} →",
             href=view_href,

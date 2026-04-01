@@ -519,9 +519,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             if str(getattr(item, "status", "active")).lower() not in _terminal_strings
         ]
 
-        # Sort by priority (most important first), take top 5
+        # Sort by priority (most important first), take top 4
         sorted_items = sorted(active_items, key=_preview_priority_sort_key)
-        preview_items = sorted_items[:5]
+        preview_items = sorted_items[:4]
 
         return render_domain_card_preview(preview_items, slug)
 

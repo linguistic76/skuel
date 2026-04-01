@@ -10,7 +10,6 @@ See: /docs/patterns/HUB_PAGE_PATTERN.md
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 
 from fasthtml.common import A, Div, P, Span
@@ -19,50 +18,24 @@ from core.services.user.unified_user_context import UserContext
 from ui.patterns.empty_state import EmptyState
 
 # ---------------------------------------------------------------------------
-# Activity domain configuration
+# Activity domain tab configuration
 # ---------------------------------------------------------------------------
 
-_ACTIVITY_DOMAIN_CONFIG: dict[str, dict[str, str]] = {
-    "tasks": {
-        "label": "Task",
-        "badge_cls": "bg-blue-500/10 text-blue-600",
-        "route": "/tasks/detail",
-    },
-    "goals": {
-        "label": "Goal",
-        "badge_cls": "bg-emerald-500/10 text-emerald-600",
-        "route": "/goals/detail",
-    },
-    "habits": {
-        "label": "Habit",
-        "badge_cls": "bg-violet-500/10 text-violet-600",
-        "route": "/habits/detail",
-    },
-    "events": {
-        "label": "Event",
-        "badge_cls": "bg-orange-500/10 text-orange-600",
-        "route": "/events/detail",
-    },
-    "choices": {
-        "label": "Choice",
-        "badge_cls": "bg-pink-500/10 text-pink-600",
-        "route": "/choices/detail",
-    },
-    "principles": {
-        "label": "Principle",
-        "badge_cls": "bg-slate-500/10 text-slate-600",
-        "route": "/principles/detail",
-    },
-}
-
-_DOMAIN_ORDER: dict[str, int] = {d: i for i, d in enumerate(_ACTIVITY_DOMAIN_CONFIG)}
+_ACTIVITY_TABS: list[tuple[str, str, str]] = [
+    ("Tasks", "tasks", "bg-blue-500"),
+    ("Goals", "goals", "bg-emerald-500"),
+    ("Habits", "habits", "bg-violet-500"),
+    ("Events", "events", "bg-orange-500"),
+    ("Choices", "choices", "bg-pink-500"),
+    ("Principles", "principles", "bg-slate-500"),
+]
 
 
 def ProfileHubView(context: UserContext) -> Div:
     """Profile hub — live learning state with actionable sections."""
     return Div(
         _personal_header(context),
-        _activities_section(context),
+        _activities_section(),
         _knowledge_section(context),
         _path_steps_section(context),
         _exercises_section(context),
@@ -131,190 +104,67 @@ def _compact_row(
 
 
 # ---------------------------------------------------------------------------
-# Activities section — top 5 urgent/relevant items across 6 Activity Domains
+# Activities section — tabbed view of all 6 Activity Domains
 # ---------------------------------------------------------------------------
 
 
-def _score_task(uid: str, context: UserContext) -> tuple[float, str, str]:
-    """Return (score, badge_text, badge_cls) for a task."""
-    score = 10.0
-    badge_text = "Active"
-    badge_cls = "bg-muted text-muted-foreground"
-
-    if uid in context.overdue_task_uids:
-        score = 100.0
-        badge_text = "Overdue"
-        badge_cls = "bg-destructive/10 text-destructive"
-    elif uid in context.today_task_uids:
-        score = 70.0
-        badge_text = "Today"
-        badge_cls = "bg-warning/10 text-warning"
-    elif uid in context.this_week_task_uids:
-        score = 40.0
-        badge_text = "This week"
-        badge_cls = "bg-muted text-muted-foreground"
-
-    if uid == context.current_task_focus:
-        score += 20.0
-    score += context.task_priorities.get(uid, 0.0) * 15.0
-    if uid in context.blocked_task_uids:
-        score += 5.0
-        badge_text = "Blocked"
-        badge_cls = "bg-destructive/10 text-destructive"
-
-    return score, badge_text, badge_cls
+def _activity_tab_button(label: str, tab_id: str, dot_cls: str) -> Any:
+    """Tab button for the activities section (Alpine.js state)."""
+    return A(
+        Span(cls=f"inline-block w-2 h-2 rounded-full mr-1.5 {dot_cls}"),
+        label,
+        role="tab",
+        cls="px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors rounded-t border-b-2 flex items-center",
+        **{
+            ":aria-selected": f"actTab === '{tab_id}'",
+            "@click": f"actTab = '{tab_id}'; htmx.trigger('#act-tab-panel-{tab_id}', 'tab-activate')",
+            ":class": f"actTab === '{tab_id}' ? 'border-primary text-primary bg-background' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
+        },
+    )
 
 
-def _score_goal(uid: str, context: UserContext) -> tuple[float, str, str]:
-    """Return (score, badge_text, badge_cls) for a goal."""
-    if uid in context.at_risk_goals:
-        return 70.0, "At risk", "bg-destructive/10 text-destructive"
-
-    progress = context.goal_progress.get(uid, 0.0)
-    if progress > 0:
-        return 10.0, f"{progress:.0%}", "bg-success/10 text-success"
-    return 10.0, "Active", "bg-muted text-muted-foreground"
-
-
-def _score_habit(uid: str, context: UserContext) -> tuple[float, str, str]:
-    """Return (score, badge_text, badge_cls) for a habit."""
-    if uid in context.at_risk_habits:
-        return 70.0, "At risk", "bg-destructive/10 text-destructive"
-
-    streak = context.habit_streaks.get(uid, 0)
-    if streak > 0:
-        return 40.0, f"{streak}d streak", "bg-success/10 text-success"
-    if uid in context.daily_habits:
-        return 15.0, "Daily", "bg-muted text-muted-foreground"
-    return 10.0, "Active", "bg-muted text-muted-foreground"
-
-
-def _score_event(uid: str, context: UserContext) -> tuple[float, str, str]:
-    """Return (score, badge_text, badge_cls) for an event."""
-    if uid in context.today_event_uids:
-        return 100.0, "Today", "bg-warning/10 text-warning"
-    if uid in context.upcoming_event_uids[:3]:
-        return 40.0, "Upcoming", "bg-muted text-muted-foreground"
-    return 10.0, "Scheduled", "bg-muted text-muted-foreground"
-
-
-def _score_choice(uid: str, context: UserContext) -> tuple[float, str, str]:
-    """Return (score, badge_text, badge_cls) for a choice."""
-    if uid in context.pending_choice_uids:
-        return 100.0, "Pending", "bg-warning/10 text-warning"
-    return 10.0, "Resolved", "bg-muted text-muted-foreground"
-
-
-def _score_principle(uid: str, context: UserContext) -> tuple[float, str, str]:
-    """Return (score, badge_text, badge_cls) for a principle."""
-    score = 10.0
-    if uid == context.current_principle_focus:
-        return 20.0, "Focus", "bg-primary/10 text-primary"
-    if uid in context.core_principle_uids:
-        return score, "Core", "bg-muted text-muted-foreground"
-    return score, "Active", "bg-muted text-muted-foreground"
-
-
-_DomainScorer = Callable[[str, "UserContext"], tuple[float, str, str]]
-
-_DOMAIN_SCORERS: dict[str, _DomainScorer] = {
-    "tasks": _score_task,
-    "goals": _score_goal,
-    "habits": _score_habit,
-    "events": _score_event,
-    "choices": _score_choice,
-    "principles": _score_principle,
-}
-
-
-def _score_for_domain(domain: str, uid: str, context: UserContext) -> tuple[float, str, str]:
-    """Dispatch scoring to the domain-specific function."""
-    scorer = _DOMAIN_SCORERS.get(domain)
-    if scorer is None:
-        return 0.0, "", ""
-    return scorer(uid, context)
-
-
-def _rank_activity_items(context: UserContext, limit: int = 5) -> list[dict[str, Any]]:
-    """Select the top *limit* most urgent/relevant items across all 6 Activity Domains."""
-    candidates: list[tuple[float, int, str, dict[str, Any]]] = []
-
-    for domain, config in _ACTIVITY_DOMAIN_CONFIG.items():
-        for rich_item in context.entities_rich.get(domain, []):
-            entity = rich_item.get("entity", {})
-            uid = entity.get("uid", "")
-            title = entity.get("title", uid)
-            if not uid:
-                continue
-
-            score, meta_text, meta_cls = _score_for_domain(domain, uid, context)
-
-            candidates.append(
-                (
-                    -score,
-                    _DOMAIN_ORDER.get(domain, 99),
-                    title,
-                    {
-                        "uid": uid,
-                        "title": title,
-                        "domain": domain,
-                        "href": f"{config['route']}?uid={uid}",
-                        "domain_label": config["label"],
-                        "domain_badge_cls": config["badge_cls"],
-                        "meta_badge_text": meta_text,
-                        "meta_badge_cls": meta_cls,
-                    },
-                )
-            )
-
-    candidates.sort(key=_candidate_sort_key)
-    return [c[3] for c in candidates[:limit]]
-
-
-def _candidate_sort_key(
-    item: tuple[float, int, str, dict[str, Any]],
-) -> tuple[float, int, str]:
-    """Sort key for activity candidates: (-score, domain_order, title)."""
-    return (item[0], item[1], item[2])
-
-
-def _activities_section(context: UserContext) -> Div:
-    """Top 5 urgent/relevant items across all 6 Activity Domains."""
-    ranked = _rank_activity_items(context)
-
-    rows: list[Div] = []
-    for item in ranked:
-        domain_badge = Span(
-            item["domain_label"],
-            cls=f"text-[10px] font-medium px-1.5 py-0.5 rounded {item['domain_badge_cls']}",
-        )
-        badges: list[Any] = [domain_badge]
-        if item["meta_badge_text"]:
-            badges.append(
-                Span(
-                    item["meta_badge_text"],
-                    cls=f"text-[10px] font-medium px-1.5 py-0.5 rounded {item['meta_badge_cls']}",
-                )
-            )
-        rows.append(_compact_row(item["title"], item["href"], badges))
-
-    total_count = sum(len(context.entities_rich.get(d, [])) for d in _ACTIVITY_DOMAIN_CONFIG)
-
-    content: Div
-    if rows:
-        content = Div(*rows)
-    else:
-        content = EmptyState(
-            "No activities yet",
-            description="Upload activity data to see tasks, goals, habits, and more here.",
-            action_text="Upload Activity Data",
-            action_href="/upload",
-            cls="py-6",
-        )
+def _activity_tab_panel(tab_id: str, default: bool = False) -> Div:
+    """Tab panel with HTMX lazy-loaded content from the domain list-fragment endpoint."""
+    attrs: dict[str, str] = {
+        "x-show": f"actTab === '{tab_id}'",
+        "hx-get": f"/api/profile/{tab_id}/preview",
+        "hx-trigger": "load" if default else "tab-activate once",
+        "hx-swap": "innerHTML",
+    }
+    if not default:
+        attrs["x-cloak"] = ""
 
     return Div(
-        _section_header("Activities", "/activity-reports", total_count),
-        content,
+        P("Loading...", cls="text-center text-muted-foreground py-4"),
+        id=f"act-tab-panel-{tab_id}",
+        role="tabpanel",
+        **attrs,
+    )
+
+
+def _activities_section() -> Div:
+    """Activity Domains — tabbed: Tasks | Goals | Habits | Events | Choices | Principles.
+
+    Each tab lazily loads its domain list-fragment (same view as the full domain page).
+    """
+    return Div(
+        Span(
+            "Activities",
+            cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground",
+        ),
+        Div(
+            Div(
+                *[_activity_tab_button(label, tab_id, dot_cls) for label, tab_id, dot_cls in _ACTIVITY_TABS],
+                role="tablist",
+                cls="flex gap-1 border-b border-border mb-3 flex-wrap",
+            ),
+            *[
+                _activity_tab_panel(tab_id, default=(i == 0))
+                for i, (_, tab_id, _) in enumerate(_ACTIVITY_TABS)
+            ],
+            **{"x-data": "{ actTab: 'tasks' }"},
+            cls="mt-3",
+        ),
         cls="mb-6",
     )
 
