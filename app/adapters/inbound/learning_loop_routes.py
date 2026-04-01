@@ -1,5 +1,5 @@
-"""Study Routes — Orchestrator for Submission + Report UI Routes
-================================================================
+"""Learning Loop Routes — Orchestrator for Submission + Report UI Routes
+========================================================================
 
 Wires the decomposed submission and report UI routes:
 - submissions_ui.py → /submit, /submissions, /submissions/{uid}, fragments
@@ -7,7 +7,7 @@ Wires the decomposed submission and report UI routes:
 - activity_reports_ui.py → /activity-reports, /submit-activity-report, fragments
 - reports_ui.py → /reports (tabbed hub)
 
-The /study route itself redirects to /profile (301).
+The /study route redirects to /profile (301).
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -24,13 +24,13 @@ from adapters.inbound.reports_ui import create_reports_ui_routes
 from adapters.inbound.submissions_ui import create_submissions_ui_routes
 from core.utils.logging import get_logger
 
-logger = get_logger("skuel.routes.study")
+logger = get_logger("skuel.routes.learning_loop")
 
 
-def create_study_routes(
+def create_learning_loop_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
 ) -> RouteList:
-    """Wire study routes via decomposed UI files."""
+    """Wire learning loop routes via decomposed UI files."""
 
     # /study redirect
     @rt("/study")
@@ -68,13 +68,15 @@ def create_study_routes(
     # Reports Hub UI — /reports (standalone tabs, kept for direct access)
     create_reports_ui_routes(app, rt)
 
-    # Library Hub UI — /library (unified: Exercises + Resources + Reports)
+    # Library Hub UI — /library (unified: Exercises + Resources + Ku + PathSteps + Reports)
     create_library_ui_routes(
         app,
         rt,
         exercises_service=getattr(services, "exercises", None),
         resource_service=getattr(services, "resource", None),
+        ku_service=getattr(services, "ku", None),
+        ps_service=getattr(services, "ps", None),
     )
 
-    logger.info("Study routes wired (submissions + reports + library hub)")
+    logger.info("Learning loop routes wired (submissions + reports + library hub)")
     return []

@@ -396,7 +396,7 @@ def _sub_tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
 
 
 def submissions_section() -> Div:
-    """Submissions section with Alpine.js tabs: My Submissions | Submit | Request Report."""
+    """Submissions section with Alpine.js tabs: My Submissions | Submit | Request Report | Exercise Reports | Activity Reports."""
     return Div(
         Span(
             "Submissions",
@@ -407,12 +407,16 @@ def submissions_section() -> Div:
                 _sub_tab_button("My Submissions", "list"),
                 _sub_tab_button("Submit", "submit"),
                 _sub_tab_button("Request Report", "report"),
+                _sub_tab_button("Exercise Reports", "exercise-reports"),
+                _sub_tab_button("Activity Reports", "activity-reports"),
                 role="tablist",
                 cls="flex gap-1 border-b border-border mb-3",
             ),
             _sub_tab_panel("list", "/submissions/list", default=True),
             _sub_tab_panel("submit", "/api/profile/submissions/submit-form"),
             _sub_tab_panel("report", "/api/profile/submissions/report-form"),
+            _sub_tab_panel("exercise-reports", "/reports/list"),
+            _sub_tab_panel("activity-reports", "/reports/activity-list"),
             **{"x-data": "{ subTab: 'list' }"},
             cls="mt-3",
         ),

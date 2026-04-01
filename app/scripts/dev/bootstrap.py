@@ -639,9 +639,9 @@ async def _wire_all_routes(
     create_advanced_routes(app, rt, services)
 
     # -- Hubs --
-    from adapters.inbound.study_routes import create_study_routes
+    from adapters.inbound.learning_loop_routes import create_learning_loop_routes
 
-    create_study_routes(app, rt, services)
+    create_learning_loop_routes(app, rt, services)
 
     from adapters.inbound.curriculum_hub_routes import create_curriculum_hub_routes
 

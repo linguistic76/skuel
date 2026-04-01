@@ -2,21 +2,23 @@
 Library UI Route — /library
 ============================
 
-Unified learning hub with four tabs:
+Unified learning hub with six tabs:
 
-- Exercises    — Exercises the user is registered with (via group membership)
-- Resources    — Admin-curated content (books, talks, films, podcasts)
+- Exercises       — Exercises the user is registered with (via group membership)
+- Resources       — Admin-curated content (books, talks, films, podcasts)
+- Ku              — All atomic knowledge units (links to /ku/{uid})
+- Path Steps      — All curriculum path steps (links to /path-steps/{uid}/details)
 - Exercise Reports — Teacher/AI feedback (reuses /reports/list fragment)
 - Activity Reports — Activity domain analysis (reuses /reports/activity-list fragment)
 
 HTMX fragment endpoints:
-  GET /library/exercises  — user's registered exercises (served to Exercises tab)
-  GET /library/resources  — Resource entity list (served to Resources tab)
+  GET /library/exercises   — user's registered exercises (served to Exercises tab)
+  GET /library/resources   — Resource entity list (served to Resources tab)
+  GET /library/ku          — all Ku (served to Ku tab)
+  GET /library/path-steps  — all PathSteps (served to Path Steps tab)
 
 Tab content for Exercise Reports and Activity Reports is HTMX-loaded from
 existing fragment endpoints in exercise_reports_ui.py and activity_reports_ui.py.
-
-Ku and PathStep have dedicated pages at /ku and /path-steps respectively.
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -214,11 +216,13 @@ def _tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
 
 
 def _library_tabs() -> Div:
-    """Four-tab library component."""
+    """Six-tab library component."""
     return Div(
         Div(
             _tab_button("Exercises", "exercises"),
             _tab_button("Resources", "resources"),
+            _tab_button("Ku", "ku"),
+            _tab_button("Path Steps", "path-steps"),
             _tab_button("Exercise Reports", "exercise-reports"),
             _tab_button("Activity Reports", "activity-reports"),
             role="tablist",
@@ -226,6 +230,8 @@ def _library_tabs() -> Div:
         ),
         _tab_panel("exercises", "/library/exercises", default=True),
         _tab_panel("resources", "/library/resources"),
+        _tab_panel("ku", "/library/ku"),
+        _tab_panel("path-steps", "/library/path-steps"),
         _tab_panel("exercise-reports", "/reports/list"),
         _tab_panel("activity-reports", "/reports/activity-list"),
         **{"x-data": "{ activeTab: 'exercises' }"},
@@ -243,6 +249,8 @@ def create_library_ui_routes(
     rt: RouteDecorator,
     exercises_service: Any = None,
     resource_service: Any = None,
+    ku_service: Any = None,
+    ps_service: Any = None,
     **_kwargs: Any,
 ) -> RouteList:
     """Create /library hub routes.
@@ -252,6 +260,8 @@ def create_library_ui_routes(
         rt: Router instance
         exercises_service: ExerciseService for fetching registered exercises
         resource_service: ResourceService for Resource listing
+        ku_service: KuService for Ku listing
+        ps_service: PsService for PathStep listing
         **_kwargs: Ignored — accepts legacy keyword args for backwards-compatible call sites
     """
 
@@ -315,5 +325,108 @@ def create_library_ui_routes(
             return render_error_banner("Failed to load resources", str(result.error))
 
         return render_resource_list(result.value or [])
+
+    # ========================================================================
+    # HTMX FRAGMENT: KU TAB
+    # ========================================================================
+
+    @rt("/library/ku")
+    async def library_ku(request: Request) -> Any:
+        """HTMX fragment: all Ku (atomic knowledge units). Public: shared content."""
+        if not ku_service:
+            return render_error_banner("Knowledge service unavailable")
+
+        result = await ku_service.core.list(limit=500)
+        if result.is_error:
+            logger.error(f"Library: failed to load Kus: {result.error}")
+            return render_error_banner("Failed to load knowledge units", str(result.error))
+
+        kus = result.value or []
+        if not kus:
+            return EmptyState(
+                title="No knowledge units yet",
+                description="Ku content will appear here once added by an admin.",
+            )
+
+        _KU_BADGE_CLS = "bg-violet-100 text-violet-800 border border-violet-200 text-xs font-medium px-2 py-0.5 rounded-full"
+        count_note = Span(
+            f"{len(kus)} knowledge unit{'s' if len(kus) != 1 else ''}",
+            cls="text-xs text-muted-foreground mb-3 block",
+        )
+        rows = [
+            Div(
+                Div(
+                    Span("Ku", cls=_KU_BADGE_CLS),
+                    A(
+                        getattr(ku, "title", ku.uid),
+                        href=f"/ku/{ku.uid}",
+                        cls="text-sm font-medium text-foreground hover:text-primary hover:underline ml-2",
+                    ),
+                    cls="flex items-center",
+                ),
+                P(
+                    (getattr(ku, "description", "") or "")[:120]
+                    + ("…" if len(getattr(ku, "description", "") or "") > 120 else ""),
+                    cls="text-xs text-muted-foreground mt-0.5 ml-0",
+                )
+                if getattr(ku, "description", None)
+                else None,
+                cls="py-2.5 border-b border-border/50 last:border-0",
+            )
+            for ku in kus
+        ]
+        return Div(count_note, Div(*rows))
+
+    # ========================================================================
+    # HTMX FRAGMENT: PATH STEPS TAB
+    # ========================================================================
+
+    @rt("/library/path-steps")
+    async def library_path_steps(request: Request) -> Any:
+        """HTMX fragment: all PathSteps. Public: shared content."""
+        if not ps_service:
+            return render_error_banner("Path Steps service unavailable")
+
+        result = await ps_service.core.list(limit=200)
+        if result.is_error:
+            logger.error(f"Library: failed to load PathSteps: {result.error}")
+            return render_error_banner("Failed to load path steps", str(result.error))
+
+        raw = result.value or []
+        steps = raw if isinstance(raw, list) else raw[0]
+        if not steps:
+            return EmptyState(
+                title="No path steps yet",
+                description="Curriculum path steps will appear here once added by an admin.",
+            )
+
+        _PS_BADGE_CLS = "bg-teal-100 text-teal-800 border border-teal-200 text-xs font-medium px-2 py-0.5 rounded-full"
+        count_note = Span(
+            f"{len(steps)} path step{'s' if len(steps) != 1 else ''}",
+            cls="text-xs text-muted-foreground mb-3 block",
+        )
+        rows = [
+            Div(
+                Div(
+                    Span("Path Step", cls=_PS_BADGE_CLS),
+                    A(
+                        getattr(step, "title", step.uid),
+                        href=f"/path-steps/{step.uid}/details",
+                        cls="text-sm font-medium text-foreground hover:text-primary hover:underline ml-2",
+                    ),
+                    cls="flex items-center",
+                ),
+                P(
+                    (getattr(step, "description", "") or "")[:120]
+                    + ("…" if len(getattr(step, "description", "") or "") > 120 else ""),
+                    cls="text-xs text-muted-foreground mt-0.5 ml-0",
+                )
+                if getattr(step, "description", None)
+                else None,
+                cls="py-2.5 border-b border-border/50 last:border-0",
+            )
+            for step in steps
+        ]
+        return Div(count_note, Div(*rows))
 
     return []
