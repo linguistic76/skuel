@@ -40,7 +40,7 @@ def ProfileHubView(context: UserContext) -> Div:
         _knowledge_section(context),
         _path_steps_section(context),
         _exercises_section(context),
-        _submissions_section(),
+        submissions_section(),
         _reports_section(),
         _nous_section(),
         _settings_link(),
@@ -395,7 +395,7 @@ def _sub_tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
     )
 
 
-def _submissions_section() -> Div:
+def submissions_section() -> Div:
     """Submissions section with Alpine.js tabs: My Submissions | Submit | Request Report."""
     return Div(
         Span(

@@ -6,7 +6,7 @@ Routes for submitting work, browsing submissions, and viewing submission details
 
 Routes:
 - GET /submit — File upload form (standalone, deep-linked from exercises)
-- GET /submissions — My submitted work list + browse
+- GET /submissions — Tabbed hub: My Submissions | Submit | Request Report
 - GET /submissions/{uid} — Submission detail page
 - HTMX fragments: /submissions/list, /upload, /grid,
   /submissions/{uid}/{info,content,report,exercise,category-selector,tags-manager,shared-users}
@@ -47,16 +47,14 @@ from ui.submissions.cards import (
 )
 from ui.submissions.forms import (
     render_category_selector,
-    render_filters_section,
-    render_submissions_grid_container,
     render_tags_manager,
     render_upload_form,
-    render_yours_list_container,
     upload_form_script,
 )
 from ui.submissions.report import (
     render_yours_list,
 )
+from ui.profile.hub import submissions_section
 from ui.submissions.sharing import render_sharing_section
 
 logger = get_logger("skuel.routes.submissions")
@@ -146,21 +144,18 @@ def create_submissions_ui_routes(
 
     @rt("/submissions")
     async def submissions_page(request: Request) -> Any:
-        """My Submissions: your submitted work with review status + browse/filter."""
+        """Submissions hub: tabbed My Submissions | Submit | Request Report."""
         require_authenticated_user(request)
         content = Div(
             PageHeader(
-                "My Submissions",
-                subtitle="Your submitted work and review status",
+                "Submissions",
+                subtitle="Your submitted work, upload new work, or request a report",
             ),
-            render_yours_list_container(),
-            H3("Browse All", cls="font-semibold mt-8 mb-4"),
-            render_filters_section(),
-            render_submissions_grid_container(),
+            submissions_section(),
         )
         return await BasePage(
             content=content,
-            title="My Submissions",
+            title="Submissions",
             request=request,
             active_page="submissions",
         )

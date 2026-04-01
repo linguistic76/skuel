@@ -251,6 +251,10 @@ class ExerciseService(BaseService):
             return Result.fail(Errors.not_found(resource="Exercise", identifier=uid))
         return Result.ok(result.value)
 
+    async def list_all(self, limit: int = 500) -> Result[list[Exercise]]:
+        """List all Exercise entities (admin/shared curriculum view)."""
+        return await self.backend.list(limit=limit, sort_by="title")
+
     @with_error_handling("list_user_exercises", error_type="database")
     async def list_user_exercises(
         self, user_uid: UserUID, active_only: bool = True

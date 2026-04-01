@@ -105,6 +105,14 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         has_dropdown=False,
         icon="arrow-left-right",
     ),
+    IconNavItem(
+        "Library",
+        "",
+        "/library",
+        "library",
+        has_dropdown=False,
+        icon="book-open",
+    ),
 )
 
 # Admin-only navigation item - prepended to nav when user is admin

@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
     from core.services.ku_service import KuService
+    from core.services.resource_service import ResourceService
     from core.services.lp_service import LpService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
@@ -124,6 +125,7 @@ class Services:
     # CURRICULUM DOMAINS (3) - PS, KU, LP
     # ========================================================================
     ku: "KuService | None" = None  # KuService (atomic knowledge units)
+    resource: "ResourceService | None" = None  # ResourceService (curated content — books, talks, films)
     activity_knowledge_intelligence: "ActivityKnowledgeIntelligenceService | None" = (
         None  # Knowledge intelligence for all 6 activity domains (March 2026)
     )

@@ -5,6 +5,7 @@ Wires the decomposed submission and report UI routes:
 - submissions_ui.py → /submit, /submissions, /submissions/{uid}, fragments
 - exercise_reports_ui.py → /exercise-reports, /reports/list
 - activity_reports_ui.py → /activity-reports, /submit-activity-report, fragments
+- reports_ui.py → /reports (tabbed hub)
 
 The /study route itself redirects to /profile (301).
 
@@ -18,6 +19,8 @@ from starlette.responses import RedirectResponse
 from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
 from adapters.inbound.exercise_reports_ui import create_exercise_reports_ui_routes
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
+from adapters.inbound.library_ui import create_library_ui_routes
+from adapters.inbound.reports_ui import create_reports_ui_routes
 from adapters.inbound.submissions_ui import create_submissions_ui_routes
 from core.utils.logging import get_logger
 
@@ -62,5 +65,18 @@ def create_study_routes(
         activity_report_service=getattr(services, "activity_report", None),
     )
 
-    logger.info("Study routes wired (submissions + exercise reports + activity reports)")
+    # Reports Hub UI — /reports (standalone tabs, kept for direct access)
+    create_reports_ui_routes(app, rt)
+
+    # Library Hub UI — /library (unified: Curriculum + Resources + Reports)
+    create_library_ui_routes(
+        app,
+        rt,
+        ku_service=getattr(services, "ku", None),
+        ps_service=getattr(services, "ps", None),
+        exercises_service=getattr(services, "exercises", None),
+        resource_service=getattr(services, "resource", None),
+    )
+
+    logger.info("Study routes wired (submissions + reports + library hub)")
     return []

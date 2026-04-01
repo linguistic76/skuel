@@ -4606,6 +4606,16 @@ class NotificationBackend:
         return await self.executor.execute_query(query, {"user_uid": user_uid})
 
 
+class ResourceBackend(UniversalNeo4jBackend["Resource"]):
+    """
+    Domain backend for Resource entities (books, talks, films, podcasts).
+
+    Resource is admin-curated shared content (ContentOrigin.CURATED).
+    Inherits full CRUD + list from UniversalNeo4jBackend — no custom Cypher needed
+    for basic library browsing. Query via NeoLabel.RESOURCE label.
+    """
+
+
 __all__ = [
     "ActivityReportBackend",
     "ChoicesBackend",
@@ -4624,6 +4634,7 @@ __all__ = [
     "PsBackend",
     "NotificationBackend",
     "PrinciplesBackend",
+    "ResourceBackend",
     "RevisedExerciseBackend",
     "SharingBackend",
     "SubmissionsBackend",

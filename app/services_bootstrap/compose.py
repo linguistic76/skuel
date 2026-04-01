@@ -677,7 +677,22 @@ async def compose_services(
         )
 
         exercise_service = ExerciseService(backend=exercise_backend)
-        logger.info("✅ Report and exercise services created")
+
+        # ResourceService: curated content (books, talks, films, podcasts)
+        from adapters.persistence.neo4j.domain_backends import ResourceBackend
+        from core.models.resource.resource import Resource as ResourceModel
+        from core.services.resource_service import ResourceService
+
+        resource_backend = ResourceBackend(
+            driver=driver,
+            label=NeoLabel.RESOURCE,
+            entity_class=ResourceModel,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        )
+        resource_service = ResourceService(backend=resource_backend)
+
+        logger.info("✅ Report, exercise, and resource services created")
 
         # Create revised exercise service (five-phase learning loop)
         from adapters.persistence.neo4j.domain_backends import RevisedExerciseBackend
@@ -1062,6 +1077,7 @@ async def compose_services(
             finance=core_services["finance"],
             # Curriculum
             ku=learning_services["atomic_ku_service"],
+            resource=resource_service,
             activity_knowledge_intelligence=learning_services["activity_knowledge_intelligence"],
             cross_domain=learning_services["cross_domain"],
             # Content

@@ -436,42 +436,37 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
 
 ### Navbar Icon Links
 
-The navbar left section (after the SKUEL logo) has icon links and a profile avatar:
-- **⚛️** (Knowledge) → `/ku` — No dropdown, direct link to Knowledge index
-- **Tasks** (check-square icon) → `/tasks` — No dropdown, direct link to read-focused task list with HTMX status toggle and filtering
-- **⇄** (Submissions) → `/submissions` — No dropdown, direct link
-- **Avatar** (click → `/profile`; hover → Activity dropdown with Habits, Events, Choices, Principles)
-- **Logout icon** — always visible on main line
+The navbar left section has 4 icon links (in order), avatar, and logout:
 
-Curriculum and Study navbar dropdowns **shelved** (2026-03-29).
+| Position | Icon | Route | `page_key` | Description |
+|----------|------|-------|------------|-------------|
+| 1st | ⚛️ (emoji) | `/ku` | `"knowledge"` | Knowledge index — flat Ku list |
+| 2nd | `book` | `/path-steps` | `"path-steps"` | PathStep catalog |
+| 3rd | `arrow-left-right` | `/submissions` | `"submissions"` | Tabbed hub: My Submissions \| Submit \| Request Report |
+| 4th | `book-open` | `/library` | `"library"` | Learning hub: Curriculum \| Resources \| Exercise Reports \| Activity Reports |
+| — | Avatar | `/profile` | — | Click → profile; dropdown → Tasks, Goals, Habits, Events, Choices, Principles |
+| — | `log-out` | `/logout` | — | Always visible |
 
-See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS`, `IconNavItem`, and `*_DROPDOWN_ITEMS`.
+`/reports` redirects 301 → `/library`.
 
-Icon dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py`. The avatar dropdown uses `ACTIVITY_DROPDOWN_ITEMS` directly via `_avatar_dropdown()`. Items without `has_dropdown` (like ⚛️) render as direct links via `_icon_nav_link()`. Emoji letters (multi-char) get `text-base` styling instead of `font-semibold text-sm`.
+See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS` and `IconNavItem`. All current icons use `has_dropdown=False` — direct links only.
 
-```python
-# Icon dropdown map (from navbar.py) — C and S only (⚛️ has no dropdown)
-_DROPDOWN_ITEMS_MAP: dict[str, tuple[DropdownItem, ...]] = {
-    "activities": ACTIVITY_DROPDOWN_ITEMS,   # used by avatar dropdown
-    "curriculum": CURRICULUM_DROPDOWN_ITEMS,
-    "study": STUDY_DROPDOWN_ITEMS,
-}
-```
+Icon dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py`. The avatar dropdown uses `ACTIVITY_DROPDOWN_ITEMS` directly via `_avatar_dropdown()`. Items without `has_dropdown` render as direct links via `_icon_nav_link()`. Emoji letters (multi-char) get `text-base` styling instead of `font-semibold text-sm`.
 
 ### Mobile Navigation
 
-The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hamburger menu. On mobile, activity domains (from avatar dropdown) and icon nav dropdowns (C, S) are expanded into individual links. Non-dropdown items (⚛️) render as single links:
+The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hamburger menu. On mobile, activity domains (from avatar dropdown) and icon nav items are expanded into individual links. All current icon nav items are direct links (no dropdowns):
 
 ```python
 # Mobile: activity domains first, then icon nav items
 for di in ACTIVITY_DROPDOWN_ITEMS:
     mobile_icon_links.append(...)
-for item in ICON_NAV_ITEMS:  # ⚛️, C, S
+for item in ICON_NAV_ITEMS:  # ⚛️, 📖, ⇄, 📂
     if item.has_dropdown:
         for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
             mobile_icon_links.append(...)
     else:
-        mobile_icon_links.append(...)  # Direct link (e.g., ⚛️ Knowledge)
+        mobile_icon_links.append(...)  # All 4 current items take this path
 ```
 
 **Navbar accessibility requirements:**
@@ -1044,7 +1039,7 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar with ⚛️/C/S icons + avatar activity dropdown |
+| `/ui/layouts/navbar.py` | Navbar — 4 icon links (⚛️ Knowledge, book Path Steps, ⇄ Submissions, book-open Library) + avatar activity dropdown |
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
@@ -1055,7 +1050,9 @@ When building a new SKUEL page or feature, verify:
 | `/ui/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
-| `/ui/profile/hub.py` | `ProfileHubView` — live actionable hub (Knowledge, Lessons, Exercises with Submit, Reports, Nous) |
+| `/ui/profile/hub.py` | `ProfileHubView` — live actionable hub. Also exports `submissions_section()` (reused by `/submissions`) |
+| `/adapters/inbound/library_ui.py` | `/library` hub — 4 tabs + HTMX fragment endpoints `/library/curriculum`, `/library/resources` |
+| `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, LS, LP profile views |
 | `/ui/profile/overview.py` | `OverviewView` + all intelligence helper functions |
