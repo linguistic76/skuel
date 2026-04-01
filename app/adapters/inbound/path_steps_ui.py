@@ -238,8 +238,22 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
 
     @rt("/api/path-steps/{uid}/start", methods=["POST"])
     async def start_step(request: Request, uid: str) -> Any:
-        """Start a path step (mark as in-progress). Returns updated button HTML."""
+        """Start a path step (mark as in-progress). Returns updated button HTML.
+
+        Enforces a limit of 2 simultaneously enrolled PathSteps.
+        """
         user_uid = require_authenticated_user(request)
+
+        # Enforce enrollment limit (max 2 in-progress PathSteps)
+        count_result = await ps_service.mastery.count_in_progress_steps(user_uid)
+        if not count_result.is_error and (count_result.value or 0) >= 2:
+            return Button(
+                "Limit reached (2)",
+                variant=ButtonT.error,
+                size=Size.sm,
+                disabled=True,
+                title="You can enrol in at most 2 Path Steps at once",
+            )
 
         result = await ps_service.mastery.mark_in_progress(user_uid, uid)
 
@@ -277,8 +291,25 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
 
     @rt("/api/path-steps/{uid}/bookmark", methods=["POST"])
     async def toggle_step_bookmark(request: Request, uid: str) -> Any:
-        """Toggle path step bookmark. Returns updated button HTML."""
+        """Toggle path step bookmark. Returns updated button HTML.
+
+        Enforces a limit of 5 bookmarked Kus when adding a new bookmark.
+        """
         user_uid = require_authenticated_user(request)
+
+        # Enforce 5-bookmark cap: fetch current bookmarks once, check both state + count
+        bm_result = await ps_service.get_bookmarked_kus(user_uid)
+        if not bm_result.is_error:
+            bookmarked_uids = bm_result.value or []
+            currently_bookmarked = uid in bookmarked_uids
+            if not currently_bookmarked and len(bookmarked_uids) >= 5:
+                return Button(
+                    "Bookmark limit (5)",
+                    variant=ButtonT.error,
+                    size=Size.sm,
+                    disabled=True,
+                    title="You can bookmark at most 5 Kus",
+                )
 
         result = await ps_service.mastery.toggle_bookmark(user_uid, uid)
 

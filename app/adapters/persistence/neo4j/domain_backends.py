@@ -3121,6 +3121,42 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             return Result.ok(None)
         return Result.ok(dict(records[0]))
 
+    async def get_exercises_for_path_steps(
+        self, ps_uids: list[str]
+    ) -> Result[list["Neo4jProperties"]]:
+        """Get exercises associated with a list of PathStep UIDs.
+
+        Traverses PathStep -[:USES_KU|CONTAINS_KNOWLEDGE]-> Ku <-[:REQUIRES_KNOWLEDGE]- Exercise
+        to find exercises that practice knowledge from those PathSteps.
+
+        Args:
+            ps_uids: List of PathStep UIDs
+
+        Returns:
+            Result containing distinct exercise property dicts
+        """
+        if not ps_uids:
+            return Result.ok([])
+
+        result = await self.execute_query(
+            f"""
+            MATCH (ps:Entity:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE]->(ku:Entity)
+                  <-[:{RelationshipName.REQUIRES_KNOWLEDGE}]-(ex:Entity {{entity_type: 'exercise'}})
+            WHERE ps.uid IN $ps_uids
+            RETURN DISTINCT ex.uid AS uid,
+                   ex.title AS title,
+                   ex.scope AS scope,
+                   ex.description AS description,
+                   ex.status AS status
+            ORDER BY ex.title
+            """,
+            {"ps_uids": ps_uids},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        items = [dict(record) for record in (result.value or [])]
+        return Result.ok(items)
+
     # ========================================================================
     # TEACHER REVIEW OPERATIONS (migrated from TeacherReviewService)
     # ========================================================================

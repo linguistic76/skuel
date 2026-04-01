@@ -76,6 +76,7 @@ def create_study_routes(
         ps_service=getattr(services, "ps", None),
         exercises_service=getattr(services, "exercises", None),
         resource_service=getattr(services, "resource", None),
+        user_service=getattr(services, "user_service", None),
     )
 
     logger.info("Study routes wired (submissions + reports + library hub)")

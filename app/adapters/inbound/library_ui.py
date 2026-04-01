@@ -135,13 +135,16 @@ def render_curriculum_list(kus: list[Any], path_steps: list[Any], exercises: lis
     """
     Render the combined curriculum list with Alpine.js type filter.
 
+    Shows only the user's bookmarked Kus (max 5), enrolled PathSteps (max 2),
+    and exercises associated with those PathSteps.
+
     All three entity types are rendered together; the filter toggles control
     visibility client-side — no extra server round-trips on filter change.
     """
     if not kus and not path_steps and not exercises:
         return EmptyState(
-            title="No curriculum content yet",
-            description="Ku, Path Steps, and Exercises will appear here once ingested.",
+            title="No personal curriculum yet",
+            description="Bookmark up to 5 Kus and enrol in up to 2 Path Steps to see them here.",
         )
 
     filter_row = Div(
@@ -176,11 +179,11 @@ def render_curriculum_list(kus: list[Any], path_steps: list[Any], exercises: lis
 
     ex_items = [
         _curriculum_item(
-            uid=ex.uid,
-            title=ex.title or ex.uid,
-            description=getattr(ex, "instructions", None) or ex.description,
+            uid=ex["uid"],
+            title=ex.get("title") or ex["uid"],
+            description=ex.get("description"),
             entity_type="exercise",
-            detail_href=f"/exercises/get?uid={ex.uid}",
+            detail_href=f"/exercises/get?uid={ex['uid']}",
         )
         for ex in exercises
     ]
@@ -328,6 +331,7 @@ def create_library_ui_routes(
     ps_service: Any = None,
     exercises_service: Any = None,
     resource_service: Any = None,
+    user_service: Any = None,
 ) -> RouteList:
     """Create /library hub routes.
 
@@ -338,6 +342,7 @@ def create_library_ui_routes(
         ps_service: PsService for PathStep listing
         exercises_service: ExerciseService for Exercise listing
         resource_service: ResourceService for Resource listing
+        user_service: UserService for building UserContext (bookmarks + enrollments)
     """
 
     # ========================================================================
@@ -368,36 +373,53 @@ def create_library_ui_routes(
 
     @rt("/library/curriculum")
     async def library_curriculum(request: Request) -> Any:
-        """HTMX fragment: combined Ku + PathStep + Exercise list with type badges."""
-        require_authenticated_user(request)
+        """HTMX fragment: user's bookmarked Kus + enrolled PathSteps + associated Exercises."""
+        user_uid = require_authenticated_user(request)
 
         kus: list[Any] = []
         path_steps: list[Any] = []
         exercises: list[Any] = []
 
-        if ku_service and getattr(ku_service, "core", None):
-            result = await ku_service.core.list(limit=500)
-            if result.is_error:
-                logger.error(f"Library: failed to load Kus: {result.error}")
-            else:
-                kus = result.value or []
+        # --- Resolve user's bookmarked Ku UIDs and enrolled PathStep UIDs ---
+        bookmarked_ku_uids: list[str] = []
+        enrolled_ps_uids: list[str] = []
 
-        if ps_service:
-            result = await ps_service.list_steps(limit=500)
-            if result.is_error:
-                logger.error(f"Library: failed to load PathSteps: {result.error}")
+        if user_service:
+            ctx_result = await user_service.get_rich_unified_context(user_uid)
+            if ctx_result.is_error:
+                logger.error(f"Library: failed to load user context: {ctx_result.error}")
             else:
-                path_steps = result.value or []
+                ctx = ctx_result.value
+                bookmarked_ku_uids = sorted(ctx.ku_bookmarked_uids)[:5]
+                enrolled_ps_uids = list(ctx.current_ps_uids)[:2]
+        elif ps_service:
+            # Fallback: derive from mastery service if user_service unavailable
+            bm_result = await ps_service.get_bookmarked_kus(user_uid)
+            if not bm_result.is_error:
+                bookmarked_ku_uids = (bm_result.value or [])[:5]
 
-        if exercises_service:
-            result = await exercises_service.list_all(limit=500)
-            if result.is_error:
-                logger.error(f"Library: failed to load Exercises: {result.error}")
+        # --- Fetch bookmarked Kus (max 5) ---
+        if ku_service and bookmarked_ku_uids:
+            for ku_uid in bookmarked_ku_uids:
+                ku_result = await ku_service.get_ku(ku_uid)
+                if not ku_result.is_error and ku_result.value:
+                    kus.append(ku_result.value)
+
+        # --- Fetch enrolled PathSteps (max 2) ---
+        if ps_service and enrolled_ps_uids:
+            batch_result = await ps_service.get_steps_batch(enrolled_ps_uids)
+            if batch_result.is_error:
+                logger.error(f"Library: failed to load PathSteps: {batch_result.error}")
             else:
-                exercises = result.value or []
+                path_steps = [ps for ps in (batch_result.value or []) if ps is not None]
 
-        if not ku_service and not ps_service and not exercises_service:
-            return render_error_banner("Curriculum services unavailable")
+        # --- Fetch exercises for enrolled PathSteps ---
+        if exercises_service and enrolled_ps_uids:
+            ex_result = await exercises_service.get_exercises_for_path_steps(enrolled_ps_uids)
+            if ex_result.is_error:
+                logger.error(f"Library: failed to load exercises for PathSteps: {ex_result.error}")
+            else:
+                exercises = ex_result.value or []
 
         return render_curriculum_list(kus, path_steps, exercises)
 

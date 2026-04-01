@@ -119,6 +119,15 @@ class PsMasteryService:
         else:
             return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))
 
+    async def count_in_progress_steps(self, user_uid: UserUID) -> Result[int]:
+        """Count PathSteps the user is currently enrolled in (IN_PROGRESS)."""
+        result = await self.backend.count_in_progress_path_steps(user_uid)  # type: ignore[attr-defined]
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        count = records[0]["cnt"] if records else 0
+        return Result.ok(int(count))
+
     async def mark_in_progress(
         self,
         user_uid: UserUID,

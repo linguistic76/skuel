@@ -610,6 +610,25 @@ class ExerciseService(BaseService):
         """Get the exercise that a submission fulfills via FULFILLS_EXERCISE relationship."""
         return await self.backend.get_exercise_for_submission(submission_uid)
 
+    @with_error_handling("get_exercises_for_path_steps", error_type="database")
+    async def get_exercises_for_path_steps(
+        self, ps_uids: list[str]
+    ) -> "Result[list[dict[str, Any]]]":
+        """Get exercises associated with the given PathStep UIDs.
+
+        Traverses PathStep -[:USES_KU|CONTAINS_KNOWLEDGE]-> Ku <-[:REQUIRES_KNOWLEDGE]- Exercise.
+
+        Args:
+            ps_uids: List of PathStep UIDs to look up exercises for
+
+        Returns:
+            Result containing list of exercise dicts (uid, title, scope, description, status)
+        """
+        result = await self.backend.get_exercises_for_path_steps(ps_uids)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
     @with_error_handling("get_exercises_for_curriculum", error_type="database")
     async def get_exercises_for_curriculum(
         self, curriculum_uid: str

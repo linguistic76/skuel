@@ -142,6 +142,14 @@ class _LearningStateMixin:
             },
         )
 
+    async def count_in_progress_path_steps(self, user_uid: UserUID) -> Result[list["Neo4jProperties"]]:
+        """Count PathSteps with an IN_PROGRESS relationship for a user."""
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:IN_PROGRESS]->(ps:Entity:PathStep)
+        RETURN count(ps) AS cnt
+        """
+        return await self.execute_query(query, {"user_uid": user_uid})
+
     # ========================================================================
     # BOOKMARK OPERATIONS
     # ========================================================================
