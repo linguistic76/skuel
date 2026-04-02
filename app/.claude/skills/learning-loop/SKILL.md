@@ -418,11 +418,21 @@ capturing the user's curriculum position at that exact moment.
 **Enums:** `InteractionType` (EXERCISE_SUBMISSION, KU_VIEW, PATH_STEP_COMPLETION, FORM_SUBMISSION),
 `InteractionResult` (PENDING → REPORT_GENERATED → SHARED_WITH_TEACHER → COMPLETED/FAILED)
 
+**UI flow that makes context deterministic (2026-04-02):**
+1. PathStep detail page shows linked exercises (`RELATED_TO` → `/exercises/get?uid=...&from_ps={ps_uid}`)
+2. Exercise detail "Submit →" forwards `from_ps` → `/submit?exercise_uid=...&from_ps={ps_uid}`
+3. Submit form embeds `from_ps` as hidden field (`render_upload_form(from_ps=...)`)
+4. Upload handlers call `_get_learning_context(explicit_ps_uid=from_ps)` — uses explicit value, no guessing
+5. Interaction record gets the correct PathStep UID every time
+
+When `from_ps` is absent (standalone submission), `_get_learning_context` falls back to
+`next(iter(ctx.current_ps_uids), None)` as best-effort.
+
 **What it captures (6 interaction-specific fields):**
 - `interaction_type`: What kind of event (EXERCISE_SUBMISSION in Phase 1)
 - `target_uid`: The Exercise UID being submitted against
-- `context_path_step_uid`: The PathStep the user was studying (from `UserContext.current_ps_uids`)
-- `context_learning_path_uid`: The LearningPath the user was enrolled in
+- `context_path_step_uid`: PathStep UID from explicit `from_ps` navigation (or UserContext fallback)
+- `context_learning_path_uid`: The LearningPath the user was enrolled in (from UserContext)
 - `source_entity_uid`: Back-pointer to the ExerciseSubmission UID
 - `result_status`: Processing outcome (starts PENDING, updated as pipeline progresses)
 

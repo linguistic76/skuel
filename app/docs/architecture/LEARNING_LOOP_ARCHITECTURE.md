@@ -330,6 +330,37 @@ Both fields make the Python model self-describing: `submission.revision_number` 
 **See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
 full pipeline from upload to sharing and teacher review queue.
 
+### Phase 3.5: Interaction — The Situated Audit Record
+
+Every ExerciseSubmission immediately spawns an **Interaction** node — a first-class
+Neo4j entity capturing *where in the curriculum* the student was when they submitted.
+
+**EntityType:** `EntityType.INTERACTION` (22nd entity type)
+**UID prefix:** `ia_`
+**Key fields:** `context_path_step_uid`, `context_learning_path_uid`, `target_uid` (exercise),
+`source_entity_uid` (back-pointer to ExerciseSubmission), `result_status` (PENDING → COMPLETED)
+
+**Graph relationships:**
+```cypher
+(interaction)-[:RECORDS]->(submission)           // back-pointer to source artifact
+(interaction)-[:INTERACTION_DURING]->(pathstep)  // curriculum position
+(interaction)-[:INTERACTION_WITHIN]->(lp)        // path enrollment
+```
+
+**How context is captured deterministically:** Students navigate PathStep → Exercise → Submit
+via the UI. The PathStep UID flows as `from_ps={ps_uid}` through the URL chain and is
+embedded as a hidden form field. The upload handler passes it as `explicit_ps_uid` to
+`_get_learning_context()`, which uses it directly rather than guessing from UserContext.
+This means Interaction records have reliable, auditable situated context.
+
+**Auto-created, best-effort:** Failure never blocks the submission. No UI affordance needed.
+
+**Phase 2 (deferred):** ZPD and Askesis will query
+`(u:User)-[:OWNS]->(i:Interaction)-[:INTERACTION_DURING]->(ps:PathStep)` to reason
+about *where in the curriculum* evidence was generated — not just what the student submitted.
+
+**See:** `docs/decisions/ADR-051-user-interaction-contract.md`
+
 ---
 
 ## Phase 4: Report — The Response
