@@ -1116,6 +1116,57 @@ class AdminLearningComponents:
 
         return Div(*sections, cls="space-y-6")
 
+    @staticmethod
+    def render_user_submissions_list(submissions: list[dict]) -> Div:
+        """Render exercise submissions for the admin learning user detail page."""
+        if not submissions:
+            return EmptyState(title="No exercise submissions yet")
+
+        from ui.enum_helpers import get_submission_status_badge_class
+
+        def _cell_render(k: str, v: object) -> Td:
+            if k == "Title":
+                return Td(v, cls="font-medium text-sm")
+            if k in ("Submitted", "Exercise"):
+                return Td(v, cls="text-sm text-muted-foreground")
+            return Td(v)
+
+        body_data = []
+        for sub in submissions:
+            status = sub.get("status") or "unknown"
+            title = sub.get("title") or sub.get("submission_uid") or "Untitled"
+            exercise_title = sub.get("exercise_title") or "—"
+            submitted_at = (sub.get("submitted_at") or "")[:10] or "Unknown"
+            report_count = sub.get("report_count", 0)
+
+            body_data.append(
+                {
+                    "Title": title,
+                    "Exercise": exercise_title,
+                    "Status": Badge(
+                        status.replace("_", " ").upper(),
+                        variant=None,
+                        size=Size.sm,
+                        cls=get_submission_status_badge_class(status),
+                    ),
+                    "Reports": str(report_count),
+                    "Submitted": submitted_at,
+                }
+            )
+
+        return Div(
+            P(f"{len(submissions)} submission(s)", cls="text-sm text-muted-foreground mb-3"),
+            Div(
+                TableFromDicts(
+                    header_data=["Title", "Exercise", "Status", "Reports", "Submitted"],
+                    body_data=body_data,
+                    body_cell_render=_cell_render,
+                    cls=(TableT.striped,),
+                ),
+                cls="overflow-x-auto",
+            ),
+        )
+
 
 __all__ = [
     "AdminAnalyticsComponents",

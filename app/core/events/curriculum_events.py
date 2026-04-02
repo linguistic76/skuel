@@ -101,6 +101,23 @@ class PathStepDeleted(BaseEvent):
 
 
 @dataclass(frozen=True)
+class PathStepEnrolled(BaseEvent):
+    """
+    Published when a user marks a path step as IN_PROGRESS (enrols).
+
+    Subscribers:
+    - GroupService (auto-enrol student in admin's default group — ADR-040)
+    """
+
+    ps_uid: str
+    user_uid: UserUID
+
+    @property
+    def event_type(self) -> str:
+        return "path_step.enrolled"
+
+
+@dataclass(frozen=True)
 class PathStepCompleted(BaseEvent):
     """
     Published when a user completes a path step.

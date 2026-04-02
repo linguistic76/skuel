@@ -19,6 +19,7 @@ def _wire_event_subscribers(
     analytics_service: Any,
     submissions_backend: Any = None,
     insight_store: Any = None,
+    group_backend: Any = None,
 ) -> None:
     """Wire all event subscribers for context invalidation, cross-domain, and intelligence.
 
@@ -74,6 +75,7 @@ def _wire_event_subscribers(
         TasksBulkCompleted,
         TaskUpdated,
     )
+    from core.events.curriculum_events import PathStepEnrolled
     from core.events.handlers.exercise_handler import handle_exercise_submission
     from core.events.handlers.report_notification_handler import (
         handle_report_submitted,
@@ -189,6 +191,21 @@ def _wire_event_subscribers(
         "✅ Exercise handler subscribed to SubmissionCreated "
         "(automatic FULFILLS_EXERCISE + SHARES_WITH creation)"
     )
+
+    # Subscribe to PathStepEnrolled for auto default-group enrolment (ADR-040)
+    if submissions_backend and group_backend:
+        from core.events.handlers.path_step_enrollment_handler import handle_path_step_enrolled
+
+        enrollment_handler = functools.partial(
+            handle_path_step_enrolled,
+            submissions_backend=submissions_backend,
+            group_backend=group_backend,
+        )
+        event_bus.subscribe(PathStepEnrolled, enrollment_handler)
+        logger.info(
+            "✅ Enrollment handler subscribed to PathStepEnrolled "
+            "(auto student enrolment in admin default group)"
+        )
 
     # Subscribe to report events for student notifications
     report_submitted_handler = functools.partial(

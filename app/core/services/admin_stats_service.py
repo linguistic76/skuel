@@ -192,6 +192,30 @@ class AdminStatsService:
 
         return Result.ok(detail)
 
+    async def get_user_submissions_detail(
+        self, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:
+        """Get exercise submissions owned by a user, with linked exercise and report count."""
+        result = await self.query_executor.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})-[:OWNS]->(sub:Entity {entity_type: 'exercise_submission'})
+            OPTIONAL MATCH (sub)-[:FULFILLS_EXERCISE]->(ex:Entity)
+            OPTIONAL MATCH (report:Entity {entity_type: 'exercise_report'})-[:REPORT_FOR]->(sub)
+            RETURN sub.uid AS submission_uid,
+                   sub.title AS title,
+                   sub.status AS status,
+                   toString(sub.created_at) AS submitted_at,
+                   ex.uid AS exercise_uid,
+                   ex.title AS exercise_title,
+                   count(report) AS report_count
+            ORDER BY sub.created_at DESC
+            """,
+            {"user_uid": user_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([dict(r) for r in (result.value or [])])
+
     async def get_user_detail_stats(self, user_uid: UserUID) -> Result[dict[str, int]]:
         """Get cross-domain activity stats for a specific user.
 

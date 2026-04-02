@@ -25,7 +25,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
-from core.events.curriculum_events import PathStepCompleted
+from core.events.curriculum_events import PathStepCompleted, PathStepEnrolled
 from core.events.learning_events import KnowledgeMastered
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -150,6 +150,11 @@ class PsMasteryService:
 
         if result.value:
             self.logger.debug("Marked in progress", user_uid=user_uid, ku_uid=ku_uid)
+            await publish_event(
+                self.event_bus,
+                PathStepEnrolled(ps_uid=ku_uid, user_uid=user_uid),
+                self.logger,
+            )
             return Result.ok(True)
         else:
             return Result.fail(Errors.not_found("User or KU", f"{user_uid} / {ku_uid}"))

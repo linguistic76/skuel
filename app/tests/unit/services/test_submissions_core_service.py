@@ -661,8 +661,8 @@ class TestProcessExerciseSubmission:
         assert result.value == ProcessingOutcome.PROCESSED
 
     @pytest.mark.asyncio
-    async def test_no_teacher_uid_skips_auto_share(self):
-        """Exercise with no OWNS relationship (e.g. YAML-ingested) skips auto-share gracefully."""
+    async def test_no_teacher_uid_falls_back_to_admin(self):
+        """Exercise with no OWNS relationship falls back to admin user for auto-share."""
         backend = _make_backend()
         backend.get_exercise_context = AsyncMock(
             return_value=Result.ok(
@@ -678,6 +678,46 @@ class TestProcessExerciseSubmission:
                 ]
             )
         )
+        backend.get_admin_uid = AsyncMock(
+            return_value=Result.ok([{"admin_uid": "admin_1"}])
+        )
+        backend.verify_student_group_membership = AsyncMock(
+            return_value=Result.ok([{"student_uid": "user_1", "member_of_group": "grp_1"}])
+        )
+        backend.get_submission_owner = AsyncMock(
+            return_value=Result.ok([{"student_uid": "user_1"}])
+        )
+        backend.count_submissions_for_exercise = AsyncMock(return_value=Result.ok(0))
+        backend.update = AsyncMock(return_value=Result.ok(True))
+        backend.link_to_exercise = AsyncMock(return_value=Result.ok([{"success": True}]))
+        backend.auto_share_with_teacher = AsyncMock(return_value=Result.ok([{"success": True}]))
+        service = _make_service(backend=backend)
+
+        result = await service.process_exercise_submission("sub_1", "ex_1")
+
+        assert result.is_ok
+        assert result.value == ProcessingOutcome.PROCESSED
+        backend.auto_share_with_teacher.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_no_teacher_uid_no_admin_returns_no_teacher(self):
+        """When no OWNS relationship and no admin exists, returns NO_TEACHER gracefully."""
+        backend = _make_backend()
+        backend.get_exercise_context = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "exercise_entity_type": "exercise",
+                        "scope": "assigned",
+                        "teacher_uid": None,
+                        "student_uid": None,
+                        "exercise_title": "Group Exercise",
+                        "group_uid": "grp_1",
+                    }
+                ]
+            )
+        )
+        backend.get_admin_uid = AsyncMock(return_value=Result.ok([]))  # no admin
         backend.verify_student_group_membership = AsyncMock(
             return_value=Result.ok([{"student_uid": "user_1", "member_of_group": "grp_1"}])
         )

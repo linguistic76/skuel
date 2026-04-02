@@ -1061,6 +1061,7 @@ async def compose_services(
             analytics_service=analytics_service,
             submissions_backend=submissions_backend,
             insight_store=insight_store,
+            group_backend=group_backend,
         )
         logger.info("✅ All services initialized")
 

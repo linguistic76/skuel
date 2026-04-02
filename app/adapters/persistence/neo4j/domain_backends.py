@@ -1778,15 +1778,19 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         return await self.execute_query(query, {"exercise_uid": exercise_uid})
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get students who shared work with teacher, with counts."""
+        """Get enrolled students (via PathStep IN_PROGRESS) with submission counts for teacher."""
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{entity_type: 'exercise_submission'}})
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
-        WITH student, count(ku) AS submission_count,
-             count(CASE WHEN ku.status = 'completed' THEN 1 END) AS reviewed_count
-        WHERE student IS NOT NULL
-        RETURN student.uid AS student_uid, student.name AS student_name,
-               submission_count, reviewed_count,
+        MATCH (student:User)-[:{RelationshipName.IN_PROGRESS.value}]->(ps:Entity {{entity_type: 'path_step'}})
+        WHERE student.uid <> $teacher_uid
+        WITH DISTINCT student
+        OPTIONAL MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{entity_type: 'exercise_submission'}})<-[:{RelationshipName.OWNS.value}]-(student)
+        WITH student,
+             count(DISTINCT ku) AS submission_count,
+             count(DISTINCT CASE WHEN ku.status = 'completed' THEN ku.uid END) AS reviewed_count
+        RETURN student.uid AS student_uid,
+               student.name AS student_name,
+               submission_count,
+               reviewed_count,
                submission_count - reviewed_count AS pending_count
         ORDER BY pending_count DESC, submission_count DESC
         """
@@ -1956,6 +1960,17 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
                collect(DISTINCT re {{.uid, .title, .revision_number, .student_uid, .created_at}}) AS revised_exercises
         """
         return await self.execute_query(query, {"submission_uid": submission_uid})
+
+    async def get_admin_uid(self) -> Result[list[Neo4jProperties]]:
+        """Get the UID of the oldest admin user — fallback teacher for YAML-ingested exercises."""
+        query = """
+        MATCH (admin:User)
+        WHERE admin.user_role = 'admin'
+        RETURN admin.uid AS admin_uid
+        ORDER BY admin.created_at ASC
+        LIMIT 1
+        """
+        return await self.execute_query(query, {})
 
 
 class KuBackend(UniversalNeo4jBackend[Ku]):
@@ -4199,6 +4214,39 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         ORDER BY r.joined_at
         """
         return await self.execute_query(query, {"group_uid": group_uid, "teacher_uid": teacher_uid})
+
+    async def get_or_create_default_group(
+        self, teacher_uid: str, now: str
+    ) -> Result[list[Neo4jProperties]]:
+        """MERGE the admin's default group, creating it if it doesn't exist.
+
+        Returns a record with group_uid.
+        """
+        query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})
+        MERGE (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group {{uid: 'group_default_' + $teacher_uid}})
+        ON CREATE SET g.name = 'Default Group',
+                      g.description = 'Auto-created default group',
+                      g.is_active = true,
+                      g.created_at = datetime($now)
+        RETURN g.uid AS group_uid
+        """
+        return await self.execute_query(query, {"teacher_uid": teacher_uid, "now": now})
+
+    async def ensure_group_member(
+        self, user_uid: UserUID, group_uid: str, now: str
+    ) -> Result[list[Neo4jProperties]]:
+        """MERGE MEMBER_OF relationship — idempotent student enrolment in a group."""
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})
+        MATCH (group:Group {{uid: $group_uid}})
+        MERGE (user)-[r:{RelationshipName.MEMBER_OF.value}]->(group)
+        ON CREATE SET r.joined_at = datetime($now), r.role = 'student'
+        RETURN true AS success
+        """
+        return await self.execute_query(
+            query, {"user_uid": user_uid, "group_uid": group_uid, "now": now}
+        )
 
 
 class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):

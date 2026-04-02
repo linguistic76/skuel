@@ -105,6 +105,7 @@ from core.events.curriculum_events import (
     PathStepCompleted,
     PathStepCreated,
     PathStepDeleted,
+    PathStepEnrolled,
     PathStepUpdated,
 )
 
@@ -339,6 +340,7 @@ __all__ = [
     "PathStepCompleted",
     "PathStepCreated",
     "PathStepDeleted",
+    "PathStepEnrolled",
     "PathStepUpdated",
     "PrerequisitesAnalyzed",
     "PrincipleAlignmentAssessed",
@@ -447,6 +449,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "path_step.created": PathStepCreated,
     "path_step.updated": PathStepUpdated,
     "path_step.deleted": PathStepDeleted,
+    "path_step.enrolled": PathStepEnrolled,
     "path_step.completed": PathStepCompleted,
     # Maps of Content (MOC) - removed January 2026
     # MOC is now KU-based - use KU events instead
@@ -638,6 +641,7 @@ PS_EVENTS = [
     PathStepCreated,
     PathStepUpdated,
     PathStepDeleted,
+    PathStepEnrolled,
     PathStepCompleted,
 ]
 

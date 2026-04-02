@@ -695,6 +695,11 @@ def create_admin_dashboard_routes(_app, rt, services):
             logger.warning(f"Failed to load KU detail for {uid}: {user_ku_detail_result.error}")
         user_ku_detail = user_ku_detail_result.value if not user_ku_detail_result.is_error else {}
 
+        submissions_result = await services.admin_stats.get_user_submissions_detail(uid)
+        if submissions_result.is_error:
+            logger.warning(f"Failed to load submissions for {uid}: {submissions_result.error}")
+        submissions = submissions_result.value if not submissions_result.is_error else []
+
         content = Div(
             # Back button
             ButtonLink(
@@ -709,6 +714,12 @@ def create_admin_dashboard_routes(_app, rt, services):
             Card(
                 H2("Progress Summary", cls="text-xl font-semibold mb-4"),
                 AdminLearningComponents.render_user_ku_summary(user_ku_detail),
+                cls="bg-background shadow-sm p-6 mb-6",
+            ),
+            # Exercise submissions
+            Card(
+                H2("Exercise Submissions", cls="text-xl font-semibold mb-4"),
+                AdminLearningComponents.render_user_submissions_list(submissions),
                 cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Detailed KU list

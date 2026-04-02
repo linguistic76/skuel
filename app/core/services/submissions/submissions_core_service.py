@@ -998,10 +998,12 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         if fulfills_result.is_error:
             self.logger.warning(f"Failed to create FULFILLS_EXERCISE: {fulfills_result.error}")
 
-        # 2. Auto-share with teacher
+        # 2. Auto-share with teacher (fall back to admin for YAML-ingested exercises)
         if not teacher_uid:
-            # Exercise has no OWNS relationship (e.g. YAML-ingested without a teacher)
-            return Result.ok(ProcessingOutcome.NO_TEACHER)
+            admin_result = await self.backend.get_admin_uid()  # type: ignore[attr-defined]
+            if admin_result.is_error or not admin_result.value:
+                return Result.ok(ProcessingOutcome.NO_TEACHER)
+            teacher_uid = admin_result.value[0]["admin_uid"]
 
         share_result = await self.backend.auto_share_with_teacher(  # type: ignore[attr-defined]
             teacher_uid, submission_uid, datetime.now().isoformat()
