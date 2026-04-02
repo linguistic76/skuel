@@ -192,7 +192,7 @@ class TeacherReviewService:
         report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
 
-        allowed_from = [EntityStatus.PROCESSING.value]
+        allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
         result = await self.submissions_backend.create_report_node(
             {
                 "report_uid": report_uid,
@@ -277,7 +277,7 @@ class TeacherReviewService:
         report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
 
-        allowed_from = [EntityStatus.COMPLETED.value]
+        allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
         result = await self.submissions_backend.create_report_node(
             {
                 "report_uid": report_uid,

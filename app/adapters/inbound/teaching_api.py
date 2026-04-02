@@ -35,10 +35,7 @@ from core.models.teaching.teaching_request import (
 from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
     GroupMemberProgress,
-    ReportApprovalResult,
-    ReportSubmitResult,
     ReviewQueueItem,
-    RevisionRequestResult,
     StudentSubmissionItem,
     StudentSummaryItem,
     SubmissionDetailResult,
@@ -101,45 +98,60 @@ def create_teaching_api_routes(
 
     @rt("/api/teaching/review/{uid}/report", methods=["POST"])
     @require_role(UserRole.TEACHER, get_user_service)
-    @boundary_handler()
-    async def submit_feedback(
-        request: Request, uid: str, current_user: Any
-    ) -> Result[ReportSubmitResult]:
+    async def submit_feedback(request: Request, uid: str, current_user: Any) -> Any:
         """Submit a .md feedback file as the teacher report for a student submission."""
+        from fasthtml.common import Div, P
+
         form = await request.form()
         upload = form.get("feedback_file")
         if upload is None or not hasattr(upload, "read"):
-            return Result.fail(Errors.validation("No file uploaded", field="feedback_file"))
+            return Div(P("No file uploaded.", cls="text-sm text-destructive"))
 
         raw = await upload.read()
         if not raw:
-            return Result.fail(Errors.validation("Uploaded file is empty", field="feedback_file"))
+            return Div(P("Uploaded file is empty.", cls="text-sm text-destructive"))
 
         content = raw.decode("utf-8")
         file_path = _save_report_file(current_user.uid, uid, content)
 
-        return await teacher_review_service.submit_report(
+        result = await teacher_review_service.submit_report(
             report_uid=uid,
             teacher_uid=current_user.uid,
             feedback=content,
             file_path=file_path,
         )
+        if result.is_error:
+            error = result.expect_error()
+            return Div(P(error.message, cls="text-sm text-destructive"))
+
+        return Div(
+            P("Feedback submitted successfully.", cls="text-sm text-green-600 font-medium"),
+            cls="p-3 bg-green-50 rounded border border-green-200",
+        )
 
     @rt("/api/teaching/review/{uid}/revision", methods=["POST"])
     @require_role(UserRole.TEACHER, get_user_service)
-    @boundary_handler()
-    async def request_revision(
-        request: Request, uid: str, current_user: Any
-    ) -> Result[RevisionRequestResult]:
+    async def request_revision(request: Request, uid: str, current_user: Any) -> Any:
         """Request revision for a student submission with text notes."""
+        from fasthtml.common import Div, P
+
         result = await parse_form_body(request, RequestRevisionRequest)
         if result.is_error:
-            return Result.fail(result)
+            error = result.expect_error()
+            return Div(P(error.message, cls="text-sm text-destructive"))
 
-        return await teacher_review_service.request_revision(
+        revision_result = await teacher_review_service.request_revision(
             report_uid=uid,
             teacher_uid=current_user.uid,
             notes=result.value.notes,
+        )
+        if revision_result.is_error:
+            error = revision_result.expect_error()
+            return Div(P(error.message, cls="text-sm text-destructive"))
+
+        return Div(
+            P("Revision requested.", cls="text-sm text-amber-600 font-medium"),
+            cls="p-3 bg-amber-50 rounded border border-amber-200",
         )
 
     @rt("/api/reports/{report_uid}/download", methods=["GET"])
@@ -168,14 +180,21 @@ def create_teaching_api_routes(
 
     @rt("/api/teaching/review/{uid}/approve", methods=["POST"])
     @require_role(UserRole.TEACHER, get_user_service)
-    @boundary_handler()
-    async def approve_report(
-        request: Request, uid: str, current_user: Any
-    ) -> Result[ReportApprovalResult]:
+    async def approve_report(request: Request, uid: str, current_user: Any) -> Any:
         """Approve a student report."""
-        return await teacher_review_service.approve_report(
+        from fasthtml.common import Div, P
+
+        result = await teacher_review_service.approve_report(
             report_uid=uid,
             teacher_uid=current_user.uid,
+        )
+        if result.is_error:
+            error = result.expect_error()
+            return Div(P(error.message, cls="text-sm text-destructive"))
+
+        return Div(
+            P("Submission approved.", cls="text-sm text-green-600 font-medium"),
+            cls="p-3 bg-green-50 rounded border border-green-200",
         )
 
     @rt("/api/teaching/review/{uid}", methods=["GET"])
