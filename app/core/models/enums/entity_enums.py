@@ -312,7 +312,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.PATH_STEP: ContentOrigin.CURRICULUM,
     EntityType.LEARNING_PATH: ContentOrigin.CURRICULUM,
     EntityType.EXERCISE: ContentOrigin.CURRICULUM,
-    EntityType.REVISED_EXERCISE: ContentOrigin.CURRICULUM,
+    EntityType.REVISED_EXERCISE: ContentOrigin.USER_CREATED,
     # C — User-generated content
     EntityType.TASK: ContentOrigin.USER_CREATED,
     EntityType.GOAL: ContentOrigin.USER_CREATED,

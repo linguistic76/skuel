@@ -34,7 +34,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from adapters.persistence.neo4j.domain_backends import ExerciseReportBackend
     from core.services.ps.ps_mastery_service import PsMasteryService
 
 logger = get_logger(__name__)
@@ -54,26 +54,26 @@ class ExerciseReportService:
     def __init__(
         self,
         llm_caller: LLMCallerProtocol,
-        executor: "QueryExecutor | None" = None,
+        backend: "ExerciseReportBackend | None" = None,
         ku_interaction_service: "PsMasteryService | None" = None,
     ) -> None:
         """
-        Initialize with LLM caller and query executor.
+        Initialize with LLM caller and domain backend.
 
         Args:
             llm_caller: Unified LLM caller for model-agnostic generation
-            executor: QueryExecutor for creating EXERCISE_REPORT entity in Neo4j
+            backend: ExerciseReportBackend for creating EXERCISE_REPORT entity in Neo4j
             ku_interaction_service: Optional — updates MASTERED relationships on linked Ku nodes
                 after feedback is persisted, closing the mastery loop for PERSONAL scope
                 exercises where no teacher approval step exists
         """
         self.llm_caller = llm_caller
-        self.executor = executor
+        self.backend = backend
         self.ku_interaction_service = ku_interaction_service
         self.logger = logger
 
         available = ["LLMCaller"]
-        if self.executor:
+        if self.backend:
             available.append("Neo4j")
         if self.ku_interaction_service:
             available.append("MasteryLoop")
@@ -177,10 +177,10 @@ class ExerciseReportService:
 
         Pattern follows TeacherReviewService.submit_report().
         """
-        if not self.executor:
+        if not self.backend:
             self.logger.warning(
-                "No executor configured — AI report generated but not persisted as entity. "
-                "Configure executor in ExerciseReportService to enable full persistence."
+                "No backend configured — AI report generated but not persisted as entity. "
+                "Configure backend in ExerciseReportService to enable full persistence."
             )
             # Return a transient ExerciseReport object for graceful degradation
             return self._build_transient_report(submission, exercise, feedback_text, user_uid)
@@ -193,44 +193,8 @@ class ExerciseReportService:
             else f"AI Feedback: {exercise.uid[:20]}"
         )
 
-        query = f"""
-        MATCH (submission:Entity {{uid: $submission_uid}})
-        OPTIONAL MATCH (creator:User {{uid: $user_uid}})
-
-        SET submission.report_content = $feedback_text,
-            submission.report_generated_at = datetime($now),
-            submission.updated_at = datetime($now)
-
-        CREATE (fb:Entity {{
-            uid: $report_uid,
-            title: $title,
-            entity_type: $entity_type,
-            user_uid: $user_uid,
-            status: $completed_status,
-            processor_type: $processor_type,
-            assessment_outcome: $assessment_outcome,
-            content: $feedback_text,
-            report_content: $feedback_text,
-            report_generated_at: datetime($now),
-            subject_uid: $submission_uid,
-            created_by: $user_uid,
-            created_at: datetime($now),
-            updated_at: datetime($now)
-        }})
-
-        WITH submission, creator, fb
-        CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
-
-        WITH submission, creator, fb
-        WHERE creator IS NOT NULL
-        CREATE (creator)-[:{RelationshipName.OWNS.value}]->(fb)
-
-        RETURN fb.uid as report_uid
-        """
-
         try:
-            query_result = await self.executor.execute_query(
-                query,
+            query_result = await self.backend.create_ai_report_node(
                 {
                     "submission_uid": submission.uid,
                     "report_uid": report_uid,
@@ -308,7 +272,7 @@ class ExerciseReportService:
         Failure is logged but never propagates — mastery update is best-effort
         and must not abort the feedback response.
         """
-        if not self.ku_interaction_service or not self.executor:
+        if not self.ku_interaction_service or not self.backend:
             return
 
         query = f"""
@@ -317,7 +281,7 @@ class ExerciseReportService:
         RETURN ku.uid AS ku_uid, student.uid AS student_uid
         """
 
-        result = await self.executor.execute_query(query, {"submission_uid": submission.uid})
+        result = await self.backend.execute_query(query, {"submission_uid": submission.uid})
 
         if result.is_error or not result.value:
             return

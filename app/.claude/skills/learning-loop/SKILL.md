@@ -619,7 +619,7 @@ Lesson → Exercise v1 → Submission v1 → ExerciseReport v1
 
 **Key design:**
 - Inherits `UserOwnedEntity` (NOT Curriculum) — needs `user_uid` but not 21 Curriculum fields
-- First entity type combining `ContentOrigin.CURRICULUM` with `requires_user_uid()=True`
+- `ContentOrigin.USER_CREATED` — teacher-authored content targeted at a specific student, not shared curriculum
 - Teacher-owned, student-targeted (student visibility via `student_uid` field)
 - `revision_number` auto-determined from existing chain length
 - `feedback_points: tuple[FeedbackPoint, ...]` — typed feedback using `FeedbackCategory` enum (ACCURACY, COMPLETENESS, DEPTH, CLARITY, APPLICATION, METHODOLOGY) + free-text detail. Enables pattern tracking across submissions.

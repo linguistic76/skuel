@@ -343,7 +343,7 @@ Both extend `UserOwnedEntity` directly (NOT `Submission` or `ExerciseReport`). `
 
 ### RevisedExercise — Five-Phase Learning Loop
 
-Teacher-created revision of an Exercise that addresses specific `ExerciseReport` gaps. Extends `UserOwnedEntity` (NOT Curriculum — needs `user_uid` but not 21 Curriculum fields). First entity type combining `ContentOrigin.CURRICULUM` with `requires_user_uid()=True`.
+Teacher-created revision of an Exercise that addresses specific `ExerciseReport` gaps. Extends `UserOwnedEntity` (NOT Curriculum — needs `user_uid` but not 21 Curriculum fields). `ContentOrigin.USER_CREATED` — teacher-authored content targeted at a specific student.
 
 | EntityType | Inherits | Description |
 |------------|---------|-------------|

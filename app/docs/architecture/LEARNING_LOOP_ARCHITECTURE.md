@@ -421,7 +421,7 @@ revision cycle explicitly rather than implicitly.
 
 **Key design:**
 - Inherits `UserOwnedEntity` (NOT Curriculum) — needs `user_uid` but not 21 Curriculum fields
-- First entity type combining `ContentOrigin.CURRICULUM` with `requires_user_uid()=True`
+- `ContentOrigin.USER_CREATED` — teacher-authored content targeted at a specific student, not shared curriculum
 - Teacher-owned, student-targeted (student visibility via `student_uid` field)
 - `revision_number` auto-determined from existing chain length
 - `feedback_points` carries typed `FeedbackPoint` objects (`FeedbackCategory` + free-text detail) — enables pattern tracking across submissions

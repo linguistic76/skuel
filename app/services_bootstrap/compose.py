@@ -641,8 +641,9 @@ async def compose_services(
         logger.info("✅ Content enrichment service created")
 
         # Create report and exercise services
-        from adapters.persistence.neo4j.domain_backends import ExerciseBackend
+        from adapters.persistence.neo4j.domain_backends import ExerciseBackend, ExerciseReportBackend
         from core.models.exercises.exercise import Exercise
+        from core.models.report.exercise_report import ExerciseReport
         from core.services.exercises import ExerciseService
 
         # UnifiedLLMCaller: routes to OpenAI or Anthropic based on model prefix
@@ -657,12 +658,20 @@ async def compose_services(
             )
             logger.info("✅ UnifiedLLMCaller created")
 
+        exercise_report_backend = ExerciseReportBackend(
+            driver=driver,
+            label=NeoLabel.EXERCISE_REPORT,
+            entity_class=ExerciseReport,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        )
+
         # ExerciseReportService: None in CORE tier — report generation requires AI
         exercise_report_service = None
         if llm_caller:
             exercise_report_service = ExerciseReportService(
                 llm_caller=llm_caller,
-                executor=query_executor,  # Creates ExerciseReport entity + REPORT_FOR relationship
+                backend=exercise_report_backend,  # Creates ExerciseReport entity + REPORT_FOR relationship
                 ku_interaction_service=learning_services[
                     "path_steps"
                 ].mastery,  # Closes mastery loop
