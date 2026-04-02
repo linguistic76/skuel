@@ -474,12 +474,12 @@ entry points. Both close the loop — both say "here is what your work means."
 
 **Key fields:**
 ```python
-report_content: str | None                        # The evaluation text
+report_content: str | None                        # The evaluation text (from uploaded .md file for HUMAN reports)
 report_generated_at: datetime | None
 subject_uid: str | None                           # UID of the submission being evaluated
 processor_type: ProcessorType | None              # HUMAN (teacher) | LLM (AI)
 assessment_outcome: AssessmentOutcome | None       # APPROVED | NEEDS_REVISION | AI_EVALUATED
-report_file_path: str | None                       # Generated output file path
+report_file_path: str | None                       # Path to uploaded .md file (HUMAN) or generated output (LLM)
 ```
 
 `assessment_outcome` (`AssessmentOutcome` enum from `learning_enums.py`) makes each report
@@ -489,9 +489,14 @@ self-describing — the report records what decision was made, not just feedback
 
 | Source | Service | ProcessorType | AssessmentOutcome | Trigger |
 |--------|---------|---------------|-------------------|---------|
-| Teacher approves | `TeacherReviewService.submit_report()` | `HUMAN` | `APPROVED` | Teacher reviews in queue |
-| Teacher requests revision | `TeacherReviewService.request_revision()` | `HUMAN` | `NEEDS_REVISION` | Teacher wants resubmission |
+| Teacher submits `.md` file | `TeacherReviewService.submit_report()` | `HUMAN` | `APPROVED` | Teacher uploads feedback file at `/teaching/review/{uid}` |
+| Teacher requests revision | `TeacherReviewService.request_revision()` | `HUMAN` | `NEEDS_REVISION` | Teacher enters revision notes (text textarea) |
 | AI | `ExerciseReportService.generate_report()` | `LLM` | `AI_EVALUATED` | Exercise has `instructions` (via `UnifiedLLMCaller`) |
+
+**Teacher feedback is a file upload:** The review form at `/teaching/review/{uid}` accepts a `.md` file.
+File content → `report_content`; path → `report_file_path` (stored in `data/reports/{teacher_uid}/{submission_uid}/feedback.md`).
+Students download their feedback via `GET /api/reports/{report_uid}/download` (served as attachment).
+The "Request Revision" action uses a separate text textarea — `RequestRevisionRequest.notes` — not a file.
 
 **Graph pattern:**
 ```cypher
@@ -719,7 +724,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Submission report** | `ExerciseReportService` + `AssessmentService` | `ExerciseReportOperations` | `SubmissionsBackend` | `generate_report` (via `UnifiedLLMCaller`), `create_assessment` |
 | **Journal output** | `JournalOutputService` | `JournalOutputOperations` | `JournalOutputBackend` | `process_je_input`, `generate_output`, `get_je_output`, `cleanup_date_range` (standalone domain — not under submissions) |
 | **Learning Loop Intelligence** | `LearningLoopEventHandlerService` | — | `SubmissionsBackend` | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
-| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `SubmissionsBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_report_history`, `submit_report`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from OWNS exercise_submission — any submitter, no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
+| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `SubmissionsBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_report_history`, `submit_report` (file upload → `report_content` + `report_file_path`), `request_revision` (text notes), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from OWNS exercise_submission — any submitter, no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
 | **Activity Report (scheduled)** | `ProgressReportWorker` | — | — | Background worker; calls `ProgressReportGenerator` on schedule |
 | **Activity Report (schedule CRUD)** | `ProgressScheduleService` | `ProgressScheduleOps` | — | `get_schedules`, `create_schedule`, `delete_schedule` |

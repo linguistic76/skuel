@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-02-06
-**Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment)
+**Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment), 2026-04-02 (teacher feedback as .md file upload)
 **Author:** Claude Code
 
 ## Context
@@ -135,6 +135,23 @@ Standalone submissions (no `fulfills_exercise_uid`) skip `exercise_handler.py` e
 `auto_share_with_teacher` is never called, so the SHARES_WITH relationship never exists.
 Access control for the review detail page is enforced at the route level
 (`@require_role(UserRole.TEACHER)`); the Cypher now does a direct lookup by uid.
+
+### Teacher Feedback as Markdown File Upload (2026-04-02)
+
+The review form at `/teaching/review/{uid}` now accepts a `.md` file upload instead of
+a plain textarea. This aligns with SKUEL's `.md`-first document format and allows teachers
+to write rich, structured feedback in Obsidian or any text editor before submitting.
+
+**How it works:**
+- Teacher uploads a `.md` file via the "Submit Feedback" form (multipart/form-data)
+- File content → `ExerciseReport.report_content`
+- File saved to `data/reports/{teacher_uid}/{submission_uid}/feedback.md`
+- File path → `ExerciseReport.report_file_path`
+- Students download feedback via `GET /api/reports/{report_uid}/download` (attachment)
+
+**Request Revision** remains text-only — a separate textarea form sends
+`RequestRevisionRequest.notes` to `/api/teaching/review/{uid}/revision`.
+`SubmitReportRequest` was removed; feedback ingestion is now file-only for HUMAN reports.
 
 ## Related
 
