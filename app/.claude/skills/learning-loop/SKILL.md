@@ -493,10 +493,10 @@ self-describing — the report records what decision was made, not just feedback
 | Teacher requests revision | `TeacherReviewService.request_revision()` | `HUMAN` | `NEEDS_REVISION` | Teacher enters revision notes (text textarea) |
 | AI | `ExerciseReportService.generate_report()` | `LLM` | `AI_EVALUATED` | Exercise has `instructions` (via `UnifiedLLMCaller`) |
 
-**Teacher feedback is a file upload:** The review form at `/teaching/review/{uid}` accepts a `.md` file.
-File content → `report_content`; path → `report_file_path` (stored in `data/reports/{teacher_uid}/{submission_uid}/feedback.md`).
-Students download their feedback via `GET /api/reports/{report_uid}/download` (served as attachment).
-The "Request Revision" action uses a separate text textarea — `RequestRevisionRequest.notes` — not a file.
+**Two teacher feedback pathways — same service methods, different entry points:**
+
+- **Web UI** — `/teaching/review/{uid}` accepts a `.md` file upload (multipart/form-data). File content → `report_content`; path → `report_file_path`. Students download via `GET /api/reports/{report_uid}/download`.
+- **CLI (offline batch)** — `scripts/export_submissions.py` exports the review queue to `~/skuel-reviews/pending/<uid>.md`; teacher writes reports to `done/<uid>.md` with YAML frontmatter (`submission_uid`, `action: report|revision|approve`); `scripts/import_reports.py` posts them back. Both scripts call the same `TeacherReviewService` methods.
 
 **Graph pattern:**
 ```cypher

@@ -162,6 +162,8 @@ await teacher_review.submit_feedback(submission_uid, teacher_uid, "Great work!")
 - Teacher's review queue = `get_review_queue()` uses OWNS-based approach (not SHARES_WITH filter)
 - SHARES_WITH is still auto-created; used by `verify_teacher_access()` for detail-page access
 
+**CLI alternative:** Teachers can bypass the web UI entirely. `scripts/export_submissions.py --teacher-uid <uid>` exports the review queue to `~/skuel-reviews/pending/<uid>.md`; after writing reports to `done/`, `scripts/import_reports.py` posts them back via the same service methods. See ADR-040.
+
 **See:** `/docs/decisions/ADR-040-teacher-assignment-workflow.md`
 
 ---

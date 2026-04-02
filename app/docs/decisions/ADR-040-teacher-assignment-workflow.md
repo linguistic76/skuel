@@ -198,6 +198,36 @@ to write rich, structured feedback in Obsidian or any text editor before submitt
 `RequestRevisionRequest.notes` to `/api/teaching/review/{uid}/revision`.
 `SubmitReportRequest` was removed; feedback ingestion is now file-only for HUMAN reports.
 
+### CLI-Based Offline Review Workflow (2026-04-02)
+
+Teachers can export their entire review queue to local markdown files, review and
+annotate offline (in Obsidian or any text editor), then import the reports back in
+a single batch — bypassing the web UI entirely.
+
+**Two scripts in `scripts/`:**
+
+```bash
+# Export pending submissions → ~/skuel-reviews/pending/<uid>.md
+uv run scripts/export_submissions.py --teacher-uid <uid>
+
+# Import written reports → posts ExerciseReports, moves files to imported/
+uv run scripts/import_reports.py --teacher-uid <uid>
+```
+
+**Report file format** (`~/skuel-reviews/done/<uid>.md`):
+```markdown
+---
+submission_uid: es_abc123
+action: report        # report (default) | revision | approve
+---
+
+Your feedback here as markdown...
+```
+
+Both scripts use the same `TeacherReviewService` methods as the web UI
+(`submit_report`, `request_revision`, `approve_report`). The `pending/` export
+files are read-only — teachers write reports as separate files in `done/`.
+
 ## Related
 
 - **ADR-038**: Content Sharing Model (SHARES_WITH infrastructure)
