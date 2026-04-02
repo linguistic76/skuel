@@ -299,8 +299,13 @@ class RelationshipName(StrEnum):
     # Teacher exercise workflow and group management
     # =========================================================================
     FOR_GROUP = "FOR_GROUP"  # (Exercise)-[:FOR_GROUP]->(Group)
-    # (Entity)-[:FULFILLS_EXERCISE]->(Exercise) - Student submission
+    # (ExerciseSubmission)-[:FULFILLS_EXERCISE]->(Exercise) - Always the ROOT Exercise
     FULFILLS_EXERCISE = "FULFILLS_EXERCISE"
+    # (ExerciseSubmission)-[:FULFILLS_REVISED_EXERCISE]->(RevisedExercise) - Revision cycle only
+    # Created alongside FULFILLS_EXERCISE when submitting against a RevisedExercise.
+    # FULFILLS_EXERCISE always anchors to the root Exercise; FULFILLS_REVISED_EXERCISE
+    # captures which specific revision instructions the student addressed.
+    FULFILLS_REVISED_EXERCISE = "FULFILLS_REVISED_EXERCISE"
     # (Entity)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(Group) - Group-level sharing
     SHARED_WITH_GROUP = "SHARED_WITH_GROUP"
     # Revision cycle (5-phase learning loop)

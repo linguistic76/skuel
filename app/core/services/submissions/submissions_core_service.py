@@ -922,9 +922,14 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         exercise_entity_type = records[0]["exercise_entity_type"]
         teacher_uid = records[0]["teacher_uid"]
         exercise_title = records[0].get("exercise_title") or ""
+        # For RevisedExercise, get_exercise_context now returns the root Exercise UID via
+        # REVISES_EXERCISE. The count_for_exercise call below uses this so iteration
+        # numbering spans the full loop, not just submissions against this revision node.
+        original_exercise_uid: str | None = records[0].get("original_exercise_uid")
+        count_exercise_uid = original_exercise_uid or exercise_uid
 
         if exercise_entity_type == EntityType.REVISED_EXERCISE.value:
-            # RevisedExercise path: always "assigned", targets a specific student
+            # RevisedExercise path: always "assigned", targets a specific student.
             re_student_uid = records[0]["student_uid"]
 
             submitter_result = await self.backend.get_submission_owner(submission_uid)  # type: ignore[attr-defined]
@@ -970,7 +975,7 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                     submitter_uid = student_uid_records[0]["student_uid"]
 
                     prior_count_result = await self.backend.count_submissions_for_exercise(  # type: ignore[attr-defined]
-                        submitter_uid, exercise_uid
+                        submitter_uid, count_exercise_uid
                     )
                     prior_count = 0
                     if not prior_count_result.is_error:

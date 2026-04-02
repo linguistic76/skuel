@@ -524,6 +524,7 @@ class TestProcessExerciseSubmission:
                         "student_uid": "user_1",
                         "exercise_title": "Revision",
                         "group_uid": None,
+                        "original_exercise_uid": "ex_original_1",
                     }
                 ]
             )
@@ -531,7 +532,7 @@ class TestProcessExerciseSubmission:
         backend.get_submission_owner = AsyncMock(
             return_value=Result.ok([{"student_uid": "user_1"}])
         )
-        backend.count_submissions_for_exercise = AsyncMock(return_value=Result.ok(0))
+        backend.count_submissions_for_exercise = AsyncMock(return_value=Result.ok(1))
         backend.update = AsyncMock(return_value=Result.ok(True))
         backend.link_to_exercise = AsyncMock(return_value=Result.ok([{"success": True}]))
         service = _make_service(backend=backend)
@@ -540,6 +541,9 @@ class TestProcessExerciseSubmission:
 
         assert result.is_ok
         assert result.value == ProcessingOutcome.PROCESSED
+        # Must count against the ORIGINAL exercise UID, not the RevisedExercise UID,
+        # so revision_number reflects total loop iterations (1 prior → this is #2).
+        backend.count_submissions_for_exercise.assert_awaited_once_with("user_1", "ex_original_1")
 
     @pytest.mark.asyncio
     async def test_wrong_student_for_revised_exercise(self):
@@ -554,6 +558,7 @@ class TestProcessExerciseSubmission:
                         "student_uid": "user_2",
                         "exercise_title": "Revision",
                         "group_uid": None,
+                        "original_exercise_uid": "ex_original_1",
                     }
                 ]
             )

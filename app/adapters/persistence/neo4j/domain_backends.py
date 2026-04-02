@@ -1305,9 +1305,21 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     async def count_submissions_for_exercise(
         self, user_uid: UserUID, exercise_uid: str
     ) -> Result[int]:
-        """Count submissions by a user for a specific exercise via FULFILLS_EXERCISE."""
+        """Count all submissions by a user for an exercise across the full learning loop.
+
+        Resolves to the root Exercise first: if exercise_uid is a RevisedExercise,
+        traverses REVISES_EXERCISE to find the original. Counts all submissions
+        against the root Exercise via FULFILLS_EXERCISE, covering both initial
+        submissions (revision_number=1) and all revision-cycle submissions.
+
+        Callers may pass either an original Exercise UID or a RevisedExercise UID;
+        both return the same total across all loop iterations.
+        """
         query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(e:Entity {uid: $exercise_uid})
+        MATCH (target:Entity {uid: $exercise_uid})
+        OPTIONAL MATCH (target)-[:REVISES_EXERCISE]->(orig:Entity {entity_type: 'exercise'})
+        WITH COALESCE(orig, target) AS exercise
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(exercise)
         WHERE s.entity_type IN ['exercise_submission', 'submission']
         RETURN count(s) AS count
         """
@@ -1322,9 +1334,16 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     async def get_first_submission_for_exercise(
         self, user_uid: UserUID, exercise_uid: str
     ) -> Result[Neo4jProperties | None]:
-        """Get earliest submission's uid + created_at for a user+exercise pair."""
+        """Get earliest submission's uid + created_at for a user+exercise pair.
+
+        Resolves to the root Exercise first (same logic as count_submissions_for_exercise)
+        so mastery velocity calculations see the full loop from the original first attempt.
+        """
         query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(e:Entity {uid: $exercise_uid})
+        MATCH (target:Entity {uid: $exercise_uid})
+        OPTIONAL MATCH (target)-[:REVISES_EXERCISE]->(orig:Entity {entity_type: 'exercise'})
+        WITH COALESCE(orig, target) AS exercise
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(exercise)
         WHERE s.entity_type IN ['exercise_submission', 'submission']
         RETURN s.uid AS uid, s.created_at AS created_at
         ORDER BY s.created_at ASC
@@ -1397,18 +1416,24 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         Curriculum(Entity), not UserOwnedEntity, so exercise.user_uid is always
         None in Neo4j. COALESCE falls back to the stored property for
         RevisedExercise (UserOwnedEntity) and any future user-owned exercise types.
+
+        For RevisedExercise nodes, also traverses REVISES_EXERCISE to return the
+        root Exercise UID. process_exercise_submission() uses this to anchor
+        FULFILLS_EXERCISE on the original exercise, not the revision node.
         """
         query = """
         MATCH (exercise:Entity {uid: $exercise_uid})
         WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
         OPTIONAL MATCH (teacher:User)-[:OWNS]->(exercise)
         OPTIONAL MATCH (exercise)-[:FOR_GROUP]->(g:Group)
+        OPTIONAL MATCH (exercise)-[:REVISES_EXERCISE]->(original:Entity {entity_type: 'exercise'})
         RETURN exercise.entity_type as exercise_entity_type,
                exercise.scope as scope,
                COALESCE(teacher.uid, exercise.user_uid) as teacher_uid,
                exercise.student_uid as student_uid,
                exercise.title as exercise_title,
-               g.uid as group_uid
+               g.uid as group_uid,
+               original.uid as original_exercise_uid
         """
         return await self.execute_query(query, {"exercise_uid": exercise_uid})
 
@@ -1436,12 +1461,36 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     async def link_to_exercise(
         self, submission_uid: str, exercise_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Create FULFILLS_EXERCISE relationship."""
-        query = """
-        MATCH (submission:Entity {uid: $submission_uid})
-        MATCH (exercise:Entity {uid: $exercise_uid})
+        """Create exercise relationships for a submission.
+
+        Two-path logic based on whether exercise_uid is an Exercise or RevisedExercise:
+
+        Standard Exercise:
+            (submission)-[:FULFILLS_EXERCISE]->(exercise)
+
+        RevisedExercise:
+            (submission)-[:FULFILLS_EXERCISE]->(original_exercise)   ← root anchor
+            (submission)-[:FULFILLS_REVISED_EXERCISE]->(revised_exercise)
+
+        FULFILLS_EXERCISE always points to the root Exercise node. This invariant
+        means every analytics or review query against an original Exercise UID finds
+        all submissions across all revision cycles without multi-hop traversal.
+        FULFILLS_REVISED_EXERCISE records which specific revision instructions were
+        addressed, preserving the iteration chain for chain-traversal queries.
+        """
+        query = f"""
+        MATCH (submission:Entity {{uid: $submission_uid}})
+        MATCH (exercise:Entity {{uid: $exercise_uid}})
         WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
-        MERGE (submission)-[:FULFILLS_EXERCISE]->(exercise)
+        OPTIONAL MATCH (exercise)-[:{RelationshipName.REVISES_EXERCISE}]->(original:Entity {{entity_type: 'exercise'}})
+        WITH submission, exercise, original
+        FOREACH (_ IN CASE WHEN original IS NOT NULL THEN [1] ELSE [] END |
+          MERGE (submission)-[:{RelationshipName.FULFILLS_EXERCISE}]->(original)
+          MERGE (submission)-[:{RelationshipName.FULFILLS_REVISED_EXERCISE}]->(exercise)
+        )
+        FOREACH (_ IN CASE WHEN original IS NULL THEN [1] ELSE [] END |
+          MERGE (submission)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
+        )
         RETURN true as success
         """
         return await self.execute_query(
@@ -1941,11 +1990,16 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         )
 
     async def get_learning_loop_chain_raw(self, exercise_uid: str) -> Result[list[Neo4jProperties]]:
-        """Traverse full learning loop chain from an exercise."""
+        """Traverse full learning loop chain from an exercise.
+
+        Accepts either a root Exercise UID or a RevisedExercise UID.
+        Uses FULFILLS_EXERCISE|FULFILLS_REVISED_EXERCISE so submissions are
+        found regardless of which type exercise_uid refers to.
+        """
         query = f"""
         MATCH (ex:Entity {{uid: $exercise_uid}})
         WHERE ex.entity_type IN ['exercise', 'revised_exercise']
-        OPTIONAL MATCH (sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
+        OPTIONAL MATCH (sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE.value}|{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(ex)
           WHERE sub.entity_type = 'exercise_submission'
         OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
           WHERE fb.entity_type = 'exercise_report'

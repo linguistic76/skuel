@@ -2048,9 +2048,12 @@ REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
             fields=("uid", "title"),
             single=True,
         ),
-        # Incoming: Submission → RevisedExercise (student submissions fulfilling this revision)
+        # Incoming: Submission → RevisedExercise (revision-cycle submissions)
+        # Uses FULFILLS_REVISED_EXERCISE, not FULFILLS_EXERCISE.
+        # FULFILLS_EXERCISE on revision submissions points to the root Exercise instead,
+        # so analytics queries against the original exercise UID always find all iterations.
         UnifiedRelationshipDefinition(
-            RelationshipName.FULFILLS_EXERCISE,
+            RelationshipName.FULFILLS_REVISED_EXERCISE,
             "Entity",
             "incoming",
             "submissions",
