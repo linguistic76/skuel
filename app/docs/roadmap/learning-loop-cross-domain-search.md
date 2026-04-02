@@ -26,8 +26,8 @@ Exercise, RevisedExercise, and Submission now use `graph_aware_faceted_search` v
 | Domain | Enrichment Patterns |
 |--------|-------------------|
 | Exercise | `REQUIRES_KNOWLEDGE` (outgoing), `FOR_GROUP` (outgoing), `FULFILLS_EXERCISE` (incoming) |
-| RevisedExercise | `RESPONDS_TO_REPORT` (outgoing), `REVISES_EXERCISE` (outgoing), `FULFILLS_EXERCISE` (incoming) |
-| Submission | `FULFILLS_EXERCISE` (outgoing), `REPORT_FOR` (incoming) |
+| RevisedExercise | `RESPONDS_TO_REPORT` (outgoing), `REVISES_EXERCISE` (outgoing), `FULFILLS_REVISED_EXERCISE` (incoming) |
+| Submission | `FULFILLS_EXERCISE` (outgoing, → root Exercise), `FULFILLS_REVISED_EXERCISE` (outgoing, revision-cycle only), `REPORT_FOR` (incoming) |
 
 ## Level 3b: Learning Loop Chain Traversal
 

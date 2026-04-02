@@ -180,8 +180,8 @@ expected_modality: SubmissionModality  # FILE_UPLOAD or STRUCTURED_FORM (auto-de
 
 `expected_modality` is auto-derived in `__post_init__`: if `form_schema` is set → `STRUCTURED_FORM`,
 else → `FILE_UPLOAD`. The corresponding `Submission.modality` field records which path was actually used.
-Both modes create `ExerciseSubmission` and trigger the same event pipeline (`FULFILLS_EXERCISE`,
-auto-share with teacher).
+Both modes create `ExerciseSubmission` and trigger the same event pipeline (`FULFILLS_EXERCISE` /
+`FULFILLS_REVISED_EXERCISE`, auto-share with teacher).
 
 **Two scopes:**
 
@@ -343,21 +343,32 @@ Route by MIME type:                       (no processing needed — data is stru
         ↓                                 ↓
 Status: PROCESSING → COMPLETED      SubmissionCreated event fires:
         ↓                             process_exercise_submission() called:
-SubmissionCreated event fires:          → FULFILLS_EXERCISE (Submission → Exercise)
-  Same as form path →                   → SHARES_WITH {role: 'teacher'}
+SubmissionCreated event fires:          → FULFILLS_EXERCISE (Submission → root Exercise)
+  Same as form path →                     always anchors to the root Exercise node,
+                                          even for revision-cycle submissions
+                                        → FULFILLS_REVISED_EXERCISE (→ RevisedExercise)
+                                          created alongside FULFILLS_EXERCISE for
+                                          revision-cycle submissions only
+                                        → SHARES_WITH {role: 'teacher'}
                                           teacher = OWNS relationship on Exercise
                                           fallback = oldest admin (for YAML-ingested
                                           exercises with no OWNS relationship)
                                         → revision_number written to DB
+                                          (counts all FULFILLS_EXERCISE to root Exercise
+                                          so revision #2, #3 etc. are correct)
                                         → canonical title written to DB
 ```
 
 > **Derivation chain:** `parent_entity_uid` is set on the model at creation time in both
-> `submit_file()` and `submit_form()` — it equals the `fulfills_exercise_uid`. The
-> `FULFILLS_EXERCISE` graph edge and `parent_entity_uid` carry the same information: the
-> graph edge for Cypher traversals, the model field for Python-layer queries. `revision_number`
-> is set in `process_exercise_submission()` (called after creation) and equals
-> `prior_submission_count + 1` for that student×exercise pair.
+> `submit_file()` and `submit_form()` — it equals the `fulfills_exercise_uid` (the Exercise or
+> RevisedExercise UID passed by the student). The `FULFILLS_EXERCISE` graph edge always anchors
+> to the **root Exercise** regardless of which revision node was submitted against; for revision
+> submissions a second `FULFILLS_REVISED_EXERCISE` edge also points to the `RevisedExercise`.
+> `parent_entity_uid` and `FULFILLS_EXERCISE` carry complementary information: the model field
+> stores the immediate target (may be a RevisedExercise UID) for Python-layer lookups; the graph
+> edge always reaches the root Exercise for Cypher analytics. `revision_number` is set in
+> `process_exercise_submission()` and equals `prior_FULFILLS_EXERCISE_count + 1` for that
+> student×root-exercise pair — so it counts correctly across all loop iterations.
 
 **Status transition enforcement:**
 `SubmissionsService.update_submission_status()` validates every status change via
@@ -652,7 +663,8 @@ await backend.get_revision_chain(exercise_uid)             # All revisions order
 })
 (re)-[:RESPONDS_TO_REPORT]->(report:Entity:ExerciseReport)
 (re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
-(submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(re)  // reuses existing rel type
+(submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(exercise)        // root anchor — always
+(submission:Entity:Submission)-[:FULFILLS_REVISED_EXERCISE]->(re)     // revision pointer
 ```
 
 **Event:** `RevisedExerciseCreated` (`revised_exercise.created`) — published on creation,
@@ -689,7 +701,8 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 | `REQUIRES_KNOWLEDGE` | `Exercise` → `Ku` | Exercise is grounded in this knowledge |
 | `FOR_GROUP` | `Exercise` → `Group` | ASSIGNED exercise targets this classroom |
 | `MEMBER_OF` | `User` → `Group` | Student enrolled in a group (auto-created on PathStep IN_PROGRESS via `PathStepEnrolled` event → admin default group) |
-| `FULFILLS_EXERCISE` | `Submission` → `Exercise` or `RevisedExercise` | Student's work satisfies this exercise |
+| `FULFILLS_EXERCISE` | `Submission` → `Exercise` (root) | Always anchors to the original Exercise, across all revision iterations |
+| `FULFILLS_REVISED_EXERCISE` | `Submission` → `RevisedExercise` | Created alongside FULFILLS_EXERCISE for revision-cycle submissions only |
 | `SHARES_WITH` | `Submission` → `User` | Auto-share to teacher for all exercises (teacher via OWNS, fallback to oldest admin for YAML-ingested exercises) |
 | `SHARES_WITH` | `User` → `RevisedExercise` | Auto-share revision to student on creation |
 | `REPORT_FOR` | `ExerciseReport` → `Submission` | Report evaluates this specific artifact |
@@ -702,7 +715,8 @@ from core.models.relationship_names import RelationshipName
 
 RelationshipName.REQUIRES_KNOWLEDGE      # Exercise → Ku
 RelationshipName.FOR_GROUP               # Exercise → Group
-RelationshipName.FULFILLS_EXERCISE       # Submission → Exercise (or RevisedExercise)
+RelationshipName.FULFILLS_EXERCISE          # Submission → root Exercise (always)
+RelationshipName.FULFILLS_REVISED_EXERCISE  # Submission → RevisedExercise (revision-cycle only)
 RelationshipName.SHARES_WITH             # Submission → User (also group sharing)
 RelationshipName.REPORT_FOR              # ExerciseReport → Submission
 RelationshipName.SHARED_WITH_GROUP       # Submission → Group (group sharing)
@@ -918,7 +932,8 @@ that never closes the loop.
    Creates Entity with entity_type='exercise_submission', status SUBMITTED→QUEUED→PROCESSING→COMPLETED
    (For journals: standalone domain — JournalOutputService.process_je_input() handles LLM → JeOutput)
        ↓
-4. FULFILLS_EXERCISE relationship created
+4. FULFILLS_EXERCISE relationship created (always → root Exercise)
+   FULFILLS_REVISED_EXERCISE also created when submitting against a RevisedExercise
    Auto-sharing: SHARES_WITH {role:'teacher'} (Exercise.OWNS teacher, or admin fallback)
    (YAML-ingested exercises have no OWNS → process_exercise_submission() falls back to
     oldest admin via SubmissionsBackend.get_admin_uid() rather than returning NO_TEACHER)

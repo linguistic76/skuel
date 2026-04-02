@@ -322,10 +322,10 @@ structured form (`STRUCTURED_FORM` — inline form responses stored as JSON). Th
 Without it, the Curriculum Track has no student voice.
 
 **Derivation chain fields (set at creation, no graph query needed):**
-- `parent_entity_uid` — UID of the Exercise or RevisedExercise this submission fulfills. Set automatically by `submit_file()` and `submit_form()` from `fulfills_exercise_uid`. Mirror of the `FULFILLS_EXERCISE` graph edge.
-- `revision_number` — which attempt this is (1 = first; auto-computed by `process_exercise_submission()` as `prior_submission_count + 1` for this student×exercise pair). Written to DB alongside the auto-generated canonical title.
+- `parent_entity_uid` — the `fulfills_exercise_uid` passed at submission time (may be an Exercise or RevisedExercise UID). Set automatically by `submit_file()` / `submit_form()`. Useful as a Python-layer lookup; the graph edges are the authoritative source.
+- `revision_number` — which attempt this is (1 = first; auto-computed by `process_exercise_submission()` as `prior_FULFILLS_EXERCISE_count + 1` counted against the **root Exercise** UID). Written to DB alongside the auto-generated canonical title.
 
-Both fields make the Python model self-describing: `submission.revision_number` and `submission.parent_entity_uid` answer loop-position questions without a round-trip to the graph.
+Both fields make the Python model self-describing without a round-trip to the graph. Note: `FULFILLS_EXERCISE` always points to the root Exercise (see below); `parent_entity_uid` may point to a RevisedExercise UID for revision submissions.
 
 **See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
 full pipeline from upload to sharing and teacher review queue.
@@ -441,7 +441,8 @@ revision cycle explicitly rather than implicitly.
 (re)-[:RESPONDS_TO_REPORT]->(feedback:Entity:ExerciseReport)
 (re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
 (student:User)-[:SHARES_WITH {role: 'student'}]->(re)     // auto-created on creation
-(submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(re)  // reuses existing rel type
+(submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(exercise)    // root anchor — always
+(submission:Entity:Submission)-[:FULFILLS_REVISED_EXERCISE]->(re)  // revision pointer
 ```
 
 **Services:**

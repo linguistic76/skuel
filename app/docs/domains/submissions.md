@@ -82,7 +82,8 @@ The Submissions + Reports domain handles the artifact-based side of SKUEL's Five
 | Relationship | Direction | Target | Description |
 |--------------|-----------|--------|-------------|
 | `OWNS` | User → Submission | User | Submission ownership |
-| `FULFILLS_EXERCISE` | Submission → Exercise | Exercise | Links submission to exercise |
+| `FULFILLS_EXERCISE` | Submission → Exercise (root) | Exercise | Links submission to root exercise; always the original Exercise regardless of revision cycle |
+| `FULFILLS_REVISED_EXERCISE` | Submission → RevisedExercise | RevisedExercise | Revision-cycle submissions only; created alongside FULFILLS_EXERCISE |
 | `REPORT_FOR` | ExerciseReport → Submission | Submission | Report evaluates submission |
 | `APPLIES_KNOWLEDGE` | Submission → Ku | Ku | Knowledge application tracking |
 | `SHARES_WITH` | User → Submission | Submission | Sharing access (teacher review) |
