@@ -84,6 +84,7 @@ if TYPE_CHECKING:
     from core.models.forms.form_submission import FormSubmission
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.group.group import Group  # noqa: F401
+    from core.models.interaction.interaction import Interaction  # noqa: F401
     from core.models.journal.je_input import JeInput  # noqa: F401
     from core.models.journal.je_output import JeOutput  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
@@ -4777,6 +4778,18 @@ class ResourceBackend(UniversalNeo4jBackend["Resource"]):
     """
 
 
+class InteractionBackend(UniversalNeo4jBackend["Interaction"]):
+    """
+    Domain backend for Interaction entities (User Interaction Contract).
+
+    Records situated learning-loop events: who submitted what, while studying
+    which PathStep, within which LearningPath.
+
+    Inherits full CRUD + list from UniversalNeo4jBackend — no custom Cypher
+    needed in Phase 1. Future ZPD integration will add traversal queries here.
+    """
+
+
 __all__ = [
     "ActivityReportBackend",
     "ChoicesBackend",
@@ -4787,6 +4800,7 @@ __all__ = [
     "GoalsBackend",
     "GroupBackend",
     "HabitsBackend",
+    "InteractionBackend",
     "JournalInputBackend",
     "JournalOutputBackend",
     "KuBackend",

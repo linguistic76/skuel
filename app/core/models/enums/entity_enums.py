@@ -24,7 +24,7 @@ from enum import StrEnum
 
 class EntityType(StrEnum):
     """
-    Type of Entity — 20 entity types in SKUEL.
+    Type of Entity — 22 entity types in SKUEL.
 
     Discriminator for the `entity_type` field on Entity.
 
@@ -39,6 +39,7 @@ class EntityType(StrEnum):
         FORM_TEMPLATE        → General-purpose form definition (admin-created)
         GOAL                 → Knowledge about where you're heading
         HABIT                → Knowledge about what you practice
+        INTERACTION          → Situated learning-loop event (User Interaction Contract)
         JE_INPUT             → Raw journal entry (audio or text, user-initiated)
         JE_OUTPUT            → LLM-processed transformation of a je_input
         KU                   → Atomic knowledge unit (concept, state, principle)
@@ -57,7 +58,7 @@ class EntityType(StrEnum):
         A  CURATED      → RESOURCE
         B  CURRICULUM   → KU, PATH_STEP, LEARNING_PATH, EXERCISE, REVISED_EXERCISE
         C  USER_CREATED → Activities (6), EXERCISE_SUBMISSION, JE_INPUT, JE_OUTPUT, LIFE_PATH,
-                          FORM_SUBMISSION
+                          FORM_SUBMISSION, INTERACTION
         D  REPORT       → ACTIVITY_REPORT, EXERCISE_REPORT
 
     Ownership rules:
@@ -66,6 +67,7 @@ class EntityType(StrEnum):
         Activity (6):          user_uid = student (user-owned)
         Destination:           user_uid = student (user-owned)
         FormSubmission:        user_uid = student (user-owned)
+        Interaction:           user_uid = student (user-owned, audit record)
     """
 
     # Curriculum (admin-created, shared)
@@ -100,6 +102,9 @@ class EntityType(StrEnum):
     EVENT = "event"
     CHOICE = "choice"
     PRINCIPLE = "principle"
+
+    # Interaction audit (user-owned, situated learning-loop event)
+    INTERACTION = "interaction"
 
     # Destination
     LIFE_PATH = "life_path"
@@ -239,6 +244,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.REVISED_EXERCISE: "Revised Exercise",
     EntityType.FORM_TEMPLATE: "Form Template",
     EntityType.FORM_SUBMISSION: "Form Submission",
+    EntityType.INTERACTION: "Interaction",
     EntityType.LIFE_PATH: "Life Path",
 }
 
@@ -318,6 +324,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.JE_INPUT: ContentOrigin.USER_CREATED,
     EntityType.JE_OUTPUT: ContentOrigin.USER_CREATED,  # Transformation, not interpretation
     EntityType.FORM_SUBMISSION: ContentOrigin.USER_CREATED,
+    EntityType.INTERACTION: ContentOrigin.USER_CREATED,
     EntityType.LIFE_PATH: ContentOrigin.USER_CREATED,
     # D — Reports that act on user content
     EntityType.ACTIVITY_REPORT: ContentOrigin.REPORT,
@@ -359,6 +366,8 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "form_template": EntityType.FORM_TEMPLATE,
     "form_submission": EntityType.FORM_SUBMISSION,
     "form": EntityType.FORM_TEMPLATE,
+    "interaction": EntityType.INTERACTION,
+    "ia": EntityType.INTERACTION,  # UID prefix alias
     "lifepath": EntityType.LIFE_PATH,
 }
 

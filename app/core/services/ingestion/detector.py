@@ -45,6 +45,9 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     # Content/Processing
     "je_input": EntityType.JE_INPUT,
     "exercise_submission": EntityType.EXERCISE_SUBMISSION,
+    # Interaction audit (User Interaction Contract)
+    "interaction": EntityType.INTERACTION,
+    "ia": EntityType.INTERACTION,  # UID prefix alias
     # Destination
     "lifepath": EntityType.LIFE_PATH,
 }

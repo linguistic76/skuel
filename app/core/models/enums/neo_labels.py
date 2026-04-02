@@ -98,6 +98,9 @@ class NeoLabel(StrEnum):
     FORM_TEMPLATE = "FormTemplate"  # Admin-created form definitions
     FORM_SUBMISSION = "FormSubmission"  # User responses to form templates
 
+    # Interaction audit (1) — User Interaction Contract
+    INTERACTION = "Interaction"
+
     # Destination (1)
     LIFE_PATH = "LifePath"
 
@@ -265,6 +268,7 @@ def _init_ku_type_mapping() -> None:
             EntityType.JE_OUTPUT: NeoLabel.JE_OUTPUT,
             EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
             EntityType.EXERCISE_REPORT: NeoLabel.EXERCISE_REPORT,
+            EntityType.INTERACTION: NeoLabel.INTERACTION,
             EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
         }
     )

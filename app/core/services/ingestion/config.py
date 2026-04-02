@@ -229,6 +229,14 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title",),
         requires_user_uid=True,
     ),
+    EntityType.INTERACTION: EntityIngestionConfig(
+        entity_label="Interaction",
+        uid_prefix="ia",
+        required_fields=("interaction_type", "target_uid"),
+        requires_user_uid=True,
+        # No YAML-driven relationships — context relationships are created
+        # programmatically by InteractionService.create_interaction().
+    ),
     EntityType.LIFE_PATH: EntityIngestionConfig(
         entity_label="LifePath",
         uid_prefix="lifepath",

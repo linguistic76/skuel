@@ -18,14 +18,16 @@ Does NOT handle:
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.submission_events import SubmissionCreated
 from core.models.entity import Entity
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
+from core.models.enums.interaction_enums import InteractionType
 from core.models.enums.submissions_enums import SubmissionModality
+from core.models.interaction.interaction import Interaction
 from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission import Submission
 from core.models.submissions.submission_dto import SubmissionDTO
@@ -39,6 +41,9 @@ from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
+
+if TYPE_CHECKING:
+    from core.services.interaction.interaction_service import InteractionService
 
 
 class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
@@ -67,6 +72,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         backend: BackendOperations[SubmissionEntity],
         storage_path: str = "/tmp/skuel_reports",
         event_bus=None,
+        interaction_service: "InteractionService | None" = None,
     ) -> None:
         """
         Initialize submission service.
@@ -75,10 +81,13 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             backend: Backend for submission storage
             storage_path: Base path for file storage (default: /tmp/skuel_submissions)
             event_bus: Event bus for domain events (optional)
+            interaction_service: InteractionService for creating Interaction audit records
+                                 (optional — records not created when None, e.g. in tests)
         """
         super().__init__(backend, "SubmissionsService")
         self.storage_path = Path(storage_path)
         self.event_bus = event_bus
+        self.interaction_service = interaction_service
         self.logger = get_logger("skuel.services.ku_submission")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Ensure storage directory exists
@@ -112,6 +121,8 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
         fulfills_exercise_uid: str | None = None,
+        context_path_step_uid: str | None = None,
+        context_learning_path_uid: str | None = None,
     ) -> Result[Entity]:
         """
         Submit a file for processing.
@@ -119,7 +130,8 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         Steps:
         1. Store file to disk/cloud
         2. Create submission record in Neo4j
-        3. Return submission with SUBMITTED status
+        3. Auto-create Interaction audit record (if interaction_service is wired)
+        4. Return submission with SUBMITTED status
 
         Args:
             file_content: Raw file bytes
@@ -135,6 +147,10 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             fulfills_exercise_uid: Exercise UID if this submission responds to an
                 assigned exercise. Triggers FULFILLS_EXERCISE relationship and
                 auto-sharing with the teacher.
+            context_path_step_uid: PathStep the user was studying when submitting.
+                Captured from UserContext.current_ps_uids by the route handler.
+            context_learning_path_uid: LearningPath the user was enrolled in.
+                Captured from UserContext.current_learning_path_uid by the route handler.
 
         Returns:
             Result containing created submission entity
@@ -217,6 +233,17 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         )
         await publish_event(self.event_bus, event, self.logger)
 
+        # Auto-create Interaction audit record for the User Interaction Contract.
+        # Fire-and-forget: a failure here does not fail the submission itself.
+        if entity_type == EntityType.EXERCISE_SUBMISSION and self.interaction_service:
+            await self._create_interaction_record(
+                submission_uid=uid,
+                user_uid=user_uid,
+                target_uid=fulfills_exercise_uid or "",
+                context_path_step_uid=context_path_step_uid,
+                context_learning_path_uid=context_learning_path_uid,
+            )
+
         return create_result
 
     @with_error_handling("submit_form")
@@ -226,6 +253,8 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         exercise_uid: str,
         form_data: dict[str, Any],
         title: str | None = None,
+        context_path_step_uid: str | None = None,
+        context_learning_path_uid: str | None = None,
     ) -> Result[Entity]:
         """
         Submit structured form responses (no file storage).
@@ -277,7 +306,65 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         )
         await publish_event(self.event_bus, event, self.logger)
 
+        # Auto-create Interaction audit record for the User Interaction Contract.
+        if self.interaction_service:
+            await self._create_interaction_record(
+                submission_uid=uid,
+                user_uid=user_uid,
+                target_uid=exercise_uid,
+                context_path_step_uid=context_path_step_uid,
+                context_learning_path_uid=context_learning_path_uid,
+            )
+
         return create_result
+
+    async def _create_interaction_record(
+        self,
+        submission_uid: str,
+        user_uid: UserUID,
+        target_uid: str,
+        context_path_step_uid: str | None,
+        context_learning_path_uid: str | None,
+    ) -> None:
+        """
+        Auto-create an Interaction node after a successful ExerciseSubmission.
+
+        Fire-and-forget: logs warnings on failure but never raises. The submission
+        itself is already persisted; this is supplementary audit data.
+
+        Args:
+            submission_uid:            UID of the just-created ExerciseSubmission.
+            user_uid:                  Submitting user.
+            target_uid:                Exercise UID (the target of the interaction).
+            context_path_step_uid:     PathStep the user was studying (may be None).
+            context_learning_path_uid: LearningPath the user was enrolled in (may be None).
+        """
+        if self.interaction_service is None:
+            return
+
+        try:
+            ia_uid = UIDGenerator.generate_random_uid("ia")
+            interaction = Interaction(
+                uid=ia_uid,
+                title=f"exercise_submission — {target_uid or 'unknown'}",
+                entity_type=EntityType.INTERACTION,
+                user_uid=user_uid,
+                interaction_type=InteractionType.EXERCISE_SUBMISSION,
+                target_uid=target_uid,
+                context_path_step_uid=context_path_step_uid,
+                context_learning_path_uid=context_learning_path_uid,
+                source_entity_uid=submission_uid,
+            )
+            result = await self.interaction_service.create_interaction(interaction)
+            if result.is_error:
+                self.logger.warning(
+                    f"Failed to create Interaction record for submission {submission_uid}: "
+                    f"{result.error}"
+                )
+        except Exception as e:  # safety-net: interaction creation must not fail the submission
+            self.logger.warning(
+                f"Unexpected error creating Interaction for submission {submission_uid}: {e}"
+            )
 
     async def _store_file(self, file_content: bytes, filename: str, ku_uid: str) -> Result[Path]:
         """

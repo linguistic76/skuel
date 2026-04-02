@@ -395,6 +395,14 @@ class RelationshipName(StrEnum):
     STACKS_WITH = "STACKS_WITH"  # Sequential combination / habit stacking
 
     # =========================================================================
+    # INTERACTION RELATIONSHIPS (User Interaction Contract)
+    # Interaction → artifact/context: audit trail for situated learning events.
+    # =========================================================================
+    RECORDS = "RECORDS"  # (Interaction)-[:RECORDS]->(ExerciseSubmission|...) — source artifact
+    INTERACTION_DURING = "INTERACTION_DURING"  # (Interaction)-[:INTERACTION_DURING]->(PathStep)
+    INTERACTION_WITHIN = "INTERACTION_WITHIN"  # (Interaction)-[:INTERACTION_WITHIN]->(LearningPath)
+
+    # =========================================================================
     # HELPER METHODS
     # =========================================================================
 

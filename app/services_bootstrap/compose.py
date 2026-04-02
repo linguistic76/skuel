@@ -745,6 +745,24 @@ async def compose_services(
         )
         logger.info("✅ Form services created (FormTemplate + FormSubmission)")
 
+        # Create interaction service (User Interaction Contract — EntityType.INTERACTION)
+        from adapters.persistence.neo4j.domain_backends import InteractionBackend
+        from core.models.interaction.interaction import Interaction
+        from core.services.interaction import InteractionService
+
+        interaction_backend = InteractionBackend(
+            driver=driver,
+            label=NeoLabel.INTERACTION,
+            entity_class=Interaction,
+            prometheus_metrics=prometheus_metrics,
+            base_label=NeoLabel.ENTITY,
+        )
+        interaction_service = InteractionService(
+            backend=interaction_backend,
+            event_bus=event_bus,
+        )
+        logger.info("✅ InteractionService created (User Interaction Contract)")
+
         # Create group service (ADR-040: Teacher Assignment Workflow)
         from adapters.persistence.neo4j.domain_backends import GroupBackend
         from core.models.group.group import Group
@@ -799,7 +817,10 @@ async def compose_services(
         storage_path = os.getenv("SKUEL_SUBMISSIONS_STORAGE", "/tmp/skuel_submissions")
 
         submissions_service = SubmissionsService(
-            backend=submissions_backend, storage_path=storage_path, event_bus=event_bus
+            backend=submissions_backend,
+            storage_path=storage_path,
+            event_bus=event_bus,
+            interaction_service=interaction_service,
         )
 
         # Create sharing backend + service (cross-domain, queries :Entity nodes)
@@ -1089,6 +1110,7 @@ async def compose_services(
             revised_exercises=revised_exercise_service,  # Five-phase learning loop revisions
             form_templates=form_template_service,  # General-purpose form templates
             form_submissions=form_submission_service,  # User form submissions
+            interaction_service=interaction_service,  # User Interaction Contract
             journal_input=journal_input_service,  # JournalInputService
             journal_generator=journal_output_service,  # JournalOutputService
             # Batch transcription/processing (March 2026)

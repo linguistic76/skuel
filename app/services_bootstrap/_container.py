@@ -30,16 +30,17 @@ if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
     from core.services.ingestion.user_upload_service import UserUploadService
     from core.services.insight.insight_store import InsightStore
+    from core.services.interaction.interaction_service import InteractionService
     from core.services.journal import JournalInputService, JournalOutputService
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
+    from core.services.knowledge_domain_service import KnowledgeDomainService
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
     from core.services.principles_service import PrinciplesService
-    from core.services.knowledge_domain_service import KnowledgeDomainService
     from core.services.ps_service import PsService
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.report.progress_report_generator import ProgressReportGenerator
@@ -315,6 +316,9 @@ class Services:
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
     # ========================================================================
     lateral: "LateralRelationshipOperations | None" = None
+
+    # Interaction audit (User Interaction Contract — EntityType.INTERACTION)
+    interaction_service: "InteractionService | None" = None
 
     # Intelligence tier (ADR-043: CORE = analytics only, FULL = analytics + AI)
     intelligence_tier: "IntelligenceTier | None" = None

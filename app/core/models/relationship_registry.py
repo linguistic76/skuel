@@ -2382,6 +2382,8 @@ ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
     # General-Purpose Forms (2)
     EntityType.FORM_TEMPLATE: "FormTemplate",
     EntityType.FORM_SUBMISSION: "FormSubmission",
+    # Interaction audit (1) — User Interaction Contract
+    EntityType.INTERACTION: "Interaction",
     # Destination (1)
     EntityType.LIFE_PATH: "LifePath",
 }
@@ -2413,6 +2415,8 @@ LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     # General-Purpose Forms (2)
     "FormTemplate": EntityType.FORM_TEMPLATE,
     "FormSubmission": EntityType.FORM_SUBMISSION,
+    # Interaction audit (1) — User Interaction Contract
+    "Interaction": EntityType.INTERACTION,
     # Destination (1)
     "LifePath": EntityType.LIFE_PATH,
     # Backward-compat aliases for old label keys

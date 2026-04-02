@@ -99,7 +99,9 @@ class KnowledgeDomainService:
             return Result.ok(domains)
         except NEO4J_EXCEPTIONS as e:
             return Result.fail(
-                Errors.database(operation="get_all_domains", message=f"Failed to list knowledge domains: {e}")
+                Errors.database(
+                    operation="get_all_domains", message=f"Failed to list knowledge domains: {e}"
+                )
             )
 
     async def get_ku_uids_in_domain(self, domain_uid: str) -> Result[list[str]]:
@@ -125,7 +127,10 @@ class KnowledgeDomainService:
             return Result.ok([row["uid"] for row in rows if row.get("uid")])
         except NEO4J_EXCEPTIONS as e:
             return Result.fail(
-                Errors.database(operation="get_ku_uids_in_domain", message=f"Failed to get Kus in domain '{domain_uid}': {e}")
+                Errors.database(
+                    operation="get_ku_uids_in_domain",
+                    message=f"Failed to get Kus in domain '{domain_uid}': {e}",
+                )
             )
 
     async def get_domain_for_ku(self, ku_uid: str) -> Result[list[KnowledgeDomain]]:
@@ -149,12 +154,13 @@ class KnowledgeDomainService:
                 return Result.fail(result)
             rows: list[dict[str, Any]] = result.value
             domains = [
-                KnowledgeDomain(uid=row["uid"], title=row["uid"])
-                for row in rows
-                if row.get("uid")
+                KnowledgeDomain(uid=row["uid"], title=row["uid"]) for row in rows if row.get("uid")
             ]
             return Result.ok(domains)
         except NEO4J_EXCEPTIONS as e:
             return Result.fail(
-                Errors.database(operation="get_domain_for_ku", message=f"Failed to get domains for Ku '{ku_uid}': {e}")
+                Errors.database(
+                    operation="get_domain_for_ku",
+                    message=f"Failed to get domains for Ku '{ku_uid}': {e}",
+                )
             )
