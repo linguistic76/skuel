@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-02-06
-**Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment), 2026-04-02 (teacher feedback as .md file upload), 2026-04-02 (fix status guards for submit_report + request_revision)
+**Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment), 2026-04-02 (teacher feedback as .md file upload), 2026-04-02 (fix status guards for submit_report + request_revision), 2026-04-02 (review queue + dashboard stats switch to OWNS-based approach)
 **Author:** Claude Code
 
 ## Context
@@ -45,16 +45,19 @@ Assignment provides fields for both personal and teacher-assigned workflows:
 
 A teacher assignment IS an Assignment with `scope=ASSIGNED`.
 
-### 3. Teacher Review Reuses SHARES_WITH
+### 3. Teacher Review — SHARES_WITH Created, Queue Uses OWNS
 
-When a student submits a Ku against an ASSIGNED Assignment:
-1. Ku status set to `MANUAL_REVIEW`
-2. `SHARES_WITH {role: "teacher"}` auto-created from teacher to submission
-3. Teacher's review queue = `get_kus_shared_with_me()` filtered by `role="teacher"` and pending status
+When a student submits against an ASSIGNED Exercise:
+1. Submission status set to `SUBMITTED`
+2. `SHARES_WITH {role: "teacher"}` auto-created (teacher = Exercise OWNS user, or oldest admin fallback)
+3. Teacher's review queue = `get_review_queue()` — filters all student submissions via `OWNS`, not SHARES_WITH
+
+The SHARES_WITH relationship is still created (used by `verify_teacher_access` for detail-page access),
+but the queue itself sources from OWNS for broader coverage of standalone/YAML-ingested submissions.
 
 ### 4. Submission Ownership Stays with Student
 
-Teacher gets access via SHARES_WITH, not ownership transfer.
+Student always owns the submission. Teacher gets SHARES_WITH access for detail-page review.
 
 ### 5. UserRelationshipService: :Team → :Group
 
@@ -82,7 +85,7 @@ One Path Forward — `:Team` label replaced with `:Group`. No backward compatibi
 
 ### Positive
 - Assignment serves both personal and teacher-assigned use cases
-- Reuses existing SHARES_WITH infrastructure for teacher access
+- SHARES_WITH still auto-created per submission; review queue uses OWNS for full coverage
 - Group entity enables future features (team visibility, group analytics, bulk operations)
 - Clear ownership model: students own submissions, teachers get shared access
 
@@ -135,6 +138,27 @@ Standalone submissions (no `fulfills_exercise_uid`) skip `exercise_handler.py` e
 `auto_share_with_teacher` is never called, so the SHARES_WITH relationship never exists.
 Access control for the review detail page is enforced at the route level
 (`@require_role(UserRole.TEACHER)`); the Cypher now does a direct lookup by uid.
+
+### Review Queue + Dashboard Stats — OWNS-Based (2026-04-02)
+
+`get_review_queue()` and `get_dashboard_stats()` previously anchored on
+`(teacher)-[:SHARES_WITH {role:'teacher'}]->(submission)`. This returned 0 results for
+submissions from YAML-ingested exercises and any path where `auto_share_with_teacher()`
+was skipped. Both methods now use the same OWNS anchor as `get_students_summary()`:
+
+```cypher
+MATCH (student:User)-[:OWNS]->(ku:Entity {entity_type: 'exercise_submission'})
+WHERE student.uid <> $teacher_uid
+```
+
+Default status filter: `submitted` + `active` (pending work only). `revision_requested`
+is a distinct state visible in the student detail Revision Requested tab — not counted
+as pending. `TeacherDashboardStats.total_submissions` removed (was always 0 under old
+query; `total_students` covers the useful aggregate). `ReviewQueueItem.shared_at`
+replaced by `original_filename`.
+
+`verify_teacher_access()` still uses `SHARES_WITH {role:'teacher'}` for detail-page
+access control — that relationship is still auto-created by `auto_share_with_teacher()`.
 
 ### Teacher Review Status Guards (2026-04-02)
 

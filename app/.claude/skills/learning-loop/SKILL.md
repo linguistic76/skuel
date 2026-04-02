@@ -924,7 +924,8 @@ that never closes the loop.
     oldest admin via SubmissionsBackend.get_admin_uid() rather than returning NO_TEACHER)
        ↓
 5. TeacherReviewService.get_review_queue()          → core/services/report/teacher_review_service.py
-   Teacher sees pending submissions
+   Teacher sees pending submissions (OWNS-based: all students' submitted+active submissions,
+   not SHARES_WITH — catches standalone/YAML-ingested submissions too)
        ↓
 6. TeacherReviewService.submit_report()             → core/services/report/teacher_review_service.py
    Creates ExerciseReport with ProcessorType.HUMAN

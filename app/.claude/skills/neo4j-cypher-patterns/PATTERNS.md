@@ -454,8 +454,10 @@ else:
 
 **Real-world usage:** `SubmissionsBackend.get_exercise_context()`,
 `ExerciseBackend.get_exercises_with_submission_counts()` (`MATCH (user)-[:OWNS]->(exercise)`),
-`TeacherReviewService.get_review_queue()` (filters via `SHARES_WITH {role:'teacher'}`
-relationship created by `auto_share_with_teacher()`).
+`TeacherReviewService.get_review_queue()` (OWNS-based: `(student)-[:OWNS]->(submission)
+WHERE student.uid <> teacher_uid` — broader than SHARES_WITH, catches all student
+submissions including YAML-ingested ones). `verify_teacher_access()` still uses
+`SHARES_WITH {role:'teacher'}` for detail-page access control.
 
 ---
 

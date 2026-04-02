@@ -159,7 +159,8 @@ await teacher_review.submit_feedback(submission_uid, teacher_uid, "Great work!")
 - No explicit `share()` call — auto-created on submission
 - Visibility is NOT changed to SHARED — teacher access is via SHARES_WITH regardless
 - Entity ownership stays with the student
-- Teacher's review queue = `SHARES_WITH` filtered by `role="teacher"` and pending status
+- Teacher's review queue = `get_review_queue()` uses OWNS-based approach (not SHARES_WITH filter)
+- SHARES_WITH is still auto-created; used by `verify_teacher_access()` for detail-page access
 
 **See:** `/docs/decisions/ADR-040-teacher-assignment-workflow.md`
 
