@@ -606,7 +606,7 @@ def create_teaching_ui_routes(
             )
 
         content = Div(
-            PageHeader("By Student", subtitle="Students who have shared work with you"),
+            PageHeader("By Student", subtitle="Students who have submitted work"),
             students_content,
         )
         return await SidebarPage(

@@ -1779,16 +1779,15 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         return await self.execute_query(query, {"exercise_uid": exercise_uid})
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get enrolled students (via PathStep IN_PROGRESS) with all submission counts.
+        """Get students who have submitted work, with submission counts.
 
-        Counts all submissions owned by each student — not just those shared with
-        the teacher — so admin oversight is complete regardless of exercise scope.
+        Anchors on OWNS exercise_submission — any student who has ever submitted
+        appears here, regardless of PathStep enrollment. Access control is at the
+        route level (TEACHER role required); teacher_uid only excludes self.
         """
         query = f"""
-        MATCH (student:User)-[:{RelationshipName.IN_PROGRESS.value}]->(ps:Entity {{entity_type: 'path_step'}})
+        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
         WHERE student.uid <> $teacher_uid
-        WITH DISTINCT student
-        OPTIONAL MATCH (student)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
         WITH student,
              count(DISTINCT ku) AS submission_count,
              count(DISTINCT CASE WHEN ku.status = 'completed' THEN ku.uid END) AS reviewed_count
@@ -1826,9 +1825,16 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     async def get_submission_detail_for_teacher(
         self, submission_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Get full submission detail for teacher review (access-checked via SHARES_WITH)."""
+        """Get full submission detail for teacher review (admin oversight view).
+
+        Looks up by submission uid directly — no SHARES_WITH gate. Standalone
+        submissions (no fulfills_exercise_uid) never create a SHARES_WITH teacher
+        relationship, so a sharing check would silently return empty. Access
+        control is at the route level (TEACHER role required).
+        teacher_uid is retained in the signature for future per-teacher scoping.
+        """
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(s:Entity {{entity_type: 'exercise_submission', uid: $submission_uid}})
+        MATCH (s:Entity {{entity_type: 'exercise_submission', uid: $submission_uid}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         RETURN s.uid AS uid,
