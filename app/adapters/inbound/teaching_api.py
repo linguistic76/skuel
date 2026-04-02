@@ -213,6 +213,32 @@ def create_teaching_api_routes(
             teacher_uid=current_user.uid,
         )
 
+    @rt("/api/teaching/review/{uid}/panel", methods=["GET"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def get_review_panel(request: Request, uid: str, current_user: Any) -> Any:
+        """Return inline review panel HTML fragment for the student detail tabbed view.
+
+        Loaded by HTMX on first expand of a submission row. Returns:
+        - Submission content
+        - Feedback history (if any)
+        - Action forms (if submission is actionable)
+        """
+        from ui.teaching.detail import render_review_panel_inline
+
+        detail_result = await teacher_review_service.get_submission_detail(
+            submission_uid=uid, teacher_uid=current_user.uid
+        )
+        history_result = await teacher_review_service.get_report_history(uid)
+
+        detail_data: dict[str, Any] = (
+            detail_result.value if not detail_result.is_error and detail_result.value else {}
+        )
+        history: list[dict[str, Any]] = (
+            history_result.value if not history_result.is_error and history_result.value else []
+        )
+
+        return render_review_panel_inline(uid, detail_data, history)
+
     @rt("/api/teaching/exercises", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()

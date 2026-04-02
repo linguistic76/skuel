@@ -54,6 +54,7 @@ from ui.teaching.detail import (
     render_class_member_row,
     render_exercise_submission_row,
     render_report_item,
+    render_student_detail_tabs,
     render_student_submission_row,
     render_submission_content,
 )
@@ -82,7 +83,6 @@ logger = get_logger("skuel.routes.teaching.ui")
 TEACHING_SIDEBAR_ITEMS = [
     SidebarItem("Overview", "/teaching", "overview", icon="📊"),
     SidebarItem("Review Queue", "/teaching/queue", "queue", icon="📥"),
-    SidebarItem("Approved", "/teaching/approved", "approved", icon="✅"),
     SidebarItem("By Exercise", "/teaching/exercises", "exercises", icon="📋"),
     SidebarItem("By Student", "/teaching/students", "students", icon="👥"),
     SidebarItem("Groups", "/teaching/groups", "groups", icon="👥"),
@@ -226,40 +226,19 @@ def create_teaching_ui_routes(
         )
 
     # ------------------------------------------------------------------
-    # APPROVED
+    # APPROVED — redirects to review queue (completed view is per-student now)
     # ------------------------------------------------------------------
 
     @rt("/teaching/approved")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_approved_page(request: Request, current_user: Any = None) -> Any:
-        """Approved submissions — completed reviews."""
-        user_uid = require_authenticated_user(request)
+    async def teaching_approved_redirect(request: Request) -> Any:
+        """301 redirect: /teaching/approved → /teaching/queue.
 
-        result = await teacher_review_service.get_review_queue(
-            teacher_uid=user_uid, status_filter="completed"
-        )
+        Completed submissions are now visible per-student in the Completed tab
+        at /teaching/students/{uid}. This route is kept for backward compatibility.
+        """
+        from starlette.responses import RedirectResponse
 
-        if result.is_error:
-            list_content: Any = render_error_banner(
-                "Failed to load approved submissions", str(result.error)
-            )
-        elif not result.value:
-            list_content = EmptyState(title="No approved submissions yet")
-        else:
-            list_content = Div(*[render_queue_item(_to_queue_item(item)) for item in result.value])
-
-        content = Div(
-            PageHeader("Approved", subtitle="Submissions you have reviewed and approved"),
-            list_content,
-        )
-        return await SidebarPage(
-            content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
-            active="approved",
-            page_title="Approved Submissions",
-            request=request,
-            **_SIDEBAR_DEFAULTS,
-        )
+        return RedirectResponse(url="/teaching/queue", status_code=301)
 
     # ------------------------------------------------------------------
     # REVIEW DETAIL
@@ -642,7 +621,11 @@ def create_teaching_ui_routes(
     async def teaching_student_detail_page(
         request: Request, uid: str, current_user: Any = None
     ) -> Any:
-        """Student detail page — all submissions from a specific student."""
+        """Student detail page — tabbed view of all submissions grouped by workflow status.
+
+        Tabs: Needs Review | Revision Requested | Completed
+        Pending submissions include inline HTMX-loadable review panels with action forms.
+        """
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_student_submissions(
@@ -650,41 +633,77 @@ def create_teaching_ui_routes(
         )
 
         if result.is_error:
-            submission_rows: Any = render_error_banner(
+            tabbed_content: Any = render_error_banner(
                 "Failed to load submissions", str(result.error)
             )
+            student_name = uid
         elif not result.value:
-            submission_rows = Div(
+            tabbed_content = Div(
                 P(
                     "No submissions from this student.",
                     cls="text-center text-muted-foreground py-8",
                 )
             )
+            student_name = uid
         else:
-            submission_rows = Div(
-                *[render_student_submission_row(_to_submission_row(item)) for item in result.value]
+            # Derive display name from first submission that has one
+            student_name = next(
+                (
+                    item.get("student_name") or item.get("student_uid") or uid
+                    for item in result.value
+                    if item.get("student_name")
+                ),
+                uid,
             )
 
-        back_link = Div(
-            ButtonLink(
-                "← By Student",
-                href="/teaching/students",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mt-4",
-            ),
-        )
+            _needs_review = {"submitted", "active", "queued", "processing"}
+            _revision = {"revision_requested"}
+            _completed = {"completed", "failed"}
+
+            pending: list[Any] = []
+            revision_requested: list[Any] = []
+            completed: list[Any] = []
+
+            for item in result.value:
+                row = _to_submission_row(item)
+                status_str = (row.status or "").lower()
+                if status_str in _needs_review:
+                    pending.append(row)
+                elif status_str in _revision:
+                    revision_requested.append(row)
+                elif status_str in _completed:
+                    completed.append(row)
+                else:
+                    pending.append(row)  # unknown status → treat as pending
+
+            tabbed_content = render_student_detail_tabs(
+                pending=pending,
+                revision_requested=revision_requested,
+                completed=completed,
+                student_name=student_name,
+            )
 
         content = Div(
-            PageHeader(f"Student: {uid}", subtitle="All submissions from this student"),
-            submission_rows,
-            back_link,
+            PageHeader(
+                f"Student: {student_name}",
+                subtitle="Submissions grouped by review status",
+            ),
+            tabbed_content,
+            Div(
+                ButtonLink(
+                    "← By Student",
+                    href="/teaching/students",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                    cls="mt-4",
+                ),
+            ),
         )
         return await SidebarPage(
             content=content,
             items=TEACHING_SIDEBAR_ITEMS,
             active="students",
-            page_title="Student Detail",
+            page_title=f"Student: {student_name}",
             request=request,
             **_SIDEBAR_DEFAULTS,
         )
