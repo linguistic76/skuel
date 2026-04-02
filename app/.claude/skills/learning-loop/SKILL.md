@@ -344,7 +344,10 @@ Route by MIME type:                       (no processing needed — data is stru
 Status: PROCESSING → COMPLETED      SubmissionCreated event fires:
         ↓                             process_exercise_submission() called:
 SubmissionCreated event fires:          → FULFILLS_EXERCISE (Submission → Exercise)
-  Same as form path →                   → SHARES_WITH {role: 'teacher'} (if ASSIGNED)
+  Same as form path →                   → SHARES_WITH {role: 'teacher'}
+                                          teacher = OWNS relationship on Exercise
+                                          fallback = oldest admin (for YAML-ingested
+                                          exercises with no OWNS relationship)
                                         → revision_number written to DB
                                         → canonical title written to DB
 ```
@@ -625,8 +628,9 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 |---|---|---|
 | `REQUIRES_KNOWLEDGE` | `Exercise` → `Ku` | Exercise is grounded in this knowledge |
 | `FOR_GROUP` | `Exercise` → `Group` | ASSIGNED exercise targets this classroom |
+| `MEMBER_OF` | `User` → `Group` | Student enrolled in a group (auto-created on PathStep IN_PROGRESS via `PathStepEnrolled` event → admin default group) |
 | `FULFILLS_EXERCISE` | `Submission` → `Exercise` or `RevisedExercise` | Student's work satisfies this exercise |
-| `SHARES_WITH` | `Submission` → `User` | Auto-share to teacher for ASSIGNED exercises |
+| `SHARES_WITH` | `Submission` → `User` | Auto-share to teacher for all exercises (teacher via OWNS, fallback to oldest admin for YAML-ingested exercises) |
 | `SHARES_WITH` | `User` → `RevisedExercise` | Auto-share revision to student on creation |
 | `REPORT_FOR` | `ExerciseReport` → `Submission` | Report evaluates this specific artifact |
 | `RESPONDS_TO_REPORT` | `RevisedExercise` → `ExerciseReport` | Revision addresses this report |
@@ -660,7 +664,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Submission report** | `ExerciseReportService` + `AssessmentService` | `ExerciseReportOperations` | `SubmissionsBackend` | `generate_report` (via `UnifiedLLMCaller`), `create_assessment` |
 | **Journal output** | `JournalOutputService` | `JournalOutputOperations` | `JournalOutputBackend` | `process_je_input`, `generate_output`, `get_je_output`, `cleanup_date_range` (standalone domain — not under submissions) |
 | **Learning Loop Intelligence** | `LearningLoopEventHandlerService` | — | `SubmissionsBackend` | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
-| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `SubmissionsBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_report_history`, `submit_report`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary`, `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
+| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `SubmissionsBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_report_history`, `submit_report`, `request_revision`, `approve_report` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from PathStep IN_PROGRESS enrollment, not SHARES_WITH), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
 | **Activity Report (scheduled)** | `ProgressReportWorker` | — | — | Background worker; calls `ProgressReportGenerator` on schedule |
 | **Activity Report (schedule CRUD)** | `ProgressScheduleService` | `ProgressScheduleOps` | — | `get_schedules`, `create_schedule`, `delete_schedule` |
@@ -855,7 +859,9 @@ that never closes the loop.
    (For journals: standalone domain — JournalOutputService.process_je_input() handles LLM → JeOutput)
        ↓
 4. FULFILLS_EXERCISE relationship created
-   Auto-sharing: SHARES_WITH (student → teacher)
+   Auto-sharing: SHARES_WITH {role:'teacher'} (Exercise.OWNS teacher, or admin fallback)
+   (YAML-ingested exercises have no OWNS → process_exercise_submission() falls back to
+    oldest admin via SubmissionsBackend.get_admin_uid() rather than returning NO_TEACHER)
        ↓
 5. TeacherReviewService.get_review_queue()          → core/services/report/teacher_review_service.py
    Teacher sees pending submissions

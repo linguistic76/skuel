@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-02-06
-**Updated:** 2026-02-16 (ReportProject → Assignment rename)
+**Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment)
 **Author:** Claude Code
 
 ## Context
@@ -99,6 +99,34 @@ One Path Forward — `:Team` label replaced with `:Group`. No backward compatibi
 ## Naming History
 
 Originally implemented as `KuProject` / `ReportProject` in code. Renamed to `Assignment` in February 2026 to align with pipeline vocabulary (Assign → Submit → Analyze → Review). The word "report" was doing triple duty — naming things by their pipeline role eliminates ambiguity.
+
+## Implementation Notes (2026-04-02)
+
+### Admin Fallback for Ownerless Exercises
+
+YAML-ingested exercises have no `(teacher:User)-[:OWNS]->(exercise)` relationship, so
+`process_exercise_submission()` found `teacher_uid = None` and returned `NO_TEACHER` —
+stalling the entire pipeline. Fixed: `SubmissionsBackend.get_admin_uid()` fetches the
+oldest admin user as a fallback teacher. SHARES_WITH is now created for all submissions
+regardless of how the exercise was created.
+
+### Auto-Enrollment into Default Group on PathStep Enrollment
+
+`mark_in_progress()` on a PathStep now publishes a `PathStepEnrolled` event.
+A handler (`core/events/handlers/path_step_enrollment_handler.py`) subscribes and
+auto-enrolls the student in the admin's default group via MERGE — idempotent, silent.
+This ensures ASSIGNED exercises with `FOR_GROUP` constraints are accessible to all
+enrolled students without requiring explicit group management.
+
+Default group UID pattern: `group_default_{admin_uid}`.
+Backend methods: `GroupBackend.get_or_create_default_group()` + `ensure_group_member()`.
+
+### `/teaching/students` Enrollment-Based
+
+`get_students_summary()` was rewritten to source students from PathStep `IN_PROGRESS`
+enrollment rather than from `SHARES_WITH` (which was always empty until a submission
+was processed). Students now appear in `/teaching/students` as soon as they enrol in
+any PathStep — before they submit any work.
 
 ## Related
 
