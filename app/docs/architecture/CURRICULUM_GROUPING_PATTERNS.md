@@ -9,7 +9,7 @@ related: [ADR-023-curriculum-baseservice-migration, ADR-028-ku-moc-unified-relat
 
 # Curriculum Grouping Patterns: KU, PS, LP + MOC Organization
 
-*Last updated: 2026-03-03*
+*Last updated: 2026-04-02*
 ## Related Skills
 
 For implementation guidance, see:
@@ -39,9 +39,9 @@ Type safety doesn't restrict - it **channels energy** so it flows and feeds back
 
 | Pattern | UID Format | Grouping Style | Topology | Metaphor |
 |---------|------------|----------------|----------|----------|
-| **KU** | `ku_{slug}_{random}` | Atomic unit | Point | A single brick |
-| **PS** | `ls:{random}` | Collection | Collection | A collection of lessons |
-| **LP** | `lp:{random}` | Linear sequence | Path | An ordered sequence of lesson collections |
+| **KU** | `ku_{slug}_{random}` | Atomic unit | Point | A single concept/fact |
+| **PS** | `ps:{random}` | Unit for learning | Unit | A step that composes Kus into content |
+| **LP** | `lp:{random}` | Linear sequence | Path | An ordered sequence of PathSteps |
 
 **Note:** MOC uses the `ku_{slug}_{random}` format since MOC IS a Ku with ORGANIZES relationships — no separate UID prefix needed.
 
@@ -102,28 +102,30 @@ content: |
 
 ---
 
-### PS (Path Step) - A Collection of Lessons
+### PS (Path Step) - The Curriculum Content Entity
 
-**What it is:** A collection of lessons that forms a step in a learning path.
+**What it is:** A unit for learning that composes Kus into coherent content and sits within LearningPaths.
+
+**Note (2026-04):** The former `Lesson` entity type was merged into `PathStep`. PathStep IS the curriculum content entity. `"lesson"` and `"l"` are backward-compatible aliases in `_ENTITY_TYPE_ALIASES`.
 
 **Characteristics:**
-- Aggregates multiple lessons into a coherent collection
+- Composes atomic Kus into a coherent learning narrative
 - Has a specific order within a path
 - Can require mastery threshold
 - May include practice activities
 
 **Example:**
 ```yaml
-uid: ls:abc123
+uid: ps:abc123
 title: Understanding Functions
 order: 3
-knowledge_units:
+kus:
   - ku_python-functions_a1b2c3
   - ku_python-parameters_d4e5f6
 mastery_threshold: 0.8
 ```
 
-**Graph Role:** PS is the collection - grouping lessons into a directed sequence.
+**Graph Role:** PS is the unit — composing Kus into learning content within an LP sequence.
 
 ---
 
@@ -346,7 +348,7 @@ The `UnifiedIngestionService` (at `core/services/ingestion/`) handles all curric
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Ku Model | `/core/models/ku/ku.py` | Ku leaf class (`Ku(Curriculum)`) |
+| Ku Model | `/core/models/ku/ku.py` | Ku leaf class (`Ku(Entity)`) |
 | PS Model | `/core/models/pathways/path_step.py` | Path Step definition |
 | LP Model | `/core/models/pathways/learning_path.py` | Learning Path definition |
 | Curriculum Base | `/core/models/curriculum.py` | Shared base class for Ku, PS, LP |
@@ -361,7 +363,9 @@ The `UnifiedIngestionService` (at `core/services/ingestion/`) handles all curric
 | Ingestion | `/core/services/ingestion/` | Ingest all patterns from markdown |
 | Unified Registry | `/core/models/relationship_registry.py` | All domain relationship configs |
 
-**Note (March 2026):** Curriculum models decomposed from `/core/models/curriculum/` into domain-specific directories: `/core/models/lesson/`, `/core/models/exercises/`, `/core/models/pathways/`, `/core/models/lesson_content/`, and `/core/models/ku/`. Base classes in `/core/models/curriculum.py` and `/core/models/curriculum_dto.py`. MOC has no separate model or service; it is handled by `KuOrganizationService`.
+**Note (March 2026):** Curriculum models decomposed from `/core/models/curriculum/` into domain-specific directories: `/core/models/exercises/`, `/core/models/pathways/`, `/core/models/lesson_content/`, and `/core/models/ku/`. Base classes in `/core/models/curriculum.py` and `/core/models/curriculum_dto.py`. MOC has no separate model or service; it is handled by `KuOrganizationService`.
+
+**Note (April 2026):** `Lesson` entity type merged into `PathStep`. The `core/models/lesson/` directory is gone; PathStep at `/core/models/pathways/path_step.py` IS the curriculum content entity.
 
 ---
 
@@ -373,9 +377,9 @@ Each Curriculum Domain follows the **decomposed facade pattern** with complexity
 
 | Domain | Service | Sub-Services (dedicated) | Intelligence |
 |--------|---------|--------------------------|--------------|
-| **KU** | `KuService` | 9 in `ku/` package: Core, Search, Graph, Semantic, Practice, Interaction, Organization, AI, Adaptive | `KuIntelligenceService` (standalone at `ku_intelligence_service.py`) |
+| **KU** | `KuService` | 4 in `ku/` package: Core, Search, Relationships, Intelligence | `KuIntelligenceService` (standalone at `ku_intelligence_service.py`) |
 | **LP** | `LpService` | 4 in `lp/` package: Core, Search, Progress, AI | `LpIntelligenceService` (standalone at `lp_intelligence_service.py`) |
-| **PS** | `PsService` | 5 in `ls/` package: Core, Search, Progress, Intelligence, AI | `PsIntelligenceService` (in `ls/` package) |
+| **PS** | `PsService` | 10+ in `ps/` package: Core, Search, Intelligence, Mastery, Organization, Graph, Context, Semantic, Practice, AI | `PsIntelligenceService` (in `ps/` package) |
 
 **MOC (January 2026 - KU-Based):** There is no `MOCService`. MOC is handled by `KuOrganizationService` (sub-service of KuService). A Ku "is a MOC" when it has outgoing ORGANIZES relationships — emergent identity, not a separate service or EntityType.
 

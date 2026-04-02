@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
     from core.services.principles_service import PrinciplesService
+    from core.services.knowledge_domain_service import KnowledgeDomainService
     from core.services.ps_service import PsService
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.report.progress_report_generator import ProgressReportGenerator
@@ -125,6 +126,9 @@ class Services:
     # CURRICULUM DOMAINS (3) - PS, KU, LP
     # ========================================================================
     ku: "KuService | None" = None  # KuService (atomic knowledge units)
+    knowledge_domains: "KnowledgeDomainService | None" = (
+        None  # KnowledgeDomainService — world-layer domain taxonomy (groups Kus)
+    )
     resource: "ResourceService | None" = (
         None  # ResourceService (curated content — books, talks, films)
     )

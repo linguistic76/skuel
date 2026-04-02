@@ -50,10 +50,4 @@ FOREACH (rid IN coalesce(i.connections.requires, []) |
   MERGE (ku)-[:REQUIRES_KNOWLEDGE]->(r)
 )
 
-WITH ku, i
-FOREACH (jid IN coalesce(i.connections.mentions_in, []) |
-  MERGE (je:JournalEntry {uid: jid})
-  MERGE (ku)-[:MENTIONS_IN]->(je)
-)
-
 RETURN count(ku) as processed

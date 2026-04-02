@@ -149,9 +149,15 @@ def _create_learning_services(
 
     cross_domain_service = AdaptiveLpCrossDomainService(MasteryLevel.BEGINNER)
 
+    # Create knowledge domain service (world-layer taxonomy — read-only)
+    from core.services.knowledge_domain_service import KnowledgeDomainService
+
+    knowledge_domain_service = KnowledgeDomainService(executor=query_executor)
+
     return {
         "learning_intelligence": learning_paths.intelligence,  # Access via facade
         "atomic_ku_service": atomic_ku_service,
+        "knowledge_domains": knowledge_domain_service,
         "user_progress": user_progress,
         # unified_progress DELETED (January 2026)
         "learning_paths": learning_paths,

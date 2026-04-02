@@ -23,12 +23,13 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Events | `Event` | `event_{slug}_{random}` | `event_team-standup_ghi012` |
 | Choices | `Choice` | `choice_{slug}_{random}` | `choice_accept-offer_jkl345` |
 | Principles | `Principle` | `principle_{slug}_{random}` | `principle_small-steps_mno678` |
-| **Curriculum (5) — shared content** | | | |
-| Lessons | `Lesson` | `l_{slug}_{random}` | `l_intro-to-python_abc123` |
+| **Curriculum (4) — shared content** | | | |
 | Knowledge Units | `Ku` | `ku_{slug}_{random}` | `ku_python-basics_abc123` |
-| Path Steps | `PathStep` | `ls:{random}` | `ls:intro-to-python` |
+| Path Steps | `PathStep` | `ps:{random}` | `ps:intro-to-python` |
 | Learning Paths | `LearningPath` | `lp:{random}` | `lp:become-python-developer` |
-| Exercises | `Exercise` | `ku_{slug}_{random}` | |
+| Exercises | `Exercise` | varies | |
+| **Ontology — shared taxonomy** | | | |
+| Knowledge Domains | `KnowledgeDomain` | `kd.{domain_name}` | `kd.self_awareness` |
 | **Curated Content — shared content** | | | |
 | Resources | `Resource` | *(no fixed format)* | |
 | **Submissions/Reports (3)** | | | |
@@ -72,8 +73,11 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 (moc:Ku)-[:ORGANIZES {order: 1}]->(child:Ku)
 
 // Resource citations — curriculum cites reference material
-(lesson:Lesson)-[:CITES_RESOURCE]->(r:Resource)
+(ps:PathStep)-[:CITES_RESOURCE]->(r:Resource)
 (ku:Ku)-[:CITES_RESOURCE]->(r:Resource)
+
+// Domain taxonomy (World Layer)
+(ku:Ku)-[:IN_DOMAIN]->(d:KnowledgeDomain)
 
 // Principles guidance
 (goal:Goal)-[:GUIDED_BY_PRINCIPLE]->(principle:Principle)

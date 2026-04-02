@@ -1,38 +1,47 @@
 # Curriculum Domains Skill
 
-> Use when building features for Lesson (units for learning), KU (atomic knowledge units), LS (Path Steps), LP (Learning Paths), or MOC (Maps of Content).
+> Use when building features for PathStep (PS), KU (atomic knowledge units), LP (Learning Paths), Exercise, or MOC (Maps of Content).
 
 ## When to Use This Skill
 
 - Adding new features to any Curriculum Domain
-- Understanding how Lesson, KU, LS, LP differ from Activity Domains
+- Understanding how Ku, PS, LP, Exercise differ from Activity Domains
 - Implementing service methods for curriculum content
 - Working with shared (non-user-owned) content
 - Building learning path validation or adaptive sequencing
-- Working with Lesson organization (non-linear navigation, MOC-style)
+- Working with Ku organization (non-linear navigation, MOC-style)
 
-## The 4 Curriculum Domains
+## The 4 Curriculum Entity Types
 
 Four structural patterns for organizing knowledge:
 
-| Domain | UID Format | Topology | Purpose | Sub-services | Factory |
-|--------|-----------|----------|---------|--------------|---------|
-| **Lesson** | `l_{slug}_{random}` | Unit | A unit for learning (composes Kus) | 12 | Specialized (`create_lesson_sub_services`) |
-| **KU** | `ku_{slug}_{random}` | Atom | Atomic knowledge unit (concept, principle, practice) | 4 | Generic (`create_curriculum_sub_services`) |
-| **LS** | `ls:{random}` | Collection | Collections of lessons | 5 | Generic (`create_curriculum_sub_services`) |
-| **LP** | `lp:{random}` | Path | Complete learning sequences | 5 | Specialized (`create_lp_sub_services`) |
+| Domain | UID Format | Topology | Purpose | Service |
+|--------|-----------|----------|---------|---------|
+| **Ku** | `ku_{slug}_{random}` | Atom | Atomic knowledge unit (concept, state, principle, practice) | `KuService` |
+| **PS (PathStep)** | `ps:{random}` | Unit | THE curriculum content entity — composes Kus into learning content | `PsService` |
+| **LP (LearningPath)** | `lp:{random}` | Path | Complete learning sequences | `LpService` |
+| **Exercise** | varies | Instruction | Assignment template, assessment, or AI feedback template | `ExerciseService` |
 
-**Composition:** `(Lesson)-[:USES_KU]->(Ku)` — Lessons compose atomic Kus into coherent learning content. `(Ls)-[:TRAINS_KU]->(Ku)` — Learning steps train specific Kus.
+**Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content.
+`(PathStep)-[:TRAINS_KU]->(Ku)` — PathSteps declare Kus as learning objectives.
 
-**PS AI Sub-Service (PsAIService, FULL tier):** The 5th PS sub-service is `.ai` — wired when `INTELLIGENCE_TIER=full`. Key methods:
-- `suggest_step_applications(ps_uid)` — LLM categorized applications (tasks/habits/goals/real-world). Returns `StepApplicationsResult`.
-- `suggest_learning_sequence(ps_uid, max_suggestions=5)` — prerequisite/next-step recommendations. Returns `StepLearningSequenceResult`.
-- `search_by_semantic_query(query_text, limit, min_score)` — two-tier semantic/keyword search.
-- `explain_step(ps_uid, target_level=...)` — 6 levels: beginner/intermediate/advanced/standard/brief/detailed.
-- `suggest_practice_activities(ps_uid)` — JSON-based practice suggestions.
-TypedDicts `StepApplicationsResult` and `StepLearningSequenceResult` are in `core/ports/query_types.py`.
+**Note on Lesson (2026-04):** `Lesson` was merged into `PathStep`. The strings `"lesson"` and `"l"` are aliases in `_ENTITY_TYPE_ALIASES` for backward compatibility with existing Cypher data.
 
-**Note on MOC:** MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer. This emergent identity is managed via `LessonOrganizationService` — a sub-service of `LessonService`. See `core/services/lesson/lesson_organization_service.py`.
+## World Layer vs User Layer
+
+Curriculum entities are **World Layer** nodes — they exist independently of any user:
+
+| Layer | Nodes |
+|-------|-------|
+| **World (shared, stable)** | KnowledgeDomain, Ku, PathStep, LearningPath, Exercise, Resource |
+| **User (contextual, dynamic)** | ExerciseSubmission, ExerciseReport, and all Activity Domains |
+
+The interaction edge between layers is where SKUEL's power emerges:
+```cypher
+(:User)-[:SUBMITTED]->(:ExerciseSubmission)-[:SUBMISSION_FOR]->(:Exercise)<-[:USES_EXERCISE]-(:PathStep)
+```
+
+See: `docs/architecture/ONTOLOGY_ARCHITECTURE.md`
 
 ## Key Difference from Activity Domains
 
@@ -49,7 +58,7 @@ _user_ownership_relationship = None  # Global access
 This means:
 - No ownership verification on CRUD operations
 - Content created by TEACHER+ roles, consumed by all
-- User progress tracked via separate relationships (MASTERED, ENROLLED, etc.)
+- User progress tracked via separate relationships (IN_PROGRESS, MASTERED, etc.)
 
 ## Architecture Overview
 
@@ -57,44 +66,42 @@ This means:
 UniversalNeo4jBackend[T]     <- ONE instance per domain (no wrappers)
         |
         v
-Factory / Manual             <- Creates sub-services
-        |
-        v
     {Domain}Service          <- Facade with explicit delegation methods
         |
         v
-    Sub-services             <- core, search, intelligence, relationships
+    Sub-services             <- core, search, intelligence, mastery, etc.
 ```
 
-**Key Patterns:**
-- **Factory pattern** - Lesson, LS, LP use factory functions for sub-service creation
-- **Internal intelligence** - ALL domains create intelligence services internally
-- **BaseService inheritance** - All core/search services extend BaseService with `_config = create_curriculum_domain_config(...)`
-- **Lesson Organization** - Non-linear navigation via `ORGANIZES` relationships (replaces old MOC domain)
+## Service Sub-packages
 
-## Factory Functions
-
-| Domain | Factory | Location |
-|--------|---------|----------|
-| **Lesson** | `create_lesson_sub_services()` | `core/services/curriculum_domain_config.py` |
-| **LS** | `create_curriculum_sub_services()` | `core/services/curriculum_domain_config.py` |
-| **LP** | `create_lp_sub_services()` | `core/services/curriculum_domain_config.py` |
+| Domain | Sub-services | Location |
+|--------|-------------|----------|
+| **Ku** | `core`, `search`, `relationships`, `intelligence` | `core/services/ku/` |
+| **PS** | `core`, `search`, `intelligence`, `mastery`, `organization`, `graph`, `context`, `semantic`, `practice`, `ai` | `core/services/ps/` |
+| **LP** | `core`, `search`, `progress`, `ai` | `core/services/lp/` |
 
 ## Model Locations
 
 | Domain | Directory | Model | DTO |
 |--------|-----------|-------|-----|
-| **Lesson** | `core/models/lesson/` | `lesson.py` (extends Curriculum) | `lesson_dto.py` |
-| **KU** | `core/models/ku/` | `ku.py` (extends Entity) | `ku_dto.py` |
-| **LS** | `core/models/pathways/` | `path_step.py` | `path_step_dto.py` |
-| **LP** | `core/models/pathways/` | `learning_path.py` | `learning_path_dto.py` |
+| **Ku** | `core/models/ku/` | `ku.py` (extends Entity) | `ku_dto.py` |
+| **PS** | `core/models/pathways/` | `path_step.py` (extends Curriculum) | `path_step_dto.py` |
+| **LP** | `core/models/pathways/` | `learning_path.py` (extends Curriculum) | `learning_path_dto.py` |
+| **Exercise** | `core/models/exercises/` | `exercise.py` (extends Curriculum) | `exercise_dto.py` |
 | **Base** | `core/models/` | `curriculum.py` | `curriculum_dto.py` |
 
 ## Common Operations
 
-### Get knowledge with context
+### PathStep learning state
 ```python
-result = await lesson_service.intelligence.get_lesson_with_context(uid)
+# Record user view (implicit enrollment)
+await ps_service.mastery.record_view(ps_uid, user_uid)
+
+# Mark in progress
+await ps_service.mastery.mark_in_progress(ps_uid, user_uid)
+
+# Get learning state for a user
+state = await ps_service.mastery.get_learning_state(ps_uid, user_uid)
 ```
 
 ### Check path step readiness
@@ -107,33 +114,40 @@ result = await ps_service.intelligence.is_ready(ps_uid, completed_step_uids)
 result = await lp_service.intelligence.validate_path_prerequisites(lp_uid)
 ```
 
-### Lesson Organization (non-linear navigation)
+### Ku organization (non-linear MOC navigation)
 ```python
-# Organize Lessons into a non-linear map
-await lesson_service.organize(parent_uid, child_uid, order=1, importance="core")
-await lesson_service.get_organized_children(parent_uid, depth=1)
-await lesson_service.find_organizers(lesson_uid)  # Multiple parents possible
+# Organize Kus into a non-linear map (any Ku can become an organizer)
+await ku_service.organize(parent_uid, child_uid, order=1, importance="core")
+await ku_service.get_organized_children(parent_uid, depth=1)
+await ku_service.find_organizers(ku_uid)  # Multiple parents possible
 ```
 
-### Create with factory (LS example)
+### Query KnowledgeDomains (taxonomy)
 ```python
-from core.services.curriculum_domain_config import create_curriculum_sub_services
+# List all domains with Ku counts
+domains = await services.knowledge_domains.get_all_domains()
 
-common = create_curriculum_sub_services(
-    domain="ps",
-    backend=ps_backend,
-    graph_intel=graph_intelligence_service,
-    event_bus=event_bus,
-)
-self.core = common.core
-self.search = common.search
-self.relationships = common.relationships
-self.intelligence = common.intelligence
+# Get all Ku UIDs in a domain
+ku_uids = await services.knowledge_domains.get_ku_uids_in_domain("kd.self_awareness")
+
+# Get domains for a Ku
+domains = await services.knowledge_domains.get_domain_for_ku(ku_uid)
 ```
 
-## Lesson Reading & Enrollment
+## PS AI Sub-Service (FULL tier only)
 
-Lessons use **implicit enrollment** — no explicit signup step. Learning state progresses:
+The `.ai` sub-service is wired when `INTELLIGENCE_TIER=full`. Key methods:
+- `suggest_step_applications(ps_uid)` — LLM categorized applications (tasks/habits/goals/real-world). Returns `StepApplicationsResult`.
+- `suggest_learning_sequence(ps_uid, max_suggestions=5)` — prerequisite/next-step recommendations. Returns `StepLearningSequenceResult`.
+- `search_by_semantic_query(query_text, limit, min_score)` — two-tier semantic/keyword search.
+- `explain_step(ps_uid, target_level=...)` — 6 levels: beginner/intermediate/advanced/standard/brief/detailed.
+- `suggest_practice_activities(ps_uid)` — JSON-based practice suggestions.
+
+TypedDicts `StepApplicationsResult` and `StepLearningSequenceResult` are in `core/ports/query_types.py`.
+
+## PathStep Reading & Learning State
+
+PathSteps use **implicit enrollment** — no explicit signup step. Learning state progresses:
 
 ```
 NONE → VIEWED → IN_PROGRESS → MASTERED
@@ -141,25 +155,28 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 
 | State | Trigger | Relationship |
 |-------|---------|-------------|
-| VIEWED | Automatic on page load (`record_view()`) | `(User)-[:VIEWED]->(Lesson)` |
-| IN_PROGRESS | User clicks "Start Lesson" (`mark_in_progress()`) | `(User)-[:IN_PROGRESS]->(Lesson)` |
-| MASTERED | After exercise completion/teacher approval | `(User)-[:MASTERED]->(Lesson)` |
+| VIEWED | Automatic on page load | `(User)-[:VIEWED]->(PathStep)` |
+| IN_PROGRESS | User clicks "Start" | `(User)-[:IN_PROGRESS]->(PathStep)` |
+| MASTERED | After exercise completion/teacher approval | `(User)-[:MASTERED]->(PathStep)` |
 
 **Key routes:**
-- `GET /lessons` — Browser with enrollment buttons per lesson
-- `GET /lesson/{uid}/details` — Full reading page (markdown + TOC sidebar + learning objectives + actions)
-- `POST /api/lesson/{uid}/start` — Marks IN_PROGRESS
+- `GET /path-steps` — Browse all PathSteps with learning-state-aware enrollment buttons
+- `GET /path-steps/get?uid={uid}` — Full reading page (markdown + TOC + learning objectives + actions)
+- `POST /api/path-steps/{uid}/start` — Marks IN_PROGRESS
 
-**Key service:** `lesson_service.mastery` (`LessonMasteryService`) — `record_view()`, `mark_in_progress()`, `get_learning_state()`, `get_learning_states_batch()`
+**Contrast with Learning Paths:** LPs use **explicit enrollment** via `(User)-[:ENROLLED_IN]->(LearningPath)`.
 
-**Key files:** `adapters/inbound/lesson_ui.py` (detail page + start endpoint), `adapters/inbound/curriculum_hub_ui.py` (listing with enrollment)
+## Note on MOC
 
-**Contrast with Learning Paths:** LPs use **explicit enrollment** via `(User)-[:ENROLLED_IN]->(Lp)` relationship with `enroll_in_learning_path()`.
+MOC (Map of Content) is NOT a separate domain or EntityType. Any Ku with outgoing `ORGANIZES` relationships IS an organizer. This emergent identity is managed via `KuOrganizationService` — a sub-service of `KuService`.
+
+See: `core/services/ku/` and `docs/domains/moc.md`
 
 ## Deep Dive Resources
 
 **Architecture:**
-- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) - Four grouping patterns (Lesson, KU, LS, LP)
+- [ONTOLOGY_ARCHITECTURE.md](/docs/architecture/ONTOLOGY_ARCHITECTURE.md) - World/User layer design
+- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) - KU/PS/LP grouping patterns
 - [ADR-023](/docs/decisions/ADR-023-curriculum-baseservice-migration.md) - Curriculum BaseService migration
 - [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) - Complete domain architecture
 
@@ -173,8 +190,10 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 - [activity-domains](../activity-domains/SKILL.md) - Contrast with user-owned domains
 - [result-pattern](../result-pattern/SKILL.md) - All methods return `Result[T]`
 - [neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md) - Graph queries
+- [learning-loop](../learning-loop/SKILL.md) - Five-phase learning loop (Exercise → Submission → Report)
 
 ## Related Documentation
 
+- `/docs/architecture/ONTOLOGY_ARCHITECTURE.md` - World/User layer ontology
 - `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - Curriculum architecture
 - `/docs/domains/moc.md` - MOC as emergent identity (ORGANIZES pattern)
