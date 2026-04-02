@@ -457,7 +457,7 @@ def create_exercises_ui_routes(
             return render_inline_error(f"Error: {e}")
 
     @app.get("/exercises/get")
-    async def exercise_detail(request, uid: str) -> Any:
+    async def exercise_detail(request, uid: str, from_ps: str = "") -> Any:
         """Student-facing exercise detail page.
 
         Shows title, description, form fields, and instructions so a student
@@ -560,6 +560,9 @@ def create_exercises_ui_routes(
                 )
 
             # ── Actions ───────────────────────────────────────────────────────
+            submit_href = f"/submit?exercise_uid={exercise.uid}"
+            if from_ps:
+                submit_href += f"&from_ps={from_ps}"
             actions = Div(
                 ButtonLink(
                     "Download",
@@ -568,7 +571,7 @@ def create_exercises_ui_routes(
                 ),
                 ButtonLink(
                     "Submit →",
-                    href=f"/submit?exercise_uid={exercise.uid}",
+                    href=submit_href,
                     variant=ButtonT.primary,
                 ),
                 cls="flex gap-2",

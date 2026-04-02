@@ -152,10 +152,17 @@ def create_submissions_ui_routes(
                 assigned_exercises = exercises_result.value
 
         selected_exercise_uid = request.query_params.get("exercise_uid")
+        # PathStep context from navigation — passed through as hidden field so the
+        # Interaction audit record captures where in the curriculum the student was.
+        from_ps = request.query_params.get("from_ps") or None
 
         content = Div(
             PageHeader("Submit", subtitle="Upload your completed exercise worksheet"),
-            render_upload_form(assigned_exercises, selected_exercise_uid=selected_exercise_uid),
+            render_upload_form(
+                assigned_exercises,
+                selected_exercise_uid=selected_exercise_uid,
+                from_ps=from_ps,
+            ),
             upload_form_script(),
         )
         return await BasePage(
@@ -266,14 +273,19 @@ def create_submissions_ui_routes(
                 f"exercise={fulfills_exercise_uid}, revision={revision_number})"
             )
 
-            # Capture learning context for Interaction audit record (best-effort)
-            context_path_step_uid: str | None = None
+            # Capture learning context for Interaction audit record (best-effort).
+            # Prefer from_ps (explicit navigation context) over the nondeterministic
+            # next(iter(current_ps_uids)) that breaks when multiple PathSteps are IN_PROGRESS.
+            context_path_step_uid: str | None = (
+                str(form.get("from_ps")).strip() or None if form.get("from_ps") else None
+            )
             context_learning_path_uid: str | None = None
             if user_service and getattr(user_service, "context_builder", None):
                 ctx_result = await user_service.context_builder.build(user_uid)
                 if ctx_result.is_ok:
                     ctx = ctx_result.value
-                    context_path_step_uid = next(iter(ctx.current_ps_uids), None)
+                    if not context_path_step_uid:
+                        context_path_step_uid = next(iter(ctx.current_ps_uids), None)
                     context_learning_path_uid = ctx.current_learning_path_uid
 
             result = await submissions_service.submit_file(

@@ -536,10 +536,14 @@ class TeacherReviewService:
         student_uid: str,
     ) -> Result[list[StudentSubmissionItem]]:
         """
-        Get all submissions from a student that were shared with this teacher.
+        Get all submissions owned by a student (admin oversight view).
+
+        Returns every submission regardless of exercise scope or sharing status.
+        The SHARES_WITH filter is intentionally absent here — this view is for
+        admin/teacher oversight of a student's full submission history.
 
         Args:
-            teacher_uid: Teacher UID
+            teacher_uid: Teacher UID (retained for access control context)
             student_uid: Student UID
 
         Returns:

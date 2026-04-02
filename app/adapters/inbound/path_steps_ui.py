@@ -197,6 +197,33 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
             cls="prose prose-lg max-w-none",
         )
 
+        # Exercises linked to this PathStep via RELATED_TO
+        exercises_section: Any = Div()
+        exercises_result = await ps_service.get_exercises_for_path_step(uid)
+        if exercises_result.is_ok and exercises_result.value:
+            exercise_links = []
+            for ex in exercises_result.value:
+                ex_uid = ex.get("uid", "")
+                ex_title = ex.get("title") or ex_uid
+                ex_time = ex.get("estimated_time_minutes")
+                time_note = f" · {ex_time} min" if ex_time else ""
+                exercise_links.append(
+                    Li(
+                        ButtonLink(
+                            f"{ex_title}{time_note} →",
+                            href=f"/exercises/get?uid={ex_uid}&from_ps={uid}",
+                            variant=ButtonT.ghost,
+                            size=Size.sm,
+                        ),
+                        cls="list-none",
+                    )
+                )
+            exercises_section = Div(
+                H3("Exercises", cls="text-base font-semibold mb-2 mt-8"),
+                Ul(*exercise_links, cls="list-none p-0 space-y-1"),
+                cls="border-t border-border pt-6 mt-8",
+            )
+
         # Action buttons — learning state tracking requires authentication
         if user_uid:
             mark_read_btn = Button(
@@ -239,6 +266,7 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
             metadata_section,
             objectives_section,
             reading_content,
+            exercises_section,
             action_area,
             # Metadata footer
             Div(tags_section, cls="border-t border-border pt-6 mt-8") if step.tags else Div(),

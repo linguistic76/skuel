@@ -27,12 +27,17 @@ from ui.layout import Size
 def render_upload_form(
     assigned_exercises: list[Any] | None = None,
     selected_exercise_uid: str | None = None,
+    from_ps: str | None = None,
 ) -> Any:
     """Render the file upload form card with optional exercise selector.
 
     When selected_exercise_uid is provided (deep-linked from an exercise page)
     but the user has no assigned exercises to show in a dropdown, a hidden
     field carries the UID so the submission still links to that exercise.
+
+    When from_ps is provided (deep-linked from a PathStep reading page), a
+    hidden field carries the PathStep UID as the Interaction context — so the
+    submission audit record captures where in the curriculum the student was.
     """
     exercise_section: Any = ""
     if assigned_exercises:
@@ -64,10 +69,17 @@ def render_upload_form(
             value=selected_exercise_uid,
         )
 
+    # PathStep context — carry through from navigation so the Interaction
+    # audit record captures the curriculum position deterministically.
+    from_ps_field: Any = (
+        Input(type="hidden", name="from_ps", value=from_ps) if from_ps else ""
+    )
+
     return Card(
         CardBody(
             Form(
                 exercise_section,
+                from_ps_field,
                 Div(
                     Label(
                         Div(

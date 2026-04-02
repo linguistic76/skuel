@@ -461,6 +461,16 @@ class PsService:
     ) -> Result[list[PathStep]]:
         return await self.graph.get_foundational_knowledge(domain, min_hub_score, limit)
 
+    async def get_exercises_for_path_step(
+        self, ps_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Get exercises linked to a PathStep via RELATED_TO.
+
+        Returns basic exercise metadata (uid, title, scope, estimated_time_minutes)
+        so detail pages can render an exercises section with submit links.
+        """
+        return await self.core.backend.get_exercises_for_path_step(ps_uid)  # type: ignore[attr-defined]
+
     async def get_prerequisites(self, uid: str) -> Result[list[PathStep]]:
         """Get prerequisite entities (alias for find_prerequisites with defaults)."""
         return await self.graph.find_prerequisites(uid=uid, depth=GraphDepth.DEFAULT)

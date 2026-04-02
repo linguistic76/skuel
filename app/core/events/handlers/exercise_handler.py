@@ -43,6 +43,9 @@ async def handle_exercise_submission(
         reports_core_service: SubmissionsCoreService with process_exercise_submission()
     """
     if not event.fulfills_exercise_uid:
+        logger.debug(
+            f"Exercise submission skipped — no fulfills_exercise_uid: submission={event.submission_uid}"
+        )
         return
 
     result = await reports_core_service.process_exercise_submission(  # type: ignore[attr-defined]

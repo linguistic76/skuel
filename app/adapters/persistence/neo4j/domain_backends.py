@@ -1779,12 +1779,16 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         return await self.execute_query(query, {"exercise_uid": exercise_uid})
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get enrolled students (via PathStep IN_PROGRESS) with submission counts for teacher."""
+        """Get enrolled students (via PathStep IN_PROGRESS) with all submission counts.
+
+        Counts all submissions owned by each student — not just those shared with
+        the teacher — so admin oversight is complete regardless of exercise scope.
+        """
         query = f"""
         MATCH (student:User)-[:{RelationshipName.IN_PROGRESS.value}]->(ps:Entity {{entity_type: 'path_step'}})
         WHERE student.uid <> $teacher_uid
         WITH DISTINCT student
-        OPTIONAL MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{entity_type: 'exercise_submission'}})<-[:{RelationshipName.OWNS.value}]-(student)
+        OPTIONAL MATCH (student)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
         WITH student,
              count(DISTINCT ku) AS submission_count,
              count(DISTINCT CASE WHEN ku.status = 'completed' THEN ku.uid END) AS reviewed_count
@@ -1800,10 +1804,14 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     async def get_student_submissions_for_teacher(
         self, teacher_uid: str, student_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Get submissions from a student that were shared with this teacher."""
+        """Get all submissions owned by a student (admin oversight view).
+
+        Returns every submission regardless of exercise scope or sharing status.
+        Access control is handled at the route level (TEACHER role required).
+        teacher_uid is retained in the signature for future per-teacher scoping.
+        """
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{entity_type: 'exercise_submission'}})
-        MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku)
+        MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
         OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         WITH ku, count(fb) AS feedback_count, ex
@@ -1813,9 +1821,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
                feedback_count, ex.uid AS exercise_uid, ex.title AS exercise_title
         ORDER BY ku.created_at DESC
         """
-        return await self.execute_query(
-            query, {"teacher_uid": teacher_uid, "student_uid": student_uid}
-        )
+        return await self.execute_query(query, {"student_uid": student_uid})
 
     async def get_submission_detail_for_teacher(
         self, submission_uid: str, teacher_uid: str

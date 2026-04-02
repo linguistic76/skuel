@@ -447,6 +447,28 @@ class _KnowledgeContextMixin:
     # RESOURCE CITATION QUERIES (migrated from ContextRetriever)
     # ========================================================================
 
+    async def get_exercises_for_path_step(
+        self, ps_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get exercises linked to a PathStep via RELATED_TO.
+
+        Returns basic exercise details (uid, title, scope, estimated_time_minutes)
+        so the PathStep detail page can render an exercises section with submit links.
+
+        Args:
+            ps_uid: PathStep UID.
+
+        Returns:
+            List of records with exercise uid, title, scope, estimated_time_minutes.
+        """
+        query = """
+        MATCH (ps:Entity {uid: $ps_uid, entity_type: 'path_step'})-[:RELATED_TO]->(e:Entity {entity_type: 'exercise'})
+        RETURN e.uid AS uid, e.title AS title, e.scope AS scope,
+               e.estimated_time_minutes AS estimated_time_minutes
+        ORDER BY e.title
+        """
+        return await self.execute_query(query, {"ps_uid": ps_uid})
+
     async def get_cited_resources(
         self, source_uids: list[str], limit: int = 20
     ) -> Result[list[Neo4jProperties]]:

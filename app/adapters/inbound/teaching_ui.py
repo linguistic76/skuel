@@ -657,7 +657,7 @@ def create_teaching_ui_routes(
         )
 
         content = Div(
-            PageHeader(f"Student: {uid}", subtitle="All submissions shared with you"),
+            PageHeader(f"Student: {uid}", subtitle="All submissions from this student"),
             submission_rows,
             back_link,
         )

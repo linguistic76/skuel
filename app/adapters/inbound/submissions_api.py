@@ -143,12 +143,25 @@ def create_submissions_api_routes(
 
     async def _get_learning_context(
         user_uid: UserUID,
+        explicit_ps_uid: str | None = None,
     ) -> tuple[str | None, str | None]:
         """Return (context_path_step_uid, context_learning_path_uid) from UserContext.
+
+        Prefers explicit_ps_uid (passed via from_ps form/query param) over the
+        nondeterministic next(iter(current_ps_uids)) that breaks when the user
+        has multiple IN_PROGRESS PathSteps simultaneously.
 
         Best-effort: returns (None, None) if user_service is unavailable or
         context build fails — never raises, never blocks the submission.
         """
+        if explicit_ps_uid:
+            # Explicit navigation context — no UserContext build needed for PathStep.
+            # Still build UserContext to capture the active LearningPath UID.
+            if not user_service or not user_service.context_builder:
+                return explicit_ps_uid, None
+            ctx_result = await user_service.context_builder.build(user_uid)
+            lp_uid = ctx_result.value.current_learning_path_uid if ctx_result.is_ok else None
+            return explicit_ps_uid, lp_uid
         if not user_service or not user_service.context_builder:
             return None, None
         ctx_result = await user_service.context_builder.build(user_uid)
@@ -266,8 +279,14 @@ def create_submissions_api_routes(
             str(fulfills_exercise_uid_val).strip() if fulfills_exercise_uid_val else None
         )
 
-        # Capture learning context for Interaction audit record
-        context_path_step_uid, context_learning_path_uid = await _get_learning_context(user_uid)
+        # Capture learning context for Interaction audit record.
+        # from_ps carries deterministic PathStep context when navigating via the
+        # PathStep → Exercise → Submit flow; falls back to UserContext heuristic.
+        from_ps_val = form.get("from_ps", "")
+        explicit_ps_uid = str(from_ps_val).strip() if from_ps_val else None
+        context_path_step_uid, context_learning_path_uid = await _get_learning_context(
+            user_uid, explicit_ps_uid=explicit_ps_uid
+        )
 
         # Submit file
         result = await submission_service.submit_file(
