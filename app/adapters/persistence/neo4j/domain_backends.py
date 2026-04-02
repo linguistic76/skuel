@@ -1872,6 +1872,20 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         """
         return await self.execute_query(query, {"student_uid": student_uid})
 
+    async def update_submission_score(
+        self, submission_uid: str, score: float
+    ) -> Result[list[Neo4jProperties]]:
+        """Update the score of a submission explicitly."""
+        query = """
+        MATCH (sub:Entity {uid: $submission_uid})
+        WHERE sub.entity_type = 'exercise_submission'
+        SET sub.score = $score
+        RETURN sub.uid as uid, sub.score as score
+        """
+        return await self.execute_query(
+            query, {"submission_uid": submission_uid, "score": score}
+        )
+
     async def get_submission_detail_for_teacher(
         self, submission_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:

@@ -36,6 +36,7 @@ from core.utils.uid_generator import UIDGenerator
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.domain_backends import ExerciseReportBackend
     from core.services.ps.ps_mastery_service import PsMasteryService
+    from core.services.report.report_mastery_service import ReportMasteryService
 
 logger = get_logger(__name__)
 
@@ -56,6 +57,7 @@ class ExerciseReportService:
         llm_caller: LLMCallerProtocol,
         backend: "ExerciseReportBackend | None" = None,
         ku_interaction_service: "PsMasteryService | None" = None,
+        report_mastery_service: "ReportMasteryService | None" = None,
     ) -> None:
         """
         Initialize with LLM caller and domain backend.
@@ -66,10 +68,12 @@ class ExerciseReportService:
             ku_interaction_service: Optional — updates MASTERED relationships on linked Ku nodes
                 after feedback is persisted, closing the mastery loop for PERSONAL scope
                 exercises where no teacher approval step exists
+            report_mastery_service: Optional — explicit mastery propagation service
         """
         self.llm_caller = llm_caller
         self.backend = backend
         self.ku_interaction_service = ku_interaction_service
+        self.report_mastery_service = report_mastery_service
         self.logger = logger
 
         available = ["LLMCaller"]
@@ -232,10 +236,12 @@ class ExerciseReportService:
                 subject_uid=submission.uid,
             )
 
-            # Close the mastery loop: update MASTERED relationships on any Ku nodes
-            # linked to the submission via APPLIES_KNOWLEDGE. Mirrors approve_report()
-            # in TeacherReviewService but uses the AI score from the exercise's MasteryImpact.
-            await self._update_mastery_for_linked_ku(submission, user_uid, exercise.mastery_impact)
+            # Close the mastery loop: explicitly propagate mastery via the service 
+            # if available, falling back to implicit logic if not.
+            if self.report_mastery_service:
+                await self._propagate_mastery_via_service(submission, user_uid, exercise.mastery_impact)
+            else:
+                await self._update_mastery_for_linked_ku(submission, user_uid, exercise.mastery_impact)
 
             return Result.ok(feedback_entity)
 
@@ -246,6 +252,37 @@ class ExerciseReportService:
                     "create_report_entity",
                     f"Failed to persist report entity: {e!s}",
                 )
+            )
+
+    async def _propagate_mastery_via_service(
+        self,
+        submission: Submission,
+        user_uid: UserUID,
+        mastery_impact: MasteryImpact,
+    ) -> None:
+        """Explicit propagation via the ReportMasteryService."""
+        if not self.backend:
+            return
+            
+        query = f"""
+        MATCH (submission:Entity {{uid: $submission_uid}})-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: 'ku'}})
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
+        RETURN ku.uid AS ku_uid, student.uid AS student_uid
+        """
+        result = await self.backend.execute_query(query, {"submission_uid": submission.uid})
+        if result.is_error or not result.value:
+            return
+            
+        linked_uids = [record.get("ku_uid") for record in result.value if record.get("ku_uid")]
+        student_uid = result.value[0].get("student_uid") if result.value else user_uid
+        
+        if linked_uids:
+            await self.report_mastery_service.propagate_mastery(
+                submission_uid=submission.uid,
+                user_uid=student_uid,
+                linked_ku_uids=linked_uids,
+                mastery_impact=mastery_impact,
+                method="activity_report"
             )
 
     async def _update_mastery_for_linked_ku(

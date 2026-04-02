@@ -645,6 +645,13 @@ async def compose_services(
         from core.models.exercises.exercise import Exercise
         from core.models.report.exercise_report import ExerciseReport
         from core.services.exercises import ExerciseService
+        from core.services.report.report_mastery_service import ReportMasteryService
+
+        report_mastery_service = ReportMasteryService(
+            submissions_backend=submissions_backend,
+            ku_interaction_service=learning_services["path_steps"].mastery,
+        )
+        logger.info("✅ ReportMasteryService created")
 
         # UnifiedLLMCaller: routes to OpenAI or Anthropic based on model prefix
         from core.services.llm_caller import UnifiedLLMCaller
@@ -675,6 +682,7 @@ async def compose_services(
                 ku_interaction_service=learning_services[
                     "path_steps"
                 ].mastery,  # Closes mastery loop
+                report_mastery_service=report_mastery_service,
             )
 
         exercise_backend = ExerciseBackend(
@@ -795,6 +803,7 @@ async def compose_services(
             exercise_backend=exercise_backend,
             group_backend=group_backend,
             ku_interaction_service=learning_services["path_steps"].mastery,
+            report_mastery_service=report_mastery_service,
             event_bus=event_bus,
         )
         logger.info("✅ TeacherReviewService created (ADR-040)")
@@ -1114,6 +1123,7 @@ async def compose_services(
             cross_domain=learning_services["cross_domain"],
             # Content
             content_enrichment=content_enrichment,
+            report_mastery=report_mastery_service,  # Explicit mastery propagation
             exercise_report=exercise_report_service,  # LLM report on submissions/journals
             exercises=exercise_service,  # Reusable LLM instruction templates
             revised_exercises=revised_exercise_service,  # Five-phase learning loop revisions

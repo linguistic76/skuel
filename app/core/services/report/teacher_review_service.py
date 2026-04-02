@@ -51,6 +51,7 @@ if TYPE_CHECKING:
         SubmissionsBackend,
     )
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.services.report.report_mastery_service import ReportMasteryService
     from core.services.ps.ps_mastery_service import PsMasteryService
 
 logger = get_logger("skuel.services.teacher_review")
@@ -65,6 +66,7 @@ class TeacherReviewService:
         exercise_backend: "ExerciseBackend",
         group_backend: "GroupBackend",
         ku_interaction_service: "PsMasteryService",
+        report_mastery_service: "ReportMasteryService",
         event_bus: "EventBusOperations",
     ) -> None:
         """
@@ -75,12 +77,14 @@ class TeacherReviewService:
             exercise_backend: Backend for exercise queries
             group_backend: Backend for group queries
             ku_interaction_service: KU interaction service for mastery updates
+            report_mastery_service: Explicit mastery propagation service
             event_bus: Event bus for publishing review events
         """
         self.submissions_backend = submissions_backend
         self.exercise_backend = exercise_backend
         self.group_backend = group_backend
         self.ku_interaction_service = ku_interaction_service
+        self.report_mastery_service = report_mastery_service
         self.event_bus = event_bus
 
     async def get_review_queue(
@@ -390,29 +394,16 @@ class TeacherReviewService:
             impact = MasteryImpact(raw_impact) if raw_impact else MasteryImpact.MODERATE
         except ValueError:
             impact = MasteryImpact.MODERATE
-        teacher_score = impact.get_teacher_score()
 
-        # Update mastery for linked curriculum entities
-        mastered_count = 0
-        if self.ku_interaction_service and student_uid and linked_ku_uids:
-            for linked_uid in linked_ku_uids:
-                mastery_result = await self.ku_interaction_service.mark_mastered(
-                    user_uid=student_uid,
-                    ku_uid=linked_uid,
-                    mastery_score=teacher_score,
-                    method="ku_approval",
-                )
-                if mastery_result.is_ok:
-                    mastered_count += 1
-                else:
-                    logger.warning(
-                        f"Failed to update mastery for KU {linked_uid}: {mastery_result.error}"
-                    )
-
-            if mastered_count > 0:
-                logger.info(
-                    f"Updated mastery for {mastered_count} KUs from submission {report_uid}"
-                )
+        # Explicitly propagate mastery using ReportMasteryService
+        propagate_result = await self.report_mastery_service.propagate_mastery(
+            submission_uid=report_uid,
+            user_uid=student_uid,
+            linked_ku_uids=linked_ku_uids,
+            mastery_impact=impact,
+            method="ku_approval",
+        )
+        mastered_count = propagate_result.value if propagate_result.is_ok else 0
 
         logger.info(f"Teacher {teacher_uid} approved submission {report_uid}")
 

@@ -43,8 +43,10 @@ if TYPE_CHECKING:
     from core.services.principles_service import PrinciplesService
     from core.services.ps_service import PsService
     from core.services.report.activity_report_service import ActivityReportService
+    from core.services.report.exercise_report_service import ExerciseReportService
     from core.services.report.progress_report_generator import ProgressReportGenerator
     from core.services.report.progress_schedule_service import ProgressScheduleService
+    from core.services.report.report_mastery_service import ReportMasteryService
     from core.services.report.review_queue_service import ReviewQueueService
     from core.services.resource_service import ResourceService
     from core.services.tasks_service import TasksService
@@ -144,6 +146,9 @@ class Services:
     transcription: "TranscriptionService | None" = None
 
     # Report services (LLM-based processing)
+    report_mastery: "ReportMasteryService | None" = (
+        None  # ReportMasteryService - Explicit mastery propagation
+    )
     exercise_report: ExerciseReportOperations | None = (
         None  # ExerciseReportService - LLM report on submission content
     )
