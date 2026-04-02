@@ -153,6 +153,7 @@ def render_student_submission_row(item: SubmissionRow) -> Div:
                 "View Feedback",
                 variant=ButtonT.ghost,
                 size=Size.xs,
+                type="button",
                 **{
                     "hx-get": f"/api/submissions/{item.uid}/reports",
                     "hx-target": f"#feedback-{item.uid}",
@@ -337,8 +338,8 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
     """
     Submission row with inline HTMX-loadable review panel.
 
-    First click on "Review" lazy-loads the panel via HTMX; subsequent
-    clicks toggle visibility via Alpine.js without refetching.
+    Clicking "Review" lazy-loads the panel via HTMX into the panel div below
+    the card. Pure HTMX — no Alpine required for the expand.
     """
     title = item.title or item.original_filename or "Untitled"
     status_str = (item.status or "").lower()
@@ -356,12 +357,6 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
 
     review_btn_label = "Review" if is_actionable else "View"
 
-    inline_panel = Div(
-        Div(id=f"panel-{item.uid}"),
-        # Alpine.js wraps the expand toggle; HTMX fires only on first open
-        **{"x-show": "expanded", "x-cloak": True},
-    )
-
     return Div(
         CardGenerator.from_dataclass(
             {"title": title},
@@ -373,19 +368,18 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
                 review_btn_label,
                 variant=ButtonT.primary if is_actionable else ButtonT.ghost,
                 size=Size.sm,
+                type="button",
                 **{
-                    "@click": "expanded = !expanded",
                     "hx-get": f"/api/teaching/review/{item.uid}/panel",
                     "hx-target": f"#panel-{item.uid}",
-                    "hx-trigger": "click[!expanded]",
+                    "hx-trigger": "click once",
                     "hx-swap": "innerHTML",
                 },
             ),
             card_attrs={"cls": "bg-background shadow-sm mb-0"},
         ),
-        inline_panel,
+        Div(id=f"panel-{item.uid}"),
         cls="mb-3",
-        **{"x-data": "{ expanded: false }"},
     )
 
 
