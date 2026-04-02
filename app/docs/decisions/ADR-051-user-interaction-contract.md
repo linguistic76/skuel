@@ -122,6 +122,11 @@ result.
 - The "By Student" teaching admin view now shows **all** student submissions (not just
   those auto-shared via the ASSIGNED exercise pipeline), closing the gap where
   personal/standalone submissions were permanently invisible to the teacher.
+- `/teaching/students` now sources students from `OWNS exercise_submission` (not
+  `IN_PROGRESS PathStep`), so students who submit without curriculum enrollment appear.
+- `/teaching/review/{uid}` detail query (`get_submission_detail_for_teacher`) now does
+  a direct uid lookup — the previous `SHARES_WITH {role:'teacher'}` gate silently
+  returned empty for standalone submissions, showing "unavailable" to the admin.
 
 **Phase 2 (deferred):**
 - ZPD will query `(u:User)-[:OWNS]->(i:Interaction)-[:INTERACTION_DURING]->(ps:PathStep)`

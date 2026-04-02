@@ -121,12 +121,20 @@ enrolled students without requiring explicit group management.
 Default group UID pattern: `group_default_{admin_uid}`.
 Backend methods: `GroupBackend.get_or_create_default_group()` + `ensure_group_member()`.
 
-### `/teaching/students` Enrollment-Based
+### `/teaching/students` Submission-Based (updated 2026-04-02)
 
-`get_students_summary()` was rewritten to source students from PathStep `IN_PROGRESS`
-enrollment rather than from `SHARES_WITH` (which was always empty until a submission
-was processed). Students now appear in `/teaching/students` as soon as they enrol in
-any PathStep — before they submit any work.
+`get_students_summary()` sources students from `OWNS exercise_submission` — any student
+who has submitted work appears, regardless of PathStep enrollment. An earlier revision
+used `IN_PROGRESS PathStep` as the anchor, but that excluded students who submitted
+standalone work without enrolling in a curriculum path. The current query also drops the
+`OPTIONAL MATCH` two-pass structure: the mandatory `OWNS` match already filters to
+submitting students, so `DISTINCT student` + count aggregate in a single pass.
+
+`get_submission_detail_for_teacher()` no longer requires `SHARES_WITH {role:'teacher'}`.
+Standalone submissions (no `fulfills_exercise_uid`) skip `exercise_handler.py` entirely —
+`auto_share_with_teacher` is never called, so the SHARES_WITH relationship never exists.
+Access control for the review detail page is enforced at the route level
+(`@require_role(UserRole.TEACHER)`); the Cypher now does a direct lookup by uid.
 
 ## Related
 
