@@ -521,8 +521,8 @@ in `core/ports/report_protocols.py`):
 
 | Action | Method | AssessmentOutcome | Allowed From Status | Event Published | Result |
 |--------|--------|-------------------|---------------------|-----------------|--------|
-| Write report | `submit_report()` | `APPROVED` | `PROCESSING` | `ReportSubmitted` | `ExerciseReport` created, loop continues |
-| Request revision | `request_revision()` | `NEEDS_REVISION` | `COMPLETED` | `SubmissionRevisionRequested` | Student notified, resubmit expected |
+| Write report | `submit_report()` | `APPROVED` | `SUBMITTED`, `ACTIVE` | `ReportSubmitted` | `ExerciseReport` created, loop continues |
+| Request revision | `request_revision()` | `NEEDS_REVISION` | `SUBMITTED`, `ACTIVE` | `SubmissionRevisionRequested` | Student notified, resubmit expected |
 | Approve | `approve_report()` | — (no report created) | `REVISION_REQUESTED` | `SubmissionApproved` | Loop closes for this exercise |
 
 **Cypher-level status guards:** All three methods enforce valid status transitions

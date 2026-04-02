@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-02-06
-**Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment), 2026-04-02 (teacher feedback as .md file upload)
+**Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment), 2026-04-02 (teacher feedback as .md file upload), 2026-04-02 (fix status guards for submit_report + request_revision)
 **Author:** Claude Code
 
 ## Context
@@ -135,6 +135,27 @@ Standalone submissions (no `fulfills_exercise_uid`) skip `exercise_handler.py` e
 `auto_share_with_teacher` is never called, so the SHARES_WITH relationship never exists.
 Access control for the review detail page is enforced at the route level
 (`@require_role(UserRole.TEACHER)`); the Cypher now does a direct lookup by uid.
+
+### Teacher Review Status Guards (2026-04-02)
+
+`TeacherReviewService` enforces Cypher-level status guards for all three review actions:
+
+| Action | Method | Sets Submission To | Requires Submission In |
+|--------|--------|--------------------|------------------------|
+| Submit feedback | `submit_report()` | `COMPLETED` | `SUBMITTED`, `ACTIVE` |
+| Request revision | `request_revision()` | `REVISION_REQUESTED` | `SUBMITTED`, `ACTIVE` |
+| Approve | `approve_report()` | `COMPLETED` | `REVISION_REQUESTED` |
+
+- `SUBMITTED` — newly submitted by student (initial submission)
+- `ACTIVE` — resubmitted after a revision cycle
+
+Both `submit_report` and `request_revision` accept either status because the teacher
+sees the same review page regardless of which cycle the submission is in.
+
+The three HTMX-targeted routes (`/api/teaching/review/{uid}/report`,
+`/api/teaching/review/{uid}/revision`, `/api/teaching/review/{uid}/approve`) return
+FastHTML FT components (not JSON) so HTMX can inject inline success/error banners
+into the `#review-result` div.
 
 ### Teacher Feedback as Markdown File Upload (2026-04-02)
 
