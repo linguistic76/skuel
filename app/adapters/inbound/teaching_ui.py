@@ -24,6 +24,8 @@ from fasthtml.common import (
     H3,
     Div,
     Form,
+    Input,
+    Label,
     P,
 )
 
@@ -312,47 +314,61 @@ def create_teaching_ui_routes(
             submission_section,
             # Feedback history (if any)
             feedback_history_section,
-            # Feedback form
+            # Submit feedback — file upload
             Card(
                 CardBody(
+                    P("Upload your feedback as a Markdown file (.md).", cls="text-sm text-muted-foreground mb-3"),
                     Form(
                         Div(
+                            Label("Feedback file", fr="feedback_file", cls="text-sm font-medium mb-1 block"),
+                            Input(
+                                type="file",
+                                name="feedback_file",
+                                id="feedback_file",
+                                accept=".md",
+                                required=True,
+                                cls="block w-full text-sm file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer",
+                            ),
+                            cls="mb-4",
+                        ),
+                        Button(
+                            "Submit Feedback",
+                            variant=ButtonT.primary,
+                            type="submit",
+                        ),
+                        enctype="multipart/form-data",
+                        **{
+                            "hx-post": f"/api/teaching/review/{uid}/report",
+                            "hx-target": "#review-result",
+                            "hx-swap": "innerHTML",
+                            "hx-encoding": "multipart/form-data",
+                        },
+                    ),
+                    Div(id="review-result", cls="mt-4"),
+                ),
+                cls="bg-background shadow-sm mb-3",
+            ),
+            # Request revision — text notes
+            Card(
+                CardBody(
+                    P("Request the student revise their work.", cls="text-sm text-muted-foreground mb-3"),
+                    Form(
+                        Div(
+                            Label("Revision notes", fr="revision_notes", cls="text-sm font-medium mb-1 block"),
                             Textarea(
-                                name="feedback",
-                                placeholder="Write your feedback here...",
-                                cls="h-32",
+                                name="notes",
+                                id="revision_notes",
+                                placeholder="Describe what needs to be revised...",
+                                cls="h-24",
                                 required=True,
                             ),
                             cls="mb-4",
                         ),
                         Div(
                             Button(
-                                "Submit Feedback",
-                                variant=ButtonT.primary,
-                                type="submit",
-                            ),
-                            cls="mb-2",
-                        ),
-                        **{
-                            "hx-post": f"/api/teaching/review/{uid}/report",
-                            "hx-target": "#review-result",
-                            "hx-swap": "innerHTML",
-                        },
-                        id="feedback-form",
-                    ),
-                    Div(
-                        Div(
-                            Button(
                                 "Request Revision",
                                 variant=ButtonT.warning,
-                                type="button",
-                                **{
-                                    "hx-post": f"/api/teaching/review/{uid}/revision",
-                                    "hx-target": "#review-result",
-                                    "hx-swap": "innerHTML",
-                                    "hx-include": "#feedback-form",
-                                    "hx-vals": '{"notes": ""}',
-                                },
+                                type="submit",
                             ),
                             Button(
                                 "Approve",
@@ -367,9 +383,12 @@ def create_teaching_ui_routes(
                             ),
                             cls="flex gap-3",
                         ),
-                        cls="mt-4",
+                        **{
+                            "hx-post": f"/api/teaching/review/{uid}/revision",
+                            "hx-target": "#review-result",
+                            "hx-swap": "innerHTML",
+                        },
                     ),
-                    Div(id="review-result", cls="mt-4"),
                 ),
                 cls="bg-background shadow-sm",
             ),

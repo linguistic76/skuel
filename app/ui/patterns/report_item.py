@@ -6,7 +6,7 @@ Used by both the teacher review UI and the student submission detail page.
 from datetime import datetime
 from typing import Any
 
-from fasthtml.common import Div, P, Span
+from fasthtml.common import A, Div, P, Span
 
 
 def render_report_item(fb: dict[str, Any]) -> Div:
@@ -15,6 +15,8 @@ def render_report_item(fb: dict[str, Any]) -> Div:
     content = fb.get("content") or ""
     created_at = fb.get("created_at", "")
     title = fb.get("title", "")
+    file_path = fb.get("file_path")
+    report_uid = fb.get("uid", "")
 
     time_display = ""
     if created_at:
@@ -27,6 +29,14 @@ def render_report_item(fb: dict[str, Any]) -> Div:
     border_cls = "border-l-warning" if is_revision else "border-l-info"
     type_label = "Revision Request" if is_revision else "Feedback"
 
+    download_link: Any = ""
+    if file_path and report_uid:
+        download_link = A(
+            "Download Feedback (.md)",
+            href=f"/api/reports/{report_uid}/download",
+            cls="text-xs text-primary underline mt-2 inline-block",
+        )
+
     return Div(
         Div(
             Div(
@@ -38,6 +48,7 @@ def render_report_item(fb: dict[str, Any]) -> Div:
                 cls="mb-1",
             ),
             P(content, cls="text-sm whitespace-pre-wrap"),
+            download_link,
             cls="p-3",
         ),
         cls=f"border-l-4 {border_cls} bg-muted/50 rounded-r mb-2",

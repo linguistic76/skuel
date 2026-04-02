@@ -74,13 +74,13 @@ async def login_handler(request):
 # ✅ parse_json_body — JSON POST body → Pydantic model → Result[T]
 async def json_body_example(request):
     """Replaces the try/except ValidationError boilerplate."""
-    from core.models.teaching.teaching_request import SubmitReportRequest
+    from core.models.teaching.teaching_request import RequestRevisionRequest
 
-    result = await parse_json_body(request, SubmitReportRequest)
+    result = await parse_json_body(request, RequestRevisionRequest)
     if result.is_error:
         return result  # 422 with validation details
     req = result.value
-    return {"feedback": req.feedback}
+    return {"notes": req.notes}
 
 
 # ✅ parse_json_body with extra — merging entity UID from ownership decorator

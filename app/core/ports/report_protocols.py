@@ -373,8 +373,13 @@ class TeacherReviewOperations(Protocol):
         report_uid: str,
         teacher_uid: str,
         feedback: str,
+        file_path: str | None = None,
     ) -> Result[ReportSubmitResult]:
         """Submit report for a student submission."""
+        ...
+
+    async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
+        """Get the report_file_path for an ExerciseReport node by UID."""
         ...
 
     async def request_revision(

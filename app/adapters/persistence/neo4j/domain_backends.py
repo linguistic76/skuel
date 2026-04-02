@@ -1664,6 +1664,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         RETURN fb.uid as uid,
                fb.title as title,
                fb.content as content,
+               fb.report_file_path as file_path,
                fb.status as status,
                fb.created_at as created_at,
                teacher.uid as teacher_uid,
@@ -1671,6 +1672,19 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         ORDER BY fb.created_at ASC
         """
         return await self.execute_query(query, {"submission_uid": submission_uid})
+
+    async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
+        """Get the report_file_path for an ExerciseReport node by UID."""
+        query = """
+        MATCH (r:Entity {uid: $report_uid, entity_type: 'exercise_report'})
+        RETURN r.report_file_path as file_path
+        """
+        result = await self.execute_query(query, {"report_uid": report_uid})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok(None)
+        return Result.ok(result.value[0].get("file_path"))
 
     async def create_report_node(self, params: dict[str, Any]) -> Result[list[Neo4jProperties]]:
         """Create ExerciseReport node, link via REPORT_FOR, share with student, update submission.
@@ -1699,6 +1713,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
             processor_type: $processor_type,
             assessment_outcome: $assessment_outcome,
             content: $feedback,
+            report_file_path: $report_file_path,
             created_by: $teacher_uid,
             created_at: datetime($now),
             updated_at: datetime($now)

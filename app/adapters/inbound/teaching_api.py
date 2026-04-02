@@ -15,9 +15,11 @@ TEACHER role required for all endpoints.
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
 
+import pathlib
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
+from starlette.responses import FileResponse
 
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
@@ -25,7 +27,6 @@ from adapters.inbound.form_helpers import parse_form_body, parse_json_body
 from core.models.teaching.teaching_request import (
     CreateTeachingExerciseRequest,
     RequestRevisionRequest,
-    SubmitReportRequest,
     UpdateTeachingExerciseRequest,
 )
 
@@ -52,6 +53,20 @@ if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
 
 logger = get_logger(__name__)
+
+_REPORTS_DIR = pathlib.Path(__file__).parents[2] / "data" / "reports"
+
+
+def _save_report_file(teacher_uid: str, submission_uid: str, content: str) -> str:
+    """Save teacher feedback content to data/reports/{teacher_uid}/{submission_uid}/feedback.md.
+
+    Returns the absolute file path as a string.
+    """
+    dest = _REPORTS_DIR / teacher_uid / submission_uid
+    dest.mkdir(parents=True, exist_ok=True)
+    file_path = dest / "feedback.md"
+    file_path.write_text(content, encoding="utf-8")
+    return str(file_path)
 
 
 def create_teaching_api_routes(
@@ -90,15 +105,24 @@ def create_teaching_api_routes(
     async def submit_feedback(
         request: Request, uid: str, current_user: Any
     ) -> Result[ReportSubmitResult]:
-        """Submit feedback for a student report."""
-        result = await parse_json_body(request, SubmitReportRequest)
-        if result.is_error:
-            return Result.fail(result)
+        """Submit a .md feedback file as the teacher report for a student submission."""
+        form = await request.form()
+        upload = form.get("feedback_file")
+        if upload is None or not hasattr(upload, "read"):
+            return Result.fail(Errors.validation("No file uploaded", field="feedback_file"))
+
+        raw = await upload.read()
+        if not raw:
+            return Result.fail(Errors.validation("Uploaded file is empty", field="feedback_file"))
+
+        content = raw.decode("utf-8")
+        file_path = _save_report_file(current_user.uid, uid, content)
 
         return await teacher_review_service.submit_report(
             report_uid=uid,
             teacher_uid=current_user.uid,
-            feedback=result.value.feedback,
+            feedback=content,
+            file_path=file_path,
         )
 
     @rt("/api/teaching/review/{uid}/revision", methods=["POST"])
@@ -107,8 +131,8 @@ def create_teaching_api_routes(
     async def request_revision(
         request: Request, uid: str, current_user: Any
     ) -> Result[RevisionRequestResult]:
-        """Request revision for a student report."""
-        result = await parse_json_body(request, RequestRevisionRequest)
+        """Request revision for a student submission with text notes."""
+        result = await parse_form_body(request, RequestRevisionRequest)
         if result.is_error:
             return Result.fail(result)
 
@@ -116,6 +140,30 @@ def create_teaching_api_routes(
             report_uid=uid,
             teacher_uid=current_user.uid,
             notes=result.value.notes,
+        )
+
+    @rt("/api/reports/{report_uid}/download", methods=["GET"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def download_report_file(
+        request: Request, report_uid: str, current_user: Any
+    ) -> Any:
+        """Download the .md feedback file attached to an ExerciseReport."""
+        path_result = await teacher_review_service.get_report_file_path(report_uid)
+        if path_result.is_error or not path_result.value:
+            from fasthtml.common import Div, P
+
+            return Div(P("Report file not found.", cls="text-sm text-destructive"))
+
+        file_path = pathlib.Path(path_result.value)
+        if not file_path.exists():
+            from fasthtml.common import Div, P
+
+            return Div(P("Report file not found on disk.", cls="text-sm text-destructive"))
+
+        return FileResponse(
+            str(file_path),
+            media_type="text/markdown",
+            headers={"Content-Disposition": f'attachment; filename="feedback-{report_uid[:12]}.md"'},
         )
 
     @rt("/api/teaching/review/{uid}/approve", methods=["POST"])

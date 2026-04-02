@@ -11,12 +11,6 @@ from core.models.enums.entity_enums import ProcessorType
 from core.models.enums.submissions_enums import ExerciseScope
 
 
-class SubmitReportRequest(BaseModel):
-    """Request to submit teacher feedback on a student report."""
-
-    feedback: str = Field(..., min_length=1, description="Feedback text")
-
-
 class RequestRevisionRequest(BaseModel):
     """Request to ask a student to revise their work."""
 

@@ -167,6 +167,7 @@ class TeacherReviewService:
         report_uid: str,
         teacher_uid: str,
         feedback: str,
+        file_path: str | None = None,
     ) -> Result[ReportSubmitResult]:
         """
         Submit teacher report for an entity.
@@ -178,7 +179,8 @@ class TeacherReviewService:
         Args:
             report_uid: Submission UID to provide report for
             teacher_uid: Teacher providing report
-            feedback: ExerciseReport text
+            feedback: ExerciseReport text (read from uploaded .md file)
+            file_path: Optional path to the uploaded .md report file
 
         Returns:
             Result containing report info
@@ -197,6 +199,7 @@ class TeacherReviewService:
                 "report_entity_uid": report_entity_uid,
                 "teacher_uid": teacher_uid,
                 "feedback": feedback,
+                "report_file_path": file_path,
                 "title": f"Feedback: {report_uid[:30]}",
                 "entity_type": EntityType.EXERCISE_REPORT.value,
                 "submission_status": EntityStatus.COMPLETED.value,
@@ -281,6 +284,7 @@ class TeacherReviewService:
                 "report_entity_uid": report_entity_uid,
                 "teacher_uid": teacher_uid,
                 "feedback": notes,
+                "report_file_path": None,
                 "title": f"Revision request: {report_uid[:30]}",
                 "entity_type": EntityType.EXERCISE_REPORT.value,
                 "submission_status": EntityStatus.REVISION_REQUESTED.value,
@@ -737,6 +741,10 @@ class TeacherReviewService:
     # ========================================================================
     # PRIVATE HELPERS
     # ========================================================================
+
+    async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
+        """Get the report_file_path for an ExerciseReport node by UID."""
+        return await self.submissions_backend.get_report_file_path(report_uid)
 
     async def _verify_teacher_access(
         self,
