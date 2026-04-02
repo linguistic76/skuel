@@ -1448,22 +1448,6 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
             query, {"submission_uid": submission_uid, "exercise_uid": exercise_uid}
         )
 
-    async def auto_share_with_teacher(
-        self, teacher_uid: str, submission_uid: str, now: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Auto-share submission with teacher via SHARES_WITH."""
-        query = """
-        MATCH (teacher:User {uid: $teacher_uid})
-        MATCH (submission:Entity {uid: $submission_uid})
-        MERGE (teacher)-[r:SHARES_WITH]->(submission)
-        SET r.shared_at = datetime($now),
-            r.role = 'teacher'
-        RETURN true as success
-        """
-        return await self.execute_query(
-            query,
-            {"teacher_uid": teacher_uid, "submission_uid": submission_uid, "now": now},
-        )
 
     # ========================================================================
     # SUBMISSION RELATIONSHIPS
@@ -1889,15 +1873,16 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         return await self.execute_query(query, {"teacher_uid": teacher_uid})
 
     async def verify_teacher_access(
-        self, report_uid: str, teacher_uid: str
+        self, submission_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Verify teacher has SHARES_WITH access to the entity."""
+        """Verify a student (not the teacher) owns the submission."""
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[r:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{uid: $report_uid}})
+        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission:Entity {{uid: $submission_uid}})
+        WHERE student.uid <> $teacher_uid
         RETURN true as has_access
         """
         return await self.execute_query(
-            query, {"teacher_uid": teacher_uid, "report_uid": report_uid}
+            query, {"submission_uid": submission_uid, "teacher_uid": teacher_uid}
         )
 
     # ========================================================================

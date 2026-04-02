@@ -749,7 +749,7 @@ class TeacherReviewService:
         report_uid: str,
         teacher_uid: str,
     ) -> Result[bool]:
-        """Verify teacher has SHARES_WITH access to the entity."""
+        """Verify the submission is owned by a student (not the teacher themselves)."""
         result = await self.submissions_backend.verify_teacher_access(report_uid, teacher_uid)
         if result.is_error:
             return Result.fail(result)

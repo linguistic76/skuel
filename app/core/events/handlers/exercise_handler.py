@@ -3,8 +3,8 @@ Exercise Submission Handler
 =============================
 
 Listens for SubmissionCreated events with a fulfills_exercise_uid.
-When present, calls process_exercise_submission() to create
-FULFILLS_EXERCISE + SHARES_WITH relationships.
+When present, calls process_exercise_submission() to create the
+FULFILLS_EXERCISE relationship.
 
 Formerly assignment_handler.py — renamed per of Ku hierarchy refactoring.
 
@@ -18,7 +18,7 @@ from core.utils.logging import get_logger
 logger = get_logger("skuel.events.exercise_handler")
 
 # Outcomes that indicate a genuine configuration problem the teacher should know about.
-_WARN_OUTCOMES = {ProcessingOutcome.NO_TEACHER, ProcessingOutcome.NOT_IN_GROUP}
+_WARN_OUTCOMES = {ProcessingOutcome.NOT_IN_GROUP}
 
 
 async def handle_exercise_submission(
@@ -34,7 +34,6 @@ async def handle_exercise_submission(
       PROCESSED      → info  (success)
       NOT_ASSIGNED   → debug (expected no-op for personal/assessment exercises)
       NOT_EXERCISE   → debug (exercise uid not found — probably a stale uid)
-      NO_TEACHER     → warning (exercise has no owner; submission not routed)
       NOT_IN_GROUP   → warning (student not in the exercise's group)
       WRONG_STUDENT  → warning (RevisedExercise targets a different student)
 

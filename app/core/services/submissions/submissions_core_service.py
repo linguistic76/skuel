@@ -132,18 +132,16 @@ class ProcessingOutcome(str):
         NOT_EXERCISE     — exercise_uid not found or wrong entity_type
         NOT_ASSIGNED     — exercise scope is not 'assigned' (e.g. personal/assessment)
 
-    Configuration problems (info/warning — teacher should know):
-        NO_TEACHER       — exercise has no OWNS relationship; can't route to anyone
+    Configuration problems (warning — teacher should know):
         NOT_IN_GROUP     — student is not a member of the exercise's target group
         WRONG_STUDENT    — RevisedExercise targets a different student
 
     Success:
-        PROCESSED        — FULFILLS_EXERCISE + SHARES_WITH created
+        PROCESSED        — FULFILLS_EXERCISE created
     """
 
     NOT_EXERCISE: str = "not_exercise"
     NOT_ASSIGNED: str = "not_assigned"
-    NO_TEACHER: str = "no_teacher"
     NOT_IN_GROUP: str = "not_in_group"
     WRONG_STUDENT: str = "wrong_student"
     PROCESSED: str = "processed"
@@ -992,24 +990,11 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
                     )
                     self.logger.info(f"Updated submission title to: {new_title}")
 
-        # 1. Create FULFILLS_EXERCISE relationship
+        # Create FULFILLS_EXERCISE relationship
         fulfills_result = await self.backend.link_to_exercise(submission_uid, exercise_uid)  # type: ignore[attr-defined]
 
         if fulfills_result.is_error:
             self.logger.warning(f"Failed to create FULFILLS_EXERCISE: {fulfills_result.error}")
-
-        # 2. Auto-share with teacher (fall back to admin for YAML-ingested exercises)
-        if not teacher_uid:
-            admin_result = await self.backend.get_admin_uid()  # type: ignore[attr-defined]
-            if admin_result.is_error or not admin_result.value:
-                return Result.ok(ProcessingOutcome.NO_TEACHER)
-            teacher_uid = admin_result.value[0]["admin_uid"]
-
-        share_result = await self.backend.auto_share_with_teacher(  # type: ignore[attr-defined]
-            teacher_uid, submission_uid, datetime.now().isoformat()
-        )
-        if share_result.is_error:
-            self.logger.warning(f"Failed to auto-share with teacher: {share_result.error}")
 
         return Result.ok(ProcessingOutcome.PROCESSED)
 
