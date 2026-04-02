@@ -702,8 +702,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Teacher students** | `/api/teaching/students` | GET | Teacher |
 | **Teacher students** | `/api/teaching/students/{uid}/submissions` | GET | Teacher |
 | **Teacher dashboard** | `/api/teaching/dashboard` | GET | Teacher |
-| **Teacher classes** | `/api/teaching/classes` | GET | Teacher |
-| **Teacher classes** | `/api/teaching/classes/{uid}` | GET | Teacher |
+| **Teacher groups** | `/api/teaching/groups` | GET | Teacher |
+| **Teacher groups** | `/api/teaching/groups/{uid}` | GET | Teacher |
 | **Notifications** | `/notifications` | GET | Student — **planned, not yet implemented** |
 | **Activity report** | `/api/reports/progress/generate` | POST | User |
 | **Activity report** | `/api/reports/progress` | GET | User |

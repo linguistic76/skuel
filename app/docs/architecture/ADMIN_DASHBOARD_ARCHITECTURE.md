@@ -29,18 +29,20 @@ For implementation guidance, see:
 
 The Admin Dashboard provides a centralized UI for system administration at `/admin`. It follows SKUEL's established UI patterns (ProfileLayout, StatsGrid) while enforcing ADMIN-only access through role-based decorators.
 
-The overview page displays quick-action cards (Users, Analytics, Finance, Ingestion) in a 3-column grid. The sidebar provides navigation to 7 sections: Overview, Users, Analytics, Learning, System, Finance, and Ingestion.
+The overview page displays quick-action cards (Users, Analytics, Finance, Ingestion) in a 3-column grid. The sidebar provides navigation to 6 sections: Overview, Users, Analytics, System, Finance, and Ingestion.
+
+> **Note:** The Learning dashboard (KU progression tracking) moved to `/teaching/learning` — it is a pedagogical concern managed from the Teaching section, not a sysadmin tool.
 
 ### User Management Features
 
 The user management section (`/admin/users`) provides:
 
 - **Users table** with inline activity counts (Tasks, Goals, Habits, KUs mastered) per user
-- **User detail page** (`/admin/users/{uid}`) with comprehensive statistics:
+- **User detail page** (`/admin/users/{uid}`) focused on account management:
   - **Activity Domains** — Task/Goal/Habit/Event/Choice/Principle counts with active/completed breakdowns
-  - **Learning Progress** — KU viewed/in-progress/mastered counts with link to detailed KU page
+  - **Learning Progress** — KU viewed/in-progress/mastered counts with link to `/teaching/learning/user/{uid}`
   - **Session Activity** — Login and session counts
-  - Reports and Report Projects lists
+  - Links to `/teaching/students/{uid}` (submissions) and `/teaching/learning/user/{uid}` (KU progress)
   - Role management and account actions
 - **HTMX filtering** — Role and status dropdowns update the table without page reload
 - **Data source** — All stats queried via pure Cypher against Neo4j (not UserContext), following the same pattern as the Learning Dashboard
@@ -79,7 +81,6 @@ The user management section (`/admin/users`) provides:
 │   │   │  Overview    │    │   AdminUIComponents                │   │   │
 │   │   │  Users       │    │   AdminAnalyticsComponents         │   │   │
 │   │   │  Analytics   │    │   AdminSystemComponents            │   │   │
-│   │   │  Learning    │    │   AdminLearningComponents          │   │   │
 │   │   │  System      │    │                                    │   │   │
 │   │   │  Finance →   │    │   (from ui/admin/)        │   │   │
 │   │   │  Ingestion → │    │                                    │   │   │
@@ -136,8 +137,6 @@ The user management section (`/admin/users`) provides:
 | `/admin/users/partial` | GET | HTMX filtered list | `admin_dashboard_ui.py:181` |
 | `/admin/users/{uid}/role-form` | GET | HTMX role change form | `admin_dashboard_ui.py:307` |
 | `/admin/analytics` | GET | Analytics dashboard | `admin_dashboard_ui.py:329` |
-| `/admin/learning` | GET | KU learning overview | `admin_dashboard_ui.py` |
-| `/admin/learning/user/{uid}` | GET | Per-user KU detail | `admin_dashboard_ui.py` |
 | `/admin/system` | GET | System health | `admin_dashboard_ui.py:391` |
 
 ### Existing API Endpoints (Reused)
@@ -168,15 +167,15 @@ class AdminNavItem:
     badge: str | None = None
     external: bool = False  # For Finance link
 
-ADMIN_NAV_ITEMS = [
-    AdminNavItem("Overview", "overview", "📊", "/admin"),
-    AdminNavItem("Users", "users", "👥", "/admin/users"),
-    AdminNavItem("Analytics", "analytics", "📈", "/admin/analytics"),
-    AdminNavItem("Learning", "learning", "📚", "/admin/learning"),
-    AdminNavItem("System", "system", "⚙️", "/admin/system"),
-    AdminNavItem("Finance", "finance", "💰", "/finance", badge="→", external=True),
-    AdminNavItem("Ingestion", "ingestion", "📥", "/ingest", badge="→", external=True),
+ADMIN_SIDEBAR_ITEMS = [
+    SidebarItem("Overview", "/admin", "overview", icon="📊"),
+    SidebarItem("Users", "/admin/users", "users", icon="👥"),
+    SidebarItem("Analytics", "/admin/analytics", "analytics", icon="📈"),
+    SidebarItem("System", "/admin/system", "system", icon="⚙️"),
+    SidebarItem("Finance", "/finance", "finance", icon="💰", badge_text="→"),
+    SidebarItem("Ingestion", "/ingest", "ingestion", icon="📥", badge_text="→"),
 ]
+# Learning moved to /teaching/learning — see teaching_ui.py TEACHING_SIDEBAR_ITEMS
 ```
 
 ### AdminUIComponents (ui/admin/views.py)
@@ -208,7 +207,7 @@ User management UI components:
 
 ### AdminLearningComponents (ui/admin/views.py)
 
-KU learning progression monitoring:
+KU learning progression components — **used by `/teaching/learning`**, not by admin routes.
 
 | Method | Purpose |
 |--------|---------|
@@ -396,20 +395,22 @@ The dashboard uses HTMX for dynamic updates without full page reloads:
 1. Admin navigates to /admin/users/{uid}
    │
    ├─ UserService.get_user(uid) → user identity
-   ├─ services.admin_stats.get_user_detail_stats(uid) → Result[dict]
-   │     └─ Single Cypher query with incremental WITHs:
-   │        OWNS → Task/Goal/Habit/Event/Choice/Principle (counts)
-   │        VIEWED/IN_PROGRESS/MASTERED → Ku (learning)
-   │        HAS_SESSION/HAD_AUTH_EVENT → Session/AuthEvent (activity)
-   ├─ reports_core.get_recent_reports(uid) → reports list
-   └─ assignments.list_user_projects(uid) → projects list
+   └─ services.admin_stats.get_user_detail_stats(uid) → Result[dict]
+         └─ Single Cypher query with incremental WITHs:
+            OWNS → Task/Goal/Habit/Event/Choice/Principle (counts)
+            VIEWED/IN_PROGRESS/MASTERED → Ku (learning)
+            HAS_SESSION/HAD_AUTH_EVENT → Session/AuthEvent (activity)
    │
    ▼
 2. AdminUIComponents.render_user_activity_stats(stats, uid)
    │
    ├─ Activity Domains section (6 stat cards via StatsGrid)
-   ├─ Learning Progress section (3 stat cards + KU detail link)
+   ├─ Learning Progress section (3 stat cards + link → /teaching/learning/user/{uid})
    └─ Session Activity section (2 stat cards)
+
+3. "Student Work" card links out to:
+   ├─ /teaching/students/{uid}  (submission review)
+   └─ /teaching/learning/user/{uid}  (KU progress detail)
 ```
 
 **Design decision: AdminStatsService vs UserContext**
@@ -473,7 +474,7 @@ Card(
 )
 ```
 
-**Applied to:** system status (overview), user stats (users list), activity entity counts (analytics), detail stats (user detail), KU metrics + user progress (learning dashboard).
+**Applied to:** system status (overview), user stats (users list), activity entity counts (analytics), detail stats (user detail). KU metrics + user progress are now handled in `/teaching/learning`.
 
 **March 2026 — Service extraction:** `_get_user_stats` helper deleted. User role counts and activity entity counts now use efficient Cypher COUNT queries on `AdminStatsService` (`get_user_role_counts`, `get_activity_entity_counts`) instead of fetching full entity lists just to count them.
 

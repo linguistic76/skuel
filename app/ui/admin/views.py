@@ -502,7 +502,7 @@ class AdminUIComponents:
                     Span("Learning Progress", cls="text-lg font-semibold"),
                     A(
                         "View Full KU Detail →",
-                        href=f"/admin/learning/user/{user_uid}",
+                        href=f"/teaching/learning/user/{user_uid}",
                         cls="text-primary hover:underline text-sm ml-4",
                     ),
                     cls="flex items-center mb-3",
@@ -1022,7 +1022,7 @@ class AdminLearningComponents:
                 {
                     "User": A(
                         display,
-                        href=f"/admin/learning/user/{uid}",
+                        href=f"/teaching/learning/user/{uid}",
                         cls="text-primary hover:underline font-medium",
                     ),
                     "Viewed": str(row.get("viewed_count", 0)),

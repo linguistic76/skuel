@@ -66,7 +66,7 @@ def render_dashboard(stats: TeachingDashboardStats) -> Div:
             ),
             render_stat_card("Students", stats.total_students, "👥", "/teaching/students"),
             render_stat_card("Exercises", stats.total_exercises, "📋", "/teaching/exercises"),
-            render_stat_card("Classes", stats.total_groups, "🏫", "/teaching/classes"),
+            render_stat_card("Groups", stats.total_groups, "👥", "/teaching/groups"),
             cls="grid grid-cols-2 gap-4 mb-6",
         ),
         Div(
@@ -199,8 +199,8 @@ def render_class_card(item: ClassSummary) -> Div:
         ],
         show_labels=False,
         actions=ButtonLink(
-            "View Class",
-            href=f"/teaching/classes/{item.uid}",
+            "View Group",
+            href=f"/teaching/groups/{item.uid}",
             variant=ButtonT.primary,
             size=Size.sm,
         ),
