@@ -121,6 +121,30 @@ class GraphQLConfig:
     introspection_enabled: bool = True
 
 
+def _default_relationship_type_weights() -> dict[str, float]:
+    return {
+        # Learning domain - high importance
+        "REQUIRES_THEORETICAL_UNDERSTANDING": 1.0,
+        "REQUIRES_PRACTICAL_APPLICATION": 0.9,
+        "REQUIRES_CONCEPTUAL_FOUNDATION": 0.9,
+        "BUILDS_MENTAL_MODEL": 0.8,
+        "PROVIDES_FOUNDATION_FOR": 0.8,
+        "EXTENDS_PATTERN": 0.7,
+        # Task domain - medium importance
+        "BLOCKS_UNTIL_COMPLETE": 1.0,
+        "ENABLES_START_OF": 0.9,
+        "CONTRIBUTES_TO_GOAL": 0.8,
+        # Cross-domain - medium importance
+        "APPLIES_KNOWLEDGE_TO": 0.8,
+        "PRACTICES_VIA_HABIT": 0.7,
+        "IMPLEMENTS_VIA_TASK": 0.7,
+        # Conceptual - lower importance
+        "RELATED_TO": 0.5,
+        "ANALOGOUS_TO": 0.6,
+        "PART_OF_SYSTEM": 0.6,
+    }
+
+
 @dataclass
 class VectorSearchConfig:
     """
@@ -161,27 +185,7 @@ class VectorSearchConfig:
     # Relationship type importance weights (higher = more important)
     # Used to weight different semantic relationships when boosting scores
     relationship_type_weights: dict[str, float] = field(
-        default_factory=lambda: {
-            # Learning domain - high importance
-            "REQUIRES_THEORETICAL_UNDERSTANDING": 1.0,
-            "REQUIRES_PRACTICAL_APPLICATION": 0.9,
-            "REQUIRES_CONCEPTUAL_FOUNDATION": 0.9,
-            "BUILDS_MENTAL_MODEL": 0.8,
-            "PROVIDES_FOUNDATION_FOR": 0.8,
-            "EXTENDS_PATTERN": 0.7,
-            # Task domain - medium importance
-            "BLOCKS_UNTIL_COMPLETE": 1.0,
-            "ENABLES_START_OF": 0.9,
-            "CONTRIBUTES_TO_GOAL": 0.8,
-            # Cross-domain - medium importance
-            "APPLIES_KNOWLEDGE_TO": 0.8,
-            "PRACTICES_VIA_HABIT": 0.7,
-            "IMPLEMENTS_VIA_TASK": 0.7,
-            # Conceptual - lower importance
-            "RELATED_TO": 0.5,
-            "ANALOGOUS_TO": 0.6,
-            "PART_OF_SYSTEM": 0.6,
-        }
+        default_factory=_default_relationship_type_weights
     )
 
     # Learning state boost/penalty multipliers

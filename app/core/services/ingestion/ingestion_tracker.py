@@ -333,8 +333,7 @@ class IngestionTracker:
         """
         sha256 = hashlib.sha256()
         with file_path.open("rb") as f:
-            # Read in chunks for memory efficiency with large files
-            for chunk in iter(lambda: f.read(8192), b""):
+            while chunk := f.read(8192):
                 sha256.update(chunk)
         return sha256.hexdigest()
 

@@ -33,6 +33,7 @@ if TYPE_CHECKING:
         SubmissionProcessingOperations,
         SubmissionSearchOperations,
     )
+    from core.services.user_service import UserService
 
 from starlette.background import BackgroundTask
 from starlette.datastructures import UploadFile
@@ -87,6 +88,7 @@ def create_submissions_api_routes(
     submissions_search_service: "SubmissionSearchOperations | None" = None,
     submissions_core_service: "SubmissionOperations | None" = None,
     teacher_review_service: "TeacherReviewOperations | None" = None,
+    user_service: "UserService | None" = None,
 ) -> list[Any]:
     """
     Create all submissions API routes.
@@ -99,6 +101,7 @@ def create_submissions_api_routes(
         submissions_search_service: SubmissionsSearchService for cross-domain queries
         submissions_core_service: SubmissionsCoreService for content management
         teacher_review_service: TeacherReviewService for feedback history queries
+        user_service: UserService for building UserContext (supplies Interaction context fields)
     """
 
     # FAIL-FAST: Validate required services BEFORE any route registration
@@ -137,6 +140,22 @@ def create_submissions_api_routes(
                     Errors.validation(f"You do not own submission {uid}", field="submission_uids")
                 )
         return Result.ok(None)
+
+    async def _get_learning_context(
+        user_uid: UserUID,
+    ) -> tuple[str | None, str | None]:
+        """Return (context_path_step_uid, context_learning_path_uid) from UserContext.
+
+        Best-effort: returns (None, None) if user_service is unavailable or
+        context build fails — never raises, never blocks the submission.
+        """
+        if not user_service or not user_service.context_builder:
+            return None, None
+        ctx_result = await user_service.context_builder.build(user_uid)
+        if ctx_result.is_error:
+            return None, None
+        ctx = ctx_result.value
+        return next(iter(ctx.current_ps_uids), None), ctx.current_learning_path_uid
 
     # ========================================================================
     # FILE UPLOAD
@@ -247,6 +266,9 @@ def create_submissions_api_routes(
             str(fulfills_exercise_uid_val).strip() if fulfills_exercise_uid_val else None
         )
 
+        # Capture learning context for Interaction audit record
+        context_path_step_uid, context_learning_path_uid = await _get_learning_context(user_uid)
+
         # Submit file
         result = await submission_service.submit_file(
             file_content=file_content,
@@ -256,6 +278,8 @@ def create_submissions_api_routes(
             processor_type=processor_type,
             applies_knowledge_uids=applies_knowledge_uids if applies_knowledge_uids else None,
             fulfills_exercise_uid=fulfills_exercise_uid if fulfills_exercise_uid else None,
+            context_path_step_uid=context_path_step_uid,
+            context_learning_path_uid=context_learning_path_uid,
         )
 
         if result.is_error:
@@ -323,11 +347,15 @@ def create_submissions_api_routes(
                 Errors.validation("form_data must be a non-empty object", field="form_data")
             )
 
+        context_path_step_uid, context_learning_path_uid = await _get_learning_context(user_uid)
+
         result = await submission_service.submit_form(
             user_uid=user_uid,
             exercise_uid=req.exercise_uid,
             form_data=req.form_data,
             title=req.title,
+            context_path_step_uid=context_path_step_uid,
+            context_learning_path_uid=context_learning_path_uid,
         )
 
         if result.is_error:

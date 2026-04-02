@@ -121,6 +121,7 @@ def create_submissions_ui_routes(
     submissions_search_service: Any = None,
     submissions_core_service: Any = None,
     teacher_review_service: Any = None,
+    user_service: Any = None,
 ) -> RouteList:
     """Create /submit and /submissions UI routes.
 
@@ -265,6 +266,16 @@ def create_submissions_ui_routes(
                 f"exercise={fulfills_exercise_uid}, revision={revision_number})"
             )
 
+            # Capture learning context for Interaction audit record (best-effort)
+            context_path_step_uid: str | None = None
+            context_learning_path_uid: str | None = None
+            if user_service and getattr(user_service, "context_builder", None):
+                ctx_result = await user_service.context_builder.build(user_uid)
+                if ctx_result.is_ok:
+                    ctx = ctx_result.value
+                    context_path_step_uid = next(iter(ctx.current_ps_uids), None)
+                    context_learning_path_uid = ctx.current_learning_path_uid
+
             result = await submissions_service.submit_file(
                 file_content=file_content,
                 original_filename=filename,
@@ -273,6 +284,8 @@ def create_submissions_ui_routes(
                 processor_type=ProcessorType.HUMAN,
                 metadata=submission_metadata,
                 fulfills_exercise_uid=fulfills_exercise_uid,
+                context_path_step_uid=context_path_step_uid,
+                context_learning_path_uid=context_learning_path_uid,
             )
 
             if result.is_error:

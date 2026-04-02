@@ -38,6 +38,7 @@ SUBMISSIONS_CONFIG = DomainRouteConfig(
         "submissions_search_service": "submissions_search",
         "submissions_core_service": "submissions_core",
         "teacher_review_service": "teacher_review",
+        "user_service": "user_service",
     },
 )
 

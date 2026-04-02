@@ -125,6 +125,14 @@ def _parse_form_schema(raw: Any) -> list[dict] | None:
 # =============================================================================
 
 
+def _ku_created_at_key(k: Ku) -> str:
+    return getattr(k, "created_at", None) or ""
+
+
+def _ku_title_key(k: Ku) -> str:
+    return (k.title or "").lower()
+
+
 def _filter_kus(
     kus: list[Ku],
     q: str,
@@ -157,9 +165,9 @@ def _filter_kus(
         ]
 
     if sort == "created_at":
-        results = sorted(results, key=lambda k: getattr(k, "created_at", None) or "", reverse=True)
+        results = sorted(results, key=_ku_created_at_key, reverse=True)
     else:
-        results = sorted(results, key=lambda k: (k.title or "").lower())
+        results = sorted(results, key=_ku_title_key)
 
     return results
 

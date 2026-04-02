@@ -48,6 +48,7 @@ def create_learning_loop_routes(
         submissions_search_service=getattr(services, "submissions_search", None),
         submissions_core_service=getattr(services, "submissions_core", None),
         teacher_review_service=getattr(services, "teacher_review", None),
+        user_service=getattr(services, "user_service", None),
     )
 
     # Exercise Reports UI

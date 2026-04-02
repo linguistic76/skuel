@@ -67,6 +67,8 @@ class SubmissionOperations(Protocol):
         metadata: dict[str, Any] | None = None,
         applies_knowledge_uids: list[str] | None = None,
         fulfills_exercise_uid: str | None = None,
+        context_path_step_uid: str | None = None,
+        context_learning_path_uid: str | None = None,
     ) -> "Result[SubmissionEntity]":
         """Submit a file for processing. Returns Result[Submission]."""
         ...
@@ -77,6 +79,8 @@ class SubmissionOperations(Protocol):
         exercise_uid: str,
         form_data: dict[str, Any],
         title: str | None = None,
+        context_path_step_uid: str | None = None,
+        context_learning_path_uid: str | None = None,
     ) -> "Result[SubmissionEntity]":
         """Submit structured form responses (no file). Returns Result[Submission]."""
         ...

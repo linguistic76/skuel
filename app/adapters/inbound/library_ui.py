@@ -208,18 +208,18 @@ def _submission_item(sub: Any) -> Div:
     """Single row for a user's exercise submission."""
     sub_uid = (
         getattr(sub, "uid", None) or sub.get("uid", "")
-        if hasattr(sub, "get")
+        if isinstance(sub, dict)
         else getattr(sub, "uid", "")
     )
     title = (
         getattr(sub, "title", None)
-        or (sub.get("title") if hasattr(sub, "get") else None)
+        or (sub.get("title") if isinstance(sub, dict) else None)
         or sub_uid
     )
     raw_status = getattr(sub, "status", None)
-    status = (
-        raw_status.value if raw_status is not None and hasattr(raw_status, "value") else raw_status
-    )
+    from enum import Enum
+
+    status = raw_status.value if isinstance(raw_status, Enum) else raw_status
 
     return Div(
         Div(

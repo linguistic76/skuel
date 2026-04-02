@@ -190,6 +190,10 @@ class CachedEventMetrics:
         }
 
 
+def _make_invalidations_deque() -> deque[dict[str, Any]]:
+    return deque(maxlen=50)
+
+
 @dataclass
 class CachedContextMetrics:
     """Cached context invalidation metrics (debugging only)."""
@@ -197,7 +201,7 @@ class CachedContextMetrics:
     user_uid: UserUID
 
     # Recent invalidations (last 50)
-    recent_invalidations: deque[dict[str, Any]] = field(default_factory=lambda: deque(maxlen=50))
+    recent_invalidations: deque[dict[str, Any]] = field(default_factory=_make_invalidations_deque)
 
     # Timestamps
     first_invalidation_at: datetime | None = None
