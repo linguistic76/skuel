@@ -198,22 +198,22 @@ def create_teaching_api_routes(
             teacher_uid=current_user.uid,
         )
 
-    @rt("/api/teaching/classes", methods=["GET"])
+    @rt("/api/teaching/groups", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def get_classes(request: Request, current_user: Any) -> Result[list[TeacherGroupStats]]:
+    async def get_groups(request: Request, current_user: Any) -> Result[list[TeacherGroupStats]]:
         """Get teacher's groups with member, exercise, and pending submission counts."""
         return await teacher_review_service.get_teacher_groups_with_stats(
             teacher_uid=current_user.uid,
         )
 
-    @rt("/api/teaching/classes/{uid}", methods=["GET"])
+    @rt("/api/teaching/groups/{uid}", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def get_class_detail(
+    async def get_group_detail(
         request: Request, uid: str, current_user: Any
     ) -> Result[list[GroupMemberProgress]]:
-        """Get members of a specific class with their submission progress."""
+        """Get members of a specific group with their submission progress."""
         return await teacher_review_service.get_group_detail(
             group_uid=uid,
             teacher_uid=current_user.uid,

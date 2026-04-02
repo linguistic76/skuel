@@ -678,9 +678,7 @@ class TestProcessExerciseSubmission:
                 ]
             )
         )
-        backend.get_admin_uid = AsyncMock(
-            return_value=Result.ok([{"admin_uid": "admin_1"}])
-        )
+        backend.get_admin_uid = AsyncMock(return_value=Result.ok([{"admin_uid": "admin_1"}]))
         backend.verify_student_group_membership = AsyncMock(
             return_value=Result.ok([{"student_uid": "user_1", "member_of_group": "grp_1"}])
         )

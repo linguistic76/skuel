@@ -117,7 +117,9 @@ class Exercise(Curriculum):
     # =========================================================================
     # EXERCISE-SPECIFIC FIELDS (11)
     # =========================================================================
-    exercise_number: int | None = None  # Human-readable exercise number (set in YAML, embedded in downloaded .md)
+    exercise_number: int | None = (
+        None  # Human-readable exercise number (set in YAML, embedded in downloaded .md)
+    )
     instructions: str | None = None  # LLM prompt for processing
     model: str = "claude-sonnet-4-6"  # Which LLM to use
     scope: ExerciseScope = ExerciseScope.PERSONAL

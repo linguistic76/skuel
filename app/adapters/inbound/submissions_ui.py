@@ -242,8 +242,10 @@ def create_submissions_ui_routes(
             # exercise_uid: form selector wins; fallback to frontmatter
             raw_exercise_uid = form.get("fulfills_exercise_uid")
             fulfills_exercise_uid = (
-                str(raw_exercise_uid).strip() or None if raw_exercise_uid else None
-            ) or frontmatter.get("exercise_uid") or None
+                (str(raw_exercise_uid).strip() or None if raw_exercise_uid else None)
+                or frontmatter.get("exercise_uid")
+                or None
+            )
 
             # revision from frontmatter (default 1)
             revision_str = frontmatter.get("revision", "1")

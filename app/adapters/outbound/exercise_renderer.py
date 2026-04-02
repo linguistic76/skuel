@@ -38,8 +38,7 @@ def _field_block_md(field: dict[str, Any]) -> str:
     lines = [f"**{label}**{required_marker}", ""]
 
     if options:
-        for opt in options:
-            lines.append(f"- [ ] {opt}")
+        lines.extend(f"- [ ] {opt}" for opt in options)
         lines.append("")
         return "\n".join(lines)
 
@@ -116,8 +115,7 @@ def render_exercise_md(exercise: Exercise, user_uid: str | None = None) -> str:
         sections.append("")
         sections.append("## Your Responses")
         sections.append("")
-        for field in exercise.form_schema:
-            sections.append(_field_block_md(field))
+        sections.extend(_field_block_md(field) for field in exercise.form_schema)
 
     # Feedback instructions
     if exercise.instructions:

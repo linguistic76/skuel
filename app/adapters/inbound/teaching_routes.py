@@ -30,6 +30,7 @@ TEACHING_CONFIG = DomainRouteConfig(
     ui_related_services={
         "user_service": "user_service",
         "exercises_service": "exercises",
+        "admin_stats": "admin_stats",
     },
 )
 

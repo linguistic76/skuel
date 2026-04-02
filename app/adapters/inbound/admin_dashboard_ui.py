@@ -9,11 +9,13 @@ All routes require ADMIN role and use the AdminLayout for consistent navigation.
 Routes:
 - GET /admin - Overview dashboard with key stats
 - GET /admin/users - User management with list/table view
-- GET /admin/users/{uid} - User detail view
+- GET /admin/users/{uid} - User detail view (account management only)
 - GET /admin/users/partial - HTMX partial for filtered user list
 - GET /admin/users/{uid}/role-form - HTMX partial for role change form
 - GET /admin/analytics - Analytics dashboard
 - GET /admin/system - System health dashboard
+
+Note: Learning dashboard moved to /teaching/learning (pedagogical concern, not sysadmin).
 
 Security:
 - All routes require authentication (401 if not logged in)
@@ -33,7 +35,6 @@ from ui.admin.layout import create_admin_page
 from ui.admin.types import UserCardData
 from ui.admin.views import (
     AdminAnalyticsComponents,
-    AdminLearningComponents,
     AdminSystemComponents,
     AdminUIComponents,
 )
@@ -348,30 +349,6 @@ def create_admin_dashboard_routes(_app, rt, services):
             logger.warning(f"Failed to load detail stats for {uid}: {detail_stats_result.error}")
         detail_stats = detail_stats_result.value if not detail_stats_error else {}
 
-        # Fetch user's reports
-        reports_data: list = []
-        try:
-            if services.submissions_core:
-                reports_result = await services.submissions_core.get_recent_submissions(
-                    user_uid=uid, limit=20
-                )
-                if not reports_result.is_error and reports_result.value:
-                    reports_data = reports_result.value
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.warning(f"Failed to fetch reports for {uid}: {e}")
-
-        # Fetch user's assignments
-        projects_data: list = []
-        try:
-            if services.assignments:
-                projects_result = await services.assignments.list_user_projects(
-                    user_uid=uid, active_only=False
-                )
-                if not projects_result.is_error and projects_result.value:
-                    projects_data = projects_result.value
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.warning(f"Failed to fetch report projects for {uid}: {e}")
-
         content = Div(
             # Back button
             ButtonLink(
@@ -403,7 +380,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 ),
                 cls="bg-background shadow-sm p-6 mb-6",
             ),
-            # Activity, Learning & Session stats
+            # Activity & session stats
             Card(
                 H2("User Statistics", cls="text-xl font-semibold mb-4"),
                 render_error_banner("User statistics unavailable", severity="warning")
@@ -411,16 +388,28 @@ def create_admin_dashboard_routes(_app, rt, services):
                 else AdminUIComponents.render_user_activity_stats(detail_stats, uid),
                 cls="bg-background shadow-sm p-6 mb-6",
             ),
-            # Reports section
+            # Link to teaching view for submission/learning data
             Card(
-                H2("Reports", cls="text-xl font-semibold mb-4"),
-                AdminUIComponents.render_user_reports_list(reports_data, uid),
-                cls="bg-background shadow-sm p-6 mb-6",
-            ),
-            # Report Projects section
-            Card(
-                H2("Report Projects", cls="text-xl font-semibold mb-4"),
-                AdminUIComponents.render_user_projects_list(projects_data, uid),
+                H2("Student Work", cls="text-xl font-semibold mb-4"),
+                Div(
+                    P(
+                        "Submissions, reports, and learning progress are managed in the Teaching section.",
+                        cls="text-muted-foreground text-sm mb-3",
+                    ),
+                    ButtonLink(
+                        "View submissions →",
+                        href=f"/teaching/students/{uid}",
+                        variant=ButtonT.outline,
+                        size=Size.sm,
+                    ),
+                    ButtonLink(
+                        "KU progress →",
+                        href=f"/teaching/learning/user/{uid}",
+                        variant=ButtonT.outline,
+                        size=Size.sm,
+                        cls="ml-2",
+                    ),
+                ),
                 cls="bg-background shadow-sm p-6 mb-6",
             ),
             # Role change section
@@ -604,148 +593,11 @@ def create_admin_dashboard_routes(_app, rt, services):
             request=request,
         )
 
-    # ========================================================================
-    # LEARNING DASHBOARD
-    # ========================================================================
-
-    @rt("/admin/learning")
-    @require_admin(get_user_service)
-    async def admin_learning(request, current_user):
-        """
-        Admin learning dashboard with KU progression tracking.
-
-        Shows system-wide KU metrics and per-user progress table.
-        """
-        system_status, _status_error = await _get_system_status(services)
-        ku_metrics_result = await services.admin_stats.get_entity_system_metrics()
-        ku_metrics_error = ku_metrics_result.is_error
-        if ku_metrics_error:
-            logger.error(f"Failed to load KU metrics: {ku_metrics_result.error}")
-        ku_metrics = ku_metrics_result.value if not ku_metrics_error else {}
-        user_progress_result = await services.admin_stats.get_all_users_progress()
-        user_progress_error = user_progress_result.is_error
-        if user_progress_error:
-            logger.error(f"Failed to load user progress: {user_progress_result.error}")
-        user_progress = user_progress_result.value if not user_progress_error else []
-
-        content = Div(
-            PageHeader(
-                "Learning Dashboard", subtitle="Track knowledge unit progression across all users"
-            ),
-            # System-wide KU metrics
-            Card(
-                H2("Knowledge Unit Overview", cls="text-xl font-semibold mb-4"),
-                render_error_banner("Knowledge unit metrics unavailable", severity="warning")
-                if ku_metrics_error
-                else AdminLearningComponents.render_ku_system_metrics(ku_metrics),
-                cls="bg-background shadow-sm p-6 mb-6",
-            ),
-            # User progress table
-            Card(
-                H2("User KU Progress", cls="text-xl font-semibold mb-4"),
-                render_error_banner("User progress data unavailable", severity="warning")
-                if user_progress_error
-                else AdminLearningComponents.render_user_progress_table(user_progress),
-                cls="bg-background shadow-sm p-6",
-            ),
-        )
-
-        return await create_admin_page(
-            content=content,
-            active_section="learning",
-            admin_username=current_user.display_name or current_user.title,
-            title="Learning Dashboard",
-            system_status=system_status.get("status", "unknown"),
-            request=request,
-        )
-
-    @rt("/admin/learning/user/{uid}")
-    @require_admin(get_user_service)
-    async def admin_learning_user_detail(request, uid: str, current_user):
-        """
-        Detailed KU progress for a specific user.
-
-        Shows viewed, in-progress, and mastered KUs with timestamps.
-        """
-        system_status, _status_error = await _get_system_status(services)
-
-        # Get user info
-        user_result = await services.user_service.get_user(uid)
-        if user_result.is_error or not user_result.value:
-            content = Div(
-                render_error_banner(f"No user found with UID: {uid}"),
-                ButtonLink(
-                    "← Back to Learning Dashboard",
-                    href="/admin/learning",
-                    variant=ButtonT.ghost,
-                    cls="mt-4",
-                ),
-            )
-            return await create_admin_page(
-                content=content,
-                active_section="learning",
-                admin_username=current_user.display_name or current_user.title,
-                title="User Not Found",
-                request=request,
-            )
-
-        user = user_result.value
-        user_ku_detail_result = await services.admin_stats.get_user_ku_detail(uid)
-        if user_ku_detail_result.is_error:
-            logger.warning(f"Failed to load KU detail for {uid}: {user_ku_detail_result.error}")
-        user_ku_detail = user_ku_detail_result.value if not user_ku_detail_result.is_error else {}
-
-        submissions_result = await services.admin_stats.get_user_submissions_detail(uid)
-        if submissions_result.is_error:
-            logger.warning(f"Failed to load submissions for {uid}: {submissions_result.error}")
-        submissions = submissions_result.value if not submissions_result.is_error else []
-
-        content = Div(
-            # Back button
-            ButtonLink(
-                "← Back to Learning Dashboard",
-                href="/admin/learning",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mb-4",
-            ),
-            PageHeader(f"{user.display_name or user.title} — KU Progress"),
-            # Summary stats
-            Card(
-                H2("Progress Summary", cls="text-xl font-semibold mb-4"),
-                AdminLearningComponents.render_user_ku_summary(user_ku_detail),
-                cls="bg-background shadow-sm p-6 mb-6",
-            ),
-            # Exercise submissions
-            Card(
-                H2("Exercise Submissions", cls="text-xl font-semibold mb-4"),
-                AdminLearningComponents.render_user_submissions_list(submissions),
-                cls="bg-background shadow-sm p-6 mb-6",
-            ),
-            # Detailed KU list
-            Card(
-                H2("Knowledge Units", cls="text-xl font-semibold mb-4"),
-                AdminLearningComponents.render_user_ku_detail_list(user_ku_detail),
-                cls="bg-background shadow-sm p-6",
-            ),
-        )
-
-        return await create_admin_page(
-            content=content,
-            active_section="learning",
-            admin_username=current_user.display_name or current_user.title,
-            title=f"Learning: {user.display_name or user.title}",
-            system_status=system_status.get("status", "unknown"),
-            request=request,
-        )
-
     logger.info("Admin dashboard UI routes registered")
     logger.info("   - GET /admin - Overview dashboard")
     logger.info("   - GET /admin/users - User management")
     logger.info("   - GET /admin/users/{uid} - User detail")
     logger.info("   - GET /admin/analytics - Analytics")
-    logger.info("   - GET /admin/learning - Learning dashboard")
-    logger.info("   - GET /admin/learning/user/{uid} - User KU detail")
     logger.info("   - GET /admin/system - System health")
 
 

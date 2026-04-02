@@ -6,7 +6,8 @@ Teacher-facing pages for the full teaching workflow:
 - Overview dashboard with at-a-glance stats
 - Review queue and approved submissions
 - By-exercise and by-student views
-- Classes (groups) management
+- Groups management
+- Learning dashboard (KU progression tracking)
 - Submission review with content display
 
 TEACHER role required for all endpoints.
@@ -19,6 +20,7 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
+    H2,
     H3,
     Div,
     Form,
@@ -29,6 +31,7 @@ from adapters.inbound.auth import make_service_getter, require_authenticated_use
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
+from ui.admin.views import AdminLearningComponents
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Textarea
@@ -80,7 +83,8 @@ TEACHING_SIDEBAR_ITEMS = [
     SidebarItem("Approved", "/teaching/approved", "approved", icon="✅"),
     SidebarItem("By Exercise", "/teaching/exercises", "exercises", icon="📋"),
     SidebarItem("By Student", "/teaching/students", "students", icon="👥"),
-    SidebarItem("Classes", "/teaching/classes", "classes", icon="🏫"),
+    SidebarItem("Groups", "/teaching/groups", "groups", icon="👥"),
+    SidebarItem("Learning", "/teaching/learning", "learning", icon="📚"),
 ]
 
 _SIDEBAR_DEFAULTS = {
@@ -103,6 +107,7 @@ def create_teaching_ui_routes(
     teacher_review_service: "TeacherReviewOperations",
     user_service: Any,
     exercises_service: Any,
+    admin_stats: Any = None,
 ) -> list[Any]:
     """
     Create teaching UI routes for the full teacher dashboard.
@@ -113,6 +118,7 @@ def create_teaching_ui_routes(
         teacher_review_service: TeacherReviewService instance
         user_service: UserService for role checks
         exercises_service: ExerciseService for create/edit forms
+        admin_stats: AdminStatsService for KU progression data (learning dashboard)
     """
 
     get_user_service = make_service_getter(user_service)
@@ -665,25 +671,43 @@ def create_teaching_ui_routes(
         )
 
     # ------------------------------------------------------------------
-    # CLASSES (GROUPS)
+    # GROUPS
     # ------------------------------------------------------------------
 
     @rt("/teaching/classes")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_classes_page(request: Request, current_user: Any = None) -> Any:
-        """Classes page — teacher's groups with student and exercise counts."""
+    async def teaching_classes_redirect(request: Request, current_user: Any = None) -> Any:
+        """301 redirect: /teaching/classes → /teaching/groups."""
+        from fasthtml.common import RedirectResponse
+
+        return RedirectResponse("/teaching/groups", status_code=301)
+
+    @rt("/teaching/classes/{uid}")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_class_detail_redirect(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Any:
+        """301 redirect: /teaching/classes/{uid} → /teaching/groups/{uid}."""
+        from fasthtml.common import RedirectResponse
+
+        return RedirectResponse(f"/teaching/groups/{uid}", status_code=301)
+
+    @rt("/teaching/groups")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_groups_page(request: Request, current_user: Any = None) -> Any:
+        """Groups page — teacher's groups with student and exercise counts."""
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_teacher_groups_with_stats(teacher_uid=user_uid)
 
         if result.is_error:
-            classes_content: Any = render_error_banner("Failed to load classes", str(result.error))
+            groups_content: Any = render_error_banner("Failed to load groups", str(result.error))
         elif not result.value:
-            classes_content = Div(
+            groups_content = Div(
                 Div(
-                    H3("No classes yet", cls="text-lg font-medium mb-2"),
+                    H3("No groups yet", cls="text-lg font-medium mb-2"),
                     P(
-                        "Create your first class from the Groups section to get started.",
+                        "Create your first group from the Groups section to get started.",
                         cls="text-muted-foreground",
                     ),
                     ButtonLink(
@@ -697,12 +721,12 @@ def create_teaching_ui_routes(
                 ),
             )
         else:
-            classes_content = Div(
+            groups_content = Div(
                 *[
                     render_class_card(
                         ClassSummary(
                             uid=item.get("uid", ""),
-                            name=item.get("name") or "Unnamed Class",
+                            name=item.get("name") or "Unnamed Group",
                             description=item.get("description"),
                             member_count=item.get("member_count", 0),
                             exercise_count=item.get("exercise_count", 0),
@@ -715,34 +739,34 @@ def create_teaching_ui_routes(
             )
 
         content = Div(
-            PageHeader("Classes", subtitle="Your groups and their activity"),
-            classes_content,
+            PageHeader("Groups", subtitle="Your groups and their activity"),
+            groups_content,
         )
         return await SidebarPage(
             content=content,
             items=TEACHING_SIDEBAR_ITEMS,
-            active="classes",
-            page_title="Classes",
+            active="groups",
+            page_title="Groups",
             request=request,
             **_SIDEBAR_DEFAULTS,
         )
 
-    @rt("/teaching/classes/{uid}")
+    @rt("/teaching/groups/{uid}")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_class_detail_page(
+    async def teaching_group_detail_page(
         request: Request, uid: str, current_user: Any = None
     ) -> Any:
-        """Class detail page — members with submission progress stats."""
+        """Group detail page — members with submission progress stats."""
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_group_detail(group_uid=uid, teacher_uid=user_uid)
 
         if result.is_error:
             members_content: Any = render_error_banner(
-                "Failed to load class members", str(result.error)
+                "Failed to load group members", str(result.error)
             )
         elif not result.value:
-            members_content = EmptyState(title="No members in this class yet")
+            members_content = EmptyState(title="No members in this group yet")
         else:
             members_content = Div(
                 *[
@@ -762,8 +786,8 @@ def create_teaching_ui_routes(
 
         back_link = Div(
             ButtonLink(
-                "← Classes",
-                href="/teaching/classes",
+                "← Groups",
+                href="/teaching/groups",
                 variant=ButtonT.ghost,
                 size=Size.sm,
                 cls="mt-4",
@@ -771,15 +795,186 @@ def create_teaching_ui_routes(
         )
 
         content = Div(
-            PageHeader(f"Class: {uid}", subtitle="Members and their submission progress"),
+            PageHeader(f"Group: {uid}", subtitle="Members and their submission progress"),
             members_content,
             back_link,
         )
         return await SidebarPage(
             content=content,
             items=TEACHING_SIDEBAR_ITEMS,
-            active="classes",
-            page_title="Class Detail",
+            active="groups",
+            page_title="Group Detail",
+            request=request,
+            **_SIDEBAR_DEFAULTS,
+        )
+
+    # ------------------------------------------------------------------
+    # LEARNING DASHBOARD
+    # ------------------------------------------------------------------
+
+    @rt("/admin/learning")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def admin_learning_redirect(request: Request, current_user: Any = None) -> Any:
+        """301 redirect: /admin/learning → /teaching/learning."""
+        from fasthtml.common import RedirectResponse
+
+        return RedirectResponse("/teaching/learning", status_code=301)
+
+    @rt("/admin/learning/user/{uid}")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def admin_learning_user_redirect(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Any:
+        """301 redirect: /admin/learning/user/{uid} → /teaching/learning/user/{uid}."""
+        from fasthtml.common import RedirectResponse
+
+        return RedirectResponse(f"/teaching/learning/user/{uid}", status_code=301)
+
+    @rt("/teaching/learning")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_learning_page(request: Request, current_user: Any = None) -> Any:
+        """Learning dashboard — KU progression tracking across all users."""
+        if not admin_stats:
+            content = Div(
+                PageHeader("Learning Dashboard"),
+                render_error_banner("Learning stats service unavailable", severity="warning"),
+            )
+            return await SidebarPage(
+                content=content,
+                items=TEACHING_SIDEBAR_ITEMS,
+                active="learning",
+                page_title="Learning Dashboard",
+                request=request,
+                **_SIDEBAR_DEFAULTS,
+            )
+
+        ku_metrics_result = await admin_stats.get_entity_system_metrics()
+        ku_metrics_error = ku_metrics_result.is_error
+        if ku_metrics_error:
+            logger.error(f"Failed to load KU metrics: {ku_metrics_result.error}")
+        ku_metrics = ku_metrics_result.value if not ku_metrics_error else {}
+
+        user_progress_result = await admin_stats.get_all_users_progress()
+        user_progress_error = user_progress_result.is_error
+        if user_progress_error:
+            logger.error(f"Failed to load user progress: {user_progress_result.error}")
+        user_progress = user_progress_result.value if not user_progress_error else []
+
+        content = Div(
+            PageHeader(
+                "Learning Dashboard", subtitle="Track knowledge unit progression across all users"
+            ),
+            Card(
+                H2("Knowledge Unit Overview", cls="text-xl font-semibold mb-4"),
+                render_error_banner("Knowledge unit metrics unavailable", severity="warning")
+                if ku_metrics_error
+                else AdminLearningComponents.render_ku_system_metrics(ku_metrics),
+                cls="bg-background shadow-sm p-6 mb-6",
+            ),
+            Card(
+                H2("User KU Progress", cls="text-xl font-semibold mb-4"),
+                render_error_banner("User progress data unavailable", severity="warning")
+                if user_progress_error
+                else AdminLearningComponents.render_user_progress_table(user_progress),
+                cls="bg-background shadow-sm p-6",
+            ),
+        )
+        return await SidebarPage(
+            content=content,
+            items=TEACHING_SIDEBAR_ITEMS,
+            active="learning",
+            page_title="Learning Dashboard",
+            request=request,
+            **_SIDEBAR_DEFAULTS,
+        )
+
+    @rt("/teaching/learning/user/{uid}")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_learning_user_detail(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Any:
+        """Per-user KU detail — viewed, in-progress, and mastered KUs with timestamps."""
+        if not admin_stats:
+            content = Div(
+                render_error_banner("Learning stats service unavailable", severity="warning"),
+                ButtonLink(
+                    "← Learning Dashboard",
+                    href="/teaching/learning",
+                    variant=ButtonT.ghost,
+                    cls="mt-4",
+                ),
+            )
+            return await SidebarPage(
+                content=content,
+                items=TEACHING_SIDEBAR_ITEMS,
+                active="learning",
+                page_title="User KU Detail",
+                request=request,
+                **_SIDEBAR_DEFAULTS,
+            )
+
+        user_result = await user_service.get_user(uid)
+        if user_result.is_error or not user_result.value:
+            content = Div(
+                render_error_banner(f"No user found with UID: {uid}"),
+                ButtonLink(
+                    "← Learning Dashboard",
+                    href="/teaching/learning",
+                    variant=ButtonT.ghost,
+                    cls="mt-4",
+                ),
+            )
+            return await SidebarPage(
+                content=content,
+                items=TEACHING_SIDEBAR_ITEMS,
+                active="learning",
+                page_title="User Not Found",
+                request=request,
+                **_SIDEBAR_DEFAULTS,
+            )
+
+        user = user_result.value
+
+        user_ku_detail_result = await admin_stats.get_user_ku_detail(uid)
+        if user_ku_detail_result.is_error:
+            logger.warning(f"Failed to load KU detail for {uid}: {user_ku_detail_result.error}")
+        user_ku_detail = user_ku_detail_result.value if not user_ku_detail_result.is_error else {}
+
+        submissions_result = await admin_stats.get_user_submissions_detail(uid)
+        if submissions_result.is_error:
+            logger.warning(f"Failed to load submissions for {uid}: {submissions_result.error}")
+        submissions = submissions_result.value if not submissions_result.is_error else []
+
+        content = Div(
+            ButtonLink(
+                "← Learning Dashboard",
+                href="/teaching/learning",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="mb-4",
+            ),
+            PageHeader(f"{user.display_name or user.title} — KU Progress"),
+            Card(
+                H2("Progress Summary", cls="text-xl font-semibold mb-4"),
+                AdminLearningComponents.render_user_ku_summary(user_ku_detail),
+                cls="bg-background shadow-sm p-6 mb-6",
+            ),
+            Card(
+                H2("Exercise Submissions", cls="text-xl font-semibold mb-4"),
+                AdminLearningComponents.render_user_submissions_list(submissions),
+                cls="bg-background shadow-sm p-6 mb-6",
+            ),
+            Card(
+                H2("Knowledge Units", cls="text-xl font-semibold mb-4"),
+                AdminLearningComponents.render_user_ku_detail_list(user_ku_detail),
+                cls="bg-background shadow-sm p-6",
+            ),
+        )
+        return await SidebarPage(
+            content=content,
+            items=TEACHING_SIDEBAR_ITEMS,
+            active="learning",
+            page_title=f"Learning: {user.display_name or user.title}",
             request=request,
             **_SIDEBAR_DEFAULTS,
         )

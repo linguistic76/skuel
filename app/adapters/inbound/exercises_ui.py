@@ -473,7 +473,11 @@ def create_exercises_ui_routes(
                     Div(
                         PageHeader("Exercise Not Found"),
                         P("This exercise could not be found.", cls="text-base-content/70"),
-                        A("← Back to Library", href="/library", cls="text-primary hover:underline text-sm"),
+                        A(
+                            "← Back to Library",
+                            href="/library",
+                            cls="text-primary hover:underline text-sm",
+                        ),
                         cls=f"{Container.STANDARD} {Spacing.PAGE}",
                     ),
                     title="Exercise Not Found",
@@ -492,11 +496,15 @@ def create_exercises_ui_routes(
                 level = getattr(exercise.learning_level, "value", str(exercise.learning_level))
                 meta_items.append(Badge(level.title(), variant=BadgeT.ghost))
             if exercise.estimated_time_minutes:
-                meta_items.append(Badge(f"{exercise.estimated_time_minutes} min", variant=BadgeT.ghost))
+                meta_items.append(
+                    Badge(f"{exercise.estimated_time_minutes} min", variant=BadgeT.ghost)
+                )
             if exercise.mastery_impact:
                 impact = getattr(exercise.mastery_impact, "value", str(exercise.mastery_impact))
                 meta_items.append(Badge(f"{impact.title()} impact", variant=BadgeT.info))
-            metadata_row = Div(*meta_items, cls="flex flex-wrap gap-2 mb-6") if meta_items else Div()
+            metadata_row = (
+                Div(*meta_items, cls="flex flex-wrap gap-2 mb-6") if meta_items else Div()
+            )
 
             # ── Description ───────────────────────────────────────────────────
             description_section = (
@@ -576,7 +584,11 @@ def create_exercises_ui_routes(
                 description_section,
                 form_fields_section,
                 instructions_section,
-                A("← Back to Library", href="/library", cls="text-sm text-base-content/50 hover:text-primary"),
+                A(
+                    "← Back to Library",
+                    href="/library",
+                    cls="text-sm text-base-content/50 hover:text-primary",
+                ),
                 cls=f"{Container.STANDARD} {Spacing.PAGE}",
             )
 

@@ -17,7 +17,6 @@ ADMIN_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Overview", "/admin", "overview", icon="📊"),
     SidebarItem("Users", "/admin/users", "users", icon="👥"),
     SidebarItem("Analytics", "/admin/analytics", "analytics", icon="📈"),
-    SidebarItem("Learning", "/admin/learning", "learning", icon="📚"),
     SidebarItem("System", "/admin/system", "system", icon="⚙️"),
     SidebarItem(
         "Finance",

@@ -192,9 +192,7 @@ class AdminStatsService:
 
         return Result.ok(detail)
 
-    async def get_user_submissions_detail(
-        self, user_uid: UserUID
-    ) -> Result[list[dict[str, Any]]]:
+    async def get_user_submissions_detail(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
         """Get exercise submissions owned by a user, with linked exercise and report count."""
         result = await self.query_executor.execute_query(
             """
