@@ -1620,38 +1620,39 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         status_filter: str | None = None,
         entity_type_filter: str | None = None,
     ) -> Result[list[Neo4jProperties]]:
-        """Get teacher's pending review queue (submissions shared via role='teacher')."""
-        where_clauses = []
+        """Get teacher's pending review queue (all student submissions via OWNS)."""
+        where_clauses = ["student.uid <> $teacher_uid"]
         params: dict[str, Any] = {"teacher_uid": teacher_uid}
 
         if status_filter:
             where_clauses.append("ku.status = $status_filter")
             params["status_filter"] = status_filter
+        else:
+            where_clauses.append("ku.status IN ['submitted', 'active']")
 
         if entity_type_filter:
             where_clauses.append("ku.entity_type = $entity_type_filter")
             params["entity_type_filter"] = entity_type_filter
 
-        where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        where_clause = f"WHERE {' AND '.join(where_clauses)}"
 
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[r:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{entity_type: 'exercise_submission'}})
+        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
         {where_clause}
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(project:Entity:Exercise)
         OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
-        WITH ku, student, project, r, count(fb) as feedback_count
+        WITH ku, student, project, count(fb) as feedback_count
         RETURN ku.uid as ku_uid,
                ku.title as title,
                ku.status as status,
                ku.entity_type as entity_type,
+               ku.original_filename as original_filename,
                ku.created_at as submitted_at,
                student.uid as student_uid,
                student.name as student_name,
                project.uid as exercise_uid,
-               project.name as exercise_name,
+               project.title as exercise_name,
                project.due_date as due_date,
-               r.shared_at as shared_at,
                feedback_count
         ORDER BY ku.created_at DESC
         """
@@ -1875,13 +1876,12 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         """Get at-a-glance stats for the teacher dashboard."""
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})
-        OPTIONAL MATCH (teacher)-[:{RelationshipName.SHARES_WITH.value} {{role: 'teacher'}}]->(ku:Entity {{entity_type: 'exercise_submission'}})
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
+        WHERE student.uid <> $teacher_uid
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
         RETURN
-          count(CASE WHEN ku.status IN ['submitted', 'active', 'revision_requested'] THEN 1 END) AS pending_count,
-          count(DISTINCT ku) AS total_submissions,
+          count(CASE WHEN ku.status IN ['submitted', 'active'] THEN 1 END) AS pending_count,
           count(DISTINCT student) AS total_students,
           count(DISTINCT ex) AS total_exercises,
           count(DISTINCT g) AS total_groups

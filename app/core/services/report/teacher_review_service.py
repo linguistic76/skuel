@@ -92,9 +92,9 @@ class TeacherReviewService:
         """
         Get teacher's pending review queue.
 
-        Returns submissions shared with the teacher via role="teacher",
-        optionally filtered by status or entity_type. Includes count of
-        existing feedback rounds per submission.
+        Returns all student submissions (via OWNS), optionally filtered by
+        status or entity_type. Includes count of existing feedback rounds per
+        submission. Defaults to submitted+active statuses when no filter given.
 
         Args:
             teacher_uid: Teacher UID
@@ -122,7 +122,7 @@ class TeacherReviewService:
                 "exercise_uid": record["exercise_uid"],
                 "exercise_name": record["exercise_name"],
                 "due_date": record["due_date"],
-                "shared_at": record["shared_at"],
+                "original_filename": record.get("original_filename"),
                 "feedback_count": record["feedback_count"],
             }
             for record in result.value
@@ -652,7 +652,6 @@ class TeacherReviewService:
             return Result.ok(
                 {
                     "pending_count": 0,
-                    "total_submissions": 0,
                     "total_students": 0,
                     "total_exercises": 0,
                     "total_groups": 0,
@@ -663,7 +662,6 @@ class TeacherReviewService:
         return Result.ok(
             {
                 "pending_count": record["pending_count"] or 0,
-                "total_submissions": record["total_submissions"] or 0,
                 "total_students": record["total_students"] or 0,
                 "total_exercises": record["total_exercises"] or 0,
                 "total_groups": record["total_groups"] or 0,

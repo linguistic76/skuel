@@ -83,7 +83,6 @@ logger = get_logger("skuel.routes.teaching.ui")
 TEACHING_SIDEBAR_ITEMS = [
     SidebarItem("Overview", "/teaching", "overview", icon="📊"),
     SidebarItem("Review Queue", "/teaching/queue", "queue", icon="📥"),
-    SidebarItem("By Exercise", "/teaching/exercises", "exercises", icon="📋"),
     SidebarItem("By Student", "/teaching/students", "students", icon="👥"),
     SidebarItem("Groups", "/teaching/groups", "groups", icon="👥"),
     SidebarItem("Learning", "/teaching/learning", "learning", icon="📚"),

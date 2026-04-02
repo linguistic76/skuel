@@ -1326,7 +1326,7 @@ class ReviewQueueItem(TypedDict, total=False):
     exercise_uid: str
     exercise_name: str
     due_date: str | None
-    shared_at: str  # ISO format
+    original_filename: str | None
     feedback_count: int
 
 
@@ -1352,7 +1352,6 @@ class TeacherDashboardStats(TypedDict, total=False):
     """At-a-glance stats for teacher dashboard."""
 
     pending_count: int
-    total_submissions: int
     total_students: int
     total_exercises: int
     total_groups: int

@@ -534,7 +534,7 @@ class TestGetReviewQueue:
                 "exercise_uid": EXERCISE_UID,
                 "exercise_name": "Essay Exercise",
                 "due_date": None,
-                "shared_at": "2026-03-20T09:00:00",
+                "original_filename": None,
                 "feedback_count": 0,
             }
         ]
@@ -718,7 +718,6 @@ class TestGetDashboardStats:
         records = [
             {
                 "pending_count": 5,
-                "total_submissions": 20,
                 "total_students": 8,
                 "total_exercises": 3,
                 "total_groups": 2,
@@ -742,7 +741,6 @@ class TestGetDashboardStats:
 
         assert not result.is_error
         assert result.value["pending_count"] == 0
-        assert result.value["total_submissions"] == 0
         assert result.value["total_students"] == 0
         assert result.value["total_exercises"] == 0
         assert result.value["total_groups"] == 0
