@@ -26,7 +26,7 @@ The app is architecturally split into two layers. The foundational layer — CRU
 
 | Capability | What It Does | Dependencies |
 |-----------|-------------|--------------|
-| CRUD | Create, read, update, delete all 21 entity types | Neo4j only |
+| CRUD | Create, read, update, delete all 22 entity types | Neo4j only |
 | Ingestion | Markdown/YAML → Neo4j pipeline | Neo4j only |
 | Keyword Search | Full-text search across 15 domains | Neo4j fulltext indexes (auto-created at bootstrap via `sync_fulltext_indexes()`) |
 | UserContext | ~250-field user state (standard + rich) | Neo4j MEGA-QUERY |

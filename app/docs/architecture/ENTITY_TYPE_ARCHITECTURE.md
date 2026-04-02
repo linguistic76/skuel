@@ -1,9 +1,9 @@
 ---
-title: SKUEL Architecture — 21 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-03-10
+title: SKUEL Architecture — 22 Entity Types + 5 Cross-Cutting Systems
+updated: 2026-04-02
 status: current
 category: architecture
-version: 6.0.0
+version: 7.0.0
 tags:
 - architecture
 - entity-types
@@ -11,6 +11,7 @@ related:
 - ADR-040-teacher-assignment-workflow
 - ADR-041-unified-ku-model
 - ADR-047-entity-types-replace-domain-categories
+- ADR-051-user-interaction-contract
 ---
 
 # SKUEL Architecture
@@ -19,7 +20,7 @@ related:
 
 SKUEL is a **knowledge-centric productivity platform** where every operation connects to and enriches understanding. **Knowledge is the fertile soil from which all activity grows.**
 
-### 21 Entity Types + 5 Cross-Cutting Systems
+### 22 Entity Types + 5 Cross-Cutting Systems
 
 | EntityType | What It Is | Ownership |
 |------------|-----------|-----------|
@@ -29,21 +30,22 @@ SKUEL is a **knowledge-centric productivity platform** where every operation con
 | Event | Time commitment to keep | User-owned |
 | Choice | Decision to make | User-owned |
 | Principle | Value to embody | User-owned |
-| Lesson | A unit for learning | Admin-created, shared |
 | Ku | Atomic knowledge unit (concept, principle, substance) | Admin-created, shared |
 | Resource | Curated content (books, talks, films) | Admin-created, shared |
-| PathStep | A collection of lessons | Admin-created, shared |
-| LearningPath | An ordered sequence of lesson collections | Admin-created, shared |
+| PathStep | THE curriculum content entity (composes Kus into learning content) | Admin-created, shared |
+| LearningPath | An ordered sequence of PathSteps | Admin-created, shared |
 | Exercise | Instruction template, assignment, or formal assessment | Admin-created, shared |
-| FormTemplate | Reusable form definition (embeddable in Lessons) | Admin-created, shared |
+| FormTemplate | Reusable form definition | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | User-owned |
 | ExerciseSubmission | Student-uploaded work against an exercise | User-owned |
+| Interaction | Situated learning-loop event (curriculum context at submission time) | User-owned |
 | JeInput | Journal entry input (voice/text) | User-owned |
 | JeOutput | Journal entry output (LLM-transformed) | User-owned |
 | ExerciseReport | Assessment tied to a specific submission | User-owned |
 | ActivityReport | Feedback about activity patterns over time | User-owned |
 | RevisedExercise | Targeted revision after feedback | Teacher-owned |
 | LifePath | The user's life direction | User-owned |
+| Groups | Teacher-student class management | Teacher-owned |
 
 **Cross-Cutting Systems (5)**: UserContext, Search, Calendar, Askesis, Messaging (planned)
 

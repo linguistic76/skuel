@@ -124,7 +124,7 @@ title: My Task Title    # Display title
 
 ### Ingestible Entity Types
 
-13 of SKUEL's 21 entity types are file-ingestible. The remaining 8 (RevisedExercise, Resource, FormTemplate, FormSubmission, JeInput, JeOutput, ExerciseReport, ActivityReport) are created via API or internal pipelines.
+14 of SKUEL's 22 entity types are file-ingestible. The remaining 8 (RevisedExercise, Resource, FormTemplate, FormSubmission, JeInput, JeOutput, ExerciseReport, ActivityReport) are created via API or internal pipelines.
 
 | Type Value | Aliases | Prefix | Example UID |
 |------------|---------|--------|-------------|
@@ -617,7 +617,7 @@ YAML Author writes type + connections.*
 - [Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md) — scoring model, decay, life path alignment
 - [Unified Ingestion Guide](/docs/patterns/UNIFIED_INGESTION_GUIDE.md) — full ingestion API
 - [Relationship Registry](/core/models/relationship_registry.py) — source of truth for `yaml_field_path` mappings
-- [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) — all 21 entity types
+- [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) — all 22 entity types
 - [YAML Templates README](/yaml_templates/README.md) — directory structure and UID formats
 - [Schema Templates](/yaml_templates/_schemas/) — complete field reference per entity type
 

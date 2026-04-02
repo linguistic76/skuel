@@ -3,8 +3,8 @@ name: learning-loop
 description: >
   Expert guide for SKUEL's Five-Phased Learning Loop — the core purpose of the app.
   Use when building or reviewing any feature involving Lesson, Exercise, Submission, Report,
-  or RevisedExercise. TRIGGER when: working on submissions, exercises, report generation,
-  activity reports, revised exercises, teacher review, AI assessment, or when designing a new
+  RevisedExercise, or Interaction. TRIGGER when: working on submissions, exercises, report generation,
+  activity reports, revised exercises, teacher review, AI assessment, Interaction records, or when designing a new
   feature and asking "where does this fit?". This skill provides the development lens: every
   new feature must either strengthen a loop phase or improve the transition between phases.
   Features that serve no loop purpose are candidates for deletion per SKUEL's One Path Forward
@@ -402,6 +402,51 @@ await backend.check_access(entity_uid, user_uid)         # owner OR shares_with
 **Loop role:** Submission is the *evidence* — the student's demonstration of engagement
 with the Ku. The `processed_content` field is what AI and teachers actually evaluate.
 Without Submission, the loop has no student voice.
+
+---
+
+## The Interaction Contract — Curriculum Context at Submission Time
+
+When `SubmissionsService.submit_file()` or `submit_form()` creates an ExerciseSubmission,
+it immediately calls `_create_interaction_record()` which persists an **Interaction** node
+capturing the user's curriculum position at that exact moment.
+
+**EntityType:** `EntityType.INTERACTION`
+**Model:** `core/models/interaction/interaction.py` — `Interaction(UserOwnedEntity)`
+**Service:** `core/services/interaction/interaction_service.py` — `InteractionService`
+**UID prefix:** `ia_`
+**Enums:** `InteractionType` (EXERCISE_SUBMISSION, KU_VIEW, PATH_STEP_COMPLETION, FORM_SUBMISSION),
+`InteractionResult` (PENDING → REPORT_GENERATED → SHARED_WITH_TEACHER → COMPLETED/FAILED)
+
+**What it captures (6 interaction-specific fields):**
+- `interaction_type`: What kind of event (EXERCISE_SUBMISSION in Phase 1)
+- `target_uid`: The Exercise UID being submitted against
+- `context_path_step_uid`: The PathStep the user was studying (from `UserContext.current_ps_uids`)
+- `context_learning_path_uid`: The LearningPath the user was enrolled in
+- `source_entity_uid`: Back-pointer to the ExerciseSubmission UID
+- `result_status`: Processing outcome (starts PENDING, updated as pipeline progresses)
+
+**Graph relationships created:**
+```cypher
+(interaction)-[:RECORDS]->(submission)           // back-pointer to source artifact
+(interaction)-[:INTERACTION_DURING]->(pathstep)  // curriculum position (if set)
+(interaction)-[:INTERACTION_WITHIN]->(lp)        // path enrollment (if set)
+```
+
+**Why a separate node, not fields on ExerciseSubmission?** Interaction is queryable as
+a first-class graph node — you can traverse all interactions for a PathStep, or find
+every student who submitted while enrolled in a given LearningPath. Embedding those
+fields in ExerciseSubmission would bury them.
+
+**Phase 2 (deferred):** ZPD and Askesis will query Interaction nodes to reason about
+*situated learning trajectories* — not just what a student submitted but where in the
+curriculum they were when they submitted it.
+
+**Implementation note:** Interaction creation is best-effort — a failure never blocks
+the submission. The UI route uses `getattr(services, "interaction_service", None)` and
+logs a warning rather than failing the request.
+
+**See:** `docs/decisions/ADR-051-user-interaction-contract.md`
 
 ---
 
