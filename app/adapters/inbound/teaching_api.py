@@ -215,6 +215,7 @@ def create_teaching_api_routes(
 
     @rt("/api/teaching/review/{uid}/panel", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
+    @boundary_handler()
     async def get_review_panel(request: Request, uid: str, current_user: Any) -> Any:
         """Return inline review panel HTML fragment for the student detail tabbed view.
 
