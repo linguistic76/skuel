@@ -83,6 +83,7 @@ class SubmissionDetail:
     processed_content: str | None = None
     content: str | None = None
     original_filename: str | None = None
+    file_path: str | None = None
 
 
 @dataclass(frozen=True)

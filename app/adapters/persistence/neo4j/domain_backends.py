@@ -1905,6 +1905,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
                s.title AS title,
                s.content AS content,
                s.processed_content AS processed_content,
+               s.file_path AS file_path,
                s.original_filename AS original_filename,
                s.entity_type AS entity_type,
                s.status AS status,

@@ -167,11 +167,26 @@ def render_student_summary_card(item: StudentSummary) -> Div:
             Badge(f"{item.reviewed_count}/{item.submission_count} reviewed", variant=BadgeT.ghost),
         ],
         show_labels=False,
-        actions=ButtonLink(
-            "View Student",
-            href=f"/teaching/students/{item.student_uid}",
-            variant=ButtonT.primary,
-            size=Size.sm,
+        actions=Div(
+            ButtonLink(
+                "Submissions",
+                href=f"/teaching/students/{item.student_uid}",
+                variant=ButtonT.primary,
+                size=Size.sm,
+            ),
+            ButtonLink(
+                "KU Progress",
+                href=f"/teaching/learning/user/{item.student_uid}",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+            ),
+            ButtonLink(
+                "Reports",
+                href=f"/teaching/reports/user/{item.student_uid}",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+            ),
+            cls="flex gap-2 w-full justify-end",
         ),
         card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )

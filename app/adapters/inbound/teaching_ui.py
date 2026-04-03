@@ -1016,5 +1016,37 @@ def create_teaching_ui_routes(
             **_SIDEBAR_DEFAULTS,
         )
 
+    @rt("/teaching/reports/user/{uid}")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_user_reports_page(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Any:
+        """User reports placeholder page."""
+        user_result = await user_service.get_user(uid)
+        
+        user_name = uid
+        if not user_result.is_error and user_result.value:
+            user_name = user_result.value.display_name or user_result.value.title or uid
+
+        content = Div(
+            PageHeader(f"Reports: {user_name}", subtitle="Exercise and Activity Reports"),
+            render_empty_state("Reports coming soon", "This feature is currently under development."),
+            ButtonLink(
+                "← Back to Students",
+                href="/teaching/students",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="mt-4 block text-center",
+            ),
+        )
+        return await SidebarPage(
+            content=content,
+            items=TEACHING_SIDEBAR_ITEMS,
+            active="students",
+            page_title=f"Reports: {user_name}",
+            request=request,
+            **_SIDEBAR_DEFAULTS,
+        )
+
     logger.info("Teaching UI routes registered")
     return []

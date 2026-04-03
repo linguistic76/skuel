@@ -88,7 +88,9 @@ def create_teaching_api_routes(
     @rt("/api/teaching/review-queue", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def review_queue(request: Request, current_user: Any) -> "Result[list[ReviewQueueItem]]":
+    async def review_queue(
+        request: Request, current_user: Any = None
+    ) -> "Result[list[ReviewQueueItem]]":
         """Get teacher's pending review queue."""
         status_filter = request.query_params.get("status", None)
         return await teacher_review_service.get_review_queue(
@@ -201,7 +203,7 @@ def create_teaching_api_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
     async def get_submission_detail(
-        request: Request, uid: str, current_user: Any
+        request: Request, uid: str, current_user: Any = None
     ) -> "Result[SubmissionDetailResult]":
         """Get full submission detail for teacher review.
 
@@ -216,7 +218,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/review/{uid}/panel", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def get_review_panel(request: Request, uid: str, current_user: Any) -> Any:
+    async def get_review_panel(request: Request, uid: str, current_user: Any = None) -> Any:
         """Return inline review panel HTML fragment for the student detail tabbed view.
 
         Loaded by HTMX on first expand of a submission row. Returns:
@@ -234,6 +236,7 @@ def create_teaching_api_routes(
         detail_data: dict[str, Any] = (
             detail_result.value if not detail_result.is_error and detail_result.value else {}
         )
+
         history: list[dict[str, Any]] = (
             history_result.value if not history_result.is_error and history_result.value else []
         )
@@ -244,7 +247,7 @@ def create_teaching_api_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
     async def get_exercises(
-        request: Request, current_user: Any
+        request: Request, current_user: Any = None
     ) -> Result[list[ExerciseWithSubmissionCounts]]:
         """Get teacher's exercises with submission counts."""
         return await teacher_review_service.get_exercises_with_submission_counts(
@@ -255,7 +258,7 @@ def create_teaching_api_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
     async def get_exercise_submissions(
-        request: Request, uid: str, current_user: Any
+        request: Request, uid: str, current_user: Any = None
     ) -> Result[list[SubmissionForExercise]]:
         """Get all submissions against an exercise."""
         return await teacher_review_service.get_submissions_for_exercise(exercise_uid=uid)
@@ -263,7 +266,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/students", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def get_students(request: Request, current_user: Any) -> Result[list[StudentSummaryItem]]:
+    async def get_students(request: Request, current_user: Any = None) -> Result[list[StudentSummaryItem]]:
         """Get students who shared work with the teacher."""
         return await teacher_review_service.get_students_summary(
             teacher_uid=current_user.uid,
@@ -273,7 +276,7 @@ def create_teaching_api_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
     async def get_student_submissions(
-        request: Request, uid: str, current_user: Any
+        request: Request, uid: str, current_user: Any = None
     ) -> Result[list[StudentSubmissionItem]]:
         """Get all submissions from a specific student."""
         return await teacher_review_service.get_student_submissions(
@@ -285,7 +288,7 @@ def create_teaching_api_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
     async def get_dashboard_stats(
-        request: Request, current_user: Any
+        request: Request, current_user: Any = None
     ) -> "Result[TeacherDashboardStats]":
         """Get at-a-glance stats for the teacher dashboard."""
         return await teacher_review_service.get_dashboard_stats(
@@ -295,7 +298,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/groups", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def get_groups(request: Request, current_user: Any) -> Result[list[TeacherGroupStats]]:
+    async def get_groups(request: Request, current_user: Any = None) -> Result[list[TeacherGroupStats]]:
         """Get teacher's groups with member, exercise, and pending submission counts."""
         return await teacher_review_service.get_teacher_groups_with_stats(
             teacher_uid=current_user.uid,

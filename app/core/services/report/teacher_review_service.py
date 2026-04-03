@@ -615,6 +615,7 @@ class TeacherReviewService:
                 "exercise_uid": record["exercise_uid"],
                 "exercise_title": record["exercise_title"],
                 "exercise_instructions": record["exercise_instructions"],
+                "file_path": record.get("file_path"),
             }
         )
 

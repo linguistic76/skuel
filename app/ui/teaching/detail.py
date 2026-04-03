@@ -33,13 +33,8 @@ def render_submission_content(detail: SubmissionDetail) -> Div:
     """
     student_name = detail.student_name or detail.student_uid or "Unknown"
 
-    # Display content — prefer processed, fall back to raw, then filename
-    display_content = (
-        detail.processed_content
-        or detail.content
-        or detail.original_filename
-        or "(No content available)"
-    )
+    # Display file path or fall back to original filename
+    display_content = detail.file_path or detail.original_filename or "(No file path available)"
 
     meta_parts = [f"by {student_name}"]
     if detail.exercise_title:
@@ -80,11 +75,14 @@ def render_submission_content(detail: SubmissionDetail) -> Div:
             exercise_section,
             Div(
                 Span(
-                    "Submission content",
+                    "Submission File Location",
                     cls="text-xs font-semibold text-muted-foreground uppercase tracking-wide",
                 ),
-                P(display_content, cls="text-sm whitespace-pre-wrap mt-1"),
-                cls="p-3 bg-muted/30 rounded border border-border",
+                Div(
+                    P(display_content, cls="text-sm font-mono break-all"),
+                    cls="mt-1 p-3 bg-muted/50 rounded border border-border select-all",
+                ),
+                cls="p-4 bg-muted/20 border-t",
             ),
             cls="p-4",
         ),
@@ -131,6 +129,7 @@ def render_exercise_submission_row(item: SubmissionRow) -> Div:
 def render_student_submission_row(item: SubmissionRow) -> Div:
     """Render a submission row in the student-detail view with feedback toggle."""
     title = item.title or item.original_filename or "Untitled"
+    dom_id = item.uid.replace(":", "-").replace(".", "-")
 
     exercise_subtitle: Any = None
     if item.exercise_title:
@@ -154,13 +153,11 @@ def render_student_submission_row(item: SubmissionRow) -> Div:
                 variant=ButtonT.ghost,
                 size=Size.xs,
                 type="button",
-                **{
-                    "hx-get": f"/api/submissions/{item.uid}/reports",
-                    "hx-target": f"#feedback-{item.uid}",
-                    "hx-swap": "innerHTML",
-                },
+                hx_get=f"/api/submissions/{item.uid}/reports",
+                hx_target=f"#feedback-{dom_id}",
+                hx_swap="innerHTML",
             ),
-            Div(id=f"feedback-{item.uid}"),
+            Div(id=f"feedback-{dom_id}"),
             cls="mt-2",
         )
 
@@ -190,6 +187,7 @@ def render_review_panel_inline(
     Renders: submission content, feedback history, and action forms (if actionable).
     Returned by GET /api/teaching/review/{uid}/panel.
     """
+    dom_id = uid.replace(":", "-").replace(".", "-")
     status = (detail.get("status") or "").lower()
     is_actionable = status in _NEEDS_REVIEW_STATUSES
 
@@ -206,6 +204,7 @@ def render_review_panel_inline(
             processed_content=detail.get("processed_content"),
             content=detail.get("content"),
             original_filename=detail.get("original_filename"),
+            file_path=detail.get("file_path"),
         )
         content_section: Any = render_submission_content(d)
     else:
@@ -238,13 +237,13 @@ def render_review_panel_inline(
                         Div(
                             Label(
                                 "Feedback file",
-                                fr=f"feedback_file_{uid}",
+                                fr=f"feedback_file_{dom_id}",
                                 cls="text-sm font-medium mb-1 block",
                             ),
                             Input(
                                 type="file",
                                 name="feedback_file",
-                                id=f"feedback_file_{uid}",
+                                id=f"feedback_file_{dom_id}",
                                 accept=".md",
                                 required=True,
                                 cls="block w-full text-sm file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer",
@@ -255,7 +254,7 @@ def render_review_panel_inline(
                         enctype="multipart/form-data",
                         **{
                             "hx-post": f"/api/teaching/review/{uid}/report",
-                            "hx-target": f"#inline-result-{uid}",
+                            "hx-target": f"#inline-result-{dom_id}",
                             "hx-swap": "innerHTML",
                             "hx-encoding": "multipart/form-data",
                         },
@@ -275,12 +274,12 @@ def render_review_panel_inline(
                         Div(
                             Label(
                                 "Revision notes",
-                                fr=f"revision_notes_{uid}",
+                                fr=f"revision_notes_{dom_id}",
                                 cls="text-sm font-medium mb-1 block",
                             ),
                             Textarea(
                                 name="notes",
-                                id=f"revision_notes_{uid}",
+                                id=f"revision_notes_{dom_id}",
                                 placeholder="Describe what needs to be revised...",
                                 cls="h-20",
                                 required=True,
@@ -299,7 +298,7 @@ def render_review_panel_inline(
                                 type="button",
                                 **{
                                     "hx-post": f"/api/teaching/review/{uid}/approve",
-                                    "hx-target": f"#inline-result-{uid}",
+                                    "hx-target": f"#inline-result-{dom_id}",
                                     "hx-swap": "innerHTML",
                                     "hx-confirm": "Approve this submission?",
                                 },
@@ -308,7 +307,7 @@ def render_review_panel_inline(
                         ),
                         **{
                             "hx-post": f"/api/teaching/review/{uid}/revision",
-                            "hx-target": f"#inline-result-{uid}",
+                            "hx-target": f"#inline-result-{dom_id}",
                             "hx-swap": "innerHTML",
                         },
                     ),
@@ -316,7 +315,7 @@ def render_review_panel_inline(
                 ),
                 cls="bg-background shadow-sm",
             ),
-            Div(id=f"inline-result-{uid}", cls="mt-3"),
+            Div(id=f"inline-result-{dom_id}", cls="mt-3"),
         )
 
     return Div(
@@ -349,6 +348,8 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
     if item.feedback_count > 0:
         feedback_badge = Badge(f"{item.feedback_count} feedback", variant=BadgeT.info, size=Size.sm)
 
+    dom_id = item.uid.replace(":", "-").replace(".", "-")
+
     exercise_subtitle: Any = None
     if item.exercise_title:
         exercise_subtitle = Span(
@@ -369,16 +370,13 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
                 variant=ButtonT.primary if is_actionable else ButtonT.ghost,
                 size=Size.sm,
                 type="button",
-                **{
-                    "hx-get": f"/api/teaching/review/{item.uid}/panel",
-                    "hx-target": f"#panel-{item.uid}",
-                    "hx-trigger": "click once",
-                    "hx-swap": "innerHTML",
-                },
+                hx_get=f"/api/teaching/review/{item.uid}/panel",
+                hx_target=f"#panel-{dom_id}",
+                hx_swap="innerHTML",
             ),
             card_attrs={"cls": "bg-background shadow-sm mb-0"},
         ),
-        Div(id=f"panel-{item.uid}"),
+        Div(id=f"panel-{dom_id}"),
         cls="mb-3",
     )
 
