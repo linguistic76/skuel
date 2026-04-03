@@ -537,6 +537,7 @@ return await SidebarPage(
     extra_mobile_sections=[],           # Below mobile tabs
     item_renderer=None,                 # Custom render function
     title_href="",                      # Link on sidebar title
+    title_icon="",                      # Lucide icon name replacing text title (e.g. "graduation-cap")
 )
 ```
 

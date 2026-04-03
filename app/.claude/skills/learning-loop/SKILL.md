@@ -901,7 +901,7 @@ that never closes the loop.
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
 | `adapters/persistence/neo4j/domain_backends.py` | all | Domain-specific Cypher |
 | `adapters/inbound/study_ui.py` | 2+3+4 | Student submit form, submissions list, feedback display |
-| `adapters/inbound/teaching_ui.py` | 4 | Teacher review queue (root page), student detail with KU tab, groups |
+| `adapters/inbound/teaching_ui.py` | 4 | Students (default page), review queue (`/teaching/queue`), student detail with KU tab, groups |
 | `adapters/inbound/teaching_api.py` | 4 | Teacher API (review queue, revision, approve, students, groups) |
 | `ui/patterns/feedback_item.py` | 4 | Shared feedback rendering (used by teaching + submissions UI) |
 | `core/prompts/templates/activity_feedback.md` | 4 | LLM prompt template (via PROMPT_REGISTRY) |

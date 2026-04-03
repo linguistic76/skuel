@@ -1070,6 +1070,7 @@ Unified sidebar component for all sidebar pages (Profile, KU, Reports, Journals,
 
 **New parameters (2026-04):**
 - `title_prefix` - Element before sidebar title (e.g. back arrow)
+- `title_icon` - Lucide icon name replacing the text title (e.g. `"graduation-cap"` for Teaching sidebar)
 - `alpine_state` - Shared Alpine x-data on wrapper for sidebar + content communication
 - `mobile_item_renderer` - Custom renderer for mobile tabs
 - `item_renderer` - Custom renderer for desktop sidebar items
