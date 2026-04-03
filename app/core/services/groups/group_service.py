@@ -10,7 +10,7 @@ adds students, and assigns work to the group. No direct TEACHES relationship.
 CRUD via CRUDRouteFactory (TEACHER role for mutations, any-auth for reads).
 Membership operations stay manual in groups_api.py.
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 import logging

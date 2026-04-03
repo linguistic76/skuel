@@ -226,7 +226,7 @@ report.shared_with = ["user_1", "user_2"]
 - ADR-022: Graph-Native Authentication (relationship-based auth model)
 - ADR-030: UserContext File Consolidation (context-aware features)
 - ADR-037: Embedding Infrastructure Separation (content processing)
-- ADR-040: Teacher Assignment Workflow (auto-sharing via SHARES_WITH for teacher review)
+- ADR-040: Teacher Exercise Workflow (auto-sharing via SHARES_WITH for teacher review)
 
 ---
 

@@ -34,7 +34,7 @@ logger = get_logger("skuel.routes.submissions.assessment")
 def create_exercise_report_api_routes(
     _app: Any,
     rt: Any,
-    feedback_service: "ExerciseReportOperations",
+    report_service: "ExerciseReportOperations",
     user_service_getter: Any,
 ) -> list[Any]:
     """
@@ -43,7 +43,7 @@ def create_exercise_report_api_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        feedback_service: ExerciseReportOperations service for assessment CRUD
+        report_service: ExerciseReportOperations service for assessment CRUD
         user_service_getter: Named function returning user_service (for role checks)
     """
 
@@ -62,7 +62,7 @@ def create_exercise_report_api_routes(
         body = await request.json()
         req = AssessmentCreateRequest.model_validate(body)
 
-        result = await feedback_service.create_assessment(
+        result = await report_service.create_assessment(
             teacher_uid=teacher_uid,
             subject_uid=req.subject_uid,
             title=req.title,
@@ -87,7 +87,7 @@ def create_exercise_report_api_routes(
         user_uid = require_authenticated_user(request)
         limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maximum=500)
 
-        result = await feedback_service.get_assessments_by_teacher(
+        result = await report_service.get_assessments_by_teacher(
             teacher_uid=user_uid,
             limit=limit,
         )
@@ -110,7 +110,7 @@ def create_exercise_report_api_routes(
         user_uid = require_authenticated_user(request)
         limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maximum=500)
 
-        result = await feedback_service.get_assessments_for_student(
+        result = await report_service.get_assessments_for_student(
             student_uid=user_uid,
             limit=limit,
         )

@@ -5,7 +5,7 @@ Groups API Routes — Domain-Specific Only
 Membership and student-facing routes for groups.
 CRUD routes are handled by CRUDRouteFactory (see groups_routes.py).
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from typing import TYPE_CHECKING, Any

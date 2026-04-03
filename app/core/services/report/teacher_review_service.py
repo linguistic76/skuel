@@ -13,7 +13,7 @@ is created and linked to the submission via REPORT_FOR. This makes every
 report round a first-class graph entity — searchable, queryable, and
 supporting revision cycles.
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 

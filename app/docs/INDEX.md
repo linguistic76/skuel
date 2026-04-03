@@ -244,7 +244,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-037: Lateral Relationships Visualization (Phase 5)](decisions/ADR-037-lateral-relationships-visualization-phase5.md)** | **2026-02-01** | **1330** |
 | **[ADR-038: Content Sharing Model](decisions/ADR-038-content-sharing-model.md)** | **2026-02-02** | **480** |
 | **[ADR-050: PWA Mobile Strategy](decisions/ADR-050-pwa-mobile-strategy.md)** | **2026-03-16** | **127** |
-| **[ADR-040: Teacher Assignment Workflow](decisions/ADR-040-teacher-assignment-workflow.md)** | **2026-02-06** | **102** |
+| **[ADR-040: Teacher Exercise Workflow](decisions/ADR-040-teacher-exercise-workflow.md)** | **2026-02-06** | **102** |
 | **[ADR-041: Unified Ku Model](decisions/ADR-041-unified-ku-model.md)** | **2026-02-14** | **—** |
 | **[ADR-042: Privacy as First-Class Citizen](decisions/ADR-042-privacy-as-first-class-citizen.md)** | **2026-03-01** | **—** |
 | **[ADR-043: Intelligence Tier Toggle](decisions/ADR-043-intelligence-tier-toggle.md)** | **2026-03-04** | **—** |

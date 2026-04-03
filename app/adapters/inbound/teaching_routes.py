@@ -4,7 +4,7 @@ Teaching Routes - Clean Architecture Factory
 
 Wires Teaching review API + UI routes using DomainRouteConfig.
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from typing import TYPE_CHECKING, Any

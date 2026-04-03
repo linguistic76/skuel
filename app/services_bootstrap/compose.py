@@ -783,7 +783,7 @@ async def compose_services(
         )
         logger.info("✅ InteractionService created (User Interaction Contract)")
 
-        # Create group service (ADR-040: Teacher Assignment Workflow)
+        # Create group service (ADR-040: Teacher Exercise Workflow)
         from adapters.persistence.neo4j.domain_backends import GroupBackend
         from core.models.group.group import Group
         from core.services.groups import GroupService
@@ -798,7 +798,7 @@ async def compose_services(
         group_service = GroupService(backend=group_backend, event_bus=event_bus)
         logger.info("✅ GroupService created (ADR-040)")
 
-        # Create teacher review service (ADR-040: Teacher Assignment Workflow)
+        # Create teacher review service (ADR-040: Teacher Exercise Workflow)
         from core.services.report.teacher_review_service import TeacherReviewService
 
         teacher_review_service = TeacherReviewService(

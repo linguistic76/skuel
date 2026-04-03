@@ -31,7 +31,7 @@ Protocol Responsibilities
 ISP-compliant: each protocol captures only the methods called from routes.
 
 See: /docs/patterns/protocol_architecture.md
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable

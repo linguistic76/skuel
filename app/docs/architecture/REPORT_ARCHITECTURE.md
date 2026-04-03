@@ -14,7 +14,7 @@ tags:
 related:
 - LEARNING_LOOP_ARCHITECTURE.md
 - ADR-038-content-sharing-model.md
-- ADR-040-teacher-assignment-workflow.md
+- ADR-040-teacher-exercise-workflow.md
 related_skills:
 - learning-loop
 ---
@@ -564,6 +564,6 @@ User annotates report (additive or revision mode)
 
 - [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — Entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
-- [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md)
+- [ADR-040: Teacher Exercise Workflow](/docs/decisions/ADR-040-teacher-exercise-workflow.md)
 - [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md)
 - [Sharing Patterns](/docs/patterns/SHARING_PATTERNS.md)

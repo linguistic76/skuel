@@ -8,7 +8,7 @@ FULFILLS_EXERCISE relationship.
 
 Formerly assignment_handler.py — renamed per of Ku hierarchy refactoring.
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from core.events.submission_events import SubmissionCreated

@@ -1,6 +1,6 @@
 """Teaching domain request models.
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from pydantic import BaseModel, Field

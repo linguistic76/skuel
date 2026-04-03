@@ -12,7 +12,7 @@ Provides:
 
 TEACHER role required for all endpoints.
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 import pathlib

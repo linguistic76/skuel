@@ -8,7 +8,7 @@ A Group represents a teacher-student class (e.g., "Physics 101 - Spring 2026").
 Teachers create groups and add students. Groups mediate all teacher-student
 relationships — no direct TEACHES relationship.
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from dataclasses import dataclass, field

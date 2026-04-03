@@ -4,7 +4,7 @@ Group Domain Events
 
 Events published when group operations occur.
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from dataclasses import dataclass

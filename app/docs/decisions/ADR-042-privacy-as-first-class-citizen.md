@@ -6,7 +6,7 @@ category: decisions
 tags: [privacy, security, sharing, access-control, activity-report]
 related:
   - ADR-038-content-sharing-model.md
-  - ADR-040-teacher-assignment-workflow.md
+  - ADR-040-teacher-exercise-workflow.md
   - ADR-022-graph-native-authentication.md
 ---
 
@@ -18,7 +18,7 @@ related:
 
 **Related ADRs:**
 - Related to: ADR-038 (Content Sharing Model)
-- Related to: ADR-040 (Teacher Assignment Workflow)
+- Related to: ADR-040 (Teacher Exercise Workflow)
 - Related to: ADR-022 (Graph-Native Authentication)
 
 ---

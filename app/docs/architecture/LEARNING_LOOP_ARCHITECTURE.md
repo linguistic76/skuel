@@ -555,6 +555,6 @@ See: `docs/user-guides/zpd.md`, `docs/user-guides/learning-loop.md`
 | [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) | Canonical report reference — all services, APIs, graph patterns, ProcessorType taxonomy |
 | [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) | How the loop fits the Entity Type Architecture |
 | [ADR-038: Content Sharing](/docs/decisions/ADR-038-content-sharing-model.md) | Three-level visibility model for submissions |
-| [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md) | ASSIGNED exercise, auto-sharing, teacher review queue |
+| [ADR-040: Teacher Exercise Workflow](/docs/decisions/ADR-040-teacher-exercise-workflow.md) | ASSIGNED exercise, auto-sharing, teacher review queue |
 | `.claude/skills/learning-loop/SKILL.md` | Developer guide — implementation details, service architecture, anti-patterns |
 | `.claude/skills/zpd/SKILL.md` | ZPD intelligence layer — readiness scoring, compound evidence, recommended actions |

@@ -6,7 +6,7 @@ Listens for PathStepEnrolled events and auto-enrols the student in the admin's
 default group. This ensures ASSIGNED exercises with a FOR_GROUP constraint are
 accessible to all enrolled students, even before a teacher explicitly adds them.
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from datetime import UTC, datetime

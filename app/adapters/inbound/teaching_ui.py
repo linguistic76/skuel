@@ -13,7 +13,7 @@ TEACHER role required for all endpoints.
 
 Layout: Student hub uses BasePage, child pages use SidebarPage.
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from typing import TYPE_CHECKING, Any

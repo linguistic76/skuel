@@ -11,7 +11,7 @@ Membership operations are domain-specific (manual routes in groups_api.py).
 TeacherReviewOperations lives in report_protocols.py — the teacher review
 workflow is Phase 4 of the learning loop (Report), not Group infrastructure.
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 import builtins

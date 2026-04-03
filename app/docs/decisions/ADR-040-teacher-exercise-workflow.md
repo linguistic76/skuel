@@ -1,8 +1,8 @@
-# ADR-040: Teacher Assignment Workflow — Groups, Assignments, and Human Review
+# ADR-040: Teacher Exercise Workflow — Groups, Exercises, and Human Review
 
 **Status:** Accepted
 **Date:** 2026-02-06
-**Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment), 2026-04-02 (teacher feedback as .md file upload), 2026-04-02 (fix status guards for submit_report + request_revision), 2026-04-02 (review queue + dashboard stats switch to OWNS-based approach)
+**Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment), 2026-04-02 (teacher feedback as .md file upload), 2026-04-02 (fix status guards for submit_report + request_revision), 2026-04-02 (review queue + dashboard stats switch to OWNS-based approach), 2026-04-03 (Assignment → Exercise rename throughout)
 **Author:** Claude Code
 
 ## Context
@@ -17,9 +17,9 @@ SKUEL needs teachers to assign work to students and review submissions. The piec
 
 Two changes unify these into a coherent architecture:
 1. **Group** — new entity for teacher-student class management
-2. **Assignment** — instruction template with `scope`, `due_date`, `processor_type` to support teacher assignments
+2. **Exercise** — instruction template with `scope`, `due_date`, `processor_type` to support teacher exercises
 
-A teacher assignment IS an Assignment with `scope=ASSIGNED`.
+A teacher exercise IS an Exercise with `scope=ASSIGNED`.
 
 ## Decision
 
@@ -35,15 +35,15 @@ Groups are the ONE PATH for teacher-student relationships. No direct TEACHES rel
 
 Group uses Three-Tier type system (Pattern A): Pydantic request → GroupDTO → Group (frozen dataclass).
 
-### 2. Assignment (Instruction Template)
+### 2. Exercise (Instruction Template)
 
-Assignment provides fields for both personal and teacher-assigned workflows:
+Exercise provides fields for both personal and teacher-assigned workflows:
 - `scope: ExerciseScope` — PERSONAL (default) or ASSIGNED
 - `due_date: date | None` — only for ASSIGNED scope
 - `processor_type: ProcessorType` — LLM, HUMAN, or HYBRID
 - `group_uid: str | None` — target group for ASSIGNED scope
 
-A teacher assignment IS an Assignment with `scope=ASSIGNED`.
+A teacher exercise IS an Exercise with `scope=ASSIGNED`.
 
 ### 3. Teacher Review — OWNS-Based Discovery (updated 2026-04-03)
 
@@ -70,14 +70,14 @@ One Path Forward — `:Team` label replaced with `:Group`. No backward compatibi
 // New nodes
 (:Group {uid, name, description, owner_uid, is_active, max_members, created_at, updated_at})
 
-// Assignment nodes
-(:Assignment {uid, user_uid, name, instructions, model, context_notes, domain,
-              is_active, scope, due_date, processor_type, group_uid, ...})
+// Exercise nodes
+(:Exercise {uid, user_uid, name, instructions, model, context_notes, domain,
+            is_active, scope, due_date, processor_type, group_uid, ...})
 
 // Relationships
 (teacher:User)-[:OWNS]->(group:Group)
 (student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
-(project:Assignment)-[:FOR_GROUP]->(group:Group)
+(exercise:Exercise)-[:FOR_GROUP]->(group:Group)
 (submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
 ```
 
@@ -90,18 +90,18 @@ One Path Forward — `:Team` label replaced with `:Group`. No backward compatibi
 - Clear ownership model: students own submissions, teachers discover via role-gated queue
 
 ### Negative
-- Assignment has 4 fields that are only relevant to ASSIGNED scope
+- Exercise has 4 fields that are only relevant to ASSIGNED scope
 - Group management adds CRUD surface area
 
 ## Alternatives Considered
 
-1. **Separate entity for teacher vs personal assignments** — Rejected. One Assignment model with `scope` discriminator follows One Path Forward.
+1. **Separate entity for teacher vs personal exercises** — Rejected. One Exercise model with `scope` discriminator follows One Path Forward.
 2. **Direct TEACHES relationship** — Rejected. Teacher-student relationship should be mediated by groups for scalability and class management.
 3. **Ownership transfer on submission** — Rejected. Student should always own their work. Teacher gets access, not ownership.
 
 ## Naming History
 
-Originally implemented as `KuProject` / `ReportProject` in code. Renamed to `Assignment` in February 2026 to align with pipeline vocabulary (Assign → Submit → Analyze → Review). The word "report" was doing triple duty — naming things by their pipeline role eliminates ambiguity.
+Originally implemented as `KuProject` / `ReportProject` in code. Renamed to `Assignment` in February 2026 to align with pipeline vocabulary (Assign → Submit → Analyze → Review). Renamed again to `Exercise` in March 2026 — "Exercise" accurately describes the entity's role as an instruction template for student work (personal, assigned, or assessment).
 
 ## Implementation Notes (2026-04-02)
 

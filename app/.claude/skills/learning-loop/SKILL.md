@@ -1024,7 +1024,7 @@ class AdminSummary(UserOwnedEntity):  # New entity for admin-written reports?
 - [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) — canonical report reference
 - [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) — canonical report reference — all services, APIs, graph patterns, ProcessorType taxonomy, Exercise pipeline
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
-- [ADR-040: Teacher Assignment Workflow](/docs/decisions/ADR-040-teacher-assignment-workflow.md)
+- [ADR-040: Teacher Exercise Workflow](/docs/decisions/ADR-040-teacher-exercise-workflow.md)
 - [SHARING_PATTERNS.md](/docs/patterns/SHARING_PATTERNS.md)
 - [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md)
 - [AUDIO_TRANSCRIPTION_ARCHITECTURE.md](/docs/architecture/AUDIO_TRANSCRIPTION_ARCHITECTURE.md) — Deepgram config, batch pipeline, utterance formatting

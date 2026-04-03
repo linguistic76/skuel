@@ -152,7 +152,7 @@ class ReportSubmitted(BaseEvent):
     report_uid is first-class (not buried in metadata) because it is
     the primary reference the notification handler needs.
 
-    See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+    See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
     """
 
     submission_uid: str
@@ -182,7 +182,7 @@ class SubmissionApproved(BaseEvent):
     - Submission status set to COMPLETED
     - MASTERED relationships updated (score=0.8) for linked Ku nodes
 
-    See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+    See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
     """
 
     submission_uid: str
@@ -248,7 +248,7 @@ class SubmissionRevisionRequested(BaseEvent):
     - Student notification
     - Submission status update to REVISION_REQUESTED
 
-    See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+    See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
     """
 
     submission_uid: str

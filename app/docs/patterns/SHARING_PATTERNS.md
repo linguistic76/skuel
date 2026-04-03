@@ -160,7 +160,7 @@ await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
 
 **CLI alternative:** Teachers can bypass the web UI entirely. `scripts/export_submissions.py --teacher-uid <uid>` exports the review queue to `~/skuel-reviews/pending/<uid>.md`; after writing reports to `done/`, `scripts/import_reports.py` posts them back via the same service methods. See ADR-040.
 
-**See:** `/docs/decisions/ADR-040-teacher-assignment-workflow.md`
+**See:** `/docs/decisions/ADR-040-teacher-exercise-workflow.md`
 
 ---
 
@@ -675,5 +675,5 @@ if result.is_error:
 
 ### Documentation
 - **ADR-038:** `/docs/decisions/ADR-038-content-sharing-model.md` — original sharing decision
-- **ADR-040:** `/docs/decisions/ADR-040-teacher-assignment-workflow.md` — teacher auto-sharing
+- **ADR-040:** `/docs/decisions/ADR-040-teacher-exercise-workflow.md` — teacher exercise workflow (OWNS-based review)
 - **ADR-042:** `/docs/decisions/ADR-042-privacy-as-first-class-citizen.md` — UnifiedSharingService + group sharing

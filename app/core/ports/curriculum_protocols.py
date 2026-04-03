@@ -1192,7 +1192,7 @@ class ExerciseOperations(Protocol):
     Route consumer: exercises_api.py (via CRUDRouteFactory)
     Implementation: ExerciseService
 
-    See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+    See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
     """
 
     async def create_exercise(

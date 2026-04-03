@@ -4,7 +4,7 @@ Group Domain Models
 
 Three-tier type system for Groups (teacher-student class management).
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from core.models.group.group import (

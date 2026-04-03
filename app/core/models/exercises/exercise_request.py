@@ -7,7 +7,7 @@ Handles input validation at the API boundary.
 
 Pipeline role: EXERCISE stage (Exercise → Submit → Analyze → Review)
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from datetime import date

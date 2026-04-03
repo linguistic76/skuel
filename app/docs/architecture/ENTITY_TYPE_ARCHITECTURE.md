@@ -8,7 +8,7 @@ tags:
 - architecture
 - entity-types
 related:
-- ADR-040-teacher-assignment-workflow
+- ADR-040-teacher-exercise-workflow
 - ADR-041-unified-ku-model
 - ADR-047-entity-types-replace-domain-categories
 - ADR-051-user-interaction-contract
@@ -369,7 +369,7 @@ Groups mediate ALL teacher-student relationships. Teacher creates group -> adds 
 (submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
 ```
 
-**See:** `/docs/decisions/ADR-040-teacher-assignment-workflow.md`
+**See:** `/docs/decisions/ADR-040-teacher-exercise-workflow.md`
 
 ### MOC (Map of Content) — Emergent Organization
 

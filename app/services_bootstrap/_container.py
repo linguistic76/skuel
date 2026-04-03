@@ -190,7 +190,7 @@ class Services:
     )
 
     # ========================================================================
-    # GROUP & TEACHING (ADR-040) - Teacher assignment workflow
+    # GROUP & TEACHING (ADR-040) - Teacher exercise workflow
     # ========================================================================
     group_service: GroupOperations | None = None  # GroupService - CRUD + membership for groups
     teacher_review: TeacherReviewOperations | None = (

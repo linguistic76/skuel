@@ -283,4 +283,4 @@ The loop (Layer 1) generates graph relationships (Layer 4) as the learner works.
 - `/docs/architecture/REPORT_ARCHITECTURE.md` — Report system design
 - `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — Askesis vision and pedagogy
 - `/docs/decisions/ADR-038-content-sharing-model.md` — Content sharing model
-- `/docs/decisions/ADR-040-teacher-assignment-workflow.md` — Teacher assignment workflow
+- `/docs/decisions/ADR-040-teacher-exercise-workflow.md` — Teacher exercise workflow

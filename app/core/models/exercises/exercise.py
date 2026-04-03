@@ -32,7 +32,7 @@ Hierarchy:
     └── Curriculum(Entity) +21 fields
         └── Exercise(Curriculum) +9 fields
 
-See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
+See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 import json
