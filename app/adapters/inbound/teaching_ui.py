@@ -77,11 +77,36 @@ logger = get_logger("skuel.routes.teaching.ui")
 # SIDEBAR NAVIGATION
 # ============================================================================
 
-TEACHING_SIDEBAR_ITEMS = [
-    SidebarItem("Students", "/teaching/students", "students", icon="👥"),
-    SidebarItem("Review Queue", "/teaching/queue", "queue", icon="📥"),
-    SidebarItem("Groups", "/teaching/groups", "groups", icon="👥"),
-]
+
+async def _build_teaching_sidebar(
+    teacher_review_service: "TeacherReviewOperations",
+    teacher_uid: str,
+) -> list[SidebarItem]:
+    """Build teaching sidebar items with student accordion under Students."""
+    result = await teacher_review_service.get_students_summary(teacher_uid=teacher_uid)
+
+    student_children: list[SidebarItem] = []
+    if not result.is_error and result.value:
+        for item in result.value:
+            student_uid = item.get("student_uid", "")
+            raw_name = item.get("student_name") or student_uid or "Unknown"
+            display_name = _display_student_name(raw_name)
+            student_children.append(
+                SidebarItem(
+                    label=display_name,
+                    href=f"/teaching/students/{student_uid}",
+                    slug=f"student-{student_uid}",
+                )
+            )
+
+    return [
+        SidebarItem(
+            "Students", "/teaching/students", "students", icon="👥", children=student_children
+        ),
+        SidebarItem("Groups", "/teaching/groups", "groups", icon="👥"),
+        SidebarItem("Review Queue", "/teaching/queue", "queue", icon="📥"),
+    ]
+
 
 _SIDEBAR_DEFAULTS = {
     "title": "Teaching",
@@ -168,6 +193,7 @@ def create_teaching_ui_routes(
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_review_queue(teacher_uid=user_uid)
+        sidebar_items = await _build_teaching_sidebar(teacher_review_service, user_uid)
 
         if result.is_error:
             queue_content: Any = render_error_banner(
@@ -187,7 +213,7 @@ def create_teaching_ui_routes(
         )
         return await SidebarPage(
             content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
+            items=sidebar_items,
             active="queue",
             page_title="Review Queue",
             request=request,
@@ -240,6 +266,8 @@ def create_teaching_ui_routes(
                 Div(*feedback_items),
                 cls="mb-6",
             )
+
+        sidebar_items = await _build_teaching_sidebar(teacher_review_service, user_uid)
 
         content = Div(
             PageHeader("Review Submission"),
@@ -349,7 +377,7 @@ def create_teaching_ui_routes(
         )
         return await SidebarPage(
             content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
+            items=sidebar_items,
             active="queue",
             page_title="Review Submission",
             request=request,
@@ -368,6 +396,8 @@ def create_teaching_ui_routes(
 
         result = await teacher_review_service.get_students_summary(teacher_uid=user_uid)
 
+        # Build sidebar from the same result (no second fetch)
+        student_children: list[SidebarItem] = []
         if result.is_error:
             students_content: Any = render_error_banner(
                 "Failed to load students", str(result.error)
@@ -378,6 +408,17 @@ def create_teaching_ui_routes(
                 "Students who share work with you will appear here.",
             )
         else:
+            for item in result.value:
+                student_uid = item.get("student_uid", "")
+                raw_name = item.get("student_name") or student_uid or "Unknown"
+                display_name = _display_student_name(raw_name)
+                student_children.append(
+                    SidebarItem(
+                        label=display_name,
+                        href=f"/teaching/students/{student_uid}",
+                        slug=f"student-{student_uid}",
+                    )
+                )
             students_content = Div(
                 *[
                     render_student_summary_card(
@@ -395,13 +436,21 @@ def create_teaching_ui_routes(
                 ]
             )
 
+        sidebar_items = [
+            SidebarItem(
+                "Students", "/teaching/students", "students", icon="👥", children=student_children
+            ),
+            SidebarItem("Groups", "/teaching/groups", "groups", icon="👥"),
+            SidebarItem("Review Queue", "/teaching/queue", "queue", icon="📥"),
+        ]
+
         content = Div(
             PageHeader("Students", subtitle="Students who have submitted work"),
             students_content,
         )
         return await SidebarPage(
             content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
+            items=sidebar_items,
             active="students",
             page_title="Students",
             request=request,
@@ -554,6 +603,7 @@ def create_teaching_ui_routes(
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_teacher_groups_with_stats(teacher_uid=user_uid)
+        sidebar_items = await _build_teaching_sidebar(teacher_review_service, user_uid)
 
         if result.is_error:
             groups_content: Any = render_error_banner("Failed to load groups", str(result.error))
@@ -599,7 +649,7 @@ def create_teaching_ui_routes(
         )
         return await SidebarPage(
             content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
+            items=sidebar_items,
             active="groups",
             page_title="Groups",
             request=request,
@@ -649,6 +699,8 @@ def create_teaching_ui_routes(
             ),
         )
 
+        sidebar_items = await _build_teaching_sidebar(teacher_review_service, user_uid)
+
         content = Div(
             PageHeader(f"Group: {uid}", subtitle="Members and their submission progress"),
             members_content,
@@ -656,7 +708,7 @@ def create_teaching_ui_routes(
         )
         return await SidebarPage(
             content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
+            items=sidebar_items,
             active="groups",
             page_title="Group Detail",
             request=request,

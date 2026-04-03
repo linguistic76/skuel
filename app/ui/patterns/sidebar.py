@@ -52,6 +52,7 @@ class SidebarItem:
     badge_text: str = ""
     badge_cls: str = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground"
     hx_attrs: dict[str, str] = field(default_factory=dict)
+    children: list["SidebarItem"] = field(default_factory=list)
 
 
 def _chevron_svg() -> "FT":
@@ -59,8 +60,72 @@ def _chevron_svg() -> "FT":
     return UkIcon("chevron-left", height=16, width=16, cls="", aria_hidden="true")
 
 
+def _render_accordion_item(item: SidebarItem, is_active: bool) -> "FT":
+    """Render a sidebar item as an accordion with expandable children."""
+    active_cls = "bg-accent font-semibold" if is_active else ""
+    header_children: list[Any] = []
+
+    if item.icon:
+        header_children.append(Span(item.icon, cls="text-lg", aria_hidden="true"))
+
+    header_children.append(Span(item.label, cls="flex-1"))
+
+    if item.badge_text:
+        header_children.append(Span(item.badge_text, cls=item.badge_cls))
+
+    # Chevron that rotates when expanded
+    header_children.append(
+        UkIcon(
+            "chevron-down",
+            height=14,
+            width=14,
+            cls="transition-transform duration-200",
+            **{":class": "open ? 'rotate-180' : ''"},
+        )
+    )
+
+    # Child links
+    child_links = [
+        Li(
+            A(
+                child.label,
+                href=child.href,
+                cls="text-sm text-muted-foreground hover:text-foreground transition-colors block py-1.5 px-3",
+            )
+        )
+        for child in item.children
+    ]
+
+    return Li(
+        Div(
+            # Clickable header — toggles accordion
+            Div(
+                *header_children,
+                cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px] transition-colors hover:bg-accent cursor-pointer {active_cls}",
+                **{"@click": "open = !open"},
+                role="button",
+                aria_label=f"Toggle {item.label} list",
+            ),
+            # Collapsible child list
+            Ul(
+                *child_links,
+                cls="pl-6 list-none",
+                x_show="open",
+                **{"x-transition.duration.200ms": True},
+            ),
+            **{
+                "x-data": f"{{ open: {str(is_active).lower()} }}",
+            },
+        )
+    )
+
+
 def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
     """Default sidebar item renderer."""
+    # Accordion for items with children
+    if item.children:
+        return _render_accordion_item(item, is_active)
+
     active_cls = "bg-accent font-semibold" if is_active else ""
     children: list[Any] = []
 
