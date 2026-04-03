@@ -77,7 +77,7 @@ def _notification_card(notif: dict[str, Any]) -> Div:
             time_display = str(created_at)[:16]
 
     source_uid = notif.get("source_uid", "")
-    link_href = f"/submissions/{source_uid}" if source_uid else "#"
+    link_href = f"/gradebook/{source_uid}" if source_uid else "#"
 
     mark_read_btn = ""
     if not is_read:

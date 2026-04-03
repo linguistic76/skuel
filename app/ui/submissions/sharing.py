@@ -157,7 +157,7 @@ def render_shared_users_list(report_uid: str) -> Any:
         Div(
             P("Loading shared users...", cls="text-muted-foreground text-sm"),
             id="shared-users-list",
-            hx_get=f"/submissions/{report_uid}/shared-users",
+            hx_get=f"/gradebook/{report_uid}/shared-users",
             hx_trigger="load",
             hx_swap="innerHTML",
         ),

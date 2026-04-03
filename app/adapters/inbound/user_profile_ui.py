@@ -833,7 +833,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     Div(
                         ButtonLink(
                             "View",
-                            href=f"/submissions/{report.uid}",
+                            href=f"/gradebook/{report.uid}",
                             variant=ButtonT.primary,
                             size=Size.xs,
                         ),

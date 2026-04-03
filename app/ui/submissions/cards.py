@@ -40,7 +40,7 @@ def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
         PinButton(entity_uid=submission.uid, is_pinned=is_pinned, size="xs"),
         ButtonLink(
             "View",
-            href=f"/submissions/{submission.uid}",
+            href=f"/gradebook/{submission.uid}",
             variant=ButtonT.ghost,
             size=Size.sm,
         ),

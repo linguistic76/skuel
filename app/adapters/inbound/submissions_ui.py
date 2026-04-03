@@ -1,15 +1,15 @@
 """
-Submissions UI Routes — ExerciseSubmission Pages
-=================================================
+GradeBook UI Routes — ExerciseSubmission Pages
+===============================================
 
 Routes for submitting work, browsing submissions, and viewing submission details.
 
 Routes:
 - GET /submit — File upload form (standalone, deep-linked from exercises)
-- GET /submissions — Tabbed hub: My Submissions | Submit | Request Report
-- GET /submissions/{uid} — Submission detail page
-- HTMX fragments: /submissions/list, /upload, /grid,
-  /submissions/{uid}/{info,content,report,exercise,category-selector,tags-manager,shared-users}
+- GET /gradebook — Tabbed hub: My Submissions | Submit | Request Report
+- GET /gradebook/{uid} — Submission detail page
+- HTMX fragments: /gradebook/list, /upload, /grid,
+  /gradebook/{uid}/{info,content,report,exercise,category-selector,tags-manager,shared-users}
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -123,7 +123,7 @@ def create_submissions_ui_routes(
     teacher_review_service: Any = None,
     user_service: Any = None,
 ) -> RouteList:
-    """Create /submit and /submissions UI routes.
+    """Create /submit and /gradebook UI routes.
 
     Args:
         _app: FastHTML application instance
@@ -169,32 +169,32 @@ def create_submissions_ui_routes(
             content=content,
             title="Submit",
             request=request,
-            active_page="submissions",
+            active_page="gradebook",
         )
 
     # ========================================================================
-    # MY SUBMISSIONS PAGE — merges yours + browse
+    # GRADEBOOK PAGE — merges yours + browse
     # ========================================================================
 
-    @rt("/submissions")
-    async def submissions_page(request: Request) -> Any:
-        """Submissions hub: tabbed My Submissions | Submit | Request Report."""
+    @rt("/gradebook")
+    async def gradebook_page(request: Request) -> Any:
+        """GradeBook hub: tabbed My Submissions | Submit | Request Report."""
         require_authenticated_user(request)
         content = Div(
             submissions_section(),
         )
         return await BasePage(
             content=content,
-            title="Submissions",
+            title="GradeBook",
             request=request,
-            active_page="submissions",
+            active_page="gradebook",
         )
 
     # ========================================================================
     # HTMX ENDPOINTS
     # ========================================================================
 
-    @rt("/submissions/list")
+    @rt("/gradebook/list")
     async def submissions_list(request: Request) -> Any:
         """HTMX fragment: student's submissions with teacher review status."""
         try:
@@ -219,7 +219,7 @@ def create_submissions_ui_routes(
                 id="submissions-yours-list",
             )
 
-    @rt("/submissions/upload")
+    @rt("/gradebook/upload")
     async def upload_submission(request: Request) -> Any:
         """HTMX endpoint for submission file upload (human review).
 
@@ -346,7 +346,7 @@ def create_submissions_ui_routes(
     # SUBMISSION DETAIL HTMX ENDPOINTS
     # ========================================================================
 
-    @rt("/submissions/{uid}/info")
+    @rt("/gradebook/{uid}/info")
     async def get_submission_info(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading submission detail info."""
         try:
@@ -382,7 +382,7 @@ def create_submissions_ui_routes(
                 id="submission-info",
             )
 
-    @rt("/submissions/{uid}/content")
+    @rt("/gradebook/{uid}/content")
     async def get_submission_content(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading submission processed content."""
         try:
@@ -399,7 +399,7 @@ def create_submissions_ui_routes(
             logger.error(f"Error loading submission content: {e}", exc_info=True)
             return render_processed_content(None, False)
 
-    @rt("/submissions/{uid}/report")
+    @rt("/gradebook/{uid}/report")
     async def get_submission_report(request: Request, uid: str) -> Any:
         """HTMX endpoint: report received on this submission."""
         from ui.patterns.report_item import render_report_item
@@ -447,7 +447,7 @@ def create_submissions_ui_routes(
                 id="feedback-section",
             )
 
-    @rt("/submissions/{uid}/exercise")
+    @rt("/gradebook/{uid}/exercise")
     async def get_submission_exercise(request: Request, uid: str) -> Any:
         """HTMX endpoint: which exercise this submission fulfills."""
         try:
@@ -474,7 +474,7 @@ def create_submissions_ui_routes(
             logger.error(f"Error loading exercise link for {uid}: {e}", exc_info=True)
             return Div(id="exercise-link")
 
-    @rt("/submissions/{uid}/category-selector")
+    @rt("/gradebook/{uid}/category-selector")
     async def get_category_selector(request: Request, uid: str) -> Any:
         """HTMX endpoint for category selector."""
         try:
@@ -489,7 +489,7 @@ def create_submissions_ui_routes(
             logger.error(f"Error loading category selector: {e}", exc_info=True)
             return render_inline_error("Error loading category selector")
 
-    @rt("/submissions/{uid}/tags-manager")
+    @rt("/gradebook/{uid}/tags-manager")
     async def get_tags_manager(request: Request, uid: str) -> Any:
         """HTMX endpoint for tags manager."""
         try:
@@ -504,7 +504,7 @@ def create_submissions_ui_routes(
             logger.error(f"Error loading tags manager: {e}", exc_info=True)
             return render_inline_error("Error loading tags manager")
 
-    @rt("/submissions/{uid}/shared-users")
+    @rt("/gradebook/{uid}/shared-users")
     async def get_shared_users_ui(request: Request, uid: str) -> Any:
         """HTMX endpoint for rendering shared users list."""
         try:
@@ -527,7 +527,7 @@ def create_submissions_ui_routes(
     # SUBMISSION DETAIL PAGE — MUST BE LAST (catch-all pattern)
     # ========================================================================
 
-    @rt("/submissions/{uid}")
+    @rt("/gradebook/{uid}")
     async def submission_detail(request: Request, uid: str) -> Any:
         """Submission detail view with HTMX-loaded sections."""
         user_uid = require_authenticated_user(request)
@@ -545,7 +545,7 @@ def create_submissions_ui_routes(
                     id="submission-info",
                     cls="mb-4",
                     **{
-                        "hx-get": f"/submissions/{uid}/info",
+                        "hx-get": f"/gradebook/{uid}/info",
                         "hx-trigger": "load",
                         "hx-swap": "outerHTML",
                     },
@@ -553,7 +553,7 @@ def create_submissions_ui_routes(
                 Div(
                     id="exercise-link",
                     **{
-                        "hx-get": f"/submissions/{uid}/exercise",
+                        "hx-get": f"/gradebook/{uid}/exercise",
                         "hx-trigger": "load",
                         "hx-swap": "outerHTML",
                     },
@@ -566,7 +566,7 @@ def create_submissions_ui_routes(
                         cls="p-4 bg-muted rounded-lg",
                         style="max-height: 600px; overflow-y: auto;",
                         **{
-                            "hx-get": f"/submissions/{uid}/content",
+                            "hx-get": f"/gradebook/{uid}/content",
                             "hx-trigger": "load",
                             "hx-swap": "outerHTML",
                         },
@@ -579,7 +579,7 @@ def create_submissions_ui_routes(
                     id="feedback-section",
                     cls="mb-4",
                     **{
-                        "hx-get": f"/submissions/{uid}/report",
+                        "hx-get": f"/gradebook/{uid}/report",
                         "hx-trigger": "load",
                         "hx-swap": "outerHTML",
                     },
@@ -591,8 +591,8 @@ def create_submissions_ui_routes(
                 ),
                 Div(
                     ButtonLink(
-                        "\u2190 Back to Submissions",
-                        href="/submissions",
+                        "\u2190 Back to GradeBook",
+                        href="/gradebook",
                         variant=ButtonT.ghost,
                     ),
                     cls="mt-4",
@@ -614,24 +614,24 @@ def create_submissions_ui_routes(
             content,
             title="Submission Details",
             request=request,
-            active_page="submissions",
+            active_page="gradebook",
         )
 
-    logger.info("Submissions UI routes created (/submit, /submissions, /submissions/{uid})")
+    logger.info("GradeBook UI routes created (/submit, /gradebook, /gradebook/{uid})")
 
     # Route order matters! Specific routes before parameterized routes.
     return [
         submit_page,  # /submit
-        submissions_page,  # /submissions
-        submissions_list,  # /submissions/list (HTMX)
-        upload_submission,  # /upload (HTMX POST)
+        gradebook_page,  # /gradebook
+        submissions_list,  # /gradebook/list (HTMX)
+        upload_submission,  # /gradebook/upload (HTMX POST)
         get_submissions_grid,  # /grid (HTMX GET)
-        get_submission_info,  # /submissions/{uid}/info
-        get_submission_content,  # /submissions/{uid}/content
-        get_submission_report,  # /submissions/{uid}/report
-        get_submission_exercise,  # /submissions/{uid}/exercise
-        get_category_selector,  # /submissions/{uid}/category-selector
-        get_tags_manager,  # /submissions/{uid}/tags-manager
-        get_shared_users_ui,  # /submissions/{uid}/shared-users
-        submission_detail,  # /submissions/{uid} (catch-all — LAST)
+        get_submission_info,  # /gradebook/{uid}/info
+        get_submission_content,  # /gradebook/{uid}/content
+        get_submission_report,  # /gradebook/{uid}/report
+        get_submission_exercise,  # /gradebook/{uid}/exercise
+        get_category_selector,  # /gradebook/{uid}/category-selector
+        get_tags_manager,  # /gradebook/{uid}/tags-manager
+        get_shared_users_ui,  # /gradebook/{uid}/shared-users
+        submission_detail,  # /gradebook/{uid} (catch-all — LAST)
     ]

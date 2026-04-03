@@ -163,7 +163,7 @@ def _submit_handler(exercise_uid: str, field_names: list[str]) -> str:
         f"let data = await res.json(); "
         f"$el.innerHTML = '<div class=\"space-y-3\">' "
         f"+ '<div class=\"uk-alert uk-alert-success\">Submitted successfully.</div>' "
-        f'+ \'<a href="/submissions" class="text-primary underline text-sm">View Your Submissions</a>\' '
+        f'+ \'<a href="/gradebook" class="text-primary underline text-sm">View Your GradeBook</a>\' '
         f'+ \' <button onclick="location.reload()" class="text-sm text-muted-foreground underline ml-2">Submit Another</button>\' '
         f"+ '</div>'; "
         f"}} else {{ "

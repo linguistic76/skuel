@@ -108,7 +108,7 @@ def render_upload_form(
                 ),
                 Div(id="upload-status", cls="mt-4 text-center"),
                 **{
-                    "hx-post": "/submissions/upload",
+                    "hx-post": "/gradebook/upload",
                     "hx-target": "#upload-status",
                     "hx-swap": "outerHTML",
                     "hx-encoding": "multipart/form-data",
@@ -220,7 +220,7 @@ def render_yours_list_container() -> Any:
         id="submissions-yours-list",
         cls="mt-4",
         **{
-            "hx-get": "/submissions/list",
+            "hx-get": "/gradebook/list",
             "hx-trigger": "load",
             "hx-swap": "outerHTML",
         },
@@ -268,7 +268,7 @@ def render_category_display(submission: Any) -> Any:
             variant=ButtonT.ghost,
             size=Size.xs,
             cls="ml-2",
-            hx_get=f"/submissions/{submission.uid}/category-selector",
+            hx_get=f"/gradebook/{submission.uid}/category-selector",
             hx_target=f"#category-display-{submission.uid}",
             hx_swap="outerHTML",
         ),

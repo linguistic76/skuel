@@ -100,10 +100,10 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         icon="compass",
     ),
     IconNavItem(
-        "Submissions",
+        "GradeBook",
         "",
-        "/submissions",
-        "submissions",
+        "/gradebook",
+        "gradebook",
         has_dropdown=False,
         icon="arrow-left-right",
     ),

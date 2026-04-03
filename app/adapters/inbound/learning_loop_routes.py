@@ -2,7 +2,7 @@
 ========================================================================
 
 Wires the decomposed submission and report UI routes:
-- submissions_ui.py → /submit, /submissions, /submissions/{uid}, fragments
+- submissions_ui.py → /submit, /gradebook, /gradebook/{uid}, fragments
 - exercise_reports_ui.py → /exercise-reports, /reports/list
 - activity_reports_ui.py → /activity-reports, /submit-activity-report, fragments
 - reports_ui.py → /reports (tabbed hub)

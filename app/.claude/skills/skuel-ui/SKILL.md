@@ -452,7 +452,7 @@ The navbar left section has 4 icon links (in order), avatar, and logout:
 |----------|------|-------|------------|-------------|
 | 1st | ⚛️ (emoji) | `/ku` | `"knowledge"` | Knowledge index — flat Ku list |
 | 2nd | `book` | `/path-steps` | `"path-steps"` | PathStep catalog |
-| 3rd | `arrow-left-right` | `/submissions` | `"submissions"` | Tabbed hub: My Submissions \| Submit \| Request Report |
+| 3rd | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook — tabbed hub: My Submissions \| Submit \| Request Report |
 | 4th | `book-open` | `/library` | `"library"` | Learning hub: Exercises \| Submissions \| Resources \| Ku \| Path Steps \| Exercise Reports \| Activity Reports |
 | — | Avatar | `/profile` | — | Click → profile; dropdown → Tasks, Goals, Habits, Events, Choices, Principles |
 | — | `log-out` | `/logout` | — | Always visible |
@@ -517,7 +517,7 @@ from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
     SidebarItem("Submit", "/submit", "submit", icon="📤"),
-    SidebarItem("My Submissions", "/submissions", "submissions", icon="📝"),
+    SidebarItem("My Submissions", "/gradebook", "gradebook", icon="📝"),
     SidebarItem("Exercise Reports", "/exercise-reports", "exercise-reports", icon="📋"),
     SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="📊"),
     SidebarItem("Submit Activity Report", "/submit-activity-report", "submit-activity-report", icon="⚡"),

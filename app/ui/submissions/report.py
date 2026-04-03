@@ -119,7 +119,7 @@ def render_submission_history_row(item: dict) -> Any:
             ),
             ButtonLink(
                 "View",
-                href=f"/submissions/{uid}",
+                href=f"/gradebook/{uid}",
                 variant=ButtonT.secondary,
                 size=Size.sm,
                 cls="ml-3",
@@ -180,7 +180,7 @@ def render_report_card(assessment: Any) -> Any:
                 P(preview, cls="text-sm"),
                 ButtonLink(
                     "View Full",
-                    href=f"/submissions/{uid}",
+                    href=f"/gradebook/{uid}",
                     variant=ButtonT.secondary,
                     size=Size.sm,
                     cls="mt-2",

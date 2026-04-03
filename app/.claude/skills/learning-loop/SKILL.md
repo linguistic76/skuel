@@ -244,7 +244,7 @@ revision: 1                    ← student increments for resubmissions
 ...
 ```
 
-The student fills in responses and submits the file at `POST /submissions/upload`.
+The student fills in responses and submits the file at `POST /gradebook/upload`.
 The upload handler parses the frontmatter to auto-detect `exercise_uid` and `revision` —
 no Identifier field or exercise selector required. Non-md files (audio, images) use the
 exercise selector dropdown or the `?exercise_uid=` deep-link hidden field instead.
@@ -252,7 +252,7 @@ exercise selector dropdown or the `?exercise_uid=` deep-link hidden field instea
 **Student-facing routes:**
 - `GET /exercises/get?uid=` — detail page: metadata, form field prompts, instructions, Submit + Download buttons
 - `GET /api/exercises/md?uid=` — Markdown worksheet download (pre-filled frontmatter)
-- `POST /submissions/upload` — HTMX upload endpoint; parses .md frontmatter if present
+- `POST /gradebook/upload` — HTMX upload endpoint; parses .md frontmatter if present
 
 > **Critical:** The teacher queue depends on the `(teacher:User)-[:OWNS]->(exercise)` graph
 > relationship. `Exercise` extends `Curriculum(Entity)`, NOT `UserOwnedEntity` — so
@@ -547,7 +547,7 @@ Each feedback round creates a new `ExerciseReport` entity via `REPORT_FOR` —
 revision cycles are traceable as first-class graph entities. The loop publishes
 `ReportSubmitted`, `SubmissionRevisionRequested`, and `SubmissionApproved` events.
 Student notification delivery is **planned** — see the Messaging system in
-`CLAUDE.md`. Students currently need to poll `/submissions/reports` or the
+`CLAUDE.md`. Students currently need to poll `/gradebook` or the
 activity feed to discover new reports.
 
 ---
@@ -754,16 +754,16 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 |-------|-------|--------|-----|
 | **Student assignments** | `/exercises` | GET | Student |
 | **Submission** | `/submit` | POST | Student |
-| **Submission detail** | `/submissions/{uid}` | GET | Student (owner) |
+| **Submission detail** | `/gradebook/{uid}` | GET | Student (owner) |
 | **Submission reports** | `/api/submissions/{uid}/reports` | GET | Student (owner) |
-| **Submission exercise link** | `/submissions/{uid}/exercise` | GET (HTMX) | Student |
+| **Submission exercise link** | `/gradebook/{uid}/exercise` | GET (HTMX) | Student |
 | **Submission** | `/api/submissions/...` | GET/POST | Student |
 | **Submission sharing** | `/api/share/group` | POST | Student |
 | **Submission sharing** | `/api/submissions/shared-with-me` | GET | Teacher |
 | **Submission report** | `/api/reports/assessments` | POST | Teacher |
 | **Submission report** | `/api/reports/assessments/given` | GET | Teacher |
 | **Submission report** | `/api/reports/assessments/received` | GET | Student |
-| **Student reports UI** | `/submissions/reports` | GET | Student |
+| **GradeBook** | `/gradebook` | GET | Student |
 | **Teacher review** | `/api/teaching/review-queue` | GET | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}` | GET | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}/feedback` | POST | Teacher |

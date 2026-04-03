@@ -417,7 +417,7 @@ def submissions_section() -> Div:
     """Submissions section with Alpine.js tabs: My Submissions | Submit | Request Report | Exercise Reports | Activity Reports."""
     return Div(
         Div(
-            H1("Submissions", cls="text-lg font-bold text-foreground whitespace-nowrap"),
+            H1("GradeBook", cls="text-lg font-bold text-foreground whitespace-nowrap"),
             Div(
                 _sub_tab_button("My Submissions", "list"),
                 _sub_tab_button("Submit", "submit"),
@@ -429,7 +429,7 @@ def submissions_section() -> Div:
             ),
             cls="flex items-end gap-6 mb-3",
         ),
-        _sub_tab_panel("list", "/submissions/list", default=True),
+        _sub_tab_panel("list", "/gradebook/list", default=True),
         _sub_tab_panel("submit", "/api/profile/submissions/submit-form"),
         _sub_tab_panel("report", "/api/profile/submissions/report-form"),
         _sub_tab_panel("exercise-reports", "/reports/list"),

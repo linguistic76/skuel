@@ -115,7 +115,7 @@ def _exercise_action_link(row: "ExerciseStatusRow") -> A:
     if status == "submitted":
         return A(
             "View Submission →",
-            href=f"/submissions/{row['submission_uid']}",
+            href=f"/gradebook/{row['submission_uid']}",
             cls="text-xs text-primary hover:underline shrink-0",
         )
     # feedback_available or revision_requested
@@ -220,7 +220,7 @@ def _submission_item(sub: Any) -> Div:
             _sub_status_badge(status),
             A(
                 "View →",
-                href=f"/submissions/{sub_uid}",
+                href=f"/gradebook/{sub_uid}",
                 cls="text-xs text-primary hover:underline shrink-0",
             ),
             cls="flex items-center gap-2",
