@@ -29,6 +29,7 @@ export_submissions.py — pending/<submission_uid>.md filenames are UIDs.
 
 import argparse
 import asyncio
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -141,6 +142,41 @@ async def main(teacher_uid: str, done_dir: Path) -> None:
 
     await adapter.close()
     print(f"\nDone. {ok_count} imported, {err_count} errors/skipped.")
+
+    manifest_path = done_dir.parent / "export_manifest.json"
+    if manifest_path.exists():
+        try:
+            manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            pending_uids = manifest_data.get("pending_uids", [])
+            unimported_in_done = []
+            unimported_in_pending = []
+            unimported_other = []
+
+            for uid in pending_uids:
+                if not (imported_dir / f"{uid}.md").exists():
+                    if (done_dir / f"{uid}.md").exists():
+                        unimported_in_done.append(uid)
+                    elif (done_dir.parent / "pending" / f"{uid}.md").exists():
+                        unimported_in_pending.append(uid)
+                    else:
+                        unimported_other.append(uid)
+
+            if unimported_in_done or unimported_in_pending or unimported_other:
+                print("\n--- Pending-State Reconciliation ---")
+            if unimported_in_done:
+                print("WARNING: The following files are in done/ but were NOT imported (check for errors):")
+                for uid in unimported_in_done:
+                    print(f"  - {uid}.md")
+            if unimported_in_pending:
+                print("Note: The following files are still in pending/:")
+                for uid in unimported_in_pending:
+                    print(f"  - {uid}.md")
+            if unimported_other:
+                print("Note: The following exported files are missing (not in imported, done, or pending):")
+                for uid in unimported_other:
+                    print(f"  - {uid}.md")
+        except Exception as e:
+            print(f"\nWARNING: Could not validate export_manifest.json: {e}")
 
 
 if __name__ == "__main__":

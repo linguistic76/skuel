@@ -228,6 +228,19 @@ Both scripts use the same `TeacherReviewService` methods as the web UI
 (`submit_report`, `request_revision`, `approve_report`). The `pending/` export
 files are read-only — teachers write reports as separate files in `done/`.
 
+**Pending-State Reconciliation:**
+To prevent feedback from being silently lost if a teacher writes a report in `done/<uid>.md` but forgets to run the import script (or if an import fails), a reconciliation mechanism is built-in:
+1. `export_submissions.py` writes an `export_manifest.json` containing the UIDs of all exported submissions.
+2. `import_reports.py` validates this manifest after importing. Any file from the manifest that has not been successfully imported is explicitly flagged in the terminal.
+
+**Design Evolution & Open Questions:**
+While this effectively solves the offline-first "silent loss" problem, there are open questions about the strength of the design and its future evolution:
+- **Manifest State Management**: The current `export_manifest.json` is local and overwritten on every export. What happens in multi-device workflows where a teacher exports on a desktop but imports on a laptop?
+- **Two-Way Sync**: Is a one-directional manifest sufficient, or should the CLI evolve towards a robust bidirectional state-sync (perhaps maintaining an internal SQLite cache or leveraging Git-like content addressability)?
+- **Automated Workflow**: Should the reliance on a distinct `import_reports.py` execution be eliminated entirely via a background directory watcher (e.g. `watchdog`) that imports files the moment they are saved to `done/`?
+- **In-Band Error Reporting**: Currently, errors during import (like invalid frontmatter) are logged to the terminal. Could the system automatically append an `ERROR` banner to the Markdown file itself to notify the teacher directly in Obsidian?
+- **Multi-Teacher Conflicts**: Does the manifest appropriately handle scenarios where another teacher approves the submission via the web UI while it sits locally in `pending/`?
+
 ## Related
 
 - **ADR-038**: Content Sharing Model (SHARES_WITH infrastructure)

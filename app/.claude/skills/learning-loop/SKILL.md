@@ -507,7 +507,7 @@ self-describing — the report records what decision was made, not just feedback
 **Two teacher feedback pathways — same service methods, different entry points:**
 
 - **Web UI** — `/teaching/review/{uid}` accepts a `.md` file upload (multipart/form-data). File content → `report_content`; path → `report_file_path`. Students download via `GET /api/reports/{report_uid}/download`.
-- **CLI (offline batch)** — `scripts/export_submissions.py` exports the review queue to `~/skuel-reviews/pending/<uid>.md`; teacher writes reports to `done/<uid>.md` with YAML frontmatter (`submission_uid`, `action: report|revision|approve`); `scripts/import_reports.py` posts them back. Both scripts call the same `TeacherReviewService` methods.
+- **CLI (offline batch)** — `scripts/export_submissions.py` exports the review queue to `~/skuel-reviews/pending/<uid>.md` and writes an `export_manifest.json` to track pending state; teacher writes reports to `done/<uid>.md` with YAML frontmatter (`submission_uid`, `action: report|revision|approve`); `scripts/import_reports.py` posts them back. To prevent silent loss of feedback, the import script performs **Pending-State Reconciliation** against the manifest, warning the teacher of any pending/done files that have not been successfully imported. Both scripts call the same `TeacherReviewService` methods.
 
 **Graph pattern:**
 ```cypher

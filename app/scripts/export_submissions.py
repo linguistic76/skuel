@@ -17,6 +17,7 @@ Then run import_reports.py to post reports back to SKUEL.
 
 import argparse
 import asyncio
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -85,6 +86,14 @@ async def main(teacher_uid: str, output_dir: Path) -> None:
         out_path.write_text(_render_submission_md(detail, item), encoding="utf-8")
         print(f"  Exported: {out_path.name}  ({item.get('student_name', 'unknown')})")
         exported += 1
+
+    manifest_path = output_dir / "export_manifest.json"
+    manifest_data = {
+        "exported_at": datetime.now().isoformat(timespec="seconds"),
+        "teacher_uid": teacher_uid,
+        "pending_uids": [item["ku_uid"] for item in items]
+    }
+    manifest_path.write_text(json.dumps(manifest_data, indent=2), encoding="utf-8")
 
     await adapter.close()
     print(f"\nDone. {exported} exported, {skipped} already present.")
