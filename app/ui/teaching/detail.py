@@ -98,57 +98,6 @@ def render_report_item(fb: dict[str, Any]) -> Div:
     return _shared_render(fb)
 
 
-def render_student_submission_row(item: SubmissionRow) -> Div:
-    """Render a submission row in the student-detail view with feedback toggle."""
-    title = item.title or item.original_filename or "Untitled"
-    dom_id = item.uid.replace(":", "-").replace(".", "-")
-
-    exercise_subtitle: Any = None
-    if item.exercise_title:
-        exercise_subtitle = Span(
-            f"Exercise: {item.exercise_title}", cls="text-xs text-muted-foreground"
-        )
-
-    feedback_badge: Any = None
-    if item.feedback_count > 0:
-        feedback_badge = Badge(
-            f"{item.feedback_count} feedback",
-            variant=BadgeT.info,
-            size=Size.sm,
-        )
-
-    feedback_toggle: Any = None
-    if item.feedback_count > 0:
-        feedback_toggle = Div(
-            Button(
-                "View Feedback",
-                variant=ButtonT.ghost,
-                size=Size.xs,
-                type="button",
-                hx_get=f"/api/submissions/{item.uid}/reports",
-                hx_target=f"#feedback-{dom_id}",
-                hx_swap="innerHTML",
-            ),
-            Div(id=f"feedback-{dom_id}"),
-            cls="mt-2",
-        )
-
-    return CardGenerator.from_dataclass(
-        {"title": title},
-        display_fields=[],
-        subtitle=exercise_subtitle,
-        header_badges=[feedback_badge, status_badge(item.status)],
-        show_labels=False,
-        actions=ButtonLink(
-            "Review",
-            href=f"/teaching/review/{item.uid}",
-            variant=ButtonT.primary,
-            size=Size.sm,
-        ),
-        extra=feedback_toggle,
-        card_attrs={"cls": "bg-background shadow-sm mb-2"},
-    )
-
 
 def render_review_panel_inline(
     uid: str, detail: dict[str, Any], history: list[dict[str, Any]]
@@ -422,7 +371,7 @@ def render_student_detail_tabs(
                 "No submissions in this category.",
                 cls="text-center text-muted-foreground py-8 text-sm",
             )
-        return Div(*[render_student_submission_row(item) for item in items])
+        return Div(*[render_student_submission_inline_row(item) for item in items])
 
     def _render_ku_progress() -> Any:
         if ku_detail is None:
@@ -515,7 +464,7 @@ def render_student_detail_sections(
                 "No submissions in this category.",
                 cls="text-center text-muted-foreground py-8 text-sm",
             )
-        return Div(*[render_student_submission_row(item) for item in items])
+        return Div(*[render_student_submission_inline_row(item) for item in items])
 
     def _render_ku_progress() -> Any:
         if ku_detail is None:
