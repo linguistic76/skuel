@@ -349,10 +349,6 @@ SubmissionCreated event fires:          → FULFILLS_EXERCISE (Submission → ro
                                         → FULFILLS_REVISED_EXERCISE (→ RevisedExercise)
                                           created alongside FULFILLS_EXERCISE for
                                           revision-cycle submissions only
-                                        → SHARES_WITH {role: 'teacher'}
-                                          teacher = OWNS relationship on Exercise
-                                          fallback = oldest admin (for YAML-ingested
-                                          exercises with no OWNS relationship)
                                         → revision_number written to DB
                                           (counts all FULFILLS_EXERCISE to root Exercise
                                           so revision #2, #3 etc. are correct)
@@ -433,7 +429,9 @@ capturing the user's curriculum position at that exact moment.
 1. PathStep detail page shows linked exercises (`RELATED_TO` → `/exercises/get?uid=...&from_ps={ps_uid}`)
 2. Exercise detail "Submit →" forwards `from_ps` → `/submit?exercise_uid=...&from_ps={ps_uid}`
 3. Submit form embeds `from_ps` as hidden field (`render_upload_form(from_ps=...)`)
-4. Upload handlers call `_get_learning_context(explicit_ps_uid=from_ps)` — uses explicit value, no guessing
+4. Upload and form handlers call `_get_learning_context(explicit_ps_uid=from_ps)` — uses explicit value, no guessing
+   - File upload: `from_ps` read from form field
+   - Form submission: `from_ps` field on `FormSubmitRequest` Pydantic model
 5. Interaction record gets the correct PathStep UID every time
 
 When `from_ps` is absent (standalone submission), `_get_learning_context` falls back to
@@ -703,7 +701,6 @@ new exercise, closing the revision cycle explicitly rather than implicitly.
 | `MEMBER_OF` | `User` → `Group` | Student enrolled in a group (auto-created on PathStep IN_PROGRESS via `PathStepEnrolled` event → admin default group) |
 | `FULFILLS_EXERCISE` | `Submission` → `Exercise` (root) | Always anchors to the original Exercise, across all revision iterations |
 | `FULFILLS_REVISED_EXERCISE` | `Submission` → `RevisedExercise` | Created alongside FULFILLS_EXERCISE for revision-cycle submissions only |
-| `SHARES_WITH` | `Submission` → `User` | Auto-share to teacher for all exercises (teacher via OWNS, fallback to oldest admin for YAML-ingested exercises) |
 | `SHARES_WITH` | `User` → `RevisedExercise` | Auto-share revision to student on creation |
 | `REPORT_FOR` | `ExerciseReport` → `Submission` | Report evaluates this specific artifact |
 | `RESPONDS_TO_REPORT` | `RevisedExercise` → `ExerciseReport` | Revision addresses this report |
@@ -717,8 +714,8 @@ RelationshipName.REQUIRES_KNOWLEDGE      # Exercise → Ku
 RelationshipName.FOR_GROUP               # Exercise → Group
 RelationshipName.FULFILLS_EXERCISE          # Submission → root Exercise (always)
 RelationshipName.FULFILLS_REVISED_EXERCISE  # Submission → RevisedExercise (revision-cycle only)
-RelationshipName.SHARES_WITH             # Submission → User (also group sharing)
 RelationshipName.REPORT_FOR              # ExerciseReport → Submission
+RelationshipName.SHARES_WITH             # User → RevisedExercise (auto-share to student)
 RelationshipName.SHARED_WITH_GROUP       # Submission → Group (group sharing)
 RelationshipName.RESPONDS_TO_REPORT     # RevisedExercise → ExerciseReport
 RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
@@ -931,13 +928,11 @@ that never closes the loop.
        ↓
 4. FULFILLS_EXERCISE relationship created (always → root Exercise)
    FULFILLS_REVISED_EXERCISE also created when submitting against a RevisedExercise
-   Auto-sharing: SHARES_WITH {role:'teacher'} (Exercise.OWNS teacher, or admin fallback)
-   (YAML-ingested exercises have no OWNS → process_exercise_submission() falls back to
-    oldest admin via SubmissionsBackend.get_admin_uid() rather than returning NO_TEACHER)
+   Canonical title + revision_number written to submission node
        ↓
 5. TeacherReviewService.get_review_queue()          → core/services/report/teacher_review_service.py
-   Teacher sees pending submissions (OWNS-based: all students' submitted+active submissions,
-   not SHARES_WITH — catches standalone/YAML-ingested submissions too)
+   Teacher sees pending submissions (OWNS-based: all students' submitted+active
+   exercise_submissions joined to exercises via FULFILLS_EXERCISE)
        ↓
 6. TeacherReviewService.submit_report()             → core/services/report/teacher_review_service.py
    Creates ExerciseReport with ProcessorType.HUMAN

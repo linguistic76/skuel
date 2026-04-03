@@ -45,19 +45,20 @@ Assignment provides fields for both personal and teacher-assigned workflows:
 
 A teacher assignment IS an Assignment with `scope=ASSIGNED`.
 
-### 3. Teacher Review — SHARES_WITH Created, Queue Uses OWNS
+### 3. Teacher Review — OWNS-Based Discovery (updated 2026-04-03)
 
 When a student submits against an ASSIGNED Exercise:
 1. Submission status set to `SUBMITTED`
-2. `SHARES_WITH {role: "teacher"}` auto-created (teacher = Exercise OWNS user, or oldest admin fallback)
-3. Teacher's review queue = `get_review_queue()` — filters all student submissions via `OWNS`, not SHARES_WITH
+2. `FULFILLS_EXERCISE` relationship created (submission → root Exercise)
+3. Teacher's review queue = `get_review_queue()` — discovers all student exercise_submissions via `OWNS`
 
-The SHARES_WITH relationship is still created (used by `verify_teacher_access` for detail-page access),
-but the queue itself sources from OWNS for broader coverage of standalone/YAML-ingested submissions.
+No `SHARES_WITH` relationship is created between teacher and submission.
+`verify_teacher_access()` checks that the submission is owned by a student (not the teacher),
+not a `SHARES_WITH` relationship. Access is role-gated (`TEACHER` role required at route level).
 
 ### 4. Submission Ownership Stays with Student
 
-Student always owns the submission. Teacher gets SHARES_WITH access for detail-page review.
+Student always owns the submission. Teacher discovers it via the review queue (OWNS-based).
 
 ### 5. UserRelationshipService: :Team → :Group
 
@@ -77,17 +78,16 @@ One Path Forward — `:Team` label replaced with `:Group`. No backward compatibi
 (teacher:User)-[:OWNS]->(group:Group)
 (student:User)-[:MEMBER_OF {joined_at, role}]->(group:Group)
 (project:Assignment)-[:FOR_GROUP]->(group:Group)
-(submission:Submission)-[:FULFILLS_PROJECT]->(project:Assignment)
-(teacher:User)-[:SHARES_WITH {role: "teacher"}]->(submission:Submission)  // Auto on submission
+(submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
 ```
 
 ## Consequences
 
 ### Positive
-- Assignment serves both personal and teacher-assigned use cases
-- SHARES_WITH still auto-created per submission; review queue uses OWNS for full coverage
+- Exercise serves both personal and teacher-assigned use cases
+- Review queue uses OWNS-based discovery — catches all submissions regardless of exercise origin
 - Group entity enables future features (team visibility, group analytics, bulk operations)
-- Clear ownership model: students own submissions, teachers get shared access
+- Clear ownership model: students own submissions, teachers discover via role-gated queue
 
 ### Negative
 - Assignment has 4 fields that are only relevant to ASSIGNED scope
@@ -107,11 +107,10 @@ Originally implemented as `KuProject` / `ReportProject` in code. Renamed to `Ass
 
 ### Admin Fallback for Ownerless Exercises
 
-YAML-ingested exercises have no `(teacher:User)-[:OWNS]->(exercise)` relationship, so
-`process_exercise_submission()` found `teacher_uid = None` and returned `NO_TEACHER` —
-stalling the entire pipeline. Fixed: `SubmissionsBackend.get_admin_uid()` fetches the
-oldest admin user as a fallback teacher. SHARES_WITH is now created for all submissions
-regardless of how the exercise was created.
+YAML-ingested exercises have no `(teacher:User)-[:OWNS]->(exercise)` relationship.
+`process_exercise_submission()` validates scope and group membership but does not
+require a teacher OWNS relationship — the review queue discovers submissions via
+the student's OWNS relationship, not teacher sharing.
 
 ### Auto-Enrollment into Default Group on PathStep Enrollment
 
@@ -133,11 +132,9 @@ standalone work without enrolling in a curriculum path. The current query also d
 `OPTIONAL MATCH` two-pass structure: the mandatory `OWNS` match already filters to
 submitting students, so `DISTINCT student` + count aggregate in a single pass.
 
-`get_submission_detail_for_teacher()` no longer requires `SHARES_WITH {role:'teacher'}`.
-Standalone submissions (no `fulfills_exercise_uid`) skip `exercise_handler.py` entirely —
-`auto_share_with_teacher` is never called, so the SHARES_WITH relationship never exists.
-Access control for the review detail page is enforced at the route level
-(`@require_role(UserRole.TEACHER)`); the Cypher now does a direct lookup by uid.
+`get_submission_detail_for_teacher()` does a direct lookup by submission UID — no
+`SHARES_WITH` gate. Access control is enforced at the route level
+(`@require_role(UserRole.TEACHER)`); the Cypher does a direct lookup by uid.
 
 ### Review Queue + Dashboard Stats — OWNS-Based (2026-04-02)
 
@@ -147,18 +144,14 @@ submissions from YAML-ingested exercises and any path where `auto_share_with_tea
 was skipped. Both methods now use the same OWNS anchor as `get_students_summary()`:
 
 ```cypher
-MATCH (student:User)-[:OWNS]->(ku:Entity {entity_type: 'exercise_submission'})
+MATCH (student:User)-[:OWNS]->(sub:Entity {entity_type: 'exercise_submission'})
 WHERE student.uid <> $teacher_uid
 ```
 
 Default status filter: `submitted` + `active` (pending work only). `revision_requested`
 is a distinct state visible in the student detail Revision Requested sidebar section — not counted
-as pending. `TeacherDashboardStats.total_submissions` removed (was always 0 under old
-query; `total_students` covers the useful aggregate). `ReviewQueueItem.shared_at`
-replaced by `original_filename`.
-
-`verify_teacher_access()` still uses `SHARES_WITH {role:'teacher'}` for detail-page
-access control — that relationship is still auto-created by `auto_share_with_teacher()`.
+as pending. `verify_teacher_access()` checks that the submission is owned by a student
+(not the teacher) — no `SHARES_WITH` relationship involved.
 
 ### Teacher Review Status Guards (2026-04-02)
 

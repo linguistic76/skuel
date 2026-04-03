@@ -1,7 +1,7 @@
 ---
 title: Submissions + Reports Domain
 created: 2025-12-04
-updated: 2026-03-29
+updated: 2026-04-03
 status: current
 category: domains
 tags: [submissions, reports, processing-domain, domain]
@@ -86,7 +86,7 @@ The Submissions + Reports domain handles the artifact-based side of SKUEL's Five
 | `FULFILLS_REVISED_EXERCISE` | Submission → RevisedExercise | RevisedExercise | Revision-cycle submissions only; created alongside FULFILLS_EXERCISE |
 | `REPORT_FOR` | ExerciseReport → Submission | Submission | Report evaluates submission |
 | `APPLIES_KNOWLEDGE` | Submission → Ku | Ku | Knowledge application tracking |
-| `SHARES_WITH` | User → Submission | Submission | Sharing access (teacher review) |
+| `SHARES_WITH` | User → RevisedExercise | RevisedExercise | Auto-share revision to student |
 | `ASSESSMENT_OF` | Report → User | User | Assessment targets student |
 | `HAS_SCHEDULE` | User → ReportSchedule | ReportSchedule | User's generation schedule |
 

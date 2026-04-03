@@ -126,21 +126,18 @@ access = await sharing_service.check_access(
 # (handled by ExerciseService with scope=ASSIGNED)
 
 # Step 2: Student submits against assigned Exercise
-# Auto-sharing happens inside SubmissionsCoreService
-await submissions_core_service.process_exercise_submission(
-    submission_uid=submission_uid,
-    exercise_uid=exercise_uid,
-)
+# Exercise linking happens via SubmissionCreated event → exercise_handler
+# which calls SubmissionsCoreService.process_exercise_submission()
 # This automatically:
-# - Creates FULFILLS_EXERCISE relationship (submission → exercise)
-# - Creates SHARES_WITH {role: "teacher"} relationship (teacher → submission)
-# - Sets status to MANUAL_REVIEW for HUMAN processor types
+# - Validates exercise scope is ASSIGNED and student is in the target group
+# - Auto-generates canonical title with revision number
+# - Creates FULFILLS_EXERCISE relationship (submission → root exercise)
 
-# Step 3: Teacher views review queue
+# Step 3: Teacher views review queue (OWNS-based, not SHARES_WITH)
 queue_result = await teacher_review.get_review_queue(teacher_uid)
 
 # Step 4: Teacher provides feedback
-await teacher_review.submit_feedback(submission_uid, teacher_uid, "Great work!")
+await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
 ```
 
 **Graph Pattern:**
@@ -150,17 +147,16 @@ await teacher_review.submit_feedback(submission_uid, teacher_uid, "Great work!")
 (student:User)-[:MEMBER_OF]->(group:Group)
 (exercise:Exercise {scope: "assigned"})-[:FOR_GROUP]->(group:Group)
 
-// On student submission (auto-created)
+// On student submission (auto-created by process_exercise_submission)
 (submission:Entity)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
-(teacher:User)-[:SHARES_WITH {role: "teacher", share_version: "original"}]->(submission:Entity)
 ```
 
 **Key Differences from Manual Sharing:**
-- No explicit `share()` call — auto-created on submission
-- Visibility is NOT changed to SHARED — teacher access is via SHARES_WITH regardless
+- No `share()` or `SHARES_WITH` call — teacher discovers submissions via `get_review_queue()`
+  which matches all exercise_submissions via `OWNS` + `FULFILLS_EXERCISE`
+- Visibility is NOT changed — teacher access is role-gated, not relationship-gated
 - Entity ownership stays with the student
-- Teacher's review queue = `get_review_queue()` uses OWNS-based approach (not SHARES_WITH filter)
-- SHARES_WITH is still auto-created; used by `verify_teacher_access()` for detail-page access
+- `verify_teacher_access()` checks that the submission is owned by a student (not the teacher)
 
 **CLI alternative:** Teachers can bypass the web UI entirely. `scripts/export_submissions.py --teacher-uid <uid>` exports the review queue to `~/skuel-reviews/pending/<uid>.md`; after writing reports to `done/`, `scripts/import_reports.py` posts them back via the same service methods. See ADR-040.
 
