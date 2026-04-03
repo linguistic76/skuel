@@ -152,7 +152,7 @@ WHERE student.uid <> $teacher_uid
 ```
 
 Default status filter: `submitted` + `active` (pending work only). `revision_requested`
-is a distinct state visible in the student detail Revision Requested tab — not counted
+is a distinct state visible in the student detail Revision Requested sidebar section — not counted
 as pending. `TeacherDashboardStats.total_submissions` removed (was always 0 under old
 query; `total_students` covers the useful aggregate). `ReviewQueueItem.shared_at`
 replaced by `original_filename`.

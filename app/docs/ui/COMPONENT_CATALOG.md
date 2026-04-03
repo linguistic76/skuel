@@ -1057,16 +1057,24 @@ Finance page layouts with custom sidebar.
 
 **Location:** `/ui/patterns/sidebar.py`
 
-Unified sidebar component for all sidebar pages (Profile, KU, Reports, Journals, Askesis). Uses `PageType.CUSTOM`.
+Unified sidebar component for all sidebar pages (Profile, KU, Reports, Journals, Askesis, Teaching). Uses `PageType.CUSTOM`.
 
 **Functions:**
 - `SidebarPage(content, items, active, title, storage_key, request, ...)` - Full page with sidebar
 - `SidebarNav(items, active, title, ...)` - Sidebar + mobile tabs (no BasePage wrapper)
+- `alpine_section_renderer(state_var)` - Factory for Alpine-driven sidebar items (instant switching, no page navigation)
+- `alpine_mobile_section_renderer(state_var)` - Same for mobile horizontal tabs
 
 **Dataclass:**
 - `SidebarItem(label, href, slug, icon, description, badge_text, ...)`
 
-**See:** `@custom-sidebar-patterns` for complete guide
+**New parameters (2026-04):**
+- `title_prefix` - Element before sidebar title (e.g. back arrow)
+- `alpine_state` - Shared Alpine x-data on wrapper for sidebar + content communication
+- `mobile_item_renderer` - Custom renderer for mobile tabs
+- `item_renderer` - Custom renderer for desktop sidebar items
+
+**See:** `@skuel-ui` Pattern 5 for Alpine section renderer guide
 
 ---
 

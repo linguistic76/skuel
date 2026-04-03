@@ -1073,7 +1073,7 @@ async def tasks_view_list(request) -> Any:
 **Reference Files:**
 - `/adapters/inbound/tasks_ui.py` - Reference pattern (Activity)
 - `/adapters/inbound/goals_ui.py` - Calendar-enabled variant
-- `/adapters/inbound/teaching_ui.py` - Sidebar pages, non-activity pattern
+- `/adapters/inbound/teaching_ui.py` - Two-level sidebar: teaching sidebar (list pages) + Alpine section sidebar (student detail)
 - `/adapters/inbound/study_ui.py` - HTMX fragments with error banners
 - `/adapters/inbound/ku_ui.py` - Error state vs empty state
 - `/adapters/inbound/admin_dashboard_ui.py` - Per-section partial failure banners via `tuple[data, bool]` helpers

@@ -31,7 +31,7 @@ The Admin Dashboard provides a centralized UI for system administration at `/adm
 
 The overview page displays quick-action cards (Users, Analytics, Finance, Ingestion) in a 3-column grid. The sidebar provides navigation to 6 sections: Overview, Users, Analytics, System, Finance, and Ingestion.
 
-> **Note:** KU progression tracking is a pedagogical concern — accessible per-student at `/teaching/students/{uid}?tab=ku`, not a sysadmin tool.
+> **Note:** KU progression tracking is a pedagogical concern — accessible per-student at `/teaching/students/{uid}` (KU Progress sidebar section), not a sysadmin tool.
 
 ### User Management Features
 
@@ -40,9 +40,9 @@ The user management section (`/admin/users`) provides:
 - **Users table** with inline activity counts (Tasks, Goals, Habits, KUs mastered) per user
 - **User detail page** (`/admin/users/{uid}`) focused on account management:
   - **Activity Domains** — Task/Goal/Habit/Event/Choice/Principle counts with active/completed breakdowns
-  - **Learning Progress** — KU viewed/in-progress/mastered counts with link to `/teaching/students/{uid}?tab=ku`
+  - **Learning Progress** — KU viewed/in-progress/mastered counts with link to `/teaching/students/{uid}` (KU Progress sidebar section)
   - **Session Activity** — Login and session counts
-  - Links to `/teaching/students/{uid}` (submissions + KU progress tabs)
+  - Links to `/teaching/students/{uid}` (student-specific sidebar: Needs Review, Revision Requested, Completed, KU Progress)
   - Role management and account actions
 - **HTMX filtering** — Role and status dropdowns update the table without page reload
 - **Data source** — All stats queried via pure Cypher against Neo4j (not UserContext), following the same pattern as the Learning Dashboard
@@ -175,7 +175,7 @@ ADMIN_SIDEBAR_ITEMS = [
     SidebarItem("Finance", "/finance", "finance", icon="💰", badge_text="→"),
     SidebarItem("Ingestion", "/ingest", "ingestion", icon="📥", badge_text="→"),
 ]
-# KU progress accessible per-student at /teaching/students/{uid}?tab=ku
+# KU progress accessible per-student at /teaching/students/{uid} (KU Progress sidebar section)
 ```
 
 ### AdminUIComponents (ui/admin/views.py)
@@ -207,7 +207,7 @@ User management UI components:
 
 ### AdminLearningComponents (ui/admin/views.py)
 
-KU learning progression components — **used by the Teaching student detail KU Progress tab** (`/teaching/students/{uid}?tab=ku`), not by admin routes.
+KU learning progression components — **used by the Teaching student detail KU Progress sidebar section** (`/teaching/students/{uid}`), not by admin routes.
 
 | Method | Purpose |
 |--------|---------|
@@ -391,12 +391,11 @@ The dashboard uses HTMX for dynamic updates without full page reloads:
 2. AdminUIComponents.render_user_activity_stats(stats, uid)
    │
    ├─ Activity Domains section (6 stat cards via StatsGrid)
-   ├─ Learning Progress section (3 stat cards + link → /teaching/students/{uid}?tab=ku)
+   ├─ Learning Progress section (3 stat cards + link → /teaching/students/{uid})
    └─ Session Activity section (2 stat cards)
 
 3. "Student Work" card links out to:
-   ├─ /teaching/students/{uid}  (submissions + KU progress tabs)
-   └─ /teaching/students/{uid}?tab=ku  (KU progress tab directly)
+   └─ /teaching/students/{uid}  (student-specific sidebar: Needs Review, Revision Requested, Completed, KU Progress)
 ```
 
 **Design decision: AdminStatsService vs UserContext**
@@ -460,7 +459,7 @@ Card(
 )
 ```
 
-**Applied to:** system status (overview), user stats (users list), activity entity counts (analytics), detail stats (user detail). KU metrics + user progress are handled per-student in the Teaching UI (`/teaching/students/{uid}?tab=ku`).
+**Applied to:** system status (overview), user stats (users list), activity entity counts (analytics), detail stats (user detail). KU metrics + user progress are handled per-student in the Teaching UI (`/teaching/students/{uid}`, KU Progress sidebar section).
 
 **March 2026 — Service extraction:** `_get_user_stats` helper deleted. User role counts and activity entity counts now use efficient Cypher COUNT queries on `AdminStatsService` (`get_user_role_counts`, `get_activity_entity_counts`) instead of fetching full entity lists just to count them.
 

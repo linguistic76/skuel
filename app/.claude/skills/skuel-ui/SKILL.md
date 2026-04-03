@@ -592,6 +592,37 @@ return await SidebarPage(..., item_renderer=_profile_item_renderer)
 SidebarItem("Overview", "/askesis", "overview", icon="🏠", description="Your life context dashboard")
 ```
 
+**Pattern 5 — Alpine section renderer (instant switching, no page navigation):**
+
+Use when sidebar items should control Alpine `x-show` sections instead of navigating to different URLs. All content loads on initial render; switching is instant. Used by Teaching student detail page.
+
+```python
+from ui.patterns.sidebar import alpine_section_renderer, alpine_mobile_section_renderer
+
+items = [
+    SidebarItem("Needs Review", href="", slug="pending", icon="📥", badge_text="3"),
+    SidebarItem("Completed", href="", slug="completed", icon="✅"),
+]
+
+# Content panels use x-show keyed to the same state variable
+content = Div(
+    Div(pending_list, **{"x-show": "section === 'pending'"}),
+    Div(completed_list, **{"x-show": "section === 'completed'"}),
+)
+
+return await SidebarPage(
+    content=content, items=items, active="pending",
+    title="Student Name", storage_key="student-detail-sidebar",
+    request=request,
+    item_renderer=alpine_section_renderer("section"),
+    mobile_item_renderer=alpine_mobile_section_renderer("section"),
+    alpine_state="{ section: 'pending' }",           # shared x-data on wrapper
+    title_prefix=A(UkIcon("arrow-left"), href="/back"),  # back arrow in sidebar header
+)
+```
+
+Key: `alpine_state` places `x-data` on the parent wrapper so both sidebar and content share the `section` variable. Alpine's hierarchical scoping means `collapsibleSidebar` on child elements doesn't conflict.
+
 ### Alpine Shared Store (Key Detail)
 
 Both sidebar and content area must use the same `Alpine.store()` — without it, collapse state goes out of sync:
