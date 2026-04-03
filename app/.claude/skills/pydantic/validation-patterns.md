@@ -407,7 +407,7 @@ if result.is_error:
 req = result.value
 
 # Form data → Pydantic model → Result[T] (empty strings → None)
-result = await parse_form_body(request, CreateTeachingExerciseRequest)
+result = await parse_form_body(request, RequestRevisionRequest)
 
 # With extra fields merged before validation
 result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})

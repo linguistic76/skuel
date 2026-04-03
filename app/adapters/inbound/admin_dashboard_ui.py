@@ -15,7 +15,7 @@ Routes:
 - GET /admin/analytics - Analytics dashboard
 - GET /admin/system - System health dashboard
 
-Note: Learning dashboard moved to /teaching/learning (pedagogical concern, not sysadmin).
+Note: KU progress is accessible per-student at /teaching/students/{uid}?tab=ku.
 
 Security:
 - All routes require authentication (401 if not logged in)
@@ -404,7 +404,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                     ),
                     ButtonLink(
                         "KU progress →",
-                        href=f"/teaching/learning/user/{uid}",
+                        href=f"/teaching/students/{uid}?tab=ku",
                         variant=ButtonT.outline,
                         size=Size.sm,
                         cls="ml-2",

@@ -770,12 +770,9 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Teacher review** | `/api/teaching/review/{uid}/revision` | POST | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}/approve` | POST | Teacher |
 | **Teacher exercises** | `/api/teaching/exercises` | GET | Teacher |
-| **Teacher exercises** | `/api/teaching/exercises` | POST | Teacher |
-| **Teacher exercises** | `/api/teaching/exercises/{uid}` | POST | Teacher |
 | **Teacher exercises** | `/api/teaching/exercises/{uid}/submissions` | GET | Teacher |
 | **Teacher students** | `/api/teaching/students` | GET | Teacher |
 | **Teacher students** | `/api/teaching/students/{uid}/submissions` | GET | Teacher |
-| **Teacher dashboard** | `/api/teaching/dashboard` | GET | Teacher |
 | **Teacher groups** | `/api/teaching/groups` | GET | Teacher |
 | **Teacher groups** | `/api/teaching/groups/{uid}` | GET | Teacher |
 | **Notifications** | `/notifications` | GET | Student — **planned, not yet implemented** |
@@ -904,8 +901,8 @@ that never closes the loop.
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
 | `adapters/persistence/neo4j/domain_backends.py` | all | Domain-specific Cypher |
 | `adapters/inbound/study_ui.py` | 2+3+4 | Student submit form, submissions list, feedback display |
-| `adapters/inbound/teaching_ui.py` | 4 | Teacher review queue, feedback form, sidebar dashboard |
-| `adapters/inbound/teaching_api.py` | 4 | Teacher API (review queue, revision, approve, dashboard) |
+| `adapters/inbound/teaching_ui.py` | 4 | Teacher review queue (root page), student detail with KU tab, groups |
+| `adapters/inbound/teaching_api.py` | 4 | Teacher API (review queue, revision, approve, students, groups) |
 | `ui/patterns/feedback_item.py` | 4 | Shared feedback rendering (used by teaching + submissions UI) |
 | `core/prompts/templates/activity_feedback.md` | 4 | LLM prompt template (via PROMPT_REGISTRY) |
 

@@ -316,7 +316,7 @@ async def create_milestone(request: Request, entity: Any) -> Result[dict[str, An
 result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
 
 # Form data (empty strings → None, then validated by Pydantic)
-result = await parse_form_body(request, CreateTeachingExerciseRequest)
+result = await parse_form_body(request, RequestRevisionRequest)
 ```
 
 ### HTTP Status Code Mapping

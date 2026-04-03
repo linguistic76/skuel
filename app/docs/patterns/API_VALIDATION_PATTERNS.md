@@ -241,15 +241,15 @@ class CreateTeachingExerciseRequest(BaseModel):
 ```python
 from adapters.inbound.form_helpers import parse_form_body
 
-@rt("/api/teaching/exercises", methods=["POST"])
-@boundary_handler(success_status=201)
-async def create_exercise(request: Request) -> Result[Any]:
-    parsed = await parse_form_body(request, CreateTeachingExerciseRequest)
+@rt("/api/teaching/review/{uid}/revision", methods=["POST"])
+@boundary_handler()
+async def request_revision(request: Request, uid: str) -> Result[Any]:
+    parsed = await parse_form_body(request, RequestRevisionRequest)
     if parsed.is_error:
         return parsed  # type: ignore[return-value]
     req = parsed.value
 
-    return await service.create_exercise(name=req.name, scope=req.scope, ...)
+    return await service.request_revision(report_uid=uid, notes=req.notes)
 ```
 
 **Benefits:**
