@@ -469,13 +469,13 @@ def create_library_ui_routes(
                 description="Pin Ku on the Knowledge page to track what matters to you.",
             )
 
-        # Fetch all Kus and filter to pinned
-        result = await ku_service.core.list(limit=500)  # type: ignore[union-attr]
+        # Fetch only the pinned Kus by UID
+        result = await ku_service.core.backend.get_many(list(pinned_uids))  # type: ignore[union-attr]
         if result.is_error:
             logger.error(f"Library: failed to load Kus: {result.error}")
             return render_error_banner("Failed to load knowledge units", str(result.error))
 
-        kus = [ku for ku in (result.value or []) if ku.uid in pinned_uids]
+        kus = [ku for ku in (result.value or []) if ku is not None]
         if not kus:
             return EmptyState(
                 title="No bookmarked Ku yet",
@@ -549,15 +549,13 @@ def create_library_ui_routes(
                 description="Start a Path Step on the Path Steps page to track your progress here.",
             )
 
-        # Fetch all steps and filter to enrolled
-        result = await ps_service.core.list(limit=200)  # type: ignore[union-attr]
+        # Fetch only the enrolled PathSteps by UID
+        result = await ps_service.core.backend.get_many(list(enrolled_uids))  # type: ignore[union-attr]
         if result.is_error:
             logger.error(f"Library: failed to load PathSteps: {result.error}")
             return render_error_banner("Failed to load path steps", str(result.error))
 
-        raw = result.value or []
-        all_steps = raw if isinstance(raw, list) else raw[0]
-        steps = [s for s in all_steps if s.uid in enrolled_uids]
+        steps = [s for s in (result.value or []) if s is not None]
         if not steps:
             return EmptyState(
                 title="No enrolled Path Steps yet",
