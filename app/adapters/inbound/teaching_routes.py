@@ -33,6 +33,9 @@ TEACHING_CONFIG = DomainRouteConfig(
         "admin_stats": "admin_stats",
     },
 )
+# NOTE: exercises_service retained in both configs for function signature compatibility.
+# The UI and API factories still accept it as a parameter even though exercise
+# create/edit routes were removed (2026-04-03 redesign).
 
 
 def create_teaching_routes(

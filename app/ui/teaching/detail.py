@@ -97,35 +97,6 @@ def render_report_item(fb: dict[str, Any]) -> Div:
     return _shared_render(fb)
 
 
-def render_exercise_submission_row(item: SubmissionRow) -> Div:
-    """Render a submission row in the exercise-detail view."""
-    title = item.title or item.original_filename or "Untitled"
-    student_name = item.student_name or item.student_uid or "Unknown"
-
-    feedback_badge: Any = None
-    if item.feedback_count > 0:
-        feedback_badge = Badge(
-            f"{item.feedback_count} feedback",
-            variant=BadgeT.info,
-            size=Size.sm,
-        )
-
-    return CardGenerator.from_dataclass(
-        {"title": title},
-        display_fields=[],
-        subtitle=f"by {student_name}",
-        header_badges=[feedback_badge, status_badge(item.status)],
-        show_labels=False,
-        actions=ButtonLink(
-            "Review",
-            href=f"/teaching/review/{item.uid}",
-            variant=ButtonT.primary,
-            size=Size.sm,
-        ),
-        card_attrs={"cls": "bg-background shadow-sm mb-2"},
-    )
-
-
 def render_student_submission_row(item: SubmissionRow) -> Div:
     """Render a submission row in the student-detail view with feedback toggle."""
     title = item.title or item.original_filename or "Untitled"
@@ -386,25 +357,30 @@ def render_student_detail_tabs(
     revision_requested: list[SubmissionRow],
     completed: list[SubmissionRow],
     student_name: str,
+    ku_detail: dict[str, Any] | None = None,
+    default_tab: str | None = None,
 ) -> Div:
     """
-    Tabbed view of a student's submissions grouped by workflow status.
+    Tabbed view of a student's submissions grouped by workflow status,
+    plus an optional KU Progress tab.
 
-    Tabs: Needs Review | Revision Requested | Completed
+    Tabs: Needs Review | Revision Requested | Completed | KU Progress
     Pending submissions have inline HTMX review panels.
     Other submissions show read-only rows with feedback history toggle.
+    KU Progress tab shows learning state from AdminLearningComponents.
     """
 
-    def _tab_button(tab_id: str, label: str, count: int) -> Any:
-        count_badge = (
-            Span(str(count), cls="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-primary/10")
-            if count
-            else ""
-        )
+    def _tab_button(tab_id: str, label: str, count: int | None = None) -> Any:
+        count_badge: Any = ""
+        if count:
+            count_badge = Span(
+                str(count),
+                cls="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/10",
+            )
         return Div(
             Span(label),
             count_badge,
-            cls="flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-t border-b-2 cursor-pointer transition-colors",
+            cls="flex items-center gap-1 px-5 py-3 text-base font-semibold border-b-3 cursor-pointer transition-colors",
             **{
                 "@click": f"tab = '{tab_id}'",
                 ":class": f"tab === '{tab_id}' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'",
@@ -427,20 +403,43 @@ def render_student_detail_tabs(
             )
         return Div(*[render_student_submission_row(item) for item in items])
 
-    default_tab = "pending" if pending else ("revision" if revision_requested else "completed")
+    def _render_ku_progress() -> Any:
+        if ku_detail is None:
+            return P(
+                "KU progress data unavailable.",
+                cls="text-center text-muted-foreground py-8 text-sm",
+            )
+        from ui.admin.views import AdminLearningComponents
 
-    return Div(
-        # Tab bar
-        Div(
-            _tab_button("pending", "Needs Review", len(pending)),
-            _tab_button("revision", "Revision Requested", len(revision_requested)),
-            _tab_button("completed", "Completed", len(completed)),
-            cls="flex border-b border-border mb-4",
-        ),
-        # Tab panels
+        return Div(
+            AdminLearningComponents.render_user_ku_summary(ku_detail),
+            Div(cls="mb-6"),
+            AdminLearningComponents.render_user_ku_detail_list(ku_detail),
+        )
+
+    if default_tab is None:
+        default_tab = "pending" if pending else ("revision" if revision_requested else "completed")
+
+    # Tab bar items
+    tab_buttons = [
+        _tab_button("pending", "Needs Review", len(pending)),
+        _tab_button("revision", "Revision Requested", len(revision_requested)),
+        _tab_button("completed", "Completed", len(completed)),
+    ]
+    # Tab panels
+    tab_panels = [
         Div(_render_pending_list(), **{"x-show": "tab === 'pending'"}),
         Div(_render_simple_list(revision_requested), **{"x-show": "tab === 'revision'"}),
         Div(_render_simple_list(completed), **{"x-show": "tab === 'completed'"}),
+    ]
+
+    # KU Progress tab (always shown — data may be unavailable)
+    tab_buttons.append(_tab_button("ku", "KU Progress"))
+    tab_panels.append(Div(_render_ku_progress(), **{"x-show": "tab === 'ku'"}))
+
+    return Div(
+        Div(*tab_buttons, cls="flex border-b border-border mb-6"),
+        *tab_panels,
         **{"x-data": f"{{ tab: '{default_tab}' }}", "x-cloak": True},
     )
 

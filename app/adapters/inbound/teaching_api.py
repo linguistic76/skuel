@@ -23,12 +23,8 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.form_helpers import parse_form_body, parse_json_body
-from core.models.teaching.teaching_request import (
-    CreateTeachingExerciseRequest,
-    RequestRevisionRequest,
-    UpdateTeachingExerciseRequest,
-)
+from adapters.inbound.form_helpers import parse_form_body
+from core.models.teaching.teaching_request import RequestRevisionRequest
 
 # NOTE: FastHTML evaluates string annotations at runtime via signature_ex(),
 # so types used in @rt() handler return annotations must be real imports.
@@ -40,11 +36,10 @@ from core.ports.query_types import (
     StudentSummaryItem,
     SubmissionDetailResult,
     SubmissionForExercise,
-    TeacherDashboardStats,
     TeacherGroupStats,
 )
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
@@ -284,17 +279,6 @@ def create_teaching_api_routes(
             student_uid=uid,
         )
 
-    @rt("/api/teaching/dashboard", methods=["GET"])
-    @require_role(UserRole.TEACHER, get_user_service)
-    @boundary_handler()
-    async def get_dashboard_stats(
-        request: Request, current_user: Any = None
-    ) -> "Result[TeacherDashboardStats]":
-        """Get at-a-glance stats for the teacher dashboard."""
-        return await teacher_review_service.get_dashboard_stats(
-            teacher_uid=current_user.uid,
-        )
-
     @rt("/api/teaching/groups", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
@@ -316,69 +300,5 @@ def create_teaching_api_routes(
             teacher_uid=current_user.uid,
         )
 
-    @rt("/api/teaching/exercises", methods=["POST"])
-    @require_role(UserRole.TEACHER, get_user_service)
-    @boundary_handler(success_status=201)
-    async def create_teaching_exercise(
-        request: Request, current_user: Any = None
-    ) -> Result[dict[str, Any]]:
-        """Create a new exercise owned by the authenticated teacher."""
-        if not exercises_service:
-            return Result.fail(
-                Errors.system(
-                    "exercises_service not available", operation="create_teaching_exercise"
-                )
-            )
-
-        parsed = await parse_form_body(request, CreateTeachingExerciseRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-
-        result = await exercises_service.create_exercise(
-            user_uid=current_user.uid,
-            name=req.name,
-            instructions=req.instructions,
-            model=req.model,
-            scope=req.scope,
-            group_uid=req.group_uid,
-            due_date=req.due_date,
-            processor_type=req.processor_type,
-            context_notes=req.parsed_context_notes,
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value.to_dto().to_dict())
-
-    @rt("/api/teaching/exercises/{uid}", methods=["POST"])
-    @require_role(UserRole.TEACHER, get_user_service)
-    @boundary_handler()
-    async def update_teaching_exercise(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Result[dict[str, Any]]:
-        """Update an existing exercise."""
-        if not exercises_service:
-            return Result.fail(
-                Errors.system(
-                    "exercises_service not available", operation="update_teaching_exercise"
-                )
-            )
-
-        parsed = await parse_form_body(request, UpdateTeachingExerciseRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-
-        result = await exercises_service.update_exercise(
-            uid=uid,
-            name=req.name,
-            instructions=req.instructions,
-            model=req.model,
-            context_notes=req.parsed_context_notes,
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value.to_dto().to_dict())
-
-    logger.info("✅ Teaching API routes registered")
+    logger.info("Teaching API routes registered")
     return []

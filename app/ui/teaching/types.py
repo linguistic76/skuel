@@ -1,6 +1,6 @@
 """Teaching UI view model types.
 
-Frozen dataclasses for teaching dashboard, queue, and detail components.
+Frozen dataclasses for teaching queue and detail components.
 """
 
 from dataclasses import dataclass
@@ -21,18 +21,6 @@ class QueueItem:
     ku_uid: str = ""
     feedback_count: int = 0
     original_filename: str | None = None
-
-
-@dataclass(frozen=True)
-class ExerciseSummary:
-    """Exercise card with submission counts."""
-
-    uid: str = ""
-    title: str = "Untitled Exercise"
-    scope: str | None = None
-    total_count: int = 0
-    reviewed_count: int = 0
-    pending_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -57,16 +45,6 @@ class ClassSummary:
     exercise_count: int = 0
     pending_count: int = 0
     is_active: bool = True
-
-
-@dataclass(frozen=True)
-class TeachingDashboardStats:
-    """Overview dashboard statistics."""
-
-    pending_count: int = 0
-    total_students: int = 0
-    total_exercises: int = 0
-    total_groups: int = 0
 
 
 @dataclass(frozen=True)

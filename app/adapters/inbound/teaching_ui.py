@@ -2,13 +2,11 @@
 Teaching UI Routes — Teacher Dashboard
 ========================================
 
-Teacher-facing pages for the full teaching workflow:
-- Overview dashboard with at-a-glance stats
-- Review queue and approved submissions
-- By-exercise and by-student views
-- Groups management
-- Learning dashboard (KU progression tracking)
+Teacher-facing pages for the teaching workflow:
+- Review queue (root page)
 - Submission review with content display
+- Student management with KU progress
+- Groups management
 
 TEACHER role required for all endpoints.
 
@@ -20,7 +18,6 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
-    H2,
     H3,
     Div,
     Form,
@@ -33,7 +30,6 @@ from adapters.inbound.auth import make_service_getter, require_authenticated_use
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
-from ui.admin.views import AdminLearningComponents
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Textarea
@@ -44,30 +40,23 @@ from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 from ui.teaching.cards import (
     render_class_card,
-    render_dashboard,
     render_empty_state,
-    render_exercise_summary_card,
     render_queue_item,
     render_student_summary_card,
 )
 from ui.teaching.detail import (
     render_class_member_row,
-    render_exercise_submission_row,
     render_report_item,
     render_student_detail_tabs,
-    render_student_submission_row,
     render_submission_content,
 )
-from ui.teaching.forms import render_exercise_form
 from ui.teaching.types import (
     ClassMember,
     ClassSummary,
-    ExerciseSummary,
     QueueItem,
     StudentSummary,
     SubmissionDetail,
     SubmissionRow,
-    TeachingDashboardStats,
 )
 
 if TYPE_CHECKING:
@@ -81,11 +70,9 @@ logger = get_logger("skuel.routes.teaching.ui")
 # ============================================================================
 
 TEACHING_SIDEBAR_ITEMS = [
-    SidebarItem("Overview", "/teaching", "overview", icon="📊"),
-    SidebarItem("Review Queue", "/teaching/queue", "queue", icon="📥"),
-    SidebarItem("By Student", "/teaching/students", "students", icon="👥"),
+    SidebarItem("Review Queue", "/teaching", "queue", icon="📥"),
+    SidebarItem("Students", "/teaching/students", "students", icon="👥"),
     SidebarItem("Groups", "/teaching/groups", "groups", icon="👥"),
-    SidebarItem("Learning", "/teaching/learning", "learning", icon="📚"),
 ]
 
 _SIDEBAR_DEFAULTS = {
@@ -111,15 +98,15 @@ def create_teaching_ui_routes(
     admin_stats: Any = None,
 ) -> list[Any]:
     """
-    Create teaching UI routes for the full teacher dashboard.
+    Create teaching UI routes for the teacher dashboard.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
         teacher_review_service: TeacherReviewService instance
         user_service: UserService for role checks
-        exercises_service: ExerciseService for create/edit forms
-        admin_stats: AdminStatsService for KU progression data (learning dashboard)
+        exercises_service: ExerciseService (retained for route config compatibility)
+        admin_stats: AdminStatsService for KU progression data
     """
 
     get_user_service = make_service_getter(user_service)
@@ -150,51 +137,13 @@ def create_teaching_ui_routes(
         )
 
     # ------------------------------------------------------------------
-    # OVERVIEW / DASHBOARD
+    # REVIEW QUEUE (root page at /teaching)
     # ------------------------------------------------------------------
 
     @rt("/teaching")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_overview_page(request: Request, current_user: Any = None) -> Any:
-        """Dashboard overview — at-a-glance stats for the teacher."""
-        user_uid = require_authenticated_user(request)
-
-        result = await teacher_review_service.get_dashboard_stats(teacher_uid=user_uid)
-        stats_error = result.is_error
-        if stats_error:
-            logger.error(f"Failed to load dashboard stats: {result.error}")
-        raw_stats = result.value if not stats_error else {}
-        stats = TeachingDashboardStats(
-            pending_count=raw_stats.get("pending_count", 0),
-            total_students=raw_stats.get("total_students", 0),
-            total_exercises=raw_stats.get("total_exercises", 0),
-            total_groups=raw_stats.get("total_groups", 0),
-        )
-
-        content = Div(
-            PageHeader("Teaching Overview", subtitle="Your teaching activity at a glance"),
-            render_error_banner("Dashboard statistics may be incomplete", severity="warning")
-            if stats_error
-            else None,
-            render_dashboard(stats),
-        )
-        return await SidebarPage(
-            content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
-            active="overview",
-            page_title="Teaching Overview",
-            request=request,
-            **_SIDEBAR_DEFAULTS,
-        )
-
-    # ------------------------------------------------------------------
-    # REVIEW QUEUE
-    # ------------------------------------------------------------------
-
-    @rt("/teaching/queue")
-    @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_queue_page(request: Request, current_user: Any = None) -> Any:
-        """Review queue — pending student submissions."""
+        """Review queue — pending student submissions. This is the teaching root page."""
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_review_queue(teacher_uid=user_uid)
@@ -223,21 +172,6 @@ def create_teaching_ui_routes(
             request=request,
             **_SIDEBAR_DEFAULTS,
         )
-
-    # ------------------------------------------------------------------
-    # APPROVED — redirects to review queue (completed view is per-student now)
-    # ------------------------------------------------------------------
-
-    @rt("/teaching/approved")
-    async def teaching_approved_redirect(request: Request) -> Any:
-        """301 redirect: /teaching/approved → /teaching/queue.
-
-        Completed submissions are now visible per-student in the Completed tab
-        at /teaching/students/{uid}. This route is kept for backward compatibility.
-        """
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/teaching/queue", status_code=301)
 
     # ------------------------------------------------------------------
     # REVIEW DETAIL
@@ -288,17 +222,22 @@ def create_teaching_ui_routes(
 
         content = Div(
             PageHeader("Review Submission"),
-            # Submission content
             submission_section,
-            # Feedback history (if any)
             feedback_history_section,
             # Submit feedback — file upload
             Card(
                 CardBody(
-                    P("Upload your feedback as a Markdown file (.md).", cls="text-sm text-muted-foreground mb-3"),
+                    P(
+                        "Upload your feedback as a Markdown file (.md).",
+                        cls="text-sm text-muted-foreground mb-3",
+                    ),
                     Form(
                         Div(
-                            Label("Feedback file", fr="feedback_file", cls="text-sm font-medium mb-1 block"),
+                            Label(
+                                "Feedback file",
+                                fr="feedback_file",
+                                cls="text-sm font-medium mb-1 block",
+                            ),
                             Input(
                                 type="file",
                                 name="feedback_file",
@@ -329,10 +268,17 @@ def create_teaching_ui_routes(
             # Request revision — text notes
             Card(
                 CardBody(
-                    P("Request the student revise their work.", cls="text-sm text-muted-foreground mb-3"),
+                    P(
+                        "Request the student revise their work.",
+                        cls="text-sm text-muted-foreground mb-3",
+                    ),
                     Form(
                         Div(
-                            Label("Revision notes", fr="revision_notes", cls="text-sm font-medium mb-1 block"),
+                            Label(
+                                "Revision notes",
+                                fr="revision_notes",
+                                cls="text-sm font-medium mb-1 block",
+                            ),
                             Textarea(
                                 name="notes",
                                 id="revision_notes",
@@ -373,7 +319,7 @@ def create_teaching_ui_routes(
             Div(
                 ButtonLink(
                     "Back to Queue",
-                    href="/teaching/queue",
+                    href="/teaching",
                     variant=ButtonT.ghost,
                     size=Size.sm,
                     cls="mt-4",
@@ -390,187 +336,13 @@ def create_teaching_ui_routes(
         )
 
     # ------------------------------------------------------------------
-    # BY EXERCISE
-    # ------------------------------------------------------------------
-
-    @rt("/teaching/exercises")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_exercises_page(request: Request, current_user: Any = None) -> Any:
-        """By Exercise page — teacher's exercises with submission counts."""
-        user_uid = require_authenticated_user(request)
-
-        result = await teacher_review_service.get_exercises_with_submission_counts(
-            teacher_uid=user_uid
-        )
-
-        if result.is_error:
-            page_content: Any = render_error_banner("Failed to load exercises", str(result.error))
-        elif not result.value:
-            page_content = render_empty_state(
-                "No exercises yet",
-                "Exercises you create will appear here with submission counts.",
-            )
-        else:
-            page_content = Div(
-                *[
-                    render_exercise_summary_card(
-                        ExerciseSummary(
-                            uid=item.get("uid", ""),
-                            title=item.get("title") or "Untitled Exercise",
-                            scope=item.get("scope"),
-                            total_count=item.get("total_count", 0),
-                            reviewed_count=item.get("reviewed_count", 0),
-                            pending_count=item.get("pending_count", 0),
-                        )
-                    )
-                    for item in result.value
-                ]
-            )
-
-        content = Div(
-            PageHeader("By Exercise", subtitle="Submissions grouped by exercise"),
-            Div(
-                ButtonLink(
-                    "+ New Exercise",
-                    href="/teaching/exercises/new",
-                    variant=ButtonT.primary,
-                    size=Size.sm,
-                    cls="mb-4",
-                ),
-            ),
-            page_content,
-        )
-        return await SidebarPage(
-            content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
-            active="exercises",
-            page_title="By Exercise",
-            request=request,
-            **_SIDEBAR_DEFAULTS,
-        )
-
-    @rt("/teaching/exercises/new")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_new_exercise_page(request: Request, current_user: Any = None) -> Any:
-        """New exercise form — create a teaching exercise."""
-        user_uid = require_authenticated_user(request)
-
-        groups_result = await teacher_review_service.get_teacher_groups_with_stats(
-            teacher_uid=user_uid
-        )
-        groups = groups_result.value if not groups_result.is_error else []
-
-        content = Div(
-            PageHeader("New Exercise", subtitle="Create an exercise for your students"),
-            render_exercise_form(groups),
-            ButtonLink(
-                "← Back to Exercises",
-                href="/teaching/exercises",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mt-4",
-            ),
-        )
-        return await SidebarPage(
-            content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
-            active="exercises",
-            page_title="New Exercise",
-            request=request,
-            **_SIDEBAR_DEFAULTS,
-        )
-
-    @rt("/teaching/exercises/{uid}/edit")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_edit_exercise_page(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Any:
-        """Edit exercise form — update an existing exercise."""
-        user_uid = require_authenticated_user(request)
-
-        exercise_result = await exercises_service.get_exercise(uid)
-        exercise: Any = exercise_result.value if not exercise_result.is_error else None
-
-        groups_result = await teacher_review_service.get_teacher_groups_with_stats(
-            teacher_uid=user_uid
-        )
-        groups = groups_result.value if not groups_result.is_error else []
-
-        title = getattr(exercise, "title", uid) if exercise else uid
-        content = Div(
-            PageHeader(f"Edit: {title}", subtitle="Update exercise details"),
-            render_exercise_form(groups, exercise=exercise),
-            ButtonLink(
-                "← Back to Exercises",
-                href="/teaching/exercises",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mt-4",
-            ),
-        )
-        return await SidebarPage(
-            content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
-            active="exercises",
-            page_title="Edit Exercise",
-            request=request,
-            **_SIDEBAR_DEFAULTS,
-        )
-
-    @rt("/teaching/exercises/{uid}/submissions")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_exercise_submissions_page(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Any:
-        """Exercise submissions page — all submissions against a specific exercise."""
-        result = await teacher_review_service.get_submissions_for_exercise(exercise_uid=uid)
-
-        if result.is_error:
-            rows: Any = render_error_banner("Failed to load submissions", str(result.error))
-        elif not result.value:
-            rows = Div(
-                P(
-                    "No submissions yet for this exercise.",
-                    cls="text-center text-muted-foreground py-8",
-                )
-            )
-        else:
-            rows = Div(
-                *[render_exercise_submission_row(_to_submission_row(item)) for item in result.value]
-            )
-
-        back_link = Div(
-            ButtonLink(
-                "← By Exercise",
-                href="/teaching/exercises",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mt-4",
-            ),
-        )
-
-        content = Div(
-            PageHeader("Exercise Submissions", subtitle=f"Exercise: {uid}"),
-            rows,
-            back_link,
-        )
-        return await SidebarPage(
-            content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
-            active="exercises",
-            page_title="Exercise Submissions",
-            request=request,
-            **_SIDEBAR_DEFAULTS,
-        )
-
-    # ------------------------------------------------------------------
-    # BY STUDENT
+    # STUDENTS
     # ------------------------------------------------------------------
 
     @rt("/teaching/students")
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_students_page(request: Request, current_user: Any = None) -> Any:
-        """By Student page — students who shared work with the teacher."""
+        """Students page — students who shared work with the teacher."""
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_students_summary(teacher_uid=user_uid)
@@ -590,9 +362,11 @@ def create_teaching_ui_routes(
                     render_student_summary_card(
                         StudentSummary(
                             student_uid=item.get("student_uid", ""),
-                            student_name=item.get("student_name")
-                            or item.get("student_uid")
-                            or "Unknown",
+                            student_name=_display_student_name(
+                                item.get("student_name")
+                                or item.get("student_uid")
+                                or "Unknown"
+                            ),
                             submission_count=item.get("submission_count", 0),
                             reviewed_count=item.get("reviewed_count", 0),
                             pending_count=item.get("pending_count", 0),
@@ -603,14 +377,14 @@ def create_teaching_ui_routes(
             )
 
         content = Div(
-            PageHeader("By Student", subtitle="Students who have submitted work"),
+            PageHeader("Students", subtitle="Students who have submitted work"),
             students_content,
         )
         return await SidebarPage(
             content=content,
             items=TEACHING_SIDEBAR_ITEMS,
             active="students",
-            page_title="By Student",
+            page_title="Students",
             request=request,
             **_SIDEBAR_DEFAULTS,
         )
@@ -620,10 +394,10 @@ def create_teaching_ui_routes(
     async def teaching_student_detail_page(
         request: Request, uid: str, current_user: Any = None
     ) -> Any:
-        """Student detail page — tabbed view of all submissions grouped by workflow status.
+        """Student detail page — tabbed view of submissions + KU progress.
 
-        Tabs: Needs Review | Revision Requested | Completed
-        Pending submissions include inline HTMX-loadable review panels with action forms.
+        Tabs: Needs Review | Revision Requested | Completed | KU Progress
+        Supports ?tab=ku query param to open KU Progress tab directly.
         """
         user_uid = require_authenticated_user(request)
 
@@ -637,23 +411,25 @@ def create_teaching_ui_routes(
             )
             student_name = uid
         elif not result.value:
-            tabbed_content = Div(
-                P(
-                    "No submissions from this student.",
-                    cls="text-center text-muted-foreground py-8",
-                )
-            )
+            # No submissions — still build tabs (KU Progress may have data)
             student_name = uid
+            ku_detail = await _fetch_ku_detail(admin_stats, uid)
+            tabbed_content = render_student_detail_tabs(
+                pending=[],
+                revision_requested=[],
+                completed=[],
+                student_name=student_name,
+                ku_detail=ku_detail,
+                default_tab=request.query_params.get("tab"),
+            )
         else:
             # Derive display name from first submission that has one
-            student_name = next(
-                (
-                    item.get("student_name") or item.get("student_uid") or uid
-                    for item in result.value
-                    if item.get("student_name")
-                ),
-                uid,
-            )
+            student_name = uid
+            for item in result.value:
+                raw_name = item.get("student_name")
+                if raw_name:
+                    student_name = str(raw_name)
+                    break
 
             _needs_review = {"submitted", "active", "queued", "processing"}
             _revision = {"revision_requested"}
@@ -675,36 +451,29 @@ def create_teaching_ui_routes(
                 else:
                     pending.append(row)  # unknown status → treat as pending
 
+            ku_detail = await _fetch_ku_detail(admin_stats, uid)
             tabbed_content = render_student_detail_tabs(
                 pending=pending,
                 revision_requested=revision_requested,
                 completed=completed,
                 student_name=student_name,
+                ku_detail=ku_detail,
+                default_tab=request.query_params.get("tab"),
             )
 
-        content = Div(
-            PageHeader(
-                f"Student: {student_name}",
-                subtitle="Submissions grouped by review status",
-            ),
-            tabbed_content,
-            Div(
-                ButtonLink(
-                    "← By Student",
-                    href="/teaching/students",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    cls="mt-4",
-                ),
-            ),
-        )
+        display_name = _display_student_name(student_name)
+        content = Div(tabbed_content)
         return await SidebarPage(
             content=content,
             items=TEACHING_SIDEBAR_ITEMS,
             active="students",
-            page_title=f"Student: {student_name}",
+            page_title=display_name,
             request=request,
-            **_SIDEBAR_DEFAULTS,
+            title=display_name,
+            subtitle="",
+            storage_key="teaching-sidebar",
+            active_page="teaching",
+            title_href=f"/teaching/students/{uid}",
         )
 
     # ------------------------------------------------------------------
@@ -846,207 +615,103 @@ def create_teaching_ui_routes(
         )
 
     # ------------------------------------------------------------------
-    # LEARNING DASHBOARD
+    # TRANSITION REDIRECTS — added 2026-04-03
     # ------------------------------------------------------------------
 
-    @rt("/admin/learning")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def admin_learning_redirect(request: Request, current_user: Any = None) -> Any:
-        """301 redirect: /admin/learning → /teaching/learning."""
-        from fasthtml.common import RedirectResponse
+    @rt("/teaching/queue")
+    async def teaching_queue_redirect(request: Request) -> Any:
+        """301 redirect: /teaching/queue → /teaching (queue is now root)."""
+        from starlette.responses import RedirectResponse
 
-        return RedirectResponse("/teaching/learning", status_code=301)
+        return RedirectResponse(url="/teaching", status_code=301)
 
-    @rt("/admin/learning/user/{uid}")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def admin_learning_user_redirect(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Any:
-        """301 redirect: /admin/learning/user/{uid} → /teaching/learning/user/{uid}."""
-        from fasthtml.common import RedirectResponse
+    @rt("/teaching/approved")
+    async def teaching_approved_redirect(request: Request) -> Any:
+        """301 redirect: /teaching/approved → /teaching."""
+        from starlette.responses import RedirectResponse
 
-        return RedirectResponse(f"/teaching/learning/user/{uid}", status_code=301)
+        return RedirectResponse(url="/teaching", status_code=301)
+
+    @rt("/teaching/exercises")
+    async def teaching_exercises_redirect(request: Request) -> Any:
+        """301 redirect: /teaching/exercises → /teaching."""
+        from starlette.responses import RedirectResponse
+
+        return RedirectResponse(url="/teaching", status_code=301)
+
+    @rt("/teaching/exercises/new")
+    async def teaching_exercises_new_redirect(request: Request) -> Any:
+        """301 redirect: /teaching/exercises/new → /teaching."""
+        from starlette.responses import RedirectResponse
+
+        return RedirectResponse(url="/teaching", status_code=301)
+
+    @rt("/teaching/exercises/{uid}/edit")
+    async def teaching_exercises_edit_redirect(request: Request, uid: str) -> Any:
+        """301 redirect: /teaching/exercises/{uid}/edit → /teaching."""
+        from starlette.responses import RedirectResponse
+
+        return RedirectResponse(url="/teaching", status_code=301)
+
+    @rt("/teaching/exercises/{uid}/submissions")
+    async def teaching_exercises_submissions_redirect(request: Request, uid: str) -> Any:
+        """301 redirect: /teaching/exercises/{uid}/submissions → /teaching."""
+        from starlette.responses import RedirectResponse
+
+        return RedirectResponse(url="/teaching", status_code=301)
 
     @rt("/teaching/learning")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_learning_page(request: Request, current_user: Any = None) -> Any:
-        """Learning dashboard — KU progression tracking across all users."""
-        if not admin_stats:
-            content = Div(
-                PageHeader("Learning Dashboard"),
-                render_error_banner("Learning stats service unavailable", severity="warning"),
-            )
-            return await SidebarPage(
-                content=content,
-                items=TEACHING_SIDEBAR_ITEMS,
-                active="learning",
-                page_title="Learning Dashboard",
-                request=request,
-                **_SIDEBAR_DEFAULTS,
-            )
+    async def teaching_learning_redirect(request: Request) -> Any:
+        """301 redirect: /teaching/learning → /teaching/students."""
+        from starlette.responses import RedirectResponse
 
-        ku_metrics_result = await admin_stats.get_entity_system_metrics()
-        ku_metrics_error = ku_metrics_result.is_error
-        if ku_metrics_error:
-            logger.error(f"Failed to load KU metrics: {ku_metrics_result.error}")
-        ku_metrics = ku_metrics_result.value if not ku_metrics_error else {}
-
-        user_progress_result = await admin_stats.get_all_users_progress()
-        user_progress_error = user_progress_result.is_error
-        if user_progress_error:
-            logger.error(f"Failed to load user progress: {user_progress_result.error}")
-        user_progress = user_progress_result.value if not user_progress_error else []
-
-        content = Div(
-            PageHeader(
-                "Learning Dashboard", subtitle="Track knowledge unit progression across all users"
-            ),
-            Card(
-                H2("Knowledge Unit Overview", cls="text-xl font-semibold mb-4"),
-                render_error_banner("Knowledge unit metrics unavailable", severity="warning")
-                if ku_metrics_error
-                else AdminLearningComponents.render_ku_system_metrics(ku_metrics),
-                cls="bg-background shadow-sm p-6 mb-6",
-            ),
-            Card(
-                H2("User KU Progress", cls="text-xl font-semibold mb-4"),
-                render_error_banner("User progress data unavailable", severity="warning")
-                if user_progress_error
-                else AdminLearningComponents.render_user_progress_table(user_progress),
-                cls="bg-background shadow-sm p-6",
-            ),
-        )
-        return await SidebarPage(
-            content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
-            active="learning",
-            page_title="Learning Dashboard",
-            request=request,
-            **_SIDEBAR_DEFAULTS,
-        )
+        return RedirectResponse(url="/teaching/students", status_code=301)
 
     @rt("/teaching/learning/user/{uid}")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_learning_user_detail(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Any:
-        """Per-user KU detail — viewed, in-progress, and mastered KUs with timestamps."""
-        if not admin_stats:
-            content = Div(
-                render_error_banner("Learning stats service unavailable", severity="warning"),
-                ButtonLink(
-                    "← Learning Dashboard",
-                    href="/teaching/learning",
-                    variant=ButtonT.ghost,
-                    cls="mt-4",
-                ),
-            )
-            return await SidebarPage(
-                content=content,
-                items=TEACHING_SIDEBAR_ITEMS,
-                active="learning",
-                page_title="User KU Detail",
-                request=request,
-                **_SIDEBAR_DEFAULTS,
-            )
+    async def teaching_learning_user_redirect(request: Request, uid: str) -> Any:
+        """301 redirect: /teaching/learning/user/{uid} → /teaching/students/{uid}?tab=ku."""
+        from starlette.responses import RedirectResponse
 
-        user_result = await user_service.get_user(uid)
-        if user_result.is_error or not user_result.value:
-            content = Div(
-                render_error_banner(f"No user found with UID: {uid}"),
-                ButtonLink(
-                    "← Learning Dashboard",
-                    href="/teaching/learning",
-                    variant=ButtonT.ghost,
-                    cls="mt-4",
-                ),
-            )
-            return await SidebarPage(
-                content=content,
-                items=TEACHING_SIDEBAR_ITEMS,
-                active="learning",
-                page_title="User Not Found",
-                request=request,
-                **_SIDEBAR_DEFAULTS,
-            )
-
-        user = user_result.value
-
-        user_ku_detail_result = await admin_stats.get_user_ku_detail(uid)
-        if user_ku_detail_result.is_error:
-            logger.warning(f"Failed to load KU detail for {uid}: {user_ku_detail_result.error}")
-        user_ku_detail = user_ku_detail_result.value if not user_ku_detail_result.is_error else {}
-
-        submissions_result = await admin_stats.get_user_submissions_detail(uid)
-        if submissions_result.is_error:
-            logger.warning(f"Failed to load submissions for {uid}: {submissions_result.error}")
-        submissions = submissions_result.value if not submissions_result.is_error else []
-
-        content = Div(
-            ButtonLink(
-                "← Learning Dashboard",
-                href="/teaching/learning",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mb-4",
-            ),
-            PageHeader(f"{user.display_name or user.title} — KU Progress"),
-            Card(
-                H2("Progress Summary", cls="text-xl font-semibold mb-4"),
-                AdminLearningComponents.render_user_ku_summary(user_ku_detail),
-                cls="bg-background shadow-sm p-6 mb-6",
-            ),
-            Card(
-                H2("Exercise Submissions", cls="text-xl font-semibold mb-4"),
-                AdminLearningComponents.render_user_submissions_list(submissions),
-                cls="bg-background shadow-sm p-6 mb-6",
-            ),
-            Card(
-                H2("Knowledge Units", cls="text-xl font-semibold mb-4"),
-                AdminLearningComponents.render_user_ku_detail_list(user_ku_detail),
-                cls="bg-background shadow-sm p-6",
-            ),
-        )
-        return await SidebarPage(
-            content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
-            active="learning",
-            page_title=f"Learning: {user.display_name or user.title}",
-            request=request,
-            **_SIDEBAR_DEFAULTS,
-        )
+        return RedirectResponse(url=f"/teaching/students/{uid}?tab=ku", status_code=301)
 
     @rt("/teaching/reports/user/{uid}")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_user_reports_page(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Any:
-        """User reports placeholder page."""
-        user_result = await user_service.get_user(uid)
-        
-        user_name = uid
-        if not user_result.is_error and user_result.value:
-            user_name = user_result.value.display_name or user_result.value.title or uid
+    async def teaching_reports_redirect(request: Request, uid: str) -> Any:
+        """301 redirect: /teaching/reports/user/{uid} → /teaching/students/{uid}."""
+        from starlette.responses import RedirectResponse
 
-        content = Div(
-            PageHeader(f"Reports: {user_name}", subtitle="Exercise and Activity Reports"),
-            render_empty_state("Reports coming soon", "This feature is currently under development."),
-            ButtonLink(
-                "← Back to Students",
-                href="/teaching/students",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mt-4 block text-center",
-            ),
-        )
-        return await SidebarPage(
-            content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
-            active="students",
-            page_title=f"Reports: {user_name}",
-            request=request,
-            **_SIDEBAR_DEFAULTS,
-        )
+        return RedirectResponse(url=f"/teaching/students/{uid}", status_code=301)
+
+    @rt("/admin/learning")
+    async def admin_learning_redirect(request: Request) -> Any:
+        """301 redirect: /admin/learning → /teaching/students."""
+        from starlette.responses import RedirectResponse
+
+        return RedirectResponse(url="/teaching/students", status_code=301)
+
+    @rt("/admin/learning/user/{uid}")
+    async def admin_learning_user_redirect(request: Request, uid: str) -> Any:
+        """301 redirect: /admin/learning/user/{uid} → /teaching/students/{uid}?tab=ku."""
+        from starlette.responses import RedirectResponse
+
+        return RedirectResponse(url=f"/teaching/students/{uid}?tab=ku", status_code=301)
 
     logger.info("Teaching UI routes registered")
     return []
+
+
+def _display_student_name(name: str) -> str:
+    """Strip the 'user_' prefix from student names for display."""
+    if name.startswith("user_"):
+        return name[5:]
+    return name
+
+
+async def _fetch_ku_detail(admin_stats: Any, student_uid: str) -> dict[str, Any] | None:
+    """Fetch KU detail for a student, returning None if unavailable."""
+    if not admin_stats:
+        return None
+    result = await admin_stats.get_user_ku_detail(student_uid)
+    if result.is_error:
+        logger.warning(f"Failed to load KU detail for {student_uid}: {result.error}")
+        return None
+    return result.value or None
