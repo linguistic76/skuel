@@ -170,7 +170,7 @@ async def _render_admin_hub(request: Request) -> Any:
         HubCardData(
             icon="🎓",
             name="Teaching",
-            href="/teaching",
+            href="/teaching/students",
             description="Review queue, student management, and class groups",
         ),
     ]

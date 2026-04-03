@@ -3,14 +3,15 @@ Teaching UI Routes — Teacher Dashboard
 ========================================
 
 Teacher-facing pages for the teaching workflow:
-- Teaching hub (root page)
 - Student list + student hub + student submissions
 - Review queue + review detail
 - Groups management
 
+/teaching redirects to /teaching/students (hub removed 2026-04-03).
+
 TEACHER role required for all endpoints.
 
-Layout: Hub pages use BasePage (no sidebar), child pages use SidebarPage.
+Layout: Student hub uses BasePage, child pages use SidebarPage.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
@@ -60,7 +61,6 @@ from ui.teaching.detail import (
     render_submission_content,
     student_detail_sidebar_items,
 )
-from ui.teaching.hub import TeachingHub
 from ui.teaching.nav import render_teaching_sidebar_page
 from ui.teaching.student_hub import StudentHub
 from ui.teaching.types import (
@@ -165,19 +165,16 @@ def create_teaching_ui_routes(
         return pending, revision, completed, student_name
 
     # ------------------------------------------------------------------
-    # TEACHING HUB — root page
+    # TEACHING ROOT — redirect to students list
     # ------------------------------------------------------------------
 
     @rt("/teaching")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_hub_page(request: Request, current_user: Any = None) -> Any:
-        """Teaching hub — entry point with container cards for Students, Groups, Queue."""
-        return await BasePage(
-            content=TeachingHub(),
-            title="Teaching",
-            request=request,
-            active_page="teaching",
-        )
+    async def teaching_root_redirect(request: Request, current_user: Any = None) -> Any:
+        """Redirect /teaching → /teaching/students (hub removed)."""
+        from starlette.responses import RedirectResponse
+
+        return RedirectResponse(url="/teaching/students", status_code=301)
 
     # ------------------------------------------------------------------
     # REVIEW QUEUE

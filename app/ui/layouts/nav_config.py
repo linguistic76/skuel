@@ -37,7 +37,7 @@ class NavItem:
 
 # Main navigation items - order determines display order
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
-    NavItem("Teaching", "/teaching", "teaching", requires_teacher=True, hide_for_admin=True),
+    NavItem("Teaching", "/teaching/students", "teaching", requires_teacher=True, hide_for_admin=True),
 )
 
 

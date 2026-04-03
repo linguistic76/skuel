@@ -51,6 +51,6 @@ async def render_teaching_sidebar_page(
         storage_key=TEACHING_STORAGE_KEY,
         request=request,
         active_page="teaching",
-        title_href="/teaching",
+        title_href="/teaching/students",
         title_icon="graduation-cap",
     )

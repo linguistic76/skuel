@@ -404,7 +404,7 @@ def create_navbar(
     if is_admin:
         for label, href, key in [
             ("Admin", "/admin", "admin"),
-            ("Teaching", "/teaching", "teaching"),
+            ("Teaching", "/teaching/students", "teaching"),
         ]:
             mobile_icon_links.append(_nav_link(NavItem(label, href, key), active_page, mobile=True))
     else:

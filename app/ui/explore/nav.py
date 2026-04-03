@@ -177,9 +177,7 @@ async def _fetch_sidebar_data(
                     # Fetch individual Ku title
                     ku_result = await ku_service.get_ku(pin_uid)
                     if ku_result.is_ok and ku_result.value:
-                        pinned_items.append(
-                            (pin_uid, ku_result.value.title or pin_uid, "ku")
-                        )
+                        pinned_items.append((pin_uid, ku_result.value.title or pin_uid, "ku"))
                 elif pin_uid.startswith("ps:"):
                     pinned_items.append((pin_uid, pin_uid, "ps"))
 
