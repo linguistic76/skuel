@@ -290,6 +290,14 @@ def _title_key(item: Any) -> str:
     return (getattr(item, "title", None) or "").lower()
 
 
+def _sort_by_title(pair: tuple[Any, str]) -> str:
+    return _title_key(pair[0])
+
+
+def _sort_by_created_at(pair: tuple[Any, str]) -> str:
+    return _created_at_key(pair[0])
+
+
 def _filter_items(
     items: list[tuple[Any, str]],
     q: str,
@@ -322,9 +330,9 @@ def _filter_items(
         ]
 
     if sort == "title":
-        results.sort(key=lambda x: _title_key(x[0]))
+        results.sort(key=_sort_by_title)
     else:
-        results.sort(key=lambda x: _created_at_key(x[0]), reverse=True)
+        results.sort(key=_sort_by_created_at, reverse=True)
 
     return results
 
@@ -427,7 +435,7 @@ def create_explore_ui_routes(
         )
 
         # Default sort: newest first
-        items.sort(key=lambda x: _created_at_key(x[0]), reverse=True)
+        items.sort(key=_sort_by_created_at, reverse=True)
 
         # Render card grid
         cards = [

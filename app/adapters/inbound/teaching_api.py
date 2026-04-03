@@ -18,6 +18,7 @@ See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 import pathlib
 from typing import TYPE_CHECKING, Any
 
+import starlette.datastructures
 from fasthtml.common import Request
 from starlette.responses import FileResponse
 
@@ -103,7 +104,7 @@ def create_teaching_api_routes(
 
         form = await request.form()
         upload = form.get("feedback_file")
-        if upload is None or not hasattr(upload, "read"):
+        if upload is None or not isinstance(upload, starlette.datastructures.UploadFile):
             return Div(P("No file uploaded.", cls="text-sm text-destructive"))
 
         raw = await upload.read()
@@ -230,11 +231,11 @@ def create_teaching_api_routes(
         )
         history_result = await teacher_review_service.get_report_history(uid)
 
-        detail_data: dict[str, Any] = (
+        detail_data: dict[str, Any] = dict(
             detail_result.value if not detail_result.is_error and detail_result.value else {}
         )
 
-        history: list[dict[str, Any]] = (
+        history: list[dict[str, Any]] = list(
             history_result.value if not history_result.is_error and history_result.value else []
         )
 

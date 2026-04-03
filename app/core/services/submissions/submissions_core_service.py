@@ -920,7 +920,6 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             return Result.ok(ProcessingOutcome.NOT_EXERCISE)
 
         exercise_entity_type = records[0]["exercise_entity_type"]
-        teacher_uid = records[0]["teacher_uid"]
         exercise_title = records[0].get("exercise_title") or ""
         # For RevisedExercise, get_exercise_context now returns the root Exercise UID via
         # REVISES_EXERCISE. The count_for_exercise call below uses this so iteration

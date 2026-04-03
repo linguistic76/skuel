@@ -30,11 +30,11 @@ from ui.buttons import ButtonLink, ButtonT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.generate_report import (
     render_activity_report_request_card,
     render_recent_reports_section,
 )
+from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.page_header import PageHeader
 from ui.submissions.report import (
     render_activity_report_detail,

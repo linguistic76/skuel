@@ -175,7 +175,7 @@ class InteractionService(BaseService[BackendOperations[Interaction], Interaction
                     interactions.append(Interaction.from_interaction_dto(dto))
                 elif isinstance(item, Interaction):
                     interactions.append(item)
-            except Exception:
+            except (KeyError, TypeError, ValueError):  # deserialization failures
                 uid = item.get("uid") if isinstance(item, dict) else getattr(item, "uid", "?")
                 self.logger.warning(f"Failed to deserialize interaction: {uid}")
 

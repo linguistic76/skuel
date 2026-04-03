@@ -1850,7 +1850,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         return await self.execute_query(query, {"teacher_uid": teacher_uid})
 
     async def get_student_submissions_for_teacher(
-        self, teacher_uid: str, student_uid: str
+        self, _teacher_uid: str, student_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """Get all submissions owned by a student (admin oversight view).
 

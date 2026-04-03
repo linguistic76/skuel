@@ -154,7 +154,7 @@ class HubBlockData:
     preview_url: str  # HTMX endpoint
 
 
-def HubPreviewCard(title: str, href: str, badge: "FT | None" = None) -> A:
+def HubPreviewCard(title: str, href: str, badge: FT | None = None) -> A:
     """Compact preview card — title + optional badge, links to detail."""
     parts: list[Span | FT] = []
     if badge is not None:

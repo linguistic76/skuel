@@ -13,6 +13,7 @@ See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 
 from typing import TYPE_CHECKING
 
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import MasteryImpact
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -65,7 +66,7 @@ class ReportMasteryService:
             return Result.ok(0)
 
         # 1. Calculate explicit score
-        if method == "activity_report":
+        if method == EntityType.ACTIVITY_REPORT.value:
             score = mastery_impact.get_ai_score()
         else:
             score = mastery_impact.get_teacher_score()

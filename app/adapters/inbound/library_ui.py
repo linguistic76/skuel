@@ -625,7 +625,7 @@ def create_library_ui_routes(
             cards.append(
                 HubPreviewCard(
                     title=getattr(res, "title", res.uid) or res.uid,
-                    href=f"/library/resources",
+                    href="/library/resources",
                     badge=badge,
                 )
             )

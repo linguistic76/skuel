@@ -280,7 +280,7 @@ class ExerciseReportService:
         linked_uids = [record.get("ku_uid") for record in result.value if record.get("ku_uid")]
         student_uid = result.value[0].get("student_uid") if result.value else user_uid
 
-        if linked_uids:
+        if linked_uids and self.report_mastery_service:
             await self.report_mastery_service.propagate_mastery(
                 submission_uid=submission.uid,
                 user_uid=student_uid,
