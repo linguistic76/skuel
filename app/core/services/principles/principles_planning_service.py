@@ -25,6 +25,7 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.principle_enums import AlignmentLevel
 from core.models.principle.principle import Principle
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_planning_service import BasePlanningService
@@ -485,15 +486,15 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
 
     @staticmethod
     def _alignment_level_to_score(alignment_str: str) -> float:
-        """Convert AlignmentLevel string to numeric score."""
-        mapping = {
-            "ALIGNED": 1.0,
-            "MOSTLY_ALIGNED": 0.75,
-            "PARTIAL": 0.5,
-            "MISALIGNED": 0.25,
-            "UNKNOWN": 0.5,
-        }
-        return mapping.get(alignment_str.upper(), 0.5)
+        """Convert AlignmentLevel string to numeric score.
+
+        Delegates to AlignmentLevel.to_score() — the single source of truth.
+        """
+        try:
+            level = AlignmentLevel(alignment_str.lower())
+        except ValueError:
+            return 0.5
+        return level.to_score()
 
     @staticmethod
     def _calculate_attention_score(

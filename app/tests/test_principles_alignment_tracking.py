@@ -104,37 +104,40 @@ def sample_principle_no_alignment() -> Principle:
 
 
 class TestAlignmentLevelToScore:
-    """Test alignment level to numeric score conversion."""
+    """Test alignment level to numeric score conversion.
+
+    Delegates to AlignmentLevel.to_score() — canonical scores from _ALIGNMENT_SCORES.
+    """
 
     def test_aligned_score(self, alignment_service):
-        """Test ALIGNED maps to 1.0."""
+        """Test ALIGNED maps to 0.85."""
         score = alignment_service._alignment_level_to_score(AlignmentLevel.ALIGNED)
-        assert score == 1.0
+        assert score == 0.85
 
     def test_mostly_aligned_score(self, alignment_service):
-        """Test MOSTLY_ALIGNED maps to 0.75."""
+        """Test MOSTLY_ALIGNED maps to 0.7."""
         score = alignment_service._alignment_level_to_score(AlignmentLevel.MOSTLY_ALIGNED)
-        assert score == 0.75
+        assert score == 0.7
 
     def test_partial_alignment_score(self, alignment_service):
-        """Test PARTIAL maps to 0.5."""
+        """Test PARTIAL maps to 0.35."""
         score = alignment_service._alignment_level_to_score(AlignmentLevel.PARTIAL)
-        assert score == 0.5
+        assert score == 0.35
 
     def test_misaligned_score(self, alignment_service):
-        """Test MISALIGNED maps to 0.0."""
+        """Test MISALIGNED maps to 0.1."""
         score = alignment_service._alignment_level_to_score(AlignmentLevel.MISALIGNED)
-        assert score == 0.0
+        assert score == 0.1
 
     def test_unknown_alignment_score(self, alignment_service):
-        """Test UNKNOWN maps to 0.25."""
+        """Test UNKNOWN maps to 0.0."""
         score = alignment_service._alignment_level_to_score(AlignmentLevel.UNKNOWN)
-        assert score == 0.25
-
-    def test_none_alignment_score(self, alignment_service):
-        """Test None alignment level defaults to 0.0."""
-        score = alignment_service._alignment_level_to_score(None)
         assert score == 0.0
+
+    def test_flourishing_score(self, alignment_service):
+        """Test FLOURISHING maps to 1.0."""
+        score = alignment_service._alignment_level_to_score(AlignmentLevel.FLOURISHING)
+        assert score == 1.0
 
 
 class TestCalculateAverageAlignment:
@@ -163,8 +166,8 @@ class TestCalculateAverageAlignment:
         # Verify
         assert result.is_ok
         # Only principle with alignment history counts
-        # Latest alignment is STRONG (1.0)
-        assert result.value == 1.0
+        # Latest alignment is ALIGNED (0.85)
+        assert result.value == 0.85
 
     @pytest.mark.asyncio
     async def test_calculate_average_alignment_no_principles(self, alignment_service, mock_backend):
@@ -205,7 +208,7 @@ class TestCalculateAverageAlignment:
             alignment_history=(
                 AlignmentAssessment(
                     assessed_date=datetime.now(),
-                    alignment_level=AlignmentLevel.ALIGNED,  # 1.0
+                    alignment_level=AlignmentLevel.ALIGNED,  # 0.85
                     evidence="",
                     reflection="",
                 ),
@@ -228,7 +231,7 @@ class TestCalculateAverageAlignment:
             alignment_history=(
                 AlignmentAssessment(
                     assessed_date=datetime.now(),
-                    alignment_level=AlignmentLevel.MOSTLY_ALIGNED,  # 0.75
+                    alignment_level=AlignmentLevel.MOSTLY_ALIGNED,  # 0.7
                     evidence="",
                     reflection="",
                 ),
@@ -244,8 +247,8 @@ class TestCalculateAverageAlignment:
         result = await alignment_service.calculate_average_alignment("user.mike")
 
         assert result.is_ok
-        # Average of 1.0 and 0.75 = 0.875
-        assert result.value == 0.875
+        # Average of 0.85 and 0.7 = 0.775
+        assert result.value == pytest.approx(0.775)
 
 
 class TestGetPrincipleExpressionsAndAlignments:
@@ -276,7 +279,7 @@ class TestGetPrincipleExpressionsAndAlignments:
         # Check alignments
         assert len(data["alignments"]) == 2
         assert data["alignments"][1]["alignment_level"] == "aligned"
-        assert data["alignments"][1]["alignment_score"] == 1.0
+        assert data["alignments"][1]["alignment_score"] == 0.85
 
         # Check metadata
         assert data["total_expressions"] == 2

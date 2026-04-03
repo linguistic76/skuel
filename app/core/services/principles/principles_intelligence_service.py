@@ -495,28 +495,21 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
 
         return system_level, avg_score, evidence
 
-    def _alignment_level_to_score(self, level: AlignmentLevel) -> float:
-        """Convert AlignmentLevel to numeric score (0.0-1.0)."""
-        return {
-            AlignmentLevel.ALIGNED: 1.0,
-            AlignmentLevel.MOSTLY_ALIGNED: 0.75,
-            AlignmentLevel.PARTIAL: 0.5,
-            AlignmentLevel.MISALIGNED: 0.25,
-            AlignmentLevel.UNKNOWN: 0.0,
-        }.get(level, 0.5)
+    @staticmethod
+    def _alignment_level_to_score(level: AlignmentLevel) -> float:
+        """Convert AlignmentLevel to numeric score (0.0-1.0).
 
-    def _score_to_alignment_level(self, score: float) -> AlignmentLevel:
-        """Convert numeric score to AlignmentLevel."""
-        if score >= 0.85:
-            return AlignmentLevel.ALIGNED
-        elif score >= 0.6:
-            return AlignmentLevel.MOSTLY_ALIGNED
-        elif score >= 0.4:
-            return AlignmentLevel.PARTIAL
-        elif score >= 0.15:
-            return AlignmentLevel.MISALIGNED
-        else:
-            return AlignmentLevel.UNKNOWN
+        Delegates to AlignmentLevel.to_score() — the single source of truth.
+        """
+        return level.to_score()
+
+    @staticmethod
+    def _score_to_alignment_level(score: float) -> AlignmentLevel:
+        """Convert numeric score to AlignmentLevel.
+
+        Delegates to AlignmentLevel.from_score() — the single source of truth.
+        """
+        return AlignmentLevel.from_score(score)
 
     def _generate_principle_gap_insights(
         self, direction: str, gap: float, entity_name: str

@@ -996,25 +996,13 @@ class PrinciplesAlignmentService:
         self.logger.debug(f"Average alignment: {average:.2f} across {count} principles")
         return Result.ok(average)
 
-    def _alignment_level_to_score(self, level: AlignmentLevel) -> float:
-        """
-        Convert alignment level enum to numeric score.
+    @staticmethod
+    def _alignment_level_to_score(level: AlignmentLevel) -> float:
+        """Convert alignment level enum to numeric score (0.0-1.0).
 
-        Mapping:
-        - ALIGNED: 1.0
-        - MOSTLY_ALIGNED: 0.75
-        - PARTIAL: 0.5
-        - MISALIGNED: 0.0
-        - UNKNOWN: 0.25
+        Delegates to AlignmentLevel.to_score() — the single source of truth.
         """
-        mapping = {
-            AlignmentLevel.ALIGNED: 1.0,
-            AlignmentLevel.MOSTLY_ALIGNED: 0.75,
-            AlignmentLevel.PARTIAL: 0.5,
-            AlignmentLevel.MISALIGNED: 0.0,
-            AlignmentLevel.UNKNOWN: 0.25,
-        }
-        return mapping.get(level, 0.0)
+        return level.to_score()
 
     async def get_principle_expressions_and_alignments(
         self, principle_uid: str
