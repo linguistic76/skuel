@@ -1,12 +1,12 @@
 """Curriculum Hub UI Routes
 ==========================
 
-UI for curriculum browser sub-pages.
+UI for curriculum browser sub-pages and legacy redirects.
 
 Routes:
-- GET /curriculum — 301 redirect to /profile
-- GET /lessons — 301 redirect to /explore
-- GET /path-steps — 301 redirect to /explore
+- GET /curriculum — 301 redirect to /profile (hub shelved)
+- GET /lessons — 301 redirect to /explore (merged)
+- GET /path-steps — 301 redirect to /explore (merged)
 - GET /learning-paths — Learning Paths browser
 """
 

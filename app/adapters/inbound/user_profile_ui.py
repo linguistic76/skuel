@@ -6,7 +6,6 @@ Routes for the user profile hub page and related endpoints.
 
 Key Routes:
 - GET /profile - Profile hub (grouped card grid with links)
-- GET /profile/{domain} - Legacy redirects to domain routes
 - GET /profile/settings - User settings/preferences
 - GET /profile/shared - Shared content view
 
@@ -751,31 +750,6 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             )
 
         return Div(*fragments)
-
-    @rt("/profile/{domain}")
-    async def profile_domain(request: Request, domain: str) -> Any:
-        """Redirect legacy profile domain URLs.
-
-        Activity domains redirect to /activities/{domain}.
-        Curriculum domains redirect to standalone entity routes.
-        """
-        from starlette.responses import RedirectResponse
-
-        activity_domains = {"tasks", "events", "goals", "habits", "principles", "choices"}
-        if domain in activity_domains:
-            focus = request.query_params.get("focus", "")
-            suffix = f"?focus={focus}" if focus else ""
-            return RedirectResponse(f"/{domain}{suffix}", status_code=302)
-
-        curriculum_redirects = {
-            "knowledge": "/ku",
-            "learning-steps": "/path-steps",
-            "learning-paths": "/learning-paths",
-        }
-        if domain in curriculum_redirects:
-            return RedirectResponse(curriculum_redirects[domain], status_code=302)
-
-        return RedirectResponse("/profile", status_code=302)
 
     @rt("/profile/shared")
     async def profile_shared(request: Request) -> Any:

@@ -1,17 +1,14 @@
 """
-Path Steps UI Routes — Redirects + Learning Actions
-=====================================================
+Path Steps UI Routes — Learning State Actions
+===============================================
 
-GET detail route redirects to /explore/ps/{uid} (merged discovery page).
-POST mutation endpoints remain here for HTMX learning state actions.
-
-Absorbed from lesson_ui.py during Lesson→PathStep merge.
+POST mutation endpoints for HTMX learning state actions (start, mark-read, bookmark).
+Detail view lives at /explore/ps/{uid} (explore_ui.py).
 """
 
 from typing import Any
 
 from fasthtml.common import Request
-from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from core.services.ps_service import PsService
@@ -55,15 +52,6 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
     GET detail route redirects to /explore/ps/{uid} (merged discovery page).
     POST mutation endpoints remain here for HTMX learning state actions.
     """
-
-    # -----------------------------------------------------------------
-    # GET /path-steps/{uid}/details — 301 redirect to /explore/ps/{uid}
-    # -----------------------------------------------------------------
-
-    @rt("/path-steps/{uid}/details")
-    async def step_detail_page(request: Request, uid: str) -> RedirectResponse:
-        """PathStep detail merged into /explore/ps/{uid}."""
-        return RedirectResponse(url=f"/explore/ps/{uid}", status_code=301)
 
     # ========================================================================
     # LEARNING STATE HTMX ACTIONS
@@ -149,7 +137,7 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
         )
 
     logger.info(
-        "Path Steps UI routes registered: /path-steps/{uid}/details, "
+        "Path Steps UI routes registered: "
         "/api/path-steps/{uid}/start, /api/path-steps/{uid}/mark-read, "
         "/api/path-steps/{uid}/bookmark"
     )

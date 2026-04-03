@@ -23,7 +23,6 @@ from fasthtml.common import (
     Request,
     Span,
 )
-from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from core.models.enums.submissions_enums import ExerciseScope
@@ -162,38 +161,9 @@ def create_ku_ui_routes(
 ) -> list[Any]:
     """Create /ku UI + API routes.
 
-    GET routes redirect to /explore (merged discovery page).
-    POST mutation endpoints remain here for HTMX learning state actions.
+    POST mutation endpoints for HTMX learning state actions.
+    Detail view lives at /explore/ku/{uid} (explore_ui.py).
     """
-
-    # -----------------------------------------------------------------
-    # GET /ku — 301 redirect to /explore
-    # -----------------------------------------------------------------
-
-    @rt("/ku")
-    async def ku_index(request: Request) -> RedirectResponse:
-        """Knowledge index merged into /explore."""
-        return RedirectResponse(url="/explore", status_code=301)
-
-    # -----------------------------------------------------------------
-    # GET /api/ku/search — 301 redirect to /api/explore/search
-    # -----------------------------------------------------------------
-
-    @rt("/api/ku/search")
-    async def ku_search(request: Request) -> RedirectResponse:
-        """Ku search merged into /api/explore/search."""
-        qs = str(request.query_params)
-        url = f"/api/explore/search?{qs}" if qs else "/api/explore/search"
-        return RedirectResponse(url=url, status_code=301)
-
-    # -----------------------------------------------------------------
-    # GET /ku/{uid} — 301 redirect to /explore/ku/{uid}
-    # -----------------------------------------------------------------
-
-    @rt("/ku/{uid}")
-    async def ku_detail_page(request: Request, uid: str) -> RedirectResponse:
-        """Ku detail merged into /explore/ku/{uid}."""
-        return RedirectResponse(url=f"/explore/ku/{uid}", status_code=301)
 
     # -----------------------------------------------------------------
     # POST /api/ku/{uid}/mark-studying — Mark Ku as studying

@@ -814,19 +814,6 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
     routes.append(learning_analytics)
 
     # ========================================================================
-    # LEARNING STEP DETAIL PAGE — redirects to rich detail view
-    # ========================================================================
-
-    @rt("/ls/{uid}")
-    async def ls_detail_view(request: Any, uid: str) -> Any:
-        """Redirect /ls/{uid} to the rich path step detail page."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url=f"/path-steps/{uid}/details", status_code=301)
-
-    routes.append(ls_detail_view)
-
-    # ========================================================================
     # LEARNING PATH DETAIL PAGE
     # ========================================================================
 

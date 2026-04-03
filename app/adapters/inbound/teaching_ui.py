@@ -535,24 +535,6 @@ def create_teaching_ui_routes(
     # GROUPS
     # ------------------------------------------------------------------
 
-    @rt("/teaching/classes")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_classes_redirect(request: Request, current_user: Any = None) -> Any:
-        """301 redirect: /teaching/classes → /teaching/groups."""
-        from fasthtml.common import RedirectResponse
-
-        return RedirectResponse("/teaching/groups", status_code=301)
-
-    @rt("/teaching/classes/{uid}")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_class_detail_redirect(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Any:
-        """301 redirect: /teaching/classes/{uid} → /teaching/groups/{uid}."""
-        from fasthtml.common import RedirectResponse
-
-        return RedirectResponse(f"/teaching/groups/{uid}", status_code=301)
-
     @rt("/teaching/groups")
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_groups_page(request: Request, current_user: Any = None) -> Any:
@@ -664,38 +646,6 @@ def create_teaching_ui_routes(
         )
 
     # ------------------------------------------------------------------
-    # TRANSITION REDIRECTS — added 2026-04-03
-    # ------------------------------------------------------------------
-
-    @rt("/teaching/approved")
-    async def teaching_approved_redirect(request: Request) -> Any:
-        """301 redirect: /teaching/approved → /teaching/queue."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/teaching/queue", status_code=301)
-
-    @rt("/teaching/exercises")
-    async def teaching_exercises_redirect(request: Request) -> Any:
-        """301 redirect: /teaching/exercises → /teaching/queue."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/teaching/queue", status_code=301)
-
-    @rt("/teaching/exercises/new")
-    async def teaching_exercises_new_redirect(request: Request) -> Any:
-        """301 redirect: /teaching/exercises/new → /teaching/queue."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/teaching/queue", status_code=301)
-
-    @rt("/teaching/exercises/{uid}/edit")
-    async def teaching_exercises_edit_redirect(request: Request, uid: str) -> Any:
-        """301 redirect: /teaching/exercises/{uid}/edit → /teaching/queue."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/teaching/queue", status_code=301)
-
-    # ------------------------------------------------------------------
     # STUDENT HUB PREVIEW ENDPOINTS (HTMX lazy-loaded)
     # ------------------------------------------------------------------
 
@@ -798,52 +748,6 @@ def create_teaching_ui_routes(
             for title, label in items
         ]
         return HubPreviewGrid(cards)
-
-    # ------------------------------------------------------------------
-    # REDIRECTS (legacy URLs)
-    # ------------------------------------------------------------------
-
-    @rt("/teaching/exercises/{uid}/submissions")
-    async def teaching_exercises_submissions_redirect(request: Request, uid: str) -> Any:
-        """301 redirect: /teaching/exercises/{uid}/submissions → /teaching/queue."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/teaching/queue", status_code=301)
-
-    @rt("/teaching/learning")
-    async def teaching_learning_redirect(request: Request) -> Any:
-        """301 redirect: /teaching/learning → /teaching/students."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/teaching/students", status_code=301)
-
-    @rt("/teaching/learning/user/{uid}")
-    async def teaching_learning_user_redirect(request: Request, uid: str) -> Any:
-        """301 redirect: /teaching/learning/user/{uid} → /teaching/students/{uid}/submissions?tab=ku."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url=f"/teaching/students/{uid}/submissions?tab=ku", status_code=301)
-
-    @rt("/teaching/reports/user/{uid}")
-    async def teaching_reports_redirect(request: Request, uid: str) -> Any:
-        """301 redirect: /teaching/reports/user/{uid} → /teaching/students/{uid}."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url=f"/teaching/students/{uid}", status_code=301)
-
-    @rt("/admin/learning")
-    async def admin_learning_redirect(request: Request) -> Any:
-        """301 redirect: /admin/learning → /teaching/students."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/teaching/students", status_code=301)
-
-    @rt("/admin/learning/user/{uid}")
-    async def admin_learning_user_redirect(request: Request, uid: str) -> Any:
-        """301 redirect: /admin/learning/user/{uid} → /teaching/students/{uid}/submissions?tab=ku."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url=f"/teaching/students/{uid}/submissions?tab=ku", status_code=301)
 
     logger.info("Teaching UI routes registered")
     return []

@@ -652,9 +652,9 @@ async def _wire_all_routes(
 
     create_learning_loop_routes(app, rt, services)
 
-    from adapters.inbound.curriculum_hub_routes import create_curriculum_hub_routes
+    from adapters.inbound.curriculum_hub_ui import create_curriculum_hub_ui_routes
 
-    create_curriculum_hub_routes(app, rt, services)
+    create_curriculum_hub_ui_routes(app, rt, services)
 
     # ========================================================================
     # Section 3: MANUAL ROUTES (custom wiring — not DomainRouteConfig)

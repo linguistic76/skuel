@@ -385,12 +385,6 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             f"{month_name} {year}",
         )
 
-    @rt("/events")
-    async def calendar_default(request: Request) -> Any:
-        """Default calendar view - redirects to current month."""
-        today = date.today()
-        return await calendar_month(request, today.year, today.month)
-
     @rt("/events/week/{date_str}")
     async def calendar_week(request: Request, date_str: str) -> Any:
         """Week view of the calendar."""
