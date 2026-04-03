@@ -247,8 +247,8 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
         Span("Open user menu", cls="sr-only"),
         Div(
             initial,
-            cls="size-8 rounded-full flex items-center justify-center text-white font-medium text-sm",
-            style=f"background-color: hsl({hue}, 65%, 45%);",
+            cls="size-8 rounded-full flex items-center justify-center font-medium text-sm",
+            style=f"background-color: hsl({hue}, 30%, 80%); color: hsl({hue}, 40%, 35%);",
             aria_hidden="true",
         ),
         type="button",
@@ -268,6 +268,14 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
         **{"@click": "avatarOpen = false"},
     )
 
+    search_item = A(
+        UkIcon("search", cls="size-4", aria_hidden="true"),
+        Span("Search"),
+        href="/search",
+        cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
+        **{"@click": "avatarOpen = false"},
+    )
+
     logout_item = A(
         UkIcon("log-out", cls="size-4", aria_hidden="true"),
         Span("Sign out"),
@@ -277,6 +285,7 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
 
     dropdown_menu = Div(
         profile_item,
+        search_item,
         Div(cls="my-1 border-t border-border"),
         logout_item,
         cls="absolute left-0 top-full mt-1 w-48 bg-background border border-border rounded-lg shadow-lg py-1 z-50",
@@ -304,8 +313,8 @@ def _admin_profile_section(current_user: str) -> Div:
 
     avatar = Div(
         initial,
-        cls="size-8 rounded-full flex items-center justify-center text-white font-medium text-sm",
-        style=f"background-color: hsl({hue}, 65%, 45%);",
+        cls="size-8 rounded-full flex items-center justify-center font-medium text-sm",
+        style=f"background-color: hsl({hue}, 30%, 80%); color: hsl({hue}, 40%, 35%);",
         aria_hidden="true",
     )
 
@@ -460,7 +469,6 @@ def create_navbar(
         right_section: Any = _admin_profile_section(current_user)
     elif is_authenticated:
         right_section = Div(
-            _search_button(active_page),
             _notification_button(unread_insights),
             cls="flex items-center gap-2",
         )
