@@ -86,6 +86,57 @@ def HubSection(title: str | None, cards: list[HubCardData], cols: int = 2) -> Di
 # ---------------------------------------------------------------------------
 
 
+def HubContainer(card: HubCardData) -> A:
+    """Hub container — a substantial navigational block for hub pages.
+
+    Bigger than HubCard: more padding, larger icon, full description paragraph,
+    arrow affordance suggesting you are entering a section.
+    """
+    title_row: list[Span | P] = [
+        Span(card.icon, cls="text-2xl"),
+        Span(card.name, cls="text-lg font-semibold text-foreground"),
+    ]
+
+    if card.badge is not None and card.badge != 0:
+        title_row.append(
+            Span(
+                str(card.badge),
+                cls="ml-auto text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full",
+            )
+        )
+
+    return A(
+        Div(*title_row, cls="flex items-center gap-3 mb-3"),
+        P(card.description, cls="text-sm text-muted-foreground leading-relaxed"),
+        Div(
+            Span("→", cls="text-muted-foreground/60 text-lg"),
+            cls="flex justify-end mt-4",
+        ),
+        href=card.href,
+        cls="bg-background rounded-xl p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow block border border-border/50",
+    )
+
+
+def HubContainerGrid(cards: list[HubCardData], cols: int = 2) -> Div:
+    """Responsive grid of hub containers.
+
+    Args:
+        cards: Card data to render as containers.
+        cols: Grid columns at sm breakpoint (2 or 3).
+    """
+    col_classes = {
+        2: "grid grid-cols-1 sm:grid-cols-2 gap-5 lg:gap-6",
+        3: "grid grid-cols-1 sm:grid-cols-3 gap-5 lg:gap-6",
+    }
+    grid_cls = col_classes.get(cols, col_classes[2])
+    return Div(*[HubContainer(c) for c in cards], cls=grid_cls)
+
+
+# ---------------------------------------------------------------------------
+# Graph-driven card bridges
+# ---------------------------------------------------------------------------
+
+
 def hub_cards_from_organizers(
     children: list[OrganizerResult],
     href_template: str = "/ku/{uid}",

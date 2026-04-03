@@ -70,6 +70,18 @@ def HubSection(title: str | None, cards: list[HubCardData], cols: int = 2) -> Di
 - `title=None` renders grid without section header (for flat grids)
 - `cols`: 2 (default), 3, or 4
 
+### HubContainer + HubContainerGrid
+
+```python
+def HubContainer(card: HubCardData) -> A:
+    """Hub container — a substantial navigational block for hub pages."""
+
+def HubContainerGrid(cards: list[HubCardData], cols: int = 2) -> Div:
+    """Responsive grid of hub containers."""
+```
+
+Bigger than `HubCard` — more padding, larger icon, full description paragraph, and arrow affordance. Used by GradeBook and Library hub pages. Reuses `HubCardData`.
+
 ### Graph-Driven Bridges
 
 ```python
@@ -126,6 +138,25 @@ cards = hub_cards_from_organizers(children_result.value)
 section = HubSection("Contents", cards)
 ```
 
+## Usage: Container Hub Pages (GradeBook, Library)
+
+GradeBook and Library use the **hub-first pattern**: navbar icon opens a hub page with `HubContainerGrid` (no sidebar), each container links to a child page with `SidebarPage`.
+
+```python
+# ui/gradebook/hub.py
+def GradeBookHub() -> Div:
+    containers = [
+        HubCardData(icon="📝", name="My Submissions", href="/gradebook/mysubmissions", ...),
+        HubCardData(icon="📤", name="Submit", href="/submit", ...),
+        # ...
+    ]
+    return Div(PageHeader("GradeBook", ...), HubContainerGrid(containers, cols=2))
+```
+
+**Flow:** Navbar icon → `/gradebook` (hub, `BasePage(STANDARD)`) → click container → `/gradebook/mysubmissions` (child, `SidebarPage`). Sidebar title links back to hub.
+
+**Files:** `ui/gradebook/hub.py`, `ui/library/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py` (sidebar nav for children).
+
 ## Shelved Hubs
 
 | Old Route | Old File | Shelved To | Replaced By |
@@ -143,6 +174,10 @@ section = HubSection("Contents", cards)
 | Activity hub view | `ui/activities/activity_hub.py` |
 | Activity hub route | `adapters/inbound/activity_hub_routes.py` |
 | Activity sidebar | `ui/activities/nav.py` |
+| GradeBook hub view | `ui/gradebook/hub.py` |
+| GradeBook sidebar | `ui/gradebook/nav.py` |
+| Library hub view | `ui/library/hub.py` |
+| Library sidebar | `ui/library/nav.py` |
 | Design rationale | `docs/design-principles/HUB_PAGES.md` |
 | Base page wrapper | `ui/layouts/base_page.py` |
 

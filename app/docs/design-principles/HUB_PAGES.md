@@ -29,22 +29,27 @@ SKUEL values standards-compliant, non-cutting-edge UI. Hub pages are the oldest 
 
 ### Top-Level Navigation Structure
 
-The navbar provides four entry points, three of which are **sidebar hub pages**:
+The navbar provides four entry points. Two are **container hub pages** (no sidebar), one is a **sidebar hub**, and one is a personal overview:
 
 | Page | Hub Pattern | What It Organizes |
 |------|-------------|-------------------|
+| `/gradebook` | Container hub | My Submissions, Submit, Exercise Reports, Activity Reports |
+| `/library` | Container hub | Exercises, Resources, Ku (bookmarked), Path Steps (enrolled) |
 | `/activities` | Sidebar hub | 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles) |
-| `/gradebook` | Sidebar hub | My Submissions, Submit, Exercise Reports, Activity Reports |
-| `/library` | Sidebar hub | Exercises, Resources, Ku (bookmarked), Path Steps (enrolled) |
 | `/profile` | Personal overview | Focus/Velocity, link to `/activities`, Nous, Settings |
 
-### Sidebar Hub Pages
+### Container Hub Pages (Hub → Child with Sidebar)
 
-Three major sections use `SidebarPage` with a persistent sidebar for within-section navigation:
+GradeBook and Library follow the **hub-first pattern**: the navbar icon opens a hub page with `HubContainerGrid` — no sidebar, just containers that describe each section. Clicking a container enters a child page that uses `SidebarPage` for within-section navigation. The sidebar title links back to the hub.
+
+- **GradeBook** (`/gradebook`) — 4 containers: My Submissions (`/gradebook/mysubmissions`), Submit (`/submit`), Exercise Reports (`/exercise-reports`), Activity Reports (`/activity-reports`). Hub view in `ui/gradebook/hub.py`, sidebar nav in `ui/gradebook/nav.py`.
+- **Library** (`/library`) — 4 containers: Exercises (`/library/exercises`), Resources (`/library/resources`), Ku (`/library/ku`), Path Steps (`/library/path-steps`). Hub view in `ui/library/hub.py`, sidebar nav in `ui/library/nav.py`.
+
+**Components:** `HubContainerGrid` and `HubContainer` in `ui/patterns/hub.py` — bigger than `HubCard`, with more padding, full description, and arrow affordance.
+
+### Sidebar Hub Page
 
 - **Activity** (`/activities`) — 6 Activity Domain preview blocks, HTMX lazy-loaded. Sidebar shared across `/activities`, `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`.
-- **GradeBook** (`/gradebook`) — Sidebar items: My Submissions, Submit, Exercise Reports, Activity Reports. Nav in `ui/gradebook/nav.py`.
-- **Library** (`/library`) — Sidebar items: Exercises, Resources, Ku, Path Steps. Nav in `ui/library/nav.py`.
 
 ### Library Data Pattern
 

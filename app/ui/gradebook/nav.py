@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 GRADEBOOK_STORAGE_KEY = "gradebook-sidebar"
 
 GRADEBOOK_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("My Submissions", "/gradebook", "submissions", icon="file-text"),
+    SidebarItem("My Submissions", "/gradebook/mysubmissions", "submissions", icon="file-text"),
     SidebarItem("Submit", "/submit", "submit", icon="upload"),
     SidebarItem(
         "Exercise Reports", "/exercise-reports", "exercise-reports", icon="clipboard-check"

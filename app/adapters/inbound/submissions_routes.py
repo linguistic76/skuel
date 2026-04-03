@@ -50,10 +50,10 @@ def _create_submission_redirects(rt: RouteDecorator) -> RouteList:
     """
     from starlette.responses import RedirectResponse
 
-    # Old /submissions → /gradebook
+    # Old /submissions → /gradebook/mysubmissions
     @rt("/submissions")
     async def submissions_to_gradebook(request: Any) -> Any:
-        return RedirectResponse("/gradebook", status_code=301)
+        return RedirectResponse("/gradebook/mysubmissions", status_code=301)
 
     @rt("/submissions/{uid}")
     async def submissions_detail_to_gradebook(request: Any, uid: str) -> Any:
@@ -67,11 +67,11 @@ def _create_submission_redirects(rt: RouteDecorator) -> RouteList:
 
     @rt("/submissions/browse")
     async def submissions_browse(request: Any) -> Any:
-        return RedirectResponse("/gradebook", status_code=301)
+        return RedirectResponse("/gradebook/mysubmissions", status_code=301)
 
     @rt("/submissions/yours")
     async def submissions_yours(request: Any) -> Any:
-        return RedirectResponse("/gradebook", status_code=301)
+        return RedirectResponse("/gradebook/mysubmissions", status_code=301)
 
     @rt("/submissions/reports")
     async def submissions_reports(request: Any) -> Any:
@@ -94,7 +94,7 @@ def _create_submission_redirects(rt: RouteDecorator) -> RouteList:
 
     @rt("/learn/submissions")
     async def learn_submissions_redirect(request: Any) -> Any:
-        return RedirectResponse("/gradebook", status_code=301)
+        return RedirectResponse("/gradebook/mysubmissions", status_code=301)
 
     @rt("/learn/exercise-reports")
     async def learn_exercise_reports_redirect(request: Any) -> Any:

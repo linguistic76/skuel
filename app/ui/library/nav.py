@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 LIBRARY_STORAGE_KEY = "library-sidebar"
 
 LIBRARY_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Exercises", "/library", "exercises", icon="book-open"),
+    SidebarItem("Exercises", "/library/exercises", "exercises", icon="book-open"),
     SidebarItem("Resources", "/library/resources", "resources", icon="bookmark"),
     SidebarItem("Ku", "/library/ku", "ku", icon="brain"),
     SidebarItem("Path Steps", "/library/path-steps", "path-steps", icon="map"),

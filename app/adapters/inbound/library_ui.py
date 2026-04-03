@@ -327,31 +327,17 @@ def create_library_ui_routes(
     # ========================================================================
 
     @rt("/library")
-    async def library_page(request: Request) -> Any:
-        """Library: Exercises list with sidebar navigation.
+    async def library_hub(request: Request) -> Any:
+        """Library hub — entry point with container navigation, no sidebar."""
+        require_authenticated_user(request)
+        from ui.layouts.base_page import BasePage
+        from ui.library.hub import LibraryHub
 
-        Default view shows exercises assigned via group membership.
-        """
-        user_uid = require_authenticated_user(request)
-
-        # Inline exercises content (same data as /library/exercises fragment)
-        if not exercises_service:
-            exercises_content = render_error_banner("Exercise service unavailable")
-        else:
-            result = await exercises_service.get_student_exercises_with_status(user_uid)
-            if result.is_error:
-                logger.error(f"Library: failed to load student exercises: {result.error}")
-                exercises_content = render_error_banner(
-                    "Failed to load exercises", str(result.error)
-                )
-            else:
-                exercises_content = render_exercise_list(result.value or [])
-
-        content = Div(exercises_content)
-        return await render_library_sidebar_page(
-            content=content,
-            active="exercises",
+        return await BasePage(
+            content=LibraryHub(),
+            title="Library",
             request=request,
+            active_page="library",
         )
 
     # ========================================================================

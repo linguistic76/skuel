@@ -6,7 +6,8 @@ Routes for submitting work, browsing submissions, and viewing submission details
 
 Routes:
 - GET /submit — File upload form (sidebar: Submit)
-- GET /gradebook — My Submissions list (sidebar: My Submissions)
+- GET /gradebook — Hub page (no sidebar, container navigation)
+- GET /gradebook/mysubmissions — My Submissions list (sidebar: My Submissions)
 - GET /gradebook/{uid} — Submission detail page
 - HTMX fragments: /gradebook/list, /upload, /grid,
   /gradebook/{uid}/{info,content,report,exercise,category-selector,tags-manager,shared-users}
@@ -34,8 +35,8 @@ from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT, Badge, BadgeT
-from ui.layout import Size
 from ui.gradebook.nav import render_gradebook_sidebar_page
+from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
@@ -175,8 +176,22 @@ def create_submissions_ui_routes(
     # ========================================================================
 
     @rt("/gradebook")
-    async def gradebook_page(request: Request) -> Any:
-        """GradeBook: My Submissions list with sidebar navigation."""
+    async def gradebook_hub(request: Request) -> Any:
+        """GradeBook hub — entry point with container navigation, no sidebar."""
+        require_authenticated_user(request)
+        from ui.gradebook.hub import GradeBookHub
+        from ui.layouts.base_page import BasePage
+
+        return await BasePage(
+            content=GradeBookHub(),
+            title="GradeBook",
+            request=request,
+            active_page="gradebook",
+        )
+
+    @rt("/gradebook/mysubmissions")
+    async def gradebook_mysubmissions(request: Request) -> Any:
+        """My Submissions list with sidebar navigation."""
         user_uid = require_authenticated_user(request)
 
         # Inline submissions list (same data as /gradebook/list fragment)
@@ -606,7 +621,7 @@ def create_submissions_ui_routes(
                 Div(
                     ButtonLink(
                         "\u2190 Back to GradeBook",
-                        href="/gradebook",
+                        href="/gradebook/mysubmissions",
                         variant=ButtonT.ghost,
                     ),
                     cls="mt-4",
@@ -630,12 +645,13 @@ def create_submissions_ui_routes(
             request=request,
         )
 
-    logger.info("GradeBook UI routes created (/submit, /gradebook, /gradebook/{uid})")
+    logger.info("GradeBook UI routes created (/submit, /gradebook, /gradebook/mysubmissions, /gradebook/{uid})")
 
     # Route order matters! Specific routes before parameterized routes.
     return [
         submit_page,  # /submit
-        gradebook_page,  # /gradebook
+        gradebook_hub,  # /gradebook (hub page)
+        gradebook_mysubmissions,  # /gradebook/mysubmissions
         submissions_list,  # /gradebook/list (HTMX)
         upload_submission,  # /gradebook/upload (HTMX POST)
         get_submissions_grid,  # /grid (HTMX GET)
