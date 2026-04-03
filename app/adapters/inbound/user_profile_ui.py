@@ -457,10 +457,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
     @rt("/api/profile/{slug}/preview")
     async def domain_card_preview(request: Request, slug: str) -> Any:
         """
-        HTMX fragment: top 5 active items for a domain card, sorted by priority.
+        HTMX fragment: top 3 active items for a domain block, sorted by priority.
 
-        Called by the domain cards on the /profile overview page via
-        hx-trigger="load". Returns a compact item list (priority dot + title)
+        Called by the Activity Domain blocks on the /profile page via
+        hx-trigger="load". Returns a row of 3 cards (priority dot + title)
         or an empty-state message.
 
         Requires authentication.
@@ -519,9 +519,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             if str(getattr(item, "status", "active")).lower() not in _terminal_strings
         ]
 
-        # Sort by priority (most important first), take top 4
+        # Sort by priority (most important first), take top 3
         sorted_items = sorted(active_items, key=_preview_priority_sort_key)
-        preview_items = sorted_items[:4]
+        preview_items = sorted_items[:3]
 
         return render_domain_card_preview(preview_items, slug)
 

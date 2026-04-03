@@ -346,14 +346,14 @@ _PREVIEW_PRIORITY_LABELS: dict[Priority, str] = {
 
 
 def render_domain_card_preview(items: list[Any], slug: str) -> Div:
-    """Render domain card preview as a 2×2 grid of square cards.
+    """Render domain card preview as a row of 3 cards.
 
     Called from the /api/profile/{slug}/preview endpoint.
-    Shows up to 4 active items sorted by priority, then a "View all" link.
+    Shows up to 3 active items sorted by priority.
 
     Args:
-        items: Pre-filtered and pre-sorted list of domain items (max 4).
-        slug: Domain slug used for the detail link and "View all" link.
+        items: Pre-filtered and pre-sorted list of domain items (max 3).
+        slug: Domain slug used for the detail link.
     """
     view_href = _PREVIEW_DOMAIN_HREFS.get(slug, f"/{slug}")
     detail_base = f"/{slug}/detail"
@@ -363,11 +363,6 @@ def render_domain_card_preview(items: list[Any], slug: str) -> Div:
             P(
                 f"No active {slug}",
                 cls="text-sm text-foreground/40 text-center py-3",
-            ),
-            A(
-                f"View all {slug} →",
-                href=view_href,
-                cls="text-xs text-primary hover:underline block text-center",
             ),
         )
 
@@ -409,12 +404,7 @@ def render_domain_card_preview(items: list[Any], slug: str) -> Div:
     cards = [_square_card(item) for item in items]
 
     return Div(
-        Div(*cards, cls="grid grid-cols-2 gap-2"),
-        A(
-            f"View all {slug} →",
-            href=view_href,
-            cls="text-xs text-primary hover:underline mt-3 inline-block",
-        ),
+        Div(*cards, cls="grid grid-cols-3 gap-2"),
     )
 
 

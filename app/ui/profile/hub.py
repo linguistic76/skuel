@@ -101,83 +101,51 @@ def _compact_row(
 
 
 # ---------------------------------------------------------------------------
-# Activities section — tabbed view of all 6 Activity Domains
+# Activities section — all 6 Activity Domains visible as scrollable blocks
 # ---------------------------------------------------------------------------
 
 
-_TAB_LINK_BASE = (
-    "display: inline-flex; align-items: center; gap: 0.4rem; "
-    "padding: 0.65rem 1rem; font-size: 0.72rem; font-weight: 600; "
-    "letter-spacing: 0.07em; text-transform: uppercase; "
-    "text-decoration: none; border-bottom: 3px solid transparent; "
-    "white-space: nowrap; cursor: pointer; transition: opacity 0.15s; "
-    "background: none; border-top: none; border-left: none; border-right: none;"
-)
-
-
-def _activity_tab_button(label: str, tab_id: str, icon: str, color: str) -> Any:
-    """Tab button styled to match ActivityDomainNav — icon + uppercase + colored border."""
-    return A(
-        UkIcon(icon, cls="size-3"),
-        label,
-        role="tab",
-        style=_TAB_LINK_BASE,
-        **{
-            ":aria-selected": f"actTab === '{tab_id}'",
-            "@click": f"actTab = '{tab_id}'; htmx.trigger('#act-tab-panel-{tab_id}', 'tab-activate')",
-            ":style": (
-                f"actTab === '{tab_id}' ? "
-                f"'{_TAB_LINK_BASE} color: {color}; border-bottom-color: {color}; font-weight: 800;' : "
-                f"'{_TAB_LINK_BASE} color: var(--muted-foreground);'"
-            ),
-        },
-    )
-
-
-def _activity_tab_panel(tab_id: str, default: bool = False) -> Div:
-    """Tab panel with HTMX lazy-loaded content from the domain list-fragment endpoint."""
-    attrs: dict[str, str] = {
-        "x-show": f"actTab === '{tab_id}'",
-        "hx-get": f"/api/profile/{tab_id}/preview",
-        "hx-trigger": "load" if default else "tab-activate once",
-        "hx-swap": "innerHTML",
-    }
-    if not default:
-        attrs["x-cloak"] = ""
-
+def _activity_domain_block(label: str, tab_id: str, icon: str, color: str) -> Div:
+    """A single Activity Domain block: colored header + HTMX-loaded card preview."""
     return Div(
-        P("Loading...", cls="text-center text-muted-foreground py-4"),
-        id=f"act-tab-panel-{tab_id}",
-        role="tabpanel",
-        **attrs,
+        # Domain header — icon + title + "View all" link
+        Div(
+            A(
+                UkIcon(icon, cls="size-4"),
+                Span(
+                    label,
+                    cls="text-sm font-semibold uppercase tracking-wider",
+                ),
+                href=f"/{tab_id}",
+                cls="flex items-center gap-2 no-underline hover:opacity-80 transition-opacity",
+                style=f"color: {color};",
+            ),
+            A(
+                "View all →",
+                href=f"/{tab_id}",
+                cls="text-xs font-medium text-muted-foreground hover:text-primary transition-colors",
+            ),
+            cls="flex items-center justify-between mb-3",
+        ),
+        # HTMX lazy-loaded card content
+        Div(
+            P("Loading...", cls="text-center text-muted-foreground py-4"),
+            id=f"act-panel-{tab_id}",
+            hx_get=f"/api/profile/{tab_id}/preview",
+            hx_trigger="load",
+            hx_swap="innerHTML",
+        ),
+        cls="pb-5 mb-5 border-b border-border last:border-b-0 last:mb-0 last:pb-0",
     )
 
 
 def _activities_section() -> Div:
-    """Activity Domains — tabbed: Tasks | Goals | Habits | Events | Choices | Principles.
-
-    Each tab lazily loads its domain list-fragment (same view as the full domain page).
-    """
+    """Activity Domains — all 6 visible as scrollable blocks with 3 cards each."""
     return Div(
-        Div(
-            *[
-                _activity_tab_button(label, tab_id, icon, color)
-                for label, tab_id, icon, color in _ACTIVITY_TABS
-            ],
-            role="tablist",
-            style=(
-                "display: flex; flex-wrap: wrap; "
-                "border-top: 1px solid var(--border); "
-                "border-bottom: 2px solid var(--border); "
-                "background-color: var(--background); "
-                "margin-bottom: 1.25rem;"
-            ),
-        ),
         *[
-            _activity_tab_panel(tab_id, default=(i == 0))
-            for i, (_, tab_id, _, _) in enumerate(_ACTIVITY_TABS)
+            _activity_domain_block(label, tab_id, icon, color)
+            for label, tab_id, icon, color in _ACTIVITY_TABS
         ],
-        **{"x-data": "{ actTab: 'tasks' }"},
         cls="mb-6",
     )
 
