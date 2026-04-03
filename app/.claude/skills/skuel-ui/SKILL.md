@@ -609,7 +609,7 @@ SidebarItem("Overview", "/askesis", "overview", icon="🏠", description="Your l
 
 **Pattern 5 — Alpine section renderer (instant switching, no page navigation):**
 
-Use when sidebar items should control Alpine `x-show` sections instead of navigating to different URLs. All content loads on initial render; switching is instant. Used by Teaching student detail page.
+Use when sidebar items should control Alpine `x-show` sections instead of navigating to different URLs. All content loads on initial render; switching is instant. Used by Teaching student submissions page (`/teaching/students/{uid}/submissions`).
 
 ```python
 from ui.patterns.sidebar import alpine_section_renderer, alpine_mobile_section_renderer

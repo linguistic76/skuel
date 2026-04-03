@@ -101,7 +101,7 @@ def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
     """Vertical stack of domain blocks."""
 ```
 
-Used by all 3 hub pages (`/activities`, `/gradebook`, `/library`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards on page load.
+Used by 3 hub pages (`/activities`, `/gradebook`, `/library`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards on page load. Teaching (`/teaching`) uses static `HubContainerGrid` instead.
 
 ### HubPreviewCard + HubPreviewGrid + HubPreviewEmpty
 
@@ -186,7 +186,7 @@ section = HubSection("Contents", cards)
 
 **Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub.
 
-**Files:** `ui/gradebook/hub.py`, `ui/library/hub.py`, `ui/activities/activity_hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/activities/nav.py` (sidebar nav for children).
+**Files:** `ui/gradebook/hub.py`, `ui/library/hub.py`, `ui/activities/activity_hub.py`, `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
 
 ## Shelved Hubs
 
@@ -209,6 +209,9 @@ section = HubSection("Contents", cards)
 | GradeBook sidebar | `ui/gradebook/nav.py` |
 | Library hub view | `ui/library/hub.py` |
 | Library sidebar | `ui/library/nav.py` |
+| Teaching hub view | `ui/teaching/hub.py` |
+| Teaching sidebar | `ui/teaching/nav.py` |
+| Student hub view | `ui/teaching/student_hub.py` |
 | Design rationale | `docs/design-principles/HUB_PAGES.md` |
 | Base page wrapper | `ui/layouts/base_page.py` |
 
