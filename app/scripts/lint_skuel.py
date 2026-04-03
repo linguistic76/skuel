@@ -36,20 +36,23 @@ AUTO-FIXABLE:
   SKUEL010: Nested empty tuple defaults (((),) → ())
 
 Usage:
-    uv run python scripts/lint_skuel.py           # Report violations
-    uv run python scripts/lint_skuel.py --fix    # Auto-fix where possible
-    uv run python scripts/lint_skuel.py --check  # Exit 1 if violations (for CI)
-    uv run python scripts/lint_skuel.py --strict # Treat warnings as errors
+    uv run python scripts/lint_skuel.py              # Report violations (with code context)
+    uv run python scripts/lint_skuel.py --fix        # Auto-fix where possible
+    uv run python scripts/lint_skuel.py --check      # Exit 1 if violations (for CI)
+    uv run python scripts/lint_skuel.py --strict     # Treat warnings as errors
+    uv run python scripts/lint_skuel.py --changed    # Lint only files changed vs main branch
+    uv run python scripts/lint_skuel.py --staged     # Lint only staged files (pre-commit)
     uv run python scripts/lint_skuel.py --file core/services/  # Lint specific path
     uv run python scripts/lint_skuel.py --rule SKUEL003  # Run specific rule only
     uv run python scripts/lint_skuel.py --explain SKUEL003  # Show rule documentation
-    uv run python scripts/lint_skuel.py --quiet  # Minimal output for CI
-    uv run python scripts/lint_skuel.py --context  # Show code context around violations
+    uv run python scripts/lint_skuel.py --quiet      # Minimal output for CI
+    uv run python scripts/lint_skuel.py --no-context  # Hide code context
 
-Last Updated: January 2026
+Last Updated: April 2026
 """
 
 import re
+import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
@@ -449,11 +452,36 @@ class SkuelLinter:
         root_dir: Path,
         target_path: str | None = None,
         rules_filter: list[str] | None = None,
+        changed_files: list[Path] | None = None,
     ) -> None:
         self.root_dir = root_dir
         self.target_path = target_path
         self.rules_filter = rules_filter
+        self.changed_files = changed_files
         self.result = LintResult()
+
+    @staticmethod
+    def _git_changed_files(root_dir: Path, staged_only: bool = False) -> list[Path] | None:
+        """Get Python files changed via git. Returns None if git is unavailable."""
+        try:
+            if staged_only:
+                cmd = ["git", "diff", "--name-only", "--cached", "--diff-filter=ACMR"]
+            else:
+                cmd = ["git", "diff", "--name-only", "main...HEAD", "--diff-filter=ACMR"]
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, cwd=root_dir, timeout=5
+            )
+            if result.returncode != 0:
+                return None
+            files = []
+            for line in result.stdout.strip().splitlines():
+                if line.endswith(".py"):
+                    full_path = root_dir / line
+                    if full_path.exists():
+                        files.append(full_path)
+            return files
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return None
 
     def lint(self) -> LintResult:
         """Run all linting rules."""
@@ -483,6 +511,15 @@ class SkuelLinter:
 
     def _find_python_files(self) -> list[Path]:
         """Find all Python files to lint."""
+        # Git-aware mode: use pre-resolved changed files
+        if self.changed_files is not None:
+            filtered = []
+            for py_file in self.changed_files:
+                rel_path = str(py_file.relative_to(self.root_dir))
+                if not any(excluded in rel_path for excluded in self.EXCLUDED_PATHS):
+                    filtered.append(py_file)
+            return filtered
+
         python_files = []
 
         # Determine search path
@@ -1436,6 +1473,13 @@ class SkuelLinter:
         for line_num, line in enumerate(lines, start=1):
             match = re.search(pattern, line)
             if match:
+                # Verify the '#' is an actual comment, not inside a string literal
+                hash_pos = match.start()
+                before_hash = line[:hash_pos]
+                quote_count = before_hash.count('"') + before_hash.count("'")
+                if quote_count % 2 == 1:
+                    continue  # Odd number of quotes = inside a string
+
                 marker = match.group(1)
                 category = match.group(2)
                 if category:
@@ -1686,7 +1730,33 @@ class SkuelLinter:
             print(f"  Warnings: {warning_count}")
 
         print(f"  Info:     {info_count}")
-        print(f"  {Colors.BOLD}Total:    {len(self.result.violations)}{Colors.RESET}")
+
+        # Per-rule breakdown
+        rule_counts: dict[str, int] = {}
+        rule_severity: dict[str, Severity] = {}
+        for v in self.result.violations:
+            rule_counts[v.rule_id] = rule_counts.get(v.rule_id, 0) + 1
+            if v.rule_id not in rule_severity:
+                rule_severity[v.rule_id] = v.severity
+
+        if rule_counts:
+            print(f"\n  {Colors.BOLD}By rule:{Colors.RESET}")
+            for rule_id in sorted(rule_counts.keys()):
+                count = rule_counts[rule_id]
+                severity = rule_severity[rule_id]
+                color = {
+                    Severity.CRITICAL: Colors.RED,
+                    Severity.ERROR: Colors.RED,
+                    Severity.WARNING: Colors.YELLOW,
+                    Severity.INFO: Colors.BLUE,
+                }.get(severity, "")
+                title = RULE_DOCS.get(rule_id, {}).get("title", "")
+                print(
+                    f"    {color}{rule_id}{Colors.RESET}: {count}  "
+                    f"{Colors.DIM}{title}{Colors.RESET}"
+                )
+
+        print(f"\n  {Colors.BOLD}Total:    {len(self.result.violations)}{Colors.RESET}")
 
         fixable = len([v for v in self.result.violations if v.fix_available])
         if fixable:
@@ -1773,12 +1843,14 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                          # Lint entire project
+  %(prog)s                          # Lint entire project (with code context)
+  %(prog)s --changed                # Lint only files changed vs main
+  %(prog)s --staged                 # Lint only staged files (pre-commit)
   %(prog)s --file core/services/    # Lint specific directory
   %(prog)s --rule SKUEL003          # Run only specific rule
   %(prog)s --explain SKUEL003       # Show rule documentation
   %(prog)s --fix                    # Auto-fix violations
-  %(prog)s --context                # Show code context
+  %(prog)s --no-context             # Hide code context
   %(prog)s --quiet --check          # CI mode
         """,
     )
@@ -1790,7 +1862,19 @@ Examples:
     parser.add_argument("--json", action="store_true", help="Output violations as JSON")
     parser.add_argument("--quiet", "-q", action="store_true", help="Minimal output (for CI)")
     parser.add_argument(
-        "--context", "-c", action="store_true", help="Show code context around violations"
+        "--context", "-c", action="store_true",
+        help="Show code context (now default; kept for backward compat)",
+    )
+    parser.add_argument(
+        "--no-context", action="store_true", help="Hide code context around violations"
+    )
+    parser.add_argument(
+        "--changed", action="store_true",
+        help="Lint only files changed vs main branch",
+    )
+    parser.add_argument(
+        "--staged", action="store_true",
+        help="Lint only staged files (ideal for pre-commit)",
     )
     parser.add_argument(
         "--file", "-f", type=str, help="Lint specific file or directory (relative to project root)"
@@ -1813,6 +1897,11 @@ Examples:
     if args.no_color or not sys.stdout.isatty():
         Colors.disable()
 
+    # Validate mutually exclusive file selection flags
+    file_flags = sum([bool(args.changed), bool(args.staged), bool(args.file)])
+    if file_flags > 1:
+        parser.error("--changed, --staged, and --file are mutually exclusive")
+
     # Handle --explain
     if args.explain:
         explain_rule(args.explain)
@@ -1827,11 +1916,38 @@ Examples:
     script_path = Path(__file__).resolve()
     project_root = script_path.parent.parent
 
+    # Resolve git-aware file selection
+    changed_files = None
+    if args.changed:
+        changed_files = SkuelLinter._git_changed_files(project_root, staged_only=False)
+        if changed_files is None:
+            print(
+                f"{Colors.YELLOW}Warning: --changed failed (git unavailable?), "
+                f"falling back to full scan{Colors.RESET}",
+                file=sys.stderr,
+            )
+        elif not changed_files:
+            print(f"{Colors.GREEN}No changed Python files vs main.{Colors.RESET}")
+            sys.exit(0)
+    elif args.staged:
+        changed_files = SkuelLinter._git_changed_files(project_root, staged_only=True)
+        if changed_files is None:
+            print(
+                f"{Colors.YELLOW}Warning: --staged failed (git unavailable?), "
+                f"falling back to full scan{Colors.RESET}",
+                file=sys.stderr,
+            )
+        elif not changed_files:
+            print(f"{Colors.GREEN}No staged Python files.{Colors.RESET}")
+            sys.exit(0)
+
     # Run linter
+    rules_filter = [r.upper() for r in args.rule] if args.rule else None
     linter = SkuelLinter(
         project_root,
         target_path=args.file,
-        rules_filter=[r.upper() for r in args.rule] if args.rule else None,
+        rules_filter=rules_filter,
+        changed_files=changed_files,
     )
     linter.lint()
 
@@ -1852,7 +1968,8 @@ Examples:
         linter = SkuelLinter(
             project_root,
             target_path=args.file,
-            rules_filter=[r.upper() for r in args.rule] if args.rule else None,
+            rules_filter=rules_filter,
+            changed_files=changed_files,
         )
         linter.lint()
 
@@ -1887,8 +2004,9 @@ Examples:
         print(json.dumps(output, indent=2))
         exit_code = 1 if linter.result.violations else 0
     else:
+        show_context = not args.no_context
         exit_code = linter.print_report(
-            strict=args.strict, quiet=args.quiet, show_context=args.context
+            strict=args.strict, quiet=args.quiet, show_context=show_context
         )
 
     # Exit

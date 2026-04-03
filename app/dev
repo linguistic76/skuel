@@ -39,6 +39,7 @@ case "$1" in
   lint-fix)
     echo -e "${GREEN}Auto-fixing lint issues...${NC}"
     uv run ruff check --fix
+    uv run python scripts/lint_skuel.py --fix
     ;;
 
   quality)
