@@ -491,7 +491,7 @@ for item in ICON_NAV_ITEMS:  # ⚛️, 📖, ⇄, 📂
 
 ## 4. Sidebar Pages
 
-Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation (Activity domains, Curriculum, Study, KU, Askesis). Note: `/profile` is a **live actionable hub** using `BasePage` directly — it surfaces Kus, lessons, exercises (with Submit buttons), report summaries, and an upload link (`/upload`) from `UserContext.build_rich()`. See `ui/profile/hub.py`.
+Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation (Activity domains, Curriculum, Study, KU, Askesis). Note: `/profile` is a **live actionable hub** using `BasePage` directly — it shows all 6 Activity Domains as scrollable blocks (colored header + 3 priority-sorted cards, HTMX lazy-loaded), plus Nous placeholder and Focus/Velocity indicators. See `ui/profile/hub.py`.
 
 ### SidebarItem
 
@@ -1092,7 +1092,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
-| `/ui/profile/hub.py` | `ProfileHubView` — live actionable hub. Also exports `submissions_section()` (reused by `/submissions`; inline title + 5 tabs) |
+| `/ui/profile/hub.py` | `ProfileHubView` — live actionable hub: 6 Activity Domain blocks (scrollable, HTMX lazy-loaded). Also exports `submissions_section()` (reused by `/gradebook`; inline title + 5 tabs) |
 | `/adapters/inbound/library_ui.py` | `/library` hub — 5 tabs (inline title) + HTMX fragments: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/resources`, `/library/ku` (PINNED only), `/library/path-steps` (IN_PROGRESS only), `/reports/activity-list` |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |

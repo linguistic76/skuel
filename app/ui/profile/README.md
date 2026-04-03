@@ -1,6 +1,6 @@
 # Profile UI Components
 
-*Last updated: 2026-03-29*
+*Last updated: 2026-04-03*
 
 **Location:** `/ui/profile/`
 
@@ -8,11 +8,8 @@ This directory contains the Profile Hub UI — a **live actionable hub** that su
 
 ## Overview
 
-The Profile Hub (`/profile`) shows live content from `UserContext.build_rich()`:
-- **Knowledge** — Bookmarked + recently viewed Kus with mastery %, namespace badges
-- **Lessons** — Lessons the user is actively studying (via IN_PROGRESS relationship)
-- **Exercises** — Assigned work with inline Submit buttons + pending revisions
-- **Reports** — HTMX lazy-loaded summaries (exercise + activity reports)
+The Profile Hub (`/profile`) shows live content:
+- **Activity Domains** — All 6 (Tasks, Goals, Habits, Events, Choices, Principles) visible as scrollable blocks. Each block has a colored domain header (icon + clickable title + "View all" link) and 3 priority-sorted cards loaded via HTMX from `/api/profile/{slug}/preview`.
 - **Nous** — Community knowledge feed (placeholder)
 - **Personal Header** — Focus (current task) + Velocity (momentum indicator)
 
@@ -36,29 +33,25 @@ Uses `BasePage(STANDARD)` — no sidebar.
 ```python
 def ProfileHubView(context: UserContext) -> Div:
     return Div(
-        _personal_header(context),          # Focus + Velocity
-        _knowledge_section(context),        # Kus from knowledge_units_rich
-        _lessons_section(context),          # current_lessons (uid + title)
-        _exercises_section(context),        # unsubmitted_exercises + pending_revised_exercises
-        _reports_section(),                 # HTMX lazy-load from /api/profile/reports/*
+        _activities_section(),              # All 6 Activity Domain blocks
         _nous_section(),                    # Placeholder
         _settings_link(),
+        _personal_header(context),          # Focus + Velocity
     )
 ```
 
-### Data Sources (all from UserContext)
+### Activity Domain Blocks
 
-| Section | Fields Used |
-|---------|-------------|
-| Knowledge | `ku_bookmarked_uids`, `recently_viewed_ku_uids`, `knowledge_units_rich`, `knowledge_mastery` |
-| Lessons | `current_lessons` (`list[CurrentLessonItem]` — uid + title) |
-| Exercises | `unsubmitted_exercises` (5 items), `pending_revised_exercises` (5 items), `assigned_exercise_count` |
-| Reports | HTMX endpoints (not in UserContext — separate service calls) |
+Each of the 6 Activity Domains renders as a scrollable block via `_activity_domain_block()`:
+- Colored header: domain icon + clickable title (links to `/{domain}`) + "View all →" link
+- HTMX lazy-loaded cards from `/api/profile/{slug}/preview` (top 3 active items by priority)
+- Bottom border separator between blocks
 
 ### HTMX Endpoints (in user_profile_ui.py)
 
 | Endpoint | Purpose |
 |----------|---------|
+| `GET /api/profile/{slug}/preview` | Top 3 active items for an Activity Domain block |
 | `GET /api/profile/reports/exercise-summary` | 5 most recent exercise reports |
 | `GET /api/profile/reports/activity-summary` | 5 most recent activity reports |
 

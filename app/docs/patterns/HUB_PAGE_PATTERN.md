@@ -29,7 +29,7 @@ This document covers *how to build one*.
 | `/exercise-reports` | Teacher and AI feedback on submissions | Active |
 | `/activity-reports` | Activity progress reports | Active |
 
-Domain hubs are NOT simple card grids — they have real capabilities (forms, entity lists, actions). `/profile` Submissions section uses Alpine.js tabs + HTMX lazy-loaded fragments.
+Domain hubs are NOT simple card grids — they have real capabilities (forms, entity lists, actions). `/profile` shows all 6 Activity Domains as scrollable blocks with HTMX lazy-loaded card previews.
 
 ## Shared Components
 
@@ -95,21 +95,14 @@ Profile renders live content sections from `UserContext`, not card grids:
 ```python
 def ProfileHubView(context: UserContext) -> Div:
     return Div(
-        _personal_header(context),          # Focus + Velocity indicators
-        _knowledge_section(context),        # Bookmarked + recent Kus (mastery %, namespace)
-        _lessons_section(context),          # Lessons being studied (via IN_PROGRESS relationship)
-        _exercises_section(context),        # Assigned exercises with Submit buttons
-        _reports_section(),                 # HTMX lazy-loaded report summaries
+        _activities_section(),              # All 6 Activity Domain blocks (HTMX lazy-loaded)
         _nous_section(),                    # Community feed (placeholder)
         _settings_link(),
+        _personal_header(context),          # Focus + Velocity indicators
     )
 ```
 
-**Data sources (all from `UserContext.build_rich()`):**
-- Knowledge: `ku_bookmarked_uids` + `recently_viewed_ku_uids` → lookup in `knowledge_units_rich`
-- Lessons: `current_lessons` (list of `CurrentLessonItem` with uid + title)
-- Exercises: `unsubmitted_exercises` + `pending_revised_exercises` (from UserContext)
-- Reports: HTMX endpoints `/api/profile/reports/exercise-summary` and `/api/profile/reports/activity-summary`
+**Activity Domain blocks:** Each of the 6 domains (Tasks, Goals, Habits, Events, Choices, Principles) renders as a visible block with colored header (clickable title + "View all" link) and 3 priority-sorted cards loaded via HTMX from `/api/profile/{slug}/preview`.
 
 ## Usage: Graph-Driven Hub Page
 

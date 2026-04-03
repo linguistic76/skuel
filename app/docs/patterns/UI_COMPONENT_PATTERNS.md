@@ -86,7 +86,9 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal MonsterUI tabs instead of drawer/overlay.
 
-**Evolution (2026-03-29):** `/profile` evolved from card grid to **live actionable hub**. Shows actual Kus (bookmarked + recent with mastery %), active lessons, assigned exercises with inline Submit buttons, HTMX lazy-loaded report summaries, and Nous placeholder. Data sourced from `UserContext.build_rich()`. See `ui/profile/hub.py`.
+**Evolution (2026-03-29):** `/profile` evolved from card grid to **live actionable hub**. Data sourced from `UserContext.build_rich()`. See `ui/profile/hub.py`.
+
+**Evolution (2026-04-03):** `/profile` Activity Domains changed from Alpine.js tabbed view (one domain visible at a time) to all 6 domains visible as scrollable blocks. Each block has a colored domain header (icon + clickable title + "View all" link) and 3 priority-sorted cards HTMX lazy-loaded from `/api/profile/{slug}/preview`.
 
 **Evolution (2026-03-30):** Tasks and Goals have active read-focused UI views at `/tasks` and `/goals` with HTMX interactions, filtering, and knowledge connections. Tasks icon (check-square) added to navbar between Knowledge and Submissions. Habits, Events, Choices, and Principles read-focused UIs are planned. Navbar order: SKUEL logo → ⚛️ (Knowledge) → Tasks → ⇄ (Submissions) → avatar → logout.
 

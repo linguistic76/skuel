@@ -1,9 +1,8 @@
 """Profile hub page — live actionable hub for learning state.
 
-The /profile page shows the user's active learning state: Kus they're
-interacting with, path steps being studied, exercises with Submit buttons,
-submissions (tabbed: My Submissions | Submit | Request Report),
-and recent reports.
+The /profile page shows all 6 Activity Domains as scrollable blocks,
+each with a colored domain header (icon + clickable title + "View all" link)
+and 3 priority-sorted cards loaded via HTMX.
 
 See: /docs/patterns/HUB_PAGE_PATTERN.md
 """
