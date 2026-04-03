@@ -1,11 +1,10 @@
-"""Learning Loop Routes — Orchestrator for Submission + Report UI Routes
-========================================================================
+"""Learning Loop Routes — Orchestrator for GradeBook UI Routes
+==============================================================
 
 Wires the decomposed submission and report UI routes:
 - submissions_ui.py → /submit, /gradebook, /gradebook/{uid}, fragments (GradeBook sidebar)
 - exercise_reports_ui.py → /exercise-reports, /reports/list (GradeBook sidebar)
 - activity_reports_ui.py → /activity-reports, /submit-activity-report, fragments (GradeBook sidebar)
-- library_ui.py → /library, /library/resources, /library/ku, /library/path-steps (Library sidebar)
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -15,7 +14,6 @@ from typing import Any
 from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
 from adapters.inbound.exercise_reports_ui import create_exercise_reports_ui_routes
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
-from adapters.inbound.library_ui import create_library_ui_routes
 from adapters.inbound.submissions_ui import create_submissions_ui_routes
 from core.utils.logging import get_logger
 
@@ -55,17 +53,5 @@ def create_learning_loop_routes(
         activity_report_service=getattr(services, "activity_report", None),
     )
 
-    # Library Hub UI — /library (unified: Exercises + Resources + Ku + PathSteps + Reports)
-    create_library_ui_routes(
-        app,
-        rt,
-        exercises_service=getattr(services, "exercises", None),
-        resource_service=getattr(services, "resource", None),
-        ku_service=getattr(services, "ku", None),
-        ps_service=getattr(services, "ps", None),
-        submissions_service=getattr(services, "submissions", None),
-        user_relationship_service=getattr(services, "user_relationships", None),
-    )
-
-    logger.info("Learning loop routes wired (submissions + reports + library hub)")
+    logger.info("Learning loop routes wired (submissions + reports)")
     return []
