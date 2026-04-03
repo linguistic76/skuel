@@ -1,0 +1,78 @@
+"""Learning Paths UI Routes
+===========================
+
+Standalone browser for LearningPath entities — the top of the curriculum hierarchy.
+
+Routes:
+- GET /learning-paths — Learning Paths browser
+"""
+
+from typing import Any
+
+from fasthtml.common import Div
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
+from core.utils.logging import get_logger
+from ui.layouts.base_page import BasePage
+from ui.patterns.card_generator import CardGenerator
+from ui.patterns.empty_state import EmptyState
+from ui.patterns.page_header import PageHeader
+
+logger = get_logger("skuel.routes.learning_paths")
+
+
+def create_learning_paths_ui_routes(
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    services: Any,
+) -> RouteList:
+    """Register learning paths UI routes."""
+
+    @rt("/learning-paths")
+    async def learning_paths_browser(request: Request) -> Any:
+        """Learning Paths browser. Public: shared curriculum content."""
+        lp_service = services.lp
+        items: list[Any] = []
+        if lp_service:
+            result = await lp_service.core.list(limit=50)
+            if not result.is_error:
+                items = result.value if isinstance(result.value, list) else result.value[0]
+
+        content = Div(
+            PageHeader("Learning Paths", subtitle="Ordered sequences of path step collections"),
+            _entity_list(items),
+            id="main-content",
+        )
+        return await BasePage(
+            content=content,
+            title="Learning Paths",
+            request=request,
+            active_page="learning-paths",
+        )
+
+    return []  # Routes registered via @rt() decorators
+
+
+def _entity_list(items: list[Any]) -> Div:
+    """Render a list of learning path entities using CardGenerator."""
+    if not items:
+        return EmptyState(title="No learning paths found")
+
+    rows = []
+    for item in items:
+        title = getattr(item, "title", "Untitled")
+        description = getattr(item, "description", "") or ""
+        uid = getattr(item, "uid", "")
+
+        href = f"/lp/{uid}" if uid else None
+
+        rows.append(
+            CardGenerator.from_dataclass(
+                {"title": title, "description": description},
+                display_fields=["description"],
+                show_labels=False,
+                metadata=[uid] if uid else None,
+                title_href=href,
+            )
+        )
+    return Div(*rows, cls="space-y-3")
