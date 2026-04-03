@@ -16,6 +16,7 @@ from typing import Any
 from fasthtml.common import (
     Div,
     P,
+    Span,
 )
 
 from adapters.inbound.auth import require_authenticated_user
@@ -24,6 +25,7 @@ from core.utils.logging import get_logger
 from ui.cards import Card
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.page_header import PageHeader
 from ui.submissions.report import (
     render_received_report_list,
@@ -116,6 +118,36 @@ def create_exercise_reports_ui_routes(
                 render_error_banner("Error loading feedback", str(e)),
                 id="feedback-list",
             )
+
+    # ========================================================================
+    # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /gradebook hub)
+    # ========================================================================
+
+    @rt("/api/gradebook/exercise-reports/preview")
+    async def exercise_reports_preview(request: Request) -> Any:
+        """HTMX fragment: 3 most recent exercise reports for hub preview."""
+        user_uid = require_authenticated_user(request)
+        if not submissions_core_service:
+            return HubPreviewEmpty("exercise reports")
+        result = await submissions_core_service.get_assessments_for_student(
+            student_uid=user_uid, limit=3
+        )
+        if result.is_error:
+            return HubPreviewEmpty("exercise reports")
+        reports = result.value or []
+        if not reports:
+            return HubPreviewEmpty("exercise reports")
+        cards = []
+        for report in reports[:3]:
+            title = getattr(report, "title", None) or getattr(report, "uid", "Report")
+            source = getattr(report, "source", None) or ""
+            badge = (
+                Span(source.title(), cls="text-[10px] font-medium text-muted-foreground")
+                if source
+                else None
+            )
+            cards.append(HubPreviewCard(title=title, href="/exercise-reports", badge=badge))
+        return HubPreviewGrid(cards)
 
     logger.info("Exercise Reports UI routes created (/exercise-reports, /reports/list)")
 

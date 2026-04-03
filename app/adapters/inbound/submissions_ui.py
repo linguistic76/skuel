@@ -39,6 +39,7 @@ from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
+from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.page_header import PageHeader
 from ui.submissions.cards import (
     render_processed_content,
@@ -645,7 +646,61 @@ def create_submissions_ui_routes(
             request=request,
         )
 
-    logger.info("GradeBook UI routes created (/submit, /gradebook, /gradebook/mysubmissions, /gradebook/{uid})")
+    # ========================================================================
+    # HUB PREVIEW ENDPOINTS (HTMX lazy-loaded from /gradebook hub)
+    # ========================================================================
+
+    @rt("/api/gradebook/submissions/preview")
+    async def gradebook_submissions_preview(request: Request) -> Any:
+        """HTMX fragment: 3 most recent submissions for hub preview."""
+        user_uid = require_authenticated_user(request)
+        result = await submissions_service.list_submissions(
+            user_uid, entity_type=EntityType.EXERCISE_SUBMISSION, limit=3
+        )
+        if result.is_error:
+            return HubPreviewEmpty("submissions")
+        subs = result.value or []
+        if not subs:
+            return HubPreviewEmpty("submissions")
+        cards = []
+        for sub in subs[:3]:
+            uid = getattr(sub, "uid", "")
+            title = getattr(sub, "title", "Untitled") or "Untitled"
+            status = str(getattr(sub, "status", "")).replace("_", " ").title()
+            badge = (
+                Span(status, cls="text-[10px] font-medium text-muted-foreground")
+                if status
+                else None
+            )
+            cards.append(HubPreviewCard(title=title, href=f"/gradebook/{uid}", badge=badge))
+        return HubPreviewGrid(cards)
+
+    @rt("/api/gradebook/submit/preview")
+    async def gradebook_submit_preview(request: Request) -> Any:
+        """HTMX fragment: 3 exercises ready to submit for hub preview."""
+        user_uid = require_authenticated_user(request)
+        if not exercises_service:
+            return HubPreviewEmpty("exercises to submit")
+        result = await exercises_service.get_student_exercises_with_status(user_uid)
+        if result.is_error:
+            return HubPreviewEmpty("exercises to submit")
+        rows = result.value or []
+        # Filter to not-yet-submitted exercises
+        ready = [r for r in rows if not r["has_submission"]]
+        if not ready:
+            return HubPreviewEmpty("exercises to submit")
+        cards = [
+            HubPreviewCard(
+                title=r["title"] or r["uid"],
+                href=f"/submit?exercise_uid={r['uid']}",
+            )
+            for r in ready[:3]
+        ]
+        return HubPreviewGrid(cards)
+
+    logger.info(
+        "GradeBook UI routes created (/submit, /gradebook, /gradebook/mysubmissions, /gradebook/{uid})"
+    )
 
     # Route order matters! Specific routes before parameterized routes.
     return [

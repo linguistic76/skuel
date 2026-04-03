@@ -27,6 +27,7 @@ from core.utils.logging import get_logger
 from ui.library.nav import render_library_sidebar_page
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 
 logger = get_logger("skuel.routes.library")
 
@@ -575,5 +576,115 @@ def create_library_ui_routes(
             for step in steps
         ]
         return Div(count_note, Div(*rows))
+
+    # ========================================================================
+    # HUB PREVIEW ENDPOINTS (HTMX lazy-loaded from /library hub)
+    # ========================================================================
+
+    @rt("/api/library/exercises/preview")
+    async def library_exercises_preview(request: Request) -> Any:
+        """HTMX fragment: top 3 exercises with status pill for hub preview."""
+        user_uid = require_authenticated_user(request)
+        if not exercises_service:
+            return HubPreviewEmpty("exercises")
+        result = await exercises_service.get_student_exercises_with_status(user_uid)
+        if result.is_error:
+            return HubPreviewEmpty("exercises")
+        rows = result.value or []
+        if not rows:
+            return HubPreviewEmpty("exercises")
+        cards = []
+        for row in rows[:3]:
+            status_key = _exercise_status_key(row)
+            label, cls = _STATUS_PILL[status_key]
+            badge = Span(label, cls=cls)
+            cards.append(
+                HubPreviewCard(
+                    title=row["title"] or row["uid"],
+                    href=f"/exercises/get?uid={row['uid']}",
+                    badge=badge,
+                )
+            )
+        return HubPreviewGrid(cards)
+
+    @rt("/api/library/resources/preview")
+    async def library_resources_preview(request: Request) -> Any:
+        """HTMX fragment: top 3 resources with media badge for hub preview."""
+        if not resource_service:
+            return HubPreviewEmpty("resources")
+        result = await resource_service.list_all()
+        if result.is_error:
+            return HubPreviewEmpty("resources")
+        resources = result.value or []
+        if not resources:
+            return HubPreviewEmpty("resources")
+        cards = []
+        for res in resources[:3]:
+            media_type = getattr(res, "media_type", None)
+            badge = _media_badge(media_type) if media_type else None
+            cards.append(
+                HubPreviewCard(
+                    title=getattr(res, "title", res.uid) or res.uid,
+                    href=f"/library/resources",
+                    badge=badge,
+                )
+            )
+        return HubPreviewGrid(cards)
+
+    @rt("/api/library/ku/preview")
+    async def library_ku_preview(request: Request) -> Any:
+        """HTMX fragment: top 3 bookmarked Ku for hub preview."""
+        user = get_current_user(request)
+        if not user or not ku_service or not user_relationship_service:
+            return HubPreviewEmpty("bookmarked Ku")
+        pins_result = await user_relationship_service.get_pinned_entities(user)
+        if pins_result.is_error:
+            return HubPreviewEmpty("bookmarked Ku")
+        pinned_uids = list(pins_result.value or [])
+        if not pinned_uids:
+            return HubPreviewEmpty("bookmarked Ku")
+        result = await ku_service.core.backend.get_many(pinned_uids[:3])  # type: ignore[union-attr]
+        if result.is_error:
+            return HubPreviewEmpty("bookmarked Ku")
+        kus = [ku for ku in (result.value or []) if ku is not None]
+        if not kus:
+            return HubPreviewEmpty("bookmarked Ku")
+        cards = [
+            HubPreviewCard(
+                title=getattr(ku, "title", ku.uid) or ku.uid,
+                href=f"/explore/ku/{ku.uid}",
+                badge=Span("Ku", cls=_KU_BADGE_CLS),
+            )
+            for ku in kus[:3]
+        ]
+        return HubPreviewGrid(cards)
+
+    @rt("/api/library/path-steps/preview")
+    async def library_path_steps_preview(request: Request) -> Any:
+        """HTMX fragment: top 3 enrolled path steps for hub preview."""
+        user = get_current_user(request)
+        if not user or not ps_service:
+            return HubPreviewEmpty("enrolled path steps")
+        uids_result = await ps_service.mastery.get_in_progress_step_uids(user)  # type: ignore[union-attr]
+        if uids_result.is_error:
+            return HubPreviewEmpty("enrolled path steps")
+        enrolled_uids = list(uids_result.value or [])
+        if not enrolled_uids:
+            return HubPreviewEmpty("enrolled path steps")
+        result = await ps_service.core.backend.get_many(enrolled_uids[:3])  # type: ignore[union-attr]
+        if result.is_error:
+            return HubPreviewEmpty("enrolled path steps")
+        steps = [s for s in (result.value or []) if s is not None]
+        if not steps:
+            return HubPreviewEmpty("enrolled path steps")
+        cards = [
+            HubPreviewCard(
+                title=getattr(step, "title", step.uid) or step.uid,
+                href=f"/explore/ps/{step.uid}",
+                badge=Span("Path Step", cls=_PS_BADGE_CLS),
+            )
+            for step in steps[:3]
+        ]
+        return HubPreviewGrid(cards)
 
     return []

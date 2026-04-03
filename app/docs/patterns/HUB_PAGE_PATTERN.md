@@ -18,7 +18,7 @@ This document covers *how to build one*.
 
 **Profile is the personal overview hub** (`/profile`). It shows Focus/Velocity indicators, a link card to `/activities`, the Nous community feed placeholder, and Settings. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
-**Activity Domains hub** (`/activities`) shows all 6 Activity Domains as scrollable blocks with HTMX lazy-loaded card previews. Uses `SidebarPage` with a shared Activity sidebar (also present on `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`).
+**Activity Domains hub** (`/activities`) shows all 6 Activity Domains as HTMX lazy-loaded preview blocks. No sidebar — uses `BasePage(STANDARD)`. Child pages (`/tasks`, `/goals`, etc.) use `SidebarPage` with the shared Activity sidebar.
 
 **Domain hub pages** are rich functional pages that Profile links to:
 
@@ -80,7 +80,43 @@ def HubContainerGrid(cards: list[HubCardData], cols: int = 2) -> Div:
     """Responsive grid of hub containers."""
 ```
 
-Bigger than `HubCard` — more padding, larger icon, full description paragraph, and arrow affordance. Used by GradeBook and Library hub pages. Reuses `HubCardData`.
+Bigger than `HubCard` — more padding, larger icon, full description paragraph, and arrow affordance. Reuses `HubCardData`.
+
+### HubDomainBlock + HubDomainBlockList (HTMX preview blocks)
+
+```python
+@dataclass(frozen=True)
+class HubBlockData:
+    label: str
+    slug: str
+    icon: str        # Feather icon name (UkIcon)
+    color: str       # hex color for header
+    href: str        # "View all" link
+    preview_url: str # HTMX endpoint
+
+def HubDomainBlock(block: HubBlockData) -> Div:
+    """Colored header + HTMX lazy-loaded preview area."""
+
+def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
+    """Vertical stack of domain blocks."""
+```
+
+Used by all 3 hub pages (`/activities`, `/gradebook`, `/library`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards on page load.
+
+### HubPreviewCard + HubPreviewGrid + HubPreviewEmpty
+
+```python
+def HubPreviewCard(title: str, href: str, badge: FT | None = None) -> A:
+    """Compact preview card — title + optional badge."""
+
+def HubPreviewGrid(cards: list[A]) -> Div:
+    """3-column grid of preview cards."""
+
+def HubPreviewEmpty(domain: str) -> Div:
+    """Empty state for a preview block."""
+```
+
+Returned by HTMX preview endpoints to populate `HubDomainBlock` areas.
 
 ### Graph-Driven Bridges
 
@@ -116,17 +152,27 @@ def ProfileHubView(context: UserContext) -> Div:
     )
 ```
 
-## Usage: Activity Domains Hub
+## Usage: HTMX Hub Pages (Activity, GradeBook, Library)
 
-`/activities` shows all 6 Activity Domains as scrollable blocks with `SidebarPage`:
+All three hub pages use the same shared pattern — `HubDomainBlockList` with `HubBlockData` config:
 
 ```python
+# ui/activities/activity_hub.py
+_ACTIVITY_BLOCKS = [
+    HubBlockData("Tasks", "tasks", "check-square", "#3B82F6", "/tasks", "/api/profile/tasks/preview"),
+    # ... 5 more Activity Domains
+]
+
 def ActivityHubView() -> Div:
-    # 6 domain blocks, each with colored header + 3 HTMX-loaded cards
-    return Div(*[_activity_domain_block(...) for ... in _ACTIVITY_TABS])
+    return Div(PageHeader(...), HubDomainBlockList(_ACTIVITY_BLOCKS))
 ```
 
-**Activity Domain blocks:** Each of the 6 domains renders as a visible block with colored header (clickable title + "View all" link) and 3 priority-sorted cards loaded via HTMX from `/api/profile/{slug}/preview`.
+Each block loads 3 preview cards via HTMX from its `preview_url`. Preview endpoints return `HubPreviewGrid(cards)` or `HubPreviewEmpty(domain)`.
+
+**Preview endpoints:**
+- Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
+- Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`)
+- GradeBook: `/api/gradebook/{section}/preview` (4 sections, split across `submissions_ui.py`, `exercise_reports_ui.py`, `activity_reports_ui.py`)
 
 ## Usage: Graph-Driven Hub Page
 
@@ -138,24 +184,9 @@ cards = hub_cards_from_organizers(children_result.value)
 section = HubSection("Contents", cards)
 ```
 
-## Usage: Container Hub Pages (GradeBook, Library)
+**Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub.
 
-GradeBook and Library use the **hub-first pattern**: navbar icon opens a hub page with `HubContainerGrid` (no sidebar), each container links to a child page with `SidebarPage`.
-
-```python
-# ui/gradebook/hub.py
-def GradeBookHub() -> Div:
-    containers = [
-        HubCardData(icon="📝", name="My Submissions", href="/gradebook/mysubmissions", ...),
-        HubCardData(icon="📤", name="Submit", href="/submit", ...),
-        # ...
-    ]
-    return Div(PageHeader("GradeBook", ...), HubContainerGrid(containers, cols=2))
-```
-
-**Flow:** Navbar icon → `/gradebook` (hub, `BasePage(STANDARD)`) → click container → `/gradebook/mysubmissions` (child, `SidebarPage`). Sidebar title links back to hub.
-
-**Files:** `ui/gradebook/hub.py`, `ui/library/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py` (sidebar nav for children).
+**Files:** `ui/gradebook/hub.py`, `ui/library/hub.py`, `ui/activities/activity_hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/activities/nav.py` (sidebar nav for children).
 
 ## Shelved Hubs
 

@@ -10,10 +10,15 @@ See: /docs/patterns/HUB_PAGE_PATTERN.md
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from fasthtml.common import A, Div, P, Span
+from monsterui.franken import UkIcon
 
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
+
+if TYPE_CHECKING:
+    from fasthtml.common import FT
 
 
 @dataclass(frozen=True)
@@ -130,6 +135,96 @@ def HubContainerGrid(cards: list[HubCardData], cols: int = 2) -> Div:
     }
     grid_cls = col_classes.get(cols, col_classes[2])
     return Div(*[HubContainer(c) for c in cards], cls=grid_cls)
+
+
+# ---------------------------------------------------------------------------
+# HTMX-loaded hub domain blocks (Activity, GradeBook, Library hubs)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class HubBlockData:
+    """Configuration for one domain block on a hub page."""
+
+    label: str
+    slug: str
+    icon: str  # Feather icon name (UkIcon)
+    color: str  # hex color for header
+    href: str  # "View all" link
+    preview_url: str  # HTMX endpoint
+
+
+def HubPreviewCard(title: str, href: str, badge: "FT | None" = None) -> A:
+    """Compact preview card — title + optional badge, links to detail."""
+    parts: list[Span | FT] = []
+    if badge is not None:
+        parts.append(badge)
+    parts.append(
+        Span(
+            title,
+            cls="text-xs font-medium text-foreground line-clamp-2 leading-snug",
+        )
+    )
+    return A(
+        *parts,
+        href=href,
+        cls=(
+            "flex flex-col gap-1 p-2.5 rounded-lg border border-border "
+            "bg-muted/30 hover:bg-muted/60 hover:border-primary/30 transition-colors "
+            "min-h-[60px] no-underline"
+        ),
+    )
+
+
+def HubPreviewGrid(cards: list[A]) -> Div:
+    """3-column grid of preview cards."""
+    return Div(*cards, cls="grid grid-cols-3 gap-2")
+
+
+def HubPreviewEmpty(domain: str) -> Div:
+    """Empty state for a preview block."""
+    return Div(
+        P(f"No {domain} yet", cls="text-sm text-foreground/40 text-center py-3"),
+    )
+
+
+def HubDomainBlock(block: HubBlockData) -> Div:
+    """A single domain block: colored header + HTMX lazy-loaded preview area."""
+    return Div(
+        # Domain header — icon + title + "View all" link
+        Div(
+            A(
+                UkIcon(block.icon, cls="size-4"),
+                Span(
+                    block.label,
+                    cls="text-sm font-semibold uppercase tracking-wider",
+                ),
+                href=block.href,
+                cls="flex items-center gap-2 no-underline hover:opacity-80 transition-opacity",
+                style=f"color: {block.color};",
+            ),
+            A(
+                "View all \u2192",
+                href=block.href,
+                cls="text-xs font-medium text-muted-foreground hover:text-primary transition-colors",
+            ),
+            cls="flex items-center justify-between mb-3",
+        ),
+        # HTMX lazy-loaded card content
+        Div(
+            P("Loading...", cls="text-center text-muted-foreground py-4"),
+            id=f"hub-panel-{block.slug}",
+            hx_get=block.preview_url,
+            hx_trigger="load",
+            hx_swap="innerHTML",
+        ),
+        cls="pb-5 mb-5 border-b border-border last:border-b-0 last:mb-0 last:pb-0",
+    )
+
+
+def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
+    """Vertical stack of domain blocks."""
+    return Div(*[HubDomainBlock(b) for b in blocks])
 
 
 # ---------------------------------------------------------------------------

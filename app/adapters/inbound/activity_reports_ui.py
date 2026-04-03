@@ -19,6 +19,7 @@ from typing import Any
 from fasthtml.common import (
     Div,
     P,
+    Span,
 )
 
 from adapters.inbound.auth import require_authenticated_user
@@ -29,6 +30,7 @@ from ui.buttons import ButtonLink, ButtonT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.generate_report import (
     render_activity_report_request_card,
     render_recent_reports_section,
@@ -253,6 +255,34 @@ def create_activity_reports_ui_routes(
                 render_error_banner("Error loading progress reports", str(e)),
                 id="progress-list",
             )
+
+    # ========================================================================
+    # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /gradebook hub)
+    # ========================================================================
+
+    @rt("/api/gradebook/activity-reports/preview")
+    async def activity_reports_preview(request: Request) -> Any:
+        """HTMX fragment: 3 most recent activity reports for hub preview."""
+        user_uid = require_authenticated_user(request)
+        if not activity_report_service:
+            return HubPreviewEmpty("activity reports")
+        result = await activity_report_service.get_history(subject_uid=user_uid, limit=3)
+        if result.is_error:
+            return HubPreviewEmpty("activity reports")
+        reports = result.value or []
+        if not reports:
+            return HubPreviewEmpty("activity reports")
+        cards = []
+        for report in reports[:3]:
+            title = getattr(report, "title", None) or getattr(report, "uid", "Report")
+            period = getattr(report, "time_period", None) or ""
+            badge = (
+                Span(period, cls="text-[10px] font-medium text-muted-foreground")
+                if period
+                else None
+            )
+            cards.append(HubPreviewCard(title=title, href="/activity-reports", badge=badge))
+        return HubPreviewGrid(cards)
 
     logger.info(
         "Activity Reports UI routes created "
