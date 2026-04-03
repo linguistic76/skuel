@@ -98,3 +98,6 @@ class FormSubmitRequest(BaseModel):
     exercise_uid: str = Field(..., description="Exercise UID")
     form_data: dict[str, Any] = Field(..., description="Form field responses")
     title: str | None = Field(None, max_length=200, description="Optional submission title")
+    from_ps: str | None = Field(
+        None, description="PathStep UID for deterministic learning context"
+    )

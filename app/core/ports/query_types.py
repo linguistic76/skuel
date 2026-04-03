@@ -1316,7 +1316,7 @@ class SignInResult(TypedDict, total=False):
 class ReviewQueueItem(TypedDict, total=False):
     """Single item in teacher's review queue."""
 
-    ku_uid: str
+    submission_uid: str
     title: str
     status: str
     entity_type: str
@@ -2054,7 +2054,7 @@ class GanttConfig(TypedDict, total=False):
 class ReportSubmitResult(TypedDict, total=False):
     """Return shape for TeacherReviewService.submit_report()."""
 
-    ku_uid: str
+    submission_uid: str
     status: str
     report_uid: str
     feedback_submitted: bool
@@ -2063,7 +2063,7 @@ class ReportSubmitResult(TypedDict, total=False):
 class RevisionRequestResult(TypedDict, total=False):
     """Return shape for TeacherReviewService.request_revision()."""
 
-    ku_uid: str
+    submission_uid: str
     status: str
     report_uid: str
     revision_requested: bool
@@ -2072,7 +2072,7 @@ class RevisionRequestResult(TypedDict, total=False):
 class ReportApprovalResult(TypedDict, total=False):
     """Return shape for TeacherReviewService.approve_report()."""
 
-    ku_uid: str
+    submission_uid: str
     status: str
     approved: bool
     mastered_ku_count: int

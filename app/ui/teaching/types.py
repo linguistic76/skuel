@@ -18,7 +18,7 @@ class QueueItem:
     status: str = "unknown"
     entity_type: str | None = None
     exercise_name: str | None = None
-    ku_uid: str = ""
+    submission_uid: str = ""
     feedback_count: int = 0
     original_filename: str | None = None
 

@@ -116,7 +116,7 @@ class TeacherReviewService:
 
         items = [
             {
-                "ku_uid": record["ku_uid"],
+                "submission_uid": record["submission_uid"],
                 "title": record["title"],
                 "status": record["status"],
                 "entity_type": record["entity_type"],
@@ -247,7 +247,7 @@ class TeacherReviewService:
 
         return Result.ok(
             {
-                "ku_uid": str(records[0]["uid"]),
+                "submission_uid": str(records[0]["uid"]),
                 "status": str(records[0]["status"]),
                 "report_uid": report_entity_uid,
                 "feedback_submitted": True,
@@ -333,7 +333,7 @@ class TeacherReviewService:
 
         return Result.ok(
             {
-                "ku_uid": str(records[0]["uid"]),
+                "submission_uid": str(records[0]["uid"]),
                 "status": str(records[0]["status"]),
                 "report_uid": report_entity_uid,
                 "revision_requested": True,
@@ -420,7 +420,7 @@ class TeacherReviewService:
 
         return Result.ok(
             {
-                "ku_uid": str(record["uid"]),
+                "submission_uid": str(record["uid"]),
                 "status": str(record["status"]),
                 "approved": True,
                 "mastered_ku_count": mastered_count,

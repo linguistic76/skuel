@@ -100,11 +100,11 @@ class SubmissionOperations(Protocol):
         """List submissions for a user with filters. Returns Result[list[Submission]]."""
         ...
 
-    async def get_file_content(self, ku_uid: str) -> Result[bytes]:
+    async def get_file_content(self, submission_uid: str) -> Result[bytes]:
         """Get original file content. Returns Result[bytes]."""
         ...
 
-    async def get_processed_file_content(self, ku_uid: str) -> Result[bytes]:
+    async def get_processed_file_content(self, submission_uid: str) -> Result[bytes]:
         """Get processed file content. Returns Result[bytes]."""
         ...
 

@@ -162,7 +162,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         # Store file
         file_path_result = await self._store_file(
-            file_content=file_content, filename=original_filename, ku_uid=uid
+            file_content=file_content, filename=original_filename, submission_uid=uid
         )
 
         if file_path_result.is_error:
@@ -261,7 +261,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         Creates an ExerciseSubmission from inline form data, stores responses
         in metadata + processed_content, and triggers the same event pipeline
-        as file submissions (FULFILLS_EXERCISE, auto-share with teacher).
+        as file submissions (FULFILLS_EXERCISE linking, Interaction audit).
 
         Args:
             user_uid: Student submitting the form
@@ -366,22 +366,24 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
                 f"Unexpected error creating Interaction for submission {submission_uid}: {e}"
             )
 
-    async def _store_file(self, file_content: bytes, filename: str, ku_uid: str) -> Result[Path]:
+    async def _store_file(
+        self, file_content: bytes, filename: str, submission_uid: str
+    ) -> Result[Path]:
         """
         Store file to disk.
 
         File organization:
         /storage_path/
             YYYY-MM/
-                ku_uid/
+                submission_uid/
                     original_filename
         """
         try:
             month_dir = self.storage_path / datetime.now().strftime("%Y-%m")
-            ku_dir = month_dir / ku_uid
-            ku_dir.mkdir(parents=True, exist_ok=True)
+            submission_dir = month_dir / submission_uid
+            submission_dir.mkdir(parents=True, exist_ok=True)
 
-            file_path = ku_dir / filename
+            file_path = submission_dir / filename
             file_path.write_bytes(file_content)
 
             self.logger.info(f"File stored: {file_path}")
@@ -402,7 +404,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         return mime_type or "application/octet-stream"
 
     # ========================================================================
-    # KU QUERIES
+    # SUBMISSION QUERIES
     # ========================================================================
 
     @with_error_handling("list_submissions")
@@ -425,7 +427,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             offset: Pagination offset (default 0)
 
         Returns:
-            Result containing list of Ku
+            Result containing list of submissions
         """
         filters: dict[str, Any] = {"user_uid": user_uid}
 
@@ -468,7 +470,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         return await self.backend.count(**filters)
 
     # ========================================================================
-    # KU UPDATES
+    # SUBMISSION UPDATES
     # ========================================================================
 
     @with_error_handling("update_submission_status")
@@ -534,7 +536,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             updates: Dictionary of field updates
 
         Returns:
-            Result containing updated Ku
+            Result containing updated submission
         """
         result = await self.backend.update(uid, updates)
 
@@ -557,7 +559,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             processed_file_path: Path to processed file (optional)
 
         Returns:
-            Result containing updated Ku
+            Result containing updated submission
         """
         updates: dict[str, Any] = {"processed_content": processed_content}
 
@@ -598,7 +600,7 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
 
         submission_file_path = getattr(submission, "file_path", None)
         file_path = Path(submission_file_path) if submission_file_path else None
-        ku_dir = file_path.parent if file_path else None
+        parent_dir = file_path.parent if file_path else None
 
         # Delete Neo4j record first
         delete_result = await self.backend.delete(uid)
@@ -611,9 +613,9 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
                 file_path.unlink()
                 self.logger.info(f"Deleted file: {file_path}")
 
-                if ku_dir and ku_dir.exists() and not any(ku_dir.iterdir()):
-                    ku_dir.rmdir()
-                    self.logger.debug(f"Removed empty directory: {ku_dir}")
+                if parent_dir and parent_dir.exists() and not any(parent_dir.iterdir()):
+                    parent_dir.rmdir()
+                    self.logger.debug(f"Removed empty directory: {parent_dir}")
 
             except OSError as e:
                 self.logger.warning(f"Failed to delete file {file_path}: {e}")
@@ -626,24 +628,24 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
     # ========================================================================
 
     @with_error_handling("get_file_content")
-    async def get_file_content(self, ku_uid: str) -> Result[bytes]:
+    async def get_file_content(self, submission_uid: str) -> Result[bytes]:
         """
         Retrieve original file content.
 
         Args:
-            ku_uid: Submission UID
+            submission_uid: Submission UID
 
         Returns:
             Result containing file bytes
         """
-        submission_result = await self.get_submission(ku_uid)
+        submission_result = await self.get_submission(submission_uid)
 
         if submission_result.is_error:
             return Result.fail(submission_result)
 
         submission = submission_result.value
         if not submission:
-            return Result.fail(Errors.not_found("Submission", ku_uid))
+            return Result.fail(Errors.not_found("Submission", submission_uid))
 
         try:
             submission_file_path = getattr(submission, "file_path", None)
@@ -664,30 +666,30 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
             )
 
     @with_error_handling("get_processed_file_content")
-    async def get_processed_file_content(self, ku_uid: str) -> Result[bytes]:
+    async def get_processed_file_content(self, submission_uid: str) -> Result[bytes]:
         """
         Retrieve processed file content.
 
         Args:
-            ku_uid: Submission UID
+            submission_uid: Submission UID
 
         Returns:
             Result containing processed file bytes
         """
-        submission_result = await self.get_submission(ku_uid)
+        submission_result = await self.get_submission(submission_uid)
 
         if submission_result.is_error:
             return Result.fail(submission_result)
 
         submission = submission_result.value
         if not submission:
-            return Result.fail(Errors.not_found("Submission", ku_uid))
+            return Result.fail(Errors.not_found("Submission", submission_uid))
 
         processed_path = getattr(submission, "processed_file_path", None)
         if not processed_path:
             return Result.fail(
                 Errors.validation(
-                    message="No processed file available for this Ku",
+                    message="No processed file available for this submission",
                     field="processed_file_path",
                 )
             )

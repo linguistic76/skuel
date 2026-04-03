@@ -54,18 +54,26 @@ def _make_event_bus():
     return bus
 
 
+def _make_report_mastery_service():
+    svc = MagicMock()
+    svc.propagate_mastery = AsyncMock(return_value=Result.ok(0))
+    return svc
+
+
 def _make_service(
     submissions_backend=None,
     exercise_backend=None,
     group_backend=None,
     ku_interaction_service=None,
+    report_mastery_service=None,
     event_bus=None,
 ):
     return TeacherReviewService(
         submissions_backend=submissions_backend or _make_submissions_backend(),
         exercise_backend=exercise_backend or _make_exercise_backend(),
         group_backend=group_backend or _make_group_backend(),
-        ku_interaction_service=ku_interaction_service,
+        ku_interaction_service=ku_interaction_service or MagicMock(),
+        report_mastery_service=report_mastery_service or _make_report_mastery_service(),
         event_bus=event_bus or _make_event_bus(),
     )
 
@@ -146,7 +154,7 @@ class TestSubmitReport:
         result = await service.submit_report(SUBMISSION_UID, TEACHER_UID, "Great work!")
 
         assert not result.is_error
-        assert result.value["ku_uid"] == SUBMISSION_UID
+        assert result.value["submission_uid"] == SUBMISSION_UID
         assert result.value["status"] == "completed"
         assert result.value["feedback_submitted"] is True
         assert "report_uid" in result.value
@@ -262,7 +270,7 @@ class TestRequestRevision:
         result = await service.request_revision(SUBMISSION_UID, TEACHER_UID, "Fix section 2")
 
         assert not result.is_error
-        assert result.value["ku_uid"] == SUBMISSION_UID
+        assert result.value["submission_uid"] == SUBMISSION_UID
         assert result.value["revision_requested"] is True
         assert "report_uid" in result.value
 
@@ -393,18 +401,21 @@ class TestApproveReport:
                 }
             ]
         )
-        ku_service = MagicMock()
-        ku_service.mark_mastered = AsyncMock(return_value=Result.ok(True))
-        service = _make_service(submissions_backend=backend, ku_interaction_service=ku_service)
+        mastery_service = _make_report_mastery_service()
+        mastery_service.propagate_mastery = AsyncMock(return_value=Result.ok(2))
+        service = _make_service(
+            submissions_backend=backend, report_mastery_service=mastery_service
+        )
 
         result = await service.approve_report(SUBMISSION_UID, TEACHER_UID)
 
         assert not result.is_error
         assert result.value["mastered_ku_count"] == 2
-        assert ku_service.mark_mastered.await_count == 2
+        mastery_service.propagate_mastery.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_partial_mastery_failure(self):
+        """When propagate_mastery returns partial count, result reflects it."""
         backend = _make_submissions_backend()
         backend.verify_teacher_access.return_value = Result.ok([{"has_access": True}])
         backend.approve_and_get_linked_kus.return_value = Result.ok(
@@ -417,14 +428,11 @@ class TestApproveReport:
                 }
             ]
         )
-        ku_service = MagicMock()
-        ku_service.mark_mastered = AsyncMock(
-            side_effect=[
-                Result.ok(True),
-                Result.fail(Errors.database("mark_mastered", "failed")),
-            ]
+        mastery_service = _make_report_mastery_service()
+        mastery_service.propagate_mastery = AsyncMock(return_value=Result.ok(1))
+        service = _make_service(
+            submissions_backend=backend, report_mastery_service=mastery_service
         )
-        service = _make_service(submissions_backend=backend, ku_interaction_service=ku_service)
 
         result = await service.approve_report(SUBMISSION_UID, TEACHER_UID)
 
@@ -524,7 +532,7 @@ class TestGetReviewQueue:
     async def test_returns_items(self):
         records = [
             {
-                "ku_uid": SUBMISSION_UID,
+                "submission_uid": SUBMISSION_UID,
                 "title": "Essay 1",
                 "status": "submitted",
                 "entity_type": "exercise_submission",
@@ -546,7 +554,7 @@ class TestGetReviewQueue:
 
         assert not result.is_error
         assert len(result.value) == 1
-        assert result.value[0]["ku_uid"] == SUBMISSION_UID
+        assert result.value[0]["submission_uid"] == SUBMISSION_UID
 
     @pytest.mark.asyncio
     async def test_empty_queue(self):

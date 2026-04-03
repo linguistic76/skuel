@@ -17,8 +17,7 @@ SKUEL's fundamental process for applied learning:
     ExerciseSubmission (user-owned, EntityType.EXERCISE_SUBMISSION)
         ↓  process_exercise_submission() called with exercise_uid
         ↓  creates FULFILLS_EXERCISE relationship
-        ↓  auto-shares with teacher (SHARES_WITH role='teacher')
-    Teacher review → ExerciseReport (EntityType.EXERCISE_REPORT)
+    Teacher review queue picks up via FULFILLS_EXERCISE → ExerciseReport
 
 The Exercise is a shared curriculum template. The moment a user creates
 a Submission against it, the Submission is exclusively their own work product —
@@ -893,9 +892,10 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
         Process an entity submitted against an ASSIGNED Exercise.
 
         When a student submits against an assigned exercise:
-        1. Create FULFILLS_EXERCISE relationship
-        2. Look up the exercise's owner (teacher)
-        3. Auto-create SHARES_WITH from teacher to submission
+        1. Validate exercise scope and group membership
+        2. Auto-generate canonical title with revision number
+        3. Create FULFILLS_EXERCISE relationship (teacher review queue
+           discovers submissions via this relationship)
 
         Called by the exercise event handler after SubmissionCreated is published.
 

@@ -1657,36 +1657,36 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         params: dict[str, Any] = {"teacher_uid": teacher_uid}
 
         if status_filter:
-            where_clauses.append("ku.status = $status_filter")
+            where_clauses.append("sub.status = $status_filter")
             params["status_filter"] = status_filter
         else:
-            where_clauses.append("ku.status IN ['submitted', 'active']")
+            where_clauses.append("sub.status IN ['submitted', 'active']")
 
         if entity_type_filter:
-            where_clauses.append("ku.entity_type = $entity_type_filter")
+            where_clauses.append("sub.entity_type = $entity_type_filter")
             params["entity_type_filter"] = entity_type_filter
 
         where_clause = f"WHERE {' AND '.join(where_clauses)}"
 
         query = f"""
-        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity {{entity_type: 'exercise_submission'}})
+        MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub:Entity {{entity_type: 'exercise_submission'}})
         {where_clause}
-        OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(project:Entity:Exercise)
-        OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
-        WITH ku, student, project, count(fb) as feedback_count
-        RETURN ku.uid as ku_uid,
-               ku.title as title,
-               ku.status as status,
-               ku.entity_type as entity_type,
-               ku.original_filename as original_filename,
-               ku.created_at as submitted_at,
+        OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise:Entity:Exercise)
+        OPTIONAL MATCH (report:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(sub)
+        WITH sub, student, exercise, count(report) as feedback_count
+        RETURN sub.uid as submission_uid,
+               sub.title as title,
+               sub.status as status,
+               sub.entity_type as entity_type,
+               sub.original_filename as original_filename,
+               sub.created_at as submitted_at,
                student.uid as student_uid,
                student.name as student_name,
-               project.uid as exercise_uid,
-               project.title as exercise_name,
-               project.due_date as due_date,
+               exercise.uid as exercise_uid,
+               exercise.title as exercise_name,
+               exercise.due_date as due_date,
                feedback_count
-        ORDER BY ku.created_at DESC
+        ORDER BY sub.created_at DESC
         """
         return await self.execute_query(query, params)
 

@@ -66,7 +66,7 @@ def render_queue_item(item: QueueItem) -> Div:
         show_labels=False,
         actions=ButtonLink(
             "Review",
-            href=f"/teaching/review/{item.ku_uid}",
+            href=f"/teaching/review/{item.submission_uid}",
             variant=ButtonT.primary,
             size=Size.sm,
         ),

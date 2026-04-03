@@ -366,7 +366,12 @@ def create_submissions_api_routes(
                 Errors.validation("form_data must be a non-empty object", field="form_data")
             )
 
-        context_path_step_uid, context_learning_path_uid = await _get_learning_context(user_uid)
+        # Capture learning context — prefer explicit from_ps over UserContext heuristic,
+        # matching the deterministic behavior of the file upload route.
+        explicit_ps_uid = req.from_ps.strip() if req.from_ps else None
+        context_path_step_uid, context_learning_path_uid = await _get_learning_context(
+            user_uid, explicit_ps_uid=explicit_ps_uid
+        )
 
         result = await submission_service.submit_form(
             user_uid=user_uid,
