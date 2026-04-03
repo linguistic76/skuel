@@ -66,7 +66,7 @@ def _render_accordion_item(item: SidebarItem, is_active: bool) -> "FT":
     header_children: list[Any] = []
 
     if item.icon:
-        header_children.append(Span(item.icon, cls="text-lg", aria_hidden="true"))
+        header_children.append(UkIcon(item.icon, height=18, width=18, cls="shrink-0", aria_hidden="true"))
 
     header_children.append(Span(item.label, cls="flex-1"))
 
@@ -130,7 +130,7 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
     children: list[Any] = []
 
     if item.icon:
-        children.append(Span(item.icon, cls="text-lg", aria_hidden="true"))
+        children.append(UkIcon(item.icon, height=18, width=18, cls="shrink-0", aria_hidden="true"))
 
     children.append(Span(item.label, cls="flex-1"))
 
@@ -138,7 +138,7 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
         # Two-line item (Askesis style)
         content = Div(
             Div(
-                Span(item.icon, cls="text-lg mr-2", aria_hidden="true") if item.icon else "",
+                UkIcon(item.icon, height=18, width=18, cls="mr-2 shrink-0", aria_hidden="true") if item.icon else "",
                 Span(item.label, cls="font-medium"),
                 cls="flex items-center",
             ),
@@ -193,7 +193,7 @@ def alpine_section_renderer(state_var: str = "section") -> Callable[[SidebarItem
     def _render(item: SidebarItem, _is_active: bool) -> "FT":
         children: list[Any] = []
         if item.icon:
-            children.append(Span(item.icon, cls="text-lg", aria_hidden="true"))
+            children.append(UkIcon(item.icon, height=18, width=18, cls="shrink-0", aria_hidden="true"))
         children.append(Span(item.label, cls="flex-1"))
         if item.badge_text:
             children.append(
