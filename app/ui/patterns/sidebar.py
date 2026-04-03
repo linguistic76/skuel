@@ -229,16 +229,17 @@ def alpine_mobile_section_renderer(
     """
 
     def _render(item: SidebarItem, _is_active: bool) -> "FT":
-        tab_label = f"{item.icon} {item.label}" if item.icon else item.label
-        badge: Any = ""
+        tab_children: list[Any] = []
+        if item.icon:
+            tab_children.append(UkIcon(item.icon, height=16, width=16, cls="shrink-0", aria_hidden="true"))
+        tab_children.append(Span(item.label))
         if item.badge_text:
-            badge = Span(item.badge_text, cls="ml-1 text-xs")
+            tab_children.append(Span(item.badge_text, cls="ml-1 text-xs"))
 
         return Div(
-            tab_label,
-            badge,
+            *tab_children,
             role="tab",
-            cls="whitespace-nowrap px-3 py-2 text-sm border-b-2 cursor-pointer",
+            cls="whitespace-nowrap px-3 py-2 text-sm border-b-2 cursor-pointer flex items-center gap-1.5",
             **{
                 "@click": f"{state_var} = '{item.slug}'",
                 ":class": f"{state_var} === '{item.slug}' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
@@ -369,13 +370,16 @@ def SidebarNav(
     else:
         for item in items:
             is_active = item.slug == active
-            tab_label = f"{item.icon} {item.label}" if item.icon else item.label
+            tab_children: list[Any] = []
+            if item.icon:
+                tab_children.append(UkIcon(item.icon, height=16, width=16, cls="shrink-0", aria_hidden="true"))
+            tab_children.append(Span(item.label))
             tab_items.append(
                 A(
-                    tab_label,
+                    *tab_children,
                     href=item.href,
                     role="tab",
-                    cls=f"whitespace-nowrap px-3 py-2 text-sm border-b-2 {'border-primary text-primary font-medium' if is_active else 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}",
+                    cls=f"whitespace-nowrap px-3 py-2 text-sm border-b-2 flex items-center gap-1.5 {'border-primary text-primary font-medium' if is_active else 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}",
                     **item.hx_attrs,
                 )
             )
