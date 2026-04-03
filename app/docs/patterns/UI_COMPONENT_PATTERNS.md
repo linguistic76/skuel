@@ -134,7 +134,7 @@ return await SidebarPage(
 
 **Added:** 2026-02-09 (unified from 3 implementations)
 
-All sidebar pages (Activities, Learn, KU, Reports, Journals, Askesis) use a single `SidebarPage()` component from `ui/patterns/sidebar.py`.
+All sidebar pages (Activity Domains, Explore, GradeBook, Library, Teaching) use a single `SidebarPage()` component from `ui/patterns/sidebar.py`.
 
 **Key Features:**
 - One component for all 5 sidebar pages

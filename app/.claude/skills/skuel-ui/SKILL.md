@@ -491,9 +491,10 @@ for item in ICON_NAV_ITEMS:  # ⚛️, 📖, ⇄, 📂
 
 ## 4. Sidebar Pages
 
-Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. Three sidebar groups exist:
+Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. Four sidebar groups exist:
 
 - **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — 7 items (hub + 6 domains). Used on `/activities`, `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`.
+- **Explore** — `render_explore_sidebar_page()` from `ui/explore/nav.py` — learning-state "My Learning" sidebar (no nav items, uses `extra_sidebar_sections`). Three sections: Currently Learning (studying Kus + in-progress PathSteps), Saved (pinned entities with type pills), Completed (understood Kus, recent 3, collapsible). Used on `/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`. Detail pages highlight current entity via `current_uid`. Unauthenticated: shows "Sign in to track your learning".
 - **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 4 items (My Submissions, Submit, Exercise Reports, Activity Reports). Used on child pages: `/gradebook/mysubmissions`, `/submit`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`, `/activity-reports/detail`. The hub at `/gradebook` is a container grid page (`BasePage(STANDARD)`, no sidebar) — see `ui/gradebook/hub.py`.
 - **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. The hub at `/library` is a container grid page (`BasePage(STANDARD)`, no sidebar) — see `ui/library/hub.py`.
 

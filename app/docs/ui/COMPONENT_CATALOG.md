@@ -1057,7 +1057,7 @@ Finance page layouts with custom sidebar.
 
 **Location:** `/ui/patterns/sidebar.py`
 
-Unified sidebar component for all sidebar pages (Profile, KU, Reports, Journals, Askesis, Teaching). Uses `PageType.CUSTOM`.
+Unified sidebar component for all sidebar pages (Activity Domains, Explore, GradeBook, Library, Teaching). Uses `PageType.CUSTOM`.
 
 **Functions:**
 - `SidebarPage(content, items, active, title, storage_key, request, ...)` - Full page with sidebar
