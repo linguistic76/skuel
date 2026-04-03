@@ -268,17 +268,6 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
         **{"@click": "avatarOpen = false"},
     )
 
-    activity_items = [
-        A(
-            UkIcon(di.icon, cls="size-4", aria_hidden="true") if di.icon else None,
-            Span(di.label),
-            href=di.href,
-            cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
-            **{"@click": "avatarOpen = false"},
-        )
-        for di in ACTIVITY_DROPDOWN_ITEMS
-    ]
-
     logout_item = A(
         UkIcon("log-out", cls="size-4", aria_hidden="true"),
         Span("Sign out"),
@@ -288,8 +277,6 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
 
     dropdown_menu = Div(
         profile_item,
-        Div(cls="my-1 border-t border-border"),
-        *activity_items,
         Div(cls="my-1 border-t border-border"),
         logout_item,
         cls="absolute left-0 top-full mt-1 w-48 bg-background border border-border rounded-lg shadow-lg py-1 z-50",

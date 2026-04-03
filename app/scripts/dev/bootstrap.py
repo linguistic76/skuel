@@ -521,7 +521,11 @@ async def _wire_all_routes(
 
     create_askesis_routes(app, rt, services, None)
 
-    # -- Activity Domain read-focused UI --
+    # -- Activity Domain hub + read-focused UI --
+    from adapters.inbound.activity_hub_routes import create_activity_hub_routes
+
+    create_activity_hub_routes(app, rt, services)
+
     from adapters.inbound.tasks_routes import create_tasks_routes
 
     create_tasks_routes(app, rt, services)

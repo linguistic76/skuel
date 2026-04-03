@@ -14,7 +14,7 @@ from fasthtml.common import Div
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
-from ui.activities.nav import ActivityDomainNav
+from ui.activities.nav import render_activity_sidebar_page
 from ui.activities.tasks_views import (
     TaskDetailView,
     TaskFilterBar,
@@ -22,7 +22,6 @@ from ui.activities.tasks_views import (
     TaskStatsBar,
     filter_tasks,
 )
-from ui.layouts.base_page import BasePage
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -104,17 +103,10 @@ def create_tasks_ui_routes(
         if result.is_error:
             error = result.expect_error()
             content = Div(
-                ActivityDomainNav("tasks"),
                 PageHeader("Tasks"),
                 render_error_banner(error.user_message or error.message),
-                cls="uk-container uk-container-small",
             )
-            return await BasePage(
-                content,
-                title="Tasks",
-                request=request,
-                active_page="tasks",
-            )
+            return await render_activity_sidebar_page(content, active="tasks", request=request)
 
         all_tasks = result.value
 
@@ -133,20 +125,13 @@ def create_tasks_ui_routes(
         subtitle = f"{task_count} task{'s' if task_count != 1 else ''}"
 
         content = Div(
-            ActivityDomainNav("tasks"),
             PageHeader("Tasks", subtitle=subtitle),
             TaskStatsBar(all_tasks),
             TaskFilterBar(status_filter, priority_filter, sort_by),
             TaskList(filtered, connections_map),
-            cls="uk-container uk-container-small",
         )
 
-        return await BasePage(
-            content,
-            title="Tasks",
-            request=request,
-            active_page="tasks",
-        )
+        return await render_activity_sidebar_page(content, active="tasks", request=request)
 
     @rt("/tasks/list-fragment")
     async def tasks_list_fragment(request: Request) -> Any:
@@ -178,29 +163,26 @@ def create_tasks_ui_routes(
 
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await BasePage(
-                Div(render_error_banner("Missing task UID"), cls="uk-container uk-container-small"),
-                title="Task Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Missing task UID")),
+                active="tasks",
                 request=request,
-                active_page="tasks",
             )
 
         task_result = await tasks_service.get_task(uid)
         if task_result.is_error:
-            return await BasePage(
-                Div(render_error_banner("Task not found"), cls="uk-container uk-container-small"),
-                title="Task Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Task not found")),
+                active="tasks",
                 request=request,
-                active_page="tasks",
             )
 
         task = task_result.value
         if task.user_uid != user_uid:
-            return await BasePage(
-                Div(render_error_banner("Task not found"), cls="uk-container uk-container-small"),
-                title="Task Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Task not found")),
+                active="tasks",
                 request=request,
-                active_page="tasks",
             )
 
         # Fetch connections for this task
@@ -209,12 +191,7 @@ def create_tasks_ui_routes(
 
         content = TaskDetailView(task, connections)
 
-        return await BasePage(
-            content,
-            title=task.title or "Task",
-            request=request,
-            active_page="tasks",
-        )
+        return await render_activity_sidebar_page(content, active="tasks", request=request)
 
     routes.extend([tasks_page, tasks_list_fragment, task_detail_page])
     return routes

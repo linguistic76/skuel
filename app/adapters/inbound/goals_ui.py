@@ -21,8 +21,7 @@ from ui.activities.goals_views import (
     GoalStatsBar,
     filter_goals,
 )
-from ui.activities.nav import ActivityDomainNav
-from ui.layouts.base_page import BasePage
+from ui.activities.nav import render_activity_sidebar_page
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -105,17 +104,10 @@ def create_goals_ui_routes(
         if result.is_error:
             error = result.expect_error()
             content = Div(
-                ActivityDomainNav("goals"),
                 PageHeader("Goals"),
                 render_error_banner(error.user_message or error.message),
-                cls="uk-container uk-container-small",
             )
-            return await BasePage(
-                content,
-                title="Goals",
-                request=request,
-                active_page="goals",
-            )
+            return await render_activity_sidebar_page(content, active="goals", request=request)
 
         all_goals = result.value
 
@@ -133,20 +125,13 @@ def create_goals_ui_routes(
         subtitle = f"{goal_count} goal{'s' if goal_count != 1 else ''}"
 
         content = Div(
-            ActivityDomainNav("goals"),
             PageHeader("Goals", subtitle=subtitle),
             GoalStatsBar(all_goals),
             GoalFilterBar(status_filter, sort_by),
             GoalList(filtered, connections_map),
-            cls="uk-container uk-container-small",
         )
 
-        return await BasePage(
-            content,
-            title="Goals",
-            request=request,
-            active_page="goals",
-        )
+        return await render_activity_sidebar_page(content, active="goals", request=request)
 
     @rt("/goals/list-fragment")
     async def goals_list_fragment(request: Request) -> Any:
@@ -177,29 +162,26 @@ def create_goals_ui_routes(
 
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await BasePage(
-                Div(render_error_banner("Missing goal UID"), cls="uk-container uk-container-small"),
-                title="Goal Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Missing goal UID")),
+                active="goals",
                 request=request,
-                active_page="goals",
             )
 
         goal_result = await goals_service.get_goal(uid)
         if goal_result.is_error:
-            return await BasePage(
-                Div(render_error_banner("Goal not found"), cls="uk-container uk-container-small"),
-                title="Goal Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Goal not found")),
+                active="goals",
                 request=request,
-                active_page="goals",
             )
 
         goal = goal_result.value
         if goal.user_uid != user_uid:
-            return await BasePage(
-                Div(render_error_banner("Goal not found"), cls="uk-container uk-container-small"),
-                title="Goal Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Goal not found")),
+                active="goals",
                 request=request,
-                active_page="goals",
             )
 
         # Fetch incoming connections for this goal (gravity well)
@@ -208,12 +190,7 @@ def create_goals_ui_routes(
 
         content = GoalDetailView(goal, connections)
 
-        return await BasePage(
-            content,
-            title=goal.title or "Goal",
-            request=request,
-            active_page="goals",
-        )
+        return await render_activity_sidebar_page(content, active="goals", request=request)
 
     routes.extend([goals_page, goals_list_fragment, goal_detail_page])
     return routes

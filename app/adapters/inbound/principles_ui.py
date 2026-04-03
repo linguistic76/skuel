@@ -14,7 +14,7 @@ from fasthtml.common import Div
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
-from ui.activities.nav import ActivityDomainNav
+from ui.activities.nav import render_activity_sidebar_page
 from ui.activities.principles_views import (
     PrincipleDetailView,
     PrincipleFilterBar,
@@ -22,7 +22,6 @@ from ui.activities.principles_views import (
     PrincipleStatsBar,
     filter_principles,
 )
-from ui.layouts.base_page import BasePage
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -107,17 +106,10 @@ def create_principles_ui_routes(
         if result.is_error:
             error = result.expect_error()
             content = Div(
-                ActivityDomainNav("principles"),
                 PageHeader("Principles"),
                 render_error_banner(error.user_message or error.message),
-                cls="uk-container uk-container-small",
             )
-            return await BasePage(
-                content,
-                title="Principles",
-                request=request,
-                active_page="principles",
-            )
+            return await render_activity_sidebar_page(content, active="principles", request=request)
 
         all_principles = result.value
 
@@ -139,20 +131,13 @@ def create_principles_ui_routes(
         subtitle = f"{principle_count} principle{'s' if principle_count != 1 else ''}"
 
         content = Div(
-            ActivityDomainNav("principles"),
             PageHeader("Principles", subtitle=subtitle),
             PrincipleStatsBar(all_principles),
             PrincipleFilterBar(status_filter, category_filter, strength_filter, sort_by),
             PrincipleList(filtered, connections_map),
-            cls="uk-container uk-container-small",
         )
 
-        return await BasePage(
-            content,
-            title="Principles",
-            request=request,
-            active_page="principles",
-        )
+        return await render_activity_sidebar_page(content, active="principles", request=request)
 
     @rt("/principles/list-fragment")
     async def principles_list_fragment(request: Request) -> Any:
@@ -187,38 +172,26 @@ def create_principles_ui_routes(
 
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await BasePage(
-                Div(
-                    render_error_banner("Missing principle UID"),
-                    cls="uk-container uk-container-small",
-                ),
-                title="Principle Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Missing principle UID")),
+                active="principles",
                 request=request,
-                active_page="principles",
             )
 
         principle_result = await principles_service.get_principle(uid)
         if principle_result.is_error:
-            return await BasePage(
-                Div(
-                    render_error_banner("Principle not found"),
-                    cls="uk-container uk-container-small",
-                ),
-                title="Principle Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Principle not found")),
+                active="principles",
                 request=request,
-                active_page="principles",
             )
 
         principle = principle_result.value
         if principle.user_uid != user_uid:
-            return await BasePage(
-                Div(
-                    render_error_banner("Principle not found"),
-                    cls="uk-container uk-container-small",
-                ),
-                title="Principle Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Principle not found")),
+                active="principles",
                 request=request,
-                active_page="principles",
             )
 
         # Fetch incoming connections (gravity well)
@@ -227,12 +200,7 @@ def create_principles_ui_routes(
 
         content = PrincipleDetailView(principle, connections)
 
-        return await BasePage(
-            content,
-            title=principle.title or "Principle",
-            request=request,
-            active_page="principles",
-        )
+        return await render_activity_sidebar_page(content, active="principles", request=request)
 
     routes.extend([principles_page, principles_list_fragment, principle_detail_page])
     return routes

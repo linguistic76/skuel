@@ -1,8 +1,7 @@
 """Profile hub page — live actionable hub for learning state.
 
-The /profile page shows all 6 Activity Domains as scrollable blocks,
-each with a colored domain header (icon + clickable title + "View all" link)
-and 3 priority-sorted cards loaded via HTMX.
+The /profile page is the user's personal overview: focus, velocity,
+community feed, and settings. Activity Domains live at /activities.
 
 See: /docs/patterns/HUB_PAGE_PATTERN.md
 """
@@ -12,33 +11,18 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import H1, A, Div, P, Span
-from monsterui.franken import UkIcon
 
 from core.services.user.unified_user_context import UserContext
 from ui.patterns.empty_state import EmptyState
 
-# ---------------------------------------------------------------------------
-# Activity domain tab configuration
-# ---------------------------------------------------------------------------
-
-# (label, tab_id, icon, hex_color) — mirrors ActivityDomainNav domain config
-_ACTIVITY_TABS: list[tuple[str, str, str, str]] = [
-    ("Tasks", "tasks", "check-square", "#3B82F6"),
-    ("Goals", "goals", "target", "#F59E0B"),
-    ("Habits", "habits", "repeat", "#10B981"),
-    ("Events", "events", "calendar", "#8B5CF6"),
-    ("Choices", "choices", "git-branch", "#F97316"),
-    ("Principles", "principles", "compass", "#EC4899"),
-]
-
 
 def ProfileHubView(context: UserContext) -> Div:
-    """Profile hub — Activity Domains + activity report request."""
+    """Profile hub — personal overview with links to Activity Domains."""
     return Div(
-        _activities_section(),
+        _personal_header(context),
+        _activity_link(),
         _nous_section(),
         _settings_link(),
-        _personal_header(context),
     )
 
 
@@ -99,72 +83,20 @@ def _compact_row(
     )
 
 
-# ---------------------------------------------------------------------------
-# Activities section — all 6 Activity Domains visible as scrollable blocks
-# ---------------------------------------------------------------------------
-
-
-def _activity_domain_block(label: str, tab_id: str, icon: str, color: str) -> Div:
-    """A single Activity Domain block: colored header + HTMX-loaded card preview."""
+def _activity_link() -> Div:
+    """Link card to the Activity Domains hub."""
     return Div(
-        # Domain header — icon + title + "View all" link
-        Div(
-            A(
-                UkIcon(icon, cls="size-4"),
-                Span(
-                    label,
-                    cls="text-sm font-semibold uppercase tracking-wider",
-                ),
-                href=f"/{tab_id}",
-                cls="flex items-center gap-2 no-underline hover:opacity-80 transition-opacity",
-                style=f"color: {color};",
+        A(
+            Span("Activity Domains", cls="text-sm font-semibold text-foreground"),
+            Span(
+                " \u2014 Tasks, Goals, Habits, Events, Choices, Principles",
+                cls="text-sm text-muted-foreground",
             ),
-            A(
-                "View all →",
-                href=f"/{tab_id}",
-                cls="text-xs font-medium text-muted-foreground hover:text-primary transition-colors",
-            ),
-            cls="flex items-center justify-between mb-3",
+            Span(" \u2192", cls="text-primary ml-1"),
+            href="/activities",
+            cls="flex items-center gap-1 no-underline hover:opacity-80 transition-opacity",
         ),
-        # HTMX lazy-loaded card content
-        Div(
-            P("Loading...", cls="text-center text-muted-foreground py-4"),
-            id=f"act-panel-{tab_id}",
-            hx_get=f"/api/profile/{tab_id}/preview",
-            hx_trigger="load",
-            hx_swap="innerHTML",
-        ),
-        cls="pb-5 mb-5 border-b border-border last:border-b-0 last:mb-0 last:pb-0",
-    )
-
-
-def _activities_section() -> Div:
-    """Activity Domains — all 6 visible as scrollable blocks with 3 cards each."""
-    return Div(
-        *[
-            _activity_domain_block(label, tab_id, icon, color)
-            for label, tab_id, icon, color in _ACTIVITY_TABS
-        ],
-        cls="mb-6",
-    )
-
-
-# ---------------------------------------------------------------------------
-# Request Activity Report section — inline form below Activity Domains
-# ---------------------------------------------------------------------------
-
-
-def _request_activity_report_section() -> Div:
-    """Activity Report request form — lazily loaded below the Activity Domains tabs."""
-    from ui.patterns.generate_report import (
-        render_activity_report_request_card,
-        render_recent_reports_section,
-    )
-
-    return Div(
-        render_activity_report_request_card(),
-        render_recent_reports_section(),
-        cls="mb-6",
+        cls="mb-6 py-3 px-4 rounded-lg border border-border hover:bg-muted/50 transition-colors",
     )
 
 

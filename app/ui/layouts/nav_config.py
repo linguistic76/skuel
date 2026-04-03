@@ -66,15 +66,9 @@ class DropdownItem:
     icon: str = ""
 
 
-# Activity domain dropdown items — shown in avatar hover dropdown
-ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
-    DropdownItem("Tasks", "/tasks", icon="check-square"),
-    DropdownItem("Goals", "/goals", icon="target"),
-    DropdownItem("Habits", "/habits", icon="repeat"),
-    DropdownItem("Events", "/events", icon="calendar"),
-    DropdownItem("Choices", "/choices", icon="git-branch"),
-    DropdownItem("Principles", "/principles", icon="compass"),
-)
+# Activity domain dropdown items — REPLACED (2026-04-03)
+# Individual domain links removed; single /activities link via ICON_NAV_ITEMS
+ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 
 
 # Curriculum domain dropdown items — SHELVED (2026-03-29)
@@ -90,6 +84,14 @@ STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 # requires_auth=False → visible to unauthenticated users (ContentScope.SHARED pages)
 # requires_auth=True  → visible only when authenticated (ContentScope.USER_OWNED pages)
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
+    IconNavItem(
+        "Activity",
+        "",
+        "/activities",
+        "activity",
+        has_dropdown=False,
+        icon="activity",
+    ),
     IconNavItem(
         "Explore",
         "",

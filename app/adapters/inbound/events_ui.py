@@ -21,8 +21,7 @@ from ui.activities.events_views import (
     EventStatsBar,
     filter_events,
 )
-from ui.activities.nav import ActivityDomainNav
-from ui.layouts.base_page import BasePage
+from ui.activities.nav import render_activity_sidebar_page
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -105,17 +104,10 @@ def create_events_ui_routes(
         if result.is_error:
             error = result.expect_error()
             content = Div(
-                ActivityDomainNav("events"),
                 PageHeader("Events"),
                 render_error_banner(error.user_message or error.message),
-                cls="uk-container uk-container-small",
             )
-            return await BasePage(
-                content,
-                title="Events",
-                request=request,
-                active_page="events",
-            )
+            return await render_activity_sidebar_page(content, active="events", request=request)
 
         all_events = result.value
 
@@ -133,20 +125,13 @@ def create_events_ui_routes(
         subtitle = f"{event_count} event{'s' if event_count != 1 else ''}"
 
         content = Div(
-            ActivityDomainNav("events"),
             PageHeader("Events", subtitle=subtitle),
             EventStatsBar(all_events),
             EventFilterBar(status_filter, sort_by),
             EventList(filtered, connections_map),
-            cls="uk-container uk-container-small",
         )
 
-        return await BasePage(
-            content,
-            title="Events",
-            request=request,
-            active_page="events",
-        )
+        return await render_activity_sidebar_page(content, active="events", request=request)
 
     @rt("/events/list-fragment")
     async def events_list_fragment(request: Request) -> Any:
@@ -177,31 +162,26 @@ def create_events_ui_routes(
 
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await BasePage(
-                Div(
-                    render_error_banner("Missing event UID"), cls="uk-container uk-container-small"
-                ),
-                title="Event Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Missing event UID")),
+                active="events",
                 request=request,
-                active_page="events",
             )
 
         event_result = await events_service.get_event(uid)
         if event_result.is_error:
-            return await BasePage(
-                Div(render_error_banner("Event not found"), cls="uk-container uk-container-small"),
-                title="Event Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Event not found")),
+                active="events",
                 request=request,
-                active_page="events",
             )
 
         event = event_result.value
         if event.user_uid != user_uid:
-            return await BasePage(
-                Div(render_error_banner("Event not found"), cls="uk-container uk-container-small"),
-                title="Event Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Event not found")),
+                active="events",
                 request=request,
-                active_page="events",
             )
 
         # Fetch connections
@@ -210,12 +190,7 @@ def create_events_ui_routes(
 
         content = EventDetailView(event, connections)
 
-        return await BasePage(
-            content,
-            title=event.title or "Event",
-            request=request,
-            active_page="events",
-        )
+        return await render_activity_sidebar_page(content, active="events", request=request)
 
     routes.extend([events_page, events_list_fragment, event_detail_page])
     return routes

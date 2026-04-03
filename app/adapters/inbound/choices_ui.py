@@ -21,8 +21,7 @@ from ui.activities.choices_views import (
     ChoiceStatsBar,
     filter_choices,
 )
-from ui.activities.nav import ActivityDomainNav
-from ui.layouts.base_page import BasePage
+from ui.activities.nav import render_activity_sidebar_page
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -105,17 +104,10 @@ def create_choices_ui_routes(
         if result.is_error:
             error = result.expect_error()
             content = Div(
-                ActivityDomainNav("choices"),
                 PageHeader("Choices"),
                 render_error_banner(error.user_message or error.message),
-                cls="uk-container uk-container-small",
             )
-            return await BasePage(
-                content,
-                title="Choices",
-                request=request,
-                active_page="choices",
-            )
+            return await render_activity_sidebar_page(content, active="choices", request=request)
 
         all_choices = result.value
 
@@ -133,20 +125,13 @@ def create_choices_ui_routes(
         subtitle = f"{choice_count} choice{'s' if choice_count != 1 else ''}"
 
         content = Div(
-            ActivityDomainNav("choices"),
             PageHeader("Choices", subtitle=subtitle),
             ChoiceStatsBar(all_choices),
             ChoiceFilterBar(status_filter, sort_by),
             ChoiceList(filtered, connections_map),
-            cls="uk-container uk-container-small",
         )
 
-        return await BasePage(
-            content,
-            title="Choices",
-            request=request,
-            active_page="choices",
-        )
+        return await render_activity_sidebar_page(content, active="choices", request=request)
 
     @rt("/choices/list-fragment")
     async def choices_list_fragment(request: Request) -> Any:
@@ -177,31 +162,26 @@ def create_choices_ui_routes(
 
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await BasePage(
-                Div(
-                    render_error_banner("Missing choice UID"), cls="uk-container uk-container-small"
-                ),
-                title="Choice Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Missing choice UID")),
+                active="choices",
                 request=request,
-                active_page="choices",
             )
 
         choice_result = await choices_service.get_choice(uid)
         if choice_result.is_error:
-            return await BasePage(
-                Div(render_error_banner("Choice not found"), cls="uk-container uk-container-small"),
-                title="Choice Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Choice not found")),
+                active="choices",
                 request=request,
-                active_page="choices",
             )
 
         choice = choice_result.value
         if choice.user_uid != user_uid:
-            return await BasePage(
-                Div(render_error_banner("Choice not found"), cls="uk-container uk-container-small"),
-                title="Choice Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Choice not found")),
+                active="choices",
                 request=request,
-                active_page="choices",
             )
 
         # Fetch connections
@@ -210,12 +190,7 @@ def create_choices_ui_routes(
 
         content = ChoiceDetailView(choice, connections)
 
-        return await BasePage(
-            content,
-            title=choice.title or "Choice",
-            request=request,
-            active_page="choices",
-        )
+        return await render_activity_sidebar_page(content, active="choices", request=request)
 
     routes.extend([choices_page, choices_list_fragment, choice_detail_page])
     return routes

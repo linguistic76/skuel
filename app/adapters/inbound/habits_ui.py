@@ -21,8 +21,7 @@ from ui.activities.habits_views import (
     HabitStatsBar,
     filter_habits,
 )
-from ui.activities.nav import ActivityDomainNav
-from ui.layouts.base_page import BasePage
+from ui.activities.nav import render_activity_sidebar_page
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -104,17 +103,10 @@ def create_habits_ui_routes(
         if result.is_error:
             error = result.expect_error()
             content = Div(
-                ActivityDomainNav("habits"),
                 PageHeader("Habits"),
                 render_error_banner(error.user_message or error.message),
-                cls="uk-container uk-container-small",
             )
-            return await BasePage(
-                content,
-                title="Habits",
-                request=request,
-                active_page="habits",
-            )
+            return await render_activity_sidebar_page(content, active="habits", request=request)
 
         all_habits = result.value
 
@@ -133,20 +125,13 @@ def create_habits_ui_routes(
         subtitle = f"{habit_count} habit{'s' if habit_count != 1 else ''}"
 
         content = Div(
-            ActivityDomainNav("habits"),
             PageHeader("Habits", subtitle=subtitle),
             HabitStatsBar(all_habits),
             HabitFilterBar(status_filter, category_filter, sort_by),
             HabitList(filtered, connections_map),
-            cls="uk-container uk-container-small",
         )
 
-        return await BasePage(
-            content,
-            title="Habits",
-            request=request,
-            active_page="habits",
-        )
+        return await render_activity_sidebar_page(content, active="habits", request=request)
 
     @rt("/habits/list-fragment")
     async def habits_list_fragment(request: Request) -> Any:
@@ -178,31 +163,26 @@ def create_habits_ui_routes(
 
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await BasePage(
-                Div(
-                    render_error_banner("Missing habit UID"), cls="uk-container uk-container-small"
-                ),
-                title="Habit Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Missing habit UID")),
+                active="habits",
                 request=request,
-                active_page="habits",
             )
 
         habit_result = await habits_service.get_habit(uid)
         if habit_result.is_error:
-            return await BasePage(
-                Div(render_error_banner("Habit not found"), cls="uk-container uk-container-small"),
-                title="Habit Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Habit not found")),
+                active="habits",
                 request=request,
-                active_page="habits",
             )
 
         habit = habit_result.value
         if habit.user_uid != user_uid:
-            return await BasePage(
-                Div(render_error_banner("Habit not found"), cls="uk-container uk-container-small"),
-                title="Habit Not Found",
+            return await render_activity_sidebar_page(
+                Div(render_error_banner("Habit not found")),
+                active="habits",
                 request=request,
-                active_page="habits",
             )
 
         # Fetch connections
@@ -211,12 +191,7 @@ def create_habits_ui_routes(
 
         content = HabitDetailView(habit, connections)
 
-        return await BasePage(
-            content,
-            title=habit.title or "Habit",
-            request=request,
-            active_page="habits",
-        )
+        return await render_activity_sidebar_page(content, active="habits", request=request)
 
     routes.extend([habits_page, habits_list_fragment, habit_detail_page])
     return routes

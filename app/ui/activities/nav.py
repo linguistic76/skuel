@@ -1,100 +1,59 @@
-"""Activity Domain horizontal navigation — LA Times editorial style.
+"""Activity Domain sidebar navigation.
 
-Renders a full-width background band with centered domain links.
-Active domain is indicated by a thick colored bottom border.
-Used at the top of every Activity Domain detail page.
+Renders a collapsible sidebar with all 6 Activity Domains + hub link.
+Used on /activities hub and every individual domain page.
 
 Usage:
-    from ui.activities.nav import ActivityDomainNav
+    from ui.activities.nav import render_activity_sidebar_page
 
-    nav = ActivityDomainNav(current_domain="goals")
+    return await render_activity_sidebar_page(
+        content=my_content,
+        active="tasks",
+        request=request,
+    )
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Div
-from monsterui.franken import UkIcon
+from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
-# (key, label, icon, href, hex_color)
-_ACTIVITY_DOMAINS: tuple[tuple[str, str, str, str, str], ...] = (
-    ("tasks", "Tasks", "check-square", "/tasks", "#3B82F6"),
-    ("goals", "Goals", "target", "/goals", "#F59E0B"),
-    ("habits", "Habits", "repeat", "/habits", "#10B981"),
-    ("events", "Events", "calendar", "/events", "#8B5CF6"),
-    ("choices", "Choices", "git-branch", "/choices", "#F97316"),
-    ("principles", "Principles", "compass", "/principles", "#EC4899"),
-    ("profile", "Profile", "user", "/profile", "#6B7280"),
-)
+    from adapters.inbound.fasthtml_types import Request
 
-# Breakout from uk-container-small padding (UIKit default gutter = 30px)
-# plus BasePage top padding flush
-_BAND_STYLE = (
-    "margin-top: -1rem; "  # flush against main navbar (BasePage p-4)
-    "margin-left: -30px; "  # negate UIKit container gutter
-    "margin-right: -30px; "
-    "width: calc(100% + 60px); "
-    "background-color: var(--background); "
-    "border-top: 1px solid var(--border); "
-    "border-bottom: 2px solid var(--border); "
-    "margin-bottom: 2rem; "
-)
+ACTIVITY_STORAGE_KEY = "activity-sidebar"
 
-_LINK_BASE = (
-    "display: inline-flex !important; "
-    "align-items: center; "
-    "gap: 0.4rem; "
-    "padding: 0.75rem 1.1rem; "
-    "font-size: 0.72rem; "
-    "font-weight: 600; "
-    "letter-spacing: 0.07em; "
-    "text-transform: uppercase; "
-    "text-decoration: none !important; "
-    "border-bottom: 3px solid transparent; "
-    "white-space: nowrap; "
-    "color: var(--muted-foreground); "
-    "transition: opacity 0.15s; "
-)
+ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
+    SidebarItem("Activities", "/activities", "activities", icon="activity"),
+    SidebarItem("Tasks", "/tasks", "tasks", icon="check-square"),
+    SidebarItem("Goals", "/goals", "goals", icon="target"),
+    SidebarItem("Habits", "/habits", "habits", icon="repeat"),
+    SidebarItem("Events", "/events", "events", icon="calendar"),
+    SidebarItem("Choices", "/choices", "choices", icon="git-branch"),
+    SidebarItem("Principles", "/principles", "principles", icon="compass"),
+]
 
 
-def ActivityDomainNav(current_domain: str) -> "FT":
-    """Full-width editorial nav band for all 6 Activity Domains.
-
-    Sits flush against the main navbar via negative top margin.
-    Inactive items: muted gray text. Active: domain color + bottom border.
+async def render_activity_sidebar_page(
+    content: Any,
+    active: str,
+    request: "Request | None" = None,
+) -> "FT":
+    """Wrap content in Activity Domain sidebar page.
 
     Args:
-        current_domain: The active domain key (e.g. "goals", "tasks").
+        content: The page content to render in the main area.
+        active: The active sidebar item slug (e.g. "tasks", "activities").
+        request: The request object for auth detection.
     """
-    items = []
-    for key, label, icon, href, color in _ACTIVITY_DOMAINS:
-        is_active = key == current_domain
-
-        if is_active:
-            link_style = (
-                f"{_LINK_BASE}"
-                f"color: {color} !important; "
-                f"border-bottom-color: {color}; "
-                "font-weight: 800; "
-            )
-        else:
-            link_style = _LINK_BASE
-
-        items.append(
-            A(
-                UkIcon(icon, cls="size-3"),
-                label,
-                href=href,
-                style=link_style,
-            )
-        )
-
-    return Div(
-        Div(
-            *items,
-            style="display: flex; justify-content: center; flex-wrap: wrap;",
-        ),
-        style=_BAND_STYLE,
+    return await SidebarPage(
+        content=content,
+        items=ACTIVITY_SIDEBAR_ITEMS,
+        active=active,
+        title="Activity",
+        storage_key=ACTIVITY_STORAGE_KEY,
+        request=request,
+        active_page="activity",
+        title_href="/activities",
     )
