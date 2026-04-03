@@ -3,14 +3,14 @@ Teaching UI Routes — Teacher Dashboard
 ========================================
 
 Teacher-facing pages for the teaching workflow:
-- Review queue (root page)
-- Submission review with content display
-- Student management with KU progress
+- Teaching hub (root page)
+- Student list + student hub + student submissions
+- Review queue + review detail
 - Groups management
 
 TEACHER role required for all endpoints.
 
-Layout: Unified sidebar (Tailwind + Alpine) with teaching navigation.
+Layout: Hub pages use BasePage (no sidebar), child pages use SidebarPage.
 
 See: /docs/decisions/ADR-040-teacher-assignment-workflow.md
 """
@@ -36,11 +36,11 @@ from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Textarea
 from ui.layout import Size
+from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import (
-    SidebarItem,
     SidebarPage,
     alpine_mobile_section_renderer,
     alpine_section_renderer,
@@ -49,7 +49,7 @@ from ui.teaching.cards import (
     render_class_card,
     render_empty_state,
     render_queue_item,
-    render_student_summary_card,
+    render_student_name_row,
 )
 from ui.teaching.detail import (
     render_class_member_row,
@@ -58,11 +58,13 @@ from ui.teaching.detail import (
     render_submission_content,
     student_detail_sidebar_items,
 )
+from ui.teaching.hub import TeachingHub
+from ui.teaching.nav import render_teaching_sidebar_page
+from ui.teaching.student_hub import StudentHub
 from ui.teaching.types import (
     ClassMember,
     ClassSummary,
     QueueItem,
-    StudentSummary,
     SubmissionDetail,
     SubmissionRow,
 )
@@ -71,51 +73,6 @@ if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
 
 logger = get_logger("skuel.routes.teaching.ui")
-
-
-# ============================================================================
-# SIDEBAR NAVIGATION
-# ============================================================================
-
-
-async def _build_teaching_sidebar(
-    teacher_review_service: "TeacherReviewOperations",
-    teacher_uid: str,
-) -> list[SidebarItem]:
-    """Build teaching sidebar items with student accordion under Students."""
-    result = await teacher_review_service.get_students_summary(teacher_uid=teacher_uid)
-
-    student_children: list[SidebarItem] = []
-    if not result.is_error and result.value:
-        for item in result.value:
-            student_uid = item.get("student_uid", "")
-            raw_name = item.get("student_name") or student_uid or "Unknown"
-            display_name = _display_student_name(raw_name)
-            student_children.append(
-                SidebarItem(
-                    label=display_name,
-                    href=f"/teaching/students/{student_uid}",
-                    slug=f"student-{student_uid}",
-                )
-            )
-
-    return [
-        SidebarItem(
-            "Students", "/teaching/students", "students", icon="👥", children=student_children
-        ),
-        SidebarItem("Groups", "/teaching/groups", "groups", icon="👥"),
-        SidebarItem("Review Queue", "/teaching/queue", "queue", icon="📥"),
-    ]
-
-
-_SIDEBAR_DEFAULTS = {
-    "title": "Teaching",
-    "subtitle": "",
-    "storage_key": "teaching-sidebar",
-    "active_page": "teaching",
-    "title_href": "/teaching",
-    "title_icon": "graduation-cap",
-}
 
 
 # ============================================================================
@@ -171,16 +128,19 @@ def create_teaching_ui_routes(
         )
 
     # ------------------------------------------------------------------
-    # TEACHING ROOT — redirect to Students
+    # TEACHING HUB — root page
     # ------------------------------------------------------------------
 
     @rt("/teaching")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_root_redirect(request: Request, current_user: Any = None) -> Any:
-        """Redirect /teaching → /teaching/students (Students is the default page)."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/teaching/students", status_code=301)
+    async def teaching_hub_page(request: Request, current_user: Any = None) -> Any:
+        """Teaching hub — entry point with container cards for Students, Groups, Queue."""
+        return await BasePage(
+            content=TeachingHub(),
+            title="Teaching",
+            request=request,
+            active_page="teaching",
+        )
 
     # ------------------------------------------------------------------
     # REVIEW QUEUE
@@ -193,7 +153,6 @@ def create_teaching_ui_routes(
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_review_queue(teacher_uid=user_uid)
-        sidebar_items = await _build_teaching_sidebar(teacher_review_service, user_uid)
 
         if result.is_error:
             queue_content: Any = render_error_banner(
@@ -211,13 +170,10 @@ def create_teaching_ui_routes(
             PageHeader("Review Queue", subtitle="Student submissions awaiting your review"),
             queue_content,
         )
-        return await SidebarPage(
+        return await render_teaching_sidebar_page(
             content=content,
-            items=sidebar_items,
             active="queue",
-            page_title="Review Queue",
             request=request,
-            **_SIDEBAR_DEFAULTS,
         )
 
     # ------------------------------------------------------------------
@@ -266,8 +222,6 @@ def create_teaching_ui_routes(
                 Div(*feedback_items),
                 cls="mb-6",
             )
-
-        sidebar_items = await _build_teaching_sidebar(teacher_review_service, user_uid)
 
         content = Div(
             PageHeader("Review Submission"),
@@ -375,29 +329,24 @@ def create_teaching_ui_routes(
                 ),
             ),
         )
-        return await SidebarPage(
+        return await render_teaching_sidebar_page(
             content=content,
-            items=sidebar_items,
             active="queue",
-            page_title="Review Submission",
             request=request,
-            **_SIDEBAR_DEFAULTS,
         )
 
     # ------------------------------------------------------------------
-    # STUDENTS
+    # STUDENTS LIST — simple clickable name rows
     # ------------------------------------------------------------------
 
     @rt("/teaching/students")
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_students_page(request: Request, current_user: Any = None) -> Any:
-        """Students page — students who shared work with the teacher."""
+        """Students page — clean list of clickable student names."""
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_students_summary(teacher_uid=user_uid)
 
-        # Build sidebar from the same result (no second fetch)
-        student_children: list[SidebarItem] = []
         if result.is_error:
             students_content: Any = render_error_banner(
                 "Failed to load students", str(result.error)
@@ -408,66 +357,98 @@ def create_teaching_ui_routes(
                 "Students who share work with you will appear here.",
             )
         else:
-            for item in result.value:
-                student_uid = item.get("student_uid", "")
-                raw_name = item.get("student_name") or student_uid or "Unknown"
-                display_name = _display_student_name(raw_name)
-                student_children.append(
-                    SidebarItem(
-                        label=display_name,
-                        href=f"/teaching/students/{student_uid}",
-                        slug=f"student-{student_uid}",
-                    )
-                )
             students_content = Div(
                 *[
-                    render_student_summary_card(
-                        StudentSummary(
-                            student_uid=item.get("student_uid", ""),
-                            student_name=_display_student_name(
-                                item.get("student_name") or item.get("student_uid") or "Unknown"
-                            ),
-                            submission_count=item.get("submission_count", 0),
-                            reviewed_count=item.get("reviewed_count", 0),
-                            pending_count=item.get("pending_count", 0),
-                        )
+                    render_student_name_row(
+                        student_name=_display_student_name(
+                            item.get("student_name") or item.get("student_uid") or "Unknown"
+                        ),
+                        student_uid=item.get("student_uid", ""),
                     )
                     for item in result.value
                 ]
             )
 
-        sidebar_items = [
-            SidebarItem(
-                "Students", "/teaching/students", "students", icon="👥", children=student_children
-            ),
-            SidebarItem("Groups", "/teaching/groups", "groups", icon="👥"),
-            SidebarItem("Review Queue", "/teaching/queue", "queue", icon="📥"),
-        ]
-
         content = Div(
             PageHeader("Students", subtitle="Students who have submitted work"),
             students_content,
         )
-        return await SidebarPage(
+        return await render_teaching_sidebar_page(
             content=content,
-            items=sidebar_items,
             active="students",
-            page_title="Students",
             request=request,
-            **_SIDEBAR_DEFAULTS,
         )
+
+    # ------------------------------------------------------------------
+    # STUDENT HUB — teacher's view of individual student
+    # ------------------------------------------------------------------
 
     @rt("/teaching/students/{uid}")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_student_detail_page(
+    async def teaching_student_hub_page(
         request: Request, uid: str, current_user: Any = None
     ) -> Any:
-        """Student detail page — sidebar-driven sections for submissions + KU progress.
+        """Student hub — overview page with container cards for submission sections + KU progress."""
+        user_uid = require_authenticated_user(request)
+
+        result = await teacher_review_service.get_student_submissions(
+            teacher_uid=user_uid, student_uid=uid
+        )
+
+        student_name = uid
+        pending_count = 0
+        revision_count = 0
+        completed_count = 0
+
+        if not result.is_error and result.value:
+            _needs_review = {"submitted", "active", "queued", "processing"}
+            _revision = {"revision_requested"}
+            _completed = {"completed", "failed"}
+
+            for item in result.value:
+                raw_name = item.get("student_name")
+                if raw_name and student_name == uid:
+                    student_name = str(raw_name)
+
+                status_str = (item.get("status") or "").lower()
+                if status_str in _needs_review:
+                    pending_count += 1
+                elif status_str in _revision:
+                    revision_count += 1
+                elif status_str in _completed:
+                    completed_count += 1
+                else:
+                    pending_count += 1  # unknown status → treat as pending
+
+        display_name = _display_student_name(student_name)
+
+        return await BasePage(
+            content=StudentHub(
+                student_name=display_name,
+                student_uid=uid,
+                pending_count=pending_count,
+                revision_count=revision_count,
+                completed_count=completed_count,
+            ),
+            title=display_name,
+            request=request,
+            active_page="teaching",
+        )
+
+    # ------------------------------------------------------------------
+    # STUDENT SUBMISSIONS — Alpine section switching (moved from student detail)
+    # ------------------------------------------------------------------
+
+    @rt("/teaching/students/{uid}/submissions")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_student_submissions_page(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Any:
+        """Student submissions — sidebar-driven sections for submissions + KU progress.
 
         Sections: Needs Review | Revision Requested | Completed | KU Progress
-        Uses a student-specific sidebar (replaces the teaching sidebar) with
-        Alpine-controlled instant section switching.
-        Supports ?tab=ku query param to open KU Progress section directly.
+        Uses a student-specific sidebar with Alpine-controlled instant section switching.
+        Supports ?tab=pending|revision|completed|ku query param.
         """
         user_uid = require_authenticated_user(request)
 
@@ -486,7 +467,6 @@ def create_teaching_ui_routes(
             )
         else:
             if result.value:
-                # Derive display name from first submission that has one
                 for item in result.value:
                     raw_name = item.get("student_name")
                     if raw_name:
@@ -507,7 +487,7 @@ def create_teaching_ui_routes(
                     elif status_str in _completed:
                         completed.append(row)
                     else:
-                        pending.append(row)  # unknown status → treat as pending
+                        pending.append(row)
 
             ku_detail = await _fetch_ku_detail(admin_stats, uid)
             section_content = render_student_detail_sections(
@@ -531,27 +511,26 @@ def create_teaching_ui_routes(
 
         display_name = _display_student_name(student_name)
 
-        # Student-specific sidebar items with counts
         sidebar_items = student_detail_sidebar_items(
             pending_count=len(pending),
             revision_count=len(revision_requested),
             completed_count=len(completed),
         )
 
-        # Back arrow linking to students list
+        # Back arrow linking to student hub
         back_arrow = A(
             UkIcon("arrow-left", height=18, width=18),
-            href="/teaching/students",
+            href=f"/teaching/students/{uid}",
             cls="p-1.5 rounded hover:bg-accent transition-colors inline-flex items-center",
-            aria_label="Back to students list",
+            aria_label="Back to student overview",
         )
 
         # Mobile back link (above tabs)
         mobile_back = Div(
             A(
                 UkIcon("arrow-left", height=14, width=14, cls="inline mr-1"),
-                "Students",
-                href="/teaching/students",
+                display_name,
+                href=f"/teaching/students/{uid}",
                 cls="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1",
             ),
             cls="mb-2",
@@ -603,7 +582,6 @@ def create_teaching_ui_routes(
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_teacher_groups_with_stats(teacher_uid=user_uid)
-        sidebar_items = await _build_teaching_sidebar(teacher_review_service, user_uid)
 
         if result.is_error:
             groups_content: Any = render_error_banner("Failed to load groups", str(result.error))
@@ -647,13 +625,10 @@ def create_teaching_ui_routes(
             PageHeader("Groups", subtitle="Your groups and their activity"),
             groups_content,
         )
-        return await SidebarPage(
+        return await render_teaching_sidebar_page(
             content=content,
-            items=sidebar_items,
             active="groups",
-            page_title="Groups",
             request=request,
-            **_SIDEBAR_DEFAULTS,
         )
 
     @rt("/teaching/groups/{uid}")
@@ -699,20 +674,15 @@ def create_teaching_ui_routes(
             ),
         )
 
-        sidebar_items = await _build_teaching_sidebar(teacher_review_service, user_uid)
-
         content = Div(
             PageHeader(f"Group: {uid}", subtitle="Members and their submission progress"),
             members_content,
             back_link,
         )
-        return await SidebarPage(
+        return await render_teaching_sidebar_page(
             content=content,
-            items=sidebar_items,
             active="groups",
-            page_title="Group Detail",
             request=request,
-            **_SIDEBAR_DEFAULTS,
         )
 
     # ------------------------------------------------------------------
@@ -763,10 +733,12 @@ def create_teaching_ui_routes(
 
     @rt("/teaching/learning/user/{uid}")
     async def teaching_learning_user_redirect(request: Request, uid: str) -> Any:
-        """301 redirect: /teaching/learning/user/{uid} → /teaching/students/{uid}?tab=ku."""
+        """301 redirect: /teaching/learning/user/{uid} → /teaching/students/{uid}/submissions?tab=ku."""
         from starlette.responses import RedirectResponse
 
-        return RedirectResponse(url=f"/teaching/students/{uid}?tab=ku", status_code=301)
+        return RedirectResponse(
+            url=f"/teaching/students/{uid}/submissions?tab=ku", status_code=301
+        )
 
     @rt("/teaching/reports/user/{uid}")
     async def teaching_reports_redirect(request: Request, uid: str) -> Any:
@@ -784,10 +756,12 @@ def create_teaching_ui_routes(
 
     @rt("/admin/learning/user/{uid}")
     async def admin_learning_user_redirect(request: Request, uid: str) -> Any:
-        """301 redirect: /admin/learning/user/{uid} → /teaching/students/{uid}?tab=ku."""
+        """301 redirect: /admin/learning/user/{uid} → /teaching/students/{uid}/submissions?tab=ku."""
         from starlette.responses import RedirectResponse
 
-        return RedirectResponse(url=f"/teaching/students/{uid}?tab=ku", status_code=301)
+        return RedirectResponse(
+            url=f"/teaching/students/{uid}/submissions?tab=ku", status_code=301
+        )
 
     logger.info("Teaching UI routes registered")
     return []
