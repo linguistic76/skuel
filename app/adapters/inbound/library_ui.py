@@ -2,37 +2,29 @@
 Library UI Route — /library
 ============================
 
-Unified learning hub with five tabs:
+Unified learning hub with sidebar navigation:
 
-- Exercises       — Exercises assigned via group membership, with submission/feedback status
-- Resources       — Admin-curated content (books, talks, films, podcasts)
-- Ku              — All atomic knowledge units (links to /ku/{uid})
-- Path Steps      — All curriculum path steps (links to /path-steps/{uid}/details)
-- Activity Reports — Activity domain analysis (reuses /reports/activity-list fragment)
+- Exercises   — Exercises assigned via group membership, with submission/feedback status
+- Resources   — Admin-curated content (books, talks, films, podcasts)
+- Ku          — User's bookmarked knowledge units
+- Path Steps  — User's enrolled path steps
 
-HTMX fragment endpoints:
-  GET /library/exercises    — exercises with submission/feedback status (Exercises tab)
-  GET /library/submissions  — user's exercise submissions (Submissions tab)
-  GET /library/resources    — Resource entity list (Resources tab)
-  GET /library/ku           — all Ku (Ku tab)
-  GET /library/path-steps   — all PathSteps (Path Steps tab)
-
-Tab content for Exercise Reports and Activity Reports is HTMX-loaded from
-existing fragment endpoints in exercise_reports_ui.py and activity_reports_ui.py.
+Each section is a standalone route wrapped in SidebarPage.
+Dual-purpose: returns fragment for HTMX requests, full sidebar page for direct navigation.
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
 from typing import Any
 
-from fasthtml.common import H1, A, Div, P, Span
+from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator, RouteList
 from core.models.enums.entity_enums import EntityType
 from core.ports.query_types import ExerciseStatusRow
 from core.utils.logging import get_logger
-from ui.layouts.base_page import BasePage
+from ui.library.nav import render_library_sidebar_page
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 
@@ -301,71 +293,6 @@ def render_resource_list(resources: list[Any]) -> Div:
 
 
 # ============================================================================
-# PAGE-LEVEL TAB COMPONENTS
-# ============================================================================
-
-
-def _tab_button(label: str, tab_id: str) -> Any:
-    """Top-level tab button (Alpine.js state)."""
-    return A(
-        label,
-        role="tab",
-        cls="px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors rounded-t border-b-2",
-        **{
-            ":aria-selected": f"activeTab === '{tab_id}'",
-            "@click": f"activeTab = '{tab_id}'; htmx.trigger('#lib-tab-panel-{tab_id}', 'tab-activate')",
-            ":class": (
-                f"activeTab === '{tab_id}' "
-                "? 'border-primary text-primary bg-background' "
-                ": 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'"
-            ),
-        },
-    )
-
-
-def _tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
-    """Tab panel with HTMX lazy-loaded content."""
-    attrs: dict[str, str] = {
-        "x-show": f"activeTab === '{tab_id}'",
-        "hx-get": hx_get,
-        "hx-trigger": "load" if default else "tab-activate once",
-        "hx-swap": "innerHTML",
-    }
-    if not default:
-        attrs["x-cloak"] = ""
-
-    return Div(
-        P("Loading...", cls="text-center text-muted-foreground py-4"),
-        id=f"lib-tab-panel-{tab_id}",
-        role="tabpanel",
-        **attrs,
-    )
-
-
-def _library_tabs() -> Div:
-    """Four-tab library component with inline title."""
-    return Div(
-        Div(
-            H1("Library", cls="text-lg font-bold text-foreground whitespace-nowrap"),
-            Div(
-                _tab_button("Exercises", "exercises"),
-                _tab_button("Resources", "resources"),
-                _tab_button("Ku", "ku"),
-                _tab_button("Path Steps", "path-steps"),
-                role="tablist",
-                cls="flex gap-1 border-b border-border",
-            ),
-            cls="flex items-end gap-6 mb-3",
-        ),
-        _tab_panel("exercises", "/library/exercises", default=True),
-        _tab_panel("resources", "/library/resources"),
-        _tab_panel("ku", "/library/ku"),
-        _tab_panel("path-steps", "/library/path-steps"),
-        **{"x-data": "{ activeTab: 'exercises' }"},
-    )
-
-
-# ============================================================================
 # ROUTE CREATION
 # ============================================================================
 
@@ -401,19 +328,30 @@ def create_library_ui_routes(
 
     @rt("/library")
     async def library_page(request: Request) -> Any:
-        """Library hub: Exercises | Resources | Ku | Path Steps | Activity Reports.
+        """Library: Exercises list with sidebar navigation.
 
-        Public: shared curriculum content (Resources) is readable without authentication.
-        Exercises tab requires authentication (user-specific group membership data).
+        Default view shows exercises assigned via group membership.
         """
-        content = Div(
-            _library_tabs(),
-        )
-        return await BasePage(
+        user_uid = require_authenticated_user(request)
+
+        # Inline exercises content (same data as /library/exercises fragment)
+        if not exercises_service:
+            exercises_content = render_error_banner("Exercise service unavailable")
+        else:
+            result = await exercises_service.get_student_exercises_with_status(user_uid)
+            if result.is_error:
+                logger.error(f"Library: failed to load student exercises: {result.error}")
+                exercises_content = render_error_banner(
+                    "Failed to load exercises", str(result.error)
+                )
+            else:
+                exercises_content = render_exercise_list(result.value or [])
+
+        content = Div(exercises_content)
+        return await render_library_sidebar_page(
             content=content,
-            title="Library",
+            active="exercises",
             request=request,
-            active_page="library",
         )
 
     # ========================================================================
@@ -422,18 +360,24 @@ def create_library_ui_routes(
 
     @rt("/library/exercises")
     async def library_exercises(request: Request) -> Any:
-        """HTMX fragment: exercises with submission/feedback status via group membership."""
+        """Exercises with submission/feedback status via group membership."""
         user_uid = require_authenticated_user(request)
 
         if not exercises_service:
-            return render_error_banner("Exercise service unavailable")
+            fragment = render_error_banner("Exercise service unavailable")
+        else:
+            result = await exercises_service.get_student_exercises_with_status(user_uid)
+            if result.is_error:
+                logger.error(f"Library: failed to load student exercises: {result.error}")
+                fragment = render_error_banner("Failed to load exercises", str(result.error))
+            else:
+                fragment = render_exercise_list(result.value or [])
 
-        result = await exercises_service.get_student_exercises_with_status(user_uid)
-        if result.is_error:
-            logger.error(f"Library: failed to load student exercises: {result.error}")
-            return render_error_banner("Failed to load exercises", str(result.error))
-
-        return render_exercise_list(result.value or [])
+        if request.headers.get("HX-Request"):
+            return fragment
+        return await render_library_sidebar_page(
+            content=Div(fragment), active="exercises", request=request
+        )
 
     # ========================================================================
     # HTMX FRAGMENT: SUBMISSIONS TAB
@@ -441,20 +385,26 @@ def create_library_ui_routes(
 
     @rt("/library/submissions")
     async def library_submissions(request: Request) -> Any:
-        """HTMX fragment: user's exercise submissions."""
+        """User's exercise submissions."""
         user_uid = require_authenticated_user(request)
 
         if not submissions_service:
-            return render_error_banner("Submissions service unavailable")
+            fragment = render_error_banner("Submissions service unavailable")
+        else:
+            result = await submissions_service.list_submissions(
+                user_uid, entity_type=EntityType.EXERCISE_SUBMISSION, limit=50
+            )
+            if result.is_error:
+                logger.error(f"Library: failed to load submissions: {result.error}")
+                fragment = render_error_banner("Failed to load submissions", str(result.error))
+            else:
+                fragment = render_submissions_list(result.value or [])
 
-        result = await submissions_service.list_submissions(
-            user_uid, entity_type=EntityType.EXERCISE_SUBMISSION, limit=50
+        if request.headers.get("HX-Request"):
+            return fragment
+        return await render_library_sidebar_page(
+            content=Div(fragment), active="exercises", request=request
         )
-        if result.is_error:
-            logger.error(f"Library: failed to load submissions: {result.error}")
-            return render_error_banner("Failed to load submissions", str(result.error))
-
-        return render_submissions_list(result.value or [])
 
     # ========================================================================
     # HTMX FRAGMENT: RESOURCES TAB
@@ -462,16 +412,22 @@ def create_library_ui_routes(
 
     @rt("/library/resources")
     async def library_resources(request: Request) -> Any:
-        """HTMX fragment: admin-curated Resource entity list. Public: shared content."""
+        """Admin-curated Resource entity list. Public: shared content."""
         if not resource_service:
-            return render_error_banner("Resource service unavailable")
+            fragment = render_error_banner("Resource service unavailable")
+        else:
+            result = await resource_service.list_all()
+            if result.is_error:
+                logger.error(f"Library: failed to load Resources: {result.error}")
+                fragment = render_error_banner("Failed to load resources", str(result.error))
+            else:
+                fragment = render_resource_list(result.value or [])
 
-        result = await resource_service.list_all()
-        if result.is_error:
-            logger.error(f"Library: failed to load Resources: {result.error}")
-            return render_error_banner("Failed to load resources", str(result.error))
-
-        return render_resource_list(result.value or [])
+        if request.headers.get("HX-Request"):
+            return fragment
+        return await render_library_sidebar_page(
+            content=Div(fragment), active="resources", request=request
+        )
 
     # ========================================================================
     # HTMX FRAGMENT: KU TAB
@@ -479,17 +435,27 @@ def create_library_ui_routes(
 
     @rt("/library/ku")
     async def library_ku(request: Request) -> Any:
-        """HTMX fragment: Ku the user has bookmarked (PINNED relationship)."""
+        """Ku the user has bookmarked (PINNED relationship)."""
         if not ku_service:
-            return render_error_banner("Knowledge service unavailable")
+            fragment = render_error_banner("Knowledge service unavailable")
+        else:
+            user = get_current_user(request)
+            if not user:
+                fragment = EmptyState(
+                    title="Sign in to see your bookmarked Ku",
+                    description="Bookmark Ku on the Knowledge page to track what matters to you.",
+                )
+            else:
+                fragment = await _build_ku_fragment(user)
 
-        user = get_current_user(request)
-        if not user:
-            return EmptyState(
-                title="Sign in to see your bookmarked Ku",
-                description="Bookmark Ku on the Knowledge page to track what matters to you.",
-            )
+        if request.headers.get("HX-Request"):
+            return fragment
+        return await render_library_sidebar_page(
+            content=Div(fragment), active="ku", request=request
+        )
 
+    async def _build_ku_fragment(user: str) -> Any:
+        """Build the Ku bookmarks fragment content."""
         # Resolve pinned UIDs
         pinned_uids: set[str] = set()
         if user_relationship_service:
@@ -504,7 +470,7 @@ def create_library_ui_routes(
             )
 
         # Fetch all Kus and filter to pinned
-        result = await ku_service.core.list(limit=500)
+        result = await ku_service.core.list(limit=500)  # type: ignore[union-attr]
         if result.is_error:
             logger.error(f"Library: failed to load Kus: {result.error}")
             return render_error_banner("Failed to load knowledge units", str(result.error))
@@ -550,20 +516,30 @@ def create_library_ui_routes(
 
     @rt("/library/path-steps")
     async def library_path_steps(request: Request) -> Any:
-        """HTMX fragment: Path Steps the user is enrolled in (IN_PROGRESS)."""
+        """Path Steps the user is enrolled in (IN_PROGRESS)."""
         if not ps_service:
-            return render_error_banner("Path Steps service unavailable")
+            fragment = render_error_banner("Path Steps service unavailable")
+        else:
+            user = get_current_user(request)
+            if not user:
+                fragment = EmptyState(
+                    title="Sign in to see your enrolled Path Steps",
+                    description="Start a Path Step on the Path Steps page to track your progress here.",
+                )
+            else:
+                fragment = await _build_path_steps_fragment(user)
 
-        user = get_current_user(request)
-        if not user:
-            return EmptyState(
-                title="Sign in to see your enrolled Path Steps",
-                description="Start a Path Step on the Path Steps page to track your progress here.",
-            )
+        if request.headers.get("HX-Request"):
+            return fragment
+        return await render_library_sidebar_page(
+            content=Div(fragment), active="path-steps", request=request
+        )
 
+    async def _build_path_steps_fragment(user: str) -> Any:
+        """Build the enrolled Path Steps fragment content."""
         # Resolve enrolled UIDs
         enrolled_uids: set[str] = set()
-        uids_result = await ps_service.mastery.get_in_progress_step_uids(user)
+        uids_result = await ps_service.mastery.get_in_progress_step_uids(user)  # type: ignore[union-attr]
         if not uids_result.is_error:
             enrolled_uids = set(uids_result.value or [])
 
@@ -574,7 +550,7 @@ def create_library_ui_routes(
             )
 
         # Fetch all steps and filter to enrolled
-        result = await ps_service.core.list(limit=200)
+        result = await ps_service.core.list(limit=200)  # type: ignore[union-attr]
         if result.is_error:
             logger.error(f"Library: failed to load PathSteps: {result.error}")
             return render_error_banner("Failed to load path steps", str(result.error))

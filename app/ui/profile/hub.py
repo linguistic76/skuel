@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fasthtml.common import H1, A, Div, P, Span
+from fasthtml.common import A, Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
 from ui.patterns.empty_state import EmptyState
@@ -270,69 +270,6 @@ def _exercises_section(context: UserContext) -> Div:
         _section_header("Exercises", "/exercises", context.assigned_exercise_count),
         content,
         cls="mb-6",
-    )
-
-
-# ---------------------------------------------------------------------------
-# Submissions section — tabbed (My Submissions | Submit | Request Report)
-# ---------------------------------------------------------------------------
-
-
-def _sub_tab_button(label: str, tab_id: str) -> Any:
-    """Tab button for the submissions section (Alpine.js state)."""
-    return A(
-        label,
-        role="tab",
-        cls="px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors rounded-t border-b-2",
-        **{
-            ":aria-selected": f"subTab === '{tab_id}'",
-            "@click": f"subTab = '{tab_id}'; htmx.trigger('#sub-tab-panel-{tab_id}', 'tab-activate')",
-            ":class": f"subTab === '{tab_id}' ? 'border-primary text-primary bg-background' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
-        },
-    )
-
-
-def _sub_tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
-    """Tab panel with HTMX lazy-loaded content for submissions section."""
-    attrs: dict[str, str] = {
-        "x-show": f"subTab === '{tab_id}'",
-        "hx-get": hx_get,
-        "hx-trigger": "load" if default else "tab-activate once",
-        "hx-swap": "innerHTML",
-    }
-    if not default:
-        attrs["x-cloak"] = ""
-
-    return Div(
-        P("Loading...", cls="text-center text-muted-foreground py-4"),
-        id=f"sub-tab-panel-{tab_id}",
-        role="tabpanel",
-        **attrs,
-    )
-
-
-def submissions_section() -> Div:
-    """Submissions section with Alpine.js tabs: My Submissions | Submit | Request Report | Exercise Reports | Activity Reports."""
-    return Div(
-        Div(
-            H1("GradeBook", cls="text-lg font-bold text-foreground whitespace-nowrap"),
-            Div(
-                _sub_tab_button("My Submissions", "list"),
-                _sub_tab_button("Submit", "submit"),
-                _sub_tab_button("Request Report", "report"),
-                _sub_tab_button("Exercise Reports", "exercise-reports"),
-                _sub_tab_button("Activity Reports", "activity-reports"),
-                role="tablist",
-                cls="flex gap-1 border-b border-border",
-            ),
-            cls="flex items-end gap-6 mb-3",
-        ),
-        _sub_tab_panel("list", "/gradebook/list", default=True),
-        _sub_tab_panel("submit", "/api/profile/submissions/submit-form"),
-        _sub_tab_panel("report", "/api/profile/submissions/report-form"),
-        _sub_tab_panel("exercise-reports", "/reports/list"),
-        _sub_tab_panel("activity-reports", "/reports/activity-list"),
-        **{"x-data": "{ subTab: 'list' }"},
     )
 
 

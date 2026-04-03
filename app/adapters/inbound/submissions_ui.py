@@ -5,8 +5,8 @@ GradeBook UI Routes — ExerciseSubmission Pages
 Routes for submitting work, browsing submissions, and viewing submission details.
 
 Routes:
-- GET /submit — File upload form (standalone, deep-linked from exercises)
-- GET /gradebook — Tabbed hub: My Submissions | Submit | Request Report
+- GET /submit — File upload form (sidebar: Submit)
+- GET /gradebook — My Submissions list (sidebar: My Submissions)
 - GET /gradebook/{uid} — Submission detail page
 - HTMX fragments: /gradebook/list, /upload, /grid,
   /gradebook/{uid}/{info,content,report,exercise,category-selector,tags-manager,shared-users}
@@ -35,11 +35,10 @@ from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.layout import Size
-from ui.layouts.base_page import BasePage
+from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
-from ui.profile.hub import submissions_section
 from ui.submissions.cards import (
     render_processed_content,
     render_submission_detail,
@@ -165,11 +164,10 @@ def create_submissions_ui_routes(
             ),
             upload_form_script(),
         )
-        return await BasePage(
+        return await render_gradebook_sidebar_page(
             content=content,
-            title="Submit",
+            active="submit",
             request=request,
-            active_page="gradebook",
         )
 
     # ========================================================================
@@ -178,16 +176,32 @@ def create_submissions_ui_routes(
 
     @rt("/gradebook")
     async def gradebook_page(request: Request) -> Any:
-        """GradeBook hub: tabbed My Submissions | Submit | Request Report."""
-        require_authenticated_user(request)
-        content = Div(
-            submissions_section(),
+        """GradeBook: My Submissions list with sidebar navigation."""
+        user_uid = require_authenticated_user(request)
+
+        # Inline submissions list (same data as /gradebook/list fragment)
+        submissions_content: Any = EmptyState(
+            title="No submissions yet",
+            description="Submit your first exercise to see it here.",
         )
-        return await BasePage(
+        if submissions_search_service:
+            result = await submissions_search_service.get_submissions_with_feedback_status(user_uid)
+            if result.is_error:
+                logger.error(f"Error loading submissions history: {result.error}")
+                submissions_content = render_error_banner(
+                    "Failed to load submissions", str(result.error)
+                )
+            else:
+                submissions_content = render_yours_list(result.value or [])
+
+        content = Div(
+            PageHeader("My Submissions", subtitle="Your submitted exercises and feedback status"),
+            submissions_content,
+        )
+        return await render_gradebook_sidebar_page(
             content=content,
-            title="GradeBook",
+            active="submissions",
             request=request,
-            active_page="gradebook",
         )
 
     # ========================================================================
@@ -610,11 +624,10 @@ def create_submissions_ui_routes(
             detail_card,
         )
 
-        return await BasePage(
-            content,
-            title="Submission Details",
+        return await render_gradebook_sidebar_page(
+            content=content,
+            active="submissions",
             request=request,
-            active_page="gradebook",
         )
 
     logger.info("GradeBook UI routes created (/submit, /gradebook, /gradebook/{uid})")

@@ -26,8 +26,8 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator, RouteList
 from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
+from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
-from ui.layouts.base_page import BasePage
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.generate_report import (
     render_activity_report_request_card,
@@ -96,11 +96,10 @@ def create_activity_reports_ui_routes(
                 },
             ),
         )
-        return await BasePage(
+        return await render_gradebook_sidebar_page(
             content=content,
-            title="Activity Reports",
+            active="activity-reports",
             request=request,
-            active_page="activity-reports",
         )
 
     # ========================================================================
@@ -120,11 +119,10 @@ def create_activity_reports_ui_routes(
             render_activity_report_request_card(),
             render_recent_reports_section(),
         )
-        return await BasePage(
+        return await render_gradebook_sidebar_page(
             content=content,
-            title="Submit Activity Report",
+            active="activity-reports",
             request=request,
-            active_page="activity-reports",
         )
 
     # ========================================================================
@@ -138,31 +136,28 @@ def create_activity_reports_ui_routes(
         uid = request.query_params.get("uid", "").strip()
 
         if not uid:
-            return await BasePage(
+            return await render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report UID is required")),
-                title="Activity Report",
+                active="activity-reports",
                 request=request,
-                active_page="activity-reports",
             )
 
         if not activity_report_service:
-            return await BasePage(
+            return await render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Activity report service unavailable")),
-                title="Activity Report",
+                active="activity-reports",
                 request=request,
-                active_page="activity-reports",
             )
 
         # Fetch the report from history (service returns list, find by uid)
         history_result = await activity_report_service.get_history(subject_uid=user_uid, limit=100)
         if history_result.is_error:
-            return await BasePage(
+            return await render_gradebook_sidebar_page(
                 content=Div(
                     render_error_banner("Failed to load report", str(history_result.error))
                 ),
-                title="Activity Report",
+                active="activity-reports",
                 request=request,
-                active_page="activity-reports",
             )
 
         report = None
@@ -172,11 +167,10 @@ def create_activity_reports_ui_routes(
                 break
 
         if not report:
-            return await BasePage(
+            return await render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report not found")),
-                title="Activity Report",
+                active="activity-reports",
                 request=request,
-                active_page="activity-reports",
             )
 
         # Extract snapshot, intelligence, and comparison from metadata
@@ -190,11 +184,10 @@ def create_activity_reports_ui_routes(
                 report, snapshot=snapshot, intelligence=intelligence, comparison=comparison
             )
         )
-        return await BasePage(
+        return await render_gradebook_sidebar_page(
             content=content,
-            title=getattr(report, "title", "Activity Report"),
+            active="activity-reports",
             request=request,
-            active_page="activity-reports",
         )
 
     # ========================================================================

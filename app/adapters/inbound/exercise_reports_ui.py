@@ -22,7 +22,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator, RouteList
 from core.utils.logging import get_logger
 from ui.cards import Card
-from ui.layouts.base_page import BasePage
+from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
 from ui.submissions.report import (
@@ -80,11 +80,10 @@ def create_exercise_reports_ui_routes(
             ),
             reports_section,
         )
-        return await BasePage(
+        return await render_gradebook_sidebar_page(
             content=content,
-            title="Exercise Reports",
+            active="exercise-reports",
             request=request,
-            active_page="exercise-reports",
         )
 
     # ========================================================================
