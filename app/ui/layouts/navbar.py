@@ -19,7 +19,6 @@ from monsterui.franken import UkIcon
 from adapters.inbound.fasthtml_types import Request
 from ui.layouts.nav_config import (
     ACTIVITY_DROPDOWN_ITEMS,
-    ADMIN_NAV_ITEM,
     CURRICULUM_DROPDOWN_ITEMS,
     ICON_NAV_ITEMS,
     MAIN_NAV_ITEMS,
@@ -325,9 +324,9 @@ def _admin_profile_section(current_user: str) -> Div:
 
     return Div(
         A(
-            Span("Go to admin dashboard", cls="sr-only"),
+            Span("Go to home", cls="sr-only"),
             avatar,
-            href="/admin",
+            href="/",
             cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
         ),
         A(
@@ -387,8 +386,6 @@ def create_navbar(
         return not (item.requires_teacher and not (is_teacher or is_admin))
 
     nav_items = [item for item in MAIN_NAV_ITEMS if _should_show_item(item)]
-    if is_admin:
-        nav_items.insert(0, ADMIN_NAV_ITEM)
 
     # Icon navigation links — shown when not admin; public items shown to all users
     icon_links: list[Any] = []
@@ -408,7 +405,12 @@ def create_navbar(
     # Mobile navigation links — expand all dropdowns (activity + icon nav) into individual links
     mobile_nav_items = list(nav_items)
     mobile_icon_links: list[Any] = []
-    if not is_admin:
+    if is_admin:
+        for label, href, key in [("Admin", "/admin", "admin"), ("Teaching", "/teaching", "teaching")]:
+            mobile_icon_links.append(
+                _nav_link(NavItem(label, href, key), active_page, mobile=True)
+            )
+    else:
         if is_authenticated:
             # Activity domains only shown to authenticated users
             for di in ACTIVITY_DROPDOWN_ITEMS:
@@ -479,6 +481,14 @@ def create_navbar(
 
     # Build left column items
     left_col: list[Any] = [_mobile_menu_button()]
+    if is_admin:
+        left_col.append(
+            A(
+                Span("SKUEL", cls="text-lg font-bold text-primary"),
+                href="/",
+                cls="hidden sm:inline-flex items-center justify-center px-2 py-1 rounded hover:bg-accent",
+            )
+        )
     if left_avatar is not None:
         left_col.append(left_avatar)
     left_col.extend(icon_links)

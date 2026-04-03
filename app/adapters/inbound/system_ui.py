@@ -15,7 +15,7 @@ from typing import Any
 from fasthtml.common import H1, Div, Nav, NotStr, P
 from starlette.responses import RedirectResponse
 
-from adapters.inbound.auth import is_authenticated
+from adapters.inbound.auth import get_is_admin, is_authenticated
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
@@ -55,10 +55,10 @@ def create_system_ui_routes(
 
     @rt("/")
     async def home(request: Request) -> Any:
-        """Home page - login form when logged out, redirect when logged in."""
-        # If authenticated, redirect to Profile
+        """Home page - admin hub, profile redirect, or login landing."""
         if is_authenticated(request):
-            logger.info("Authenticated user at root, redirecting to Profile")
+            if get_is_admin(request):
+                return await _render_admin_hub(request)
             return RedirectResponse("/profile", status_code=303)
 
         # Not authenticated - show login landing page
@@ -152,6 +152,40 @@ def create_system_ui_routes(
 
 
 __all__ = ["create_system_ui_routes"]
+
+
+async def _render_admin_hub(request: Request) -> Any:
+    """Render admin home hub with Admin + Teaching cards."""
+    from ui.layouts.base_page import BasePage
+    from ui.patterns.hub import HubCardData, HubSection
+    from ui.patterns.page_header import PageHeader
+
+    cards = [
+        HubCardData(
+            icon="🛡️",
+            name="Admin",
+            href="/admin",
+            description="User management, analytics, and system health",
+        ),
+        HubCardData(
+            icon="🎓",
+            name="Teaching",
+            href="/teaching",
+            description="Review queue, student management, and class groups",
+        ),
+    ]
+
+    content = Div(
+        PageHeader("Home", subtitle="Welcome back"),
+        HubSection(title=None, cards=cards, cols=2),
+    )
+
+    return await BasePage(
+        content=content,
+        title="Home",
+        request=request,
+        active_page="home",
+    )
 
 
 def _render_login_landing_page() -> NotStr:
