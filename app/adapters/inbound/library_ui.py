@@ -44,8 +44,6 @@ logger = get_logger("skuel.routes.library")
 # TYPE BADGE HELPERS
 # ============================================================================
 
-_EXERCISE_BADGE_CLS = "bg-amber-100 text-amber-800 border border-amber-200 text-xs font-medium px-2 py-0.5 rounded-full"
-
 _MEDIA_BADGE_CLS: dict[str, str] = {
     "book": "bg-green-100 text-green-800 border border-green-200",
     "talk": "bg-blue-100 text-blue-800 border border-blue-200",
@@ -60,11 +58,6 @@ _KU_BADGE_CLS = "bg-violet-100 text-violet-800 border border-violet-200 text-xs 
 _PS_BADGE_CLS = (
     "bg-teal-100 text-teal-800 border border-teal-200 text-xs font-medium px-2 py-0.5 rounded-full"
 )
-
-
-def _exercise_badge() -> Span:
-    """Colored pill badge for exercise type."""
-    return Span("Exercise", cls=_EXERCISE_BADGE_CLS)
 
 
 def _media_badge(media_type: str | None) -> Span:
@@ -145,11 +138,10 @@ def _exercise_item(row: "ExerciseStatusRow") -> Div:
 
     return Div(
         Div(
-            _exercise_badge(),
             A(
                 row["title"] or row["uid"],
                 href=f"/exercises/get?uid={row['uid']}",
-                cls="text-sm font-medium text-foreground hover:text-primary hover:underline ml-2 mr-auto",
+                cls="text-sm font-medium text-foreground hover:text-primary hover:underline mr-auto",
             ),
             Span(status_label, cls=status_cls),
             A(
