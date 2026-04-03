@@ -242,13 +242,6 @@ def render_review_panel_inline(
         content_section,
         history_section,
         actions_section,
-        ButtonLink(
-            "Full review page →",
-            href=f"/teaching/review/{uid}",
-            variant=ButtonT.ghost,
-            size=Size.sm,
-            cls="mt-2",
-        ),
         cls="mt-3 border-t border-border pt-3",
     )
 
