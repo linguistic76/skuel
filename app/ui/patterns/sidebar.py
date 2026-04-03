@@ -118,6 +118,72 @@ def SidebarLink(text: str, href: str) -> "FT":
     )
 
 
+def alpine_section_renderer(state_var: str = "section") -> Callable[[SidebarItem, bool], Any]:
+    """Item renderer for Alpine-driven section switching (no page navigation).
+
+    Items use @click to set Alpine state variable instead of href links.
+    The `slug` field on each SidebarItem maps to the section value.
+    """
+
+    def _render(item: SidebarItem, _is_active: bool) -> "FT":
+        children: list[Any] = []
+        if item.icon:
+            children.append(Span(item.icon, cls="text-lg", aria_hidden="true"))
+        children.append(Span(item.label, cls="flex-1"))
+        if item.badge_text:
+            children.append(
+                Span(
+                    item.badge_text,
+                    cls="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-primary/10",
+                )
+            )
+
+        return Li(
+            Div(
+                *children,
+                cls="flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px] "
+                "transition-colors hover:bg-accent cursor-pointer",
+                role="tab",
+                **{
+                    "@click": f"{state_var} = '{item.slug}'",
+                    ":class": f"{state_var} === '{item.slug}' ? 'bg-accent font-semibold' : ''",
+                    ":aria-selected": f"{state_var} === '{item.slug}'",
+                },
+            )
+        )
+
+    return _render
+
+
+def alpine_mobile_section_renderer(
+    state_var: str = "section",
+) -> Callable[[SidebarItem, bool], Any]:
+    """Mobile tab renderer for Alpine-driven section switching.
+
+    Returns tab-shaped elements with @click instead of href.
+    """
+
+    def _render(item: SidebarItem, _is_active: bool) -> "FT":
+        tab_label = f"{item.icon} {item.label}" if item.icon else item.label
+        badge: Any = ""
+        if item.badge_text:
+            badge = Span(item.badge_text, cls="ml-1 text-xs")
+
+        return Div(
+            tab_label,
+            badge,
+            role="tab",
+            cls="whitespace-nowrap px-3 py-2 text-sm border-b-2 cursor-pointer",
+            **{
+                "@click": f"{state_var} = '{item.slug}'",
+                ":class": f"{state_var} === '{item.slug}' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
+                ":aria-selected": f"{state_var} === '{item.slug}'",
+            },
+        )
+
+    return _render
+
+
 def SidebarNav(
     items: list[SidebarItem],
     active: str,
@@ -129,6 +195,8 @@ def SidebarNav(
     item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     title_href: str = "",
     default_collapsed: bool = False,
+    title_prefix: "FT | None" = None,
+    mobile_item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
 ) -> "FT":
     """Build sidebar navigation (desktop) + horizontal tabs (mobile).
 
@@ -142,6 +210,8 @@ def SidebarNav(
         extra_mobile_sections: Additional content below mobile tabs
         item_renderer: Custom function to render sidebar items
         title_href: Optional link for the title heading
+        title_prefix: Optional element rendered before the title (e.g. back arrow)
+        mobile_item_renderer: Custom function to render mobile tab items
 
     Returns:
         Div containing both desktop sidebar and mobile tabs
@@ -168,6 +238,13 @@ def SidebarNav(
     else:
         title_el = H3(title, cls="text-xl font-bold text-primary")
 
+    # Wrap with prefix (back arrow) if provided
+    header_el: Any
+    if title_prefix:
+        header_el = Div(title_prefix, title_el, cls="flex items-center gap-2")
+    else:
+        header_el = title_el
+
     sidebar = Div(
         Div(
             # Toggle button
@@ -188,7 +265,7 @@ def SidebarNav(
             Ul(
                 # Header
                 Li(
-                    title_el,
+                    header_el,
                     P(subtitle, cls="text-xs opacity-60 mt-1") if subtitle else "",
                     cls="px-4 py-4",
                 ),
@@ -214,18 +291,22 @@ def SidebarNav(
 
     # --- Mobile tabs (hidden at lg: and above) ---
     tab_items = []
-    for item in items:
-        is_active = item.slug == active
-        tab_label = f"{item.icon} {item.label}" if item.icon else item.label
-        tab_items.append(
-            A(
-                tab_label,
-                href=item.href,
-                role="tab",
-                cls=f"whitespace-nowrap px-3 py-2 text-sm border-b-2 {'border-primary text-primary font-medium' if is_active else 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}",
-                **item.hx_attrs,
+    if mobile_item_renderer:
+        for item in items:
+            tab_items.append(mobile_item_renderer(item, item.slug == active))
+    else:
+        for item in items:
+            is_active = item.slug == active
+            tab_label = f"{item.icon} {item.label}" if item.icon else item.label
+            tab_items.append(
+                A(
+                    tab_label,
+                    href=item.href,
+                    role="tab",
+                    cls=f"whitespace-nowrap px-3 py-2 text-sm border-b-2 {'border-primary text-primary font-medium' if is_active else 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}",
+                    **item.hx_attrs,
+                )
             )
-        )
 
     mobile_extra = []
     if extra_mobile_sections:
@@ -260,11 +341,18 @@ async def SidebarPage(
     item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     title_href: str = "",
     default_collapsed: bool = False,
+    title_prefix: "FT | None" = None,
+    mobile_item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
+    alpine_state: str = "",
 ) -> "FT":
     """Create a full page with collapsible sidebar navigation.
 
     Desktop: Fixed sidebar (collapsible) + content area with left margin.
     Mobile: Horizontal tabs above content, no sidebar.
+
+    Args:
+        alpine_state: Optional Alpine x-data placed on the wrapper div so sidebar
+            and content can share state (e.g. "{ section: 'pending' }").
 
     See: /docs/patterns/UI_COMPONENT_PATTERNS.md
     """
@@ -279,9 +367,18 @@ async def SidebarPage(
         item_renderer=item_renderer,
         title_href=title_href,
         default_collapsed=default_collapsed,
+        title_prefix=title_prefix,
+        mobile_item_renderer=mobile_item_renderer,
     )
 
     collapsed_default = str(default_collapsed).lower()
+
+    # Wrapper attrs — shared Alpine state for sidebar + content communication
+    wrapper_attrs: dict[str, Any] = {}
+    if alpine_state:
+        wrapper_attrs["x-data"] = alpine_state
+        wrapper_attrs["x-cloak"] = True
+
     # Content area with responsive margin
     page_content = Div(
         nav,
@@ -297,6 +394,7 @@ async def SidebarPage(
                 ":class": "collapsed ? 'lg:ml-12' : 'lg:ml-64'",
             },
         ),
+        **wrapper_attrs,
     )
 
     return await BasePage(
@@ -312,4 +410,6 @@ __all__ = [
     "SidebarItem",
     "SidebarNav",
     "SidebarPage",
+    "alpine_section_renderer",
+    "alpine_mobile_section_renderer",
 ]

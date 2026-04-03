@@ -19,12 +19,14 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
     H3,
+    A,
     Div,
     Form,
     Input,
     Label,
     P,
 )
+from monsterui.franken import UkIcon
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
@@ -37,7 +39,12 @@ from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
-from ui.patterns.sidebar import SidebarItem, SidebarPage
+from ui.patterns.sidebar import (
+    SidebarItem,
+    SidebarPage,
+    alpine_mobile_section_renderer,
+    alpine_section_renderer,
+)
 from ui.teaching.cards import (
     render_class_card,
     render_empty_state,
@@ -47,8 +54,9 @@ from ui.teaching.cards import (
 from ui.teaching.detail import (
     render_class_member_row,
     render_report_item,
-    render_student_detail_tabs,
+    render_student_detail_sections,
     render_submission_content,
+    student_detail_sidebar_items,
 )
 from ui.teaching.types import (
     ClassMember,
@@ -394,10 +402,12 @@ def create_teaching_ui_routes(
     async def teaching_student_detail_page(
         request: Request, uid: str, current_user: Any = None
     ) -> Any:
-        """Student detail page — tabbed view of submissions + KU progress.
+        """Student detail page — sidebar-driven sections for submissions + KU progress.
 
-        Tabs: Needs Review | Revision Requested | Completed | KU Progress
-        Supports ?tab=ku query param to open KU Progress tab directly.
+        Sections: Needs Review | Revision Requested | Completed | KU Progress
+        Uses a student-specific sidebar (replaces the teaching sidebar) with
+        Alpine-controlled instant section switching.
+        Supports ?tab=ku query param to open KU Progress section directly.
         """
         user_uid = require_authenticated_user(request)
 
@@ -405,75 +415,103 @@ def create_teaching_ui_routes(
             teacher_uid=user_uid, student_uid=uid
         )
 
+        pending: list[Any] = []
+        revision_requested: list[Any] = []
+        completed: list[Any] = []
+        student_name = uid
+
         if result.is_error:
-            tabbed_content: Any = render_error_banner(
+            section_content: Any = render_error_banner(
                 "Failed to load submissions", str(result.error)
             )
-            student_name = uid
-        elif not result.value:
-            # No submissions — still build tabs (KU Progress may have data)
-            student_name = uid
-            ku_detail = await _fetch_ku_detail(admin_stats, uid)
-            tabbed_content = render_student_detail_tabs(
-                pending=[],
-                revision_requested=[],
-                completed=[],
-                student_name=student_name,
-                ku_detail=ku_detail,
-                default_tab=request.query_params.get("tab"),
-            )
         else:
-            # Derive display name from first submission that has one
-            student_name = uid
-            for item in result.value:
-                raw_name = item.get("student_name")
-                if raw_name:
-                    student_name = str(raw_name)
-                    break
+            if result.value:
+                # Derive display name from first submission that has one
+                for item in result.value:
+                    raw_name = item.get("student_name")
+                    if raw_name:
+                        student_name = str(raw_name)
+                        break
 
-            _needs_review = {"submitted", "active", "queued", "processing"}
-            _revision = {"revision_requested"}
-            _completed = {"completed", "failed"}
+                _needs_review = {"submitted", "active", "queued", "processing"}
+                _revision = {"revision_requested"}
+                _completed = {"completed", "failed"}
 
-            pending: list[Any] = []
-            revision_requested: list[Any] = []
-            completed: list[Any] = []
-
-            for item in result.value:
-                row = _to_submission_row(item)
-                status_str = (row.status or "").lower()
-                if status_str in _needs_review:
-                    pending.append(row)
-                elif status_str in _revision:
-                    revision_requested.append(row)
-                elif status_str in _completed:
-                    completed.append(row)
-                else:
-                    pending.append(row)  # unknown status → treat as pending
+                for item in result.value:
+                    row = _to_submission_row(item)
+                    status_str = (row.status or "").lower()
+                    if status_str in _needs_review:
+                        pending.append(row)
+                    elif status_str in _revision:
+                        revision_requested.append(row)
+                    elif status_str in _completed:
+                        completed.append(row)
+                    else:
+                        pending.append(row)  # unknown status → treat as pending
 
             ku_detail = await _fetch_ku_detail(admin_stats, uid)
-            tabbed_content = render_student_detail_tabs(
+            section_content = render_student_detail_sections(
                 pending=pending,
                 revision_requested=revision_requested,
                 completed=completed,
                 student_name=student_name,
                 ku_detail=ku_detail,
-                default_tab=request.query_params.get("tab"),
             )
 
+        # Determine default section from query param or submission state
+        tab_param = request.query_params.get("tab")
+        if tab_param in ("pending", "revision", "completed", "ku"):
+            default_section = tab_param
+        elif pending:
+            default_section = "pending"
+        elif revision_requested:
+            default_section = "revision"
+        else:
+            default_section = "completed"
+
         display_name = _display_student_name(student_name)
-        content = Div(tabbed_content)
+
+        # Student-specific sidebar items with counts
+        sidebar_items = student_detail_sidebar_items(
+            pending_count=len(pending),
+            revision_count=len(revision_requested),
+            completed_count=len(completed),
+        )
+
+        # Back arrow linking to students list
+        back_arrow = A(
+            UkIcon("arrow-left", height=18, width=18),
+            href="/teaching/students",
+            cls="p-1.5 rounded hover:bg-accent transition-colors inline-flex items-center",
+            aria_label="Back to students list",
+        )
+
+        # Mobile back link (above tabs)
+        mobile_back = Div(
+            A(
+                UkIcon("arrow-left", height=14, width=14, cls="inline mr-1"),
+                "Students",
+                href="/teaching/students",
+                cls="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1",
+            ),
+            cls="mb-2",
+        )
+
         return await SidebarPage(
-            content=content,
-            items=TEACHING_SIDEBAR_ITEMS,
-            active="students",
+            content=Div(section_content),
+            items=sidebar_items,
+            active=default_section,
             page_title=display_name,
             request=request,
             title=display_name,
-            subtitle="",
-            storage_key="teaching-sidebar",
+            subtitle="Student submissions",
+            storage_key="student-detail-sidebar",
             active_page="teaching",
-            title_href=f"/teaching/students/{uid}",
+            item_renderer=alpine_section_renderer("section"),
+            mobile_item_renderer=alpine_mobile_section_renderer("section"),
+            alpine_state=f"{{ section: '{default_section}' }}",
+            title_prefix=back_arrow,
+            extra_mobile_sections=[mobile_back],
         )
 
     # ------------------------------------------------------------------

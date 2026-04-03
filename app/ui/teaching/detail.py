@@ -15,6 +15,7 @@ from ui.feedback import Badge, BadgeT
 from ui.forms import Textarea
 from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
+from ui.patterns.sidebar import SidebarItem
 from ui.teaching.badges import entity_type_badge, status_badge
 from ui.teaching.types import ClassMember, SubmissionDetail, SubmissionRow
 
@@ -441,6 +442,80 @@ def render_student_detail_tabs(
         Div(*tab_buttons, cls="flex border-b border-border mb-6"),
         *tab_panels,
         **{"x-data": f"{{ tab: '{default_tab}' }}", "x-cloak": True},
+    )
+
+
+def student_detail_sidebar_items(
+    pending_count: int,
+    revision_count: int,
+    completed_count: int,
+) -> list[SidebarItem]:
+    """Build sidebar items for student detail sections."""
+    return [
+        SidebarItem(
+            "Needs Review", href="", slug="pending", icon="📥",
+            badge_text=str(pending_count) if pending_count else "",
+        ),
+        SidebarItem(
+            "Revision Requested", href="", slug="revision", icon="✏️",
+            badge_text=str(revision_count) if revision_count else "",
+        ),
+        SidebarItem(
+            "Completed", href="", slug="completed", icon="✅",
+            badge_text=str(completed_count) if completed_count else "",
+        ),
+        SidebarItem("KU Progress", href="", slug="ku", icon="📊"),
+    ]
+
+
+def render_student_detail_sections(
+    pending: list[SubmissionRow],
+    revision_requested: list[SubmissionRow],
+    completed: list[SubmissionRow],
+    student_name: str,
+    ku_detail: dict[str, Any] | None = None,
+) -> Div:
+    """Section panels for student detail, controlled by Alpine `section` variable.
+
+    The parent element must provide x-data with a `section` property.
+    Each panel uses x-show="section === '...'" for instant switching.
+    """
+
+    def _render_pending_list() -> Any:
+        if not pending:
+            return P(
+                "No submissions awaiting review.",
+                cls="text-center text-muted-foreground py-8 text-sm",
+            )
+        return Div(*[render_student_submission_inline_row(item) for item in pending])
+
+    def _render_simple_list(items: list[SubmissionRow]) -> Any:
+        if not items:
+            return P(
+                "No submissions in this category.",
+                cls="text-center text-muted-foreground py-8 text-sm",
+            )
+        return Div(*[render_student_submission_row(item) for item in items])
+
+    def _render_ku_progress() -> Any:
+        if ku_detail is None:
+            return P(
+                "KU progress data unavailable.",
+                cls="text-center text-muted-foreground py-8 text-sm",
+            )
+        from ui.admin.views import AdminLearningComponents
+
+        return Div(
+            AdminLearningComponents.render_user_ku_summary(ku_detail),
+            Div(cls="mb-6"),
+            AdminLearningComponents.render_user_ku_detail_list(ku_detail),
+        )
+
+    return Div(
+        Div(_render_pending_list(), **{"x-show": "section === 'pending'"}),
+        Div(_render_simple_list(revision_requested), **{"x-show": "section === 'revision'"}),
+        Div(_render_simple_list(completed), **{"x-show": "section === 'completed'"}),
+        Div(_render_ku_progress(), **{"x-show": "section === 'ku'"}),
     )
 
 
