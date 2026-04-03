@@ -45,7 +45,7 @@ GradeBook and Library follow the **hub-first pattern**: the navbar icon opens a 
 
 - **GradeBook** (`/gradebook`) — 4 containers: My Submissions (`/gradebook/mysubmissions`), Submit (`/submit`), Exercise Reports (`/exercise-reports`), Activity Reports (`/activity-reports`). Hub view in `ui/gradebook/hub.py`, sidebar nav in `ui/gradebook/nav.py`.
 - **Library** (`/library`) — 4 containers: Exercises (`/library/exercises`), Resources (`/library/resources`), Ku (`/library/ku`), Path Steps (`/library/path-steps`). Hub view in `ui/library/hub.py`, sidebar nav in `ui/library/nav.py`.
-- **Teaching** (`/teaching`) — 3 containers: Students (`/teaching/students`), Groups (`/teaching/groups`), Review Queue (`/teaching/queue`). Hub view in `ui/teaching/hub.py`, sidebar nav in `ui/teaching/nav.py`. Individual students also have a **nested hub** at `/teaching/students/{uid}` — 4 containers for Needs Review, Revision Requested, Completed, KU Progress, linking to `/teaching/students/{uid}/submissions?tab=...`.
+- **Teaching** (`/teaching`) — 3 containers: Students (`/teaching/students`), Groups (`/teaching/groups`), Review Queue (`/teaching/queue`). Hub view in `ui/teaching/hub.py`, sidebar nav in `ui/teaching/nav.py`. Individual students have a **nested hub** at `/teaching/students/{uid}` — 4 HTMX-loaded preview blocks (Needs Review, Revision Requested, Completed, KU Progress) showing actual submission/KU data inline, linking to `/teaching/students/{uid}/submissions?tab=...`. Preview endpoints: `/api/teaching/students/{uid}/{section}/preview`.
 
 **Components:** `HubContainerGrid` and `HubContainer` in `ui/patterns/hub.py` — bigger than `HubCard`, with more padding, full description, and arrow affordance.
 

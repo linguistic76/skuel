@@ -101,7 +101,7 @@ def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
     """Vertical stack of domain blocks."""
 ```
 
-Used by 3 hub pages (`/activities`, `/gradebook`, `/library`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards on page load. Teaching (`/teaching`) uses static `HubContainerGrid` instead.
+Used by hub pages (`/activities`, `/gradebook`, `/library`, `/teaching/students/{uid}`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards on page load. The Teaching root hub (`/teaching`) uses static `HubContainerGrid`; the nested student hub uses `HubDomainBlockList` with per-student preview endpoints.
 
 ### HubPreviewCard + HubPreviewGrid + HubPreviewEmpty
 
@@ -173,6 +173,7 @@ Each block loads 3 preview cards via HTMX from its `preview_url`. Preview endpoi
 - Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
 - Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`)
 - GradeBook: `/api/gradebook/{section}/preview` (4 sections, split across `submissions_ui.py`, `exercise_reports_ui.py`, `activity_reports_ui.py`)
+- Student hub: `/api/teaching/students/{uid}/{section}/preview` (4 sections: pending, revision, completed, ku — in `teaching_ui.py`)
 
 ## Usage: Graph-Driven Hub Page
 

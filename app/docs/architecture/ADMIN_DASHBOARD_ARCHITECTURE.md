@@ -42,7 +42,7 @@ The user management section (`/admin/users`) provides:
   - **Activity Domains** — Task/Goal/Habit/Event/Choice/Principle counts with active/completed breakdowns
   - **Learning Progress** — KU viewed/in-progress/mastered counts with link to `/teaching/students/{uid}` (student hub)
   - **Session Activity** — Login and session counts
-  - Links to `/teaching/students/{uid}` (student hub with container cards: Needs Review, Revision Requested, Completed, KU Progress)
+  - Links to `/teaching/students/{uid}` (student hub with HTMX preview blocks: Needs Review, Revision Requested, Completed, KU Progress)
   - Role management and account actions
 - **HTMX filtering** — Role and status dropdowns update the table without page reload
 - **Data source** — All stats queried via pure Cypher against Neo4j (not UserContext), following the same pattern as the Learning Dashboard
@@ -395,7 +395,7 @@ The dashboard uses HTMX for dynamic updates without full page reloads:
    └─ Session Activity section (2 stat cards)
 
 3. "Student Work" card links out to:
-   └─ /teaching/students/{uid}  (student hub: Needs Review, Revision Requested, Completed, KU Progress containers)
+   └─ /teaching/students/{uid}  (student hub: Needs Review, Revision Requested, Completed, KU Progress HTMX preview blocks)
 ```
 
 **Design decision: AdminStatsService vs UserContext**

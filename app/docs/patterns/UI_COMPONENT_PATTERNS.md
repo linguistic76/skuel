@@ -1077,7 +1077,7 @@ async def tasks_view_list(request) -> Any:
 **Reference Files:**
 - `/adapters/inbound/tasks_ui.py` - Reference pattern (Activity)
 - `/adapters/inbound/goals_ui.py` - Calendar-enabled variant
-- `/adapters/inbound/teaching_ui.py` - Hub page pattern: `/teaching` hub (BasePage) → child pages with teaching sidebar (`ui/teaching/nav.py`) + nested student hub at `/teaching/students/{uid}` (BasePage) → student submissions with Alpine section sidebar
+- `/adapters/inbound/teaching_ui.py` - Hub page pattern: `/teaching` hub (BasePage) → child pages with teaching sidebar (`ui/teaching/nav.py`) + nested student hub at `/teaching/students/{uid}` (BasePage, HTMX preview blocks) → student submissions with Alpine section sidebar
 - `/adapters/inbound/study_ui.py` - HTMX fragments with error banners
 - `/adapters/inbound/ku_ui.py` - Error state vs empty state
 - `/adapters/inbound/admin_dashboard_ui.py` - Per-section partial failure banners via `tuple[data, bool]` helpers
