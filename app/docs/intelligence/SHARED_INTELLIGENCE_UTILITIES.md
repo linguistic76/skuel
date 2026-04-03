@@ -131,7 +131,7 @@ async def assess_alignment_dual_track(
         user_evidence=evidence,              # Vision: "I always act with integrity"
         user_reflection=reflection,
         system_calculator=self._calculate_system_alignment,  # Action: measures actual behavior
-        level_scorer=self._alignment_level_to_score,         # AlignmentLevel → 0.0-1.0
+        level_scorer=self._alignment_level_to_score,         # delegates to AlignmentLevel.to_score()
         entity_type=EntityType.PRINCIPLE.value,
     )
 
@@ -155,7 +155,7 @@ result = DualTrackResult[AlignmentLevel](
     entity_type="principle",
     # VISION (what user says)
     user_level=AlignmentLevel.ALIGNED,
-    user_score=1.0,
+    user_score=0.85,  # AlignmentLevel.ALIGNED.to_score()
     user_evidence="I always act with integrity",
     user_reflection="This is my core value",
     # ACTION (what system measures)

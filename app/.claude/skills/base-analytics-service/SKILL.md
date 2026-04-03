@@ -250,7 +250,7 @@ async def assess_alignment_dual_track(
         user_evidence=evidence,
         user_reflection=reflection,
         system_calculator=self._calculate_system_alignment,
-        level_scorer=self._alignment_level_to_score,
+        level_scorer=self._alignment_level_to_score,  # delegates to AlignmentLevel.to_score()
         entity_type=EntityType.PRINCIPLE.value,
     )
 ```

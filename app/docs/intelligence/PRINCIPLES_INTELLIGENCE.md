@@ -595,19 +595,24 @@ DualTrackResult[AlignmentLevel](
 )
 ```
 
-**AlignmentLevel Enum:**
+**AlignmentLevel Enum (8-level spectrum):**
 ```python
-class AlignmentLevel(str, Enum):
-    ALIGNED = "aligned"                    # 0.85+
-    MOSTLY_ALIGNED = "mostly_aligned"      # 0.70-0.85
-    PARTIALLY_ALIGNED = "partially_aligned"  # 0.50-0.70
-    MISALIGNED = "misaligned"              # 0.30-0.50
-    UNKNOWN = "unknown"                    # <0.30
+class AlignmentLevel(StrEnum):
+    FLOURISHING = "flourishing"        # to_score() → 1.0,  from_score() ≥ 0.9
+    ALIGNED = "aligned"                # to_score() → 0.85, from_score() ≥ 0.75
+    MOSTLY_ALIGNED = "mostly_aligned"  # to_score() → 0.7,  from_score() ≥ 0.6
+    EXPLORING = "exploring"            # to_score() → 0.5,  from_score() ≥ 0.45
+    PARTIAL = "partial"                # to_score() → 0.35, from_score() ≥ 0.3
+    DRIFTING = "drifting"              # to_score() → 0.2,  from_score() ≥ 0.15
+    MISALIGNED = "misaligned"          # to_score() → 0.1,  from_score() ≥ 0.0
+    UNKNOWN = "unknown"                # to_score() → 0.0
 
     def to_score(self) -> float: ...
     @classmethod
     def from_score(cls, score: float) -> "AlignmentLevel": ...
 ```
+
+**Single source of truth:** Services delegate to `level.to_score()` and `AlignmentLevel.from_score(score)` — no custom mappings.
 
 **System Metrics Used:**
 - Goals aligned with the principle

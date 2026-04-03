@@ -176,7 +176,7 @@ async def assess_alignment_dual_track(
         user_evidence=user_evidence,
         user_reflection=user_reflection,
         system_calculator=self._calculate_system_alignment_for_dual_track,
-        level_scorer=self._alignment_level_to_score,
+        level_scorer=self._alignment_level_to_score,  # delegates to AlignmentLevel.to_score()
         entity_type="principle",
         insight_generator=self._generate_principle_gap_insights,
         recommendation_generator=self._generate_principle_gap_recommendations,

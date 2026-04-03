@@ -417,26 +417,18 @@ class PrinciplesIntelligenceService(BaseAnalyticsService[PrinciplesOperations, P
         # Calculate score
         score = min(1.0, (goal_count * 0.2) + (habit_count * 0.3))
 
-        # Determine level
-        if score >= 0.8:
-            level = AlignmentLevel.STRONG
-        elif score >= 0.5:
-            level = AlignmentLevel.MODERATE
-        elif score >= 0.2:
-            level = AlignmentLevel.EMERGING
-        else:
-            level = AlignmentLevel.MINIMAL
+        # Determine level from score using canonical enum method
+        level = AlignmentLevel.from_score(score)
 
         return level, score, evidence
 
-    def _alignment_level_to_score(self, level: AlignmentLevel) -> float:
-        """Convert alignment level enum to 0.0-1.0 score."""
-        return {
-            AlignmentLevel.STRONG: 0.9,
-            AlignmentLevel.MODERATE: 0.6,
-            AlignmentLevel.EMERGING: 0.3,
-            AlignmentLevel.MINIMAL: 0.1,
-        }.get(level, 0.5)
+    @staticmethod
+    def _alignment_level_to_score(level: AlignmentLevel) -> float:
+        """Convert alignment level enum to 0.0-1.0 score.
+
+        Delegates to AlignmentLevel.to_score() — the single source of truth.
+        """
+        return level.to_score()
 ```
 
 ---

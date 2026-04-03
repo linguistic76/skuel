@@ -493,14 +493,21 @@ The PrincipleReflection feature enables users to track how well their actions al
 
 ### AlignmentLevel Enum
 
+8-level spectrum with canonical scores via `AlignmentLevel.to_score()`:
+
 ```python
-class AlignmentLevel(str, Enum):
-    ALIGNED = "aligned"           # Fully lived this principle
-    MOSTLY_ALIGNED = "mostly_aligned"  # Minor deviations
-    PARTIAL = "partial"           # Some alignment, room for growth
-    MISALIGNED = "misaligned"     # Actions contradicted principle
-    UNKNOWN = "unknown"           # Unsure how to assess
+class AlignmentLevel(StrEnum):
+    FLOURISHING = "flourishing"        # 1.0 — Principle deeply embedded
+    ALIGNED = "aligned"                # 0.85 — Fully lived this principle
+    MOSTLY_ALIGNED = "mostly_aligned"  # 0.7 — Minor deviations
+    EXPLORING = "exploring"            # 0.5 — Actively working on it
+    PARTIAL = "partial"                # 0.35 — Some alignment, room for growth
+    DRIFTING = "drifting"              # 0.2 — Losing touch
+    MISALIGNED = "misaligned"          # 0.1 — Actions contradicted principle
+    UNKNOWN = "unknown"                # 0.0 — Unsure how to assess
 ```
+
+**Single source of truth:** Always use `level.to_score()` and `AlignmentLevel.from_score(score)` — never define custom mappings in services.
 
 ### Quality Scoring
 
