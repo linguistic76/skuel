@@ -37,7 +37,6 @@ def ProfileHubView(context: UserContext) -> Div:
     """Profile hub — Activity Domains + activity report request."""
     return Div(
         _activities_section(),
-        _request_activity_report_section(),
         _nous_section(),
         _settings_link(),
         _personal_header(context),
