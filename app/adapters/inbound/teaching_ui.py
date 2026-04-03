@@ -25,6 +25,7 @@ from fasthtml.common import (
     Input,
     Label,
     P,
+    Span,
 )
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
@@ -39,6 +40,7 @@ from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import (
     SidebarPage,
@@ -126,6 +128,41 @@ def create_teaching_ui_routes(
             exercise_title=d.get("exercise_title"),
             original_filename=d.get("original_filename"),
         )
+
+    # Status sets for bucketing submissions
+    _needs_review = {"submitted", "active", "queued", "processing"}
+    _revision_statuses = {"revision_requested"}
+    _completed_statuses = {"completed", "failed"}
+
+    async def _get_bucketed_submissions(
+        user_uid: str, student_uid: str
+    ) -> tuple[list[SubmissionRow], list[SubmissionRow], list[SubmissionRow], str]:
+        """Fetch and bucket student submissions into (pending, revision, completed, student_name)."""
+        result = await teacher_review_service.get_student_submissions(
+            teacher_uid=user_uid, student_uid=student_uid
+        )
+        pending: list[SubmissionRow] = []
+        revision: list[SubmissionRow] = []
+        completed: list[SubmissionRow] = []
+        student_name = student_uid
+
+        if not result.is_error and result.value:
+            for item in result.value:
+                raw_name = item.get("student_name")
+                if raw_name and student_name == student_uid:
+                    student_name = str(raw_name)
+                row = _to_submission_row(item)
+                status_str = (row.status or "").lower()
+                if status_str in _needs_review:
+                    pending.append(row)
+                elif status_str in _revision_statuses:
+                    revision.append(row)
+                elif status_str in _completed_statuses:
+                    completed.append(row)
+                else:
+                    pending.append(row)
+
+        return pending, revision, completed, student_name
 
     # ------------------------------------------------------------------
     # TEACHING HUB — root page
@@ -388,48 +425,25 @@ def create_teaching_ui_routes(
     async def teaching_student_hub_page(
         request: Request, uid: str, current_user: Any = None
     ) -> Any:
-        """Student hub — overview page with container cards for submission sections + KU progress."""
+        """Student hub — HTMX-loaded preview blocks for submissions + KU progress."""
         user_uid = require_authenticated_user(request)
 
+        # Resolve student display name from submissions
         result = await teacher_review_service.get_student_submissions(
             teacher_uid=user_uid, student_uid=uid
         )
-
         student_name = uid
-        pending_count = 0
-        revision_count = 0
-        completed_count = 0
-
         if not result.is_error and result.value:
-            _needs_review = {"submitted", "active", "queued", "processing"}
-            _revision = {"revision_requested"}
-            _completed = {"completed", "failed"}
-
             for item in result.value:
                 raw_name = item.get("student_name")
-                if raw_name and student_name == uid:
+                if raw_name:
                     student_name = str(raw_name)
-
-                status_str = (item.get("status") or "").lower()
-                if status_str in _needs_review:
-                    pending_count += 1
-                elif status_str in _revision:
-                    revision_count += 1
-                elif status_str in _completed:
-                    completed_count += 1
-                else:
-                    pending_count += 1  # unknown status → treat as pending
+                    break
 
         display_name = _display_student_name(student_name)
 
         return await BasePage(
-            content=StudentHub(
-                student_name=display_name,
-                student_uid=uid,
-                pending_count=pending_count,
-                revision_count=revision_count,
-                completed_count=completed_count,
-            ),
+            content=StudentHub(student_name=display_name, student_uid=uid),
             title=display_name,
             request=request,
             active_page="teaching",
@@ -452,51 +466,18 @@ def create_teaching_ui_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        result = await teacher_review_service.get_student_submissions(
-            teacher_uid=user_uid, student_uid=uid
+        pending, revision_requested, completed, student_name = await _get_bucketed_submissions(
+            user_uid, uid
         )
 
-        pending: list[Any] = []
-        revision_requested: list[Any] = []
-        completed: list[Any] = []
-        student_name = uid
-
-        if result.is_error:
-            section_content: Any = render_error_banner(
-                "Failed to load submissions", str(result.error)
-            )
-        else:
-            if result.value:
-                for item in result.value:
-                    raw_name = item.get("student_name")
-                    if raw_name:
-                        student_name = str(raw_name)
-                        break
-
-                _needs_review = {"submitted", "active", "queued", "processing"}
-                _revision = {"revision_requested"}
-                _completed = {"completed", "failed"}
-
-                for item in result.value:
-                    row = _to_submission_row(item)
-                    status_str = (row.status or "").lower()
-                    if status_str in _needs_review:
-                        pending.append(row)
-                    elif status_str in _revision:
-                        revision_requested.append(row)
-                    elif status_str in _completed:
-                        completed.append(row)
-                    else:
-                        pending.append(row)
-
-            ku_detail = await _fetch_ku_detail(admin_stats, uid)
-            section_content = render_student_detail_sections(
-                pending=pending,
-                revision_requested=revision_requested,
-                completed=completed,
-                student_name=student_name,
-                ku_detail=ku_detail,
-            )
+        ku_detail = await _fetch_ku_detail(admin_stats, uid)
+        section_content: Any = render_student_detail_sections(
+            pending=pending,
+            revision_requested=revision_requested,
+            completed=completed,
+            student_name=student_name,
+            ku_detail=ku_detail,
+        )
 
         # Determine default section from query param or submission state
         tab_param = request.query_params.get("tab")
@@ -717,6 +698,114 @@ def create_teaching_ui_routes(
 
         return RedirectResponse(url="/teaching/queue", status_code=301)
 
+    # ------------------------------------------------------------------
+    # STUDENT HUB PREVIEW ENDPOINTS (HTMX lazy-loaded)
+    # ------------------------------------------------------------------
+
+    def _submission_preview_badge(status: str) -> Span:
+        """Status badge for submission preview cards."""
+        label = status.replace("_", " ").title() if status else "Unknown"
+        return Span(label, cls="text-[10px] font-medium text-muted-foreground")
+
+    @rt("/api/teaching/students/{uid}/pending/preview")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def student_pending_preview(request: Request, uid: str, current_user: Any = None) -> Any:
+        """HTMX fragment: top 3 pending submissions for student hub preview."""
+        user_uid = require_authenticated_user(request)
+        pending, _, _, _ = await _get_bucketed_submissions(user_uid, uid)
+        if not pending:
+            return HubPreviewEmpty("submissions needing review")
+        cards = [
+            HubPreviewCard(
+                title=row.title or "Untitled",
+                href=f"/teaching/students/{uid}/submissions?tab=pending",
+                badge=_submission_preview_badge(row.status),
+            )
+            for row in pending[:3]
+        ]
+        return HubPreviewGrid(cards)
+
+    @rt("/api/teaching/students/{uid}/revision/preview")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def student_revision_preview(request: Request, uid: str, current_user: Any = None) -> Any:
+        """HTMX fragment: top 3 revision-requested submissions for student hub preview."""
+        user_uid = require_authenticated_user(request)
+        _, revision, _, _ = await _get_bucketed_submissions(user_uid, uid)
+        if not revision:
+            return HubPreviewEmpty("revision requests")
+        cards = [
+            HubPreviewCard(
+                title=row.title or "Untitled",
+                href=f"/teaching/students/{uid}/submissions?tab=revision",
+                badge=_submission_preview_badge(row.status),
+            )
+            for row in revision[:3]
+        ]
+        return HubPreviewGrid(cards)
+
+    @rt("/api/teaching/students/{uid}/completed/preview")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def student_completed_preview(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Any:
+        """HTMX fragment: top 3 completed submissions for student hub preview."""
+        user_uid = require_authenticated_user(request)
+        _, _, completed, _ = await _get_bucketed_submissions(user_uid, uid)
+        if not completed:
+            return HubPreviewEmpty("completed submissions")
+        cards = [
+            HubPreviewCard(
+                title=row.title or "Untitled",
+                href=f"/teaching/students/{uid}/submissions?tab=completed",
+                badge=_submission_preview_badge(row.status),
+            )
+            for row in completed[:3]
+        ]
+        return HubPreviewGrid(cards)
+
+    @rt("/api/teaching/students/{uid}/ku/preview")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def student_ku_preview(request: Request, uid: str, current_user: Any = None) -> Any:
+        """HTMX fragment: top 3 KU progress items for student hub preview."""
+        require_authenticated_user(request)
+        ku_detail = await _fetch_ku_detail(admin_stats, uid)
+        if not ku_detail:
+            return HubPreviewEmpty("KU progress")
+
+        # Collect KU items across learning states, prioritized
+        state_order = [
+            ("mastered", "Mastered"),
+            ("in_progress", "In Progress"),
+            ("bookmarked", "Bookmarked"),
+            ("viewed", "Viewed"),
+        ]
+        items: list[tuple[str, str]] = []
+        for key, label in state_order:
+            for ku in ku_detail.get(key, []):
+                title = ku.get("title") or ku.get("uid", "Unknown KU")
+                items.append((title, label))
+                if len(items) >= 3:
+                    break
+            if len(items) >= 3:
+                break
+
+        if not items:
+            return HubPreviewEmpty("KU progress")
+
+        cards = [
+            HubPreviewCard(
+                title=title,
+                href=f"/teaching/students/{uid}/submissions?tab=ku",
+                badge=Span(label, cls="text-[10px] font-medium text-muted-foreground"),
+            )
+            for title, label in items
+        ]
+        return HubPreviewGrid(cards)
+
+    # ------------------------------------------------------------------
+    # REDIRECTS (legacy URLs)
+    # ------------------------------------------------------------------
+
     @rt("/teaching/exercises/{uid}/submissions")
     async def teaching_exercises_submissions_redirect(request: Request, uid: str) -> Any:
         """301 redirect: /teaching/exercises/{uid}/submissions → /teaching/queue."""
@@ -736,9 +825,7 @@ def create_teaching_ui_routes(
         """301 redirect: /teaching/learning/user/{uid} → /teaching/students/{uid}/submissions?tab=ku."""
         from starlette.responses import RedirectResponse
 
-        return RedirectResponse(
-            url=f"/teaching/students/{uid}/submissions?tab=ku", status_code=301
-        )
+        return RedirectResponse(url=f"/teaching/students/{uid}/submissions?tab=ku", status_code=301)
 
     @rt("/teaching/reports/user/{uid}")
     async def teaching_reports_redirect(request: Request, uid: str) -> Any:
@@ -759,9 +846,7 @@ def create_teaching_ui_routes(
         """301 redirect: /admin/learning/user/{uid} → /teaching/students/{uid}/submissions?tab=ku."""
         from starlette.responses import RedirectResponse
 
-        return RedirectResponse(
-            url=f"/teaching/students/{uid}/submissions?tab=ku", status_code=301
-        )
+        return RedirectResponse(url=f"/teaching/students/{uid}/submissions?tab=ku", status_code=301)
 
     logger.info("Teaching UI routes registered")
     return []

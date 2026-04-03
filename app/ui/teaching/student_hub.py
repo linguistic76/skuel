@@ -1,53 +1,54 @@
 """Student hub page — teacher's view of an individual student.
 
-Hub page with no sidebar. Container cards link to submission sections
-and KU progress, each with counts as badges.
+Hub page with no sidebar. HTMX-loaded preview blocks show actual submission
+and KU progress data inline, matching the evolved hub pattern (Activities,
+GradeBook, Library).
 """
 
 from fasthtml.common import A, Div
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
-from ui.patterns.hub import HubCardData, HubContainerGrid
+from ui.patterns.hub import HubBlockData, HubDomainBlockList
 from ui.patterns.page_header import PageHeader
 
 
-def StudentHub(
-    student_name: str,
-    student_uid: str,
-    pending_count: int,
-    revision_count: int,
-    completed_count: int,
-) -> Div:
-    """Student hub — 4 container cards for submission workflow + KU progress."""
-    base = f"/teaching/students/{student_uid}/submissions"
+def StudentHub(student_name: str, student_uid: str) -> Div:
+    """Student hub — 4 domain blocks with HTMX-loaded previews."""
+    base_href = f"/teaching/students/{student_uid}/submissions"
+    base_api = f"/api/teaching/students/{student_uid}"
 
-    cards: list[HubCardData] = [
-        HubCardData(
-            icon="📥",
-            name="Needs Review",
-            href=f"{base}?tab=pending",
-            description="Submissions awaiting your review",
-            badge=pending_count or None,
+    blocks: list[HubBlockData] = [
+        HubBlockData(
+            label="Needs Review",
+            slug="pending",
+            icon="inbox",
+            color="#F59E0B",
+            href=f"{base_href}?tab=pending",
+            preview_url=f"{base_api}/pending/preview",
         ),
-        HubCardData(
-            icon="✏️",
-            name="Revision Requested",
-            href=f"{base}?tab=revision",
-            description="Submissions sent back for revision",
-            badge=revision_count or None,
+        HubBlockData(
+            label="Revision Requested",
+            slug="revision",
+            icon="edit-3",
+            color="#EF4444",
+            href=f"{base_href}?tab=revision",
+            preview_url=f"{base_api}/revision/preview",
         ),
-        HubCardData(
-            icon="✅",
-            name="Completed",
-            href=f"{base}?tab=completed",
-            description="Reviewed and completed submissions",
-            badge=completed_count or None,
+        HubBlockData(
+            label="Completed",
+            slug="completed",
+            icon="check-circle",
+            color="#10B981",
+            href=f"{base_href}?tab=completed",
+            preview_url=f"{base_api}/completed/preview",
         ),
-        HubCardData(
-            icon="📊",
-            name="KU Progress",
-            href=f"{base}?tab=ku",
-            description="Knowledge unit learning progress",
+        HubBlockData(
+            label="KU Progress",
+            slug="ku",
+            icon="bar-chart-2",
+            color="#8B5CF6",
+            href=f"{base_href}?tab=ku",
+            preview_url=f"{base_api}/ku/preview",
         ),
     ]
 
@@ -61,5 +62,5 @@ def StudentHub(
     return Div(
         back_link,
         PageHeader(student_name, subtitle="Student overview"),
-        HubContainerGrid(cards, cols=2),
+        HubDomainBlockList(blocks),
     )
