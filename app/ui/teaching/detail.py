@@ -279,7 +279,7 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
     delete_btn = Button(
         "Delete",
         size=Size.sm,
-        variant=ButtonT.destructive,
+        variant=ButtonT.error,
         cls="text-xs",
         **{
             "@click.stop": "",
