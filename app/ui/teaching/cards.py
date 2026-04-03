@@ -81,18 +81,26 @@ def render_student_summary_card(item: StudentSummary) -> Div:
     return CardGenerator.from_dataclass(
         {"title": item.student_name},
         display_fields=[],
-        title_href=f"/teaching/students/{item.student_uid}",
         subtitle=P(item.student_uid, cls="text-xs text-foreground/40 mb-0"),
         header_badges=[
             Badge(f"{item.pending_count} pending", variant=pending_variant),
             Badge(f"{item.reviewed_count}/{item.submission_count} reviewed", variant=BadgeT.ghost),
         ],
         show_labels=False,
-        actions=ButtonLink(
-            "KU Progress",
-            href=f"/teaching/students/{item.student_uid}?tab=ku",
-            variant=ButtonT.ghost,
-            size=Size.sm,
+        actions=Div(
+            ButtonLink(
+                "Exercises Submitted",
+                href=f"/teaching/students/{item.student_uid}?tab=pending",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+            ),
+            ButtonLink(
+                "KU Progress",
+                href=f"/teaching/students/{item.student_uid}?tab=ku",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+            ),
+            cls="flex gap-2",
         ),
         card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )
