@@ -36,12 +36,11 @@ from adapters.inbound.ku_ui import (
     _ku_learning_buttons,
 )
 from adapters.inbound.path_steps_ui import _start_step_button
-from core.models.ku.ku import Ku
-from core.models.pathways.path_step import PathStep
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
+from ui.explore.nav import render_explore_sidebar_page
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -50,7 +49,6 @@ from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.page_header import PageHeader
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
-from ui.patterns.sidebar import SidebarItem, SidebarLink, SidebarPage
 
 logger = get_logger("skuel.routes.explore")
 
@@ -470,11 +468,12 @@ def create_explore_ui_routes(
             grid,
         )
 
-        return await BasePage(
+        return await render_explore_sidebar_page(
             content=content,
-            title="Explore",
+            ku_service=ku_service,
+            ps_service=ps_service,
+            user_relationship_service=user_relationship_service,
             request=request,
-            active_page="explore",
         )
 
     # -----------------------------------------------------------------
@@ -568,33 +567,6 @@ def create_explore_ui_routes(
                 pins_result = await user_relationship_service.get_pinned_entities(user_uid)
                 if pins_result.is_ok and pins_result.value:
                     is_pinned = uid in set(pins_result.value)
-
-        # Sidebar — related Kus (same namespace) + more to explore
-        related_kus: list[Ku] = []
-        more_items: list[tuple[Any, str]] = []
-        if ku_service and getattr(ku_service, "core", None):
-            all_kus_result = await ku_service.core.list(limit=20)
-            if all_kus_result.is_ok and all_kus_result.value:
-                for k in all_kus_result.value:
-                    if k.uid == uid:
-                        continue
-                    if (
-                        getattr(ku, "namespace", None)
-                        and getattr(k, "namespace", None) == ku.namespace
-                        and len(related_kus) < 5
-                    ):
-                        related_kus.append(k)
-                    elif len(more_items) < 5:
-                        more_items.append((k, "ku"))
-
-        if ps_service and getattr(ps_service, "core", None) and len(more_items) < 5:
-            ps_result = await ps_service.core.list(limit=5)
-            if ps_result.is_ok and ps_result.value:
-                raw = ps_result.value if isinstance(ps_result.value, list) else ps_result.value[0]
-                for s in raw:
-                    if len(more_items) >= 5:
-                        break
-                    more_items.append((s, "ps"))
 
         # Render markdown with TOC
         content_html, toc_html = render_markdown_with_toc(content_body)
@@ -696,57 +668,14 @@ def create_explore_ui_routes(
         else:
             content = main_column
 
-        # Sidebar sections
-        sidebar_items: list[SidebarItem] = []
-        sidebar_extra: list[Any] = []
-        if related_kus:
-            sidebar_extra.append(
-                Li(
-                    P(
-                        "Related",
-                        cls="text-xs font-semibold uppercase text-muted-foreground px-4 pt-3 pb-1",
-                    ),
-                    Ul(
-                        *[
-                            SidebarLink(text=k.title, href=f"/explore/ku/{k.uid}")
-                            for k in related_kus
-                        ],
-                        cls="list-none p-0",
-                    ),
-                )
-            )
-        if more_items:
-            sidebar_extra.append(
-                Li(
-                    P(
-                        "More to Explore",
-                        cls="text-xs font-semibold uppercase text-muted-foreground px-4 pt-3 pb-1",
-                    ),
-                    Ul(
-                        *[
-                            SidebarLink(
-                                text=getattr(item, "title", item.uid),
-                                href=f"/explore/{'ku' if et == 'ku' else 'ps'}/{item.uid}",
-                            )
-                            for item, et in more_items
-                        ],
-                        cls="list-none p-0",
-                    ),
-                )
-            )
-
-        return await SidebarPage(
+        return await render_explore_sidebar_page(
             content=content,
-            items=sidebar_items,
-            active="",
-            title="Explore",
-            storage_key="explore-detail-sidebar",
-            extra_sidebar_sections=sidebar_extra or None,
-            page_title=ku.title,
+            ku_service=ku_service,
+            ps_service=ps_service,
+            user_relationship_service=user_relationship_service,
             request=request,
-            active_page="explore",
-            title_href="/explore",
-            default_collapsed=True,
+            page_title=ku.title,
+            current_uid=uid,
         )
 
     # -----------------------------------------------------------------
@@ -808,33 +737,6 @@ def create_explore_ui_routes(
             is_mastered = (
                 state_result.value.state.value == "mastered" if state_result.is_ok else False
             )
-
-        # Sidebar — related content for contextual navigation
-        sidebar_steps: list[PathStep] = []
-        if user_uid:
-            in_progress_result = await ps_service.mastery.get_in_progress_step_uids(user_uid)
-            if in_progress_result.is_ok and in_progress_result.value:
-                in_progress_uids = [u for u in in_progress_result.value if u != uid][:5]
-                if in_progress_uids:
-                    batch_result = await ps_service.get_steps_batch(in_progress_uids)
-                    if batch_result.is_ok and batch_result.value:
-                        sidebar_steps = list(batch_result.value)
-
-        more_items: list[tuple[Any, str]] = []
-        available_result = await ps_service.list_steps(limit=6)
-        if available_result.is_ok and available_result.value:
-            in_progress_uid_set = {s.uid for s in sidebar_steps} | {uid}
-            for s in available_result.value:
-                if s.uid not in in_progress_uid_set and len(more_items) < 3:
-                    more_items.append((s, "ps"))
-
-        if ku_service and getattr(ku_service, "core", None) and len(more_items) < 5:
-            ku_result = await ku_service.core.list(limit=5)
-            if ku_result.is_ok and ku_result.value:
-                for k in ku_result.value:
-                    if len(more_items) >= 5:
-                        break
-                    more_items.append((k, "ku"))
 
         # Render markdown with TOC
         content_html, toc_html = render_markdown_with_toc(content_body or "")
@@ -979,57 +881,14 @@ def create_explore_ui_routes(
         else:
             content = main_column
 
-        # Sidebar sections
-        ps_sidebar_items: list[SidebarItem] = []
-        ps_sidebar_extra: list[Any] = []
-        if sidebar_steps:
-            ps_sidebar_extra.append(
-                Li(
-                    P(
-                        "In Progress",
-                        cls="text-xs font-semibold uppercase text-muted-foreground px-4 pt-3 pb-1",
-                    ),
-                    Ul(
-                        *[
-                            SidebarLink(text=s.title, href=f"/explore/ps/{s.uid}")
-                            for s in sidebar_steps
-                        ],
-                        cls="list-none p-0",
-                    ),
-                )
-            )
-        if more_items:
-            ps_sidebar_extra.append(
-                Li(
-                    P(
-                        "More to Explore",
-                        cls="text-xs font-semibold uppercase text-muted-foreground px-4 pt-3 pb-1",
-                    ),
-                    Ul(
-                        *[
-                            SidebarLink(
-                                text=getattr(item, "title", item.uid),
-                                href=f"/explore/{'ku' if et == 'ku' else 'ps'}/{item.uid}",
-                            )
-                            for item, et in more_items
-                        ],
-                        cls="list-none p-0",
-                    ),
-                )
-            )
-
-        return await SidebarPage(
+        return await render_explore_sidebar_page(
             content=content,
-            items=ps_sidebar_items,
-            active="",
-            title="Explore",
-            storage_key="explore-detail-sidebar",
-            extra_sidebar_sections=ps_sidebar_extra or None,
-            page_title=step.title,
+            ku_service=ku_service,
+            ps_service=ps_service,
+            user_relationship_service=user_relationship_service,
             request=request,
-            active_page="explore",
-            title_href="/explore",
-            default_collapsed=True,
+            page_title=step.title,
+            current_uid=uid,
         )
 
     logger.info(
