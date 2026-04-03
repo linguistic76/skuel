@@ -1092,8 +1092,8 @@ When building a new SKUEL page or feature, verify:
 | `/ui/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
-| `/ui/profile/hub.py` | `ProfileHubView` — live actionable hub. Also exports `submissions_section()` (reused by `/submissions`) |
-| `/adapters/inbound/library_ui.py` | `/library` hub — 7 tabs + HTMX fragments: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/submissions`, `/library/resources`, `/library/ku` (PINNED only), `/library/path-steps` (IN_PROGRESS only) |
+| `/ui/profile/hub.py` | `ProfileHubView` — live actionable hub. Also exports `submissions_section()` (reused by `/submissions`; inline title + 5 tabs) |
+| `/adapters/inbound/library_ui.py` | `/library` hub — 5 tabs (inline title) + HTMX fragments: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/resources`, `/library/ku` (PINNED only), `/library/path-steps` (IN_PROGRESS only), `/reports/activity-list` |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, LS, LP profile views |
