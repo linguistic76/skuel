@@ -98,7 +98,6 @@ def render_report_item(fb: dict[str, Any]) -> Div:
     return _shared_render(fb)
 
 
-
 def render_review_panel_inline(
     uid: str, detail: dict[str, Any], history: list[dict[str, Any]]
 ) -> Div:
@@ -438,15 +437,24 @@ def student_detail_sidebar_items(
     """Build sidebar items for student detail sections."""
     return [
         SidebarItem(
-            "Needs Review", href="", slug="pending", icon="📥",
+            "Needs Review",
+            href="",
+            slug="pending",
+            icon="📥",
             badge_text=str(pending_count) if pending_count else "",
         ),
         SidebarItem(
-            "Revision Requested", href="", slug="revision", icon="✏️",
+            "Revision Requested",
+            href="",
+            slug="revision",
+            icon="✏️",
             badge_text=str(revision_count) if revision_count else "",
         ),
         SidebarItem(
-            "Completed", href="", slug="completed", icon="✅",
+            "Completed",
+            href="",
+            slug="completed",
+            icon="✅",
             badge_text=str(completed_count) if completed_count else "",
         ),
         SidebarItem("KU Progress", href="", slug="ku", icon="📊"),

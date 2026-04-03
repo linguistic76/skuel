@@ -46,14 +46,14 @@ class ReportMasteryService:
     ) -> Result[int]:
         """
         Calculates and explicitly propagates the mastery assessment back to ZPD.
-        
+
         Args:
             submission_uid: The submission to apply the score to explicitly.
             user_uid: The student who submitted the exercise.
             linked_ku_uids: The KUs related to the exercise.
             mastery_impact: The MasteryImpact setting from the exercise.
             method: Either "activity_report" (AI) or "ku_approval" (Teacher).
-            
+
         Returns:
             Count of successfully mastered KUs.
         """

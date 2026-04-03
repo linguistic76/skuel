@@ -236,12 +236,16 @@ class ExerciseReportService:
                 subject_uid=submission.uid,
             )
 
-            # Close the mastery loop: explicitly propagate mastery via the service 
+            # Close the mastery loop: explicitly propagate mastery via the service
             # if available, falling back to implicit logic if not.
             if self.report_mastery_service:
-                await self._propagate_mastery_via_service(submission, user_uid, exercise.mastery_impact)
+                await self._propagate_mastery_via_service(
+                    submission, user_uid, exercise.mastery_impact
+                )
             else:
-                await self._update_mastery_for_linked_ku(submission, user_uid, exercise.mastery_impact)
+                await self._update_mastery_for_linked_ku(
+                    submission, user_uid, exercise.mastery_impact
+                )
 
             return Result.ok(feedback_entity)
 
@@ -263,7 +267,7 @@ class ExerciseReportService:
         """Explicit propagation via the ReportMasteryService."""
         if not self.backend:
             return
-            
+
         query = f"""
         MATCH (submission:Entity {{uid: $submission_uid}})-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: 'ku'}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
@@ -272,17 +276,17 @@ class ExerciseReportService:
         result = await self.backend.execute_query(query, {"submission_uid": submission.uid})
         if result.is_error or not result.value:
             return
-            
+
         linked_uids = [record.get("ku_uid") for record in result.value if record.get("ku_uid")]
         student_uid = result.value[0].get("student_uid") if result.value else user_uid
-        
+
         if linked_uids:
             await self.report_mastery_service.propagate_mastery(
                 submission_uid=submission.uid,
                 user_uid=student_uid,
                 linked_ku_uids=linked_uids,
                 mastery_impact=mastery_impact,
-                method="activity_report"
+                method="activity_report",
             )
 
     async def _update_mastery_for_linked_ku(

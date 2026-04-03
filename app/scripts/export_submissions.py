@@ -91,7 +91,7 @@ async def main(teacher_uid: str, output_dir: Path) -> None:
     manifest_data = {
         "exported_at": datetime.now().isoformat(timespec="seconds"),
         "teacher_uid": teacher_uid,
-        "pending_uids": [item["ku_uid"] for item in items]
+        "pending_uids": [item["ku_uid"] for item in items],
     }
     manifest_path.write_text(json.dumps(manifest_data, indent=2), encoding="utf-8")
 

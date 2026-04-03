@@ -447,9 +447,7 @@ class _KnowledgeContextMixin:
     # RESOURCE CITATION QUERIES (migrated from ContextRetriever)
     # ========================================================================
 
-    async def get_exercises_for_path_step(
-        self, ps_uid: str
-    ) -> Result[list[Neo4jProperties]]:
+    async def get_exercises_for_path_step(self, ps_uid: str) -> Result[list[Neo4jProperties]]:
         """Get exercises linked to a PathStep via RELATED_TO.
 
         Returns basic exercise details (uid, title, scope, estimated_time_minutes)

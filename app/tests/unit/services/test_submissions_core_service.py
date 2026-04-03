@@ -662,7 +662,6 @@ class TestProcessExerciseSubmission:
         assert result.value == ProcessingOutcome.PROCESSED
 
 
-
 # ===========================================================================
 # D. Content Management
 # ===========================================================================

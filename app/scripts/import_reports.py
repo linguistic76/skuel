@@ -164,7 +164,9 @@ async def main(teacher_uid: str, done_dir: Path) -> None:
             if unimported_in_done or unimported_in_pending or unimported_other:
                 print("\n--- Pending-State Reconciliation ---")
             if unimported_in_done:
-                print("WARNING: The following files are in done/ but were NOT imported (check for errors):")
+                print(
+                    "WARNING: The following files are in done/ but were NOT imported (check for errors):"
+                )
                 for uid in unimported_in_done:
                     print(f"  - {uid}.md")
             if unimported_in_pending:
@@ -172,7 +174,9 @@ async def main(teacher_uid: str, done_dir: Path) -> None:
                 for uid in unimported_in_pending:
                     print(f"  - {uid}.md")
             if unimported_other:
-                print("Note: The following exported files are missing (not in imported, done, or pending):")
+                print(
+                    "Note: The following exported files are missing (not in imported, done, or pending):"
+                )
                 for uid in unimported_other:
                     print(f"  - {uid}.md")
         except Exception as e:

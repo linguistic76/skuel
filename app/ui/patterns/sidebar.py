@@ -197,6 +197,7 @@ def SidebarNav(
     default_collapsed: bool = False,
     title_prefix: "FT | None" = None,
     mobile_item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
+    title_icon: str = "",
 ) -> "FT":
     """Build sidebar navigation (desktop) + horizontal tabs (mobile).
 
@@ -229,7 +230,13 @@ def SidebarNav(
         ]
 
     title_el: Any
-    if title_href:
+    if title_icon:
+        icon_el = UkIcon(title_icon, height=24, width=24, cls="text-primary")
+        if title_href:
+            title_el = A(icon_el, href=title_href, aria_label=title)
+        else:
+            title_el = Div(icon_el, aria_label=title)
+    elif title_href:
         title_el = A(
             title,
             href=title_href,
@@ -344,6 +351,7 @@ async def SidebarPage(
     title_prefix: "FT | None" = None,
     mobile_item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     alpine_state: str = "",
+    title_icon: str = "",
 ) -> "FT":
     """Create a full page with collapsible sidebar navigation.
 
@@ -369,6 +377,7 @@ async def SidebarPage(
         default_collapsed=default_collapsed,
         title_prefix=title_prefix,
         mobile_item_renderer=mobile_item_renderer,
+        title_icon=title_icon,
     )
 
     collapsed_default = str(default_collapsed).lower()

@@ -71,9 +71,7 @@ def render_upload_form(
 
     # PathStep context — carry through from navigation so the Interaction
     # audit record captures the curriculum position deterministically.
-    from_ps_field: Any = (
-        Input(type="hidden", name="from_ps", value=from_ps) if from_ps else ""
-    )
+    from_ps_field: Any = Input(type="hidden", name="from_ps", value=from_ps) if from_ps else ""
 
     return Card(
         CardBody(

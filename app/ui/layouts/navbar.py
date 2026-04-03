@@ -406,10 +406,11 @@ def create_navbar(
     mobile_nav_items = list(nav_items)
     mobile_icon_links: list[Any] = []
     if is_admin:
-        for label, href, key in [("Admin", "/admin", "admin"), ("Teaching", "/teaching", "teaching")]:
-            mobile_icon_links.append(
-                _nav_link(NavItem(label, href, key), active_page, mobile=True)
-            )
+        for label, href, key in [
+            ("Admin", "/admin", "admin"),
+            ("Teaching", "/teaching", "teaching"),
+        ]:
+            mobile_icon_links.append(_nav_link(NavItem(label, href, key), active_page, mobile=True))
     else:
         if is_authenticated:
             # Activity domains only shown to authenticated users

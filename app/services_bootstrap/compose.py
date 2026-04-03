@@ -641,7 +641,10 @@ async def compose_services(
         logger.info("✅ Content enrichment service created")
 
         # Create report and exercise services
-        from adapters.persistence.neo4j.domain_backends import ExerciseBackend, ExerciseReportBackend
+        from adapters.persistence.neo4j.domain_backends import (
+            ExerciseBackend,
+            ExerciseReportBackend,
+        )
         from core.models.exercises.exercise import Exercise
         from core.models.report.exercise_report import ExerciseReport
         from core.services.exercises import ExerciseService

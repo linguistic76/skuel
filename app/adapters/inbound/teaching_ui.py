@@ -26,7 +26,7 @@ from fasthtml.common import (
     Label,
     P,
 )
-from monsterui.franken import UkIcon
+from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
@@ -78,17 +78,18 @@ logger = get_logger("skuel.routes.teaching.ui")
 # ============================================================================
 
 TEACHING_SIDEBAR_ITEMS = [
-    SidebarItem("Review Queue", "/teaching", "queue", icon="📥"),
     SidebarItem("Students", "/teaching/students", "students", icon="👥"),
+    SidebarItem("Review Queue", "/teaching/queue", "queue", icon="📥"),
     SidebarItem("Groups", "/teaching/groups", "groups", icon="👥"),
 ]
 
 _SIDEBAR_DEFAULTS = {
     "title": "Teaching",
-    "subtitle": "Manage student work",
+    "subtitle": "",
     "storage_key": "teaching-sidebar",
     "active_page": "teaching",
-    "title_href": "/teaching",
+    "title_href": "/teaching/students",
+    "title_icon": "graduation-cap",
 }
 
 
@@ -145,13 +146,25 @@ def create_teaching_ui_routes(
         )
 
     # ------------------------------------------------------------------
-    # REVIEW QUEUE (root page at /teaching)
+    # TEACHING ROOT — redirect to Students
     # ------------------------------------------------------------------
 
     @rt("/teaching")
     @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_root_redirect(request: Request, current_user: Any = None) -> Any:
+        """Redirect /teaching → /teaching/students (Students is the default page)."""
+        from starlette.responses import RedirectResponse
+
+        return RedirectResponse(url="/teaching/students", status_code=301)
+
+    # ------------------------------------------------------------------
+    # REVIEW QUEUE
+    # ------------------------------------------------------------------
+
+    @rt("/teaching/queue")
+    @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_queue_page(request: Request, current_user: Any = None) -> Any:
-        """Review queue — pending student submissions. This is the teaching root page."""
+        """Review queue — pending student submissions."""
         user_uid = require_authenticated_user(request)
 
         result = await teacher_review_service.get_review_queue(teacher_uid=user_uid)
@@ -327,7 +340,7 @@ def create_teaching_ui_routes(
             Div(
                 ButtonLink(
                     "Back to Queue",
-                    href="/teaching",
+                    href="/teaching/queue",
                     variant=ButtonT.ghost,
                     size=Size.sm,
                     cls="mt-4",
@@ -371,9 +384,7 @@ def create_teaching_ui_routes(
                         StudentSummary(
                             student_uid=item.get("student_uid", ""),
                             student_name=_display_student_name(
-                                item.get("student_name")
-                                or item.get("student_uid")
-                                or "Unknown"
+                                item.get("student_name") or item.get("student_uid") or "Unknown"
                             ),
                             submission_count=item.get("submission_count", 0),
                             reviewed_count=item.get("reviewed_count", 0),
@@ -656,47 +667,40 @@ def create_teaching_ui_routes(
     # TRANSITION REDIRECTS — added 2026-04-03
     # ------------------------------------------------------------------
 
-    @rt("/teaching/queue")
-    async def teaching_queue_redirect(request: Request) -> Any:
-        """301 redirect: /teaching/queue → /teaching (queue is now root)."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/teaching", status_code=301)
-
     @rt("/teaching/approved")
     async def teaching_approved_redirect(request: Request) -> Any:
-        """301 redirect: /teaching/approved → /teaching."""
+        """301 redirect: /teaching/approved → /teaching/queue."""
         from starlette.responses import RedirectResponse
 
-        return RedirectResponse(url="/teaching", status_code=301)
+        return RedirectResponse(url="/teaching/queue", status_code=301)
 
     @rt("/teaching/exercises")
     async def teaching_exercises_redirect(request: Request) -> Any:
-        """301 redirect: /teaching/exercises → /teaching."""
+        """301 redirect: /teaching/exercises → /teaching/queue."""
         from starlette.responses import RedirectResponse
 
-        return RedirectResponse(url="/teaching", status_code=301)
+        return RedirectResponse(url="/teaching/queue", status_code=301)
 
     @rt("/teaching/exercises/new")
     async def teaching_exercises_new_redirect(request: Request) -> Any:
-        """301 redirect: /teaching/exercises/new → /teaching."""
+        """301 redirect: /teaching/exercises/new → /teaching/queue."""
         from starlette.responses import RedirectResponse
 
-        return RedirectResponse(url="/teaching", status_code=301)
+        return RedirectResponse(url="/teaching/queue", status_code=301)
 
     @rt("/teaching/exercises/{uid}/edit")
     async def teaching_exercises_edit_redirect(request: Request, uid: str) -> Any:
-        """301 redirect: /teaching/exercises/{uid}/edit → /teaching."""
+        """301 redirect: /teaching/exercises/{uid}/edit → /teaching/queue."""
         from starlette.responses import RedirectResponse
 
-        return RedirectResponse(url="/teaching", status_code=301)
+        return RedirectResponse(url="/teaching/queue", status_code=301)
 
     @rt("/teaching/exercises/{uid}/submissions")
     async def teaching_exercises_submissions_redirect(request: Request, uid: str) -> Any:
-        """301 redirect: /teaching/exercises/{uid}/submissions → /teaching."""
+        """301 redirect: /teaching/exercises/{uid}/submissions → /teaching/queue."""
         from starlette.responses import RedirectResponse
 
-        return RedirectResponse(url="/teaching", status_code=301)
+        return RedirectResponse(url="/teaching/queue", status_code=301)
 
     @rt("/teaching/learning")
     async def teaching_learning_redirect(request: Request) -> Any:

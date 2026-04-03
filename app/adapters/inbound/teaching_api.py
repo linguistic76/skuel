@@ -155,9 +155,7 @@ def create_teaching_api_routes(
 
     @rt("/api/reports/{report_uid}/download", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
-    async def download_report_file(
-        request: Request, report_uid: str, current_user: Any
-    ) -> Any:
+    async def download_report_file(request: Request, report_uid: str, current_user: Any) -> Any:
         """Download the .md feedback file attached to an ExerciseReport."""
         path_result = await teacher_review_service.get_report_file_path(report_uid)
         if path_result.is_error or not path_result.value:
@@ -174,7 +172,9 @@ def create_teaching_api_routes(
         return FileResponse(
             str(file_path),
             media_type="text/markdown",
-            headers={"Content-Disposition": f'attachment; filename="feedback-{report_uid[:12]}.md"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="feedback-{report_uid[:12]}.md"'
+            },
         )
 
     @rt("/api/teaching/review/{uid}/approve", methods=["POST"])
@@ -263,7 +263,9 @@ def create_teaching_api_routes(
     @rt("/api/teaching/students", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def get_students(request: Request, current_user: Any = None) -> Result[list[StudentSummaryItem]]:
+    async def get_students(
+        request: Request, current_user: Any = None
+    ) -> Result[list[StudentSummaryItem]]:
         """Get students who shared work with the teacher."""
         return await teacher_review_service.get_students_summary(
             teacher_uid=current_user.uid,
@@ -284,7 +286,9 @@ def create_teaching_api_routes(
     @rt("/api/teaching/groups", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def get_groups(request: Request, current_user: Any = None) -> Result[list[TeacherGroupStats]]:
+    async def get_groups(
+        request: Request, current_user: Any = None
+    ) -> Result[list[TeacherGroupStats]]:
         """Get teacher's groups with member, exercise, and pending submission counts."""
         return await teacher_review_service.get_teacher_groups_with_stats(
             teacher_uid=current_user.uid,

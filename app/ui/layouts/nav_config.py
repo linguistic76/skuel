@@ -124,7 +124,6 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
 
 __all__ = [
     "ACTIVITY_DROPDOWN_ITEMS",
-
     "CURRICULUM_DROPDOWN_ITEMS",
     "DropdownItem",
     "ICON_NAV_ITEMS",

@@ -1497,7 +1497,6 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
             query, {"submission_uid": submission_uid, "exercise_uid": exercise_uid}
         )
 
-
     # ========================================================================
     # SUBMISSION RELATIONSHIPS
     # ========================================================================
@@ -1882,9 +1881,7 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         SET sub.score = $score
         RETURN sub.uid as uid, sub.score as score
         """
-        return await self.execute_query(
-            query, {"submission_uid": submission_uid, "score": score}
-        )
+        return await self.execute_query(query, {"submission_uid": submission_uid, "score": score})
 
     async def get_submission_detail_for_teacher(
         self, submission_uid: str, teacher_uid: str
@@ -3609,9 +3606,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
     - create_ai_report_node         — atomic create + OWNS + REPORT_FOR + submission update
     """
 
-    async def get_report_for_submission(
-        self, submission_uid: str
-    ) -> Result[list[Neo4jProperties]]:
+    async def get_report_for_submission(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
         """
         Find the ExerciseReport linked to a submission via REPORT_FOR.
 
@@ -3723,9 +3718,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
             {"teacher_uid": teacher_uid, "limit": limit},
         )
 
-    async def create_ai_report_node(
-        self, params: dict[str, str]
-    ) -> Result[list[Neo4jProperties]]:
+    async def create_ai_report_node(self, params: dict[str, str]) -> Result[list[Neo4jProperties]]:
         """
         Atomically create an AI-generated ExerciseReport entity in Neo4j.
 
