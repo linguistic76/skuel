@@ -277,6 +277,20 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
             cls="text-sm text-muted-foreground font-normal",
         )
 
+    delete_btn = Button(
+        "Delete",
+        size=Size.sm,
+        variant=ButtonT.destructive,
+        cls="text-xs",
+        **{
+            "@click.stop": "",
+            "hx-post": f"/api/teaching/submissions/{item.uid}/delete",
+            "hx-target": f"#row-{dom_id}",
+            "hx-swap": "outerHTML",
+            "hx-confirm": "Delete this submission? This cannot be undone.",
+        },
+    )
+
     header = Div(
         Div(
             Div(
@@ -286,6 +300,7 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
             ),
             Div(
                 *badges,
+                delete_btn,
                 Span(
                     "▸",
                     cls="text-muted-foreground ml-1 inline-block transition-transform duration-200",
@@ -317,6 +332,7 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
     return Div(
         header,
         panel,
+        id=f"row-{dom_id}",
         cls="mb-3",
         **{"x-data": "{ open: false }"},
     )

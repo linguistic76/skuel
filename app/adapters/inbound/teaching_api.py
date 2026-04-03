@@ -67,6 +67,7 @@ def create_teaching_api_routes(
     teacher_review_service: "TeacherReviewOperations",
     user_service: Any,
     exercises_service: Any,
+    submissions_service: Any = None,
 ) -> list[Any]:
     """
     Create teaching API routes.
@@ -76,6 +77,7 @@ def create_teaching_api_routes(
         rt: Route decorator
         teacher_review_service: TeacherReviewService instance
         user_service: UserService for role checks
+        submissions_service: SubmissionsService for deletion
     """
 
     get_user_service = make_service_getter(user_service)
@@ -299,6 +301,28 @@ def create_teaching_api_routes(
             group_uid=uid,
             teacher_uid=current_user.uid,
         )
+
+    @rt("/api/teaching/submissions/{uid}/delete", methods=["POST"])
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def delete_submission(request: Request, uid: str, current_user: Any = None) -> Any:
+        """Delete a student submission (teacher action).
+
+        Hard-deletes the Neo4j node and associated file from disk.
+        Returns an empty response so HTMX removes the row.
+        """
+        from fasthtml.common import Div, P
+
+        if not submissions_service:
+            return Div(P("Submission deletion not available.", cls="text-sm text-destructive"))
+
+        result = await submissions_service.delete_submission_with_file(uid)
+        if result.is_error:
+            return Div(
+                P(f"Failed to delete: {result.error}", cls="text-sm text-destructive"),
+            )
+
+        # Return empty string so hx-swap="outerHTML" removes the row
+        return ""
 
     logger.info("Teaching API routes registered")
     return []

@@ -26,6 +26,7 @@ TEACHING_CONFIG = DomainRouteConfig(
     api_related_services={
         "user_service": "user_service",
         "exercises_service": "exercises",
+        "submissions_service": "submissions",
     },
     ui_related_services={
         "user_service": "user_service",
