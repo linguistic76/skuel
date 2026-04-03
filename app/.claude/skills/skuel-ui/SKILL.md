@@ -1110,7 +1110,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/gradebook/nav.py` | GradeBook sidebar config (`GRADEBOOK_SIDEBAR_ITEMS`) + `render_gradebook_sidebar_page()` helper |
 | `/ui/library/nav.py` | Library sidebar config (`LIBRARY_SIDEBAR_ITEMS`) + `render_library_sidebar_page()` helper |
 | `/ui/activities/activity_hub.py` | `ActivityHubView` — 6 Activity Domain preview blocks (HTMX lazy-loaded from `/api/profile/{slug}/preview`) |
-| `/adapters/inbound/library_ui.py` | `/library` sidebar pages + dual-purpose routes: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/resources`, `/library/ku` (PINNED only), `/library/path-steps` (IN_PROGRESS only) |
+| `/adapters/inbound/library_ui.py` | `/library` sidebar pages + dual-purpose routes: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/resources`, `/library/ku` (PINNED only, fetched via `backend.get_many()` by pinned UIDs), `/library/path-steps` (IN_PROGRESS only, fetched via `backend.get_many()` by enrolled UIDs) |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, LS, LP profile views |

@@ -1,6 +1,6 @@
 ---
 title: "Design Principle: Hub Pages"
-updated: 2026-03-29
+updated: 2026-04-03
 status: current
 category: design-principles
 tags: [design, principles, ui, navigation, moc, hub]
@@ -27,32 +27,35 @@ SKUEL values standards-compliant, non-cutting-edge UI. Hub pages are the oldest 
 
 ## In Practice
 
-**Profile is THE main hub.** The old `/curriculum` and `/study` hubs are shelved — they redirect 301 to `/profile`.
+### Top-Level Navigation Structure
+
+The navbar provides four entry points, three of which are **sidebar hub pages**:
 
 | Page | Hub Pattern | What It Organizes |
 |------|-------------|-------------------|
-| `/profile` | Live actionable hub | Knowledge, Lessons, Exercises, Reports, Nous |
+| `/activities` | Sidebar hub | 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles) |
+| `/gradebook` | Sidebar hub | My Submissions, Submit, Exercise Reports, Activity Reports |
+| `/library` | Sidebar hub | Exercises, Resources, Ku (bookmarked), Path Steps (enrolled) |
+| `/profile` | Personal overview | Focus/Velocity, link to `/activities`, Nous, Settings |
 
-### Profile as THE Hub
+### Sidebar Hub Pages
 
-Profile is the top-level entry point for the user's world. It is a **live actionable hub** — not a card grid. Each section surfaces real items from `UserContext.build_rich()`:
+Three major sections use `SidebarPage` with a persistent sidebar for within-section navigation:
 
-- **Knowledge** — Bookmarked + recently viewed Kus with mastery %, namespace badges. Links to `/ku`
-- **Lessons** — Lessons the user is actively studying (via IN_PROGRESS relationship). Links to `/lessons`
-- **Exercises** — Assigned exercises with inline **Submit** buttons + pending revisions. Links to `/exercises`
-- **Reports** — HTMX lazy-loaded summaries of recent Exercise Reports and Activity Reports. Links to `/exercise-reports` and `/activity-reports`
-- **Nous** — Community knowledge feed (placeholder for future development)
+- **Activity** (`/activities`) — 6 Activity Domain preview blocks, HTMX lazy-loaded. Sidebar shared across `/activities`, `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`.
+- **GradeBook** (`/gradebook`) — Sidebar items: My Submissions, Submit, Exercise Reports, Activity Reports. Nav in `ui/gradebook/nav.py`.
+- **Library** (`/library`) — Sidebar items: Exercises, Resources, Ku, Path Steps. Nav in `ui/library/nav.py`.
 
-### Domain Hub Pages
+### Library Data Pattern
 
-The pages that Profile links to are rich functional hubs:
+Library tabs show **user-specific filtered content**, not full listings:
 
-- **KU hub** — ORGANIZES-driven knowledge navigation with bookmarks
-- **Lessons hub** — enrolled lessons, available lessons, enrolled LPs/LSs
-- **Submissions** — on `/profile` (tabbed: My Submissions, Submit, Request Report) + `/submissions` full list
-- **Reports hubs** — `/exercise-reports` and `/activity-reports` with filtering
+- **Ku tab** (`/library/ku`) — Only the user's bookmarked (PINNED) Ku, fetched via `backend.get_many()` with pinned UIDs from `UserRelationshipService.get_pinned_entities()`.
+- **Path Steps tab** (`/library/path-steps`) — Only enrolled (IN_PROGRESS) steps, fetched via `backend.get_many()` with enrolled UIDs from `PsMasteryService.get_in_progress_step_uids()`.
+- **Exercises tab** (`/library/exercises`) — Exercises from two sources merged by `ExerciseService.get_student_exercises_with_status()`: assigned (via group) + personal (linked to IN_PROGRESS PathSteps).
+- **Resources tab** (`/library/resources`) — All `Resource` entities (admin-curated, shared).
 
-Each is more than a card grid — they have real capabilities (forms, entity lists, actions).
+**Key principle:** Fetch only what the user needs by UID, not all entities with arbitrary limits.
 
 ## Relationship to MOC
 
