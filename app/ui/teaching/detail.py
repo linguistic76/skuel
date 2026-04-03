@@ -307,49 +307,69 @@ def render_review_panel_inline(
 
 def render_student_submission_inline_row(item: SubmissionRow) -> Div:
     """
-    Submission row with inline HTMX-loadable review panel.
+    Submission row with clickable accordion header and HTMX-loaded review panel.
 
-    Clicking "Review" lazy-loads the panel via HTMX into the panel div below
-    the card. Pure HTMX — no Alpine required for the expand.
+    Clicking the header lazy-loads the panel via HTMX on first click,
+    then toggles visibility on subsequent clicks. No "Review" button —
+    the student detail page is already the review context.
     """
     title = item.title or item.original_filename or "Untitled"
-    status_str = (item.status or "").lower()
-    is_actionable = status_str in _NEEDS_REVIEW_STATUSES
-
-    feedback_badge: Any = None
-    if item.feedback_count > 0:
-        feedback_badge = Badge(f"{item.feedback_count} feedback", variant=BadgeT.info, size=Size.sm)
-
     dom_id = item.uid.replace(":", "-").replace(".", "-")
 
-    exercise_subtitle: Any = None
+    badges: list[Any] = []
+    if item.feedback_count > 0:
+        badges.append(Badge(f"{item.feedback_count} feedback", variant=BadgeT.info, size=Size.sm))
+    badges.append(status_badge(item.status))
+
+    exercise_label: Any = ""
     if item.exercise_title:
-        exercise_subtitle = Span(
-            f"Exercise: {item.exercise_title}", cls="text-xs text-muted-foreground"
+        exercise_label = Span(
+            f" · {item.exercise_title}",
+            cls="text-sm text-muted-foreground font-normal",
         )
 
-    review_btn_label = "Review" if is_actionable else "View"
+    header = Div(
+        Div(
+            Div(
+                H4(title, cls="font-semibold mb-0"),
+                exercise_label,
+                cls="flex items-baseline gap-1 flex-1 min-w-0",
+            ),
+            Div(
+                *badges,
+                Span(
+                    "▸",
+                    cls="text-muted-foreground ml-1 inline-block transition-transform duration-200",
+                    **{":class": "open && 'rotate-90'"},
+                ),
+                cls="flex gap-2 items-center flex-shrink-0",
+            ),
+            cls="flex items-center justify-between gap-4",
+        ),
+        cls="px-4 py-3 bg-background border border-border rounded cursor-pointer hover:bg-muted/50 transition-colors select-none",
+        **{
+            "@click": "open = !open",
+            "hx-get": f"/api/teaching/review/{item.uid}/panel",
+            "hx-target": f"#panel-{dom_id}",
+            "hx-swap": "innerHTML",
+            "hx-trigger": "click once",
+        },
+    )
+
+    panel = Div(
+        Div(
+            Span("Loading…", cls="text-sm text-muted-foreground"),
+            cls="py-4",
+        ),
+        id=f"panel-{dom_id}",
+        **{"x-show": "open"},
+    )
 
     return Div(
-        CardGenerator.from_dataclass(
-            {"title": title},
-            display_fields=[],
-            subtitle=exercise_subtitle,
-            header_badges=[feedback_badge, status_badge(item.status)],
-            show_labels=False,
-            actions=Button(
-                review_btn_label,
-                variant=ButtonT.primary if is_actionable else ButtonT.ghost,
-                size=Size.sm,
-                type="button",
-                hx_get=f"/api/teaching/review/{item.uid}/panel",
-                hx_target=f"#panel-{dom_id}",
-                hx_swap="innerHTML",
-            ),
-            card_attrs={"cls": "bg-background shadow-sm mb-0"},
-        ),
-        Div(id=f"panel-{dom_id}"),
+        header,
+        panel,
         cls="mb-3",
+        **{"x-data": "{ open: false }"},
     )
 
 
