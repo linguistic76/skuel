@@ -2,14 +2,12 @@
 Library UI Route — /library
 ============================
 
-Unified learning hub with seven tabs:
+Unified learning hub with five tabs:
 
 - Exercises       — Exercises assigned via group membership, with submission/feedback status
-- Submissions     — User's exercise submissions with status badges
 - Resources       — Admin-curated content (books, talks, films, podcasts)
 - Ku              — All atomic knowledge units (links to /ku/{uid})
 - Path Steps      — All curriculum path steps (links to /path-steps/{uid}/details)
-- Exercise Reports — Teacher/AI feedback (reuses /reports/list fragment)
 - Activity Reports — Activity domain analysis (reuses /reports/activity-list fragment)
 
 HTMX fragment endpoints:
@@ -27,7 +25,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 
 from typing import Any
 
-from fasthtml.common import A, Div, P, Span
+from fasthtml.common import A, Div, H1, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator, RouteList
@@ -37,7 +35,7 @@ from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.page_header import PageHeader
+
 
 logger = get_logger("skuel.routes.library")
 
@@ -354,28 +352,27 @@ def _tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
 
 
 def _library_tabs() -> Div:
-    """Seven-tab library component."""
+    """Five-tab library component with inline title."""
     return Div(
         Div(
-            _tab_button("Exercises", "exercises"),
-            _tab_button("Submissions", "submissions"),
-            _tab_button("Resources", "resources"),
-            _tab_button("Ku", "ku"),
-            _tab_button("Path Steps", "path-steps"),
-            _tab_button("Exercise Reports", "exercise-reports"),
-            _tab_button("Activity Reports", "activity-reports"),
-            role="tablist",
-            cls="flex gap-1 border-b border-border mb-3",
+            H1("Library", cls="text-lg font-bold text-foreground whitespace-nowrap"),
+            Div(
+                _tab_button("Exercises", "exercises"),
+                _tab_button("Resources", "resources"),
+                _tab_button("Ku", "ku"),
+                _tab_button("Path Steps", "path-steps"),
+                _tab_button("Activity Reports", "activity-reports"),
+                role="tablist",
+                cls="flex gap-1 border-b border-border",
+            ),
+            cls="flex items-end gap-6 mb-3",
         ),
         _tab_panel("exercises", "/library/exercises", default=True),
-        _tab_panel("submissions", "/library/submissions"),
         _tab_panel("resources", "/library/resources"),
         _tab_panel("ku", "/library/ku"),
         _tab_panel("path-steps", "/library/path-steps"),
-        _tab_panel("exercise-reports", "/reports/list"),
         _tab_panel("activity-reports", "/reports/activity-list"),
         **{"x-data": "{ activeTab: 'exercises' }"},
-        cls="mt-3",
     )
 
 
@@ -415,16 +412,12 @@ def create_library_ui_routes(
 
     @rt("/library")
     async def library_page(request: Request) -> Any:
-        """Library hub: Exercises | Resources | Exercise Reports | Activity Reports.
+        """Library hub: Exercises | Resources | Ku | Path Steps | Activity Reports.
 
         Public: shared curriculum content (Resources) is readable without authentication.
         Exercises tab requires authentication (user-specific group membership data).
         """
         content = Div(
-            PageHeader(
-                "Library",
-                subtitle="Your exercises, curated resources, and learning reports",
-            ),
             _library_tabs(),
         )
         return await BasePage(

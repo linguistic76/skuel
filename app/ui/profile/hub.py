@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fasthtml.common import A, Div, P, Span
+from fasthtml.common import A, Div, H1, P, Span
 from monsterui.franken import UkIcon
 
 from core.services.user.unified_user_context import UserContext
@@ -416,11 +416,8 @@ def _sub_tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
 def submissions_section() -> Div:
     """Submissions section with Alpine.js tabs: My Submissions | Submit | Request Report | Exercise Reports | Activity Reports."""
     return Div(
-        Span(
-            "Submissions",
-            cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground",
-        ),
         Div(
+            H1("Submissions", cls="text-lg font-bold text-foreground whitespace-nowrap"),
             Div(
                 _sub_tab_button("My Submissions", "list"),
                 _sub_tab_button("Submit", "submit"),
@@ -428,17 +425,16 @@ def submissions_section() -> Div:
                 _sub_tab_button("Exercise Reports", "exercise-reports"),
                 _sub_tab_button("Activity Reports", "activity-reports"),
                 role="tablist",
-                cls="flex gap-1 border-b border-border mb-3",
+                cls="flex gap-1 border-b border-border",
             ),
-            _sub_tab_panel("list", "/submissions/list", default=True),
-            _sub_tab_panel("submit", "/api/profile/submissions/submit-form"),
-            _sub_tab_panel("report", "/api/profile/submissions/report-form"),
-            _sub_tab_panel("exercise-reports", "/reports/list"),
-            _sub_tab_panel("activity-reports", "/reports/activity-list"),
-            **{"x-data": "{ subTab: 'list' }"},
-            cls="mt-3",
+            cls="flex items-end gap-6 mb-3",
         ),
-        cls="mb-6",
+        _sub_tab_panel("list", "/submissions/list", default=True),
+        _sub_tab_panel("submit", "/api/profile/submissions/submit-form"),
+        _sub_tab_panel("report", "/api/profile/submissions/report-form"),
+        _sub_tab_panel("exercise-reports", "/reports/list"),
+        _sub_tab_panel("activity-reports", "/reports/activity-list"),
+        **{"x-data": "{ subTab: 'list' }"},
     )
 
 

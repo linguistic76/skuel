@@ -181,10 +181,6 @@ def create_submissions_ui_routes(
         """Submissions hub: tabbed My Submissions | Submit | Request Report."""
         require_authenticated_user(request)
         content = Div(
-            PageHeader(
-                "Submissions",
-                subtitle="Your submitted work, upload new work, or request a report",
-            ),
             submissions_section(),
         )
         return await BasePage(
