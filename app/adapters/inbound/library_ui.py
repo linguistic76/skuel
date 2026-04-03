@@ -352,7 +352,7 @@ def _tab_panel(tab_id: str, hx_get: str, default: bool = False) -> Div:
 
 
 def _library_tabs() -> Div:
-    """Five-tab library component with inline title."""
+    """Four-tab library component with inline title."""
     return Div(
         Div(
             H1("Library", cls="text-lg font-bold text-foreground whitespace-nowrap"),
@@ -361,7 +361,6 @@ def _library_tabs() -> Div:
                 _tab_button("Resources", "resources"),
                 _tab_button("Ku", "ku"),
                 _tab_button("Path Steps", "path-steps"),
-                _tab_button("Activity Reports", "activity-reports"),
                 role="tablist",
                 cls="flex gap-1 border-b border-border",
             ),
@@ -371,7 +370,6 @@ def _library_tabs() -> Div:
         _tab_panel("resources", "/library/resources"),
         _tab_panel("ku", "/library/ku"),
         _tab_panel("path-steps", "/library/path-steps"),
-        _tab_panel("activity-reports", "/reports/activity-list"),
         **{"x-data": "{ activeTab: 'exercises' }"},
     )
 
