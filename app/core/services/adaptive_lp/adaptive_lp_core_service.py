@@ -84,7 +84,7 @@ class AdaptiveLpCoreService:
 
     async def _detect_learning_style(self, user_uid: UserUID) -> str:
         """
-        TODO: Detect user's learning style from behavior patterns.
+        TODO(deferred): Detect user's learning style from behavior patterns.
 
         Returns:
             str: Learning style identifier (default: 'balanced')

@@ -162,15 +162,13 @@ def DropdownContent(
     return Ul(*c, tabindex=tabindex, cls=" ".join(classes), **kwargs)
 
 
-def Tabs(*c: Any, cls: str = "", boxed: bool = False, lifted: bool = False, **kwargs: Any) -> Any:
+def Tabs(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """
     Tabs wrapper using MonsterUI TabContainer.
 
     Args:
         *c: Tab items
         cls: Additional CSS classes
-        boxed: If True, uses boxed style (kept for API compat)
-        lifted: If True, uses lifted style (kept for API compat)
         **kwargs: Additional HTML attributes
     """
     return MTabContainer(*c, cls=cls or None, **kwargs)

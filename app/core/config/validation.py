@@ -197,7 +197,7 @@ def validate_knowledge_config(_config: KnowledgeConfig) -> list[str]:
     Returns:
         List of validation errors (empty until validation rules are implemented)
 
-    TODO: Add validation when embedding_model and embedding_dimension fields are added to KnowledgeConfig
+    TODO(deferred): Add validation when embedding_model and embedding_dimension fields are added to KnowledgeConfig
     """
     # For now, knowledge config has no fields that need validation
     # (domains, mastery_levels, and boolean flags are valid by default)

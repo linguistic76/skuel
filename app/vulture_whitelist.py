@@ -32,9 +32,5 @@ related_services  # noqa: F821, B018
 # Intentional: mutable dict passed by reference, modified by get_engine()
 engines  # noqa: F821, B018
 
-# Intentional: kept for API compatibility (navigation.py)
-boxed  # noqa: F821, B018
-lifted  # noqa: F821, B018
-
 # Intentional: Alpine.js expanded state placeholder (tree_view.py)
 is_expanded  # noqa: F821, B018
