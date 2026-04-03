@@ -57,12 +57,13 @@ async def complete_task(self, uid: str) -> Result[Task]:
 
 ## Read-Focused UI Pattern
 
-Activity Domains use a read-focused UI — no CRUD forms, data enters via `/upload`. Active domains (Tasks, Goals) follow this structure:
+Activity Domains use a read-focused UI — no CRUD forms, data enters via `/upload`. All 6 domains share a collapsible Activity sidebar (`render_activity_sidebar_page()` from `ui/activities/nav.py`). Hub at `/activities` shows all 6 as preview blocks.
 
 ```
-/domain                    # Main page — stats, filters, list
+/activities                # Hub — 6 domain preview blocks (HTMX lazy-loaded)
+/domain                    # Main page — stats, filters, list (with Activity sidebar)
 /domain/list-fragment      # HTMX fragment for filter updates
-/domain/detail?uid=...     # Detail page with EntityRelationshipsSection
+/domain/detail?uid=...     # Detail page with EntityRelationshipsSection (with Activity sidebar)
 
 /api/{domain}/{uid}/status # HTMX status toggle (POST)
 ```

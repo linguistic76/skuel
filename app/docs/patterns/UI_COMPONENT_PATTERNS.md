@@ -88,7 +88,9 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-03-29):** `/profile` evolved from card grid to **live actionable hub**. Data sourced from `UserContext.build_rich()`. See `ui/profile/hub.py`.
 
-**Evolution (2026-04-03):** `/profile` Activity Domains changed from Alpine.js tabbed view (one domain visible at a time) to all 6 domains visible as scrollable blocks. Each block has a colored domain header (icon + clickable title + "View all" link) and 3 priority-sorted cards HTMX lazy-loaded from `/api/profile/{slug}/preview`.
+**Evolution (2026-04-03a):** `/profile` Activity Domains changed from Alpine.js tabbed view (one domain visible at a time) to all 6 domains visible as scrollable blocks. Each block has a colored domain header (icon + clickable title + "View all" link) and 3 priority-sorted cards HTMX lazy-loaded from `/api/profile/{slug}/preview`.
+
+**Evolution (2026-04-03b):** Activity Domains extracted from `/profile` into dedicated `/activities` hub with `SidebarPage` sidebar. The old horizontal `ActivityDomainNav` band replaced by collapsible Activity sidebar shared across `/activities`, `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`. Avatar dropdown simplified to Profile + Sign out. Activity icon added to navbar `ICON_NAV_ITEMS`. `/profile` retains Focus/Velocity, link to `/activities`, Nous placeholder, and Settings.
 
 **Evolution (2026-03-30):** Tasks and Goals have active read-focused UI views at `/tasks` and `/goals` with HTMX interactions, filtering, and knowledge connections. Tasks icon (check-square) added to navbar between Knowledge and Submissions. Habits, Events, Choices, and Principles read-focused UIs are planned. Navbar order: SKUEL logo → ⚛️ (Knowledge) → Tasks → ⇄ (Submissions) → avatar → logout.
 

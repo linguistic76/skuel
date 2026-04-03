@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-03-29
+updated: 2026-04-03
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
@@ -16,7 +16,9 @@ This document covers *how to build one*.
 
 ## Architecture
 
-**Profile is THE main hub** (`/profile`). It is a **live actionable hub** — not a card grid. It surfaces the user's active learning state (Kus, lessons, exercises with Submit buttons, report summaries) directly on the page, sourced from `UserContext.build_rich()`. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
+**Profile is the personal overview hub** (`/profile`). It shows Focus/Velocity indicators, a link card to `/activities`, the Nous community feed placeholder, and Settings. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
+
+**Activity Domains hub** (`/activities`) shows all 6 Activity Domains as scrollable blocks with HTMX lazy-loaded card previews. Uses `SidebarPage` with a shared Activity sidebar (also present on `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`).
 
 **Domain hub pages** are rich functional pages that Profile links to:
 
@@ -29,7 +31,7 @@ This document covers *how to build one*.
 | `/exercise-reports` | Teacher and AI feedback on submissions | Active |
 | `/activity-reports` | Activity progress reports | Active |
 
-Domain hubs are NOT simple card grids — they have real capabilities (forms, entity lists, actions). `/profile` shows all 6 Activity Domains as scrollable blocks with HTMX lazy-loaded card previews.
+Domain hubs are NOT simple card grids — they have real capabilities (forms, entity lists, actions).
 
 ## Shared Components
 
@@ -88,21 +90,31 @@ def hub_cards_from_root_organizers(
 
 Convert ORGANIZES query results into `HubCardData` for rendering. `RootOrganizerResult.child_count` maps to badge.
 
-## Usage: Profile Hub (Live Actionable)
+## Usage: Profile Hub (Personal Overview)
 
-Profile renders live content sections from `UserContext`, not card grids:
+Profile renders personal state from `UserContext`:
 
 ```python
 def ProfileHubView(context: UserContext) -> Div:
     return Div(
-        _activities_section(),              # All 6 Activity Domain blocks (HTMX lazy-loaded)
+        _personal_header(context),          # Focus + Velocity indicators
+        _activity_link(),                   # Link card to /activities
         _nous_section(),                    # Community feed (placeholder)
         _settings_link(),
-        _personal_header(context),          # Focus + Velocity indicators
     )
 ```
 
-**Activity Domain blocks:** Each of the 6 domains (Tasks, Goals, Habits, Events, Choices, Principles) renders as a visible block with colored header (clickable title + "View all" link) and 3 priority-sorted cards loaded via HTMX from `/api/profile/{slug}/preview`.
+## Usage: Activity Domains Hub
+
+`/activities` shows all 6 Activity Domains as scrollable blocks with `SidebarPage`:
+
+```python
+def ActivityHubView() -> Div:
+    # 6 domain blocks, each with colored header + 3 HTMX-loaded cards
+    return Div(*[_activity_domain_block(...) for ... in _ACTIVITY_TABS])
+```
+
+**Activity Domain blocks:** Each of the 6 domains renders as a visible block with colored header (clickable title + "View all" link) and 3 priority-sorted cards loaded via HTMX from `/api/profile/{slug}/preview`.
 
 ## Usage: Graph-Driven Hub Page
 
@@ -128,6 +140,9 @@ section = HubSection("Contents", cards)
 | Shared components | `ui/patterns/hub.py` |
 | Profile hub | `ui/profile/hub.py` |
 | Profile routes | `adapters/inbound/user_profile_ui.py` |
+| Activity hub view | `ui/activities/activity_hub.py` |
+| Activity hub route | `adapters/inbound/activity_hub_routes.py` |
+| Activity sidebar | `ui/activities/nav.py` |
 | Design rationale | `docs/design-principles/HUB_PAGES.md` |
 | Base page wrapper | `ui/layouts/base_page.py` |
 
