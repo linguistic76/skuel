@@ -51,8 +51,8 @@ if TYPE_CHECKING:
         SubmissionsBackend,
     )
     from core.ports.infrastructure_protocols import EventBusOperations
-    from core.services.report.report_mastery_service import ReportMasteryService
     from core.services.ps.ps_mastery_service import PsMasteryService
+    from core.services.report.report_mastery_service import ReportMasteryService
 
 logger = get_logger("skuel.services.teacher_review")
 

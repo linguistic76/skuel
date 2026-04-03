@@ -95,7 +95,7 @@ def _render_step_browser_card(step: Any) -> Any:
         step,
         display_fields=["description", "difficulty_rating", "estimated_hours", "sequence"],
         show_labels=False,
-        title_href=f"/path-steps/{step.uid}/details",
+        title_href=f"/explore/ps/{step.uid}",
         field_renderers={
             "description": render_description,
             "difficulty_rating": render_difficulty,

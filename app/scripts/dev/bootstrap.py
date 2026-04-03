@@ -495,6 +495,11 @@ async def _wire_all_routes(
     # NO guards needed — register_domain_routes returns [] if service is None.
     # ========================================================================
 
+    # -- Explore (merged Ku + PathStep discovery) --
+    from adapters.inbound.explore_routes import create_explore_routes
+
+    create_explore_routes(app, rt, services, None)
+
     # -- Curriculum --
     from adapters.inbound.ku_routes import create_ku_routes
 

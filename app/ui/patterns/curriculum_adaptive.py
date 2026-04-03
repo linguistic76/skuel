@@ -93,7 +93,7 @@ def AdaptiveKUCard(ku: CurriculumEntity, prerequisites_met: bool = True) -> Any:
         metadata=metadata,
         actions=ButtonLink(
             "Start Learning →",
-            href=f"/ku/{ku.uid}",
+            href=f"/explore/ku/{ku.uid}",
             variant=ButtonT.primary,
             cls="w-full",
         ),

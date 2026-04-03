@@ -929,7 +929,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                     ),
                     cls="bg-muted shadow-sm hover:shadow-md transition-shadow",
                 ),
-                href=f"/ku/{ku['uid']}",
+                href=f"/explore/ku/{ku['uid']}",
             )
 
         ku_content = (

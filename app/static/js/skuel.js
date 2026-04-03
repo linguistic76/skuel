@@ -2373,6 +2373,35 @@
             };
         });
 
+        Alpine.data('exploreSearch', function() {
+            return {
+                query: '',
+                activeTag: '',
+
+                init: function() {
+                    // reactive state — query tracked via x-model, activeTag via hidden input
+                },
+
+                setTag: function(tag) {
+                    var self = this;
+                    if (self.activeTag === tag) {
+                        self.activeTag = '';
+                    } else {
+                        self.activeTag = tag;
+                    }
+                    // fire HTMX search with updated tag value
+                    self.$nextTick(function() {
+                        var form = self.$refs.searchInput.closest('form');
+                        var params = new URLSearchParams(new FormData(form));
+                        htmx.ajax('GET', '/api/explore/search?' + params.toString(), {
+                            target: '#explore-grid',
+                            swap: 'innerHTML'
+                        });
+                    });
+                }
+            };
+        });
+
     });
 
 })();

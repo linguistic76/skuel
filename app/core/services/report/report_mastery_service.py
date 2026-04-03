@@ -11,7 +11,7 @@ boundaries by:
 See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.enums.learning_enums import MasteryImpact
 from core.models.type_hints import UserUID

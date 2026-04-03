@@ -43,7 +43,6 @@ if TYPE_CHECKING:
     from core.services.principles_service import PrinciplesService
     from core.services.ps_service import PsService
     from core.services.report.activity_report_service import ActivityReportService
-    from core.services.report.exercise_report_service import ExerciseReportService
     from core.services.report.progress_report_generator import ProgressReportGenerator
     from core.services.report.progress_schedule_service import ProgressScheduleService
     from core.services.report.report_mastery_service import ReportMasteryService

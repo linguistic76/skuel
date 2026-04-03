@@ -30,7 +30,7 @@ async def main(teacher_uid: str, output_dir: Path) -> None:
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from services_bootstrap import compose_services
 
-    print(f"Connecting to Neo4j...")
+    print("Connecting to Neo4j...")
     adapter = Neo4jAdapter()
     await adapter.connect()
 

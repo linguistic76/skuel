@@ -25,7 +25,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 
 from typing import Any
 
-from fasthtml.common import A, Div, H1, P, Span
+from fasthtml.common import H1, A, Div, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator, RouteList
@@ -35,7 +35,6 @@ from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
-
 
 logger = get_logger("skuel.routes.library")
 
@@ -527,7 +526,7 @@ def create_library_ui_routes(
                     Span("Ku", cls=_KU_BADGE_CLS),
                     A(
                         getattr(ku, "title", ku.uid),
-                        href=f"/ku/{ku.uid}",
+                        href=f"/explore/ku/{ku.uid}",
                         cls="text-sm font-medium text-foreground hover:text-primary hover:underline ml-2",
                     ),
                     cls="flex items-center",
@@ -599,7 +598,7 @@ def create_library_ui_routes(
                     Span("Path Step", cls=_PS_BADGE_CLS),
                     A(
                         getattr(step, "title", step.uid),
-                        href=f"/path-steps/{step.uid}/details",
+                        href=f"/explore/ps/{step.uid}",
                         cls="text-sm font-medium text-foreground hover:text-primary hover:underline ml-2",
                     ),
                     cls="flex items-center",

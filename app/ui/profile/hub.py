@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fasthtml.common import A, Div, H1, P, Span
+from fasthtml.common import H1, A, Div, P, Span
 from monsterui.franken import UkIcon
 
 from core.services.user.unified_user_context import UserContext
@@ -257,7 +257,7 @@ def _knowledge_section(context: UserContext) -> Div:
                 )
             )
 
-        rows.append(_compact_row(title, f"/ku/{uid}", badges))
+        rows.append(_compact_row(title, f"/explore/ku/{uid}", badges))
 
     content: Div
     if rows:
@@ -267,12 +267,12 @@ def _knowledge_section(context: UserContext) -> Div:
             "No knowledge units yet",
             description="Browse and bookmark Kus to see them here.",
             action_text="Explore Knowledge",
-            action_href="/ku",
+            action_href="/explore",
             cls="py-6",
         )
 
     return Div(
-        _section_header("Knowledge", "/ku", len(ku_uids)),
+        _section_header("Knowledge", "/explore", len(ku_uids)),
         content,
         cls="mb-6",
     )
@@ -290,7 +290,7 @@ def _path_steps_section(context: UserContext) -> Div:
         rows.append(
             _compact_row(
                 ps["title"],
-                f"/path-steps/get?uid={ps['uid']}",
+                f"/explore/ps/{ps['uid']}",
             )
         )
 
@@ -302,12 +302,12 @@ def _path_steps_section(context: UserContext) -> Div:
             "No active path steps",
             description="Path steps appear here when you start learning their knowledge units.",
             action_text="Browse Path Steps",
-            action_href="/path-steps",
+            action_href="/explore",
             cls="py-6",
         )
 
     return Div(
-        _section_header("Path Steps", "/path-steps", len(rows)),
+        _section_header("Path Steps", "/explore", len(rows)),
         content,
         cls="mb-6",
     )
