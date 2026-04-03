@@ -113,7 +113,7 @@ _SIDEBAR_DEFAULTS = {
     "subtitle": "",
     "storage_key": "teaching-sidebar",
     "active_page": "teaching",
-    "title_href": "/teaching/students",
+    "title_href": "/teaching",
     "title_icon": "graduation-cap",
 }
 
