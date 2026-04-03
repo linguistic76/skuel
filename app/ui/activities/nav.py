@@ -26,6 +26,7 @@ _ACTIVITY_DOMAINS: tuple[tuple[str, str, str, str, str], ...] = (
     ("events", "Events", "calendar", "/events", "#8B5CF6"),
     ("choices", "Choices", "git-branch", "/choices", "#F97316"),
     ("principles", "Principles", "compass", "/principles", "#EC4899"),
+    ("profile", "Profile", "user", "/profile", "#6B7280"),
 )
 
 # Breakout from uk-container-small padding (UIKit default gutter = 30px)
