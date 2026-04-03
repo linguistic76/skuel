@@ -48,7 +48,7 @@ Html(build_head("Title", extra_css=["/static/css/calendar.css"]), Body(...))
 | Type | Use Case | Sidebar | Container |
 |------|----------|---------|-----------|
 | **STANDARD** (default) | 90% of pages — forms, lists, detail pages | None | `max-w-6xl` centered |
-| **HUB** | Admin dashboard with fixed sidebar | Fixed left (256px) | Flexible |
+| **HUB** | Admin dashboard with fixed sidebar | Fixed left (256px) | Flexible. Admin home hub at `/` uses STANDARD with `HubSection` cards. |
 | **CUSTOM** | Collapsible sidebar with persistence | Custom via `SidebarPage()` | Flexible |
 
 **Notable STANDARD pages:**
@@ -434,7 +434,17 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
 )
 ```
 
-### Navbar Icon Links
+### Admin Navbar
+
+Admin users see a different navbar than regular users:
+- **Left:** SKUEL logo text link → `/` (admin home hub)
+- **Center:** Empty (no text nav links)
+- **Right:** Admin avatar (→ `/`) + Sign out
+- **Mobile:** Hamburger menu with Admin (`/admin`) + Teaching (`/teaching`) links
+
+The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users still redirect to `/profile`. Icon links (Knowledge, Path Steps, etc.) are hidden for admins.
+
+### Navbar Icon Links (Regular Users)
 
 The navbar left section has 4 icon links (in order), avatar, and logout:
 
@@ -1039,7 +1049,7 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar — 4 icon links (⚛️ Knowledge, book Path Steps, ⇄ Submissions, book-open Library) + avatar activity dropdown |
+| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar; regular: 4 icon links (⚛️ Knowledge, book Path Steps, ⇄ Submissions, book-open Library) + avatar activity dropdown |
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |

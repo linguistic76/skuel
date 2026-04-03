@@ -305,7 +305,7 @@ The navbar displays different links based on authentication state. To ensure con
 
 Without passing the request, layouts default to unauthenticated state:
 - Shows "Login/Sign Up" instead of user dropdown
-- Admin users don't see "Admin Dashboard" link
+- Admin users don't see SKUEL logo or admin-specific navbar
 - Profile Hub link may not work correctly
 
 ### The Solution: `create_navbar_for_request()`
@@ -356,11 +356,11 @@ return create_docs_page(
 
 ### What the Navbar Shows
 
-| User State | Dashboard Links | User Area |
-|------------|-----------------|-----------|
-| Unauthenticated | None | Login / Sign Up |
-| Authenticated (Regular) | Profile Hub | User dropdown |
-| Authenticated (Admin) | Admin Dashboard + Profile Hub | User dropdown |
+| User State | Left Section | Center | Right Section |
+|------------|--------------|--------|---------------|
+| Unauthenticated | Icon links | None | Login / Sign Up |
+| Authenticated (Regular) | Avatar + Icon links | Teaching (if teacher) | Search + Notifications |
+| Authenticated (Admin) | SKUEL logo (→ `/`) | None | Avatar (→ `/`) + Sign out |
 
 ### Files Reference
 

@@ -295,35 +295,21 @@ REGISTERED (0) < MEMBER (1) < TEACHER (2) < ADMIN (3)
 | 403 | Authenticated but not ADMIN |
 | 404 | User not found |
 
-### Navbar Integration
+### Admin Home Hub
 
-When an admin is logged in, the navbar shows "Admin Dashboard" instead of "Profile Hub":
+Admin users land on `/` after login, which renders a hub page with two cards:
+- **Admin** → `/admin` (dashboard, user management, analytics, system health)
+- **Teaching** → `/teaching` (review queue, student management, class groups)
 
-```python
-# ui/layouts/navbar.py
-def create_navbar(
-    current_user: str | None = None,
-    is_authenticated: bool = False,
-    active_page: str = "",
-    is_admin: bool = False,  # Shows Admin Dashboard if True
-) -> NotStr:
-```
+The navbar for admin users shows a **SKUEL** logo in the left section linking to `/`. The center section is empty (no text nav links). The right section has the admin avatar (linking to `/`) and a logout link. On mobile, the hamburger menu shows Admin and Teaching links.
+
+Regular users still redirect to `/profile` after login.
 
 **How `is_admin` is determined:**
 
-- Admin pages (`/admin/*`): Always pass `is_admin=True`
-- Profile pages (`/profile/*`): Check `user.can_manage_users()`
-- Other pages: Can use `is_current_user_admin(request, user_service)` helper
-
-**Helper function:**
-
-```python
-from adapters.inbound.auth import is_current_user_admin
-
-# In route function
-is_admin = await is_current_user_admin(request, services.user_service)
-navbar = create_navbar(..., is_admin=is_admin)
-```
+- Session flag: `get_is_admin(request)` — set at login, no DB call
+- Full check: `is_current_user_admin(request, user_service)` — DB lookup
+- Admin pages (`/admin/*`): Always pass `is_admin=True` via `@require_admin`
 
 ---
 

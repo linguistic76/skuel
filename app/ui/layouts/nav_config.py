@@ -121,17 +121,10 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
     ),
 )
 
-# Admin-only navigation item - prepended to nav when user is admin
-ADMIN_NAV_ITEM = NavItem(
-    label="Admin Dashboard",
-    href="/admin",
-    page_key="admin",
-    requires_admin=True,
-)
 
 __all__ = [
     "ACTIVITY_DROPDOWN_ITEMS",
-    "ADMIN_NAV_ITEM",
+
     "CURRICULUM_DROPDOWN_ITEMS",
     "DropdownItem",
     "ICON_NAV_ITEMS",
