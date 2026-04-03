@@ -452,8 +452,8 @@ The navbar left section has 4 icon links (in order), avatar, and logout:
 |----------|------|-------|------------|-------------|
 | 1st | ⚛️ (emoji) | `/ku` | `"knowledge"` | Knowledge index — flat Ku list |
 | 2nd | `book` | `/path-steps` | `"path-steps"` | PathStep catalog |
-| 3rd | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook — sidebar: My Submissions, Submit, Exercise Reports, Activity Reports |
-| 4th | `book-open` | `/library` | `"library"` | Learning hub — sidebar: Exercises, Resources, Ku, Path Steps |
+| 3rd | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook hub — container grid linking to My Submissions, Submit, Exercise Reports, Activity Reports |
+| 4th | `book-open` | `/library` | `"library"` | Library hub — container grid linking to Exercises, Resources, Ku, Path Steps |
 | — | Avatar | `/profile` | — | Click → profile; dropdown → Tasks, Goals, Habits, Events, Choices, Principles |
 | — | `log-out` | `/logout` | — | Always visible |
 
@@ -494,8 +494,8 @@ for item in ICON_NAV_ITEMS:  # ⚛️, 📖, ⇄, 📂
 Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. Three sidebar groups exist:
 
 - **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — 7 items (hub + 6 domains). Used on `/activities`, `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`.
-- **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 4 items (My Submissions, Submit, Exercise Reports, Activity Reports). Used on `/gradebook`, `/submit`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`, `/activity-reports/detail`.
-- **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on `/library`, `/library/resources`, `/library/ku`, `/library/path-steps`.
+- **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 4 items (My Submissions, Submit, Exercise Reports, Activity Reports). Used on child pages: `/gradebook/mysubmissions`, `/submit`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`, `/activity-reports/detail`. The hub at `/gradebook` is a container grid page (`BasePage(STANDARD)`, no sidebar) — see `ui/gradebook/hub.py`.
+- **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. The hub at `/library` is a container grid page (`BasePage(STANDARD)`, no sidebar) — see `ui/library/hub.py`.
 
 `/profile` is a **personal overview hub** using `BasePage` directly — Focus/Velocity, link to `/activities`, Nous placeholder, Settings. See `ui/profile/hub.py`.
 

@@ -214,7 +214,7 @@ await backend.get_enrolled_ps_exercises_with_status(user_uid)  # PERSONAL exerci
 | Group assignment | `(exercise)-[:FOR_GROUP]->(group)<-[:MEMBER_OF]-(user)` | `ASSIGNED` | Teacher assigns to group |
 | PathStep enrollment | `(ps)-[:RELATED_TO]->(exercise)` + `(user)-[:IN_PROGRESS]->(ps)` | `PERSONAL` | User enrolls in PathStep |
 
-`ExerciseService.get_student_exercises_with_status()` merges both paths and deduplicates by UID. The Library Exercises page calls this method via `GET /library` (and `GET /library/exercises`).
+`ExerciseService.get_student_exercises_with_status()` merges both paths and deduplicates by UID. The Library Exercises page calls this method via `GET /library/exercises` (the Library hub at `/library` links to this child page).
 
 **Graph pattern:**
 ```cypher
