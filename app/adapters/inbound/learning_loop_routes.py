@@ -2,10 +2,11 @@
 ========================================================================
 
 Wires the decomposed submission and report UI routes:
-- submissions_ui.py → /submit, /gradebook, /gradebook/{uid}, fragments
-- exercise_reports_ui.py → /exercise-reports, /reports/list
-- activity_reports_ui.py → /activity-reports, /submit-activity-report, fragments
-- reports_ui.py → /reports (tabbed hub)
+- submissions_ui.py → /submit, /gradebook, /gradebook/{uid}, fragments (GradeBook sidebar)
+- exercise_reports_ui.py → /exercise-reports, /reports/list (GradeBook sidebar)
+- activity_reports_ui.py → /activity-reports, /submit-activity-report, fragments (GradeBook sidebar)
+- library_ui.py → /library, /library/resources, /library/ku, /library/path-steps (Library sidebar)
+- reports_ui.py → /reports (301 redirect to /library)
 
 The /study route redirects to /profile (301).
 

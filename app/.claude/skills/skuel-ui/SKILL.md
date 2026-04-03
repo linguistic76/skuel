@@ -452,8 +452,8 @@ The navbar left section has 4 icon links (in order), avatar, and logout:
 |----------|------|-------|------------|-------------|
 | 1st | ⚛️ (emoji) | `/ku` | `"knowledge"` | Knowledge index — flat Ku list |
 | 2nd | `book` | `/path-steps` | `"path-steps"` | PathStep catalog |
-| 3rd | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook — tabbed hub: My Submissions \| Submit \| Request Report |
-| 4th | `book-open` | `/library` | `"library"` | Learning hub: Exercises \| Submissions \| Resources \| Ku \| Path Steps \| Exercise Reports \| Activity Reports |
+| 3rd | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook — sidebar: My Submissions, Submit, Exercise Reports, Activity Reports |
+| 4th | `book-open` | `/library` | `"library"` | Learning hub — sidebar: Exercises, Resources, Ku, Path Steps |
 | — | Avatar | `/profile` | — | Click → profile; dropdown → Tasks, Goals, Habits, Events, Choices, Principles |
 | — | `log-out` | `/logout` | — | Always visible |
 
@@ -491,7 +491,13 @@ for item in ICON_NAV_ITEMS:  # ⚛️, 📖, ⇄, 📂
 
 ## 4. Sidebar Pages
 
-Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. **Activity Domains** use `render_activity_sidebar_page()` from `ui/activities/nav.py` — a shared helper wrapping `SidebarPage` with 7 sidebar items (hub + 6 domains). Used on `/activities` hub and all 6 domain pages (`/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`). `/profile` is a **personal overview hub** using `BasePage` directly — Focus/Velocity, link to `/activities`, Nous placeholder, Settings. See `ui/profile/hub.py`.
+Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. Three sidebar groups exist:
+
+- **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — 7 items (hub + 6 domains). Used on `/activities`, `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`.
+- **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 4 items (My Submissions, Submit, Exercise Reports, Activity Reports). Used on `/gradebook`, `/submit`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`, `/activity-reports/detail`.
+- **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on `/library`, `/library/resources`, `/library/ku`, `/library/path-steps`.
+
+`/profile` is a **personal overview hub** using `BasePage` directly — Focus/Velocity, link to `/activities`, Nous placeholder, Settings. See `ui/profile/hub.py`.
 
 ### SidebarItem
 
@@ -513,24 +519,31 @@ SidebarItem(
 ### SidebarPage (Primary API)
 
 ```python
+# Preferred: use the domain-specific helper (handles items, title, storage_key)
+from ui.gradebook.nav import render_gradebook_sidebar_page
+
+return await render_gradebook_sidebar_page(
+    content=my_content, active="submissions", request=request
+)
+
+# Or use SidebarPage directly for custom sidebars:
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("Submit", "/submit", "submit", icon="📤"),
-    SidebarItem("My Submissions", "/gradebook", "gradebook", icon="📝"),
-    SidebarItem("Exercise Reports", "/exercise-reports", "exercise-reports", icon="📋"),
-    SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="📊"),
-    SidebarItem("Submit Activity Report", "/submit-activity-report", "submit-activity-report", icon="⚡"),
+    SidebarItem("My Submissions", "/gradebook", "submissions", icon="file-text"),
+    SidebarItem("Submit", "/submit", "submit", icon="upload"),
+    SidebarItem("Exercise Reports", "/exercise-reports", "exercise-reports", icon="clipboard-check"),
+    SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="bar-chart-2"),
 ]
 
 return await SidebarPage(
     content=my_content,
     items=items,
-    active="submit",                    # Active item slug
-    title="Study",                      # Sidebar heading
-    storage_key="study-sidebar",        # localStorage key for collapse state
+    active="submissions",               # Active item slug
+    title="GradeBook",                  # Sidebar heading
+    storage_key="gradebook-sidebar",    # localStorage key for collapse state
     request=request,
-    active_page="study",                # Navbar active item
+    active_page="gradebook",            # Navbar active item
     # Optional:
     subtitle="",                        # Sidebar subtitle
     extra_sidebar_sections=[],          # Additional content below nav items
@@ -1092,10 +1105,12 @@ When building a new SKUEL page or feature, verify:
 | `/ui/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
-| `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, link to `/activities`, Nous, Settings. Also exports `submissions_section()` (reused by `/gradebook`; inline title + 5 tabs) |
+| `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, link to `/activities`, Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
+| `/ui/gradebook/nav.py` | GradeBook sidebar config (`GRADEBOOK_SIDEBAR_ITEMS`) + `render_gradebook_sidebar_page()` helper |
+| `/ui/library/nav.py` | Library sidebar config (`LIBRARY_SIDEBAR_ITEMS`) + `render_library_sidebar_page()` helper |
 | `/ui/activities/activity_hub.py` | `ActivityHubView` — 6 Activity Domain preview blocks (HTMX lazy-loaded from `/api/profile/{slug}/preview`) |
-| `/adapters/inbound/library_ui.py` | `/library` hub — 5 tabs (inline title) + HTMX fragments: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/resources`, `/library/ku` (PINNED only), `/library/path-steps` (IN_PROGRESS only), `/reports/activity-list` |
+| `/adapters/inbound/library_ui.py` | `/library` sidebar pages + dual-purpose routes: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/resources`, `/library/ku` (PINNED only), `/library/path-steps` (IN_PROGRESS only) |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, LS, LP profile views |
