@@ -61,7 +61,7 @@ def build_head(
         css_links = [Link(rel="stylesheet", href=path) for path in extra_css]
 
     # MonsterUI theme headers (FrankenUI + Tailwind + icons) — local vendor files
-    mu_headers = BRAND_THEME.local_headers(static_dir="static/vendor/monsterui", radii="lg")
+    mu_headers = BRAND_THEME.local_headers(static_dir="static/vendor/monsterui", radii="sm")
 
     return Head(
         Meta(charset="UTF-8"),

@@ -429,6 +429,10 @@ MonsterUI orchestrates three CSS frameworks loaded from **local vendor files** (
 - `BasePage()` — authenticated pages (navbar + chrome)
 - `AuthPage()` — unauthenticated pages (login, register — no navbar)
 
+**Global border radius:** `radii="sm"` (2px/4px) — set in both `ui/theme.py` and `ui/layouts/base_page.py`. Keeps corners crisp and visible across all components (buttons, inputs, cards, modals).
+
+**Button & input visibility:** `main.css` section 7 overrides MonsterUI defaults with stronger shadows on `.uk-btn`, visible borders on `.uk-btn-default`, inset shadows on `.uk-input/.uk-select/.uk-textarea`, and clear focus rings. This ensures form elements and buttons have well-defined edges.
+
 `output.css` is a pre-compiled Tailwind+DaisyUI file for build tooling — NOT loaded by `build_head()`.
 
 ## Anti-Patterns
@@ -458,7 +462,7 @@ NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()
 | File | Purpose |
 |------|---------|
 | `/ui/tokens.py` | Design tokens (Container, Spacing, Card) |
-| `/static/css/main.css` | Custom CSS and `@apply` patterns |
+| `/static/css/main.css` | Custom CSS: animations, HTMX states, button/input visibility overrides (8 sections) |
 | `/static/css/output.css` | Compiled Tailwind output |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI component wrappers — 8 focused modules (March 2026) |
 
