@@ -163,7 +163,7 @@ def create_ingestion_ui_routes(
                 if (isError) {
                     const msg = result.error || result.message || 'Ingestion failed';
                     statusEl.innerHTML = `
-                        <div class="uk-alert uk-alert-danger">
+                        <div class="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200">
                             <uk-icon icon="x" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
                             <span class="font-semibold">${msg}</span>
                         </div>`;
@@ -188,7 +188,7 @@ def create_ingestion_ui_routes(
                     }
 
                     statusEl.innerHTML = `
-                        <div class="uk-alert uk-alert-success">
+                        <div class="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
                             <uk-icon icon="check" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
                             <div>
                                 <span class="font-semibold">Ingested successfully</span>
@@ -209,7 +209,7 @@ def create_ingestion_ui_routes(
                 const statusEl = document.getElementById('ingest-status');
                 statusEl.innerHTML = `
                     <div class="alert shadow-sm">
-                        <span class="uk-spinner uk-spinner-small"></span>
+                        <span class="animate-spin text-muted-foreground"></span>
                         <span>Ingesting...</span>
                     </div>`;
                 document.getElementById('ingest-details-card').classList.add('hidden');

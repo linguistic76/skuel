@@ -13,23 +13,26 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import (
     H3,
     A,
-    Button,
     Div,
     Form,
-    Label,
     Option,
     P,
-    Select,
     Small,
     Span,
 )
+from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, MetadataField, safe_id
-from ui.feedback import PriorityBadge, StatusBadge
+from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody
+from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
+from ui.forms.components import LabelSelect
+from ui.layout import Container, DivHStacked, FlexItem
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
+from ui.text import SectionTitle
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -70,51 +73,38 @@ def TaskFilterBar(
     """Filter and sort controls for the task list. HTMX-powered."""
     return Form(
         Div(
-            Div(
-                Label("Status", cls="uk-form-label"),
-                Select(
-                    Option("Active", value="active", selected=status_filter == "active"),
-                    Option("Completed", value="completed", selected=status_filter == "completed"),
-                    Option("Overdue", value="overdue", selected=status_filter == "overdue"),
-                    Option("All", value="all", selected=status_filter == "all"),
-                    name="status",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("Active", value="active", selected=status_filter == "active"),
+                Option("Completed", value="completed", selected=status_filter == "completed"),
+                Option("Overdue", value="overdue", selected=status_filter == "overdue"),
+                Option("All", value="all", selected=status_filter == "all"),
+                label="Status",
+                name="status",
             ),
-            Div(
-                Label("Priority", cls="uk-form-label"),
-                Select(
-                    Option("All", value="all", selected=priority_filter == "all"),
-                    Option("Critical", value="critical", selected=priority_filter == "critical"),
-                    Option("High", value="high", selected=priority_filter == "high"),
-                    Option("Medium", value="medium", selected=priority_filter == "medium"),
-                    Option("Low", value="low", selected=priority_filter == "low"),
-                    name="priority",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("All", value="all", selected=priority_filter == "all"),
+                Option("Critical", value="critical", selected=priority_filter == "critical"),
+                Option("High", value="high", selected=priority_filter == "high"),
+                Option("Medium", value="medium", selected=priority_filter == "medium"),
+                Option("Low", value="low", selected=priority_filter == "low"),
+                label="Priority",
+                name="priority",
             ),
-            Div(
-                Label("Sort", cls="uk-form-label"),
-                Select(
-                    Option("Priority", value="priority", selected=sort_by == "priority"),
-                    Option("Due Date", value="due_date", selected=sort_by == "due_date"),
-                    Option("Recently Updated", value="updated", selected=sort_by == "updated"),
-                    Option("Title", value="title", selected=sort_by == "title"),
-                    name="sort_by",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("Priority", value="priority", selected=sort_by == "priority"),
+                Option("Due Date", value="due_date", selected=sort_by == "due_date"),
+                Option("Recently Updated", value="updated", selected=sort_by == "updated"),
+                Option("Title", value="title", selected=sort_by == "title"),
+                label="Sort",
+                name="sort_by",
             ),
-            cls="uk-grid uk-grid-small uk-child-width-1-3@s uk-child-width-auto@m",
-            **{"uk-grid": "true"},
+            cls="grid grid-cols-1 sm:grid-cols-3 gap-2",
         ),
         hx_get="/tasks/list-fragment",
         hx_target="#task-list",
         hx_trigger="change",
         hx_include="[name]",
-        cls="uk-margin-bottom",
+        cls="mb-4",
     )
 
 
@@ -138,7 +128,7 @@ def TaskList(
         TaskCard(task, connections_map.get(task.uid, []) if connections_map else [])
         for task in tasks
     ]
-    return Div(*cards, id="task-list", cls="uk-margin-top")
+    return Div(*cards, id="task-list", cls="mt-4")
 
 
 def TaskCard(
@@ -152,24 +142,28 @@ def TaskCard(
     # Status toggle button
     new_status = "active" if is_completed else "completed"
     toggle_btn = Button(
-        Span(
-            cls=f"uk-icon {'uk-text-success' if is_completed else ''}",
-            **{"uk-icon": "check" if is_completed else "circle"},
+        UkIcon(
+            "check" if is_completed else "circle",
+            height=16,
+            width=16,
+            cls=f"inline {'text-green-600' if is_completed else ''}",
         ),
         hx_post=f"/api/tasks/{task.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#task-{safe_id(task.uid)}",
         hx_swap="outerHTML",
-        cls="uk-button uk-button-default uk-button-small uk-border-rounded",
+        variant=ButtonT.neutral,
+        size="sm",
+        cls="rounded",
         title=f"Mark as {new_status}",
     )
 
     # Title — clickable link to detail page
-    title_cls = "uk-text-muted uk-text-line-through" if is_completed else ""
+    title_cls = "text-muted-foreground line-through" if is_completed else ""
     title_el = A(
         task.title or "Untitled",
         href=f"/tasks/detail?uid={task.uid}",
-        cls=f"uk-link-text {title_cls}",
+        cls=f"hover:underline {title_cls}",
     )
 
     # Badges row
@@ -183,17 +177,14 @@ def TaskCard(
     due_el = None
     if task.due_date:
         due_str = str(task.due_date)
-        due_cls = "uk-text-danger uk-text-bold" if overdue else "uk-text-muted"
+        due_cls = "text-destructive font-bold" if overdue else "text-muted-foreground"
         due_el = Small(f"Due: {due_str}", cls=due_cls)
 
     # Tags
     tags_el = None
     if task.tags:
-        tag_badges = [
-            Span(tag, cls="uk-badge uk-badge-secondary uk-margin-small-right")
-            for tag in task.tags[:5]
-        ]
-        tags_el = Div(*tag_badges, cls="uk-margin-small-top")
+        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in task.tags[:5]]
+        tags_el = Div(*tag_badges, cls="mt-2")
 
     # Cross-domain connection badges
     knowledge_el = _task_connection_badges(task, knowledge_connections or [])
@@ -201,30 +192,26 @@ def TaskCard(
     # Duration
     duration_el = None
     if task.duration_minutes:
-        duration_el = Small(
-            f"{task.duration_minutes} min", cls="uk-text-muted uk-margin-small-left"
-        )
+        duration_el = Small(f"{task.duration_minutes} min", cls="text-muted-foreground ml-2")
 
     # Card assembly
     header = Div(
         toggle_btn,
         Div(
-            Div(title_el, duration_el, cls="uk-flex uk-flex-middle uk-flex-wrap"),
-            Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-top")
-            if badges
-            else "",
+            DivHStacked(title_el, duration_el, cls="flex-wrap"),
+            DivHStacked(*badges, cls="flex-wrap mt-2") if badges else "",
             due_el or "",
             tags_el or "",
             knowledge_el or "",
-            cls="uk-margin-small-left uk-width-expand",
+            cls="ml-2 flex-1 min-w-0",
         ),
-        cls="uk-flex uk-flex-top",
+        cls="flex items-start",
     )
 
-    return Div(
-        header,
+    return Card(
+        CardBody(header, cls="p-3"),
         id=f"task-{safe_id(task.uid)}",
-        cls=f"uk-card uk-card-default uk-card-body uk-card-small uk-margin-small-bottom {'uk-opacity-75' if is_completed else ''}",
+        cls=f"mb-2 {'opacity-75' if is_completed else ''}",
     )
 
 
@@ -254,7 +241,13 @@ def _task_connection_badges(
     # Fallback to model field if no connection data was fetched
     if task.fulfills_goal_uid:
         return ConnectionBadges(
-            [{"target_type": "goal", "title": task.fulfills_goal_uid, "target_uid": task.fulfills_goal_uid}]
+            [
+                {
+                    "target_type": "goal",
+                    "title": task.fulfills_goal_uid,
+                    "target_uid": task.fulfills_goal_uid,
+                }
+            ]
         )
 
     return Span()
@@ -285,15 +278,15 @@ def TaskDetailView(
     desc_el = Div()
     if task.description:
         desc_el = Div(
-            P(task.description, cls="uk-text-default"),
-            cls="uk-margin",
+            P(task.description),
+            cls="my-4",
         )
 
     # Metadata grid
     meta_items: list[Any] = []
     if task.due_date:
         overdue = _is_overdue(task)
-        due_cls = "uk-text-danger uk-text-bold" if overdue else ""
+        due_cls = "text-destructive font-bold" if overdue else ""
         meta_items.append(MetadataField("Due Date", Span(str(task.due_date), cls=due_cls)))
     if task.duration_minutes:
         meta_items.append(MetadataField("Duration", Span(f"{task.duration_minutes} min")))
@@ -306,20 +299,17 @@ def TaskDetailView(
     if meta_items:
         meta_grid = Div(
             *meta_items,
-            cls="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-4@m uk-margin",
-            **{"uk-grid": "true"},
+            cls="grid grid-cols-2 sm:grid-cols-4 gap-2 my-4",
         )
 
     # Tags
     tags_el = Div()
     if task.tags:
-        tag_badges = [
-            Span(tag, cls="uk-badge uk-badge-secondary uk-margin-small-right") for tag in task.tags
-        ]
+        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in task.tags]
         tags_el = Div(
-            Small("Tags", cls="uk-text-muted uk-display-block uk-margin-small-bottom"),
+            Small("Tags", cls="text-muted-foreground block mb-2"),
             *tag_badges,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Connections section
@@ -327,9 +317,9 @@ def TaskDetailView(
     conn_badges = _task_connection_badges(task, connections)
     if connections or task.fulfills_goal_uid:
         conn_section = Div(
-            H3("Connections", cls="uk-heading-small"),
+            SectionTitle("Connections"),
             conn_badges,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Lateral relationships (Vis.js graph, blocking chain, alternatives)
@@ -338,17 +328,15 @@ def TaskDetailView(
         entity_type="tasks",
     )
 
-    return Div(
+    return Container(
         header,
-        Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-bottom")
-        if badges
-        else "",
+        DivHStacked(*badges, cls="flex-wrap mb-2") if badges else "",
         desc_el,
         meta_grid,
         tags_el,
         conn_section,
         relationships,
-        cls="uk-container uk-container-small",
+        size="3xl",
     )
 
 

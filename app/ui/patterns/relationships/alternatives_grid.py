@@ -141,7 +141,7 @@ def render_alternatives_fragment(alternatives: list[dict[str, Any]]) -> Div:
         Table(
             Thead(Tr(*headers)),
             Tbody(*rows),
-            cls="uk-table uk-table-striped uk-table-hover w-full",
+            cls="table table-zebra w-full",
         ),
         cls="overflow-x-auto",
     )

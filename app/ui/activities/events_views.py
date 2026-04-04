@@ -13,23 +13,26 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import (
     H3,
     A,
-    Button,
     Div,
     Form,
-    Label,
     Option,
     P,
-    Select,
     Small,
     Span,
 )
+from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
-from ui.feedback import PriorityBadge, StatusBadge
+from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody
+from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
+from ui.forms.components import LabelSelect
+from ui.layout import Container, DivHStacked
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
+from ui.text import SectionTitle
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -67,37 +70,28 @@ def EventFilterBar(
     """Filter and sort controls for the event list. HTMX-powered."""
     return Form(
         Div(
-            Div(
-                Label("Status", cls="uk-form-label"),
-                Select(
-                    Option("Upcoming", value="upcoming", selected=status_filter == "upcoming"),
-                    Option("Today", value="today", selected=status_filter == "today"),
-                    Option("Completed", value="completed", selected=status_filter == "completed"),
-                    Option("All", value="all", selected=status_filter == "all"),
-                    name="status",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("Upcoming", value="upcoming", selected=status_filter == "upcoming"),
+                Option("Today", value="today", selected=status_filter == "today"),
+                Option("Completed", value="completed", selected=status_filter == "completed"),
+                Option("All", value="all", selected=status_filter == "all"),
+                label="Status",
+                name="status",
             ),
-            Div(
-                Label("Sort", cls="uk-form-label"),
-                Select(
-                    Option("Date", value="date", selected=sort_by == "date"),
-                    Option("Title", value="title", selected=sort_by == "title"),
-                    Option("Recently Created", value="created", selected=sort_by == "created"),
-                    name="sort_by",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("Date", value="date", selected=sort_by == "date"),
+                Option("Title", value="title", selected=sort_by == "title"),
+                Option("Recently Created", value="created", selected=sort_by == "created"),
+                label="Sort",
+                name="sort_by",
             ),
-            cls="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-auto@m",
-            **{"uk-grid": "true"},
+            cls="grid grid-cols-1 sm:grid-cols-2 gap-2",
         ),
         hx_get="/events/list-fragment",
         hx_target="#event-list",
         hx_trigger="change",
         hx_include="[name]",
-        cls="uk-margin-bottom",
+        cls="mb-4",
     )
 
 
@@ -121,7 +115,7 @@ def EventList(
         EventCard(event, connections_map.get(event.uid, []) if connections_map else [])
         for event in events
     ]
-    return Div(*cards, id="event-list", cls="uk-margin-top")
+    return Div(*cards, id="event-list", cls="mt-4")
 
 
 def EventCard(
@@ -135,34 +129,36 @@ def EventCard(
     # Status toggle button
     new_status = "active" if is_completed else "completed"
     toggle_icon = "check" if is_completed else "calendar"
-    toggle_cls = "uk-text-success" if is_completed else ""
+    toggle_cls = "text-green-600" if is_completed else ""
 
     toggle_btn = Button(
-        Span(cls=f"uk-icon {toggle_cls}", **{"uk-icon": toggle_icon}),
+        UkIcon(toggle_icon, height=16, width=16, cls=f"inline {toggle_cls}"),
         hx_post=f"/api/events/{event.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#event-{safe_id(event.uid)}",
         hx_swap="outerHTML",
-        cls="uk-button uk-button-default uk-button-small uk-border-rounded",
+        variant=ButtonT.neutral,
+        size="sm",
+        cls="rounded",
         title=f"Mark as {new_status}",
     )
 
     # Title
-    title_cls = "uk-text-muted uk-text-line-through" if is_completed else ""
+    title_cls = "text-muted-foreground line-through" if is_completed else ""
     title_el = A(
         event.title or "Untitled",
         href=f"/events/detail?uid={event.uid}",
-        cls=f"uk-link-text {title_cls}",
+        cls=f"hover:underline {title_cls}",
     )
 
     # Badges
     badges: list[Any] = []
     if event.event_type:
-        badges.append(Span(str(event.event_type).title(), cls="uk-badge"))
+        badges.append(Badge(str(event.event_type).title(), variant=BadgeT.primary))
     if event.is_milestone_event:
-        badges.append(Span("Milestone", cls="uk-badge uk-badge-warning"))
+        badges.append(Badge("Milestone", variant=BadgeT.warning))
     if event.is_online:
-        badges.append(Span("Online", cls="uk-badge uk-badge-primary"))
+        badges.append(Badge("Online", variant=BadgeT.primary))
     if event.priority:
         badges.append(PriorityBadge(str(event.priority)))
     if event.status:
@@ -175,28 +171,25 @@ def EventCard(
         date_str = str(event.event_date)
         if time_str:
             date_str += f" {time_str}"
-        date_cls = "uk-text-muted"
+        date_cls = "text-muted-foreground"
         if is_past and not is_completed:
-            date_cls = "uk-text-danger"
+            date_cls = "text-destructive"
         elif _is_today(event):
-            date_cls = "uk-text-warning uk-text-bold"
+            date_cls = "text-yellow-600 font-bold"
         date_el = Small(date_str, cls=date_cls)
 
     # Location
     loc_el = Span()
     if event.location:
-        loc_el = Small(event.location, cls="uk-text-muted uk-margin-small-left")
+        loc_el = Small(event.location, cls="text-muted-foreground ml-2")
     elif event.is_online and event.meeting_url:
-        loc_el = Small("Online", cls="uk-text-primary uk-margin-small-left")
+        loc_el = Small("Online", cls="text-primary ml-2")
 
     # Tags
     tags_el = Span()
     if event.tags:
-        tag_badges = [
-            Span(tag, cls="uk-badge uk-badge-secondary uk-margin-small-right")
-            for tag in event.tags[:5]
-        ]
-        tags_el = Div(*tag_badges, cls="uk-margin-small-top")
+        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in event.tags[:5]]
+        tags_el = Div(*tag_badges, cls="mt-2")
 
     # Connection badges
     conn_el = ConnectionBadges(connections or [])
@@ -205,23 +198,21 @@ def EventCard(
     header = Div(
         toggle_btn,
         Div(
-            Div(title_el, loc_el, cls="uk-flex uk-flex-middle uk-flex-wrap"),
-            Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-top")
-            if badges
-            else "",
+            DivHStacked(title_el, loc_el, cls="flex-wrap"),
+            DivHStacked(*badges, cls="flex-wrap mt-2") if badges else "",
             date_el,
             tags_el,
             conn_el,
-            cls="uk-margin-small-left uk-width-expand",
+            cls="ml-2 flex-1 min-w-0",
         ),
-        cls="uk-flex uk-flex-top",
+        cls="flex items-start",
     )
 
-    opacity = "uk-opacity-75" if is_completed else ""
-    return Div(
-        header,
+    opacity = "opacity-75" if is_completed else ""
+    return Card(
+        CardBody(header, cls="p-3"),
         id=f"event-{safe_id(event.uid)}",
-        cls=f"uk-card uk-card-default uk-card-body uk-card-small uk-margin-small-bottom {opacity}",
+        cls=f"mb-2 {opacity}",
     )
 
 
@@ -243,11 +234,11 @@ def EventDetailView(
     # Badges
     badges: list[Any] = []
     if event.event_type:
-        badges.append(Span(str(event.event_type).title(), cls="uk-badge"))
+        badges.append(Badge(str(event.event_type).title(), variant=BadgeT.primary))
     if event.is_milestone_event:
-        badges.append(Span("Milestone", cls="uk-badge uk-badge-warning"))
+        badges.append(Badge("Milestone", variant=BadgeT.warning))
     if event.is_online:
-        badges.append(Span("Online", cls="uk-badge uk-badge-primary"))
+        badges.append(Badge("Online", variant=BadgeT.primary))
     if event.priority:
         badges.append(PriorityBadge(str(event.priority)))
     if event.status:
@@ -256,14 +247,14 @@ def EventDetailView(
     # Description
     desc_el = Div()
     if event.description:
-        desc_el = Div(P(event.description, cls="uk-text-default"), cls="uk-margin")
+        desc_el = Div(P(event.description), cls="my-4")
 
     # Schedule section
     sched_items: list[Any] = []
     if event.event_date:
         is_past = _is_past(event)
         date_cls = (
-            "uk-text-danger"
+            "text-destructive"
             if is_past and not (event.status and event.status.value == "completed")
             else ""
         )
@@ -276,13 +267,12 @@ def EventDetailView(
     sched_section = Div()
     if sched_items:
         sched_section = Div(
-            H3("Schedule", cls="uk-heading-small"),
+            SectionTitle("Schedule"),
             Div(
                 *sched_items,
-                cls="uk-grid uk-grid-small uk-child-width-1-3@s uk-child-width-auto@m",
-                **{"uk-grid": "true"},
+                cls="grid grid-cols-1 sm:grid-cols-3 gap-2",
             ),
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Location section
@@ -293,17 +283,23 @@ def EventDetailView(
         loc_items.append(
             MetadataField(
                 "Meeting URL",
-                A(event.meeting_url, href=event.meeting_url, cls="uk-link", target="_blank", rel="noopener"),
+                A(
+                    event.meeting_url,
+                    href=event.meeting_url,
+                    cls="hover:underline text-primary",
+                    target="_blank",
+                    rel="noopener",
+                ),
             )
         )
     if event.is_online and not event.location:
-        loc_items.append(MetadataField("Format", Span("Online", cls="uk-text-primary")))
+        loc_items.append(MetadataField("Format", Span("Online", cls="text-primary")))
     loc_section = Div()
     if loc_items:
         loc_section = Div(
-            H3("Location", cls="uk-heading-small"),
+            SectionTitle("Location"),
             *loc_items,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Attendees section
@@ -312,27 +308,24 @@ def EventDetailView(
         count = len(event.attendee_emails)
         max_str = f" / {event.max_attendees}" if event.max_attendees else ""
         attendees_section = Div(
-            H3("Attendees", cls="uk-heading-small"),
-            P(f"{count} attendee{'s' if count != 1 else ''}{max_str}", cls="uk-text-default"),
-            cls="uk-margin",
+            SectionTitle("Attendees"),
+            P(f"{count} attendee{'s' if count != 1 else ''}{max_str}"),
+            cls="my-4",
         )
 
     # Recurrence section
     recurrence_section = Div()
     if event.recurrence_pattern:
-        rec_items: list[Any] = [
-            MetadataField("Pattern", Span(str(event.recurrence_pattern)))
-        ]
+        rec_items: list[Any] = [MetadataField("Pattern", Span(str(event.recurrence_pattern)))]
         if event.recurrence_end_date:
             rec_items.append(MetadataField("Ends", Span(str(event.recurrence_end_date))))
         recurrence_section = Div(
-            H3("Recurrence", cls="uk-heading-small"),
+            SectionTitle("Recurrence"),
             Div(
                 *rec_items,
-                cls="uk-grid uk-grid-small uk-child-width-1-2@s",
-                **{"uk-grid": "true"},
+                cls="grid grid-cols-1 sm:grid-cols-2 gap-2",
             ),
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Milestone section
@@ -340,22 +333,21 @@ def EventDetailView(
     if event.is_milestone_event:
         ms_items: list[Any] = []
         if event.milestone_type:
-            ms_items.append(P(f"Type: {event.milestone_type}", cls="uk-text-default"))
+            ms_items.append(P(f"Type: {event.milestone_type}"))
         if event.milestone_celebration_for_goal:
             ms_items.append(
                 P(
                     A(
                         f"Celebrates goal: {event.milestone_celebration_for_goal}",
                         href=f"/goals/detail?uid={event.milestone_celebration_for_goal}",
-                        cls="uk-link",
+                        cls="hover:underline text-primary",
                     ),
-                    cls="uk-text-default",
                 )
             )
         milestone_section = Div(
-            H3("Milestone", cls="uk-heading-small"),
+            SectionTitle("Milestone"),
             *ms_items,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Metadata grid
@@ -366,29 +358,26 @@ def EventDetailView(
     if meta_items:
         meta_grid = Div(
             *meta_items,
-            cls="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-4@m uk-margin",
-            **{"uk-grid": "true"},
+            cls="grid grid-cols-2 sm:grid-cols-4 gap-2 my-4",
         )
 
     # Tags
     tags_el = Div()
     if event.tags:
-        tag_badges = [
-            Span(tag, cls="uk-badge uk-badge-secondary uk-margin-small-right") for tag in event.tags
-        ]
+        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in event.tags]
         tags_el = Div(
-            Small("Tags", cls="uk-text-muted uk-display-block uk-margin-small-bottom"),
+            Small("Tags", cls="text-muted-foreground block mb-2"),
             *tag_badges,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Connections
     conn_section = Div()
     if connections:
         conn_section = Div(
-            H3("Connections", cls="uk-heading-small"),
+            SectionTitle("Connections"),
             ConnectionBadges(connections),
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Lateral relationships
@@ -397,11 +386,9 @@ def EventDetailView(
         entity_type="events",
     )
 
-    return Div(
+    return Container(
         header,
-        Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-bottom")
-        if badges
-        else "",
+        DivHStacked(*badges, cls="flex-wrap mb-2") if badges else "",
         desc_el,
         sched_section,
         loc_section,
@@ -412,9 +399,8 @@ def EventDetailView(
         tags_el,
         conn_section,
         relationships,
-        cls="uk-container uk-container-small",
+        size="3xl",
     )
-
 
 
 def _is_upcoming(event: "Event") -> bool:

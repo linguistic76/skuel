@@ -12,23 +12,26 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import (
     H3,
     A,
-    Button,
     Div,
     Form,
-    Label,
     Option,
     P,
-    Select,
     Small,
     Span,
 )
+from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
-from ui.feedback import PriorityBadge, StatusBadge
+from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody
+from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
+from ui.forms.components import LabelSelect
+from ui.layout import Container, DivHStacked
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
+from ui.text import SectionTitle
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -72,63 +75,50 @@ def HabitFilterBar(
     """Filter and sort controls for the habit list. HTMX-powered."""
     return Form(
         Div(
-            Div(
-                Label("Status", cls="uk-form-label"),
-                Select(
-                    Option("Active", value="active", selected=status_filter == "active"),
-                    Option("Paused", value="paused", selected=status_filter == "paused"),
-                    Option("Completed", value="completed", selected=status_filter == "completed"),
-                    Option("Keystone", value="keystone", selected=status_filter == "keystone"),
-                    Option("All", value="all", selected=status_filter == "all"),
-                    name="status",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("Active", value="active", selected=status_filter == "active"),
+                Option("Paused", value="paused", selected=status_filter == "paused"),
+                Option("Completed", value="completed", selected=status_filter == "completed"),
+                Option("Keystone", value="keystone", selected=status_filter == "keystone"),
+                Option("All", value="all", selected=status_filter == "all"),
+                label="Status",
+                name="status",
             ),
-            Div(
-                Label("Category", cls="uk-form-label"),
-                Select(
-                    Option("All", value="all", selected=category_filter == "all"),
-                    Option("Health", value="health", selected=category_filter == "health"),
-                    Option("Fitness", value="fitness", selected=category_filter == "fitness"),
-                    Option(
-                        "Mindfulness",
-                        value="mindfulness",
-                        selected=category_filter == "mindfulness",
-                    ),
-                    Option("Learning", value="learning", selected=category_filter == "learning"),
-                    Option(
-                        "Productivity",
-                        value="productivity",
-                        selected=category_filter == "productivity",
-                    ),
-                    Option("Creative", value="creative", selected=category_filter == "creative"),
-                    Option("Social", value="social", selected=category_filter == "social"),
-                    Option("Financial", value="financial", selected=category_filter == "financial"),
-                    name="category",
-                    cls="uk-select uk-form-small",
+            LabelSelect(
+                Option("All", value="all", selected=category_filter == "all"),
+                Option("Health", value="health", selected=category_filter == "health"),
+                Option("Fitness", value="fitness", selected=category_filter == "fitness"),
+                Option(
+                    "Mindfulness",
+                    value="mindfulness",
+                    selected=category_filter == "mindfulness",
                 ),
-                cls="uk-form-controls",
-            ),
-            Div(
-                Label("Sort", cls="uk-form-label"),
-                Select(
-                    Option("Streak", value="streak", selected=sort_by == "streak"),
-                    Option("Name", value="name", selected=sort_by == "name"),
-                    Option("Recently Created", value="created", selected=sort_by == "created"),
-                    name="sort_by",
-                    cls="uk-select uk-form-small",
+                Option("Learning", value="learning", selected=category_filter == "learning"),
+                Option(
+                    "Productivity",
+                    value="productivity",
+                    selected=category_filter == "productivity",
                 ),
-                cls="uk-form-controls",
+                Option("Creative", value="creative", selected=category_filter == "creative"),
+                Option("Social", value="social", selected=category_filter == "social"),
+                Option("Financial", value="financial", selected=category_filter == "financial"),
+                label="Category",
+                name="category",
             ),
-            cls="uk-grid uk-grid-small uk-child-width-1-3@s uk-child-width-auto@m",
-            **{"uk-grid": "true"},
+            LabelSelect(
+                Option("Streak", value="streak", selected=sort_by == "streak"),
+                Option("Name", value="name", selected=sort_by == "name"),
+                Option("Recently Created", value="created", selected=sort_by == "created"),
+                label="Sort",
+                name="sort_by",
+            ),
+            cls="grid grid-cols-1 sm:grid-cols-3 gap-2",
         ),
         hx_get="/habits/list-fragment",
         hx_target="#habit-list",
         hx_trigger="change",
         hx_include="[name]",
-        cls="uk-margin-bottom",
+        cls="mb-4",
     )
 
 
@@ -152,7 +142,7 @@ def HabitList(
         HabitCard(habit, connections_map.get(habit.uid, []) if connections_map else [])
         for habit in habits
     ]
-    return Div(*cards, id="habit-list", cls="uk-margin-top")
+    return Div(*cards, id="habit-list", cls="mt-4")
 
 
 def HabitCard(
@@ -167,49 +157,52 @@ def HabitCard(
     if is_completed:
         new_status = "active"
         icon = "check"
-        icon_cls = "uk-text-success"
+        icon_cls = "text-green-600"
     elif is_paused:
         new_status = "active"
         icon = "pause"
-        icon_cls = "uk-text-warning"
+        icon_cls = "text-yellow-600"
     else:
         new_status = "completed"
         icon = "repeat"
         icon_cls = ""
 
     toggle_btn = Button(
-        Span(
-            cls=f"uk-icon {icon_cls}",
-            **{"uk-icon": icon},
-        ),
+        UkIcon(icon, height=16, width=16, cls=f"inline {icon_cls}"),
         hx_post=f"/api/habits/{habit.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#habit-{safe_id(habit.uid)}",
         hx_swap="outerHTML",
-        cls="uk-button uk-button-default uk-button-small uk-border-rounded",
+        variant=ButtonT.neutral,
+        size="sm",
+        cls="rounded",
         title=f"Mark as {new_status}",
     )
 
     # Title
-    title_cls = "uk-text-muted uk-text-line-through" if is_completed else ""
+    title_cls = "text-muted-foreground line-through" if is_completed else ""
     title_el = A(
         habit.title or "Untitled",
         href=f"/habits/detail?uid={habit.uid}",
-        cls=f"uk-link-text {title_cls}",
+        cls=f"hover:underline {title_cls}",
     )
 
     # Badges
     badges: list[Any] = []
     if habit.polarity:
-        polarity_colors = {"build": "uk-badge-primary", "break": "uk-badge-danger", "neutral": ""}
+        polarity_variants = {
+            "build": BadgeT.primary,
+            "break": BadgeT.error,
+            "neutral": BadgeT.neutral,
+        }
         badges.append(
-            Span(
+            Badge(
                 str(habit.polarity.value).title(),
-                cls=f"uk-badge {polarity_colors.get(habit.polarity.value, '')}",
+                variant=polarity_variants.get(habit.polarity.value, BadgeT.neutral),
             )
         )
     if habit.habit_category:
-        badges.append(Span(str(habit.habit_category.value).title(), cls="uk-badge"))
+        badges.append(Badge(str(habit.habit_category.value).title(), variant=BadgeT.primary))
     if habit.priority:
         badges.append(PriorityBadge(str(habit.priority)))
     if habit.status:
@@ -220,7 +213,7 @@ def HabitCard(
     if habit.current_streak and habit.current_streak > 0:
         streak_el = Small(
             f"Streak: {habit.current_streak}d",
-            cls="uk-text-success uk-text-bold uk-margin-small-left",
+            cls="text-green-600 font-bold ml-2",
         )
 
     # Frequency
@@ -228,17 +221,14 @@ def HabitCard(
     if habit.recurrence_pattern:
         freq_el = Small(
             str(habit.recurrence_pattern),
-            cls="uk-text-muted uk-margin-small-left",
+            cls="text-muted-foreground ml-2",
         )
 
     # Tags
     tags_el = Span()
     if habit.tags:
-        tag_badges = [
-            Span(tag, cls="uk-badge uk-badge-secondary uk-margin-small-right")
-            for tag in habit.tags[:5]
-        ]
-        tags_el = Div(*tag_badges, cls="uk-margin-small-top")
+        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in habit.tags[:5]]
+        tags_el = Div(*tag_badges, cls="mt-2")
 
     # Connection badges
     conn_el = ConnectionBadges(connections or [])
@@ -247,22 +237,20 @@ def HabitCard(
     header = Div(
         toggle_btn,
         Div(
-            Div(title_el, streak_el, freq_el, cls="uk-flex uk-flex-middle uk-flex-wrap"),
-            Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-top")
-            if badges
-            else "",
+            DivHStacked(title_el, streak_el, freq_el, cls="flex-wrap"),
+            DivHStacked(*badges, cls="flex-wrap mt-2") if badges else "",
             tags_el,
             conn_el,
-            cls="uk-margin-small-left uk-width-expand",
+            cls="ml-2 flex-1 min-w-0",
         ),
-        cls="uk-flex uk-flex-top",
+        cls="flex items-start",
     )
 
-    opacity = "uk-opacity-75" if is_completed or is_paused else ""
-    return Div(
-        header,
+    opacity = "opacity-75" if is_completed or is_paused else ""
+    return Card(
+        CardBody(header, cls="p-3"),
         id=f"habit-{safe_id(habit.uid)}",
-        cls=f"uk-card uk-card-default uk-card-body uk-card-small uk-margin-small-bottom {opacity}",
+        cls=f"mb-2 {opacity}",
     )
 
 
@@ -284,17 +272,21 @@ def HabitDetailView(
     # Badges
     badges: list[Any] = []
     if habit.polarity:
-        polarity_colors = {"build": "uk-badge-primary", "break": "uk-badge-danger", "neutral": ""}
+        polarity_variants = {
+            "build": BadgeT.primary,
+            "break": BadgeT.error,
+            "neutral": BadgeT.neutral,
+        }
         badges.append(
-            Span(
+            Badge(
                 str(habit.polarity.value).title(),
-                cls=f"uk-badge {polarity_colors.get(habit.polarity.value, '')}",
+                variant=polarity_variants.get(habit.polarity.value, BadgeT.neutral),
             )
         )
     if habit.habit_category:
-        badges.append(Span(str(habit.habit_category.value).title(), cls="uk-badge"))
+        badges.append(Badge(str(habit.habit_category.value).title(), variant=BadgeT.primary))
     if habit.habit_difficulty:
-        badges.append(Span(str(habit.habit_difficulty.value).title(), cls="uk-badge"))
+        badges.append(Badge(str(habit.habit_difficulty.value).title(), variant=BadgeT.primary))
     if habit.priority:
         badges.append(PriorityBadge(str(habit.priority)))
     if habit.status:
@@ -303,62 +295,66 @@ def HabitDetailView(
     # Description
     desc_el = Div()
     if habit.description:
-        desc_el = Div(P(habit.description, cls="uk-text-default"), cls="uk-margin")
+        desc_el = Div(P(habit.description), cls="my-4")
 
     # Streak section
     streak_items: list[Any] = []
     if habit.current_streak:
         streak_items.append(
-            MetadataField("Current Streak", Span(f"{habit.current_streak} days", cls="uk-text-success uk-text-bold"))
+            MetadataField(
+                "Current Streak",
+                Span(f"{habit.current_streak} days", cls="text-green-600 font-bold"),
+            )
         )
     if habit.best_streak:
         streak_items.append(MetadataField("Best Streak", Span(f"{habit.best_streak} days")))
     if habit.total_completions:
         streak_items.append(MetadataField("Completions", Span(str(habit.total_completions))))
     if habit.success_rate is not None and habit.success_rate > 0:
-        streak_items.append(MetadataField("Success Rate", Span(f"{int(habit.success_rate * 100)}%")))
+        streak_items.append(
+            MetadataField("Success Rate", Span(f"{int(habit.success_rate * 100)}%"))
+        )
     streak_section = Div()
     if streak_items:
         streak_section = Div(
-            H3("Streaks & Progress", cls="uk-heading-small"),
+            SectionTitle("Streaks & Progress"),
             Div(
                 *streak_items,
-                cls="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-4@m",
-                **{"uk-grid": "true"},
+                cls="grid grid-cols-2 sm:grid-cols-4 gap-2",
             ),
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Atomic Habits section (cue/routine/reward)
     atomic_items: list[Any] = []
     if habit.cue:
-        atomic_items.append(MetadataField("Cue", P(habit.cue, cls="uk-text-default")))
+        atomic_items.append(MetadataField("Cue", P(habit.cue)))
     if habit.routine:
-        atomic_items.append(MetadataField("Routine", P(habit.routine, cls="uk-text-default")))
+        atomic_items.append(MetadataField("Routine", P(habit.routine)))
     if habit.reward:
-        atomic_items.append(MetadataField("Reward", P(habit.reward, cls="uk-text-default")))
+        atomic_items.append(MetadataField("Reward", P(habit.reward)))
     atomic_section = Div()
     if atomic_items:
         atomic_section = Div(
-            H3("Atomic Habits", cls="uk-heading-small"),
+            SectionTitle("Atomic Habits"),
             *atomic_items,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Identity section
     identity_items: list[Any] = []
     if habit.target_identity:
-        identity_items.append(MetadataField("Target Identity", P(habit.target_identity, cls="uk-text-default")))
+        identity_items.append(MetadataField("Target Identity", P(habit.target_identity)))
     if habit.reinforces_identity:
-        identity_items.append(MetadataField("Reinforces", P(habit.reinforces_identity, cls="uk-text-default")))
+        identity_items.append(MetadataField("Reinforces", P(habit.reinforces_identity)))
     if habit.identity_votes_cast:
         identity_items.append(MetadataField("Identity Votes", Span(str(habit.identity_votes_cast))))
     identity_section = Div()
     if identity_items:
         identity_section = Div(
-            H3("Identity", cls="uk-heading-small"),
+            SectionTitle("Identity"),
             *identity_items,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Scheduling info
@@ -374,13 +370,12 @@ def HabitDetailView(
     sched_section = Div()
     if sched_items:
         sched_section = Div(
-            H3("Schedule", cls="uk-heading-small"),
+            SectionTitle("Schedule"),
             Div(
                 *sched_items,
-                cls="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-4@m",
-                **{"uk-grid": "true"},
+                cls="grid grid-cols-2 sm:grid-cols-4 gap-2",
             ),
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Metadata grid
@@ -395,29 +390,26 @@ def HabitDetailView(
     if meta_items:
         meta_grid = Div(
             *meta_items,
-            cls="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-4@m uk-margin",
-            **{"uk-grid": "true"},
+            cls="grid grid-cols-2 sm:grid-cols-4 gap-2 my-4",
         )
 
     # Tags
     tags_el = Div()
     if habit.tags:
-        tag_badges = [
-            Span(tag, cls="uk-badge uk-badge-secondary uk-margin-small-right") for tag in habit.tags
-        ]
+        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in habit.tags]
         tags_el = Div(
-            Small("Tags", cls="uk-text-muted uk-display-block uk-margin-small-bottom"),
+            Small("Tags", cls="text-muted-foreground block mb-2"),
             *tag_badges,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Connections
     conn_section = Div()
     if connections:
         conn_section = Div(
-            H3("Connections", cls="uk-heading-small"),
+            SectionTitle("Connections"),
             ConnectionBadges(connections),
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Lateral relationships
@@ -426,11 +418,9 @@ def HabitDetailView(
         entity_type="habits",
     )
 
-    return Div(
+    return Container(
         header,
-        Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-bottom")
-        if badges
-        else "",
+        DivHStacked(*badges, cls="flex-wrap mb-2") if badges else "",
         desc_el,
         streak_section,
         atomic_section,
@@ -440,9 +430,8 @@ def HabitDetailView(
         tags_el,
         conn_section,
         relationships,
-        cls="uk-container uk-container-small",
+        size="3xl",
     )
-
 
 
 def _is_keystone(habit: "Habit") -> bool:

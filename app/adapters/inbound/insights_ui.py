@@ -239,7 +239,7 @@ def create_insights_ui_routes(
                 # Loading indicator (shown during debounce/navigation)
                 Span(
                     "Filtering...",
-                    cls="text-xs text-muted-foreground uk-spinner uk-spinner-small",
+                    cls="text-xs text-muted-foreground animate-spin",
                     **{"x-show": "loading"},
                 ),
                 cls="flex gap-2 mt-3 items-center",
@@ -300,7 +300,7 @@ def create_insights_ui_routes(
                 Label(
                     Input(
                         type="checkbox",
-                        cls="uk-checkbox",
+                        cls="checkbox checkbox-primary",
                         **{"x-model": "selectAllChecked"},
                         **{"@change": "toggleSelectAll()"},
                     ),
@@ -331,7 +331,7 @@ def create_insights_ui_routes(
                             type="checkbox",
                             name="insight-checkbox",
                             value=insight.uid,
-                            cls="uk-checkbox",
+                            cls="checkbox checkbox-primary",
                             **{"@change": f"toggleSelection('{insight.uid}')"},
                             **{":checked": f"isSelected('{insight.uid}')"},
                         ),
@@ -365,7 +365,7 @@ def create_insights_ui_routes(
                 # Loading indicator
                 Div(
                     Div(
-                        Span("Loading more insights...", cls="uk-spinner uk-spinner-small"),
+                        Span("Loading more insights...", cls="text-muted-foreground text-sm"),
                         cls="flex justify-center items-center py-8",
                     ),
                     id="loading-indicator",
@@ -590,7 +590,7 @@ def create_insights_ui_routes(
                         type="checkbox",
                         name="insight-checkbox",
                         value=insight.uid,
-                        cls="uk-checkbox",
+                        cls="checkbox checkbox-primary",
                         **{"@change": f"toggleSelection('{insight.uid}')"},
                         **{":checked": f"isSelected('{insight.uid}')"},
                     ),

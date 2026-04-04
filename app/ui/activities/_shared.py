@@ -10,6 +10,9 @@ Usage:
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Div, Small, Span
+from monsterui.franken import UkIcon  # type: ignore[import-untyped]
+
+from ui.feedback import Badge, BadgeT
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -18,7 +21,7 @@ if TYPE_CHECKING:
 def MetadataField(label: str, *value: "FT") -> "FT":
     """Label + value pair for detail page metadata grids."""
     return Div(
-        Small(label, cls="uk-text-muted uk-display-block"),
+        Small(label, cls="text-muted-foreground block text-sm"),
         *value,
     )
 
@@ -64,17 +67,15 @@ def ConnectionBadges(connections: list[dict[str, str]]) -> "FT":
 
         badges.append(
             A(
-                Span(
-                    cls="uk-icon uk-margin-small-right", **{"uk-icon": f"icon: {icon}; ratio: 0.75"}
-                ),
+                UkIcon(icon, height=12, width=12, cls="inline mr-1"),
                 title,
                 href=href,
-                cls="uk-badge uk-margin-small-right",
+                cls="inline-flex items-center mr-2",
                 style="text-decoration: none;",
             )
         )
 
-    return Div(*badges, cls="uk-margin-small-top")
+    return Div(*badges, cls="mt-2")
 
 
 def ConnectionSummary(connections: list[dict[str, str]]) -> "FT":
@@ -96,10 +97,10 @@ def ConnectionSummary(connections: list[dict[str, str]]) -> "FT":
         icon = CONNECTION_ICONS.get(domain, ("link", "#"))[0]
         parts.append(
             Span(
-                Span(cls="uk-icon", **{"uk-icon": f"icon: {icon}; ratio: 0.6"}),
+                UkIcon(icon, height=10, width=10, cls="inline"),
                 f" {count}",
-                cls="uk-text-muted uk-text-small uk-margin-small-right",
+                cls="text-muted-foreground text-sm mr-2",
             )
         )
 
-    return Div(*parts, cls="uk-margin-small-top")
+    return Div(*parts, cls="mt-2")

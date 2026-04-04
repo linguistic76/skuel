@@ -231,7 +231,10 @@ def _render_login_landing_page() -> Any:
                 # Mobile branding
                 Div(
                     H1("SKUEL", cls="text-3xl font-extrabold tracking-tight text-primary"),
-                    P("Personal knowledge & productivity", cls="text-sm text-muted-foreground mt-1"),
+                    P(
+                        "Personal knowledge & productivity",
+                        cls="text-sm text-muted-foreground mt-1",
+                    ),
                     cls="text-center lg:hidden mb-10",
                 ),
                 # Desktop subtitle

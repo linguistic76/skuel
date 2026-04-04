@@ -103,7 +103,7 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
                 Label("Sort by:", cls="text-sm font-medium text-foreground mr-2"),
                 Select(
                     *[Option(label, value=value) for value, label in sorts],
-                    cls="uk-select uk-form-sm",
+                    cls="select select-bordered select-sm",
                     x_model="sortBy",
                 ),
                 cls="flex items-center gap-2",

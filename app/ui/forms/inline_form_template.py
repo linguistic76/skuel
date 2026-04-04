@@ -198,14 +198,14 @@ def _submit_handler(form_template_uid: str, field_specs: list[dict[str, Any]]) -
         f"let data = await res.json(); "
         f"let uid = data.submission?.uid || ''; "
         f"$el.innerHTML = '<div class=\"space-y-3\">' "
-        f"+ '<div class=\"uk-alert uk-alert-success\">Submitted successfully.</div>' "
+        f"+ '<div class=\"p-4 rounded-lg bg-green-50 text-green-800 border border-green-200\">Submitted successfully.</div>' "
         f"+ (uid ? '<a href=\"/my-forms/detail?uid=' + uid + '\" class=\"text-primary underline text-sm\">View Submission</a>' : '') "
         f'+ \' <button onclick="location.reload()" class="text-sm text-muted-foreground underline ml-2">Submit Another</button>\' '
         f"+ '</div>'; "
         f"}} else {{ "
         f"let err = await res.json(); "
         f"document.getElementById('form-feedback-{form_template_uid}').innerHTML = "
-        f"'<div class=\"uk-alert uk-alert-danger flex items-center justify-between\">' "
+        f"'<div class=\"p-4 rounded-lg bg-red-50 text-red-800 border border-red-200 flex items-center justify-between\">' "
         f"+ '<span>' + (err.error || 'Submission failed') + '</span>' "
         f'+ \'<button onclick="this.parentElement.remove()" class="ml-2 font-bold">&times;</button>\' '
         f"+ '</div>'; "

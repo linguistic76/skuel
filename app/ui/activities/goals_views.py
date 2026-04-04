@@ -14,22 +14,24 @@ from fasthtml.common import (
     A,
     Div,
     Form,
-    Label,
     Li,
     Option,
     P,
-    Select,
     Small,
     Span,
     Ul,
 )
+from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import PRIORITY_ORDER, ConnectionSummary, MetadataField, safe_id
-from ui.feedback import PriorityBadge, StatusBadge
+from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
+from ui.forms.components import LabelSelect
+from ui.layout import Container
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
+from ui.text import SectionTitle
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -90,39 +92,30 @@ def GoalFilterBar(
     """Filter and sort controls for the goal list. HTMX-powered."""
     return Form(
         Div(
-            Div(
-                Label("Status", cls="uk-form-label"),
-                Select(
-                    Option("Active", value="active", selected=status_filter == "active"),
-                    Option("On Track", value="on_track", selected=status_filter == "on_track"),
-                    Option("Wobbly", value="wobbly", selected=status_filter == "wobbly"),
-                    Option("Completed", value="completed", selected=status_filter == "completed"),
-                    Option("All", value="all", selected=status_filter == "all"),
-                    name="status",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("Active", value="active", selected=status_filter == "active"),
+                Option("On Track", value="on_track", selected=status_filter == "on_track"),
+                Option("Wobbly", value="wobbly", selected=status_filter == "wobbly"),
+                Option("Completed", value="completed", selected=status_filter == "completed"),
+                Option("All", value="all", selected=status_filter == "all"),
+                label="Status",
+                name="status",
             ),
-            Div(
-                Label("Sort", cls="uk-form-label"),
-                Select(
-                    Option("Target Date", value="target_date", selected=sort_by == "target_date"),
-                    Option("Priority", value="priority", selected=sort_by == "priority"),
-                    Option("Progress", value="progress", selected=sort_by == "progress"),
-                    Option("Title", value="title", selected=sort_by == "title"),
-                    name="sort_by",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("Target Date", value="target_date", selected=sort_by == "target_date"),
+                Option("Priority", value="priority", selected=sort_by == "priority"),
+                Option("Progress", value="progress", selected=sort_by == "progress"),
+                Option("Title", value="title", selected=sort_by == "title"),
+                label="Sort",
+                name="sort_by",
             ),
-            cls="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-auto@m",
-            **{"uk-grid": "true"},
+            cls="grid grid-cols-1 sm:grid-cols-2 gap-2",
         ),
         hx_get="/goals/list-fragment",
         hx_target="#goal-list",
         hx_trigger="change",
         hx_include="[name]",
-        cls="uk-margin-bottom",
+        cls="mb-4",
     )
 
 
@@ -146,7 +139,7 @@ def GoalList(
         GoalCard(goal, connections_map.get(goal.uid, []) if connections_map else [])
         for goal in goals
     ]
-    return Div(*cards, id="goal-list", cls="uk-margin-top")
+    return Div(*cards, id="goal-list", cls="mt-4")
 
 
 def GoalCard(
@@ -160,11 +153,11 @@ def GoalCard(
     on_track = goal.is_on_track()
 
     # Title — clickable link to detail page
-    title_cls = "uk-text-muted uk-text-line-through" if goal.is_completed else ""
+    title_cls = "text-muted-foreground line-through" if goal.is_completed else ""
     title_el = A(
         goal.title or "Untitled",
         href=f"/goals/detail?uid={goal.uid}",
-        cls=f"uk-link-text {title_cls}",
+        cls=f"hover:underline {title_cls}",
     )
 
     # Badges row
@@ -175,39 +168,39 @@ def GoalCard(
         badges.append(StatusBadge(str(goal.status)))
     if goal.timeframe:
         badges.append(
-            Span(
+            Badge(
                 str(goal.timeframe.value).replace("_", " ").title(),
-                cls="uk-badge",
+                variant=BadgeT.primary,
             )
         )
 
     # Progress bar
-    bar_color = "uk-progress-success" if on_track else "uk-progress-warning"
+    bar_color = "bg-green-600" if on_track else "bg-yellow-600"
     if goal.is_completed:
-        bar_color = "uk-progress-success"
+        bar_color = "bg-green-600"
     elif overdue:
-        bar_color = "uk-progress-danger"
+        bar_color = "bg-red-600"
 
     progress_el = Div(
         Div(
-            Span(f"{progress_pct}%", cls="uk-text-small uk-text-muted"),
+            Span(f"{progress_pct}%", cls="text-sm text-muted-foreground"),
             Div(
                 Div(
                     style=f"width: {progress_pct}%",
-                    cls=f"uk-progress-bar {bar_color}",
+                    cls=f"h-full rounded-full {bar_color}",
                 ),
-                cls="uk-progress uk-margin-remove",
+                cls="w-full bg-muted rounded-full overflow-hidden",
                 style="height: 6px;",
             ),
-            cls="uk-width-expand",
+            cls="flex-1 min-w-0",
         ),
-        cls="uk-margin-small-top",
+        cls="mt-2",
     )
 
     # Target date
     date_el = Span()
     if goal.target_date:
-        date_cls = "uk-text-danger uk-text-bold" if overdue else "uk-text-muted"
+        date_cls = "text-destructive font-bold" if overdue else "text-muted-foreground"
         days_left = goal.days_remaining()
         date_str = str(goal.target_date)
         if overdue:
@@ -222,22 +215,21 @@ def GoalCard(
     # Card assembly
     header = Div(
         Div(
-            Div(title_el, cls="uk-flex uk-flex-middle uk-flex-wrap"),
-            Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-top")
-            if badges
-            else "",
+            Div(title_el, cls="flex items-center flex-wrap"),
+            Div(*badges, cls="flex flex-wrap items-center mt-2") if badges else "",
             date_el,
             progress_el,
             conn_summary,
-            cls="uk-width-expand",
+            cls="flex-1 min-w-0",
         ),
-        cls="uk-flex uk-flex-top",
+        cls="flex items-start",
     )
 
+    completed_cls = "opacity-75" if goal.is_completed else ""
     return Div(
         header,
         id=f"goal-{safe_id(goal.uid)}",
-        cls=f"uk-card uk-card-default uk-card-body uk-card-small uk-margin-small-bottom {'uk-opacity-75' if goal.is_completed else ''}",
+        cls=f"card bg-card text-card-foreground rounded-lg border p-3 mb-2 {completed_cls}",
     )
 
 
@@ -267,56 +259,65 @@ def GoalDetailView(
     progress = goal.calculate_progress()
     progress_pct = int(progress * 100)
     on_track = goal.is_on_track()
-    track_cls = "uk-text-success" if on_track else "uk-text-warning"
+    track_cls = "text-green-600" if on_track else "text-yellow-600"
     track_text = "On Track" if on_track else "Behind"
     if goal.is_completed:
-        track_cls = "uk-text-success"
+        track_cls = "text-green-600"
         track_text = "Completed"
     elif goal.is_overdue():
-        track_cls = "uk-text-danger"
+        track_cls = "text-destructive"
         track_text = "Overdue"
 
     progress_section = Div(
         Div(
-            Span(f"{progress_pct}%", cls="uk-text-large uk-text-bold"),
-            Span(f" · {track_text}", cls=f"uk-text-small {track_cls}"),
-            cls="uk-margin-small-bottom",
+            Span(f"{progress_pct}%", cls="text-lg font-bold"),
+            Span(f" · {track_text}", cls=f"text-sm {track_cls}"),
+            cls="mb-2",
         ),
         Div(
             Div(
                 style=f"width: {progress_pct}%",
-                cls="uk-progress-bar uk-progress-success"
+                cls="h-full rounded-full bg-green-600"
                 if on_track
-                else "uk-progress-bar uk-progress-warning",
+                else "h-full rounded-full bg-yellow-600",
             ),
-            cls="uk-progress",
+            cls="w-full bg-muted rounded-full overflow-hidden",
             style="height: 10px;",
         ),
-        cls="uk-margin",
+        cls="my-4",
     )
 
     # Description and motivation fields
     text_sections: list[Any] = []
     if goal.description:
-        text_sections.append(Div(P(goal.description, cls="uk-text-default"), cls="uk-margin"))
+        text_sections.append(Div(P(goal.description), cls="my-4"))
     if goal.vision_statement:
         text_sections.append(
-            Div(MetadataField("Vision", P(goal.vision_statement, cls="uk-text-default")), cls="uk-margin")
+            Div(
+                MetadataField("Vision", P(goal.vision_statement)),
+                cls="my-4",
+            )
         )
     if goal.why_important:
         text_sections.append(
-            Div(MetadataField("Why Important", P(goal.why_important, cls="uk-text-default")), cls="uk-margin")
+            Div(
+                MetadataField("Why Important", P(goal.why_important)),
+                cls="my-4",
+            )
         )
     if goal.success_criteria:
         text_sections.append(
-            Div(MetadataField("Success Criteria", P(goal.success_criteria, cls="uk-text-default")), cls="uk-margin")
+            Div(
+                MetadataField("Success Criteria", P(goal.success_criteria)),
+                cls="my-4",
+            )
         )
 
     # Metadata grid
     meta_items: list[Any] = []
     if goal.target_date:
         overdue = goal.is_overdue()
-        due_cls = "uk-text-danger uk-text-bold" if overdue else ""
+        due_cls = "text-destructive font-bold" if overdue else ""
         meta_items.append(MetadataField("Target Date", Span(str(goal.target_date), cls=due_cls)))
     if goal.start_date:
         meta_items.append(MetadataField("Start Date", Span(str(goal.start_date))))
@@ -332,20 +333,17 @@ def GoalDetailView(
     if meta_items:
         meta_grid = Div(
             *meta_items,
-            cls="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-1-4@m uk-margin",
-            **{"uk-grid": "true"},
+            cls="grid grid-cols-2 sm:grid-cols-4 gap-2 my-4",
         )
 
     # Tags
     tags_el = Div()
     if goal.tags:
-        tag_badges = [
-            Span(tag, cls="uk-badge uk-badge-secondary uk-margin-small-right") for tag in goal.tags
-        ]
+        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in goal.tags]
         tags_el = Div(
-            Small("Tags", cls="uk-text-muted uk-display-block uk-margin-small-bottom"),
+            Small("Tags", cls="text-muted-foreground block mb-2"),
             *tag_badges,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Milestones section
@@ -366,9 +364,7 @@ def GoalDetailView(
 
     return Div(
         header,
-        Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-bottom")
-        if badges
-        else "",
+        Div(*badges, cls="flex flex-wrap items-center mb-2") if badges else "",
         progress_section,
         *text_sections,
         meta_grid,
@@ -376,7 +372,7 @@ def GoalDetailView(
         milestones_section,
         conn_section,
         relationships,
-        cls="uk-container uk-container-small",
+        cls="max-w-3xl mx-auto px-4",
     )
 
 
@@ -385,8 +381,8 @@ def MilestonesSection(milestones: tuple["Milestone", ...]) -> "FT":
     items: list[Any] = []
     for ms in milestones:
         icon = "check" if ms.is_completed else "circle"
-        icon_cls = "uk-text-success" if ms.is_completed else "uk-text-muted"
-        text_cls = "uk-text-line-through uk-text-muted" if ms.is_completed else ""
+        icon_cls = "text-green-600" if ms.is_completed else "text-muted-foreground"
+        text_cls = "line-through text-muted-foreground" if ms.is_completed else ""
 
         date_str = ""
         if ms.target_date:
@@ -396,17 +392,17 @@ def MilestonesSection(milestones: tuple["Milestone", ...]) -> "FT":
 
         items.append(
             Li(
-                Span(cls=f"uk-icon {icon_cls} uk-margin-small-right", **{"uk-icon": icon}),
+                UkIcon(icon, height=16, width=16, cls=f"inline mr-2 {icon_cls}"),
                 Span(ms.title, cls=text_cls),
-                Small(date_str, cls="uk-text-muted") if date_str else "",
-                cls="uk-margin-small-bottom",
+                Small(date_str, cls="text-muted-foreground") if date_str else "",
+                cls="mb-2",
             )
         )
 
     return Div(
-        H3("Milestones", cls="uk-heading-small"),
-        Ul(*items, cls="uk-list"),
-        cls="uk-margin",
+        SectionTitle("Milestones"),
+        Ul(*items, cls="space-y-2"),
+        cls="my-4",
     )
 
 
@@ -436,13 +432,11 @@ def GoalConnectionsSection(connections: list[dict[str, str]]) -> "FT":
         )
         links = [
             Li(
-                Span(
-                    cls="uk-icon uk-margin-small-right", **{"uk-icon": f"icon: {icon}; ratio: 0.75"}
-                ),
+                UkIcon(icon, height=12, width=12, cls="inline mr-1"),
                 A(
                     conn.get("title", conn.get("source_uid", "?")),
                     href=f"{base_href}{conn.get('source_uid', '')}" if base_href != "#" else "#",
-                    cls="uk-link-muted",
+                    cls="hover:underline text-muted-foreground",
                 ),
             )
             for conn in conns
@@ -451,17 +445,17 @@ def GoalConnectionsSection(connections: list[dict[str, str]]) -> "FT":
             Div(
                 Small(
                     label,
-                    cls="uk-text-muted uk-text-uppercase uk-text-small uk-display-block uk-margin-small-bottom",
+                    cls="text-muted-foreground uppercase text-sm block mb-2",
                 ),
-                Ul(*links, cls="uk-list uk-list-divider"),
-                cls="uk-margin-small-bottom",
+                Ul(*links, cls="divide-y"),
+                cls="mb-2",
             )
         )
 
     return Div(
-        H3("Connections", cls="uk-heading-small"),
+        SectionTitle("Connections"),
         *sections,
-        cls="uk-margin",
+        cls="my-4",
     )
 
 

@@ -90,7 +90,7 @@ def StatCard(
         return Anchor(
             card,
             href=href,
-            cls="uk-link-reset",
+            cls="no-underline text-inherit",
             style="display: block; transition: transform 0.15s; cursor: pointer;",
         )
 

@@ -31,7 +31,6 @@ def _error_banner(error_message: str | None) -> Any:
     )
 
 
-
 def _auth_card(*children: Any, max_width: str = "max-w-md") -> Any:
     """Card container for fragment auth pages (forgot-password, success, etc.)."""
     return Div(

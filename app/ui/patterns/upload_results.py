@@ -15,13 +15,13 @@ def UploadResultsSummary(batch: UploadBatchResult) -> Div:
     """Render upload batch results as a summary + per-file list."""
     # Summary stats
     summary = Div(
-        Span(f"{batch.successful} succeeded", cls="uk-text-success uk-text-bold"),
+        Span(f"{batch.successful} succeeded", cls="text-green-600 font-bold"),
         " / " if batch.failed > 0 else "",
-        Span(f"{batch.failed} failed", cls="uk-text-danger uk-text-bold")
+        Span(f"{batch.failed} failed", cls="text-destructive font-bold")
         if batch.failed > 0
         else "",
         f" — {batch.total} file{'s' if batch.total != 1 else ''} processed",
-        cls="uk-margin-small-bottom",
+        cls="mb-2",
     )
 
     # Per-file results
@@ -29,8 +29,8 @@ def UploadResultsSummary(batch: UploadBatchResult) -> Div:
 
     return Div(
         summary,
-        Ul(*items, cls="uk-list uk-list-divider uk-margin-small-top"),
-        cls="uk-margin-medium-top",
+        Ul(*items, cls="divide-y mt-2"),
+        cls="mt-6",
     )
 
 
@@ -38,25 +38,30 @@ def _file_result_item(result: FileUploadResult) -> Li:
     """Render a single file result as a list item."""
     if result.success:
         return Li(
-            Span(result.filename, cls="uk-text-bold"),
-            Span(f" [{result.entity_type}]", cls="uk-text-muted") if result.entity_type else "",
-            Span(f" → {result.uid}", cls="uk-text-small uk-text-muted") if result.uid else "",
-            cls="uk-text-success",
+            Span(result.filename, cls="font-bold"),
+            Span(f" [{result.entity_type}]", cls="text-muted-foreground")
+            if result.entity_type
+            else "",
+            Span(f" → {result.uid}", cls="text-sm text-muted-foreground") if result.uid else "",
+            cls="text-green-600 py-2",
         )
     else:
         return Li(
-            Span(result.filename, cls="uk-text-bold"),
-            Span(f" [{result.entity_type}]", cls="uk-text-muted") if result.entity_type else "",
+            Span(result.filename, cls="font-bold"),
+            Span(f" [{result.entity_type}]", cls="text-muted-foreground")
+            if result.entity_type
+            else "",
             Div(
                 result.error or "Unknown error",
-                cls="uk-text-small uk-text-danger",
+                cls="text-sm text-destructive",
             ),
+            cls="py-2",
         )
 
 
 def UploadError(message: str) -> Div:
     """Render an upload error message."""
     return Div(
-        Span(message, cls="uk-text-danger"),
-        cls="uk-margin-medium-top",
+        Span(message, cls="text-destructive"),
+        cls="mt-6",
     )

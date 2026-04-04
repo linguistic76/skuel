@@ -13,25 +13,28 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import (
     H3,
     A,
-    Button,
     Div,
     Form,
-    Label,
     Li,
     Option,
     P,
-    Select,
     Small,
     Span,
     Ul,
 )
+from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, MetadataField, safe_id
-from ui.feedback import PriorityBadge, StatusBadge
+from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody
+from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
+from ui.forms.components import LabelSelect
+from ui.layout import Container, DivHStacked
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
+from ui.text import SectionTitle
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -83,37 +86,28 @@ def ChoiceFilterBar(
     """Filter and sort controls for the choice list. HTMX-powered."""
     return Form(
         Div(
-            Div(
-                Label("Status", cls="uk-form-label"),
-                Select(
-                    Option("Pending", value="pending", selected=status_filter == "pending"),
-                    Option("Decided", value="decided", selected=status_filter == "decided"),
-                    Option("All", value="all", selected=status_filter == "all"),
-                    name="status",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("Pending", value="pending", selected=status_filter == "pending"),
+                Option("Decided", value="decided", selected=status_filter == "decided"),
+                Option("All", value="all", selected=status_filter == "all"),
+                label="Status",
+                name="status",
             ),
-            Div(
-                Label("Sort", cls="uk-form-label"),
-                Select(
-                    Option("Deadline", value="deadline", selected=sort_by == "deadline"),
-                    Option("Priority", value="priority", selected=sort_by == "priority"),
-                    Option("Recently Created", value="created", selected=sort_by == "created"),
-                    Option("Title", value="title", selected=sort_by == "title"),
-                    name="sort_by",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("Deadline", value="deadline", selected=sort_by == "deadline"),
+                Option("Priority", value="priority", selected=sort_by == "priority"),
+                Option("Recently Created", value="created", selected=sort_by == "created"),
+                Option("Title", value="title", selected=sort_by == "title"),
+                label="Sort",
+                name="sort_by",
             ),
-            cls="uk-grid uk-grid-small uk-child-width-1-2@s uk-child-width-auto@m",
-            **{"uk-grid": "true"},
+            cls="grid grid-cols-1 sm:grid-cols-2 gap-2",
         ),
         hx_get="/choices/list-fragment",
         hx_target="#choice-list",
         hx_trigger="change",
         hx_include="[name]",
-        cls="uk-margin-bottom",
+        cls="mb-4",
     )
 
 
@@ -137,7 +131,7 @@ def ChoiceList(
         ChoiceCard(choice, connections_map.get(choice.uid, []) if connections_map else [])
         for choice in choices
     ]
-    return Div(*cards, id="choice-list", cls="uk-margin-top")
+    return Div(*cards, id="choice-list", cls="mt-4")
 
 
 def ChoiceCard(
@@ -150,36 +144,38 @@ def ChoiceCard(
     # Status toggle button
     new_status = "active" if is_decided else "completed"
     toggle_icon = "check" if is_decided else "git-branch"
-    toggle_cls = "uk-text-success" if is_decided else ""
+    toggle_cls = "text-green-600" if is_decided else ""
 
     toggle_btn = Button(
-        Span(cls=f"uk-icon {toggle_cls}", **{"uk-icon": toggle_icon}),
+        UkIcon(toggle_icon, height=16, width=16, cls=f"inline {toggle_cls}"),
         hx_post=f"/api/choices/{choice.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#choice-{safe_id(choice.uid)}",
         hx_swap="outerHTML",
-        cls="uk-button uk-button-default uk-button-small uk-border-rounded",
+        variant=ButtonT.neutral,
+        size="sm",
+        cls="rounded",
         title=f"Mark as {new_status}",
     )
 
     # Title
-    title_cls = "uk-text-muted" if is_decided else ""
+    title_cls = "text-muted-foreground" if is_decided else ""
     title_el = A(
         choice.title or "Untitled",
         href=f"/choices/detail?uid={choice.uid}",
-        cls=f"uk-link-text {title_cls}",
+        cls=f"hover:underline {title_cls}",
     )
 
     # Badges
     badges: list[Any] = []
     if choice.choice_type:
-        badges.append(Span(str(choice.choice_type.value).title(), cls="uk-badge"))
+        badges.append(Badge(str(choice.choice_type.value).title(), variant=BadgeT.primary))
     if choice.priority:
         badges.append(PriorityBadge(str(choice.priority)))
     if choice.status:
         badges.append(StatusBadge(str(choice.status)))
     if choice.options:
-        badges.append(Span(f"{len(choice.options)} options", cls="uk-badge uk-badge-secondary"))
+        badges.append(Badge(f"{len(choice.options)} options", variant=BadgeT.secondary))
 
     # Deadline
     deadline_el = Span()
@@ -188,7 +184,9 @@ def ChoiceCard(
         dl_str = str(choice.decision_deadline)[:10]
         if overdue and not is_decided:
             dl_str += " (overdue)"
-        dl_cls = "uk-text-danger uk-text-bold" if overdue and not is_decided else "uk-text-muted"
+        dl_cls = (
+            "text-destructive font-bold" if overdue and not is_decided else "text-muted-foreground"
+        )
         deadline_el = Small(f"Deadline: {dl_str}", cls=dl_cls)
 
     # Satisfaction score for decided choices
@@ -196,17 +194,14 @@ def ChoiceCard(
     if is_decided and choice.satisfaction_score and choice.satisfaction_score > 0:
         satisfaction_el = Small(
             f"Satisfaction: {choice.satisfaction_score}/5",
-            cls="uk-text-muted uk-margin-small-left",
+            cls="text-muted-foreground ml-2",
         )
 
     # Tags
     tags_el = Span()
     if choice.tags:
-        tag_badges = [
-            Span(tag, cls="uk-badge uk-badge-secondary uk-margin-small-right")
-            for tag in choice.tags[:5]
-        ]
-        tags_el = Div(*tag_badges, cls="uk-margin-small-top")
+        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in choice.tags[:5]]
+        tags_el = Div(*tag_badges, cls="mt-2")
 
     # Connection badges
     conn_el = ConnectionBadges(connections or [])
@@ -215,23 +210,21 @@ def ChoiceCard(
     header = Div(
         toggle_btn,
         Div(
-            Div(title_el, satisfaction_el, cls="uk-flex uk-flex-middle uk-flex-wrap"),
-            Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-top")
-            if badges
-            else "",
+            DivHStacked(title_el, satisfaction_el, cls="flex-wrap"),
+            DivHStacked(*badges, cls="flex-wrap mt-2") if badges else "",
             deadline_el,
             tags_el,
             conn_el,
-            cls="uk-margin-small-left uk-width-expand",
+            cls="ml-2 flex-1 min-w-0",
         ),
-        cls="uk-flex uk-flex-top",
+        cls="flex items-start",
     )
 
-    opacity = "uk-opacity-75" if is_decided else ""
-    return Div(
-        header,
+    opacity = "opacity-75" if is_decided else ""
+    return Card(
+        CardBody(header, cls="p-3"),
         id=f"choice-{safe_id(choice.uid)}",
-        cls=f"uk-card uk-card-default uk-card-body uk-card-small uk-margin-small-bottom {opacity}",
+        cls=f"mb-2 {opacity}",
     )
 
 
@@ -255,7 +248,7 @@ def ChoiceDetailView(
     # Badges
     badges: list[Any] = []
     if choice.choice_type:
-        badges.append(Span(str(choice.choice_type.value).title(), cls="uk-badge"))
+        badges.append(Badge(str(choice.choice_type.value).title(), variant=BadgeT.primary))
     if choice.priority:
         badges.append(PriorityBadge(str(choice.priority)))
     if choice.status:
@@ -264,7 +257,7 @@ def ChoiceDetailView(
     # Description
     desc_el = Div()
     if choice.description:
-        desc_el = Div(P(choice.description, cls="uk-text-default"), cls="uk-margin")
+        desc_el = Div(P(choice.description), cls="my-4")
 
     # Options section
     options_section = Div()
@@ -274,31 +267,27 @@ def ChoiceDetailView(
     # Decision section (criteria, constraints, rationale)
     decision_items: list[Any] = []
     if choice.decision_rationale:
-        decision_items.append(
-            MetadataField("Rationale", P(choice.decision_rationale, cls="uk-text-default"))
-        )
+        decision_items.append(MetadataField("Rationale", P(choice.decision_rationale)))
     if choice.decision_criteria:
         criteria_list = Ul(
             *[Li(c) for c in choice.decision_criteria],
-            cls="uk-list uk-list-disc",
+            cls="list-disc pl-6",
         )
         decision_items.append(MetadataField("Criteria", criteria_list))
     if choice.constraints:
         constraints_list = Ul(
             *[Li(c) for c in choice.constraints],
-            cls="uk-list uk-list-disc",
+            cls="list-disc pl-6",
         )
         decision_items.append(MetadataField("Constraints", constraints_list))
     if choice.stakeholders:
-        decision_items.append(
-            MetadataField("Stakeholders", P(", ".join(choice.stakeholders), cls="uk-text-default"))
-        )
+        decision_items.append(MetadataField("Stakeholders", P(", ".join(choice.stakeholders))))
     decision_section = Div()
     if decision_items:
         decision_section = Div(
-            H3("Decision Framework", cls="uk-heading-small"),
+            SectionTitle("Decision Framework"),
             *decision_items,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Outcome section (only if decided)
@@ -311,33 +300,33 @@ def ChoiceDetailView(
             outcome_items.append(
                 MetadataField(
                     "Satisfaction",
-                    Span(stars, cls="uk-text-warning", style="font-size: 1.2rem;"),
-                    Span(f" {choice.satisfaction_score}/5", cls="uk-text-muted uk-text-small"),
+                    Span(stars, cls="text-yellow-600", style="font-size: 1.2rem;"),
+                    Span(f" {choice.satisfaction_score}/5", cls="text-muted-foreground text-sm"),
                 )
             )
         if choice.actual_outcome:
-            outcome_items.append(
-                MetadataField("Actual Outcome", P(choice.actual_outcome, cls="uk-text-default"))
-            )
+            outcome_items.append(MetadataField("Actual Outcome", P(choice.actual_outcome)))
         if choice.lessons_learned:
             lessons_list = Ul(
                 *[Li(lesson) for lesson in choice.lessons_learned],
-                cls="uk-list uk-list-disc",
+                cls="list-disc pl-6",
             )
             outcome_items.append(MetadataField("Lessons Learned", lessons_list))
         if outcome_items:
             outcome_section = Div(
-                H3("Outcome", cls="uk-heading-small"),
+                SectionTitle("Outcome"),
                 *outcome_items,
-                cls="uk-margin",
+                cls="my-4",
             )
 
     # Timing
     timing_items: list[Any] = []
     if choice.decision_deadline:
         overdue = _is_deadline_past(choice) and not is_decided
-        dl_cls = "uk-text-danger uk-text-bold" if overdue else ""
-        timing_items.append(MetadataField("Deadline", Span(str(choice.decision_deadline)[:10], cls=dl_cls)))
+        dl_cls = "text-destructive font-bold" if overdue else ""
+        timing_items.append(
+            MetadataField("Deadline", Span(str(choice.decision_deadline)[:10], cls=dl_cls))
+        )
     if choice.decided_at:
         timing_items.append(MetadataField("Decided", Span(str(choice.decided_at)[:10])))
     if choice.created_at:
@@ -346,30 +335,26 @@ def ChoiceDetailView(
     if timing_items:
         timing_grid = Div(
             *timing_items,
-            cls="uk-grid uk-grid-small uk-child-width-1-3@s uk-child-width-auto@m uk-margin",
-            **{"uk-grid": "true"},
+            cls="grid grid-cols-1 sm:grid-cols-3 gap-2 my-4",
         )
 
     # Tags
     tags_el = Div()
     if choice.tags:
-        tag_badges = [
-            Span(tag, cls="uk-badge uk-badge-secondary uk-margin-small-right")
-            for tag in choice.tags
-        ]
+        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in choice.tags]
         tags_el = Div(
-            Small("Tags", cls="uk-text-muted uk-display-block uk-margin-small-bottom"),
+            Small("Tags", cls="text-muted-foreground block mb-2"),
             *tag_badges,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Connections
     conn_section = Div()
     if connections:
         conn_section = Div(
-            H3("Connections", cls="uk-heading-small"),
+            SectionTitle("Connections"),
             ConnectionBadges(connections),
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Lateral relationships
@@ -378,11 +363,9 @@ def ChoiceDetailView(
         entity_type="choices",
     )
 
-    return Div(
+    return Container(
         header,
-        Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-bottom")
-        if badges
-        else "",
+        DivHStacked(*badges, cls="flex-wrap mb-2") if badges else "",
         desc_el,
         options_section,
         decision_section,
@@ -391,7 +374,7 @@ def ChoiceDetailView(
         tags_el,
         conn_section,
         relationships,
-        cls="uk-container uk-container-small",
+        size="3xl",
     )
 
 
@@ -401,26 +384,25 @@ def OptionsSection(options: tuple["ChoiceOption", ...], selected_uid: str | None
     for opt in options:
         is_selected = selected_uid and opt.uid == selected_uid
         icon = "check-circle" if is_selected else "circle"
-        icon_cls = "uk-text-success" if is_selected else "uk-text-muted"
-        text_cls = "uk-text-bold" if is_selected else ""
+        icon_cls = "text-green-600" if is_selected else "text-muted-foreground"
+        text_cls = "font-bold" if is_selected else ""
 
         opt_content: list[Any] = [
-            Span(cls=f"uk-icon {icon_cls} uk-margin-small-right", **{"uk-icon": icon}),
+            UkIcon(icon, height=16, width=16, cls=f"inline mr-2 {icon_cls}"),
             Span(opt.title or opt.uid, cls=text_cls),
         ]
         if is_selected:
-            opt_content.append(Small(" (selected)", cls="uk-text-success"))
+            opt_content.append(Small(" (selected)", cls="text-green-600"))
         if opt.description:
-            opt_content.append(Small(f" — {opt.description}", cls="uk-text-muted"))
+            opt_content.append(Small(f" — {opt.description}", cls="text-muted-foreground"))
 
-        items.append(Li(*opt_content, cls="uk-margin-small-bottom"))
+        items.append(Li(*opt_content, cls="mb-2"))
 
     return Div(
-        H3("Options", cls="uk-heading-small"),
-        Ul(*items, cls="uk-list"),
-        cls="uk-margin",
+        SectionTitle("Options"),
+        Ul(*items),
+        cls="my-4",
     )
-
 
 
 def _is_deadline_past(choice: "Choice") -> bool:

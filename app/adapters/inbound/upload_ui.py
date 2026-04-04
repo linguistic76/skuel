@@ -15,11 +15,9 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import (
     H3,
     A,
-    Button,
     Code,
     Div,
     Form,
-    Input,
     Li,
     P,
     Span,
@@ -31,6 +29,9 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.services.ingestion.user_upload_service import MAX_FILES_PER_REQUEST
 from core.utils.logging import get_logger
+from ui.buttons import Button, ButtonT
+from ui.forms.components import Input
+from ui.layout import Container
 from ui.layouts.base_page import BasePage
 from ui.patterns import PageHeader
 from ui.patterns.upload_results import UploadError, UploadResultsSummary
@@ -45,41 +46,41 @@ logger = get_logger("skuel.routes.upload")
 def _supported_types_section() -> Div:
     """Inline documentation about supported YAML types."""
     return Div(
-        H3("Supported Types", cls="uk-h4 uk-margin-small-bottom"),
+        H3("Supported Types", cls="text-lg font-semibold mb-2"),
         Ul(
             Li(
-                Span("Task", cls="uk-text-bold"),
+                Span("Task", cls="font-bold"),
                 " — required field: ",
                 Code("title"),
             ),
             Li(
-                Span("Goal", cls="uk-text-bold"),
+                Span("Goal", cls="font-bold"),
                 " — required field: ",
                 Code("title"),
             ),
             Li(
-                Span("Habit", cls="uk-text-bold"),
+                Span("Habit", cls="font-bold"),
                 " — required field: ",
                 Code("title"),
             ),
             Li(
-                Span("Event", cls="uk-text-bold"),
+                Span("Event", cls="font-bold"),
                 " — required field: ",
                 Code("title"),
             ),
             Li(
-                Span("Choice", cls="uk-text-bold"),
+                Span("Choice", cls="font-bold"),
                 " — required field: ",
                 Code("title"),
             ),
             Li(
-                Span("Principle", cls="uk-text-bold"),
+                Span("Principle", cls="font-bold"),
                 " — required fields: ",
                 Code("name"),
                 ", ",
                 Code("statement"),
             ),
-            cls="uk-list uk-list-disc uk-margin-small-top",
+            cls="list-disc pl-6 mt-2",
         ),
         P(
             "Each YAML file must include a ",
@@ -90,13 +91,13 @@ def _supported_types_section() -> Div:
             A(
                 "Download vault template",
                 href="/static/templates/activity-vault-template.zip",
-                cls="uk-link",
+                cls="hover:underline text-primary",
                 download=True,
             ),
             " for examples.",
-            cls="uk-text-muted uk-margin-small-top",
+            cls="text-muted-foreground mt-2",
         ),
-        cls="uk-margin-medium-bottom",
+        cls="mb-6",
     )
 
 
@@ -107,33 +108,33 @@ def _upload_form() -> Form:
             Div(
                 P(
                     "Drag and drop YAML files here, or click to browse",
-                    cls="uk-text-center uk-text-muted uk-margin-small-bottom",
+                    cls="text-center text-muted-foreground mb-2",
                 ),
                 Input(
                     type="file",
                     name="files",
                     accept=".yaml,.yml",
                     multiple=True,
-                    cls="uk-width-1-1",
+                    cls="w-full",
                 ),
-                cls="uk-padding uk-background-muted uk-border-rounded",
+                cls="p-6 bg-muted rounded",
                 style="border: 2px dashed var(--color-border); cursor: pointer;",
             ),
-            cls="uk-margin-medium-bottom",
+            cls="mb-6",
         ),
         Div(
             Button(
                 "Upload & Ingest",
                 type="submit",
-                cls="uk-button uk-button-primary",
+                variant=ButtonT.primary,
             ),
             Span(
                 "",
                 id="upload-spinner",
-                cls="htmx-indicator uk-margin-small-left",
+                cls="htmx-indicator ml-2",
                 **{"uk-spinner": "ratio: 0.6"},
             ),
-            cls="uk-flex uk-flex-middle",
+            cls="flex items-center",
         ),
         **{
             "hx-post": "/upload/files",
@@ -173,7 +174,7 @@ def create_upload_ui_routes(
             _supported_types_section(),
             _upload_form(),
             _results_area(),
-            cls="uk-container uk-container-small",
+            cls="max-w-3xl mx-auto px-4",
         )
 
         return await BasePage(

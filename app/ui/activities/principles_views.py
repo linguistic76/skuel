@@ -13,27 +13,29 @@ Usage:
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
-    H3,
     A,
-    Button,
     Div,
     Form,
-    Label,
     Li,
     Option,
     P,
-    Select,
     Small,
     Span,
     Ul,
 )
+from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import ConnectionSummary, MetadataField, safe_id
-from ui.feedback import StatusBadge
+from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody
+from ui.feedback import Badge, BadgeT, StatusBadge
+from ui.forms.components import LabelSelect
+from ui.layout import Container, DivHStacked
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
+from ui.text import SectionTitle
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -52,14 +54,14 @@ _STRENGTH_COLORS = {
 }
 
 _ALIGNMENT_COLORS = {
-    "flourishing": "uk-text-success",
-    "aligned": "uk-text-success",
-    "mostly_aligned": "uk-text-success",
-    "exploring": "uk-text-warning",
-    "partial": "uk-text-warning",
-    "drifting": "uk-text-danger",
-    "misaligned": "uk-text-danger",
-    "unknown": "uk-text-muted",
+    "flourishing": "text-green-600",
+    "aligned": "text-green-600",
+    "mostly_aligned": "text-green-600",
+    "exploring": "text-yellow-600",
+    "partial": "text-yellow-600",
+    "drifting": "text-destructive",
+    "misaligned": "text-destructive",
+    "unknown": "text-muted-foreground",
 }
 
 
@@ -106,78 +108,57 @@ def PrincipleFilterBar(
     """Filter and sort controls for the principle list. HTMX-powered."""
     return Form(
         Div(
-            Div(
-                Label("Status", cls="uk-form-label"),
-                Select(
-                    Option("Active", value="active", selected=status_filter == "active"),
-                    Option("All", value="all", selected=status_filter == "all"),
-                    name="status",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("Active", value="active", selected=status_filter == "active"),
+                Option("All", value="all", selected=status_filter == "all"),
+                label="Status",
+                name="status",
             ),
-            Div(
-                Label("Category", cls="uk-form-label"),
-                Select(
-                    Option("All", value="all", selected=category_filter == "all"),
-                    Option("Spiritual", value="spiritual", selected=category_filter == "spiritual"),
-                    Option("Ethical", value="ethical", selected=category_filter == "ethical"),
-                    Option(
-                        "Relational", value="relational", selected=category_filter == "relational"
-                    ),
-                    Option("Personal", value="personal", selected=category_filter == "personal"),
-                    Option(
-                        "Professional",
-                        value="professional",
-                        selected=category_filter == "professional",
-                    ),
-                    Option(
-                        "Intellectual",
-                        value="intellectual",
-                        selected=category_filter == "intellectual",
-                    ),
-                    Option("Health", value="health", selected=category_filter == "health"),
-                    Option("Creative", value="creative", selected=category_filter == "creative"),
-                    name="category",
-                    cls="uk-select uk-form-small",
+            LabelSelect(
+                Option("All", value="all", selected=category_filter == "all"),
+                Option("Spiritual", value="spiritual", selected=category_filter == "spiritual"),
+                Option("Ethical", value="ethical", selected=category_filter == "ethical"),
+                Option("Relational", value="relational", selected=category_filter == "relational"),
+                Option("Personal", value="personal", selected=category_filter == "personal"),
+                Option(
+                    "Professional",
+                    value="professional",
+                    selected=category_filter == "professional",
                 ),
-                cls="uk-form-controls",
-            ),
-            Div(
-                Label("Strength", cls="uk-form-label"),
-                Select(
-                    Option("All", value="all", selected=strength_filter == "all"),
-                    Option("Core", value="core", selected=strength_filter == "core"),
-                    Option("Strong", value="strong", selected=strength_filter == "strong"),
-                    Option("Moderate", value="moderate", selected=strength_filter == "moderate"),
-                    Option(
-                        "Developing", value="developing", selected=strength_filter == "developing"
-                    ),
-                    Option("Exploring", value="exploring", selected=strength_filter == "exploring"),
-                    name="strength",
-                    cls="uk-select uk-form-small",
+                Option(
+                    "Intellectual",
+                    value="intellectual",
+                    selected=category_filter == "intellectual",
                 ),
-                cls="uk-form-controls",
+                Option("Health", value="health", selected=category_filter == "health"),
+                Option("Creative", value="creative", selected=category_filter == "creative"),
+                label="Category",
+                name="category",
             ),
-            Div(
-                Label("Sort", cls="uk-form-label"),
-                Select(
-                    Option("Strength", value="strength", selected=sort_by == "strength"),
-                    Option("Name", value="name", selected=sort_by == "name"),
-                    Option("Recently Created", value="created", selected=sort_by == "created"),
-                    name="sort_by",
-                    cls="uk-select uk-form-small",
-                ),
-                cls="uk-form-controls",
+            LabelSelect(
+                Option("All", value="all", selected=strength_filter == "all"),
+                Option("Core", value="core", selected=strength_filter == "core"),
+                Option("Strong", value="strong", selected=strength_filter == "strong"),
+                Option("Moderate", value="moderate", selected=strength_filter == "moderate"),
+                Option("Developing", value="developing", selected=strength_filter == "developing"),
+                Option("Exploring", value="exploring", selected=strength_filter == "exploring"),
+                label="Strength",
+                name="strength",
             ),
-            cls="uk-grid uk-grid-small uk-child-width-1-4@s uk-child-width-auto@m",
-            **{"uk-grid": "true"},
+            LabelSelect(
+                Option("Strength", value="strength", selected=sort_by == "strength"),
+                Option("Name", value="name", selected=sort_by == "name"),
+                Option("Recently Created", value="created", selected=sort_by == "created"),
+                label="Sort",
+                name="sort_by",
+            ),
+            cls="grid grid-cols-2 sm:grid-cols-4 gap-2",
         ),
         hx_get="/principles/list-fragment",
         hx_target="#principle-list",
         hx_trigger="change",
         hx_include="[name]",
-        cls="uk-margin-bottom",
+        cls="mb-4",
     )
 
 
@@ -201,7 +182,7 @@ def PrincipleList(
         PrincipleCard(principle, connections_map.get(principle.uid, []) if connections_map else [])
         for principle in principles
     ]
-    return Div(*cards, id="principle-list", cls="uk-margin-top")
+    return Div(*cards, id="principle-list", cls="mt-4")
 
 
 def PrincipleCard(
@@ -214,24 +195,26 @@ def PrincipleCard(
     # Toggle button (active/inactive)
     new_status = "active" if is_inactive else "archived"
     toggle_icon = "compass" if not is_inactive else "archive"
-    toggle_cls = "" if not is_inactive else "uk-text-muted"
+    toggle_cls = "" if not is_inactive else "text-muted-foreground"
 
     toggle_btn = Button(
-        Span(cls=f"uk-icon {toggle_cls}", **{"uk-icon": toggle_icon}),
+        UkIcon(toggle_icon, height=16, width=16, cls=f"inline {toggle_cls}"),
         hx_post=f"/api/principles/{principle.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#principle-{safe_id(principle.uid)}",
         hx_swap="outerHTML",
-        cls="uk-button uk-button-default uk-button-small uk-border-rounded",
+        variant=ButtonT.neutral,
+        size="sm",
+        cls="rounded",
         title=f"Mark as {new_status}",
     )
 
     # Title
-    title_cls = "uk-text-muted" if is_inactive else ""
+    title_cls = "text-muted-foreground" if is_inactive else ""
     title_el = A(
         principle.title or "Untitled",
         href=f"/principles/detail?uid={principle.uid}",
-        cls=f"uk-link-text {title_cls}",
+        cls=f"hover:underline {title_cls}",
     )
 
     # Badges
@@ -239,7 +222,9 @@ def PrincipleCard(
     if principle.strength:
         badges.append(StrengthBadge(principle.strength.value))
     if principle.principle_category:
-        badges.append(Span(str(principle.principle_category.value).title(), cls="uk-badge"))
+        badges.append(
+            Badge(str(principle.principle_category.value).title(), variant=BadgeT.primary)
+        )
     if principle.status:
         badges.append(StatusBadge(str(principle.status)))
 
@@ -247,10 +232,10 @@ def PrincipleCard(
     alignment_el = Span()
     if principle.current_alignment:
         al_value = principle.current_alignment.value
-        al_cls = _ALIGNMENT_COLORS.get(al_value, "uk-text-muted")
+        al_cls = _ALIGNMENT_COLORS.get(al_value, "text-muted-foreground")
         alignment_el = Small(
             al_value.replace("_", " ").title(),
-            cls=f"{al_cls} uk-margin-small-left",
+            cls=f"{al_cls} ml-2",
         )
 
     # Statement preview
@@ -260,8 +245,8 @@ def PrincipleCard(
         if len(principle.statement) > 100:
             preview += "..."
         statement_el = Div(
-            Small(preview, cls="uk-text-muted"),
-            cls="uk-margin-small-top",
+            Small(preview, cls="text-muted-foreground"),
+            cls="mt-2",
         )
 
     # Connection count summary
@@ -271,22 +256,20 @@ def PrincipleCard(
     header = Div(
         toggle_btn,
         Div(
-            Div(title_el, alignment_el, cls="uk-flex uk-flex-middle uk-flex-wrap"),
-            Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-top")
-            if badges
-            else "",
+            DivHStacked(title_el, alignment_el, cls="flex-wrap"),
+            DivHStacked(*badges, cls="flex-wrap mt-2") if badges else "",
             statement_el,
             conn_summary,
-            cls="uk-margin-small-left uk-width-expand",
+            cls="ml-2 flex-1 min-w-0",
         ),
-        cls="uk-flex uk-flex-top",
+        cls="flex items-start",
     )
 
-    opacity = "uk-opacity-75" if is_inactive else ""
-    return Div(
-        header,
+    opacity = "opacity-75" if is_inactive else ""
+    return Card(
+        CardBody(header, cls="p-3"),
         id=f"principle-{safe_id(principle.uid)}",
-        cls=f"uk-card uk-card-default uk-card-body uk-card-small uk-margin-small-bottom {opacity}",
+        cls=f"mb-2 {opacity}",
     )
 
 
@@ -312,11 +295,13 @@ def PrincipleDetailView(
     if principle.strength:
         badges.append(StrengthBadge(principle.strength.value))
     if principle.principle_category:
-        badges.append(Span(str(principle.principle_category.value).title(), cls="uk-badge"))
+        badges.append(
+            Badge(str(principle.principle_category.value).title(), variant=BadgeT.primary)
+        )
     if principle.current_alignment:
         al_value = principle.current_alignment.value
-        al_cls = _ALIGNMENT_COLORS.get(al_value, "uk-text-muted")
-        badges.append(Span(al_value.replace("_", " ").title(), cls=f"uk-badge {al_cls}"))
+        al_cls = _ALIGNMENT_COLORS.get(al_value, "text-muted-foreground")
+        badges.append(Badge(al_value.replace("_", " ").title(), variant=BadgeT.primary, cls=al_cls))
     if principle.status:
         badges.append(StatusBadge(str(principle.status)))
 
@@ -326,31 +311,36 @@ def PrincipleDetailView(
         statement_section = Div(
             P(
                 principle.statement,
-                cls="uk-text-lead",
-                style="font-style: italic; border-left: 3px solid var(--uk-primary); padding-left: 1rem;",
+                cls="text-lg",
+                style="font-style: italic; border-left: 3px solid hsl(var(--primary)); padding-left: 1rem;",
             ),
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Description
     desc_el = Div()
     if principle.description:
-        desc_el = Div(P(principle.description, cls="uk-text-default"), cls="uk-margin")
+        desc_el = Div(P(principle.description), cls="my-4")
 
     # Philosophical context
     philo_items: list[Any] = []
     if principle.tradition:
-        philo_items.append(MetadataField("Tradition", P(principle.tradition, cls="uk-text-default")))
+        philo_items.append(MetadataField("Tradition", P(principle.tradition)))
     if principle.original_source:
-        philo_items.append(MetadataField("Original Source", P(principle.original_source, cls="uk-text-default")))
+        philo_items.append(MetadataField("Original Source", P(principle.original_source)))
     if principle.personal_interpretation:
-        philo_items.append(MetadataField("Personal Interpretation", P(principle.personal_interpretation, cls="uk-text-default")))
+        philo_items.append(
+            MetadataField(
+                "Personal Interpretation",
+                P(principle.personal_interpretation),
+            )
+        )
     philo_section = Div()
     if philo_items:
         philo_section = Div(
-            H3("Philosophical Context", cls="uk-heading-small"),
+            SectionTitle("Philosophical Context"),
             *philo_items,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Expressions & Key Behaviors
@@ -362,27 +352,30 @@ def PrincipleDetailView(
             expr_items.append(Li(expr_text))
     if expr_items:
         expressions_section = Div(
-            H3("Expressions", cls="uk-heading-small"),
-            Ul(*expr_items, cls="uk-list uk-list-disc"),
-            cls="uk-margin",
+            SectionTitle("Expressions"),
+            Ul(*expr_items, cls="list-disc pl-6"),
+            cls="my-4",
         )
 
     behaviors_section = Div()
     if principle.key_behaviors:
         behavior_items = [Li(b) for b in principle.key_behaviors]
         behaviors_section = Div(
-            H3("Key Behaviors", cls="uk-heading-small"),
-            Ul(*behavior_items, cls="uk-list uk-list-disc"),
-            cls="uk-margin",
+            SectionTitle("Key Behaviors"),
+            Ul(*behavior_items, cls="list-disc pl-6"),
+            cls="my-4",
         )
 
     # Alignment section
     alignment_section = Div()
     if principle.current_alignment:
         al_value = principle.current_alignment.value
-        al_cls = _ALIGNMENT_COLORS.get(al_value, "uk-text-muted")
+        al_cls = _ALIGNMENT_COLORS.get(al_value, "text-muted-foreground")
         al_items: list[Any] = [
-            MetadataField("Current Alignment", Span(al_value.replace("_", " ").title(), cls=f"uk-text-bold {al_cls}"))
+            MetadataField(
+                "Current Alignment",
+                Span(al_value.replace("_", " ").title(), cls=f"font-bold {al_cls}"),
+            )
         ]
         if principle.last_review_date:
             al_items.append(MetadataField("Last Reviewed", Span(str(principle.last_review_date))))
@@ -392,19 +385,21 @@ def PrincipleDetailView(
             for assessment in principle.alignment_history[-5:]:  # Show last 5
                 al_level = getattr(assessment, "alignment_level", None) or str(assessment)
                 assessed_at = getattr(assessment, "assessed_date", "")
-                h_cls = _ALIGNMENT_COLORS.get(str(al_level), "uk-text-muted")
+                h_cls = _ALIGNMENT_COLORS.get(str(al_level), "text-muted-foreground")
                 history_items.append(
                     Li(
                         Span(str(al_level).replace("_", " ").title(), cls=h_cls),
-                        Small(f" — {assessed_at}", cls="uk-text-muted") if assessed_at else "",
+                        Small(f" — {assessed_at}", cls="text-muted-foreground")
+                        if assessed_at
+                        else "",
                     )
                 )
             if history_items:
-                al_items.append(MetadataField("History", Ul(*history_items, cls="uk-list")))
+                al_items.append(MetadataField("History", Ul(*history_items, cls="space-y-1")))
         alignment_section = Div(
-            H3("Alignment", cls="uk-heading-small"),
+            SectionTitle("Alignment"),
             *al_items,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Conflicts & Tensions
@@ -412,31 +407,37 @@ def PrincipleDetailView(
     conflict_items: list[Any] = []
     if principle.potential_conflicts:
         conflict_items.append(
-            MetadataField("Potential Conflicts", Ul(*[Li(c) for c in principle.potential_conflicts], cls="uk-list uk-list-disc"))
+            MetadataField(
+                "Potential Conflicts",
+                Ul(*[Li(c) for c in principle.potential_conflicts], cls="list-disc pl-6"),
+            )
         )
     if principle.resolution_strategies:
         conflict_items.append(
-            MetadataField("Resolution Strategies", Ul(*[Li(s) for s in principle.resolution_strategies], cls="uk-list uk-list-disc"))
+            MetadataField(
+                "Resolution Strategies",
+                Ul(*[Li(s) for s in principle.resolution_strategies], cls="list-disc pl-6"),
+            )
         )
     if conflict_items:
         conflicts_section = Div(
-            H3("Conflicts & Tensions", cls="uk-heading-small"),
+            SectionTitle("Conflicts & Tensions"),
             *conflict_items,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Personal reflection
     reflection_items: list[Any] = []
     if principle.origin_story:
-        reflection_items.append(MetadataField("Origin Story", P(principle.origin_story, cls="uk-text-default")))
+        reflection_items.append(MetadataField("Origin Story", P(principle.origin_story)))
     if principle.evolution_notes:
-        reflection_items.append(MetadataField("Evolution Notes", P(principle.evolution_notes, cls="uk-text-default")))
+        reflection_items.append(MetadataField("Evolution Notes", P(principle.evolution_notes)))
     reflection_section = Div()
     if reflection_items:
         reflection_section = Div(
-            H3("Personal Reflection", cls="uk-heading-small"),
+            SectionTitle("Personal Reflection"),
             *reflection_items,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Metadata grid
@@ -444,28 +445,26 @@ def PrincipleDetailView(
     if principle.adopted_date:
         meta_items.append(MetadataField("Adopted", Span(str(principle.adopted_date))))
     if principle.principle_source:
-        meta_items.append(MetadataField("Source", Span(str(principle.principle_source.value).title())))
+        meta_items.append(
+            MetadataField("Source", Span(str(principle.principle_source.value).title()))
+        )
     if principle.created_at:
         meta_items.append(MetadataField("Created", Span(str(principle.created_at)[:10])))
     meta_grid = Div()
     if meta_items:
         meta_grid = Div(
             *meta_items,
-            cls="uk-grid uk-grid-small uk-child-width-1-3@s uk-child-width-auto@m uk-margin",
-            **{"uk-grid": "true"},
+            cls="grid grid-cols-1 sm:grid-cols-3 gap-2 my-4",
         )
 
     # Tags
     tags_el = Div()
     if principle.tags:
-        tag_badges = [
-            Span(tag, cls="uk-badge uk-badge-secondary uk-margin-small-right")
-            for tag in principle.tags
-        ]
+        tag_badges = [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in principle.tags]
         tags_el = Div(
-            Small("Tags", cls="uk-text-muted uk-display-block uk-margin-small-bottom"),
+            Small("Tags", cls="text-muted-foreground block mb-2"),
             *tag_badges,
-            cls="uk-margin",
+            cls="my-4",
         )
 
     # Connections — gravity well (incoming relationships)
@@ -479,11 +478,9 @@ def PrincipleDetailView(
         entity_type="principles",
     )
 
-    return Div(
+    return Container(
         header,
-        Div(*badges, cls="uk-flex uk-flex-wrap uk-flex-middle uk-margin-small-bottom")
-        if badges
-        else "",
+        DivHStacked(*badges, cls="flex-wrap mb-2") if badges else "",
         statement_section,
         desc_el,
         philo_section,
@@ -496,7 +493,7 @@ def PrincipleDetailView(
         tags_el,
         conn_section,
         relationships,
-        cls="uk-container uk-container-small",
+        size="3xl",
     )
 
 
@@ -526,13 +523,11 @@ def PrincipleConnectionsSection(connections: list[dict[str, str]]) -> "FT":
         )
         links = [
             Li(
-                Span(
-                    cls="uk-icon uk-margin-small-right", **{"uk-icon": f"icon: {icon}; ratio: 0.75"}
-                ),
+                UkIcon(icon, height=12, width=12, cls="inline mr-2"),
                 A(
                     conn.get("title", conn.get("source_uid", "?")),
                     href=f"{base_href}{conn.get('source_uid', '')}" if base_href != "#" else "#",
-                    cls="uk-link-muted",
+                    cls="hover:underline text-muted-foreground",
                 ),
             )
             for conn in conns
@@ -541,30 +536,24 @@ def PrincipleConnectionsSection(connections: list[dict[str, str]]) -> "FT":
             Div(
                 Small(
                     label,
-                    cls="uk-text-muted uk-text-uppercase uk-text-small uk-display-block uk-margin-small-bottom",
+                    cls="text-muted-foreground uppercase text-sm block mb-2",
                 ),
-                Ul(*links, cls="uk-list uk-list-divider"),
-                cls="uk-margin-small-bottom",
+                Ul(*links, cls="divide-y"),
+                cls="mb-2",
             )
         )
 
     return Div(
-        H3("Connections", cls="uk-heading-small"),
+        SectionTitle("Connections"),
         *sections,
-        cls="uk-margin",
+        cls="my-4",
     )
 
 
 def StrengthBadge(strength: str) -> "FT":
     """Color-coded badge for PrincipleStrength."""
     style = _STRENGTH_COLORS.get(strength, "")
-    return Span(
-        strength.title(),
-        cls="uk-badge",
-        style=style,
-    )
-
-
+    return Badge(strength.title(), variant=BadgeT.primary, style=style)
 
 
 def filter_principles(
