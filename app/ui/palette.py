@@ -113,6 +113,29 @@ class FrequencyColor:
         return cls._MAP.get(frequency, cls.DEFAULT)
 
 
+class StrengthColor:
+    """Principle strength level colors."""
+
+    CORE = "#7C3AED"  # Violet
+    STRONG = "#2563EB"  # Blue
+    MODERATE = "#0891B2"  # Cyan
+    DEVELOPING = "#059669"  # Emerald
+    EXPLORING = "#6B7280"  # Gray
+
+    _MAP: dict[str, str] = {
+        "core": CORE,
+        "strong": STRONG,
+        "moderate": MODERATE,
+        "developing": DEVELOPING,
+        "exploring": EXPLORING,
+    }
+
+    @classmethod
+    def for_level(cls, strength: str) -> str:
+        """Get hex color for a strength level (e.g., 'core')."""
+        return cls._MAP.get(strength, cls.EXPLORING)
+
+
 class CalendarFallback:
     """Fallback colors when domain enum methods are unavailable.
 

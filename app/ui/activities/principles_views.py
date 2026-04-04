@@ -33,6 +33,7 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
+from ui.palette import StrengthColor
 from ui.text import SectionTitle
 
 if TYPE_CHECKING:
@@ -42,14 +43,6 @@ if TYPE_CHECKING:
 
 # Strength ordering: Core is strongest (0), Exploring is weakest (4)
 _STRENGTH_ORDER = {"core": 0, "strong": 1, "moderate": 2, "developing": 3, "exploring": 4}
-
-_STRENGTH_COLORS = {
-    "core": "background-color: #7C3AED; color: white;",
-    "strong": "background-color: #2563EB; color: white;",
-    "moderate": "background-color: #0891B2; color: white;",
-    "developing": "background-color: #059669; color: white;",
-    "exploring": "background-color: #6B7280; color: white;",
-}
 
 _ALIGNMENT_COLORS = {
     "flourishing": "text-green-600",
@@ -537,7 +530,8 @@ def PrincipleConnectionsSection(connections: list[dict[str, str]]) -> "FT":
 
 def StrengthBadge(strength: str) -> "FT":
     """Color-coded badge for PrincipleStrength."""
-    style = _STRENGTH_COLORS.get(strength, "")
+    hex_color = StrengthColor.for_level(strength)
+    style = f"background-color: {hex_color}; color: white;"
     return Badge(strength.title(), variant=BadgeT.primary, style=style)
 
 
