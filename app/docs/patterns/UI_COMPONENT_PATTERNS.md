@@ -1164,6 +1164,19 @@ async def task_detail_view(request, uid: str) -> Any:
     )
 ```
 
+**Shared metadata helper:** All 6 detail views use `MetadataField(label, *value)` from `ui/activities/_shared.py` for label+value pairs in metadata grids, schedule sections, philosophical context, etc. Accepts variadic children for complex values (stars + score, lists, links).
+
+```python
+from ui.activities._shared import MetadataField
+# Simple
+MetadataField("Due Date", Span(str(task.due_date), cls=due_cls))
+# Complex (multiple children)
+MetadataField("Satisfaction",
+    Span(stars, cls="uk-text-warning", style="font-size: 1.2rem;"),
+    Span(f" {score}/5", cls="uk-text-muted uk-text-small"),
+)
+```
+
 **Domain-specific content (preserved during harmonization):**
 - **Choices** — Options listing, "Make Decision" button (when pending), conditional "Add Option", priority/domain/type metadata badges
 - **Principles** — Strength indicator, reflection cards, "View History"/"View All" HTMX fragment swaps (uses `id="view-content"` on content wrapper)

@@ -69,6 +69,7 @@ Activity Domains use a read-focused UI — no CRUD forms, data enters via `/uplo
 ```
 
 **Shared UI utilities** (`ui/activities/_shared.py`):
+- `MetadataField(label, *value)` — label + value pair for detail page metadata grids. Variadic `*value` supports simple (`Span`), paragraph (`P`), list (`Ul`), and multi-element (stars + score) content. Used ~60 times across all 6 detail views.
 - `safe_id(uid)` — converts UIDs to safe HTML id attributes (replaces `.` and `:` with `-`)
 - `PRIORITY_ORDER` — `{"critical": 0, "high": 1, "medium": 2, "low": 3}` sort-key dict
 - `CONNECTION_ICONS` — universal icon + href mapping for all 9 cross-domain connection types
