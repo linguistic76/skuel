@@ -32,9 +32,7 @@ SKUEL uses **route factories** to eliminate boilerplate in API route definitions
 | **CommonQueryRouteFactory** | Common query patterns | by-status, by-category, active, recent |
 | **AnalyticsRouteFactory** | Analytics endpoints | domain-specific analytics |
 | **IntelligenceRouteFactory** | Intelligence endpoints | context, analytics, insights |
-| **QuickAddRouteFactory** | Quick-add form handling | POST /{domain}/quick-add |
 | **OwnershipRouteFactory** | Ownership-verified domain routes | domain-specific GET/POST with ownership checks |
-| **DashboardUIFactory** | Dashboard + view fragments | GET /{domain}, view/list, view/create, view/{third}, list-fragment |
 
 ## CRUDRouteFactory
 
@@ -467,120 +465,6 @@ When `scope=ContentScope.USER_OWNED` and `ownership_service` is provided:
 - **Activity Domains** (user-owned): Tasks, Goals, Habits, Events, Choices, Principles → `scope=ContentScope.USER_OWNED`
 - **Curriculum Domains** (shared): KU, PS, LP, MOC → `scope=ContentScope.SHARED`
 
-## QuickAddRouteFactory
-
-Generates a single POST route for quick-add form handling. Each domain provides callables for entity creation and success/add-another rendering.
-
-### Usage
-
-```python
-from adapters.inbound.route_factories import QuickAddConfig, QuickAddRouteFactory
-
-async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Task]:
-    create_request = parse_task_create_request(form_data)
-    return await tasks_service.create_task(create_request, user_uid)
-
-async def render_task_success_view(user_uid: UserUID) -> Any: ...
-async def render_task_add_another_view(user_uid: UserUID) -> Any: ...
-
-config = QuickAddConfig(
-    domain_name="tasks",
-    required_field="title",
-    create_entity=create_task_from_form,
-    render_success_view=render_task_success_view,
-    render_add_another_view=render_task_add_another_view,
-)
-QuickAddRouteFactory.register_route(rt, config)
-```
-
-### Generated Route
-
-- `POST /{domain}/quick-add` — validates required field, runs extra validators, calls `create_entity`, handles add-another vs success response
-
-## DashboardUIFactory
-
-Generates 5 dashboard routes from a `DashboardUIConfig` frozen dataclass. Eliminates ~140 lines of boilerplate per Activity Domain (auth, error handling, view dispatch, page wrapping).
-
-### Usage
-
-```python
-from adapters.inbound.route_factories import DashboardUIConfig, DashboardUIFactory
-
-async def fetch_choices_context(user_uid: UserUID, filters: ActivityFilters) -> Any:
-    return await choices_service.get_filtered_context(user_uid, filters.status, filters.sort_by)
-
-def build_choices_page_context(svc_ctx: dict[str, Any], filters: ActivityFilters) -> Any:
-    return ChoicesPageContext(entities=svc_ctx["entities"], filters=filters.to_dict(), stats=svc_ctx["stats"])
-
-async def render_choices_create(user_uid: UserUID, svc_ctx: dict[str, Any]) -> Any:
-    return ChoicesViewComponents.render_create_view(choice_types=CHOICE_TYPES, domains=DOMAINS)
-
-async def render_choices_analytics(user_uid: UserUID, request: Any) -> Any:
-    result = await choices_service.get_analytics_context(user_uid)
-    if result.is_error:
-        return render_error_banner("Failed to load analytics")
-    return ChoicesViewComponents.render_analytics_view(analytics_data=result.value)
-
-def render_choices_list_fragment(entities: list[Any]) -> Any:
-    items = [ChoicesViewComponents._render_choice_item(c) for c in entities]
-    return Div(*items if items else [EmptyState(title="No decisions found")], id="choice-list", cls="space-y-3")
-
-DashboardUIFactory.register_routes(rt, DashboardUIConfig(
-    domain_name="choices",
-    title="Choices",
-    subtitle="Make and track important decisions",
-    default_view="list",
-    views=("list", "create", "analytics"),
-    parse_filters=parse_filters,
-    fetch_filtered_context=fetch_choices_context,
-    render_view_tabs=ChoicesViewComponents.render_view_tabs,
-    render_list_view=ChoicesViewComponents.render_list_view,
-    render_create_view=render_choices_create,
-    render_third_view=render_choices_analytics,
-    build_page_context=build_choices_page_context,
-    render_list_fragment=render_choices_list_fragment,
-    create_page=create_choices_page,
-))
-```
-
-### Generated Routes
-
-| Route | Purpose |
-|-------|---------|
-| `GET /{domain}` | Main dashboard — dispatches to list, create, or third view based on `?view=` param |
-| `GET /{domain}/view/list` | HTMX fragment for list view tab |
-| `GET /{domain}/view/create` | HTMX fragment for create view tab |
-| `GET /{domain}/view/{third}` | HTMX fragment for calendar or analytics view tab |
-| `GET /{domain}/list-fragment` | HTMX filtered list for filter updates |
-
-### Variation Points
-
-| Config Field | What It Absorbs |
-|-------------|-----------------|
-| `parse_filters` | Tasks uses `TaskFilters` (6 fields), Principles uses `PrincipleFilters` (4 fields), others use base `ActivityFilters` |
-| `fetch_filtered_context` | Tasks passes 6 args, Principles 4, others 2 — each domain maps its filter object internally |
-| `render_create_view` | Async — some domains need additional data (Tasks: projects, Events: event_types) |
-| `render_third_view` | Calendar domains fetch all entities + parse calendar params; Analytics domains call a separate service method |
-| `render_list_fragment` | Tasks delegates to `TodoistTaskComponents.render_task_list`; others wrap items in a standard Div |
-
-### Two Structural Variants
-
-- **Calendar domains** (Tasks, Goals, Habits, Events): Third view is `"calendar"` — fetches all entities, renders month/week/day
-- **Analytics domains** (Choices, Principles): Third view is `"analytics"` — calls domain analytics service
-
-## Migration Statistics
-
-Example from Goals domain:
-- Before: 323 lines manual route definitions
-- After: ~270 lines with factories
-- Reduction: 53 lines (16%)
-- CRUD boilerplate eliminated: ~75 lines (88% handled by factory)
-
-Example from Habits domain:
-- Before: 334 lines manual route definitions
-- After: ~190 lines with factories
-- Reduction: ~144 lines (43%)
-
 ## When to Use Factories vs Manual Routes
 
 **Use Factories:**
@@ -605,8 +489,6 @@ Example from Habits domain:
 | `/adapters/inbound/route_factories/query_route_factory.py` | CommonQueryRouteFactory |
 | `/adapters/inbound/route_factories/analytics_route_factory.py` | AnalyticsRouteFactory |
 | `/adapters/inbound/route_factories/intelligence_route_factory.py` | IntelligenceRouteFactory |
-| `/adapters/inbound/route_factories/quick_add_factory.py` | QuickAddRouteFactory |
-| `/adapters/inbound/route_factories/dashboard_ui_factory.py` | DashboardUIFactory |
 | `/adapters/inbound/route_factories/__init__.py` | Exports |
 
 ## See Also

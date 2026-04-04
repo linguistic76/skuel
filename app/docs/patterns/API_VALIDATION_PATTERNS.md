@@ -476,7 +476,7 @@ class TaskCreateRequest(BaseModel):
         return self
 ```
 
-The error surfaces as a 422 field error on `__root__` (model level), caught by `QuickAddRouteFactory` and rendered as a user-friendly banner.
+The error surfaces as a 422 field error on `__root__` (model level), caught by route handlers and rendered as a user-friendly banner.
 
 ---
 

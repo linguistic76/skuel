@@ -1286,7 +1286,7 @@ async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) ->
 
 **Principle:** Pydantic is the sole validation layer. Do not duplicate field constraints in manual functions.
 
-Field-level constraints (`min_length`, `max_length`, required) live on the request model. Cross-field rules use `@model_validator`. `QuickAddRouteFactory` catches `PydanticValidationError` and renders a user-friendly error banner — no 500s reach the user.
+Field-level constraints (`min_length`, `max_length`, required) live on the request model. Cross-field rules use `@model_validator`. Route handlers catch `PydanticValidationError` and render a user-friendly error banner — no 500s reach the user.
 
 ```python
 # core/models/task/task_request.py
@@ -1306,7 +1306,7 @@ class TaskCreateRequest(CreateRequestBase):
         return self
 ```
 
-`QuickAddRouteFactory` surfaces Pydantic errors as banners automatically — no per-domain wiring needed:
+Pydantic errors surface as banners — route handlers catch validation errors:
 
 ```python
 except PydanticValidationError as e:
@@ -1394,7 +1394,7 @@ def test_task_create_request_due_before_scheduled():
 1. **Testability**: Pure functions testable without database/async
 2. **Readability**: Clear separation of I/O vs computation
 3. **Maintainability**: Single Responsibility Principle enforced
-4. **UX**: Clear validation messages via Pydantic — caught by `QuickAddRouteFactory` and rendered as error banners
+4. **UX**: Clear validation messages via Pydantic — caught by route handlers and rendered as error banners
 5. **Type Safety**: Protocol types for FastHTML components
 
 ### Reference Files

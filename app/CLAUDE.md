@@ -720,11 +720,6 @@ POST (Create) -> 201, GET/PUT/DELETE -> 200, POST (Action) -> 200
 | OwnershipRouteFactory | Ownership-verified domain routes (GET/POST with ownership checks) |
 | CommonQueryRouteFactory | Query patterns |
 | AnalyticsRouteFactory | Analytics |
-| QuickAddRouteFactory | Quick-add form handling (6 domains) — removed for Activity Domains |
-| DashboardUIFactory | Dashboard + view fragments + list fragment (6 domains) — removed for Activity Domains |
-
-**UI Route Factories** (config + callables pattern): `QuickAddRouteFactory` and `DashboardUIFactory` eliminate UI route boilerplate across all 6 Activity Domains. Each domain provides named callables for domain-specific behavior; the factory handles auth, error handling, view dispatch, and page wrapping. `DashboardUIConfig` (frozen dataclass) captures variation points: filter parsing, service calls, view rendering, context building, and list fragment rendering.
-
 All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (curriculum, with `require_role=UserRole.ADMIN`). `role_gates_reads=False` allows role-gated mutations with open reads (Groups pattern). Scope and role are orthogonal — both ownership verification and role checks apply independently.
 
 **See:** `/docs/patterns/ROUTE_FACTORIES.md`

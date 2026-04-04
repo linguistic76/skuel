@@ -176,7 +176,7 @@ async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) ->
     return await tasks_service.create_task(create_request, user_uid)
 ```
 
-**Note:** `validate_*_form_data()` functions were eliminated (March 2026) — Pydantic is the sole validation layer. `QuickAddRouteFactory` catches `PydanticValidationError` and renders error banners automatically.
+**Note:** `validate_*_form_data()` functions were eliminated (March 2026) — Pydantic is the sole validation layer. Route handlers catch `PydanticValidationError` and render error banners automatically.
 
 ### 6. Safe Enum Parsing for HTML Forms
 

@@ -182,9 +182,8 @@ __all__ = ["create_tasks_routes"]
 **What stays in `api_factory`:** `OwnershipRouteFactory` (domain-specific ownership routes), `StatusRouteFactory` (transitions), `AnalyticsRouteFactory`, and manual routes with custom logic.
 
 **What `ui_factory` registers (inside `create_{domain}_ui_routes`):**
-- `DashboardUIFactory` — main dashboard, view fragments (list/create/calendar or analytics), list-fragment
-- `QuickAddRouteFactory` — quick-add form handler
-- Manual `@rt()` handlers for domain-specific routes (detail views, edit modals, etc.)
+- Manual `@rt()` handlers for domain-specific routes (list page, detail views, list-fragment for HTMX filter updates)
+- Uses `ActivityFilterBar` with per-domain `FilterBarConfig` for config-driven filter bars
 
 ---
 
