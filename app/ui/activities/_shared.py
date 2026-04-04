@@ -9,10 +9,18 @@ Usage:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Div, Span
+from fasthtml.common import A, Div, Small, Span
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
+
+
+def MetadataField(label: str, *value: "FT") -> "FT":
+    """Label + value pair for detail page metadata grids."""
+    return Div(
+        Small(label, cls="uk-text-muted uk-display-block"),
+        *value,
+    )
 
 
 def safe_id(uid: str) -> str:

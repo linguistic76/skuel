@@ -24,7 +24,7 @@ from fasthtml.common import (
     Span,
 )
 
-from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, safe_id
+from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, MetadataField, safe_id
 from ui.feedback import PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -294,33 +294,13 @@ def TaskDetailView(
     if task.due_date:
         overdue = _is_overdue(task)
         due_cls = "uk-text-danger uk-text-bold" if overdue else ""
-        meta_items.append(
-            Div(
-                Small("Due Date", cls="uk-text-muted uk-display-block"),
-                Span(str(task.due_date), cls=due_cls),
-            )
-        )
+        meta_items.append(MetadataField("Due Date", Span(str(task.due_date), cls=due_cls)))
     if task.duration_minutes:
-        meta_items.append(
-            Div(
-                Small("Duration", cls="uk-text-muted uk-display-block"),
-                Span(f"{task.duration_minutes} min"),
-            )
-        )
+        meta_items.append(MetadataField("Duration", Span(f"{task.duration_minutes} min")))
     if task.project:
-        meta_items.append(
-            Div(
-                Small("Project", cls="uk-text-muted uk-display-block"),
-                Span(str(task.project)),
-            )
-        )
+        meta_items.append(MetadataField("Project", Span(str(task.project))))
     if task.created_at:
-        meta_items.append(
-            Div(
-                Small("Created", cls="uk-text-muted uk-display-block"),
-                Span(str(task.created_at)[:10]),
-            )
-        )
+        meta_items.append(MetadataField("Created", Span(str(task.created_at)[:10])))
 
     meta_grid = Div()
     if meta_items:

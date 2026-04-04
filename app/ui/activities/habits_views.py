@@ -23,7 +23,7 @@ from fasthtml.common import (
     Span,
 )
 
-from ui.activities._shared import ConnectionBadges, safe_id
+from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
 from ui.feedback import PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -309,32 +309,14 @@ def HabitDetailView(
     streak_items: list[Any] = []
     if habit.current_streak:
         streak_items.append(
-            Div(
-                Small("Current Streak", cls="uk-text-muted uk-display-block"),
-                Span(f"{habit.current_streak} days", cls="uk-text-success uk-text-bold"),
-            )
+            MetadataField("Current Streak", Span(f"{habit.current_streak} days", cls="uk-text-success uk-text-bold"))
         )
     if habit.best_streak:
-        streak_items.append(
-            Div(
-                Small("Best Streak", cls="uk-text-muted uk-display-block"),
-                Span(f"{habit.best_streak} days"),
-            )
-        )
+        streak_items.append(MetadataField("Best Streak", Span(f"{habit.best_streak} days")))
     if habit.total_completions:
-        streak_items.append(
-            Div(
-                Small("Completions", cls="uk-text-muted uk-display-block"),
-                Span(str(habit.total_completions)),
-            )
-        )
+        streak_items.append(MetadataField("Completions", Span(str(habit.total_completions))))
     if habit.success_rate is not None and habit.success_rate > 0:
-        streak_items.append(
-            Div(
-                Small("Success Rate", cls="uk-text-muted uk-display-block"),
-                Span(f"{int(habit.success_rate * 100)}%"),
-            )
-        )
+        streak_items.append(MetadataField("Success Rate", Span(f"{int(habit.success_rate * 100)}%")))
     streak_section = Div()
     if streak_items:
         streak_section = Div(
@@ -350,26 +332,11 @@ def HabitDetailView(
     # Atomic Habits section (cue/routine/reward)
     atomic_items: list[Any] = []
     if habit.cue:
-        atomic_items.append(
-            Div(
-                Small("Cue", cls="uk-text-muted uk-display-block"),
-                P(habit.cue, cls="uk-text-default"),
-            )
-        )
+        atomic_items.append(MetadataField("Cue", P(habit.cue, cls="uk-text-default")))
     if habit.routine:
-        atomic_items.append(
-            Div(
-                Small("Routine", cls="uk-text-muted uk-display-block"),
-                P(habit.routine, cls="uk-text-default"),
-            )
-        )
+        atomic_items.append(MetadataField("Routine", P(habit.routine, cls="uk-text-default")))
     if habit.reward:
-        atomic_items.append(
-            Div(
-                Small("Reward", cls="uk-text-muted uk-display-block"),
-                P(habit.reward, cls="uk-text-default"),
-            )
-        )
+        atomic_items.append(MetadataField("Reward", P(habit.reward, cls="uk-text-default")))
     atomic_section = Div()
     if atomic_items:
         atomic_section = Div(
@@ -381,26 +348,11 @@ def HabitDetailView(
     # Identity section
     identity_items: list[Any] = []
     if habit.target_identity:
-        identity_items.append(
-            Div(
-                Small("Target Identity", cls="uk-text-muted uk-display-block"),
-                P(habit.target_identity, cls="uk-text-default"),
-            )
-        )
+        identity_items.append(MetadataField("Target Identity", P(habit.target_identity, cls="uk-text-default")))
     if habit.reinforces_identity:
-        identity_items.append(
-            Div(
-                Small("Reinforces", cls="uk-text-muted uk-display-block"),
-                P(habit.reinforces_identity, cls="uk-text-default"),
-            )
-        )
+        identity_items.append(MetadataField("Reinforces", P(habit.reinforces_identity, cls="uk-text-default")))
     if habit.identity_votes_cast:
-        identity_items.append(
-            Div(
-                Small("Identity Votes", cls="uk-text-muted uk-display-block"),
-                Span(str(habit.identity_votes_cast)),
-            )
-        )
+        identity_items.append(MetadataField("Identity Votes", Span(str(habit.identity_votes_cast))))
     identity_section = Div()
     if identity_items:
         identity_section = Div(
@@ -412,33 +364,13 @@ def HabitDetailView(
     # Scheduling info
     sched_items: list[Any] = []
     if habit.recurrence_pattern:
-        sched_items.append(
-            Div(
-                Small("Frequency", cls="uk-text-muted uk-display-block"),
-                Span(str(habit.recurrence_pattern)),
-            )
-        )
+        sched_items.append(MetadataField("Frequency", Span(str(habit.recurrence_pattern))))
     if habit.target_days_per_week:
-        sched_items.append(
-            Div(
-                Small("Target Days/Week", cls="uk-text-muted uk-display-block"),
-                Span(str(habit.target_days_per_week)),
-            )
-        )
+        sched_items.append(MetadataField("Target Days/Week", Span(str(habit.target_days_per_week))))
     if habit.preferred_time:
-        sched_items.append(
-            Div(
-                Small("Preferred Time", cls="uk-text-muted uk-display-block"),
-                Span(str(habit.preferred_time)),
-            )
-        )
+        sched_items.append(MetadataField("Preferred Time", Span(str(habit.preferred_time))))
     if habit.duration_minutes:
-        sched_items.append(
-            Div(
-                Small("Duration", cls="uk-text-muted uk-display-block"),
-                Span(f"{habit.duration_minutes} min"),
-            )
-        )
+        sched_items.append(MetadataField("Duration", Span(f"{habit.duration_minutes} min")))
     sched_section = Div()
     if sched_items:
         sched_section = Div(
@@ -454,26 +386,11 @@ def HabitDetailView(
     # Metadata grid
     meta_items: list[Any] = []
     if habit.started_at:
-        meta_items.append(
-            Div(
-                Small("Started", cls="uk-text-muted uk-display-block"),
-                Span(str(habit.started_at)[:10]),
-            )
-        )
+        meta_items.append(MetadataField("Started", Span(str(habit.started_at)[:10])))
     if habit.completed_at:
-        meta_items.append(
-            Div(
-                Small("Completed", cls="uk-text-muted uk-display-block"),
-                Span(str(habit.completed_at)[:10]),
-            )
-        )
+        meta_items.append(MetadataField("Completed", Span(str(habit.completed_at)[:10])))
     if habit.created_at:
-        meta_items.append(
-            Div(
-                Small("Created", cls="uk-text-muted uk-display-block"),
-                Span(str(habit.created_at)[:10]),
-            )
-        )
+        meta_items.append(MetadataField("Created", Span(str(habit.created_at)[:10])))
     meta_grid = Div()
     if meta_items:
         meta_grid = Div(

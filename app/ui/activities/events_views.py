@@ -24,7 +24,7 @@ from fasthtml.common import (
     Span,
 )
 
-from ui.activities._shared import ConnectionBadges, safe_id
+from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
 from ui.feedback import PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -267,27 +267,12 @@ def EventDetailView(
             if is_past and not (event.status and event.status.value == "completed")
             else ""
         )
-        sched_items.append(
-            Div(
-                Small("Date", cls="uk-text-muted uk-display-block"),
-                Span(str(event.event_date), cls=date_cls),
-            )
-        )
+        sched_items.append(MetadataField("Date", Span(str(event.event_date), cls=date_cls)))
     time_str = _format_time_range(event)
     if time_str:
-        sched_items.append(
-            Div(
-                Small("Time", cls="uk-text-muted uk-display-block"),
-                Span(time_str),
-            )
-        )
+        sched_items.append(MetadataField("Time", Span(time_str)))
     if event.duration_minutes:
-        sched_items.append(
-            Div(
-                Small("Duration", cls="uk-text-muted uk-display-block"),
-                Span(f"{event.duration_minutes} min"),
-            )
-        )
+        sched_items.append(MetadataField("Duration", Span(f"{event.duration_minutes} min")))
     sched_section = Div()
     if sched_items:
         sched_section = Div(
@@ -303,32 +288,16 @@ def EventDetailView(
     # Location section
     loc_items: list[Any] = []
     if event.location:
-        loc_items.append(
-            Div(
-                Small("Location", cls="uk-text-muted uk-display-block"),
-                Span(event.location),
-            )
-        )
+        loc_items.append(MetadataField("Location", Span(event.location)))
     if event.meeting_url:
         loc_items.append(
-            Div(
-                Small("Meeting URL", cls="uk-text-muted uk-display-block"),
-                A(
-                    event.meeting_url,
-                    href=event.meeting_url,
-                    cls="uk-link",
-                    target="_blank",
-                    rel="noopener",
-                ),
+            MetadataField(
+                "Meeting URL",
+                A(event.meeting_url, href=event.meeting_url, cls="uk-link", target="_blank", rel="noopener"),
             )
         )
     if event.is_online and not event.location:
-        loc_items.append(
-            Div(
-                Small("Format", cls="uk-text-muted uk-display-block"),
-                Span("Online", cls="uk-text-primary"),
-            )
-        )
+        loc_items.append(MetadataField("Format", Span("Online", cls="uk-text-primary")))
     loc_section = Div()
     if loc_items:
         loc_section = Div(
@@ -352,18 +321,10 @@ def EventDetailView(
     recurrence_section = Div()
     if event.recurrence_pattern:
         rec_items: list[Any] = [
-            Div(
-                Small("Pattern", cls="uk-text-muted uk-display-block"),
-                Span(str(event.recurrence_pattern)),
-            )
+            MetadataField("Pattern", Span(str(event.recurrence_pattern)))
         ]
         if event.recurrence_end_date:
-            rec_items.append(
-                Div(
-                    Small("Ends", cls="uk-text-muted uk-display-block"),
-                    Span(str(event.recurrence_end_date)),
-                )
-            )
+            rec_items.append(MetadataField("Ends", Span(str(event.recurrence_end_date))))
         recurrence_section = Div(
             H3("Recurrence", cls="uk-heading-small"),
             Div(
@@ -400,12 +361,7 @@ def EventDetailView(
     # Metadata grid
     meta_items: list[Any] = []
     if event.created_at:
-        meta_items.append(
-            Div(
-                Small("Created", cls="uk-text-muted uk-display-block"),
-                Span(str(event.created_at)[:10]),
-            )
-        )
+        meta_items.append(MetadataField("Created", Span(str(event.created_at)[:10])))
     meta_grid = Div()
     if meta_items:
         meta_grid = Div(

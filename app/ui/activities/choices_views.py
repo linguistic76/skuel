@@ -26,7 +26,7 @@ from fasthtml.common import (
     Ul,
 )
 
-from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, safe_id
+from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, MetadataField, safe_id
 from ui.feedback import PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -275,39 +275,23 @@ def ChoiceDetailView(
     decision_items: list[Any] = []
     if choice.decision_rationale:
         decision_items.append(
-            Div(
-                Small("Rationale", cls="uk-text-muted uk-display-block"),
-                P(choice.decision_rationale, cls="uk-text-default"),
-            )
+            MetadataField("Rationale", P(choice.decision_rationale, cls="uk-text-default"))
         )
     if choice.decision_criteria:
         criteria_list = Ul(
             *[Li(c) for c in choice.decision_criteria],
             cls="uk-list uk-list-disc",
         )
-        decision_items.append(
-            Div(
-                Small("Criteria", cls="uk-text-muted uk-display-block"),
-                criteria_list,
-            )
-        )
+        decision_items.append(MetadataField("Criteria", criteria_list))
     if choice.constraints:
         constraints_list = Ul(
             *[Li(c) for c in choice.constraints],
             cls="uk-list uk-list-disc",
         )
-        decision_items.append(
-            Div(
-                Small("Constraints", cls="uk-text-muted uk-display-block"),
-                constraints_list,
-            )
-        )
+        decision_items.append(MetadataField("Constraints", constraints_list))
     if choice.stakeholders:
         decision_items.append(
-            Div(
-                Small("Stakeholders", cls="uk-text-muted uk-display-block"),
-                P(", ".join(choice.stakeholders), cls="uk-text-default"),
-            )
+            MetadataField("Stakeholders", P(", ".join(choice.stakeholders), cls="uk-text-default"))
         )
     decision_section = Div()
     if decision_items:
@@ -325,30 +309,22 @@ def ChoiceDetailView(
             filled = int(choice.satisfaction_score)
             stars = "★" * filled + "☆" * (5 - filled)
             outcome_items.append(
-                Div(
-                    Small("Satisfaction", cls="uk-text-muted uk-display-block"),
+                MetadataField(
+                    "Satisfaction",
                     Span(stars, cls="uk-text-warning", style="font-size: 1.2rem;"),
                     Span(f" {choice.satisfaction_score}/5", cls="uk-text-muted uk-text-small"),
                 )
             )
         if choice.actual_outcome:
             outcome_items.append(
-                Div(
-                    Small("Actual Outcome", cls="uk-text-muted uk-display-block"),
-                    P(choice.actual_outcome, cls="uk-text-default"),
-                )
+                MetadataField("Actual Outcome", P(choice.actual_outcome, cls="uk-text-default"))
             )
         if choice.lessons_learned:
             lessons_list = Ul(
                 *[Li(lesson) for lesson in choice.lessons_learned],
                 cls="uk-list uk-list-disc",
             )
-            outcome_items.append(
-                Div(
-                    Small("Lessons Learned", cls="uk-text-muted uk-display-block"),
-                    lessons_list,
-                )
-            )
+            outcome_items.append(MetadataField("Lessons Learned", lessons_list))
         if outcome_items:
             outcome_section = Div(
                 H3("Outcome", cls="uk-heading-small"),
@@ -361,26 +337,11 @@ def ChoiceDetailView(
     if choice.decision_deadline:
         overdue = _is_deadline_past(choice) and not is_decided
         dl_cls = "uk-text-danger uk-text-bold" if overdue else ""
-        timing_items.append(
-            Div(
-                Small("Deadline", cls="uk-text-muted uk-display-block"),
-                Span(str(choice.decision_deadline)[:10], cls=dl_cls),
-            )
-        )
+        timing_items.append(MetadataField("Deadline", Span(str(choice.decision_deadline)[:10], cls=dl_cls)))
     if choice.decided_at:
-        timing_items.append(
-            Div(
-                Small("Decided", cls="uk-text-muted uk-display-block"),
-                Span(str(choice.decided_at)[:10]),
-            )
-        )
+        timing_items.append(MetadataField("Decided", Span(str(choice.decided_at)[:10])))
     if choice.created_at:
-        timing_items.append(
-            Div(
-                Small("Created", cls="uk-text-muted uk-display-block"),
-                Span(str(choice.created_at)[:10]),
-            )
-        )
+        timing_items.append(MetadataField("Created", Span(str(choice.created_at)[:10])))
     timing_grid = Div()
     if timing_items:
         timing_grid = Div(

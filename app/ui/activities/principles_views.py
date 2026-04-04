@@ -28,7 +28,7 @@ from fasthtml.common import (
     Ul,
 )
 
-from ui.activities._shared import ConnectionSummary, safe_id
+from ui.activities._shared import ConnectionSummary, MetadataField, safe_id
 from ui.feedback import StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -340,26 +340,11 @@ def PrincipleDetailView(
     # Philosophical context
     philo_items: list[Any] = []
     if principle.tradition:
-        philo_items.append(
-            Div(
-                Small("Tradition", cls="uk-text-muted uk-display-block"),
-                P(principle.tradition, cls="uk-text-default"),
-            )
-        )
+        philo_items.append(MetadataField("Tradition", P(principle.tradition, cls="uk-text-default")))
     if principle.original_source:
-        philo_items.append(
-            Div(
-                Small("Original Source", cls="uk-text-muted uk-display-block"),
-                P(principle.original_source, cls="uk-text-default"),
-            )
-        )
+        philo_items.append(MetadataField("Original Source", P(principle.original_source, cls="uk-text-default")))
     if principle.personal_interpretation:
-        philo_items.append(
-            Div(
-                Small("Personal Interpretation", cls="uk-text-muted uk-display-block"),
-                P(principle.personal_interpretation, cls="uk-text-default"),
-            )
-        )
+        philo_items.append(MetadataField("Personal Interpretation", P(principle.personal_interpretation, cls="uk-text-default")))
     philo_section = Div()
     if philo_items:
         philo_section = Div(
@@ -397,18 +382,10 @@ def PrincipleDetailView(
         al_value = principle.current_alignment.value
         al_cls = _ALIGNMENT_COLORS.get(al_value, "uk-text-muted")
         al_items: list[Any] = [
-            Div(
-                Small("Current Alignment", cls="uk-text-muted uk-display-block"),
-                Span(al_value.replace("_", " ").title(), cls=f"uk-text-bold {al_cls}"),
-            )
+            MetadataField("Current Alignment", Span(al_value.replace("_", " ").title(), cls=f"uk-text-bold {al_cls}"))
         ]
         if principle.last_review_date:
-            al_items.append(
-                Div(
-                    Small("Last Reviewed", cls="uk-text-muted uk-display-block"),
-                    Span(str(principle.last_review_date)),
-                )
-            )
+            al_items.append(MetadataField("Last Reviewed", Span(str(principle.last_review_date))))
         # Alignment history
         if principle.alignment_history:
             history_items = []
@@ -423,12 +400,7 @@ def PrincipleDetailView(
                     )
                 )
             if history_items:
-                al_items.append(
-                    Div(
-                        Small("History", cls="uk-text-muted uk-display-block"),
-                        Ul(*history_items, cls="uk-list"),
-                    )
-                )
+                al_items.append(MetadataField("History", Ul(*history_items, cls="uk-list")))
         alignment_section = Div(
             H3("Alignment", cls="uk-heading-small"),
             *al_items,
@@ -440,17 +412,11 @@ def PrincipleDetailView(
     conflict_items: list[Any] = []
     if principle.potential_conflicts:
         conflict_items.append(
-            Div(
-                Small("Potential Conflicts", cls="uk-text-muted uk-display-block"),
-                Ul(*[Li(c) for c in principle.potential_conflicts], cls="uk-list uk-list-disc"),
-            )
+            MetadataField("Potential Conflicts", Ul(*[Li(c) for c in principle.potential_conflicts], cls="uk-list uk-list-disc"))
         )
     if principle.resolution_strategies:
         conflict_items.append(
-            Div(
-                Small("Resolution Strategies", cls="uk-text-muted uk-display-block"),
-                Ul(*[Li(s) for s in principle.resolution_strategies], cls="uk-list uk-list-disc"),
-            )
+            MetadataField("Resolution Strategies", Ul(*[Li(s) for s in principle.resolution_strategies], cls="uk-list uk-list-disc"))
         )
     if conflict_items:
         conflicts_section = Div(
@@ -462,19 +428,9 @@ def PrincipleDetailView(
     # Personal reflection
     reflection_items: list[Any] = []
     if principle.origin_story:
-        reflection_items.append(
-            Div(
-                Small("Origin Story", cls="uk-text-muted uk-display-block"),
-                P(principle.origin_story, cls="uk-text-default"),
-            )
-        )
+        reflection_items.append(MetadataField("Origin Story", P(principle.origin_story, cls="uk-text-default")))
     if principle.evolution_notes:
-        reflection_items.append(
-            Div(
-                Small("Evolution Notes", cls="uk-text-muted uk-display-block"),
-                P(principle.evolution_notes, cls="uk-text-default"),
-            )
-        )
+        reflection_items.append(MetadataField("Evolution Notes", P(principle.evolution_notes, cls="uk-text-default")))
     reflection_section = Div()
     if reflection_items:
         reflection_section = Div(
@@ -486,26 +442,11 @@ def PrincipleDetailView(
     # Metadata grid
     meta_items: list[Any] = []
     if principle.adopted_date:
-        meta_items.append(
-            Div(
-                Small("Adopted", cls="uk-text-muted uk-display-block"),
-                Span(str(principle.adopted_date)),
-            )
-        )
+        meta_items.append(MetadataField("Adopted", Span(str(principle.adopted_date))))
     if principle.principle_source:
-        meta_items.append(
-            Div(
-                Small("Source", cls="uk-text-muted uk-display-block"),
-                Span(str(principle.principle_source.value).title()),
-            )
-        )
+        meta_items.append(MetadataField("Source", Span(str(principle.principle_source.value).title())))
     if principle.created_at:
-        meta_items.append(
-            Div(
-                Small("Created", cls="uk-text-muted uk-display-block"),
-                Span(str(principle.created_at)[:10]),
-            )
-        )
+        meta_items.append(MetadataField("Created", Span(str(principle.created_at)[:10])))
     meta_grid = Div()
     if meta_items:
         meta_grid = Div(

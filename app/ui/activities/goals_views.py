@@ -24,7 +24,7 @@ from fasthtml.common import (
     Ul,
 )
 
-from ui.activities._shared import PRIORITY_ORDER, ConnectionSummary, safe_id
+from ui.activities._shared import PRIORITY_ORDER, ConnectionSummary, MetadataField, safe_id
 from ui.feedback import PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -301,27 +301,15 @@ def GoalDetailView(
         text_sections.append(Div(P(goal.description, cls="uk-text-default"), cls="uk-margin"))
     if goal.vision_statement:
         text_sections.append(
-            Div(
-                Small("Vision", cls="uk-text-muted uk-display-block"),
-                P(goal.vision_statement, cls="uk-text-default"),
-                cls="uk-margin",
-            )
+            Div(MetadataField("Vision", P(goal.vision_statement, cls="uk-text-default")), cls="uk-margin")
         )
     if goal.why_important:
         text_sections.append(
-            Div(
-                Small("Why Important", cls="uk-text-muted uk-display-block"),
-                P(goal.why_important, cls="uk-text-default"),
-                cls="uk-margin",
-            )
+            Div(MetadataField("Why Important", P(goal.why_important, cls="uk-text-default")), cls="uk-margin")
         )
     if goal.success_criteria:
         text_sections.append(
-            Div(
-                Small("Success Criteria", cls="uk-text-muted uk-display-block"),
-                P(goal.success_criteria, cls="uk-text-default"),
-                cls="uk-margin",
-            )
+            Div(MetadataField("Success Criteria", P(goal.success_criteria, cls="uk-text-default")), cls="uk-margin")
         )
 
     # Metadata grid
@@ -329,36 +317,16 @@ def GoalDetailView(
     if goal.target_date:
         overdue = goal.is_overdue()
         due_cls = "uk-text-danger uk-text-bold" if overdue else ""
-        meta_items.append(
-            Div(
-                Small("Target Date", cls="uk-text-muted uk-display-block"),
-                Span(str(goal.target_date), cls=due_cls),
-            )
-        )
+        meta_items.append(MetadataField("Target Date", Span(str(goal.target_date), cls=due_cls)))
     if goal.start_date:
-        meta_items.append(
-            Div(
-                Small("Start Date", cls="uk-text-muted uk-display-block"),
-                Span(str(goal.start_date)),
-            )
-        )
+        meta_items.append(MetadataField("Start Date", Span(str(goal.start_date))))
     if goal.target_value:
         value_str = f"{goal.current_value}/{goal.target_value}"
         if goal.unit_of_measurement:
             value_str += f" {goal.unit_of_measurement}"
-        meta_items.append(
-            Div(
-                Small("Progress", cls="uk-text-muted uk-display-block"),
-                Span(value_str),
-            )
-        )
+        meta_items.append(MetadataField("Progress", Span(value_str)))
     if goal.created_at:
-        meta_items.append(
-            Div(
-                Small("Created", cls="uk-text-muted uk-display-block"),
-                Span(str(goal.created_at)[:10]),
-            )
-        )
+        meta_items.append(MetadataField("Created", Span(str(goal.created_at)[:10])))
 
     meta_grid = Div()
     if meta_items:
