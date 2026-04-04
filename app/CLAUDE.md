@@ -728,25 +728,21 @@ All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (
 
 **Core Principle:** "Configuration over code for route registration"
 
-DomainRouteConfig eliminates route wiring boilerplate. Activity Domains use `create_activity_domain_route_config()` for config-driven CRUD/Query/Intelligence factories. Activity Domains now use manual route files (e.g., `tasks_routes.py`, `goals_routes.py`) for their read-focused UI pattern.
+DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains use `DomainRouteConfig` for config-driven registration. `create_activity_domain_route_config()` is available for domains that also need CRUD/Query/Intelligence factory wiring.
 
 ```python
-TASKS_CONFIG = create_activity_domain_route_config(
+TASKS_CONFIG = DomainRouteConfig(
     domain_name="tasks",
     primary_service_attr="tasks",
     api_factory=create_tasks_api_routes,
     ui_factory=create_tasks_ui_routes,
-    create_schema=TaskCreateRequest,
-    update_schema=TaskUpdateRequest,
-    uid_prefix="task",
-    ...
 )
 
 def create_tasks_routes(app, rt, services, _sync_service=None):
     return register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
 
-**Adoption:** 42 of 47 route files. **Patterns proven:** Standard, API-only, UI-only, Multi-factory, Config-Driven. Upload routes (`upload_routes.py`) use DomainRouteConfig registration.
+**Adoption:** 40 of 46 route files. **Patterns proven:** Standard, API-only, UI-only, Multi-factory, Config-Driven. Non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, library_routes.py (hub orchestrator), learning_loop_routes.py. ai_routes.py uses its own config-driven pattern (AIRouteSpec).
 
 **See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`
 
