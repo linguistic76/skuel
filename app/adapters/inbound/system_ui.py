@@ -202,6 +202,7 @@ def _render_login_landing_page() -> NotStr:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SKUEL - Personal Knowledge & Productivity</title>
     <link rel="stylesheet" href="/static/css/output.css?v=4">
+    <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body class="h-full bg-secondary">
     <div class="flex min-h-full">
@@ -235,9 +236,9 @@ def _render_login_landing_page() -> NotStr:
             <h1 class="text-center text-3xl font-bold text-primary lg:hidden mb-8">SKUEL</h1>
 
             <!-- Login card -->
-            <div class="uk-card uk-card-default bg-background w-full max-w-sm shadow-2xl">
-                <div class="uk-card-body">
-                    <h2 class="uk-card-title text-2xl font-bold mb-4">Sign in</h2>
+            <div class="card bg-background w-full max-w-sm shadow-2xl">
+                <div class="card-body">
+                    <h2 class="card-title text-2xl font-bold mb-4">Sign in</h2>
 
                     <form action="/login/submit" method="POST">
                         <!-- Email/Username field -->
@@ -253,7 +254,7 @@ def _render_login_landing_page() -> NotStr:
                                 autocomplete="email"
                                 autofocus
                                 placeholder="Enter your email or username"
-                                class="uk-input w-full"
+                                class="skuel-input"
                             />
                         </div>
 
@@ -270,13 +271,13 @@ def _render_login_landing_page() -> NotStr:
                                 required
                                 autocomplete="current-password"
                                 placeholder="Enter your password"
-                                class="uk-input w-full"
+                                class="skuel-input"
                             />
                         </div>
 
                         <!-- Submit button -->
                         <div class="space-y-2 mt-6">
-                            <button type="submit" class="uk-btn uk-btn-primary w-full">Sign in</button>
+                            <button type="submit" class="btn btn-primary w-full">Sign in</button>
                         </div>
                     </form>
 

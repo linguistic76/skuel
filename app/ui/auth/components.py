@@ -41,6 +41,7 @@ class AuthComponents:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In | SKUEL</title>
     <link rel="stylesheet" href="/static/css/output.css?v=4">
+    <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body class="h-full bg-background">
     <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
@@ -63,7 +64,7 @@ class AuthComponents:
                             required
                             autocomplete="email"
                             autofocus
-                            class="uk-input w-full"
+                            class="skuel-input"
                         />
                     </div>
                 </div>
@@ -82,13 +83,13 @@ class AuthComponents:
                             name="password"
                             required
                             autocomplete="current-password"
-                            class="uk-input w-full"
+                            class="skuel-input"
                         />
                     </div>
                 </div>
 
                 <div>
-                    <button type="submit" class="flex w-full justify-center rounded-md bg-primary px-3 py-1.5 text-sm/6 font-semibold text-primary-foreground hover:bg-primary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Sign in</button>
+                    <button type="submit" class="btn btn-primary w-full text-sm/6 font-semibold">Sign in</button>
                 </div>
             </form>
 
@@ -130,6 +131,7 @@ class AuthComponents:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Account | SKUEL</title>
     <link rel="stylesheet" href="/static/css/output.css?v=4">
+    <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body class="h-full bg-background">
     <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
@@ -157,7 +159,7 @@ class AuthComponents:
                             minlength="3"
                             maxlength="30"
                             pattern="[a-zA-Z0-9_]+"
-                            class="uk-input w-full"
+                            class="skuel-input"
                         />
                     </div>
                     <p class="mt-1 text-xs text-muted-foreground">3-30 characters, letters, numbers, and underscores only</p>
@@ -174,7 +176,7 @@ class AuthComponents:
                             placeholder="your.email@example.com"
                             required
                             autocomplete="email"
-                            class="uk-input w-full"
+                            class="skuel-input"
                         />
                     </div>
                 </div>
@@ -190,7 +192,7 @@ class AuthComponents:
                             placeholder="How should we call you?"
                             required
                             maxlength="100"
-                            class="uk-input w-full"
+                            class="skuel-input"
                         />
                     </div>
                 </div>
@@ -207,7 +209,7 @@ class AuthComponents:
                             required
                             minlength="6"
                             autocomplete="new-password"
-                            class="uk-input w-full"
+                            class="skuel-input"
                         />
                     </div>
                     <p class="mt-1 text-xs text-muted-foreground">At least 6 characters</p>
@@ -225,7 +227,7 @@ class AuthComponents:
                             required
                             minlength="6"
                             autocomplete="new-password"
-                            class="uk-input w-full"
+                            class="skuel-input"
                         />
                     </div>
                 </div>
@@ -239,7 +241,7 @@ class AuthComponents:
                         name="accept_terms"
                         value="1"
                         required
-                        class="uk-checkbox mt-1 h-4 w-4"
+                        class="skuel-checkbox"
                     />
                     <label for="accept_terms" class="text-sm text-muted-foreground">
                         I agree to the
@@ -251,7 +253,7 @@ class AuthComponents:
 
                 <!-- Submit button -->
                 <div class="pt-2">
-                    <button type="submit" class="flex w-full justify-center rounded-md bg-primary px-3 py-1.5 text-sm/6 font-semibold text-primary-foreground hover:bg-primary/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                    <button type="submit" class="btn btn-primary w-full text-sm/6 font-semibold">
                         Create account
                     </button>
                 </div>
@@ -379,7 +381,7 @@ class AuthComponents:
                                 type="email"
                                 name="email"
                                 placeholder="your.email@example.com"
-                                class="uk-input w-full"
+                                class="skuel-input"
                                 required
                                 autofocus
                             />
@@ -468,7 +470,7 @@ class AuthComponents:
                                 type="password"
                                 name="password"
                                 placeholder="Enter new password"
-                                class="uk-input w-full"
+                                class="skuel-input"
                                 minlength="8"
                                 required
                             />
@@ -487,7 +489,7 @@ class AuthComponents:
                                 type="password"
                                 name="confirm_password"
                                 placeholder="Confirm new password"
-                                class="uk-input w-full"
+                                class="skuel-input"
                                 minlength="8"
                                 required
                             />

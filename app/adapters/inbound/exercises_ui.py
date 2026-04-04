@@ -567,10 +567,10 @@ def create_exercises_ui_routes(
                 ButtonLink(
                     "Download",
                     href=f"/api/exercises/md?uid={exercise.uid}",
-                    variant=ButtonT.ghost,
+                    variant=ButtonT.secondary,
                 ),
                 ButtonLink(
-                    "Submit →",
+                    "Submit",
                     href=submit_href,
                     variant=ButtonT.primary,
                 ),
