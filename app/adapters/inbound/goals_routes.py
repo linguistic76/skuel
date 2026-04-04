@@ -1,37 +1,38 @@
-"""Goals route registration.
+"""
+Goals Routes - Configuration-Driven Registration
+==================================================
 
-Wires Goals UI and API routes into the application.
+Factory that wires goals API and UI routes using DomainRouteConfig.
+
+Architecture:
+    - API Routes: goals_api.py (CRUD, query, intelligence)
+    - UI Routes:  goals_ui.py  (list, detail, cross-domain views)
 """
 
-from __future__ import annotations
+from typing import TYPE_CHECKING, Any
 
-from typing import TYPE_CHECKING
-
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.goals_api import create_goals_api_routes
 from adapters.inbound.goals_ui import create_goals_ui_routes
-from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
     from services_bootstrap import Services
 
-logger = get_logger("skuel.routes.goals")
+
+GOALS_CONFIG = DomainRouteConfig(
+    domain_name="goals",
+    primary_service_attr="goals",
+    api_factory=create_goals_api_routes,
+    ui_factory=create_goals_ui_routes,
+)
 
 
 def create_goals_routes(
-    app: FastHTMLApp,
-    rt: RouteDecorator,
-    services: Services,
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
 ) -> RouteList:
-    """Register all goals routes (UI + API)."""
-    goals_service = services.goals
-    if goals_service is None:
-        logger.warning("GoalsService not available — goal routes not registered")
-        return []
+    """Wire goals API and UI routes using configuration-driven registration."""
+    return register_domain_routes(app, rt, services, GOALS_CONFIG)
 
-    routes: list = []
-    routes.extend(create_goals_ui_routes(app, rt, goals_service))
-    routes.extend(create_goals_api_routes(app, rt, goals_service))
 
-    logger.info("Goal routes registered")
-    return routes
+__all__ = ["create_goals_routes"]

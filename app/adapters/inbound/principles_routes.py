@@ -1,37 +1,38 @@
-"""Principles route registration.
+"""
+Principles Routes - Configuration-Driven Registration
+=======================================================
 
-Wires Principles UI and API routes into the application.
+Factory that wires principles API and UI routes using DomainRouteConfig.
+
+Architecture:
+    - API Routes: principles_api.py (CRUD, query, intelligence)
+    - UI Routes:  principles_ui.py  (list, detail, cross-domain views)
 """
 
-from __future__ import annotations
+from typing import TYPE_CHECKING, Any
 
-from typing import TYPE_CHECKING
-
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.principles_api import create_principles_api_routes
 from adapters.inbound.principles_ui import create_principles_ui_routes
-from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
     from services_bootstrap import Services
 
-logger = get_logger("skuel.routes.principles")
+
+PRINCIPLES_CONFIG = DomainRouteConfig(
+    domain_name="principles",
+    primary_service_attr="principles",
+    api_factory=create_principles_api_routes,
+    ui_factory=create_principles_ui_routes,
+)
 
 
 def create_principles_routes(
-    app: FastHTMLApp,
-    rt: RouteDecorator,
-    services: Services,
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
 ) -> RouteList:
-    """Register all principles routes (UI + API)."""
-    principles_service = services.principles
-    if principles_service is None:
-        logger.warning("PrinciplesService not available — principle routes not registered")
-        return []
+    """Wire principles API and UI routes using configuration-driven registration."""
+    return register_domain_routes(app, rt, services, PRINCIPLES_CONFIG)
 
-    routes: list = []
-    routes.extend(create_principles_ui_routes(app, rt, principles_service))
-    routes.extend(create_principles_api_routes(app, rt, principles_service))
 
-    logger.info("Principle routes registered")
-    return routes
+__all__ = ["create_principles_routes"]

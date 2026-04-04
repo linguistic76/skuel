@@ -1,37 +1,38 @@
-"""Tasks route registration.
+"""
+Tasks Routes - Configuration-Driven Registration
+==================================================
 
-Wires Tasks UI and API routes into the application.
+Factory that wires tasks API and UI routes using DomainRouteConfig.
+
+Architecture:
+    - API Routes: tasks_api.py (CRUD, query, intelligence)
+    - UI Routes:  tasks_ui.py  (list, detail, cross-domain views)
 """
 
-from __future__ import annotations
+from typing import TYPE_CHECKING, Any
 
-from typing import TYPE_CHECKING
-
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
     from services_bootstrap import Services
 
-logger = get_logger("skuel.routes.tasks")
+
+TASKS_CONFIG = DomainRouteConfig(
+    domain_name="tasks",
+    primary_service_attr="tasks",
+    api_factory=create_tasks_api_routes,
+    ui_factory=create_tasks_ui_routes,
+)
 
 
 def create_tasks_routes(
-    app: FastHTMLApp,
-    rt: RouteDecorator,
-    services: Services,
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
 ) -> RouteList:
-    """Register all tasks routes (UI + API)."""
-    tasks_service = services.tasks
-    if tasks_service is None:
-        logger.warning("TasksService not available — task routes not registered")
-        return []
+    """Wire tasks API and UI routes using configuration-driven registration."""
+    return register_domain_routes(app, rt, services, TASKS_CONFIG)
 
-    routes: list = []
-    routes.extend(create_tasks_ui_routes(app, rt, tasks_service))
-    routes.extend(create_tasks_api_routes(app, rt, tasks_service))
 
-    logger.info("Task routes registered")
-    return routes
+__all__ = ["create_tasks_routes"]

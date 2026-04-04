@@ -1,37 +1,38 @@
-"""Habits route registration.
+"""
+Habits Routes - Configuration-Driven Registration
+===================================================
 
-Wires Habits UI and API routes into the application.
+Factory that wires habits API and UI routes using DomainRouteConfig.
+
+Architecture:
+    - API Routes: habits_api.py (CRUD, query, intelligence)
+    - UI Routes:  habits_ui.py  (list, detail, cross-domain views)
 """
 
-from __future__ import annotations
+from typing import TYPE_CHECKING, Any
 
-from typing import TYPE_CHECKING
-
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.habits_api import create_habits_api_routes
 from adapters.inbound.habits_ui import create_habits_ui_routes
-from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
     from services_bootstrap import Services
 
-logger = get_logger("skuel.routes.habits")
+
+HABITS_CONFIG = DomainRouteConfig(
+    domain_name="habits",
+    primary_service_attr="habits",
+    api_factory=create_habits_api_routes,
+    ui_factory=create_habits_ui_routes,
+)
 
 
 def create_habits_routes(
-    app: FastHTMLApp,
-    rt: RouteDecorator,
-    services: Services,
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
 ) -> RouteList:
-    """Register all habits routes (UI + API)."""
-    habits_service = services.habits
-    if habits_service is None:
-        logger.warning("HabitsService not available — habit routes not registered")
-        return []
+    """Wire habits API and UI routes using configuration-driven registration."""
+    return register_domain_routes(app, rt, services, HABITS_CONFIG)
 
-    routes: list = []
-    routes.extend(create_habits_ui_routes(app, rt, habits_service))
-    routes.extend(create_habits_api_routes(app, rt, habits_service))
 
-    logger.info("Habit routes registered")
-    return routes
+__all__ = ["create_habits_routes"]
