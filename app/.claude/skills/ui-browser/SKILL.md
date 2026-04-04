@@ -294,7 +294,7 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 | `x-text` | Set text content | `x-text="message"` |
 | `x-transition` | Enter/leave animation | `x-transition` |
 | `x-ref` | Element reference | `x-ref="input"` → `$refs.input` |
-| `x-cloak` | Hide until Alpine initializes | Add CSS: `[x-cloak] { display: none }` |
+| `x-cloak` | Hide until Alpine initializes | CSS rule in `static/css/main.css`: `[x-cloak] { display: none !important }` |
 | `x-init` | Run on initialization | `x-init="fetchData()"` |
 
 ### Magic Properties

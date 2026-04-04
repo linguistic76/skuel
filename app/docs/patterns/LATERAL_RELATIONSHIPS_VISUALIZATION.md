@@ -727,8 +727,8 @@ The lateral relationship graph infrastructure was extended to power the **Explor
 | **Alpine** | `relationshipGraph` | `exploreGraph` |
 | **Modes** | Entity-centered only | Hub (learning universe) + Entity-centered |
 | **Click nav** | `/{domain}/{id}` | `/explore/{type}/{id}` |
-| **Extras** | Blocking chain + alternatives grid | Filter tabs (All/Learning/Saved) + full-screen overlay |
-| **Width** | 384px height in content area | 260px height in 384px sidebar, expandable to full screen |
+| **Extras** | Blocking chain + alternatives grid | Filter tabs (All/Learning/Saved) + full-screen JS overlay |
+| **Width** | 384px height in content area | 260px height in 384px sidebar, expandable to full screen via JS overlay on `document.body` |
 
 **Key files:** `ui/explore/graph.py`, `exploreGraph` component in `static/js/skuel.js`, `GET /api/explore/graph` endpoint in `adapters/inbound/explore_ui.py`.
 

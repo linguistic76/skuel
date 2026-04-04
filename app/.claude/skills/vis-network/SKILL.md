@@ -83,7 +83,7 @@ This architecture enables:
 - Hub mode: user's learning universe ("You" center + studying Kus + in-progress PSes)
 - Entity mode: lateral relationship graph centered on current Ku/PS
 - Filter tabs (All/Learning/Saved) dim/highlight nodes
-- Full-screen CSS overlay expansion (Escape to close)
+- Full-screen JS overlay on `document.body` (Escape/backdrop click to close) — creates second Vis.js network to escape sidebar `overflow:hidden` + `transform`
 - API: `GET /api/explore/graph` returns Vis.js JSON for hub mode
 
 ✅ **40/40 automated tests passing**
@@ -1123,7 +1123,7 @@ graph = ExploreGraphView(mode="entity", entity_uid="ku_abc", entity_type="ku")
 **Key differences from `relationshipGraph`:**
 - Click navigation maps to `/explore/ku/{id}` and `/explore/ps/{id}` (Explore-aware)
 - Filter tabs (All/Learning/Saved) dim non-matching nodes to 15% opacity
-- Full-screen CSS overlay expansion (backdrop + Escape to close)
+- Full-screen JS overlay on `document.body` (backdrop click / Escape to close) — creates second Vis.js network
 - Node colors: violet (#8B5CF6) for Ku, teal (#14B8A6) for PS, blue (#3B82F6) for "You"
 - Hub mode uses `GET /api/explore/graph`; entity mode uses existing lateral graph API
 - Compact physics settings tuned for 384px sidebar width

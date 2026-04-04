@@ -931,7 +931,7 @@ Interactive Vis.js graph for the Explore sidebar. Distinct from `RelationshipGra
 - Hub mode: "You" center node + studying Kus + in-progress PSes (`GET /api/explore/graph`)
 - Entity mode: reuses existing lateral graph API (`GET /api/{domain}/{uid}/lateral/graph`)
 - Filter tabs (All/Learning/Saved) dim non-matching nodes
-- Full-screen CSS overlay expansion (Escape to close)
+- Full-screen JS overlay on `document.body` (Escape/backdrop click to close) — creates a second Vis.js network to bypass sidebar `overflow:hidden` + `transform`
 - Node colors: violet (#8B5CF6) for Ku, teal (#14B8A6) for PS, blue (#3B82F6) for "You"
 - Click-to-navigate maps to `/explore/ku/{id}` and `/explore/ps/{id}`
 
