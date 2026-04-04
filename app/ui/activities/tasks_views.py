@@ -24,6 +24,7 @@ from fasthtml.common import (
     Span,
 )
 
+from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, safe_id
 from ui.feedback import PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -157,7 +158,7 @@ def TaskCard(
         ),
         hx_post=f"/api/tasks/{task.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
-        hx_target=f"#task-{_safe_id(task.uid)}",
+        hx_target=f"#task-{safe_id(task.uid)}",
         hx_swap="outerHTML",
         cls="uk-button uk-button-default uk-button-small uk-border-rounded",
         title=f"Mark as {new_status}",
@@ -195,7 +196,7 @@ def TaskCard(
         tags_el = Div(*tag_badges, cls="uk-margin-small-top")
 
     # Cross-domain connection badges
-    knowledge_el = ConnectionBadges(task, knowledge_connections or [])
+    knowledge_el = _task_connection_badges(task, knowledge_connections or [])
 
     # Duration
     duration_el = None
@@ -222,7 +223,7 @@ def TaskCard(
 
     return Div(
         header,
-        id=f"task-{_safe_id(task.uid)}",
+        id=f"task-{safe_id(task.uid)}",
         cls=f"uk-card uk-card-default uk-card-body uk-card-small uk-margin-small-bottom {'uk-opacity-75' if is_completed else ''}",
     )
 
@@ -242,74 +243,21 @@ def _is_overdue(task: "Task") -> bool:
         return False
 
 
-def _safe_id(uid: str) -> str:
-    """Convert a UID to a safe HTML id attribute value."""
-    return uid.replace(".", "-").replace(":", "-")
-
-
-def ConnectionBadges(
+def _task_connection_badges(
     task: "Task",
     connections: list[dict[str, str]],
 ) -> "FT":
-    """Render typed connection badges for a task's cross-domain links."""
-    badges: list[Any] = []
+    """Connection badges with task-specific fallback to fulfills_goal_uid."""
+    if connections:
+        return ConnectionBadges(connections)
 
-    # Icons per connection type
-    conn_icons = {
-        "goal": "target",
-        "habit": "repeat",
-        "ku": "atom",
-        "path_step": "list",
-        "learning_path": "map",
-        "principle": "compass",
-        "event": "calendar",
-        "choice": "git-branch",
-    }
-
-    for conn in connections:
-        target_type = conn.get("target_type", "")
-        title = conn.get("title", conn.get("target_uid", "?"))
-        target_uid = conn.get("target_uid", "")
-        icon = conn_icons.get(target_type, "link")
-
-        # Build href based on target type
-        if target_type == "goal":
-            href = f"/goals/detail?uid={target_uid}"
-        elif target_type == "ku":
-            href = f"/ku/get?uid={target_uid}"
-        else:
-            href = "#"
-
-        badges.append(
-            A(
-                Span(
-                    cls="uk-icon uk-margin-small-right", **{"uk-icon": f"icon: {icon}; ratio: 0.75"}
-                ),
-                title,
-                href=href,
-                cls="uk-badge uk-margin-small-right",
-                style="text-decoration: none;",
-            )
+    # Fallback to model field if no connection data was fetched
+    if task.fulfills_goal_uid:
+        return ConnectionBadges(
+            [{"target_type": "goal", "title": task.fulfills_goal_uid, "target_uid": task.fulfills_goal_uid}]
         )
 
-    # Fallback to model fields if no connection data was fetched
-    if not badges and task.fulfills_goal_uid:
-        badges.append(
-            A(
-                Span(
-                    cls="uk-icon uk-margin-small-right", **{"uk-icon": "icon: target; ratio: 0.75"}
-                ),
-                task.fulfills_goal_uid,
-                href=f"/goals/detail?uid={task.fulfills_goal_uid}",
-                cls="uk-badge uk-margin-small-right",
-                style="text-decoration: none;",
-            )
-        )
-
-    if not badges:
-        return Span()  # Empty — no connections
-
-    return Div(*badges, cls="uk-margin-small-top")
+    return Span()
 
 
 def TaskDetailView(
@@ -396,7 +344,7 @@ def TaskDetailView(
 
     # Connections section
     conn_section = Div()
-    conn_badges = ConnectionBadges(task, connections)
+    conn_badges = _task_connection_badges(task, connections)
     if connections or task.fulfills_goal_uid:
         conn_section = Div(
             H3("Connections", cls="uk-heading-small"),
@@ -424,12 +372,9 @@ def TaskDetailView(
     )
 
 
-_PRIORITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-
-
 def _sort_by_priority(task: "Task") -> int:
     """Sort key: priority order (critical first)."""
-    return _PRIORITY_ORDER.get(str(task.priority) if task.priority else "", 4)
+    return PRIORITY_ORDER.get(str(task.priority) if task.priority else "", 4)
 
 
 def _sort_by_due_date(task: "Task") -> str:

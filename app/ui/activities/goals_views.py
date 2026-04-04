@@ -24,6 +24,7 @@ from fasthtml.common import (
     Ul,
 )
 
+from ui.activities._shared import PRIORITY_ORDER, ConnectionSummary, safe_id
 from ui.feedback import PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -216,7 +217,7 @@ def GoalCard(
         date_el = Small(date_str, cls=date_cls)
 
     # Connection count summary
-    conn_summary = _connection_summary(connections or [])
+    conn_summary = ConnectionSummary(connections or [])
 
     # Card assembly
     header = Div(
@@ -235,7 +236,7 @@ def GoalCard(
 
     return Div(
         header,
-        id=f"goal-{_safe_id(goal.uid)}",
+        id=f"goal-{safe_id(goal.uid)}",
         cls=f"uk-card uk-card-default uk-card-body uk-card-small uk-margin-small-bottom {'uk-opacity-75' if goal.is_completed else ''}",
     )
 
@@ -496,50 +497,9 @@ def GoalConnectionsSection(connections: list[dict[str, str]]) -> "FT":
     )
 
 
-def _connection_summary(connections: list[dict[str, str]]) -> "FT":
-    """Render a compact summary of connection counts by domain type."""
-    if not connections:
-        return Span()
-
-    counts: dict[str, int] = {}
-    for conn in connections:
-        source_type = conn.get("source_type", "unknown")
-        counts[source_type] = counts.get(source_type, 0) + 1
-
-    icons = {
-        "task": "check-square",
-        "habit": "repeat",
-        "event": "calendar",
-        "choice": "git-branch",
-        "principle": "compass",
-        "ku": "atom",
-    }
-
-    parts: list[Any] = []
-    for domain, count in sorted(counts.items()):
-        icon = icons.get(domain, "link")
-        parts.append(
-            Span(
-                Span(cls="uk-icon", **{"uk-icon": f"icon: {icon}; ratio: 0.6"}),
-                f" {count}",
-                cls="uk-text-muted uk-text-small uk-margin-small-right",
-            )
-        )
-
-    return Div(*parts, cls="uk-margin-small-top")
-
-
-def _safe_id(uid: str) -> str:
-    """Convert a UID to a safe HTML id attribute value."""
-    return uid.replace(".", "-").replace(":", "-")
-
-
-_PRIORITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-
-
 def _sort_by_priority(goal: "Goal") -> int:
     """Sort key: priority order (critical first)."""
-    return _PRIORITY_ORDER.get(str(goal.priority) if goal.priority else "", 4)
+    return PRIORITY_ORDER.get(str(goal.priority) if goal.priority else "", 4)
 
 
 def _sort_by_target_date(goal: "Goal") -> str:

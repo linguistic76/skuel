@@ -24,6 +24,7 @@ from fasthtml.common import (
     Span,
 )
 
+from ui.activities._shared import ConnectionBadges, safe_id
 from ui.feedback import PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -140,7 +141,7 @@ def EventCard(
         Span(cls=f"uk-icon {toggle_cls}", **{"uk-icon": toggle_icon}),
         hx_post=f"/api/events/{event.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
-        hx_target=f"#event-{_safe_id(event.uid)}",
+        hx_target=f"#event-{safe_id(event.uid)}",
         hx_swap="outerHTML",
         cls="uk-button uk-button-default uk-button-small uk-border-rounded",
         title=f"Mark as {new_status}",
@@ -198,7 +199,7 @@ def EventCard(
         tags_el = Div(*tag_badges, cls="uk-margin-small-top")
 
     # Connection badges
-    conn_el = _ConnectionBadges(connections or [])
+    conn_el = ConnectionBadges(connections or [])
 
     # Card assembly
     header = Div(
@@ -219,7 +220,7 @@ def EventCard(
     opacity = "uk-opacity-75" if is_completed else ""
     return Div(
         header,
-        id=f"event-{_safe_id(event.uid)}",
+        id=f"event-{safe_id(event.uid)}",
         cls=f"uk-card uk-card-default uk-card-body uk-card-small uk-margin-small-bottom {opacity}",
     )
 
@@ -430,7 +431,7 @@ def EventDetailView(
     if connections:
         conn_section = Div(
             H3("Connections", cls="uk-heading-small"),
-            _ConnectionBadges(connections),
+            ConnectionBadges(connections),
             cls="uk-margin",
         )
 
@@ -458,42 +459,6 @@ def EventDetailView(
         cls="uk-container uk-container-small",
     )
 
-
-def _ConnectionBadges(connections: list[dict[str, str]]) -> "FT":
-    """Render typed connection badges for an event's cross-domain links."""
-    if not connections:
-        return Span()
-
-    conn_icons = {
-        "goal": ("target", "/goals/detail?uid="),
-        "habit": ("repeat", "/habits/detail?uid="),
-        "ku": ("atom", "/ku/get?uid="),
-        "principle": ("compass", "/principles/detail?uid="),
-        "path_step": ("list", "#"),
-        "learning_path": ("map", "#"),
-    }
-
-    badges: list[Any] = []
-    for conn in connections:
-        target_type = conn.get("target_type", "")
-        title = conn.get("title", conn.get("target_uid", "?"))
-        target_uid = conn.get("target_uid", "")
-        icon, base_href = conn_icons.get(target_type, ("link", "#"))
-        href = f"{base_href}{target_uid}" if base_href != "#" else "#"
-
-        badges.append(
-            A(
-                Span(
-                    cls="uk-icon uk-margin-small-right", **{"uk-icon": f"icon: {icon}; ratio: 0.75"}
-                ),
-                title,
-                href=href,
-                cls="uk-badge uk-margin-small-right",
-                style="text-decoration: none;",
-            )
-        )
-
-    return Div(*badges, cls="uk-margin-small-top")
 
 
 def _is_upcoming(event: "Event") -> bool:
@@ -545,11 +510,6 @@ def _format_time_range(event: "Event") -> str:
     if event.end_time:
         parts.append(str(event.end_time)[:5])
     return " - ".join(parts)
-
-
-def _safe_id(uid: str) -> str:
-    """Convert a UID to a safe HTML id attribute value."""
-    return uid.replace(".", "-").replace(":", "-")
 
 
 def filter_events(

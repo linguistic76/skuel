@@ -28,6 +28,7 @@ from fasthtml.common import (
     Ul,
 )
 
+from ui.activities._shared import ConnectionSummary, safe_id
 from ui.feedback import StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -219,7 +220,7 @@ def PrincipleCard(
         Span(cls=f"uk-icon {toggle_cls}", **{"uk-icon": toggle_icon}),
         hx_post=f"/api/principles/{principle.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
-        hx_target=f"#principle-{_safe_id(principle.uid)}",
+        hx_target=f"#principle-{safe_id(principle.uid)}",
         hx_swap="outerHTML",
         cls="uk-button uk-button-default uk-button-small uk-border-rounded",
         title=f"Mark as {new_status}",
@@ -264,7 +265,7 @@ def PrincipleCard(
         )
 
     # Connection count summary
-    conn_summary = _connection_summary(connections or [])
+    conn_summary = ConnectionSummary(connections or [])
 
     # Card assembly
     header = Div(
@@ -284,7 +285,7 @@ def PrincipleCard(
     opacity = "uk-opacity-75" if is_inactive else ""
     return Div(
         header,
-        id=f"principle-{_safe_id(principle.uid)}",
+        id=f"principle-{safe_id(principle.uid)}",
         cls=f"uk-card uk-card-default uk-card-body uk-card-small uk-margin-small-bottom {opacity}",
     )
 
@@ -623,42 +624,6 @@ def StrengthBadge(strength: str) -> "FT":
     )
 
 
-def _connection_summary(connections: list[dict[str, str]]) -> "FT":
-    """Render a compact summary of connection counts by domain type."""
-    if not connections:
-        return Span()
-
-    counts: dict[str, int] = {}
-    for conn in connections:
-        source_type = conn.get("source_type", "unknown")
-        counts[source_type] = counts.get(source_type, 0) + 1
-
-    icons = {
-        "task": "check-square",
-        "habit": "repeat",
-        "goal": "target",
-        "event": "calendar",
-        "choice": "git-branch",
-        "ku": "atom",
-    }
-
-    parts: list[Any] = []
-    for domain, count in sorted(counts.items()):
-        icon = icons.get(domain, "link")
-        parts.append(
-            Span(
-                Span(cls="uk-icon", **{"uk-icon": f"icon: {icon}; ratio: 0.6"}),
-                f" {count}",
-                cls="uk-text-muted uk-text-small uk-margin-small-right",
-            )
-        )
-
-    return Div(*parts, cls="uk-margin-small-top")
-
-
-def _safe_id(uid: str) -> str:
-    """Convert a UID to a safe HTML id attribute value."""
-    return uid.replace(".", "-").replace(":", "-")
 
 
 def filter_principles(

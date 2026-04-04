@@ -26,6 +26,7 @@ from fasthtml.common import (
     Ul,
 )
 
+from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, safe_id
 from ui.feedback import PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -155,7 +156,7 @@ def ChoiceCard(
         Span(cls=f"uk-icon {toggle_cls}", **{"uk-icon": toggle_icon}),
         hx_post=f"/api/choices/{choice.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
-        hx_target=f"#choice-{_safe_id(choice.uid)}",
+        hx_target=f"#choice-{safe_id(choice.uid)}",
         hx_swap="outerHTML",
         cls="uk-button uk-button-default uk-button-small uk-border-rounded",
         title=f"Mark as {new_status}",
@@ -208,7 +209,7 @@ def ChoiceCard(
         tags_el = Div(*tag_badges, cls="uk-margin-small-top")
 
     # Connection badges
-    conn_el = _ConnectionBadges(connections or [])
+    conn_el = ConnectionBadges(connections or [])
 
     # Card assembly
     header = Div(
@@ -229,7 +230,7 @@ def ChoiceCard(
     opacity = "uk-opacity-75" if is_decided else ""
     return Div(
         header,
-        id=f"choice-{_safe_id(choice.uid)}",
+        id=f"choice-{safe_id(choice.uid)}",
         cls=f"uk-card uk-card-default uk-card-body uk-card-small uk-margin-small-bottom {opacity}",
     )
 
@@ -406,7 +407,7 @@ def ChoiceDetailView(
     if connections:
         conn_section = Div(
             H3("Connections", cls="uk-heading-small"),
-            _ConnectionBadges(connections),
+            ConnectionBadges(connections),
             cls="uk-margin",
         )
 
@@ -460,40 +461,6 @@ def OptionsSection(options: tuple["ChoiceOption", ...], selected_uid: str | None
     )
 
 
-def _ConnectionBadges(connections: list[dict[str, str]]) -> "FT":
-    """Render typed connection badges for a choice's cross-domain links."""
-    if not connections:
-        return Span()
-
-    conn_icons = {
-        "goal": ("target", "/goals/detail?uid="),
-        "habit": ("repeat", "/habits/detail?uid="),
-        "principle": ("compass", "/principles/detail?uid="),
-        "ku": ("atom", "/ku/get?uid="),
-    }
-
-    badges: list[Any] = []
-    for conn in connections:
-        target_type = conn.get("target_type", "")
-        title = conn.get("title", conn.get("target_uid", "?"))
-        target_uid = conn.get("target_uid", "")
-        icon, base_href = conn_icons.get(target_type, ("link", "#"))
-        href = f"{base_href}{target_uid}" if base_href != "#" else "#"
-
-        badges.append(
-            A(
-                Span(
-                    cls="uk-icon uk-margin-small-right", **{"uk-icon": f"icon: {icon}; ratio: 0.75"}
-                ),
-                title,
-                href=href,
-                cls="uk-badge uk-margin-small-right",
-                style="text-decoration: none;",
-            )
-        )
-
-    return Div(*badges, cls="uk-margin-small-top")
-
 
 def _is_deadline_past(choice: "Choice") -> bool:
     """Check if decision deadline has passed."""
@@ -511,14 +478,6 @@ def _is_deadline_past(choice: "Choice") -> bool:
         return d < date.today()
     except (ValueError, TypeError):
         return False
-
-
-def _safe_id(uid: str) -> str:
-    """Convert a UID to a safe HTML id attribute value."""
-    return uid.replace(".", "-").replace(":", "-")
-
-
-_PRIORITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
 
 def filter_choices(
@@ -546,7 +505,7 @@ def filter_choices(
         return str(c.decision_deadline or "9999-12-31")[:10]
 
     def by_priority(c: Any) -> int:
-        return _PRIORITY_ORDER.get(str(c.priority) if c.priority else "", 4)
+        return PRIORITY_ORDER.get(str(c.priority) if c.priority else "", 4)
 
     def by_title(c: Any) -> str:
         return (c.title or "").lower()
