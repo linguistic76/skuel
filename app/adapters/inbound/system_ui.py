@@ -12,14 +12,14 @@ __version__ = "2.0"
 
 from typing import Any
 
-from fasthtml.common import H1, A, Div, Form, Li, Nav, P, Span, Ul
+from fasthtml.common import H1, H2, A, Div, Form, Nav, P, Span
+from monsterui.franken import UkIcon
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import get_is_admin, is_authenticated
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody, CardTitle
 from ui.forms.components import LabelInput
 from ui.layout import Container, Size
 from ui.layouts.base_page import AuthPage
@@ -194,88 +194,123 @@ async def _render_admin_hub(request: Request) -> Any:
 def _render_login_landing_page() -> Any:
     """Render the landing page with login form for unauthenticated users.
 
-    Split layout: branding on left (desktop), login card on right.
+    Split layout: branded hero on left (desktop), login card on right.
     Uses AuthPage for consistent MonsterUI CSS loading.
     """
     content = Div(
-        # Left side: Branding (desktop only)
+        # Left side: Branded hero panel (desktop only)
         Div(
-            H1("SKUEL", cls="text-5xl font-bold text-primary mb-4"),
-            P(
-                "Your integrated personal knowledge and productivity system",
-                cls="text-2xl text-foreground mb-6",
+            Div(
+                H1("SKUEL", cls="text-5xl font-extrabold tracking-tight text-white mb-3"),
+                P(
+                    "Personal knowledge & productivity",
+                    cls="text-xl font-medium text-blue-100 mb-10",
+                ),
+                Div(
+                    _landing_feature_item(
+                        "Track tasks, goals, and habits in one place",
+                    ),
+                    _landing_feature_item(
+                        "Build your personal knowledge graph",
+                    ),
+                    _landing_feature_item(
+                        "AI-powered insights and recommendations",
+                    ),
+                    _landing_feature_item(
+                        "Connect learning to life path alignment",
+                    ),
+                    cls="space-y-4",
+                ),
+                cls="max-w-md",
             ),
-            Ul(
-                Li(
-                    Span("✓", cls="text-primary/80"),
-                    " Track tasks, goals, and habits in one place",
-                    cls="flex items-center gap-3",
-                ),
-                Li(
-                    Span("✓", cls="text-primary/80"),
-                    " Build your personal knowledge graph",
-                    cls="flex items-center gap-3",
-                ),
-                Li(
-                    Span("✓", cls="text-primary/80"),
-                    " AI-powered insights and recommendations",
-                    cls="flex items-center gap-3",
-                ),
-                Li(
-                    Span("✓", cls="text-primary/80"),
-                    " Connect learning to life path alignment",
-                    cls="flex items-center gap-3",
-                ),
-                cls="space-y-3 text-muted-foreground",
-            ),
-            cls="hidden lg:flex lg:w-1/2 flex-col justify-center px-12",
+            cls="hidden lg:flex lg:w-1/2 flex-col justify-center px-16 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800",
         ),
         # Right side: Login form
         Div(
-            # Mobile branding
-            H1("SKUEL", cls="text-center text-3xl font-bold text-primary lg:hidden mb-8"),
-            # Login card
-            Card(
-                CardBody(
-                    CardTitle("Sign in", cls="text-2xl font-bold mb-4"),
-                    Form(
-                        LabelInput(
-                            "Email or Username",
-                            id="username",
-                            name="username",
-                            placeholder="Enter your email or username",
-                            required=True,
-                            autocomplete="email",
-                            autofocus=True,
-                        ),
-                        LabelInput(
-                            "Password",
-                            id="password",
-                            name="password",
-                            type="password",
-                            placeholder="Enter your password",
-                            required=True,
-                            autocomplete="current-password",
-                        ),
-                        Div(
-                            Button("Sign in", cls="w-full", variant=ButtonT.primary),
-                            cls="mt-2",
-                        ),
-                        action="/login/submit",
-                        method="POST",
-                        cls="space-y-4",
+            Div(
+                # Mobile branding
+                Div(
+                    H1("SKUEL", cls="text-3xl font-extrabold tracking-tight text-primary"),
+                    P("Personal knowledge & productivity", cls="text-sm text-muted-foreground mt-1"),
+                    cls="text-center lg:hidden mb-10",
+                ),
+                # Desktop subtitle
+                H2("Welcome back", cls="hidden lg:block text-2xl font-bold text-foreground mb-1"),
+                P(
+                    "Sign in to your account",
+                    cls="hidden lg:block text-sm text-muted-foreground mb-8",
+                ),
+                # Login form
+                Form(
+                    LabelInput(
+                        "Email or Username",
+                        id="username",
+                        name="username",
+                        placeholder="Enter your email or username",
+                        required=True,
+                        autocomplete="email",
+                        autofocus=True,
+                    ),
+                    LabelInput(
+                        "Password",
+                        id="password",
+                        name="password",
+                        type="password",
+                        placeholder="Enter your password",
+                        required=True,
+                        autocomplete="current-password",
                     ),
                     Div(
-                        Span("Don't have an account? ", cls="text-sm"),
-                        A("Sign up", href="/register", cls="hover:underline text-sm"),
-                        cls="mt-4 text-center",
+                        Div(
+                            A(
+                                "Forgot password?",
+                                href="/forgot-password",
+                                cls="text-sm text-primary/80 hover:text-primary font-medium",
+                            ),
+                            cls="text-right mb-4",
+                        ),
+                        Button("Sign in", cls="w-full", variant=ButtonT.primary),
                     ),
+                    action="/login/submit",
+                    method="POST",
+                    cls="space-y-5",
                 ),
-                cls="bg-background w-full max-w-sm shadow-2xl",
+                # Divider
+                Div(
+                    Div(cls="flex-1 border-t border-border"),
+                    Span("or", cls="px-3 text-xs text-muted-foreground"),
+                    Div(cls="flex-1 border-t border-border"),
+                    cls="flex items-center my-6",
+                ),
+                # Sign up link
+                P(
+                    "Don't have an account? ",
+                    A(
+                        "Create one",
+                        href="/register",
+                        cls="font-semibold text-primary/80 hover:text-primary",
+                    ),
+                    cls="text-center text-sm text-muted-foreground",
+                ),
+                cls="w-full max-w-sm",
             ),
-            cls="flex flex-1 flex-col items-center justify-center px-6 py-12 lg:px-8 lg:w-1/2",
+            cls="flex flex-1 flex-col items-center justify-center px-6 py-12 lg:px-12 lg:w-1/2 bg-background",
         ),
-        cls="flex min-h-full",
+        cls="flex min-h-screen",
     )
 
     return AuthPage(content, title="SKUEL - Personal Knowledge & Productivity")
+
+
+def _landing_feature_item(text: str) -> Any:
+    """Single feature bullet for the landing hero panel."""
+    return Div(
+        Div(
+            Span(
+                UkIcon("check", cls="text-white"),
+                cls="flex items-center justify-center w-6 h-6 rounded-full bg-white/20",
+            ),
+            P(text, cls="text-blue-50 text-sm"),
+            cls="flex items-center gap-3",
+        ),
+    )

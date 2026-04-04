@@ -13,7 +13,7 @@ app's normal layout.
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, A, Div, Form, Li, P, Span, Strong, Ul
+from fasthtml.common import H1, H3, A, Div, Form, Li, P, Span, Strong, Ul
 
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
@@ -30,13 +30,6 @@ def _error_banner(error_message: str | None) -> Any:
         role="alert",
     )
 
-
-def _auth_center(*children: Any, max_width: str = "sm:max-w-sm") -> Any:
-    """Centered layout container for auth pages."""
-    return Div(
-        *children,
-        cls="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8",
-    )
 
 
 def _auth_card(*children: Any, max_width: str = "max-w-md") -> Any:
@@ -63,184 +56,186 @@ class AuthComponents:
     @staticmethod
     def render_login_page(error_message: str | None = None) -> Any:
         """Render login page content (wrap with AuthPage in route handler)."""
-        return _auth_center(
+        return Div(
             Div(
-                H1("SKUEL", cls="text-center text-3xl font-bold text-primary"),
-                H2(
-                    "Sign in to your account",
-                    cls="mt-10 text-center text-2xl/9 font-bold tracking-tight text-foreground",
-                ),
-                cls="sm:mx-auto sm:w-full sm:max-w-sm",
-            ),
-            Div(
-                _error_banner(error_message),
-                Form(
-                    LabelInput(
-                        "Email address",
-                        id="username",
-                        name="username",
-                        type="text",
-                        required=True,
-                        autofocus=True,
-                        autocomplete="email",
-                    ),
-                    Div(
-                        Div(
-                            Div(
-                                A(
-                                    "Forgot password?",
-                                    href="/forgot-password",
-                                    cls="font-semibold text-primary/80 hover:text-primary text-sm",
-                                ),
-                                cls="ml-auto",
-                            ),
-                            cls="flex items-center justify-between",
-                        ),
-                        LabelInput(
-                            "Password",
-                            id="password",
-                            name="password",
-                            type="password",
-                            required=True,
-                            autocomplete="current-password",
-                        ),
-                    ),
-                    Button("Sign in", cls="w-full", variant=ButtonT.primary),
-                    action="/login/submit",
-                    method="POST",
-                    cls="space-y-6",
-                    id="login-form",
-                ),
+                # Header
+                H1("SKUEL", cls="text-center text-3xl font-extrabold tracking-tight text-primary"),
                 P(
-                    "Not a member? ",
-                    A(
-                        "Create an account",
-                        href="/register",
-                        cls="font-semibold text-primary/80 hover:text-primary",
-                    ),
-                    cls="mt-10 text-center text-sm/6 text-muted-foreground",
+                    "Sign in to your account",
+                    cls="mt-2 text-center text-sm text-muted-foreground",
                 ),
-                cls="mt-10 sm:mx-auto sm:w-full sm:max-w-sm",
+                cls="mb-8",
             ),
+            _error_banner(error_message),
+            Form(
+                LabelInput(
+                    "Email or Username",
+                    id="username",
+                    name="username",
+                    type="text",
+                    placeholder="Enter your email or username",
+                    required=True,
+                    autofocus=True,
+                    autocomplete="email",
+                ),
+                LabelInput(
+                    "Password",
+                    id="password",
+                    name="password",
+                    type="password",
+                    placeholder="Enter your password",
+                    required=True,
+                    autocomplete="current-password",
+                ),
+                Div(
+                    A(
+                        "Forgot password?",
+                        href="/forgot-password",
+                        cls="text-sm text-primary/80 hover:text-primary font-medium",
+                    ),
+                    cls="text-right",
+                ),
+                Button("Sign in", cls="w-full", variant=ButtonT.primary),
+                action="/login/submit",
+                method="POST",
+                cls="space-y-5",
+                id="login-form",
+            ),
+            # Divider
+            Div(
+                Div(cls="flex-1 border-t border-border"),
+                Span("or", cls="px-3 text-xs text-muted-foreground"),
+                Div(cls="flex-1 border-t border-border"),
+                cls="flex items-center my-6",
+            ),
+            P(
+                "Don't have an account? ",
+                A(
+                    "Create one",
+                    href="/register",
+                    cls="font-semibold text-primary/80 hover:text-primary",
+                ),
+                cls="text-center text-sm text-muted-foreground",
+            ),
+            cls="flex flex-col justify-center px-6 py-12 sm:px-8 mx-auto w-full max-w-sm min-h-screen",
         )
 
     @staticmethod
     def render_registration_page(error_message: str | None = None) -> Any:
         """Render registration page content (wrap with AuthPage in route handler)."""
-        return _auth_center(
+        return Div(
             Div(
-                H1("SKUEL", cls="text-center text-3xl font-bold text-primary"),
-                H2(
-                    "Create your account",
-                    cls="mt-8 text-center text-2xl/9 font-bold tracking-tight text-foreground",
-                ),
+                # Header
+                H1("SKUEL", cls="text-center text-3xl font-extrabold tracking-tight text-primary"),
                 P(
-                    "Start your learning journey",
+                    "Create your account",
                     cls="mt-2 text-center text-sm text-muted-foreground",
                 ),
-                cls="sm:mx-auto sm:w-full sm:max-w-sm",
+                cls="mb-8",
             ),
-            Div(
-                _error_banner(error_message),
-                Form(
-                    LabelInput(
-                        "Username",
-                        id="username",
-                        name="username",
-                        placeholder="Choose a username",
-                        required=True,
-                        autofocus=True,
-                        minlength="3",
-                        maxlength="30",
-                        pattern="[a-zA-Z0-9_]+",
-                        help_text="3-30 characters, letters, numbers, and underscores only",
-                    ),
-                    LabelInput(
-                        "Email address",
-                        id="email",
-                        name="email",
-                        type="email",
-                        placeholder="your.email@example.com",
-                        required=True,
-                        autocomplete="email",
-                    ),
-                    LabelInput(
-                        "Display name",
-                        id="display_name",
-                        name="display_name",
-                        placeholder="How should we call you?",
-                        required=True,
-                        maxlength="100",
-                    ),
-                    LabelInput(
-                        "Password",
-                        id="password",
-                        name="password",
-                        type="password",
-                        placeholder="Create a strong password",
-                        required=True,
-                        minlength="6",
-                        autocomplete="new-password",
-                        help_text="At least 6 characters",
-                    ),
-                    LabelInput(
-                        "Confirm password",
-                        id="confirm_password",
-                        name="confirm_password",
-                        type="password",
-                        placeholder="Re-enter your password",
-                        required=True,
-                        minlength="6",
-                        autocomplete="new-password",
-                    ),
-                    # Terms acceptance
+            _error_banner(error_message),
+            Form(
+                LabelInput(
+                    "Username",
+                    id="username",
+                    name="username",
+                    placeholder="Choose a username",
+                    required=True,
+                    autofocus=True,
+                    minlength="3",
+                    maxlength="30",
+                    pattern="[a-zA-Z0-9_]+",
+                    help_text="3-30 characters, letters, numbers, and underscores only",
+                ),
+                LabelInput(
+                    "Email address",
+                    id="email",
+                    name="email",
+                    type="email",
+                    placeholder="your.email@example.com",
+                    required=True,
+                    autocomplete="email",
+                ),
+                LabelInput(
+                    "Display name",
+                    id="display_name",
+                    name="display_name",
+                    placeholder="How should we call you?",
+                    required=True,
+                    maxlength="100",
+                ),
+                LabelInput(
+                    "Password",
+                    id="password",
+                    name="password",
+                    type="password",
+                    placeholder="Create a strong password",
+                    required=True,
+                    minlength="6",
+                    autocomplete="new-password",
+                    help_text="At least 6 characters",
+                ),
+                LabelInput(
+                    "Confirm password",
+                    id="confirm_password",
+                    name="confirm_password",
+                    type="password",
+                    placeholder="Re-enter your password",
+                    required=True,
+                    minlength="6",
+                    autocomplete="new-password",
+                ),
+                # Terms acceptance
+                Div(
+                    Input(type="hidden", name="accept_terms", value="0", full_width=False),
                     Div(
-                        Input(type="hidden", name="accept_terms", value="0", full_width=False),
-                        Div(
-                            Checkbox(
-                                id="accept_terms",
-                                name="accept_terms",
-                                value="1",
-                                required=True,
-                            ),
-                            Span(
-                                "I agree to the ",
-                                A(
-                                    "Terms of Service",
-                                    href="/terms",
-                                    cls="font-semibold text-primary/80 hover:text-primary",
-                                ),
-                                " and ",
-                                A(
-                                    "Privacy Policy",
-                                    href="/privacy",
-                                    cls="font-semibold text-primary/80 hover:text-primary",
-                                ),
-                                cls="text-sm text-muted-foreground",
-                            ),
-                            cls="flex items-center gap-2",
+                        Checkbox(
+                            id="accept_terms",
+                            name="accept_terms",
+                            value="1",
+                            required=True,
                         ),
-                        cls="pt-1",
+                        Span(
+                            "I agree to the ",
+                            A(
+                                "Terms of Service",
+                                href="/terms",
+                                cls="font-semibold text-primary/80 hover:text-primary",
+                            ),
+                            " and ",
+                            A(
+                                "Privacy Policy",
+                                href="/privacy",
+                                cls="font-semibold text-primary/80 hover:text-primary",
+                            ),
+                            cls="text-sm text-muted-foreground",
+                        ),
+                        cls="flex items-center gap-2",
                     ),
-                    Div(
-                        Button("Create account", cls="w-full", variant=ButtonT.primary),
-                        cls="pt-2",
-                    ),
-                    action="/register/submit",
-                    method="POST",
-                    cls="space-y-5",
+                    cls="pt-1",
                 ),
-                P(
-                    "Already have an account? ",
-                    A(
-                        "Sign in",
-                        href="/login",
-                        cls="font-semibold text-primary/80 hover:text-primary",
-                    ),
-                    cls="mt-8 text-center text-sm/6 text-muted-foreground",
-                ),
-                cls="mt-8 sm:mx-auto sm:w-full sm:max-w-sm",
+                Button("Create account", cls="w-full mt-2", variant=ButtonT.primary),
+                action="/register/submit",
+                method="POST",
+                cls="space-y-4",
             ),
+            # Divider
+            Div(
+                Div(cls="flex-1 border-t border-border"),
+                Span("or", cls="px-3 text-xs text-muted-foreground"),
+                Div(cls="flex-1 border-t border-border"),
+                cls="flex items-center my-6",
+            ),
+            P(
+                "Already have an account? ",
+                A(
+                    "Sign in",
+                    href="/login",
+                    cls="font-semibold text-primary/80 hover:text-primary",
+                ),
+                cls="text-center text-sm text-muted-foreground",
+            ),
+            cls="flex flex-col justify-center px-6 py-12 sm:px-8 mx-auto w-full max-w-sm min-h-screen",
         )
 
     @staticmethod
