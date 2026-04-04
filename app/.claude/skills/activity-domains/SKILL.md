@@ -53,7 +53,7 @@ ActivityReport UI ← Service Facade (read path)
 - **6-13 Sub-services** - Specialized functionality (core, search, intelligence, event_handler, etc.)
 - **Domain Events** - Cross-service communication
 - **Event Handler Service** - Fire-and-forget reactive handlers (`*_event_handler_service.py`) — all 6 Activity Domains have dedicated handlers; all persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points (overdue tasks, priority inflation, goal stalls, rescheduling patterns, etc.). The Learning Loop has a parallel handler (`LearningLoopEventHandlerService`) tracking submission iterations, feedback turnaround, and mastery velocity.
-- **Read-Focused UI** — All 6 domains have dedicated list + detail views with cross-domain connections and `EntityRelationshipsSection`, sharing a collapsible Activity sidebar (`ui/activities/nav.py`). Activity Domains hub at `/activities`. Activity data also viewable via ActivityReport UI at `/activity-reports`.
+- **Read-Focused UI** — All 6 domains have dedicated list + detail views with cross-domain connections and `EntityRelationshipsSection`, sharing a collapsible Activity sidebar (`ui/activities/nav.py`). Activity Domains are embedded inline in `/profile` via `ActivityHubView()`. `/activities` redirects 301 → `/profile`. Activity data also viewable via ActivityReport UI at `/activity-reports`.
 
 ## Key Files Per Domain
 
@@ -73,12 +73,12 @@ core/services/{domain}_service.py  # Facade
 core/events/{domain}_events.py     # Domain events
 
 # Read-focused UI (all 6 domains + hub):
-adapters/inbound/activity_hub_routes.py  # /activities hub route
+adapters/inbound/activity_hub_routes.py  # /activities → /profile redirect (301)
 adapters/inbound/{domain}_routes.py  # Route wiring
 adapters/inbound/{domain}_ui.py      # UI Routes (list, detail, HTMX fragment)
 adapters/inbound/{domain}_api.py     # API Routes (status toggle)
 ui/activities/nav.py                 # Activity sidebar config + render_activity_sidebar_page()
-ui/activities/activity_hub.py        # ActivityHubView — 6 domain preview blocks
+ui/activities/activity_hub.py        # ActivityHubView — 6 domain preview blocks (embedded in /profile)
 ui/activities/{domain}_views.py      # Pure view components
 ```
 

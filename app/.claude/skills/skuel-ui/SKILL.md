@@ -460,11 +460,11 @@ The navbar left section has 4 icon links (in order) and an avatar with dropdown:
 
 | Position | Icon | Route | `page_key` | Description |
 |----------|------|-------|------------|-------------|
-| 1st | `activity` | `/activities` | `"activity"` | Activity Domains hub |
+| 1st | `activity` | `/profile` | `"activity"` | Activity Domains (on /profile) |
 | 2nd | `compass` | `/explore` | `"explore"` | Explore hub (public) |
 | 3rd | `book-open` | `/library` | `"library"` | Library hub (public) |
 | 4th | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook hub |
-| — | Avatar | — | — | Click → dropdown (Profile + Search + Sign out) |
+| — | Avatar | — | — | Click → dropdown (Profile + Search + 6 Activity links + Sign out) |
 
 `/reports` redirects 301 → `/library`.
 
@@ -502,12 +502,12 @@ for item in ICON_NAV_ITEMS:  # ⚛️, 📖, ⇄, 📂
 
 Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. Four sidebar groups exist:
 
-- **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — 7 items (hub + 6 domains). Used on `/activities`, `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`.
+- **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — 7 items (profile link + 6 domains). Used on `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`. Activity Domains content is embedded inline in `/profile`. `/activities` redirects 301 → `/profile`.
 - **Explore** — `render_explore_sidebar_page()` from `ui/explore/nav.py` — graph-centered sidebar (wider `w-96`/384px via `sidebar_width` param, no nav items, uses `extra_sidebar_sections`). Hero: `ExploreGraphView` (`ui/explore/graph.py`) — interactive Vis.js force-directed graph. Hub mode (`/explore`): user's learning universe with "You" center node + studying Kus + in-progress PSes; fetched from `GET /api/explore/graph`. Entity mode (`/explore/ku/{uid}`, `/explore/ps/{uid}`): centers on current entity with lateral relationships. Filter tabs (All/Learning/Saved) control both graph node highlighting and list section visibility. Three supporting sections below graph: Learning, Saved, Completed. Alpine component: `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`. Graph expands to full-screen JS overlay on `document.body` (Escape/backdrop click to close) — creates a second Vis.js network to escape sidebar `overflow:hidden` + `transform`. Node colors: violet for Ku, teal for PS, blue for "You". Detail pages pass `current_entity_type` for graph centering. Unauthenticated: shows graph + "Sign in to track your learning". **PathStep detail** (`/explore/ps/{uid}`) is the **learning loop anchor** — authenticated users see three HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback) served by `/learning-loop/ps/{ps_uid}/*` fragment endpoints; unauthenticated users see simple exercise links.
 - **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 4 items (My Submissions, Submit, Exercise Reports, Activity Reports). Used on child pages: `/gradebook/mysubmissions`, `/submit`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`, `/activity-reports/detail`. The hub at `/gradebook` is a container grid page (`BasePage(STANDARD)`, no sidebar) — see `ui/gradebook/hub.py`.
 - **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. The hub at `/library` is a container grid page (`BasePage(STANDARD)`, no sidebar) — see `ui/library/hub.py`.
 
-`/profile` is a **personal overview hub** using `BasePage` directly — Focus/Velocity, link to `/activities`, Nous placeholder, Settings. See `ui/profile/hub.py`.
+`/profile` is a **personal overview hub** using `BasePage` directly — Focus/Velocity, Activity Domains (6 HTMX blocks inline via `ActivityHubView()`), Nous placeholder, Settings. See `ui/profile/hub.py`.
 
 ### SidebarItem
 
@@ -1115,11 +1115,11 @@ When building a new SKUEL page or feature, verify:
 | `/ui/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 8 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
-| `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, link to `/activities`, Nous, Settings |
+| `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
 | `/ui/gradebook/nav.py` | GradeBook sidebar config (`GRADEBOOK_SIDEBAR_ITEMS`) + `render_gradebook_sidebar_page()` helper |
 | `/ui/library/nav.py` | Library sidebar config (`LIBRARY_SIDEBAR_ITEMS`) + `render_library_sidebar_page()` helper |
-| `/ui/activities/activity_hub.py` | `ActivityHubView` — 6 Activity Domain preview blocks (HTMX lazy-loaded from `/api/profile/{slug}/preview`) |
+| `/ui/activities/activity_hub.py` | `ActivityHubView` — 6 Activity Domain preview blocks (embedded in `/profile`, HTMX lazy-loaded from `/api/profile/{slug}/preview`) |
 | `/adapters/inbound/library_routes.py` | Library hub orchestrator — wires `library_ui.py` with its 6 service dependencies (extracted from `learning_loop_routes.py`) |
 | `/adapters/inbound/library_ui.py` | `/library` sidebar pages + dual-purpose routes: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/resources`, `/library/ku` (PINNED only, fetched via `backend.get_many()` by pinned UIDs), `/library/path-steps` (IN_PROGRESS only, fetched via `backend.get_many()` by enrolled UIDs). Exercise status helpers extracted to `ui/learning_loop/exercise_status.py` |
 | `/adapters/inbound/learning_loop_routes.py` | GradeBook orchestrator + 3 PathStep learning loop HTMX fragments (`/learning-loop/ps/{ps_uid}/exercises\|submissions\|feedback`) |

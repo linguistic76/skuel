@@ -16,9 +16,9 @@ This document covers *how to build one*.
 
 ## Architecture
 
-**Profile is the personal overview hub** (`/profile`). It shows Focus/Velocity indicators, a link card to `/activities`, the Nous community feed placeholder, and Settings. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
+**Profile is the personal overview hub** (`/profile`). It shows Focus/Velocity indicators, Activity Domains (6 HTMX lazy-loaded preview blocks inline), the Nous community feed placeholder, and Settings. The old intermediate hubs (`/curriculum`, `/study`, `/activities`) are shelved — they redirect 301 to `/profile`.
 
-**Activity Domains hub** (`/activities`) shows all 6 Activity Domains as HTMX lazy-loaded preview blocks. No sidebar — uses `BasePage(STANDARD)`. Child pages (`/tasks`, `/goals`, etc.) use `SidebarPage` with the shared Activity sidebar.
+Activity Domain child pages (`/tasks`, `/goals`, etc.) use `SidebarPage` with the shared Activity sidebar, which links back to `/profile`.
 
 **Domain hub pages** are rich functional pages that Profile links to:
 
@@ -101,7 +101,7 @@ def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
     """Vertical stack of domain blocks."""
 ```
 
-Used by hub pages (`/activities`, `/gradebook`, `/library`, `/teaching/students/{uid}`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards on page load. The Teaching root hub (`/teaching`) uses static `HubContainerGrid`; the nested student hub uses `HubDomainBlockList` with per-student preview endpoints.
+Used by hub pages (`/profile`, `/gradebook`, `/library`, `/teaching/students/{uid}`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards on page load. The Teaching root hub (`/teaching`) uses static `HubContainerGrid`; the nested student hub uses `HubDomainBlockList` with per-student preview endpoints.
 
 ### HubPreviewCard + HubPreviewGrid + HubPreviewEmpty
 
@@ -146,7 +146,7 @@ Profile renders personal state from `UserContext`:
 def ProfileHubView(context: UserContext) -> Div:
     return Div(
         _personal_header(context),          # Focus + Velocity indicators
-        _activity_link(),                   # Link card to /activities
+        ActivityHubView(),                  # 6 Activity Domain preview blocks (inline)
         _nous_section(),                    # Community feed (placeholder)
         _settings_link(),
     )
@@ -185,9 +185,9 @@ cards = hub_cards_from_organizers(children_result.value)
 section = HubSection("Contents", cards)
 ```
 
-**Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub.
+**Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub. Activity Domains are embedded inline in `/profile` via `ActivityHubView()`.
 
-**Files:** `ui/gradebook/hub.py`, `ui/library/hub.py`, `ui/activities/activity_hub.py`, `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
+**Files:** `ui/gradebook/hub.py`, `ui/library/hub.py`, `ui/activities/activity_hub.py` (used inline in `/profile`), `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
 
 ## Shelved Hubs
 
@@ -195,6 +195,7 @@ section = HubSection("Contents", cards)
 |-----------|----------|------------|-------------|
 | `/curriculum` | `ui/curriculum/landing.py` | `_shelved/curriculum_landing/` | `/profile` (301 redirect) |
 | `/study` | `ui/study/dashboard.py` | `_shelved/study_dashboard/` | `/profile` (301 redirect) |
+| `/activities` | `adapters/inbound/activity_hub_routes.py` | — (content merged into `/profile`) | `/profile` (301 redirect) |
 
 ## File Locations
 
@@ -203,8 +204,8 @@ section = HubSection("Contents", cards)
 | Shared components | `ui/patterns/hub.py` |
 | Profile hub | `ui/profile/hub.py` |
 | Profile routes | `adapters/inbound/user_profile_ui.py` |
-| Activity hub view | `ui/activities/activity_hub.py` |
-| Activity hub route | `adapters/inbound/activity_hub_routes.py` |
+| Activity hub view | `ui/activities/activity_hub.py` (embedded in `/profile`) |
+| Activity hub redirect | `adapters/inbound/activity_hub_routes.py` (301 → `/profile`) |
 | Activity sidebar | `ui/activities/nav.py` |
 | GradeBook hub view | `ui/gradebook/hub.py` |
 | GradeBook sidebar | `ui/gradebook/nav.py` |

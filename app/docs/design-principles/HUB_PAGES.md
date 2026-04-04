@@ -36,8 +36,7 @@ The navbar provides four entry points. Two are **container hub pages** (no sideb
 | `/gradebook` | Container hub | My Submissions, Submit, Exercise Reports, Activity Reports |
 | `/library` | Container hub | Exercises, Resources, Ku (bookmarked), Path Steps (enrolled) |
 | `/teaching` | Container hub | Students, Groups, Review Queue (TEACHER role) |
-| `/activities` | Sidebar hub | 6 Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles) |
-| `/profile` | Personal overview | Focus/Velocity, link to `/activities`, Nous, Settings |
+| `/profile` | Personal overview | Focus/Velocity, Activity Domains (6 HTMX blocks), Nous, Settings |
 
 ### Container Hub Pages (Hub → Child with Sidebar)
 
@@ -49,9 +48,9 @@ GradeBook and Library follow the **hub-first pattern**: the navbar icon opens a 
 
 **Components:** `HubContainerGrid` and `HubContainer` in `ui/patterns/hub.py` — bigger than `HubCard`, with more padding, full description, and arrow affordance.
 
-### Sidebar Hub Page
+### Inline Hub Content
 
-- **Activity** (`/activities`) — 6 Activity Domain preview blocks, HTMX lazy-loaded. Sidebar shared across `/activities`, `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`.
+- **Activity Domains** — embedded directly in `/profile` as 6 HTMX lazy-loaded preview blocks. `/activities` redirects 301 → `/profile`. Activity sidebar (shared across `/tasks`, `/goals`, etc.) links back to `/profile`.
 
 ### Library Data Pattern
 
