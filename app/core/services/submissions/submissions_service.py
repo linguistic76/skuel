@@ -602,8 +602,8 @@ class SubmissionsService(BaseService[BackendOperations[Entity], Entity]):
         file_path = Path(submission_file_path) if submission_file_path else None
         parent_dir = file_path.parent if file_path else None
 
-        # Delete Neo4j record first
-        delete_result = await self.backend.delete(uid)
+        # Delete Neo4j record first (cascade removes OWNS, FULFILLS_EXERCISE, etc.)
+        delete_result = await self.backend.delete(uid, cascade=True)
         if delete_result.is_error:
             return delete_result
 

@@ -27,7 +27,7 @@ from fasthtml.common import (
 )
 from fasthtml.common import Button as HtmlButton
 
-from ui.buttons import ButtonLink, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
@@ -105,6 +105,22 @@ def render_submission_history_row(item: dict) -> Any:
         label = f"{feedback_count} feedback round{'s' if feedback_count != 1 else ''}"
         feedback_chip = Badge(label, variant=BadgeT.outline, size=Size.sm, cls="ml-2")
 
+    # Allow deletion only when no feedback has been received yet
+    delete_button: Any = ""
+    if feedback_count == 0:
+        delete_button = Button(
+            "Delete",
+            variant=ButtonT.error,
+            size=Size.sm,
+            cls="ml-1",
+            **{
+                "hx-post": f"/gradebook/mysubmissions/delete?uid={uid}",
+                "hx-target": f"#submission-row-{uid}",
+                "hx-swap": "outerHTML",
+                "hx-confirm": "Delete this submission? This cannot be undone.",
+            },
+        )
+
     return Card(
         Div(
             Div(
@@ -124,9 +140,11 @@ def render_submission_history_row(item: dict) -> Any:
                 size=Size.sm,
                 cls="ml-3",
             ),
+            delete_button,
             cls="flex items-center gap-4",
         ),
         cls="bg-background shadow-sm mb-2",
+        id=f"submission-row-{uid}",
     )
 
 

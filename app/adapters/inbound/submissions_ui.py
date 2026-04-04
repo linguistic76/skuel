@@ -8,6 +8,7 @@ Routes:
 - GET /submit — File upload form (sidebar: Submit)
 - GET /gradebook — Hub page (no sidebar, container navigation)
 - GET /gradebook/mysubmissions — My Submissions list (sidebar: My Submissions)
+- POST /gradebook/mysubmissions/delete — Delete a user-owned submission (HTMX)
 - GET /gradebook/{uid} — Submission detail page
 - HTMX fragments: /gradebook/list, /upload, /grid,
   /gradebook/{uid}/{info,content,report,exercise,category-selector,tags-manager,shared-users}
@@ -219,6 +220,38 @@ def create_submissions_ui_routes(
             active="submissions",
             request=request,
         )
+
+    # ========================================================================
+    # SUBMISSION DELETE
+    # ========================================================================
+
+    @rt("/gradebook/mysubmissions/delete", methods=["POST"])
+    async def delete_submission(request: Request, uid: str) -> Any:
+        """Delete a user-owned submission (only if no feedback received)."""
+        user_uid = require_authenticated_user(request)
+
+        # Verify the submission exists and belongs to this user
+        sub_result = await submissions_service.get_submission(uid)
+        if sub_result.is_error or not sub_result.value:
+            return render_error_banner("Submission not found")
+        submission = sub_result.value
+        if submission.user_uid != user_uid:
+            return render_error_banner("Access denied")
+
+        # Guard: don't delete submissions that already have feedback
+        if teacher_review_service:
+            history_result = await teacher_review_service.get_report_history(uid)
+            if not history_result.is_error and history_result.value:
+                return render_error_banner(
+                    "Cannot delete a submission that has received feedback"
+                )
+
+        delete_result = await submissions_service.delete_submission_with_file(uid)
+        if delete_result.is_error:
+            return render_error_banner("Failed to delete submission", str(delete_result.error))
+
+        # Return empty div — HTMX outerHTML swap removes the row
+        return Div()
 
     # ========================================================================
     # HTMX ENDPOINTS
@@ -707,6 +740,7 @@ def create_submissions_ui_routes(
         submit_page,  # /submit
         gradebook_hub,  # /gradebook (hub page)
         gradebook_mysubmissions,  # /gradebook/mysubmissions
+        delete_submission,  # /gradebook/mysubmissions/delete (POST)
         submissions_list,  # /gradebook/list (HTMX)
         upload_submission,  # /gradebook/upload (HTMX POST)
         get_submissions_grid,  # /grid (HTMX GET)
