@@ -15,11 +15,11 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 
 from typing import Any
 
+from fasthtml.common import H3, Div
+
 from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.exercise_reports_ui import create_exercise_reports_ui_routes
-from fasthtml.common import Div, H3
-
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
 from adapters.inbound.submissions_ui import create_submissions_ui_routes
 from core.utils.logging import get_logger
