@@ -28,7 +28,7 @@ from fasthtml.common import A, Body, Button, Div, Head, Html, Link, Main, Meta, 
 
 from ui.layouts.navbar import create_navbar, create_navbar_for_request
 from ui.layouts.page_types import PAGE_CONFIG, PageType
-from ui.theme import ALPINE_VERSION, HTMX_VERSION, Theme, pwa_headers
+from ui.theme import ALPINE_VERSION, BRAND_THEME, HTMX_VERSION, pwa_headers
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -60,8 +60,8 @@ def build_head(
     if extra_css:
         css_links = [Link(rel="stylesheet", href=path) for path in extra_css]
 
-    # MonsterUI theme headers (FrankenUI + Tailwind + icons)
-    mu_headers = Theme.blue.headers()
+    # MonsterUI theme headers (FrankenUI + Tailwind + icons) — local vendor files
+    mu_headers = BRAND_THEME.local_headers(static_dir="static/vendor/monsterui", radii="lg")
 
     return Head(
         Meta(charset="UTF-8"),
@@ -258,4 +258,30 @@ async def BasePage(
     )
 
 
-__all__ = ["BasePage", "build_head"]
+def AuthPage(
+    content: Any,
+    title: str = "SKUEL",
+) -> "FT":
+    """Lightweight page wrapper for unauthenticated pages (login, register).
+
+    Loads the full MonsterUI CSS stack via build_head() but renders no navbar,
+    no modals, no toasts, no PWA. Use for auth flows where users are not
+    logged in.
+
+    Args:
+        content: Page content (centered card/form)
+        title: Page title (shown in browser tab as "Title - SKUEL")
+
+    Returns:
+        Complete Html document with minimal chrome
+    """
+    return Html(
+        build_head(title),
+        Body(
+            content,
+            cls="bg-background text-foreground",
+        ),
+    )
+
+
+__all__ = ["AuthPage", "BasePage", "build_head"]

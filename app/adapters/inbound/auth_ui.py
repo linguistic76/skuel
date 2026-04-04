@@ -47,6 +47,7 @@ from core.utils.logging import get_logger
 
 # Import auth components
 from ui.auth.components import AuthComponents
+from ui.layouts.base_page import AuthPage
 
 if TYPE_CHECKING:
     from core.ports import GraphAuthOperations
@@ -113,7 +114,7 @@ def create_auth_ui_routes(
         if is_authenticated(request):
             return RedirectResponse("/" if get_is_admin(request) else "/profile", status_code=303)
 
-        return AuthComponents.render_registration_page()
+        return AuthPage(AuthComponents.render_registration_page(), title="Create Account")
 
     @rt("/register/submit")
     async def register_submit(request: Request) -> Any:
@@ -135,15 +136,21 @@ def create_auth_ui_routes(
             except ValidationError as e:
                 error_msg = _first_validation_error(e)
                 logger.warning(f"Validation failed: {error_msg}")
-                return AuthComponents.render_registration_page(error_message=error_msg)
+                return AuthPage(
+                    AuthComponents.render_registration_page(error_message=error_msg),
+                    title="Create Account",
+                )
 
             logger.info("All validation checks passed")
 
             # Check if graph_auth service is available
             if not graph_auth:
                 logger.error("Graph auth service not available")
-                return AuthComponents.render_registration_page(
-                    error_message="Authentication service unavailable - please try again later"
+                return AuthPage(
+                    AuthComponents.render_registration_page(
+                        error_message="Authentication service unavailable - please try again later"
+                    ),
+                    title="Create Account",
                 )
 
             # Register with graph-native auth
@@ -160,7 +167,10 @@ def create_auth_ui_routes(
                     auth_result.error.message if auth_result.error else "Registration failed"
                 )
                 logger.warning(f"Registration failed for {reg.email}: {error_msg}")
-                return AuthComponents.render_registration_page(error_message=error_msg)
+                return AuthPage(
+                    AuthComponents.render_registration_page(error_message=error_msg),
+                    title="Create Account",
+                )
 
             user_data = auth_result.value
             logger.info(f"New user registered: {reg.username} ({user_data['user_uid']})")
@@ -206,8 +216,9 @@ def create_auth_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Registration error: {e}")
-            return AuthComponents.render_registration_page(
-                error_message=f"An error occurred: {e!s}"
+            return AuthPage(
+                AuthComponents.render_registration_page(error_message=f"An error occurred: {e!s}"),
+                title="Create Account",
             )
 
     # ========================================================================
@@ -221,7 +232,7 @@ def create_auth_ui_routes(
         if is_authenticated(request):
             return RedirectResponse("/" if get_is_admin(request) else "/profile", status_code=303)
 
-        return AuthComponents.render_login_page()
+        return AuthPage(AuthComponents.render_login_page(), title="Sign In")
 
     @rt("/login/submit")
     async def login_submit(request: Request) -> Any:
@@ -237,12 +248,17 @@ def create_auth_ui_routes(
                 )
             except ValidationError as e:
                 error_msg = _first_validation_error(e)
-                return AuthComponents.render_login_page(error_message=error_msg)
+                return AuthPage(
+                    AuthComponents.render_login_page(error_message=error_msg), title="Sign In"
+                )
 
             # Check if graph_auth service is available
             if not graph_auth:
-                return AuthComponents.render_login_page(
-                    error_message="Authentication service unavailable"
+                return AuthPage(
+                    AuthComponents.render_login_page(
+                        error_message="Authentication service unavailable"
+                    ),
+                    title="Sign In",
                 )
 
             # Determine if input is email or username
@@ -252,8 +268,11 @@ def create_auth_ui_routes(
                 # Look up email by username from Neo4j
                 user_result = await user_service.get_user_by_username(login.username)
                 if user_result.is_error or not user_result.value:
-                    return AuthComponents.render_login_page(
-                        error_message="Invalid username or password"
+                    return AuthPage(
+                        AuthComponents.render_login_page(
+                            error_message="Invalid username or password"
+                        ),
+                        title="Sign In",
                     )
                 email = user_result.value.email
 
@@ -272,7 +291,9 @@ def create_auth_ui_routes(
             if auth_result.is_error:
                 error = auth_result.expect_error()
                 logger.warning(f"Login failed for {email}: {error.message}")
-                return AuthComponents.render_login_page(error_message=error.message)
+                return AuthPage(
+                    AuthComponents.render_login_page(error_message=error.message), title="Sign In"
+                )
 
             session_data = auth_result.value
             user = session_data["user"]

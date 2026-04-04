@@ -12,14 +12,17 @@ __version__ = "2.0"
 
 from typing import Any
 
-from fasthtml.common import H1, Div, Nav, NotStr, P
+from fasthtml.common import H1, A, Div, Form, Li, Nav, P, Span, Ul
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import get_is_admin, is_authenticated
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
-from ui.buttons import ButtonLink, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.cards import Card, CardBody, CardTitle
+from ui.forms.components import LabelInput
 from ui.layout import Container, Size
+from ui.layouts.base_page import AuthPage
 
 logger = get_logger("skuel.routes.system.ui")
 
@@ -188,107 +191,91 @@ async def _render_admin_hub(request: Request) -> Any:
     )
 
 
-def _render_login_landing_page() -> NotStr:
+def _render_login_landing_page() -> Any:
+    """Render the landing page with login form for unauthenticated users.
+
+    Split layout: branding on left (desktop), login card on right.
+    Uses AuthPage for consistent MonsterUI CSS loading.
     """
-    Render the landing page with login form for unauthenticated users.
+    content = Div(
+        # Left side: Branding (desktop only)
+        Div(
+            H1("SKUEL", cls="text-5xl font-bold text-primary mb-4"),
+            P(
+                "Your integrated personal knowledge and productivity system",
+                cls="text-2xl text-foreground mb-6",
+            ),
+            Ul(
+                Li(
+                    Span("✓", cls="text-primary/80"),
+                    " Track tasks, goals, and habits in one place",
+                    cls="flex items-center gap-3",
+                ),
+                Li(
+                    Span("✓", cls="text-primary/80"),
+                    " Build your personal knowledge graph",
+                    cls="flex items-center gap-3",
+                ),
+                Li(
+                    Span("✓", cls="text-primary/80"),
+                    " AI-powered insights and recommendations",
+                    cls="flex items-center gap-3",
+                ),
+                Li(
+                    Span("✓", cls="text-primary/80"),
+                    " Connect learning to life path alignment",
+                    cls="flex items-center gap-3",
+                ),
+                cls="space-y-3 text-muted-foreground",
+            ),
+            cls="hidden lg:flex lg:w-1/2 flex-col justify-center px-12",
+        ),
+        # Right side: Login form
+        Div(
+            # Mobile branding
+            H1("SKUEL", cls="text-center text-3xl font-bold text-primary lg:hidden mb-8"),
+            # Login card
+            Card(
+                CardBody(
+                    CardTitle("Sign in", cls="text-2xl font-bold mb-4"),
+                    Form(
+                        LabelInput(
+                            "Email or Username",
+                            id="username",
+                            name="username",
+                            placeholder="Enter your email or username",
+                            required=True,
+                            autocomplete="email",
+                            autofocus=True,
+                        ),
+                        LabelInput(
+                            "Password",
+                            id="password",
+                            name="password",
+                            type="password",
+                            placeholder="Enter your password",
+                            required=True,
+                            autocomplete="current-password",
+                        ),
+                        Div(
+                            Button("Sign in", cls="w-full", variant=ButtonT.primary),
+                            cls="mt-2",
+                        ),
+                        action="/login/submit",
+                        method="POST",
+                        cls="space-y-4",
+                    ),
+                    Div(
+                        Span("Don't have an account? ", cls="text-sm"),
+                        A("Sign up", href="/register", cls="hover:underline text-sm"),
+                        cls="mt-4 text-center",
+                    ),
+                ),
+                cls="bg-background w-full max-w-sm shadow-2xl",
+            ),
+            cls="flex flex-1 flex-col items-center justify-center px-6 py-12 lg:px-8 lg:w-1/2",
+        ),
+        cls="flex min-h-full",
+    )
 
-    Uses dark theme matching the login page style.
-    Simple, focused design like Facebook's logged-out homepage.
-    """
-    return NotStr("""<!DOCTYPE html>
-<html class="h-full dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SKUEL - Personal Knowledge & Productivity</title>
-    <link rel="stylesheet" href="/static/css/output.css?v=4">
-    <link rel="stylesheet" href="/static/css/main.css">
-</head>
-<body class="h-full bg-secondary">
-    <div class="flex min-h-full">
-        <!-- Left side: Branding -->
-        <div class="hidden lg:flex lg:w-1/2 flex-col justify-center px-12">
-            <h1 class="text-5xl font-bold text-primary mb-4">SKUEL</h1>
-            <p class="text-2xl text-foreground mb-6">Your integrated personal knowledge and productivity system</p>
-            <ul class="space-y-3 text-muted-foreground">
-                <li class="flex items-center gap-3">
-                    <span class="text-primary/80">✓</span>
-                    Track tasks, goals, and habits in one place
-                </li>
-                <li class="flex items-center gap-3">
-                    <span class="text-primary/80">✓</span>
-                    Build your personal knowledge graph
-                </li>
-                <li class="flex items-center gap-3">
-                    <span class="text-primary/80">✓</span>
-                    AI-powered insights and recommendations
-                </li>
-                <li class="flex items-center gap-3">
-                    <span class="text-primary/80">✓</span>
-                    Connect learning to life path alignment
-                </li>
-            </ul>
-        </div>
-
-        <!-- Right side: Login form -->
-        <div class="flex flex-1 flex-col items-center justify-center px-6 py-12 lg:px-8 lg:w-1/2">
-            <!-- Mobile branding -->
-            <h1 class="text-center text-3xl font-bold text-primary lg:hidden mb-8">SKUEL</h1>
-
-            <!-- Login card -->
-            <div class="card bg-background w-full max-w-sm shadow-2xl">
-                <div class="card-body">
-                    <h2 class="card-title text-2xl font-bold mb-4">Sign in</h2>
-
-                    <form action="/login/submit" method="POST">
-                        <!-- Email/Username field -->
-                        <div class="space-y-2 w-full mb-4">
-                            <label class="label" for="username">
-                                <span class="text-sm font-medium">Email or Username</span>
-                            </label>
-                            <input
-                                id="username"
-                                type="text"
-                                name="username"
-                                required
-                                autocomplete="email"
-                                autofocus
-                                placeholder="Enter your email or username"
-                                class="skuel-input"
-                            />
-                        </div>
-
-                        <!-- Password field -->
-                        <div class="space-y-2 w-full mb-4">
-                            <label class="label" for="password">
-                                <span class="text-sm font-medium">Password</span>
-                                <a href="/forgot-password" class="text-xs text-muted-foreground hover:underline">Forgot password?</a>
-                            </label>
-                            <input
-                                id="password"
-                                type="password"
-                                name="password"
-                                required
-                                autocomplete="current-password"
-                                placeholder="Enter your password"
-                                class="skuel-input"
-                            />
-                        </div>
-
-                        <!-- Submit button -->
-                        <div class="space-y-2 mt-6">
-                            <button type="submit" class="btn btn-primary w-full">Sign in</button>
-                        </div>
-                    </form>
-
-                    <!-- Sign up link -->
-                    <div class="mt-4 text-center">
-                        <span class="text-sm">Don't have an account? </span>
-                        <a href="/register" class="hover:underline text-sm">Sign up</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</body>
-</html>""")
+    return AuthPage(content, title="SKUEL - Personal Knowledge & Productivity")

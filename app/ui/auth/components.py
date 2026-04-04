@@ -3,628 +3,463 @@ Authentication UI Components
 ============================
 
 Reusable components for user registration and login.
-Uses semantic HTML with Tailwind + MonsterUI styling.
+Uses MonsterUI (FrankenUI) components via SKUEL wrappers for consistent styling.
 
-Version: 2.0.0
-Date: 2025-12-02
+All methods return FT component trees (not NotStr). Full-page auth views
+(login, registration) are wrapped with AuthPage() by the route handler.
+Fragment views (forgot-password, success pages) are rendered within the
+app's normal layout.
 """
 
-from fasthtml.common import NotStr
+from typing import Any
+
+from fasthtml.common import H1, H2, H3, A, Div, Form, Li, P, Span, Strong, Ul
+
+from ui.buttons import Button, ButtonLink, ButtonT
+from ui.cards import Card, CardBody
+from ui.forms.components import Checkbox, Input, LabelInput
+
+
+def _error_banner(error_message: str | None) -> Any:
+    """Render an error banner if error_message is provided, else empty tuple."""
+    if not error_message:
+        return ()
+    return Div(
+        P(error_message, cls="text-sm text-destructive"),
+        cls="mb-4 rounded-md bg-destructive/10 border border-destructive/20 p-3",
+        role="alert",
+    )
+
+
+def _auth_center(*children: Any, max_width: str = "sm:max-w-sm") -> Any:
+    """Centered layout container for auth pages."""
+    return Div(
+        *children,
+        cls="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8",
+    )
+
+
+def _auth_card(*children: Any, max_width: str = "max-w-md") -> Any:
+    """Card container for fragment auth pages (forgot-password, success, etc.)."""
+    return Div(
+        Card(
+            CardBody(*children),
+            cls=f"bg-background shadow-xl {max_width} w-full",
+        ),
+        cls="min-h-screen bg-muted flex items-center justify-center p-6",
+    )
 
 
 class AuthComponents:
-    """Reusable component library for authentication interface"""
+    """Component library for authentication interface.
+
+    Full-page methods (render_login_page, render_registration_page) return
+    content to be wrapped by AuthPage() in the route handler.
+
+    Fragment methods (render_forgot_password_form, etc.) return content
+    rendered within the app's normal layout (which already loads MonsterUI CSS).
+    """
 
     @staticmethod
-    def render_login_page(error_message: str | None = None) -> NotStr:
-        """
-        Render the login page with dark theme centered design.
-
-        Args:
-            error_message: Optional error message to display
-
-        Returns:
-            Complete login page UI as NotStr (full HTML document)
-        """
-        error_html = ""
-        if error_message:
-            error_html = f"""
-            <div class="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3">
-                <p class="text-sm text-red-400">{error_message}</p>
-            </div>
-            """
-
-        return NotStr(f"""<!DOCTYPE html>
-<html class="h-full dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In | SKUEL</title>
-    <link rel="stylesheet" href="/static/css/output.css?v=4">
-    <link rel="stylesheet" href="/static/css/main.css">
-</head>
-<body class="h-full bg-background">
-    <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
-        <div class="sm:mx-auto sm:w-full sm:max-w-sm">
-            <h1 class="text-center text-3xl font-bold text-primary">SKUEL</h1>
-            <h2 class="mt-10 text-center text-2xl/9 font-bold tracking-tight text-foreground">Sign in to your account</h2>
-        </div>
-
-        <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-            {error_html}
-
-            <form id="login-form" action="/login/submit" method="POST" class="space-y-6">
-                <div>
-                    <label for="username" class="block text-sm/6 font-medium text-foreground">Email address</label>
-                    <div class="mt-2">
-                        <input
-                            id="username"
-                            type="text"
-                            name="username"
-                            required
-                            autocomplete="email"
-                            autofocus
-                            class="skuel-input"
-                        />
-                    </div>
-                </div>
-
-                <div>
-                    <div class="flex items-center justify-between">
-                        <label for="password" class="block text-sm/6 font-medium text-foreground">Password</label>
-                        <div class="text-sm">
-                            <a href="/forgot-password" class="font-semibold text-primary/80 hover:text-primary">Forgot password?</a>
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <input
-                            id="password"
-                            type="password"
-                            name="password"
-                            required
-                            autocomplete="current-password"
-                            class="skuel-input"
-                        />
-                    </div>
-                </div>
-
-                <div>
-                    <button type="submit" class="btn btn-primary w-full text-sm/6 font-semibold">Sign in</button>
-                </div>
-            </form>
-
-            <p class="mt-10 text-center text-sm/6 text-muted-foreground">
-                Not a member?
-                <a href="/register" class="font-semibold text-primary/80 hover:text-primary">Create an account</a>
-            </p>
-
-        </div>
-    </div>
-</body>
-</html>""")
+    def render_login_page(error_message: str | None = None) -> Any:
+        """Render login page content (wrap with AuthPage in route handler)."""
+        return _auth_center(
+            Div(
+                H1("SKUEL", cls="text-center text-3xl font-bold text-primary"),
+                H2(
+                    "Sign in to your account",
+                    cls="mt-10 text-center text-2xl/9 font-bold tracking-tight text-foreground",
+                ),
+                cls="sm:mx-auto sm:w-full sm:max-w-sm",
+            ),
+            Div(
+                _error_banner(error_message),
+                Form(
+                    LabelInput(
+                        "Email address",
+                        id="username",
+                        name="username",
+                        type="text",
+                        required=True,
+                        autofocus=True,
+                        autocomplete="email",
+                    ),
+                    Div(
+                        Div(
+                            Div(
+                                A(
+                                    "Forgot password?",
+                                    href="/forgot-password",
+                                    cls="font-semibold text-primary/80 hover:text-primary text-sm",
+                                ),
+                                cls="ml-auto",
+                            ),
+                            cls="flex items-center justify-between",
+                        ),
+                        LabelInput(
+                            "Password",
+                            id="password",
+                            name="password",
+                            type="password",
+                            required=True,
+                            autocomplete="current-password",
+                        ),
+                    ),
+                    Button("Sign in", cls="w-full", variant=ButtonT.primary),
+                    action="/login/submit",
+                    method="POST",
+                    cls="space-y-6",
+                    id="login-form",
+                ),
+                P(
+                    "Not a member? ",
+                    A(
+                        "Create an account",
+                        href="/register",
+                        cls="font-semibold text-primary/80 hover:text-primary",
+                    ),
+                    cls="mt-10 text-center text-sm/6 text-muted-foreground",
+                ),
+                cls="mt-10 sm:mx-auto sm:w-full sm:max-w-sm",
+            ),
+        )
 
     @staticmethod
-    def render_registration_page(error_message: str | None = None) -> NotStr:
-        """
-        Render the registration page with dark theme centered design.
-
-        Matches the login page styling for visual consistency.
-
-        Args:
-            error_message: Optional error message to display
-
-        Returns:
-            Complete registration page UI as NotStr (full HTML document)
-        """
-        error_html = ""
-        if error_message:
-            error_html = f"""
-            <div class="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3">
-                <p class="text-sm text-red-400">{error_message}</p>
-            </div>
-            """
-
-        return NotStr(f"""<!DOCTYPE html>
-<html class="h-full dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Account | SKUEL</title>
-    <link rel="stylesheet" href="/static/css/output.css?v=4">
-    <link rel="stylesheet" href="/static/css/main.css">
-</head>
-<body class="h-full bg-background">
-    <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
-        <div class="sm:mx-auto sm:w-full sm:max-w-sm">
-            <h1 class="text-center text-3xl font-bold text-primary">SKUEL</h1>
-            <h2 class="mt-8 text-center text-2xl/9 font-bold tracking-tight text-foreground">Create your account</h2>
-            <p class="mt-2 text-center text-sm text-muted-foreground">Start your learning journey</p>
-        </div>
-
-        <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-sm">
-            {error_html}
-
-            <form action="/register/submit" method="POST" class="space-y-5">
-                <!-- Username field -->
-                <div>
-                    <label for="username" class="block text-sm/6 font-medium text-foreground">Username</label>
-                    <div class="mt-2">
-                        <input
-                            id="username"
-                            type="text"
-                            name="username"
-                            placeholder="Choose a username"
-                            required
-                            autofocus
-                            minlength="3"
-                            maxlength="30"
-                            pattern="[a-zA-Z0-9_]+"
-                            class="skuel-input"
-                        />
-                    </div>
-                    <p class="mt-1 text-xs text-muted-foreground">3-30 characters, letters, numbers, and underscores only</p>
-                </div>
-
-                <!-- Email field -->
-                <div>
-                    <label for="email" class="block text-sm/6 font-medium text-foreground">Email address</label>
-                    <div class="mt-2">
-                        <input
-                            id="email"
-                            type="email"
-                            name="email"
-                            placeholder="your.email@example.com"
-                            required
-                            autocomplete="email"
-                            class="skuel-input"
-                        />
-                    </div>
-                </div>
-
-                <!-- Display name field -->
-                <div>
-                    <label for="display_name" class="block text-sm/6 font-medium text-foreground">Display name</label>
-                    <div class="mt-2">
-                        <input
-                            id="display_name"
-                            type="text"
-                            name="display_name"
-                            placeholder="How should we call you?"
-                            required
-                            maxlength="100"
-                            class="skuel-input"
-                        />
-                    </div>
-                </div>
-
-                <!-- Password field -->
-                <div>
-                    <label for="password" class="block text-sm/6 font-medium text-foreground">Password</label>
-                    <div class="mt-2">
-                        <input
-                            id="password"
-                            type="password"
-                            name="password"
-                            placeholder="Create a strong password"
-                            required
-                            minlength="6"
-                            autocomplete="new-password"
-                            class="skuel-input"
-                        />
-                    </div>
-                    <p class="mt-1 text-xs text-muted-foreground">At least 6 characters</p>
-                </div>
-
-                <!-- Confirm password field -->
-                <div>
-                    <label for="confirm_password" class="block text-sm/6 font-medium text-foreground">Confirm password</label>
-                    <div class="mt-2">
-                        <input
-                            id="confirm_password"
-                            type="password"
-                            name="confirm_password"
-                            placeholder="Re-enter your password"
-                            required
-                            minlength="6"
-                            autocomplete="new-password"
-                            class="skuel-input"
-                        />
-                    </div>
-                </div>
-
-                <!-- Terms acceptance -->
-                <div class="flex items-start gap-3">
-                    <input type="hidden" name="accept_terms" value="0" />
-                    <input
-                        type="checkbox"
-                        id="accept_terms"
-                        name="accept_terms"
-                        value="1"
-                        required
-                        class="skuel-checkbox"
-                    />
-                    <label for="accept_terms" class="text-sm text-muted-foreground">
-                        I agree to the
-                        <a href="/terms" class="font-semibold text-primary/80 hover:text-primary">Terms of Service</a>
-                        and
-                        <a href="/privacy" class="font-semibold text-primary/80 hover:text-primary">Privacy Policy</a>
-                    </label>
-                </div>
-
-                <!-- Submit button -->
-                <div class="pt-2">
-                    <button type="submit" class="btn btn-primary w-full text-sm/6 font-semibold">
-                        Create account
-                    </button>
-                </div>
-            </form>
-
-            <p class="mt-8 text-center text-sm/6 text-muted-foreground">
-                Already have an account?
-                <a href="/login" class="font-semibold text-primary/80 hover:text-primary">Sign in</a>
-            </p>
-        </div>
-    </div>
-</body>
-</html>""")
+    def render_registration_page(error_message: str | None = None) -> Any:
+        """Render registration page content (wrap with AuthPage in route handler)."""
+        return _auth_center(
+            Div(
+                H1("SKUEL", cls="text-center text-3xl font-bold text-primary"),
+                H2(
+                    "Create your account",
+                    cls="mt-8 text-center text-2xl/9 font-bold tracking-tight text-foreground",
+                ),
+                P(
+                    "Start your learning journey",
+                    cls="mt-2 text-center text-sm text-muted-foreground",
+                ),
+                cls="sm:mx-auto sm:w-full sm:max-w-sm",
+            ),
+            Div(
+                _error_banner(error_message),
+                Form(
+                    LabelInput(
+                        "Username",
+                        id="username",
+                        name="username",
+                        placeholder="Choose a username",
+                        required=True,
+                        autofocus=True,
+                        minlength="3",
+                        maxlength="30",
+                        pattern="[a-zA-Z0-9_]+",
+                        help_text="3-30 characters, letters, numbers, and underscores only",
+                    ),
+                    LabelInput(
+                        "Email address",
+                        id="email",
+                        name="email",
+                        type="email",
+                        placeholder="your.email@example.com",
+                        required=True,
+                        autocomplete="email",
+                    ),
+                    LabelInput(
+                        "Display name",
+                        id="display_name",
+                        name="display_name",
+                        placeholder="How should we call you?",
+                        required=True,
+                        maxlength="100",
+                    ),
+                    LabelInput(
+                        "Password",
+                        id="password",
+                        name="password",
+                        type="password",
+                        placeholder="Create a strong password",
+                        required=True,
+                        minlength="6",
+                        autocomplete="new-password",
+                        help_text="At least 6 characters",
+                    ),
+                    LabelInput(
+                        "Confirm password",
+                        id="confirm_password",
+                        name="confirm_password",
+                        type="password",
+                        placeholder="Re-enter your password",
+                        required=True,
+                        minlength="6",
+                        autocomplete="new-password",
+                    ),
+                    # Terms acceptance
+                    Div(
+                        Input(type="hidden", name="accept_terms", value="0", full_width=False),
+                        Div(
+                            Checkbox(
+                                id="accept_terms",
+                                name="accept_terms",
+                                value="1",
+                                required=True,
+                            ),
+                            Span(
+                                "I agree to the ",
+                                A(
+                                    "Terms of Service",
+                                    href="/terms",
+                                    cls="font-semibold text-primary/80 hover:text-primary",
+                                ),
+                                " and ",
+                                A(
+                                    "Privacy Policy",
+                                    href="/privacy",
+                                    cls="font-semibold text-primary/80 hover:text-primary",
+                                ),
+                                cls="text-sm text-muted-foreground",
+                            ),
+                            cls="flex items-center gap-2",
+                        ),
+                        cls="pt-1",
+                    ),
+                    Div(
+                        Button("Create account", cls="w-full", variant=ButtonT.primary),
+                        cls="pt-2",
+                    ),
+                    action="/register/submit",
+                    method="POST",
+                    cls="space-y-5",
+                ),
+                P(
+                    "Already have an account? ",
+                    A(
+                        "Sign in",
+                        href="/login",
+                        cls="font-semibold text-primary/80 hover:text-primary",
+                    ),
+                    cls="mt-8 text-center text-sm/6 text-muted-foreground",
+                ),
+                cls="mt-8 sm:mx-auto sm:w-full sm:max-w-sm",
+            ),
+        )
 
     @staticmethod
-    def render_registration_success(username: str) -> NotStr:
-        """
-        Render registration success page.
-
-        Args:
-            username: The newly registered username
-
-        Returns:
-            Success message UI as NotStr
-        """
-        return NotStr(f"""
-        <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="uk-card uk-card-default bg-background shadow-xl max-w-lg w-full">
-                <div class="uk-card-body text-center">
-                    <div class="text-6xl mb-4">✅</div>
-                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-2">Welcome to SKUEL!</h1>
-                    <p class="text-lg text-muted-foreground mb-6">
-                        Your account '{username}' has been created successfully!
-                    </p>
-
-                    <div class="text-left mb-6">
-                        <h3 class="text-xl font-semibold mb-4">What's Next?</h3>
-                        <ul class="space-y-2 text-foreground/80">
-                            <li class="flex items-center gap-2">
-                                <span>📚</span> Explore learning paths
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <span>✅</span> Create your first task
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <span>🎯</span> Set your goals
-                            </li>
-                            <li class="flex items-center gap-2">
-                                <span>⚙️</span> Customize your preferences
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div class="uk-card-footer justify-center">
-                        <a href="/" class="uk-btn uk-btn-primary w-full">Get Started</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """)
+    def render_registration_success(username: str) -> Any:
+        """Render registration success page (fragment within app layout)."""
+        return _auth_card(
+            Div(
+                H1(
+                    "Welcome to SKUEL!",
+                    cls="text-3xl font-bold mb-2",
+                ),
+                P(
+                    f"Your account '{username}' has been created successfully!",
+                    cls="text-lg text-muted-foreground mb-6",
+                ),
+                Div(
+                    H3("What's Next?", cls="text-xl font-semibold mb-4"),
+                    Ul(
+                        Li("Explore learning paths", cls="flex items-center gap-2"),
+                        Li("Create your first task", cls="flex items-center gap-2"),
+                        Li("Set your goals", cls="flex items-center gap-2"),
+                        Li("Customize your preferences", cls="flex items-center gap-2"),
+                        cls="space-y-2 text-foreground/80",
+                    ),
+                    cls="text-left mb-6",
+                ),
+                ButtonLink("Get Started", href="/", variant=ButtonT.primary, cls="w-full"),
+                cls="text-center",
+            ),
+            max_width="max-w-lg",
+        )
 
     @staticmethod
-    def render_login_error(error_message: str) -> NotStr:
-        """
-        Render login error page.
-
-        Args:
-            error_message: The error message to display
-
-        Returns:
-            Error page UI as NotStr
-        """
-        return NotStr(f"""
-        <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="uk-card uk-card-default bg-background shadow-xl max-w-lg w-full">
-                <div class="uk-card-body text-center">
-                    <div class="text-6xl mb-4">❌</div>
-                    <h1 class="uk-card-title text-3xl font-bold text-destructive justify-center mb-2">
-                        Login Failed
-                    </h1>
-                    <p class="text-lg text-foreground/80 mb-6">{error_message}</p>
-
-                    <div class="uk-card-footer justify-center gap-3">
-                        <a href="/login" class="uk-btn uk-btn-primary">Try Again</a>
-                        <a href="/forgot-password" class="uk-btn uk-btn-secondary">Forgot Password?</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """)
+    def render_login_error(error_message: str) -> Any:
+        """Render login error page (fragment within app layout)."""
+        return _auth_card(
+            Div(
+                H1(
+                    "Login Failed",
+                    cls="text-3xl font-bold text-destructive mb-2",
+                ),
+                P(error_message, cls="text-lg text-foreground/80 mb-6"),
+                Div(
+                    ButtonLink("Try Again", href="/login", variant=ButtonT.primary),
+                    ButtonLink(
+                        "Forgot Password?", href="/forgot-password", variant=ButtonT.secondary
+                    ),
+                    cls="flex justify-center gap-3",
+                ),
+                cls="text-center",
+            ),
+            max_width="max-w-lg",
+        )
 
     @staticmethod
-    def render_forgot_password_form(error_message: str | None = None) -> NotStr:
-        """
-        Render forgot password email form.
-
-        Args:
-            error_message: Optional error message to display
-
-        Returns:
-            Forgot password form UI as NotStr
-        """
-        error_html = ""
-        if error_message:
-            error_html = f"""
-            <div class="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3">
-                <p class="text-sm text-red-400">{error_message}</p>
-            </div>
-            """
-
-        return NotStr(f"""
-        <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="uk-card uk-card-default bg-background shadow-xl max-w-md w-full">
-                <div class="uk-card-body text-center">
-                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-2">Reset Password</h1>
-                    <p class="text-muted-foreground mb-6">
-                        Enter your email and we'll send you a link to reset your password.
-                    </p>
-
-                    {error_html}
-
-                    <form action="/forgot-password" method="POST" class="space-y-4">
-                        <div class="space-y-2">
-                            <input
-                                type="email"
-                                name="email"
-                                placeholder="your.email@example.com"
-                                class="skuel-input"
-                                required
-                                autofocus
-                            />
-                        </div>
-
-                        <button type="submit" class="uk-btn uk-btn-primary w-full">
-                            Send Reset Link
-                        </button>
-                    </form>
-
-                    <div class="border-t border-border my-4 text-muted-foreground text-sm">or</div>
-
-                    <div class="space-y-2">
-                        <a href="/reset-password" class="uk-btn uk-btn-secondary uk-btn-sm w-full">
-                            I Have a Reset Token
-                        </a>
-                        <a href="/login" class="hover:underline text-muted-foreground">
-                            Back to Login
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """)
+    def render_forgot_password_form(error_message: str | None = None) -> Any:
+        """Render forgot password email form (fragment within app layout)."""
+        return _auth_card(
+            Div(
+                H1("Reset Password", cls="text-3xl font-bold mb-2"),
+                P(
+                    "Enter your email and we'll send you a link to reset your password.",
+                    cls="text-muted-foreground mb-6",
+                ),
+                _error_banner(error_message),
+                Form(
+                    Input(
+                        type="email",
+                        name="email",
+                        placeholder="your.email@example.com",
+                        required=True,
+                        autofocus=True,
+                    ),
+                    Button("Send Reset Link", cls="w-full", variant=ButtonT.primary),
+                    action="/forgot-password",
+                    method="POST",
+                    cls="space-y-4",
+                ),
+                Div(cls="border-t border-border my-4"),
+                Div(
+                    ButtonLink(
+                        "I Have a Reset Token",
+                        href="/reset-password",
+                        variant=ButtonT.secondary,
+                        cls="w-full",
+                    ),
+                    A(
+                        "Back to Login",
+                        href="/login",
+                        cls="hover:underline text-muted-foreground text-sm",
+                    ),
+                    cls="space-y-2 text-center",
+                ),
+                cls="text-center",
+            ),
+        )
 
     @staticmethod
-    def render_reset_password_page(error_message: str | None = None, token: str = "") -> NotStr:
-        """
-        Render password reset form where user enters token and new password.
-
-        Args:
-            error_message: Optional error message to display
-            token: Pre-filled token (from URL parameter)
-
-        Returns:
-            Password reset form UI as NotStr
-        """
-        error_html = ""
-        if error_message:
-            error_html = f"""
-            <div class="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3 flex items-center gap-2" role="alert">
-                <uk-icon icon="circle-x" width="24" height="24" class="shrink-0 h-6 w-6 text-red-400"></uk-icon>
-                <span class="text-sm text-red-400">{error_message}</span>
-            </div>
-            """
-
-        return NotStr(f"""
-        <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="uk-card uk-card-default bg-background shadow-xl max-w-md w-full">
-                <div class="uk-card-body">
-                    <div class="text-center mb-4">
-                        <div class="text-5xl mb-2">🔑</div>
-                        <h1 class="uk-card-title text-2xl font-bold justify-center">Reset Your Password</h1>
-                        <p class="text-muted-foreground text-sm mt-1">
-                            Enter your reset token
-                        </p>
-                    </div>
-
-                    {error_html}
-
-                    <form action="/reset-password/submit" method="POST" class="space-y-4">
-                        <div class="space-y-2">
-                            <label class="block text-sm font-medium">
-                                <span class="block text-sm font-medium">Reset Token</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="token"
-                                placeholder="Paste your reset token here"
-                                class="uk-input w-full font-mono text-sm"
-                                value="{token}"
-                                required
-                            />
-                            <label class="block text-sm font-medium">
-                                <span class="text-xs text-muted-foreground">
-                                    The token from your password reset email
-                                </span>
-                            </label>
-                        </div>
-
-                        <div class="space-y-2">
-                            <label class="block text-sm font-medium">
-                                <span class="block text-sm font-medium">New Password</span>
-                            </label>
-                            <input
-                                type="password"
-                                name="password"
-                                placeholder="Enter new password"
-                                class="skuel-input"
-                                minlength="8"
-                                required
-                            />
-                            <label class="block text-sm font-medium">
-                                <span class="text-xs text-muted-foreground">
-                                    At least 8 characters
-                                </span>
-                            </label>
-                        </div>
-
-                        <div class="space-y-2">
-                            <label class="block text-sm font-medium">
-                                <span class="block text-sm font-medium">Confirm Password</span>
-                            </label>
-                            <input
-                                type="password"
-                                name="confirm_password"
-                                placeholder="Confirm new password"
-                                class="skuel-input"
-                                minlength="8"
-                                required
-                            />
-                        </div>
-
-                        <button type="submit" class="uk-btn uk-btn-primary w-full">
-                            Reset Password
-                        </button>
-                    </form>
-
-                    <div class="border-t border-border my-4 text-muted-foreground text-sm">or</div>
-
-                    <div class="text-center">
-                        <a href="/login" class="hover:underline text-muted-foreground">
-                            Back to Login
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """)
+    def render_reset_password_page(
+        error_message: str | None = None,
+        token: str = "",
+    ) -> Any:
+        """Render password reset form (fragment within app layout)."""
+        return _auth_card(
+            Div(
+                H1("Reset Your Password", cls="text-2xl font-bold"),
+                P("Enter your reset token", cls="text-muted-foreground text-sm mt-1"),
+                cls="text-center mb-4",
+            ),
+            _error_banner(error_message),
+            Form(
+                LabelInput(
+                    "Reset Token",
+                    name="token",
+                    placeholder="Paste your reset token here",
+                    input_cls="font-mono text-sm",
+                    value=token,
+                    required=True,
+                    help_text="The token from your password reset email",
+                ),
+                LabelInput(
+                    "New Password",
+                    name="password",
+                    type="password",
+                    placeholder="Enter new password",
+                    required=True,
+                    minlength="8",
+                    help_text="At least 8 characters",
+                ),
+                LabelInput(
+                    "Confirm Password",
+                    name="confirm_password",
+                    type="password",
+                    placeholder="Confirm new password",
+                    required=True,
+                    minlength="8",
+                ),
+                Button("Reset Password", cls="w-full", variant=ButtonT.primary),
+                action="/reset-password/submit",
+                method="POST",
+                cls="space-y-4",
+            ),
+            Div(cls="border-t border-border my-4"),
+            Div(
+                A("Back to Login", href="/login", cls="hover:underline text-muted-foreground"),
+                cls="text-center",
+            ),
+        )
 
     @staticmethod
-    def render_reset_password_success() -> NotStr:
-        """
-        Render password reset success page.
-
-        Returns:
-            Password reset success UI as NotStr
-        """
-        return NotStr("""
-        <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="uk-card uk-card-default bg-background shadow-xl max-w-md w-full">
-                <div class="uk-card-body text-center">
-                    <div class="text-6xl mb-4">✅</div>
-                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-2">Password Reset!</h1>
-                    <p class="text-muted-foreground mb-6">
-                        Your password has been reset successfully.
-                        You can now log in with your new password.
-                    </p>
-
-                    <a href="/login" class="uk-btn uk-btn-primary w-full">
-                        Go to Login
-                    </a>
-                </div>
-            </div>
-        </div>
-        """)
+    def render_reset_password_success() -> Any:
+        """Render password reset success page (fragment within app layout)."""
+        return _auth_card(
+            Div(
+                H1("Password Reset!", cls="text-3xl font-bold mb-2"),
+                P(
+                    "Your password has been reset successfully. "
+                    "You can now log in with your new password.",
+                    cls="text-muted-foreground mb-6",
+                ),
+                ButtonLink("Go to Login", href="/login", variant=ButtonT.primary, cls="w-full"),
+                cls="text-center",
+            ),
+        )
 
     @staticmethod
-    def render_email_verification_sent(email: str) -> NotStr:
-        """
-        Render email verification sent page.
-
-        Args:
-            email: The email address verification was sent to
-
-        Returns:
-            Email verification sent UI as NotStr
-        """
-        return NotStr(f"""
-        <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="uk-card uk-card-default bg-background shadow-xl max-w-lg w-full">
-                <div class="uk-card-body text-center">
-                    <div class="text-6xl mb-4">✉️</div>
-                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-2">Check Your Email</h1>
-                    <p class="text-lg text-muted-foreground mb-4">
-                        We've sent a verification email to <strong>{email}</strong>.
-                    </p>
-                    <p class="text-foreground/80 mb-6">
-                        Please click the link in the email to verify your account before logging in.
-                    </p>
-
-                    <div class="uk-card-footer justify-center">
-                        <a href="/login" class="uk-btn uk-btn-primary w-full">Go to Login</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """)
+    def render_email_verification_sent(email: str) -> Any:
+        """Render email verification sent page (fragment within app layout)."""
+        return _auth_card(
+            Div(
+                H1("Check Your Email", cls="text-3xl font-bold mb-2"),
+                P(
+                    "We've sent a verification email to ",
+                    Strong(email),
+                    ".",
+                    cls="text-lg text-muted-foreground mb-4",
+                ),
+                P(
+                    "Please click the link in the email to verify your account before logging in.",
+                    cls="text-foreground/80 mb-6",
+                ),
+                ButtonLink("Go to Login", href="/login", variant=ButtonT.primary, cls="w-full"),
+                cls="text-center",
+            ),
+            max_width="max-w-lg",
+        )
 
     @staticmethod
-    def render_password_reset_sent(email: str) -> NotStr:
-        """
-        Render password reset email sent page.
-
-        Args:
-            email: The email address reset instructions were sent to
-
-        Returns:
-            Password reset sent UI as NotStr
-        """
-        return NotStr(f"""
-        <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="uk-card uk-card-default bg-background shadow-xl max-w-md w-full">
-                <div class="uk-card-body text-center">
-                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-4">Check Your Email</h1>
-                    <p class="text-muted-foreground mb-6">
-                        If an account exists for <strong>{email}</strong>, you'll receive password reset instructions shortly.
-                    </p>
-
-                    <div class="uk-card-footer justify-center">
-                        <a href="/login" class="uk-btn uk-btn-primary w-full">Back to Login</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        """)
+    def render_password_reset_sent(email: str) -> Any:
+        """Render password reset email sent page (fragment within app layout)."""
+        return _auth_card(
+            Div(
+                H1("Check Your Email", cls="text-3xl font-bold mb-4"),
+                P(
+                    "If an account exists for ",
+                    Strong(email),
+                    ", you'll receive password reset instructions shortly.",
+                    cls="text-muted-foreground mb-6",
+                ),
+                ButtonLink("Back to Login", href="/login", variant=ButtonT.primary, cls="w-full"),
+                cls="text-center",
+            ),
+        )
 
     @staticmethod
-    def render_email_verified() -> NotStr:
-        """
-        Render email verified callback page.
-
-        Returns:
-            Email verified UI with meta-refresh redirect as NotStr
-        """
-        return NotStr("""
-        <meta http-equiv="refresh" content="2;url=/login">
-        <div class="min-h-screen bg-muted flex items-center justify-center p-6">
-            <div class="uk-card uk-card-default bg-background shadow-xl max-w-lg w-full">
-                <div class="uk-card-body text-center">
-                    <div class="text-6xl mb-4">✅</div>
-                    <h1 class="uk-card-title text-3xl font-bold justify-center mb-2">Email Verified!</h1>
-                    <p class="text-lg text-muted-foreground mb-4">
-                        Your email has been verified successfully.
-                    </p>
-                    <p class="text-foreground/80 mb-6">
-                        <span class="uk-spinner uk-spinner-small"></span>
-                        Redirecting you to login...
-                    </p>
-                </div>
-            </div>
-        </div>
-        """)
+    def render_email_verified() -> Any:
+        """Render email verified callback page (fragment within app layout)."""
+        return _auth_card(
+            Div(
+                H1("Email Verified!", cls="text-3xl font-bold mb-2"),
+                P(
+                    "Your email has been verified successfully.",
+                    cls="text-lg text-muted-foreground mb-4",
+                ),
+                P("Redirecting you to login...", cls="text-foreground/80 mb-6"),
+                cls="text-center",
+            ),
+            max_width="max-w-lg",
+        )
 
 
 __all__ = ["AuthComponents"]
