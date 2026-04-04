@@ -107,25 +107,6 @@ def ExploreGraphView(
         **{"@click": "expandGraph()", "x-show": "!expanded"},
     )
 
-    # Close button (visible in expanded mode)
-    close_btn = Button(
-        UkIcon("x", height=18, width=18),
-        type="button",
-        cls="absolute top-3 right-3 w-8 h-8 flex items-center justify-center"
-        " rounded-md bg-background border border-border hover:bg-accent"
-        " transition-colors cursor-pointer z-10",
-        aria_label="Close expanded graph",
-        **{"@click": "collapseGraph()", "x-show": "expanded"},
-    )
-
-    # Backdrop (only visible when expanded)
-    backdrop = Div(
-        cls="fixed inset-0 bg-background/70 backdrop-blur-sm z-40",
-        x_show="expanded",
-        x_cloak=True,
-        **{"@click": "collapseGraph()", "x-transition.opacity": ""},
-    )
-
     # Empty state — shown when graph has no nodes
     empty_state = Div(
         UkIcon("share-2", height=32, width=32),
@@ -138,20 +119,15 @@ def ExploreGraphView(
         x_cloak=True,
     )
 
-    # The graph wrapper — toggles between sidebar size and fullscreen overlay
+    # Sidebar graph wrapper — fixed height; expand creates a separate overlay on body
     graph_wrapper = Div(
         graph_container,
         expand_btn,
-        close_btn,
         loading_overlay,
         error_display,
         empty_state,
-        cls="relative border border-border rounded-lg bg-muted/30 overflow-hidden transition-all duration-300",
-        **{
-            ":class": "expanded"
-            " ? 'fixed inset-4 z-50 shadow-2xl bg-background'"
-            " : 'w-full h-[260px]'",
-        },
+        cls="relative border border-border rounded-lg bg-muted/30 overflow-hidden w-full",
+        style="height: 260px",
     )
 
     wrapper_attrs: dict[str, str] = {"cls": "px-2 pt-2"}
@@ -160,7 +136,6 @@ def ExploreGraphView(
         wrapper_attrs["x_init"] = "init()"
 
     return Div(
-        backdrop,
         graph_wrapper,
         _filter_tabs(),
         **wrapper_attrs,

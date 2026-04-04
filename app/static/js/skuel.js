@@ -2637,24 +2637,114 @@
                 expandGraph: function() {
                     this.expanded = true;
                     var self = this;
-                    // Let Alpine render the overlay, then resize network
-                    this.$nextTick(function() {
-                        if (self.network) {
-                            self.network.redraw();
-                            self.network.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
-                        }
-                    });
+                    // Create a fullscreen overlay on document.body with a
+                    // second Vis.js network. This completely avoids the
+                    // sidebar's overflow:hidden and transform traps.
+                    var overlay = document.createElement('div');
+                    overlay.id = 'explore-graph-overlay';
+                    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;';
+
+                    // Backdrop
+                    var backdrop = document.createElement('div');
+                    backdrop.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,0.7);backdrop-filter:blur(4px);';
+                    backdrop.addEventListener('click', function() { self.collapseGraph(); });
+                    overlay.appendChild(backdrop);
+
+                    // Graph panel
+                    var panel = document.createElement('div');
+                    panel.style.cssText = 'position:absolute;top:16px;left:16px;right:16px;bottom:16px;'
+                        + 'background:var(--background,#fff);border-radius:12px;'
+                        + 'box-shadow:0 25px 50px -12px rgba(0,0,0,.25);overflow:hidden;';
+                    overlay.appendChild(panel);
+
+                    // Close button
+                    var closeBtn = document.createElement('button');
+                    closeBtn.innerHTML = '&times;';
+                    closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;z-index:10;'
+                        + 'width:36px;height:36px;border-radius:8px;border:1px solid #e2e8f0;'
+                        + 'background:#fff;font-size:20px;cursor:pointer;display:flex;'
+                        + 'align-items:center;justify-content:center;';
+                    closeBtn.addEventListener('click', function(e) { e.stopPropagation(); self.collapseGraph(); });
+                    panel.appendChild(closeBtn);
+
+                    // Graph canvas container
+                    var canvas = document.createElement('div');
+                    canvas.style.cssText = 'width:100%;height:100%;';
+                    panel.appendChild(canvas);
+
+                    document.body.appendChild(overlay);
+                    self._overlay = overlay;
+
+                    // Render a second network with the same data
+                    if (self.graphData && typeof vis !== 'undefined') {
+                        var data = self.graphData;
+                        var styledNodes = data.nodes.map(function(node) {
+                            var nodeType = (node.type || '').toLowerCase();
+                            if (nodeType === 'pathstep' || nodeType === 'path_step') nodeType = 'ps';
+                            var isCenter = (node.id === self.entity_uid) || (node.group === 'center');
+                            var colors = self.NODE_COLORS[nodeType] || self.NODE_COLORS['default'];
+                            if (isCenter && self.mode === 'hub') colors = self.NODE_COLORS.you;
+                            return Object.assign({}, node, {
+                                color: colors,
+                                size: isCenter ? 30 : 18,
+                                font: { size: isCenter ? 16 : 13, color: '#64748B', strokeWidth: 2, strokeColor: '#ffffff' },
+                                borderWidth: isCenter ? 3 : 1.5,
+                                _entityType: nodeType
+                            });
+                        });
+                        var styledEdges = (data.edges || []).map(function(edge) {
+                            return Object.assign({}, edge, {
+                                width: 2,
+                                color: Object.assign({ opacity: 0.6 }, edge.color || {}),
+                                smooth: { type: 'continuous' }
+                            });
+                        });
+                        var options = {
+                            nodes: { shape: 'dot' },
+                            edges: { width: 2, smooth: { type: 'continuous' } },
+                            physics: {
+                                forceAtlas2Based: { gravitationalConstant: -60, centralGravity: 0.01, springLength: 120, springConstant: 0.04 },
+                                maxVelocity: 30, solver: 'forceAtlas2Based', timestep: 0.35,
+                                stabilization: { iterations: 150 }
+                            },
+                            interaction: { hover: true, tooltipDelay: 300, zoomView: true, dragView: true },
+                            layout: { improvedLayout: true }
+                        };
+                        var visData = { nodes: new vis.DataSet(styledNodes), edges: new vis.DataSet(styledEdges) };
+                        self._expandedNetwork = new vis.Network(canvas, visData, options);
+                        self._expandedNetwork.on('click', function(params) {
+                            if (params.nodes.length > 0) {
+                                var nodeId = params.nodes[0];
+                                var node = styledNodes.find(function(n) { return n.id === nodeId; });
+                                if (node && node.group !== 'center') {
+                                    var type = node._entityType;
+                                    if (type === 'ku' || type === 'ps') {
+                                        window.location.href = '/explore/' + type + '/' + node.id;
+                                    }
+                                }
+                            }
+                        });
+                    }
                 },
 
                 collapseGraph: function() {
                     this.expanded = false;
+                    if (this._expandedNetwork) {
+                        this._expandedNetwork.destroy();
+                        this._expandedNetwork = null;
+                    }
+                    if (this._overlay) {
+                        this._overlay.remove();
+                        this._overlay = null;
+                    }
+                    // Resize sidebar graph back
                     var self = this;
-                    this.$nextTick(function() {
+                    setTimeout(function() {
                         if (self.network) {
                             self.network.redraw();
                             self.network.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
                         }
-                    });
+                    }, 50);
                 }
             };
         });

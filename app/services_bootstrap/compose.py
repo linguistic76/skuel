@@ -565,7 +565,7 @@ async def compose_services(
 
         # Create backend + service for lateral relationships (domain-agnostic)
         # Ownership verification happens at route level via domain_service param
-        lateral_backend = LateralRelationshipBackend(executor=driver)
+        lateral_backend = LateralRelationshipBackend(executor=query_executor)
         lateral_service = LateralRelationshipService(backend=lateral_backend)
         logger.info("✅ LateralRelationshipService created (9 domains, ownership at route level)")
 

@@ -16,6 +16,15 @@
  */
 
 /* ============================================
+   0. ALPINE.JS CLOAK
+   ============================================ */
+
+/* Hide [x-cloak] elements until Alpine initializes them.
+   Without this rule, x-cloak has no effect and elements flash
+   before Alpine processes x-show/x-if directives. */
+[x-cloak] { display: none !important; }
+
+/* ============================================
    1. LAYOUT UTILITIES
    ============================================ */
 

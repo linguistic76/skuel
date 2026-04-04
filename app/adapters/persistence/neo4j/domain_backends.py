@@ -4880,7 +4880,7 @@ class LateralRelationshipBackend:
                 blocker.status as status,
                 labels(blocker)[0] as entity_type,
                 depth,
-                size((blocker)-[:BLOCKS]->()) as blocks_count
+                COUNT { (blocker)-[:BLOCKS]->() } as blocks_count
             ORDER BY depth DESC
             """,
             {"uid": entity_uid},
