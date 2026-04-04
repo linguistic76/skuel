@@ -871,7 +871,7 @@ Div(
 ### Don't Use Raw MonsterUI Classes on Wrappers
 
 ```python
-# BAD: Redundant - Button wrapper already adds button classes
+# BAD: Redundant - Button wrapper already adds button classes (fully eliminated from codebase)
 Button("Click", cls="uk-btn uk-btn-primary")
 
 # GOOD: Use the variant enum
@@ -1172,8 +1172,8 @@ from ui.activities._shared import MetadataField
 MetadataField("Due Date", Span(str(task.due_date), cls=due_cls))
 # Complex (multiple children)
 MetadataField("Satisfaction",
-    Span(stars, cls="uk-text-warning", style="font-size: 1.2rem;"),
-    Span(f" {score}/5", cls="uk-text-muted uk-text-small"),
+    Span(stars, cls="text-yellow-600", style="font-size: 1.2rem;"),
+    Span(f" {score}/5", cls="text-muted-foreground text-sm"),
 )
 ```
 

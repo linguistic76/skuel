@@ -24,7 +24,7 @@ SKUEL uses a **two-layer CSS architecture**:
 Button("Save", variant=ButtonT.primary, cls="w-full mt-4")
 
 # ✅ MonsterUI wrapper for forms
-Checkbox(name="agree", cls="uk-checkbox")
+Checkbox(name="agree")  # Wrapper handles styling
 
 # ⚠️ Avoid raw Tailwind when MonsterUI has a wrapper
 Button("Save", cls="bg-blue-600 text-white px-4 py-2 rounded")  # Use variant=ButtonT.primary
@@ -431,7 +431,7 @@ MonsterUI orchestrates three CSS frameworks loaded from **local vendor files** (
 
 **Global border radius:** `radii="sm"` (2px/4px) — set in both `ui/theme.py` and `ui/layouts/base_page.py`. Keeps corners crisp and visible across all components (buttons, inputs, cards, modals).
 
-**Button & input visibility:** `main.css` section 7 overrides MonsterUI defaults with stronger shadows on `.uk-btn`, visible borders on `.uk-btn-default`, inset shadows on `.uk-input/.uk-select/.uk-textarea`, and clear focus rings. This ensures form elements and buttons have well-defined edges.
+**Button & input visibility:** `main.css` overrides FrankenUI default styling for internal `.uk-btn`, `.uk-input/.uk-select/.uk-textarea` classes. Python code uses SKUEL wrapper components (Button, Input, Select) which map to these internally.
 
 `output.css` is a pre-compiled Tailwind+DaisyUI file for build tooling — NOT loaded by `build_head()`.
 
@@ -454,7 +454,7 @@ Div(cls="p-5")  # Use p-4 or p-6 (standard scale)
 NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()
 
 # ❌ Custom CSS classes to replicate framework styling
-.skuel-input { border: 1px solid... }  # Use LabelInput() — it generates uk-input
+.skuel-input { border: 1px solid... }  # Use LabelInput() — wrapper handles styling internally
 ```
 
 ## Key Files

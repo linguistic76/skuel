@@ -520,7 +520,7 @@ SidebarItem(
     icon="📤",                   # Optional emoji
     description="",              # Optional subtitle (renders two-line item)
     badge_text="",               # Optional badge (e.g., count)
-    badge_cls="uk-badge",
+    badge_cls="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground",
     hx_attrs={},                 # Optional HTMX attributes
 )
 ```
@@ -823,7 +823,7 @@ def render_quick_add_form() -> Any:
     return Form(
         Div(
             Input(type="text", name="title", placeholder="Add a task...",
-                  required=True, cls="uk-input flex-1"),
+                  required=True, cls="flex-1"),
             Button("Add", variant=ButtonT.primary, type="submit"),
             cls="flex gap-2",
         ),
@@ -841,14 +841,14 @@ Form(
     LabelSelect(
         Option("One-time", value="once"), Option("Recurring", value="recurring"),
         label="Task Type",
-        name="task_type", cls="uk-select w-full",
+        name="task_type",
         **{"x-model": "taskType"},
     ),
     Div(
         LabelSelect(
             Option("Daily"), Option("Weekly"), Option("Monthly"),
             label="Recurrence Pattern",
-            name="recurrence_pattern", cls="uk-select w-full",
+            name="recurrence_pattern",
         ),
         **{"x-show": "taskType === 'recurring'", "x-transition": ""},
     ),
@@ -862,14 +862,14 @@ Form(
 
 ```python
 # Date with min constraint
-Input(type="date", name="due_date", min=str(date.today()), cls="uk-input w-full")
+Input(type="date", name="due_date", min=str(date.today()))
 
 # Time with 15-minute increments
-Input(type="time", name="start_time", value="09:00", step="900", cls="uk-input w-full")
+Input(type="time", name="start_time", value="09:00", step="900")
 
 # Datetime-local
 Input(type="datetime-local", name="event_start",
-      value=datetime.now().strftime("%Y-%m-%dT%H:%M"), cls="uk-input w-full")
+      value=datetime.now().strftime("%Y-%m-%dT%H:%M"))
 
 # Two-column date row
 Div(

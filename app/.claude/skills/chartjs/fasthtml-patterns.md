@@ -37,7 +37,7 @@ def analytics_page():
     <div class="relative h-64" x-data="chartVis('/api/visualizations/completion', 'line')">
         <!-- Loading state -->
         <div x-show="loading" class="flex flex-col items-center justify-center h-full">
-            <span class="uk-spinner"></span>
+            <span class="loading loading-spinner"></span>
             <p class="text-sm text-base-content/70 mt-2">Loading chart...</p>
         </div>
         <!-- Error state -->
@@ -209,7 +209,7 @@ def filterable_chart():
                 Option("Month", value="month"),
                 Option("Quarter", value="quarter"),
                 name="period",
-                cls="uk-select",
+                cls="select select-bordered",
                 hx_get="/partials/completion-chart",
                 hx_trigger="change",
                 hx_target="#chart-container",

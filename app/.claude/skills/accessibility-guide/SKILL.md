@@ -198,7 +198,7 @@ ButtonLink(
 Div(
     "Delete Task",
     onclick="confirmDelete('task-123')",
-    cls="uk-btn uk-btn-destructive",  # Looks like button, but not accessible
+    cls="btn btn-error",  # Looks like button, but not accessible
 )
 
 # ✅ GOOD: Div with ARIA and keyboard support
@@ -209,7 +209,7 @@ Div(
     onclick="confirmDelete('task-123')",
     onkeydown="if(event.key === 'Enter' || event.key === ' ') confirmDelete('task-123')",
     aria_label="Delete task: Buy groceries",
-    cls="uk-btn uk-btn-destructive",
+    cls="btn btn-error",
 )
 ```
 
@@ -488,7 +488,7 @@ def render_success_toast(message: str) -> Any:
         Div(
             Span("✓", cls="text-success text-xl", aria_hidden="true"),
             Span(message, cls="ml-2"),
-            cls="uk-alert uk-alert-success",
+            cls="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200",
         ),
         role="status",
         aria_live="polite",
@@ -504,7 +504,7 @@ def render_error_banner(message: str) -> Any:
         Div(
             P("⚠️ Error", cls="font-bold text-error"),
             P(message, cls="text-sm"),
-            cls="uk-alert uk-alert-danger",
+            cls="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200",
         ),
         role="alert",
         aria_live="assertive",
@@ -859,7 +859,7 @@ LabelInput(
 Div(
     "Delete",
     onclick="deleteTask()",
-    cls="uk-btn uk-btn-destructive",
+    cls="btn btn-error",
 )
 
 # ✅ GOOD: Semantic button element

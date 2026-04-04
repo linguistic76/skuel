@@ -194,7 +194,7 @@ HTMX handles multipart file uploads natively via `hx-encoding`:
 ```python
 Form(
     Input(type="file", name="files", accept=".yaml,.yml", multiple=True),
-    Button("Upload", type="submit", cls="uk-button uk-button-primary"),
+    Button("Upload", type="submit", variant=ButtonT.primary),
     Span("", id="spinner", cls="htmx-indicator", **{"uk-spinner": "ratio: 0.6"}),
     **{
         "hx-post": "/upload/files",
@@ -251,7 +251,7 @@ response.headers["HX-Push-Url"] = "/tasks"
      @htmx:after-request="loading = false">
   <button hx-get="/data">
     <span x-show="!loading">Load</span>
-    <span x-show="loading" class="uk-spinner uk-spinner-small"></span>
+    <span x-show="loading" class="animate-spin text-muted-foreground text-sm">Loading...</span>
   </button>
 </div>
 ```
@@ -328,7 +328,7 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ```html
 <div x-data="{ open: false }">
-  <button @click="open = true" class="uk-btn uk-btn-primary">Open</button>
+  <button @click="open = true" class="btn btn-primary">Open</button>
 
   <div x-show="open"
        x-transition:enter="transition ease-out duration-200"
@@ -339,10 +339,10 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
        x-transition:leave-end="opacity-0"
        class="fixed inset-0 bg-black/50 z-50"
        @click="open = false">
-    <div class="uk-modal-dialog uk-modal-body" @click.stop>
+    <div class="modal-box" @click.stop>
       <h3 class="font-bold text-lg">Modal</h3>
-      <div class="uk-modal-footer uk-text-right">
-        <button @click="open = false" class="uk-btn uk-btn-default">Close</button>
+      <div class="modal-action">
+        <button @click="open = false" class="btn btn-ghost">Close</button>
       </div>
     </div>
   </div>
@@ -367,7 +367,7 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ```html
 <div x-data="{ tab: 'first' }">
-  <div class="uk-tab">
+  <div class="tabs tabs-bordered">
     <button @click="tab = 'first'" :class="{ 'tab-active': tab === 'first' }" class="tab">First</button>
     <button @click="tab = 'second'" :class="{ 'tab-active': tab === 'second' }" class="tab">Second</button>
   </div>
@@ -380,7 +380,7 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ```html
 <div x-data="{ open: false }" @click.outside="open = false" class="relative">
-  <button @click="open = !open" class="uk-icon-button">👤</button>
+  <button @click="open = !open" class="btn btn-ghost btn-circle">👤</button>
   <div x-show="open" x-transition.origin.top.right
        class="absolute right-0 mt-2 w-48 bg-base-100 rounded-lg shadow-lg z-50">
     <a href="/profile" class="block px-4 py-2 hover:bg-base-200">Profile</a>
@@ -393,14 +393,14 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ```html
 <div x-data="{ taskType: 'once' }">
-  <select x-model="taskType" name="task_type" class="uk-select w-full">
+  <select x-model="taskType" name="task_type" class="select select-bordered w-full">
     <option value="once">One-time</option>
     <option value="recurring">Recurring</option>
   </select>
 
   <!-- Only show for recurring -->
   <div x-show="taskType === 'recurring'" x-transition>
-    <select name="recurrence_pattern" class="uk-select w-full">
+    <select name="recurrence_pattern" class="select select-bordered w-full">
       <option value="daily">Daily</option>
       <option value="weekly">Weekly</option>
     </select>
