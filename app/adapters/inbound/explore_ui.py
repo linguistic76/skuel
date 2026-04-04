@@ -808,23 +808,12 @@ def create_explore_ui_routes(
                 cls="border-t border-border pt-6 mt-8",
             )
             submissions_section = Div(
-                H3("My Submissions", cls="text-base font-semibold mb-2 mt-6"),
-                Div(
-                    id=f"ps-submissions-{uid}",
-                    hx_get=f"/learning-loop/ps/{uid}/submissions",
-                    hx_trigger="load",
-                    hx_swap="innerHTML",
-                ),
+                id=f"ps-submissions-feedback-{uid}",
+                hx_get=f"/learning-loop/ps/{uid}/submissions-and-feedback",
+                hx_trigger="load",
+                hx_swap="innerHTML",
             )
-            feedback_section = Div(
-                H3("Feedback", cls="text-base font-semibold mb-2 mt-6"),
-                Div(
-                    id=f"ps-feedback-{uid}",
-                    hx_get=f"/learning-loop/ps/{uid}/feedback",
-                    hx_trigger="load",
-                    hx_swap="innerHTML",
-                ),
-            )
+            feedback_section = Div()
         else:
             # Unauthenticated: simple exercise links (read-only)
             exercises_section = Div()

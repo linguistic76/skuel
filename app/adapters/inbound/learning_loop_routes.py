@@ -8,8 +8,7 @@ Wires the decomposed submission and report UI routes:
 
 Also provides HTMX fragment endpoints for the PathStep detail page:
 - /learning-loop/ps/{ps_uid}/exercises → exercises with status pills
-- /learning-loop/ps/{ps_uid}/submissions → user's submissions for this step
-- /learning-loop/ps/{ps_uid}/feedback → feedback/reports for this step's submissions
+- /learning-loop/ps/{ps_uid}/submissions-and-feedback → submissions + feedback (single query)
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -19,6 +18,8 @@ from typing import Any
 from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.exercise_reports_ui import create_exercise_reports_ui_routes
+from fasthtml.common import Div, H3
+
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
 from adapters.inbound.submissions_ui import create_submissions_ui_routes
 from core.utils.logging import get_logger
@@ -81,27 +82,22 @@ def create_learning_loop_routes(
             return render_inline_error("Could not load exercises")
         return render_exercise_list(result.value or [], from_ps=ps_uid)
 
-    @rt("/learning-loop/ps/{ps_uid}/submissions")
-    async def get_ps_submissions(request: Request, ps_uid: str) -> Any:
-        """HTMX fragment: user's submissions during this PathStep."""
+    @rt("/learning-loop/ps/{ps_uid}/submissions-and-feedback")
+    async def get_ps_submissions_and_feedback(request: Request, ps_uid: str) -> Any:
+        """HTMX fragment: user's submissions + feedback for this PathStep (single query)."""
         user_uid = require_authenticated_user(request)
         if submissions_search_service is None:
             return render_inline_error("Submissions service unavailable")
         result = await submissions_search_service.get_submissions_for_path_step(user_uid, ps_uid)
         if result.is_error:
             return render_inline_error("Could not load submissions")
-        return render_ps_submissions(result.value or [])
-
-    @rt("/learning-loop/ps/{ps_uid}/feedback")
-    async def get_ps_feedback(request: Request, ps_uid: str) -> Any:
-        """HTMX fragment: feedback/reports for this PathStep's submissions."""
-        user_uid = require_authenticated_user(request)
-        if submissions_search_service is None:
-            return render_inline_error("Submissions service unavailable")
-        result = await submissions_search_service.get_submissions_for_path_step(user_uid, ps_uid)
-        if result.is_error:
-            return render_inline_error("Could not load feedback")
-        return render_ps_feedback(result.value or [])
+        rows = result.value or []
+        return Div(
+            H3("My Submissions", cls="text-base font-semibold mb-2 mt-6"),
+            render_ps_submissions(rows),
+            H3("Feedback", cls="text-base font-semibold mb-2 mt-6"),
+            render_ps_feedback(rows),
+        )
 
     logger.info("Learning loop routes wired (submissions + reports + PS fragments)")
     return []
