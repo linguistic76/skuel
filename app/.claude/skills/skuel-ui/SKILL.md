@@ -382,41 +382,36 @@ def create_tasks_page(content: Any, request: Request | None = None) -> Any:
     )
 ```
 
-### Dashboard Route Factories
+### ActivityFilterBar (Config-Driven Filter Bar)
 
-All 6 Activity Domains use two UI route factories to eliminate dashboard boilerplate:
-
-**`DashboardUIFactory`** — generates 5 routes per domain from `DashboardUIConfig`:
-- `GET /{domain}` — main dashboard with view switching (list/create/calendar or analytics)
-- `GET /{domain}/view/list` — HTMX list view fragment
-- `GET /{domain}/view/create` — HTMX create view fragment
-- `GET /{domain}/view/{third}` — HTMX third view fragment (calendar or analytics)
-- `GET /{domain}/list-fragment` — HTMX filtered list for filter updates
-
-**`QuickAddRouteFactory`** — generates `POST /{domain}/quick-add` from `QuickAddConfig`.
-
-Both use the same pattern: frozen config dataclass + named callables for domain-specific behavior. The factory handles auth, error handling, view dispatch, and page wrapping. Domain-specific routes (detail views, modals, edit forms) remain as manual `@rt()` handlers in each `_ui.py` file.
+All 6 Activity Domain list views use a shared config-driven filter bar (`/ui/activities/filter_bar.py`). Each domain defines a `FilterBarConfig` with its filter dropdowns, sort options, and HTMX targets. Route files call `ActivityFilterBar(config, current_values)` directly.
 
 ```python
-# Each domain's _ui.py defines callables inside create_{domain}_ui_routes()
-# where they capture the service reference in their closure
-DashboardUIFactory.register_routes(rt, DashboardUIConfig(
-    domain_name="choices",
-    title="Choices",
-    subtitle="Make and track important decisions",
-    default_view="list",
-    views=("list", "create", "analytics"),
-    parse_filters=parse_filters,
-    fetch_filtered_context=fetch_choices_context,
-    render_view_tabs=ChoicesViewComponents.render_view_tabs,
-    render_list_view=ChoicesViewComponents.render_list_view,
-    render_create_view=render_choices_create,
-    render_third_view=render_choices_analytics,
-    build_page_context=build_choices_page_context,
-    render_list_fragment=render_choices_list_fragment,
-    create_page=create_choices_page,
-))
+from ui.activities.filter_bar import ActivityFilterBar, FilterBarConfig, FilterSelect
+
+# Domain config defined in *_views.py (e.g. tasks_views.py)
+TASK_FILTER_CONFIG = FilterBarConfig(
+    fragment_url="/tasks/list-fragment",
+    list_target_id="task-list",
+    filters=[
+        FilterSelect(name="status", label="Status",
+                     options=[("Active", "active"), ("Completed", "completed"), ("All", "all")],
+                     default="active"),
+        FilterSelect(name="priority", label="Priority",
+                     options=[("All", "all"), ("Critical", "critical"), ("High", "high")],
+                     default="all"),
+    ],
+    sort_options=[("Priority", "priority"), ("Due Date", "due_date"), ("Title", "title")],
+    sort_default="priority",
+)
+
+# Called in route files (e.g. tasks_ui.py)
+ActivityFilterBar(TASK_FILTER_CONFIG, {"status": status_filter, "priority": priority_filter, "sort_by": sort_by})
 ```
+
+**Config constants per domain:** `TASK_FILTER_CONFIG`, `GOAL_FILTER_CONFIG`, `HABIT_FILTER_CONFIG`, `EVENT_FILTER_CONFIG`, `CHOICE_FILTER_CONFIG`, `PRINCIPLE_FILTER_CONFIG`.
+
+**Activity Domain routes pattern:** `GET /{domain}` (page), `GET /{domain}/list-fragment` (HTMX filtered list), `GET /{domain}/detail` (detail view). Routes are manual `@rt()` handlers in each `_ui.py` file.
 
 See: `/docs/patterns/ROUTE_FACTORIES.md`
 
@@ -1124,6 +1119,7 @@ When building a new SKUEL page or feature, verify:
 | `/adapters/inbound/learning_loop_routes.py` | GradeBook orchestrator + 3 PathStep learning loop HTMX fragments (`/learning-loop/ps/{ps_uid}/exercises\|submissions\|feedback`) |
 | `/ui/learning_loop/` | Shared learning loop renderers: `exercise_status.py` (status pills, action links, exercise list), `submissions_section.py` (PS submissions), `feedback_section.py` (PS feedback) |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
+| `/ui/activities/filter_bar.py` | Config-driven `ActivityFilterBar` component (`FilterBarConfig`, `FilterSelect`) — shared across all 6 Activity Domains |
 | `/ui/activities/_shared.py` | Shared Activity Domain UI utilities (`MetadataField`, `safe_id`, `PRIORITY_ORDER`, `CONNECTION_ICONS`, `ConnectionBadges`, `ConnectionSummary`) |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, PS, LP profile views |
