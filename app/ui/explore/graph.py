@@ -54,6 +54,7 @@ def ExploreGraphView(
     mode: str = "hub",
     entity_uid: str = "",
     entity_type: str = "",
+    standalone: bool = True,
 ) -> "FT":
     """Interactive Vis.js graph for the Explore sidebar.
 
@@ -61,6 +62,8 @@ def ExploreGraphView(
         mode: 'hub' for learning universe, 'entity' for entity-centered.
         entity_uid: UID of the current entity (entity mode only).
         entity_type: 'ku' or 'ps' (entity mode only).
+        standalone: If True, emits x-data/x-init on outer Div. If False,
+            expects a parent element to provide the Alpine scope.
     """
     alpine_args = f"'{mode}', '{entity_uid}', '{entity_type}'"
 
@@ -123,6 +126,18 @@ def ExploreGraphView(
         **{"@click": "collapseGraph()", "x-transition.opacity": ""},
     )
 
+    # Empty state — shown when graph has no nodes
+    empty_state = Div(
+        UkIcon("share-2", height=32, width=32),
+        Span(
+            "Start exploring to see your graph",
+            cls="text-xs text-muted-foreground mt-2",
+        ),
+        cls="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/40",
+        x_show="!loading && !error && isEmpty",
+        x_cloak=True,
+    )
+
     # The graph wrapper — toggles between sidebar size and fullscreen overlay
     graph_wrapper = Div(
         graph_container,
@@ -130,6 +145,7 @@ def ExploreGraphView(
         close_btn,
         loading_overlay,
         error_display,
+        empty_state,
         cls="relative border border-border rounded-lg bg-muted/30 overflow-hidden transition-all duration-300",
         **{
             ":class": "expanded"
@@ -138,13 +154,16 @@ def ExploreGraphView(
         },
     )
 
+    wrapper_attrs: dict[str, str] = {"cls": "px-2 pt-2"}
+    if standalone:
+        wrapper_attrs["x_data"] = f"exploreGraph({alpine_args})"
+        wrapper_attrs["x_init"] = "init()"
+
     return Div(
         backdrop,
         graph_wrapper,
         _filter_tabs(),
-        x_data=f"exploreGraph({alpine_args})",
-        x_init="init()",
-        cls="px-2 pt-2",
+        **wrapper_attrs,
     )
 
 

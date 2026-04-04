@@ -2429,6 +2429,7 @@
                 error: null,
                 filter: 'all',
                 expanded: false,
+                isEmpty: true,
 
                 // Node color map by entity type
                 NODE_COLORS: {
@@ -2471,6 +2472,7 @@
                             throw new Error('HTTP ' + response.status);
                         }
                         self.graphData = await response.json();
+                        self.isEmpty = !self.graphData.nodes || self.graphData.nodes.length === 0;
                         self.renderNetwork();
                     } catch (err) {
                         console.error('Failed to load explore graph:', err);

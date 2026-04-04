@@ -552,14 +552,16 @@ def create_explore_ui_routes(
                     state = "studying" if rec.get("is_studying") else "understood"
                     if rec.get("is_studying") or rec.get("is_understood"):
                         studying_ku_uids.append(ku_uid)
-                        nodes.append({
-                            "id": ku_uid,
-                            "label": ku_title,
-                            "type": "ku",
-                            "group": "related",
-                            "learning_state": state,
-                            "is_pinned": False,
-                        })
+                        nodes.append(
+                            {
+                                "id": ku_uid,
+                                "label": ku_title,
+                                "type": "ku",
+                                "group": "related",
+                                "learning_state": state,
+                                "is_pinned": False,
+                            }
+                        )
 
         if ps_service:
             in_progress_result = await ps_service.mastery.get_in_progress_step_uids(user_uid)
@@ -568,14 +570,17 @@ def create_explore_ui_routes(
                 if in_progress_ps_uids:
                     batch_result = await ps_service.get_steps_batch(in_progress_ps_uids)
                     if batch_result.is_ok and batch_result.value:
-                        nodes.extend({
-                            "id": ps.uid,
-                            "label": ps.title or ps.uid,
-                            "type": "ps",
-                            "group": "related",
-                            "learning_state": "in_progress",
-                            "is_pinned": False,
-                        } for ps in batch_result.value)
+                        nodes.extend(
+                            {
+                                "id": ps.uid,
+                                "label": ps.title or ps.uid,
+                                "type": "ps",
+                                "group": "related",
+                                "learning_state": "in_progress",
+                                "is_pinned": False,
+                            }
+                            for ps in batch_result.value
+                        )
 
         # Mark pinned entities
         if user_relationship_service:
@@ -588,22 +593,28 @@ def create_explore_ui_routes(
 
         # Add virtual "You" center node
         if nodes:
-            nodes.insert(0, {
-                "id": "__you__",
-                "label": "You",
-                "type": "you",
-                "group": "center",
-                "learning_state": None,
-                "is_pinned": False,
-            })
+            nodes.insert(
+                0,
+                {
+                    "id": "__you__",
+                    "label": "You",
+                    "type": "you",
+                    "group": "center",
+                    "learning_state": None,
+                    "is_pinned": False,
+                },
+            )
             # Connect "You" to all learning entities
-            edges.extend({
-                "from": "__you__",
-                "to": node["id"],
-                "color": {"color": "#94A3B8", "opacity": 0.4},
-                "width": 1,
-                "dashes": [4, 4],
-            } for node in nodes[1:])
+            edges.extend(
+                {
+                    "from": "__you__",
+                    "to": node["id"],
+                    "color": {"color": "#94A3B8", "opacity": 0.4},
+                    "width": 1,
+                    "dashes": [4, 4],
+                }
+                for node in nodes[1:]
+            )
 
         return JSONResponse({"nodes": nodes, "edges": edges})
 

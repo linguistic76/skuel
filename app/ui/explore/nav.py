@@ -224,25 +224,32 @@ async def render_explore_sidebar_page(
     user_uid = get_current_user(request)
     sections: list[Any] = []
 
-    # Graph hero — always shown
-    if current_uid and current_entity_type:
-        graph = ExploreGraphView(
-            mode="entity",
-            entity_uid=current_uid,
-            entity_type=current_entity_type,
-        )
-    else:
-        graph = ExploreGraphView(mode="hub")
+    # Determine graph mode
+    is_entity_mode = bool(current_uid and current_entity_type)
+    graph_mode = "entity" if is_entity_mode else "hub"
+    alpine_args = f"'{graph_mode}', '{current_uid}', '{current_entity_type}'"
 
-    sections.append(Li(graph))
+    # Graph hero — always shown, standalone=False so parent Li owns the scope
+    graph = ExploreGraphView(
+        mode=graph_mode,
+        entity_uid=current_uid if is_entity_mode else "",
+        entity_type=current_entity_type if is_entity_mode else "",
+        standalone=False,
+    )
 
     if not user_uid:
-        # Unauthenticated: sign-in prompt below graph
+        # Unauthenticated: graph + sign-in prompt in one Alpine scope
+        sign_in_prompt = P(
+            "Sign in to track your learning",
+            cls="text-xs text-muted-foreground/60 italic px-4 py-2",
+        )
         sections.append(
             Li(
-                P(
-                    "Sign in to track your learning",
-                    cls="text-xs text-muted-foreground/60 italic px-4 py-2",
+                Div(
+                    graph,
+                    sign_in_prompt,
+                    x_data=f"exploreGraph({alpine_args})",
+                    x_init="init()",
                 ),
             )
         )
@@ -271,13 +278,11 @@ async def render_explore_sidebar_page(
                     is_current=ps.uid == current_uid,
                 )
             )
-        sections.append(
-            _build_section(
-                "Learning",
-                learning_links,
-                empty_text="Start exploring below",
-                filter_name="learning",
-            )
+        learning_section = _build_section(
+            "Learning",
+            learning_links,
+            empty_text="Start exploring below",
+            filter_name="learning",
         )
 
         # Section: Saved (pinned items)
@@ -291,13 +296,11 @@ async def render_explore_sidebar_page(
                     is_current=pin_uid == current_uid,
                 )
             )
-        sections.append(
-            _build_section(
-                "Saved",
-                saved_links,
-                empty_text="Pin items to save them here",
-                filter_name="saved",
-            )
+        saved_section = _build_section(
+            "Saved",
+            saved_links,
+            empty_text="Pin items to save them here",
+            filter_name="saved",
         )
 
         # Section: Completed (recent 3, collapsible — shown in "all" filter)
@@ -313,12 +316,24 @@ async def render_explore_sidebar_page(
                     is_current=rec["uid"] == current_uid,
                 )
             )
+        completed_section = _build_section(
+            "Completed",
+            completed_links,
+            empty_text="Nothing completed yet",
+            collapsible=len(understood) > 3,
+        )
+
+        # Wrap graph + all sections in a single Alpine scope
         sections.append(
-            _build_section(
-                "Completed",
-                completed_links,
-                empty_text="Nothing completed yet",
-                collapsible=len(understood) > 3,
+            Li(
+                Div(
+                    graph,
+                    learning_section,
+                    saved_section,
+                    completed_section,
+                    x_data=f"exploreGraph({alpine_args})",
+                    x_init="init()",
+                ),
             )
         )
 
