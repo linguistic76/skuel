@@ -4,19 +4,16 @@ Pure FastHTML components for rendering choice data. No service calls —
 routes fetch data and pass it to these components.
 
 Usage:
-    from ui.activities.choices_views import ChoiceList, ChoiceFilterBar, ChoiceStatsBar
+    from ui.activities.choices_views import ChoiceList, CHOICE_FILTER_CONFIG, ChoiceStatsBar
 """
 
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
-    H3,
     A,
     Div,
-    Form,
     Li,
-    Option,
     P,
     Small,
     Span,
@@ -25,10 +22,10 @@ from fasthtml.common import (
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, MetadataField, safe_id
+from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
-from ui.forms.components import LabelSelect
 from ui.layout import Container, DivHStacked
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -79,36 +76,29 @@ def ChoiceStatsBar(choices: list["Choice"]) -> "FT":
     return StatsGrid(stats, cols=4)
 
 
-def ChoiceFilterBar(
-    status_filter: str = "pending",
-    sort_by: str = "deadline",
-) -> "FT":
-    """Filter and sort controls for the choice list. HTMX-powered."""
-    return Form(
-        Div(
-            LabelSelect(
-                Option("Pending", value="pending", selected=status_filter == "pending"),
-                Option("Decided", value="decided", selected=status_filter == "decided"),
-                Option("All", value="all", selected=status_filter == "all"),
-                label="Status",
-                name="status",
-            ),
-            LabelSelect(
-                Option("Deadline", value="deadline", selected=sort_by == "deadline"),
-                Option("Priority", value="priority", selected=sort_by == "priority"),
-                Option("Recently Created", value="created", selected=sort_by == "created"),
-                Option("Title", value="title", selected=sort_by == "title"),
-                label="Sort",
-                name="sort_by",
-            ),
-            cls="grid grid-cols-1 sm:grid-cols-2 gap-2",
+CHOICE_FILTER_CONFIG = FilterBarConfig(
+    fragment_url="/choices/list-fragment",
+    list_target_id="choice-list",
+    filters=[
+        FilterSelect(
+            name="status",
+            label="Status",
+            options=[
+                ("Pending", "pending"),
+                ("Decided", "decided"),
+                ("All", "all"),
+            ],
+            default="pending",
         ),
-        hx_get="/choices/list-fragment",
-        hx_target="#choice-list",
-        hx_trigger="change",
-        hx_include="[name]",
-        cls="mb-4",
-    )
+    ],
+    sort_options=[
+        ("Deadline", "deadline"),
+        ("Priority", "priority"),
+        ("Recently Created", "created"),
+        ("Title", "title"),
+    ],
+    sort_default="deadline",
+)
 
 
 def ChoiceList(

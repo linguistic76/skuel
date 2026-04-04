@@ -4,18 +4,15 @@ Pure FastHTML components for rendering task data. No service calls —
 routes fetch data and pass it to these components.
 
 Usage:
-    from ui.activities.tasks_views import TaskList, TaskFilterBar, TaskStatsBar
+    from ui.activities.tasks_views import TaskList, TASK_FILTER_CONFIG, TaskStatsBar
 """
 
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
-    H3,
     A,
     Div,
-    Form,
-    Option,
     P,
     Small,
     Span,
@@ -23,11 +20,11 @@ from fasthtml.common import (
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, MetadataField, safe_id
+from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
-from ui.forms.components import LabelSelect
-from ui.layout import Container, DivHStacked, FlexItem
+from ui.layout import Container, DivHStacked
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
@@ -65,47 +62,42 @@ def TaskStatsBar(tasks: list["Task"]) -> "FT":
     return StatsGrid(stats, cols=4)
 
 
-def TaskFilterBar(
-    status_filter: str = "active",
-    priority_filter: str = "all",
-    sort_by: str = "priority",
-) -> "FT":
-    """Filter and sort controls for the task list. HTMX-powered."""
-    return Form(
-        Div(
-            LabelSelect(
-                Option("Active", value="active", selected=status_filter == "active"),
-                Option("Completed", value="completed", selected=status_filter == "completed"),
-                Option("Overdue", value="overdue", selected=status_filter == "overdue"),
-                Option("All", value="all", selected=status_filter == "all"),
-                label="Status",
-                name="status",
-            ),
-            LabelSelect(
-                Option("All", value="all", selected=priority_filter == "all"),
-                Option("Critical", value="critical", selected=priority_filter == "critical"),
-                Option("High", value="high", selected=priority_filter == "high"),
-                Option("Medium", value="medium", selected=priority_filter == "medium"),
-                Option("Low", value="low", selected=priority_filter == "low"),
-                label="Priority",
-                name="priority",
-            ),
-            LabelSelect(
-                Option("Priority", value="priority", selected=sort_by == "priority"),
-                Option("Due Date", value="due_date", selected=sort_by == "due_date"),
-                Option("Recently Updated", value="updated", selected=sort_by == "updated"),
-                Option("Title", value="title", selected=sort_by == "title"),
-                label="Sort",
-                name="sort_by",
-            ),
-            cls="grid grid-cols-1 sm:grid-cols-3 gap-2",
+TASK_FILTER_CONFIG = FilterBarConfig(
+    fragment_url="/tasks/list-fragment",
+    list_target_id="task-list",
+    filters=[
+        FilterSelect(
+            name="status",
+            label="Status",
+            options=[
+                ("Active", "active"),
+                ("Completed", "completed"),
+                ("Overdue", "overdue"),
+                ("All", "all"),
+            ],
+            default="active",
         ),
-        hx_get="/tasks/list-fragment",
-        hx_target="#task-list",
-        hx_trigger="change",
-        hx_include="[name]",
-        cls="mb-4",
-    )
+        FilterSelect(
+            name="priority",
+            label="Priority",
+            options=[
+                ("All", "all"),
+                ("Critical", "critical"),
+                ("High", "high"),
+                ("Medium", "medium"),
+                ("Low", "low"),
+            ],
+            default="all",
+        ),
+    ],
+    sort_options=[
+        ("Priority", "priority"),
+        ("Due Date", "due_date"),
+        ("Recently Updated", "updated"),
+        ("Title", "title"),
+    ],
+    sort_default="priority",
+)
 
 
 def TaskList(

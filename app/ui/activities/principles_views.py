@@ -7,7 +7,7 @@ Principles are a gravity well like Goals — they show incoming relationships
 from tasks, habits, choices, and events that embody/express them.
 
 Usage:
-    from ui.activities.principles_views import PrincipleList, PrincipleFilterBar, PrincipleStatsBar
+    from ui.activities.principles_views import PrincipleList, PRINCIPLE_FILTER_CONFIG, PrincipleStatsBar
 """
 
 from typing import TYPE_CHECKING, Any
@@ -15,9 +15,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import (
     A,
     Div,
-    Form,
     Li,
-    Option,
     P,
     Small,
     Span,
@@ -26,10 +24,10 @@ from fasthtml.common import (
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import ConnectionSummary, MetadataField, safe_id
+from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, StatusBadge
-from ui.forms.components import LabelSelect
 from ui.layout import Container, DivHStacked
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -99,67 +97,54 @@ def PrincipleStatsBar(principles: list["Principle"]) -> "FT":
     return StatsGrid(stats, cols=4)
 
 
-def PrincipleFilterBar(
-    status_filter: str = "active",
-    category_filter: str = "all",
-    strength_filter: str = "all",
-    sort_by: str = "strength",
-) -> "FT":
-    """Filter and sort controls for the principle list. HTMX-powered."""
-    return Form(
-        Div(
-            LabelSelect(
-                Option("Active", value="active", selected=status_filter == "active"),
-                Option("All", value="all", selected=status_filter == "all"),
-                label="Status",
-                name="status",
-            ),
-            LabelSelect(
-                Option("All", value="all", selected=category_filter == "all"),
-                Option("Spiritual", value="spiritual", selected=category_filter == "spiritual"),
-                Option("Ethical", value="ethical", selected=category_filter == "ethical"),
-                Option("Relational", value="relational", selected=category_filter == "relational"),
-                Option("Personal", value="personal", selected=category_filter == "personal"),
-                Option(
-                    "Professional",
-                    value="professional",
-                    selected=category_filter == "professional",
-                ),
-                Option(
-                    "Intellectual",
-                    value="intellectual",
-                    selected=category_filter == "intellectual",
-                ),
-                Option("Health", value="health", selected=category_filter == "health"),
-                Option("Creative", value="creative", selected=category_filter == "creative"),
-                label="Category",
-                name="category",
-            ),
-            LabelSelect(
-                Option("All", value="all", selected=strength_filter == "all"),
-                Option("Core", value="core", selected=strength_filter == "core"),
-                Option("Strong", value="strong", selected=strength_filter == "strong"),
-                Option("Moderate", value="moderate", selected=strength_filter == "moderate"),
-                Option("Developing", value="developing", selected=strength_filter == "developing"),
-                Option("Exploring", value="exploring", selected=strength_filter == "exploring"),
-                label="Strength",
-                name="strength",
-            ),
-            LabelSelect(
-                Option("Strength", value="strength", selected=sort_by == "strength"),
-                Option("Name", value="name", selected=sort_by == "name"),
-                Option("Recently Created", value="created", selected=sort_by == "created"),
-                label="Sort",
-                name="sort_by",
-            ),
-            cls="grid grid-cols-2 sm:grid-cols-4 gap-2",
+PRINCIPLE_FILTER_CONFIG = FilterBarConfig(
+    fragment_url="/principles/list-fragment",
+    list_target_id="principle-list",
+    filters=[
+        FilterSelect(
+            name="status",
+            label="Status",
+            options=[("Active", "active"), ("All", "all")],
+            default="active",
         ),
-        hx_get="/principles/list-fragment",
-        hx_target="#principle-list",
-        hx_trigger="change",
-        hx_include="[name]",
-        cls="mb-4",
-    )
+        FilterSelect(
+            name="category",
+            label="Category",
+            options=[
+                ("All", "all"),
+                ("Spiritual", "spiritual"),
+                ("Ethical", "ethical"),
+                ("Relational", "relational"),
+                ("Personal", "personal"),
+                ("Professional", "professional"),
+                ("Intellectual", "intellectual"),
+                ("Health", "health"),
+                ("Creative", "creative"),
+            ],
+            default="all",
+        ),
+        FilterSelect(
+            name="strength",
+            label="Strength",
+            options=[
+                ("All", "all"),
+                ("Core", "core"),
+                ("Strong", "strong"),
+                ("Moderate", "moderate"),
+                ("Developing", "developing"),
+                ("Exploring", "exploring"),
+            ],
+            default="all",
+        ),
+    ],
+    sort_options=[
+        ("Strength", "strength"),
+        ("Name", "name"),
+        ("Recently Created", "created"),
+    ],
+    sort_default="strength",
+    columns=4,
+)
 
 
 def PrincipleList(

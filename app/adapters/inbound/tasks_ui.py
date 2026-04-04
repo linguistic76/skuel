@@ -14,10 +14,11 @@ from fasthtml.common import Div
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
+from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.nav import render_activity_sidebar_page
 from ui.activities.tasks_views import (
+    TASK_FILTER_CONFIG,
     TaskDetailView,
-    TaskFilterBar,
     TaskList,
     TaskStatsBar,
     filter_tasks,
@@ -127,7 +128,10 @@ def create_tasks_ui_routes(
         content = Div(
             PageHeader("Tasks", subtitle=subtitle),
             TaskStatsBar(all_tasks),
-            TaskFilterBar(status_filter, priority_filter, sort_by),
+            ActivityFilterBar(
+                TASK_FILTER_CONFIG,
+                {"status": status_filter, "priority": priority_filter, "sort_by": sort_by},
+            ),
             TaskList(filtered, connections_map),
         )
 

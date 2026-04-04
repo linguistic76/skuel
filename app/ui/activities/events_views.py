@@ -4,18 +4,15 @@ Pure FastHTML components for rendering event data. No service calls —
 routes fetch data and pass it to these components.
 
 Usage:
-    from ui.activities.events_views import EventList, EventFilterBar, EventStatsBar
+    from ui.activities.events_views import EventList, EVENT_FILTER_CONFIG, EventStatsBar
 """
 
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
-    H3,
     A,
     Div,
-    Form,
-    Option,
     P,
     Small,
     Span,
@@ -23,10 +20,10 @@ from fasthtml.common import (
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
+from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
-from ui.forms.components import LabelSelect
 from ui.layout import Container, DivHStacked
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -63,36 +60,29 @@ def EventStatsBar(events: list["Event"]) -> "FT":
     return StatsGrid(stats, cols=4)
 
 
-def EventFilterBar(
-    status_filter: str = "upcoming",
-    sort_by: str = "date",
-) -> "FT":
-    """Filter and sort controls for the event list. HTMX-powered."""
-    return Form(
-        Div(
-            LabelSelect(
-                Option("Upcoming", value="upcoming", selected=status_filter == "upcoming"),
-                Option("Today", value="today", selected=status_filter == "today"),
-                Option("Completed", value="completed", selected=status_filter == "completed"),
-                Option("All", value="all", selected=status_filter == "all"),
-                label="Status",
-                name="status",
-            ),
-            LabelSelect(
-                Option("Date", value="date", selected=sort_by == "date"),
-                Option("Title", value="title", selected=sort_by == "title"),
-                Option("Recently Created", value="created", selected=sort_by == "created"),
-                label="Sort",
-                name="sort_by",
-            ),
-            cls="grid grid-cols-1 sm:grid-cols-2 gap-2",
+EVENT_FILTER_CONFIG = FilterBarConfig(
+    fragment_url="/events/list-fragment",
+    list_target_id="event-list",
+    filters=[
+        FilterSelect(
+            name="status",
+            label="Status",
+            options=[
+                ("Upcoming", "upcoming"),
+                ("Today", "today"),
+                ("Completed", "completed"),
+                ("All", "all"),
+            ],
+            default="upcoming",
         ),
-        hx_get="/events/list-fragment",
-        hx_target="#event-list",
-        hx_trigger="change",
-        hx_include="[name]",
-        cls="mb-4",
-    )
+    ],
+    sort_options=[
+        ("Date", "date"),
+        ("Title", "title"),
+        ("Recently Created", "created"),
+    ],
+    sort_default="date",
+)
 
 
 def EventList(

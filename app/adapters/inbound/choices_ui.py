@@ -15,12 +15,13 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activities.choices_views import (
+    CHOICE_FILTER_CONFIG,
     ChoiceDetailView,
-    ChoiceFilterBar,
     ChoiceList,
     ChoiceStatsBar,
     filter_choices,
 )
+from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.nav import render_activity_sidebar_page
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
@@ -127,7 +128,7 @@ def create_choices_ui_routes(
         content = Div(
             PageHeader("Choices", subtitle=subtitle),
             ChoiceStatsBar(all_choices),
-            ChoiceFilterBar(status_filter, sort_by),
+            ActivityFilterBar(CHOICE_FILTER_CONFIG, {"status": status_filter, "sort_by": sort_by}),
             ChoiceList(filtered, connections_map),
         )
 

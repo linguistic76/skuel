@@ -4,17 +4,14 @@ Pure FastHTML components for rendering habit data. No service calls —
 routes fetch data and pass it to these components.
 
 Usage:
-    from ui.activities.habits_views import HabitList, HabitFilterBar, HabitStatsBar
+    from ui.activities.habits_views import HabitList, HABIT_FILTER_CONFIG, HabitStatsBar
 """
 
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
-    H3,
     A,
     Div,
-    Form,
-    Option,
     P,
     Small,
     Span,
@@ -22,10 +19,10 @@ from fasthtml.common import (
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
+from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
-from ui.forms.components import LabelSelect
 from ui.layout import Container, DivHStacked
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -67,59 +64,46 @@ def HabitStatsBar(habits: list["Habit"]) -> "FT":
     return StatsGrid(stats, cols=4)
 
 
-def HabitFilterBar(
-    status_filter: str = "active",
-    category_filter: str = "all",
-    sort_by: str = "streak",
-) -> "FT":
-    """Filter and sort controls for the habit list. HTMX-powered."""
-    return Form(
-        Div(
-            LabelSelect(
-                Option("Active", value="active", selected=status_filter == "active"),
-                Option("Paused", value="paused", selected=status_filter == "paused"),
-                Option("Completed", value="completed", selected=status_filter == "completed"),
-                Option("Keystone", value="keystone", selected=status_filter == "keystone"),
-                Option("All", value="all", selected=status_filter == "all"),
-                label="Status",
-                name="status",
-            ),
-            LabelSelect(
-                Option("All", value="all", selected=category_filter == "all"),
-                Option("Health", value="health", selected=category_filter == "health"),
-                Option("Fitness", value="fitness", selected=category_filter == "fitness"),
-                Option(
-                    "Mindfulness",
-                    value="mindfulness",
-                    selected=category_filter == "mindfulness",
-                ),
-                Option("Learning", value="learning", selected=category_filter == "learning"),
-                Option(
-                    "Productivity",
-                    value="productivity",
-                    selected=category_filter == "productivity",
-                ),
-                Option("Creative", value="creative", selected=category_filter == "creative"),
-                Option("Social", value="social", selected=category_filter == "social"),
-                Option("Financial", value="financial", selected=category_filter == "financial"),
-                label="Category",
-                name="category",
-            ),
-            LabelSelect(
-                Option("Streak", value="streak", selected=sort_by == "streak"),
-                Option("Name", value="name", selected=sort_by == "name"),
-                Option("Recently Created", value="created", selected=sort_by == "created"),
-                label="Sort",
-                name="sort_by",
-            ),
-            cls="grid grid-cols-1 sm:grid-cols-3 gap-2",
+HABIT_FILTER_CONFIG = FilterBarConfig(
+    fragment_url="/habits/list-fragment",
+    list_target_id="habit-list",
+    filters=[
+        FilterSelect(
+            name="status",
+            label="Status",
+            options=[
+                ("Active", "active"),
+                ("Paused", "paused"),
+                ("Completed", "completed"),
+                ("Keystone", "keystone"),
+                ("All", "all"),
+            ],
+            default="active",
         ),
-        hx_get="/habits/list-fragment",
-        hx_target="#habit-list",
-        hx_trigger="change",
-        hx_include="[name]",
-        cls="mb-4",
-    )
+        FilterSelect(
+            name="category",
+            label="Category",
+            options=[
+                ("All", "all"),
+                ("Health", "health"),
+                ("Fitness", "fitness"),
+                ("Mindfulness", "mindfulness"),
+                ("Learning", "learning"),
+                ("Productivity", "productivity"),
+                ("Creative", "creative"),
+                ("Social", "social"),
+                ("Financial", "financial"),
+            ],
+            default="all",
+        ),
+    ],
+    sort_options=[
+        ("Streak", "streak"),
+        ("Name", "name"),
+        ("Recently Created", "created"),
+    ],
+    sort_default="streak",
+)
 
 
 def HabitList(

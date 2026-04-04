@@ -14,9 +14,10 @@ from fasthtml.common import Div
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
+from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.habits_views import (
+    HABIT_FILTER_CONFIG,
     HabitDetailView,
-    HabitFilterBar,
     HabitList,
     HabitStatsBar,
     filter_habits,
@@ -127,7 +128,10 @@ def create_habits_ui_routes(
         content = Div(
             PageHeader("Habits", subtitle=subtitle),
             HabitStatsBar(all_habits),
-            HabitFilterBar(status_filter, category_filter, sort_by),
+            ActivityFilterBar(
+                HABIT_FILTER_CONFIG,
+                {"status": status_filter, "category": category_filter, "sort_by": sort_by},
+            ),
             HabitList(filtered, connections_map),
         )
 

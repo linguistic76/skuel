@@ -15,12 +15,13 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.activities.events_views import (
+    EVENT_FILTER_CONFIG,
     EventDetailView,
-    EventFilterBar,
     EventList,
     EventStatsBar,
     filter_events,
 )
+from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.nav import render_activity_sidebar_page
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
@@ -127,7 +128,7 @@ def create_events_ui_routes(
         content = Div(
             PageHeader("Events", subtitle=subtitle),
             EventStatsBar(all_events),
-            EventFilterBar(status_filter, sort_by),
+            ActivityFilterBar(EVENT_FILTER_CONFIG, {"status": status_filter, "sort_by": sort_by}),
             EventList(filtered, connections_map),
         )
 

@@ -4,18 +4,15 @@ Pure FastHTML components for rendering goal data. No service calls —
 routes fetch data and pass it to these components.
 
 Usage:
-    from ui.activities.goals_views import GoalList, GoalFilterBar, GoalStatsBar
+    from ui.activities.goals_views import GoalList, GOAL_FILTER_CONFIG, GoalStatsBar
 """
 
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
-    H3,
     A,
     Div,
-    Form,
     Li,
-    Option,
     P,
     Small,
     Span,
@@ -24,9 +21,8 @@ from fasthtml.common import (
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from ui.activities._shared import PRIORITY_ORDER, ConnectionSummary, MetadataField, safe_id
+from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
-from ui.forms.components import LabelSelect
-from ui.layout import Container
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
@@ -85,38 +81,31 @@ def GoalStatsBar(goals: list["Goal"]) -> "FT":
     return StatsGrid(stats, cols=5)
 
 
-def GoalFilterBar(
-    status_filter: str = "active",
-    sort_by: str = "target_date",
-) -> "FT":
-    """Filter and sort controls for the goal list. HTMX-powered."""
-    return Form(
-        Div(
-            LabelSelect(
-                Option("Active", value="active", selected=status_filter == "active"),
-                Option("On Track", value="on_track", selected=status_filter == "on_track"),
-                Option("Wobbly", value="wobbly", selected=status_filter == "wobbly"),
-                Option("Completed", value="completed", selected=status_filter == "completed"),
-                Option("All", value="all", selected=status_filter == "all"),
-                label="Status",
-                name="status",
-            ),
-            LabelSelect(
-                Option("Target Date", value="target_date", selected=sort_by == "target_date"),
-                Option("Priority", value="priority", selected=sort_by == "priority"),
-                Option("Progress", value="progress", selected=sort_by == "progress"),
-                Option("Title", value="title", selected=sort_by == "title"),
-                label="Sort",
-                name="sort_by",
-            ),
-            cls="grid grid-cols-1 sm:grid-cols-2 gap-2",
+GOAL_FILTER_CONFIG = FilterBarConfig(
+    fragment_url="/goals/list-fragment",
+    list_target_id="goal-list",
+    filters=[
+        FilterSelect(
+            name="status",
+            label="Status",
+            options=[
+                ("Active", "active"),
+                ("On Track", "on_track"),
+                ("Wobbly", "wobbly"),
+                ("Completed", "completed"),
+                ("All", "all"),
+            ],
+            default="active",
         ),
-        hx_get="/goals/list-fragment",
-        hx_target="#goal-list",
-        hx_trigger="change",
-        hx_include="[name]",
-        cls="mb-4",
-    )
+    ],
+    sort_options=[
+        ("Target Date", "target_date"),
+        ("Priority", "priority"),
+        ("Progress", "progress"),
+        ("Title", "title"),
+    ],
+    sort_default="target_date",
+)
 
 
 def GoalList(

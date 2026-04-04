@@ -14,9 +14,10 @@ from fasthtml.common import Div
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
+from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.goals_views import (
+    GOAL_FILTER_CONFIG,
     GoalDetailView,
-    GoalFilterBar,
     GoalList,
     GoalStatsBar,
     filter_goals,
@@ -127,7 +128,7 @@ def create_goals_ui_routes(
         content = Div(
             PageHeader("Goals", subtitle=subtitle),
             GoalStatsBar(all_goals),
-            GoalFilterBar(status_filter, sort_by),
+            ActivityFilterBar(GOAL_FILTER_CONFIG, {"status": status_filter, "sort_by": sort_by}),
             GoalList(filtered, connections_map),
         )
 
