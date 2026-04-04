@@ -37,6 +37,8 @@ Activity Domains use a read-focused UI — data enters via `/upload`, no CRUD fo
 | Choices | `adapters/inbound/choices_ui.py` | `ui/activities/choices_views.py` | `core/events/choice_events.py` |
 | Principles | `adapters/inbound/principles_ui.py` | `ui/activities/principles_views.py` | `core/events/principle_events.py` |
 
+**Shared UI utilities:** `ui/activities/_shared.py` — `safe_id()`, `PRIORITY_ORDER`, `CONNECTION_ICONS`, `ConnectionBadges()` (outgoing links), `ConnectionSummary()` (incoming count badges for gravity-well domains like Goals/Principles).
+
 ## Domain-Specific Quirks
 
 ### Tasks

@@ -1124,6 +1124,7 @@ When building a new SKUEL page or feature, verify:
 | `/adapters/inbound/learning_loop_routes.py` | GradeBook orchestrator + 3 PathStep learning loop HTMX fragments (`/learning-loop/ps/{ps_uid}/exercises\|submissions\|feedback`) |
 | `/ui/learning_loop/` | Shared learning loop renderers: `exercise_status.py` (status pills, action links, exercise list), `submissions_section.py` (PS submissions), `feedback_section.py` (PS feedback) |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
+| `/ui/activities/_shared.py` | Shared Activity Domain UI utilities (`safe_id`, `PRIORITY_ORDER`, `CONNECTION_ICONS`, `ConnectionBadges`, `ConnectionSummary`) |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, PS, LP profile views |
 | `/ui/profile/overview.py` | `OverviewView` + all intelligence helper functions |

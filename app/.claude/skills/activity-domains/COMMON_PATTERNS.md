@@ -68,6 +68,13 @@ Activity Domains use a read-focused UI — no CRUD forms, data enters via `/uplo
 /api/{domain}/{uid}/status # HTMX status toggle (POST)
 ```
 
+**Shared UI utilities** (`ui/activities/_shared.py`):
+- `safe_id(uid)` — converts UIDs to safe HTML id attributes (replaces `.` and `:` with `-`)
+- `PRIORITY_ORDER` — `{"critical": 0, "high": 1, "medium": 2, "low": 3}` sort-key dict
+- `CONNECTION_ICONS` — universal icon + href mapping for all 9 cross-domain connection types
+- `ConnectionBadges(connections)` — renders icon+title badge links for outgoing connections (used by Tasks, Habits, Events, Choices)
+- `ConnectionSummary(connections)` — renders compact icon+count badges for incoming connections (used by gravity-well domains: Goals, Principles)
+
 Calendar cross-cutting system still works (reads service protocols, not UI routes).
 
 ## Hierarchy Delegation Pattern

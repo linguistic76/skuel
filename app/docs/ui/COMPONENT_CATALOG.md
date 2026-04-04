@@ -1066,11 +1066,23 @@ navbar = create_navbar_for_request(request)
 
 Domain-specific layout helpers.
 
+### Activity Domain Shared Utilities
+
+**Location:** `/ui/activities/_shared.py`
+
+Shared helpers extracted from the 6 Activity Domain view files to eliminate duplication (2026-04-04).
+
+- `safe_id(uid)` — converts UIDs to safe HTML id attributes (replaces `.` and `:` with `-`)
+- `PRIORITY_ORDER` — sort-key dict: `{"critical": 0, "high": 1, "medium": 2, "low": 3}`
+- `CONNECTION_ICONS` — universal icon + href mapping for all 9 cross-domain connection types
+- `ConnectionBadges(connections)` — icon+title badge links for outgoing connections (Tasks, Habits, Events, Choices)
+- `ConnectionSummary(connections)` — compact icon+count badges for incoming connections (Goals, Principles)
+
 ### Tasks Views (Active)
 
 **Location:** `/ui/activities/tasks_views.py`
 
-Read-focused task view components (2026-03-30). A clean list with HTMX status toggle, priority/status filtering, and knowledge connections.
+Read-focused task view components (2026-03-30). A clean list with HTMX status toggle, priority/status filtering, and knowledge connections. Uses shared utilities from `_shared.py`.
 
 Components: `TaskStatsBar`, `TaskFilterBar`, `TaskList`, `TaskCard`, `filter_tasks`.
 
