@@ -368,7 +368,37 @@ a {
 }
 
 /* ============================================
-   7. ACTIVITY DOMAIN NAVIGATION
+   7. BUTTON & FORM INPUT VISIBILITY
+   ============================================ */
+
+/* Buttons: stronger shadow for visible depth */
+.uk-btn {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Default/secondary buttons: ensure visible border */
+.uk-btn-default {
+    border: 1px solid hsl(var(--border));
+}
+
+/* Form inputs: stronger border + subtle inset shadow for depth */
+.uk-input,
+.uk-select,
+.uk-textarea {
+    border: 1px solid hsl(var(--border));
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+/* Focused inputs: clear ring */
+.uk-input:focus,
+.uk-select:focus,
+.uk-textarea:focus {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2), inset 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+/* ============================================
+   8. ACTIVITY DOMAIN NAVIGATION
    ============================================ */
 
 /* Hover effect for domain nav links — inline styles can't do :hover */
