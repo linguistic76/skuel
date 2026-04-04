@@ -10,7 +10,7 @@ corresponding SKUEL entities across ALL 13 SKUEL domains:
 - Principles, Choices, Finance (added for 7-domain completeness)
 
 **Curriculum Domains (3) - What I LEARN:**
-- KnowledgeUnit (KU), PathStep (LS), LearningPath (LP)
+- KnowledgeUnit (KU), PathStep (PS), LearningPath (LP)
 
 **Meta Domains (3) - How I ORGANIZE:**
 - Submissions, Analytics, Calendar
@@ -142,7 +142,7 @@ class ActivityExtractionResult:
 
     **Domain Categories:**
     - Activity Domains (7): Tasks, Habits, Goals, Events, Principles, Choices, Finance
-    - Curriculum Domains (3): KU, LS, LP
+    - Curriculum Domains (3): KU, PS, LP
     - Meta Domains (3): Submissions, Analytics, Calendar
     - The Destination (+1): LifePath
     """
@@ -365,7 +365,7 @@ class ActivityExtractorService:
 
     **Curriculum Domains (3) - What I LEARN:**
     - KnowledgeUnit (KU): Atomic unit of knowledge content
-    - PathStep (LS): Single step in a learning journey
+    - PathStep (PS): Single step in a learning journey
     - LearningPath (LP): Complete learning sequence
 
     **Meta Domains (3) - How I ORGANIZE:**
@@ -691,7 +691,7 @@ class ActivityExtractorService:
                         f"KU '{activity.description[:30]}...': {result.error}"
                     )
 
-        # Learning Steps (LS)
+        # PathSteps (PS)
         if self.ps_service and extraction.path_steps_found > 0:
             for activity in parsed.get_path_steps():
                 result = await self._create_ls(activity, user_uid)
@@ -700,7 +700,7 @@ class ActivityExtractorService:
                     extraction.created_ps_uids.append(result.value)
                 elif result.is_error:
                     extraction.creation_errors.append(
-                        f"LS '{activity.description[:30]}...': {result.error}"
+                        f"PS '{activity.description[:30]}...': {result.error}"
                     )
 
         # Learning Paths (LP)
@@ -1140,18 +1140,18 @@ class ActivityExtractorService:
         if convert_result.is_error:
             return Result.fail(convert_result)
 
-        ls_dict = convert_result.value
+        ps_dict = convert_result.value
 
-        # Create LS via service
+        # Create PS via service
         if getattr(self.ps_service, "create_ls", None):
-            create_result = await self.ps_service.create_ls(ls_dict, user_uid)
+            create_result = await self.ps_service.create_ls(ps_dict, user_uid)
         elif getattr(self.ps_service, "create", None):
-            create_result = await self.ps_service.create(ls_dict, user_uid)
+            create_result = await self.ps_service.create(ps_dict, user_uid)
         else:
             return Result.fail(
                 Errors.system(
-                    message="LS service has no create method",
-                    operation="create_ls",
+                    message="PS service has no create method",
+                    operation="create_ps",
                 )
             )
 

@@ -8,7 +8,7 @@ strategy via GuidanceMode in the ResponseGenerator.
 
 The existing QueryIntent enum (in core/models/query_types.py) remains for
 the legacy RAG pipeline. PedagogicalIntent is used exclusively by the new
-LS-scoped Socratic pipeline.
+PS-scoped Socratic pipeline.
 
 See: /docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md
 """
@@ -45,8 +45,8 @@ class PedagogicalIntent(StrEnum):
         Response: "Did you notice that [A] and [B] are connected?"
         Triggered when: Question touches concepts connected by edges in bundle.
 
-    OUT_OF_SCOPE — Question is not about content in the current LS bundle.
-        Response: "That's outside your current focus. Your LS is about [intent]."
+    OUT_OF_SCOPE — Question is not about content in the current PS bundle.
+        Response: "That's outside your current focus. Your PS is about [intent]."
         Triggered when: No bundle entity matches the question.
     """
 

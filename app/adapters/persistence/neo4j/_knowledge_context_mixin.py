@@ -5,7 +5,7 @@ Knowledge Context Mixin
 Context, discovery, and readiness operations for domain backends.
 
 Provides graph context queries (full neighborhood, USES_KU linking),
-application discovery (connected activities, LS/LP containing KU), and
+application discovery (connected activities, PS/LP containing KU), and
 learning readiness (ready to learn, gaps, reinforcement, recommendations,
 prerequisite linking).
 

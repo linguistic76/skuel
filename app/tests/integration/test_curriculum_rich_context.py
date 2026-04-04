@@ -4,7 +4,7 @@ Integration Tests - Curriculum Rich Context Pattern
 
 Tests the "Single-Node Queries → Rich Context" pattern for curriculum domains.
 
-This validates that LP and LS get_with_context() methods fetch entities with their
+This validates that LP and PS get_with_context() methods fetch entities with their
 complete graph neighborhoods in SINGLE queries, and that MEGA-QUERY properly
 includes curriculum rich data.
 
@@ -34,7 +34,7 @@ from core.utils.uid_generator import UIDGenerator
 
 @pytest.mark.integration
 class TestCurriculumRichContext:
-    """Test rich context pattern for LP and LS domains."""
+    """Test rich context pattern for LP and PS domains."""
 
     async def test_path_step_get_with_context(self, services, test_user):
         """
@@ -126,29 +126,29 @@ class TestCurriculumRichContext:
         await services.ps.core.backend.driver.execute_query(
             """
             // Knowledge
-            MATCH (ls:Entity {uid: $step_uid})
+            MATCH (ps:Entity {uid: $step_uid})
             MATCH (ku:Entity {uid: $primary_ku})
-            CREATE (ls)-[:CONTAINS_KNOWLEDGE {confidence: 0.95}]->(ku)
+            CREATE (ps)-[:CONTAINS_KNOWLEDGE {confidence: 0.95}]->(ku)
 
             // Additional knowledge
-            WITH ls
+            WITH ps
             MATCH (supporting:Entity {uid: $supporting_ku})
-            CREATE (ls)-[:CONTAINS_KNOWLEDGE {confidence: 0.8}]->(supporting)
+            CREATE (ps)-[:CONTAINS_KNOWLEDGE {confidence: 0.8}]->(supporting)
 
             // Prerequisite knowledge
-            WITH ls
+            WITH ps
             MATCH (prereq:Entity {uid: $prereq_ku})
-            CREATE (ls)-[:REQUIRES_KNOWLEDGE {type: 'prerequisite'}]->(prereq)
+            CREATE (ps)-[:REQUIRES_KNOWLEDGE {type: 'prerequisite'}]->(prereq)
 
             // Prerequisite step
-            WITH ls
+            WITH ps
             MATCH (prereq_step:Entity {uid: $prereq_step})
-            CREATE (ls)-[:REQUIRES_STEP]->(prereq_step)
+            CREATE (ps)-[:REQUIRES_STEP]->(prereq_step)
 
             // USES_KU to primary knowledge
-            WITH ls
+            WITH ps
             MATCH (primary:Entity {uid: $primary_ku})
-            CREATE (ls)-[:USES_KU]->(primary)
+            CREATE (ps)-[:USES_KU]->(primary)
 
             // Guiding principle
             WITH primary
@@ -162,9 +162,9 @@ class TestCurriculumRichContext:
 
             // Learning path
             WITH primary
-            MATCH (ls:Entity {uid: $step_uid})
+            MATCH (ps:Entity {uid: $step_uid})
             MATCH (lp:Entity {uid: $lp_uid})
-            CREATE (lp)-[:CONTAINS_STEP {sequence: 2}]->(ls)
+            CREATE (lp)-[:CONTAINS_STEP {sequence: 2}]->(ps)
             """,
             {
                 "step_uid": main_step.uid,
@@ -182,8 +182,8 @@ class TestCurriculumRichContext:
         check_result = await services.ps.core.backend.driver.execute_query(
             """
             MATCH (lp:Entity {uid: $lp_uid})
-            OPTIONAL MATCH (lp)-[r:HAS_STEP|CONTAINS_STEP]->(ls:Entity {uid: $ps_uid})
-            RETURN lp.uid as lp_uid, lp.title as lp_name, type(r) as rel_type, r.sequence as sequence, ls.uid as ps_uid
+            OPTIONAL MATCH (lp)-[r:HAS_STEP|CONTAINS_STEP]->(ps:Entity {uid: $ps_uid})
+            RETURN lp.uid as lp_uid, lp.title as lp_name, type(r) as rel_type, r.sequence as sequence, ps.uid as ps_uid
             """,
             {"lp_uid": learning_path.uid, "ps_uid": main_step.uid},
         )
@@ -194,7 +194,7 @@ class TestCurriculumRichContext:
             print(
                 f"DEBUG: Relationship type: {check_records[0]['rel_type']}, sequence: {check_records[0]['sequence']}"
             )
-            print(f"DEBUG: LS connected: {check_records[0]['ps_uid']}")
+            print(f"DEBUG: PS connected: {check_records[0]['ps_uid']}")
 
         # TEST: Get with context (single query)
         result = await services.ps.core.get_with_context(main_step.uid)
@@ -210,16 +210,16 @@ class TestCurriculumRichContext:
         assert "graph_context" in step_dto.metadata, "metadata.graph_context missing"
         context = step_dto.metadata["graph_context"]
 
-        # Post entity model migration: LS get_with_context uses its own override
+        # Post entity model migration: PS get_with_context uses its own override
         # with domain-specific context keys.
         assert isinstance(context, dict)
         assert len(context) > 0, "graph_context should not be empty"
 
-        # LS-specific context keys (from PsCoreService.get_with_context override)
+        # PS-specific context keys (from PsCoreService.get_with_context override)
         assert "is_sequenced" in context
         assert "guiding_principles" in context
 
-        print("✅ LS get_with_context() returned graph_context")
+        print("✅ PS get_with_context() returned graph_context")
 
     async def test_learning_path_get_with_context(self, services, test_user):
         """
@@ -407,8 +407,8 @@ class TestCurriculumRichContext:
             """
             MATCH (lp:Entity {uid: $lp_uid}) SET lp:LearningPath
             WITH lp
-            MATCH (ls:Entity {uid: $ps_uid}) SET ls:PathStep
-            WITH ls
+            MATCH (ps:Entity {uid: $ps_uid}) SET ps:PathStep
+            WITH ps
             MATCH (goal:Entity {uid: $goal_uid}) SET goal:Goal
             """,
             {

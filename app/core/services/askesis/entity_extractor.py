@@ -7,7 +7,7 @@ Focused service for extracting entities mentioned in natural language queries.
 Responsibilities:
 - Extract knowledge entities from queries (global, legacy pipeline)
 - Extract activity entities from queries (global, legacy pipeline)
-- Extract KU UIDs from LS bundle (scoped, Socratic pipeline)
+- Extract KU UIDs from PS bundle (scoped, Socratic pipeline)
 - Fuzzy match entity titles against query text
 
 This service is part of the refactored AskesisService architecture:
@@ -23,7 +23,7 @@ Architecture:
 - Uses fuzzy matching for flexible entity recognition
 
 March 2026: All domain services required — no graceful degradation.
-March 2026: Added extract_from_bundle() for LS-scoped Socratic pipeline.
+March 2026: Added extract_from_bundle() for PS-scoped Socratic pipeline.
 """
 
 from __future__ import annotations
@@ -179,7 +179,7 @@ class EntityExtractor:
         """Extract KU UIDs from the bundle that the question references.
 
         Uses fuzzy matching against bundle KU titles and aliases. Returns
-        only UIDs that are part of the LS bundle — no global search.
+        only UIDs that are part of the PS bundle — no global search.
 
         This is the scoped equivalent of extract_entities_from_query() for
         the Socratic pipeline. It's synchronous because it doesn't need
@@ -187,7 +187,7 @@ class EntityExtractor:
 
         Args:
             question: User's natural language question
-            ps_bundle: Complete LS bundle with all entities
+            ps_bundle: Complete PS bundle with all entities
 
         Returns:
             List of KU UIDs from the bundle that match the question
@@ -217,8 +217,8 @@ class EntityExtractor:
                         if ku.uid in (related_step.semantic_links or ()):
                             matched_uids.append(ku.uid)
 
-        # If no specific KU matched but the question is clearly about the LS topic,
-        # return all KUs in the bundle (the question is about the LS as a whole)
+        # If no specific KU matched but the question is clearly about the PS topic,
+        # return all KUs in the bundle (the question is about the PS as a whole)
         if not matched_uids and ps_bundle.kus:
             ls_title = ps_bundle.path_step.title or ""
             ls_intent = ps_bundle.path_step.intent or ""

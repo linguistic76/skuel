@@ -103,7 +103,7 @@ from core.models.context_types import (
 | 6 | Principles | `UnifiedRelationshipService` | `self.principles` |
 | **Curriculum (3)** |
 | 7 | KU | `KuGraphService` | `self.ku` |
-| 8 | LS | `UnifiedRelationshipService` | `self.ls` |
+| 8 | PS | `UnifiedRelationshipService` | `self.ps` |
 | 9 | LP | `UnifiedRelationshipService` | `self.lp` |
 | **Processing (3)** |
 | 10 | Submissions | `SubmissionsRelationshipService` | `self.submissions` |

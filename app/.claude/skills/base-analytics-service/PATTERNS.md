@@ -519,9 +519,9 @@ class PsIntelligenceService(BaseAnalyticsService[BackendOperations[Ls], Ls]):
         """Calculate how well this step provides guidance (0.0-1.0).
 
         Note: Guidance relationships (GUIDED_BY_PRINCIPLE, INFORMS_CHOICE)
-        live on Lessons. LS queries traverse via HAS_LESSON.
+        live on Lessons. PS queries traverse via HAS_LESSON.
         The actual implementation uses Cypher two-hop traversal, not
-        get_related_uids on the LS directly.
+        get_related_uids on the PS directly.
         """
         # Actual implementation uses Cypher:
         # MATCH (ls)-[:HAS_LESSON]->(l1)-[:GUIDED_BY_PRINCIPLE]->(p)
@@ -532,7 +532,7 @@ class PsIntelligenceService(BaseAnalyticsService[BackendOperations[Ls], Ls]):
         """Get practice opportunities summary.
 
         Note: Practice relationships (BUILDS_HABIT, ASSIGNS_TASK, etc.)
-        live on Lessons. LS queries traverse via HAS_LESSON to count
+        live on Lessons. PS queries traverse via HAS_LESSON to count
         all 6 activity domains: habits, tasks, events, goals, principles, choices.
         """
         # Actual implementation uses Cypher two-hop traversal:

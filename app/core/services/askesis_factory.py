@@ -51,7 +51,7 @@ def create_askesis_service(
         askesis_core_service=askesis_core_service,
         llm_service=learning_services["llm_service"],
         embeddings_service=learning_services["embeddings_service"],
-        knowledge_service=learning_services["path_steps"],
+        knowledge_service=learning_services["ps"],
         tasks_service=activity_services["tasks"],
         goals_service=activity_services["goals"],
         habits_service=activity_services["habits"],
@@ -59,12 +59,12 @@ def create_askesis_service(
         zpd_service=zpd_service,
         citation_service=citation_service,
         vector_search_service=learning_services.get("vector_search_service"),
-        # LS bundle dependencies for ContextRetriever
+        # PS bundle dependencies for ContextRetriever
         ku_service=learning_services.get("atomic_ku_service"),
         lp_service=learning_services.get("learning_paths"),
         principles_service=activity_services.get("principles"),
         # Backends for ContextRetriever graph queries (migrated from inline Cypher)
         ku_backend=getattr(learning_services.get("atomic_ku_service"), "backend", None),
-        ps_backend=getattr(learning_services.get("path_steps"), "repo", None),
+        ps_backend=getattr(learning_services.get("ps"), "repo", None),
     )
     return AskesisService(deps)

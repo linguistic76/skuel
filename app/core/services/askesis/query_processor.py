@@ -122,7 +122,7 @@ class QueryProcessor:
             intent_classifier: IntentClassifier for query intent classification
             response_generator: ResponseGenerator for action/context/prompt generation
             entity_extractor: EntityExtractor for entity extraction
-            context_retriever: ContextRetriever for context retrieval and LS bundle loading
+            context_retriever: ContextRetriever for context retrieval and PS bundle loading
             user_service: UserService for accessing UserContext
             llm_service: LLMService for natural language generation
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
@@ -157,7 +157,7 @@ class QueryProcessor:
         Combines UserContext (retrieval) with LLM (generation) to produce
         natural language answers based on user's actual state.
 
-        When an LS bundle is available, the pipeline uses ZPD evidence and
+        When an PS bundle is available, the pipeline uses ZPD evidence and
         GuidanceMode to produce a pedagogically appropriate response.
 
         Timeout: AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS (default 30s).
@@ -172,7 +172,7 @@ class QueryProcessor:
             - context_used: Relevant entities from user's data
             - suggested_actions: Next steps user can take
             - confidence: Confidence score (0.0-1.0)
-            - guidance_mode: GuidanceMode used for guided response (if LS bundle available)
+            - guidance_mode: GuidanceMode used for guided response (if PS bundle available)
         """
         try:
             return await asyncio.wait_for(
@@ -469,7 +469,7 @@ class QueryProcessor:
         user_context: Any,
     ) -> tuple[str | None, str | None, Any]:
         """
-        Load LS bundle and compute guided system prompt + guidance mode.
+        Load PS bundle and compute guided system prompt + guidance mode.
 
         Returns:
             (guided_system_prompt, guidance_mode, ps_bundle) — all None if no bundle available.

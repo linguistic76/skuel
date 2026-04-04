@@ -1,10 +1,10 @@
 """
-Integration Tests for Curriculum Architecture (KU, LS, LP)
+Integration Tests for Curriculum Architecture (KU, PS, LP)
 ===========================================================
 
 Tests the three core curriculum entities with real Neo4j:
 - KU (Knowledge Unit): Atomic knowledge content
-- LS (Learning Step): Single step in learning journey
+- PS (PathStep): Single step in learning journey
 - LP (Learning Path): Complete learning sequence
 
 Test Coverage:
@@ -54,7 +54,7 @@ def lp_backend(neo4j_driver) -> UniversalNeo4jBackend[LearningPath]:
 
 @pytest.fixture
 def ps_backend(neo4j_driver) -> UniversalNeo4jBackend[PathStep]:
-    """Create LS backend with real Neo4j."""
+    """Create PS backend with real Neo4j."""
     return UniversalNeo4jBackend[PathStep](
         neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY
     )
@@ -176,16 +176,16 @@ class TestKnowledgeUnitCRUD:
 
 
 # ============================================================================
-# LEARNING STEP (LS) TESTS
+# PATH STEP (PS) TESTS
 # ============================================================================
 
 
 class TestPathStepCRUD:
-    """Test LS CRUD operations with real Neo4j."""
+    """Test PS CRUD operations with real Neo4j."""
 
     @pytest.mark.asyncio
     async def test_create_path_step(self, ps_backend, clean_curriculum) -> None:
-        """Should create LS in Neo4j."""
+        """Should create PS in Neo4j."""
         ls = PathStep(
             uid="ps:test_step_1",
             title="Step 1: Learn Python Basics",
@@ -203,8 +203,8 @@ class TestPathStepCRUD:
 
     @pytest.mark.asyncio
     async def test_get_path_step(self, ps_backend, clean_curriculum) -> None:
-        """Should retrieve LS from Neo4j."""
-        # Create LS
+        """Should retrieve PS from Neo4j."""
+        # Create PS
         ls = PathStep(
             uid="ps:test_get",
             title="Test Get Step",
@@ -212,9 +212,9 @@ class TestPathStepCRUD:
             description="Test description",
         )
         result = await ps_backend.create(ls)
-        assert result.is_ok, "Setup failed: Could not create LS"
+        assert result.is_ok, "Setup failed: Could not create PS"
 
-        # Retrieve LS
+        # Retrieve PS
         result = await ps_backend.get("ps:test_get")
 
         assert result.is_ok
@@ -224,8 +224,8 @@ class TestPathStepCRUD:
 
     @pytest.mark.asyncio
     async def test_update_path_step(self, ps_backend, clean_curriculum) -> None:
-        """Should update LS in Neo4j."""
-        # Create LS
+        """Should update PS in Neo4j."""
+        # Create PS
         ls = PathStep(
             uid="ps:test_update",
             title="Original Step Title",
@@ -236,7 +236,7 @@ class TestPathStepCRUD:
         create_result = await ps_backend.create(ls)
         assert create_result.is_ok
 
-        # Update LS with dictionary of changes
+        # Update PS with dictionary of changes
         updates = {
             "title": "Updated Step Title",
             "intent": "Updated learning objective",
@@ -253,8 +253,8 @@ class TestPathStepCRUD:
 
     @pytest.mark.asyncio
     async def test_delete_path_step(self, ps_backend, clean_curriculum) -> None:
-        """Should delete LS from Neo4j."""
-        # Create LS
+        """Should delete PS from Neo4j."""
+        # Create PS
         ls = PathStep(
             uid="ps:test_delete",
             title="Test Delete Step",
@@ -262,9 +262,9 @@ class TestPathStepCRUD:
             description="This step will be deleted",
         )
         result = await ps_backend.create(ls)
-        assert result.is_ok, "Setup failed: Could not create LS"
+        assert result.is_ok, "Setup failed: Could not create PS"
 
-        # Delete LS
+        # Delete PS
         delete_result = await ps_backend.delete("ps:test_delete")
         assert delete_result.is_ok
         assert delete_result.value is True
@@ -381,7 +381,7 @@ class TestLearningPathCRUD:
 
 
 class TestCurriculumRelationships:
-    """Test relationships between KU, LS, and LP."""
+    """Test relationships between KU, PS, and LP."""
 
     @pytest.mark.asyncio
     async def test_ku_prerequisite_relationship(self, neo4j_driver, clean_curriculum) -> None:
@@ -422,8 +422,8 @@ class TestCurriculumRelationships:
 
     @pytest.mark.asyncio
     async def test_lp_contains_ls_relationship(self, neo4j_driver, clean_curriculum) -> None:
-        """Should create CONTAINS relationship between LP and LS."""
-        # Create LP and LS with CONTAINS relationship (both are Entity nodes)
+        """Should create CONTAINS relationship between LP and PS."""
+        # Create LP and PS with CONTAINS relationship (both are Entity nodes)
         async with neo4j_driver.session() as session:
             await session.run("""
                 CREATE (lp:Entity {
@@ -435,7 +435,7 @@ class TestCurriculumRelationships:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (ls:Entity {
+                CREATE (ps:Entity {
                     uid: 'ps:step_1',
                     title: 'Step 1',
                     description: 'First step',
@@ -444,14 +444,14 @@ class TestCurriculumRelationships:
                     created_at: datetime(),
                     updated_at: datetime()
                 })
-                CREATE (lp)-[:CONTAINS {order: 1}]->(ls)
+                CREATE (lp)-[:CONTAINS {order: 1}]->(ps)
             """)
 
         # Verify relationship exists
         async with neo4j_driver.session() as session:
             result = await session.run("""
-                MATCH (lp:Entity {uid: 'lp:python_journey'})-[r:CONTAINS]->(ls:Entity {uid: 'ps:step_1'})
-                RETURN lp.uid as lp_uid, ls.uid as ps_uid, r.order as step_order
+                MATCH (lp:Entity {uid: 'lp:python_journey'})-[r:CONTAINS]->(ps:Entity {uid: 'ps:step_1'})
+                RETURN lp.uid as lp_uid, ps.uid as ps_uid, r.order as step_order
             """)
             record = await result.single()
 

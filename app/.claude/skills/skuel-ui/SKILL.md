@@ -1116,7 +1116,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/learning_loop/` | Shared learning loop renderers: `exercise_status.py` (status pills, action links, exercise list), `submissions_section.py` (PS submissions), `feedback_section.py` (PS feedback) |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
-| `/ui/profile/curriculum_views.py` | KU, LS, LP profile views |
+| `/ui/profile/curriculum_views.py` | KU, PS, LP profile views |
 | `/ui/profile/overview.py` | `OverviewView` + all intelligence helper functions |
 | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | Complete patterns documentation |
 

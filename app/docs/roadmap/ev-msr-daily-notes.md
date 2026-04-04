@@ -62,7 +62,7 @@ Daily Note (2026-03-06)
 ## UID Formats
 
 ```
-ev:{ls_slug}:{date}              # ev:ls_track_coffee_buzzing:2026_03_06
+ev:{ps_slug}:{date}              # ev:ls_track_coffee_buzzing:2026_03_06
 msr:{ku_slug}:{date}_{time}      # msr:buzzing:2026_03_06_1030
 ```
 

@@ -1,5 +1,5 @@
 """
-LS Bundle - Complete Learning Step Context for Socratic Tutoring
+PS Bundle - Complete PathStep Context for Socratic Tutoring
 =================================================================
 
 Frozen dataclass containing all entities referenced by the user's current
@@ -52,7 +52,7 @@ class PsBundle:
     # Reference material cited by curriculum in this PS
     resources: tuple[Resource, ...] = ()  # via CITES_RESOURCE on PathSteps/KUs
 
-    # Activity entities linked to this LS
+    # Activity entities linked to this PS
     principles: tuple[Principle, ...] = ()  # via EMBODIES_PRINCIPLE
     habits: tuple[Habit, ...] = ()  # via BUILDS_HABIT
     tasks: tuple[Task, ...] = ()  # via ASSIGNS_TASK

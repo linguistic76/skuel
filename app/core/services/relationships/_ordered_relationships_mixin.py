@@ -4,7 +4,7 @@ Ordered Relationships Mixin
 
 Curriculum-domain-specific operations for ordered relationships and edge metadata.
 
-Supports patterns like LP → LS → KU hierarchy with sequence properties on edges.
+Supports patterns like LP → PS → KU hierarchy with sequence properties on edges.
 
 Provides:
     get_ordered_related_uids: Get related UIDs ordered by edge property
@@ -36,7 +36,7 @@ class OrderedRelationshipsMixin:
     Methods support curriculum domain patterns:
     - Ordered relationships (HAS_STEP with sequence property)
     - Edge metadata retrieval (return entity + edge properties)
-    - Hierarchical traversal (LP → LS → KU)
+    - Hierarchical traversal (LP → PS → KU)
 
     Requires on concrete class:
         config: DomainRelationshipConfig
@@ -374,12 +374,12 @@ class OrderedRelationshipsMixin:
         Multi-hop hierarchical traversal for curriculum patterns.
 
         Traverses relationship chain and returns nested structure with edge metadata.
-        Supports patterns like LP → LS → KU.
+        Supports patterns like LP → PS → KU.
 
         Args:
             entity_uid: Root entity UID
             relationship_chain: List of (relationship_key, target_label) tuples
-                Example: [("steps", "Ls"), ("knowledge", "Entity")]
+                Example: [("steps", "Ps"), ("knowledge", "Entity")]
             max_depth: Maximum traversal depth (default: 3)
 
         Returns:
@@ -492,7 +492,7 @@ class OrderedRelationshipsMixin:
             )
 
         elif len(relationship_chain) == 2:
-            # Two-level hierarchy: LP → LS → KU
+            # Two-level hierarchy: LP → PS → KU
             rel_key1, target_label1 = relationship_chain[0]
             rel_key2, target_label2 = relationship_chain[1]
 

@@ -61,7 +61,7 @@ async def link_task_to_knowledge(
 - SET overwrites relationship properties on each call
 - Use `ON CREATE SET` if you only want to set props on first creation
 
-**Real-world usage**: All domain backend `link_*` methods in `domain_backends.py`. Also standardized across hierarchy (`_hierarchy_mixin.py`), lateral relationships (`LateralRelationshipBackend`), badges (`EARNED_BADGE`), LP/LS construction (`HAS_STEP`, `CONTAINS_KNOWLEDGE`). **Rule:** Use MERGE (not CREATE) whenever both endpoints already exist — prevents duplicate edges on retry.
+**Real-world usage**: All domain backend `link_*` methods in `domain_backends.py`. Also standardized across hierarchy (`_hierarchy_mixin.py`), lateral relationships (`LateralRelationshipBackend`), badges (`EARNED_BADGE`), LP/PS construction (`HAS_STEP`, `CONTAINS_KNOWLEDGE`). **Rule:** Use MERGE (not CREATE) whenever both endpoints already exist — prevents duplicate edges on retry.
 
 ---
 

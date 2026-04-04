@@ -39,7 +39,6 @@ class UIDGenerator:
     """
 
     # Prefixes for different entity types
-    PATH_STEP_PREFIX = "l"  # Historical prefix from Lesson era; kept for backward compat
     KNOWLEDGE_PREFIX = "ku"
     DOMAIN_PREFIX = "dom"
     PATH_PREFIX = "path"
@@ -94,25 +93,6 @@ class UIDGenerator:
         slug = cls.slugify(title)
         random_suffix = uuid.uuid4().hex[:8]
         return f"{cls.KNOWLEDGE_PREFIX}_{slug}_{random_suffix}"
-
-    @classmethod
-    def generate_path_step_uid(cls, title: str) -> str:
-        """
-        Generate a flat PathStep UID.
-
-        Args:
-            title: PathStep title
-
-        Returns:
-            Flat UID with format: l_{slug}_{random}
-
-        Examples:
-            >>> generate_path_step_uid("Meditation Basics")
-            'l_meditation-basics_a1b2c3d4'
-        """
-        slug = cls.slugify(title)
-        random_suffix = uuid.uuid4().hex[:8]
-        return f"{cls.PATH_STEP_PREFIX}_{slug}_{random_suffix}"
 
     @classmethod
     def generate_domain_uid(cls, name: str, parent_domain_uid: str | None = None) -> str:

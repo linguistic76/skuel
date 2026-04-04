@@ -151,7 +151,7 @@ skills:
     keywords: [activity, domains, tasks, goals, habits, events, facade]
 
   - name: curriculum-domains
-    description: Curriculum domain patterns (KU, LS, LP)
+    description: Curriculum domain patterns (KU, PS, LP)
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     primary_docs:

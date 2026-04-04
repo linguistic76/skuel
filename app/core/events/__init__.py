@@ -99,7 +99,7 @@ from core.events.chunk_events import (
     ChunkEmbeddingsCompleted,
 )
 
-# Curriculum events (LS)
+# Curriculum events (PS)
 # NOTE: MOC events removed January 2026 - MOC is now KU-based
 from core.events.curriculum_events import (
     PathStepCompleted,
@@ -335,7 +335,7 @@ __all__ = [
     "LearningPathStarted",
     "LearningRecommendationGenerated",
     "PathStepProgressUpdated",
-    # Curriculum (LS)
+    # Curriculum (PS)
     # NOTE: MOC events removed January 2026 - MOC is now KU-based
     "PathStepCompleted",
     "PathStepCreated",
@@ -445,7 +445,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "learning_path.progress_updated": LearningPathProgressUpdated,
     "prerequisites.analyzed": PrerequisitesAnalyzed,
     "learning.recommendation_generated": LearningRecommendationGenerated,
-    # Learning Steps (LS)
+    # Path Steps (PS)
     "path_step.created": PathStepCreated,
     "path_step.updated": PathStepUpdated,
     "path_step.deleted": PathStepDeleted,

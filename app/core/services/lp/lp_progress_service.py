@@ -129,31 +129,31 @@ class LpProgressService:
         """
         Update learning path progress when a path step is completed.
 
-        Finds all LPs containing this LS (via HAS_STEP) and rechecks
+        Finds all LPs containing this PS (via HAS_STEP) and rechecks
         LP progress. Reuses existing KU-based progress calculation
-        since LS completion implies underlying KU mastery.
+        since PS completion implies underlying KU mastery.
 
         Errors are logged but not raised — progress updates are best-effort.
         """
         try:
             if not self.backend:
-                self.logger.warning("No backend available for LS→LP event integration")
+                self.logger.warning("No backend available for PS→LP event integration")
                 return
 
-            # Find LPs containing this LS via HAS_STEP
+            # Find LPs containing this PS via HAS_STEP
             query = """
-            MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ls:Entity {uid: $ps_uid})
+            MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ps:Entity {uid: $ps_uid})
             RETURN DISTINCT lp.uid as lp_uid
             """
             result = await self.backend.execute_query(query, {"ps_uid": event.ps_uid})
             if result.is_error:
-                self.logger.error(f"Failed to query LPs for LS {event.ps_uid}: {result.error}")
+                self.logger.error(f"Failed to query LPs for PS {event.ps_uid}: {result.error}")
                 return
 
             lp_uids = [r["lp_uid"] for r in (result.value or [])]
 
             if not lp_uids:
-                self.logger.debug(f"No learning paths contain LS {event.ps_uid}")
+                self.logger.debug(f"No learning paths contain PS {event.ps_uid}")
                 return
 
             for lp_uid in lp_uids:
@@ -163,9 +163,9 @@ class LpProgressService:
                         user_uid=event.user_uid,
                     )
                 except NEO4J_EXCEPTIONS as e:
-                    self.logger.error(f"Failed to update LP {lp_uid} from LS completion: {e}")
+                    self.logger.error(f"Failed to update LP {lp_uid} from PS completion: {e}")
                 except Exception as e:  # safety-net: catch unexpected errors
-                    self.logger.error(f"Failed to update LP {lp_uid} from LS completion: {e}")
+                    self.logger.error(f"Failed to update LP {lp_uid} from PS completion: {e}")
 
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Error handling path_step.completed event: {e}")

@@ -71,7 +71,7 @@ Teacher=0.8). See: `core/models/enums/learning_enums.py`.
 
 **Learning progress event chain:** When `mark_mastered()` is called on a KU, the
 system automatically propagates progress upward: KU mastery → Lesson completion →
-LS progress → LP progress. See
+PS progress → LP progress. See
 [LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md).
 
 **Learning loop intelligence:** `LearningLoopEventHandlerService` listens to
@@ -609,7 +609,7 @@ annotation_updated_at: datetime | None
 
 **Structural position:** Cross-domain aggregator. Cannot fit the leaf domain model
 because it reads across all 6 Activity Domain backends **and** the Curriculum track
-(KU mastery, LP progress, active LS). `ProgressReportGenerator` accepts a
+(KU mastery, LP progress, active PS). `ProgressReportGenerator` accepts a
 `UserContextBuilder` and calls `build_rich(user_uid, window=...)` — MEGA_QUERY
 with activity window CALL{} blocks. This gives the generator access to full graph
 neighbourhoods across both tracks. `ActivityReportService.create_snapshot()` uses
@@ -853,7 +853,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 ### The Activity Track test
 
 The Activity Track (Tasks/Goals/Habits/Events/Choices/Principles + KU mastery/LP
-progress/LS progress → ActivityReport) is as central as the Curriculum Track.
+progress/PS progress → ActivityReport) is as central as the Curriculum Track.
 When building Activity Domain or Curriculum features, ask:
 
 - Does this completion data flow into `ProgressReportGenerator`?
@@ -972,7 +972,7 @@ that never closes the loop.
 
 ```
 1. User activity across 6 Activity Domains + 3 Curriculum Domains
-   Tasks, Goals, Habits, Events, Choices, Principles + KU mastery, LP progress, LS progress
+   Tasks, Goals, Habits, Events, Choices, Principles + KU mastery, LP progress, PS progress
        ↓
 2. UserContextBuilder.build_rich()                  → core/services/user/user_context_builder.py
    MEGA-QUERY fetches all domain data including submission_stats
@@ -1089,7 +1089,7 @@ iteration makes the next one smarter.
 ## Related Skills
 
 - **[zpd](../zpd/SKILL.md)** — Intelligence layer that makes the loop adaptive (Layer 2)
-- **[curriculum-domains](../curriculum-domains/SKILL.md)** — Ku, LS, LP architecture (Phase 1)
+- **[curriculum-domains](../curriculum-domains/SKILL.md)** — Ku, PS, LP architecture (Phase 1)
 - **[activity-domains](../activity-domains/SKILL.md)** — Activity Track entry points (Phase 4 via ActivityReport)
 - **[user-context-intelligence](../user-context-intelligence/SKILL.md)** — Cross-domain synthesis that feeds ActivityReport
 - **[result-pattern](../result-pattern/SKILL.md)** — All services return `Result[T]`

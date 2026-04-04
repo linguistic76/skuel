@@ -197,7 +197,7 @@ class ActivityFilterSpec(BaseFilterSpec, total=False):
 
 class CurriculumFilterSpec(BaseFilterSpec, total=False):
     """
-    Filter specification for Curriculum domains (KU, LS, LP).
+    Filter specification for Curriculum domains (KU, PS, LP).
 
     Curriculum entities are shared (no user_uid ownership), but can be
     filtered by various curriculum-specific attributes.
@@ -480,7 +480,7 @@ class PsUpdatePayload(BaseUpdatePayload, total=False):
     """
     Update payload for PathStep entities.
 
-    LS-Specific Fields:
+    PS-Specific Fields:
         order_index: Position in learning path
         estimated_minutes: Estimated time to complete
         is_optional: Whether step is optional
@@ -1620,12 +1620,12 @@ class PsPracticeSummaryResult(TypedDict):
 
 
 # ============================================================================
-# LS INTELLIGENCE RESULT TYPES
+# PS INTELLIGENCE RESULT TYPES
 # ============================================================================
 
 
 class PsAnalyticsSummary(TypedDict):
-    """Nested summary for LS analytics."""
+    """Nested summary for PS analytics."""
 
     total: int
     note: str
@@ -1768,7 +1768,7 @@ class LpRecommendedStep(TypedDict):
 class UserProgressResult(TypedDict, total=False):
     """Return shape for CurriculumOperations.get_user_progress().
 
-    User's learning progress on a specific curriculum entity (KU, LS, LP).
+    User's learning progress on a specific curriculum entity (KU, PS, LP).
     """
 
     mastery_level: float
@@ -2865,7 +2865,7 @@ __all__ = [
     "CurriculumExerciseResult",
     "RevisionChainResult",
     "PsKnowledgeItemResult",
-    # LS Intelligence Result Types
+    # PS Intelligence Result Types
     "PsAnalyticsSummary",
     "PsPerformanceAnalytics",
     "PsDomainInsights",

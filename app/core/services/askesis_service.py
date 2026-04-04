@@ -94,7 +94,7 @@ class AskesisDeps:
     citation_service: Any | None = None
     # Vector search service — Neo4j native vector indexes for semantic search
     vector_search_service: Any | None = None  # boundary: Neo4jVectorSearchService
-    # LS bundle dependencies for ContextRetriever — None is valid when not available
+    # PS bundle dependencies for ContextRetriever — None is valid when not available
     ku_service: Any | None = None
     lp_service: Any | None = None
     principles_service: Any | None = None
@@ -188,7 +188,7 @@ class AskesisService:
             graph_intelligence_service=deps.graph_intelligence_service,
             embeddings_service=deps.embeddings_service,
             vector_search_service=deps.vector_search_service,
-            # LS bundle dependencies (absorbed from LSContextLoader)
+            # PS bundle dependencies
             ps_service=deps.knowledge_service,
             ku_service=deps.ku_service,
             habits_service=deps.habits_service,
@@ -401,7 +401,7 @@ class AskesisService:
     #
     # Entity Types:
     # Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
-    # Curriculum Domains (3): KU, LS, LP
+    # Curriculum Domains (3): KU, PS, LP
     # Processing Domains (3): Assignments, Journals, Reports
     # Temporal Domain (1): Calendar
     #

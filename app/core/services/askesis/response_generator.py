@@ -119,7 +119,7 @@ class ResponseGenerator:
             user_context: Complete user context with 240+ fields
             query: User's question (used only for activity report keyword matching)
             intent: Classified query intent from IntentClassifier
-            ps_bundle: Optional LS bundle with curriculum content
+            ps_bundle: Optional PS bundle with curriculum content
 
         Returns:
             Natural language context string for LLM consumption
@@ -176,7 +176,7 @@ class ResponseGenerator:
         ):
             self._append_activity_report_section(context_parts, user_context)
 
-        # --- LS Bundle curriculum content ---
+        # --- PS Bundle curriculum content ---
         if ps_bundle and ps_bundle.curriculum_context_text:
             context_parts.append("\n--- Curriculum Context ---")
             context_parts.append(ps_bundle.curriculum_context_text)
@@ -206,7 +206,7 @@ class ResponseGenerator:
 
         Args:
             guidance: GuidanceDetermination with mode and pedagogical detail
-            ps_bundle: Complete LS bundle (scoped context)
+            ps_bundle: Complete PS bundle (scoped context)
             user_context: User context for personalization
 
         Returns:

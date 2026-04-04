@@ -182,13 +182,13 @@ class {Domain}LateralService:
 ```python
 lateral: Any = None  # Core service
 tasks_lateral: Any = None
-goals_lateral: Any = None
+goaps_lateral: Any = None
 habits_lateral: Any = None
 events_lateral: Any = None
 choices_lateral: Any = None
 principles_lateral: Any = None
 ku_lateral: Any = None
-ls_lateral: Any = None
+ps_lateral: Any = None
 lp_lateral: Any = None
 ```
 

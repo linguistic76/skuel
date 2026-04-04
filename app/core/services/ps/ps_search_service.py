@@ -80,9 +80,9 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
         model_class=PathStep,
         entity_label="Entity",
         domain_name="ps",
-        search_fields=("title", "intent", "description"),  # LS-specific fields
+        search_fields=("title", "intent", "description"),  # PS-specific fields
         search_order_by="updated_at",
-        content_field="description",  # LS stores content in description
+        content_field="description",  # PS stores content in description
     )
 
     def __init__(self, backend: BackendOperations[PathStep]) -> None:
@@ -95,9 +95,9 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
 
     def _get_content_query(self) -> str:
         """
-        Return Cypher query fragment for fetching LS content.
+        Return Cypher query fragment for fetching PS content.
 
-        For Learning Steps, content is stored inline in the description field.
+        For PathSteps, content is stored inline in the description field.
         No separate content storage is used.
         """
         return """
@@ -105,14 +105,14 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
         """
 
     # =========================================================================
-    # LS-SPECIFIC METHODS
+    # PS-SPECIFIC METHODS
     # =========================================================================
 
     async def get_for_learning_path(
         self, path_uid: str, limit: int = 100
     ) -> Result[list[PathStep]]:
         """
-        Get Learning Steps belonging to a specific learning path.
+        Get PathSteps belonging to a specific learning path.
 
         Steps are returned ordered by their sequence within the path.
 
@@ -121,7 +121,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
             limit: Maximum results (default 100)
 
         Returns:
-            Result containing Learning Steps in the path, ordered by sequence
+            Result containing PathSteps in the path, ordered by sequence
         """
         if not path_uid:
             return Result.fail(Errors.validation(message="path_uid is required", field="path_uid"))
@@ -146,13 +146,13 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
 
     async def get_standalone_steps(self, limit: int = 50) -> Result[list[PathStep]]:
         """
-        Get standalone Learning Steps (not part of any learning path).
+        Get standalone PathSteps (not part of any learning path).
 
         Args:
             limit: Maximum results (default 50)
 
         Returns:
-            Result containing standalone Learning Steps
+            Result containing standalone PathSteps
         """
         from core.utils.neo4j_mapper import from_neo4j_node
 
@@ -178,7 +178,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
         Find path steps that contain/teach this knowledge.
 
         Complementary to PsGraphService.find_path_steps_containing().
-        Returns full LS entities instead of just UIDs.
+        Returns full PS entities instead of just UIDs.
 
         Graph Pattern: (Ls)-[:CONTAINS_KNOWLEDGE]->(Ku)
 
@@ -214,7 +214,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
         self, user_uid: UserUID, context: UserContext, limit: int = 20
     ) -> Result[list[PathStep]]:
         """
-        Get Learning Steps prioritized by user context.
+        Get PathSteps prioritized by user context.
 
         Prioritization considers:
         1. In-progress steps (highest)
@@ -228,7 +228,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
             limit: Maximum results (default 20)
 
         Returns:
-            Result containing prioritized Learning Steps
+            Result containing prioritized PathSteps
         """
         from core.utils.neo4j_mapper import from_neo4j_node
 
@@ -264,7 +264,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
 
         steps = [from_neo4j_node(record["ps"], PathStep) for record in result.value]
 
-        self.logger.debug(f"Prioritized LS search returned {len(steps)} results")
+        self.logger.debug(f"Prioritized PS search returned {len(steps)} results")
         return Result.ok(steps)
 
     async def intelligent_search(
@@ -283,7 +283,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
             limit: Maximum results (default 50)
 
         Returns:
-            Result containing tuple of (matching Learning Steps, parsed query)
+            Result containing tuple of (matching PathSteps, parsed query)
         """
         # Parse query for semantic filters
         parsed = self._parse_search_query(query)

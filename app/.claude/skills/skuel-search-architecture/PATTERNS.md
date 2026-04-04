@@ -320,7 +320,7 @@ result, parsed_query = await tasks_service.search.intelligent_search(
 ```
 
 **Trade-offs**:
-- Only available on Activity domain search services (not KU/LS/LP)
+- Only available on Activity domain search services (not KU/PS/LP)
 - Parser handles common natural language terms for priority, status, domain
 - Falls back to plain text search if no semantic terms found
 

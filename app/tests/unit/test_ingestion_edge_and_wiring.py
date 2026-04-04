@@ -6,8 +6,8 @@ Covers:
 - Edge validation (validate_edge_data)
 - Edge preparation (prepare_edge_data)
 - PathStep USES_KU wiring via registry
-- LS relationship field wiring (all 10+ fields)
-- LS preparer normalization (single→list, UID normalization)
+- PS relationship field wiring (all 10+ fields)
+- PS preparer normalization (single→list, UID normalization)
 - Evidence relationship types on RelationshipName
 """
 
@@ -235,12 +235,12 @@ class TestPathStepUsesKuWiring:
 
 
 # ============================================================================
-# LS RELATIONSHIP FIELD WIRING
+# PS RELATIONSHIP FIELD WIRING
 # ============================================================================
 
 
 class TestLsFieldWiring:
-    """Tests for Learning Step relationship field wiring in the registry."""
+    """Tests for PathStep relationship field wiring in the registry."""
 
     def test_knowledge_uids(self):
         config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
@@ -295,12 +295,12 @@ class TestLsFieldWiring:
 
 
 # ============================================================================
-# LS PREPARER NORMALIZATION
+# PS PREPARER NORMALIZATION
 # ============================================================================
 
 
 class TestLsPreparerNormalization:
-    """Tests for LS-specific field normalization in the preparer."""
+    """Tests for PS-specific field normalization in the preparer."""
 
     def test_learning_path_uid_to_list(self):
         """Single learning_path_uid should be converted to learning_path_uids list."""

@@ -146,7 +146,7 @@ from .context_awareness_protocols import (
 )
 
 # Curriculum operation protocols (November 2025 - consistent hierarchy)
-# Three curriculum domains: KU (point), LS (edge), LP (path)
+# Three curriculum domains: KU (point), PS (edge), LP (path)
 # NOTE: MOC is KU-based (January 2026) - no separate MocOperations protocol
 from .curriculum_protocols import (
     CurriculumOperations,
@@ -356,7 +356,7 @@ __all__ = [
     # Sub-protocols (for focused dependencies)
     "CrudOperations",  # Basic CRUD (6 methods)
     # ========== CURRICULUM OPERATION PROTOCOLS (5 - Dec 2025) ==========
-    "CurriculumOperations",  # Base protocol for KU, LS, LP, MOC
+    "CurriculumOperations",  # Base protocol for KU, PS, LP, MOC
     "CypherOperations",
     # ========== TYPE ALIASES (3) ==========
     "Direction",

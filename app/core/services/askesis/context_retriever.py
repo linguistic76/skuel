@@ -11,7 +11,7 @@ Responsibilities:
 - Identify quick wins and high-impact gaps
 - Generate gap recommendations
 - Find semantically similar knowledge
-- Load LS bundles for Socratic tutoring (absorbed from LSContextLoader)
+- Load PS bundles for Socratic tutoring (absorbed from LSContextLoader)
 
 This service is part of the refactored AskesisService architecture:
 - UserStateAnalyzer: Analyze current user state and patterns
@@ -25,9 +25,9 @@ Architecture:
 - Requires GraphIntelligenceService for graph intelligence queries (optional)
 - Requires EmbeddingsService for semantic search (optional)
 - Uses UserContext for user state
-- Loads LS bundles for the Socratic pipeline (absorbed from LSContextLoader)
+- Loads PS bundles for the Socratic pipeline
 
-March 2026: Absorbed LSContextLoader into ContextRetriever — single retrieval service.
+March 2026: Absorbed former LSContextLoader into ContextRetriever — single retrieval service.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class EntityLookup(Protocol):
-    """Minimal protocol for services used in LS bundle loading.
+    """Minimal protocol for services used in PS bundle loading.
 
     Only requires async get(uid) -> Result[Any]. All BaseService subclasses
     satisfy this via CrudOperationsMixin.
@@ -71,7 +71,7 @@ _SENTINEL = object()
 
 class ContextRetriever:
     """
-    Retrieve domain-specific context and LS bundles.
+    Retrieve domain-specific context and PS bundles.
 
     This service handles context retrieval:
     - Retrieve relevant context based on intent
@@ -79,7 +79,7 @@ class ContextRetriever:
     - Analyze knowledge gaps with prerequisite chains
     - Find semantically similar knowledge
     - Identify quick wins and high-impact gaps
-    - Load LS bundles for Socratic tutoring
+    - Load PS bundles for Socratic tutoring
 
     Architecture:
     - Requires GraphIntelligenceService for graph queries
@@ -95,7 +95,7 @@ class ContextRetriever:
         graph_intelligence_service: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
         embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
         vector_search_service: Any | None = None,  # boundary: Neo4jVectorSearchService
-        # LS bundle dependencies — all required (fail-fast per SKUEL philosophy)
+        # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
         ps_service: EntityLookup | None = None,
         ku_service: EntityLookup | None = None,
         habits_service: EntityLookup | None = None,
@@ -110,7 +110,7 @@ class ContextRetriever:
         """
         Initialize context retriever.
 
-        All entity services are required. ContextRetriever loads LS bundles
+        All entity services are required. ContextRetriever loads PS bundles
         that need full entity content — constructing without services would
         silently produce empty bundles at query time, which is harder to
         debug than a clear construction-time error.
@@ -119,13 +119,13 @@ class ContextRetriever:
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries
             embeddings_service: EmbeddingsService for semantic search
             vector_search_service: Neo4jVectorSearchService for native vector index search
-            ps_service: For fetching full PathStep content (LS bundle)
-            ku_service: For fetching full Ku objects from trains_ku_uids (LS bundle)
-            habits_service: For fetching full Habit objects from graph_context (LS bundle)
-            tasks_service: For fetching full Task objects from graph_context (LS bundle)
-            events_service: For fetching full Event objects from graph_context (LS bundle)
-            principles_service: For fetching full Principle objects from graph_context (LS bundle)
-            lp_service: For fetching full LearningPath from graph_context (LS bundle)
+            ps_service: For fetching full PathStep content (PS bundle)
+            ku_service: For fetching full Ku objects from trains_ku_uids (PS bundle)
+            habits_service: For fetching full Habit objects from graph_context (PS bundle)
+            tasks_service: For fetching full Task objects from graph_context (PS bundle)
+            events_service: For fetching full Event objects from graph_context (PS bundle)
+            principles_service: For fetching full Principle objects from graph_context (PS bundle)
+            lp_service: For fetching full LearningPath from graph_context (PS bundle)
             ku_backend: KuBackend for prerequisite/dependency queries
             ps_backend: PsBackend for learning context and resource queries
         """
@@ -133,7 +133,7 @@ class ContextRetriever:
         self.embeddings_service = embeddings_service
         self.vector_search_service = vector_search_service
 
-        # LS bundle dependencies
+        # PS bundle dependencies
         self.ps_service = ps_service
         self.ku_service = ku_service
         self.habits_service = habits_service
@@ -361,16 +361,16 @@ class ContextRetriever:
         )
 
     # ========================================================================
-    # PUBLIC API - LS BUNDLE LOADING (absorbed from LSContextLoader)
+    # PUBLIC API - PS BUNDLE LOADING
     # ========================================================================
 
     async def load_ps_bundle(
         self, user_uid: UserUID, user_context: UserContext
     ) -> Result[PsBundle]:
-        """Load the complete LS bundle from UserContext + service lookups.
+        """Load the complete PS bundle from UserContext + service lookups.
 
         Steps:
-        1. Find the active LS from user_context.active_path_steps_rich
+        1. Find the active PS from user_context.active_path_steps_rich
         2. Extract graph_context (habits, tasks, knowledge UIDs)
         3. Fetch full PathStep content for primary + supporting knowledge UIDs
         4. Fetch full Ku objects for trains_ku_uids
@@ -428,7 +428,7 @@ class ContextRetriever:
         resolved: list[Any] = []
         for label, raw, default in zip(fetch_labels, raw_results, defaults, strict=True):
             if isinstance(raw, BaseException):
-                logger.warning("LS bundle fetch failed for %s (user %s): %s", label, user_uid, raw)
+                logger.warning("PS bundle fetch failed for %s (user %s): %s", label, user_uid, raw)
                 resolved.append(default)
             else:
                 resolved.append(raw)
@@ -444,11 +444,11 @@ class ContextRetriever:
         try:
             resources = await self._fetch_cited_resources(related_ps_uids + ku_uids_list)
         except NEO4J_EXCEPTIONS as exc:
-            logger.warning("LS bundle fetch failed for resources (user %s): %s", user_uid, exc)
+            logger.warning("PS bundle fetch failed for resources (user %s): %s", user_uid, exc)
             resources = []
         except Exception as exc:  # safety-net: catch unexpected errors
             logger.warning(
-                "LS bundle fetch failed for resources (user %s, %s): %s",
+                "PS bundle fetch failed for resources (user %s, %s): %s",
                 user_uid,
                 type(exc).__name__,
                 exc,
@@ -479,7 +479,7 @@ class ContextRetriever:
         )
 
         logger.info(
-            "Loaded LS bundle for user %s: %s",
+            "Loaded PS bundle for user %s: %s",
             user_uid,
             bundle,
         )
@@ -566,10 +566,10 @@ class ContextRetriever:
         return path_steps
 
     async def _fetch_kus(self, path_step: PathStep) -> list[Ku]:
-        """Fetch full Ku objects for trains_ku_uids on the LS.
+        """Fetch full Ku objects for trains_ku_uids on the PS.
 
         Note: trains_ku_uids is not a field on PathStep model directly;
-        it's derived from TRAINS_KU relationships. We check the LS's
+        it's derived from TRAINS_KU relationships. We check the PS's
         semantic_links and knowledge UIDs for KU-prefixed UIDs.
         """
         if not self.ku_service:
@@ -591,7 +591,7 @@ class ContextRetriever:
             if result.is_ok and result.value:
                 kus.append(result.value)
             else:
-                logger.debug("Could not fetch KU %s for LS bundle", uid)
+                logger.debug("Could not fetch KU %s for PS bundle", uid)
 
         return kus
 

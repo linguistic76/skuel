@@ -40,7 +40,7 @@ from typing import Any
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.choice.choice_dto import ChoiceDTO
 
-# Curriculum domain imports - (February 2026): LS/LP unified into Entity model
+# Curriculum domain imports - (February 2026): PS/LP unified into Entity model
 # NOTE (February 2026): Habit imports removed — Habit merged into Entity model
 # NOTE (February 2026): Ku is now a Union type alias; use Entity (the actual class) for model_class
 from core.models.entity import Entity
@@ -352,7 +352,7 @@ class DomainRelationshipConfig:
 
     # Feature flags
     use_semantic_helper: bool = True
-    is_shared_content: bool = False  # True for KU, LS, LP
+    is_shared_content: bool = False  # True for KU, PS, LP
 
     # Post-query processors for calculated fields (January 2026)
     post_processors: tuple[PostProcessor, ...] = ()
@@ -1891,7 +1891,7 @@ LP_CONFIG = DomainRelationshipConfig(
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
     relationships=(
-        # Outgoing: Lp → Other (LS is now also :Entity)
+        # Outgoing: Lp → Other (PS is now also :Entity)
         UnifiedRelationshipDefinition(
             RelationshipName.HAS_STEP,
             "Entity",
@@ -2099,7 +2099,7 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     Domain.PRINCIPLES: PRINCIPLES_CONFIG,
     # Note: Finance is standalone (not in registry)
     # Curriculum Domains - Shared content
-    # Note: LS and LP both use Domain.LEARNING
+    # Note: PS and LP both use Domain.LEARNING
     # Use LABEL_CONFIGS for unambiguous lookup
     Domain.KNOWLEDGE: PS_CONFIG,  # PathStep is now THE curriculum content entity
     Domain.LEARNING: PS_CONFIG,  # Primary for Domain.LEARNING

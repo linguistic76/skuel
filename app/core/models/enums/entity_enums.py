@@ -353,12 +353,8 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "book": EntityType.RESOURCE,
     "film": EntityType.RESOURCE,
     "talk": EntityType.RESOURCE,
-    "ls": EntityType.PATH_STEP,
     "ps": EntityType.PATH_STEP,
     "step": EntityType.PATH_STEP,
-    "learning_step": EntityType.PATH_STEP,  # backward-compat alias
-    "lesson": EntityType.PATH_STEP,  # backward-compat alias (Lesson merged into PathStep)
-    "l": EntityType.PATH_STEP,  # backward-compat alias for lesson UID prefix
     "lp": EntityType.LEARNING_PATH,
     "path": EntityType.LEARNING_PATH,
     "exercise": EntityType.EXERCISE,
@@ -982,7 +978,7 @@ class Domain(StrEnum):
         """Return search terms that match this domain"""
         synonyms = {
             Domain.KNOWLEDGE: ("knowledge", "learn", "study", "education", "info", "ku"),
-            Domain.LEARNING: ("learning", "course", "path", "curriculum", "lp", "ls"),
+            Domain.LEARNING: ("learning", "course", "path", "curriculum", "lp", "ps"),
             Domain.TASKS: ("task", "todo", "work", "action"),
             Domain.HABITS: ("habit", "routine", "practice", "behavior", "pattern"),
             Domain.FINANCE: ("finance", "money", "budget", "expense", "income"),

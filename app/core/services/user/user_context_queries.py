@@ -643,10 +643,10 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      } END) as paths_rich
 
 // ====================================================================
-// LEARNING STEPS - Fetch active steps with rich data
+// PATH STEPS - Fetch active steps with rich data
 // ====================================================================
-OPTIONAL MATCH (user)-[:WORKING_ON|ENROLLED_IN]->(ls:PathStep)
-WHERE ls.status IN ['draft', 'active']
+OPTIONAL MATCH (user)-[:WORKING_ON|ENROLLED_IN]->(ps:PathStep)
+WHERE ps.status IN ['draft', 'active']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -656,12 +656,12 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids, choices_rich,
      enrolled_path_uids, paths_rich,
-     collect(ls) as all_ls_nodes
+     collect(ps) as all_ps_nodes
 
 // Filter path steps for rich data (with graph neighborhoods)
-UNWIND CASE WHEN size(all_ls_nodes) > 0 THEN all_ls_nodes ELSE [null] END as ls
-OPTIONAL MATCH (ls)-[:REQUIRES_STEP]->(prereq_step:PathStep)
-WHERE ls IS NOT NULL
+UNWIND CASE WHEN size(all_ps_nodes) > 0 THEN all_ps_nodes ELSE [null] END as ps
+OPTIONAL MATCH (ps)-[:REQUIRES_STEP]->(prereq_step:PathStep)
+WHERE ps IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -671,10 +671,10 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids, choices_rich,
      enrolled_path_uids, paths_rich,
-     ls, collect(DISTINCT {uid: prereq_step.uid, title: prereq_step.title, completed: prereq_step.completed}) as ls_prereq_steps
+     ps, collect(DISTINCT {uid: prereq_step.uid, title: prereq_step.title, completed: prereq_step.completed}) as ps_prereq_steps
 
-OPTIONAL MATCH (ls)-[:BUILDS_HABIT]->(ls_habit:Habit)
-WHERE ls IS NOT NULL
+OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(ps_habit:Habit)
+WHERE ps IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -684,11 +684,11 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids, choices_rich,
      enrolled_path_uids, paths_rich,
-     ls, ls_prereq_steps,
-     collect(DISTINCT {uid: ls_habit.uid, title: ls_habit.title}) as ls_habits
+     ps, ps_prereq_steps,
+     collect(DISTINCT {uid: ps_habit.uid, title: ps_habit.title}) as ps_habits
 
-OPTIONAL MATCH (ls)-[:ASSIGNS_TASK]->(ls_task:Task)
-WHERE ls IS NOT NULL
+OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(ps_task:Task)
+WHERE ps IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -698,11 +698,11 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids, choices_rich,
      enrolled_path_uids, paths_rich,
-     ls, ls_prereq_steps, ls_habits,
-     collect(DISTINCT {uid: ls_task.uid, title: ls_task.title, status: ls_task.status}) as ls_tasks
+     ps, ps_prereq_steps, ps_habits,
+     collect(DISTINCT {uid: ps_task.uid, title: ps_task.title, status: ps_task.status}) as ps_tasks
 
-OPTIONAL MATCH (ls)-[:CONTAINS_KNOWLEDGE|REQUIRES_KNOWLEDGE|TEACHES]->(ls_ku:Entity)
-WHERE ls IS NOT NULL
+OPTIONAL MATCH (ps)-[:CONTAINS_KNOWLEDGE|REQUIRES_KNOWLEDGE|TEACHES]->(ps_ku:Entity)
+WHERE ps IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -712,11 +712,11 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids, choices_rich,
      enrolled_path_uids, paths_rich,
-     ls, ls_prereq_steps, ls_habits, ls_tasks,
-     collect(DISTINCT {uid: ls_ku.uid, title: ls_ku.title, domain: ls_ku.domain}) as ls_knowledge
+     ps, ps_prereq_steps, ps_habits, ps_tasks,
+     collect(DISTINCT {uid: ps_ku.uid, title: ps_ku.title, domain: ps_ku.domain}) as ps_knowledge
 
-OPTIONAL MATCH (lp_parent:LearningPath)-[:CONTAINS_STEP]->(ls)
-WHERE ls IS NOT NULL
+OPTIONAL MATCH (lp_parent:LearningPath)-[:CONTAINS_STEP]->(ps)
+WHERE ps IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -726,18 +726,18 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids, choices_rich,
      enrolled_path_uids, paths_rich,
-     collect(CASE WHEN ls IS NOT NULL THEN {
-         step: properties(ls),
+     collect(CASE WHEN ps IS NOT NULL THEN {
+         step: properties(ps),
          graph_context: {
-             prerequisite_steps: ls_prereq_steps,
-             practice_habits: ls_habits,
-             practice_tasks: ls_tasks,
-             knowledge_relationships: ls_knowledge,
+             prerequisite_steps: ps_prereq_steps,
+             practice_habits: ps_habits,
+             practice_tasks: ps_tasks,
+             knowledge_relationships: ps_knowledge,
              learning_path: CASE WHEN lp_parent IS NOT NULL
                  THEN {uid: lp_parent.uid, name: lp_parent.name}
                  ELSE null END,
-             total_prerequisites: size(ls_prereq_steps),
-             total_practice_opportunities: size(ls_habits) + size(ls_tasks),
+             total_prerequisites: size(ps_prereq_steps),
+             total_practice_opportunities: size(ps_habits) + size(ps_tasks),
              is_sequenced: lp_parent IS NOT NULL
          }
      } END) as steps_rich

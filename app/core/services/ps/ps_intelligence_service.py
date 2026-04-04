@@ -144,10 +144,10 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         Returns:
             Result containing analytics data dict
 
-        Note: Learning Steps are shared curriculum content (no user ownership).
-        This returns overall LS statistics rather than user-specific data.
+        Note: PathSteps are shared curriculum content (no user ownership).
+        This returns overall PS statistics rather than user-specific data.
         """
-        # LS is shared content - get overall stats
+        # PS is shared content - get overall stats
         ps_result = await self.backend.find_by()
         if ps_result.is_error:
             return Result.fail(ps_result)
@@ -162,7 +162,7 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
                 "total_path_steps": total_steps,
                 "analytics": {
                     "total": total_steps,
-                    "note": "Learning Steps are shared curriculum content",
+                    "note": "PathSteps are shared curriculum content",
                 },
             }
         )
@@ -173,7 +173,7 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         """
         Get domain-specific insights for a path step.
 
-        Protocol method: Provides LS-specific intelligence.
+        Protocol method: Provides PS-specific intelligence.
         Used by IntelligenceRouteFactory for GET /api/path-steps/insights route.
 
         Args:

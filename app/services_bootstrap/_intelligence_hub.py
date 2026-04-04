@@ -114,7 +114,7 @@ async def _create_intelligence_hub(
         "principles": activity_services["principles"],
         # Curriculum Domains (3) — facades from learning_services
         "ku": learning_services["atomic_ku_service"],
-        "path_steps": learning_services["path_steps"],
+        "ps": learning_services["ps"],
         "learning_paths": learning_services["learning_paths"],
     }
     # Exercise is created in compose_services, passed via services container
@@ -131,7 +131,7 @@ async def _create_intelligence_hub(
         choices=activity_services["choices"].relationships,
         principles=activity_services["principles"].relationships,
         # Curriculum Domains (2)
-        ps=learning_services["path_steps"],  # PsService facade (merged Lesson into PathStep)
+        ps=learning_services["ps"],  # PsService facade (merged Lesson into PathStep)
         lp=learning_services["learning_paths"].relationships,  # Factory expects 'lp' parameter name
         # Processing Domains (3)
         submissions=submissions_relationship_service,  # SubmissionsRelationshipService
@@ -168,7 +168,7 @@ async def _create_intelligence_hub(
         from core.services.askesis_factory import create_askesis_service
 
         citation_service = AskesisCitationService(
-            backend=learning_services["path_steps"].core.backend,
+            backend=learning_services["ps"].core.backend,
         )
 
         services.askesis = create_askesis_service(

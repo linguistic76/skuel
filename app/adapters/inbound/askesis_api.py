@@ -426,7 +426,7 @@ def create_askesis_api_routes(
     #
     # Entity Types:
     # Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
-    # Curriculum Domains (3): KU, LS, LP
+    # Curriculum Domains (3): KU, PS, LP
     # Processing Domains (3): Submissions, Journals, Feedback
     # Temporal Domain (1): Calendar
     #

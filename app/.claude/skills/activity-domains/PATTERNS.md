@@ -154,7 +154,7 @@ Common params: `user_uid`, `status_filter`, `sort_by`. Concrete facades add doma
 
 **Module-level helpers** (Python-side, in each `*_service.py` facade file):
 - `_compute_{domain}_stats(entities)` — stats from full set (all 11 domains, guaranteed `total` + `active`)
-- `_{DOMAIN}_FILTER_CONFIG: FilterConfig` — declarative filter predicate dict (7 domains; Principles uses multi-dimensional `_apply_principle_filters` instead; KU uses namespace filter; LS/LP have no filtering)
+- `_{DOMAIN}_FILTER_CONFIG: FilterConfig` — declarative filter predicate dict (7 domains; Principles uses multi-dimensional `_apply_principle_filters` instead; KU uses namespace filter; PS/LP have no filtering)
 - `_{DOMAIN}_SORT_CONFIG: SortConfig` — declarative sort key dict (all 11 domains)
 - `_apply_{domain}_sort(entities, sort_by)` — thin wrapper calling `apply_entity_sort()` with the domain's `SortConfig`
 - `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only

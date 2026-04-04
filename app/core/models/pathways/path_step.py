@@ -67,7 +67,7 @@ class PathStep(Curriculum):
     # =========================================================================
     # PATH RELATIONSHIP
     # =========================================================================
-    learning_path_uid: str | None = None  # LS → LP relationship
+    learning_path_uid: str | None = None  # PS → LP relationship
     sequence: int | None = None  # Order within learning path
 
     # =========================================================================

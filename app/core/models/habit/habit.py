@@ -116,7 +116,7 @@ class Habit(UserOwnedEntity):
     # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
-    source_path_step_uid: str | None = None  # HABIT -> LS
+    source_path_step_uid: str | None = None  # HABIT -> PS
     source_learning_path_uid: str | None = None  # HABIT -> LP
 
     # =========================================================================

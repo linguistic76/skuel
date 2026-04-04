@@ -122,8 +122,8 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 | Event | When Published | Subscribers |
 |-------|----------------|-------------|
 | `knowledge.mastered` | KU mastered | LessonMasteryService (lesson completion detection), LpProgressService, Analytics |
-| `lesson.completed` | All KUs in Lesson mastered | PsProgressService (LS progress) |
-| `path_step.progress_updated` | LS progress changed | Dashboard, Notifications |
+| `lesson.completed` | All KUs in Lesson mastered | PsProgressService (PS progress) |
+| `path_step.progress_updated` | PS progress changed | Dashboard, Notifications |
 | `learning_path.started` | Path started | Progress Tracking, Analytics |
 | `learning_path.completed` | Path completed | Achievements, Analytics |
 | `prerequisites.analyzed` | Prerequisites computed | KU Service, Path Builder |

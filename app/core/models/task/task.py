@@ -77,7 +77,7 @@ class Task(UserOwnedEntity):
     # =========================================================================
     fulfills_goal_uid: str | None = None  # TASK -> GOAL
     reinforces_habit_uid: str | None = None  # TASK -> HABIT
-    source_path_step_uid: str | None = None  # TASK -> LS
+    source_path_step_uid: str | None = None  # TASK -> PS
     source_learning_path_uid: str | None = None  # TASK -> LP
 
     # =========================================================================

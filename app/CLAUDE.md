@@ -31,7 +31,7 @@ When working in a file or area of the codebase, address problems you encounter �
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
 - **Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content.
 - **Learning loop:** PathStep -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ... The PathStep detail page (`/explore/ps/{uid}`) is the learning loop anchor — HTMX-loads exercises (with status), submissions, and feedback via `/learning-loop/ps/{ps_uid}/*` fragments.
-- **Lesson merged into PathStep** (2026-04): The former `Lesson` entity type was merged into `PathStep`. `"lesson"` and `"l"` are aliases in `_ENTITY_TYPE_ALIASES` for backward compatibility.
+- **Lesson merged into PathStep** (2026-04): The former `Lesson` entity type was merged into `PathStep`.
 
 ## Naming Conventions
 
@@ -129,8 +129,8 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 | Finance | Admin-only bookkeeping | `expense_{random}` | Admin-only |
 | Ku | Atomic knowledge unit | `ku_{slug}_{random}` | Admin-created, shared |
 | Resource | Curated content (books, talks, films) | N/A | Admin-created, shared. `ResourceService` in `core/services/resource_service.py` |
-| PathStep | THE curriculum content entity (composes Kus) | `ps:{random}` | Admin-created, shared |
-| LearningPath | An ordered sequence of path steps | `lp:{random}` | Admin-created, shared |
+| PathStep | THE curriculum content entity (composes Kus) | `ps:{namespace}:{slug}` | Admin-created, shared |
+| LearningPath | An ordered sequence of path steps | `lp:{namespace}:{slug}` | Admin-created, shared |
 | Exercise | Instruction template, assignment, or formal assessment | N/A | Admin-created, shared |
 | RevisedExercise | Targeted revision instructions after feedback | `re_{slug}_{random}` | Teacher-owned |
 | ExerciseSubmission | Student work submitted against an Exercise | `es_{slug}_{random}` | User-owned |
@@ -633,8 +633,8 @@ One-way pipeline: Markdown/YAML -> Neo4j. Dry-run mode, incremental ingestion, i
 | Pattern | UID Format | Topology | Metaphor |
 |---------|-----------|----------|----------|
 | Ku | `ku_{slug}_{random}` | Atom | A single concept/fact |
-| PS | `ps:{random}` | Content Unit | THE curriculum content entity (composes Kus) |
-| LP | `lp:{random}` | Path | An ordered sequence of path steps |
+| PS | `ps:{namespace}:{slug}` | Content Unit | THE curriculum content entity (composes Kus) |
+| LP | `lp:{namespace}:{slug}` | Path | An ordered sequence of path steps |
 
 **Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships.
 

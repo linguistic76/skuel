@@ -144,7 +144,7 @@ class MetricsEventHandler:
         self.prometheus_metrics.domains.entities_created.labels(entity_type="ku").inc()
 
     async def _on_ls_created(self, event) -> None:
-        """Track LS creation."""
+        """Track PS creation."""
 
         self.prometheus_metrics.domains.entities_created.labels(entity_type="ps").inc()
 

@@ -7,7 +7,7 @@ Extracted from QueryProcessor for single responsibility.
 
 Responsibilities:
 - Classify query intent using embeddings-based semantic classification
-- Classify pedagogical intent for LS-scoped Socratic tutoring
+- Classify pedagogical intent for PS-scoped Socratic tutoring
 - Manage lazy-loaded intent exemplar embeddings
 
 Architecture:
@@ -17,7 +17,7 @@ Architecture:
 
 January 2026: Extracted from QueryProcessor as part of Askesis design improvement.
 March 2026: Removed keyword fallback — embeddings required, no degraded mode.
-March 2026: Added classify_pedagogical_intent() for LS-scoped Socratic pipeline.
+March 2026: Added classify_pedagogical_intent() for PS-scoped Socratic pipeline.
 """
 
 from __future__ import annotations
@@ -224,7 +224,7 @@ class IntentClassifier:
 
         Args:
             question: User's question text
-            ps_bundle: Complete LS bundle (scoped context)
+            ps_bundle: Complete PS bundle (scoped context)
             zone_evidence: Per-KU engagement evidence from ZPD
             target_ku_uids: KU UIDs extracted from question (scoped to bundle)
 
@@ -312,7 +312,7 @@ class IntentClassifier:
 
         Args:
             question: User's question text
-            ps_bundle: Complete LS bundle (scoped context)
+            ps_bundle: Complete PS bundle (scoped context)
             zone_evidence: Per-KU engagement evidence from ZPD
             target_ku_uids: KU UIDs extracted from question
 

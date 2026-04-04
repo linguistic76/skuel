@@ -558,7 +558,7 @@ async def compose_services(
         # ========================================================================
         # Core lateral relationships infrastructure - foundational graph architecture
         # Enables explicit modeling of sibling, cousin, dependency, and semantic relationships
-        # across all 8 hierarchical domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP)
+        # across all 8 hierarchical domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP)
 
         from adapters.persistence.neo4j.domain_backends import LateralRelationshipBackend
         from core.services.lateral_relationships import LateralRelationshipService
@@ -652,7 +652,7 @@ async def compose_services(
 
         report_mastery_service = ReportMasteryService(
             submissions_backend=submissions_backend,
-            ku_interaction_service=learning_services["path_steps"].mastery,
+            ku_interaction_service=learning_services["ps"].mastery,
         )
         logger.info("✅ ReportMasteryService created")
 
@@ -682,9 +682,7 @@ async def compose_services(
             exercise_report_service = ExerciseReportService(
                 llm_caller=llm_caller,
                 backend=exercise_report_backend,  # Creates ExerciseReport entity + REPORT_FOR relationship
-                ku_interaction_service=learning_services[
-                    "path_steps"
-                ].mastery,  # Closes mastery loop
+                ku_interaction_service=learning_services["ps"].mastery,  # Closes mastery loop
                 report_mastery_service=report_mastery_service,
             )
 
@@ -805,7 +803,7 @@ async def compose_services(
             submissions_backend=submissions_backend,
             exercise_backend=exercise_backend,
             group_backend=group_backend,
-            ku_interaction_service=learning_services["path_steps"].mastery,
+            ku_interaction_service=learning_services["ps"].mastery,
             report_mastery_service=report_mastery_service,
             event_bus=event_bus,
         )
@@ -873,7 +871,7 @@ async def compose_services(
         lifepath_service = LifePathService(
             executor=query_executor,
             lp_service=learning_services["learning_paths"],
-            ku_service=learning_services["path_steps"],
+            ku_service=learning_services["ps"],
             user_service=user_service,
             llm_service=llm_service,
         )
@@ -893,8 +891,8 @@ async def compose_services(
             # Finance Domain (1) - admin-only bookkeeping
             finance_service=core_services["finance"],
             # Curriculum Domains (3) - admin creates, all read
-            ku_service=learning_services["path_steps"],
-            ps_service=learning_services["path_steps"],
+            ku_service=learning_services["ps"],
+            ps_service=learning_services["ps"],
             lp_service=learning_services["learning_paths"],
             # Meta Domains (3)
             report_service=submissions_service,  # For metadata updates
@@ -1050,7 +1048,7 @@ async def compose_services(
             principle_service=activity_services["principles"],
             content_enrichment=content_enrichment,  # ✅ ContentEnrichmentService - Layer 2 reporting
             user_service=user_service,  # Life path alignment
-            ku_service=learning_services["path_steps"],  # Layer 0 reporting
+            ku_service=learning_services["ps"],  # Layer 0 reporting
             lp_service=learning_services["learning_paths"],  # Layer 0 reporting
             event_bus=event_bus,  # Event-driven report generation
         )
@@ -1174,7 +1172,7 @@ async def compose_services(
             user_progress=learning_services["user_progress"],
             # unified_progress DELETED (January 2026) - use user_progress
             lp=learning_services["learning_paths"],  # ku, ps, lp short-name consistency
-            ps=learning_services["path_steps"],  # ku, ps, lp short-name consistency
+            ps=learning_services["ps"],  # ku, ps, lp short-name consistency
             learning_intelligence=learning_services["learning_intelligence"],
             askesis=None,  # Created in PHASE 4 after intelligence_factory (January 2026)
             askesis_core=askesis_core_service,  # Priority 1.1: CRUD operations for Askesis AI

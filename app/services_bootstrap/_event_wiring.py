@@ -294,8 +294,8 @@ def _wire_event_subscribers(
 
     # Knowledge mastery → Learning Path progress update
     lp_service = learning_services["learning_paths"]
-    ps_service = learning_services["path_steps"]
-    ku_service_for_mastery = learning_services["path_steps"]
+    ps_service = learning_services["ps"]
+    ku_service_for_mastery = learning_services["ps"]
 
     event_bus.subscribe(KnowledgeMastered, lp_service.progress.handle_knowledge_mastered)
     logger.info(
@@ -314,12 +314,12 @@ def _wire_event_subscribers(
         "✅ PsProgressService subscribed to KnowledgeMastered (automatic PS progress updates)"
     )
 
-    # LS completion → LP progress update (chain: LS→LP)
+    # PS completion → LP progress update (chain: PS→LP)
     event_bus.subscribe(PathStepCompleted, lp_service.progress.handle_step_completed)
-    logger.info("✅ LpProgressService subscribed to PathStepCompleted (LS→LP progress chain)")
+    logger.info("✅ LpProgressService subscribed to PathStepCompleted (PS→LP progress chain)")
 
     # Event completion → Knowledge practice tracking
-    ku_service = learning_services["path_steps"]
+    ku_service = learning_services["ps"]
     event_bus.subscribe(CalendarEventCompleted, ku_service.practice.handle_event_completed)
     logger.info(
         "✅ PsPracticeService subscribed to CalendarEventCompleted (automatic practice tracking)"

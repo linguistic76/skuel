@@ -1,15 +1,15 @@
 """
-PathStepDTO - Learning Step-Specific DTO (Tier 2 - Transfer)
+PathStepDTO - Path Step-Specific DTO (Tier 2 - Transfer)
 ==================================================================
 
-Extends CurriculumDTO with 8 learning-step-specific fields matching the
+Extends CurriculumDTO with 8 path-step-specific fields matching the
 PathStep frozen dataclass (Tier 3): intent, knowledge references,
 path relationship, and mastery tracking.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── CurriculumDTO(EntityDTO) +21 curriculum-specific fields
-        └── PathStepDTO(CurriculumDTO) +9 learning-step-specific fields
+        └── PathStepDTO(CurriculumDTO) +9 path-step-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -31,7 +31,7 @@ class PathStepDTO(CurriculumDTO):
     """
     Mutable DTO for path steps (EntityType.PATH_STEP).
 
-    Extends CurriculumDTO with 8 learning-step-specific fields:
+    Extends CurriculumDTO with 8 path-step-specific fields:
     - Intent (1): intent
     - Knowledge references (1): knowledge_uids
     - Path relationship (2): learning_path_uid, sequence
@@ -67,7 +67,7 @@ class PathStepDTO(CurriculumDTO):
     # =========================================================================
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary, including learning-step-specific fields."""
+        """Convert to dictionary, including path-step-specific fields."""
         data = super().to_dict()
 
         data.update(

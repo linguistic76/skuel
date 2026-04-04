@@ -56,7 +56,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
     - get_with_context(uid, depth) - Entity with graph neighborhood
     - get_prerequisites(uid, depth) - Prerequisite chain
     - get_enables(uid, depth) - What this enables
-    - get_hierarchy(uid) - Position in KU → LS → LP hierarchy
+    - get_hierarchy(uid) - Position in KU → PS → LP hierarchy
     - get_user_progress(user_uid, entity_uid) - User mastery data
 
     LP-Specific Methods:
@@ -217,7 +217,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         from core.utils.neo4j_mapper import from_neo4j_node
 
         cypher = """
-            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ls:Entity {entity_type: 'path_step'})<-[:HAS_STEP]-(lp:Entity {entity_type: 'learning_path'})
+            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:Entity {entity_type: 'path_step'})<-[:HAS_STEP]-(lp:Entity {entity_type: 'learning_path'})
             RETURN DISTINCT lp
             ORDER BY lp.created_at DESC
             LIMIT $limit

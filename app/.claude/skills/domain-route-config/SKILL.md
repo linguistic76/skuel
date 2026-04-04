@@ -333,7 +333,7 @@ def create_upload_routes(app, rt, services):
 **Three proven CRUDRouteConfig configurations:**
 
 ```python
-# Admin-only shared content (Lesson, LP, LS, FormTemplate)
+# Admin-only shared content (Lesson, LP, PS, FormTemplate)
 crud=CRUDRouteConfig(
     scope=ContentScope.SHARED,
     require_role=UserRole.ADMIN,

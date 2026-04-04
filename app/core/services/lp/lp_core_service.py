@@ -853,12 +853,12 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
         # Validate step exists
         step_check = await self.backend.execute_query(
-            "MATCH (ls:Entity {uid: $step_uid}) RETURN ls", {"step_uid": step_uid}
+            "MATCH (ps:Entity {uid: $step_uid}) RETURN ps", {"step_uid": step_uid}
         )
         if step_check.is_error:
             return Result.fail(step_check)
         if not step_check.value:
-            return Result.fail(Errors.not_found(f"Learning step not found: {step_uid}"))
+            return Result.fail(Errors.not_found(f"Path step not found: {step_uid}"))
 
         return await self.backend.add_step_to_path(path_uid, step_uid, sequence, order)  # type: ignore[attr-defined]
 

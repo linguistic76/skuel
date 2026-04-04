@@ -370,7 +370,7 @@ class UserContextBuilder:
         # {
         #     "uids": {active_task_uids, completed_task_uids, goal_progress, knowledge_mastery, ...},
         #     "entities": {tasks, goals, habits, events, choices, principles,
-        #                  learning_paths, path_steps},  <- LP/LS normalized here
+        #                  learning_paths, path_steps},  <- LP/PS normalized here
         #     "rich": {knowledge, learning_paths, path_steps},  <- curriculum only (backward compat)
         #     "user_properties": {preferences, role, settings},
         #     "life_path": {uid, alignment_score, dimensions},
@@ -399,7 +399,7 @@ class UserContextBuilder:
         # Populate activity domain entities (all 6 domains, unified shape)
         self._populator.populate_entities_rich(context, entities_data)
 
-        # Populate curriculum rich fields (KU, LP, LS)
+        # Populate curriculum rich fields (KU, LP, PS)
         self._populator.populate_curriculum_rich(context, rich_data)
 
         # Derive window-engaged KU entities (Python-side, no extra query)

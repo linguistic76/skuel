@@ -1,5 +1,5 @@
 """
-Curriculum Events (LS)
+Curriculum Events (PS)
 ==============================
 
 *Last updated: 2026-01-20*

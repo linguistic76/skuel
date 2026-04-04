@@ -1,6 +1,6 @@
 # Curriculum vs Activity Domain Architecture
 
-> Key architectural differences between Curriculum Domains (Lesson, KU, LS, LP, MOC) and Activity Domains (Tasks, Goals, etc.).
+> Key architectural differences between Curriculum Domains (Lesson, KU, PS, LP, MOC) and Activity Domains (Tasks, Goals, etc.).
 
 ## Ownership Model
 
@@ -40,7 +40,7 @@ self.intelligence = common.intelligence
 |--------|---------|-----------------|
 | **Lesson** | Specialized factory | `create_lesson_sub_services()` |
 | **KU** | Generic factory (4 services) | `create_curriculum_sub_services()` |
-| **LS** | Generic factory | `create_curriculum_sub_services()` |
+| **PS** | Generic factory | `create_curriculum_sub_services()` |
 | **LP** | Specialized factory | `create_lp_sub_services()` |
 
 ```python
@@ -48,7 +48,7 @@ self.intelligence = common.intelligence
 from core.services.curriculum_domain_config import create_lesson_sub_services
 subs = create_lesson_sub_services(backend=repo, graph_intel=graph_intel, ...)
 
-# LS - Generic factory (simple 4-service pattern)
+# PS - Generic factory (simple 4-service pattern)
 from core.services.curriculum_domain_config import create_curriculum_sub_services
 common = create_curriculum_sub_services(domain="ps", backend=ps_backend, ...)
 
@@ -66,7 +66,7 @@ subs = create_lp_sub_services(driver=driver, ps_service=ps_service, ...)
 | **Activity (6)** | Factory | `create_common_sub_services()` |
 | **Lesson** | Specialized factory (BEFORE core) | `create_lesson_sub_services()` |
 | **KU** | None (lightweight) | — |
-| **LS** | Generic factory | `create_curriculum_sub_services()` |
+| **PS** | Generic factory | `create_curriculum_sub_services()` |
 | **LP** | Specialized factory | `create_lp_sub_services()` |
 
 **Key Difference:** Lesson creates intelligence BEFORE core due to circular dependency (core depends on intelligence for content analysis).
@@ -83,7 +83,7 @@ subs = create_lp_sub_services(driver=driver, ps_service=ps_service, ...)
 | **Principles** | 7 | Generic | Medium |
 | **Lesson** | 12 | Specialized | **High** (semantic, practice, organization, adaptive, application discovery, context) |
 | **KU** | 2 | None | **Lowest** (atomic reference) |
-| **LS** | 4 | Generic | Low (minimal design) |
+| **PS** | 4 | Generic | Low (minimal design) |
 | **LP** | 5 | Specialized | Medium (validation, adaptive) |
 
 ## Relationship Service Patterns
@@ -139,7 +139,7 @@ Even though content is shared, Curriculum Domains track per-user data:
 | Data Type | Storage | Example |
 |-----------|---------|---------|
 | **Mastery level** | User→Lesson relationship | `(User)-[:MASTERED {level: 0.8}]->(Lesson)` |
-| **Completion** | User→LS relationship | `(User)-[:COMPLETED]->(PathStep)` |
+| **Completion** | User→PS relationship | `(User)-[:COMPLETED]->(PathStep)` |
 | **Progress** | User→LP relationship | `(User)-[:ENROLLED {progress: 0.6}]->(LearningPath)` |
 | **Organization** | Lesson→Lesson relationship | `(Lesson)-[:ORGANIZES {order, importance}]->(Lesson)` |
 
@@ -149,17 +149,17 @@ Even though content is shared, Curriculum Domains track per-user data:
 |--------|---------------------|------------|
 | **Lesson** | Core ↔ Intelligence | Create intelligence BEFORE core in factory |
 | **KU** | None | Simple construction |
-| **LS/LP** | None | Standard factory order |
+| **PS/LP** | None | Standard factory order |
 
 ## Key Insight
 
 **Curriculum content is global, but user interaction is personal.**
 
-The content (Lesson, KU, LS, LP, MOC) is shared across all users, but each user's progress, mastery, and preferences are stored in relationships TO that content.
+The content (Lesson, KU, PS, LP, MOC) is shared across all users, but each user's progress, mastery, and preferences are stored in relationships TO that content.
 
 **Factory Complexity Hierarchy:**
 ```
-Generic Factory (KU, LS) → Specialized Factory (Lesson, LP)
+Generic Factory (KU, PS) → Specialized Factory (Lesson, LP)
            ↓                           ↓
      Simple, uniform           Custom dependencies
 ```

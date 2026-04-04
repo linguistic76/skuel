@@ -178,8 +178,7 @@ context_intelligence_factory = UserContextIntelligenceFactory(
     choices=activity_services["choices"].relationships,
     principles=activity_services["principles"].relationships,
     # Curriculum (3)
-    lesson=learning_services["lesson_service"],  # LessonService facade
-    ls=learning_services["path_steps"].relationships,
+    ps=learning_services["ps"],  # PsService facade (merged Lesson into PathStep)
     lp=learning_services["learning_paths"].relationships,
     # Processing (3)
     submissions=submissions_relationship_service,

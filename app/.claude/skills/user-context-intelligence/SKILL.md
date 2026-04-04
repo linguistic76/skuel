@@ -83,7 +83,7 @@ UserContextIntelligence = UserContext + 13 Domain Services
 | Service | Attribute | Purpose |
 |---------|-----------|---------|
 | KU | `self.ku` | Knowledge readiness (KuGraphService) |
-| LS | `self.ls` | Learning step sequencing (UnifiedRelationshipService) |
+| PS | `self.ps` | PathStep sequencing (UnifiedRelationshipService) |
 | LP | `self.lp` | Life path analysis (UnifiedRelationshipService) |
 
 ### Processing (3)
@@ -297,8 +297,7 @@ factory = UserContextIntelligenceFactory(
     choices=activity_services["choices"].relationships,
     principles=activity_services["principles"].relationships,
     # Curriculum (3)
-    lesson=learning_services["lesson_service"],  # LessonService facade
-    ls=learning_services["path_steps"].relationships,
+    ps=learning_services["ps"],  # PsService facade (merged Lesson into PathStep)
     lp=learning_services["learning_paths"].relationships,
     # Processing Domains (3)
     submissions=submissions_relationship_service,

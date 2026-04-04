@@ -38,7 +38,7 @@ class TestUnifiedRegistry:
 
     def test_registry_has_all_domains(self):
         """Verify all domains are in the registry (6 Activity + 2 Curriculum primaries)."""
-        # Note: Domain.KNOWLEDGE maps to KU, Domain.LEARNING maps to LS
+        # Note: Domain.KNOWLEDGE maps to KU, Domain.LEARNING maps to PS
         # LP and MOC are only accessible via LABEL_CONFIGS
         expected_domains = {
             Domain.TASKS,
@@ -48,7 +48,7 @@ class TestUnifiedRegistry:
             Domain.CHOICES,
             Domain.PRINCIPLES,
             Domain.KNOWLEDGE,  # Maps to KU
-            Domain.LEARNING,  # Maps to LS
+            Domain.LEARNING,  # Maps to PS
         }
         assert set(DOMAIN_CONFIGS.keys()) == expected_domains
 
@@ -232,7 +232,7 @@ class TestCurriculumDomains:
         assert config.ownership_relationship is None
 
     def test_ls_has_knowledge_relationships(self):
-        """Verify LS config has knowledge and step relationships (activity wiring moved to Lessons)."""
+        """Verify PS config has knowledge and step relationships (activity wiring moved to Lessons)."""
         config = get_config_by_label("Ls")
         rel_names = {r.relationship for r in config.relationships}
         assert RelationshipName.CONTAINS_KNOWLEDGE in rel_names

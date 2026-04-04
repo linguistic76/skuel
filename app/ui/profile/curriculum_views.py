@@ -1,6 +1,6 @@
 """Curriculum domain view components for profile page.
 
-Covers: KU (Knowledge Units), LS (Learning Steps), LP (Learning Paths).
+Covers: KU (Knowledge Units), PS (PathSteps), LP (Learning Paths).
 
 See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """
@@ -72,7 +72,7 @@ def KnowledgeDomainView(
 
 
 def PathStepsDomainView(_context: UserContext, _focus_uid: str | None = None) -> Div:
-    """Learning Steps domain: placeholder for LS nodes (not yet created).
+    """Path Steps domain: placeholder for PS nodes (not yet created).
 
     Shows a clean empty state explaining what path steps are.
     """

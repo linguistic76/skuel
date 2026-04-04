@@ -200,7 +200,7 @@ class CRUDRouteFactory[T]:
             search_handler: Custom search handler (default: None),
             scope: Content ownership model (default: ContentScope.USER_OWNED).
                   - ContentScope.USER_OWNED: User-specific content with ownership verification
-                  - ContentScope.SHARED: Public/shared content (KU, LS, LP)
+                  - ContentScope.SHARED: Public/shared content (KU, PS, LP)
 
                   IMPORTANT: When SHARED, list() passes user_uid=None for
                   unauthenticated requests. Your service MUST handle this:

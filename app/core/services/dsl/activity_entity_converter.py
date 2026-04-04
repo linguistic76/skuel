@@ -10,7 +10,7 @@ This is the bridge from DSL parsing to entity creation:
 
 The converter functions live in sub-modules:
 - `activity_domain_converters` — Task, Habit, Goal, Event, Principle, Choice
-- `specialized_domain_converters` — Finance, KU, LS, LP, Report, Analytics, Calendar, LifePath
+- `specialized_domain_converters` — Finance, KU, PS, LP, Report, Analytics, Calendar, LifePath
 - `dsl_mappings` — Shared mapping helpers and type aliases
 """
 
@@ -172,7 +172,7 @@ class ActivityEntityConverter:
 
         **Curriculum Domains (3) - What I LEARN:**
         - "knowledge_units": list of KU dicts
-        - "path_steps": list of LS dicts
+        - "path_steps": list of PS dicts
         - "learning_paths": list of LP dicts
 
         **Meta Domains (3) - How I ORGANIZE:**

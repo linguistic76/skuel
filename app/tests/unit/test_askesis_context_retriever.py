@@ -1,5 +1,5 @@
 """
-Tests for ContextRetriever — partial failure handling in LS bundle loading.
+Tests for ContextRetriever — partial failure handling in PS bundle loading.
 """
 
 from __future__ import annotations
@@ -84,7 +84,7 @@ def _not_found_service() -> MagicMock:
 
 
 class TestLoadLsBundlePartialFailure:
-    """LS bundle loading should survive individual fetch failures."""
+    """PS bundle loading should survive individual fetch failures."""
 
     @pytest.mark.anyio
     async def test_all_fetches_succeed(self) -> None:
@@ -176,7 +176,7 @@ class TestLoadLsBundlePartialFailure:
 
     @pytest.mark.anyio
     async def test_all_fetches_raise_minimal_bundle(self) -> None:
-        """Every fetch crashes — bundle contains only the LS itself."""
+        """Every fetch crashes — bundle contains only the PS entity itself."""
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),
@@ -203,7 +203,7 @@ class TestLoadLsBundlePartialFailure:
 
     @pytest.mark.anyio
     async def test_no_active_ls_returns_not_found(self) -> None:
-        """No active LS in context → Result.fail(not_found)."""
+        """No active PS in context → Result.fail(not_found)."""
         retriever = ContextRetriever(
             graph_intelligence_service=_make_graph_intel(),
             embeddings_service=MagicMock(),

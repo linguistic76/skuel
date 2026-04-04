@@ -286,7 +286,7 @@ class UserContext:
 
     # Learning focus tracking (aligns with other domain focus fields)
     current_learning_focus: str | None = (
-        None  # Current learning/curriculum focus (KU, LS, or LP UID)
+        None  # Current learning/curriculum focus (KU, PS, or LP UID)
     )
 
     # =========================================================================
@@ -493,7 +493,7 @@ class UserContext:
     # ACTIVITY DOMAINS — unified rich data (all 6 domains, one shape)
     # Populated by build_rich(). Status included on every entity — consumers filter.
     # Active entities always present. Completed entities present if touched within window.
-    # Curriculum domains (KU, LP, LS) remain in their own fields below.
+    # Curriculum domains (KU, LP, PS) remain in their own fields below.
     #
     # Keys: "tasks", "goals", "habits", "events", "choices", "principles"
     # Values: [{"entity": {all entity properties}, "graph_context": {...}}, ...]

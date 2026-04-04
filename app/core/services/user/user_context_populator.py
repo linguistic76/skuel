@@ -186,7 +186,7 @@ class UserContextPopulator:
 
     def populate_curriculum_rich(self, context: UserContext, rich_data: dict[str, Any]) -> None:
         """
-        Populate curriculum domain rich fields (KU, LP, LS) from MEGA-QUERY 'rich' section.
+        Populate curriculum domain rich fields (KU, LP, PS) from MEGA-QUERY 'rich' section.
 
         Curriculum domains have different ownership and shape from activity domains;
         they remain in their own fields separate from entities_rich.

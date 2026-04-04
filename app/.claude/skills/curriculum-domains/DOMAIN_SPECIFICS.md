@@ -70,7 +70,7 @@ await lesson_service.semantic.get_semantic_neighborhood(lesson_uid)
 
 **Purpose:** Atomic knowledge unit — a single definable thing (concept, state, principle, substance, practice, value). `Ku` extends `Entity` directly (lightweight, like Resource).
 
-**Sub-services (4):** Created via `create_curriculum_sub_services("ku", ...)` — matches LS topology.
+**Sub-services (4):** Created via `create_curriculum_sub_services("ku", ...)` — matches PS topology.
 
 | Sub-service | Purpose |
 |-------------|---------|
@@ -82,7 +82,7 @@ await lesson_service.semantic.get_semantic_neighborhood(lesson_uid)
 **Unique Features:**
 - **Lightweight** - Extends Entity directly, not Curriculum
 - **Composed into Lessons** - `(Lesson)-[:USES_KU]->(Ku)` relationship
-- **Trained by LS** - `(Ls)-[:TRAINS_KU]->(Ku)` relationship
+- **Trained by PS** - `(PS)-[:TRAINS_KU]->(Ku)` relationship
 - **Namespace + category** - `ku_category` (KuCategory enum), `namespace`, `aliases`, `source`
 - **SEL organization** - `sel_category` (SELCategory enum) classifies Kus by SEL competency. The `/ku` page shows a flat listing with bookmarks + latest sidebar (bookmarks via `UserRelationshipService` pin/unpin)
 - **Reference node** - Ontology/reference, not a unit for learning
@@ -101,7 +101,7 @@ await ku_service.get_lessons(ku_uid)
 
 ---
 
-## LS (Path Step) - The Edge
+## PS (Path Step) - The Edge
 
 **Purpose:** A single step in a learning sequence — connects Lessons and Kus in meaningful order.
 
@@ -113,15 +113,15 @@ await ku_service.get_lessons(ku_uid)
 | `PsSearchService` | Text search, filtering (extends BaseService) |
 | `PsProgressService` | Progress tracking from Lesson completion (event-driven) |
 | `PsIntelligenceService` | Readiness, practice analysis |
-| `LsAiService` | AI-powered LS operations |
+| `PsAiService` | AI-powered PS operations |
 
 **Factory:** `create_curriculum_sub_services()` - Generic (simplest pattern). Progress sub-service created directly in `PsService.__init__()`.
 
 **Backend:** `PsBackend` (extends `UniversalNeo4jBackend[PathStep]`) — domain-specific methods: `get_steps_containing_lesson()`, `get_lesson_completion_progress()`.
 
 **Unique Features:**
-- **Event-driven progress** — `PsProgressService` subscribes to `LessonCompleted`, calculates LS progress from completed Lessons, publishes `PathStepProgressUpdated` / `PathStepCompleted`
-- **HAS_LESSON relationship** — `(LS)-[:HAS_LESSON]->(Lesson)` connects steps to their lessons. Derived from shared KU references during migration.
+- **Event-driven progress** — `PsProgressService` subscribes to `LessonCompleted`, calculates PS progress from completed Lessons, publishes `PathStepProgressUpdated` / `PathStepCompleted`
+- **HAS_LESSON relationship** — `(PS)-[:HAS_LESSON]->(Lesson)` connects steps to their lessons. Derived from shared KU references during migration.
 - **Practice integration** - Links to Habits, Tasks, Events via relationships
 - **Guidance relationships** - GUIDED_BY_PRINCIPLE, INFORMS_CHOICE
 - **Prerequisite chains** - REQUIRES_STEP, TRAINS_KU
@@ -145,7 +145,7 @@ await ps_service.intelligence.practice_completeness_score(ps_uid)
 - `HAS_LESSON` - Step contains lesson (activity domains inherited via this traversal)
 - `REQUIRES_STEP` - Step prerequisites
 - `TRAINS_KU` - Trains atomic knowledge units
-- Practice and guidance relationships live on **Lessons**, not LS. LS inherits via `(LS)-[:HAS_LESSON]->(Lesson)-[:rel]->(Activity)`:
+- Practice and guidance relationships live on **Lessons**, not PS. PS inherits via `(PS)-[:HAS_LESSON]->(Lesson)-[:rel]->(Activity)`:
   - `BUILDS_HABIT`, `ASSIGNS_TASK`, `SCHEDULES_EVENT` - Practice integration (on Lesson)
   - `SUPPORTS_GOAL` - Goal alignment (on Lesson)
   - `GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE` - Guidance (on Lesson)
@@ -206,7 +206,7 @@ await lp_service.create_path_from_lessons(user_uid, name, lesson_uids)
 
 ## Comparison Table
 
-| Feature | Lesson | KU | LS | LP |
+| Feature | Lesson | KU | PS | LP |
 |---------|---------|----|----|-----|
 | **Sub-services** | 12 | 2 | 5 | 5 |
 | **Factory** | Specialized | — | Generic | Specialized |

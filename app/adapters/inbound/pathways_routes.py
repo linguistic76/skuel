@@ -58,7 +58,7 @@ def create_pathways_routes(
 
     Handles two distinct concerns:
     1. LP (Learning Path) routes - via DomainRouteConfig
-    2. LS (Learning Steps) routes - separate optional registration
+    2. PS (PathStep) routes - separate optional registration
 
     Args:
         app: FastHTML app instance
@@ -73,7 +73,7 @@ def create_pathways_routes(
     # Register main LP routes via DomainRouteConfig (soft-fail if service missing)
     routes = register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
 
-    # Handle LS routes separately (soft-fail if ls service missing)
+    # Handle PS routes separately (soft-fail if ps service missing)
     routes.extend(register_domain_routes(app, rt, services, PS_CONFIG))
 
     return routes

@@ -68,7 +68,7 @@ class KuService:
     concept, state, principle, substance, practice, or value.
 
     Uses create_curriculum_sub_services() factory for consistent initialization,
-    matching LS and Activity Domain patterns.
+    matching PS and Activity Domain patterns.
     """
 
     def __init__(

@@ -4,7 +4,7 @@ Lateral Relationship Routes — Configuration-Driven Registration
 
 Registers lateral relationship routes for all 9 hierarchical domains:
 - Activity Domains (6): Tasks, Goals, Habits, Events, Choices, Principles
-- Curriculum Domains (3): KU, LS, LP
+- Curriculum Domains (3): KU, PS, LP
 
 Each domain gets a full set of lateral relationship endpoints via LateralRouteFactory.
 Domain-specific routes (habit stacking, event conflicts, KU enables) use shared

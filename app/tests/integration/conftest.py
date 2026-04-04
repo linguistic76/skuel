@@ -525,7 +525,7 @@ async def services(neo4j_driver):
 
     query_executor = Neo4jQueryExecutor(neo4j_driver)
 
-    # Create LS service (used by LP service)
+    # Create PS service (used by LP service)
     # January 2026: graph_intel now REQUIRED for unified Curriculum architecture
     ps_service = PsService(
         backend=ps_backend,

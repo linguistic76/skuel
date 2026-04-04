@@ -230,7 +230,7 @@ class CurriculumOperations[T](BackendOperations[T], GraphRelationshipOperations,
     # HIERARCHICAL STRUCTURE
     # =========================================================================
     # boundary: get_hierarchy returns dict[str, Any] — shape varies by entity type
-    # (KU vs LS vs LP each return different hierarchy structures from Cypher).
+    # (KU vs PS vs LP each return different hierarchy structures from Cypher).
 
     async def get_hierarchy(self, uid: str) -> Result[dict[str, Any]]:
         """

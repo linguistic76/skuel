@@ -225,7 +225,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         """
         Get path step with comprehensive graph context (SINGLE QUERY).
 
-        Overrides BaseService.get_with_context() with LS-specific graph patterns.
+        Overrides BaseService.get_with_context() with PS-specific graph patterns.
 
         Rich Context Pattern: Fetches step + all graph neighborhoods in one query:
         - Primary and supporting knowledge

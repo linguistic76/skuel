@@ -726,7 +726,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 knowledge_status(context),
             ),
             (
-                "learning-steps",
+                "path-steps",
                 path_steps_count(context),
                 path_steps_active(context),
                 path_steps_status(context),

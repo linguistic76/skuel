@@ -93,7 +93,7 @@ class Event(UserOwnedEntity):
     # CROSS-DOMAIN LINKS
     # =========================================================================
     reinforces_habit_uid: str | None = None  # EVENT -> HABIT
-    source_path_step_uid: str | None = None  # EVENT -> LS
+    source_path_step_uid: str | None = None  # EVENT -> PS
     source_learning_path_uid: str | None = None  # EVENT -> LP
 
     # =========================================================================

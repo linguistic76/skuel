@@ -1,7 +1,7 @@
 """Lateral Relationship UI Components
 
 Provides interactive components for visualizing and navigating lateral relationships
-across all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP).
+across all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP).
 
 Components:
 - BlockingChainView - Vertical flow chart showing transitive blocking chain

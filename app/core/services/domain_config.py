@@ -201,7 +201,7 @@ class DomainConfig:
             )
 
         # NOTE: We do NOT validate user_ownership_relationship=None + supports_user_progress=True
-        # This is VALID for curriculum domains (KU, LS, LP) where progress is tracked via
+        # This is VALID for curriculum domains (KU, PS, LP) where progress is tracked via
         # relationships: (User)-[HAS_MASTERY {score}]->(KU), not entity properties.
 
     def get_entity_label(self) -> str:
@@ -333,7 +333,7 @@ def create_curriculum_domain_config(
     """
     Factory for creating Curriculum Domain configurations.
 
-    Curriculum domains (KU, LS, LP, MOC) are shared content without user ownership.
+    Curriculum domains (KU, PS, LP, MOC) are shared content without user ownership.
 
     **FAIL-FAST (2026-01-31):** Validates entity exists in registries when using defaults.
 

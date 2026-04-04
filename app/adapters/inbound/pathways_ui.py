@@ -551,7 +551,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
             ),
             Div(
                 grid_content,
-                id="learning-steps-grid",
+                id="path-steps-grid",
                 cls="mb-8",
             ),
             cls="container mx-auto px-4 py-6",

@@ -75,7 +75,7 @@ This architecture enables:
 
 ✅ **Deployed across 9 domains** (January 2026):
 - Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
-- Curriculum (3): KU, LS, LP
+- Curriculum (3): KU, PS, LP
 
 ✅ **Explore sidebar graph** (April 2026):
 - `ExploreGraphView` (`ui/explore/graph.py`) — graph hero in Explore sidebar
@@ -1956,7 +1956,7 @@ Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
 | Skill | Relation | Use For |
 |-------|----------|---------|
 | **activity-domains** | Activity domains use lateral relationships | Tasks, Goals, Habits, Events, Choices, Principles |
-| **curriculum-domains** | Curriculum domains use lateral relationships | KU, LS, LP (prerequisites, alternatives) |
+| **curriculum-domains** | Curriculum domains use lateral relationships | KU, PS, LP (prerequisites, alternatives) |
 | **base-page-architecture** | Page layout | BasePage wrapper for detail pages |
 | **skuel-component-composition** | UI patterns | Component hierarchy, reusable patterns |
 
@@ -2167,7 +2167,7 @@ const options = {
 
 - **Purpose:** Visualize lateral relationships (blocking, prerequisites, alternatives, complements)
 - **Integration:** Three-layer architecture (Neo4j → API → Alpine/Vis.js)
-- **Deployment:** 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP)
+- **Deployment:** 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP)
 - **Performance:** <400ms API + <3s render for depth 2 (typical use case)
 - **User Experience:** Interactive, physics-based, click-to-navigate
 

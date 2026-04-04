@@ -274,7 +274,7 @@ def activity_to_ps_dict(activity: ParsedActivityLine) -> Result[ConversionResult
         "tags": activity.energy_states if activity.energy_states else [],
     }
 
-    logger.debug(f"Converted activity to LS dict: {ls_dict['title']}")
+    logger.debug(f"Converted activity to PS dict: {ls_dict['title']}")
     return Result.ok(ls_dict)
 
 

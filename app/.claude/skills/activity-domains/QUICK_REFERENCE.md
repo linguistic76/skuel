@@ -119,7 +119,7 @@ habits, stats = ctx["entities"], ctx["stats"]
 | Events | `start_time` | `scheduled` |
 | Choices | `deadline` | `pending` |
 | Principles | `strength` | `all` |
-| Lesson/Ku/LS/LP/Exercise | `title` | `all` |
+| Lesson/Ku/PS/LP/Exercise | `title` | `all` |
 
 Module-level helpers (each facade file): `_compute_{domain}_stats` (all 11), `_{DOMAIN}_SORT_CONFIG` + `_apply_{domain}_sort` (all 11, config-driven via `apply_entity_sort`), `_{DOMAIN}_FILTER_CONFIG` (7 domains, config-driven via `apply_entity_filter`), plus `_apply_task_secondary_filters` (Tasks), `_apply_principle_filters` (Principles multi-dimensional), `_compute_*_metadata` (Tasks/Principles/Goals/Habits). Generics in `core/utils/list_helpers.py`.
 

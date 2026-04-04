@@ -4,7 +4,7 @@ LateralRouteFactory - Unified API Routes for Lateral Relationships
 
 Provides HTMX-friendly endpoints for lateral relationships across all domains.
 
-Generic endpoints work for all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, LS, LP):
+Generic endpoints work for all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP):
 - POST /api/{domain}/{uid}/lateral/blocks - Create blocking relationship
 - GET /api/{domain}/{uid}/lateral/blocking - Get relationships that block this entity
 - GET /api/{domain}/{uid}/lateral/blocked - Get relationships blocked by this entity

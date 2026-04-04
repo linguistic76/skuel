@@ -59,7 +59,7 @@ updated: 2026-02-01
 | Skill | Purpose | Foundation |
 |-------|---------|------------|
 | [activity-domains](activity-domains/SKILL.md) | Tasks, Goals, Habits, Events, Choices, Principles | python, result-pattern, neo4j-cypher-patterns |
-| [curriculum-domains](curriculum-domains/SKILL.md) | KU, LS, LP, MOC (shared knowledge content) | python, result-pattern, neo4j-cypher-patterns |
+| [curriculum-domains](curriculum-domains/SKILL.md) | KU, PS, LP, MOC (shared knowledge content) | python, result-pattern, neo4j-cypher-patterns |
 
 ### Intelligence Layer
 
@@ -112,7 +112,7 @@ updated: 2026-02-01
 | base-analytics-service | 4 | BaseAnalyticsService pattern for 10 domain analytics services (no AI) |
 | base-page-architecture | 1 | Consistent page layouts (STANDARD, HUB, CUSTOM) using BasePage |
 | chartjs | 4 | Chart.js data visualization with Alpine.js state |
-| curriculum-domains | 4 | 4 Curriculum Domains: KU, LS, LP, MOC (shared knowledge) |
+| curriculum-domains | 4 | 4 Curriculum Domains: KU, PS, LP, MOC (shared knowledge) |
 | custom-sidebar-patterns | 1 | Collapsible sidebars, drawer navigation (Profile Hub pattern) |
 | daisyui | 3 | DaisyUI semantic component library |
 | domain-route-config | 3 | Configuration-driven route registration (Standard, API-only, UI-only, Multi-factory) |
@@ -297,7 +297,7 @@ SKUEL Architecture (domains + intelligence):
               v                  v
        activity-domains    curriculum-domains
        (6 user-owned)      (4 shared content)
-       Tasks, Goals,       KU, LS, LP, MOC
+       Tasks, Goals,       KU, PS, LP, MOC
        Habits, Events...
               |                  |
               +--------+---------+
