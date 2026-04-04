@@ -820,6 +820,27 @@ EmptyState(title="No habits for today!", icon="🎉")
 
 **Usage rules:** Primary list views get full CTA. Secondary sections get title only. Tiny inline indicators (sidebar `<li>`, analytics cards) stay as `P()` — `EmptyState` with `py-12` is too heavy for compact contexts.
 
+### Learning Loop Fragments (PathStep Detail)
+
+**Location:** `ui/learning_loop/` — shared exercise status helpers + PathStep submission/feedback renderers.
+
+The PathStep detail page (`/explore/ps/{uid}`) HTMX-loads three learning loop sections for authenticated users. Fragment endpoints in `learning_loop_routes.py`, renderers in `ui/learning_loop/`:
+
+- `exercise_status.py` — `render_exercise_list()`, status pills (`_STATUS_PILL`), action links with `from_ps` context. Shared with Library exercises tab (`/library/exercises`).
+- `submissions_section.py` — `render_ps_submissions()` — submission rows with status badges.
+- `feedback_section.py` — `render_ps_feedback()` — feedback rows with outcome badges, filters to submissions with reports.
+
+```python
+# PathStep detail page (explore_ui.py) — authenticated user
+Div(
+    H3("Exercises", ...),
+    Div(id=f"ps-exercises-{uid}",
+        hx_get=f"/learning-loop/ps/{uid}/exercises",
+        hx_trigger="load", hx_swap="innerHTML"),
+    cls="border-t border-border pt-6 mt-8",
+)
+```
+
 ---
 
 ## Common Anti-Patterns

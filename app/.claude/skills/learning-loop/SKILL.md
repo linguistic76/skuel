@@ -205,9 +205,32 @@ await backend.get_required_knowledge(exercise_uid)          # list KUs required
 await backend.get_exercise_for_submission(submission_uid)   # FULFILLS_EXERCISE lookup
 await backend.get_student_exercises_with_status(user_uid)   # ASSIGNED exercises via group membership
 await backend.get_enrolled_ps_exercises_with_status(user_uid)  # PERSONAL exercises via enrolled PathSteps
+await backend.get_ps_exercises_with_status(ps_uid, user_uid)   # Exercises for a SINGLE PathStep with status
 ```
 
-**Library surface — two discovery paths:**
+**PathStep detail page — the learning loop anchor (2026-04-03):**
+
+The PathStep detail page at `/explore/ps/{uid}` is where students experience the full
+learning loop in one place. For authenticated users, three HTMX fragment endpoints
+lazy-load exercises (with status pills), submissions, and feedback:
+
+| Fragment Endpoint | Service Method | Renderer |
+|---|---|---|
+| `GET /learning-loop/ps/{ps_uid}/exercises` | `ExerciseService.get_exercises_for_path_step_with_status()` | `render_exercise_list()` with `from_ps` context |
+| `GET /learning-loop/ps/{ps_uid}/submissions` | `SubmissionsSearchService.get_submissions_for_path_step()` | `render_ps_submissions()` |
+| `GET /learning-loop/ps/{ps_uid}/feedback` | Same query, filtered to rows with reports | `render_ps_feedback()` |
+
+Routes wired in `adapters/inbound/learning_loop_routes.py`. Renderers in `ui/learning_loop/`
+(`exercise_status.py`, `submissions_section.py`, `feedback_section.py`). The exercise status
+helpers are shared with the Library exercises tab (`/library/exercises`).
+
+Submissions are discovered via the Interaction graph:
+`(user)-[:OWNS]->(sub)-[:RECORDS]<-(interaction)-[:INTERACTION_DURING]->(ps)`.
+`PathStepSubmissionRow` TypedDict in `core/ports/query_types.py` defines the return shape.
+
+Unauthenticated visitors see simple exercise links (no status, no submissions/feedback).
+
+**Library surface — two discovery paths (secondary indexes):**
 
 | Path | Relationship | Scope | Trigger |
 |------|-------------|-------|---------|
@@ -426,7 +449,8 @@ capturing the user's curriculum position at that exact moment.
 `InteractionResult` (PENDING → REPORT_GENERATED → SHARED_WITH_TEACHER → COMPLETED/FAILED)
 
 **UI flow that makes context deterministic (2026-04-02):**
-1. PathStep detail page shows linked exercises (`RELATED_TO` → `/exercises/get?uid=...&from_ps={ps_uid}`)
+1. PathStep detail page (`/explore/ps/{uid}`) is the **learning loop anchor** — HTMX-loads exercises
+   (with status pills), submissions, and feedback for authenticated users
 2. Exercise detail "Submit →" forwards `from_ps` → `/submit?exercise_uid=...&from_ps={ps_uid}`
 3. Submit form embeds `from_ps` as hidden field (`render_upload_form(from_ps=...)`)
 4. Upload and form handlers call `_get_learning_context(explicit_ps_uid=from_ps)` — uses explicit value, no guessing
@@ -749,6 +773,9 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 
 | Phase | Route | Method | Who |
 |-------|-------|--------|-----|
+| **PS exercises (HTMX)** | `/learning-loop/ps/{ps_uid}/exercises` | GET | Student |
+| **PS submissions (HTMX)** | `/learning-loop/ps/{ps_uid}/submissions` | GET | Student |
+| **PS feedback (HTMX)** | `/learning-loop/ps/{ps_uid}/feedback` | GET | Student |
 | **Student assignments** | `/exercises` | GET | Student |
 | **Submission** | `/submit` | POST | Student |
 | **Submission detail** | `/gradebook/{uid}` | GET | Student (owner) |

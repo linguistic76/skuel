@@ -510,10 +510,38 @@ New report sources add `ProcessorType` values; they do not create new EntityType
 
 ---
 
+## UI Surface — The PathStep as Learning Loop Anchor
+
+The PathStep detail page (`/explore/ps/{uid}`) is the primary place where students
+experience the full learning loop. For authenticated users, three HTMX fragment
+endpoints lazy-load into the page:
+
+| Section | Endpoint | What It Shows |
+|---|---|---|
+| **Exercises** | `GET /learning-loop/ps/{ps_uid}/exercises` | Exercises linked via `RELATED_TO`, with status pills (Not Submitted / Submitted / Feedback Available / Revision Requested) and contextual action links |
+| **My Submissions** | `GET /learning-loop/ps/{ps_uid}/submissions` | User's submissions discovered via `Interaction -[:INTERACTION_DURING]-> PathStep`, with status badges and links to view submission or feedback |
+| **Feedback** | `GET /learning-loop/ps/{ps_uid}/feedback` | Same submissions filtered to those with reports, showing outcome badges (Approved / Revision Requested) |
+
+Routes wired in `adapters/inbound/learning_loop_routes.py`. Fragment renderers in
+`ui/learning_loop/` (shared with Library exercises tab). The `from_ps` parameter
+threads through exercise links so the submit form knows which PathStep the student
+navigated from, enabling deterministic Interaction context recording.
+
+**Secondary indexes:** Library (`/library/exercises`) and GradeBook (`/gradebook`)
+provide cross-PathStep views of the same data. They remain as supplementary access
+points, not the primary learning loop surface.
+
+Unauthenticated visitors see simple exercise links (title + time estimate) without
+status pills or submission/feedback sections.
+
+---
+
 ## Key Files Reference
 
 | Purpose | File |
 |---|---|
+| Learning loop UI renderers | `ui/learning_loop/` (`exercise_status.py`, `submissions_section.py`, `feedback_section.py`) |
+| Learning loop routes (GradeBook + PS fragments) | `adapters/inbound/learning_loop_routes.py` |
 | Lesson domain model | `core/models/lesson/lesson.py` |
 | Mastery + intelligence models | `core/models/pathways/mastery.py` |
 | Curriculum progress + journey models | `core/models/pathways/learning_progress.py` |
