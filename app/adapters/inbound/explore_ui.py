@@ -792,32 +792,66 @@ def create_explore_ui_routes(
             cls="prose prose-lg max-w-none",
         )
 
-        # Exercises
-        exercises_section: Any = Div()
-        exercises_result = await ps_service.get_exercises_for_path_step(uid)
-        if exercises_result.is_ok and exercises_result.value:
-            exercise_links = []
-            for ex in exercises_result.value:
-                ex_uid = ex.get("uid", "")
-                ex_title = ex.get("title") or ex_uid
-                ex_time = ex.get("estimated_time_minutes")
-                time_note = f" \u00b7 {ex_time} min" if ex_time else ""
-                exercise_links.append(
-                    Li(
-                        ButtonLink(
-                            f"{ex_title}{time_note} \u2192",
-                            href=f"/exercises/get?uid={ex_uid}&from_ps={uid}",
-                            variant=ButtonT.ghost,
-                            size=Size.sm,
-                        ),
-                        cls="list-none",
-                    )
-                )
-            exercises_section = Div(
+        # Exercises + Submissions + Feedback (learning loop sections)
+        submissions_section: Any = Div()
+        feedback_section: Any = Div()
+        if user_uid:
+            # Authenticated: HTMX lazy-loads exercises with status pills
+            exercises_section: Any = Div(
                 H3("Exercises", cls="text-base font-semibold mb-2 mt-8"),
-                Ul(*exercise_links, cls="list-none p-0 space-y-1"),
+                Div(
+                    id=f"ps-exercises-{uid}",
+                    hx_get=f"/learning-loop/ps/{uid}/exercises",
+                    hx_trigger="load",
+                    hx_swap="innerHTML",
+                ),
                 cls="border-t border-border pt-6 mt-8",
             )
+            submissions_section = Div(
+                H3("My Submissions", cls="text-base font-semibold mb-2 mt-6"),
+                Div(
+                    id=f"ps-submissions-{uid}",
+                    hx_get=f"/learning-loop/ps/{uid}/submissions",
+                    hx_trigger="load",
+                    hx_swap="innerHTML",
+                ),
+            )
+            feedback_section = Div(
+                H3("Feedback", cls="text-base font-semibold mb-2 mt-6"),
+                Div(
+                    id=f"ps-feedback-{uid}",
+                    hx_get=f"/learning-loop/ps/{uid}/feedback",
+                    hx_trigger="load",
+                    hx_swap="innerHTML",
+                ),
+            )
+        else:
+            # Unauthenticated: simple exercise links (read-only)
+            exercises_section = Div()
+            exercises_result = await ps_service.get_exercises_for_path_step(uid)
+            if exercises_result.is_ok and exercises_result.value:
+                exercise_links = []
+                for ex in exercises_result.value:
+                    ex_uid = ex.get("uid", "")
+                    ex_title = ex.get("title") or ex_uid
+                    ex_time = ex.get("estimated_time_minutes")
+                    time_note = f" \u00b7 {ex_time} min" if ex_time else ""
+                    exercise_links.append(
+                        Li(
+                            ButtonLink(
+                                f"{ex_title}{time_note} \u2192",
+                                href=f"/exercises/get?uid={ex_uid}&from_ps={uid}",
+                                variant=ButtonT.ghost,
+                                size=Size.sm,
+                            ),
+                            cls="list-none",
+                        )
+                    )
+                exercises_section = Div(
+                    H3("Exercises", cls="text-base font-semibold mb-2 mt-8"),
+                    Ul(*exercise_links, cls="list-none p-0 space-y-1"),
+                    cls="border-t border-border pt-6 mt-8",
+                )
 
         # Action buttons
         if user_uid:
@@ -862,6 +896,8 @@ def create_explore_ui_routes(
             objectives_section,
             reading_content,
             exercises_section,
+            submissions_section,
+            feedback_section,
             action_area,
             Div(tags_section, cls="border-t border-border pt-6 mt-8") if step.tags else Div(),
             EntityRelationshipsSection(entity_uid=uid, entity_type="ps"),

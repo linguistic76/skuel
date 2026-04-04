@@ -435,6 +435,41 @@ class ExerciseService(BaseService):
         self.logger.info(f"Found {len(exercises)} exercises with status for student {user_uid}")
         return Result.ok(exercises)
 
+    @with_error_handling("get_exercises_for_path_step_with_status", error_type="database")
+    async def get_exercises_for_path_step_with_status(
+        self, ps_uid: str, user_uid: UserUID
+    ) -> Result[list[ExerciseStatusRow]]:
+        """Get exercises linked to a specific PathStep with submission/feedback status.
+
+        Used by the PathStep detail page to render exercises with status pills
+        and contextual action links (Submit / View Submission / View Report).
+        """
+        result = await self.backend.get_ps_exercises_with_status(ps_uid, user_uid)
+        if result.is_error:
+            return Result.fail(result)
+
+        exercises: list[ExerciseStatusRow] = []
+        for record in result.value or []:
+            props = dict(record["exercise"])
+            uid = props.get("uid", "")
+            row: ExerciseStatusRow = {
+                "uid": uid,
+                "title": props.get("title", ""),
+                "description": props.get("description"),
+                "due_date": props.get("due_date"),
+                "group_name": record.get("group_name") or "",
+                "has_submission": bool(record.get("has_submission", False)),
+                "submission_uid": record.get("submission_uid"),
+                "submission_status": record.get("submission_status"),
+                "has_report": bool(record.get("has_report", False)),
+                "report_uid": record.get("report_uid"),
+                "report_outcome": record.get("report_outcome"),
+            }
+            exercises.append(row)
+
+        self.logger.info(f"Found {len(exercises)} exercises with status for PS {ps_uid}")
+        return Result.ok(exercises)
+
     # ========================================================================
     # FILE-BASED EXERCISE LOADING
     # ========================================================================

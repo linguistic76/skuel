@@ -2543,6 +2543,23 @@ class ExerciseStatusRow(TypedDict):
     report_outcome: str | None
 
 
+class PathStepSubmissionRow(TypedDict):
+    """Return shape for SubmissionsBackend.get_submissions_for_path_step().
+
+    A user's submissions that occurred during a specific PathStep, enriched
+    with the exercise title and report status for the learning loop UI.
+    """
+
+    uid: str
+    title: str | None
+    status: str | None
+    created_at: str | None
+    exercise_uid: str | None
+    exercise_title: str | None
+    report_uid: str | None
+    report_outcome: str | None
+
+
 class RevisionChainResult(TypedDict):
     """Return shape for RevisedExerciseBackend.get_revision_chain()."""
 

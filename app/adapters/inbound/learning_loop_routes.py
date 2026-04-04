@@ -1,10 +1,15 @@
-"""Learning Loop Routes — Orchestrator for GradeBook UI Routes
-==============================================================
+"""Learning Loop Routes — Orchestrator for GradeBook UI + PathStep Learning Loop Fragments
+===========================================================================================
 
 Wires the decomposed submission and report UI routes:
 - submissions_ui.py → /submit, /gradebook, /gradebook/{uid}, fragments (GradeBook sidebar)
 - exercise_reports_ui.py → /exercise-reports, /reports/list (GradeBook sidebar)
 - activity_reports_ui.py → /activity-reports, /submit-activity-report, fragments (GradeBook sidebar)
+
+Also provides HTMX fragment endpoints for the PathStep detail page:
+- /learning-loop/ps/{ps_uid}/exercises → exercises with status pills
+- /learning-loop/ps/{ps_uid}/submissions → user's submissions for this step
+- /learning-loop/ps/{ps_uid}/feedback → feedback/reports for this step's submissions
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -12,10 +17,15 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 from typing import Any
 
 from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.exercise_reports_ui import create_exercise_reports_ui_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
 from adapters.inbound.submissions_ui import create_submissions_ui_routes
 from core.utils.logging import get_logger
+from ui.learning_loop.exercise_status import render_exercise_list
+from ui.learning_loop.feedback_section import render_ps_feedback
+from ui.learning_loop.submissions_section import render_ps_submissions
+from ui.patterns.error_banner import render_inline_error
 
 logger = get_logger("skuel.routes.learning_loop")
 
@@ -53,5 +63,45 @@ def create_learning_loop_routes(
         activity_report_service=getattr(services, "activity_report", None),
     )
 
-    logger.info("Learning loop routes wired (submissions + reports)")
+    # ========================================================================
+    # PATHSTEP LEARNING LOOP FRAGMENTS (HTMX)
+    # ========================================================================
+
+    exercises_service = getattr(services, "exercises", None)
+    submissions_search_service = getattr(services, "submissions_search", None)
+
+    @rt("/learning-loop/ps/{ps_uid}/exercises")
+    async def get_ps_exercises(request: Request, ps_uid: str) -> Any:
+        """HTMX fragment: exercises for a PathStep with submission/feedback status."""
+        user_uid = require_authenticated_user(request)
+        if exercises_service is None:
+            return render_inline_error("Exercise service unavailable")
+        result = await exercises_service.get_exercises_for_path_step_with_status(ps_uid, user_uid)
+        if result.is_error:
+            return render_inline_error("Could not load exercises")
+        return render_exercise_list(result.value or [], from_ps=ps_uid)
+
+    @rt("/learning-loop/ps/{ps_uid}/submissions")
+    async def get_ps_submissions(request: Request, ps_uid: str) -> Any:
+        """HTMX fragment: user's submissions during this PathStep."""
+        user_uid = require_authenticated_user(request)
+        if submissions_search_service is None:
+            return render_inline_error("Submissions service unavailable")
+        result = await submissions_search_service.get_submissions_for_path_step(user_uid, ps_uid)
+        if result.is_error:
+            return render_inline_error("Could not load submissions")
+        return render_ps_submissions(result.value or [])
+
+    @rt("/learning-loop/ps/{ps_uid}/feedback")
+    async def get_ps_feedback(request: Request, ps_uid: str) -> Any:
+        """HTMX fragment: feedback/reports for this PathStep's submissions."""
+        user_uid = require_authenticated_user(request)
+        if submissions_search_service is None:
+            return render_inline_error("Submissions service unavailable")
+        result = await submissions_search_service.get_submissions_for_path_step(user_uid, ps_uid)
+        if result.is_error:
+            return render_inline_error("Could not load feedback")
+        return render_ps_feedback(result.value or [])
+
+    logger.info("Learning loop routes wired (submissions + reports + PS fragments)")
     return []
