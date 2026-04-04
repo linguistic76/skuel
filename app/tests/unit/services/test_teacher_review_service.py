@@ -403,9 +403,7 @@ class TestApproveReport:
         )
         mastery_service = _make_report_mastery_service()
         mastery_service.propagate_mastery = AsyncMock(return_value=Result.ok(2))
-        service = _make_service(
-            submissions_backend=backend, report_mastery_service=mastery_service
-        )
+        service = _make_service(submissions_backend=backend, report_mastery_service=mastery_service)
 
         result = await service.approve_report(SUBMISSION_UID, TEACHER_UID)
 
@@ -430,9 +428,7 @@ class TestApproveReport:
         )
         mastery_service = _make_report_mastery_service()
         mastery_service.propagate_mastery = AsyncMock(return_value=Result.ok(1))
-        service = _make_service(
-            submissions_backend=backend, report_mastery_service=mastery_service
-        )
+        service = _make_service(submissions_backend=backend, report_mastery_service=mastery_service)
 
         result = await service.approve_report(SUBMISSION_UID, TEACHER_UID)
 

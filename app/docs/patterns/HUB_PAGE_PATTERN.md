@@ -171,7 +171,7 @@ Each block loads 3 preview cards via HTMX from its `preview_url`. Preview endpoi
 
 **Preview endpoints:**
 - Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
-- Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`)
+- Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`, wired via `library_routes.py`)
 - GradeBook: `/api/gradebook/{section}/preview` (4 sections, split across `submissions_ui.py`, `exercise_reports_ui.py`, `activity_reports_ui.py`)
 - Student hub: `/api/teaching/students/{uid}/{section}/preview` (4 sections: pending, revision, completed, ku — in `teaching_ui.py`)
 

@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** Currently used by 42 of 46 route files (91%). Non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, curriculum_hub_routes.py. ai_routes.py uses its own config-driven pattern (AIRouteSpec).
+**Adoption:** Currently used by 42 of 47 route files (89%). Non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, curriculum_hub_routes.py, library_routes.py (hub orchestrator). ai_routes.py uses its own config-driven pattern (AIRouteSpec).
 
 ## The Pattern
 

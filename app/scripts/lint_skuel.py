@@ -468,9 +468,7 @@ class SkuelLinter:
                 cmd = ["git", "diff", "--name-only", "--cached", "--diff-filter=ACMR"]
             else:
                 cmd = ["git", "diff", "--name-only", "main...HEAD", "--diff-filter=ACMR"]
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, cwd=root_dir, timeout=5
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=root_dir, timeout=5)
             if result.returncode != 0:
                 return None
             files = []
@@ -1862,18 +1860,22 @@ Examples:
     parser.add_argument("--json", action="store_true", help="Output violations as JSON")
     parser.add_argument("--quiet", "-q", action="store_true", help="Minimal output (for CI)")
     parser.add_argument(
-        "--context", "-c", action="store_true",
+        "--context",
+        "-c",
+        action="store_true",
         help="Show code context (now default; kept for backward compat)",
     )
     parser.add_argument(
         "--no-context", action="store_true", help="Hide code context around violations"
     )
     parser.add_argument(
-        "--changed", action="store_true",
+        "--changed",
+        action="store_true",
         help="Lint only files changed vs main branch",
     )
     parser.add_argument(
-        "--staged", action="store_true",
+        "--staged",
+        action="store_true",
         help="Lint only staged files (ideal for pre-commit)",
     )
     parser.add_argument(

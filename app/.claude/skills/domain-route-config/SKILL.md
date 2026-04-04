@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob
 
 > "Configuration over code for route registration"
 
-DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. Used by 42 of 46 route files (91% adoption). Five proven pattern variants cover every route registration scenario in SKUEL. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
+DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. Used by 42 of 47 route files (89% adoption). Five proven pattern variants cover every route registration scenario in SKUEL. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
 
 ---
 
