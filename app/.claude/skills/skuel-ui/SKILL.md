@@ -439,23 +439,22 @@ MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
 Admin users see a different navbar than regular users:
 - **Left:** SKUEL logo text link → `/` (admin home hub)
 - **Center:** Empty (no text nav links)
-- **Right:** Admin avatar (→ `/`) + Sign out
-- **Mobile:** Hamburger menu with Admin (`/admin`) + Teaching (`/teaching`) links
+- **Right:** Admin avatar (→ `/`) + Sign out (icon+text)
+- **Mobile:** Hamburger menu with Admin (`/admin`) + Teaching (`/teaching`) + Sign out links
 
 The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users still redirect to `/profile`. Icon links (Knowledge, Path Steps, etc.) are hidden for admins.
 
 ### Navbar Icon Links (Regular Users)
 
-The navbar left section has 4 icon links (in order), avatar, and logout:
+The navbar left section has 4 icon links (in order) and an avatar with dropdown:
 
 | Position | Icon | Route | `page_key` | Description |
 |----------|------|-------|------------|-------------|
-| 1st | ⚛️ (emoji) | `/ku` | `"knowledge"` | Knowledge index — flat Ku list |
-| 2nd | `book` | `/path-steps` | `"path-steps"` | PathStep catalog |
-| 3rd | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook hub — container grid linking to My Submissions, Submit, Exercise Reports, Activity Reports |
-| 4th | `book-open` | `/library` | `"library"` | Library hub — container grid linking to Exercises, Resources, Ku, Path Steps |
-| — | Avatar | `/profile` | — | Click → profile; dropdown → Tasks, Goals, Habits, Events, Choices, Principles |
-| — | `log-out` | `/logout` | — | Always visible |
+| 1st | `activity` | `/activities` | `"activity"` | Activity Domains hub |
+| 2nd | `compass` | `/explore` | `"explore"` | Explore hub (public) |
+| 3rd | `book-open` | `/library` | `"library"` | Library hub (public) |
+| 4th | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook hub |
+| — | Avatar | — | — | Click → dropdown (Profile + Search + Sign out) |
 
 `/reports` redirects 301 → `/library`.
 
@@ -1095,7 +1094,7 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar; regular: 4 icon links (⚛️ Knowledge, book Path Steps, ⇄ Submissions, book-open Library) + avatar activity dropdown |
+| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: 4 icon links (Activity, Explore, Library, GradeBook) + avatar dropdown (Profile/Search/Sign out) |
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
