@@ -219,18 +219,27 @@ def _avatar_hue(name: str) -> int:
     return h
 
 
-def _logout_icon():
-    """Sign-out icon."""
-    return UkIcon("log-out", cls="size-6", aria_hidden="true")
+def _avatar_circle(current_user: str, fallback: str = "U") -> Div:
+    """Render the colored avatar circle with the user's initial."""
+    initial = current_user[0].upper() if current_user else fallback
+    hue = _avatar_hue(current_user)
+    return Div(
+        initial,
+        cls="size-8 rounded-full flex items-center justify-center font-medium text-sm",
+        style=f"background-color: hsl({hue}, 30%, 80%); color: hsl({hue}, 40%, 35%);",
+        aria_hidden="true",
+    )
 
 
-def _logout_button() -> A:
-    """Sign-out icon button that navigates to /logout."""
+def _logout_menu_item(
+    cls: str = "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
+) -> A:
+    """Sign-out link with icon and text, used in both avatar dropdown and admin section."""
     return A(
-        Span("Sign out", cls="sr-only"),
-        _logout_icon(),
+        UkIcon("log-out", cls="size-4", aria_hidden="true"),
+        Span("Sign out"),
         href="/logout",
-        cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground",
+        cls=cls,
     )
 
 
@@ -240,17 +249,9 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
     Click on avatar opens/closes the dropdown. Profile link is the first item.
     Uses Alpine.js x-data/x-show pattern (same as mobile menu) for reliable show/hide.
     """
-    initial = current_user[0].upper() if current_user else "U"
-    hue = _avatar_hue(current_user)
-
     trigger = Button(
         Span("Open user menu", cls="sr-only"),
-        Div(
-            initial,
-            cls="size-8 rounded-full flex items-center justify-center font-medium text-sm",
-            style=f"background-color: hsl({hue}, 30%, 80%); color: hsl({hue}, 40%, 35%);",
-            aria_hidden="true",
-        ),
+        _avatar_circle(current_user),
         type="button",
         cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
         **{
@@ -276,12 +277,7 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
         **{"@click": "avatarOpen = false"},
     )
 
-    logout_item = A(
-        UkIcon("log-out", cls="size-4", aria_hidden="true"),
-        Span("Sign out"),
-        href="/logout",
-        cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
-    )
+    logout_item = _logout_menu_item()
 
     dropdown_menu = Div(
         profile_item,
@@ -307,28 +303,16 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
 
 
 def _admin_profile_section(current_user: str) -> Div:
-    """Simplified profile section for admin users."""
-    initial = current_user[0].upper() if current_user else "A"
-    hue = _avatar_hue(current_user)
-
-    avatar = Div(
-        initial,
-        cls="size-8 rounded-full flex items-center justify-center font-medium text-sm",
-        style=f"background-color: hsl({hue}, 30%, 80%); color: hsl({hue}, 40%, 35%);",
-        aria_hidden="true",
-    )
-
+    """Simplified profile section for admin users (desktop only)."""
     return Div(
         A(
             Span("Go to home", cls="sr-only"),
-            avatar,
+            _avatar_circle(current_user, fallback="A"),
             href="/",
             cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
         ),
-        A(
-            "Sign out",
-            href="/logout",
-            cls="text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent",
+        _logout_menu_item(
+            cls="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent",
         ),
         cls="hidden sm:flex items-center gap-2",
     )
@@ -407,6 +391,14 @@ def create_navbar(
             ("Teaching", "/teaching/students", "teaching"),
         ]:
             mobile_icon_links.append(_nav_link(NavItem(label, href, key), active_page, mobile=True))
+        mobile_icon_links.append(
+            A(
+                UkIcon("log-out", cls="size-4", aria_hidden="true"),
+                Span("Sign out"),
+                href="/logout",
+                cls="flex items-center gap-2 rounded-md px-3 py-2 text-base font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+            )
+        )
     else:
         if is_authenticated:
             # Activity domains only shown to authenticated users
