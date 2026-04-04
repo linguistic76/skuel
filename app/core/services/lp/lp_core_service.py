@@ -363,14 +363,14 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         All context stored in path.metadata["graph_context"].
 
         Args:
-            uid: Ku UID (learning_path)
+            uid: LearningPath UID
             depth: Graph traversal depth (not used - fixed depth query)
             min_confidence: Minimum relationship confidence (not used - specialized query)
             include_relationships: Relationships to include (not used - specialized query)
             exclude_relationships: Relationships to exclude (not used - specialized query)
 
         Returns:
-            Result containing Ku (learning_path) with enriched metadata
+            Result containing LearningPath with enriched metadata
         """
         # Note: depth and min_confidence are accepted for API compatibility
         # but this implementation uses a fixed specialized query

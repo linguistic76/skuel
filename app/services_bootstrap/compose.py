@@ -970,7 +970,7 @@ async def compose_services(
             logger.info("⏭️  BatchProcessingService skipped (requires JournalOutputService)")
 
         submissions_processor = SubmissionsProcessingService(
-            ku_submission_service=submissions_service,
+            submission_service=submissions_service,
             transcription_service=core_services["transcription"],  # Simplified TranscriptionService
             content_enrichment=content_enrichment,  # For LLM formatting
             activity_extractor=activity_extractor,  # DSL entity extraction

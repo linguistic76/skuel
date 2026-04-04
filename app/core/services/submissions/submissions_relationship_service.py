@@ -108,15 +108,15 @@ class SubmissionsRelationshipService:
     # ========================================================================
 
     async def _create_temporal_relationship(
-        self, ku_uid: str, user_uid: UserUID | None, entity_type: str
+        self, submission_uid: str, user_uid: UserUID | None, entity_type: str
     ) -> int:
         """
-        Create FOLLOWS relationship to most recent previous Ku of same type.
+        Create FOLLOWS relationship to most recent previous submission of same type.
 
         Args:
-            ku_uid: UID of the new Ku
+            submission_uid: UID of the new submission
             user_uid: User identifier (None for curriculum)
-            entity_type: Type of Ku for filtering
+            entity_type: Entity type for filtering
 
         Returns:
             Count of relationships created (0 or 1)
@@ -124,7 +124,9 @@ class SubmissionsRelationshipService:
         if not user_uid:
             return 0  # CURRICULUM entities don't have temporal chains per user
 
-        result = await self.backend.create_temporal_relationship(ku_uid, user_uid, entity_type)  # type: ignore[attr-defined]
+        result = await self.backend.create_temporal_relationship(  # type: ignore[attr-defined]
+            submission_uid, user_uid, entity_type
+        )
         if result.is_error:
             return 0
         records = result.value or []
@@ -136,15 +138,15 @@ class SubmissionsRelationshipService:
 
     async def _create_thematic_relationships(
         self,
-        ku_uid: str,
+        submission_uid: str,
         user_uid: UserUID | None,
         themes: list[str],
     ) -> int:
         """
-        Create RELATED_TO relationships for Ku sharing topics.
+        Create RELATED_TO relationships for submissions sharing topics.
 
         Args:
-            ku_uid: UID of the new Ku
+            submission_uid: UID of the new submission
             user_uid: User identifier
             themes: List of themes to match
 
@@ -155,7 +157,7 @@ class SubmissionsRelationshipService:
             return 0
 
         result = await self.backend.create_thematic_relationships(  # type: ignore[attr-defined]
-            ku_uid, user_uid, themes, ", ".join(themes[:3])
+            submission_uid, user_uid, themes, ", ".join(themes[:3])
         )
         if result.is_error:
             return 0
@@ -168,7 +170,7 @@ class SubmissionsRelationshipService:
 
     async def _create_goal_relationships(
         self,
-        ku_uid: str,
+        submission_uid: str,
         processed_content: str,
         active_goals: list[dict[str, str]],
     ) -> int:
@@ -176,7 +178,7 @@ class SubmissionsRelationshipService:
         Create SUPPORTS_GOAL relationships for mentioned goals.
 
         Args:
-            ku_uid: UID of the Ku
+            submission_uid: UID of the submission
             processed_content: Processed submission content
             active_goals: List of active goals from context
 
@@ -197,7 +199,7 @@ class SubmissionsRelationshipService:
             return 0
 
         relationships = [
-            (ku_uid, goal_uid, RelationshipName.SUPPORTS_GOAL.value, None)
+            (submission_uid, goal_uid, RelationshipName.SUPPORTS_GOAL.value, None)
             for goal_uid in mentioned_goal_uids
         ]
 
@@ -217,55 +219,55 @@ class SubmissionsRelationshipService:
     # RELATIONSHIP QUERIES
     # ========================================================================
 
-    async def get_related_submissions(self, ku_uid: str) -> Result[list[str]]:
+    async def get_related_submissions(self, submission_uid: str) -> Result[list[str]]:
         """
         Get UIDs of submissions related to this one.
 
         Graph relationship: (submission)-[:RELATED_TO]->(submission)
 
         Args:
-            ku_uid: UID of the submission entity
+            submission_uid: UID of the submission entity
 
         Returns:
             Result containing list of related submission UIDs
         """
-        result = await self.backend.get_related_submission_uids(ku_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_related_submission_uids(submission_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 
         return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
 
-    async def get_supported_goals(self, ku_uid: str) -> Result[list[str]]:
+    async def get_supported_goals(self, submission_uid: str) -> Result[list[str]]:
         """
-        Get UIDs of goals supported by this Ku.
+        Get UIDs of goals supported by this submission.
 
-        Graph relationship: (ku)-[:SUPPORTS_GOAL]->(goal)
+        Graph relationship: (submission)-[:SUPPORTS_GOAL]->(goal)
 
         Args:
-            ku_uid: UID of the Ku
+            submission_uid: UID of the submission
 
         Returns:
             Result containing list of supported goal UIDs
         """
-        result = await self.backend.get_supported_goal_uids(ku_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_supported_goal_uids(submission_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 
         return Result.ok([r["uid"] for r in (result.value or []) if r["uid"]])
 
-    async def get_submission_summary(self, ku_uid: str) -> Result[dict[str, int]]:
+    async def get_submission_summary(self, submission_uid: str) -> Result[dict[str, int]]:
         """
         Get comprehensive relationship summary for a submission entity.
 
         Returns counts for all relationship types (RELATED_TO, SUPPORTS_GOAL, FOLLOWS).
 
         Args:
-            ku_uid: UID of the submission entity
+            submission_uid: UID of the submission entity
 
         Returns:
             Result containing dict with relationship counts
         """
-        result = await self.backend.get_submission_relationship_summary(ku_uid)  # type: ignore[attr-defined]
+        result = await self.backend.get_submission_relationship_summary(submission_uid)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
 

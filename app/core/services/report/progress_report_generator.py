@@ -251,15 +251,15 @@ class ProgressReportGenerator:
             )
             await publish_event(self.event_bus, event, logger)
 
-            logger.info(f"Generated progress Ku {report.uid} for {user_uid}")
+            logger.info(f"Generated progress report {report.uid} for {user_uid}")
             return Result.ok(report)
 
         except (*NEO4J_EXCEPTIONS, *LLM_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-            logger.error(f"Failed to generate progress Ku for {user_uid}: {e}")
-            return Result.fail(Errors.system(f"Failed to generate progress Ku: {e}"))
+            logger.error(f"Failed to generate progress report for {user_uid}: {e}")
+            return Result.fail(Errors.system(f"Failed to generate progress report: {e}"))
         except Exception as e:  # safety-net: catch unexpected errors
-            logger.error(f"Unexpected error generating progress Ku for {user_uid}: {e}")
-            return Result.fail(Errors.system(f"Failed to generate progress Ku: {e}"))
+            logger.error(f"Unexpected error generating progress report for {user_uid}: {e}")
+            return Result.fail(Errors.system(f"Failed to generate progress report: {e}"))
 
     # =========================================================================
     # INTELLIGENCE COLLECTION

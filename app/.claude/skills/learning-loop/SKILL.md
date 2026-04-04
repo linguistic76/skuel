@@ -145,7 +145,7 @@ they are demonstrating engagement with specific Ku content.
 
 ---
 
-## Phase 2: Exercise — The Assignment
+## Phase 2: Exercise — The Directive
 
 **What it is:** The teacher's directive. Instructions for what students should produce,
 with an LLM prompt embedded for AI-assisted feedback.
@@ -233,7 +233,7 @@ Unauthenticated visitors see simple exercise links (no status, no submissions/fe
 
 | Path | Relationship | Scope | Trigger |
 |------|-------------|-------|---------|
-| Group assignment | `(exercise)-[:FOR_GROUP]->(group)<-[:MEMBER_OF]-(user)` | `ASSIGNED` | Teacher assigns to group |
+| Group exercise | `(exercise)-[:FOR_GROUP]->(group)<-[:MEMBER_OF]-(user)` | `ASSIGNED` | Teacher assigns to group |
 | PathStep enrollment | `(ps)-[:RELATED_TO]->(exercise)` + `(user)-[:IN_PROGRESS]->(ps)` | `PERSONAL` | User enrolls in PathStep |
 
 `ExerciseService.get_student_exercises_with_status()` merges both paths and deduplicates by UID. The Library Exercises page calls this method via `GET /library/exercises` (the Library hub at `/library` links to this child page).
@@ -820,7 +820,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 
 1. **Which phase does this touch?**
    - Lesson/Ku (knowledge content) → Phase 1
-   - Exercise (assignment/template) → Phase 2
+   - Exercise (directive/template) → Phase 2
    - Submission processing → Phase 3
    - Feedback generation or display → Phase 4
    - RevisedExercise (targeted revision) → Phase 5

@@ -125,7 +125,7 @@ class NeoLabel(StrEnum):
     # Content/Processing Infrastructure
     # =========================================================================
     CONTENT_CHUNK = "ContentChunk"  # RAG chunks for semantic retrieval
-    ASSIGNMENT = "Assignment"  # Legacy — ReportProject/Assignment nodes
+    REPORT_PROJECT = "ReportProject"  # Legacy — pre-Exercise report project nodes
     REPORT_SCHEDULE = "ReportSchedule"
     TRANSCRIPTION = "Transcription"
 

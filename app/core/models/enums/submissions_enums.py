@@ -1,9 +1,9 @@
 """
-Reports Enums - Processing, Scheduling, and Assignment
-========================================================
+Reports Enums - Processing and Scheduling
+===========================================
 
 Enums for report processing pipelines, LLM configuration,
-scheduling, and project/assignment scope.
+and scheduling scope.
 """
 
 from enum import StrEnum

@@ -157,10 +157,10 @@ class TestOptionAJournalsProcessing:
         because they are NOT used after the January 2026 domain separation.
         """
         return SubmissionsProcessingService(
-            ku_submission_service=mock_submissions_service,
+            submission_service=mock_submissions_service,
             transcription_service=mock_transcription_service,
             content_enrichment=None,  # Not used - journals have their own domain
-            ku_relationship_service=None,  # Not used - journals have their own domain
+            relationship_service=None,  # Not used - journals have their own domain
             event_bus=None,
         )
 
@@ -257,7 +257,7 @@ class TestOptionAJournalsProcessing:
         )
 
         pipeline = SubmissionsProcessingService(
-            ku_submission_service=mock_submissions_service,
+            submission_service=mock_submissions_service,
             transcription_service=None,  # Not needed for text
         )
 
@@ -289,7 +289,7 @@ class TestOptionAJournalsProcessing:
         )
 
         pipeline = SubmissionsProcessingService(
-            ku_submission_service=mock_submissions_service,
+            submission_service=mock_submissions_service,
             transcription_service=mock_transcription_service,
         )
 
@@ -327,7 +327,7 @@ class TestOptionAJournalsProcessing:
         mock_service.get_submission.return_value = Result.ok(processing_ku)
 
         pipeline = SubmissionsProcessingService(
-            ku_submission_service=mock_service,
+            submission_service=mock_service,
         )
 
         # Act
@@ -360,7 +360,7 @@ class TestOptionAJournalsProcessing:
         mock_service.get_submission.return_value = Result.ok(pdf_ku)
 
         pipeline = SubmissionsProcessingService(
-            ku_submission_service=mock_service,
+            submission_service=mock_service,
         )
 
         # Act

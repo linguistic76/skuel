@@ -112,7 +112,7 @@ self.relationships = UnifiedRelationshipService(backend, LESSON_CONFIG, graph_in
 # Domain-specific Cypher lives in domain backends, not services
 # LessonBackend.get_with_context_raw() fetches full graph neighborhood:
 result = await self.backend.get_with_context_raw(uid, min_confidence)
-# KuBackend.get_usage_summary() counts lessons, path steps, children:
+# KuBackend.get_usage_summary() counts PathSteps using this Ku, MOC children, etc.:
 result = await self.backend.get_usage_summary(ku_uid)
 ```
 

@@ -216,7 +216,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
             event_uid: Event UID
 
         Returns:
-            Result[Ku] - success contains Ku, not found is an error
+            Result[Event] - success contains Event, not found is an error
         """
         return await self.get(event_uid)
 
@@ -228,7 +228,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
             user_uid: UID of the user
 
         Returns:
-            Result containing list of Ku objects
+            Result containing list of Event objects
         """
         # Use find_by with user_uid filter (UniversalNeo4jBackend pattern)
         result = await self.backend.find_by(user_uid=user_uid)
@@ -311,10 +311,10 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
         Create a calendar event and publish CalendarEventCreated event.
 
         Args:
-            entity: Ku to create
+            entity: Event to create
 
         Returns:
-            Result containing created Ku
+            Result containing created Event
 
         Events Published:
             - CalendarEventCreated: When event is successfully created
@@ -366,7 +366,7 @@ class EventsCoreService(BaseService["EventsOperations", Event]):
             updates: Dictionary of field updates
 
         Returns:
-            Result containing updated Ku
+            Result containing updated Event
 
         Events Published:
             - CalendarEventCompleted: If status changed to COMPLETED

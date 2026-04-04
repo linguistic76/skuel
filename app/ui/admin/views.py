@@ -574,61 +574,6 @@ class AdminUIComponents:
             ),
         )
 
-    @staticmethod
-    def render_user_projects_list(projects: list, _user_uid: UserUID) -> Div:
-        """Render a list of user assignments for admin user detail page.
-
-        Args:
-            projects: List of Assignment domain objects.
-            _user_uid: User UID (reserved for future linking).
-        """
-        if not projects:
-            return EmptyState(title="No report projects found")
-
-        def _project_cell_render(k: str, v: object) -> Td:
-            if k == "Name":
-                return Td(v, cls="font-medium text-sm")
-            if k == "Created":
-                return Td(v, cls="text-sm text-muted-foreground")
-            return Td(v)
-
-        body_data = []
-        for project in projects:
-            name = project.name or project.uid
-            scope = getattr(project, "scope", "personal")
-            is_active = getattr(project, "is_active", True)
-            created = ""
-            raw_created = getattr(project, "created_at", None)
-            if raw_created:
-                strftime_fn = getattr(raw_created, "strftime", None)
-                created = strftime_fn("%Y-%m-%d") if strftime_fn else str(raw_created)[:10]
-
-            body_data.append(
-                {
-                    "Name": name,
-                    "Scope": Badge(str(scope).upper(), variant=BadgeT.outline, size=Size.sm),
-                    "Status": (
-                        Badge("Active", variant=BadgeT.success, size=Size.sm)
-                        if is_active
-                        else Badge("Inactive", variant=BadgeT.ghost, size=Size.sm)
-                    ),
-                    "Created": created,
-                }
-            )
-
-        return Div(
-            P(f"{len(projects)} project(s)", cls="text-sm text-muted-foreground mb-3"),
-            Div(
-                TableFromDicts(
-                    header_data=["Name", "Scope", "Status", "Created"],
-                    body_data=body_data,
-                    body_cell_render=_project_cell_render,
-                    cls=(TableT.striped,),
-                ),
-                cls="overflow-x-auto",
-            ),
-        )
-
 
 class AdminAnalyticsComponents:
     """Analytics components for admin dashboard."""

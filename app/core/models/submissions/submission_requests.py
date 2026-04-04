@@ -37,7 +37,7 @@ class SubmissionCreateRequest(CreateRequestBase):
 
     # Derivation
     parent_entity_uid: EntityUID | None = Field(
-        None, description="Curriculum Ku this assignment is based on"
+        None, description="Exercise this submission is based on"
     )
 
     # Processing
@@ -59,7 +59,7 @@ class ActivityReportCreateRequest(CreateRequestBase):
     """Create an AI-derived report (AI_FEEDBACK type). System-initiated."""
 
     title: str = Field(min_length=1, max_length=200, description="Report title")
-    parent_entity_uid: EntityUID = Field(description="Assignment Ku this report derives from")
+    parent_entity_uid: EntityUID = Field(description="Parent entity this report derives from")
 
     # Content
     content: str | None = Field(None, description="AI-generated analysis")

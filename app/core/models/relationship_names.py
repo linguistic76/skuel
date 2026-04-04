@@ -246,7 +246,9 @@ class RelationshipName(StrEnum):
     FOLLOWS = "FOLLOWS"  # (user)-[:FOLLOWS]->(user) - Social following
     PURSUING_GOAL = "PURSUING_GOAL"  # (user)-[:PURSUING_GOAL]->(goal) - Active goals
     MEMBER_OF = "MEMBER_OF"  # (user)-[:MEMBER_OF]->(team) - Team membership
-    SHARES_WITH = "SHARES_WITH"  # (user)-[:SHARES_WITH {shared_at, role}]->(assignment|event) - Content sharing
+    SHARES_WITH = (
+        "SHARES_WITH"  # (user)-[:SHARES_WITH {shared_at, role}]->(entity) - Content sharing
+    )
 
     # =========================================================================
     # FINANCE RELATIONSHIPS

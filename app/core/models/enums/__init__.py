@@ -137,7 +137,7 @@ from .scheduling_enums import (
     TimeOfDay,
 )
 
-# Submissions enums - processing, scheduling, and assignment
+# Submissions enums - processing and scheduling
 from .submissions_enums import (
     AnalysisDepth,
     ContextEnrichmentLevel,

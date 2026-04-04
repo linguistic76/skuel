@@ -2,7 +2,7 @@
 Submissions Processing Service
 ==============================
 
-Orchestrates processing of submitted work (assignments, journals, etc.).
+Orchestrates processing of submitted work (exercises, journals, etc.).
 
 Routes submissions to appropriate processors:
 - Audio files -> TranscriptionService -> LLM formatting -> Activity Extraction
@@ -50,64 +50,64 @@ class SubmissionsProcessingService:
 
     def __init__(
         self,
-        ku_submission_service: SubmissionsService,
+        submission_service: SubmissionsService,
         transcription_service=None,
         content_enrichment=None,
-        ku_relationship_service=None,
+        relationship_service=None,
         activity_extractor=None,
         journal_output_service=None,
         event_bus=None,
     ) -> None:
         """
-        Initialize Ku processing service.
+        Initialize submissions processing service.
 
         Args:
-            ku_submission_service: SubmissionsService for status updates
+            submission_service: SubmissionsService for status updates
             transcription_service: TranscriptionService for audio transcription
             content_enrichment: ContentEnrichmentService for LLM formatting
-            ku_relationship_service: SubmissionsRelationshipService for graph relationships
+            relationship_service: SubmissionsRelationshipService for graph relationships
             activity_extractor: ActivityExtractorService for DSL-based entity extraction
             journal_output_service: JournalOutputService for je_output creation
             event_bus: Event bus for domain events (optional)
         """
-        self.ku_submission_service = ku_submission_service
+        self.submission_service = submission_service
         self.transcription_service = transcription_service
         self.content_enrichment = content_enrichment
-        self.ku_relationship_service = ku_relationship_service
+        self.relationship_service = relationship_service
         self.activity_extractor = activity_extractor
         self.journal_output_service = journal_output_service
         self.event_bus = event_bus
-        self.logger = get_logger("skuel.services.ku_processing")
+        self.logger = get_logger("skuel.services.submissions_processing")
 
     # ========================================================================
     # MAIN PROCESSING ENTRY POINT
     # ========================================================================
 
     async def process_submission(
-        self, ku_uid: str, instructions: dict[str, Any] | None = None
+        self, submission_uid: str, instructions: dict[str, Any] | None = None
     ) -> Result[Entity]:
         """
         Process an entity using appropriate processor.
 
         Routes to processor based on file type and configuration.
-        Updates Ku status throughout:
+        Updates submission status throughout:
         SUBMITTED -> QUEUED -> PROCESSING -> COMPLETED (or FAILED)
 
         Args:
-            ku_uid: Submission UID to process
+            submission_uid: Submission UID to process
             instructions: Processor-specific instructions (optional)
 
         Returns:
             Result containing processed submission
         """
-        submission_result = await self.ku_submission_service.get_submission(ku_uid)
+        submission_result = await self.submission_service.get_submission(submission_uid)
 
         if submission_result.is_error:
             return Result.fail(submission_result)
 
         submission = submission_result.value
         if not submission:
-            return Result.fail(Errors.not_found("Submission", ku_uid))
+            return Result.fail(Errors.not_found("Submission", submission_uid))
 
         if not isinstance(submission, Submission):
             return Result.fail(
@@ -127,7 +127,7 @@ class SubmissionsProcessingService:
             )
 
         # Update status to QUEUED
-        await self.ku_submission_service.update_submission_status(ku_uid, EntityStatus.QUEUED)
+        await self.submission_service.update_submission_status(submission_uid, EntityStatus.QUEUED)
 
         processing_start = datetime.now()
 
@@ -136,8 +136,8 @@ class SubmissionsProcessingService:
 
             if result.is_error:
                 error_message = result.error.user_message if result.error else "Processing failed"
-                await self.ku_submission_service.update_submission_status(
-                    ku_uid,
+                await self.submission_service.update_submission_status(
+                    submission_uid,
                     EntityStatus.FAILED,
                     error_message=error_message,
                 )
@@ -145,8 +145,8 @@ class SubmissionsProcessingService:
                 return result
 
             # Mark as completed
-            await self.ku_submission_service.update_submission_status(
-                ku_uid, EntityStatus.COMPLETED
+            await self.submission_service.update_submission_status(
+                submission_uid, EntityStatus.COMPLETED
             )
 
             # Publish processing completed event
@@ -154,7 +154,7 @@ class SubmissionsProcessingService:
             await publish_event(
                 self.event_bus,
                 SubmissionProcessingCompleted(
-                    submission_uid=ku_uid,
+                    submission_uid=submission_uid,
                     user_uid=submission.user_uid,
                     entity_type=submission.entity_type.value,
                     has_processed_content=True,
@@ -164,39 +164,41 @@ class SubmissionsProcessingService:
             )
 
             # Get updated entity
-            updated_result = await self.ku_submission_service.get_submission(ku_uid)
+            updated_result = await self.submission_service.get_submission(submission_uid)
             if updated_result.is_error:
                 return Result.fail(updated_result)
             if not updated_result.value:
-                return Result.fail(Errors.not_found("Submission", ku_uid))
+                return Result.fail(Errors.not_found("Submission", submission_uid))
             return Result.ok(updated_result.value)
 
         except (*NEO4J_EXCEPTIONS, *LLM_EXCEPTIONS) as e:
-            self.logger.error(f"Processing error for submission {ku_uid}: {e}", exc_info=True)
+            self.logger.error(
+                f"Processing error for submission {submission_uid}: {e}", exc_info=True
+            )
 
-            await self.ku_submission_service.update_submission_status(
-                ku_uid, EntityStatus.FAILED, error_message=str(e)
+            await self.submission_service.update_submission_status(
+                submission_uid, EntityStatus.FAILED, error_message=str(e)
             )
             await self._publish_processing_failed(submission, str(e))
 
             return Result.fail(
                 Errors.system(
-                    message=f"Processing failed: {e!s}", operation="process_ku", exception=e
+                    message=f"Processing failed: {e!s}", operation="process_submission", exception=e
                 )
             )
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(
-                f"Unexpected error processing submission {ku_uid}: {e}", exc_info=True
+                f"Unexpected error processing submission {submission_uid}: {e}", exc_info=True
             )
 
-            await self.ku_submission_service.update_submission_status(
-                ku_uid, EntityStatus.FAILED, error_message=str(e)
+            await self.submission_service.update_submission_status(
+                submission_uid, EntityStatus.FAILED, error_message=str(e)
             )
             await self._publish_processing_failed(submission, str(e))
 
             return Result.fail(
                 Errors.system(
-                    message=f"Processing failed: {e!s}", operation="process_ku", exception=e
+                    message=f"Processing failed: {e!s}", operation="process_submission", exception=e
                 )
             )
 
@@ -220,7 +222,7 @@ class SubmissionsProcessingService:
         self, submission: Submission, instructions: dict[str, Any] | None
     ) -> Result[Entity]:
         """Route submission to appropriate processor based on file type."""
-        await self.ku_submission_service.update_submission_status(
+        await self.submission_service.update_submission_status(
             submission.uid, EntityStatus.PROCESSING
         )
 
@@ -306,7 +308,7 @@ class SubmissionsProcessingService:
         processed_content = transcript_text
 
         # Update entity with processed content
-        update_result = await self.ku_submission_service.update_processed_content(
+        update_result = await self.submission_service.update_processed_content(
             uid=submission.uid, processed_content=processed_content
         )
 
@@ -320,7 +322,7 @@ class SubmissionsProcessingService:
 
         if is_journal:
             await self._process_journal(updated_submission, transcript_text, instructions)
-            refresh_result = await self.ku_submission_service.get_submission(submission.uid)
+            refresh_result = await self.submission_service.get_submission(submission.uid)
             if not refresh_result.is_error and refresh_result.value:
                 updated_submission = refresh_result.value
         elif instructions and instructions.get("extract_activities", False):
@@ -352,7 +354,7 @@ class SubmissionsProcessingService:
         self.logger.info(f"Processing text submission: {submission.uid}")
 
         # Step 1: Read text content
-        file_content_result = await self.ku_submission_service.get_file_content(submission.uid)
+        file_content_result = await self.submission_service.get_file_content(submission.uid)
 
         if file_content_result.is_error:
             return Result.fail(file_content_result)
@@ -360,7 +362,7 @@ class SubmissionsProcessingService:
         text_content = file_content_result.value.decode("utf-8")
 
         # Step 2: Update entity with processed content
-        update_result = await self.ku_submission_service.update_processed_content(
+        update_result = await self.submission_service.update_processed_content(
             uid=submission.uid, processed_content=text_content
         )
 
@@ -374,7 +376,7 @@ class SubmissionsProcessingService:
 
         if is_journal:
             await self._process_journal(updated_submission, text_content, instructions)
-            refresh_result = await self.ku_submission_service.get_submission(submission.uid)
+            refresh_result = await self.submission_service.get_submission(submission.uid)
             if not refresh_result.is_error and refresh_result.value:
                 updated_submission = refresh_result.value
         elif instructions and instructions.get("extract_activities", False):
@@ -494,19 +496,21 @@ class SubmissionsProcessingService:
     # ========================================================================
 
     async def reprocess_submission(
-        self, ku_uid: str, new_instructions: dict[str, Any] | None = None
+        self, submission_uid: str, new_instructions: dict[str, Any] | None = None
     ) -> Result[Entity]:
         """
-        Reprocess an existing Ku with new instructions.
+        Reprocess an existing submission with new instructions.
 
         Resets status to SUBMITTED and processes again.
 
         Args:
-            ku_uid: Ku UID
+            submission_uid: Submission UID
             new_instructions: New processing instructions
 
         Returns:
-            Result containing reprocessed Ku
+            Result containing reprocessed submission
         """
-        await self.ku_submission_service.update_submission_status(ku_uid, EntityStatus.SUBMITTED)
-        return await self.process_submission(ku_uid, new_instructions)
+        await self.submission_service.update_submission_status(
+            submission_uid, EntityStatus.SUBMITTED
+        )
+        return await self.process_submission(submission_uid, new_instructions)

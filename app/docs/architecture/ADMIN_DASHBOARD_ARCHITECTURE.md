@@ -195,7 +195,6 @@ User management UI components:
 | `render_role_filter(role)` | Role filter dropdown |
 | `render_status_filter(status)` | Status filter dropdown |
 | `render_user_reports_list(reports)` | Per-user reports table (user detail page) |
-| `render_user_projects_list(projects)` | Per-user report projects table (user detail page) |
 
 ### AdminAnalyticsComponents
 
