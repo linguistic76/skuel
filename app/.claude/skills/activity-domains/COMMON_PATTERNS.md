@@ -57,7 +57,7 @@ async def complete_task(self, uid: str) -> Result[Task]:
 
 ## Read-Focused UI Pattern
 
-Activity Domains use a read-focused UI — no CRUD forms, data enters via `/upload`. All 6 domains share a collapsible Activity sidebar (`render_activity_sidebar_page()` from `ui/activities/nav.py`) linking back to `/profile`. Activity Domains content is embedded inline in `/profile` via `ActivityHubView()`. `/activities` redirects 301 → `/profile`.
+Activity Domains use a read-focused UI — no CRUD forms, data enters via `/upload`. All 6 domains share a collapsible Activity sidebar (`render_activity_sidebar_page()` from `ui/activities/nav.py`) linking back to `/profile`. Activity Domains content is embedded inline in `/profile` via `ActivityHubView()`.
 
 ```
 /profile                   # Activity Domains embedded inline (6 HTMX lazy-loaded blocks)

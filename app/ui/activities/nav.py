@@ -1,7 +1,7 @@
 """Activity Domain sidebar navigation.
 
 Renders a collapsible sidebar with all 6 Activity Domains + hub link.
-Used on /activities hub and every individual domain page.
+Used on /profile hub and every individual domain page.
 
 Usage:
     from ui.activities.nav import render_activity_sidebar_page

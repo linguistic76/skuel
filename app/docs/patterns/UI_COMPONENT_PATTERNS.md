@@ -92,7 +92,7 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-04-03b):** Activity Domains extracted from `/profile` into dedicated `/activities` hub with `SidebarPage` sidebar. The old horizontal `ActivityDomainNav` band replaced by collapsible Activity sidebar shared across `/activities`, `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`. Avatar dropdown simplified to Profile + Sign out. Activity icon added to navbar `ICON_NAV_ITEMS`. `/profile` retains Focus/Velocity, link to `/activities`, Nous placeholder, and Settings.
 
-**Evolution (2026-04-04b):** Activity Domains content merged back into `/profile` — `ActivityHubView()` rendered inline (6 HTMX-loaded domain blocks). `/activities` now redirects 301 → `/profile`. Activity icon in navbar links to `/profile`. Avatar dropdown gains 6 Activity Domain links (Tasks, Goals, Habits, Events, Choices, Principles) between Search and Sign out. `ACTIVITY_DROPDOWN_ITEMS` re-populated for mobile menu.
+**Evolution (2026-04-04b):** Activity Domains content merged back into `/profile` — `ActivityHubView()` rendered inline (6 HTMX-loaded domain blocks). Avatar dropdown gains 6 Activity Domain links (Tasks, Goals, Habits, Events, Choices, Principles) between Search and Sign out. `ACTIVITY_DROPDOWN_ITEMS` re-populated for mobile menu. Activity icon removed from navbar `ICON_NAV_ITEMS`; `/activities` route removed entirely (no redirect).
 
 **Evolution (2026-03-30):** Tasks and Goals have active read-focused UI views at `/tasks` and `/goals` with HTMX interactions, filtering, and knowledge connections. Tasks icon (check-square) added to navbar between Knowledge and Submissions. Habits, Events, Choices, and Principles read-focused UIs are planned. Navbar order: SKUEL logo → ⚛️ (Knowledge) → Tasks → ⇄ (Submissions) → avatar → logout.
 
@@ -831,7 +831,7 @@ EmptyState(
     title="No tasks found",
     description="Create one to get started!",
     action_text="Create task",
-    action_href="/activities/tasks?view=create",
+    action_href="/tasks",
 )
 
 # Secondary section — title only

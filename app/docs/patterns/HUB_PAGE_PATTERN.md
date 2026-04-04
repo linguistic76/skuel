@@ -16,7 +16,7 @@ This document covers *how to build one*.
 
 ## Architecture
 
-**Profile is the personal overview hub** (`/profile`). It shows Focus/Velocity indicators, Activity Domains (6 HTMX lazy-loaded preview blocks inline), the Nous community feed placeholder, and Settings. The old intermediate hubs (`/curriculum`, `/study`, `/activities`) are shelved — they redirect 301 to `/profile`.
+**Profile is the personal overview hub** (`/profile`). It shows Focus/Velocity indicators, Activity Domains (6 HTMX lazy-loaded preview blocks inline), the Nous community feed placeholder, and Settings. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
 Activity Domain child pages (`/tasks`, `/goals`, etc.) use `SidebarPage` with the shared Activity sidebar, which links back to `/profile`.
 
@@ -195,7 +195,7 @@ section = HubSection("Contents", cards)
 |-----------|----------|------------|-------------|
 | `/curriculum` | `ui/curriculum/landing.py` | `_shelved/curriculum_landing/` | `/profile` (301 redirect) |
 | `/study` | `ui/study/dashboard.py` | `_shelved/study_dashboard/` | `/profile` (301 redirect) |
-| `/activities` | `adapters/inbound/activity_hub_routes.py` | — (content merged into `/profile`) | `/profile` (301 redirect) |
+| `/activities` | `adapters/inbound/activity_hub_routes.py` | — (route removed, content lives in `/profile`) | — (no redirect, route deleted) |
 
 ## File Locations
 
@@ -205,7 +205,7 @@ section = HubSection("Contents", cards)
 | Profile hub | `ui/profile/hub.py` |
 | Profile routes | `adapters/inbound/user_profile_ui.py` |
 | Activity hub view | `ui/activities/activity_hub.py` (embedded in `/profile`) |
-| Activity hub redirect | `adapters/inbound/activity_hub_routes.py` (301 → `/profile`) |
+| Activity hub redirect | — (removed; `/activities` route no longer exists) |
 | Activity sidebar | `ui/activities/nav.py` |
 | GradeBook hub view | `ui/gradebook/hub.py` |
 | GradeBook sidebar | `ui/gradebook/nav.py` |

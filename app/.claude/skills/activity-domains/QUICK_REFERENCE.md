@@ -26,7 +26,7 @@
 
 ### UI (Read-Focused Pattern)
 
-Activity Domains use a read-focused UI — data enters via `/upload`, no CRUD forms. All 6 share a collapsible Activity sidebar (`ui/activities/nav.py`) linking back to `/profile`. Activity Domains content is embedded inline in `/profile` via `ActivityHubView()`. `/activities` redirects 301 → `/profile`.
+Activity Domains use a read-focused UI — data enters via `/upload`, no CRUD forms. All 6 share a collapsible Activity sidebar (`ui/activities/nav.py`) linking back to `/profile`. Activity Domains content is embedded inline in `/profile` via `ActivityHubView()`.
 
 | Domain | Routes | Views | Events File |
 |--------|--------|-------|-------------|

@@ -30,7 +30,6 @@ from ui.layouts.nav_config import (
 
 # Mapping from icon page_key to its dropdown items
 _DROPDOWN_ITEMS_MAP: dict[str, tuple[DropdownItem, ...]] = {
-    "activities": ACTIVITY_DROPDOWN_ITEMS,
     "curriculum": CURRICULUM_DROPDOWN_ITEMS,
     "study": STUDY_DROPDOWN_ITEMS,
 }

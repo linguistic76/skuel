@@ -2,7 +2,7 @@
 
 > Use when building features for Tasks, Goals, Habits, Events, Choices, or Principles (the 6 Activity Domains).
 
-> All 6 Activity Domains have **read-focused UI** — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`), Choices (`/choices`), Principles (`/principles`). Each has list + detail views with cross-domain connection badges, `EntityRelationshipsSection`, HTMX status toggles, and filtering. All share a collapsible Activity sidebar (`SidebarPage` pattern) with hub at `/activities`. Goals and Principles use gravity-well pattern (incoming connections). Activity data enters via bulk upload at `/upload` or admin ingestion. Service facades and backends are fully active.
+> All 6 Activity Domains have **read-focused UI** — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`), Choices (`/choices`), Principles (`/principles`). Each has list + detail views with cross-domain connection badges, `EntityRelationshipsSection`, HTMX status toggles, and filtering. All share a collapsible Activity sidebar (`SidebarPage` pattern) linking back to `/profile`. Goals and Principles use gravity-well pattern (incoming connections). Activity data enters via bulk upload at `/upload` or admin ingestion. Service facades and backends are fully active.
 
 ## When to Use This Skill
 
@@ -53,7 +53,7 @@ ActivityReport UI ← Service Facade (read path)
 - **6-13 Sub-services** - Specialized functionality (core, search, intelligence, event_handler, etc.)
 - **Domain Events** - Cross-service communication
 - **Event Handler Service** - Fire-and-forget reactive handlers (`*_event_handler_service.py`) — all 6 Activity Domains have dedicated handlers; all persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points (overdue tasks, priority inflation, goal stalls, rescheduling patterns, etc.). The Learning Loop has a parallel handler (`LearningLoopEventHandlerService`) tracking submission iterations, feedback turnaround, and mastery velocity.
-- **Read-Focused UI** — All 6 domains have dedicated list + detail views with cross-domain connections and `EntityRelationshipsSection`, sharing a collapsible Activity sidebar (`ui/activities/nav.py`). Activity Domains are embedded inline in `/profile` via `ActivityHubView()`. `/activities` redirects 301 → `/profile`. Activity data also viewable via ActivityReport UI at `/activity-reports`.
+- **Read-Focused UI** — All 6 domains have dedicated list + detail views with cross-domain connections and `EntityRelationshipsSection`, sharing a collapsible Activity sidebar (`ui/activities/nav.py`). Activity Domains are embedded inline in `/profile` via `ActivityHubView()`. Activity data also viewable via ActivityReport UI at `/activity-reports`.
 
 ## Key Files Per Domain
 
@@ -73,7 +73,6 @@ core/services/{domain}_service.py  # Facade
 core/events/{domain}_events.py     # Domain events
 
 # Read-focused UI (all 6 domains + hub):
-adapters/inbound/activity_hub_routes.py  # /activities → /profile redirect (301)
 adapters/inbound/{domain}_routes.py  # Route wiring
 adapters/inbound/{domain}_ui.py      # UI Routes (list, detail, HTMX fragment)
 adapters/inbound/{domain}_api.py     # API Routes (status toggle)

@@ -50,7 +50,7 @@ GradeBook and Library follow the **hub-first pattern**: the navbar icon opens a 
 
 ### Inline Hub Content
 
-- **Activity Domains** — embedded directly in `/profile` as 6 HTMX lazy-loaded preview blocks. `/activities` redirects 301 → `/profile`. Activity sidebar (shared across `/tasks`, `/goals`, etc.) links back to `/profile`.
+- **Activity Domains** — embedded directly in `/profile` as 6 HTMX lazy-loaded preview blocks. Activity sidebar (shared across `/tasks`, `/goals`, etc.) links back to `/profile`.
 
 ### Library Data Pattern
 

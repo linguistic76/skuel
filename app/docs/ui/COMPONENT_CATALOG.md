@@ -728,7 +728,7 @@ EmptyState(
     title="No tasks found",
     description="Create one to get started!",
     action_text="Create task",
-    action_href="/activities/tasks?view=create",
+    action_href="/tasks",
 )
 
 # Secondary section (no CTA)
@@ -1227,7 +1227,7 @@ content = Div(
         title="No tasks found",
         description="Create your first task to get started",
         action_text="Create Task",
-        action_href="/activities/tasks?view=create",
+        action_href="/tasks",
     ),
 )
 ```

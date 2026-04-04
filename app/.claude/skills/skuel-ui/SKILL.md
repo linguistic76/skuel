@@ -456,14 +456,13 @@ The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users
 
 ### Navbar Icon Links (Regular Users)
 
-The navbar left section has 4 icon links (in order) and an avatar with dropdown:
+The navbar left section has 3 icon links (in order) and an avatar with dropdown:
 
 | Position | Icon | Route | `page_key` | Description |
 |----------|------|-------|------------|-------------|
-| 1st | `activity` | `/profile` | `"activity"` | Activity Domains (on /profile) |
-| 2nd | `compass` | `/explore` | `"explore"` | Explore hub (public) |
-| 3rd | `book-open` | `/library` | `"library"` | Library hub (public) |
-| 4th | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook hub |
+| 1st | `compass` | `/explore` | `"explore"` | Explore hub (public) |
+| 2nd | `book-open` | `/library` | `"library"` | Library hub (public) |
+| 3rd | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook hub |
 | — | Avatar | — | — | Click → dropdown (Profile + Search + 6 Activity links + Sign out) |
 
 `/reports` redirects 301 → `/library`.
@@ -480,7 +479,7 @@ The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hambur
 # Mobile: activity domains first, then icon nav items
 for di in ACTIVITY_DROPDOWN_ITEMS:
     mobile_icon_links.append(...)
-for item in ICON_NAV_ITEMS:  # ⚛️, 📖, ⇄, 📂
+for item in ICON_NAV_ITEMS:  # 📖, ⇄, 📂
     if item.has_dropdown:
         for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
             mobile_icon_links.append(...)
@@ -502,7 +501,7 @@ for item in ICON_NAV_ITEMS:  # ⚛️, 📖, ⇄, 📂
 
 Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. Four sidebar groups exist:
 
-- **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — 7 items (profile link + 6 domains). Used on `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`. Activity Domains content is embedded inline in `/profile`. `/activities` redirects 301 → `/profile`.
+- **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — 7 items (profile link + 6 domains). Used on `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`. Activity Domains content is embedded inline in `/profile`.
 - **Explore** — `render_explore_sidebar_page()` from `ui/explore/nav.py` — graph-centered sidebar (wider `w-96`/384px via `sidebar_width` param, no nav items, uses `extra_sidebar_sections`). Hero: `ExploreGraphView` (`ui/explore/graph.py`) — interactive Vis.js force-directed graph. Hub mode (`/explore`): user's learning universe with "You" center node + studying Kus + in-progress PSes; fetched from `GET /api/explore/graph`. Entity mode (`/explore/ku/{uid}`, `/explore/ps/{uid}`): centers on current entity with lateral relationships. Filter tabs (All/Learning/Saved) control both graph node highlighting and list section visibility. Three supporting sections below graph: Learning, Saved, Completed. Alpine component: `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`. Graph expands to full-screen JS overlay on `document.body` (Escape/backdrop click to close) — creates a second Vis.js network to escape sidebar `overflow:hidden` + `transform`. Node colors: violet for Ku, teal for PS, blue for "You". Detail pages pass `current_entity_type` for graph centering. Unauthenticated: shows graph + "Sign in to track your learning". **PathStep detail** (`/explore/ps/{uid}`) is the **learning loop anchor** — authenticated users see three HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback) served by `/learning-loop/ps/{ps_uid}/*` fragment endpoints; unauthenticated users see simple exercise links.
 - **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 4 items (My Submissions, Submit, Exercise Reports, Activity Reports). Used on child pages: `/gradebook/mysubmissions`, `/submit`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`, `/activity-reports/detail`. The hub at `/gradebook` is a container grid page (`BasePage(STANDARD)`, no sidebar) — see `ui/gradebook/hub.py`.
 - **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. The hub at `/library` is a container grid page (`BasePage(STANDARD)`, no sidebar) — see `ui/library/hub.py`.
@@ -1104,7 +1103,7 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: 4 icon links (Activity, Explore, Library, GradeBook) + avatar dropdown (Profile/Search/Sign out) |
+| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: 3 icon links (Explore, Library, GradeBook) + avatar dropdown (Profile/Search/6 Activity links/Sign out) |
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
