@@ -1,7 +1,7 @@
 """Profile hub page — live actionable hub for learning state.
 
 The /profile page is the user's personal overview: focus, velocity,
-community feed, and settings. Activity Domains live at /activities.
+Activity Domains (6 HTMX-loaded blocks), community feed, and settings.
 
 See: /docs/patterns/HUB_PAGE_PATTERN.md
 """
@@ -13,14 +13,15 @@ from typing import Any
 from fasthtml.common import A, Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
+from ui.activities.activity_hub import ActivityHubView
 from ui.patterns.empty_state import EmptyState
 
 
 def ProfileHubView(context: UserContext) -> Div:
-    """Profile hub — personal overview with links to Activity Domains."""
+    """Profile hub — personal overview with Activity Domains inline."""
     return Div(
         _personal_header(context),
-        _activity_link(),
+        ActivityHubView(),
         _nous_section(),
         _settings_link(),
     )
@@ -80,23 +81,6 @@ def _compact_row(
     return Div(
         *parts,
         cls="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors",
-    )
-
-
-def _activity_link() -> Div:
-    """Link card to the Activity Domains hub."""
-    return Div(
-        A(
-            Span("Activity Domains", cls="text-sm font-semibold text-foreground"),
-            Span(
-                " \u2014 Tasks, Goals, Habits, Events, Choices, Principles",
-                cls="text-sm text-muted-foreground",
-            ),
-            Span(" \u2192", cls="text-primary ml-1"),
-            href="/activities",
-            cls="flex items-center gap-1 no-underline hover:opacity-80 transition-opacity",
-        ),
-        cls="mb-6 py-3 px-4 rounded-lg border border-border hover:bg-muted/50 transition-colors",
     )
 
 

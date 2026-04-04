@@ -68,9 +68,15 @@ class DropdownItem:
     icon: str = ""
 
 
-# Activity domain dropdown items — REPLACED (2026-04-03)
-# Individual domain links removed; single /activities link via ICON_NAV_ITEMS
-ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
+# Activity domain dropdown items — used in mobile menu and avatar dropdown
+ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
+    DropdownItem("Tasks", "/tasks", icon="check-square"),
+    DropdownItem("Goals", "/goals", icon="target"),
+    DropdownItem("Habits", "/habits", icon="repeat"),
+    DropdownItem("Events", "/events", icon="calendar"),
+    DropdownItem("Choices", "/choices", icon="git-branch"),
+    DropdownItem("Principles", "/principles", icon="compass"),
+)
 
 
 # Curriculum domain dropdown items — SHELVED (2026-03-29)
@@ -89,7 +95,7 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
     IconNavItem(
         "Activity",
         "",
-        "/activities",
+        "/profile",
         "activity",
         has_dropdown=False,
         icon="activity",

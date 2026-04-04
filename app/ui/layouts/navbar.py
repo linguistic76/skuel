@@ -261,27 +261,53 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
         },
     )
 
+    item_cls = (
+        "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md"
+    )
+    close = {"@click": "avatarOpen = false"}
+
     profile_item = A(
         UkIcon("user", cls="size-4", aria_hidden="true"),
         Span("Profile"),
         href="/profile",
-        cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
-        **{"@click": "avatarOpen = false"},
+        cls=item_cls,
+        **close,
     )
 
     search_item = A(
         UkIcon("search", cls="size-4", aria_hidden="true"),
         Span("Search"),
         href="/search",
-        cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
-        **{"@click": "avatarOpen = false"},
+        cls=item_cls,
+        **close,
     )
+
+    # Activity domain links
+    activity_links = [
+        A(
+            UkIcon(icon, cls="size-4", aria_hidden="true"),
+            Span(label),
+            href=href,
+            cls=item_cls,
+            **close,
+        )
+        for label, href, icon in [
+            ("Tasks", "/tasks", "check-square"),
+            ("Goals", "/goals", "target"),
+            ("Habits", "/habits", "repeat"),
+            ("Events", "/events", "calendar"),
+            ("Choices", "/choices", "git-branch"),
+            ("Principles", "/principles", "compass"),
+        ]
+    ]
 
     logout_item = _logout_menu_item()
 
     dropdown_menu = Div(
         profile_item,
         search_item,
+        Div(cls="my-1 border-t border-border"),
+        *activity_links,
         Div(cls="my-1 border-t border-border"),
         logout_item,
         cls="absolute left-0 top-full mt-1 w-48 bg-background border border-border rounded-lg shadow-lg py-1 z-50",
