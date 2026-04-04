@@ -401,17 +401,35 @@ app, rt = fast_app(hdrs=(*monster_headers(), *pwa_headers()))
 
 ### `build_head()` — Canonical `<head>` for Full Documents
 
-Pages that return complete `Html()` documents (rather than partial HTMX fragments) use `build_head()` from `base_page.py`. This is the **single source of truth** for all `<head>` content — `BasePage` delegates to it. Never construct a `Head(...)` manually.
+Pages that return complete `Html()` documents (rather than partial HTMX fragments) use `build_head()` from `base_page.py`. This is the **single source of truth** for all `<head>` content — `BasePage` and `AuthPage` both delegate to it. Never construct a `Head(...)` manually. Never hand-assemble `<link>` tags in raw HTML strings.
+
+`build_head()` loads MonsterUI from **local vendor files** (`static/vendor/monsterui/`) via `BRAND_THEME.local_headers()` — no CDN dependency.
 
 ```python
 from ui.layouts.base_page import build_head
 
-# Used internally by BasePage
+# Used internally by BasePage and AuthPage
 Html(
     build_head("Page Title", extra_css=["/static/css/calendar.css"]),
     Body(content),
 )
 ```
+
+### `AuthPage()` — Unauthenticated Pages
+
+Login, registration, and landing pages use `AuthPage()` instead of `BasePage()`. It loads the full MonsterUI CSS stack via `build_head()` but renders no navbar, no modals, no toasts, no PWA components.
+
+```python
+from ui.layouts.base_page import AuthPage
+
+# Login page route handler
+return AuthPage(
+    login_form_content,  # FT component tree
+    title="Sign In",
+)
+```
+
+Auth page content uses the same SKUEL component wrappers as the rest of the app (`LabelInput`, `Button`, `Card`, `Checkbox`). This ensures consistent styling — no parallel CSS classes, no raw HTML strings.
 
 ---
 

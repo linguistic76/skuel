@@ -415,6 +415,22 @@ Theme selection is available on `/profile/settings` (Display & Appearance sectio
 4. **Design tokens over magic numbers** — `Container.STANDARD` not `max-w-6xl mx-auto` repeated
 5. **`cls` parameter for extensibility** — components accept extra classes via `cls` parameter
 
+## CSS Loading Architecture
+
+MonsterUI orchestrates three CSS frameworks loaded from **local vendor files** (`static/vendor/monsterui/`):
+
+| Framework | Classes | Loaded From |
+|-----------|---------|-------------|
+| **FrankenUI** | `uk-*` (uk-input, uk-btn, uk-card) | `franken_css.js` |
+| **DaisyUI** | `.btn`, `.card`, `.input` | `daisyui.js` |
+| **Tailwind** | Utilities (flex, p-4, etc.) | `tailwind.css` |
+
+**All pages load CSS through `build_head()`** — never hand-assemble `<link>` tags. Two layout functions:
+- `BasePage()` — authenticated pages (navbar + chrome)
+- `AuthPage()` — unauthenticated pages (login, register — no navbar)
+
+`output.css` is a pre-compiled Tailwind+DaisyUI file for build tooling — NOT loaded by `build_head()`.
+
 ## Anti-Patterns
 
 ```python
@@ -429,6 +445,12 @@ Div(cls="max-w-6xl mx-auto")  # Use Container.STANDARD
 
 # ❌ Inconsistent spacing
 Div(cls="p-5")  # Use p-4 or p-6 (standard scale)
+
+# ❌ Raw HTML strings for pages (NotStr with <link> tags)
+NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()
+
+# ❌ Custom CSS classes to replicate framework styling
+.skuel-input { border: 1px solid... }  # Use LabelInput() — it generates uk-input
 ```
 
 ## Key Files

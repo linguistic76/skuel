@@ -35,13 +35,23 @@ return BasePage(
 )
 ```
 
-**Never build custom HTML structure** — no bare `Html(Head(...), Body(...))`. Always use `BasePage`. If a custom layout genuinely cannot use `BasePage`, use `build_head()` for the `<head>` — never construct it manually.
+**Never build custom HTML structure** — no bare `Html(Head(...), Body(...))`. Two layout functions exist:
+- `BasePage()` — authenticated pages (navbar + chrome)
+- `AuthPage()` — unauthenticated pages (login, register — no navbar, no chrome)
+
+Both load CSS through `build_head()`. Never construct a `Head(...)` manually or hand-assemble `<link>` tags.
 
 ```python
-# For custom layouts that can't use BasePage:
-from ui.layouts.base_page import build_head
-Html(build_head("Title", extra_css=["/static/css/calendar.css"]), Body(...))
+# Authenticated pages (90%+ of the app):
+from ui.layouts.base_page import BasePage
+return BasePage(content, title="Tasks", request=request, active_page="tasks")
+
+# Unauthenticated pages (login, register, landing):
+from ui.layouts.base_page import AuthPage
+return AuthPage(login_content, title="Sign In")
 ```
+
+Auth pages use the same SKUEL component wrappers (`LabelInput`, `Button`, `Card`) — no raw HTML strings, no `NotStr`.
 
 ### Page Types
 

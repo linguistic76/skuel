@@ -501,12 +501,15 @@ type Scorer[T] = Callable[[T], Score]
 
 ## UI Component Pattern
 
-**Core Principle:** "BasePage for consistency, custom layouts for special cases"
+**Core Principle:** "BasePage for consistency, AuthPage for unauthenticated flows"
 
-| Page Type | Use Case |
-|-----------|----------|
-| STANDARD | Most pages (centered content) |
-| CUSTOM | Full-width, page manages layout (SidebarPage) |
+| Layout | Use Case |
+|--------|----------|
+| `BasePage(STANDARD)` | Most pages (centered content, navbar) |
+| `BasePage(CUSTOM)` | Full-width, page manages layout (SidebarPage) |
+| `AuthPage()` | Unauthenticated pages (login, register, landing — no navbar/chrome) |
+
+All three load CSS through `build_head()` (local MonsterUI vendor files). Never hand-assemble `<link>` tags or use `NotStr` for full HTML documents.
 
 - Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, Static in `/static/`
 - **Admin navbar:** SKUEL logo (left, → `/`) + empty center + avatar (→ `/`) + Sign out (icon+text). Admin home hub at `/` shows two cards: Admin (`/admin`) + Teaching (`/teaching/students`). Mobile: hamburger with Admin + Teaching + Sign out links. Icon links hidden for admins.
