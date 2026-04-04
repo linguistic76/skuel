@@ -2456,7 +2456,7 @@
                         return '/api/explore/graph';
                     }
                     // Map explore entity types to API domain names
-                    var domainMap = { ku: 'ku', ps: 'path-steps' };
+                    var domainMap = { ku: 'ku', ps: 'ps' };
                     var domain = domainMap[this.entity_type] || this.entity_type;
                     return '/api/' + domain + '/' + this.entity_uid + '/lateral/graph?depth=2';
                 },
