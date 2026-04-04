@@ -714,9 +714,28 @@ Script(src="/static/vendor/vis-network/vis-network.min.js"),
 
 ---
 
+## Explore Sidebar Graph (April 2026)
+
+The lateral relationship graph infrastructure was extended to power the **Explore sidebar graph** — an interactive Vis.js graph hero element in the Explore sidebar.
+
+**Distinction from `EntityRelationshipsSection`:**
+
+| | EntityRelationshipsSection | ExploreGraphView |
+|---|---|---|
+| **Location** | Domain detail pages (Tasks, Goals, etc.) | Explore sidebar (`/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`) |
+| **Component** | `ui/patterns/relationships/` | `ui/explore/graph.py` |
+| **Alpine** | `relationshipGraph` | `exploreGraph` |
+| **Modes** | Entity-centered only | Hub (learning universe) + Entity-centered |
+| **Click nav** | `/{domain}/{id}` | `/explore/{type}/{id}` |
+| **Extras** | Blocking chain + alternatives grid | Filter tabs (All/Learning/Saved) + full-screen overlay |
+| **Width** | 384px height in content area | 260px height in 384px sidebar, expandable to full screen |
+
+**Key files:** `ui/explore/graph.py`, `exploreGraph` component in `static/js/skuel.js`, `GET /api/explore/graph` endpoint in `adapters/inbound/explore_ui.py`.
+
 ## See Also
 
 - `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` - Core graph modeling — lateral types, service API, Cypher patterns
+- `/docs/ui/COMPONENT_CATALOG.md` - ExploreGraphView component documentation
 - `/PHASE5_COMPLETE.md` - Implementation completion details
 - `/PHASE5_MANUAL_QA_CHECKLIST.md` - Testing guide
 - `/.claude/skills/js-alpine/` - Alpine.js patterns
@@ -724,7 +743,7 @@ Script(src="/static/vendor/vis-network/vis-network.min.js"),
 
 ---
 
-**Status:** ✅ Complete - All 9 domains integrated
+**Status:** ✅ Complete - All 9 domains integrated + Explore sidebar graph
 **Test Coverage:** 100% (40 automated tests)
 **Deployment:** Production-ready
-**Last Updated:** 2026-02-01
+**Last Updated:** 2026-04-04

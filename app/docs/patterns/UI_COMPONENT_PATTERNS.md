@@ -96,6 +96,8 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-04-03):** Admin accounts redirect to `/` after login instead of `/admin`. The `/` route renders an admin home hub with two cards (Admin → `/admin`, Teaching → `/teaching`). SKUEL logo in navbar left section links to `/`. "Admin Dashboard" and "Teaching" text links removed from navbar center. Admin navbar: SKUEL logo (left) → empty center → avatar + logout with icon (right). Mobile menu has explicit Admin + Teaching + Sign out links.
 
+**Evolution (2026-04-04):** Explore sidebar evolved from text-only "My Learning" sidebar to **graph-centered sidebar**. Hero: `ExploreGraphView` (`ui/explore/graph.py`) — interactive Vis.js force-directed graph with hub mode (learning universe) and entity mode (lateral relationships). Filter tabs (All/Learning/Saved) control both graph node highlighting and list visibility. Sidebar widened to `w-96` (384px) via new `sidebar_width` param on `SidebarPage`. Alpine component: `exploreGraph` in `skuel.js`. API: `GET /api/explore/graph`. Graph expands to full-screen CSS overlay.
+
 **Background Convention (2026-02-05):** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
 
 ### BasePage Usage
@@ -138,7 +140,7 @@ All sidebar pages (Activity Domains, Explore, GradeBook, Library, Teaching) use 
 
 **Key Features:**
 - One component for all 5 sidebar pages
-- Desktop: Fixed sidebar (256px) with smooth collapse to 48px edge
+- Desktop: Fixed sidebar (default 256px, configurable via `sidebar_width` param — Explore uses `w-96`/384px for graph) with smooth collapse to 48px edge
 - Mobile: Horizontal MonsterUI tabs (no drawer/overlay)
 - Alpine.js `collapsibleSidebar` + `Alpine.store()` for shared reactive state
 - localStorage persistence of collapsed state
@@ -168,8 +170,9 @@ return await SidebarPage(
 ```
 
 **Extension Points:**
-- `extra_sidebar_sections` — additional content below nav items (KU uses for HTMX MOC list)
+- `extra_sidebar_sections` — additional content below nav items (Explore uses for graph hero + filtered lists)
 - `item_renderer` — custom render function for complex items (Profile uses for badges)
+- `sidebar_width` — custom width class (`w-64` default, `w-80`, `w-96`). Explore uses `w-96` (384px) to accommodate the Vis.js graph hero. Width config auto-derives collapse offset and content margin.
 - `description` field on SidebarItem — two-line layout (Askesis uses for subtitles)
 
 **Files:**

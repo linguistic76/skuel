@@ -914,6 +914,41 @@ RelationshipGraphView(
 )
 ```
 
+### ExploreGraphView(mode, entity_uid, entity_type)
+
+**Location:** `/ui/explore/graph.py`
+
+Interactive Vis.js graph for the Explore sidebar. Distinct from `RelationshipGraphView` — designed for sidebar navigation with filter tabs and full-screen expansion.
+
+**Parameters:**
+- `mode: str` - `'hub'` (learning universe) or `'entity'` (entity-centered lateral graph)
+- `entity_uid: str` - Entity UID (entity mode only)
+- `entity_type: str` - `'ku'` or `'ps'` (entity mode only)
+
+**Alpine Component:** `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`
+
+**Features:**
+- Hub mode: "You" center node + studying Kus + in-progress PSes (`GET /api/explore/graph`)
+- Entity mode: reuses existing lateral graph API (`GET /api/{domain}/{uid}/lateral/graph`)
+- Filter tabs (All/Learning/Saved) dim non-matching nodes
+- Full-screen CSS overlay expansion (Escape to close)
+- Node colors: violet (#8B5CF6) for Ku, teal (#14B8A6) for PS, blue (#3B82F6) for "You"
+- Click-to-navigate maps to `/explore/ku/{id}` and `/explore/ps/{id}`
+
+**Examples:**
+```python
+from ui.explore.graph import ExploreGraphView
+
+# Hub mode — learning universe
+ExploreGraphView(mode="hub")
+
+# Entity mode — centered on Ku
+ExploreGraphView(mode="entity", entity_uid="ku_abc", entity_type="ku")
+
+# Entity mode — centered on PathStep
+ExploreGraphView(mode="entity", entity_uid="ps:step_1", entity_type="ps")
+```
+
 ---
 
 ## Other Patterns

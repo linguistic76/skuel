@@ -77,6 +77,15 @@ This architecture enables:
 - Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
 - Curriculum (3): KU, LS, LP
 
+✅ **Explore sidebar graph** (April 2026):
+- `ExploreGraphView` (`ui/explore/graph.py`) — graph hero in Explore sidebar
+- Alpine component: `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`
+- Hub mode: user's learning universe ("You" center + studying Kus + in-progress PSes)
+- Entity mode: lateral relationship graph centered on current Ku/PS
+- Filter tabs (All/Learning/Saved) dim/highlight nodes
+- Full-screen CSS overlay expansion (Escape to close)
+- API: `GET /api/explore/graph` returns Vis.js JSON for hub mode
+
 ✅ **40/40 automated tests passing**
 ✅ **92 API routes verified**
 ✅ **Zero breaking changes** in Phase 5 rollout
@@ -1089,7 +1098,35 @@ function showContextMenu(position, nodeId) {
 
 ## Common Use Cases
 
-Real-world examples from SKUEL's 9 deployed domains.
+Real-world examples from SKUEL's deployed domains.
+
+### Use Case 0: Explore Sidebar Graph Navigation
+
+**Scenario:** User is on the Explore hub or a Ku/PS detail page. The sidebar shows an interactive graph of their learning universe (hub) or the current entity's relationships (detail). Clicking a node navigates to that entity.
+
+**Component:** `ExploreGraphView` (`ui/explore/graph.py`)
+
+**Alpine Component:** `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`
+
+**Implementation:**
+
+```python
+from ui.explore.graph import ExploreGraphView
+
+# Hub mode — learning universe
+graph = ExploreGraphView(mode="hub")
+
+# Entity mode — centered on specific Ku/PS
+graph = ExploreGraphView(mode="entity", entity_uid="ku_abc", entity_type="ku")
+```
+
+**Key differences from `relationshipGraph`:**
+- Click navigation maps to `/explore/ku/{id}` and `/explore/ps/{id}` (Explore-aware)
+- Filter tabs (All/Learning/Saved) dim non-matching nodes to 15% opacity
+- Full-screen CSS overlay expansion (backdrop + Escape to close)
+- Node colors: violet (#8B5CF6) for Ku, teal (#14B8A6) for PS, blue (#3B82F6) for "You"
+- Hub mode uses `GET /api/explore/graph`; entity mode uses existing lateral graph API
+- Compact physics settings tuned for 384px sidebar width
 
 ### Use Case 1: Task Blocking Chain Visualization
 
