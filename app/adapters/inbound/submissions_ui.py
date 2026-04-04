@@ -242,9 +242,7 @@ def create_submissions_ui_routes(
         if teacher_review_service:
             history_result = await teacher_review_service.get_report_history(uid)
             if not history_result.is_error and history_result.value:
-                return render_error_banner(
-                    "Cannot delete a submission that has received feedback"
-                )
+                return render_error_banner("Cannot delete a submission that has received feedback")
 
         delete_result = await submissions_service.delete_submission_with_file(uid)
         if delete_result.is_error:

@@ -2402,6 +2402,261 @@
             };
         });
 
+        // ---------------------------------------------------------------------
+        // Explore Graph Component — sidebar graph with filters + expand
+        // ---------------------------------------------------------------------
+        /**
+         * Interactive graph for the Explore sidebar. Shows entity relationships
+         * with filter tabs (Learning/Saved/All) and full-screen overlay expansion.
+         *
+         * @param {string} mode - 'hub' (learning universe) or 'entity' (entity-centered)
+         * @param {string} entity_uid - Entity UID (ignored when mode='hub')
+         * @param {string} entity_type - 'ku' or 'ps' (ignored when mode='hub')
+         *
+         * @example
+         * <div x-data="exploreGraph('entity', 'ku_abc', 'ku')" x-init="init()">
+         *   <div id="explore-graph-container"></div>
+         * </div>
+         */
+        Alpine.data('exploreGraph', function(mode, entity_uid, entity_type) {
+            return {
+                mode: mode || 'hub',
+                entity_uid: entity_uid || '',
+                entity_type: entity_type || '',
+                network: null,
+                graphData: null,
+                loading: false,
+                error: null,
+                filter: 'all',
+                expanded: false,
+
+                // Node color map by entity type
+                NODE_COLORS: {
+                    ku: { background: '#8B5CF6', border: '#7C3AED', highlight: { background: '#A78BFA', border: '#7C3AED' } },
+                    ps: { background: '#14B8A6', border: '#0D9488', highlight: { background: '#2DD4BF', border: '#0D9488' } },
+                    you: { background: '#3B82F6', border: '#2563EB', highlight: { background: '#60A5FA', border: '#2563EB' } },
+                    default: { background: '#6B7280', border: '#4B5563', highlight: { background: '#9CA3AF', border: '#4B5563' } }
+                },
+
+                init: function() {
+                    this.loadGraph();
+
+                    // Escape key closes expanded view
+                    var self = this;
+                    document.addEventListener('keydown', function(e) {
+                        if (e.key === 'Escape' && self.expanded) {
+                            self.collapseGraph();
+                        }
+                    });
+                },
+
+                getApiUrl: function() {
+                    if (this.mode === 'hub') {
+                        return '/api/explore/graph';
+                    }
+                    // Map explore entity types to API domain names
+                    var domainMap = { ku: 'ku', ps: 'path-steps' };
+                    var domain = domainMap[this.entity_type] || this.entity_type;
+                    return '/api/' + domain + '/' + this.entity_uid + '/lateral/graph?depth=2';
+                },
+
+                loadGraph: async function() {
+                    var self = this;
+                    self.loading = true;
+                    self.error = null;
+
+                    try {
+                        var response = await fetch(self.getApiUrl());
+                        if (!response.ok) {
+                            throw new Error('HTTP ' + response.status);
+                        }
+                        self.graphData = await response.json();
+                        self.renderNetwork();
+                    } catch (err) {
+                        console.error('Failed to load explore graph:', err);
+                        self.error = 'Failed to load graph';
+                    } finally {
+                        self.loading = false;
+                    }
+                },
+
+                renderNetwork: function() {
+                    var container = document.getElementById('explore-graph-container');
+                    if (!container) return;
+
+                    if (this.network) {
+                        this.network.destroy();
+                    }
+
+                    if (typeof vis === 'undefined' || !vis.Network) {
+                        this.error = 'Graph library not loaded';
+                        return;
+                    }
+
+                    var self = this;
+                    var data = this.graphData;
+                    if (!data || !data.nodes) return;
+
+                    // Style nodes by entity type
+                    var styledNodes = data.nodes.map(function(node) {
+                        var nodeType = (node.type || '').toLowerCase();
+                        // Map Neo4j labels to simple types
+                        if (nodeType === 'pathstep' || nodeType === 'path_step') nodeType = 'ps';
+                        var isCenter = (node.id === self.entity_uid) || (node.group === 'center');
+                        var colors = self.NODE_COLORS[nodeType] || self.NODE_COLORS.default;
+
+                        if (isCenter && self.mode === 'hub') {
+                            colors = self.NODE_COLORS.you;
+                        }
+
+                        return Object.assign({}, node, {
+                            color: colors,
+                            size: isCenter ? 24 : 14,
+                            font: {
+                                size: isCenter ? 14 : 11,
+                                color: '#64748B',
+                                strokeWidth: 2,
+                                strokeColor: '#ffffff'
+                            },
+                            borderWidth: isCenter ? 3 : 1.5,
+                            // Store metadata for filtering
+                            _entityType: nodeType,
+                            _learningState: node.learning_state || null,
+                            _isPinned: node.is_pinned || false
+                        });
+                    });
+
+                    // Style edges
+                    var styledEdges = (data.edges || []).map(function(edge) {
+                        return Object.assign({}, edge, {
+                            width: 1.5,
+                            color: Object.assign({ opacity: 0.6 }, edge.color || {}),
+                            smooth: { type: 'continuous' }
+                        });
+                    });
+
+                    // Vis.js options — compact for sidebar
+                    var options = {
+                        nodes: {
+                            shape: 'dot',
+                            font: { size: 11, color: '#64748B', strokeWidth: 2, strokeColor: '#fff' }
+                        },
+                        edges: {
+                            width: 1.5,
+                            smooth: { type: 'continuous' }
+                        },
+                        physics: {
+                            forceAtlas2Based: {
+                                gravitationalConstant: -40,
+                                centralGravity: 0.015,
+                                springLength: 80,
+                                springConstant: 0.06
+                            },
+                            maxVelocity: 30,
+                            solver: 'forceAtlas2Based',
+                            timestep: 0.35,
+                            stabilization: { iterations: 100 }
+                        },
+                        interaction: {
+                            hover: true,
+                            tooltipDelay: 300,
+                            zoomView: true,
+                            dragView: true
+                        },
+                        layout: {
+                            improvedLayout: true
+                        }
+                    };
+
+                    var visData = {
+                        nodes: new vis.DataSet(styledNodes),
+                        edges: new vis.DataSet(styledEdges)
+                    };
+
+                    this.network = new vis.Network(container, visData, options);
+                    this._visNodes = visData.nodes;
+                    this._visEdges = visData.edges;
+
+                    // Click → navigate to entity in Explore
+                    this.network.on('click', function(params) {
+                        if (params.nodes.length > 0) {
+                            var nodeId = params.nodes[0];
+                            var node = styledNodes.find(function(n) { return n.id === nodeId; });
+                            if (node && node.id !== self.entity_uid && node.group !== 'center') {
+                                var type = node._entityType;
+                                if (type === 'ku' || type === 'ps') {
+                                    window.location.href = '/explore/' + type + '/' + node.id;
+                                }
+                            }
+                        }
+                    });
+
+                    // Hover cursor
+                    this.network.on('hoverNode', function() { container.style.cursor = 'pointer'; });
+                    this.network.on('blurNode', function() { container.style.cursor = 'default'; });
+                },
+
+                setFilter: function(filterName) {
+                    this.filter = filterName;
+                    this.applyFilter();
+                },
+
+                applyFilter: function() {
+                    if (!this._visNodes) return;
+
+                    var self = this;
+                    this._visNodes.forEach(function(node) {
+                        var isCenter = (node.id === self.entity_uid) || (node.group === 'center');
+                        var match = true;
+
+                        if (self.filter === 'learning') {
+                            match = isCenter || (node._learningState === 'studying' || node._learningState === 'in_progress');
+                        } else if (self.filter === 'saved') {
+                            match = isCenter || node._isPinned;
+                        }
+                        // 'all' — everything matches
+
+                        var colors = self.NODE_COLORS[node._entityType] || self.NODE_COLORS.default;
+                        if (isCenter && self.mode === 'hub') colors = self.NODE_COLORS.you;
+
+                        self._visNodes.update({
+                            id: node.id,
+                            opacity: match ? 1.0 : 0.15,
+                            font: { color: match ? '#64748B' : '#CBD5E1' },
+                            color: match ? colors : {
+                                background: '#E2E8F0',
+                                border: '#CBD5E1',
+                                highlight: { background: '#E2E8F0', border: '#CBD5E1' }
+                            }
+                        });
+                    });
+                },
+
+                expandGraph: function() {
+                    this.expanded = true;
+                    var self = this;
+                    // Let Alpine render the overlay, then resize network
+                    this.$nextTick(function() {
+                        if (self.network) {
+                            self.network.redraw();
+                            self.network.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
+                        }
+                    });
+                },
+
+                collapseGraph: function() {
+                    this.expanded = false;
+                    var self = this;
+                    this.$nextTick(function() {
+                        if (self.network) {
+                            self.network.redraw();
+                            self.network.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
+                        }
+                    });
+                }
+            };
+        });
+
     });
 
 })();

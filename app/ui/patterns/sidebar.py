@@ -39,6 +39,15 @@ if TYPE_CHECKING:
 
     from adapters.inbound.fasthtml_types import Request
 
+# Sidebar width → (margin class, collapse translate).
+# w-64=256px, w-80=320px, w-96=384px. Collapse leaves 12px (w-12) visible.
+_SIDEBAR_WIDTH_CONFIG: dict[str, tuple[str, str]] = {
+    "w-64": ("lg:ml-64", "-translate-x-52"),       # 256-48=208px offset
+    "w-80": ("lg:ml-80", "-translate-x-[308px]"),   # 320-12=308px offset
+    "w-96": ("lg:ml-96", "-translate-x-[372px]"),   # 384-12=372px offset
+}
+_SIDEBAR_MARGIN_MAP: dict[str, str] = {k: v[0] for k, v in _SIDEBAR_WIDTH_CONFIG.items()}
+
 
 @dataclass
 class SidebarItem:
@@ -272,6 +281,7 @@ def SidebarNav(
     title_prefix: "FT | None" = None,
     mobile_item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     title_icon: str = "",
+    sidebar_width: str = "w-64",
 ) -> "FT":
     """Build sidebar navigation (desktop) + horizontal tabs (mobile).
 
@@ -291,6 +301,10 @@ def SidebarNav(
     Returns:
         Div containing both desktop sidebar and mobile tabs
     """
+    _margin_cls, collapse_translate = _SIDEBAR_WIDTH_CONFIG.get(
+        sidebar_width, ("lg:ml-64", "-translate-x-52")
+    )
+
     renderer = item_renderer or _default_item_renderer
 
     # --- Desktop sidebar (hidden below lg:) ---
@@ -358,10 +372,10 @@ def SidebarNav(
             ),
             cls="h-full relative overflow-y-auto",
         ),
-        cls="hidden lg:block fixed top-16 left-0 bottom-0 w-64 bg-background"
+        cls=f"hidden lg:block fixed top-16 left-0 bottom-0 {sidebar_width} bg-background"
         " border-r border-border z-40 transition-transform duration-300"
         " overflow-hidden",
-        **{":class": "collapsed ? '-translate-x-52' : 'translate-x-0'"},
+        **{":class": f"collapsed ? '{collapse_translate}' : 'translate-x-0'"},
         role="navigation",
         aria_label=f"{title} sidebar",
         hx_get="/api/sidebar/badges",
@@ -431,6 +445,7 @@ async def SidebarPage(
     mobile_item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     alpine_state: str = "",
     title_icon: str = "",
+    sidebar_width: str = "w-64",
 ) -> "FT":
     """Create a full page with collapsible sidebar navigation.
 
@@ -457,6 +472,7 @@ async def SidebarPage(
         title_prefix=title_prefix,
         mobile_item_renderer=mobile_item_renderer,
         title_icon=title_icon,
+        sidebar_width=sidebar_width,
     )
 
     collapsed_default = str(default_collapsed).lower()
@@ -475,11 +491,11 @@ async def SidebarPage(
                 content,
                 cls="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6",
             ),
-            cls="lg:ml-64 lg:transition-[margin-left] lg:duration-300 min-h-[calc(100vh-64px)]",
+            cls=f"{_SIDEBAR_MARGIN_MAP.get(sidebar_width, 'lg:ml-64')} lg:transition-[margin-left] lg:duration-300 min-h-[calc(100vh-64px)]",
             id="sidebar-content",
             **{
                 "x-data": f"collapsibleSidebar('{storage_key}', {collapsed_default})",
-                ":class": "collapsed ? 'lg:ml-12' : 'lg:ml-64'",
+                ":class": f"collapsed ? 'lg:ml-12' : '{_SIDEBAR_MARGIN_MAP.get(sidebar_width, 'lg:ml-64')}'",
             },
         ),
         **wrapper_attrs,

@@ -8,6 +8,7 @@ in a discovery-first bento card layout with search and filtering.
 Routes:
 - GET  /explore              — Discovery index with search + bento card grid
 - GET  /api/explore/search   — HTMX fragment: filtered card grid
+- GET  /api/explore/graph    — Hub learning universe graph (Vis.js JSON)
 - GET  /explore/ku/{uid}     — Ku detail page with sidebar
 - GET  /explore/ps/{uid}     — PathStep detail page with sidebar
 """
@@ -517,6 +518,96 @@ def create_explore_ui_routes(
         )
 
     # -----------------------------------------------------------------
+    # GET /api/explore/graph — Hub learning universe graph (Vis.js format)
+    # -----------------------------------------------------------------
+
+    @rt("/api/explore/graph")
+    async def explore_graph(request: Request) -> Any:
+        """Return the user's learning universe as Vis.js {nodes, edges} JSON.
+
+        Shows studying Kus + in-progress PSes as nodes, with USES_KU
+        edges between PathSteps and their composed Kus. Unauthenticated
+        users get an empty graph.
+        """
+        from starlette.responses import JSONResponse
+
+        nodes: list[dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
+
+        if not is_authenticated(request):
+            return JSONResponse({"nodes": nodes, "edges": edges})
+
+        user_uid = require_authenticated_user(request)
+
+        # Gather user's learning entities
+        studying_ku_uids: list[str] = []
+        in_progress_ps_uids: list[str] = []
+
+        if ku_service:
+            states_result = await ku_service.get_user_learning_states(user_uid)
+            if states_result.is_ok and states_result.value:
+                for rec in states_result.value:
+                    ku_uid = rec.get("uid", "")
+                    ku_title = rec.get("title", ku_uid)
+                    state = "studying" if rec.get("is_studying") else "understood"
+                    if rec.get("is_studying") or rec.get("is_understood"):
+                        studying_ku_uids.append(ku_uid)
+                        nodes.append({
+                            "id": ku_uid,
+                            "label": ku_title,
+                            "type": "ku",
+                            "group": "related",
+                            "learning_state": state,
+                            "is_pinned": False,
+                        })
+
+        if ps_service:
+            in_progress_result = await ps_service.mastery.get_in_progress_step_uids(user_uid)
+            if not in_progress_result.is_error and in_progress_result.value:
+                in_progress_ps_uids = list(in_progress_result.value[:10])
+                if in_progress_ps_uids:
+                    batch_result = await ps_service.get_steps_batch(in_progress_ps_uids)
+                    if batch_result.is_ok and batch_result.value:
+                        nodes.extend({
+                            "id": ps.uid,
+                            "label": ps.title or ps.uid,
+                            "type": "ps",
+                            "group": "related",
+                            "learning_state": "in_progress",
+                            "is_pinned": False,
+                        } for ps in batch_result.value)
+
+        # Mark pinned entities
+        if user_relationship_service:
+            pins_result = await user_relationship_service.get_pinned_entities(user_uid)
+            if pins_result.is_ok and pins_result.value:
+                pinned_set = set(pins_result.value)
+                for node in nodes:
+                    if node["id"] in pinned_set:
+                        node["is_pinned"] = True
+
+        # Add virtual "You" center node
+        if nodes:
+            nodes.insert(0, {
+                "id": "__you__",
+                "label": "You",
+                "type": "you",
+                "group": "center",
+                "learning_state": None,
+                "is_pinned": False,
+            })
+            # Connect "You" to all learning entities
+            edges.extend({
+                "from": "__you__",
+                "to": node["id"],
+                "color": {"color": "#94A3B8", "opacity": 0.4},
+                "width": 1,
+                "dashes": [4, 4],
+            } for node in nodes[1:])
+
+        return JSONResponse({"nodes": nodes, "edges": edges})
+
+    # -----------------------------------------------------------------
     # GET /explore/ku/{uid} — Ku detail page
     # -----------------------------------------------------------------
 
@@ -676,6 +767,7 @@ def create_explore_ui_routes(
             request=request,
             page_title=ku.title,
             current_uid=uid,
+            current_entity_type="ku",
         )
 
     # -----------------------------------------------------------------
@@ -914,11 +1006,12 @@ def create_explore_ui_routes(
             request=request,
             page_title=step.title,
             current_uid=uid,
+            current_entity_type="ps",
         )
 
     logger.info(
         "Explore UI routes registered: /explore, /api/explore/search, "
-        "/explore/ku/{uid}, /explore/ps/{uid}"
+        "/api/explore/graph, /explore/ku/{uid}, /explore/ps/{uid}"
     )
 
     return []  # Routes registered via @rt() decorators

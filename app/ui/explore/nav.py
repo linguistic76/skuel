@@ -1,9 +1,9 @@
-"""Explore sidebar navigation — learning-state-based "My Learning" sidebar.
+"""Explore sidebar navigation — graph-centered with filter tabs.
 
-Three sections reflecting the learner's journey:
-1. Currently Learning — Studying Kus + In Progress PathSteps
-2. Saved — Pinned/bookmarked entities
-3. Completed — Understood Kus (recent 3, collapsible)
+The sidebar has two zones:
+1. Hero graph (Vis.js) — shows entity relationships or learning universe
+2. Filtered item list — Learning/Saved/All tabs control both graph highlighting
+   and which items appear in the list below
 
 Usage:
     from ui.explore.nav import render_explore_sidebar_page
@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Div, Li, P, Span, Ul
 
 from adapters.inbound.auth import get_current_user
+from ui.explore.graph import ExploreGraphView
 from ui.patterns.sidebar import SidebarPage
 
 if TYPE_CHECKING:
@@ -66,6 +67,7 @@ def _build_section(
     empty_text: str = "",
     collapsible: bool = False,
     see_all_href: str = "",
+    filter_name: str = "",
 ) -> "FT":
     """Render a sidebar section with header + link list.
 
@@ -75,6 +77,7 @@ def _build_section(
         empty_text: Text to show when links is empty.
         collapsible: If True, wrap in Alpine x-data for expand/collapse.
         see_all_href: If set, show a "See all" link at the bottom.
+        filter_name: If set, only show this section when the filter matches.
     """
     header = P(
         title,
@@ -82,16 +85,13 @@ def _build_section(
     )
 
     if not links:
-        return Li(
-            header,
+        empty_el = (
             P(empty_text, cls="text-xs text-muted-foreground/60 italic px-4 pb-2")
             if empty_text
-            else Div(),
+            else Div()
         )
-
-    link_list = Ul(*links, cls="list-none p-0")
-
-    if collapsible:
+        section = Li(header, empty_el)
+    elif collapsible:
         footer_parts: list[Any] = []
         if see_all_href:
             footer_parts.append(
@@ -102,16 +102,25 @@ def _build_section(
                     x_show="!expanded",
                 ),
             )
-        return Li(
+        section = Li(
             header,
             Div(
-                link_list,
+                Ul(*links, cls="list-none p-0"),
                 *footer_parts,
                 x_data="{ expanded: false }",
             ),
         )
+    else:
+        section = Li(header, Ul(*links, cls="list-none p-0"))
 
-    return Li(header, link_list)
+    # Wrap with filter visibility if needed
+    if filter_name:
+        return Div(
+            section,
+            x_show=f"filter === '{filter_name}' || filter === 'all'",
+            x_cloak=True,
+        )
+    return section
 
 
 async def _fetch_sidebar_data(
@@ -198,8 +207,9 @@ async def render_explore_sidebar_page(
     request: "Request",
     page_title: str = "Explore",
     current_uid: str = "",
+    current_entity_type: str = "",
 ) -> "FT":
-    """Wrap content in Explore sidebar page with learning-state sections.
+    """Wrap content in Explore sidebar page with graph hero + filtered lists.
 
     Args:
         content: The page content to render in the main area.
@@ -208,22 +218,31 @@ async def render_explore_sidebar_page(
         user_relationship_service: For pinned entities.
         request: The request object for auth detection.
         page_title: Page title (default "Explore", or entity title on detail pages).
-        current_uid: UID of the currently viewed entity (for highlighting).
+        current_uid: UID of the currently viewed entity (for graph centering).
+        current_entity_type: 'ku' or 'ps' — type of current entity.
     """
     user_uid = get_current_user(request)
     sections: list[Any] = []
 
+    # Graph hero — always shown
+    if current_uid and current_entity_type:
+        graph = ExploreGraphView(
+            mode="entity",
+            entity_uid=current_uid,
+            entity_type=current_entity_type,
+        )
+    else:
+        graph = ExploreGraphView(mode="hub")
+
+    sections.append(Li(graph))
+
     if not user_uid:
-        # Unauthenticated: single message section
+        # Unauthenticated: sign-in prompt below graph
         sections.append(
             Li(
                 P(
-                    "My Learning",
-                    cls="text-xs font-semibold uppercase text-muted-foreground px-4 pt-3 pb-1",
-                ),
-                P(
                     "Sign in to track your learning",
-                    cls="text-xs text-muted-foreground/60 italic px-4 pb-2",
+                    cls="text-xs text-muted-foreground/60 italic px-4 py-2",
                 ),
             )
         )
@@ -232,7 +251,7 @@ async def render_explore_sidebar_page(
             user_uid, ku_service, ps_service, user_relationship_service
         )
 
-        # Section 1: Currently Learning
+        # Section: Learning (studying Kus + in-progress PSes)
         learning_links: list[Any] = []
         for rec in data["studying_kus"]:
             learning_links.append(
@@ -254,13 +273,14 @@ async def render_explore_sidebar_page(
             )
         sections.append(
             _build_section(
-                "Currently Learning",
+                "Learning",
                 learning_links,
                 empty_text="Start exploring below",
+                filter_name="learning",
             )
         )
 
-        # Section 2: Saved
+        # Section: Saved (pinned items)
         saved_links: list[Any] = []
         for pin_uid, pin_title, et in data["pinned_items"]:
             saved_links.append(
@@ -276,10 +296,11 @@ async def render_explore_sidebar_page(
                 "Saved",
                 saved_links,
                 empty_text="Pin items to save them here",
+                filter_name="saved",
             )
         )
 
-        # Section 3: Completed (recent 3, collapsible)
+        # Section: Completed (recent 3, collapsible — shown in "all" filter)
         completed_links: list[Any] = []
         understood = data["understood_kus"]
         display_count = min(len(understood), 3)
@@ -312,6 +333,7 @@ async def render_explore_sidebar_page(
         request=request,
         active_page="explore",
         title_href="/explore",
+        sidebar_width="w-96",
     )
 
 
