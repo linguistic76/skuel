@@ -907,6 +907,15 @@ Button("Primary", variant=ButtonT.primary)
 Button("Ghost Small", variant=ButtonT.ghost, size=Size.sm)
 Button("Delete", variant=ButtonT.outline_error)
 
+# ButtonLink — use for ALL action CTAs (not raw A() with ad-hoc Tailwind)
+# Raw A() is reserved for: entity title links, breadcrumbs, sidebar nav, inline text links
+# Convention: primary CTA → ButtonT.primary + Size.sm
+#             view/navigate → ButtonT.ghost + Size.sm
+#             "view all" section links → ButtonT.ghost + Size.xs
+ButtonLink("Submit →", href="/submit", variant=ButtonT.primary, size=Size.sm)
+ButtonLink("View Report →", href="/reports/1", variant=ButtonT.ghost, size=Size.sm)
+ButtonLink("View all →", href="/tasks", variant=ButtonT.ghost, size=Size.xs)
+
 # Status badges
 Badge("Active", variant=BadgeT.success)
 Badge("Pending", variant=BadgeT.warning, size=Size.sm)

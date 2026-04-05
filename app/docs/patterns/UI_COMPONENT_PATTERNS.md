@@ -332,7 +332,7 @@ PageHeader("Goals", subtitle="Track and achieve your goals")
 
 # Section header with optional action link
 SectionHeader("Recent Tasks")
-SectionHeader("Active Goals", action=A("View All", href="/goals"))
+SectionHeader("Active Goals", action=ButtonLink("View All", href="/goals", variant=ButtonT.ghost, size=Size.xs))
 ```
 
 ### CSS Spacing Tokens
@@ -358,7 +358,7 @@ Defined in `/static/css/input.css`:
 from fasthtml.common import H1, H2, H3, P, A, Form, Li, Ul
 
 # SKUEL MonsterUI wrappers — 8 focused modules (March 2026)
-from ui.buttons import Button, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody, CardTitle, CardActions, CardT
 from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT, Progress, ProgressT, RadialProgress
@@ -893,6 +893,26 @@ Div(
 ---
 
 ## Common Anti-Patterns
+
+### Don't Use Raw `A()` for Action CTAs
+
+Action links (Submit, View Report, Download, View all) must use `ButtonLink()` — not raw `A()` with ad-hoc Tailwind. Raw `A()` is reserved for entity title links, breadcrumbs, sidebar navigation, and inline contextual text links (e.g. links inside a paragraph sentence).
+
+```python
+# BAD: Ad-hoc styled text link for a CTA
+A("Submit →", href="/submit", cls="text-xs text-primary hover:underline")
+
+# GOOD: ButtonLink with semantic variant
+ButtonLink("Submit →", href="/submit", variant=ButtonT.primary, size=Size.sm)
+```
+
+**ButtonLink variant/size convention:**
+
+| Action Type | Variant | Size | Examples |
+|---|---|---|---|
+| Primary CTA | `ButtonT.primary` | `Size.sm` | Submit, Start Ingestion |
+| View/Navigate | `ButtonT.ghost` | `Size.sm` | View Report, Download, Back |
+| "View all" section links | `ButtonT.ghost` | `Size.xs` | View all →, See all |
 
 ### Don't Use Raw MonsterUI Classes on Wrappers
 

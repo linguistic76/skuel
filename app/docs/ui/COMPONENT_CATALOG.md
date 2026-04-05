@@ -120,24 +120,40 @@ Button("Submit", hx_post="/api/submit", hx_target="#result")
 
 ### ButtonLink(text, href, variant, size, **kwargs)
 
-Button-styled link for navigation.
+Button-styled link for navigation. Use for all action CTAs — not raw `A()` with ad-hoc Tailwind. Raw `A()` is reserved for entity title links, breadcrumbs, sidebar navigation, and inline contextual text links.
 
 **Parameters:**
 - `text: str` - Link label
 - `href: str` - URL destination
-- `variant: str` - Same as Button
-- `size: str` - Same as Button
-- `**kwargs` - Additional attributes
+- `variant: ButtonT` - Button style variant
+- `size: Size` - Button size (xs, sm, md, lg, xl)
+- `**kwargs` - Additional attributes (target, rel, download, x_show, cls, etc.)
+
+**Variant/Size Convention:**
+
+| Action Type | Variant | Size | Examples |
+|---|---|---|---|
+| Primary CTA | `ButtonT.primary` | `Size.sm` | Submit, Start Ingestion |
+| View/Navigate | `ButtonT.ghost` | `Size.sm` | View Report, Download, ← Back |
+| "View all" section links | `ButtonT.ghost` | `Size.xs` | View all →, See all |
 
 **Examples:**
 ```python
-from ui.buttons import ButtonLink
+from ui.buttons import ButtonLink, ButtonT
+from ui.layout import Size
 
-# Navigation button
-ButtonLink("View Details", href="/tasks/123", variant="primary")
+# Primary action CTA
+ButtonLink("Submit →", href="/submit?exercise_uid=123", variant=ButtonT.primary, size=Size.sm)
+
+# View/navigate action
+ButtonLink("View Report →", href="/reports/456", variant=ButtonT.ghost, size=Size.sm)
+
+# Section "view all" link
+ButtonLink("View all →", href="/tasks", variant=ButtonT.ghost, size=Size.xs)
 
 # External link
-ButtonLink("Learn More", href="https://example.com", variant="secondary")
+ButtonLink("Open →", href="https://example.com", variant=ButtonT.ghost, size=Size.sm,
+           target="_blank", rel="noopener noreferrer")
 ```
 
 ---

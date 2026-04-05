@@ -72,8 +72,11 @@ Button("Success", variant=ButtonT.success)
 Button("Small", variant=ButtonT.primary, size=Size.sm)
 Button("Large", variant=ButtonT.primary, size=Size.lg)
 
-# Link styled as button
-ButtonLink("View Details", href="/tasks/123", variant=ButtonT.ghost)
+# ButtonLink — for ALL action CTAs (not raw A() with ad-hoc Tailwind)
+# primary CTA → ButtonT.primary + Size.sm | view/navigate → ButtonT.ghost + Size.sm | "view all" → ButtonT.ghost + Size.xs
+ButtonLink("Submit →", href="/submit", variant=ButtonT.primary, size=Size.sm)
+ButtonLink("View Details", href="/tasks/123", variant=ButtonT.ghost, size=Size.sm)
+ButtonLink("View all →", href="/tasks", variant=ButtonT.ghost, size=Size.xs)
 
 # Icon button
 IconButton("pencil", variant=ButtonT.ghost, size=Size.sm)
