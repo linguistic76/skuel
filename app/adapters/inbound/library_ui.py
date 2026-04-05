@@ -20,7 +20,7 @@ from typing import Any
 from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
-from adapters.inbound.fasthtml_types import Request, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
 from ui.learning_loop.exercise_status import (
@@ -206,7 +206,7 @@ def create_library_ui_routes(
     submissions_service: Any = None,
     user_relationship_service: Any = None,
     **_kwargs: Any,
-) -> RouteList:
+) -> None:
     """Create /library hub routes.
 
     Args:
@@ -584,5 +584,3 @@ def create_library_ui_routes(
             for step in steps[:3]
         ]
         return HubPreviewGrid(cards)
-
-    return []

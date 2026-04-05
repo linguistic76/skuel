@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Div, Small, Span
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
-from ui.feedback import Badge, BadgeT
-
 if TYPE_CHECKING:
     from fasthtml.common import FT
 

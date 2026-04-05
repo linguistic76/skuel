@@ -196,7 +196,8 @@ def create_pathways_api_routes(
         return Response(headers={"HX-Redirect": f"/pathways/path/{uid}"})
 
     logger.info("Pathways API routes registered (CRUDRouteFactory + 7 domain routes)")
-    return []  # Routes registered via @rt() decorators (no objects returned)
+
+    return []
 
 
 # Export the route creation function

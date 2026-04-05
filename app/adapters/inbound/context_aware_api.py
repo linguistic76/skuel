@@ -224,8 +224,9 @@ def create_context_aware_api_routes(
         user_uid = require_authenticated_user(request)
         return await context_service.get_context_health(user_uid)
 
-    logger.info("✅ Context-Aware API routes registered (service-based architecture)")
-    return []  # Routes registered via @rt() decorators (no objects returned)
+    logger.info("Context-Aware API routes registered (service-based architecture)")
+
+    return []
 
 
 # ============================================================================

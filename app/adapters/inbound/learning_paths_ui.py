@@ -11,7 +11,7 @@ from typing import Any
 
 from fasthtml.common import Div
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 from ui.patterns.card_generator import CardGenerator
@@ -25,7 +25,7 @@ def create_learning_paths_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     services: Any,
-) -> RouteList:
+) -> None:
     """Register learning paths UI routes."""
 
     @rt("/learning-paths")
@@ -50,7 +50,6 @@ def create_learning_paths_ui_routes(
             active_page="learning-paths",
         )
 
-    return []  # Routes registered via @rt() decorators
 
 
 def _entity_list(items: list[Any]) -> Div:

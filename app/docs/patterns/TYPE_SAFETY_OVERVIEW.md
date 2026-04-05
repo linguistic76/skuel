@@ -73,7 +73,7 @@ def create_tasks_api_routes(
     rt: RouteDecorator,
     tasks_service: TasksService,          # Facade — concrete class IS the contract
     user_service: UserService,            # Facade — concrete class IS the contract
-) -> RouteList: ...
+) -> list[Any]: ...
 ```
 
 **Why this matters:**
@@ -135,7 +135,7 @@ async def find_by_filters(filters: FilterParams) -> list[Entity]: ...
 
 **FastHTML boundary** — centralized in `adapters/inbound/fasthtml_types.py`:
 ```python
-from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request, RouteList
+from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp, Request
 # FastHTML has no type stubs; these Protocols capture what SKUEL actually calls
 ```
 

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.askesis_api import create_askesis_api_routes
 from adapters.inbound.askesis_ui import create_askesis_ui_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 if TYPE_CHECKING:
@@ -39,7 +39,7 @@ ASKESIS_CONFIG = DomainRouteConfig(
 
 def create_askesis_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """
     Wire askesis API and UI routes using configuration-driven registration.
 
@@ -48,11 +48,8 @@ def create_askesis_routes(
         rt: Route decorator
         services: Service container with askesis service
         _sync_service: Optional sync service (unused, for signature compatibility)
-
-    Returns:
-        List of all registered route functions
     """
-    return register_domain_routes(app, rt, services, ASKESIS_CONFIG)
+    register_domain_routes(app, rt, services, ASKESIS_CONFIG)
 
 
 __all__ = ["create_askesis_routes"]

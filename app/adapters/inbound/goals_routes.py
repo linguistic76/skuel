@@ -12,7 +12,7 @@ Architecture:
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.goals_api import create_goals_api_routes
 from adapters.inbound.goals_ui import create_goals_ui_routes
 from adapters.inbound.route_factories import (
@@ -41,9 +41,9 @@ GOALS_CONFIG = create_activity_domain_route_config(
 
 def create_goals_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire goals API and UI routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, GOALS_CONFIG)
+    register_domain_routes(app, rt, services, GOALS_CONFIG)
 
 
 __all__ = ["create_goals_routes"]

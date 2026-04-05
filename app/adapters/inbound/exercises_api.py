@@ -257,4 +257,5 @@ def create_exercises_api_routes(
         )
 
     logger.info("Exercises API routes registered (Factory pattern + curriculum linking)")
+
     return []

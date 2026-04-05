@@ -27,7 +27,7 @@ from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.services.events_service import EventsService
 
 logger = get_logger("skuel.routes.events_ui")
@@ -92,7 +92,7 @@ def create_events_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     events_service: EventsService,
-) -> RouteList:
+) -> list[Any]:
     """Register Events UI routes."""
     routes: list[Any] = []
 

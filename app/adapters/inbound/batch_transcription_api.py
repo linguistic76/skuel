@@ -18,7 +18,7 @@ from typing import Any
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.models.enums.submissions_enums import EnrichmentMode
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -36,7 +36,7 @@ def create_batch_transcription_api_routes(
     batch_transcription_service: Any,
     batch_processing_service: Any | None = None,
     user_service: Any = None,
-) -> RouteList:
+) -> list[Any]:
     """
     Create batch transcription API routes (admin-only).
 

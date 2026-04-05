@@ -10,7 +10,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 
 from typing import Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.journals_ui import create_journals_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
@@ -38,20 +38,16 @@ JOURNAPS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_journals_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any) -> RouteList:
+def create_journals_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any) -> None:
     """Wire journal routes using configuration-driven registration.
 
     Args:
         app: FastHTML app instance
         rt: Route decorator
         services: Service container
-
-    Returns:
-        List of all registered route functions
     """
-    routes = register_domain_routes(app, rt, services, JOURNAPS_CONFIG)
+    register_domain_routes(app, rt, services, JOURNAPS_CONFIG)
     logger.info("Journals routes registered (standalone domain)")
-    return routes
 
 
 __all__ = ["create_journals_routes"]

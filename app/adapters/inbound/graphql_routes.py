@@ -29,7 +29,6 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth.session import require_authenticated_user
-from adapters.inbound.fasthtml_types import RouteList
 from core.utils.logging import get_logger
 from routes.graphql import GraphQLContext, create_graphql_context, create_graphql_schema
 from services_bootstrap import Services
@@ -40,7 +39,7 @@ logger = get_logger(__name__)
 
 def create_graphql_routes(
     app: Any, rt: Any, services: Services, _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """
     Wire GraphQL routes manually (FastHTML does not support schema mounting).
 
@@ -48,9 +47,6 @@ def create_graphql_routes(
         app: FastHTML app
         rt: FastHTML router
         services: Business services (full container — GraphQL needs cross-domain access)
-
-    Returns:
-        List of registered route functions
     """
     schema = create_graphql_schema()
     search_router = services.search_router
@@ -191,5 +187,3 @@ def create_graphql_routes(
     logger.info("  - GET  /graphql         -> FastHTML playground")
     logger.info("  - POST /graphql         -> JSON API for tests/clients")
     logger.info("  - POST /graphql/execute -> Playground form submission")
-
-    return [graphql_handler, graphql_execute]

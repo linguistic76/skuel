@@ -330,4 +330,5 @@ def create_teaching_api_routes(
         return ""
 
     logger.info("Teaching API routes registered")
+
     return []

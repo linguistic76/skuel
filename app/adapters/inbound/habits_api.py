@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import (
         FastHTMLApp,
         RouteDecorator,
-        RouteList,
     )
     from core.services.habits_service import HabitsService
 
@@ -29,7 +28,7 @@ def create_habits_api_routes(
     rt: RouteDecorator,
     habits_service: HabitsService,
     **_kwargs: Any,
-) -> RouteList:
+) -> list[Any]:
     """Register Habits API routes."""
     routes: list[Any] = []
 

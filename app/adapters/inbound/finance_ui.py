@@ -393,6 +393,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
         )
 
     logger.info("Finance Hub UI routes registered")
+
     return []
 
 

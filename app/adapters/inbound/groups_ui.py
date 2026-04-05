@@ -65,7 +65,7 @@ def create_groups_ui_routes(
             cls="container mx-auto p-4",
         )
 
-    logger.info("✅ Groups UI routes registered")
+    logger.info("Groups UI routes registered")
     return []
 
 
@@ -81,3 +81,5 @@ def _render_group_list(groups: list[Any]) -> Any:
         ],
         cls="list-disc pl-4",
     )
+
+    return []

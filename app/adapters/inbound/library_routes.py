@@ -9,7 +9,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 
 from typing import Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.library_ui import create_library_ui_routes
 from core.utils.logging import get_logger
 
@@ -18,7 +18,7 @@ logger = get_logger("skuel.routes.library")
 
 def create_library_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire Library hub routes."""
 
     create_library_ui_routes(
@@ -33,4 +33,3 @@ def create_library_routes(
     )
 
     logger.info("Library hub routes wired")
-    return []

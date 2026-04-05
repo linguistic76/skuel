@@ -8,7 +8,7 @@ Admin-only CRUD (via CRUDRouteFactory) + PathStep linking (manual).
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.form_templates_api import create_form_templates_api_routes
 from adapters.inbound.route_factories import (
     CRUDRouteConfig,
@@ -46,9 +46,9 @@ FORM_TEMPLATES_CONFIG = DomainRouteConfig(
 
 def create_form_templates_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire form template API routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, FORM_TEMPLATES_CONFIG)
+    register_domain_routes(app, rt, services, FORM_TEMPLATES_CONFIG)
 
 
 __all__ = ["create_form_templates_routes"]

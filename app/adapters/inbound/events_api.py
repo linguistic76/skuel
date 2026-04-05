@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import (
         FastHTMLApp,
         RouteDecorator,
-        RouteList,
     )
     from core.services.events_service import EventsService
 
@@ -29,7 +28,7 @@ def create_events_api_routes(
     rt: RouteDecorator,
     events_service: EventsService,
     **_kwargs: Any,
-) -> RouteList:
+) -> list[Any]:
     """Register Events API routes."""
     routes: list[Any] = []
 

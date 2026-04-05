@@ -63,9 +63,6 @@ def create_askesis_api_routes(
         rt: Route decorator
         askesis_service: AskesisService instance (intelligence + context loading)
         askesis_core_service: AskesisCoreService instance (CRUD)
-
-    Returns:
-        Empty list (routes registered via decorators)
     """
 
     # ========================================================================
@@ -910,9 +907,10 @@ def create_askesis_api_routes(
         )
 
     logger.info(
-        "✅ Askesis API routes registered (service-based architecture + 13-domain intelligence + Phase 2-4)"
+        "Askesis API routes registered (service-based architecture + 13-domain intelligence + Phase 2-4)"
     )
-    return []  # Routes registered via @rt() decorators (no objects returned)
+
+    return []
 
 
 # Export the route creation function

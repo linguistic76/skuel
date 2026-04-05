@@ -23,7 +23,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 
 logger = get_logger("skuel.routes.upload")
 
@@ -33,7 +33,7 @@ def create_upload_api_routes(
     rt: "RouteDecorator",
     upload_service: Any,
     user_service: Any = None,
-) -> "RouteList":
+) -> list[Any]:
     """Create user-facing upload API routes."""
 
     @rt("/api/upload", methods=["POST"])

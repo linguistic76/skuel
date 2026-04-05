@@ -506,10 +506,11 @@ def create_path_steps_api_routes(
         return await ps_service.get_organized_children(uid)
 
     logger.info(
-        "✅ Path Steps domain routes registered "
+        "Path Steps domain routes registered "
         "(step-path, semantic, content, search, organization, analytics, ORGANIZES hierarchy)"
     )
-    return []  # Routes registered via @rt() decorators
+
+    return []
 
 
 __all__ = ["create_path_steps_api_routes"]

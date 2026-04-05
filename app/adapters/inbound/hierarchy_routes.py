@@ -15,14 +15,14 @@ See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 
 from typing import Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.hierarchy_route_factory import HierarchyRouteFactory
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 
 def create_hierarchy_api_routes(
     app: FastHTMLApp, rt: RouteDecorator, _primary: Any, **kwargs: Any
-) -> RouteList:
+) -> list[Any]:
     """
     Register hierarchy routes for all hierarchical domains.
 
@@ -35,7 +35,7 @@ def create_hierarchy_api_routes(
     Returns:
         List of registered route functions
     """
-    routes: RouteList = []
+    routes: list[Any] = []
 
     # Activity domains (5)
     domain_configs = [
@@ -94,6 +94,6 @@ HIERARCHY_CONFIG = DomainRouteConfig(
 
 def create_hierarchy_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire hierarchy routes via DomainRouteConfig."""
-    return register_domain_routes(app, rt, services, HIERARCHY_CONFIG)
+    register_domain_routes(app, rt, services, HIERARCHY_CONFIG)

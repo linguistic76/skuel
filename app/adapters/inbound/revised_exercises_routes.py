@@ -9,7 +9,7 @@ Part of the five-phase learning loop: Exercise → Submission → Report → Rev
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.revised_exercises_api import create_revised_exercises_api_routes
 from adapters.inbound.route_factories import (
     CRUDRouteConfig,
@@ -47,9 +47,9 @@ REVISED_EXERCISES_CONFIG = DomainRouteConfig(
 
 def create_revised_exercises_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire revised exercise API routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, REVISED_EXERCISES_CONFIG)
+    register_domain_routes(app, rt, services, REVISED_EXERCISES_CONFIG)
 
 
 __all__ = ["create_revised_exercises_routes"]

@@ -97,4 +97,5 @@ def create_revised_exercises_api_routes(
         return result
 
     logger.info("Revised Exercises API routes registered (five-phase learning loop)")
+
     return []

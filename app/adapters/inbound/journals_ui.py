@@ -31,7 +31,7 @@ from starlette.responses import FileResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.submissions_enums import EnrichmentMode
 from core.models.exercises.exercise import Exercise
@@ -535,7 +535,7 @@ def create_journals_ui_routes(
     user_service: Any = None,  # no narrow protocol yet
     batch_transcription_service: Any = None,  # no narrow protocol yet
     batch_processing_service: Any = None,  # no narrow protocol yet
-) -> RouteList:
+) -> list[Any]:
     """
     Create journal UI routes — available to all authenticated users.
 

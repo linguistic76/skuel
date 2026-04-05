@@ -1025,7 +1025,7 @@ def create_explore_ui_routes(
         "/api/explore/graph, /explore/ku/{uid}, /explore/ps/{uid}"
     )
 
-    return []  # Routes registered via @rt() decorators
+    return []
 
 
 __all__ = ["create_explore_ui_routes"]

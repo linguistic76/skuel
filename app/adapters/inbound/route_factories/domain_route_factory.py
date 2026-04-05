@@ -45,7 +45,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.utils.logging import get_logger
@@ -150,7 +150,7 @@ def register_domain_routes(
     rt: RouteDecorator,
     services: "Services | None",
     config: DomainRouteConfig,
-) -> RouteList:
+) -> list[Any]:
     """
     Register domain routes using configuration.
 
@@ -206,7 +206,7 @@ def register_domain_routes(
                 value = None
             api_related[kwarg_name] = value
 
-    registered: RouteList = []
+    registered: list[Any] = []
 
     # 3. Config-driven factory instantiation (order: CRUD → Query → Intelligence)
     if config.crud:

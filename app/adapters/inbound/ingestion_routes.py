@@ -9,7 +9,7 @@ Handles both MD and YAML formats for all entity types.
 
 from typing import TYPE_CHECKING
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.ingestion_api import create_ingestion_api_routes
 from adapters.inbound.ingestion_ui import create_ingestion_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
@@ -33,9 +33,9 @@ INGESTION_CONFIG = DomainRouteConfig(
 
 def create_ingestion_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None"
-) -> RouteList:
+) -> None:
     """Wire ingestion API and UI routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, INGESTION_CONFIG)
+    register_domain_routes(app, rt, services, INGESTION_CONFIG)
 
 
 __all__ = ["create_ingestion_routes"]

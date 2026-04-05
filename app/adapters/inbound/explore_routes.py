@@ -15,7 +15,7 @@ Routes:
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.explore_ui import create_explore_ui_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 if TYPE_CHECKING:
@@ -42,9 +42,9 @@ EXPLORE_CONFIG = DomainRouteConfig(
 
 def create_explore_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire explore UI routes."""
-    return register_domain_routes(app, rt, services, EXPLORE_CONFIG)
+    register_domain_routes(app, rt, services, EXPLORE_CONFIG)
 
 
 __all__ = ["create_explore_routes"]

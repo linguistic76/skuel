@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import (
         FastHTMLApp,
         RouteDecorator,
-        RouteList,
     )
     from core.services.choices_service import ChoicesService
 
@@ -29,7 +28,7 @@ def create_choices_api_routes(
     rt: RouteDecorator,
     choices_service: ChoicesService,
     **_kwargs: Any,
-) -> RouteList:
+) -> list[Any]:
     """Register Choices API routes."""
     routes: list[Any] = []
 

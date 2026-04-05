@@ -18,7 +18,7 @@ Routes:
 
 from typing import Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.insights_api import create_insights_api_routes
 from adapters.inbound.insights_history_ui import create_insights_history_routes
 from adapters.inbound.insights_ui import create_insights_ui_routes
@@ -39,7 +39,7 @@ INSIGHTS_CONFIG = DomainRouteConfig(
 
 def create_insights_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
-) -> RouteList:
+) -> None:
     """
     Wire insights API and UI routes using configuration-driven registration.
 
@@ -50,20 +50,14 @@ def create_insights_routes(
         rt: Route decorator
         services: Service container with insight_store
         _sync_service: Optional sync service (unused, for signature compatibility)
-
-    Returns:
-        List of all registered route functions
     """
     # Register standard API + UI routes via DomainRouteConfig
-    routes = register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
+    register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
 
     # Additional history routes
     if services and services.insight_store:
         history_routes = create_insights_history_routes(app, rt, services.insight_store)
-        routes.extend(history_routes)
-        logger.info(f"✅ Insights history routes registered: {len(history_routes)} endpoints")
-
-    return routes
+        logger.info(f"Insights history routes registered: {len(history_routes)} endpoints")
 
 
 __all__ = ["create_insights_routes"]

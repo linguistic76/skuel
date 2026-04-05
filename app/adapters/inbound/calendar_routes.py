@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.calendar_api import create_calendar_api_routes
 from adapters.inbound.calendar_ui import create_calendar_ui_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 if TYPE_CHECKING:
@@ -31,9 +31,9 @@ CALENDAR_CONFIG = DomainRouteConfig(
 
 def create_calendar_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire calendar API and UI routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, CALENDAR_CONFIG)
+    register_domain_routes(app, rt, services, CALENDAR_CONFIG)
 
 
 __all__ = ["create_calendar_routes"]

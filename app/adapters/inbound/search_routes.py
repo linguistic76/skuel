@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import (
     DomainRouteConfig,
     register_domain_routes,
@@ -51,7 +51,7 @@ logger = get_logger("skuel.routes.search")
 
 def create_search_api_routes(
     app: FastHTMLApp, rt: RouteDecorator, search_router: Any, **_kwargs: Any
-) -> RouteList:
+) -> list[Any]:
     """Create search routes with SearchRouter dependency."""
 
     @rt("/search")
@@ -301,9 +301,9 @@ SEARCH_CONFIG = DomainRouteConfig(
 
 def create_search_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire search routes via DomainRouteConfig."""
-    return register_domain_routes(app, rt, services, SEARCH_CONFIG)
+    register_domain_routes(app, rt, services, SEARCH_CONFIG)
 
 
 __all__ = ["create_search_routes"]

@@ -19,7 +19,7 @@ from typing import Any
 
 from adapters.inbound.auth import make_service_getter
 from adapters.inbound.exercise_report_api import create_exercise_report_api_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.progress_report_api import create_progress_report_api_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.submissions_api import create_submissions_api_routes
@@ -44,7 +44,7 @@ SUBMISSIONS_CONFIG = DomainRouteConfig(
 
 def create_submissions_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
-) -> RouteList:
+) -> None:
     """
     Wire submissions API and sharing routes using configuration-driven registration.
     UI routes are top-level (/submit, /gradebook, etc.) — old paths redirect 301.
@@ -54,9 +54,6 @@ def create_submissions_routes(
         rt: Route decorator
         services: Service container
         _sync_service: Unused, signature compatibility
-
-    Returns:
-        List of all registered route functions
     """
     routes = register_domain_routes(app, rt, services, SUBMISSIONS_CONFIG)
 
@@ -136,8 +133,6 @@ def create_submissions_routes(
         )
         routes.extend(batch_routes or [])
         logger.info("Batch transcription API routes registered (admin-only)")
-
-    return routes
 
 
 __all__ = ["create_submissions_routes"]

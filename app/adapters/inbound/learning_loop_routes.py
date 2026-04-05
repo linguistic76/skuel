@@ -20,7 +20,7 @@ from fasthtml.common import H3, Div
 from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.exercise_reports_ui import create_exercise_reports_ui_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.submissions_ui import create_submissions_ui_routes
 from core.utils.logging import get_logger
 from ui.learning_loop.exercise_status import render_exercise_list
@@ -33,7 +33,7 @@ logger = get_logger("skuel.routes.learning_loop")
 
 def create_learning_loop_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire learning loop routes via decomposed UI files."""
 
     # Submissions UI
@@ -100,4 +100,3 @@ def create_learning_loop_routes(
         )
 
     logger.info("Learning loop routes wired (submissions + reports + PS fragments)")
-    return []

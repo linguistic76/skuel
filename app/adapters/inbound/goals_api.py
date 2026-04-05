@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import (
         FastHTMLApp,
         RouteDecorator,
-        RouteList,
     )
     from core.services.goals_service import GoalsService
 
@@ -29,7 +28,7 @@ def create_goals_api_routes(
     rt: RouteDecorator,
     goals_service: GoalsService,
     **_kwargs: Any,
-) -> RouteList:
+) -> list[Any]:
     """Register Goals API routes."""
     routes: list[Any] = []
 

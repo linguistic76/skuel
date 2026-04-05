@@ -27,7 +27,7 @@ from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.services.choices_service import ChoicesService
 
 logger = get_logger("skuel.routes.choices_ui")
@@ -92,7 +92,7 @@ def create_choices_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     choices_service: ChoicesService,
-) -> RouteList:
+) -> list[Any]:
     """Register Choices UI routes."""
     routes: list[Any] = []
 

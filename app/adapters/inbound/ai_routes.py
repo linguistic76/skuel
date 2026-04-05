@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 from starlette.responses import JSONResponse
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -261,7 +261,7 @@ _SIGNATURE_FACTORIES = {
 
 def create_ai_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None"
-) -> RouteList:
+) -> None:
     """Create routes for AI-powered domain features.
 
     All routes check if the domain's .ai service is available.
@@ -284,9 +284,6 @@ def create_ai_routes(
         }
 
     logger.info(f"AI routes registered ({len(AI_ROUTE_SPECS) + 1} endpoints)")
-
-    # Return empty list — @rt() registers routes immediately
-    return []
 
 
 __all__ = ["create_ai_routes"]

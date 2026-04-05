@@ -13,14 +13,14 @@ from typing import Any
 
 from starlette.responses import RedirectResponse
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 
 
 def create_curriculum_hub_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     services: Any,
-) -> RouteList:
+) -> None:
     """Register legacy curriculum redirects."""
 
     @rt("/curriculum")
@@ -37,5 +37,3 @@ def create_curriculum_hub_ui_routes(
     async def path_steps_browser(request: Request) -> RedirectResponse:
         """PathStep browser merged into Explore."""
         return RedirectResponse(url="/explore", status_code=301)
-
-    return []

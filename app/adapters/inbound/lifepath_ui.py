@@ -24,7 +24,7 @@ from fasthtml.common import H2, H3, Div, Form, P, Span
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request, RouteList
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -68,7 +68,7 @@ def create_lifepath_ui_routes(
     rt: Any,
     lifepath_service: Any,
     services: Any = None,
-) -> RouteList:
+) -> list[Any]:
     """
     Create LifePath UI routes.
 

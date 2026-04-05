@@ -64,7 +64,3 @@ class FastHTMLApp(Protocol):
         ...
 
 
-# Type alias for the return value of route factory functions.
-# FastHTML route objects are internal implementation details — not exported.
-# boundary: fasthtml-route-objects — FastHTML does not expose a Route type.
-RouteList = list[Any]

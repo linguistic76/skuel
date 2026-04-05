@@ -27,7 +27,7 @@ from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.services.habits_service import HabitsService
 
 logger = get_logger("skuel.routes.habits_ui")
@@ -91,7 +91,7 @@ def create_habits_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     habits_service: HabitsService,
-) -> RouteList:
+) -> list[Any]:
     """Register Habits UI routes."""
     routes: list[Any] = []
 

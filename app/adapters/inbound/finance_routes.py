@@ -18,7 +18,7 @@ Version: 2.0 (Migrated to DomainRouteConfig pattern)
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.finance_api import create_finance_api_routes
 from adapters.inbound.finance_ui import create_finance_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
@@ -46,7 +46,7 @@ FINANCE_CONFIG = DomainRouteConfig(
 
 def create_finance_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """
     Wire finance API and UI routes using configuration-driven registration.
 
@@ -57,11 +57,8 @@ def create_finance_routes(
         rt: Route decorator
         services: Service container with finance and user services
         _sync_service: Optional sync service (unused, for signature compatibility)
-
-    Returns:
-        List of all registered route functions
     """
-    return register_domain_routes(app, rt, services, FINANCE_CONFIG)
+    register_domain_routes(app, rt, services, FINANCE_CONFIG)
 
 
 __all__ = ["create_finance_routes"]

@@ -12,7 +12,7 @@ Architecture:
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
@@ -45,9 +45,9 @@ TASKS_CONFIG = create_activity_domain_route_config(
 
 def create_tasks_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire tasks API and UI routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, TASKS_CONFIG)
+    register_domain_routes(app, rt, services, TASKS_CONFIG)
 
 
 __all__ = ["create_tasks_routes"]

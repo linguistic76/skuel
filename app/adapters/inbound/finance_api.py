@@ -483,6 +483,7 @@ def create_finance_api_routes(
         )
 
     logger.info("Finance API routes registered")
+
     return []
 
 

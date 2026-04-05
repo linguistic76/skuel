@@ -27,7 +27,7 @@ from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.services.goals_service import GoalsService
 
 logger = get_logger("skuel.routes.goals_ui")
@@ -92,7 +92,7 @@ def create_goals_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     goals_service: GoalsService,
-) -> RouteList:
+) -> list[Any]:
     """Register Goals UI routes."""
     routes: list[Any] = []
 

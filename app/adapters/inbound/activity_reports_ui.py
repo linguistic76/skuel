@@ -23,7 +23,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
@@ -56,7 +56,7 @@ def create_activity_reports_ui_routes(
     rt: RouteDecorator,
     submissions_service: Any = None,
     activity_report_service: Any = None,
-) -> RouteList:
+) -> list[Any]:
     """Create /activity-reports UI routes.
 
     Args:

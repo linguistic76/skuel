@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import (
         FastHTMLApp,
         RouteDecorator,
-        RouteList,
     )
     from core.services.principles_service import PrinciplesService
 
@@ -29,7 +28,7 @@ def create_principles_api_routes(
     rt: RouteDecorator,
     principles_service: PrinciplesService,
     **_kwargs: Any,
-) -> RouteList:
+) -> list[Any]:
     """Register Principles API routes."""
     routes: list[Any] = []
 

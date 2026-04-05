@@ -15,7 +15,7 @@ from typing import Any
 from fasthtml.common import JSONResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin
-from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.utils.logging import get_logger
 
@@ -24,7 +24,7 @@ logger = get_logger("skuel.routes.monitoring")
 
 def create_monitoring_api_routes(
     app: FastHTMLApp, rt: RouteDecorator, user_service: Any, **kwargs: Any
-) -> RouteList:
+) -> list[Any]:
     """
     Create monitoring API routes.
 
@@ -34,9 +34,6 @@ def create_monitoring_api_routes(
         user_service: UserService for admin checks
         **kwargs: Related services (embedding_worker, embeddings_service,
                   vector_search_service, neo4j_driver)
-
-    Returns:
-        List of routes created
     """
     embedding_worker = kwargs.get("embedding_worker")
     embeddings_service = kwargs.get("embeddings_service")
@@ -167,6 +164,6 @@ MONITORING_CONFIG = DomainRouteConfig(
 
 def create_monitoring_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire monitoring routes via DomainRouteConfig."""
-    return register_domain_routes(app, rt, services, MONITORING_CONFIG)
+    register_domain_routes(app, rt, services, MONITORING_CONFIG)

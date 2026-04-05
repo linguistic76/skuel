@@ -7,7 +7,7 @@ Wires FormSubmission API and UI routes using DomainRouteConfig.
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.form_submissions_api import create_form_submissions_api_routes
 from adapters.inbound.form_submissions_ui import create_form_submissions_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
@@ -32,9 +32,9 @@ FORM_SUBMISSIONS_CONFIG = DomainRouteConfig(
 
 def create_form_submissions_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire form submission routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, FORM_SUBMISSIONS_CONFIG)
+    register_domain_routes(app, rt, services, FORM_SUBMISSIONS_CONFIG)
 
 
 __all__ = ["create_form_submissions_routes"]

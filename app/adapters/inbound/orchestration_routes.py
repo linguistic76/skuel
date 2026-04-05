@@ -31,7 +31,7 @@ from fasthtml.common import JSONResponse, Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.services.user import UserContext
 from core.utils.logging import get_logger
@@ -201,7 +201,7 @@ def create_goals_intelligence_routes(_app: Any, rt: Any, goals_intelligence: Any
 
 def create_principle_alignment_routes(
     _app: FastHTMLApp, rt: RouteDecorator, principles: Any
-) -> RouteList:
+) -> list[Any]:
     """Register principle alignment and motivational intelligence endpoints."""
 
     @rt("/principles/list")
@@ -281,7 +281,7 @@ ORCHESTRATION_CONFIG = DomainRouteConfig(
 
 def create_orchestration_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service=None
-) -> RouteList:
+) -> None:
     """
     Wire orchestration API routes using DomainRouteConfig (Multi-Factory variant).
 
@@ -301,8 +301,6 @@ def create_orchestration_routes(
 
     if services and services.principles:
         routes.extend(create_principle_alignment_routes(app, rt, services.principles))
-
-    return routes
 
 
 __all__ = ["create_orchestration_routes"]

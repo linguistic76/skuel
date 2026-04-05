@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.events_api import create_events_api_routes
 from adapters.inbound.events_ui import create_events_ui_routes
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
@@ -44,9 +44,9 @@ EVENTS_CONFIG = create_activity_domain_route_config(
 
 def create_events_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire events API and UI routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, EVENTS_CONFIG)
+    register_domain_routes(app, rt, services, EVENTS_CONFIG)
 
 
 __all__ = ["create_events_routes"]

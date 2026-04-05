@@ -19,7 +19,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
 from core.models.relationship_names import RelationshipName
@@ -114,9 +114,9 @@ async def _get_relationships(
 
 def create_lateral_api_routes(
     app: FastHTMLApp, rt: RouteDecorator, lateral_service: Any, **kwargs: Any
-) -> RouteList:
+) -> list[Any]:
     """Register lateral relationship routes for all 9 domains."""
-    all_routes: RouteList = []
+    all_routes: list[Any] = []
 
     # Resolve domain services from kwargs
     domain_services: dict[str, Any] = {
@@ -391,9 +391,9 @@ LATERAL_CONFIG = DomainRouteConfig(
 
 def create_lateral_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire lateral relationship routes via DomainRouteConfig."""
-    return register_domain_routes(app, rt, services, LATERAL_CONFIG)
+    register_domain_routes(app, rt, services, LATERAL_CONFIG)
 
 
 __all__ = ["create_lateral_routes"]

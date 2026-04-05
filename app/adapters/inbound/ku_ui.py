@@ -205,7 +205,7 @@ def create_ku_ui_routes(
         "/api/ku/{uid}/mark-studying, /api/ku/{uid}/mark-understood"
     )
 
-    return []  # Routes registered via @rt() decorators
+    return []
 
 
 __all__ = ["create_ku_ui_routes"]

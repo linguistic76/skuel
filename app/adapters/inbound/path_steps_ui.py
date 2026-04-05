@@ -142,7 +142,7 @@ def create_path_steps_ui_routes(_app: Any, rt: Any, ps_service: PsService) -> li
         "/api/path-steps/{uid}/bookmark"
     )
 
-    return []  # Routes registered via @rt() decorators
+    return []
 
 
 __all__ = ["create_path_steps_ui_routes"]

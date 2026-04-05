@@ -20,7 +20,7 @@ from fasthtml.common import (
 )
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.cards import Card
 from ui.gradebook.nav import render_gradebook_sidebar_page
@@ -43,7 +43,7 @@ def create_exercise_reports_ui_routes(
     _app: Any,
     rt: RouteDecorator,
     submissions_core_service: Any = None,
-) -> RouteList:
+) -> list[Any]:
     """Create /exercise-reports UI routes.
 
     Args:

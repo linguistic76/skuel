@@ -14,7 +14,7 @@ Routes:
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.ku_ui import create_ku_ui_routes
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
@@ -41,9 +41,9 @@ KU_CONFIG = DomainRouteConfig(
 
 def create_ku_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
-) -> RouteList:
+) -> None:
     """Wire Ku UI routes."""
-    return register_domain_routes(app, rt, services, KU_CONFIG)
+    register_domain_routes(app, rt, services, KU_CONFIG)
 
 
 __all__ = ["create_ku_routes"]

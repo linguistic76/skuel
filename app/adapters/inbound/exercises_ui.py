@@ -369,7 +369,7 @@ def create_exercises_ui_routes(
     transcript_service=None,
     user_service=None,
     **related_services: Any,
-):
+) -> list[Any]:
     """
     Create exercises UI routes.
 
@@ -607,6 +607,7 @@ def create_exercises_ui_routes(
             return render_error_banner("Error loading exercise", technical_details=str(e))
 
     logger.info("Exercises UI routes registered")
+
     return []
 
 

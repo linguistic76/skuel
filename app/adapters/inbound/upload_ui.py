@@ -31,13 +31,12 @@ from core.services.ingestion.user_upload_service import MAX_FILES_PER_REQUEST
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
 from ui.forms.components import Input
-from ui.layout import Container
 from ui.layouts.base_page import BasePage
 from ui.patterns import PageHeader
 from ui.patterns.upload_results import UploadError, UploadResultsSummary
 
 if TYPE_CHECKING:
-    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
+    from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.services.ingestion.user_upload_service import UserUploadService
 
 logger = get_logger("skuel.routes.upload")
@@ -156,7 +155,7 @@ def create_upload_ui_routes(
     rt: "RouteDecorator",
     upload_service: "UserUploadService | None",
     user_service: Any = None,
-) -> "RouteList":
+) -> list[Any]:
     """Create user-facing upload UI routes."""
 
     routes: list[Any] = []
