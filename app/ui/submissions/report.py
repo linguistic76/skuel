@@ -238,7 +238,7 @@ _OUTCOME_LABELS: dict[str, tuple[str, BadgeT]] = {
 }
 
 
-def render_exercise_report_detail(report: Any) -> Any:
+def render_exercise_report_detail(report: Any, revised_exercise: Any = None) -> Any:
     """Render the full detail view for a single ExerciseReport.
 
     Shows report content, outcome, processor type, assessment score,
@@ -246,6 +246,7 @@ def render_exercise_report_detail(report: Any) -> Any:
 
     Args:
         report: ExerciseReport entity (or SubmissionEntity with report fields)
+        revised_exercise: Optional RevisedExercise linked to this report
     """
     title = getattr(report, "title", "") or "Exercise Report"
     report_content = getattr(report, "report_content", None) or getattr(report, "content", "") or ""
@@ -315,6 +316,34 @@ def render_exercise_report_detail(report: Any) -> Any:
         cls="mb-6",
     )
 
+    # Revision section (when teacher requested revision)
+    revision_section: Any = None
+    if revised_exercise:
+        re_uid = getattr(revised_exercise, "uid", "") or ""
+        revision_section = Div(
+            H3("Revision Requested", cls="font-semibold mb-3"),
+            P(
+                "Your teacher has created revision instructions for this submission.",
+                cls="text-sm text-muted-foreground mb-3",
+            ),
+            Div(
+                ButtonLink(
+                    "View Revision Instructions \u2192",
+                    href=f"/revised-exercises/detail?uid={re_uid}",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
+                ),
+                ButtonLink(
+                    "Submit Revision",
+                    href=f"/submit?exercise_uid={re_uid}",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                ),
+                cls="flex flex-wrap gap-2",
+            ),
+            cls="mb-6 p-4 border border-amber-200 bg-amber-50 rounded-lg dark:border-amber-800 dark:bg-amber-950",
+        )
+
     # Back link
     back = Div(
         ButtonLink(
@@ -337,6 +366,7 @@ def render_exercise_report_detail(report: Any) -> Any:
         ),
         score_section,
         content_section,
+        revision_section,
         back,
     )
 

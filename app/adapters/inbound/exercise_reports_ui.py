@@ -45,6 +45,7 @@ def create_exercise_reports_ui_routes(
     _app: Any,
     rt: RouteDecorator,
     submissions_core_service: Any = None,
+    revised_exercise_service: Any = None,
 ) -> list[Any]:
     """Create /exercise-reports UI routes.
 
@@ -52,6 +53,7 @@ def create_exercise_reports_ui_routes(
         _app: FastHTML application instance
         rt: Router instance
         submissions_core_service: SubmissionsCoreService for received assessments
+        revised_exercise_service: RevisedExerciseService for revision lookups
     """
 
     # ========================================================================
@@ -134,7 +136,16 @@ def create_exercise_reports_ui_routes(
                 request=request,
             )
 
-        content = Div(render_exercise_report_detail(report))
+        # Look up associated RevisedExercise (if teacher requested revision)
+        revised_exercise = None
+        if revised_exercise_service:
+            report_uid = getattr(report, "uid", None)
+            if report_uid:
+                re_result = await revised_exercise_service.get_by_report_uid(report_uid)
+                if not re_result.is_error and re_result.value:
+                    revised_exercise = re_result.value
+
+        content = Div(render_exercise_report_detail(report, revised_exercise=revised_exercise))
         return await render_gradebook_sidebar_page(
             content=content,
             active="exercise-reports",

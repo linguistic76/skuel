@@ -56,6 +56,7 @@ def create_learning_loop_routes(
         app,
         rt,
         submissions_core_service=getattr(services, "submissions_core", None),
+        revised_exercise_service=getattr(services, "revised_exercises", None),
     )
 
     # Activity Reports UI

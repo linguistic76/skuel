@@ -3559,6 +3559,15 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
 
         return await self.execute_query(query, params)
 
+    async def get_by_report_uid(self, report_uid: str) -> Result[list[Neo4jProperties]]:
+        """Look up a RevisedExercise by the report it responds to."""
+        query = """
+        MATCH (re:RevisedExercise {report_uid: $report_uid})
+        RETURN re
+        LIMIT 1
+        """
+        return await self.execute_query(query, {"report_uid": report_uid})
+
     async def get_revision_chain(self, exercise_uid: str) -> Result[list[RevisionChainResult]]:
         """
         Get all revised exercises in the revision chain for an original exercise.

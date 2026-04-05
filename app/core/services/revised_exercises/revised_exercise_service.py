@@ -304,6 +304,24 @@ class RevisedExerciseService(BaseService):
 
         return Result.ok(exercises)
 
+    @with_error_handling("get_by_report_uid", error_type="database")
+    async def get_by_report_uid(self, report_uid: str) -> Result[RevisedExercise | None]:
+        """Get the RevisedExercise responding to a given report, if any."""
+        result = await self.backend.get_by_report_uid(report_uid)
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        props = records[0]["re"]
+        try:
+            return Result.ok(RevisedExercise(**props))
+        except DATA_CONVERSION_EXCEPTIONS as exc:
+            self.logger.warning(
+                f"Failed to deserialize revised exercise for report {report_uid}: {exc}"
+            )
+            return Result.ok(None)
+
     @with_error_handling("get_revision_chain", error_type="database")
     async def get_revision_chain(self, exercise_uid: str) -> Result[list[RevisionChainResult]]:
         """Get all revisions in the chain for an original exercise."""

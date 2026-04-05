@@ -55,6 +55,7 @@ def render_revised_exercise_detail(entity: Any) -> Any:
         entity: RevisedExercise domain model.
     """
     title = getattr(entity, "title", "") or "Revision Instructions"
+    uid = getattr(entity, "uid", "") or ""
     instructions = getattr(entity, "instructions", None) or ""
     revision_number = getattr(entity, "revision_number", 1) or 1
     revision_rationale = getattr(entity, "revision_rationale", None) or ""
@@ -142,7 +143,7 @@ def render_revised_exercise_detail(entity: Any) -> Any:
         links.append(
             ButtonLink(
                 "Submit Revision",
-                href=f"/submit?exercise_uid={original_exercise_uid}",
+                href=f"/submit?exercise_uid={uid}",
                 variant=ButtonT.primary,
                 size=Size.sm,
             )
