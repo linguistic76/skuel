@@ -11,7 +11,6 @@ View components for each section of the Finance Hub:
 from datetime import date
 
 from fasthtml.common import (
-    H2,
     H3,
     Button,
     Div,
@@ -28,6 +27,7 @@ from ui.buttons import ButtonLink, ButtonT
 from ui.data import TableFromDicts, TableT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.page_header import PageHeader
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
@@ -167,7 +167,7 @@ class FinanceSectionViews:
             )
 
         return Div(
-            H2("Finance Dashboard", cls="text-2xl font-bold mb-6"),
+            PageHeader("Finance Dashboard"),
             stats_section,
             quick_actions,
             recent_section,
@@ -347,7 +347,7 @@ class FinanceSectionViews:
             )
 
         return Div(
-            H2("Expense Tracker", cls="text-2xl font-bold mb-6"),
+            PageHeader("Expense Tracker"),
             add_form,
             filter_bar,
             list_section,
@@ -517,7 +517,7 @@ class FinanceSectionViews:
             )
 
         return Div(
-            H2("Budget Management", cls="text-2xl font-bold mb-6"),
+            PageHeader("Budget Management"),
             summary,
             create_form,
             list_section,
@@ -625,7 +625,7 @@ class FinanceSectionViews:
         )
 
         return Div(
-            H2("Financial Reports", cls="text-2xl font-bold mb-6"),
+            PageHeader("Financial Reports"),
             monthly_section,
             category_section,
             tax_section,
@@ -749,7 +749,7 @@ class FinanceSectionViews:
         )
 
         return Div(
-            H2("Spending Analytics", cls="text-2xl font-bold mb-6"),
+            PageHeader("Spending Analytics"),
             health_section,
             metrics_section,
             pattern_section,

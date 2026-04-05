@@ -41,6 +41,7 @@ from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
+from ui.patterns.page_header import PageHeader
 from ui.profile.domain_stats_config import (
     DOMAIN_STATS_CONFIG,
     knowledge_active,
@@ -761,7 +762,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         user_uid = require_authenticated_user(request)
 
         # Fetch shared reports
-        from fasthtml.common import H2, H4, Div, P
+        from fasthtml.common import H4, Div, P
 
         from ui.buttons import Button, ButtonLink, ButtonT
         from ui.layout import Size
@@ -820,10 +821,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Content view
         content = Div(
-            H2("📥 Shared With Me", cls="text-2xl font-bold mb-4"),
-            P(
-                "Reports and events shared with you by teachers, peers, and mentors.",
-                cls="text-muted-foreground mb-6",
+            PageHeader(
+                "📥 Shared With Me",
+                subtitle="Reports and events shared with you by teachers, peers, and mentors.",
             ),
             # Filter tabs
             Div(
@@ -861,7 +861,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         Queries Neo4j for all Entity nodes with per-user VIEWED/BOOKMARKED/MASTERED relationships.
         """
-        from fasthtml.common import H2, H4, A, Div, P, Span
+        from fasthtml.common import H4, A, Div, P, Span
 
         # Query all KUs with user's relationship status via PsService
         all_kus: list[dict] = []
@@ -929,10 +929,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         )
 
         return Div(
-            H2("Knowledge Units", cls="text-2xl font-bold mb-2"),
-            P(
-                "All knowledge units in the curriculum. Track your learning progress.",
-                cls="text-muted-foreground mb-6",
+            PageHeader(
+                "Knowledge Units",
+                subtitle="All knowledge units in the curriculum. Track your learning progress.",
             ),
             # Quick stats row
             Div(

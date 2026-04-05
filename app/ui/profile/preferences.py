@@ -11,12 +11,13 @@ Date: 2025-10-14
 
 from typing import Any
 
-from fasthtml.common import H1, H2, Div, Form, Option, P, Span
+from fasthtml.common import H2, Div, Form, Option, P, Span
 
 from ui.buttons import Button, ButtonT
 from ui.cards import Card
 from ui.feedback import Alert, AlertT
 from ui.forms import Checkbox, Label, LabelInput, LabelSelect
+from ui.patterns.page_header import PageHeader
 
 
 class UserPreferencesComponents:
@@ -39,8 +40,7 @@ class UserPreferencesComponents:
         user_preferences = user_preferences or {}
 
         return Div(
-            H1("User Settings & Preferences", cls="text-3xl font-bold mb-6"),
-            P("Customize your SKUEL experience", cls="text-lg text-muted-foreground mb-8"),
+            PageHeader("User Settings & Preferences", subtitle="Customize your SKUEL experience"),
             # Learning Preferences Section
             Card(
                 H2("🎓 Learning Preferences", cls="text-2xl font-semibold mb-4"),

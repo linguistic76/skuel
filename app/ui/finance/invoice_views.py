@@ -6,7 +6,6 @@ UI components for the Invoice section of the Finance Hub.
 """
 
 from fasthtml.common import (
-    H2,
     H3,
     A,
     Button,
@@ -23,6 +22,7 @@ from fasthtml.common import (
 
 from ui.data import TableFromDicts, TableT
 from ui.finance.types import InvoiceRow, InvoiceStats
+from ui.patterns.page_header import PageHeader
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
@@ -42,14 +42,9 @@ class InvoiceViews:
             Div containing the invoice list UI
         """
         return Div(
-            # Page header
-            Div(
-                H2("Invoices", cls="text-2xl font-bold text-foreground"),
-                Span(
-                    f"{stats.total_count} total",
-                    cls="text-sm text-muted-foreground",
-                ),
-                cls="flex items-center justify-between mb-6",
+            PageHeader(
+                "Invoices",
+                actions=Span(f"{stats.total_count} total", cls="text-sm text-muted-foreground"),
             ),
             # Stats cards
             InvoiceViews._render_stats_cards(stats),

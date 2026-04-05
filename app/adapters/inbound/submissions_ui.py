@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import (
-    H1,
     H3,
     H4,
     Div,
@@ -663,11 +662,7 @@ def create_submissions_ui_routes(
         )
 
         content = Div(
-            Div(
-                H1("Submission Details", cls="text-3xl font-bold"),
-                P(f"UID: {uid}", cls="text-lg text-muted-foreground"),
-                cls="text-center mb-8",
-            ),
+            PageHeader("Submission Details", subtitle=f"UID: {uid}"),
             detail_card,
         )
 

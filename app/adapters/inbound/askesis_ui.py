@@ -28,6 +28,7 @@ from ui.cards import Card
 from ui.forms import LabelSelect, Select, Textarea
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.ui.askesis")
@@ -286,8 +287,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
     async def askesis_history(request: Request) -> Any:
         """View conversation history."""
         content = Div(
-            H1("Chat History", cls="text-3xl font-bold mb-6"),
-            P("Your past conversations will appear here.", cls="text-muted-foreground mb-4"),
+            PageHeader("Chat History", subtitle="Your past conversations will appear here."),
             Div(
                 Card(
                     EmptyState(title="No conversations yet"),
@@ -309,8 +309,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
     async def askesis_analytics(request: Request) -> Any:
         """View AI insights and analytics."""
         content = Div(
-            H1("Analytics", cls="text-3xl font-bold mb-6"),
-            P("Intelligence insights and performance metrics.", cls="text-muted-foreground mb-4"),
+            PageHeader("Analytics", subtitle="Intelligence insights and performance metrics."),
             Div(
                 Card(
                     Div(
@@ -339,8 +338,7 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
     async def askesis_settings(request: Request) -> Any:
         """Configure Askesis assistant."""
         content = Div(
-            H1("Settings", cls="text-3xl font-bold mb-6"),
-            P("Configure your AI assistant preferences.", cls="text-muted-foreground mb-6"),
+            PageHeader("Settings", subtitle="Configure your AI assistant preferences."),
             Div(
                 Card(
                     Form(

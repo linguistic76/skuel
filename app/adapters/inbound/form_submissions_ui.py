@@ -11,7 +11,7 @@ Routes:
 
 from typing import Any
 
-from fasthtml.common import H2, A, Div, P, Request, Span
+from fasthtml.common import A, Div, P, Request, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
@@ -21,6 +21,7 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.page_header import PageHeader
 
 logger = get_logger(__name__)
 
@@ -78,7 +79,7 @@ def create_form_submissions_ui_routes(
 
         return BasePage(
             Div(
-                H2("My Form Submissions", cls="text-2xl font-bold mb-6"),
+                PageHeader("My Form Submissions"),
                 content,
             ),
             title="My Form Submissions",
@@ -136,10 +137,9 @@ def create_form_submissions_ui_routes(
 
         return BasePage(
             Div(
-                H2(submission.title or "Form Submission", cls="text-2xl font-bold mb-2"),
-                P(
-                    f"Submitted: {str(submission.created_at)[:19]}",
-                    cls="text-sm text-muted-foreground mb-6",
+                PageHeader(
+                    submission.title or "Form Submission",
+                    subtitle=f"Submitted: {str(submission.created_at)[:19]}",
                 ),
                 Div(*data_rows) if data_rows else EmptyState(title="No form data"),
                 delete_btn,

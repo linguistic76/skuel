@@ -36,6 +36,7 @@ from ui.layouts.page_types import PageType
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.form_generator import FormGenerator
+from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.ui_types import (
     ActivePathData,
@@ -343,13 +344,9 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
             )
 
         content = Div(
-            Header(
-                H1("Pathways Dashboard", cls="text-3xl font-bold text-primary"),
-                P(
-                    "Track your learning journey and discover new knowledge",
-                    cls="text-lg text-muted-foreground mt-2",
-                ),
-                cls="mb-8",
+            PageHeader(
+                "Pathways Dashboard",
+                subtitle="Track your learning journey and discover new knowledge",
             ),
             # Learning Stats Overview
             Card(
@@ -480,13 +477,9 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
             )
 
         content = Div(
-            Header(
-                H1("Browse Learning Paths", cls="text-3xl font-bold text-primary"),
-                P(
-                    "Discover structured learning paths to achieve your goals",
-                    cls="text-lg text-muted-foreground mt-2",
-                ),
-                cls="mb-8",
+            PageHeader(
+                "Browse Learning Paths",
+                subtitle="Discover structured learning paths to achieve your goals",
             ),
             # Filters Section
             Card(
@@ -541,13 +534,8 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
             )
 
         content = Div(
-            Header(
-                H1("Browse Learning Steps", cls="text-3xl font-bold text-primary"),
-                P(
-                    "Explore individual path steps across all paths",
-                    cls="text-lg text-muted-foreground mt-2",
-                ),
-                cls="mb-8",
+            PageHeader(
+                "Browse Learning Steps", subtitle="Explore individual path steps across all paths"
             ),
             Div(
                 grid_content,
@@ -743,14 +731,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
         avg_retention = analytics.get("avg_retention", 0.0)
 
         content = Div(
-            Header(
-                H1("Learning Analytics", cls="text-3xl font-bold text-primary"),
-                P(
-                    "Insights into your learning journey",
-                    cls="text-lg text-muted-foreground mt-2",
-                ),
-                cls="mb-8",
-            ),
+            PageHeader("Learning Analytics", subtitle="Insights into your learning journey"),
             # Analytics Overview
             Card(
                 H2("Knowledge Profile", cls="text-xl font-semibold mb-4"),
