@@ -727,7 +727,7 @@ StatCard(label="Completion Rate", value="85%", color="success")
 
 Friendly empty state for lists with no items. Renders centered content with `py-12` padding.
 
-**Adoption status:** Used across ~45 locations in 30+ files. All Activity Domain list views, curriculum hub, study/submissions, admin, finance, analytics, lifepath, form submissions, and other domains.
+**Adoption status:** ~75 usages across ~38 files. All Activity Domain list views, curriculum hub, study/submissions, admin, finance, analytics, lifepath, form submissions, teaching, explore, search, notifications, insights, profile, and other domains. No hand-rolled `Div(P("No ..."))` empty states remain — all use `EmptyState()`.
 
 ### EmptyState(title, description, action_text, action_href, icon, **kwargs)
 

@@ -862,7 +862,7 @@ def TaskCard(task: Task) -> Any:
 
 **Location:** `/ui/patterns/empty_state.py`
 
-Adopted across ~40 locations in 25 files (Activity Domains, Curriculum, Study, Admin, Finance, etc.).
+Adopted across ~75 usages in ~38 files (Activity Domains, Curriculum, Study, Admin, Finance, Teaching, Explore, Search, Notifications, Insights, Profile, etc.). No hand-rolled empty states remain.
 
 ```python
 from ui.patterns.empty_state import EmptyState

@@ -300,6 +300,7 @@ ProgressMetric("Data Quality", 0.88)  # green ≥80%, yellow ≥60%, red <60%
 - **Primary list views** (main entity list): `EmptyState(title="...", description="...", action_text="Create ...", action_href="/...")`
 - **Secondary sections** (detail panel subsections, sidebar items): `EmptyState(title="...")` — no CTA
 - **Tiny inline indicators** (sidebar `<li>`, analytics cards): Leave as `P()` — `EmptyState` with `py-12` is too heavy
+- **Never hand-roll** `Div(P("No ..."))` for empty states — always use `EmptyState()`. Supports `**kwargs` pass-through for `id`, `cls` overrides, etc.
 
 ### Typed Page Contexts
 
