@@ -159,18 +159,15 @@ logger = get_logger("skuel.routes.{domain}")
 )
 
 
-def create_{domain}_routes(app: Any, rt: Any, services: Any, _sync_service=None) -> list[Any]:
+def create_{domain}_routes(app: Any, rt: Any, services: Any, _sync_service=None) -> None:
     """Wire {domain} routes: standard via config, extras manually."""
     # Standard routes via DomainRouteConfig
-    routes = register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
     # Extra routes registered manually (same null-guard pattern)
     if services and services.{domain}:
-        extra = create_{domain}_extra_routes(app, rt, services.{domain})
-        routes.extend(extra)
-        logger.info(f"✅ {Domain} extra routes registered: {{len(extra)}} endpoints")
-
-    return routes
+        create_{domain}_extra_routes(app, rt, services.{domain})
+        logger.info(f"{Domain} extra routes registered")
 
 
 __all__ = ["create_{domain}_routes"]
@@ -263,7 +260,7 @@ api_related_services={
 |---------|-------|-----|
 | Warning: `not found on services container` | `container_attr` doesn't match actual attribute on `services` (stale after rename) | Check `services_bootstrap/_container.py` for the real attr name |
 | `TypeError: 'NoneType' object is not callable` | `api_factory=None` without null guard in `register_domain_routes` | Null guard must exist at `domain_route_factory.py` line ~97 |
-| `TypeError: unsupported operand type(s) for +: 'NoneType' and 'list'` | Factory returns `None` instead of `[]` | Add `return []` at end of factory |
+| `TypeError: unsupported operand type(s) for +: 'NoneType' and 'list'` | Sub-factory returns `None` instead of `[]` | Add `return []` at end of sub-factory (api_factory/ui_factory must return `list[Any]`) |
 | `TypeError: missing required keyword argument` | Factory param not in `api_related_services` | Add the mapping to `api_related_services` |
 | Wrong service injected silently | `container_attr` points to wrong service | Verify key → value mapping matches intent |
 | UI factory gets unexpected kwargs | Using `ui_related_services` (deprecated) | Switch to `services: Any = None` param in UI factory |

@@ -159,16 +159,13 @@ INSIGHTS_CONFIG = DomainRouteConfig(
     api_related_services={},
 )
 
-def create_insights_routes(app, rt, services, _sync_service=None):
+def create_insights_routes(app, rt, services, _sync_service=None) -> None:
     # Config handles the standard 80%
-    routes = register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
+    register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
 
     # Manual block handles the extra 20%
     if services and services.insight_store:
-        history_routes = create_insights_history_routes(app, rt, services.insight_store)
-        routes.extend(history_routes)
-
-    return routes
+        create_insights_history_routes(app, rt, services.insight_store)
 ```
 
 ### Trade-offs

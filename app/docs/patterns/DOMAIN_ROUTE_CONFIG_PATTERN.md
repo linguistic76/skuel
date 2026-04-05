@@ -338,9 +338,9 @@ def create_{domain}_api_routes(
         **related_services: Optional related services (e.g., user_service, goals_service)
 
     Returns:
-        Empty list (routes registered via decorators, not returned)
+        Empty list (sub-factory contract — DomainRouteConfig calls .extend() on result)
     """
-    # Register routes via decorators
+    # Register routes via @rt() decorators
     return []
 ```
 
@@ -363,9 +363,9 @@ def create_{domain}_ui_routes(
         services: Full services container (unused, kept for API compatibility)
 
     Returns:
-        Empty list (routes registered via decorators, not returned)
+        Empty list (sub-factory contract — DomainRouteConfig calls .extend() on result)
     """
-    # Register routes via decorators
+    # Register routes via @rt() decorators
     return []
 ```
 
@@ -375,7 +375,9 @@ def create_{domain}_ui_routes(
 3. **Third param:** `primary_service` (the domain's main service)
 4. **Fourth param (UI only):** `services: Any = None` (standard container parameter)
 5. **Kwargs (API only):** `**related_services` with defaults (e.g., `user_service: Any = None`)
-6. **Return:** `list[Any]` (never None - return empty list if no routes)
+6. **Two-layer return contract:**
+   - **Sub-factories** (`api_factory`/`ui_factory`): return `list[Any]` — never `None`. `register_domain_routes()` calls `.extend()` on the result.
+   - **Top-level orchestrators** (`create_{domain}_routes`): return `None` — bootstrap discards the value.
 
 **Note:** UI factories use a standardized `services` parameter instead of `**related_services` kwargs for consistency across all domains.
 
@@ -423,7 +425,7 @@ def create_system_api_routes(app, rt, services, sync_service):
     system_service = services.system_service
     # Must refactor to extract services.system_service first
 
-# ❌ WRONG - doesn't return list
+# ❌ WRONG - sub-factory doesn't return list (DomainRouteConfig calls .extend())
 def create_old_api_routes(app, rt, service):
     # registers routes but returns None
     pass  # Must add: return []
@@ -484,25 +486,28 @@ TASKS_CONFIG = DomainRouteConfig(
 
 **After (DomainRouteConfig pattern):**
 ```python
-def create_tasks_routes(app, rt, services, _sync_service=None):
+def create_tasks_routes(app, rt, services, _sync_service=None) -> None:
     """Wire tasks API and UI routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, TASKS_CONFIG)
+    register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
 
 ### Step 4: Verify Registration
 
 `_wire_all_routes()` in `bootstrap.py` calls DomainRouteConfig routes without per-route logging — a single summary log at the end reports total route count. `register_domain_routes()` logs a warning only when a primary service is missing. No `if services.X:` guard is needed in bootstrap — the soft-fail in `register_domain_routes()` handles `None` services.
 
-### Why Factories Return []
+### Two-Layer Return Type Contract
 
-FastHTML uses decorators (`@rt()`) which register routes as a side effect but don't
-return route objects. This is intentional and correct. The factory's job is to
-REGISTER routes (side effect), not BUILD route objects (return value).
+FastHTML uses `@rt()` decorators which register routes as a side effect. There are no
+route objects to collect. This creates a two-layer return type contract:
 
-**Pattern:**
-- Routes registered: Via `@rt()` decorator (side effect)
-- Return value: `[]` (acknowledges no objects created)
-- Logging: Generic "routes registered" (no false counts)
+**Sub-factories** (`api_factory`/`ui_factory` wired into `DomainRouteConfig`):
+- Return `list[Any]` — `register_domain_routes()` calls `.extend()` on the result
+- `return []` at the end satisfies the `Callable[..., list[Any]]` type contract
+- Returning `None` causes `TypeError: 'NoneType' has no attribute 'extend'`
+
+**Top-level orchestrators** (`create_{domain}_routes` called from `bootstrap.py`):
+- Return `None` — bootstrap discards the value
+- No `return` statement needed
 
 ### Step 5: Test Registration
 

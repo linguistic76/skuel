@@ -297,15 +297,13 @@ The manual block follows the same service-null-guard pattern that `register_doma
 ### Upload Routes (Simple Two-Factory)
 
 ```python
-# adapters/inbound/upload_routes.py — manual two-factory registration
-def create_upload_routes(app, rt, services):
+# adapters/inbound/upload_routes.py — manual two-factory orchestrator
+def create_upload_routes(app, rt, services) -> None:
     upload_service = services.user_upload_service
     if upload_service is None:
-        return []
-    routes = []
-    routes.extend(create_upload_api_routes(app, rt, upload_service))
-    routes.extend(create_upload_ui_routes(app, rt, upload_service))
-    return routes
+        return
+    create_upload_api_routes(app, rt, upload_service)
+    create_upload_ui_routes(app, rt, upload_service)
 ```
 
 ---
@@ -391,7 +389,7 @@ def create_{domain}_api_routes(
     # Related services as keyword args with defaults:
     user_service: Any = None,
     goals_service: Any = None,
-) -> list[Any]:                      # Return [] — @rt() registers as side effect
+) -> list[Any]:                      # Sub-factory: must return list[Any] (DomainRouteConfig contract)
     ...
     return []
 ```
@@ -404,7 +402,7 @@ def create_{domain}_ui_routes(
     rt: Any,                         # Route decorator
     {domain}_service: ServiceType,   # Primary service (positional)
     services: Any = None,            # Full container (standard param, replaces ui_related_services)
-) -> list[Any]:
+) -> list[Any]:                      # Sub-factory: must return list[Any] (DomainRouteConfig contract)
     ...
     return []
 ```
@@ -412,7 +410,7 @@ def create_{domain}_ui_routes(
 **Key requirements:**
 1. Positional order: `app`, `rt`, `primary_service` — always in this order
 2. All related services must have defaults (typically `None`) — they may not be bootstrapped yet
-3. Return `list[Any]` — never `None`. FastHTML registers routes via `@rt()` decorator side effects, so the return is always `[]`
+3. **Two-layer return contract:** Sub-factories (wired into `DomainRouteConfig.api_factory`/`ui_factory`) return `list[Any]` — never `None` — because `register_domain_routes()` calls `.extend()` on the result. Top-level orchestrators (`create_{domain}_routes`) return `None` — bootstrap discards the value.
 4. UI factories use a single `services: Any = None` parameter instead of individual kwargs (2026-02-03 standardization)
 
 ---
@@ -450,23 +448,25 @@ api_related_services={
 
 This fails silently: `getattr` returns `None`, which is passed as the kwarg. The factory won't crash if the param has a default, but it will behave as if the service doesn't exist.
 
-### 3. Returning None from a factory
+### 3. Returning None from a sub-factory
 
 ```python
-# BAD — returns None implicitly
+# BAD — sub-factory returns None implicitly
 def create_tasks_api_routes(app, rt, tasks_service):
     @rt("/api/tasks")
     async def get_tasks(): ...
     # no return statement → None
 
-# GOOD — always return []
+# GOOD — sub-factories wired into DomainRouteConfig must return list[Any]
 def create_tasks_api_routes(app, rt, tasks_service):
     @rt("/api/tasks")
     async def get_tasks(): ...
     return []
 ```
 
-The Multi-Factory pattern calls `routes.extend(...)` on the return value. `None.extend()` is a `TypeError`.
+`register_domain_routes()` calls `.extend()` on the return value. `None.extend()` is a `TypeError`.
+
+**Note:** This applies to sub-factories (`api_factory`/`ui_factory`), not top-level orchestrators. Top-level `create_{domain}_routes()` functions return `None` — bootstrap discards their return value.
 
 ### 4. Forgetting the null guard in UI-only domains
 
