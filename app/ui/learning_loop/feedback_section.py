@@ -4,9 +4,11 @@ Renders report/feedback summaries for a user's submissions during a PathStep.
 Filters to submissions that have reports and shows outcome badges with action links.
 """
 
-from fasthtml.common import A, Div, Span
+from fasthtml.common import Div, Span
 
 from core.ports.query_types import PathStepSubmissionRow
+from ui.buttons import ButtonLink, ButtonT
+from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 
 _OUTCOME_BADGE: dict[str, tuple[str, str]] = {
@@ -40,10 +42,11 @@ def _feedback_row(sub: PathStepSubmissionRow) -> Div:
         Div(
             Span(title, cls="text-sm font-medium text-foreground mr-auto"),
             Span(label, cls=cls),
-            A(
+            ButtonLink(
                 action_text,
                 href=f"/exercise-reports/detail?uid={sub['report_uid']}",
-                cls="text-xs text-primary hover:underline shrink-0",
+                variant=ButtonT.primary if action_text == "Revise →" else ButtonT.ghost,
+                size=Size.sm,
             ),
             cls="flex items-center gap-2",
         ),

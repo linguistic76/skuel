@@ -473,10 +473,10 @@ def create_exercises_ui_routes(
                     Div(
                         PageHeader("Exercise Not Found"),
                         P("This exercise could not be found.", cls="text-base-content/70"),
-                        A(
+                        ButtonLink(
                             "← Back to Library",
                             href="/library",
-                            cls="text-primary hover:underline text-sm",
+                            variant=ButtonT.ghost,
                         ),
                         cls=f"{Container.STANDARD} {Spacing.PAGE}",
                     ),
@@ -587,10 +587,10 @@ def create_exercises_ui_routes(
                 description_section,
                 form_fields_section,
                 instructions_section,
-                A(
+                ButtonLink(
                     "← Back to Library",
                     href="/library",
-                    cls="text-sm text-base-content/50 hover:text-primary",
+                    variant=ButtonT.ghost,
                 ),
                 cls=f"{Container.STANDARD} {Spacing.PAGE}",
             )

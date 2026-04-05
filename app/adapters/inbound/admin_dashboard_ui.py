@@ -660,10 +660,12 @@ def _render_system_summary(status_data: dict) -> Div:
             "All systems operational" if is_healthy else "Some components need attention",
             cls="text-muted-foreground text-sm mt-2",
         ),
-        A(
+        ButtonLink(
             "View Details →",
             href="/admin/system",
-            cls="text-primary hover:underline text-sm mt-2 inline-block",
+            variant=ButtonT.ghost,
+            size=Size.sm,
+            cls="mt-2",
         ),
     )
 

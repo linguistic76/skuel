@@ -32,6 +32,7 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.search_request import SearchResponse
+from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card
 from ui.enum_helpers import (
     get_content_icon,
@@ -39,6 +40,7 @@ from ui.enum_helpers import (
     get_sel_icon,
 )
 from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 
@@ -855,7 +857,9 @@ def _render_result_card(result: dict) -> Any:
     # Add footer with clean button
     card_body_items.append(
         Div(
-            A("View Details", href=f"/{domain}/{uid}", cls="text-primary hover:underline text-sm"),
+            ButtonLink(
+                "View Details", href=f"/{domain}/{uid}", variant=ButtonT.ghost, size=Size.sm
+            ),
             cls="mt-4",
         )
     )

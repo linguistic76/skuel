@@ -16,6 +16,8 @@ from fasthtml.common import A, Div, P, Span
 from monsterui.franken import UkIcon
 
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
+from ui.buttons import ButtonLink, ButtonT
+from ui.layout import Size
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -203,10 +205,11 @@ def HubDomainBlock(block: HubBlockData) -> Div:
                 cls="flex items-center gap-2 no-underline hover:opacity-80 transition-opacity",
                 style=f"color: {block.color};",
             ),
-            A(
+            ButtonLink(
                 "View all \u2192",
                 href=block.href,
-                cls="text-xs font-medium text-muted-foreground hover:text-primary transition-colors",
+                variant=ButtonT.ghost,
+                size=Size.xs,
             ),
             cls="flex items-center justify-between mb-3",
         ),

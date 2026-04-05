@@ -13,7 +13,6 @@ from datetime import date
 from fasthtml.common import (
     H2,
     H3,
-    A,
     Button,
     Div,
     Form,
@@ -25,7 +24,9 @@ from fasthtml.common import (
     Td,
 )
 
+from ui.buttons import ButtonLink, ButtonT
 from ui.data import TableFromDicts, TableT
+from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
@@ -74,20 +75,23 @@ class FinanceSectionViews:
         quick_actions = Div(
             H3("Quick Actions", cls="text-lg font-semibold mb-3"),
             Div(
-                A(
+                ButtonLink(
                     "+ Add Expense",
                     href="/finance/expenses",
-                    cls="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition",
+                    variant=ButtonT.primary,
+                    size=Size.sm,
                 ),
-                A(
+                ButtonLink(
                     "+ Create Budget",
                     href="/finance/budgets",
-                    cls="inline-flex items-center px-4 py-2 bg-success text-white rounded-lg hover:bg-success/90 transition",
+                    variant=ButtonT.success,
+                    size=Size.sm,
                 ),
-                A(
+                ButtonLink(
                     "View Reports",
                     href="/finance/reports",
-                    cls="inline-flex items-center px-4 py-2 bg-background border border-border rounded-lg hover:bg-muted transition",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
                 ),
                 cls="flex flex-wrap gap-3",
             ),
@@ -117,10 +121,12 @@ class FinanceSectionViews:
             recent_section = Div(
                 H3("Recent Expenses", cls="text-lg font-semibold mb-3"),
                 Div(*expense_items, cls="bg-background border border-border rounded-lg p-4"),
-                A(
+                ButtonLink(
                     "View all expenses →",
                     href="/finance/expenses",
-                    cls="text-primary text-sm mt-2 inline-block",
+                    variant=ButtonT.ghost,
+                    size=Size.xs,
+                    cls="mt-2",
                 ),
                 cls="mb-8",
             )
@@ -606,10 +612,12 @@ class FinanceSectionViews:
                     ),
                     cls="flex items-center",
                 ),
-                A(
+                ButtonLink(
                     "View tax report →",
                     href="/finance/reports?type=tax",
-                    cls="text-primary text-sm mt-3 inline-block",
+                    variant=ButtonT.ghost,
+                    size=Size.xs,
+                    cls="mt-3",
                 ),
                 cls="bg-success/10 border border-success/20 rounded-lg p-4",
             ),

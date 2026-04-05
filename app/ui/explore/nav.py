@@ -22,7 +22,9 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Div, Li, P, Span, Ul
 
 from adapters.inbound.auth import get_current_user
+from ui.buttons import ButtonLink, ButtonT
 from ui.explore.graph import ExploreGraphView
+from ui.layout import Size
 from ui.patterns.sidebar import SidebarPage
 
 if TYPE_CHECKING:
@@ -95,10 +97,12 @@ def _build_section(
         footer_parts: list[Any] = []
         if see_all_href:
             footer_parts.append(
-                A(
+                ButtonLink(
                     "See all",
                     href=see_all_href,
-                    cls="text-xs text-primary hover:underline px-4 pb-2 block",
+                    variant=ButtonT.ghost,
+                    size=Size.xs,
+                    cls="mx-4 mb-2",
                     x_show="!expanded",
                 ),
             )

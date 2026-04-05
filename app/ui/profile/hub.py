@@ -14,6 +14,8 @@ from fasthtml.common import A, Div, P, Span
 
 from core.services.user.unified_user_context import UserContext
 from ui.activities.activity_hub import ActivityHubView
+from ui.buttons import ButtonLink, ButtonT
+from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 
 
@@ -48,10 +50,12 @@ def _section_header(title: str, view_all_href: str, count: int = 0) -> Div:
             )
         )
     parts.append(
-        A(
+        ButtonLink(
             "View all →",
             href=view_all_href,
-            cls="ml-auto text-xs font-medium text-primary/60 hover:text-primary transition-colors",
+            variant=ButtonT.ghost,
+            size=Size.xs,
+            cls="ml-auto",
         )
     )
     return Div(*parts, cls="flex items-center gap-2 mb-3")
@@ -214,10 +218,11 @@ def _exercises_section(context: UserContext) -> Div:
                     cls="text-[10px] font-medium bg-warning/10 text-warning px-1.5 py-0.5 rounded",
                 )
             )
-        submit_btn = A(
+        submit_btn = ButtonLink(
             "Submit",
             href=f"/submit?exercise_uid={ex['uid']}",
-            cls="text-xs font-medium bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 whitespace-nowrap",
+            variant=ButtonT.primary,
+            size=Size.sm,
         )
         rows.append(_compact_row(ex["title"], f"/exercises/{ex['uid']}/view", badges, submit_btn))
 
@@ -229,10 +234,11 @@ def _exercises_section(context: UserContext) -> Div:
                 cls="text-[10px] font-medium bg-destructive/10 text-destructive px-1.5 py-0.5 rounded",
             )
         ]
-        submit_btn = A(
+        submit_btn = ButtonLink(
             "Submit",
             href=f"/submit?exercise_uid={rev['uid']}",
-            cls="text-xs font-medium bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 whitespace-nowrap",
+            variant=ButtonT.primary,
+            size=Size.sm,
         )
         rows.append(
             _compact_row(

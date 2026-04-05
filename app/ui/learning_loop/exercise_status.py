@@ -7,6 +7,8 @@ the PathStep detail page can render exercise rows with submission/feedback statu
 from fasthtml.common import A, Div, P, Span
 
 from core.ports.query_types import ExerciseStatusRow
+from ui.buttons import ButtonLink, ButtonT
+from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 
 _STATUS_PILL: dict[str, tuple[str, str]] = {
@@ -55,22 +57,25 @@ def exercise_action_link(row: ExerciseStatusRow, from_ps: str | None = None) -> 
         submit_href = f"/submit?exercise_uid={uid}"
         if from_ps:
             submit_href += f"&from_ps={from_ps}"
-        return A(
+        return ButtonLink(
             "Submit →",
             href=submit_href,
-            cls="text-xs text-primary hover:underline shrink-0",
+            variant=ButtonT.primary,
+            size=Size.sm,
         )
     if status == "submitted":
-        return A(
+        return ButtonLink(
             "View Submission →",
             href=f"/gradebook/{row['submission_uid']}",
-            cls="text-xs text-primary hover:underline shrink-0",
+            variant=ButtonT.ghost,
+            size=Size.sm,
         )
     # feedback_available or revision_requested
-    return A(
+    return ButtonLink(
         "View Report →",
         href=f"/exercise-reports/detail?uid={row['report_uid']}",
-        cls="text-xs text-primary hover:underline shrink-0",
+        variant=ButtonT.ghost,
+        size=Size.sm,
     )
 
 
@@ -91,10 +96,11 @@ def exercise_item(row: ExerciseStatusRow, from_ps: str | None = None) -> Div:
                 cls="text-sm font-medium text-foreground hover:text-primary hover:underline mr-auto",
             ),
             Span(status_label, cls=status_cls),
-            A(
+            ButtonLink(
                 "Download",
                 href=f"/api/exercises/md?uid={row['uid']}",
-                cls="text-xs text-muted-foreground hover:underline shrink-0",
+                variant=ButtonT.ghost,
+                size=Size.sm,
             ),
             exercise_action_link(row, from_ps=from_ps),
             cls="flex items-center gap-2",

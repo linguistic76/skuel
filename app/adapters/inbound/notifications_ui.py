@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
     H3,
-    A,
     Div,
     P,
     Span,
@@ -24,7 +23,7 @@ from fasthtml.common import (
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
@@ -110,10 +109,11 @@ def _notification_card(notif: dict[str, Any]) -> Div:
                     P(notif.get("message", ""), cls="text-sm text-muted-foreground mt-1"),
                     Div(
                         Span(time_display, cls="text-xs text-muted-foreground"),
-                        A(
+                        ButtonLink(
                             "View →",
                             href=link_href,
-                            cls="text-xs link link-primary",
+                            variant=ButtonT.ghost,
+                            size=Size.xs,
                         ),
                         mark_read_btn,
                         cls="flex items-center gap-3 mt-2",

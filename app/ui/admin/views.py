@@ -500,10 +500,12 @@ class AdminUIComponents:
             Div(
                 Div(
                     Span("Learning Progress", cls="text-lg font-semibold"),
-                    A(
+                    ButtonLink(
                         "View Full KU Detail →",
                         href=f"/teaching/learning/user/{user_uid}",
-                        cls="text-primary hover:underline text-sm ml-4",
+                        variant=ButtonT.ghost,
+                        size=Size.sm,
+                        cls="ml-4",
                     ),
                     cls="flex items-center mb-3",
                 ),

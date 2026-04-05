@@ -41,6 +41,8 @@ from core.ports.query_types import (
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from ui.buttons import ButtonLink, ButtonT
+from ui.layout import Size
 
 if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
@@ -140,7 +142,7 @@ def create_teaching_api_routes(
         atomically in a single transaction. Falls back to report-only when
         exercise_uid is absent.
         """
-        from fasthtml.common import A, Div, P
+        from fasthtml.common import Div, P
 
         # Parse form data
         result = await parse_form_body(request, RequestRevisionRequest)
@@ -176,10 +178,12 @@ def create_teaching_api_routes(
             re_uid = atomic_result.value["revised_exercise_uid"]
             return Div(
                 P("Revision requested.", cls="text-sm text-amber-600 font-medium"),
-                A(
+                ButtonLink(
                     "View revision instructions →",
                     href=f"/revised-exercises/detail?uid={re_uid}",
-                    cls="text-xs text-primary hover:underline block mt-1",
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                    cls="mt-1",
                 ),
                 cls="p-3 bg-amber-50 rounded border border-amber-200",
             )

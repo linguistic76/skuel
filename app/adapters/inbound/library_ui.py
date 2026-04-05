@@ -23,6 +23,8 @@ from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
+from ui.buttons import ButtonLink, ButtonT
+from ui.layout import Size
 from ui.learning_loop.exercise_status import (
     _STATUS_PILL,
     exercise_status_key,
@@ -109,10 +111,11 @@ def _submission_item(sub: Any) -> Div:
             ),
             Span(title, cls="text-sm font-medium text-foreground ml-2 mr-auto"),
             _sub_status_badge(status),
-            A(
+            ButtonLink(
                 "View →",
                 href=f"/gradebook/{sub_uid}",
-                cls="text-xs text-primary hover:underline shrink-0",
+                variant=ButtonT.ghost,
+                size=Size.sm,
             ),
             cls="flex items-center gap-2",
         ),
@@ -156,12 +159,14 @@ def render_resource_list(resources: list[Any]) -> Div:
         attribution = f"{author_text}{year_text}".strip()
 
         link_btn = (
-            A(
+            ButtonLink(
                 "Open →",
                 href=r.source_url,
                 target="_blank",
                 rel="noopener noreferrer",
-                cls="text-xs text-primary hover:underline ml-auto shrink-0",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="ml-auto",
             )
             if r.source_url
             else None
