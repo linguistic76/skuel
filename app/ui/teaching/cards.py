@@ -10,10 +10,10 @@ from typing import Any
 from fasthtml.common import H3, A, Div, P
 
 from ui.buttons import ButtonLink, ButtonT
-from ui.feedback import Badge, BadgeT
+from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
-from ui.teaching.badges import entity_type_badge, status_badge
+from ui.teaching.badges import entity_type_badge
 from ui.teaching.types import (
     ClassSummary,
     QueueItem,
@@ -61,7 +61,7 @@ def render_queue_item(item: QueueItem) -> Div:
         header_badges=[
             feedback_badge,
             entity_type_badge(item.entity_type),
-            status_badge(item.status),
+            StatusBadge(item.status),
         ],
         show_labels=False,
         actions=ButtonLink(

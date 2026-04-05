@@ -7,18 +7,9 @@ Status and entity type badge components for teaching views.
 
 from typing import Any
 
-from core.models.enums import EntityStatus, EntityType
-from ui.feedback import Badge, BadgeT, StatusBadge
+from core.models.enums import EntityType
+from ui.feedback import Badge, BadgeT
 from ui.layout import Size
-
-
-def status_badge(status: EntityStatus | str) -> Any:
-    """Render a badge for entity status.
-
-    Delegates to StatusBadge() for canonical EntityStatus styling.
-    """
-    status_str = status.value if isinstance(status, EntityStatus) else status
-    return StatusBadge(status_str)
 
 
 def entity_type_badge(entity_type: EntityType | str | None) -> Any:

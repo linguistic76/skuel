@@ -11,12 +11,12 @@ from fasthtml.common import H3, H4, Div, Form, Input, Label, P, Span
 
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
-from ui.feedback import Badge, BadgeT
+from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.forms import Textarea
 from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.sidebar import SidebarItem
-from ui.teaching.badges import entity_type_badge, status_badge
+from ui.teaching.badges import entity_type_badge
 from ui.teaching.types import ClassMember, SubmissionDetail, SubmissionRow
 
 # Statuses that require teacher action
@@ -68,7 +68,7 @@ def render_submission_content(detail: SubmissionDetail) -> Div:
                 ),
                 Div(
                     entity_type_badge(detail.entity_type),
-                    status_badge(detail.status),
+                    StatusBadge(detail.status),
                     cls="flex gap-2 items-center",
                 ),
                 cls="flex items-start justify-between gap-4 mb-4",
@@ -319,7 +319,7 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
     badges: list[Any] = []
     if item.feedback_count > 0:
         badges.append(Badge(f"{item.feedback_count} feedback", variant=BadgeT.info, size=Size.sm))
-    badges.append(status_badge(item.status))
+    badges.append(StatusBadge(item.status))
 
     exercise_label: Any = ""
     if item.exercise_title:
