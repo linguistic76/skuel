@@ -19,6 +19,7 @@ from ui.forms.components import (
     Textarea,
     Toggle,
 )
+from ui.forms.field_builder import build_field_from_schema
 from ui.forms.inline_form_template import render_inline_form_template
 
 __all__ = [
@@ -34,5 +35,6 @@ __all__ = [
     "Select",
     "Textarea",
     "Toggle",
+    "build_field_from_schema",
     "render_inline_form_template",
 ]

@@ -3,7 +3,7 @@ User Preferences UI Components
 ================================
 
 Reusable components for editing user preferences and settings.
-Uses FormGenerator and CardGenerator for 100% dynamic rendering.
+Builds forms manually with LabelInput/LabelSelect components.
 
 Version: 1.0.0
 Date: 2025-10-14
