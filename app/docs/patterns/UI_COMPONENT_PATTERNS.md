@@ -80,7 +80,7 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-03-17a):** Navbar gains **C** (Curriculum) icon between A and S. All three icons (A, C, S) now have hover dropdown menus. `/curriculum` landing shows 4-card grid. Curriculum sub-pages (`/lessons`, `/path-steps`, `/learning-paths`, `/exercises`) share a 4-item Curriculum sidebar. Exercises moved from Study sidebar to Curriculum sidebar.
 
-**Evolution (2026-03-17b):** **A** icon removed from navbar. Activity links moved to avatar hover dropdown (`_avatar_dropdown()`). Navbar now: C, S + avatar (hover → Activities) + logout. `/profile` stripped of sidebar — uses `BasePage` directly. Journals card on `/activities` replaced with lightweight link. Sidebar badges loaded async via `GET /api/sidebar/badges` (HTMX OOB swap with `CountBadge` + `StatusBadge`).
+**Evolution (2026-03-17b):** **A** icon removed from navbar. Activity links moved to avatar hover dropdown (`_avatar_dropdown()`). Navbar now: C, S + avatar (hover → Activities) + logout. `/profile` stripped of sidebar — uses `BasePage` directly. Journals card on `/activities` replaced with lightweight link. Sidebar badges loaded async via `GET /api/sidebar/badges` (HTMX OOB swap with `CountBadge` + `HealthIndicator`).
 
 **Evolution (2026-03-17c):** **⚛️** (Knowledge) icon added as first navbar item, linking to `/ku`. Emoji icons use `text-base` styling (vs `font-semibold text-sm` for letter icons). `/ku` page redesigned from SEL-category grouped sections to flat Ku listing with bookmarks + latest sidebar. Sidebar powered by `UserRelationshipService.get_pinned_entities()` for bookmarks. Navbar order: SKUEL logo → ⚛️ → C → S → avatar → logout → search → bell.
 

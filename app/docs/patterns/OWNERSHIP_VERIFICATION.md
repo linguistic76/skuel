@@ -434,7 +434,7 @@ All manual routes operating on user-owned entities by UID now have ownership ver
 - `GET /api/submissions/statistics` - Get statistics (was accepting user_uid query param)
 - `POST /api/submissions/categorize` - Categorize (was accepting user_uid query param)
 - `POST /api/submissions/tags/add` - Add tags (was accepting user_uid query param)
-- `POST /api/submissions/tags/remove` - Remove tags (was accepting user_uid query param)
+- `DELETE /api/submissions/tags/remove` - Remove tags (was accepting user_uid query param)
 - `POST /api/submissions/publish` - Publish (was accepting user_uid query param)
 - `POST /api/submissions/archive` - Archive (was accepting user_uid query param)
 - `POST /api/submissions/draft` - Mark as draft (was accepting user_uid query param)
