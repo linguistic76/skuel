@@ -51,7 +51,6 @@ def create_learning_paths_ui_routes(
         )
 
 
-
 def _entity_list(items: list[Any]) -> Div:
     """Render a list of learning path entities using CardGenerator."""
     if not items:

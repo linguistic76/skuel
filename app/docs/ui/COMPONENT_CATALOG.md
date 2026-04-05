@@ -47,7 +47,7 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 | `ui.buttons` | `ButtonT`, `Button` |
 | `ui.cards` | `CardT` (re-exported from MonsterUI), `Card`, `CardBody`, `CardTitle`, `CardActions`, `CardFigure`, `CardLink` |
 | `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |
-| `ui.modals` | `Modal`, `ModalBox`, `ModalAction`, `ModalBackdrop` |
+| _(modals)_ | Alpine.js `x-show` + Div with Tailwind classes (no dedicated module) |
 | `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `LoadingT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress` |
 | `ui.enum_helpers` | `get_submission_status_badge_class`, `get_status_badge_class`, `get_priority_badge_class`, ... |
 | `ui.navigation` | `Navbar`, `NavbarStart`, `NavbarCenter`, `NavbarEnd`, `Menu`, `MenuItem`, `Dropdown`, `DropdownTrigger`, `DropdownContent`, `Tabs`, `Tab` |
@@ -61,7 +61,7 @@ from ui.forms import Input, LabelInput, LabelTextArea, LabelSelect, LabelCheckbo
 from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT
 from ui.layout import Container, DivHStacked, DivVStacked, Size
-from ui.modals import Modal, ModalAction, ModalBackdrop, ModalBox
+# Modals: use plain Alpine.js x-show + Div with Tailwind (no ui.modals)
 from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar
 from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, TableFromLists, TableT
 # Standard FastHTML elements (Div, Span, Option, Thead, Tbody, etc.)
@@ -1404,7 +1404,7 @@ Quick alphabetical index:
 - **LabelInput / LabelTextArea / LabelSelect / LabelCheckbox** - `ui.forms`
 - **Loading / LoadingT** - `ui.feedback`
 - **Menu / MenuItem / Navbar** - `ui.navigation`
-- **Modal / ModalBox / ModalAction / ModalBackdrop** - `ui.modals`
+- **Modals** - Alpine.js `x-show` + Div with Tailwind (inline, no dedicated module)
 - **Progress / ProgressT / RadialProgress** - `ui.feedback`
 - **Size** - `ui.layout`
 - **Table / TableFromDicts / TableFromLists / TableT** - `ui.data`

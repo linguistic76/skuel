@@ -21,7 +21,6 @@ from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label, LabelInput, LabelSelect, Select
 from ui.layout import Size
-from ui.modals import ModalBox
 
 
 def render_visibility_dropdown(submission: Any) -> Any:
@@ -83,7 +82,7 @@ def render_share_modal(report_uid: str) -> Any:
     return Div(
         Div(
             Div(
-                ModalBox(
+                Div(
                     Form(
                         Button(
                             "\u2715",
@@ -134,6 +133,8 @@ def render_share_modal(report_uid: str) -> Any:
                             "@submit.prevent": "$el.dispatchEvent(new Event('htmx:trigger')); shareModal = false"
                         },
                     ),
+                    cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
+                    **{"@click.stop": ""},
                 ),
                 cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
                 **{"@click": "shareModal = false"},

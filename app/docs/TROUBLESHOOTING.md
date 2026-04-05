@@ -161,7 +161,7 @@ from ui.cards import Card, CardBody
 from ui.feedback import Progress, ProgressT
 from ui.forms import Input, LabelInput, LabelTextArea, LabelSelect, Select, Textarea
 from ui.layout import Container, DivHStacked, Size
-from ui.modals import Modal, ModalBox, ModalAction, ModalBackdrop
+# Modals: use plain Alpine.js x-show + Div with Tailwind (no ui.modals)
 from ui.navigation import Dropdown, Menu, Navbar, Tabs
 from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, TableFromLists, TableT
 

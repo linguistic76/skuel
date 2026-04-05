@@ -32,9 +32,7 @@ SYSTEM_CONFIG = DomainRouteConfig(
 )
 
 
-def create_system_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None"
-) -> None:
+def create_system_routes(app: FastHTMLApp, rt: RouteDecorator, services: "Services | None") -> None:
     """Wire system API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, SYSTEM_CONFIG)
 

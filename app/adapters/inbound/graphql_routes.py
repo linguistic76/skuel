@@ -37,9 +37,7 @@ from ui.buttons import Button, ButtonT
 logger = get_logger(__name__)
 
 
-def create_graphql_routes(
-    app: Any, rt: Any, services: Services, _sync_service: Any = None
-) -> None:
+def create_graphql_routes(app: Any, rt: Any, services: Services, _sync_service: Any = None) -> None:
     """
     Wire GraphQL routes manually (FastHTML does not support schema mounting).
 

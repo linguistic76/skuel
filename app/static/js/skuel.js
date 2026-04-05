@@ -1397,33 +1397,6 @@
                         console.error('Bulk action failed:', err);
                         alert('Failed to mark insights as actioned. Please try again.');
                     }
-                },
-
-                // Smart bulk dismiss (dismiss all of a certain type/impact)
-                smartDismiss: async function(filter_type, filter_value) {
-                    try {
-                        var response = await fetch('/api/insights/bulk/smart-dismiss', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                filter_type: filter_type,
-                                filter_value: filter_value
-                            })
-                        });
-
-                        if (response.ok) {
-                            // Reload page to show updated insights
-                            window.location.reload();
-                        } else {
-                            var error = await response.json();
-                            alert('Failed to dismiss insights: ' + (error.detail || 'Unknown error'));
-                        }
-                    } catch (err) {
-                        console.error('Smart dismiss failed:', err);
-                        alert('Failed to dismiss insights. Please try again.');
-                    }
                 }
             };
         });

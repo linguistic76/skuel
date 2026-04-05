@@ -62,5 +62,3 @@ class FastHTMLApp(Protocol):
     def get(self, path: str) -> Any:
         """Register a GET route handler (Starlette-style decorator)."""
         ...
-
-

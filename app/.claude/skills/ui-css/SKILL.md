@@ -160,21 +160,25 @@ Alert("Error message", variant=AlertT.error)
 ### Modals
 
 ```python
+# Alpine.js modals — use plain Div with Tailwind + x-show (no ui.modals)
 from ui.buttons import Button, ButtonT
-from ui.modals import Modal, ModalBox, ModalAction, ModalBackdrop
 
-Dialog(
-    ModalBox(
+Div(
+    Div(
         H3("Modal Title", cls="font-bold text-lg"),
         P("Modal content here", cls="py-4"),
-        ModalAction(
-            Button("Cancel", variant=ButtonT.ghost),
+        Div(
+            Button("Cancel", variant=ButtonT.ghost, **{"@click": "showModal = false"}),
             Button("Confirm", variant=ButtonT.primary),
+            cls="flex justify-end gap-2",
         ),
+        cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
+        **{"@click.stop": ""},
     ),
-    ModalBackdrop(),
-    id="my_modal",
-    cls="modal",
+    cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
+    **{"@click": "showModal = false"},
+    x_show="showModal",
+    x_cloak=True,
 )
 ```
 
@@ -464,7 +468,7 @@ NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()
 | `/ui/tokens.py` | Design tokens (Container, Spacing, Card) |
 | `/static/css/main.css` | Custom CSS: animations, HTMX states, button/input visibility overrides (8 sections) |
 | `/static/css/output.css` | Compiled Tailwind output |
-| `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI component wrappers — 8 focused modules (March 2026) |
+| `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI component wrappers — 7 focused modules (March 2026) |
 
 ## See Also
 

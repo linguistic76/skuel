@@ -292,7 +292,7 @@ Input(type="text", name="search", placeholder="Search...", aria_label="Search")
 
 ```python
 from ui.buttons import Button, ButtonT
-from ui.modals import Modal, ModalAction, ModalBox
+# Alpine.js modals — use plain Div with Tailwind + x-show (no ui.modals)
 
 def create_accessible_modal(modal_id: str, title: str, content: Any) -> Any:
     """Create fully accessible modal dialog."""

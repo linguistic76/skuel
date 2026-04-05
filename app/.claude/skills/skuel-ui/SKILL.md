@@ -786,28 +786,30 @@ async def create_task(request):
 ### Modal Forms
 
 ```python
+# Alpine.js modals — use plain Div with Tailwind + x-show
 from ui.buttons import Button, ButtonT
-from ui.modals import ModalBox, ModalAction
 
 @rt("/tasks/create-modal")
 async def task_create_modal(request):
     """Return modal HTML for HTMX swap into #modal."""
-    return Dialog(
-        ModalBox(
+    return Div(
+        Div(
             H3("Create Task", cls="font-bold text-lg"),
             create_task_form(action_url="/tasks/quick-add"),
-            ModalAction(
-                Button("Cancel", variant=ButtonT.ghost,
-                       **{"onclick": "document.getElementById('modal-dialog').close()"}),
-            ),
+            Button("Cancel", variant=ButtonT.ghost,
+                   **{"@click": "showModal = false"}),
+            cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
+            **{"@click.stop": ""},
         ),
-        id="modal-dialog",
-        cls="modal modal-open",
+        cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
+        **{"@click": "showModal = false"},
+        x_show="showModal",
+        x_cloak=True,
     )
 
-# Trigger button (renders modal into global #modal container)
+# Trigger button
 Button("New Task", variant=ButtonT.primary,
-       **{"hx-get": "/tasks/create-modal", "hx-target": "#modal"})
+       **{"@click": "showModal = true"})
 ```
 
 ### Quick-Add Pattern (Minimal Fields)
@@ -898,7 +900,7 @@ Use MonsterUI semantic tokens, not Tailwind palette:
 from ui.buttons import Button, ButtonT, ButtonLink, IconButton
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT
 from ui.forms import LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Input, Select, Textarea, Checkbox
-from ui.modals import Modal, ModalBox, ModalAction
+# Modals: use plain Alpine.js x-show + Div with Tailwind (no ui.modals)
 from ui.layout import Size
 from ui.data import Table, TableFromDicts, TableFromLists, TableT, Divider, DividerSplit, DividerT
 
@@ -1107,7 +1109,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `/ui/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants |
-| `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/modals.py`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 8 focused modules (March 2026) |
+| `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 7 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
 | `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |

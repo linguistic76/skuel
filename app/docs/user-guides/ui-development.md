@@ -277,27 +277,27 @@ Caption("PRIORITY")                                      # uppercase label
 TruncatedText("Very long text that overflows...", lines=2)  # line-clamp
 ```
 
-### Modals (`ui/modals.py`)
+### Modals (Alpine.js + Tailwind)
 
 ```python
-from ui.modals import Modal, ModalBox, ModalAction, ModalBackdrop
-
-Modal(
-    "confirm-delete",                          # id — required
-    ModalBox(
-        H3("Delete Task?"),
-        P("This action cannot be undone."),
-        ModalAction(
-            Button("Cancel", variant=ButtonT.ghost,
-                   onclick="document.getElementById('confirm-delete').close()"),
+# Alpine.js modals — use plain Div with Tailwind + x-show (no ui.modals)
+Div(
+    Div(
+        H3("Delete Task?", cls="font-bold text-lg"),
+        P("This action cannot be undone.", cls="py-4"),
+        Div(
+            Button("Cancel", variant=ButtonT.ghost, **{"@click": "showModal = false"}),
             Button("Delete", variant=ButtonT.error, hx_delete="/api/tasks/123"),
+            cls="flex justify-end gap-2",
         ),
+        cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
+        **{"@click.stop": ""},
     ),
-    ModalBackdrop(),
+    cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
+    **{"@click": "showModal = false"},
+    x_show="showModal",
+    x_cloak=True,
 )
-
-# Open with: document.getElementById('confirm-delete').showModal()
-# Or Alpine.js: @click="$refs.confirmModal.showModal()"
 ```
 
 ### Navigation (`ui/navigation.py`)
@@ -984,7 +984,7 @@ When building new components:
 | Badges, alerts, progress | `ui/feedback.py` |
 | Layout (flex, grid) | `ui/layout.py` |
 | Typography | `ui/text.py` |
-| Modals | `ui/modals.py` |
+| Modals | Alpine.js `x-show` + Tailwind (inline) |
 | Nav components | `ui/navigation.py` |
 | Tables, dividers | `ui/data.py` |
 | Design tokens | `ui/tokens.py` |

@@ -15,7 +15,6 @@ from core.models.insight.persisted_insight import InsightImpact, PersistedInsigh
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.layout import Row, Size
-from ui.modals import ModalBox
 from ui.patterns.card_generator import CardGenerator
 from ui.text import SmallText, TruncatedText
 
@@ -346,7 +345,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
         # Modal overlay
         Div(
             # Modal box
-            ModalBox(
+            Div(
                 # Close button
                 Button(
                     "✕",
@@ -426,7 +425,8 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                     ),
                     cls="flex items-center justify-between pt-4 border-t border-border",
                 ),
-                cls="max-w-2xl max-h-[80vh] overflow-y-auto",
+                cls="bg-background rounded-lg shadow-lg w-full p-6 relative max-w-2xl max-h-[80vh] overflow-y-auto",
+                **{"@click.stop": ""},
             ),
             cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
             x_on_click="close()",
