@@ -28,6 +28,7 @@ def create_choices_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     choices_service: ChoicesService,
+    **_kwargs: Any,
 ) -> RouteList:
     """Register Choices API routes."""
     routes: list[Any] = []

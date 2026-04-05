@@ -5,26 +5,37 @@ Habits Routes - Configuration-Driven Registration
 Factory that wires habits API and UI routes using DomainRouteConfig.
 
 Architecture:
-    - API Routes: habits_api.py (CRUD, query, intelligence)
+    - Config-driven: CRUD, Query, Intelligence factories via create_activity_domain_route_config()
+    - API Routes: habits_api.py (domain-specific: status updates)
     - UI Routes:  habits_ui.py  (list, detail, cross-domain views)
 """
 
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.habits_api import create_habits_api_routes
 from adapters.inbound.habits_ui import create_habits_ui_routes
+from adapters.inbound.route_factories import (
+    create_activity_domain_route_config,
+    register_domain_routes,
+)
+from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
 
 
-HABITS_CONFIG = DomainRouteConfig(
+HABITS_CONFIG = create_activity_domain_route_config(
     domain_name="habits",
     primary_service_attr="habits",
     api_factory=create_habits_api_routes,
     ui_factory=create_habits_ui_routes,
+    create_schema=HabitCreateRequest,
+    update_schema=HabitUpdateRequest,
+    uid_prefix="habit",
+    supports_goal_filter=False,
+    supports_habit_filter=False,
+    prometheus_metrics_attr="prometheus_metrics",
 )
 
 

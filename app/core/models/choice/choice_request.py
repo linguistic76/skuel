@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from core.models.enums import Domain, Priority
 from core.models.enums.choice_enums import ChoiceType
-from core.models.request_base import CreateRequestBase
+from core.models.request_base import CreateRequestBase, UpdateRequestBase
 
 # =============================================================================
 # NESTED REQUEST MODELS (used by create requests)
@@ -66,6 +66,23 @@ class ChoiceCreateRequest(CreateRequestBase):
     informed_by_knowledge_uids: list[str] = Field(
         default_factory=list, description="KU UIDs informing this choice"
     )
+
+
+class ChoiceUpdateRequest(UpdateRequestBase):
+    """Update a Choice entity."""
+
+    title: str | None = Field(None, min_length=1, max_length=200, description="Choice title")
+    description: str | None = Field(
+        None, min_length=1, max_length=1000, description="Choice description"
+    )
+    choice_type: ChoiceType | None = Field(None, description="Choice type")
+    domain: Domain | None = Field(None, description="Domain")
+    decision_deadline: datetime | None = Field(None, description="Decision deadline")
+    decision_criteria: list[str] | None = Field(None, description="Criteria for deciding")
+    constraints: list[str] | None = Field(None, description="Constraints")
+    stakeholders: list[str] | None = Field(None, description="Stakeholders")
+    priority: Priority | None = Field(None, description="Choice priority")
+    tags: list[str] | None = Field(None, description="Tags")
 
 
 class ChoiceEvaluationRequest(BaseModel):

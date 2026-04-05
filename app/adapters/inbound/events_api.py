@@ -28,6 +28,7 @@ def create_events_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     events_service: EventsService,
+    **_kwargs: Any,
 ) -> RouteList:
     """Register Events API routes."""
     routes: list[Any] = []

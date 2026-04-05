@@ -28,6 +28,7 @@ def create_tasks_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     tasks_service: TasksService,
+    **_kwargs: Any,
 ) -> RouteList:
     """Register Tasks API routes."""
     routes: list[Any] = []

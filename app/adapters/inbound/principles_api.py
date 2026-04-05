@@ -28,6 +28,7 @@ def create_principles_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     principles_service: PrinciplesService,
+    **_kwargs: Any,
 ) -> RouteList:
     """Register Principles API routes."""
     routes: list[Any] = []

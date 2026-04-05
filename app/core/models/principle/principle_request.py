@@ -20,7 +20,7 @@ from core.models.enums.principle_enums import (
     PrincipleSource,
     PrincipleStrength,
 )
-from core.models.request_base import CreateRequestBase
+from core.models.request_base import CreateRequestBase, UpdateRequestBase
 
 # =============================================================================
 # NESTED REQUEST MODELS (used by create requests)
@@ -79,6 +79,28 @@ class PrincipleCreateRequest(CreateRequestBase):
     # Organization
     priority: Priority = Field(default=Priority.MEDIUM, description="Principle priority")
     tags: list[str] = Field(default_factory=list, max_length=20, description="Tags")
+
+
+class PrincipleUpdateRequest(UpdateRequestBase):
+    """Update a Principle entity."""
+
+    title: str | None = Field(None, min_length=1, max_length=100, description="Principle title")
+    statement: str | None = Field(None, min_length=1, max_length=500, description="Core statement")
+    description: str | None = Field(None, max_length=1000, description="Full description")
+    category: PrincipleCategory | None = Field(None, description="Category")
+    source: PrincipleSource | None = Field(None, description="Source")
+    strength: PrincipleStrength | None = Field(None, description="Strength")
+    tradition: str | None = Field(None, max_length=100, description="Tradition/school of thought")
+    personal_interpretation: str | None = Field(
+        None, max_length=1000, description="Personal interpretation"
+    )
+    why_important: str | None = Field(
+        None, max_length=1000, description="Why this principle matters"
+    )
+    key_behaviors: list[str] | None = Field(None, description="Key behaviors")
+    decision_criteria: list[str] | None = Field(None, description="Decision criteria")
+    priority: Priority | None = Field(None, description="Principle priority")
+    tags: list[str] | None = Field(None, description="Tags")
 
 
 class AlignmentAssessmentRequest(BaseModel):

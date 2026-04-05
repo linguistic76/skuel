@@ -728,14 +728,21 @@ All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (
 
 **Core Principle:** "Configuration over code for route registration"
 
-DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains use `DomainRouteConfig` for config-driven registration. `create_activity_domain_route_config()` is available for domains that also need CRUD/Query/Intelligence factory wiring.
+DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains use `create_activity_domain_route_config()` for config-driven registration with CRUD, Query, and Intelligence factories.
 
 ```python
-TASKS_CONFIG = DomainRouteConfig(
+TASKS_CONFIG = create_activity_domain_route_config(
     domain_name="tasks",
     primary_service_attr="tasks",
     api_factory=create_tasks_api_routes,
     ui_factory=create_tasks_ui_routes,
+    create_schema=TaskCreateRequest,
+    update_schema=TaskUpdateRequest,
+    uid_prefix="task",
+    supports_goal_filter=True,
+    supports_habit_filter=True,
+    api_related_services={"goals_service": "goals", "habits_service": "habits"},
+    prometheus_metrics_attr="prometheus_metrics",
 )
 
 def create_tasks_routes(app, rt, services, _sync_service=None):

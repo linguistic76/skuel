@@ -28,6 +28,7 @@ def create_goals_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     goals_service: GoalsService,
+    **_kwargs: Any,
 ) -> RouteList:
     """Register Goals API routes."""
     routes: list[Any] = []

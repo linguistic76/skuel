@@ -28,6 +28,7 @@ def create_habits_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     habits_service: HabitsService,
+    **_kwargs: Any,
 ) -> RouteList:
     """Register Habits API routes."""
     routes: list[Any] = []
