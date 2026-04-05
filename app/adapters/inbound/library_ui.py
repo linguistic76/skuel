@@ -24,9 +24,10 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
+from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
 from ui.learning_loop.exercise_status import (
-    _STATUS_PILL,
+    exercise_status_badge,
     exercise_status_key,
     render_exercise_list,
 )
@@ -42,48 +43,49 @@ logger = get_logger("skuel.routes.library")
 # TYPE BADGE HELPERS
 # ============================================================================
 
-_MEDIA_BADGE_CLS: dict[str, str] = {
-    "book": "bg-green-100 text-green-800 border border-green-200",
-    "talk": "bg-blue-100 text-blue-800 border border-blue-200",
-    "film": "bg-purple-100 text-purple-800 border border-purple-200",
-    "podcast": "bg-orange-100 text-orange-800 border border-orange-200",
-    "article": "bg-yellow-100 text-yellow-800 border border-yellow-200",
-    "music": "bg-pink-100 text-pink-800 border border-pink-200",
+_MEDIA_BADGE_MAP: dict[str, tuple[BadgeT | None, str]] = {
+    "book": (BadgeT.success, ""),
+    "talk": (BadgeT.info, ""),
+    "film": (None, "bg-purple-100 text-purple-800 border-purple-200"),
+    "podcast": (None, "bg-orange-100 text-orange-800 border-orange-200"),
+    "article": (BadgeT.warning, ""),
+    "music": (None, "bg-pink-100 text-pink-800 border-pink-200"),
 }
-_MEDIA_BADGE_DEFAULT = "bg-muted text-muted-foreground border border-border"
-
-_KU_BADGE_CLS = "bg-violet-100 text-violet-800 border border-violet-200 text-xs font-medium px-2 py-0.5 rounded-full"
-_PS_BADGE_CLS = (
-    "bg-teal-100 text-teal-800 border border-teal-200 text-xs font-medium px-2 py-0.5 rounded-full"
-)
 
 
-def _media_badge(media_type: str | None) -> Span:
+def _media_badge(media_type: str | None) -> Any:
     """Colored pill badge showing resource media type."""
     label = (media_type or "content").title()
-    base_cls = _MEDIA_BADGE_CLS.get(media_type or "", _MEDIA_BADGE_DEFAULT)
-    return Span(label, cls=f"{base_cls} text-xs font-medium px-2 py-0.5 rounded-full border")
+    variant, custom_cls = _MEDIA_BADGE_MAP.get(media_type or "", (BadgeT.neutral, ""))
+    return Badge(label, variant=variant, cls=custom_cls, size=Size.sm)
 
 
 # ============================================================================
 # SUBMISSIONS FRAGMENT RENDERER
 # ============================================================================
 
-_SUB_STATUS_BADGE: dict[str, str] = {
-    "submitted": "bg-blue-100 text-blue-800 border border-blue-200",
-    "processing": "bg-yellow-100 text-yellow-800 border border-yellow-200",
-    "completed": "bg-green-100 text-green-800 border border-green-200",
-    "reviewed": "bg-violet-100 text-violet-800 border border-violet-200",
-    "approved": "bg-green-100 text-green-800 border border-green-200",
-    "revision_needed": "bg-amber-100 text-amber-800 border border-amber-200",
+# Submission statuses that are valid EntityStatus values
+_ENTITY_STATUSES = {"submitted", "processing", "completed"}
+
+_EXTRA_STATUS_MAP: dict[str, tuple[str, BadgeT | None, str]] = {
+    "reviewed": ("Reviewed", BadgeT.accent, ""),
+    "approved": ("Approved", BadgeT.success, ""),
+    "revision_needed": (
+        "Revision Needed",
+        None,
+        "bg-amber-100 text-amber-800 border-amber-200",
+    ),
 }
-_SUB_STATUS_DEFAULT = "bg-muted text-muted-foreground border border-border"
 
 
-def _sub_status_badge(status: str | None) -> Span:
-    label = (status or "submitted").replace("_", " ").title()
-    cls_base = _SUB_STATUS_BADGE.get(status or "", _SUB_STATUS_DEFAULT)
-    return Span(label, cls=f"{cls_base} text-xs font-medium px-2 py-0.5 rounded-full")
+def _sub_status_badge(status: str | None) -> Any:
+    s = status or "submitted"
+    if s in _ENTITY_STATUSES:
+        return StatusBadge(s, size=Size.sm)
+    label, variant, custom_cls = _EXTRA_STATUS_MAP.get(
+        s, (s.replace("_", " ").title(), BadgeT.neutral, "")
+    )
+    return Badge(label, variant=variant, cls=custom_cls, size=Size.sm)
 
 
 def _submission_item(sub: Any) -> Div:
@@ -105,9 +107,11 @@ def _submission_item(sub: Any) -> Div:
 
     return Div(
         Div(
-            Span(
+            Badge(
                 "Submission",
-                cls="bg-sky-100 text-sky-800 border border-sky-200 text-xs font-medium px-2 py-0.5 rounded-full",
+                variant=None,
+                cls="bg-sky-100 text-sky-800 border-sky-200",
+                size=Size.sm,
             ),
             Span(title, cls="text-sm font-medium text-foreground ml-2 mr-auto"),
             _sub_status_badge(status),
@@ -379,7 +383,7 @@ def create_library_ui_routes(
         rows = [
             Div(
                 Div(
-                    Span("Ku", cls=_KU_BADGE_CLS),
+                    Badge("Ku", variant=BadgeT.accent, size=Size.sm),
                     A(
                         getattr(ku, "title", ku.uid),
                         href=f"/explore/ku/{ku.uid}",
@@ -459,7 +463,12 @@ def create_library_ui_routes(
         rows = [
             Div(
                 Div(
-                    Span("Path Step", cls=_PS_BADGE_CLS),
+                    Badge(
+                        "Path Step",
+                        variant=None,
+                        cls="bg-teal-100 text-teal-800 border-teal-200",
+                        size=Size.sm,
+                    ),
                     A(
                         getattr(step, "title", step.uid),
                         href=f"/explore/ps/{step.uid}",
@@ -499,8 +508,7 @@ def create_library_ui_routes(
         cards = []
         for row in rows[:3]:
             status_key = exercise_status_key(row)
-            label, cls = _STATUS_PILL[status_key]
-            badge = Span(label, cls=cls)
+            badge = exercise_status_badge(status_key)
             cards.append(
                 HubPreviewCard(
                     title=row["title"] or row["uid"],
@@ -556,7 +564,7 @@ def create_library_ui_routes(
             HubPreviewCard(
                 title=getattr(ku, "title", ku.uid) or ku.uid,
                 href=f"/explore/ku/{ku.uid}",
-                badge=Span("Ku", cls=_KU_BADGE_CLS),
+                badge=Badge("Ku", variant=BadgeT.accent, size=Size.sm),
             )
             for ku in kus[:3]
         ]
@@ -584,7 +592,12 @@ def create_library_ui_routes(
             HubPreviewCard(
                 title=getattr(step, "title", step.uid) or step.uid,
                 href=f"/explore/ps/{step.uid}",
-                badge=Span("Path Step", cls=_PS_BADGE_CLS),
+                badge=Badge(
+                    "Path Step",
+                    variant=None,
+                    cls="bg-teal-100 text-teal-800 border-teal-200",
+                    size=Size.sm,
+                ),
             )
             for step in steps[:3]
         ]

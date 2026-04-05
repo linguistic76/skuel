@@ -4,33 +4,34 @@ Renders report/feedback summaries for a user's submissions during a PathStep.
 Filters to submissions that have reports and shows outcome badges with action links.
 """
 
+from typing import Any
+
 from fasthtml.common import Div, Span
 
 from core.ports.query_types import PathStepSubmissionRow
 from ui.buttons import ButtonLink, ButtonT
+from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 
-_OUTCOME_BADGE: dict[str, tuple[str, str]] = {
-    "approved": (
-        "Approved",
-        "bg-green-100 text-green-800 border border-green-200 text-xs font-medium px-2 py-0.5 rounded-full",
-    ),
-    "needs_revision": (
-        "Revision Requested",
-        "bg-amber-100 text-amber-800 border border-amber-200 text-xs font-medium px-2 py-0.5 rounded-full",
-    ),
-}
-_OUTCOME_DEFAULT = (
-    "Reviewed",
-    "bg-blue-100 text-blue-800 border border-blue-200 text-xs font-medium px-2 py-0.5 rounded-full",
-)
+
+def _outcome_badge(outcome: str) -> Any:
+    """Render a Badge for a feedback outcome value."""
+    if outcome == "approved":
+        return Badge("Approved", variant=BadgeT.success, size=Size.sm)
+    if outcome == "needs_revision":
+        return Badge(
+            "Revision Requested",
+            variant=None,
+            cls="bg-amber-100 text-amber-800 border-amber-200",
+            size=Size.sm,
+        )
+    return Badge("Reviewed", variant=BadgeT.info, size=Size.sm)
 
 
 def _feedback_row(sub: PathStepSubmissionRow) -> Div:
     """Single feedback row with outcome badge and action link."""
     outcome = (sub.get("report_outcome") or "").lower()
-    label, cls = _OUTCOME_BADGE.get(outcome, _OUTCOME_DEFAULT)
 
     title = sub.get("exercise_title") or sub["title"] or sub["uid"]
 
@@ -41,7 +42,7 @@ def _feedback_row(sub: PathStepSubmissionRow) -> Div:
     return Div(
         Div(
             Span(title, cls="text-sm font-medium text-foreground mr-auto"),
-            Span(label, cls=cls),
+            _outcome_badge(outcome),
             ButtonLink(
                 action_text,
                 href=f"/exercise-reports/detail?uid={sub['report_uid']}",

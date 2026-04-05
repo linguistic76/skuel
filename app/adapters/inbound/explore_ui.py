@@ -53,16 +53,6 @@ from ui.patterns.relationships import EntityRelationshipsSection
 
 logger = get_logger("skuel.routes.explore")
 
-# Type pill badge classes (reused from library_ui.py color scheme)
-_KU_PILL_CLS = (
-    "bg-violet-100 text-violet-800 border border-violet-200 "
-    "text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
-)
-_PS_PILL_CLS = (
-    "bg-teal-100 text-teal-800 border border-teal-200 "
-    "text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
-)
-
 # Search SVG icon (shared)
 _SEARCH_ICON = NotStr(
     '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" '
@@ -99,10 +89,15 @@ def _explore_card(
 
     # Type pill
     if entity_type == "ku":
-        pill = Span("Ku", cls=_KU_PILL_CLS)
+        pill = Badge("Ku", variant=BadgeT.accent, size=Size.sm, cls="shrink-0")
         detail_href = f"/explore/ku/{uid}"
     else:
-        pill = Span("Path Step", cls=_PS_PILL_CLS)
+        pill = Badge(
+            "Path Step",
+            variant=None,
+            cls="bg-teal-100 text-teal-800 border-teal-200 shrink-0",
+            size=Size.sm,
+        )
         detail_href = f"/explore/ps/{uid}"
 
     # Truncated description

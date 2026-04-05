@@ -4,32 +4,32 @@ Extracted from library_ui.py so both the Library exercises tab and
 the PathStep detail page can render exercise rows with submission/feedback status.
 """
 
+from typing import Any
+
 from fasthtml.common import A, Div, P, Span
 
 from core.ports.query_types import ExerciseStatusRow
 from ui.buttons import ButtonLink, ButtonT
+from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 
-_STATUS_PILL: dict[str, tuple[str, str]] = {
-    # key -> (label, CSS classes)
-    "not_submitted": (
-        "Not Submitted",
-        "bg-muted text-muted-foreground border border-border text-xs font-medium px-2 py-0.5 rounded-full",
-    ),
-    "submitted": (
-        "Submitted",
-        "bg-blue-100 text-blue-800 border border-blue-200 text-xs font-medium px-2 py-0.5 rounded-full",
-    ),
-    "feedback_available": (
-        "Feedback Available",
-        "bg-green-100 text-green-800 border border-green-200 text-xs font-medium px-2 py-0.5 rounded-full",
-    ),
+_EXERCISE_STATUS_MAP: dict[str, tuple[str, BadgeT | None, str]] = {
+    "not_submitted": ("Not Submitted", BadgeT.neutral, ""),
+    "submitted": ("Submitted", BadgeT.info, ""),
+    "feedback_available": ("Feedback Available", BadgeT.success, ""),
     "revision_requested": (
         "Revision Requested",
-        "bg-amber-100 text-amber-800 border border-amber-200 text-xs font-medium px-2 py-0.5 rounded-full",
+        None,
+        "bg-amber-100 text-amber-800 border-amber-200",
     ),
 }
+
+
+def exercise_status_badge(key: str) -> Any:
+    """Render a Badge for an exercise workflow status key."""
+    label, variant, custom_cls = _EXERCISE_STATUS_MAP[key]
+    return Badge(label, variant=variant, cls=custom_cls, size=Size.sm)
 
 
 def exercise_status_key(row: ExerciseStatusRow) -> str:
@@ -86,7 +86,6 @@ def exercise_item(row: ExerciseStatusRow, from_ps: str | None = None) -> Div:
         snippet += "…"
 
     status_key = exercise_status_key(row)
-    status_label, status_cls = _STATUS_PILL[status_key]
 
     return Div(
         Div(
@@ -95,7 +94,7 @@ def exercise_item(row: ExerciseStatusRow, from_ps: str | None = None) -> Div:
                 href=f"/exercises/get?uid={row['uid']}",
                 cls="text-sm font-medium text-foreground hover:text-primary hover:underline mr-auto",
             ),
-            Span(status_label, cls=status_cls),
+            exercise_status_badge(status_key),
             ButtonLink(
                 "Download",
                 href=f"/api/exercises/md?uid={row['uid']}",

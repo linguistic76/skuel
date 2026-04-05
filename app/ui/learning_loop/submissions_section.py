@@ -4,26 +4,38 @@ Renders a user's submissions that occurred during a specific PathStep,
 with status badges, exercise names, and links to view submission/feedback.
 """
 
+from typing import Any
+
 from fasthtml.common import A, Div, Span
 
 from core.ports.query_types import PathStepSubmissionRow
+from ui.feedback import Badge, BadgeT, StatusBadge
+from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 
-_SUB_STATUS_BADGE: dict[str, str] = {
-    "submitted": "bg-blue-100 text-blue-800 border border-blue-200",
-    "processing": "bg-yellow-100 text-yellow-800 border border-yellow-200",
-    "completed": "bg-green-100 text-green-800 border border-green-200",
-    "reviewed": "bg-violet-100 text-violet-800 border border-violet-200",
-    "approved": "bg-green-100 text-green-800 border border-green-200",
-    "revision_needed": "bg-amber-100 text-amber-800 border border-amber-200",
+# Submission statuses that are valid EntityStatus values
+_ENTITY_STATUSES = {"submitted", "processing", "completed"}
+
+# Non-EntityStatus submission statuses
+_EXTRA_STATUS_MAP: dict[str, tuple[str, BadgeT | None, str]] = {
+    "reviewed": ("Reviewed", BadgeT.accent, ""),
+    "approved": ("Approved", BadgeT.success, ""),
+    "revision_needed": (
+        "Revision Needed",
+        None,
+        "bg-amber-100 text-amber-800 border-amber-200",
+    ),
 }
-_SUB_STATUS_DEFAULT = "bg-muted text-muted-foreground border border-border"
 
 
-def _status_badge(status: str | None) -> Span:
-    label = (status or "submitted").replace("_", " ").title()
-    cls_base = _SUB_STATUS_BADGE.get(status or "", _SUB_STATUS_DEFAULT)
-    return Span(label, cls=f"{cls_base} text-xs font-medium px-2 py-0.5 rounded-full")
+def _status_badge(status: str | None) -> Any:
+    s = status or "submitted"
+    if s in _ENTITY_STATUSES:
+        return StatusBadge(s, size=Size.sm)
+    label, variant, custom_cls = _EXTRA_STATUS_MAP.get(
+        s, (s.replace("_", " ").title(), BadgeT.neutral, "")
+    )
+    return Badge(label, variant=variant, cls=custom_cls, size=Size.sm)
 
 
 def _submission_row(sub: PathStepSubmissionRow) -> Div:
