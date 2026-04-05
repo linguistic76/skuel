@@ -2722,6 +2722,41 @@
             };
         });
 
+        // ====================================================================
+        // REVISION FORM — Dynamic feedback point rows for teacher review panel
+        // ====================================================================
+        Alpine.data('revisionForm', function() {
+            return {
+                points: [],
+                categories: [
+                    { value: 'accuracy', label: 'Accuracy' },
+                    { value: 'completeness', label: 'Completeness' },
+                    { value: 'depth', label: 'Depth' },
+                    { value: 'clarity', label: 'Clarity' },
+                    { value: 'application', label: 'Application' },
+                    { value: 'methodology', label: 'Methodology' }
+                ],
+                addPoint: function() {
+                    var idx = this.points.length;
+                    this.points.push({ category: 'accuracy', detail: '' });
+                    var row = document.createElement('div');
+                    row.className = 'flex gap-2 mb-2 items-start';
+                    row.setAttribute('data-fp-idx', idx);
+                    row.innerHTML =
+                        '<select name="fp_category_' + idx + '" class="text-sm border rounded px-2 py-1 w-36">' +
+                        this.categories.map(function(c) {
+                            return '<option value="' + c.value + '">' + c.label + '</option>';
+                        }).join('') +
+                        '</select>' +
+                        '<input type="text" name="fp_detail_' + idx + '" placeholder="Specific feedback..." ' +
+                        'class="text-sm border rounded px-2 py-1 flex-1" required />' +
+                        '<button type="button" class="text-xs text-destructive hover:text-destructive/80 px-1" ' +
+                        'onclick="this.parentElement.remove()">✕</button>';
+                    this.$refs.fpRows.appendChild(row);
+                }
+            };
+        });
+
     });
 
 })();

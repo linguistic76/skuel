@@ -2067,6 +2067,7 @@ class RevisionRequestResult(TypedDict, total=False):
     status: str
     report_uid: str
     revision_requested: bool
+    student_uid: str
 
 
 class ReportApprovalResult(TypedDict, total=False):

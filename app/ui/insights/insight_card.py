@@ -390,9 +390,7 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
         # Entity info
         Div(
             Span("Related Entity: ", cls="font-semibold text-foreground"),
-            Span(
-                insight.entity_uid or "None", cls="text-sm text-muted-foreground font-mono"
-            ),
+            Span(insight.entity_uid or "None", cls="text-sm text-muted-foreground font-mono"),
             cls="mb-6 text-sm",
         )
         if insight.entity_uid
@@ -402,15 +400,9 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
             # Snooze options
             Div(
                 Span("Snooze for:", cls="text-sm font-medium text-foreground mr-3"),
-                Button(
-                    "1 Day", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(1)"
-                ),
-                Button(
-                    "3 Days", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(3)"
-                ),
-                Button(
-                    "1 Week", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(7)"
-                ),
+                Button("1 Day", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(1)"),
+                Button("3 Days", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(3)"),
+                Button("1 Week", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(7)"),
                 cls="flex items-center gap-2",
             ),
             # Close button

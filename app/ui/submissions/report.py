@@ -267,7 +267,9 @@ def render_exercise_report_detail(report: Any) -> Any:
     # Header badges
     badges: list[Any] = []
     if outcome_str:
-        label, variant = _OUTCOME_LABELS.get(outcome_str, (outcome_str.replace("_", " ").title(), BadgeT.ghost))
+        label, variant = _OUTCOME_LABELS.get(
+            outcome_str, (outcome_str.replace("_", " ").title(), BadgeT.ghost)
+        )
         badges.append(Badge(label, variant=variant))
     badges.append(render_processor_badge(ptype_str))
 

@@ -44,11 +44,19 @@ _GRADEBOOK_BLOCKS: list[HubBlockData] = [
         "/activity-reports",
         "/api/gradebook/activity-reports/preview",
     ),
+    HubBlockData(
+        "Revisions",
+        "revised-exercises",
+        "refresh-cw",
+        "#EF4444",
+        "/revised-exercises",
+        "/api/gradebook/revised-exercises/preview",
+    ),
 ]
 
 
 def GradeBookHub() -> Div:
-    """GradeBook hub — 4 domain blocks with HTMX previews."""
+    """GradeBook hub — 5 domain blocks with HTMX previews."""
     return Div(
         PageHeader("GradeBook", subtitle="Track your submissions and feedback"),
         HubDomainBlockList(_GRADEBOOK_BLOCKS),

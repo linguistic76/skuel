@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field
 
 
 class RequestRevisionRequest(BaseModel):
-    """Request to ask a student to revise their work."""
+    """Request to ask a student to revise their work with structured feedback."""
 
-    notes: str = Field(..., min_length=1, description="Revision notes")
+    instructions: str = Field(..., min_length=1, description="Revision instructions")
+    exercise_uid: str = Field(..., min_length=1, description="Original exercise UID")
+    revision_rationale: str | None = Field(default=None, description="Why this revision")
+    fp_count: int = Field(default=0, ge=0, le=20, description="Number of feedback points")

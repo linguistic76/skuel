@@ -337,6 +337,7 @@ class TeacherReviewService:
                 "status": str(records[0]["status"]),
                 "report_uid": report_entity_uid,
                 "revision_requested": True,
+                "student_uid": str(student_uid),
             }
         )
 

@@ -5,6 +5,7 @@ Wires the decomposed submission and report UI routes:
 - submissions_ui.py → /submit, /gradebook, /gradebook/{uid}, fragments (GradeBook sidebar)
 - exercise_reports_ui.py → /exercise-reports, /reports/list (GradeBook sidebar)
 - activity_reports_ui.py → /activity-reports, /submit-activity-report, fragments (GradeBook sidebar)
+- revised_exercises_ui.py → /revised-exercises, /revised-exercises/detail (GradeBook sidebar)
 
 Also provides HTMX fragment endpoints for the PathStep detail page:
 - /learning-loop/ps/{ps_uid}/exercises → exercises with status pills
@@ -21,6 +22,7 @@ from adapters.inbound.activity_reports_ui import create_activity_reports_ui_rout
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.exercise_reports_ui import create_exercise_reports_ui_routes
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.revised_exercises_ui import create_revised_exercises_ui_routes
 from adapters.inbound.submissions_ui import create_submissions_ui_routes
 from core.utils.logging import get_logger
 from ui.learning_loop.exercise_status import render_exercise_list
@@ -62,6 +64,13 @@ def create_learning_loop_routes(
         rt,
         submissions_service=services.submissions,
         activity_report_service=getattr(services, "activity_report", None),
+    )
+
+    # Revised Exercises UI
+    create_revised_exercises_ui_routes(
+        app,
+        rt,
+        revised_exercise_service=getattr(services, "revised_exercises", None),
     )
 
     # ========================================================================

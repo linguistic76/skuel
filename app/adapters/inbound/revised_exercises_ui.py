@@ -1,0 +1,212 @@
+"""
+Revised Exercises UI Routes — Student-Facing Revision Pages
+=============================================================
+
+Routes for viewing teacher-created revision instructions in the GradeBook sidebar.
+
+Routes:
+- GET /revised-exercises — Revisions list page
+- GET /revised-exercises/detail — Revision detail view
+- GET /revised-exercises/list — HTMX fragment: revisions list
+- GET /api/gradebook/revised-exercises/preview — HTMX hub preview
+
+See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
+"""
+
+from typing import Any
+
+from fasthtml.common import (
+    Div,
+    P,
+    Span,
+)
+
+from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from core.utils.logging import get_logger
+from ui.cards import Card
+from ui.gradebook.nav import render_gradebook_sidebar_page
+from ui.patterns.error_banner import render_error_banner
+from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
+from ui.patterns.page_header import PageHeader
+from ui.submissions.revised_exercise import (
+    render_revised_exercise_detail,
+    render_revised_exercise_list,
+)
+
+logger = get_logger("skuel.routes.revised_exercises_ui")
+
+
+# ============================================================================
+# ROUTE CREATION
+# ============================================================================
+
+
+def create_revised_exercises_ui_routes(
+    _app: Any,
+    rt: RouteDecorator,
+    revised_exercise_service: Any = None,
+) -> list[Any]:
+    """Create /revised-exercises UI routes.
+
+    Args:
+        _app: FastHTML application instance
+        rt: Router instance
+        revised_exercise_service: RevisedExerciseService for student revisions
+    """
+
+    # ========================================================================
+    # REVISIONS LIST PAGE
+    # ========================================================================
+
+    @rt("/revised-exercises")
+    async def revised_exercises_page(request: Request) -> Any:
+        """Student-facing list of revision requests."""
+        require_authenticated_user(request)
+
+        revisions_section = Card(
+            Div(
+                P("Loading revisions...", cls="text-center text-muted-foreground"),
+                id="revisions-list",
+                cls="mt-2",
+                **{
+                    "hx-get": "/revised-exercises/list",
+                    "hx-trigger": "load",
+                    "hx-swap": "outerHTML",
+                },
+            ),
+            cls="bg-background shadow-sm p-4",
+        )
+
+        content = Div(
+            PageHeader(
+                "Revisions",
+                subtitle="Teacher revision requests for your submissions",
+            ),
+            revisions_section,
+        )
+        return await render_gradebook_sidebar_page(
+            content=content,
+            active="revised-exercises",
+            request=request,
+        )
+
+    # ========================================================================
+    # REVISION DETAIL PAGE
+    # ========================================================================
+
+    @rt("/revised-exercises/detail")
+    async def revised_exercise_detail(request: Request) -> Any:
+        """Revision detail view — full instructions, feedback points, rationale."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "").strip()
+
+        if not uid:
+            return await render_gradebook_sidebar_page(
+                content=Div(render_error_banner("Revision UID is required")),
+                active="revised-exercises",
+                request=request,
+            )
+
+        if not revised_exercise_service:
+            return await render_gradebook_sidebar_page(
+                content=Div(render_error_banner("Revision service unavailable")),
+                active="revised-exercises",
+                request=request,
+            )
+
+        result = await revised_exercise_service.get(uid)
+        if result.is_error:
+            logger.warning(f"Revised exercise not found: {uid}")
+            return await render_gradebook_sidebar_page(
+                content=Div(render_error_banner("Revision not found")),
+                active="revised-exercises",
+                request=request,
+            )
+
+        entity = result.value
+        # Ownership check: student or owning teacher
+        entity_student = getattr(entity, "student_uid", None) or ""
+        entity_owner = getattr(entity, "user_uid", None) or ""
+        if user_uid not in (entity_student, entity_owner):
+            return await render_gradebook_sidebar_page(
+                content=Div(render_error_banner("Revision not found")),
+                active="revised-exercises",
+                request=request,
+            )
+
+        content = Div(render_revised_exercise_detail(entity))
+        return await render_gradebook_sidebar_page(
+            content=content,
+            active="revised-exercises",
+            request=request,
+        )
+
+    # ========================================================================
+    # HTMX ENDPOINTS
+    # ========================================================================
+
+    @rt("/revised-exercises/list")
+    async def revised_exercises_list(request: Request) -> Any:
+        """HTMX fragment: revised exercises for current student."""
+        try:
+            user_uid = require_authenticated_user(request)
+            if not revised_exercise_service:
+                return Div(
+                    render_error_banner("Revision service unavailable"),
+                    id="revisions-list",
+                )
+            result = await revised_exercise_service.list_for_student(user_uid)
+            if result.is_error:
+                logger.error(f"Error loading revisions list: {result.error}")
+                return Div(
+                    render_error_banner("Failed to load revisions", str(result.error)),
+                    id="revisions-list",
+                )
+            return render_revised_exercise_list(result.value or [])
+        except Exception as e:  # safety-net: HTMX fragment error boundary
+            logger.error(f"Error loading revisions list: {e}", exc_info=True)
+            return Div(
+                render_error_banner("Error loading revisions", str(e)),
+                id="revisions-list",
+            )
+
+    # ========================================================================
+    # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /gradebook hub)
+    # ========================================================================
+
+    @rt("/api/gradebook/revised-exercises/preview")
+    async def revised_exercises_preview(request: Request) -> Any:
+        """HTMX fragment: 3 most recent revisions for hub preview."""
+        user_uid = require_authenticated_user(request)
+        if not revised_exercise_service:
+            return HubPreviewEmpty("revisions")
+        result = await revised_exercise_service.list_for_student(user_uid)
+        if result.is_error:
+            return HubPreviewEmpty("revisions")
+        revisions = result.value or []
+        if not revisions:
+            return HubPreviewEmpty("revisions")
+        cards = []
+        for rev in revisions[:3]:
+            uid = getattr(rev, "uid", "") or ""
+            title = getattr(rev, "title", None) or uid or "Revision"
+            revision_number = getattr(rev, "revision_number", 1) or 1
+            badge = Span(
+                f"#{revision_number}",
+                cls="text-[10px] font-medium text-destructive",
+            )
+            href = f"/revised-exercises/detail?uid={uid}" if uid else "/revised-exercises"
+            cards.append(HubPreviewCard(title=title, href=href, badge=badge))
+        return HubPreviewGrid(cards)
+
+    logger.info(
+        "Revised Exercises UI routes created "
+        "(/revised-exercises, /revised-exercises/detail, /revised-exercises/list)"
+    )
+
+    return [
+        revised_exercises_page,
+        revised_exercise_detail,
+        revised_exercises_list,
+    ]

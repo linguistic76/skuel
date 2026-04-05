@@ -191,18 +191,77 @@ def render_review_panel_inline(
                         cls="text-sm text-muted-foreground mb-3",
                     ),
                     Form(
+                        # Hidden exercise_uid for RevisedExercise creation
+                        Input(
+                            type="hidden",
+                            name="exercise_uid",
+                            value=detail.get("exercise_uid", ""),
+                        ),
+                        # Instructions (required)
                         Div(
                             Label(
-                                "Revision notes",
-                                fr=f"revision_notes_{dom_id}",
+                                "Revision instructions",
+                                fr=f"revision_instructions_{dom_id}",
                                 cls="text-sm font-medium mb-1 block",
                             ),
                             Textarea(
-                                name="notes",
-                                id=f"revision_notes_{dom_id}",
-                                placeholder="Describe what needs to be revised...",
+                                name="instructions",
+                                id=f"revision_instructions_{dom_id}",
+                                placeholder="What should the student do differently?",
                                 cls="h-20",
                                 required=True,
+                            ),
+                            cls="mb-3",
+                        ),
+                        # Feedback points (Alpine-managed dynamic rows)
+                        Div(
+                            Label(
+                                "Feedback points",
+                                cls="text-sm font-medium mb-1 block",
+                            ),
+                            P(
+                                "Categorize the specific gaps in the student's work.",
+                                cls="text-xs text-muted-foreground mb-2",
+                            ),
+                            Div(
+                                id=f"fp-rows-{dom_id}",
+                                **{"x-ref": "fpRows"},
+                            ),
+                            Div(
+                                Button(
+                                    "+ Add feedback point",
+                                    variant=ButtonT.ghost,
+                                    size=Size.sm,
+                                    type="button",
+                                    **{"@click": "addPoint()"},
+                                ),
+                                cls="mb-2",
+                            ),
+                            Input(
+                                type="hidden",
+                                name="fp_count",
+                                value="0",
+                                **{"x-bind:value": "points.length"},
+                            ),
+                            cls="mb-3",
+                            **{"x-data": "revisionForm()"},
+                        ),
+                        # Revision rationale (optional)
+                        Div(
+                            Label(
+                                "Revision rationale",
+                                fr=f"revision_rationale_{dom_id}",
+                                cls="text-sm font-medium mb-1 block",
+                            ),
+                            P(
+                                "Optional: explain why this revision is needed.",
+                                cls="text-xs text-muted-foreground mb-1",
+                            ),
+                            Textarea(
+                                name="revision_rationale",
+                                id=f"revision_rationale_{dom_id}",
+                                placeholder="Why is this revision needed?",
+                                cls="h-16",
                             ),
                             cls="mb-3",
                         ),

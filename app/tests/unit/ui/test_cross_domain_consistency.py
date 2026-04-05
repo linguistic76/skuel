@@ -95,9 +95,7 @@ class TestImportConsistency:
     ) -> None:
         source = inspect.getsource(module)
         for import_line in self.REQUIRED_IMPORTS:
-            assert import_line in source, (
-                f"{domain}_views.py missing import: {import_line}"
-            )
+            assert import_line in source, f"{domain}_views.py missing import: {import_line}"
 
 
 class TestEmptyStateConsistency:
@@ -186,9 +184,7 @@ class TestDetailViewConsistency:
     ) -> None:
         entity = _make_entity(model_cls, domain)
         result = to_xml(detail_fn(entity, []))
-        assert entity.uid in result, (
-            f"{domain} detail missing entity uid in relationships HTMX"
-        )
+        assert entity.uid in result, f"{domain} detail missing entity uid in relationships HTMX"
 
 
 class TestHubPageConsistency:

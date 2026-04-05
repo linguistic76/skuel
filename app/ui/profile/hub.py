@@ -235,7 +235,9 @@ def _exercises_section(context: UserContext) -> Div:
             cls="text-xs font-medium bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 whitespace-nowrap",
         )
         rows.append(
-            _compact_row(rev["title"], f"/exercises/{rev['uid']}/view", badges_rev, submit_btn)
+            _compact_row(
+                rev["title"], f"/revised-exercises/detail?uid={rev['uid']}", badges_rev, submit_btn
+            )
         )
 
     content: Div
