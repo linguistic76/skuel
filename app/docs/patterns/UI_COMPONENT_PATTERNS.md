@@ -321,7 +321,7 @@ Card.PADDING        # "p-6"
 
 ### Page Header & Section Header
 
-Adopted across all 6 Activity Domain dashboards, Study hub, Curriculum hub, Admin dashboard, Analytics, Calendar, LifePath, and Timeline. Every `SidebarPage` content area starts with a `PageHeader`.
+Adopted across all 6 Activity Domain dashboards, Study hub, Curriculum hub, Admin dashboard, Analytics, Calendar, LifePath, Timeline, Finance (all 6 sections), Pathways (4 pages), Askesis (3 pages), Form Submissions, Submissions, User Profile, and Preferences. Every `SidebarPage` content area starts with a `PageHeader`.
 
 ```python
 from ui.patterns import PageHeader, SectionHeader
@@ -893,6 +893,24 @@ Div(
 ---
 
 ## Common Anti-Patterns
+
+### Don't Use Raw `H1()`/`H2()` for Page Headers
+
+Page and section headers must use `PageHeader()` — not raw `H1()`/`H2()` with ad-hoc Tailwind classes. This ensures consistent typography (`text-2xl font-bold text-foreground`), spacing (`mb-8`), and subtitle/actions layout across all pages.
+
+```python
+# BAD: Hand-rolled header with inconsistent styling
+H1("Pathways Dashboard", cls="text-3xl font-bold text-primary")
+P("Track your learning journey", cls="text-lg text-muted-foreground mt-2")
+
+# GOOD: PageHeader with consistent styling
+PageHeader("Pathways Dashboard", subtitle="Track your learning journey")
+
+# GOOD: PageHeader with right-aligned actions
+PageHeader("Invoices", actions=Span(f"{count} total", cls="text-sm text-muted-foreground"))
+```
+
+**Skip PageHeader for:** error page headings inside Cards, modal titles, sub-section headings within cards (e.g. `H2("Learning Overview")` inside a `Card()`), and genuinely custom layouts with badges/progress indicators below the title.
 
 ### Don't Use Raw `A()` for Action CTAs
 

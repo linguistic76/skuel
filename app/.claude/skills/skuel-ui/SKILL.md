@@ -115,6 +115,8 @@ Card.PADDING        # "p-6"
 
 ### PageHeader and SectionHeader
 
+**Always use `PageHeader()` for page/section headers** — never raw `H1()`/`H2()` with ad-hoc classes. PageHeader ensures consistent typography (`text-2xl font-bold text-foreground`), spacing (`mb-8`), and subtitle/actions layout. Skip only for: error headings inside Cards, modal titles, sub-section headings within Cards, or genuinely custom layouts.
+
 ```python
 from ui.patterns import PageHeader, SectionHeader
 
