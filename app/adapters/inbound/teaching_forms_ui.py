@@ -136,8 +136,16 @@ def create_teaching_forms_ui_routes(
                     display_fields=[],
                     subtitle=template.instructions[:100] if template.instructions else None,
                     header_badges=[
-                        Badge(f"{count} submission{'s' if count != 1 else ''}", variant=count_variant, size=Size.sm),
-                        Badge(f"{field_count} field{'s' if field_count != 1 else ''}", variant=BadgeT.ghost, size=Size.sm),
+                        Badge(
+                            f"{count} submission{'s' if count != 1 else ''}",
+                            variant=count_variant,
+                            size=Size.sm,
+                        ),
+                        Badge(
+                            f"{field_count} field{'s' if field_count != 1 else ''}",
+                            variant=BadgeT.ghost,
+                            size=Size.sm,
+                        ),
                     ],
                     show_labels=False,
                     actions=ButtonLink(
@@ -159,7 +167,9 @@ def create_teaching_forms_ui_routes(
 
     @rt("/teaching/forms/detail")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_forms_detail(request: Request, uid: str = "", current_user: Any = None) -> Any:
+    async def teaching_forms_detail(
+        request: Request, uid: str = "", current_user: Any = None
+    ) -> Any:
         require_authenticated_user(request)
 
         if not uid:
@@ -201,7 +211,10 @@ def create_teaching_forms_ui_routes(
             content = Div(
                 back_link,
                 PageHeader(template.title, subtitle="Submissions"),
-                EmptyState("No submissions yet", "Submissions will appear here when users respond to this form."),
+                EmptyState(
+                    "No submissions yet",
+                    "Submissions will appear here when users respond to this form.",
+                ),
             )
             return await render_teaching_sidebar_page(content, active="forms", request=request)
 
@@ -247,7 +260,10 @@ def create_teaching_forms_ui_routes(
 
         content = Div(
             back_link,
-            PageHeader(template.title, subtitle=f"{len(submissions)} submission{'s' if len(submissions) != 1 else ''}"),
+            PageHeader(
+                template.title,
+                subtitle=f"{len(submissions)} submission{'s' if len(submissions) != 1 else ''}",
+            ),
             *submission_rows,
         )
         return await render_teaching_sidebar_page(content, active="forms", request=request)

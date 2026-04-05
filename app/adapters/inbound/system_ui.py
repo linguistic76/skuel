@@ -13,7 +13,7 @@ __version__ = "2.0"
 from typing import Any
 
 from fasthtml.common import H1, H2, A, Div, Form, Nav, P, Span
-from monsterui.franken import UkIcon
+from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import get_is_admin, is_authenticated
