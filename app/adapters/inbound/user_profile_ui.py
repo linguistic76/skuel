@@ -688,7 +688,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         from fasthtml.common import Span
 
-        from ui.profile.badges import CountBadge, StatusBadge
+        from ui.profile.badges import CountBadge, HealthIndicator
 
         user_uid = require_authenticated_user(request)
 
@@ -710,7 +710,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             fragments.append(
                 Span(
                     CountBadge(count, active),
-                    StatusBadge(status),
+                    HealthIndicator(status),
                     id=f"sidebar-badge-{slug}",
                     hx_swap_oob="true",
                     cls="flex items-center gap-1",
@@ -742,7 +742,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             fragments.append(
                 Span(
                     CountBadge(count, active),
-                    StatusBadge(status),
+                    HealthIndicator(status),
                     id=f"sidebar-badge-{slug}",
                     hx_swap_oob="true",
                     cls="flex items-center gap-1",

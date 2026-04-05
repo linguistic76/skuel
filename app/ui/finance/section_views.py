@@ -27,6 +27,7 @@ from fasthtml.common import (
 
 from ui.data import TableFromDicts, TableT
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
 class FinanceSectionViews:
@@ -59,28 +60,14 @@ class FinanceSectionViews:
         budget_alerts = budget_alerts or []
 
         # Stats cards
-        stats_section = Div(
-            Div(
-                Div(f"${total_spent:,.2f}", cls="text-2xl font-bold text-info"),
-                Div("Spent This Month", cls="text-sm text-muted-foreground mt-1"),
-                cls="bg-info/10 rounded-lg p-4 text-center",
-            ),
-            Div(
-                Div(f"${total_budget:,.2f}", cls="text-2xl font-bold text-success"),
-                Div("Total Budget", cls="text-sm text-muted-foreground mt-1"),
-                cls="bg-success/10 rounded-lg p-4 text-center",
-            ),
-            Div(
-                Div(f"{budget_utilization:.0f}%", cls="text-2xl font-bold text-warning"),
-                Div("Budget Used", cls="text-sm text-muted-foreground mt-1"),
-                cls="bg-warning/10 rounded-lg p-4 text-center",
-            ),
-            Div(
-                Div(health_status, cls="text-2xl font-bold text-primary"),
-                Div("Health Status", cls="text-sm text-muted-foreground mt-1"),
-                cls="bg-primary/10 rounded-lg p-4 text-center",
-            ),
-            cls="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8",
+        stats_section = StatsGrid(
+            [
+                StatItem(label="Spent This Month", value=f"${total_spent:,.2f}", color="info"),
+                StatItem(label="Total Budget", value=f"${total_budget:,.2f}", color="success"),
+                StatItem(label="Budget Used", value=f"{budget_utilization:.0f}%", color="warning"),
+                StatItem(label="Health Status", value=health_status, color="primary"),
+            ],
+            cls="mb-8",
         )
 
         # Quick actions

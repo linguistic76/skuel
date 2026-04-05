@@ -765,7 +765,7 @@ def create_submissions_api_routes(
 
             return await submissions_core_service.add_tags(uid=submission_uid, tags=req.tags)
 
-        @rt("/api/submissions/tags/remove")
+        @rt("/api/submissions/tags/remove", methods=["DELETE"])
         @boundary_handler()
         async def remove_tags_route(
             request: Request, submission_uid: str

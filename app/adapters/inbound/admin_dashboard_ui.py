@@ -32,6 +32,7 @@ from fasthtml.common import H2, H3, A, Div, P, Span
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
 from ui.admin.layout import create_admin_page
+from ui.patterns.section_header import SectionHeader
 from ui.admin.types import UserCardData
 from ui.admin.views import (
     AdminAnalyticsComponents,
@@ -87,7 +88,7 @@ def create_admin_dashboard_routes(_app, rt, services):
             PageHeader("Admin Dashboard", subtitle="System overview and management"),
             # Quick links
             Div(
-                H2("Quick Actions", cls="text-xl font-semibold mb-4"),
+                SectionHeader("Quick Actions"),
                 Div(
                     A(
                         Div(

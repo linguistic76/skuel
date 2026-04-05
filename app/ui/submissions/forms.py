@@ -288,7 +288,7 @@ def render_tags_manager(submission: Any) -> Any:
                 variant=ButtonT.ghost,
                 size=Size.xs,
                 cls="ml-1",
-                hx_post=f"/api/submissions/tags/remove?submission_uid={submission.uid}&user_uid={submission.user_uid}",
+                hx_delete=f"/api/submissions/tags/remove?submission_uid={submission.uid}&user_uid={submission.user_uid}",
                 hx_vals=f'js:{{tags: ["{tag}"]}}',
                 hx_target=f"#tags-manager-{submission.uid}",
                 hx_swap="outerHTML",

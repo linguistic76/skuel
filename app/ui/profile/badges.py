@@ -12,9 +12,9 @@ if TYPE_CHECKING:
     from ui.profile.layout import ProfileDomainItem
 
 
-def StatusBadge(status: str) -> Span:
+def HealthIndicator(status: str) -> Span:
     """
-    Status indicator dot.
+    Health status indicator dot.
 
     Args:
         status: One of "healthy", "warning", "critical"
@@ -93,7 +93,7 @@ def DomainSidebarItem(domain: "ProfileDomainItem", is_active: bool) -> A:
         # Right side: count + status
         Div(
             CountBadge(domain.count, domain.active_count),
-            StatusBadge(domain.status),
+            HealthIndicator(domain.status),
             cls="flex items-center gap-2",
         ),
         href=domain.href,
@@ -178,5 +178,5 @@ __all__ = [
     "CountBadge",
     "DomainSidebarItem",
     "DomainStatus",
-    "StatusBadge",
+    "HealthIndicator",
 ]
