@@ -27,7 +27,7 @@ Date: 2025-12-07
 
 from typing import Any
 
-from fasthtml.common import H2, H3, A, Div, P, Span
+from fasthtml.common import H2, H3, Div, P, Span
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
@@ -90,50 +90,55 @@ def create_admin_dashboard_routes(_app, rt, services):
             Div(
                 SectionHeader("Quick Actions"),
                 Div(
-                    A(
+                    ButtonLink(
                         Div(
                             Span("👥", cls="text-2xl"),
                             Span("Manage Users", cls="font-medium"),
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/users",
-                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
+                        variant=ButtonT.ghost,
+                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
                     ),
-                    A(
+                    ButtonLink(
                         Div(
                             Span("📈", cls="text-2xl"),
                             Span("View Analytics", cls="font-medium"),
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/analytics",
-                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
+                        variant=ButtonT.ghost,
+                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
                     ),
-                    A(
+                    ButtonLink(
                         Div(
                             Span("⚙️", cls="text-2xl"),
                             Span("System Health", cls="font-medium"),
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/system",
-                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
+                        variant=ButtonT.ghost,
+                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
                     ),
-                    A(
+                    ButtonLink(
                         Div(
                             Span("💰", cls="text-2xl"),
                             Span("Finance Dashboard", cls="font-medium"),
                             cls="flex items-center gap-3",
                         ),
                         href="/finance",
-                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
+                        variant=ButtonT.ghost,
+                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
                     ),
-                    A(
+                    ButtonLink(
                         Div(
                             Span("📥", cls="text-2xl"),
                             Span("Content Ingestion", cls="font-medium"),
                             cls="flex items-center gap-3",
                         ),
                         href="/ingest",
-                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow",
+                        variant=ButtonT.ghost,
+                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
                     ),
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
                 ),

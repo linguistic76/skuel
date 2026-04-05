@@ -48,6 +48,7 @@ from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.modal import AlpineModal
 from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.calendar")
@@ -221,12 +222,17 @@ def _render_item_details_modal(item: Any) -> Div:
             cls="mb-4",
         )
 
+    # Close expression: hide via Alpine, then remove wrapper after transition
+    close_expr = (
+        "open = false; $nextTick(() => document.getElementById('item-details-modal')?.remove())"
+    )
+
     # Action buttons based on type
     action_buttons = [
         Button(
             "Close",
             variant=ButtonT.ghost,
-            onclick="document.getElementById('item-details-modal').remove()",
+            **{"x-on:click": close_expr},
         )
     ]
 
@@ -265,48 +271,48 @@ def _render_item_details_modal(item: Any) -> Div:
         )
 
     return Div(
-        Div(
+        AlpineModal(
+            # Header with title and close button
             Div(
-                # Header with title and close button
-                Div(
-                    H2(
-                        Span(item.icon or "📅", cls="mr-2"),
-                        item.title,
-                        cls="text-2xl font-bold flex items-center",
-                    ),
-                    Button(
-                        UkIcon("x", cls="w-6 h-6"),
-                        variant=ButtonT.ghost,
-                        size=Size.sm,
-                        cls="text-muted-foreground hover:text-muted-foreground",
-                        onclick="document.getElementById('item-details-modal').remove()",
-                    ),
-                    cls="flex justify-between items-start mb-4",
+                H2(
+                    Span(item.icon or "📅", cls="mr-2"),
+                    item.title,
+                    cls="text-2xl font-bold flex items-center",
                 ),
-                # Type and priority
-                Div(type_badge, priority_stars, cls="flex items-center space-x-4 mb-4"),
-                # Schedule
-                Div(
-                    P("Schedule", cls="text-sm font-semibold text-muted-foreground mb-2"),
-                    P(schedule_text, cls="text-sm text-muted-foreground"),
-                    recurrence_info,
-                    cls="bg-muted p-4 rounded-lg mb-4",
+                Button(
+                    UkIcon("x", cls="w-6 h-6"),
+                    variant=ButtonT.ghost,
+                    size=Size.sm,
+                    cls="text-muted-foreground hover:text-muted-foreground",
+                    **{"x-on:click": close_expr},
                 ),
-                # Description
-                description_section,
-                # Event info
-                event_info,
-                # Habit info
-                habit_info,
-                # Tags
-                tags_section,
-                # Actions
-                Div(*action_buttons, cls="flex pt-4 border-t"),
-                cls="bg-background rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto",
+                cls="flex justify-between items-start mb-4",
             ),
-            cls="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50",
-            onclick="if(event.target === this) document.getElementById('item-details-modal').remove()",
+            # Type and priority
+            Div(type_badge, priority_stars, cls="flex items-center space-x-4 mb-4"),
+            # Schedule
+            Div(
+                P("Schedule", cls="text-sm font-semibold text-muted-foreground mb-2"),
+                P(schedule_text, cls="text-sm text-muted-foreground"),
+                recurrence_info,
+                cls="bg-muted p-4 rounded-lg mb-4",
+            ),
+            # Description
+            description_section,
+            # Event info
+            event_info,
+            # Habit info
+            habit_info,
+            # Tags
+            tags_section,
+            # Actions
+            Div(*action_buttons, cls="flex pt-4 border-t"),
+            show="open",
+            close=close_expr,
+            max_width="max-w-2xl",
+            scrollable=True,
         ),
+        x_data="{ open: true }",
         id="item-details-modal",
     )
 
@@ -672,21 +678,23 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             return _render_item_details_modal(result.value)
 
         # Error state
+        close_expr = (
+            "open = false; $nextTick(() => document.getElementById('item-details-modal')?.remove())"
+        )
         return Div(
-            Div(
-                Div(
-                    H2("Error", cls="text-xl font-bold text-error mb-2"),
-                    P("Calendar item not found", cls="text-muted-foreground"),
-                    Button(
-                        "Close",
-                        variant=ButtonT.ghost,
-                        cls="mt-4",
-                        onclick="document.getElementById('item-details-modal').remove()",
-                    ),
-                    cls="bg-background rounded-lg p-6 max-w-md w-full mx-4",
+            AlpineModal(
+                H2("Error", cls="text-xl font-bold text-error mb-2"),
+                P("Calendar item not found", cls="text-muted-foreground"),
+                Button(
+                    "Close",
+                    variant=ButtonT.ghost,
+                    cls="mt-4",
+                    **{"x-on:click": close_expr},
                 ),
-                cls="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50",
-                onclick="if(event.target === this) document.getElementById('item-details-modal').remove()",
+                show="open",
+                close=close_expr,
+                max_width="max-w-md",
             ),
+            x_data="{ open: true }",
             id="item-details-modal",
         )

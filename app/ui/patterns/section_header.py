@@ -4,7 +4,7 @@ Usage:
     from ui.patterns.section_header import SectionHeader
 
     SectionHeader("Recent Tasks")
-    SectionHeader("Active Goals", action=A("View All", href="/goals"))
+    SectionHeader("Active Goals", action=ButtonLink("View All", href="/goals", variant=ButtonT.link))
 """
 
 from typing import TYPE_CHECKING, Any
