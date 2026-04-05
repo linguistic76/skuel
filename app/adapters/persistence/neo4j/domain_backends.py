@@ -1733,11 +1733,13 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         WHERE submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
 
+        // Denormalize feedback onto submission for quick list display
         SET submission.report_content = $feedback,
             submission.report_generated_at = datetime($now),
             submission.status = $submission_status,
             submission.updated_at = datetime($now)
 
+        // Canonical feedback lives on the report node
         CREATE (fb:Entity {{
             uid: $report_entity_uid,
             title: $title,
@@ -1766,6 +1768,112 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
                submission.status as status,
                student.uid as student_uid,
                fb.uid as report_entity_uid
+        """
+        return await self.execute_query(query, params)
+
+    async def create_report_and_revised_exercise(
+        self, params: dict[str, Any]
+    ) -> Result[list[Neo4jProperties]]:
+        """Atomically create ExerciseReport + RevisedExercise in one transaction.
+
+        Combines the two-phase revision request (create_report_node + RevisedExercise
+        create with relationships) into a single Cypher query. All-or-nothing: if any
+        part fails, no partial state is left behind.
+
+        Params required:
+            Phase 1 (ExerciseReport): report_uid (submission UID), report_entity_uid,
+                teacher_uid, feedback, report_file_path, title, entity_type,
+                submission_status, completed_status, processor_type,
+                assessment_outcome, allowed_from_statuses, now
+            Phase 2 (RevisedExercise): re_props (from to_neo4j_node), re_uid,
+                original_exercise_uid
+        """
+        query = f"""
+        // Phase 1: Match submission with status guard, create ExerciseReport
+        MATCH (submission:Entity {{uid: $report_uid}})
+        WHERE submission.status IN $allowed_from_statuses
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
+
+        SET submission.report_content = $feedback,
+            submission.report_generated_at = datetime($now),
+            submission.status = $submission_status,
+            submission.updated_at = datetime($now)
+
+        CREATE (fb:Entity {{
+            uid: $report_entity_uid,
+            title: $title,
+            entity_type: $entity_type,
+            user_uid: $teacher_uid,
+            status: $completed_status,
+            processor_type: $processor_type,
+            assessment_outcome: $assessment_outcome,
+            content: $feedback,
+            report_file_path: $report_file_path,
+            created_by: $teacher_uid,
+            created_at: datetime($now),
+            updated_at: datetime($now)
+        }})
+
+        WITH submission, student, fb
+        MATCH (teacher:User {{uid: $teacher_uid}})
+        CREATE (teacher)-[:{RelationshipName.OWNS.value}]->(fb)
+        CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
+
+        // Share report with student
+        WITH submission, student, fb, teacher
+        FOREACH (_ IN CASE WHEN student IS NOT NULL THEN [1] ELSE [] END |
+            CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{
+                shared_at: datetime($now), role: 'student'
+            }}]->(fb)
+        )
+
+        // Phase 2: Count existing revisions for revision_number
+        WITH submission, student, fb, teacher
+        OPTIONAL MATCH (existing_re:Entity {{entity_type: 'revised_exercise'}})
+                       -[:{RelationshipName.REVISES_EXERCISE.value}]->
+                       (orig_ex:Entity {{uid: $original_exercise_uid, entity_type: 'exercise'}})
+        WITH submission, student, fb, teacher,
+             count(existing_re) + 1 AS revision_number
+
+        // Resolve expected_modality from original exercise
+        OPTIONAL MATCH (orig_exercise:Entity {{uid: $original_exercise_uid, entity_type: 'exercise'}})
+
+        // Create RevisedExercise node
+        WITH submission, student, fb, teacher, revision_number, orig_exercise
+        CREATE (re:Entity:RevisedExercise $re_props)
+        SET re.uid = $re_uid,
+            re.revision_number = revision_number,
+            re.submission_uid = submission.uid,
+            re.student_uid = CASE WHEN student IS NOT NULL THEN student.uid ELSE null END,
+            re.title = 'Revision ' + toString(revision_number),
+            re.expected_modality = orig_exercise.expected_modality,
+            re.created_at = datetime($now),
+            re.updated_at = datetime($now)
+
+        // RevisedExercise relationships
+        MERGE (teacher)-[:{RelationshipName.OWNS.value}]->(re)
+        MERGE (re)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
+
+        WITH submission, student, fb, re, revision_number, orig_exercise
+        FOREACH (_ IN CASE WHEN orig_exercise IS NOT NULL THEN [1] ELSE [] END |
+            MERGE (re)-[:{RelationshipName.REVISES_EXERCISE.value}]->(orig_exercise)
+        )
+
+        // Auto-share RevisedExercise with student
+        WITH submission, student, fb, re, revision_number
+        FOREACH (_ IN CASE WHEN student IS NOT NULL THEN [1] ELSE [] END |
+            MERGE (student)-[:{RelationshipName.SHARES_WITH.value} {{
+                role: 'student'
+            }}]->(re)
+            ON CREATE SET student.shared_at = datetime($now)
+        )
+
+        RETURN submission.uid AS uid,
+               submission.status AS status,
+               CASE WHEN student IS NOT NULL THEN student.uid ELSE null END AS student_uid,
+               fb.uid AS report_entity_uid,
+               re.uid AS revised_exercise_uid,
+               revision_number
         """
         return await self.execute_query(query, params)
 
@@ -3450,13 +3558,15 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
     ) -> Result[list[Neo4jProperties]]:
         """Verify teacher has review authority over a report.
 
-        Checks the graph path:
+        Checks the graph path (OWNS-based, per ADR-040):
         - (ExerciseReport)-[:REPORT_FOR]->(Submission) exists
-        - (Teacher)-[:SHARES_WITH {role:'teacher'}]->(Submission)
         - (Student)-[:OWNS]->(Submission)
+        - Teacher identity is role-gated at the route level (@require_role)
+
+        teacher_uid is retained for audit logging and future per-teacher scoping.
 
         Args:
-            teacher_uid: Teacher user UID
+            teacher_uid: Teacher user UID (for audit; access is role-gated at route)
             report_uid: Report UID
             student_uid: Student user UID
 
@@ -3466,8 +3576,8 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         return await self.execute_query(
             """
             MATCH (fb:Entity {uid: $report_uid})-[:REPORT_FOR]->(submission:Entity)
-            MATCH (teacher:User {uid: $teacher_uid})-[:SHARES_WITH {role: 'teacher'}]->(submission)
             MATCH (student:User {uid: $student_uid})-[:OWNS]->(submission)
+            WHERE submission.entity_type = 'exercise_submission'
             RETURN submission.uid AS submission_uid
             """,
             {

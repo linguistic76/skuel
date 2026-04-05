@@ -2070,6 +2070,21 @@ class RevisionRequestResult(TypedDict, total=False):
     student_uid: str
 
 
+class RevisionWithExerciseResult(TypedDict):
+    """Return shape for TeacherReviewService.request_revision_with_exercise().
+
+    Atomic operation that creates both ExerciseReport and RevisedExercise
+    in a single Neo4j transaction.
+    """
+
+    submission_uid: str
+    status: str
+    report_uid: str
+    revised_exercise_uid: str
+    student_uid: str
+    revision_number: int
+
+
 class ReportApprovalResult(TypedDict, total=False):
     """Return shape for TeacherReviewService.approve_report()."""
 

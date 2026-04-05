@@ -35,6 +35,7 @@ from core.ports.query_types import (
     ReportHistoryItem,
     ReportSubmitResult,
     RevisionRequestResult,
+    RevisionWithExerciseResult,
     StudentSubmissionItem,
     StudentSummaryItem,
     SubmissionForExercise,
@@ -338,6 +339,168 @@ class TeacherReviewService:
                 "report_uid": report_entity_uid,
                 "revision_requested": True,
                 "student_uid": str(student_uid),
+            }
+        )
+
+    async def request_revision_with_exercise(
+        self,
+        submission_uid: str,
+        teacher_uid: str,
+        notes: str,
+        original_exercise_uid: str,
+        feedback_points: list[dict[str, str]],
+        revision_rationale: str | None,
+    ) -> Result[RevisionWithExerciseResult]:
+        """Atomically create ExerciseReport + RevisedExercise in one transaction.
+
+        Combines the two-phase revision request into a single backend call.
+        If anything fails, no partial state is left behind — the student never
+        sees "Revision Requested" without revision instructions.
+
+        Args:
+            submission_uid: Submission UID needing revision
+            teacher_uid: Teacher requesting revision
+            notes: Revision instructions text
+            original_exercise_uid: UID of the original Exercise
+            feedback_points: List of {category, detail} dicts
+            revision_rationale: Why this revision was created
+        """
+        access_check = await self._verify_teacher_access(submission_uid, teacher_uid)
+        if access_check.is_error:
+            return Result.fail(access_check)
+
+        from core.models.enums.learning_enums import FeedbackCategory
+        from core.models.exercises.revised_exercise import FeedbackPoint, RevisedExercise
+        from core.utils.embedding_text_builder import build_embedding_text
+        from core.utils.neo4j_mapper import to_neo4j_node
+
+        report_entity_uid = UIDGenerator.generate_uid("sr")
+        re_uid = UIDGenerator.generate_uid("re")
+        now = datetime.now().isoformat()
+
+        # Parse feedback points into domain objects for embedding text
+        parsed_points: list[FeedbackPoint] = []
+        for fp in feedback_points:
+            try:
+                cat = FeedbackCategory(fp["category"])
+                parsed_points.append(FeedbackPoint(category=cat, detail=fp["detail"]))
+            except ValueError:
+                pass  # Skip invalid categories
+
+        # Build RevisedExercise entity for to_neo4j_node (computed fields overridden in Cypher)
+        re_entity = RevisedExercise(
+            uid=re_uid,
+            entity_type=EntityType.REVISED_EXERCISE,
+            title="",  # Overridden in Cypher
+            user_uid=teacher_uid,
+            original_exercise_uid=original_exercise_uid,
+            report_uid=report_entity_uid,
+            instructions=notes,
+            feedback_points=tuple(parsed_points),
+            revision_rationale=revision_rationale,
+            parent_entity_uid=report_entity_uid,
+        )
+        re_props = to_neo4j_node(re_entity)
+
+        allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
+        result = await self.submissions_backend.create_report_and_revised_exercise(
+            {
+                # Phase 1 params (ExerciseReport)
+                "report_uid": submission_uid,
+                "report_entity_uid": report_entity_uid,
+                "teacher_uid": teacher_uid,
+                "feedback": notes,
+                "report_file_path": None,
+                "title": f"Revision request: {submission_uid[:30]}",
+                "entity_type": EntityType.EXERCISE_REPORT.value,
+                "submission_status": EntityStatus.REVISION_REQUESTED.value,
+                "completed_status": EntityStatus.COMPLETED.value,
+                "processor_type": ProcessorType.HUMAN.value,
+                "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
+                "allowed_from_statuses": allowed_from,
+                "now": now,
+                # Phase 2 params (RevisedExercise)
+                "re_props": re_props,
+                "re_uid": re_uid,
+                "original_exercise_uid": original_exercise_uid,
+            }
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        records = result.value
+        if not records:
+            return Result.fail(
+                Errors.validation(
+                    message=(
+                        f"Cannot request revision: submission {submission_uid} is not in a "
+                        f"revisable status (expected one of {allowed_from})"
+                    ),
+                    field="status",
+                )
+            )
+
+        record = records[0]
+        student_uid = record["student_uid"] or ""
+        revision_number = int(record["revision_number"])
+
+        logger.info(
+            f"Teacher {teacher_uid} atomically created report {report_entity_uid} "
+            f"+ revised exercise {re_uid} (revision {revision_number}) "
+            f"for submission {submission_uid}"
+        )
+
+        # Publish events after successful transaction
+        await publish_event(
+            self.event_bus,
+            SubmissionRevisionRequested(
+                submission_uid=submission_uid,
+                teacher_uid=teacher_uid,
+                student_uid=student_uid,
+                revision_notes=notes,
+                metadata={"report_uid": report_entity_uid},
+            ),
+            logger,
+        )
+
+        from core.events import RevisedExerciseEmbeddingRequested
+        from core.events.submission_events import RevisedExerciseCreated
+
+        await publish_event(
+            self.event_bus,
+            RevisedExerciseCreated(
+                revised_exercise_uid=re_uid,
+                teacher_uid=teacher_uid,
+                student_uid=student_uid,
+                original_exercise_uid=original_exercise_uid,
+                report_uid=report_entity_uid,
+                revision_number=revision_number,
+            ),
+            logger,
+        )
+
+        embedding_text = build_embedding_text(EntityType.REVISED_EXERCISE, re_entity)
+        if embedding_text:
+            await publish_event(
+                self.event_bus,
+                RevisedExerciseEmbeddingRequested(
+                    entity_uid=re_uid,
+                    entity_type="revised_exercise",
+                    embedding_text=embedding_text,
+                    user_uid=teacher_uid,
+                    requested_at=datetime.now(),
+                ),
+                logger,
+            )
+
+        return Result.ok(
+            {
+                "submission_uid": str(record["uid"]),
+                "status": str(record["status"]),
+                "report_uid": report_entity_uid,
+                "revised_exercise_uid": re_uid,
+                "student_uid": str(student_uid),
+                "revision_number": revision_number,
             }
         )
 
