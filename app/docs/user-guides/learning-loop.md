@@ -9,7 +9,7 @@ The Learning Loop is the core of SKUEL. Everything in the app — tasks, goals, 
 The loop has five phases:
 
 ```
-Lesson → Exercise → Submission → Report → Revised Exercise → ...
+Path Step → Exercise → Submission → Report → Revised Exercise → ...
 ```
 
 Each phase builds on the last. You never just consume content — you engage with it, get a response, and refine your understanding. The loop repeats until mastery emerges.
@@ -18,13 +18,13 @@ Each phase builds on the last. You never just consume content — you engage wit
 
 ## The Five Phases
 
-### Phase 1: Lesson — The Knowledge
+### Phase 1: Path Step — The Knowledge
 
-Lessons are units for learning written by teachers. They present ideas, concepts, and narratives that form the foundation of what you'll practice. Each Lesson composes one or more atomic knowledge units (Kus) into coherent learning content.
+Path Steps are units for learning written by teachers. They present ideas, concepts, and narratives that form the foundation of what you'll practice. Each Path Step composes one or more atomic knowledge units (Kus) into coherent learning content.
 
-You don't need to memorize Lessons. You need to *engage* with them — and that engagement happens in the next phase.
+You don't need to memorize Path Steps. You need to *engage* with them — and that engagement happens in the next phase.
 
-**Where to find them:** Browse Lessons by category, discover them through Learning Paths, or follow Askesis's recommendations.
+**Where to find them:** Browse Path Steps in the Explore hub (`/explore`), discover them through Learning Paths, or follow Askesis's recommendations.
 
 ### Phase 2: Exercise — The Instructions
 
@@ -100,7 +100,7 @@ The Learning Loop operates on two parallel tracks:
 ### Curriculum Track (Artifact-Based)
 
 ```
-Lesson → Exercise → Submission → Report → Revised Exercise → ...
+Path Step → Exercise → Submission → Report → Revised Exercise → ...
 ```
 
 This is the explicit learning cycle. You engage with specific curriculum content, produce work, and receive targeted feedback on that work.
@@ -128,7 +128,7 @@ Both tracks close the same way: you do something, the system responds, you refle
 Askesis is SKUEL's Socratic companion. It doesn't lecture or deliver content — it asks questions that help you discover your own understanding.
 
 Askesis knows two things deeply:
-1. **The curriculum** — what Lessons exist, how they connect, what's prerequisite to what
+1. **The curriculum** — what Path Steps exist, how they connect, what's prerequisite to what
 2. **You** — what you've engaged with, where your gaps are, what your journals reveal about your thinking
 
 Based on this, Askesis meets you where you are:
@@ -140,7 +140,7 @@ Based on this, Askesis meets you where you are:
 | Low momentum | **Encouraging** — warm and low-pressure |
 | First encounter | **Direct** — orients you, then shifts to Socratic |
 
-You can talk with Askesis from any Lesson page, any Learning Path, or from the Askesis home page for open-ended dialogue.
+You can talk with Askesis from any Path Step page, any Learning Path, or from the Askesis home page for open-ended dialogue.
 
 ---
 
@@ -148,7 +148,7 @@ You can talk with Askesis from any Lesson page, any Learning Path, or from the A
 
 Here's what the loop looks like in practice:
 
-1. **Discover** — You browse Articles or follow a Learning Path. Askesis might suggest what to explore next based on your recent journals and activity.
+1. **Discover** — You browse Path Steps in the Explore hub or follow a Learning Path. Askesis might suggest what to explore next based on your recent journals and activity.
 
 2. **Receive instructions** — Your teacher assigns an Exercise, or you create a Personal Exercise for self-directed practice.
 
@@ -174,7 +174,7 @@ The Pathways Dashboard at `/pathways` is your home base for tracking progress th
 
 ### Learning Paths and Steps
 
-A Learning Path is a structured sequence of Path Steps. Each step references specific curriculum (Lessons, Kus) and tracks your mastery independently.
+A Learning Path is a structured sequence of Path Steps. Each step references specific curriculum content and Kus, and tracks your mastery independently.
 
 | Concept | What it is |
 |---------|-----------|
@@ -182,7 +182,7 @@ A Learning Path is a structured sequence of Path Steps. Each step references spe
 | **Path Step** | One unit of work within a path. Has its own mastery threshold, difficulty, estimated hours, and links to knowledge units. |
 | **Mastery** | Each step tracks mastery 0.0-1.0. A step is "mastered" when your score crosses its threshold (default 0.7). |
 
-**How paths connect to the loop:** Steps within a path point to Lessons and Exercises. When you complete an Exercise's submission-feedback cycle, your mastery on the related step increases. The path's progress is the ratio of mastered steps to total steps.
+**How paths connect to the loop:** Steps within a path link to Exercises. When you complete an Exercise's submission-feedback cycle, your mastery on the related step increases. The path's progress is the ratio of mastered steps to total steps.
 
 ### Browsing and enrolling
 
@@ -193,7 +193,7 @@ Visit `/pathways/browse` to see all available Learning Paths. Each card shows th
 Learning Paths are curriculum — created by teachers or admins, shared with all users. When you create a path:
 
 1. Define the path's title, description, outcomes, and estimated hours
-2. Create Path Steps in sequence, each referencing the Articles and Kus students should engage with
+2. Create Path Steps in sequence, each composing the Kus students should engage with
 3. Set mastery thresholds per step (higher for critical concepts, lower for introductory ones)
 4. Students enroll and progress through steps by completing the associated Exercises
 
@@ -205,7 +205,7 @@ The path structure gives students a clear road through your curriculum while the
 
 Teachers drive the loop from the other side:
 
-1. **Create curriculum** — Write Lessons that present knowledge. Create Exercises that operationalize that knowledge into concrete assignments.
+1. **Create curriculum** — Write Path Steps that present knowledge. Create Exercises that operationalize that knowledge into concrete assignments.
 
 2. **Assign work** — Set an Exercise's scope to Assigned, choose a due date, and target a Group (classroom). Students see it automatically.
 
@@ -234,13 +234,13 @@ The learning loop is not the whole system — it's the *base*. SKUEL is a layere
 ├─────────────────────────────────────────┤
 │  2. ZPD + UserContext (intelligence)    │  "Where are you?" + "What's next?"
 ├─────────────────────────────────────────┤
-│  1. Learning Loop (base)                │  Lesson → Exercise → Submission → ...
+│  1. Learning Loop (base)                │  Path Step → Exercise ��� Submission → ...
 └─────────────────────────────────────────┘
 ```
 
 ### Layer 1: Learning Loop (this document)
 
-The base. Lesson → Exercise → Submission → Report → RevisedExercise. Without this, nothing else matters. The loop is the mechanism by which knowledge moves from the curriculum into the learner's life.
+The base. Path Step → Exercise → Submission → Report → RevisedExercise. Without this, nothing else matters. The loop is the mechanism by which knowledge moves from the curriculum into the learner's life.
 
 ### Layer 2: ZPD + UserContext (intelligence)
 

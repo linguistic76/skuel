@@ -116,9 +116,9 @@ class RevisedExerciseService(BaseService):
 
         Also auto-shares with the student and publishes domain events.
 
-        Access control: Verifies the teacher has SHARES_WITH {role:'teacher'}
-        on the submission linked to the report, and the student_uid owns
-        that submission.
+        Access control: Verifies the student_uid owns the submission linked
+        to the report (OWNS-based, per ADR-040). Teacher identity is
+        role-gated at the route level.
         """
         teacher_uid = entity.user_uid
 
@@ -251,10 +251,10 @@ class RevisedExerciseService(BaseService):
     ) -> Result[list[dict[str, str]]]:
         """Verify the teacher has review authority over the feedback.
 
-        Checks the graph path:
+        Checks the graph path (OWNS-based, per ADR-040):
         - (ExerciseReport)-[:REPORT_FOR]->(Submission) exists
-        - (Teacher)-[:SHARES_WITH {role:'teacher'}]->(Submission)
         - (Student)-[:OWNS]->(Submission)
+        Teacher identity is role-gated at the route level.
 
         Returns the matched records (including submission_uid) on success.
         """

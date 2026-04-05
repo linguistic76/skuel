@@ -444,20 +444,12 @@ RETURN COALESCE(teacher.uid, exercise.user_uid) as teacher_uid
 teacher context have no OWNS relationship and no `user_uid`. The service layer must
 guard against `None` before calling downstream methods that require a teacher UID.
 
-```python
-# process_exercise_submission() — services/submissions/submissions_core_service.py
-if teacher_uid:
-    await self.backend.auto_share_with_teacher(teacher_uid, submission_uid, now)
-else:
-    self.logger.info(f"Exercise {exercise_uid} has no teacher owner — skipping auto-share")
-```
-
 **Real-world usage:** `SubmissionsBackend.get_exercise_context()`,
 `ExerciseBackend.get_exercises_with_submission_counts()` (`MATCH (user)-[:OWNS]->(exercise)`),
 `TeacherReviewService.get_review_queue()` (OWNS-based: `(student)-[:OWNS]->(submission)
-WHERE student.uid <> teacher_uid` — broader than SHARES_WITH, catches all student
-submissions including YAML-ingested ones). `verify_teacher_access()` still uses
-`SHARES_WITH {role:'teacher'}` for detail-page access control.
+WHERE student.uid <> teacher_uid` — catches all student submissions including
+YAML-ingested ones). No SHARES_WITH relationship is created between teacher and
+submission (per ADR-040). Access is role-gated at route level, not relationship-gated.
 
 ---
 
@@ -479,6 +471,7 @@ submissions including YAML-ingested ones). `verify_teacher_access()` still uses
 |-------------|----------|---------|
 | Generic CRUD | `UniversalNeo4jBackend` (via mixins) | `create()`, `get()`, `update()`, `delete()` |
 | Domain-specific relationships | Domain backend in `domain_backends.py` | `SubmissionsBackend.link_to_exercise()`, `ChoicesBackend.get_principle_adherence_data()` |
+| Atomic multi-entity creation | Domain backend in `domain_backends.py` | `SubmissionsBackend.create_report_and_revised_exercise()` — single Cypher creates ExerciseReport + RevisedExercise + all relationships |
 | Lesson-specific Cypher | 5 Lesson mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
 | Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY |
 | Vector index calls | `neo4j_vector_search_service.py` (infrastructure, FULL tier only) | `db.index.vector.queryNodes()` |

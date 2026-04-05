@@ -1,6 +1,6 @@
 ---
 title: Five-Phased Learning Loop
-updated: 2026-03-07
+updated: 2026-04-05
 status: current
 category: architecture
 related:
@@ -447,7 +447,10 @@ revision cycle explicitly rather than implicitly.
 
 **Services:**
 ```python
-services.revised_exercises              # RevisedExerciseService
+services.revised_exercises              # RevisedExerciseService (standalone CRUD)
+services.teacher_review                 # TeacherReviewService.request_revision_with_exercise()
+# ^ Atomic path: creates ExerciseReport + RevisedExercise in one Neo4j transaction
+#   via SubmissionsBackend.create_report_and_revised_exercise()
 ```
 
 **API routes (teacher, CRUDRouteFactory):** `POST /api/revised-exercises/create`,
@@ -459,9 +462,9 @@ services.revised_exercises              # RevisedExerciseService
 `GET /api/revised-exercises/view?uid=` (view if student or owning teacher).
 **Event:** `RevisedExerciseCreated` (`revised_exercise.created`) — published on creation.
 
-**Access control:** `create()` (overrides `CrudOperationsMixin.create`) verifies the teacher has
-`SHARES_WITH {role:'teacher'}` on the submission linked to the report, and the `student_uid`
-owns that submission.
+**Access control:** `create()` (overrides `CrudOperationsMixin.create`) verifies the `student_uid`
+owns the submission linked to the report (OWNS-based, per ADR-040). Teacher identity is
+role-gated at the route level (`@require_role(UserRole.TEACHER)`).
 
 **Student discovery:** On creation, a `SHARES_WITH {role: 'student'}` relationship is auto-created
 from the student to the RevisedExercise (same pattern as ADR-040 assignment auto-sharing). This means:

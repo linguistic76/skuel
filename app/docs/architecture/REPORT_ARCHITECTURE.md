@@ -127,8 +127,8 @@ Exercise (scope=ASSIGNED)
 (student)-[:OWNS]->(submission:Entity {entity_type: "exercise_submission"})
 (submission)-[:FULFILLS_EXERCISE]->(exercise)
 
-// Sharing for review
-(student)-[:SHARES_WITH {role: "teacher"}]->(submission)
+// Teacher discovers submissions via OWNS-based review queue (ADR-040)
+// No SHARES_WITH relationship between teacher and submission
 
 // Teacher report
 (teacher)-[:OWNS]->(report:Entity {entity_type: "exercise_report"})
@@ -279,7 +279,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 | `SubmissionsService` | `SubmissionOperations` | File upload, storage, submission record creation |
 | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | Routes files to processors, manages status transitions |
 | `UnifiedSharingService` | `SharingOperations` | Visibility control, SHARES_WITH + SHARED_WITH_GROUP management |
-| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `SubmissionsBackend`, `ExerciseBackend`, `GroupBackend`). Status transitions enforced atomically via Cypher `WHERE status IN $allowed_from_statuses` guards — race-safe, no pre-fetch needed. |
+| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `SubmissionsBackend`, `ExerciseBackend`, `GroupBackend`). Status transitions enforced atomically via Cypher `WHERE status IN $allowed_from_statuses` guards — race-safe, no pre-fetch needed. `request_revision_with_exercise()` creates ExerciseReport + RevisedExercise in a single Neo4j transaction (all-or-nothing). |
 
 **Report producers:**
 

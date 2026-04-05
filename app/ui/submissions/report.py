@@ -37,7 +37,7 @@ from ui.patterns.empty_state import EmptyState
 # SHARED HELPERS
 # ============================================================================
 
-_PROCESSOR_LABELS = {"llm": "LLM", "automatic": "Scheduled", "human": "Admin"}
+_PROCESSOR_LABELS = {"llm": "LLM", "automatic": "Scheduled", "human": "Teacher"}
 _PROCESSOR_BADGE_VARIANTS: dict[str, BadgeT] = {
     "llm": BadgeT.info,
     "automatic": BadgeT.ghost,
