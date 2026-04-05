@@ -368,31 +368,18 @@ class FinanceSectionViews:
 
         # Summary stats
         utilization = (total_spent / total_budgeted * 100) if total_budgeted > 0 else 0
-        summary = Div(
-            Div(
-                Div(f"${total_budgeted:,.2f}", cls="text-2xl font-bold text-success"),
-                Div("Total Budgeted", cls="text-sm text-muted-foreground mt-1"),
-                cls="bg-success/10 rounded-lg p-4 text-center",
-            ),
-            Div(
-                Div(f"${total_spent:,.2f}", cls="text-2xl font-bold text-info"),
-                Div("Total Spent", cls="text-sm text-muted-foreground mt-1"),
-                cls="bg-info/10 rounded-lg p-4 text-center",
-            ),
-            Div(
-                Div(
-                    f"${total_budgeted - total_spent:,.2f}",
-                    cls="text-2xl font-bold text-primary",
+        summary = StatsGrid(
+            [
+                StatItem(label="Total Budgeted", value=f"${total_budgeted:,.2f}", color="success"),
+                StatItem(label="Total Spent", value=f"${total_spent:,.2f}", color="info"),
+                StatItem(
+                    label="Remaining",
+                    value=f"${total_budgeted - total_spent:,.2f}",
+                    color="primary",
                 ),
-                Div("Remaining", cls="text-sm text-muted-foreground mt-1"),
-                cls="bg-primary/10 rounded-lg p-4 text-center",
-            ),
-            Div(
-                Div(f"{utilization:.0f}%", cls="text-2xl font-bold text-warning"),
-                Div("Overall Utilization", cls="text-sm text-muted-foreground mt-1"),
-                cls="bg-warning/10 rounded-lg p-4 text-center",
-            ),
-            cls="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8",
+                StatItem(label="Overall Utilization", value=f"{utilization:.0f}%", color="warning"),
+            ],
+            cls="mb-8",
         )
 
         # Create budget form
@@ -558,23 +545,13 @@ class FinanceSectionViews:
 
         monthly_section = Div(
             H3("This Month's Summary", cls="text-lg font-semibold mb-3"),
-            Div(
-                Div(
-                    Div(f"${month_total:,.2f}", cls="text-2xl font-bold text-info"),
-                    Div("Total Spent", cls="text-sm text-muted-foreground mt-1"),
-                    cls="text-center",
-                ),
-                Div(
-                    Div(str(expense_count), cls="text-2xl font-bold text-primary"),
-                    Div("Expenses", cls="text-sm text-muted-foreground mt-1"),
-                    cls="text-center",
-                ),
-                Div(
-                    Div(f"${avg_expense:,.2f}", cls="text-2xl font-bold text-success"),
-                    Div("Average", cls="text-sm text-muted-foreground mt-1"),
-                    cls="text-center",
-                ),
-                cls="grid grid-cols-3 gap-4 bg-background border border-border rounded-lg p-6",
+            StatsGrid(
+                [
+                    StatItem(label="Total Spent", value=f"${month_total:,.2f}", color="info"),
+                    StatItem(label="Expenses", value=expense_count, color="primary"),
+                    StatItem(label="Average", value=f"${avg_expense:,.2f}", color="success"),
+                ],
+                cols=3,
             ),
             cls="mb-8",
         )
@@ -696,18 +673,15 @@ class FinanceSectionViews:
         )
 
         # Metrics grid
-        metrics_section = Div(
-            Div(
-                Div(spending_pattern, cls="text-xl font-bold text-primary"),
-                Div("Spending Pattern", cls="text-sm text-muted-foreground mt-1"),
-                cls="bg-primary/10 rounded-lg p-4 text-center",
-            ),
-            Div(
-                Div(f"{budget_adherence:.0f}%", cls="text-xl font-bold text-success"),
-                Div("Budget Adherence", cls="text-sm text-muted-foreground mt-1"),
-                cls="bg-success/10 rounded-lg p-4 text-center",
-            ),
-            cls="grid grid-cols-2 gap-4 mb-8",
+        metrics_section = StatsGrid(
+            [
+                StatItem(label="Spending Pattern", value=spending_pattern, color="primary"),
+                StatItem(
+                    label="Budget Adherence", value=f"{budget_adherence:.0f}%", color="success"
+                ),
+            ],
+            cols=2,
+            cls="mb-8",
         )
 
         # Spending patterns explanation

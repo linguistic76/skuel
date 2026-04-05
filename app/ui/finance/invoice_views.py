@@ -23,6 +23,7 @@ from fasthtml.common import (
 
 from ui.data import TableFromDicts, TableT
 from ui.finance.types import InvoiceRow, InvoiceStats
+from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
 class InvoiceViews:
@@ -74,30 +75,17 @@ class InvoiceViews:
     @staticmethod
     def _render_stats_cards(stats: InvoiceStats) -> Div:
         """Render invoice statistics cards."""
-        has_overdue = stats.overdue_count > 0
-        cards = [
-            ("Total Invoices", str(stats.total_count), "📄", False),
-            ("Outstanding", f"${stats.outstanding_total:,.2f}", "💰", False),
-            ("Overdue", str(stats.overdue_count), "⚠️" if has_overdue else "✓", has_overdue),
-        ]
-
-        return Div(
-            *[
-                Div(
-                    Div(
-                        Span(icon, cls="text-2xl"),
-                        Div(
-                            Span(value, cls="text-2xl font-bold"),
-                            Span(label, cls="text-sm text-muted-foreground"),
-                            cls="flex flex-col",
-                        ),
-                        cls="flex items-center gap-3",
-                    ),
-                    cls=f"bg-muted p-4 rounded-lg border {'border-red-300' if alert else 'border-border'}",
-                )
-                for label, value, icon, alert in cards
+        overdue_color = "error" if stats.overdue_count > 0 else "success"
+        return StatsGrid(
+            [
+                StatItem(label="Total Invoices", value=stats.total_count, color="info"),
+                StatItem(
+                    label="Outstanding", value=f"${stats.outstanding_total:,.2f}", color="warning"
+                ),
+                StatItem(label="Overdue", value=stats.overdue_count, color=overdue_color),
             ],
-            cls="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6",
+            cols=3,
+            cls="mb-6",
         )
 
     @staticmethod
