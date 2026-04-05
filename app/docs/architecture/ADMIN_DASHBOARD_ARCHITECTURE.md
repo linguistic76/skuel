@@ -298,7 +298,7 @@ REGISTERED (0) < MEMBER (1) < TEACHER (2) < ADMIN (3)
 
 Admin users land on `/` after login, which renders a hub page with two cards:
 - **Admin** → `/admin` (dashboard, user management, analytics, system health)
-- **Teaching** → `/teaching` (hub page: Students, Groups, Review Queue)
+- **Teaching** → `/teaching` (hub page: Students, Groups, Review Queue, Forms)
 
 The navbar for admin users shows a **SKUEL** logo in the left section linking to `/`. The center section is empty (no text nav links). The right section has the admin avatar (linking to `/`) and a Sign out link (icon+text). On mobile, the hamburger menu shows Admin, Teaching, and Sign out links.
 

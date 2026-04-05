@@ -35,7 +35,7 @@ The navbar provides four entry points. Two are **container hub pages** (no sideb
 |------|-------------|-------------------|
 | `/gradebook` | Container hub | My Submissions, Submit, Exercise Reports, Activity Reports |
 | `/library` | Container hub | Exercises, Resources, Ku (bookmarked), Path Steps (enrolled) |
-| `/teaching` | Container hub | Students, Groups, Review Queue (TEACHER role) |
+| `/teaching` | Container hub | Students, Groups, Review Queue, Forms (TEACHER role) |
 | `/profile` | Personal overview | Focus/Velocity, Activity Domains (6 HTMX blocks), Nous, Settings |
 
 ### Container Hub Pages (Hub → Child with Sidebar)
@@ -44,7 +44,7 @@ GradeBook and Library follow the **hub-first pattern**: the navbar icon opens a 
 
 - **GradeBook** (`/gradebook`) — 4 containers: My Submissions (`/gradebook/mysubmissions`), Submit (`/submit`), Exercise Reports (`/exercise-reports`), Activity Reports (`/activity-reports`). Hub view in `ui/gradebook/hub.py`, sidebar nav in `ui/gradebook/nav.py`.
 - **Library** (`/library`) — 4 containers: Exercises (`/library/exercises`), Resources (`/library/resources`), Ku (`/library/ku`), Path Steps (`/library/path-steps`). Hub view in `ui/library/hub.py`, sidebar nav in `ui/library/nav.py`.
-- **Teaching** (`/teaching`) — 3 containers: Students (`/teaching/students`), Groups (`/teaching/groups`), Review Queue (`/teaching/queue`). Hub view in `ui/teaching/hub.py`, sidebar nav in `ui/teaching/nav.py`. Individual students have a **nested hub** at `/teaching/students/{uid}` — 4 HTMX-loaded preview blocks (Needs Review, Revision Requested, Completed, KU Progress) showing actual submission/KU data inline, linking to `/teaching/students/{uid}/submissions?tab=...`. Preview endpoints: `/api/teaching/students/{uid}/{section}/preview`.
+- **Teaching** (`/teaching`) — 4 containers: Students (`/teaching/students`), Groups (`/teaching/groups`), Review Queue (`/teaching/queue`), Forms (`/teaching/forms`). Hub view in `ui/teaching/hub.py`, sidebar nav in `ui/teaching/nav.py`. Individual students have a **nested hub** at `/teaching/students/{uid}` — 4 HTMX-loaded preview blocks (Needs Review, Revision Requested, Completed, KU Progress) showing actual submission/KU data inline, linking to `/teaching/students/{uid}/submissions?tab=...`. Preview endpoints: `/api/teaching/students/{uid}/{section}/preview`.
 
 **Components:** `HubContainerGrid` and `HubContainer` in `ui/patterns/hub.py` — bigger than `HubCard`, with more padding, full description, and arrow affordance.
 
