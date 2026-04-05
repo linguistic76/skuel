@@ -210,58 +210,69 @@ Card(CardBody(
 
 **Location:** `/ui/feedback.py`
 
-Small labels for status, priority, and categories.
+Small labels for status, priority, and categories. All badges must use these components — never raw `Span()` with hand-rolled Tailwind color classes.
 
-### Badge(text, variant, **kwargs)
+### Badge(*c, variant, size, cls, **kwargs)
 
-Generic badge component.
-
-**Parameters:**
-- `text: str` - Badge label
-- `variant: str` - Color variant (default: "default")
-  - `"default"` - Base color
-  - `"primary"` - Accent color
-  - `"success"` - Green
-  - `"warning"` - Yellow
-  - `"error"` - Red
-- `**kwargs` - Additional attributes
-
-### StatusBadge(status)
-
-Status-aware badge that delegates to `EntityStatus.get_badge_class()` for canonical styling. Covers all 14 EntityStatus values.
+Generic badge component. Renders as a styled `Span` with `inline-flex items-center rounded-full border font-medium`.
 
 **Parameters:**
-- `status: str | None` - Status value (case-insensitive, underscores or hyphens)
-- `**kwargs` - Additional attributes passed to Badge
+- `*c` - Badge content
+- `variant: BadgeT | None` - Color variant (default: `BadgeT.primary`). Set to `None` to skip variant colors and provide via `cls`.
+  - `BadgeT.primary`, `secondary`, `accent` (violet), `neutral`, `ghost`, `info` (blue), `success` (green), `warning` (yellow), `error` (red), `outline`
+- `size: Size | None` - Badge size (`Size.xs`, `sm`, `md`, `lg`; default: `sm`)
+- `cls: str` - Additional CSS classes (appended; use with `variant=None` for custom colors)
+- `**kwargs` - Additional HTML attributes
+
+### StatusBadge(status, **kwargs)
+
+Status-aware badge that delegates to `EntityStatus.get_badge_class()` for canonical styling. Covers all 14 EntityStatus values. Use for any value that is a valid `EntityStatus` member.
+
+**Parameters:**
+- `status: str | None` - Status value (case-insensitive, underscores or hyphens). Returns `None` if `None`.
+- `**kwargs` - Additional attributes passed to Badge (e.g., `size=Size.sm`)
 
 **Implementation:** Converts status string → `EntityStatus` enum → `get_badge_class()` CSS string. Falls back to gray for unknown values.
 
-### PriorityBadge(priority)
+### PriorityBadge(priority, **kwargs)
 
 Priority-specific badge with predefined styling.
 
 **Parameters:**
-- `priority: str | None` - Priority value (critical, high, medium, low)
+- `priority: str | None` - Priority value (critical, urgent, high, medium, normal, low)
 
 **Auto-mapped colors:**
-- "critical", "high" → Error (red)
-- "medium" → Warning (yellow)
+- "critical", "urgent", "high" → Error (red)
+- "medium", "normal" → Warning (yellow)
 - "low" → Success (green)
+
+### Badge selection convention
+
+| What you're displaying | Component | Example |
+|---|---|---|
+| EntityStatus value | `StatusBadge(status)` | `StatusBadge("active")` |
+| Priority value | `PriorityBadge(priority)` | `PriorityBadge("high")` |
+| Category with a BadgeT match | `Badge(label, variant=BadgeT.xxx)` | `Badge("Ku", variant=BadgeT.accent)` |
+| Category with a custom color | `Badge(label, variant=None, cls="...")` | `Badge("Path Step", variant=None, cls="bg-teal-100 text-teal-800 border-teal-200")` |
 
 **Examples:**
 ```python
-from ui.feedback import Badge, StatusBadge, PriorityBadge
+from ui.feedback import Badge, BadgeT, StatusBadge, PriorityBadge
+from ui.layout import Size
 
-# Generic badge
-Badge("New", variant="primary")
+# StatusBadge for EntityStatus values (canonical colors)
+StatusBadge("active")       # green
+StatusBadge("submitted")    # yellow
+StatusBadge("completed")    # green
 
-# Status badge (auto-styled)
-StatusBadge("completed")  # Green badge
-StatusBadge("in_progress")  # Blue badge
+# PriorityBadge for priorities
+PriorityBadge("high")       # red
+PriorityBadge("medium")     # yellow
 
-# Priority badge (auto-styled)
-PriorityBadge("critical")  # Red badge
-PriorityBadge("low")  # Green badge
+# Badge for category/type pills
+Badge("Ku", variant=BadgeT.accent, size=Size.sm)
+Badge("Path Step", variant=None, cls="bg-teal-100 text-teal-800 border-teal-200", size=Size.sm)
+Badge("5", variant=BadgeT.primary, size=Size.sm)
 ```
 
 ---

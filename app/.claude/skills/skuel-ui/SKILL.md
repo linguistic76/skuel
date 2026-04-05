@@ -918,11 +918,17 @@ ButtonLink("Submit →", href="/submit", variant=ButtonT.primary, size=Size.sm)
 ButtonLink("View Report →", href="/reports/1", variant=ButtonT.ghost, size=Size.sm)
 ButtonLink("View all →", href="/tasks", variant=ButtonT.ghost, size=Size.xs)
 
-# Status badges
+# StatusBadge — for any EntityStatus value (delegates to EntityStatus.get_badge_class())
+from ui.feedback import StatusBadge, PriorityBadge
+StatusBadge("active")       # canonical green
+StatusBadge("submitted")    # canonical yellow
+PriorityBadge("high")       # error variant
+
+# Badge — for non-EntityStatus categories (type pills, counts, custom labels)
 Badge("Active", variant=BadgeT.success)
 Badge("Pending", variant=BadgeT.warning, size=Size.sm)
-Badge("Blocked", variant=BadgeT.error)
-Badge("Default", variant=BadgeT.ghost)
+Badge("Ku", variant=BadgeT.accent, size=Size.sm)  # entity type pill
+Badge("Path Step", variant=None, cls="bg-teal-100 text-teal-800 border-teal-200", size=Size.sm)
 
 # Alerts / Error banners
 Alert("Error message", variant=AlertT.error)
@@ -1036,6 +1042,13 @@ Div(cls="drawer lg:drawer-open", ...)
 sidebar = Div(**{"x-data": "{ collapsed: false }"})
 content = Div(**{"x-data": "{ collapsed: false }"})  # Different instance!
 # ✅ SidebarPage() handles Alpine.store() automatically
+
+# ❌ Hand-rolled badge with duplicated CSS classes
+Span("Submitted", cls="bg-blue-100 text-blue-800 border border-blue-200 text-xs font-medium px-2 py-0.5 rounded-full")
+# ✅ StatusBadge for EntityStatus values
+StatusBadge("submitted")
+# ✅ Badge for non-EntityStatus categories
+Badge("Ku", variant=BadgeT.accent, size=Size.sm)
 
 # ❌ Skipping early validation
 result = TaskCreateRequest(**form_data)  # Generic 422 on error

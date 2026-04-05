@@ -478,11 +478,26 @@ Alert("Info message", variant=AlertT.info)
 
 ### Badges
 
+Three badge components in `ui/feedback`:
+
 ```python
+from ui.feedback import Badge, BadgeT, StatusBadge, PriorityBadge
+
+# StatusBadge — for any EntityStatus value (delegates to EntityStatus.get_badge_class())
+StatusBadge("active")              # canonical green
+StatusBadge("submitted")           # canonical yellow
+StatusBadge("revision_requested")  # canonical yellow
+
+# PriorityBadge — for priority values
+PriorityBadge("high")    # error variant
+PriorityBadge("medium")  # warning variant
+
+# Badge — for everything else (category labels, entity types, counts)
 Badge("Active", variant=BadgeT.success)
 Badge("Pending", variant=BadgeT.warning)
-Badge("High", variant=BadgeT.error)
 Badge("5", variant=BadgeT.primary, size=Size.sm)
+Badge("Ku", variant=BadgeT.accent, size=Size.sm)  # entity type pill
+Badge("Path Step", variant=None, cls="bg-teal-100 text-teal-800 border-teal-200", size=Size.sm)
 ```
 
 ### Progress
@@ -931,6 +946,35 @@ ButtonLink("Submit →", href="/submit", variant=ButtonT.primary, size=Size.sm)
 | Primary CTA | `ButtonT.primary` | `Size.sm` | Submit, Start Ingestion |
 | View/Navigate | `ButtonT.ghost` | `Size.sm` | View Report, Download, Back |
 | "View all" section links | `ButtonT.ghost` | `Size.xs` | View all →, See all |
+
+### Don't Use Raw `Span()` for Status Badges
+
+All status/category pill badges must use `Badge()`, `StatusBadge()`, or `PriorityBadge()` from `ui/feedback` — not raw `Span()` with hand-rolled Tailwind color classes. This ensures consistent sizing (`inline-flex items-center rounded-full border font-medium`), spacing, and color semantics.
+
+```python
+# BAD: Hand-rolled badge with duplicated CSS
+Span("Submitted", cls="bg-blue-100 text-blue-800 border border-blue-200 text-xs font-medium px-2 py-0.5 rounded-full")
+
+# GOOD: StatusBadge for EntityStatus values (canonical colors from EntityStatus.get_badge_class())
+StatusBadge("submitted")
+
+# BAD: Custom color dict mapping statuses to Tailwind classes
+_STATUS_COLORS = {"active": "bg-green-100 ...", "blocked": "bg-red-100 ..."}
+Span(label, cls=_STATUS_COLORS[status])
+
+# GOOD: Badge with variant for non-EntityStatus categories
+Badge("Feedback Available", variant=BadgeT.success, size=Size.sm)
+Badge("Revision Requested", variant=None, cls="bg-amber-100 text-amber-800 border-amber-200", size=Size.sm)
+```
+
+**Badge selection convention:**
+
+| What you're displaying | Component | Example |
+|---|---|---|
+| EntityStatus value (active, submitted, completed, ...) | `StatusBadge(status)` | `StatusBadge("active")` |
+| Priority value (high, medium, low, ...) | `PriorityBadge(priority)` | `PriorityBadge("high")` |
+| Category/type label with a BadgeT color match | `Badge(label, variant=BadgeT.xxx)` | `Badge("Ku", variant=BadgeT.accent)` |
+| Category/type label with a custom color | `Badge(label, variant=None, cls="...")` | `Badge("Path Step", variant=None, cls="bg-teal-100 ...")` |
 
 ### Don't Use Raw MonsterUI Classes on Wrappers
 
