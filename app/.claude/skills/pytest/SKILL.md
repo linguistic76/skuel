@@ -344,6 +344,7 @@ The core learning-loop services have dedicated unit tests using the `_make_servi
 - `/tests/conftest.py` - Root fixtures
 - `/tests/integration/conftest.py` - TestContainers setup
 - `/tests/templates/integration_test_template.py` - Best practices template
+- `/tests/unit/ui/test_cross_domain_consistency.py` - Cross-domain UI component consistency tests (PageHeader, EmptyState, StatsGrid, EntityRelationshipsSection across all 6 activity domains + 4 hub pages)
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] pattern details
 - `/docs/patterns/TESTING_PATTERNS.md` - Integration + unit testing patterns
 - `/docs/patterns/linter_rules.md` - Linter rules (unit-tested)

@@ -264,6 +264,10 @@ Button(
 
 ---
 
+## Automated Consistency Tests
+
+Cross-domain component consistency is verified by `tests/unit/ui/test_cross_domain_consistency.py` — 34 tests checking PageHeader, EmptyState, StatsGrid, and EntityRelationshipsSection across all 6 activity domains + 4 hub pages. Run: `uv run pytest tests/unit/ui/test_cross_domain_consistency.py -v`
+
 ## Automated Checks
 
 Run these before committing:

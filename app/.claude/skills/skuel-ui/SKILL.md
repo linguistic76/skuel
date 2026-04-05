@@ -1127,6 +1127,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/profile/curriculum_views.py` | KU, PS, LP profile views |
 | `/ui/profile/overview.py` | `OverviewView` + all intelligence helper functions |
 | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | Complete patterns documentation |
+| `/tests/unit/ui/test_cross_domain_consistency.py` | Cross-domain consistency tests — verifies PageHeader, EmptyState, StatsGrid, EntityRelationshipsSection used across all 6 activity domains + 4 hub pages |
 
 ## See Also
 

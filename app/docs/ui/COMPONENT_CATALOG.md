@@ -1427,6 +1427,10 @@ Quick alphabetical index:
 
 ---
 
+# Cross-Domain Consistency Testing
+
+`tests/unit/ui/test_cross_domain_consistency.py` validates that all 6 activity domain views and 4 hub pages use PageHeader, EmptyState, StatsGrid, and EntityRelationshipsSection consistently. Pure unit tests — no DB, no mocks. Run with `uv run pytest tests/unit/ui/test_cross_domain_consistency.py -v`.
+
 # Related Documentation
 
 - **Error Handling Patterns:** `/docs/patterns/ERROR_HANDLING.md`

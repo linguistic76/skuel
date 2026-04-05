@@ -1401,6 +1401,22 @@ def test_task_create_request_due_before_scheduled():
         )
 ```
 
+### Cross-Domain Consistency Tests
+
+`tests/unit/ui/test_cross_domain_consistency.py` verifies that all 6 activity domain views and 4 hub pages use shared components consistently. No DB, no mocks — renders components and checks output.
+
+| Test Class | What It Catches |
+|------------|----------------|
+| `TestImportConsistency` | Dropped import of PageHeader, EmptyState, StatsGrid, or EntityRelationshipsSection |
+| `TestEmptyStateConsistency` | `*List([])` replaced with bare `Div("No items")` instead of `EmptyState(...)` |
+| `TestStatsBarConsistency` | `*StatsBar([])` using custom layout instead of `StatsGrid` |
+| `TestDetailViewConsistency` | Detail view missing PageHeader or EntityRelationshipsSection |
+| `TestHubPageConsistency` | Hub page (Activity, GradeBook, Library, Student) missing PageHeader |
+
+```bash
+uv run pytest tests/unit/ui/test_cross_domain_consistency.py -v
+```
+
 ### Benefits
 
 1. **Testability**: Pure functions testable without database/async
