@@ -324,30 +324,29 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 ## Alpine.js Common Patterns
 
-### Modal
+### Modal — AlpineModal
 
-```html
-<div x-data="{ open: false }">
-  <button @click="open = true" class="btn btn-primary">Open</button>
+Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes backdrop, click-outside-to-close, transitions, and `x-cloak`.
 
-  <div x-show="open"
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 bg-black/50 z-50"
-       @click="open = false">
-    <div class="modal-box" @click.stop>
-      <h3 class="font-bold text-lg">Modal</h3>
-      <div class="modal-action">
-        <button @click="open = false" class="btn btn-ghost">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
+```python
+from ui.patterns.modal import AlpineModal
+
+AlpineModal(
+    H3("Confirm Action", cls="font-bold text-lg"),
+    P("Are you sure?"),
+    Div(
+        Button("Cancel", variant=ButtonT.ghost, **{"@click": "open = false"}),
+        Button("Confirm", variant=ButtonT.primary),
+        cls="flex gap-2 justify-end mt-4",
+    ),
+    show="open",              # Alpine.js expression for visibility
+    close="open = false",     # Alpine.js expression to close
+    max_width="max-w-lg",     # Tailwind max-width class
+    scrollable=False,         # Set True for tall content (max-h-[80vh])
+)
 ```
+
+Adopted in: calendar components, sharing modal, insight card modal.
 
 ### Collapsible Section
 

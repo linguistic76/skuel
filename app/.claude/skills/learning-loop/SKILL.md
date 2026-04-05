@@ -522,7 +522,7 @@ self-describing — the report records what decision was made, not just feedback
 | Source | Service | ProcessorType | AssessmentOutcome | Trigger |
 |--------|---------|---------------|-------------------|---------|
 | Teacher submits `.md` file | `TeacherReviewService.submit_report()` | `HUMAN` | `APPROVED` | Teacher uploads feedback file at `/teaching/review/{uid}` |
-| Teacher requests revision | `TeacherReviewService.request_revision()` | `HUMAN` | `NEEDS_REVISION` | Teacher enters revision notes (text textarea) |
+| Teacher requests revision | `TeacherReviewService.request_revision()` | `HUMAN` | `NEEDS_REVISION` | Teacher fills structured revision form (instructions + categorized feedback points via Alpine.js dynamic list + rationale) |
 | AI | `ExerciseReportService.generate_report()` | `LLM` | `AI_EVALUATED` | Exercise has `instructions` (via `UnifiedLLMCaller`) |
 
 **Two teacher feedback pathways — same service methods, different entry points:**
@@ -669,6 +669,7 @@ services.revised_exercises              # RevisedExerciseService — CRUD + chai
 await backend.link_to_report(re_uid, report_uid)           # RESPONDS_TO_REPORT
 await backend.link_to_exercise(re_uid, exercise_uid)      # REVISES_EXERCISE
 await backend.get_revision_chain(exercise_uid)             # All revisions ordered
+await backend.get_by_report_uid(report_uid)                # Lookup RevisedExercise by report
 ```
 
 **Graph pattern:**
@@ -709,6 +710,19 @@ enables student notification and learning loop progression tracking.
   - `GET /api/revised-exercises/view?uid=` (student_uid or owner match)
   - Daily planning: `get_ready_to_work_on_today()` surfaces them at Priority 2.3 via
     `context.pending_revised_exercises` (populated by MEGA-QUERY)
+
+**Student-facing UI (GradeBook sidebar — 2026-04-05):**
+
+Students view their revisions in the GradeBook sidebar under "Revisions":
+- `GET /revised-exercises` — list page with `render_revised_exercise_list()`
+- `GET /revised-exercises/detail?uid=` — detail page with `render_revised_exercise_detail()` (feedback points, instructions, submit link)
+- `GET /revised-exercises/list` — HTMX fragment for filtered list
+- `GET /api/gradebook/revised-exercises/preview` — hub preview block
+
+Routes in `adapters/inbound/revised_exercises_ui.py`. Renderers in `ui/submissions/revised_exercise.py`.
+The detail page links to `/submit?exercise_uid={re_uid}` — triggering the two-path Cypher for
+`FULFILLS_REVISED_EXERCISE`. The ExerciseReport detail at `/exercise-reports/detail?uid=` shows
+a "View Revision" link when a `RevisedExercise` exists for that report (via `get_by_report_uid()`).
 
 **Loop role:** RevisedExercise is the *refinement* — it bridges feedback back into a
 new exercise, closing the revision cycle explicitly rather than implicitly.
@@ -810,8 +824,13 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Activity review (admin)** | `/api/activity-review/queue` | GET | Admin |
 | **Activity review (user)** | `/api/activity-review/history` | GET | User |
 | **Annotation** | `/api/activity-reports/annotate` | POST | User |
-| **Revised exercises (student)** | `/api/revised-exercises/my-revisions` | GET | Student |
-| **Revised exercises (student)** | `/api/revised-exercises/view?uid=` | GET | Student or Teacher |
+| **Exercise report detail** | `/exercise-reports/detail?uid=` | GET | Student (owner) |
+| **Revised exercises (list)** | `/revised-exercises` | GET | Student |
+| **Revised exercises (detail)** | `/revised-exercises/detail?uid=` | GET | Student |
+| **Revised exercises (HTMX list)** | `/revised-exercises/list` | GET | Student |
+| **Revised exercises (hub preview)** | `/api/gradebook/revised-exercises/preview` | GET | Student |
+| **Revised exercises (API)** | `/api/revised-exercises/my-revisions` | GET | Student |
+| **Revised exercises (API)** | `/api/revised-exercises/view?uid=` | GET | Student or Teacher |
 
 ---
 
@@ -902,6 +921,11 @@ that never closes the loop.
 | `core/models/exercises/revised_exercise.py` | 5 | RevisedExercise frozen dataclass |
 | `core/services/revised_exercises/revised_exercise_service.py` | 5 | RevisedExercise CRUD + chain queries |
 | `adapters/inbound/revised_exercises_api.py` | 5 | RevisedExercise API routes (teacher + student-facing) |
+| `adapters/inbound/revised_exercises_ui.py` | 5 | RevisedExercise student UI routes (GradeBook sidebar) |
+| `adapters/inbound/exercise_reports_ui.py` | 4 | ExerciseReport UI routes (list + detail page) |
+| `ui/submissions/revised_exercise.py` | 5 | RevisedExercise renderers (detail, card, list views) |
+| `ui/submissions/report.py` | 4 | ExerciseReport renderers (detail page with outcome/processor badges) |
+| `ui/patterns/modal.py` | support | AlpineModal — standardized Alpine.js modal wrapper |
 | `core/ports/curriculum_protocols.py` | 5 | `RevisedExerciseOperations` protocol |
 | `core/models/submissions/submission.py` | 3 | Submission base (ExerciseSubmission) |
 | `core/models/report/exercise_report.py` | 4 | ExerciseReport model |

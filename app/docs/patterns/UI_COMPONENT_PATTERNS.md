@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-03-25'
+updated: '2026-04-05'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -99,6 +99,8 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 **Evolution (2026-04-03):** Admin accounts redirect to `/` after login instead of `/admin`. The `/` route renders an admin home hub with two cards (Admin → `/admin`, Teaching → `/teaching`). SKUEL logo in navbar left section links to `/`. "Admin Dashboard" and "Teaching" text links removed from navbar center. Admin navbar: SKUEL logo (left) → empty center → avatar + logout with icon (right). Mobile menu has explicit Admin + Teaching + Sign out links.
 
 **Evolution (2026-04-04):** Explore sidebar evolved from text-only "My Learning" sidebar to **graph-centered sidebar**. Hero: `ExploreGraphView` (`ui/explore/graph.py`) — interactive Vis.js force-directed graph with hub mode (learning universe) and entity mode (lateral relationships). Filter tabs (All/Learning/Saved) control both graph node highlighting and list visibility. Sidebar widened to `w-96` (384px) via new `sidebar_width` param on `SidebarPage`. Alpine component: `exploreGraph` in `skuel.js`. API: `GET /api/explore/graph`. Graph expands to full-screen JS overlay on `document.body` (creates a second Vis.js network to escape sidebar `overflow:hidden` + `transform`).
+
+**Evolution (2026-04-05):** Learning loop UI fully wired: ExerciseReport detail page at `/exercise-reports/detail?uid=` (outcome badge, processor badge, assessment score bar); RevisedExercise student pages at `/revised-exercises` and `/revised-exercises/detail?uid=` (GradeBook sidebar); GradeBook expanded from 4 to 5 items (+ Revisions) and 5 hub blocks. Teaching revision form enhanced with structured `FeedbackCategory` feedback points (Alpine.js dynamic list). `AlpineModal` component standardized in `ui/patterns/modal.py` — adopted in calendar, sharing, and insights modals. Raw DaisyUI `Select` classes replaced with SKUEL `ui.forms.Select` wrapper in relationship_graph, profile, and calendar.
 
 **Background Convention (2026-02-05):** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
 
@@ -362,7 +364,7 @@ from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT, Progress, ProgressT, RadialProgress
 from ui.forms import Checkbox, Input, LabelCheckbox, LabelInput, LabelSelect, LabelTextArea, Radio, Range, Select, Textarea, Toggle
 from ui.layout import Container, DivCentered, DivFullySpaced, DivHStacked, DivVStacked, Grid, Size
-# Modals: use plain Alpine.js x-show + Div with Tailwind (no ui.modals)
+from ui.patterns.modal import AlpineModal  # Standardized Alpine.js modal wrapper
 from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar, NavbarCenter, NavbarEnd, NavbarStart, Tab, Tabs
 from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, TableFromLists, TableT
 # Standard FastHTML elements — always from fasthtml.common
@@ -652,35 +654,38 @@ Container(
 
 ---
 
-## Modal Pattern
+## Modal Pattern — AlpineModal
 
-Modals use Alpine.js `x-show` for visibility + plain Div with Tailwind for styling.
+Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes backdrop overlay, click-outside-to-close, transitions, and accessibility (`x-cloak`).
 
 ```python
-# Modal with Alpine.js toggle
-Div(
-    # Backdrop overlay
+from ui.patterns.modal import AlpineModal
+
+# Simple modal controlled by Alpine.js boolean
+AlpineModal(
+    H3("Confirm Delete"),
+    P("Are you sure you want to delete this item?"),
     Div(
-        # Modal dialog
-        Div(
-            H3("Confirm Delete"),
-            P("Are you sure you want to delete this item?"),
-            Div(
-                Button("Cancel", variant=ButtonT.ghost,
-                       **{"@click": "showConfirm = false"}),
-                Button("Delete", variant=ButtonT.error,
-                       hx_delete="/api/items/123",
-                       hx_target="#item-list"),
-                cls="flex gap-2 justify-end mt-4",
-            ),
-            cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
-            **{"@click.stop": ""},
-        ),
-        cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
-        **{"@click": "showConfirm = false"},
+        Button("Cancel", variant=ButtonT.ghost,
+               **{"@click": "showConfirm = false"}),
+        Button("Delete", variant=ButtonT.error,
+               hx_delete="/api/items/123",
+               hx_target="#item-list"),
+        cls="flex gap-2 justify-end mt-4",
     ),
-    x_show="showConfirm",
-    x_cloak=True,
+    show="showConfirm",
+    close="showConfirm = false",
+    max_width="max-w-lg",
+)
+
+# Scrollable modal with custom id
+AlpineModal(
+    *detail_content,
+    show="isOpen",
+    close="close()",
+    max_width="max-w-2xl",
+    scrollable=True,
+    id="detail-modal",
 )
 
 # Open modal
@@ -688,6 +693,15 @@ Button("Delete",
        **{"@click": "showConfirm = true"},
        variant=ButtonT.error)
 ```
+
+**Parameters:**
+- `show` — Alpine.js expression for visibility (e.g. `"isOpen"`, `"shareModal"`)
+- `close` — Alpine.js expression to close (e.g. `"close()"`, `"shareModal = false"`)
+- `max_width` — Tailwind max-width class (default: `"max-w-md"`)
+- `scrollable` — Whether content scrolls at 80vh (default: `False`)
+- `id` — Optional DOM id
+
+**Adopted in:** calendar components, sharing modal, insight card modal.
 
 ---
 

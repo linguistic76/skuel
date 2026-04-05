@@ -1,6 +1,6 @@
 # The Learning Loop
 
-*Last updated: 2026-03-08*
+*Last updated: 2026-04-05*
 
 ## Overview
 
@@ -80,9 +80,14 @@ If your feedback identifies specific gaps, your teacher can create a Revised Exe
 
 Revised Exercises:
 - Reference the specific feedback they're addressing
+- Contain categorized feedback points (accuracy, completeness, depth, clarity, application, methodology) with specific detail
 - Contain tailored instructions for your next attempt
-- Appear in your daily plan and shared inbox
+- Appear in your GradeBook sidebar under **Revisions** and in your daily plan
 - Link back to the original Exercise, forming a traceable revision chain
+
+**Where to find them:** Go to **GradeBook → Revisions** to see all your pending revision requests. Each revision shows the teacher's feedback points and instructions. Click **Submit** to begin your revised submission — the system tracks it as a new iteration in the learning loop.
+
+Your Exercise Reports at **GradeBook → Exercise Reports** now have a detail page showing the full report with outcome badge, processor badge, and assessment score. When a revision exists for a report, a "View Revision" link appears.
 
 You submit against the Revised Exercise just like the original, and the cycle continues: submission → feedback → revision → submission → ... until mastery.
 

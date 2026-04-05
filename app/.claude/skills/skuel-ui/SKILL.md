@@ -498,7 +498,7 @@ Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. F
 
 - **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — 7 items (profile link + 6 domains). Used on `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`. Activity Domains content is embedded inline in `/profile`.
 - **Explore** — `render_explore_sidebar_page()` from `ui/explore/nav.py` — graph-centered sidebar (wider `w-96`/384px via `sidebar_width` param, no nav items, uses `extra_sidebar_sections`). Hero: `ExploreGraphView` (`ui/explore/graph.py`) — interactive Vis.js force-directed graph. Hub mode (`/explore`): user's learning universe with "You" center node + studying Kus + in-progress PSes; fetched from `GET /api/explore/graph`. Entity mode (`/explore/ku/{uid}`, `/explore/ps/{uid}`): centers on current entity with lateral relationships. Filter tabs (All/Learning/Saved) control both graph node highlighting and list section visibility. Three supporting sections below graph: Learning, Saved, Completed. Alpine component: `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`. Graph expands to full-screen JS overlay on `document.body` (Escape/backdrop click to close) — creates a second Vis.js network to escape sidebar `overflow:hidden` + `transform`. Node colors: violet for Ku, teal for PS, blue for "You". Detail pages pass `current_entity_type` for graph centering. Unauthenticated: shows graph + "Sign in to track your learning". **PathStep detail** (`/explore/ps/{uid}`) is the **learning loop anchor** — authenticated users see three HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback) served by `/learning-loop/ps/{ps_uid}/*` fragment endpoints; unauthenticated users see simple exercise links.
-- **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 4 items (My Submissions, Submit, Exercise Reports, Activity Reports). Used on child pages: `/gradebook/mysubmissions`, `/submit`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`, `/activity-reports/detail`. The hub at `/gradebook` is a container grid page (`BasePage(STANDARD)`, no sidebar) — see `ui/gradebook/hub.py`.
+- **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 5 items (My Submissions, Submit, Exercise Reports, Activity Reports, Revisions). Used on child pages: `/gradebook/mysubmissions`, `/submit`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`, `/activity-reports/detail`, `/revised-exercises`, `/revised-exercises/detail`. The hub at `/gradebook` is a container grid page (`BasePage(STANDARD)`, no sidebar) with 5 HTMX-loaded blocks — see `ui/gradebook/hub.py`.
 - **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. The hub at `/library` is a container grid page (`BasePage(STANDARD)`, no sidebar) — see `ui/library/hub.py`.
 
 `/profile` is a **personal overview hub** using `BasePage` directly — Focus/Velocity, Activity Domains (6 HTMX blocks inline via `ActivityHubView()`), Nous placeholder, Settings. See `ui/profile/hub.py`.
@@ -534,10 +534,11 @@ return await render_gradebook_sidebar_page(
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("My Submissions", "/gradebook", "submissions", icon="file-text"),
+    SidebarItem("My Submissions", "/gradebook/mysubmissions", "submissions", icon="file-text"),
     SidebarItem("Submit", "/submit", "submit", icon="upload"),
     SidebarItem("Exercise Reports", "/exercise-reports", "exercise-reports", icon="clipboard-check"),
     SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="bar-chart-2"),
+    SidebarItem("Revisions", "/revised-exercises", "revised-exercises", icon="refresh-cw"),
 ]
 
 return await SidebarPage(
@@ -783,28 +784,25 @@ async def create_task(request):
     return TaskCard(result.value)
 ```
 
-### Modal Forms
+### Modal Forms — AlpineModal
+
+Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modals. It standardizes backdrop, click-outside-to-close, transitions, and `x-cloak`.
 
 ```python
-# Alpine.js modals — use plain Div with Tailwind + x-show
+from ui.patterns.modal import AlpineModal
 from ui.buttons import Button, ButtonT
 
 @rt("/tasks/create-modal")
 async def task_create_modal(request):
     """Return modal HTML for HTMX swap into #modal."""
-    return Div(
-        Div(
-            H3("Create Task", cls="font-bold text-lg"),
-            create_task_form(action_url="/tasks/quick-add"),
-            Button("Cancel", variant=ButtonT.ghost,
-                   **{"@click": "showModal = false"}),
-            cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
-            **{"@click.stop": ""},
-        ),
-        cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
-        **{"@click": "showModal = false"},
-        x_show="showModal",
-        x_cloak=True,
+    return AlpineModal(
+        H3("Create Task", cls="font-bold text-lg"),
+        create_task_form(action_url="/tasks/quick-add"),
+        Button("Cancel", variant=ButtonT.ghost,
+               **{"@click": "showModal = false"}),
+        show="showModal",
+        close="showModal = false",
+        max_width="max-w-lg",
     )
 
 # Trigger button
@@ -900,7 +898,7 @@ Use MonsterUI semantic tokens, not Tailwind palette:
 from ui.buttons import Button, ButtonT, ButtonLink, IconButton
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT
 from ui.forms import LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Input, Select, Textarea, Checkbox
-# Modals: use plain Alpine.js x-show + Div with Tailwind (no ui.modals)
+from ui.patterns.modal import AlpineModal  # Standardized Alpine.js modal wrapper
 from ui.layout import Size
 from ui.data import Table, TableFromDicts, TableFromLists, TableT, Divider, DividerSplit, DividerT
 
