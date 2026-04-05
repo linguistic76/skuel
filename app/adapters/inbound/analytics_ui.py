@@ -41,6 +41,7 @@ from ui.layouts.navbar import create_navbar_for_request
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
+from ui.patterns.section_header import SectionHeader
 from ui.patterns.stats_grid import StatCard, StatItem, StatsGrid
 
 logger = get_logger("skuel.routes.analytics.ui")
@@ -533,7 +534,7 @@ class AnalyticsUIComponents:
             StatCard(label="Overall Activity", value=str(int(total_activity)), color="primary"),
             # Summary Text
             Card(
-                H2("Summary", cls="text-xl font-semibold mb-4"),
+                SectionHeader("Summary"),
                 P(summary_text, cls="text-muted-foreground"),
                 cls="bg-background shadow-sm mb-6 p-6",
             ),

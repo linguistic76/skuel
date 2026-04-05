@@ -450,11 +450,9 @@ def create_explore_ui_routes(
                 id="explore-grid",
             )
             if cards
-            else Div(
-                P(
-                    "No content yet. Ingest Ku or PathStep YAML files to populate this page.",
-                    cls="text-muted-foreground italic py-8 text-center",
-                ),
+            else EmptyState(
+                "No content yet",
+                description="Ingest Ku or PathStep YAML files to populate this page.",
                 id="explore-grid",
             )
         )

@@ -864,14 +864,8 @@ def _synergies_card(synergies: "list[CrossDomainSynergy]") -> Div:
     """
     # Empty list is valid data - user genuinely has no synergies
     if len(synergies) == 0:
-        return Div(
-            Div(
-                Span("🚀", cls="text-xl mr-2"),
-                Span("HIGH-LEVERAGE ACTIONS", cls="font-bold text-muted-foreground"),
-                cls="flex items-center mb-2",
-            ),
-            P("No synergies detected yet", cls="text-sm text-muted-foreground"),
-            cls="bg-muted rounded-lg p-4 mb-6",
+        return EmptyState(
+            "No synergies detected yet", icon="🚀", cls="bg-muted rounded-lg p-4 mb-6"
         )
 
     synergy_items = []
@@ -928,14 +922,8 @@ def _path_steps_card(steps: "list[PathStep]") -> Div:
     """
     # Empty list is valid data - no recommendations available
     if len(steps) == 0:
-        return Div(
-            Div(
-                Span("📚", cls="text-xl mr-2"),
-                Span("NEXT LEARNING STEPS", cls="font-bold text-muted-foreground"),
-                cls="flex items-center mb-2",
-            ),
-            P("No learning recommendations available", cls="text-sm text-muted-foreground"),
-            cls="bg-muted rounded-lg p-4 mb-6",
+        return EmptyState(
+            "No learning recommendations available", icon="📚", cls="bg-muted rounded-lg p-4 mb-6"
         )
 
     step_items = []

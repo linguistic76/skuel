@@ -9,7 +9,7 @@ UI routes for displaying and managing event-driven insights.
 from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import H2, H3, Div, NotStr, P, Span
+from fasthtml.common import H3, Div, NotStr, P, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -24,6 +24,7 @@ from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
+from ui.patterns.section_header import SectionHeader
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 logger = get_logger("skuel.routes.insights.ui")
@@ -478,7 +479,7 @@ def create_insights_ui_routes(
 
         # Build stats display
         stats_content = Div(
-            H2("Insight Statistics", cls="text-2xl font-bold mb-6"),
+            SectionHeader("Insight Statistics"),
             StatsGrid(
                 [
                     StatItem(label="Total Insights", value=str(stats.get("total_insights", 0))),
@@ -488,7 +489,7 @@ def create_insights_ui_routes(
                 ]
             ),
             Div(
-                H2("Domains", cls="text-xl font-bold mb-4 mt-8"),
+                SectionHeader("Domains", cls="mt-8"),
                 P(
                     ", ".join(stats.get("domains", [])) or "None",
                     cls="text-muted-foreground",

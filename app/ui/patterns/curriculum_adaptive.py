@@ -13,7 +13,7 @@ Components:
 
 from typing import Any
 
-from fasthtml.common import H1, H2, Div, P
+from fasthtml.common import Div, P
 
 from core.models.entity_types import CurriculumEntity
 from core.models.enums import SELCategory
@@ -22,6 +22,8 @@ from ui.buttons import ButtonLink, ButtonT
 from ui.enum_helpers import get_sel_icon
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Progress
 from ui.patterns.card_generator import CardGenerator
+from ui.patterns.page_header import PageHeader
+from ui.patterns.section_header import SectionHeader
 
 
 def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
@@ -105,25 +107,21 @@ def SELJourneyOverview(journey: LearningJourney) -> Div:
     next_category = journey.get_next_recommended_category()
 
     return Div(
+        PageHeader(
+            "Your Learning Journey",
+            subtitle="Social Emotional Learning: Build competencies across 5 core areas",
+        ),
         Div(
-            H1("Your Learning Journey", cls="text-2xl font-bold"),
             P(
-                "Social Emotional Learning: Build competencies across 5 core areas",
-                cls="text-lg text-muted-foreground",
+                f"Overall Completion: {journey.overall_completion:.0f}%",
+                cls="text-sm text-muted-foreground mb-2",
             ),
-            Div(
-                P(
-                    f"Overall Completion: {journey.overall_completion:.0f}%",
-                    cls="text-sm text-muted-foreground mb-2",
-                ),
-                Progress(
-                    value=int(journey.overall_completion),
-                    max_val=100,
-                    cls="",
-                ),
-                cls="mt-4",
+            Progress(
+                value=int(journey.overall_completion),
+                max_val=100,
+                cls="",
             ),
-            cls="mb-8",
+            cls="mb-4",
         ),
         Alert(
             P(
@@ -134,7 +132,7 @@ def SELJourneyOverview(journey: LearningJourney) -> Div:
             variant=AlertT.info,
             cls="mb-4",
         ),
-        H2("Your Progress by Category", cls="text-xl font-semibold mb-4"),
+        SectionHeader("Your Progress by Category"),
         Div(
             *[
                 Div(SELCategoryCard(category, progress))

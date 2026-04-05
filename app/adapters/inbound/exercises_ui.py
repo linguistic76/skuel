@@ -28,6 +28,7 @@ from ui.layouts.base_page import BasePage
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.page_header import PageHeader
+from ui.patterns.section_header import SectionHeader
 from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.exercises.ui")
@@ -120,7 +121,7 @@ class ExerciseUIComponents:
         submit_method = "put" if is_edit else "post"
 
         return Div(
-            H2(form_title, cls="text-xl font-bold mb-6"),
+            SectionHeader(form_title),
             Card(
                 Form(
                     # Hidden user_uid for create

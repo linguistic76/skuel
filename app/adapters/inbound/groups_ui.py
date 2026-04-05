@@ -9,11 +9,13 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 
 from typing import Any
 
-from fasthtml.common import H1, H2, Div, Li, P, Request, Ul
+from fasthtml.common import Div, Li, Request, Ul
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.page_header import PageHeader
+from ui.patterns.section_header import SectionHeader
 
 logger = get_logger(__name__)
 
@@ -46,9 +48,9 @@ def create_groups_ui_routes(
         member_list = member_groups.value if member_groups.is_ok else []
 
         return Div(
-            H1("Groups"),
+            PageHeader("Groups"),
             Div(
-                H2("My Groups (Teacher)"),
+                SectionHeader("My Groups (Teacher)"),
                 _render_group_list(teacher_list)
                 if teacher_list
                 else EmptyState(title="No groups created yet"),
@@ -57,10 +59,10 @@ def create_groups_ui_routes(
             if teacher_list
             else None,
             Div(
-                H2("My Groups (Member)"),
+                SectionHeader("My Groups (Member)"),
                 _render_group_list(member_list)
                 if member_list
-                else P("Not a member of any groups."),
+                else EmptyState(title="Not a member of any groups yet"),
             ),
             cls="container mx-auto p-4",
         )

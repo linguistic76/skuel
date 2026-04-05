@@ -25,6 +25,7 @@ from fasthtml.common import (
 
 from ui.buttons import ButtonLink, ButtonT
 from ui.data import TableFromDicts, TableT
+from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -655,13 +656,13 @@ class FinanceSectionViews:
         trends = trends or []
 
         # Health score display
-        health_color = {
-            "Excellent": "text-success bg-success/10",
-            "Good": "text-info bg-info/10",
-            "Fair": "text-warning bg-warning/10",
-            "Poor": "text-warning bg-warning/10",
-            "Critical": "text-error bg-error/10",
-        }.get(health_tier, "text-muted-foreground bg-muted")
+        health_variant = {
+            "Excellent": BadgeT.success,
+            "Good": BadgeT.info,
+            "Fair": BadgeT.warning,
+            "Poor": BadgeT.warning,
+            "Critical": BadgeT.error,
+        }.get(health_tier, BadgeT.neutral)
 
         health_section = Div(
             H3("Financial Health Score", cls="text-lg font-semibold mb-3"),
@@ -672,7 +673,7 @@ class FinanceSectionViews:
                     cls="text-center",
                 ),
                 Div(
-                    Span(health_tier, cls=f"px-4 py-2 rounded-full font-semibold {health_color}"),
+                    Badge(health_tier, variant=health_variant, size=Size.lg),
                     cls="text-center mt-4",
                 ),
                 cls="bg-background border border-border rounded-lg p-6",
