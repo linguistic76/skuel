@@ -321,7 +321,7 @@ Card.PADDING        # "p-6"
 
 ### Page Header & Section Header
 
-Adopted across all 6 Activity Domain dashboards, Study hub, Curriculum hub, Admin dashboard, Analytics, Calendar, LifePath, Timeline, Finance (all 6 sections), Pathways (4 pages), Askesis (3 pages), Form Submissions, Submissions, User Profile, and Preferences. Every `SidebarPage` content area starts with a `PageHeader`.
+Adopted across all 6 Activity Domain dashboards, Study hub, Curriculum hub, Admin dashboard, Analytics, Calendar, LifePath, Timeline, Finance (all 6 sections), Pathways (4 pages), Askesis (3 pages), Form Submissions, Submissions, User Profile, and Preferences. Every `SidebarPage` content area starts with a `PageHeader`. `SectionHeader` adopted across ~7 files (~10 usages) — groups, insights, exercises, analytics, admin, ingestion, curriculum adaptive. Never use raw `H2()` for section headers outside cards.
 
 ```python
 from ui.patterns import PageHeader, SectionHeader
@@ -951,7 +951,7 @@ ButtonLink("Submit →", href="/submit", variant=ButtonT.primary, size=Size.sm)
 
 ### Don't Use Raw `Span()` for Status Badges
 
-All status/category pill badges must use `Badge()`, `StatusBadge()`, or `PriorityBadge()` from `ui/feedback` — not raw `Span()` with hand-rolled Tailwind color classes. This ensures consistent sizing (`inline-flex items-center rounded-full border font-medium`), spacing, and color semantics.
+All status/category pill badges must use `Badge()`, `StatusBadge()`, or `PriorityBadge()` from `ui/feedback` — not raw `Span()` with hand-rolled Tailwind color classes. This ensures consistent sizing (`inline-flex items-center rounded-full border font-medium`), spacing, and color semantics. No hand-rolled `Span()` badges remain — all use `Badge()`/`StatusBadge()`/`PriorityBadge()` (including finance health tier, explore type pills, teaching status).
 
 ```python
 # BAD: Hand-rolled badge with duplicated CSS

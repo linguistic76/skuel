@@ -210,7 +210,7 @@ Card(CardBody(
 
 **Location:** `/ui/feedback.py`
 
-Small labels for status, priority, and categories. All badges must use these components — never raw `Span()` with hand-rolled Tailwind color classes.
+Small labels for status, priority, and categories. All badges must use these components — never raw `Span()` with hand-rolled Tailwind color classes. Adopted across 20+ files including all Activity Domain views, finance health tier, explore type pills, teaching status, and learning loop status.
 
 ### Badge(*c, variant, size, cls, **kwargs)
 
@@ -855,6 +855,8 @@ if result.is_error:
 ## SectionHeader
 
 **Location:** `/ui/patterns/section_header.py`
+
+**Adoption status:** ~10 usages across ~7 files (groups, insights, exercises, analytics, admin, ingestion, curriculum adaptive). Never use raw `H2()` for section headers outside cards — use `SectionHeader()`. Card-internal titles (`H2` inside `Card()`) are a different semantic role and don't use SectionHeader.
 
 Header for page sections with optional actions.
 

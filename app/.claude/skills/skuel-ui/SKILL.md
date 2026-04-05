@@ -115,7 +115,7 @@ Card.PADDING        # "p-6"
 
 ### PageHeader and SectionHeader
 
-**Always use `PageHeader()` for page/section headers** — never raw `H1()`/`H2()` with ad-hoc classes. PageHeader ensures consistent typography (`text-2xl font-bold text-foreground`), spacing (`mb-8`), and subtitle/actions layout. Skip only for: error headings inside Cards, modal titles, sub-section headings within Cards, or genuinely custom layouts.
+**Always use `PageHeader()` for page headers** — never raw `H1()` with ad-hoc classes. PageHeader ensures consistent typography (`text-2xl font-bold text-foreground`), spacing (`mb-8`), and subtitle/actions layout. **Always use `SectionHeader()` for section headers outside cards** — never raw `H2()` with ad-hoc classes. SectionHeader ensures consistent typography (`text-xl font-semibold text-foreground`), spacing (`mb-6`), and optional action layout. Skip only for: error headings inside Cards, modal titles, sub-section headings within Cards, or genuinely custom layouts.
 
 ```python
 from ui.patterns import PageHeader, SectionHeader
@@ -308,6 +308,13 @@ ProgressMetric("Data Quality", 0.88)  # green ≥80%, yellow ≥60%, red <60%
 - Use `StatItem` frozen dataclass (not dicts) for type-safe data passing: `label`, `value`, `change`, `trend`, `color`.
 - `StatsGrid(stats, cols=4)` — responsive grid container. `StatCard()` for individual cards outside a grid.
 - Adopted across ~16 files (insights, pathways, analytics, finance, admin, profile).
+
+### SectionHeader Usage Rules
+
+- **Never use raw `H2()`** for section headers outside cards — always use `SectionHeader()`.
+- `SectionHeader(title)` — wraps in `Div(H2(...), cls="mb-6")`. Pass `action=` for a right-aligned link/button. Pass `cls=` for extra classes (e.g., `cls="mt-8"`).
+- **Card-internal titles** (`H2` inside `Card()`) are a different semantic role — those stay as raw `H2()`.
+- Adopted across ~7 files (groups, insights, exercises, analytics, admin, ingestion, curriculum adaptive).
 
 ### AlpineModal Usage Rules
 
