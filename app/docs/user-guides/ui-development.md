@@ -745,16 +745,26 @@ All Alpine.js `x-data` component definitions live in `/static/js/skuel.js`.
 | `toastManager` | `x-data="toastManager()"` | Toast notification stack. Methods: `addToast(message, type, duration)`, auto-dismiss. |
 
 ```python
-# Example: accessible modal in Python
-Modal(
-    "delete-confirm",
-    ModalBox(
-        H3("Delete?"),
-        P("This cannot be undone."),
-        ModalAction(Button("Cancel"), Button("Delete", variant=ButtonT.error)),
+# Example: accessible modal with Alpine.js x-show + Tailwind
+Div(
+    Div(
+        Div(
+            H3("Delete?"),
+            P("This cannot be undone."),
+            Div(
+                Button("Cancel", variant=ButtonT.ghost, **{"@click": "isOpen = false"}),
+                Button("Delete", variant=ButtonT.error, hx_delete="/api/items/123"),
+                cls="flex gap-2 justify-end mt-4",
+            ),
+            cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
+            **{"@click.stop": ""},
+        ),
+        cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
+        **{"@click": "isOpen = false"},
     ),
-    ModalBackdrop(),
-    **{"x-data": "accessibleModal({ isOpen: false })"},
+    x_data="accessibleModal({ isOpen: false })",
+    x_show="isOpen",
+    x_cloak=True,
 )
 ```
 

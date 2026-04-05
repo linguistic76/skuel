@@ -654,26 +654,38 @@ Container(
 
 ## Modal Pattern
 
+Modals use Alpine.js `x-show` for visibility + plain Div with Tailwind for styling.
+
 ```python
-# Modal definition
-Modal("confirm-modal",
-    ModalBox(
-        H3("Confirm Delete"),
-        P("Are you sure you want to delete this item?"),
-        ModalAction(
-            Button("Cancel", variant=ButtonT.ghost,
-                   onclick="document.getElementById('confirm-modal').close()"),
-            Button("Delete", variant=ButtonT.error,
-                   hx_delete="/api/items/123",
-                   hx_target="#item-list"),
-        )
+# Modal with Alpine.js toggle
+Div(
+    # Backdrop overlay
+    Div(
+        # Modal dialog
+        Div(
+            H3("Confirm Delete"),
+            P("Are you sure you want to delete this item?"),
+            Div(
+                Button("Cancel", variant=ButtonT.ghost,
+                       **{"@click": "showConfirm = false"}),
+                Button("Delete", variant=ButtonT.error,
+                       hx_delete="/api/items/123",
+                       hx_target="#item-list"),
+                cls="flex gap-2 justify-end mt-4",
+            ),
+            cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
+            **{"@click.stop": ""},
+        ),
+        cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
+        **{"@click": "showConfirm = false"},
     ),
-    ModalBackdrop(),  # Click outside to close
+    x_show="showConfirm",
+    x_cloak=True,
 )
 
-# Open modal with JavaScript
+# Open modal
 Button("Delete",
-       onclick="document.getElementById('confirm-modal').showModal()",
+       **{"@click": "showConfirm = true"},
        variant=ButtonT.error)
 ```
 

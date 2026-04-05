@@ -329,9 +329,10 @@ def create_accessible_modal(modal_id: str, title: str, content: Any) -> Any:
                 Div(content, id=f"{modal_id}-body"),
 
                 # Modal actions
-                ModalAction(
+                Div(
                     Button("Cancel", variant=ButtonT.ghost, onclick=f"closeModal('{modal_id}')"),
                     Button("Confirm", variant=ButtonT.primary, onclick=f"confirmAction('{modal_id}')"),
+                    cls="flex gap-2 justify-end mt-4",
                 ),
 
                 role="dialog",
