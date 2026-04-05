@@ -110,6 +110,8 @@ class FormTemplateOperations(Protocol):
 
     async def get_for_path_step(self, ps_uid: str) -> Result[builtins.list[dict[str, Any]]]: ...
 
+    async def count_submissions(self, template_uid: str) -> Result[int]: ...
+
 
 class FormSubmissionOperations(Protocol):
     """Form submission operations for user-facing submit/list/delete/share.
@@ -138,6 +140,12 @@ class FormSubmissionOperations(Protocol):
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def delete_submission(self, uid: str, user_uid: UserUID) -> Result[bool]: ...
+
+    async def get_submissions_for_template(
+        self, form_template_uid: str
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_submission_admin(self, uid: str) -> Result[FormSubmission]: ...
 
     async def share_submission(
         self,

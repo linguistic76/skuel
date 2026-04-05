@@ -4198,20 +4198,27 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
     async def get_submissions_for_template(
         self, form_template_uid: str
     ) -> Result[list[dict[str, Any]]]:
-        """Get all submissions for a form template."""
+        """Get all submissions for a form template, including submitter info."""
         result = await self.execute_query(
             f"""
             MATCH (fs:Entity {{entity_type: 'form_submission'}})
                   -[:{RelationshipName.RESPONDS_TO_FORM}]->
                   (ft:Entity {{uid: $ft_uid}})
-            RETURN fs
+            OPTIONAL MATCH (u:User)-[:{RelationshipName.OWNS}]->(fs)
+            RETURN fs, u.uid AS user_uid, u.display_name AS user_name
             ORDER BY fs.created_at DESC
             """,
             {"ft_uid": form_template_uid},
         )
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([dict(record["fs"]) for record in (result.value or [])])
+        rows: list[dict[str, Any]] = []
+        for record in result.value or []:
+            row = dict(record["fs"])
+            row["user_uid"] = record.get("user_uid")
+            row["user_name"] = record.get("user_name")
+            rows.append(row)
+        return Result.ok(rows)
 
     async def create_with_relationships(
         self,

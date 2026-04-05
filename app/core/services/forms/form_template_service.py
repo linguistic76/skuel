@@ -140,6 +140,14 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
         return Result.ok(True)
 
     # ========================================================================
+    # ADMIN / TEACHER READ
+    # ========================================================================
+
+    async def count_submissions(self, template_uid: str) -> Result[int]:
+        """Count submissions linked to a template."""
+        return await self.backend.count_submissions(template_uid)
+
+    # ========================================================================
     # INTERNAL HELPERS
     # ========================================================================
 

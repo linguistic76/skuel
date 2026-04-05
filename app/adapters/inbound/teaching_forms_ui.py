@@ -1,0 +1,346 @@
+"""
+Teaching Forms UI — Admin/Teacher View of Form Submissions
+==========================================================
+
+Three pages for viewing FormTemplate submissions:
+- Template list with submission counts
+- Submissions list for a specific template
+- Single submission detail (read-only)
+
+TEACHER role required for all endpoints.
+"""
+
+from datetime import datetime
+from typing import Any
+
+from fasthtml.common import A, Div, P, Small, Span, Strong
+
+from adapters.inbound.auth import make_service_getter, require_authenticated_user
+from adapters.inbound.auth.roles import UserRole, require_role
+from adapters.inbound.fasthtml_types import Request
+from core.utils.logging import get_logger
+from ui.buttons import ButtonLink, ButtonT
+from ui.feedback import Badge, BadgeT
+from ui.layout import Size
+from ui.patterns.card_generator import CardGenerator
+from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_error_banner
+from ui.patterns.page_header import PageHeader
+from ui.teaching.nav import render_teaching_sidebar_page
+
+logger = get_logger(__name__)
+
+
+def _format_date(value: Any) -> str:
+    """Format a date value for display."""
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M")
+    if isinstance(value, str) and len(value) >= 10:
+        return value[:16].replace("T", " ")
+    return str(value) if value else "—"
+
+
+def _form_data_preview(form_data: dict[str, Any] | None, max_fields: int = 3) -> str:
+    """Build a short preview string from form_data."""
+    if not form_data:
+        return "No data"
+    items = list(form_data.items())[:max_fields]
+    parts = [f"{k}: {v}" for k, v in items if v is not None]
+    preview = " · ".join(parts)
+    if len(form_data) > max_fields:
+        preview += f" (+{len(form_data) - max_fields} more)"
+    return preview or "No data"
+
+
+def _render_form_data_detail(
+    form_data: dict[str, Any] | None,
+    form_schema: tuple[dict[str, Any], ...] | None = None,
+) -> Div:
+    """Render form_data as read-only key-value pairs, using schema labels if available."""
+    if not form_data:
+        return Div(P("No form data", cls="text-muted-foreground italic"), cls="space-y-2")
+
+    label_map: dict[str, str] = {}
+    if form_schema:
+        for spec in form_schema:
+            name = spec.get("name", "")
+            label_map[name] = spec.get("label", name)
+
+    rows = []
+    for key, value in form_data.items():
+        label = label_map.get(key, key)
+        display_value = str(value) if value is not None else "—"
+        rows.append(
+            Div(
+                Strong(label, cls="text-sm text-foreground"),
+                P(display_value, cls="text-sm text-muted-foreground mt-0.5"),
+                cls="py-2 border-b border-border last:border-0",
+            )
+        )
+    return Div(*rows)
+
+
+def create_teaching_forms_ui_routes(
+    _app: Any,
+    rt: Any,
+    form_template_service: Any,
+    form_submission_service: Any,
+    user_service: Any,
+) -> list[Any]:
+    """Create teaching forms UI routes.
+
+    Returns list of route functions (FastHTML decorator registers immediately).
+    """
+    get_user_service = make_service_getter(user_service)
+
+    # ==================================================================
+    # GET /teaching/forms — Template list with submission counts
+    # ==================================================================
+
+    @rt("/teaching/forms")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_forms_list(request: Request, current_user: Any = None) -> Any:
+        require_authenticated_user(request)
+
+        result = await form_template_service.list(limit=200, order_by="created_at", order_desc=True)
+        if result.is_error:
+            content = Div(
+                PageHeader("Forms"),
+                render_error_banner("Failed to load form templates", str(result.error)),
+            )
+            return await render_teaching_sidebar_page(content, active="forms", request=request)
+
+        templates = result.value or []
+        if not templates:
+            content = Div(
+                PageHeader("Forms"),
+                EmptyState("No form templates", "Create form templates to see them here."),
+            )
+            return await render_teaching_sidebar_page(content, active="forms", request=request)
+
+        # Gather submission counts
+        rows = []
+        for template in templates:
+            count_result = await form_template_service.count_submissions(template.uid)
+            count = count_result.value if not count_result.is_error else 0
+            rows.append((template, count))
+
+        template_cards = []
+        for template, count in rows:
+            count_variant = BadgeT.info if count > 0 else BadgeT.ghost
+            field_count = len(template.form_schema) if template.form_schema else 0
+
+            template_cards.append(
+                CardGenerator.from_dataclass(
+                    {"title": template.title},
+                    display_fields=[],
+                    subtitle=template.instructions[:100] if template.instructions else None,
+                    header_badges=[
+                        Badge(f"{count} submission{'s' if count != 1 else ''}", variant=count_variant, size=Size.sm),
+                        Badge(f"{field_count} field{'s' if field_count != 1 else ''}", variant=BadgeT.ghost, size=Size.sm),
+                    ],
+                    show_labels=False,
+                    actions=ButtonLink(
+                        "View Submissions",
+                        href=f"/teaching/forms/detail?uid={template.uid}",
+                        variant=ButtonT.primary,
+                        size=Size.sm,
+                    ),
+                    card_attrs={"cls": "bg-background shadow-sm mb-2"},
+                )
+            )
+
+        content = Div(PageHeader("Forms"), *template_cards)
+        return await render_teaching_sidebar_page(content, active="forms", request=request)
+
+    # ==================================================================
+    # GET /teaching/forms/detail?uid= — Submissions for a template
+    # ==================================================================
+
+    @rt("/teaching/forms/detail")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_forms_detail(request: Request, uid: str = "", current_user: Any = None) -> Any:
+        require_authenticated_user(request)
+
+        if not uid:
+            content = Div(
+                PageHeader("Form Submissions"),
+                render_error_banner("Missing template UID", "No uid query parameter provided."),
+            )
+            return await render_teaching_sidebar_page(content, active="forms", request=request)
+
+        # Fetch template
+        template_result = await form_template_service.get(uid)
+        if template_result.is_error or template_result.value is None:
+            content = Div(
+                PageHeader("Form Submissions"),
+                render_error_banner("Template not found", f"No template with UID: {uid}"),
+            )
+            return await render_teaching_sidebar_page(content, active="forms", request=request)
+
+        template = template_result.value
+
+        # Fetch submissions
+        subs_result = await form_submission_service.get_submissions_for_template(uid)
+        if subs_result.is_error:
+            content = Div(
+                PageHeader(template.title, subtitle="Submissions"),
+                render_error_banner("Failed to load submissions", str(subs_result.error)),
+            )
+            return await render_teaching_sidebar_page(content, active="forms", request=request)
+
+        submissions = subs_result.value or []
+
+        back_link = A(
+            "← Back to Forms",
+            href="/teaching/forms",
+            cls="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block",
+        )
+
+        if not submissions:
+            content = Div(
+                back_link,
+                PageHeader(template.title, subtitle="Submissions"),
+                EmptyState("No submissions yet", "Submissions will appear here when users respond to this form."),
+            )
+            return await render_teaching_sidebar_page(content, active="forms", request=request)
+
+        submission_rows = []
+        for sub in submissions:
+            user_name = sub.get("user_name") or sub.get("user_uid") or "Unknown"
+            created_at = _format_date(sub.get("created_at"))
+
+            # Parse form_data for preview
+            form_data = sub.get("form_data")
+            if isinstance(form_data, str):
+                import json
+
+                try:
+                    form_data = json.loads(form_data)
+                except (json.JSONDecodeError, TypeError):
+                    form_data = None
+
+            preview = _form_data_preview(form_data)
+            sub_uid = sub.get("uid", "")
+
+            submission_rows.append(
+                CardGenerator.from_dataclass(
+                    {"title": sub.get("title", "Untitled")},
+                    display_fields=[],
+                    subtitle=Div(
+                        Span(f"by {user_name}", cls="text-sm"),
+                        Span(" · ", cls="text-muted-foreground"),
+                        Span(created_at, cls="text-sm text-muted-foreground"),
+                        cls="flex items-center gap-0",
+                    ),
+                    extra=Small(preview, cls="text-xs text-muted-foreground line-clamp-1"),
+                    show_labels=False,
+                    actions=ButtonLink(
+                        "View",
+                        href=f"/teaching/forms/submission?uid={sub_uid}",
+                        variant=ButtonT.ghost,
+                        size=Size.sm,
+                    ),
+                    card_attrs={"cls": "bg-background shadow-sm mb-2"},
+                )
+            )
+
+        content = Div(
+            back_link,
+            PageHeader(template.title, subtitle=f"{len(submissions)} submission{'s' if len(submissions) != 1 else ''}"),
+            *submission_rows,
+        )
+        return await render_teaching_sidebar_page(content, active="forms", request=request)
+
+    # ==================================================================
+    # GET /teaching/forms/submission?uid= — Single submission detail
+    # ==================================================================
+
+    @rt("/teaching/forms/submission")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_forms_submission_detail(
+        request: Request, uid: str = "", current_user: Any = None
+    ) -> Any:
+        require_authenticated_user(request)
+
+        if not uid:
+            content = Div(
+                PageHeader("Submission Detail"),
+                render_error_banner("Missing submission UID", "No uid query parameter provided."),
+            )
+            return await render_teaching_sidebar_page(content, active="forms", request=request)
+
+        result = await form_submission_service.get_submission_admin(uid)
+        if result.is_error:
+            content = Div(
+                PageHeader("Submission Detail"),
+                render_error_banner("Submission not found", f"No submission with UID: {uid}"),
+            )
+            return await render_teaching_sidebar_page(content, active="forms", request=request)
+
+        submission = result.value
+
+        # Try to fetch the template for field labels
+        template = None
+        if submission.form_template_uid:
+            template_result = await form_template_service.get(submission.form_template_uid)
+            if not template_result.is_error and template_result.value:
+                template = template_result.value
+
+        # Build back link
+        back_href = (
+            f"/teaching/forms/detail?uid={submission.form_template_uid}"
+            if submission.form_template_uid
+            else "/teaching/forms"
+        )
+        back_link = A(
+            "← Back to Submissions",
+            href=back_href,
+            cls="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block",
+        )
+
+        # Metadata section
+        meta_items = [
+            Div(
+                Strong("Submitted by", cls="text-sm"),
+                P(submission.user_uid or "Unknown", cls="text-sm text-muted-foreground mt-0.5"),
+                cls="py-2",
+            ),
+            Div(
+                Strong("Date", cls="text-sm"),
+                P(_format_date(submission.created_at), cls="text-sm text-muted-foreground mt-0.5"),
+                cls="py-2",
+            ),
+        ]
+        if template:
+            meta_items.insert(
+                0,
+                Div(
+                    Strong("Template", cls="text-sm"),
+                    P(template.title, cls="text-sm text-muted-foreground mt-0.5"),
+                    cls="py-2",
+                ),
+            )
+
+        metadata_section = Div(
+            *meta_items,
+            cls="border border-border rounded p-4 mb-6",
+        )
+
+        # Form data section
+        form_schema = template.form_schema if template else None
+        form_data_section = Div(
+            P("Responses", cls="text-base font-semibold mb-3"),
+            _render_form_data_detail(submission.form_data, form_schema),
+            cls="border border-border rounded p-4",
+        )
+
+        content = Div(
+            back_link,
+            PageHeader(submission.title or "Form Submission"),
+            metadata_section,
+            form_data_section,
+        )
+        return await render_teaching_sidebar_page(content, active="forms", request=request)
+
+    return [teaching_forms_list, teaching_forms_detail, teaching_forms_submission_detail]

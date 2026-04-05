@@ -239,6 +239,25 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         return await self.backend.list_by_user(user_uid, limit=limit)
 
     # ========================================================================
+    # ADMIN / TEACHER READ
+    # ========================================================================
+
+    async def get_submissions_for_template(
+        self, form_template_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """All submissions for a template (admin/teacher use)."""
+        return await self.backend.get_submissions_for_template(form_template_uid)
+
+    async def get_submission_admin(self, uid: str) -> Result[FormSubmission]:
+        """Get submission by UID without ownership check (admin/teacher use)."""
+        result: Result[FormSubmission | None] = await self.backend.get(uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is None:
+            return Result.fail(Errors.not_found(resource="FormSubmission", identifier=uid))
+        return Result.ok(result.value)
+
+    # ========================================================================
     # DELETE
     # ========================================================================
 

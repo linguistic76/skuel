@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from adapters.inbound.teaching_api import create_teaching_api_routes
+from adapters.inbound.teaching_forms_ui import create_teaching_forms_ui_routes
 from adapters.inbound.teaching_ui import create_teaching_ui_routes
 
 if TYPE_CHECKING:
@@ -44,6 +45,14 @@ def create_teaching_routes(
 ) -> None:
     """Wire teaching API + UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, TEACHING_CONFIG)
+    if services:
+        create_teaching_forms_ui_routes(
+            _app=app,
+            rt=rt,
+            form_template_service=services.form_templates,
+            form_submission_service=services.form_submissions,
+            user_service=services.user_service,
+        )
 
 
 __all__ = ["create_teaching_routes"]

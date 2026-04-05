@@ -1,7 +1,7 @@
 """Teaching sidebar navigation.
 
 Renders a collapsible sidebar for Teaching child pages:
-Students, Groups, Review Queue.
+Students, Groups, Review Queue, Forms.
 
 Usage:
     from ui.teaching.nav import render_teaching_sidebar_page
@@ -28,6 +28,7 @@ TEACHING_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Students", "/teaching/students", "students", icon="users"),
     SidebarItem("Groups", "/teaching/groups", "groups", icon="users"),
     SidebarItem("Review Queue", "/teaching/queue", "queue", icon="inbox"),
+    SidebarItem("Forms", "/teaching/forms", "forms", icon="file-text"),
 ]
 
 
