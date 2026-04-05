@@ -23,7 +23,7 @@ For implementation guidance, see:
 
 **Impact:** Reduces route file complexity from ~80 lines to ~15 lines per domain (83% reduction).
 
-**Adoption:** Currently used by 40 of 46 route files (87%). Non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, library_routes.py (hub orchestrator), learning_loop_routes.py. ai_routes.py uses its own config-driven pattern (AIRouteSpec).
+**Adoption:** 42 of 46 route files (91%). All 6 Activity Domains use `create_activity_domain_route_config()`. Non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, library_routes.py (hub orchestrator). ai_routes.py uses its own config-driven pattern (AIRouteSpec).
 
 ## The Pattern
 
@@ -1270,7 +1270,7 @@ Zero runtime overhead - routes are registered once at application startup.
 - ✅ hierarchy_routes.py, lateral_routes.py (loop-pattern, multi-service via kwargs)
 - graphql_routes.py: signature normalized only (needs full services container)
 
-**Summary:** 42 of 46 route files use DomainRouteConfig or equivalent config-driven patterns (91% adoption). 4 non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, curriculum_hub_routes.py. ai_routes.py was refactored (2026-03-23) to use AIRouteSpec config-driven generation. Bootstrap no longer wraps DomainRouteConfig routes in `if services.X:` guards — the soft-fail in `register_domain_routes()` handles missing services.
+**Summary:** 42 of 46 route files use DomainRouteConfig or equivalent config-driven patterns (91% adoption). 4 non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, library_routes.py (hub orchestrator). ai_routes.py was refactored (2026-03-23) to use AIRouteSpec config-driven generation. Bootstrap no longer wraps DomainRouteConfig routes in `if services.X:` guards — the soft-fail in `register_domain_routes()` handles missing services.
 
 **Key Achievements:**
 - All 4 patterns proven: Standard, API-only, UI-only, Multi-factory

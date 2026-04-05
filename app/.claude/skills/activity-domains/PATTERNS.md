@@ -19,14 +19,14 @@ CRUD, Query, and Intelligence factories declared in config.
 Status and Analytics factories (runtime closures) remain in tasks_api.py.
 """
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from core.models.entity_requests import EntityUpdateRequest as TaskUpdateRequest
-from core.models.task.task_request import TaskCreateRequest
+from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 
 TASKS_CONFIG = create_activity_domain_route_config(
     domain_name="tasks",
@@ -39,7 +39,6 @@ TASKS_CONFIG = create_activity_domain_route_config(
     supports_goal_filter=True,
     supports_habit_filter=True,
     api_related_services={
-        "user_service": "user_service",
         "goals_service": "goals",
         "habits_service": "habits",
     },

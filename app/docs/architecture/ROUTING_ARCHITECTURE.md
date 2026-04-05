@@ -400,21 +400,21 @@ RETURN t
 | `DomainRouteConfig(crud=CRUDRouteConfig(...))` | CRUD (+ optional Intelligence) in config; domain-specific in api_factory | Lesson, Exercises, LP, PS, Groups, RevisedExercise, FormTemplate |
 | `DomainRouteConfig(...)` | API + UI factories only; no config-driven factories | KU, Askesis, Context, Search, etc. |
 
-Tasks and Goals have active read-focused UI views at `/tasks` and `/goals`. Habits, Events, Choices, and Principles read-focused UIs are planned.
+All 6 Activity Domains have read-focused UI views: Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`), Choices (`/choices`), Principles (`/principles`).
 
 ### Pattern Structure (Activity Domains — current)
 
 ```python
 # File: /adapters/inbound/tasks_routes.py
 
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from core.models.task.task_request import TaskCreateRequest
-from core.models.entity_requests import EntityUpdateRequest as TaskUpdateRequest
+from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 
 TASKS_CONFIG = create_activity_domain_route_config(
     domain_name="tasks",
@@ -427,7 +427,6 @@ TASKS_CONFIG = create_activity_domain_route_config(
     supports_goal_filter=True,            # Query factory params
     supports_habit_filter=True,
     api_related_services={
-        "user_service": "user_service",
         "goals_service": "goals",
         "habits_service": "habits",
     },

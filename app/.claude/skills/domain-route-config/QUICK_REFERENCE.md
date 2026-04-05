@@ -15,8 +15,7 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
-from core.models.entity_requests import EntityUpdateRequest as {Domain}UpdateRequest
-from core.models.{domain}.{domain}_request import {Domain}CreateRequest
+from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain}UpdateRequest
 
 {DOMAIN}_CONFIG = create_activity_domain_route_config(
     domain_name="{domain}",

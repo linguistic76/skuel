@@ -8,7 +8,7 @@ allowed-tools: Read, Grep, Glob
 
 > "Configuration over code for route registration"
 
-DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. Used by 40 of 46 route files (87% adoption). Five proven pattern variants cover every route registration scenario in SKUEL. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
+DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. Used by 42 of 46 route files (91% adoption). All 6 Activity Domains use `create_activity_domain_route_config()`. Five proven pattern variants cover every route registration scenario in SKUEL. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
 
 ---
 
@@ -138,14 +138,14 @@ __all__ = ["create_{domain}_routes"]
 **Exemplar:** `adapters/inbound/tasks_routes.py`
 
 ```python
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator, RouteList
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
 )
 from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
-from core.models.entity_requests import EntityUpdateRequest as TaskUpdateRequest
-from core.models.task.task_request import TaskCreateRequest
+from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 
 TASKS_CONFIG = create_activity_domain_route_config(
     domain_name="tasks",
@@ -158,7 +158,6 @@ TASKS_CONFIG = create_activity_domain_route_config(
     supports_goal_filter=True,
     supports_habit_filter=True,
     api_related_services={
-        "user_service": "user_service",
         "goals_service": "goals",
         "habits_service": "habits",
     },
