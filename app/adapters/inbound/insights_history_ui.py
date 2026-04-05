@@ -9,7 +9,7 @@ UI routes for viewing dismissed and actioned insights with notes.
 from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import Div, NotStr, P, Span
+from fasthtml.common import Div, NotStr, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -22,6 +22,7 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
+from ui.patterns.stats_grid import StatItem, StatsGrid
 
 logger = get_logger("skuel.routes.insights.history")
 
@@ -177,25 +178,14 @@ def create_insights_history_routes(
         dismissed_count = sum(1 for i in insights if i.dismissed)
         actioned_count = sum(1 for i in insights if i.actioned)
 
-        stats_summary = Div(
-            Div(
-                Div(
-                    P("Total Actions", cls="text-sm text-muted-foreground"),
-                    P(str(len(insights)), cls="text-3xl font-bold"),
-                    cls="p-4 text-center",
-                ),
-                Div(
-                    P("Dismissed", cls="text-sm text-muted-foreground"),
-                    P(str(dismissed_count), cls="text-3xl font-bold"),
-                    cls="p-4 text-center",
-                ),
-                Div(
-                    P("Actioned", cls="text-sm text-muted-foreground"),
-                    P(str(actioned_count), cls="text-3xl font-bold text-success"),
-                    cls="p-4 text-center",
-                ),
-                cls="grid grid-cols-3 gap-4 shadow rounded-lg mb-6",
-            ),
+        stats_summary = StatsGrid(
+            [
+                StatItem(label="Total Actions", value=str(len(insights))),
+                StatItem(label="Dismissed", value=str(dismissed_count)),
+                StatItem(label="Actioned", value=str(actioned_count), color="success"),
+            ],
+            cols=3,
+            cls="mb-6",
         )
 
         # Build page content

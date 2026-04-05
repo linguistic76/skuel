@@ -24,6 +24,7 @@ from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
+from ui.patterns.stats_grid import StatItem, StatsGrid
 
 logger = get_logger("skuel.routes.insights.ui")
 
@@ -478,31 +479,13 @@ def create_insights_ui_routes(
         # Build stats display
         stats_content = Div(
             H2("Insight Statistics", cls="text-2xl font-bold mb-6"),
-            Div(
-                Div(
-                    P("Total Insights", cls="text-sm text-muted-foreground"),
-                    P(str(stats.get("total_insights", 0)), cls="text-3xl font-bold"),
-                    cls="p-4 text-center",
-                ),
-                Div(
-                    P("Active Insights", cls="text-sm text-muted-foreground"),
-                    P(str(stats.get("active_insights", 0)), cls="text-3xl font-bold"),
-                    cls="p-4 text-center",
-                ),
-                Div(
-                    P("Actioned", cls="text-sm text-muted-foreground"),
-                    P(str(stats.get("actioned_insights", 0)), cls="text-3xl font-bold"),
-                    cls="p-4 text-center",
-                ),
-                Div(
-                    P("Action Rate", cls="text-sm text-muted-foreground"),
-                    P(
-                        f"{stats.get('action_rate', 0):.0%}",
-                        cls="text-3xl font-bold",
-                    ),
-                    cls="p-4 text-center",
-                ),
-                cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow rounded-lg",
+            StatsGrid(
+                [
+                    StatItem(label="Total Insights", value=str(stats.get("total_insights", 0))),
+                    StatItem(label="Active Insights", value=str(stats.get("active_insights", 0))),
+                    StatItem(label="Actioned", value=str(stats.get("actioned_insights", 0))),
+                    StatItem(label="Action Rate", value=f"{stats.get('action_rate', 0):.0%}"),
+                ]
             ),
             Div(
                 H2("Domains", cls="text-xl font-bold mb-4 mt-8"),

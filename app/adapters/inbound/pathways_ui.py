@@ -38,6 +38,7 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.form_generator import FormGenerator
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
+from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.ui_types import (
     ActivePathData,
     LearningStatsData,
@@ -351,43 +352,27 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
             # Learning Stats Overview
             Card(
                 H2("Learning Overview", cls="text-xl font-semibold mb-4"),
-                Div(
-                    Div(
-                        Div(
-                            Span("Learning Hours", cls="text-sm text-muted-foreground"),
-                            Span(f"{stats.total_hours:.0f}", cls="text-2xl font-bold text-primary"),
-                            P("Total estimated hours", cls="text-xs text-muted-foreground"),
-                            cls="p-4 text-center",
+                StatsGrid(
+                    [
+                        StatItem(
+                            label="Learning Hours",
+                            value=f"{stats.total_hours:.0f}",
+                            color="primary",
                         ),
-                        Div(
-                            Span("Concepts Mastered", cls="text-sm text-muted-foreground"),
-                            Span(
-                                str(stats.concepts_mastered),
-                                cls="text-2xl font-bold text-success",
-                            ),
-                            P("Across all learning paths", cls="text-xs text-muted-foreground"),
-                            cls="p-4 text-center",
+                        StatItem(
+                            label="Concepts Mastered",
+                            value=str(stats.concepts_mastered),
+                            color="success",
                         ),
-                        Div(
-                            Span("Active Paths", cls="text-sm text-muted-foreground"),
-                            Span(
-                                str(len(active_paths)),
-                                cls="text-2xl font-bold text-primary",
-                            ),
-                            P("In progress", cls="text-xs text-muted-foreground"),
-                            cls="p-4 text-center",
+                        StatItem(
+                            label="Active Paths", value=str(len(active_paths)), color="primary"
                         ),
-                        Div(
-                            Span("Completion Rate", cls="text-sm text-muted-foreground"),
-                            Span(
-                                f"{stats.completion_rate * 100:.0f}%",
-                                cls="text-2xl font-bold text-warning",
-                            ),
-                            P("Started paths finished", cls="text-xs text-muted-foreground"),
-                            cls="p-4 text-center",
+                        StatItem(
+                            label="Completion Rate",
+                            value=f"{stats.completion_rate * 100:.0f}%",
+                            color="warning",
                         ),
-                        cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow rounded-lg w-full",
-                    ),
+                    ],
                     cls="mb-6",
                 ),
                 cls="mb-8",
@@ -735,31 +720,19 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
             # Analytics Overview
             Card(
                 H2("Knowledge Profile", cls="text-xl font-semibold mb-4"),
-                Div(
-                    Div(
-                        Div(
-                            Span("Concepts Mastered", cls="text-sm text-muted-foreground"),
-                            Span(str(concepts_mastered), cls="text-2xl font-bold text-success"),
-                            P("Knowledge units mastered", cls="text-xs text-muted-foreground"),
-                            cls="p-4 text-center",
+                StatsGrid(
+                    [
+                        StatItem(
+                            label="Concepts Mastered", value=str(concepts_mastered), color="success"
                         ),
-                        Div(
-                            Span("In Progress", cls="text-sm text-muted-foreground"),
-                            Span(str(in_progress), cls="text-2xl font-bold text-primary"),
-                            P("Currently learning", cls="text-xs text-muted-foreground"),
-                            cls="p-4 text-center",
+                        StatItem(label="In Progress", value=str(in_progress), color="primary"),
+                        StatItem(
+                            label="Avg Retention",
+                            value=f"{avg_retention * 100:.0f}%",
+                            color="warning",
                         ),
-                        Div(
-                            Span("Avg Retention", cls="text-sm text-muted-foreground"),
-                            Span(
-                                f"{avg_retention * 100:.0f}%",
-                                cls="text-2xl font-bold text-warning",
-                            ),
-                            P("Across mastered concepts", cls="text-xs text-muted-foreground"),
-                            cls="p-4 text-center",
-                        ),
-                        cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow rounded-lg w-full",
-                    ),
+                    ],
+                    cols=3,
                     cls="mb-6",
                 ),
                 cls="mb-8",
@@ -767,17 +740,13 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
             # Detail Cards
             Card(
                 H2("Learning Health", cls="text-xl font-semibold mb-4"),
-                Div(
-                    Div(
-                        _render_stat_card(
-                            "Active Paths", str(active_paths_count), "Learning paths in progress"
-                        ),
-                        _render_stat_card("Needs Review", str(needs_review), "Concepts to revisit"),
-                        _render_stat_card(
-                            "Struggling", str(struggling), "Concepts needing extra work"
-                        ),
-                        cls="grid grid-cols-1 md:grid-cols-3 gap-4",
-                    ),
+                StatsGrid(
+                    [
+                        StatItem(label="Active Paths", value=str(active_paths_count)),
+                        StatItem(label="Needs Review", value=str(needs_review)),
+                        StatItem(label="Struggling", value=str(struggling)),
+                    ],
+                    cols=3,
                 ),
                 cls="mb-8",
             ),
@@ -860,18 +829,6 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
 
     logger.info(f"Pathways UI routes registered: {len(routes)} endpoints")
     return routes
-
-
-def _render_stat_card(title: str, value: str, description: str) -> Any:
-    """Render a simple stat card for analytics."""
-    return Card(
-        Div(
-            P(title, cls="text-sm text-muted-foreground"),
-            P(value, cls="text-2xl font-bold"),
-            P(description, cls="text-xs text-muted-foreground"),
-            cls="text-center p-4",
-        ),
-    )
 
 
 __all__ = ["create_pathways_ui_routes"]
