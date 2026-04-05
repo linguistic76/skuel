@@ -46,6 +46,7 @@ from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.breadcrumbs import Breadcrumbs
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.page_header import PageHeader
 from ui.patterns.pin_button import PinButton
@@ -490,12 +491,7 @@ def create_explore_ui_routes(
         filtered = _filter_items(items, q.strip(), type, tag, sort)
 
         if not filtered:
-            return Div(
-                P(
-                    "No results match your search.",
-                    cls="text-muted-foreground italic py-8 text-center",
-                ),
-            )
+            return EmptyState("No results match your search.")
 
         cards = [
             _explore_card(

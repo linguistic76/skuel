@@ -50,7 +50,6 @@ from ui.patterns.sidebar import (
 )
 from ui.teaching.cards import (
     render_class_card,
-    render_empty_state,
     render_queue_item,
     render_student_name_row,
 )
@@ -193,9 +192,9 @@ def create_teaching_ui_routes(
                 "Failed to load review queue", str(result.error)
             )
         elif not result.value:
-            queue_content = render_empty_state(
+            queue_content = EmptyState(
                 "No submissions to review",
-                "When students submit work against your assignments, it will appear here.",
+                description="When students submit work against your assignments, it will appear here.",
             )
         else:
             queue_content = Div(*[render_queue_item(_to_queue_item(item)) for item in result.value])
@@ -386,9 +385,9 @@ def create_teaching_ui_routes(
                 "Failed to load students", str(result.error)
             )
         elif not result.value:
-            students_content = render_empty_state(
+            students_content = EmptyState(
                 "No students yet",
-                "Students who share work with you will appear here.",
+                description="Students who share work with you will appear here.",
             )
         else:
             students_content = Div(
@@ -546,22 +545,11 @@ def create_teaching_ui_routes(
         if result.is_error:
             groups_content: Any = render_error_banner("Failed to load groups", str(result.error))
         elif not result.value:
-            groups_content = Div(
-                Div(
-                    H3("No groups yet", cls="text-lg font-medium mb-2"),
-                    P(
-                        "Create your first group from the Groups section to get started.",
-                        cls="text-muted-foreground",
-                    ),
-                    ButtonLink(
-                        "Go to Groups →",
-                        href="/groups",
-                        variant=ButtonT.primary,
-                        size=Size.sm,
-                        cls="mt-4",
-                    ),
-                    cls="text-center py-12",
-                ),
+            groups_content = EmptyState(
+                "No groups yet",
+                description="Create your first group from the Groups section to get started.",
+                action_text="Go to Groups →",
+                action_href="/groups",
             )
         else:
             groups_content = Div(

@@ -58,7 +58,7 @@ def _render_form_data_detail(
 ) -> Div:
     """Render form_data as read-only key-value pairs, using schema labels if available."""
     if not form_data:
-        return Div(P("No form data", cls="text-muted-foreground italic"), cls="space-y-2")
+        return EmptyState("No form data")
 
     label_map: dict[str, str] = {}
     if form_schema:

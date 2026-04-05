@@ -566,10 +566,7 @@ def create_insights_ui_routes(
 
         if not new_insights:
             # No more insights - return end marker
-            return Div(
-                P("No more insights to load", cls="text-center text-muted-foreground py-4"),
-                id="load-more-trigger",
-            )
+            return EmptyState("No more insights to load", id="load-more-trigger", cls="py-4")
 
         # Encode filters for next load-more URL
         filter_query = build_filter_query_string(filters)

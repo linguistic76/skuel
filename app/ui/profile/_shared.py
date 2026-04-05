@@ -5,7 +5,7 @@ Reusable building blocks consumed by curriculum_views.py and overview.py.
 
 from typing import Any
 
-from fasthtml.common import H3, A, Div, Li, Option, P, Span, Ul
+from fasthtml.common import H3, A, Div, Li, Option, Span, Ul
 
 from ui.buttons import Button, ButtonT
 from ui.forms import Label, Select
@@ -307,10 +307,7 @@ def _item_list(
         if domain:
             return EmptyState_for_domain(domain, empty_message)
         # Fallback to basic empty state
-        return Div(
-            P(empty_message, cls="text-muted-foreground italic text-center py-8"),
-            cls="bg-muted rounded-lg",
-        )
+        return EmptyState(empty_message)
 
     list_items = []
     for idx, item in enumerate(items[:limit]):  # Limit to specified count

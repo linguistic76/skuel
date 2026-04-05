@@ -18,6 +18,7 @@ from core.models.enums import Priority
 from core.services.user.unified_user_context import UserContext
 from ui.cards import Card
 from ui.feedback import Alert, AlertT, Badge, BadgeT
+from ui.patterns.empty_state import EmptyState
 
 if TYPE_CHECKING:
     from core.models.context_types import (
@@ -716,9 +717,7 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
                 Div(P(plan.rationale, cls="text-sm text-muted-foreground italic"))
             )
         else:
-            priority_sections.append(
-                Div(P("No specific priorities for today", cls="text-sm text-muted-foreground"))
-            )
+            priority_sections.append(EmptyState("No specific priorities for today", cls="py-4"))
 
     # Warnings
     warnings_section = None

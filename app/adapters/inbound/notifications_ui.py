@@ -14,7 +14,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
-    H3,
     Div,
     P,
     Span,
@@ -28,6 +27,7 @@ from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
+from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 
 if TYPE_CHECKING:
@@ -132,12 +132,7 @@ def _notification_card(notif: dict[str, Any]) -> Div:
 def _empty_state() -> Div:
     """Show when there are no notifications."""
     return Card(
-        Div(
-            Span("🔔", cls="text-4xl"),
-            H3("No notifications", cls="text-lg font-medium mt-2"),
-            P("You're all caught up!", cls="text-muted-foreground"),
-            cls="text-center py-12",
-        ),
+        EmptyState("No notifications", description="You're all caught up!", icon="🔔"),
         cls="bg-background",
     )
 

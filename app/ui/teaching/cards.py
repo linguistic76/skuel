@@ -7,7 +7,7 @@ Summary card components for teaching views.
 
 from typing import Any
 
-from fasthtml.common import H3, A, Div, P
+from fasthtml.common import A, Div, P
 
 from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
@@ -19,17 +19,6 @@ from ui.teaching.types import (
     QueueItem,
     StudentSummary,
 )
-
-
-def render_empty_state(title: str, description: str) -> Div:
-    """Render a centered empty state with title and description."""
-    return Div(
-        Div(
-            H3(title, cls="text-lg font-medium mb-2"),
-            P(description, cls="text-muted-foreground"),
-            cls="text-center py-12",
-        ),
-    )
 
 
 def _display_title(item: QueueItem) -> str:

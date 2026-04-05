@@ -43,6 +43,7 @@ from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.empty_state import EmptyState
 
 # ============================================================================
 # PAGE LAYOUT COMPONENTS
@@ -1021,17 +1022,12 @@ def _render_pagination(response: SearchResponse) -> Any:
 
 def render_empty_search_prompt() -> Div:
     """Render the empty state prompt for search."""
-    return Div(
-        Div(
-            P("🔍", cls="text-center text-5xl mb-4"),
-            P("Enter a search query to begin", cls="text-center text-xl text-muted-foreground"),
-            P(
-                "Use the filters above to refine your results",
-                cls="text-center text-sm text-muted-foreground",
-            ),
-            cls="text-center py-16",
-        ),
+    return EmptyState(
+        "Enter a search query to begin",
+        description="Use the filters above to refine your results",
+        icon="🔍",
         id="search-results",
+        cls="py-16",
     )
 
 
