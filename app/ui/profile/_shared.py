@@ -5,9 +5,10 @@ Reusable building blocks consumed by curriculum_views.py and overview.py.
 
 from typing import Any
 
-from fasthtml.common import H3, A, Div, Label, Li, Option, P, Select, Span, Ul
+from fasthtml.common import H3, A, Div, Li, Option, P, Span, Ul
 
 from ui.buttons import Button, ButtonT
+from ui.forms import Label, Select
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 
@@ -103,7 +104,7 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
                 Label("Sort by:", cls="text-sm font-medium text-foreground mr-2"),
                 Select(
                     *[Option(label, value=value) for value, label in sorts],
-                    cls="select select-bordered select-sm",
+                    full_width=False,
                     x_model="sortBy",
                 ),
                 cls="flex items-center gap-2",

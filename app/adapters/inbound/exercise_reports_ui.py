@@ -6,6 +6,7 @@ Routes for viewing teacher/AI feedback on exercise submissions.
 
 Routes:
 - GET /exercise-reports — Exercise reports list page
+- GET /exercise-reports/detail — Exercise report detail view
 - GET /reports/list — HTMX fragment: teacher assessments received
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
@@ -28,6 +29,7 @@ from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.page_header import PageHeader
 from ui.submissions.report import (
+    render_exercise_report_detail,
     render_received_report_list,
 )
 
@@ -89,6 +91,57 @@ def create_exercise_reports_ui_routes(
         )
 
     # ========================================================================
+    # EXERCISE REPORT DETAIL PAGE
+    # ========================================================================
+
+    @rt("/exercise-reports/detail")
+    async def exercise_report_detail(request: Request) -> Any:
+        """Exercise report detail view — full feedback content and outcome."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "").strip()
+
+        if not uid:
+            return await render_gradebook_sidebar_page(
+                content=Div(render_error_banner("Report UID is required")),
+                active="exercise-reports",
+                request=request,
+            )
+
+        if not submissions_core_service:
+            return await render_gradebook_sidebar_page(
+                content=Div(render_error_banner("Report service unavailable")),
+                active="exercise-reports",
+                request=request,
+            )
+
+        result = await submissions_core_service.get_submission(uid)
+        if result.is_error:
+            logger.warning(f"Exercise report not found: {uid}")
+            return await render_gradebook_sidebar_page(
+                content=Div(render_error_banner("Report not found")),
+                active="exercise-reports",
+                request=request,
+            )
+
+        report = result.value
+        # Ownership check: student must own the report or be the subject
+        report_user = getattr(report, "user_uid", None) or ""
+        report_subject = getattr(report, "subject_uid", None) or ""
+        if user_uid not in (report_user, report_subject):
+            return await render_gradebook_sidebar_page(
+                content=Div(render_error_banner("Report not found")),
+                active="exercise-reports",
+                request=request,
+            )
+
+        content = Div(render_exercise_report_detail(report))
+        return await render_gradebook_sidebar_page(
+            content=content,
+            active="exercise-reports",
+            request=request,
+        )
+
+    # ========================================================================
     # HTMX ENDPOINTS
     # ========================================================================
 
@@ -139,19 +192,25 @@ def create_exercise_reports_ui_routes(
             return HubPreviewEmpty("exercise reports")
         cards = []
         for report in reports[:3]:
-            title = getattr(report, "title", None) or getattr(report, "uid", "Report")
+            uid = getattr(report, "uid", "") or ""
+            title = getattr(report, "title", None) or uid or "Report"
             source = getattr(report, "source", None) or ""
             badge = (
                 Span(source.title(), cls="text-[10px] font-medium text-muted-foreground")
                 if source
                 else None
             )
-            cards.append(HubPreviewCard(title=title, href="/exercise-reports", badge=badge))
+            href = f"/exercise-reports/detail?uid={uid}" if uid else "/exercise-reports"
+            cards.append(HubPreviewCard(title=title, href=href, badge=badge))
         return HubPreviewGrid(cards)
 
-    logger.info("Exercise Reports UI routes created (/exercise-reports, /reports/list)")
+    logger.info(
+        "Exercise Reports UI routes created "
+        "(/exercise-reports, /exercise-reports/detail, /reports/list)"
+    )
 
     return [
         exercise_reports_page,
+        exercise_report_detail,
         exercise_reports_list,
     ]

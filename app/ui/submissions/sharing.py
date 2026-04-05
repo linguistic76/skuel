@@ -21,6 +21,7 @@ from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label, LabelInput, LabelSelect, Select
 from ui.layout import Size
+from ui.patterns.modal import AlpineModal
 
 
 def render_visibility_dropdown(submission: Any) -> Any:
@@ -80,67 +81,57 @@ def render_visibility_dropdown(submission: Any) -> Any:
 def render_share_modal(report_uid: str) -> Any:
     """Render modal for sharing submission with a user."""
     return Div(
-        Div(
-            Div(
-                Div(
-                    Form(
-                        Button(
-                            "\u2715",
-                            variant=ButtonT.ghost,
-                            cls="rounded-full absolute right-2 top-2",
-                            **{"@click": "shareModal = false"},
-                        ),
-                        method="dialog",
-                    ),
-                    H3("Share Report", cls="font-bold text-lg mb-4"),
-                    Form(
-                        LabelInput(
-                            "User UID:",
-                            type="text",
-                            name="recipient_uid",
-                            placeholder="user_teacher",
-                            required=True,
-                            cls="space-y-2 mb-3",
-                        ),
-                        LabelSelect(
-                            Option("Viewer", value="viewer", selected=True),
-                            Option("Teacher", value="teacher"),
-                            Option("Peer", value="peer"),
-                            Option("Mentor", value="mentor"),
-                            label="Role:",
-                            name="role",
-                            cls="space-y-2 mb-4",
-                        ),
-                        Div(
-                            Button(
-                                "Cancel",
-                                type="button",
-                                variant=ButtonT.ghost,
-                                **{"@click": "shareModal = false"},
-                            ),
-                            Button(
-                                "Share",
-                                type="submit",
-                                variant=ButtonT.primary,
-                            ),
-                            cls="flex gap-2 justify-end",
-                        ),
-                        hx_post="/api/submissions/share",
-                        hx_vals=f"js:{{report_uid: '{report_uid}', recipient_uid: document.querySelector('input[name=recipient_uid]').value, role: document.querySelector('select[name=role]').value}}",
-                        hx_target="#shared-users-list",
-                        hx_swap="innerHTML",
-                        **{
-                            "@submit.prevent": "$el.dispatchEvent(new Event('htmx:trigger')); shareModal = false"
-                        },
-                    ),
-                    cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
-                    **{"@click.stop": ""},
-                ),
-                cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
+        AlpineModal(
+            Button(
+                "\u2715",
+                variant=ButtonT.ghost,
+                cls="rounded-full absolute right-2 top-2",
                 **{"@click": "shareModal = false"},
             ),
-            cls="relative z-50",
-            **{"x-show": "shareModal", "x-cloak": ""},
+            H3("Share Report", cls="font-bold text-lg mb-4"),
+            Form(
+                LabelInput(
+                    "User UID:",
+                    type="text",
+                    name="recipient_uid",
+                    placeholder="user_teacher",
+                    required=True,
+                    cls="space-y-2 mb-3",
+                ),
+                LabelSelect(
+                    Option("Viewer", value="viewer", selected=True),
+                    Option("Teacher", value="teacher"),
+                    Option("Peer", value="peer"),
+                    Option("Mentor", value="mentor"),
+                    label="Role:",
+                    name="role",
+                    cls="space-y-2 mb-4",
+                ),
+                Div(
+                    Button(
+                        "Cancel",
+                        type="button",
+                        variant=ButtonT.ghost,
+                        **{"@click": "shareModal = false"},
+                    ),
+                    Button(
+                        "Share",
+                        type="submit",
+                        variant=ButtonT.primary,
+                    ),
+                    cls="flex gap-2 justify-end",
+                ),
+                hx_post="/api/submissions/share",
+                hx_vals=f"js:{{report_uid: '{report_uid}', recipient_uid: document.querySelector('input[name=recipient_uid]').value, role: document.querySelector('select[name=role]').value}}",
+                hx_target="#shared-users-list",
+                hx_swap="innerHTML",
+                **{
+                    "@submit.prevent": "$el.dispatchEvent(new Event('htmx:trigger')); shareModal = false"
+                },
+            ),
+            show="shareModal",
+            close="shareModal = false",
+            max_width="max-w-lg",
         ),
         Button(
             "Share with User",

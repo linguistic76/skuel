@@ -69,7 +69,7 @@ def exercise_action_link(row: ExerciseStatusRow, from_ps: str | None = None) -> 
     # feedback_available or revision_requested
     return A(
         "View Report →",
-        href=f"/exercise-reports/{row['report_uid']}",
+        href=f"/exercise-reports/detail?uid={row['report_uid']}",
         cls="text-xs text-primary hover:underline shrink-0",
     )
 

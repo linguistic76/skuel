@@ -31,10 +31,11 @@ Color Scheme:
 - RELATED_TO → Gray (#6B7280)
 """
 
-from fasthtml.common import H3, Div, Option, Select
+from fasthtml.common import H3, Div, Option
 
 from core.models.type_hints import EntityUID
 from ui.cards import Card, CardBody
+from ui.forms import Select
 
 
 def RelationshipGraphView(
@@ -62,7 +63,7 @@ def RelationshipGraphView(
                     Option("Depth 2", value="2", selected=(depth == 2)),
                     Option("Depth 3", value="3"),
                     name="graph_depth",
-                    cls="select select-bordered select-sm",
+                    full_width=False,
                     **{"x-on:change": "changeDepth($event.target.value)"},
                 ),
                 cls="flex items-center justify-between mb-4",

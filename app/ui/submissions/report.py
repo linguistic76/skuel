@@ -198,7 +198,7 @@ def render_report_card(assessment: Any) -> Any:
                 P(preview, cls="text-sm"),
                 ButtonLink(
                     "View Full",
-                    href=f"/gradebook/{uid}",
+                    href=f"/exercise-reports/detail?uid={uid}",
                     variant=ButtonT.secondary,
                     size=Size.sm,
                     cls="mt-2",
@@ -223,6 +223,119 @@ def render_received_report_list(items: list[Any]) -> Any:
     return Div(
         *[render_report_card(a) for a in items],
         id="feedback-list",
+    )
+
+
+# ============================================================================
+# EXERCISE REPORT DETAIL VIEW
+# ============================================================================
+
+
+_OUTCOME_LABELS: dict[str, tuple[str, BadgeT]] = {
+    "approved": ("Approved", BadgeT.success),
+    "needs_revision": ("Revision Requested", BadgeT.warning),
+    "ai_evaluated": ("AI Evaluated", BadgeT.info),
+}
+
+
+def render_exercise_report_detail(report: Any) -> Any:
+    """Render the full detail view for a single ExerciseReport.
+
+    Shows report content, outcome, processor type, assessment score,
+    and a back link to the reports list.
+
+    Args:
+        report: ExerciseReport entity (or SubmissionEntity with report fields)
+    """
+    title = getattr(report, "title", "") or "Exercise Report"
+    report_content = getattr(report, "report_content", None) or getattr(report, "content", "") or ""
+    created_at = getattr(report, "created_at", None)
+    user_uid = getattr(report, "user_uid", "") or ""
+    subject_uid = getattr(report, "subject_uid", "") or ""
+    assessment_score = getattr(report, "assessment_score", None)
+    ptype_str = get_processor_type_str(report)
+    date_str = format_date(created_at)
+
+    # Outcome
+    outcome_raw = getattr(report, "assessment_outcome", None)
+    outcome_str = ""
+    if outcome_raw is not None:
+        _missing = object()
+        outcome_val = getattr(outcome_raw, "value", _missing)
+        outcome_str = str(outcome_val if outcome_val is not _missing else outcome_raw).lower()
+
+    # Header badges
+    badges: list[Any] = []
+    if outcome_str:
+        label, variant = _OUTCOME_LABELS.get(outcome_str, (outcome_str.replace("_", " ").title(), BadgeT.ghost))
+        badges.append(Badge(label, variant=variant))
+    badges.append(render_processor_badge(ptype_str))
+
+    # Metadata line
+    meta_parts = []
+    if user_uid:
+        source_label = "AI" if ptype_str == "llm" else "Teacher"
+        meta_parts.append(f"From: {user_uid} ({source_label})")
+    if date_str:
+        meta_parts.append(date_str)
+    if subject_uid:
+        meta_parts.append(f"Subject: {subject_uid}")
+
+    # Assessment score section
+    score_section: Any = None
+    if assessment_score is not None:
+        score_pct = round(float(assessment_score) * 100)
+        if score_pct >= 70:
+            bar_color = "bg-green-500"
+        elif score_pct >= 40:
+            bar_color = "bg-amber-500"
+        else:
+            bar_color = "bg-red-500"
+        score_section = Div(
+            H3("Assessment Score", cls="font-semibold mb-3"),
+            Div(
+                P(f"{score_pct}%", cls="text-2xl font-bold mr-4"),
+                Div(
+                    Div(cls=f"{bar_color} h-2 rounded-full", style=f"width: {score_pct}%"),
+                    cls="flex-1 bg-muted rounded-full h-2",
+                ),
+                cls="flex items-center mb-3",
+            ),
+            cls="mb-6",
+        )
+
+    # Report content section
+    content_section = Div(
+        H3("Report Content", cls="font-semibold mb-3"),
+        P(report_content, cls="text-sm whitespace-pre-wrap leading-relaxed")
+        if report_content
+        else P("No content available.", cls="text-sm text-muted-foreground"),
+        cls="mb-6",
+    )
+
+    # Back link
+    back = Div(
+        ButtonLink(
+            "\u2190 Back to Exercise Reports",
+            href="/exercise-reports",
+            variant=ButtonT.ghost,
+        ),
+        cls="mt-6",
+    )
+
+    return Div(
+        # Header
+        Div(
+            P(title, cls="text-xl font-bold mb-1"),
+            P(" \u00b7 ".join(meta_parts), cls="text-sm text-muted-foreground")
+            if meta_parts
+            else None,
+            Div(*badges, cls="flex flex-wrap gap-2 mt-2") if badges else None,
+            cls="mb-6",
+        ),
+        score_section,
+        content_section,
+        back,
     )
 
 

@@ -16,6 +16,7 @@ from ui.buttons import Button, ButtonLink, ButtonT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.layout import Row, Size
 from ui.patterns.card_generator import CardGenerator
+from ui.patterns.modal import AlpineModal
 from ui.text import SmallText, TruncatedText
 
 
@@ -340,98 +341,88 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                 cls="mb-6",
             )
 
-    # Modal structure (modal)
-    return Div(
-        # Modal overlay
-        Div(
-            # Modal box
-            Div(
-                # Close button
-                Button(
-                    "✕",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    cls="rounded-full absolute right-2 top-2",
-                    x_on_click="close()",
-                ),
-                # Modal header
-                Div(
-                    H3(insight.title, cls="text-2xl font-bold text-foreground"),
-                    Div(
-                        Badge(
-                            insight.impact.value.upper(),
-                            variant=BadgeT.error
-                            if insight.impact in (InsightImpact.CRITICAL, InsightImpact.HIGH)
-                            else BadgeT.warning
-                            if insight.impact == InsightImpact.MEDIUM
-                            else BadgeT.success,
-                        ),
-                        Badge(insight.domain, variant=BadgeT.neutral),
-                        cls="flex gap-2 mt-2",
-                    ),
-                    cls="mb-6",
-                ),
-                # Confidence indicator
-                Div(
-                    Span("Confidence: ", cls="font-semibold text-foreground"),
-                    Span(f"{confidence_pct}%", cls=f"font-bold {confidence_color}"),
-                    Span(f" ({confidence_label})", cls="text-sm text-muted-foreground ml-2"),
-                    cls="mb-4 p-3 bg-muted rounded-lg",
-                ),
-                # Full description
-                Div(
-                    H3("Details", cls="text-lg font-semibold text-foreground mb-3"),
-                    P(
-                        insight.description or "No additional details available.",
-                        cls="text-foreground/80",
-                    ),
-                    cls="mb-6",
-                ),
-                # Supporting data (if available)
-                supporting_section,
-                # Recommended actions
-                actions_section,
-                # Entity info
-                Div(
-                    Span("Related Entity: ", cls="font-semibold text-foreground"),
-                    Span(
-                        insight.entity_uid or "None", cls="text-sm text-muted-foreground font-mono"
-                    ),
-                    cls="mb-6 text-sm",
-                )
-                if insight.entity_uid
-                else Div(),
-                # Action buttons
-                Div(
-                    # Snooze options
-                    Div(
-                        Span("Snooze for:", cls="text-sm font-medium text-foreground mr-3"),
-                        Button(
-                            "1 Day", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(1)"
-                        ),
-                        Button(
-                            "3 Days", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(3)"
-                        ),
-                        Button(
-                            "1 Week", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(7)"
-                        ),
-                        cls="flex items-center gap-2",
-                    ),
-                    # Close button
-                    Button(
-                        "Close",
-                        variant=ButtonT.primary,
-                        x_on_click="close()",
-                    ),
-                    cls="flex items-center justify-between pt-4 border-t border-border",
-                ),
-                cls="bg-background rounded-lg shadow-lg w-full p-6 relative max-w-2xl max-h-[80vh] overflow-y-auto",
-                **{"@click.stop": ""},
-            ),
-            cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
+    return AlpineModal(
+        # Close button
+        Button(
+            "✕",
+            variant=ButtonT.ghost,
+            size=Size.sm,
+            cls="rounded-full absolute right-2 top-2",
             x_on_click="close()",
         ),
-        cls="modal",
-        x_show="isOpen",
-        x_cloak=True,
+        # Modal header
+        Div(
+            H3(insight.title, cls="text-2xl font-bold text-foreground"),
+            Div(
+                Badge(
+                    insight.impact.value.upper(),
+                    variant=BadgeT.error
+                    if insight.impact in (InsightImpact.CRITICAL, InsightImpact.HIGH)
+                    else BadgeT.warning
+                    if insight.impact == InsightImpact.MEDIUM
+                    else BadgeT.success,
+                ),
+                Badge(insight.domain, variant=BadgeT.neutral),
+                cls="flex gap-2 mt-2",
+            ),
+            cls="mb-6",
+        ),
+        # Confidence indicator
+        Div(
+            Span("Confidence: ", cls="font-semibold text-foreground"),
+            Span(f"{confidence_pct}%", cls=f"font-bold {confidence_color}"),
+            Span(f" ({confidence_label})", cls="text-sm text-muted-foreground ml-2"),
+            cls="mb-4 p-3 bg-muted rounded-lg",
+        ),
+        # Full description
+        Div(
+            H3("Details", cls="text-lg font-semibold text-foreground mb-3"),
+            P(
+                insight.description or "No additional details available.",
+                cls="text-foreground/80",
+            ),
+            cls="mb-6",
+        ),
+        # Supporting data (if available)
+        supporting_section,
+        # Recommended actions
+        actions_section,
+        # Entity info
+        Div(
+            Span("Related Entity: ", cls="font-semibold text-foreground"),
+            Span(
+                insight.entity_uid or "None", cls="text-sm text-muted-foreground font-mono"
+            ),
+            cls="mb-6 text-sm",
+        )
+        if insight.entity_uid
+        else Div(),
+        # Action buttons
+        Div(
+            # Snooze options
+            Div(
+                Span("Snooze for:", cls="text-sm font-medium text-foreground mr-3"),
+                Button(
+                    "1 Day", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(1)"
+                ),
+                Button(
+                    "3 Days", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(3)"
+                ),
+                Button(
+                    "1 Week", variant=ButtonT.ghost, size=Size.sm, x_on_click="snooze(7)"
+                ),
+                cls="flex items-center gap-2",
+            ),
+            # Close button
+            Button(
+                "Close",
+                variant=ButtonT.primary,
+                x_on_click="close()",
+            ),
+            cls="flex items-center justify-between pt-4 border-t border-border",
+        ),
+        show="isOpen",
+        close="close()",
+        max_width="max-w-2xl",
+        scrollable=True,
     )

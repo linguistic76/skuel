@@ -42,7 +42,7 @@ def _feedback_row(sub: PathStepSubmissionRow) -> Div:
             Span(label, cls=cls),
             A(
                 action_text,
-                href=f"/exercise-reports/{sub['report_uid']}",
+                href=f"/exercise-reports/detail?uid={sub['report_uid']}",
                 cls="text-xs text-primary hover:underline shrink-0",
             ),
             cls="flex items-center gap-2",

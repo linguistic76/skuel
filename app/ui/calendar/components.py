@@ -33,6 +33,7 @@ from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
+from ui.patterns.modal import AlpineModal
 
 
 def create_month_grid(calendar_data: CalendarData) -> Div:
@@ -481,96 +482,83 @@ def create_quick_add_modal() -> Div:
     Returns:
         Div containing the quick add modal (Alpine.js controlled visibility)
     """
-    return Div(
-        Div(
-            Form(
-                H3("Quick Add", cls="text-xl font-bold mb-4"),
-                # Status container for HTMX response
-                Div(id="quick-add-status"),
-                # Item type selector
-                Div(
-                    Label("Type", cls="block text-sm font-medium mb-1"),
-                    Select(
-                        Option("Task", value="task"),
-                        Option("Event", value="event"),
-                        Option("Habit", value="habit"),
-                        name="type",
-                        id="quick-add-type",
-                        cls="w-full px-3 py-2 border rounded",
-                    ),
-                    cls="mb-4",
+    return AlpineModal(
+        Form(
+            H3("Quick Add", cls="text-xl font-bold mb-4"),
+            # Status container for HTMX response
+            Div(id="quick-add-status"),
+            # Item type selector
+            Div(
+                Label("Type", cls="block text-sm font-medium mb-1"),
+                Select(
+                    Option("Task", value="task"),
+                    Option("Event", value="event"),
+                    Option("Habit", value="habit"),
+                    name="type",
+                    id="quick-add-type",
                 ),
-                # Title input
-                Div(
-                    Label("Title", cls="block text-sm font-medium mb-1"),
-                    Input(
-                        type="text",
-                        name="title",
-                        id="quick-add-title",
-                        placeholder="Enter title...",
-                        required=True,
-                        cls="w-full px-3 py-2 border rounded",
-                    ),
-                    cls="mb-4",
-                ),
-                # Date/time input - Alpine.js x-model for datetime binding
-                Div(
-                    Label("Date & Time", cls="block text-sm font-medium mb-1"),
-                    Input(
-                        type="datetime-local",
-                        name="start_time",
-                        id="quick-add-datetime",
-                        required=True,
-                        cls="w-full px-3 py-2 border rounded",
-                        **{"x-model": "datetime"},
-                    ),
-                    cls="mb-4",
-                ),
-                # Duration input
-                Div(
-                    Label("Duration (minutes)", cls="block text-sm font-medium mb-1"),
-                    Input(
-                        type="number",
-                        name="duration",
-                        id="quick-add-duration",
-                        value="60",
-                        cls="w-full px-3 py-2 border rounded",
-                    ),
-                    cls="mb-4",
-                ),
-                # Buttons - Alpine.js for cancel
-                Div(
-                    Button(
-                        "Cancel",
-                        type="button",
-                        variant=ButtonT.ghost,
-                        cls="mr-2",
-                        **{"x-on:click": "closeQuickAdd()"},
-                    ),
-                    Button(
-                        "Create",
-                        type="submit",
-                        variant=ButtonT.primary,
-                    ),
-                    cls="flex justify-end",
-                ),
-                cls="bg-background rounded-lg p-6 max-w-md w-full",
-                # HTMX form submission
-                **{
-                    "hx-post": "/events/calendar/quick-create",
-                    "hx-target": "#quick-add-status",
-                    "hx-swap": "innerHTML",
-                    "x-on:click.stop": "",  # Prevent click from bubbling to backdrop
-                },
+                cls="mb-4",
             ),
-            cls="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50",
-            # Alpine.js: click backdrop to close, x-show for visibility
+            # Title input
+            Div(
+                Label("Title", cls="block text-sm font-medium mb-1"),
+                Input(
+                    type="text",
+                    name="title",
+                    id="quick-add-title",
+                    placeholder="Enter title...",
+                    required=True,
+                ),
+                cls="mb-4",
+            ),
+            # Date/time input - Alpine.js x-model for datetime binding
+            Div(
+                Label("Date & Time", cls="block text-sm font-medium mb-1"),
+                Input(
+                    type="datetime-local",
+                    name="start_time",
+                    id="quick-add-datetime",
+                    required=True,
+                    **{"x-model": "datetime"},
+                ),
+                cls="mb-4",
+            ),
+            # Duration input
+            Div(
+                Label("Duration (minutes)", cls="block text-sm font-medium mb-1"),
+                Input(
+                    type="number",
+                    name="duration",
+                    id="quick-add-duration",
+                    value="60",
+                ),
+                cls="mb-4",
+            ),
+            # Buttons - Alpine.js for cancel
+            Div(
+                Button(
+                    "Cancel",
+                    type="button",
+                    variant=ButtonT.ghost,
+                    cls="mr-2",
+                    **{"x-on:click": "closeQuickAdd()"},
+                ),
+                Button(
+                    "Create",
+                    type="submit",
+                    variant=ButtonT.primary,
+                ),
+                cls="flex justify-end",
+            ),
+            # HTMX form submission
             **{
-                "x-show": "open",
-                "x-transition": "",
-                "x-on:click": "closeQuickAdd()",
+                "hx-post": "/events/calendar/quick-create",
+                "hx-target": "#quick-add-status",
+                "hx-swap": "innerHTML",
             },
         ),
+        show="open",
+        close="closeQuickAdd()",
         id="quick-add-modal",
     )
 
