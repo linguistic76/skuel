@@ -931,6 +931,8 @@ PageHeader("Invoices", actions=Span(f"{count} total", cls="text-sm text-muted-fo
 
 Action links (Submit, View Report, Download, View all) must use `ButtonLink()` — not raw `A()` with ad-hoc Tailwind. Raw `A()` is reserved for entity title links, breadcrumbs, sidebar navigation, and inline contextual text links (e.g. links inside a paragraph sentence).
 
+**Adoption status:** Used across ~45 files. No raw `A()` action CTAs remain.
+
 ```python
 # BAD: Ad-hoc styled text link for a CTA
 A("Submit →", href="/submit", cls="text-xs text-primary hover:underline")
@@ -975,6 +977,65 @@ Badge("Revision Requested", variant=None, cls="bg-amber-100 text-amber-800 borde
 | Priority value (high, medium, low, ...) | `PriorityBadge(priority)` | `PriorityBadge("high")` |
 | Category/type label with a BadgeT color match | `Badge(label, variant=BadgeT.xxx)` | `Badge("Ku", variant=BadgeT.accent)` |
 | Category/type label with a custom color | `Badge(label, variant=None, cls="...")` | `Badge("Path Step", variant=None, cls="bg-teal-100 ...")` |
+
+### Don't Hand-Roll Stat Grids
+
+Statistics grids must use `StatsGrid()`/`StatItem()` from `ui/patterns/stats_grid.py` — not raw `Div()` + grid + Tailwind stat layouts. This ensures consistent card styling, trend indicators, and responsive column behavior.
+
+```python
+# BAD: Hand-rolled stat grid with duplicated layout
+Div(
+    Div(P("Total"), P("42", cls="text-2xl font-bold"), cls="bg-background p-4 rounded-lg"),
+    Div(P("Active"), P("18", cls="text-2xl font-bold"), cls="bg-background p-4 rounded-lg"),
+    cls="grid grid-cols-3 gap-4",
+)
+
+# GOOD: StatsGrid with StatItem frozen dataclass
+StatsGrid([
+    StatItem(label="Total", value="42"),
+    StatItem(label="Active", value="18", trend="up"),
+], cols=2)
+```
+
+**Adoption status:** Used across ~16 files (insights, pathways, analytics, finance, admin, profile). No hand-rolled stat grids remain.
+
+### Don't Hand-Roll Modals
+
+All Alpine.js-controlled modals must use `AlpineModal()` from `ui/patterns/modal.py` — not raw `Div()` with manual backdrop, `fixed inset-0`, and onclick handlers. `AlpineModal` standardizes backdrop overlay, click-outside-to-close, `x-cloak`, and transitions.
+
+```python
+# BAD: Hand-rolled modal with manual DOM removal
+Div(
+    Div(
+        Div(*content, cls="bg-background rounded-lg p-6 max-w-md"),
+        cls="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50",
+        onclick="if(event.target === this) document.getElementById('my-modal').remove()",
+    ),
+    id="my-modal",
+)
+
+# GOOD: AlpineModal with Alpine.js state
+AlpineModal(
+    *content,
+    show="isOpen",
+    close="isOpen = false",
+    max_width="max-w-md",
+)
+```
+
+**For HTMX-inserted modals** (server returns modal HTML), use the auto-open pattern:
+
+```python
+Div(
+    AlpineModal(*content, show="open",
+        close="open = false; $nextTick(() => document.getElementById('my-modal')?.remove())",
+        max_width="max-w-2xl", scrollable=True),
+    x_data="{ open: true }",
+    id="my-modal",
+)
+```
+
+**Adoption status:** Used across ~5 files (calendar, sharing, insights). No hand-rolled modals remain.
 
 ### Don't Use Raw MonsterUI Classes on Wrappers
 

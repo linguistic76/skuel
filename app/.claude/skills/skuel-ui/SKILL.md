@@ -302,6 +302,20 @@ ProgressMetric("Data Quality", 0.88)  # green ≥80%, yellow ≥60%, red <60%
 - **Tiny inline indicators** (sidebar `<li>`, analytics cards): Leave as `P()` — `EmptyState` with `py-12` is too heavy
 - **Never hand-roll** `Div(P("No ..."))` for empty states — always use `EmptyState()`. Supports `**kwargs` pass-through for `id`, `cls` overrides, etc.
 
+### StatsGrid Usage Rules
+
+- **Never hand-roll** stat grids with raw `Div()` + grid + Tailwind — always use `StatsGrid()`/`StatItem()`.
+- Use `StatItem` frozen dataclass (not dicts) for type-safe data passing: `label`, `value`, `change`, `trend`, `color`.
+- `StatsGrid(stats, cols=4)` — responsive grid container. `StatCard()` for individual cards outside a grid.
+- Adopted across ~16 files (insights, pathways, analytics, finance, admin, profile).
+
+### AlpineModal Usage Rules
+
+- **Never hand-roll** modals with raw `Div()` + `fixed inset-0` + manual onclick handlers — always use `AlpineModal()`.
+- Standardizes backdrop, click-outside-to-close, `x-cloak`, and transitions.
+- For **HTMX-inserted modals** (server returns HTML fragment), use the auto-open pattern: `Div(AlpineModal(..., show="open", close="open = false; $nextTick(() => ...)"), x_data="{ open: true }", id="...")`.
+- Adopted across ~5 files (calendar, sharing, insights).
+
 ### Typed Page Contexts
 
 Route→UI contracts use per-domain TypedDicts from `ui/page_contexts.py`:

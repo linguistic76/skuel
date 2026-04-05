@@ -670,6 +670,8 @@ CardGenerator.from_dataclass(
 
 **Location:** `/ui/patterns/stats_grid.py`
 
+**Adoption status:** Used across ~16 files (insights, pathways, analytics, finance, admin, profile). No hand-rolled stat grids remain — all use `StatsGrid()`/`StatItem()`. Never use raw `Div()` + grid + Tailwind for stat layouts.
+
 Grid layout for displaying statistics cards. Uses `StatItem` frozen dataclass for type-safe data passing.
 
 ### StatItem (frozen dataclass)
@@ -877,6 +879,53 @@ SectionHeader(title="Recent Tasks")
 SectionHeader(
     title="Recent Tasks",
     actions=ButtonLink("View All", href="/tasks"),
+)
+```
+
+---
+
+## AlpineModal
+
+**Location:** `/ui/patterns/modal.py`
+
+**Adoption status:** Used across ~5 files (calendar, sharing, insights). No hand-rolled modals remain — all use `AlpineModal()`. Never hand-roll modals with raw `Div()` + `fixed inset-0` + manual onclick handlers.
+
+Standardized Alpine.js-controlled modal with backdrop overlay, click-outside-to-close, transitions, and `x-cloak`.
+
+### AlpineModal(*content, show, close, max_width, scrollable, id)
+
+**Parameters:**
+- `*content: Any` - Modal body content (header, form, buttons, etc.)
+- `show: str` - Alpine.js expression for visibility (e.g., `"isOpen"`, `"shareModal"`)
+- `close: str` - Alpine.js expression to close (e.g., `"close()"`, `"shareModal = false"`)
+- `max_width: str` - Tailwind max-width class (default: `"max-w-md"`)
+- `scrollable: bool` - Whether content scrolls when exceeding viewport height (default: `False`)
+- `id: str | None` - Optional DOM id for the modal container
+
+**Examples:**
+```python
+from ui.patterns.modal import AlpineModal
+from ui.buttons import Button, ButtonT
+
+# Simple modal with Alpine.js state
+AlpineModal(
+    H3("Edit Item"),
+    some_form,
+    show="isOpen",
+    close="isOpen = false",
+)
+
+# HTMX-inserted modal (auto-open pattern for server-rendered fragments)
+Div(
+    AlpineModal(
+        *content,
+        show="open",
+        close="open = false; $nextTick(() => document.getElementById('my-modal')?.remove())",
+        max_width="max-w-2xl",
+        scrollable=True,
+    ),
+    x_data="{ open: true }",
+    id="my-modal",
 )
 ```
 
