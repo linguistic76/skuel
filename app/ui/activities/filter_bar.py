@@ -27,9 +27,7 @@ Usage:
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from fasthtml.common import Div, Form, Option
-
-from ui.forms.components import LabelSelect
+from fasthtml.common import Div, Form, Label, Option, Select
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -92,23 +90,29 @@ def ActivityFilterBar(
     for f in config.filters:
         selected = values.get(f.name, f.default)
         selects.append(
-            LabelSelect(
-                *[Option(text, value=val, selected=selected == val) for text, val in f.options],
-                label=f.label,
-                name=f.name,
+            Div(
+                Label(f.label, cls="block text-sm font-medium text-muted-foreground mb-1"),
+                Select(
+                    *[Option(text, value=val, selected=selected == val) for text, val in f.options],
+                    name=f.name,
+                    cls="uk-select w-full",
+                ),
             )
         )
 
     if config.sort_options:
         sort_selected = values.get("sort_by", config.sort_default)
         selects.append(
-            LabelSelect(
-                *[
-                    Option(text, value=val, selected=sort_selected == val)
-                    for text, val in config.sort_options
-                ],
-                label="Sort",
-                name="sort_by",
+            Div(
+                Label("Sort", cls="block text-sm font-medium text-muted-foreground mb-1"),
+                Select(
+                    *[
+                        Option(text, value=val, selected=sort_selected == val)
+                        for text, val in config.sort_options
+                    ],
+                    name="sort_by",
+                    cls="uk-select w-full",
+                ),
             )
         )
 

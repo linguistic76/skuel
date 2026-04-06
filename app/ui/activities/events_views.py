@@ -105,7 +105,7 @@ def EventList(
         EventCard(event, connections_map.get(event.uid, []) if connections_map else [])
         for event in events
     ]
-    return Div(*cards, id="event-list", cls="mt-4")
+    return Div(*cards, id="event-list", cls="mt-4 space-y-3")
 
 
 def EventCard(

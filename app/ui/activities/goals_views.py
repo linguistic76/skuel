@@ -128,7 +128,7 @@ def GoalList(
         GoalCard(goal, connections_map.get(goal.uid, []) if connections_map else [])
         for goal in goals
     ]
-    return Div(*cards, id="goal-list", cls="mt-4")
+    return Div(*cards, id="goal-list", cls="mt-4 space-y-3")
 
 
 def GoalCard(

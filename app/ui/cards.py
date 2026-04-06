@@ -53,12 +53,12 @@ def Card(
 
 def CardBody(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """Card body wrapper using MonsterUI."""
-    return MCardBody(*c, cls=cls or None, **kwargs)
+    return MCardBody(*c, cls=cls, **kwargs) if cls else MCardBody(*c, **kwargs)
 
 
 def CardTitle(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """Card title wrapper using MonsterUI."""
-    return MCardTitle(*c, cls=cls or None, **kwargs)
+    return MCardTitle(*c, cls=cls, **kwargs) if cls else MCardTitle(*c, **kwargs)
 
 
 def CardActions(*c: Any, cls: str = "", justify: str = "end", **kwargs: Any) -> Any:
@@ -108,4 +108,4 @@ def CardLink(*c: Any, href: str, cls: str = "", **kwargs: Any) -> Any:
 
 def CardHeader(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """Card header wrapper using MonsterUI."""
-    return MCardHeader(*c, cls=cls or None, **kwargs)
+    return MCardHeader(*c, cls=cls, **kwargs) if cls else MCardHeader(*c, **kwargs)

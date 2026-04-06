@@ -121,7 +121,7 @@ def ChoiceList(
         ChoiceCard(choice, connections_map.get(choice.uid, []) if connections_map else [])
         for choice in choices
     ]
-    return Div(*cards, id="choice-list", cls="mt-4")
+    return Div(*cards, id="choice-list", cls="mt-4 space-y-3")
 
 
 def ChoiceCard(

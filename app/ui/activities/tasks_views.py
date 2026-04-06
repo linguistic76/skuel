@@ -120,7 +120,7 @@ def TaskList(
         TaskCard(task, connections_map.get(task.uid, []) if connections_map else [])
         for task in tasks
     ]
-    return Div(*cards, id="task-list", cls="mt-4")
+    return Div(*cards, id="task-list", cls="mt-4 space-y-3")
 
 
 def TaskCard(

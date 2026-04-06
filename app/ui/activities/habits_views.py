@@ -126,7 +126,7 @@ def HabitList(
         HabitCard(habit, connections_map.get(habit.uid, []) if connections_map else [])
         for habit in habits
     ]
-    return Div(*cards, id="habit-list", cls="mt-4")
+    return Div(*cards, id="habit-list", cls="mt-4 space-y-3")
 
 
 def HabitCard(

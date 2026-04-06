@@ -62,8 +62,8 @@ class ButtonT(StrEnum):
 def Button(
     *c: Any,
     cls: str = "",
-    variant: ButtonT = ButtonT.primary,
-    size: Size | None = None,
+    variant: ButtonT | str = ButtonT.primary,
+    size: Size | str | None = None,
     outline: bool = False,
     disabled: bool = False,
     loading: bool = False,
@@ -82,14 +82,14 @@ def Button(
         loading: If True, shows loading spinner
         **kwargs: Additional HTML attributes (hx_*, onclick, etc.)
     """
-    mu_variant = _VARIANT_MAP.get(variant.value, MButtonT.default)
-    if outline and variant != ButtonT.outline:
+    mu_variant = _VARIANT_MAP.get(str(variant), MButtonT.default)
+    if outline and str(variant) != "outline":
         mu_variant = MButtonT.secondary
 
     cls_parts: list[Any] = [mu_variant]
 
     if size:
-        size_cls = _SIZE_MAP.get(size.value, "")
+        size_cls = _SIZE_MAP.get(str(size), "")
         if size_cls:
             cls_parts.append(size_cls)
 
@@ -106,8 +106,8 @@ def ButtonLink(
     *c: Any,
     href: str,
     cls: str = "",
-    variant: ButtonT = ButtonT.primary,
-    size: Size | None = None,
+    variant: ButtonT | str = ButtonT.primary,
+    size: Size | str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Button-styled link for navigation.
@@ -122,14 +122,14 @@ def ButtonLink(
         size: Button size (xs, sm, md, lg, xl)
         **kwargs: Additional HTML attributes
     """
-    mu_variant = _VARIANT_MAP.get(variant.value, MButtonT.default)
+    mu_variant = _VARIANT_MAP.get(str(variant), MButtonT.default)
 
     cls_parts: list[str] = [
         "uk-button",
         str(mu_variant) if isinstance(mu_variant, MButtonT) else mu_variant,
     ]
     if size:
-        size_cls = _SIZE_MAP.get(size.value, "")
+        size_cls = _SIZE_MAP.get(str(size), "")
         if size_cls:
             cls_parts.append(str(size_cls) if isinstance(size_cls, MButtonT) else size_cls)
     if cls:
@@ -141,8 +141,8 @@ def ButtonLink(
 def IconButton(
     icon: str,
     cls: str = "",
-    variant: ButtonT = ButtonT.ghost,
-    size: Size | None = None,
+    variant: ButtonT | str = ButtonT.ghost,
+    size: Size | str | None = None,
     label: str | None = None,
     **kwargs: Any,
 ) -> Any:
@@ -159,11 +159,11 @@ def IconButton(
     if label:
         kwargs["aria_label"] = label
 
-    mu_variant = _VARIANT_MAP.get(variant.value, MButtonT.ghost)
+    mu_variant = _VARIANT_MAP.get(str(variant), MButtonT.ghost)
     cls_parts: list[Any] = [mu_variant, MButtonT.icon]
 
     if size:
-        size_cls = _SIZE_MAP.get(size.value, "")
+        size_cls = _SIZE_MAP.get(str(size), "")
         if size_cls:
             cls_parts.append(size_cls)
 

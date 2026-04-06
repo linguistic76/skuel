@@ -160,7 +160,7 @@ def PrincipleList(
         PrincipleCard(principle, connections_map.get(principle.uid, []) if connections_map else [])
         for principle in principles
     ]
-    return Div(*cards, id="principle-list", cls="mt-4")
+    return Div(*cards, id="principle-list", cls="mt-4 space-y-3")
 
 
 def PrincipleCard(
