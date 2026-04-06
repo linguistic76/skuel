@@ -140,10 +140,10 @@ return await SidebarPage(
 
 **Added:** 2026-02-09 (unified from 3 implementations)
 
-All sidebar pages (Activity Domains, Explore, GradeBook, Library, Teaching) use a single `SidebarPage()` component from `ui/patterns/sidebar.py`.
+All sidebar pages (Activity Domains, Explore, GradeBook, Library, Teaching, Workbench) use a single `SidebarPage()` component from `ui/patterns/sidebar.py`.
 
 **Key Features:**
-- One component for all 5 sidebar pages
+- One component for all 6 sidebar pages
 - Desktop: Fixed sidebar (default 256px, configurable via `sidebar_width` param — Explore uses `w-96`/384px for graph) with smooth collapse to 48px edge
 - Mobile: Horizontal MonsterUI tabs (no drawer/overlay)
 - Alpine.js `collapsibleSidebar` + `Alpine.store()` for shared reactive state

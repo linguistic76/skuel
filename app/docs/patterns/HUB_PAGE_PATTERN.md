@@ -173,6 +173,7 @@ Each block loads 3 preview cards via HTMX from its `preview_url`. Preview endpoi
 - Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
 - Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`, wired via `library_routes.py`)
 - GradeBook: `/api/gradebook/{section}/preview` (4 sections, split across `submissions_ui.py`, `exercise_reports_ui.py`, `activity_reports_ui.py`)
+- Workbench: `/api/workbench/{section}/preview` (3 sections: upload, submit, history — in `workbench_routes.py`)
 - Student hub: `/api/teaching/students/{uid}/{section}/preview` (4 sections: pending, revision, completed, ku — in `teaching_ui.py`)
 
 ## Usage: Graph-Driven Hub Page
@@ -187,7 +188,7 @@ section = HubSection("Contents", cards)
 
 **Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub. Activity Domains are embedded inline in `/profile` via `ActivityHubView()`.
 
-**Files:** `ui/gradebook/hub.py`, `ui/library/hub.py`, `ui/activities/activity_hub.py` (used inline in `/profile`), `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
+**Files:** `ui/gradebook/hub.py`, `ui/library/hub.py`, `ui/workbench/hub.py`, `ui/activities/activity_hub.py` (used inline in `/profile`), `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
 
 ## Shelved Hubs
 
@@ -211,6 +212,9 @@ section = HubSection("Contents", cards)
 | GradeBook sidebar | `ui/gradebook/nav.py` |
 | Library hub view | `ui/library/hub.py` |
 | Library sidebar | `ui/library/nav.py` |
+| Workbench hub view | `ui/workbench/hub.py` |
+| Workbench sidebar | `ui/workbench/nav.py` |
+| Workbench routes | `adapters/inbound/workbench_routes.py` |
 | Teaching hub view | `ui/teaching/hub.py` |
 | Teaching sidebar | `ui/teaching/nav.py` |
 | Student hub view | `ui/teaching/student_hub.py` |
