@@ -37,8 +37,8 @@ The navbar provides five entry points. Three are **container hub pages** (no sid
 | `/library` | Container hub | Exercises, Resources, Ku (bookmarked), Path Steps (enrolled) |
 | `/submissions` | Container hub | Upload Activity Data, Submit Exercise, Submission History |
 | `/teaching` | Container hub | Students, Groups, Review Queue, Forms (TEACHER role) |
-| `/home` | Post-login landing | Tasks+, Explore, Library, Submissions, GradeBook, Settings |
-| `/profile` | Personal overview | Focus/Velocity, Activity Domains (6 HTMX blocks), Nous, Settings |
+| `/home` | Post-login landing | Focus/Velocity, Submissions (3 blocks), GradeBook (3 blocks), Tasks+, Explore, Library, Settings |
+| `/profile` | Personal overview | Focus/Velocity, Activity Domains (6 HTMX blocks) |
 
 ### Container Hub Pages (Hub → Child with Sidebar)
 

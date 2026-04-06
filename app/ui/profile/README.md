@@ -1,6 +1,6 @@
 # Profile UI Components
 
-*Last updated: 2026-04-03*
+*Last updated: 2026-04-06*
 
 **Location:** `/ui/profile/`
 
@@ -9,9 +9,8 @@ This directory contains the Profile Hub UI — a **live actionable hub** that su
 ## Overview
 
 The Profile Hub (`/profile`) shows live content:
+- **Personal Header** — Focus (current task) + Velocity (momentum indicator) — shared component from `ui/patterns/personal_header.py` (also used on `/home`)
 - **Activity Domains** — All 6 (Tasks, Goals, Habits, Events, Choices, Principles) visible as scrollable blocks. Each block has a colored domain header (icon + clickable title + "View all" link) and 3 priority-sorted cards loaded via HTMX from `/api/profile/{slug}/preview`.
-- **Nous** — Community knowledge feed (placeholder)
-- **Personal Header** — Focus (current task) + Velocity (momentum indicator)
 
 Uses `BasePage(STANDARD)` — no sidebar.
 
@@ -33,10 +32,8 @@ Uses `BasePage(STANDARD)` — no sidebar.
 ```python
 def ProfileHubView(context: UserContext) -> Div:
     return Div(
-        _activities_section(),              # All 6 Activity Domain blocks
-        _nous_section(),                    # Placeholder
-        _settings_link(),
-        _personal_header(context),          # Focus + Velocity
+        personal_header(context),           # Focus + Velocity (shared component)
+        ActivityHubView(),                  # All 6 Activity Domain blocks (inline)
     )
 ```
 

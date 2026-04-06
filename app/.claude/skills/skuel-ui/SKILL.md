@@ -473,11 +473,11 @@ Admin users see a different navbar than regular users:
 - **Right:** Admin avatar (→ `/`) + Sign out (icon+text)
 - **Mobile:** Hamburger menu with Admin (`/admin`) + Teaching (`/teaching`) + Sign out links
 
-The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users redirect to `/home` (post-login landing with 6 navigational cards: Tasks+, Explore, Library, Submissions, GradeBook, Settings). Icon links are hidden for admins.
+The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users redirect to `/home` (post-login landing with Focus+Velocity, Submissions previews, GradeBook previews, and 4 navigational cards: Tasks+, Explore, Library, Settings). Icon links are hidden for admins.
 
 ### Navbar Icon Links (Regular Users)
 
-The navbar left section has 6 icon links (in order) and an avatar with dropdown:
+The navbar left section has 4 icon links (in order):
 
 | Position | Icon | Route | `page_key` | Description |
 |----------|------|-------|------------|-------------|
@@ -485,17 +485,14 @@ The navbar left section has 6 icon links (in order) and an avatar with dropdown:
 | 2nd | `check-square` | `/profile` | `"profile"` | Tasks+ (auth only) |
 | 3rd | `compass` | `/explore` | `"explore"` | Explore hub (public) |
 | 4th | `book-open` | `/library` | `"library"` | Library hub (public) |
-| 5th | `file-up` | `/submissions` | `"submissions"` | Submissions hub |
-| 6th | `clipboard-check` | `/gradebook` | `"gradebook"` | GradeBook hub |
-| — | Avatar | — | — | Click → dropdown (Profile + 6 Activity Domain links + Sign out) |
 
-Right section: Search icon + notification bell (no dropdown menu).
+Right section: Search icon (`/search`) + notification bell + Sign out icon (`/logout`).
 
 `/reports` redirects 301 → `/library`.
 
-See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS` and `IconNavItem`. All current icons use `has_dropdown=False` — direct links only. The Hub icon is separated from `icon_links` in `create_navbar()` so it renders furthest left (before avatar).
+See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS` and `IconNavItem`. All current icons use `has_dropdown=False` — direct links only. The Hub icon is separated from `icon_links` in `create_navbar()` so it renders furthest left.
 
-Icon dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py`. The avatar dropdown uses `ACTIVITY_DROPDOWN_ITEMS` directly via `_avatar_dropdown()`, plus a Sign out link at the bottom. Items without `has_dropdown` render as direct links via `_icon_nav_link()`. Emoji letters (multi-char) get `text-base` styling instead of `font-semibold text-sm`.
+Icon dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py`. Items without `has_dropdown` render as direct links via `_icon_nav_link()`. Emoji letters (multi-char) get `text-base` styling instead of `font-semibold text-sm`.
 
 ### Mobile Navigation
 
@@ -505,12 +502,12 @@ The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hambur
 # Mobile: activity domains first, then icon nav items, then Sign out
 for di in ACTIVITY_DROPDOWN_ITEMS:
     mobile_icon_links.append(...)
-for item in ICON_NAV_ITEMS:  # Hub, Tasks+, Explore, Library, Submissions, GradeBook
+for item in ICON_NAV_ITEMS:  # Hub, Tasks+, Explore, Library
     if item.has_dropdown:
         for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
             mobile_icon_links.append(...)
     else:
-        mobile_icon_links.append(...)  # All 6 current items take this path
+        mobile_icon_links.append(...)  # All 4 current items take this path
 if is_authenticated:
     mobile_icon_links.append(Sign out link)
 ```

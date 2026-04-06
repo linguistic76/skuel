@@ -104,7 +104,9 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-04-06a):** Post-login redirect changed from `/profile` to `/home` — a new post-login landing hub with 6 navigational cards (Tasks+, Explore, Library, Submissions, GradeBook, Settings) using `HubContainerGrid`. Hub view in `ui/home_hub.py`, route in `adapters/inbound/home_routes.py`.
 
-**Evolution (2026-04-06b):** Navbar Hub access changed from right-side hamburger dropdown to a **Hub icon** (home) as the furthest-left icon link. Sign out moved into the avatar dropdown (Profile + 6 Activity Domain links + Sign out). Right section simplified to Search + notification bell only. `_hub_dropdown()` removed from `navbar.py`.
+**Evolution (2026-04-06b):** Navbar Hub access changed from right-side hamburger dropdown to a **Hub icon** (home) as the furthest-left icon link. Right section simplified to Search + notification bell only. `_hub_dropdown()` removed from `navbar.py`.
+
+**Evolution (2026-04-06c):** Avatar dropdown removed from navbar left section — Tasks+ icon already links to `/profile`, making it redundant. Sign-out icon added to navbar right section (Search + bell + Sign out). Focus+Velocity header extracted from `/profile` to shared `personal_header()` in `ui/patterns/personal_header.py` and added to top of `/home`. Nous placeholder removed from `/profile`. `/home` route now fetches `UserContext` via `get_rich_unified_context()`.
 
 **Background Convention (2026-02-05):** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
 

@@ -147,12 +147,12 @@ Profile renders personal state from `UserContext`:
 ```python
 def ProfileHubView(context: UserContext) -> Div:
     return Div(
-        _personal_header(context),          # Focus + Velocity indicators
+        personal_header(context),           # Focus + Velocity (shared component)
         ActivityHubView(),                  # 6 Activity Domain preview blocks (inline)
-        _nous_section(),                    # Community feed (placeholder)
-        _settings_link(),
     )
 ```
+
+`personal_header()` is shared between `/home` and `/profile` — defined in `ui/patterns/personal_header.py`.
 
 ## Usage: HTMX Hub Pages (Activity, GradeBook, Library)
 

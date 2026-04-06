@@ -302,7 +302,7 @@ Admin users land on `/` after login, which renders a hub page with two cards:
 
 The navbar for admin users shows a **SKUEL** logo in the left section linking to `/`. The center section is empty (no text nav links). The right section has the admin avatar (linking to `/`) and a Sign out link (icon+text). On mobile, the hamburger menu shows Admin, Teaching, and Sign out links.
 
-Regular users redirect to `/home` after login — a post-login landing hub with 6 navigational cards (Tasks+, Explore, Library, Submissions, GradeBook, Settings).
+Regular users redirect to `/home` after login — a post-login landing hub with Focus+Velocity header, Submissions previews, GradeBook previews, and 4 navigational cards (Tasks+, Explore, Library, Settings).
 
 **How `is_admin` is determined:**
 
