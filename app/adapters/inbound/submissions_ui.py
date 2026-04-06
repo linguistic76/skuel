@@ -702,29 +702,6 @@ def create_submissions_ui_routes(
             cards.append(HubPreviewCard(title=title, href=f"/gradebook/{uid}", badge=badge))
         return HubPreviewGrid(cards)
 
-    @rt("/api/gradebook/submit/preview")
-    async def gradebook_submit_preview(request: Request) -> Any:
-        """HTMX fragment: 3 exercises ready to submit for hub preview."""
-        user_uid = require_authenticated_user(request)
-        if not exercises_service:
-            return HubPreviewEmpty("exercises to submit")
-        result = await exercises_service.get_student_exercises_with_status(user_uid)
-        if result.is_error:
-            return HubPreviewEmpty("exercises to submit")
-        rows = result.value or []
-        # Filter to not-yet-submitted exercises
-        ready = [r for r in rows if not r["has_submission"]]
-        if not ready:
-            return HubPreviewEmpty("exercises to submit")
-        cards = [
-            HubPreviewCard(
-                title=r["title"] or r["uid"],
-                href=f"/submit?exercise_uid={r['uid']}",
-            )
-            for r in ready[:3]
-        ]
-        return HubPreviewGrid(cards)
-
     logger.info(
         "GradeBook UI routes created (/submit, /gradebook, /gradebook/mysubmissions, /gradebook/{uid})"
     )

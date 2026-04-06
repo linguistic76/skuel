@@ -21,14 +21,6 @@ _GRADEBOOK_BLOCKS: list[HubBlockData] = [
         "/api/gradebook/submissions/preview",
     ),
     HubBlockData(
-        "Submit",
-        "submit",
-        "upload",
-        "#10B981",
-        "/submit",
-        "/api/gradebook/submit/preview",
-    ),
-    HubBlockData(
         "Exercise Reports",
         "exercise-reports",
         "clipboard",
@@ -56,7 +48,7 @@ _GRADEBOOK_BLOCKS: list[HubBlockData] = [
 
 
 def GradeBookHub() -> Div:
-    """GradeBook hub — 5 domain blocks with HTMX previews."""
+    """GradeBook hub — 4 domain blocks with HTMX previews."""
     return Div(
         PageHeader("GradeBook", subtitle="Track your submissions and feedback"),
         HubDomainBlockList(_GRADEBOOK_BLOCKS),
