@@ -152,7 +152,7 @@ def ProfileHubView(context: UserContext) -> Div:
     )
 ```
 
-`personal_header()` is shared between `/home` and `/profile` — defined in `ui/patterns/personal_header.py`.
+`personal_header(context)` requires a `UserContext` already in scope (use on `/profile` and the HTMX fragment endpoint). For pages that load `UserContext` only for the header, use `personal_header_placeholder()` instead — it renders an HTMX div that lazy-loads via `GET /api/personal-header` without blocking the page render. Both are defined in `ui/patterns/personal_header.py`; the endpoint is registered in `adapters/inbound/home_routes.py`.
 
 ## Usage: HTMX Hub Pages (Activity, GradeBook, Library)
 

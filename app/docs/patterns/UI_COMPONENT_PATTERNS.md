@@ -108,6 +108,8 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-04-06c):** Avatar dropdown removed from navbar left section — Tasks+ icon already links to `/profile`, making it redundant. Sign-out icon added to navbar right section (Search + bell + Sign out). Focus+Velocity header extracted from `/profile` to shared `personal_header()` in `ui/patterns/personal_header.py` and added to top of `/home`. Nous placeholder removed from `/profile`. `/home` route now fetches `UserContext` via `get_rich_unified_context()`.
 
+**Evolution (2026-04-06d):** Performance pass — `personal_header()` on `/tasks` was blocking the page render with the 1034-line MEGA_QUERY just for 3 fields. Replaced with `personal_header_placeholder()` — an HTMX div that lazy-loads via `GET /api/personal-header` (registered in `home_routes.py`) after the page renders. Use `personal_header_placeholder()` on any page that doesn't already have `UserContext` loaded; use `personal_header(context)` only when the full context is already in scope (e.g. `/profile`). Explore page and sidebar queries parallelized with `asyncio.gather`. `RequestTimingMiddleware` added — logs all requests with duration; `SLOW` at WARNING for >100ms.
+
 **Background Convention (2026-02-05):** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
 
 ### BasePage Usage
