@@ -1,7 +1,7 @@
 """Workbench sidebar navigation.
 
 Renders a collapsible sidebar for Workbench pages:
-Upload, Submit, Upload History.
+Upload, Submit, Submission History.
 
 Usage:
     from ui.workbench.nav import render_workbench_sidebar_page

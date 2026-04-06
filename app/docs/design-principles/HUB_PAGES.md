@@ -33,9 +33,9 @@ The navbar provides five entry points. Three are **container hub pages** (no sid
 
 | Page | Hub Pattern | What It Organizes |
 |------|-------------|-------------------|
-| `/gradebook` | Container hub | My Submissions, Exercise Reports, Activity Reports, Revisions |
+| `/gradebook` | Container hub | Exercise Reports, Activity Reports, Revisions |
 | `/library` | Container hub | Exercises, Resources, Ku (bookmarked), Path Steps (enrolled) |
-| `/workbench` | Container hub | Upload Activity Data, Submit Exercise, Upload History |
+| `/workbench` | Container hub | Upload Activity Data, Submit Exercise, Submission History |
 | `/teaching` | Container hub | Students, Groups, Review Queue, Forms (TEACHER role) |
 | `/profile` | Personal overview | Focus/Velocity, Activity Domains (6 HTMX blocks), Nous, Settings |
 
@@ -43,9 +43,9 @@ The navbar provides five entry points. Three are **container hub pages** (no sid
 
 GradeBook and Library follow the **hub-first pattern**: the navbar icon opens a hub page with `HubContainerGrid` — no sidebar, just containers that describe each section. Clicking a container enters a child page that uses `SidebarPage` for within-section navigation. The sidebar title links back to the hub.
 
-- **GradeBook** (`/gradebook`) — 4 blocks: My Submissions (`/gradebook/mysubmissions`), Exercise Reports (`/exercise-reports`), Activity Reports (`/activity-reports`), Revisions (`/revised-exercises`). Hub view in `ui/gradebook/hub.py`, sidebar nav in `ui/gradebook/nav.py`.
+- **GradeBook** (`/gradebook`) — 3 blocks: Exercise Reports (`/exercise-reports`), Activity Reports (`/activity-reports`), Revisions (`/revised-exercises`). Hub view in `ui/gradebook/hub.py`, sidebar nav in `ui/gradebook/nav.py`.
 - **Library** (`/library`) — 4 containers: Exercises (`/library/exercises`), Resources (`/library/resources`), Ku (`/library/ku`), Path Steps (`/library/path-steps`). Hub view in `ui/library/hub.py`, sidebar nav in `ui/library/nav.py`.
-- **Workbench** (`/workbench`) — 3 blocks: Upload Activity Data (`/upload`), Submit Exercise (`/submit`), Upload History (`/workbench/history`). Hub view in `ui/workbench/hub.py`, sidebar nav in `ui/workbench/nav.py`.
+- **Workbench** (`/workbench`) — 3 blocks: Upload Activity Data (`/upload`), Submit Exercise (`/submit`), Submission History (`/workbench/history`). Hub view in `ui/workbench/hub.py`, sidebar nav in `ui/workbench/nav.py`.
 - **Teaching** (`/teaching`) — 4 containers: Students (`/teaching/students`), Groups (`/teaching/groups`), Review Queue (`/teaching/queue`), Forms (`/teaching/forms`). Hub view in `ui/teaching/hub.py`, sidebar nav in `ui/teaching/nav.py`. Individual students have a **nested hub** at `/teaching/students/{uid}` — 4 HTMX-loaded preview blocks (Needs Review, Revision Requested, Completed, KU Progress) showing actual submission/KU data inline, linking to `/teaching/students/{uid}/submissions?tab=...`. Preview endpoints: `/api/teaching/students/{uid}/{section}/preview`.
 
 **Components:** `HubContainerGrid` and `HubContainer` in `ui/patterns/hub.py` — bigger than `HubCard`, with more padding, full description, and arrow affordance.
