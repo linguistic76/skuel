@@ -39,6 +39,9 @@ TASKS_CONFIG = create_activity_domain_route_config(
         "goals_service": "goals",
         "habits_service": "habits",
     },
+    ui_related_services={
+        "user_service": "user_service",
+    },
     prometheus_metrics_attr="prometheus_metrics",
 )
 

@@ -106,7 +106,7 @@ def _upload_form() -> Form:
         Div(
             Div(
                 P(
-                    "Drag and drop YAML files here, or click to browse",
+                    "Select one or more YAML files to upload",
                     cls="text-center text-muted-foreground mb-2",
                 ),
                 Input(
@@ -116,8 +116,11 @@ def _upload_form() -> Form:
                     multiple=True,
                     cls="w-full",
                 ),
-                cls="p-6 bg-muted rounded",
-                style="border: 2px dashed var(--color-border); cursor: pointer;",
+                P(
+                    "Accepted formats: .yaml, .yml",
+                    cls="text-center text-xs text-muted-foreground mt-2",
+                ),
+                cls="p-6 bg-muted rounded border border-border",
             ),
             cls="mb-6",
         ),

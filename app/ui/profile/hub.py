@@ -17,13 +17,11 @@ from ui.activities.activity_hub import ActivityHubView
 from ui.buttons import ButtonLink, ButtonT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.personal_header import personal_header
 
 
 def ProfileHubView(context: UserContext) -> Div:
     """Profile hub — personal overview with Activity Domains inline."""
     return Div(
-        personal_header(context),
         ActivityHubView(),
     )
 

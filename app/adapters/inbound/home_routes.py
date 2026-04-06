@@ -20,23 +20,16 @@ def create_home_routes(
     services: "Services",
 ) -> None:
     """Register home hub route."""
-    user_service = services.user_service
 
     @rt("/home")
     async def home_hub(request: Request) -> Any:
-        """Home hub — post-login landing with Focus+Velocity, Submissions, GradeBook, and cards."""
-        user_uid = require_authenticated_user(request)
+        """Home hub — post-login landing with Submissions, GradeBook, and cards."""
+        require_authenticated_user(request)
         from ui.home_hub import HomeHub
         from ui.layouts.base_page import BasePage
 
-        context = None
-        if user_service is not None:
-            context_result = await user_service.get_rich_unified_context(user_uid)
-            if not context_result.is_error:
-                context = context_result.value
-
         return await BasePage(
-            content=HomeHub(context),
+            content=HomeHub(),
             title="Home",
             request=request,
             active_page="home",
