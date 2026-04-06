@@ -1,10 +1,13 @@
-"""Home hub route — post-login landing page.
+"""Home hub route — post-login landing page + shared HTMX fragments.
 
 Routes:
-- GET /home — hub page with 6 navigational cards (Profile, Explore, Library, GradeBook, Workbench, Search)
+- GET /home — hub page with navigational cards
+- GET /api/personal-header — HTMX fragment: Focus + Velocity header
 """
 
 from typing import TYPE_CHECKING, Any
+
+from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -19,7 +22,7 @@ def create_home_routes(
     rt: "RouteDecorator",
     services: "Services",
 ) -> None:
-    """Register home hub route."""
+    """Register home hub route and shared HTMX fragments."""
 
     @rt("/home")
     async def home_hub(request: Request) -> Any:
@@ -34,3 +37,17 @@ def create_home_routes(
             request=request,
             active_page="home",
         )
+
+    @rt("/api/personal-header")
+    async def personal_header_fragment(request: Request) -> Any:
+        """HTMX fragment: Focus + Velocity header (lazy-loaded to avoid MEGA_QUERY blocking page render)."""
+        user_uid = require_authenticated_user(request)
+        user_service = services.user_service
+        if not user_service:
+            return Div()
+        context_result = await user_service.get_rich_unified_context(user_uid)
+        if context_result.is_error:
+            return Div()
+        from ui.patterns.personal_header import personal_header
+
+        return personal_header(context_result.value)

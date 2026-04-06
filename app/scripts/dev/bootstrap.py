@@ -25,7 +25,7 @@ from typing import Any
 
 from fasthtml.common import StaticFiles, fast_app
 
-from adapters.inbound.middleware import RequestIDMiddleware
+from adapters.inbound.middleware import RequestIDMiddleware, RequestTimingMiddleware
 from core.config import UnifiedConfig
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
@@ -423,6 +423,9 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
     # Add request ID middleware for log correlation
     # Adds X-Request-ID header to responses and sets context var for structured logs
     app.add_middleware(RequestIDMiddleware)
+
+    # Add request timing middleware for performance diagnosis
+    app.add_middleware(RequestTimingMiddleware)
 
     return app, rt
 

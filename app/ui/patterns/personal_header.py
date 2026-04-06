@@ -1,11 +1,30 @@
 """Personal header — Focus + Velocity compact display.
 
 Shared between /home and /profile pages. Requires UserContext.
+
+For pages that don't already have UserContext loaded (e.g. /tasks),
+use ``personal_header_placeholder()`` — an HTMX div that lazy-loads
+the header via ``GET /api/personal-header`` without blocking the page render.
 """
 
 from fasthtml.common import Div, Span
 
 from core.services.user.unified_user_context import UserContext
+
+
+def personal_header_placeholder() -> Div:
+    """HTMX placeholder that lazy-loads the Focus + Velocity header.
+
+    Use this instead of ``personal_header(context)`` when you don't
+    already have a UserContext — avoids running the MEGA_QUERY on the
+    critical path of the page render.
+    """
+    return Div(
+        id="personal-header",
+        hx_get="/api/personal-header",
+        hx_trigger="load",
+        hx_swap="outerHTML",
+    )
 
 
 def personal_header(context: UserContext) -> Div:

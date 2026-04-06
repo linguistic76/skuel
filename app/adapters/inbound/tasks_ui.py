@@ -25,12 +25,11 @@ from ui.activities.tasks_views import (
 )
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.personal_header import personal_header
+from ui.patterns.personal_header import personal_header_placeholder
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.services.tasks_service import TasksService
-    from core.services.user.user_service import UserService
 
 logger = get_logger("skuel.routes.tasks_ui")
 
@@ -93,19 +92,10 @@ def create_tasks_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     tasks_service: TasksService,
-    user_service: "UserService | None" = None,
+    user_service: Any = None,  # kept for DomainRouteConfig signature compat
 ) -> list[Any]:
     """Register Tasks UI routes."""
     routes: list[Any] = []
-
-    async def _get_user_context(user_uid: str) -> Any:
-        """Fetch UserContext for Focus+Velocity header."""
-        if user_service is None:
-            return None
-        context_result = await user_service.get_rich_unified_context(user_uid)
-        if context_result.is_error:
-            return None
-        return context_result.value
 
     @rt("/tasks")
     async def tasks_page(request: Request) -> Any:
@@ -137,12 +127,9 @@ def create_tasks_ui_routes(
         task_count = len(all_tasks)
         subtitle = f"{task_count} task{'s' if task_count != 1 else ''}"
 
-        context = await _get_user_context(user_uid)
-        header_section = personal_header(context) if context else ""
-
         content = Div(
             PageHeader("Tasks", subtitle=subtitle),
-            header_section,
+            personal_header_placeholder(),
             TaskStatsBar(all_tasks),
             ActivityFilterBar(
                 TASK_FILTER_CONFIG,

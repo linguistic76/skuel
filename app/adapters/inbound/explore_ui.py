@@ -363,55 +363,77 @@ def create_explore_ui_routes(
     ) -> tuple[list[tuple[Any, str]], set[str], dict[str, str]]:
         """Load all Ku + PS, pins, and learning states.
 
+        Runs independent queries concurrently via asyncio.gather for faster loads.
+
         Returns:
             (unified_items, pinned_uids, learning_states)
             where unified_items is list of (entity, "ku"|"ps") tuples,
             and learning_states maps uid -> state label.
         """
+        import asyncio
+
+        # --- Fire content queries concurrently ---
+        ku_coro = (
+            ku_service.core.list(limit=500)
+            if ku_service and getattr(ku_service, "core", None)
+            else asyncio.sleep(0)
+        )
+        ps_coro = (
+            ps_service.core.list(limit=200)
+            if ps_service and getattr(ps_service, "core", None)
+            else asyncio.sleep(0)
+        )
+
+        # Authenticated user queries (pins + learning states)
+        user_uid = require_authenticated_user(request) if is_authenticated(request) else None
+
+        pins_coro = (
+            user_relationship_service.get_pinned_entities(user_uid)
+            if user_uid and user_relationship_service
+            else asyncio.sleep(0)
+        )
+        ku_states_coro = (
+            ku_service.get_user_learning_states(user_uid)
+            if user_uid and ku_service
+            else asyncio.sleep(0)
+        )
+        ps_states_coro = (
+            ps_service.mastery.get_in_progress_step_uids(user_uid)
+            if user_uid and ps_service
+            else asyncio.sleep(0)
+        )
+
+        ku_result, ps_result, pins_result, ku_states_result, ps_states_result = (
+            await asyncio.gather(ku_coro, ps_coro, pins_coro, ku_states_coro, ps_states_coro)
+        )
+
+        # --- Assemble items ---
         items: list[tuple[Any, str]] = []
+        if ku_result and not getattr(ku_result, "is_error", False) and getattr(ku_result, "value", None):
+            items.extend((ku, "ku") for ku in ku_result.value)
+        if ps_result and not getattr(ps_result, "is_error", False) and getattr(ps_result, "value", None):
+            raw = ps_result.value if isinstance(ps_result.value, list) else ps_result.value[0]
+            items.extend((ps, "ps") for ps in raw)
 
-        # Load Kus
-        if ku_service and getattr(ku_service, "core", None):
-            result = await ku_service.core.list(limit=500)
-            if not result.is_error and result.value:
-                items.extend((ku, "ku") for ku in result.value)
-
-        # Load PathSteps
-        if ps_service and getattr(ps_service, "core", None):
-            result = await ps_service.core.list(limit=200)
-            if not result.is_error and result.value:
-                raw = result.value if isinstance(result.value, list) else result.value[0]
-                items.extend((ps, "ps") for ps in raw)
-
+        # --- Assemble user-specific data ---
         pinned_uids: set[str] = set()
         learning_states: dict[str, str] = {}
 
-        if is_authenticated(request):
-            user_uid = require_authenticated_user(request)
+        if user_uid:
+            if pins_result and not getattr(pins_result, "is_error", False) and getattr(pins_result, "value", None):
+                pinned_uids = set(pins_result.value)
 
-            # Pinned entities
-            if user_relationship_service:
-                pins_result = await user_relationship_service.get_pinned_entities(user_uid)
-                if not pins_result.is_error and pins_result.value:
-                    pinned_uids = set(pins_result.value)
+            if ku_states_result and getattr(ku_states_result, "is_ok", False) and getattr(ku_states_result, "value", None):
+                for rec in ku_states_result.value:
+                    ku_uid = rec.get("uid", "")
+                    if rec.get("is_understood"):
+                        learning_states[ku_uid] = "Understood"
+                    elif rec.get("is_studying"):
+                        learning_states[ku_uid] = "Studying"
 
-            # Ku learning states
-            if ku_service:
-                states_result = await ku_service.get_user_learning_states(user_uid)
-                if states_result.is_ok and states_result.value:
-                    for rec in states_result.value:
-                        ku_uid = rec.get("uid", "")
-                        if rec.get("is_understood"):
-                            learning_states[ku_uid] = "Understood"
-                        elif rec.get("is_studying"):
-                            learning_states[ku_uid] = "Studying"
-
-            # PS learning states
-            if ps_service:
-                in_progress_result = await ps_service.mastery.get_in_progress_step_uids(user_uid)
-                if not in_progress_result.is_error and in_progress_result.value:
-                    for ps_uid in in_progress_result.value:
-                        learning_states[ps_uid] = "In Progress"
+            if ps_states_result and not getattr(ps_states_result, "is_error", False) and getattr(ps_states_result, "value", None):
+                for ps_uid in ps_states_result.value:
+                    learning_states[ps_uid] = "In Progress"
 
         return items, pinned_uids, learning_states
 
