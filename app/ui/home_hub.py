@@ -1,7 +1,9 @@
 """Home hub page — post-login landing with Submissions, GradeBook, and Library tabs."""
 
 from fasthtml.common import Button, Div
+from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
+from ui.buttons import ButtonLink, ButtonT
 from ui.gradebook.hub import GRADEBOOK_BLOCKS
 from ui.library.hub import LIBRARY_BLOCKS
 from ui.patterns.hub import HubDomainBlockList
@@ -76,4 +78,8 @@ def HomeHub() -> Div:
                 **{"x-show": "activeTab === 'library'"},
             ),
         **{"x-data": "{ activeTab: 'submissions' }", "x-cloak": True},
-    )
+    ),
+    Div(
+        ButtonLink(UkIcon("settings", height=14, width=14, cls="inline mr-1"), "Settings", href="/settings", variant=ButtonT.ghost, cls="text-muted-foreground"),
+        cls="flex justify-end mt-4",
+    ),
