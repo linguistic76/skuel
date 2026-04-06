@@ -1,57 +1,24 @@
-"""Home hub page — post-login landing with Submissions, GradeBook, and navigational cards.
-
-Inlines Submissions and GradeBook HTMX preview blocks in a tabbed interface,
-followed by a 2x2 card grid linking to Tasks+, Explore, Library, and Settings.
-"""
+"""Home hub page — post-login landing with Submissions, GradeBook, and Library tabs."""
 
 from fasthtml.common import Button, Div
 
 from ui.gradebook.hub import GRADEBOOK_BLOCKS
-from ui.patterns.hub import HubCardData, HubContainerGrid, HubDomainBlockList
-from ui.patterns.page_header import PageHeader
+from ui.library.hub import LIBRARY_BLOCKS
+from ui.patterns.hub import HubDomainBlockList
 from ui.workbench.hub import SUBMISSIONS_BLOCKS
-
-_HOME_CARDS: list[HubCardData] = [
-    HubCardData(
-        icon="\u2713",
-        name="Tasks +",
-        href="/tasks",
-        description="Your tasks, goals, habits, and more at a glance",
-    ),
-    HubCardData(
-        icon="\U0001f9ed",
-        name="Explore",
-        href="/explore",
-        description="Discover knowledge units and path steps",
-    ),
-    HubCardData(
-        icon="\U0001f4da",
-        name="Library",
-        href="/library",
-        description="Browse exercises, resources, and curriculum",
-    ),
-    HubCardData(
-        icon="\u2699\ufe0f",
-        name="Settings",
-        href="/settings",
-        description="Preferences, display, notifications",
-    ),
-]
 
 
 _TAB_BTN_BASE = (
-    "px-4 py-2 text-sm font-medium rounded-full transition-colors focus:outline-none"
-    " focus-visible:ring-2 focus-visible:ring-primary"
+    "px-5 py-3 text-sm font-semibold border-b-3 cursor-pointer transition-colors"
+    " focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
 )
-_TAB_BTN_ACTIVE = "bg-primary text-primary-foreground"
-_TAB_BTN_INACTIVE = "text-muted-foreground hover:text-foreground"
+_TAB_BTN_ACTIVE = "border-primary text-primary"
+_TAB_BTN_INACTIVE = "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
 
 
 def HomeHub() -> Div:
-    """Home hub — Submissions + GradeBook previews in tabs, then 4 navigational cards."""
+    """Home hub — Submissions, GradeBook, and Library previews in tabs."""
     return Div(
-        PageHeader("Home", subtitle="Welcome to SKUEL"),
-        Div(
             # Tab bar
             Div(
                 Button(
@@ -76,8 +43,19 @@ def HomeHub() -> Div:
                         "@click": "activeTab = 'gradebook'",
                     },
                 ),
+                Button(
+                    "Library",
+                    role="tab",
+                    cls=_TAB_BTN_BASE,
+                    **{
+                        ":aria-selected": "activeTab === 'library'",
+                        ":tabindex": "activeTab === 'library' ? 0 : -1",
+                        ":class": f"activeTab === 'library' ? '{_TAB_BTN_ACTIVE}' : '{_TAB_BTN_INACTIVE}'",
+                        "@click": "activeTab = 'library'",
+                    },
+                ),
                 role="tablist",
-                cls="flex gap-1 mb-5",
+                cls="flex border-b border-border mb-6",
             ),
             # Submissions panel
             Div(
@@ -91,8 +69,11 @@ def HomeHub() -> Div:
                 role="tabpanel",
                 **{"x-show": "activeTab === 'gradebook'"},
             ),
-            cls="mb-8",
-            **{"x-data": "{ activeTab: 'submissions' }", "x-cloak": True},
-        ),
-        HubContainerGrid(_HOME_CARDS, cols=2),
+            # Library panel
+            Div(
+                HubDomainBlockList(LIBRARY_BLOCKS),
+                role="tabpanel",
+                **{"x-show": "activeTab === 'library'"},
+            ),
+        **{"x-data": "{ activeTab: 'submissions' }", "x-cloak": True},
     )

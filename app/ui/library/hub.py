@@ -11,7 +11,7 @@ from fasthtml.common import Div
 from ui.patterns.hub import HubBlockData, HubDomainBlockList
 from ui.patterns.page_header import PageHeader
 
-_LIBRARY_BLOCKS: list[HubBlockData] = [
+LIBRARY_BLOCKS: list[HubBlockData] = [
     HubBlockData(
         "Exercises",
         "exercises",
@@ -51,5 +51,5 @@ def LibraryHub() -> Div:
     """Library hub — 4 domain blocks with HTMX previews."""
     return Div(
         PageHeader("Library", subtitle="Browse exercises, resources, and knowledge"),
-        HubDomainBlockList(_LIBRARY_BLOCKS),
+        HubDomainBlockList(LIBRARY_BLOCKS),
     )
