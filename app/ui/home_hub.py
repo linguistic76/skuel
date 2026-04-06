@@ -29,7 +29,7 @@ _HOME_CARDS: list[HubCardData] = [
         description="Browse exercises, resources, and curriculum",
     ),
     HubCardData(
-        icon="\U0001f4ca",
+        icon="\U0001f4cb",
         name="GradeBook",
         href="/gradebook",
         description="Track submissions and feedback",

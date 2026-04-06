@@ -125,7 +125,7 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         "/gradebook",
         "gradebook",
         has_dropdown=False,
-        icon="arrow-left-right",
+        icon="clipboard-check",
     ),
     IconNavItem(
         "Workbench",
