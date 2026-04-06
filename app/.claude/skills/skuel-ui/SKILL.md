@@ -473,7 +473,7 @@ Admin users see a different navbar than regular users:
 - **Right:** Admin avatar (→ `/`) + Sign out (icon+text)
 - **Mobile:** Hamburger menu with Admin (`/admin`) + Teaching (`/teaching`) + Sign out links
 
-The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users still redirect to `/profile`. Icon links (Knowledge, Path Steps, etc.) are hidden for admins.
+The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users redirect to `/home` (post-login landing with 6 navigational cards: Profile, Explore, Library, GradeBook, Workbench, Search). Icon links are hidden for admins.
 
 ### Navbar Icon Links (Regular Users)
 
@@ -485,7 +485,8 @@ The navbar left section has 4 icon links (in order) and an avatar with dropdown:
 | 2nd | `book-open` | `/library` | `"library"` | Library hub (public) |
 | 3rd | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook hub |
 | 4th | `hammer` | `/workbench` | `"workbench"` | Workbench hub |
-| — | Avatar | — | — | Click → dropdown (Profile + Search + 6 Activity links + Sign out) |
+| — | Avatar | — | — | Click → dropdown (Profile + 6 Activity Domain links) |
+| — | Hub menu | — | — | Right section: click → dropdown (Hub `/home` + Sign out) |
 
 `/reports` redirects 301 → `/library`.
 

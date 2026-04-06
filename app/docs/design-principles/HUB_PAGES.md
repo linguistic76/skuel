@@ -37,6 +37,7 @@ The navbar provides five entry points. Three are **container hub pages** (no sid
 | `/library` | Container hub | Exercises, Resources, Ku (bookmarked), Path Steps (enrolled) |
 | `/workbench` | Container hub | Upload Activity Data, Submit Exercise, Submission History |
 | `/teaching` | Container hub | Students, Groups, Review Queue, Forms (TEACHER role) |
+| `/home` | Post-login landing | Profile, Explore, Library, GradeBook, Workbench, Search |
 | `/profile` | Personal overview | Focus/Velocity, Activity Domains (6 HTMX blocks), Nous, Settings |
 
 ### Container Hub Pages (Hub → Child with Sidebar)
@@ -94,7 +95,8 @@ This allows raw, immature code to exist alongside mature code without architectu
 
 ## Enforcement
 
-- **Profile is THE main hub** — all top-level navigation flows through `/profile`
+- **Home is the post-login entry point** (`/home`) — users land here after login with 6 navigational cards
+- **Profile is the personal overview hub** — users navigate to `/profile` for activity domains and personal statistics
 - **New domain pages** should be rich functional hubs, not card-grid-only pages
 - **BasePage (STANDARD)** is the correct page type for hub pages — no custom layout needed
 - **Shared components** (`HubCard`, `HubSection`, `HubCardData`) in `ui/patterns/hub.py` — used by domain hubs, not Profile

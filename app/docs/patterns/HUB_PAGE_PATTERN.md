@@ -16,7 +16,9 @@ This document covers *how to build one*.
 
 ## Architecture
 
-**Profile is the personal overview hub** (`/profile`). It shows Focus/Velocity indicators, Activity Domains (6 HTMX lazy-loaded preview blocks inline), the Nous community feed placeholder, and Settings. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
+**Home** (`/home`) is the **post-login landing hub** — a 3x2 `HubContainerGrid` with 6 navigational cards linking to Profile, Explore, Library, GradeBook, Workbench, and Search. Hub view in `ui/home_hub.py`.
+
+**Profile** (`/profile`) is the **personal overview hub** — Focus/Velocity indicators, Activity Domains (6 HTMX lazy-loaded preview blocks inline), the Nous community feed placeholder, and Settings. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
 Activity Domain child pages (`/tasks`, `/goals`, etc.) use `SidebarPage` with the shared Activity sidebar, which links back to `/profile`.
 
