@@ -602,6 +602,10 @@ async def _wire_all_routes(
 
     create_upload_routes(app, rt, services)
 
+    from adapters.inbound.home_routes import create_home_routes
+
+    create_home_routes(app, rt, services)
+
     from adapters.inbound.workbench_routes import create_workbench_routes
 
     create_workbench_routes(app, rt, services)

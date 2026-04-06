@@ -112,7 +112,7 @@ def create_auth_ui_routes(
         """Show registration page"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/" if get_is_admin(request) else "/profile", status_code=303)
+            return RedirectResponse("/" if get_is_admin(request) else "/home", status_code=303)
 
         return AuthPage(AuthComponents.render_registration_page(), title="Create Account")
 
@@ -212,7 +212,7 @@ def create_auth_ui_routes(
                 f"User registered and logged in: {reg.username} "
                 f"(admin={is_admin}, teacher={user.can_create_curriculum()})"
             )
-            return RedirectResponse("/" if is_admin else "/profile", status_code=303)
+            return RedirectResponse("/" if is_admin else "/home", status_code=303)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Registration error: {e}")
@@ -230,7 +230,7 @@ def create_auth_ui_routes(
         """Show login page"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/" if get_is_admin(request) else "/profile", status_code=303)
+            return RedirectResponse("/" if get_is_admin(request) else "/home", status_code=303)
 
         return AuthPage(AuthComponents.render_login_page(), title="Sign In")
 
@@ -317,7 +317,7 @@ def create_auth_ui_routes(
                 f"User logged in: {email} ({session_data['user_uid']}) "
                 f"(admin={is_admin}, teacher={user.can_create_curriculum()})"
             )
-            return RedirectResponse("/" if is_admin else "/profile", status_code=303)
+            return RedirectResponse("/" if is_admin else "/home", status_code=303)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Login error: {e}", exc_info=True)
@@ -361,7 +361,7 @@ def create_auth_ui_routes(
         """Show reset password form where users enter token and new password"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
-            return RedirectResponse("/" if get_is_admin(request) else "/profile", status_code=303)
+            return RedirectResponse("/" if get_is_admin(request) else "/home", status_code=303)
 
         return AuthComponents.render_reset_password_page(token=token)
 
