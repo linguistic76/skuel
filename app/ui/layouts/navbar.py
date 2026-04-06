@@ -225,7 +225,7 @@ def _avatar_circle(current_user: str, fallback: str = "U") -> Div:
     return Div(
         initial,
         cls="size-8 rounded-full flex items-center justify-center font-medium text-sm",
-        style=f"background-color: hsl({hue}, 30%, 80%); color: hsl({hue}, 40%, 35%);",
+        style=f"background-color: hsl({hue}, 15%, 88%); color: hsl({hue}, 15%, 50%);",
         aria_hidden="true",
     )
 
@@ -273,14 +273,6 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
         **close,
     )
 
-    search_item = A(
-        UkIcon("search", cls="size-4", aria_hidden="true"),
-        Span("Search"),
-        href="/search",
-        cls=item_cls,
-        **close,
-    )
-
     # Activity domain links
     activity_links = [
         A(
@@ -304,7 +296,6 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
 
     dropdown_menu = Div(
         profile_item,
-        search_item,
         Div(cls="my-1 border-t border-border"),
         *activity_links,
         Div(cls="my-1 border-t border-border"),
@@ -486,6 +477,7 @@ def create_navbar(
         right_section: Any = _admin_profile_section(current_user)
     elif is_authenticated:
         right_section = Div(
+            _search_button(active_page),
             _notification_button(unread_insights),
             cls="flex items-center gap-2",
         )
