@@ -324,63 +324,6 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
     )
 
 
-def _hub_dropdown() -> Div:
-    """Hub + Sign out dropdown — click-toggle menu in the right navbar section."""
-    item_cls = (
-        "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md"
-    )
-    close = {"@click": "hubOpen = false"}
-
-    trigger = Button(
-        Span("Open hub menu", cls="sr-only"),
-        UkIcon("menu", cls="size-5", aria_hidden="true"),
-        type="button",
-        cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground",
-        **{
-            "@click": "hubOpen = !hubOpen",
-            "aria-haspopup": "true",
-            ":aria-expanded": "hubOpen.toString()",
-        },
-    )
-
-    hub_item = A(
-        UkIcon("home", cls="size-4", aria_hidden="true"),
-        Span("Hub"),
-        href="/home",
-        cls=item_cls,
-        **close,
-    )
-
-    logout_item = A(
-        UkIcon("log-out", cls="size-4", aria_hidden="true"),
-        Span("Sign out"),
-        href="/logout",
-        cls=item_cls,
-        **close,
-    )
-
-    dropdown_menu = Div(
-        hub_item,
-        Div(cls="my-1 border-t border-border"),
-        logout_item,
-        cls="absolute right-0 top-full mt-1 w-40 bg-background border border-border rounded-lg shadow-lg py-1 z-50",
-        role="menu",
-        **{
-            "x-show": "hubOpen",
-            "x-transition": "",
-            "@click.outside": "hubOpen = false",
-            "x-cloak": "",
-        },
-    )
-
-    return Div(
-        trigger,
-        dropdown_menu,
-        cls="relative",
-        **{"x-data": "{ hubOpen: false }"},
-    )
-
-
 def _admin_profile_section(current_user: str) -> Div:
     """Simplified profile section for admin users (desktop only)."""
     return Div(

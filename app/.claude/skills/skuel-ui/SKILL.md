@@ -477,37 +477,41 @@ The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users
 
 ### Navbar Icon Links (Regular Users)
 
-The navbar left section has 4 icon links (in order) and an avatar with dropdown:
+The navbar left section has 5 icon links (in order) and an avatar with dropdown:
 
 | Position | Icon | Route | `page_key` | Description |
 |----------|------|-------|------------|-------------|
-| 1st | `compass` | `/explore` | `"explore"` | Explore hub (public) |
-| 2nd | `book-open` | `/library` | `"library"` | Library hub (public) |
-| 3rd | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook hub |
-| 4th | `hammer` | `/workbench` | `"workbench"` | Workbench hub |
-| — | Avatar | — | — | Click → dropdown (Profile + 6 Activity Domain links) |
-| — | Hub menu | — | — | Right section: click → dropdown (Hub `/home` + Sign out) |
+| 1st | `home` | `/home` | `"home"` | Hub (furthest left, auth only) |
+| 2nd | `compass` | `/explore` | `"explore"` | Explore hub (public) |
+| 3rd | `book-open` | `/library` | `"library"` | Library hub (public) |
+| 4th | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook hub |
+| 5th | `hammer` | `/workbench` | `"workbench"` | Workbench hub |
+| — | Avatar | — | — | Click → dropdown (Profile + 6 Activity Domain links + Sign out) |
+
+Right section: Search icon + notification bell (no dropdown menu).
 
 `/reports` redirects 301 → `/library`.
 
-See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS` and `IconNavItem`. All current icons use `has_dropdown=False` — direct links only.
+See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS` and `IconNavItem`. All current icons use `has_dropdown=False` — direct links only. The Hub icon is separated from `icon_links` in `create_navbar()` so it renders furthest left (before avatar).
 
-Icon dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py`. The avatar dropdown uses `ACTIVITY_DROPDOWN_ITEMS` directly via `_avatar_dropdown()`. Items without `has_dropdown` render as direct links via `_icon_nav_link()`. Emoji letters (multi-char) get `text-base` styling instead of `font-semibold text-sm`.
+Icon dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py`. The avatar dropdown uses `ACTIVITY_DROPDOWN_ITEMS` directly via `_avatar_dropdown()`, plus a Sign out link at the bottom. Items without `has_dropdown` render as direct links via `_icon_nav_link()`. Emoji letters (multi-char) get `text-base` styling instead of `font-semibold text-sm`.
 
 ### Mobile Navigation
 
 The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hamburger menu. On mobile, activity domains (from avatar dropdown) and icon nav items are expanded into individual links. All current icon nav items are direct links (no dropdowns):
 
 ```python
-# Mobile: activity domains first, then icon nav items
+# Mobile: activity domains first, then icon nav items, then Sign out
 for di in ACTIVITY_DROPDOWN_ITEMS:
     mobile_icon_links.append(...)
-for item in ICON_NAV_ITEMS:  # 📖, ⇄, 📂
+for item in ICON_NAV_ITEMS:  # Hub, Explore, Library, GradeBook, Workbench
     if item.has_dropdown:
         for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
             mobile_icon_links.append(...)
     else:
-        mobile_icon_links.append(...)  # All 4 current items take this path
+        mobile_icon_links.append(...)  # All 5 current items take this path
+if is_authenticated:
+    mobile_icon_links.append(Sign out link)
 ```
 
 **Navbar accessibility requirements:**
@@ -1153,7 +1157,7 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: 4 icon links (Explore, Library, GradeBook, Workbench) + avatar dropdown (Profile/Search/6 Activity links/Sign out) |
+| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: 5 icon links (Hub, Explore, Library, GradeBook, Workbench) + avatar dropdown (Profile/6 Activity links/Sign out) |
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
