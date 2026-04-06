@@ -272,7 +272,11 @@ def _render_login_landing_page() -> Any:
                             ),
                             cls="text-right mb-4",
                         ),
-                        Button("Sign in", cls="w-full", variant=ButtonT.primary),
+                        Button(
+                            "Sign in",
+                            cls="w-full bg-primary text-primary-foreground hover:bg-primary/90",
+                            variant=ButtonT.primary,
+                        ),
                     ),
                     action="/login/submit",
                     method="POST",
@@ -287,13 +291,14 @@ def _render_login_landing_page() -> Any:
                 ),
                 # Sign up link
                 P(
-                    "Don't have an account? ",
-                    A(
-                        "Create one",
-                        href="/register",
-                        cls="font-semibold text-primary/80 hover:text-primary",
-                    ),
-                    cls="text-center text-sm text-muted-foreground",
+                    "Don't have an account?",
+                    cls="text-center text-sm text-muted-foreground mb-3",
+                ),
+                ButtonLink(
+                    "Create one",
+                    href="/register",
+                    variant=ButtonT.secondary,
+                    cls="w-full",
                 ),
                 cls="w-full max-w-sm",
             ),

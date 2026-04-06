@@ -94,7 +94,11 @@ class AuthComponents:
                     ),
                     cls="text-right",
                 ),
-                Button("Sign in", cls="w-full", variant=ButtonT.primary),
+                Button(
+                    "Sign in",
+                    cls="w-full bg-primary text-primary-foreground hover:bg-primary/90",
+                    variant=ButtonT.primary,
+                ),
                 action="/login/submit",
                 method="POST",
                 cls="space-y-5",
@@ -108,13 +112,14 @@ class AuthComponents:
                 cls="flex items-center my-6",
             ),
             P(
-                "Don't have an account? ",
-                A(
-                    "Create one",
-                    href="/register",
-                    cls="font-semibold text-primary/80 hover:text-primary",
-                ),
-                cls="text-center text-sm text-muted-foreground",
+                "Don't have an account?",
+                cls="text-center text-sm text-muted-foreground mb-3",
+            ),
+            ButtonLink(
+                "Create one",
+                href="/register",
+                variant=ButtonT.secondary,
+                cls="w-full",
             ),
             cls="flex flex-col justify-center px-6 py-12 sm:px-8 mx-auto w-full max-w-sm min-h-screen",
         )
