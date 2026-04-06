@@ -447,13 +447,17 @@ def create_navbar(
     nav_items = [item for item in MAIN_NAV_ITEMS if _should_show_item(item)]
 
     # Icon navigation links — shown when not admin; public items shown to all users
+    # Hub icon separated so it renders furthest left (before avatar)
+    hub_link: Any = None
     icon_links: list[Any] = []
     if not is_admin:
-        icon_links = [
-            _icon_nav_link(item, active_page)
-            for item in ICON_NAV_ITEMS
-            if not item.requires_auth or is_authenticated
-        ]
+        for item in ICON_NAV_ITEMS:
+            if item.requires_auth and not is_authenticated:
+                continue
+            if item.page_key == "home":
+                hub_link = _icon_nav_link(item, active_page)
+            else:
+                icon_links.append(_icon_nav_link(item, active_page))
 
     # Desktop navigation links
     desktop_links = Div(
@@ -566,6 +570,8 @@ def create_navbar(
                 cls="hidden sm:inline-flex items-center justify-center px-2 py-1 rounded hover:bg-accent",
             )
         )
+    if hub_link is not None:
+        left_col.append(hub_link)
     if left_avatar is not None:
         left_col.append(left_avatar)
     left_col.extend(icon_links)
