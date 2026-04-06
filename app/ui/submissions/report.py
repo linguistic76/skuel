@@ -88,7 +88,7 @@ def render_review_status_badge(status: str, feedback_count: int) -> Any:
     if status == "revision_requested":
         return Badge("Revision Needed", variant=BadgeT.warning, size=Size.sm)
     if feedback_count == 0 and status == "submitted":
-        return Badge("Awaiting Review", variant=BadgeT.neutral, size=Size.sm)
+        return Badge("Awaiting Review", variant=BadgeT.info, size=Size.sm)
     return Badge(status.replace("_", " ").title(), variant=BadgeT.ghost, size=Size.sm)
 
 
@@ -137,7 +137,7 @@ def render_submission_history_row(item: dict) -> Any:
             ButtonLink(
                 "View",
                 href=f"/gradebook/{uid}",
-                variant=ButtonT.secondary,
+                variant=ButtonT.primary,
                 size=Size.sm,
                 cls="ml-3",
             ),
@@ -200,7 +200,7 @@ def render_report_card(assessment: Any) -> Any:
                 ButtonLink(
                     "View Full",
                     href=f"/exercise-reports/detail?uid={uid}",
-                    variant=ButtonT.secondary,
+                    variant=ButtonT.primary,
                     size=Size.sm,
                     cls="mt-2",
                 ),

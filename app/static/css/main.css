@@ -377,7 +377,8 @@ a {
 }
 
 /* Default/secondary buttons: ensure visible border */
-.uk-btn-default {
+.uk-btn-default,
+.uk-btn-secondary {
     border: 1px solid hsl(var(--border));
 }
 
