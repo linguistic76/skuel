@@ -2,15 +2,15 @@
 GradeBook UI Routes — ExerciseSubmission Pages
 ===============================================
 
-Routes for submitting work, browsing submissions, and viewing submission details.
+Routes for submitting work and viewing submission details.
+Submission listing moved to Workbench (/workbench/history) — see workbench_routes.py.
 
 Routes:
 - GET /submit — File upload form (Workbench sidebar)
 - GET /gradebook — Hub page (no sidebar, container navigation)
-- GET /gradebook/mysubmissions — My Submissions list (sidebar: My Submissions)
-- POST /gradebook/mysubmissions/delete — Delete a user-owned submission (HTMX)
+- GET /gradebook/mysubmissions — 301 redirect to /workbench/history
 - GET /gradebook/{uid} — Submission detail page
-- HTMX fragments: /gradebook/list, /upload, /grid,
+- HTMX fragments: /upload, /grid,
   /gradebook/{uid}/{info,content,report,exercise,category-selector,tags-manager,shared-users}
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
@@ -38,7 +38,6 @@ from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
-from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.page_header import PageHeader
 from ui.submissions.cards import (
     render_processed_content,
@@ -51,9 +50,6 @@ from ui.submissions.forms import (
     render_tags_manager,
     render_upload_form,
     upload_form_script,
-)
-from ui.submissions.report import (
-    render_yours_list,
 )
 from ui.submissions.sharing import render_sharing_section
 
@@ -192,93 +188,15 @@ def create_submissions_ui_routes(
         )
 
     @rt("/gradebook/mysubmissions")
-    async def gradebook_mysubmissions(request: Request) -> Any:
-        """My Submissions list with sidebar navigation."""
-        user_uid = require_authenticated_user(request)
+    async def gradebook_mysubmissions_redirect(request: Request) -> Any:
+        """301 redirect — submissions list moved to Workbench."""
+        from starlette.responses import RedirectResponse
 
-        # Inline submissions list (same data as /gradebook/list fragment)
-        submissions_content: Any = EmptyState(
-            title="No submissions yet",
-            description="Submit your first exercise to see it here.",
-        )
-        if submissions_search_service:
-            result = await submissions_search_service.get_submissions_with_feedback_status(user_uid)
-            if result.is_error:
-                logger.error(f"Error loading submissions history: {result.error}")
-                submissions_content = render_error_banner(
-                    "Failed to load submissions", str(result.error)
-                )
-            else:
-                submissions_content = render_yours_list(result.value or [])
-
-        content = Div(
-            PageHeader("My Submissions", subtitle="Your submitted exercises and feedback status"),
-            submissions_content,
-        )
-        return await render_gradebook_sidebar_page(
-            content=content,
-            active="submissions",
-            request=request,
-        )
-
-    # ========================================================================
-    # SUBMISSION DELETE
-    # ========================================================================
-
-    @rt("/gradebook/mysubmissions/delete", methods=["POST"])
-    async def delete_submission(request: Request, uid: str) -> Any:
-        """Delete a user-owned submission (only if no feedback received)."""
-        user_uid = require_authenticated_user(request)
-
-        # Verify the submission exists and belongs to this user
-        sub_result = await submissions_service.get_submission(uid)
-        if sub_result.is_error or not sub_result.value:
-            return render_error_banner("Submission not found")
-        submission = sub_result.value
-        if submission.user_uid != user_uid:
-            return render_error_banner("Access denied")
-
-        # Guard: don't delete submissions that already have feedback
-        if teacher_review_service:
-            history_result = await teacher_review_service.get_report_history(uid)
-            if not history_result.is_error and history_result.value:
-                return render_error_banner("Cannot delete a submission that has received feedback")
-
-        delete_result = await submissions_service.delete_submission_with_file(uid)
-        if delete_result.is_error:
-            return render_error_banner("Failed to delete submission", str(delete_result.error))
-
-        # Return empty div — HTMX outerHTML swap removes the row
-        return Div()
+        return RedirectResponse("/workbench/history", status_code=301)
 
     # ========================================================================
     # HTMX ENDPOINTS
     # ========================================================================
-
-    @rt("/gradebook/list")
-    async def submissions_list(request: Request) -> Any:
-        """HTMX fragment: student's submissions with teacher review status."""
-        try:
-            user_uid = require_authenticated_user(request)
-            if not submissions_search_service:
-                return Div(
-                    render_error_banner("Submissions service unavailable"),
-                    id="submissions-yours-list",
-                )
-            result = await submissions_search_service.get_submissions_with_feedback_status(user_uid)
-            if result.is_error:
-                logger.error(f"Error loading submissions history: {result.error}")
-                return Div(
-                    render_error_banner("Failed to load submissions", str(result.error)),
-                    id="submissions-yours-list",
-                )
-            return render_yours_list(result.value or [])
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error loading submissions history: {e}", exc_info=True)
-            return Div(
-                render_error_banner("Error loading submissions", str(e)),
-                id="submissions-yours-list",
-            )
 
     @rt("/gradebook/upload")
     async def upload_submission(request: Request) -> Any:
@@ -652,8 +570,8 @@ def create_submissions_ui_routes(
                 ),
                 Div(
                     ButtonLink(
-                        "\u2190 Back to GradeBook",
-                        href="/gradebook/mysubmissions",
+                        "\u2190 Back to Submission History",
+                        href="/workbench/history",
                         variant=ButtonT.ghost,
                     ),
                     cls="mt-4",
@@ -673,46 +591,13 @@ def create_submissions_ui_routes(
             request=request,
         )
 
-    # ========================================================================
-    # HUB PREVIEW ENDPOINTS (HTMX lazy-loaded from /gradebook hub)
-    # ========================================================================
-
-    @rt("/api/gradebook/submissions/preview")
-    async def gradebook_submissions_preview(request: Request) -> Any:
-        """HTMX fragment: 3 most recent submissions for hub preview."""
-        user_uid = require_authenticated_user(request)
-        result = await submissions_service.list_submissions(
-            user_uid, entity_type=EntityType.EXERCISE_SUBMISSION, limit=3
-        )
-        if result.is_error:
-            return HubPreviewEmpty("submissions")
-        subs = result.value or []
-        if not subs:
-            return HubPreviewEmpty("submissions")
-        cards = []
-        for sub in subs[:3]:
-            uid = getattr(sub, "uid", "")
-            title = getattr(sub, "title", "Untitled") or "Untitled"
-            status = str(getattr(sub, "status", "")).replace("_", " ").title()
-            badge = (
-                Span(status, cls="text-[10px] font-medium text-muted-foreground")
-                if status
-                else None
-            )
-            cards.append(HubPreviewCard(title=title, href=f"/gradebook/{uid}", badge=badge))
-        return HubPreviewGrid(cards)
-
-    logger.info(
-        "GradeBook UI routes created (/submit, /gradebook, /gradebook/mysubmissions, /gradebook/{uid})"
-    )
+    logger.info("GradeBook UI routes created (/submit, /gradebook, /gradebook/{uid})")
 
     # Route order matters! Specific routes before parameterized routes.
     return [
         submit_page,  # /submit
         gradebook_hub,  # /gradebook (hub page)
-        gradebook_mysubmissions,  # /gradebook/mysubmissions
-        delete_submission,  # /gradebook/mysubmissions/delete (POST)
-        submissions_list,  # /gradebook/list (HTMX)
+        gradebook_mysubmissions_redirect,  # /gradebook/mysubmissions → 301
         upload_submission,  # /gradebook/upload (HTMX POST)
         get_submissions_grid,  # /grid (HTMX GET)
         get_submission_info,  # /gradebook/{uid}/info

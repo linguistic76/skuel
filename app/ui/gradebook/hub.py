@@ -1,4 +1,4 @@
-"""GradeBook hub page — HTMX-loaded preview blocks for submissions and feedback.
+"""GradeBook hub page — HTMX-loaded preview blocks for feedback and reports.
 
 Hub page with no sidebar. Each block loads a preview via HTMX
 and links to a child page that uses SidebarPage for within-section navigation.
@@ -12,14 +12,6 @@ from ui.patterns.hub import HubBlockData, HubDomainBlockList
 from ui.patterns.page_header import PageHeader
 
 _GRADEBOOK_BLOCKS: list[HubBlockData] = [
-    HubBlockData(
-        "My Submissions",
-        "submissions",
-        "file-text",
-        "#3B82F6",
-        "/gradebook/mysubmissions",
-        "/api/gradebook/submissions/preview",
-    ),
     HubBlockData(
         "Exercise Reports",
         "exercise-reports",
@@ -48,7 +40,7 @@ _GRADEBOOK_BLOCKS: list[HubBlockData] = [
 
 
 def GradeBookHub() -> Div:
-    """GradeBook hub — 4 domain blocks with HTMX previews."""
+    """GradeBook hub — 3 domain blocks with HTMX previews."""
     return Div(
         PageHeader("GradeBook", subtitle="Track your submissions and feedback"),
         HubDomainBlockList(_GRADEBOOK_BLOCKS),

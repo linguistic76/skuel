@@ -29,9 +29,9 @@ _WORKBENCH_BLOCKS: list[HubBlockData] = [
         "/api/workbench/submit/preview",
     ),
     HubBlockData(
-        "Upload History",
+        "Submission History",
         "history",
-        "clock",
+        "file-text",
         "#8B5CF6",
         "/workbench/history",
         "/api/workbench/history/preview",
