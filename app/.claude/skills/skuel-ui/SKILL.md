@@ -410,6 +410,8 @@ def create_tasks_page(content: Any, request: Request | None = None) -> Any:
 
 All 6 Activity Domain list views use a shared config-driven filter bar (`/ui/activities/filter_bar.py`). Each domain defines a `FilterBarConfig` with its filter dropdowns, sort options, and HTMX targets. Route files call `ActivityFilterBar(config, current_values)` directly.
 
+**Implementation note:** Uses plain `<select class="uk-select">` instead of MonsterUI's `LabelSelect` (`<uk-select>` web component) for reliability — the custom element can fail to initialize. `LabelSelect` is still used in regular forms.
+
 ```python
 from ui.activities.filter_bar import ActivityFilterBar, FilterBarConfig, FilterSelect
 

@@ -90,15 +90,15 @@ Primary action button.
 
 **Parameters:**
 - `text: str` - Button label
-- `variant: str` - Style variant (default: "primary")
+- `variant: ButtonT | str` - Style variant (default: `ButtonT.primary`). Accepts both `ButtonT` enum and plain strings.
   - `"primary"` - Blue accent background
   - `"secondary"` - Gray background with border
   - `"ghost"` - Transparent with hover
-  - `"danger"` - Red for destructive actions
-- `size: str` - Size variant (default: "md")
-  - `"sm"` - Small (px-3 py-1.5)
-  - `"md"` - Medium (px-4 py-2)
-  - `"lg"` - Large (px-6 py-3)
+  - `"error"` - Red for destructive actions
+- `size: Size | str | None` - Size variant (default: None/md)
+  - `"sm"` - Small
+  - `"md"` - Medium
+  - `"lg"` - Large
 - `**kwargs` - Additional attributes (type, disabled, hx_post, etc.)
 
 **Examples:**
@@ -163,6 +163,8 @@ ButtonLink("Open →", href="https://example.com", variant=ButtonT.ghost, size=S
 **Location:** `/ui/cards.py`
 
 Container component for grouping related content.
+
+**MonsterUI `cls` gotcha:** Never pass `cls=None` to MonsterUI components — it renders as the literal string `"None"` in the HTML class attribute. SKUEL's `CardBody`, `CardTitle`, and `CardHeader` wrappers handle this by omitting `cls` when empty.
 
 ### Card(*children, variant, cls, **kwargs)
 
@@ -1160,6 +1162,8 @@ Shared config-driven filter bar for all 6 Activity Domain list views (2026-04-04
 - `ActivityFilterBar(config, current_values)` — renders the HTMX-powered filter form
 
 Each domain defines a module-level config constant (`TASK_FILTER_CONFIG`, `GOAL_FILTER_CONFIG`, etc.) in its `*_views.py` file. Route files call `ActivityFilterBar(CONFIG, {...})` directly.
+
+**Note:** Uses plain `<select class="uk-select">` instead of MonsterUI's `LabelSelect` (`<uk-select>` web component). The `<uk-select>` custom element requires FrankenUI JS initialization and can render as raw unstyled text if JS doesn't initialize properly. Plain `<select>` is reliable without JS. `LabelSelect` is still appropriate for full forms — this is specific to the filter bar where reliability matters most.
 
 ### Tasks Views (Active)
 

@@ -173,6 +173,24 @@ from fasthtml.common import Div, H1, H2, H3, Option, P, Span
 
 ---
 
+### MonsterUI `cls=None` Renders Literal "None" in HTML
+
+**Symptom**: HTML output contains `class="uk-card-body None"` or similar — the word "None" appears as a CSS class.
+
+**Cause**: MonsterUI renders `cls=None` as the literal string `"None"`. Passing `cls=my_var or None` when `my_var` is empty triggers this.
+
+**Solution**: SKUEL's card wrappers (`CardBody`, `CardTitle`, `CardHeader`) handle this automatically. If calling MonsterUI components directly, omit `cls` or pass `cls=""`:
+```python
+# ❌ WRONG — renders class="uk-card-body None"
+MCardBody(*c, cls=None)
+
+# ✅ CORRECT
+MCardBody(*c)          # Omit cls entirely
+MCardBody(*c, cls="")  # Empty string is safe
+```
+
+---
+
 ### Missing Type Imports
 
 **Symptom**: `NameError: name 'Any' is not defined`

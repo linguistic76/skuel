@@ -442,6 +442,8 @@ MonsterUI orchestrates three CSS frameworks loaded from **local vendor files** (
 
 `output.css` is a pre-compiled Tailwind+DaisyUI file for build tooling — NOT loaded by `build_head()`.
 
+**MonsterUI `cls` gotcha:** Never pass `cls=None` to MonsterUI components — it renders as the literal string `"None"` in the HTML class attribute. SKUEL's Card/CardBody/CardTitle/CardHeader wrappers handle this by omitting `cls` when empty. If calling MonsterUI components directly, use `cls=""` or omit the parameter.
+
 ## Anti-Patterns
 
 ```python
@@ -456,6 +458,11 @@ Div(cls="max-w-6xl mx-auto")  # Use Container.STANDARD
 
 # ❌ Inconsistent spacing
 Div(cls="p-5")  # Use p-4 or p-6 (standard scale)
+
+# ❌ Passing cls=None to MonsterUI
+MCardBody(*c, cls=None)  # Renders class="uk-card-body None"
+# ✅ Omit cls or pass empty string
+MCardBody(*c)             # Renders class="uk-card-body "
 
 # ❌ Raw HTML strings for pages (NotStr with <link> tags)
 NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()

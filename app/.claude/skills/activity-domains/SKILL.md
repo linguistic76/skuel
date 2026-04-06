@@ -78,7 +78,9 @@ adapters/inbound/{domain}_ui.py      # UI Routes (list, detail, HTMX fragment)
 adapters/inbound/{domain}_api.py     # API Routes (status toggle)
 ui/activities/nav.py                 # Activity sidebar config + render_activity_sidebar_page()
 ui/activities/activity_hub.py        # ActivityHubView — 6 domain preview blocks (embedded in /profile)
-ui/activities/{domain}_views.py      # Pure view components
+ui/activities/{domain}_views.py      # Pure view components (StatsBar, List, Card, DetailView, filter config)
+ui/activities/filter_bar.py          # Shared config-driven filter bar (plain <select>, not <uk-select>)
+ui/activities/_shared.py             # Shared helpers (MetadataField, ConnectionBadges, safe_id)
 ```
 
 ## Common Operations
