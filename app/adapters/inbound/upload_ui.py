@@ -33,7 +33,7 @@ from ui.buttons import Button, ButtonT
 from ui.forms.components import Input
 from ui.patterns import PageHeader
 from ui.patterns.upload_results import UploadError, UploadResultsSummary
-from ui.workbench.nav import render_workbench_sidebar_page
+from ui.workbench.nav import render_submissions_sidebar_page
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -176,7 +176,7 @@ def create_upload_ui_routes(
             cls="max-w-3xl mx-auto px-4",
         )
 
-        return await render_workbench_sidebar_page(
+        return await render_submissions_sidebar_page(
             content=content,
             active="upload",
             request=request,

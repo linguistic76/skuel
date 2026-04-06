@@ -80,7 +80,7 @@ class UserPreferencesComponents:
                     type="button",
                     variant=ButtonT.outline,
                     cls="mr-4",
-                    onclick="window.location.href='/workbench'",
+                    onclick="window.location.href='/settings'",
                 ),
                 Button(
                     "Save All Changes",
@@ -165,7 +165,7 @@ class UserPreferencesComponents:
             ),
             id="learning-prefs-form",
             method="POST",
-            action="/workbench/settings/save",
+            action="/settings/save",
         )
 
     @staticmethod
@@ -222,7 +222,7 @@ class UserPreferencesComponents:
             ),
             id="scheduling-prefs-form",
             method="POST",
-            action="/workbench/settings/save",
+            action="/settings/save",
         )
 
     @staticmethod
@@ -261,7 +261,7 @@ class UserPreferencesComponents:
             ),
             id="notification-prefs-form",
             method="POST",
-            action="/workbench/settings/save",
+            action="/settings/save",
         )
 
     # MonsterUI themes (class-based dark mode via Tailwind)
@@ -314,7 +314,7 @@ class UserPreferencesComponents:
             ),
             id="display-prefs-form",
             method="POST",
-            action="/workbench/settings/save",
+            action="/settings/save",
         )
 
     @staticmethod
@@ -356,7 +356,7 @@ class UserPreferencesComponents:
             ),
             id="goal-prefs-form",
             method="POST",
-            action="/workbench/settings/save",
+            action="/settings/save",
         )
 
     @staticmethod
@@ -369,10 +369,10 @@ class UserPreferencesComponents:
                 cls="flex items-center",
             ),
             Button(
-                "Back to Workbench",
+                "Back to Settings",
                 variant=ButtonT.primary,
                 cls="mt-4",
-                onclick="window.location.href='/workbench'",
+                onclick="window.location.href='/settings'",
             ),
             variant=AlertT.success,
             cls="p-6 max-w-2xl mx-auto mt-8",

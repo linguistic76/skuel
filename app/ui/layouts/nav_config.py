@@ -102,6 +102,15 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         icon="home",
     ),
     IconNavItem(
+        "Tasks+",
+        "",
+        "/profile",
+        "profile",
+        requires_auth=True,
+        has_dropdown=False,
+        icon="check-square",
+    ),
+    IconNavItem(
         "Explore",
         "",
         "/explore",
@@ -120,20 +129,20 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         icon="book-open",
     ),
     IconNavItem(
+        "Submissions",
+        "",
+        "/submissions",
+        "submissions",
+        has_dropdown=False,
+        icon="file-up",
+    ),
+    IconNavItem(
         "GradeBook",
         "",
         "/gradebook",
         "gradebook",
         has_dropdown=False,
         icon="clipboard-check",
-    ),
-    IconNavItem(
-        "Workbench",
-        "",
-        "/workbench",
-        "workbench",
-        has_dropdown=False,
-        icon="hammer",
     ),
 )
 

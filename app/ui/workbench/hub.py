@@ -1,4 +1,4 @@
-"""Workbench hub page — where users manage their work and preferences in SKUEL.
+"""Submissions hub page — where users upload data, submit exercises, and track history.
 
 Hub page with no sidebar. Each block loads a preview via HTMX
 and links to a child page that uses SidebarPage for within-section navigation.
@@ -11,14 +11,14 @@ from fasthtml.common import Div
 from ui.patterns.hub import HubBlockData, HubDomainBlockList
 from ui.patterns.page_header import PageHeader
 
-_WORKBENCH_BLOCKS: list[HubBlockData] = [
+_SUBMISSIONS_BLOCKS: list[HubBlockData] = [
     HubBlockData(
         "Upload Activity Data",
         "upload",
         "upload-cloud",
         "#10B981",
         "/upload",
-        "/api/workbench/upload/preview",
+        "/api/submissions/upload/preview",
     ),
     HubBlockData(
         "Submit Exercise",
@@ -26,33 +26,25 @@ _WORKBENCH_BLOCKS: list[HubBlockData] = [
         "send",
         "#3B82F6",
         "/submit",
-        "/api/workbench/submit/preview",
+        "/api/submissions/submit/preview",
     ),
     HubBlockData(
         "Submission History",
         "history",
         "file-text",
         "#8B5CF6",
-        "/workbench/history",
-        "/api/workbench/history/preview",
-    ),
-    HubBlockData(
-        "Settings",
-        "settings",
-        "settings",
-        "#6B7280",
-        "/workbench/settings",
-        "/api/workbench/settings/preview",
+        "/submissions/history",
+        "/api/submissions/history/preview",
     ),
 ]
 
 
-def WorkbenchHub() -> Div:
-    """Workbench hub — 4 domain blocks with HTMX previews."""
+def SubmissionsHub() -> Div:
+    """Submissions hub — 3 domain blocks with HTMX previews."""
     return Div(
         PageHeader(
-            "Workbench",
-            subtitle="Upload activity data, submit exercises, and track your contributions",
+            "Submissions",
+            subtitle="Upload activity data, submit exercises, and track your submissions",
         ),
-        HubDomainBlockList(_WORKBENCH_BLOCKS),
+        HubDomainBlockList(_SUBMISSIONS_BLOCKS),
     )

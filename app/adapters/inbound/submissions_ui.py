@@ -3,12 +3,12 @@ GradeBook UI Routes — ExerciseSubmission Pages
 ===============================================
 
 Routes for submitting work and viewing submission details.
-Submission listing moved to Workbench (/workbench/history) — see workbench_routes.py.
+Submission listing moved to Submissions (/submissions/history) — see workbench_routes.py.
 
 Routes:
-- GET /submit — File upload form (Workbench sidebar)
+- GET /submit — File upload form (Submissions sidebar)
 - GET /gradebook — Hub page (no sidebar, container navigation)
-- GET /gradebook/mysubmissions — 301 redirect to /workbench/history
+- GET /gradebook/mysubmissions — 301 redirect to /submissions/history
 - GET /gradebook/{uid} — Submission detail page
 - HTMX fragments: /upload, /grid,
   /gradebook/{uid}/{info,content,report,exercise,category-selector,tags-manager,shared-users}
@@ -161,9 +161,9 @@ def create_submissions_ui_routes(
             ),
             upload_form_script(),
         )
-        from ui.workbench.nav import render_workbench_sidebar_page
+        from ui.workbench.nav import render_submissions_sidebar_page
 
-        return await render_workbench_sidebar_page(
+        return await render_submissions_sidebar_page(
             content=content,
             active="submit",
             request=request,
@@ -189,10 +189,10 @@ def create_submissions_ui_routes(
 
     @rt("/gradebook/mysubmissions")
     async def gradebook_mysubmissions_redirect(request: Request) -> Any:
-        """301 redirect — submissions list moved to Workbench."""
+        """301 redirect — submissions list moved to Submissions."""
         from starlette.responses import RedirectResponse
 
-        return RedirectResponse("/workbench/history", status_code=301)
+        return RedirectResponse("/submissions/history", status_code=301)
 
     # ========================================================================
     # HTMX ENDPOINTS
@@ -571,7 +571,7 @@ def create_submissions_ui_routes(
                 Div(
                     ButtonLink(
                         "\u2190 Back to Submission History",
-                        href="/workbench/history",
+                        href="/submissions/history",
                         variant=ButtonT.ghost,
                     ),
                     cls="mt-4",

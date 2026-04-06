@@ -115,7 +115,7 @@ def render_submission_history_row(item: dict) -> Any:
             size=Size.sm,
             cls="ml-1",
             **{
-                "hx-post": f"/workbench/history/delete?uid={uid}",
+                "hx-post": f"/submissions/history/delete?uid={uid}",
                 "hx-target": f"#submission-row-{uid}",
                 "hx-swap": "outerHTML",
                 "hx-confirm": "Delete this submission? This cannot be undone.",

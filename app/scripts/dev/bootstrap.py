@@ -606,9 +606,13 @@ async def _wire_all_routes(
 
     create_home_routes(app, rt, services)
 
-    from adapters.inbound.workbench_routes import create_workbench_routes
+    from adapters.inbound.workbench_routes import create_submissions_routes
 
-    create_workbench_routes(app, rt, services)
+    create_submissions_routes(app, rt, services)
+
+    from adapters.inbound.settings_routes import create_settings_routes
+
+    create_settings_routes(app, rt, services)
 
     from adapters.inbound.notifications_routes import create_notifications_routes
 

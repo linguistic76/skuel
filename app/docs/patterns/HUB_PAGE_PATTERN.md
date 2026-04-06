@@ -16,7 +16,7 @@ This document covers *how to build one*.
 
 ## Architecture
 
-**Home** (`/home`) is the **post-login landing hub** — a 3x2 `HubContainerGrid` with 6 navigational cards linking to Profile, Explore, Library, GradeBook, Workbench, and Search. Hub view in `ui/home_hub.py`.
+**Home** (`/home`) is the **post-login landing hub** — a 3x2 `HubContainerGrid` with 6 navigational cards linking to Tasks+, Explore, Library, Submissions, GradeBook, and Settings. Hub view in `ui/home_hub.py`.
 
 **Profile** (`/profile`) is the **personal overview hub** — Focus/Velocity indicators, Activity Domains (6 HTMX lazy-loaded preview blocks inline), the Nous community feed placeholder, and Settings. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
@@ -175,7 +175,7 @@ Each block loads 3 preview cards via HTMX from its `preview_url`. Preview endpoi
 - Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
 - Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`, wired via `library_routes.py`)
 - GradeBook: `/api/gradebook/{section}/preview` (4 sections, split across `submissions_ui.py`, `exercise_reports_ui.py`, `activity_reports_ui.py`)
-- Workbench: `/api/workbench/{section}/preview` (3 sections: upload, submit, history — in `workbench_routes.py`)
+- Submissions: `/api/submissions/{section}/preview` (3 sections: upload, submit, history — in `workbench_routes.py`)
 - Student hub: `/api/teaching/students/{uid}/{section}/preview` (4 sections: pending, revision, completed, ku — in `teaching_ui.py`)
 
 ## Usage: Graph-Driven Hub Page
@@ -214,9 +214,9 @@ section = HubSection("Contents", cards)
 | GradeBook sidebar | `ui/gradebook/nav.py` |
 | Library hub view | `ui/library/hub.py` |
 | Library sidebar | `ui/library/nav.py` |
-| Workbench hub view | `ui/workbench/hub.py` |
-| Workbench sidebar | `ui/workbench/nav.py` |
-| Workbench routes | `adapters/inbound/workbench_routes.py` |
+| Submissions hub view | `ui/workbench/hub.py` |
+| Submissions sidebar | `ui/workbench/nav.py` |
+| Submissions routes | `adapters/inbound/workbench_routes.py` |
 | Teaching hub view | `ui/teaching/hub.py` |
 | Teaching sidebar | `ui/teaching/nav.py` |
 | Student hub view | `ui/teaching/student_hub.py` |

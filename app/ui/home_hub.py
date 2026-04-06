@@ -1,7 +1,7 @@
-"""Home hub page — post-login landing with cards linking to the 5 main sections.
+"""Home hub page — post-login landing with cards linking to the 6 main sections.
 
 Uses HubContainerGrid (navigational cards, no HTMX previews) for a 3x2 grid
-linking to Tasks +, Explore, Library, GradeBook, and Workbench.
+linking to Tasks +, Explore, Library, Submissions, GradeBook, and Settings.
 """
 
 from fasthtml.common import Div
@@ -29,16 +29,22 @@ _HOME_CARDS: list[HubCardData] = [
         description="Browse exercises, resources, and curriculum",
     ),
     HubCardData(
+        icon="\U0001f4e4",
+        name="Submissions",
+        href="/submissions",
+        description="Upload data, submit exercises, track history",
+    ),
+    HubCardData(
         icon="\U0001f4cb",
         name="GradeBook",
         href="/gradebook",
         description="Track submissions and feedback",
     ),
     HubCardData(
-        icon="\U0001f527",
-        name="Workbench",
-        href="/workbench",
-        description="Upload data, submit exercises, settings",
+        icon="\u2699\ufe0f",
+        name="Settings",
+        href="/settings",
+        description="Preferences, display, notifications",
     ),
 ]
 

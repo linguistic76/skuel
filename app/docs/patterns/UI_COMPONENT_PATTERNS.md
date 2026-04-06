@@ -102,7 +102,7 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-04-05):** Learning loop UI fully wired: ExerciseReport detail page at `/exercise-reports/detail?uid=` (outcome badge, processor badge, assessment score bar); RevisedExercise student pages at `/revised-exercises` and `/revised-exercises/detail?uid=` (GradeBook sidebar); GradeBook expanded from 4 to 5 items (+ Revisions) and 5 hub blocks. Teaching revision form enhanced with structured `FeedbackCategory` feedback points (Alpine.js dynamic list). `AlpineModal` component standardized in `ui/patterns/modal.py` — adopted in calendar, sharing, and insights modals. Raw DaisyUI `Select` classes replaced with SKUEL `ui.forms.Select` wrapper in relationship_graph, profile, and calendar.
 
-**Evolution (2026-04-06a):** Post-login redirect changed from `/profile` to `/home` — a new post-login landing hub with 6 navigational cards (Profile, Explore, Library, GradeBook, Workbench, Search) using `HubContainerGrid`. Hub view in `ui/home_hub.py`, route in `adapters/inbound/home_routes.py`.
+**Evolution (2026-04-06a):** Post-login redirect changed from `/profile` to `/home` — a new post-login landing hub with 6 navigational cards (Tasks+, Explore, Library, Submissions, GradeBook, Settings) using `HubContainerGrid`. Hub view in `ui/home_hub.py`, route in `adapters/inbound/home_routes.py`.
 
 **Evolution (2026-04-06b):** Navbar Hub access changed from right-side hamburger dropdown to a **Hub icon** (home) as the furthest-left icon link. Sign out moved into the avatar dropdown (Profile + 6 Activity Domain links + Sign out). Right section simplified to Search + notification bell only. `_hub_dropdown()` removed from `navbar.py`.
 
@@ -144,7 +144,7 @@ return await SidebarPage(
 
 **Added:** 2026-02-09 (unified from 3 implementations)
 
-All sidebar pages (Activity Domains, Explore, GradeBook, Library, Teaching, Workbench) use a single `SidebarPage()` component from `ui/patterns/sidebar.py`.
+All sidebar pages (Activity Domains, Explore, GradeBook, Library, Teaching, Submissions) use a single `SidebarPage()` component from `ui/patterns/sidebar.py`.
 
 **Key Features:**
 - One component for all 6 sidebar pages
@@ -160,7 +160,7 @@ from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
     SidebarItem("Submit", "/submit", "submit", icon="📤"),
-    SidebarItem("History", "/workbench/history", "history", icon="📝"),
+    SidebarItem("History", "/submissions/history", "history", icon="📝"),
     SidebarItem("Exercise Reports", "/exercise-reports", "exercise-reports", icon="📋"),
     SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="📊"),
     SidebarItem("Submit Activity Report", "/submit-activity-report", "submit-activity-report", icon="⚡"),

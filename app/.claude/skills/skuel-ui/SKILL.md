@@ -71,7 +71,7 @@ Auth pages use the same SKUEL component wrappers (`LabelInput`, `Button`, `Card`
 | `/events` | Events list + detail | `STANDARD` | Scheduling, location, recurrence, milestones |
 | `/choices` | Choices list + detail | `STANDARD` | Options list, decision framework, outcome/satisfaction |
 | `/principles` | Principles list + detail | `STANDARD` | Strength badge, alignment, gravity-well connections |
-| `/workbench` | Workbench hub | `STANDARD` | Upload, Submit, History — 3 domain blocks |
+| `/submissions` | Submissions hub | `STANDARD` | Upload, Submit, History — 3 domain blocks |
 
 ```python
 from ui.layouts.page_types import PageType
@@ -473,19 +473,20 @@ Admin users see a different navbar than regular users:
 - **Right:** Admin avatar (→ `/`) + Sign out (icon+text)
 - **Mobile:** Hamburger menu with Admin (`/admin`) + Teaching (`/teaching`) + Sign out links
 
-The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users redirect to `/home` (post-login landing with 6 navigational cards: Profile, Explore, Library, GradeBook, Workbench, Search). Icon links are hidden for admins.
+The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users redirect to `/home` (post-login landing with 6 navigational cards: Tasks+, Explore, Library, Submissions, GradeBook, Settings). Icon links are hidden for admins.
 
 ### Navbar Icon Links (Regular Users)
 
-The navbar left section has 5 icon links (in order) and an avatar with dropdown:
+The navbar left section has 6 icon links (in order) and an avatar with dropdown:
 
 | Position | Icon | Route | `page_key` | Description |
 |----------|------|-------|------------|-------------|
 | 1st | `home` | `/home` | `"home"` | Hub (furthest left, auth only) |
-| 2nd | `compass` | `/explore` | `"explore"` | Explore hub (public) |
-| 3rd | `book-open` | `/library` | `"library"` | Library hub (public) |
-| 4th | `arrow-left-right` | `/gradebook` | `"gradebook"` | GradeBook hub |
-| 5th | `hammer` | `/workbench` | `"workbench"` | Workbench hub |
+| 2nd | `check-square` | `/profile` | `"profile"` | Tasks+ (auth only) |
+| 3rd | `compass` | `/explore` | `"explore"` | Explore hub (public) |
+| 4th | `book-open` | `/library` | `"library"` | Library hub (public) |
+| 5th | `file-up` | `/submissions` | `"submissions"` | Submissions hub |
+| 6th | `clipboard-check` | `/gradebook` | `"gradebook"` | GradeBook hub |
 | — | Avatar | — | — | Click → dropdown (Profile + 6 Activity Domain links + Sign out) |
 
 Right section: Search icon + notification bell (no dropdown menu).
@@ -504,12 +505,12 @@ The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hambur
 # Mobile: activity domains first, then icon nav items, then Sign out
 for di in ACTIVITY_DROPDOWN_ITEMS:
     mobile_icon_links.append(...)
-for item in ICON_NAV_ITEMS:  # Hub, Explore, Library, GradeBook, Workbench
+for item in ICON_NAV_ITEMS:  # Hub, Tasks+, Explore, Library, Submissions, GradeBook
     if item.has_dropdown:
         for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
             mobile_icon_links.append(...)
     else:
-        mobile_icon_links.append(...)  # All 5 current items take this path
+        mobile_icon_links.append(...)  # All 6 current items take this path
 if is_authenticated:
     mobile_icon_links.append(Sign out link)
 ```
@@ -562,10 +563,10 @@ return await render_gradebook_sidebar_page(
     content=my_content, active="submissions", request=request
 )
 
-# Workbench sidebar (Upload, Submit, History):
-from ui.workbench.nav import render_workbench_sidebar_page
+# Submissions sidebar (Upload, Submit, History):
+from ui.workbench.nav import render_submissions_sidebar_page
 
-return await render_workbench_sidebar_page(
+return await render_submissions_sidebar_page(
     content=my_content, active="upload", request=request
 )
 
@@ -1157,7 +1158,7 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: 5 icon links (Hub, Explore, Library, GradeBook, Workbench) + avatar dropdown (Profile/6 Activity links/Sign out) |
+| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: 6 icon links (Hub, Tasks+, Explore, Library, Submissions, GradeBook) + avatar dropdown (Profile/6 Activity links/Sign out) |
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
@@ -1171,9 +1172,10 @@ When building a new SKUEL page or feature, verify:
 | `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
 | `/ui/gradebook/nav.py` | GradeBook sidebar config (`GRADEBOOK_SIDEBAR_ITEMS`) + `render_gradebook_sidebar_page()` helper |
-| `/ui/workbench/hub.py` | `WorkbenchHub` — 3 domain blocks (Upload, Submit, History) |
-| `/ui/workbench/nav.py` | Workbench sidebar config (`WORKBENCH_SIDEBAR_ITEMS`) + `render_workbench_sidebar_page()` helper |
-| `/adapters/inbound/workbench_routes.py` | Workbench hub page + HTMX preview endpoints + history stub |
+| `/ui/workbench/hub.py` | `SubmissionsHub` — 3 domain blocks (Upload, Submit, History) |
+| `/ui/workbench/nav.py` | Submissions sidebar config (`SUBMISSIONS_SIDEBAR_ITEMS`) + `render_submissions_sidebar_page()` helper |
+| `/adapters/inbound/workbench_routes.py` | Submissions hub page + HTMX preview endpoints + history |
+| `/adapters/inbound/settings_routes.py` | Settings page (extracted from Workbench) — `/settings` + `/settings/save` |
 | `/ui/library/nav.py` | Library sidebar config (`LIBRARY_SIDEBAR_ITEMS`) + `render_library_sidebar_page()` helper |
 | `/ui/activities/activity_hub.py` | `ActivityHubView` — 6 Activity Domain preview blocks (embedded in `/profile`, HTMX lazy-loaded from `/api/profile/{slug}/preview`) |
 | `/adapters/inbound/library_routes.py` | Library hub orchestrator — wires `library_ui.py` with its 6 service dependencies (extracted from `learning_loop_routes.py`) |

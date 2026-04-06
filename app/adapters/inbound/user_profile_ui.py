@@ -6,7 +6,7 @@ Routes for the user profile hub page and related endpoints.
 
 Key Routes:
 - GET /profile - Profile hub (grouped card grid with links)
-- GET /profile/settings - 301 redirect to /workbench/settings
+- GET /profile/settings - 301 redirect to /settings
 - GET /profile/shared - Shared content view
 
 Architecture:
@@ -169,15 +169,15 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
     user_service = services.user_service
 
     # ========================================================================
-    # SETTINGS REDIRECT — moved to /workbench/settings (2026-04-06)
+    # SETTINGS REDIRECT — moved to /settings (2026-04-06)
     # ========================================================================
 
     @rt("/profile/settings")
     async def profile_settings_redirect(request: Request) -> Any:
-        """301 redirect: settings moved to Workbench."""
+        """301 redirect: settings moved to /settings."""
         from starlette.responses import RedirectResponse
 
-        return RedirectResponse(url="/workbench/settings", status_code=301)
+        return RedirectResponse(url="/settings", status_code=301)
 
     # ========================================================================
     # PROFILE HUB ROUTES - Sidebar Navigation with Domain Views

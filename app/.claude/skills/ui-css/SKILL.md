@@ -388,7 +388,7 @@ Card.PADDING        # "p-6"
 
 ## Theming
 
-Theme selection is available on `/workbench/settings` (Display & Appearance section). The selected theme is saved to Neo4j preferences and localStorage. On page load, `base_page.py` reads from localStorage via `x-init` and applies the theme. Default: `light`.
+Theme selection is available on `/settings` (Display & Appearance section). The selected theme is saved to Neo4j preferences and localStorage. On page load, `base_page.py` reads from localStorage via `x-init` and applies the theme. Default: `light`.
 
 ---
 
