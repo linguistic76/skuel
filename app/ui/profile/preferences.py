@@ -80,7 +80,7 @@ class UserPreferencesComponents:
                     type="button",
                     variant=ButtonT.outline,
                     cls="mr-4",
-                    onclick="window.location.href='/profile'",
+                    onclick="window.location.href='/workbench'",
                 ),
                 Button(
                     "Save All Changes",
@@ -165,7 +165,7 @@ class UserPreferencesComponents:
             ),
             id="learning-prefs-form",
             method="POST",
-            action="/profile/settings/save",
+            action="/workbench/settings/save",
         )
 
     @staticmethod
@@ -222,7 +222,7 @@ class UserPreferencesComponents:
             ),
             id="scheduling-prefs-form",
             method="POST",
-            action="/profile/settings/save",
+            action="/workbench/settings/save",
         )
 
     @staticmethod
@@ -261,7 +261,7 @@ class UserPreferencesComponents:
             ),
             id="notification-prefs-form",
             method="POST",
-            action="/profile/settings/save",
+            action="/workbench/settings/save",
         )
 
     # MonsterUI themes (class-based dark mode via Tailwind)
@@ -314,7 +314,7 @@ class UserPreferencesComponents:
             ),
             id="display-prefs-form",
             method="POST",
-            action="/profile/settings/save",
+            action="/workbench/settings/save",
         )
 
     @staticmethod
@@ -356,7 +356,7 @@ class UserPreferencesComponents:
             ),
             id="goal-prefs-form",
             method="POST",
-            action="/profile/settings/save",
+            action="/workbench/settings/save",
         )
 
     @staticmethod
@@ -369,10 +369,10 @@ class UserPreferencesComponents:
                 cls="flex items-center",
             ),
             Button(
-                "Back to Profile",
+                "Back to Workbench",
                 variant=ButtonT.primary,
                 cls="mt-4",
-                onclick="window.location.href='/profile'",
+                onclick="window.location.href='/workbench'",
             ),
             variant=AlertT.success,
             cls="p-6 max-w-2xl mx-auto mt-8",

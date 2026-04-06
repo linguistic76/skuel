@@ -1,4 +1,4 @@
-"""Workbench hub page — where users get their work into SKUEL.
+"""Workbench hub page — where users manage their work and preferences in SKUEL.
 
 Hub page with no sidebar. Each block loads a preview via HTMX
 and links to a child page that uses SidebarPage for within-section navigation.
@@ -36,11 +36,19 @@ _WORKBENCH_BLOCKS: list[HubBlockData] = [
         "/workbench/history",
         "/api/workbench/history/preview",
     ),
+    HubBlockData(
+        "Settings",
+        "settings",
+        "settings",
+        "#6B7280",
+        "/workbench/settings",
+        "/api/workbench/settings/preview",
+    ),
 ]
 
 
 def WorkbenchHub() -> Div:
-    """Workbench hub — 3 domain blocks with HTMX previews."""
+    """Workbench hub — 4 domain blocks with HTMX previews."""
     return Div(
         PageHeader(
             "Workbench",

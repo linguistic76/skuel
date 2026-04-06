@@ -25,7 +25,6 @@ def ProfileHubView(context: UserContext) -> Div:
         _personal_header(context),
         ActivityHubView(),
         _nous_section(),
-        _settings_link(),
     )
 
 
@@ -414,31 +413,4 @@ def _nous_section() -> Div:
             cls="bg-background rounded-xl p-5 shadow-sm border border-dashed border-border",
         ),
         cls="mb-6",
-    )
-
-
-# ---------------------------------------------------------------------------
-# Footer
-# ---------------------------------------------------------------------------
-
-
-def _settings_link() -> Div:
-    """Compact settings + workbench links at the bottom."""
-    return Div(
-        Div(
-            A(
-                Span("\u2699\ufe0f", cls="mr-2"),
-                "Settings",
-                href="/profile/settings",
-                cls="text-sm text-muted-foreground hover:text-foreground",
-            ),
-            A(
-                Span("\U0001f6e0\ufe0f", cls="mr-2"),
-                "Workbench",
-                href="/workbench",
-                cls="text-sm text-muted-foreground hover:text-foreground ml-6",
-            ),
-            cls="flex items-center gap-2",
-        ),
-        cls="mt-4 pt-6 border-t border-border",
     )

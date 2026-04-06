@@ -1,7 +1,7 @@
 """Workbench sidebar navigation.
 
 Renders a collapsible sidebar for Workbench pages:
-Upload, Submit, Submission History.
+Upload, Submit, Submission History, Settings.
 
 Usage:
     from ui.workbench.nav import render_workbench_sidebar_page
@@ -28,6 +28,7 @@ WORKBENCH_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Upload", "/upload", "upload", icon="upload-cloud"),
     SidebarItem("Submit", "/submit", "submit", icon="send"),
     SidebarItem("History", "/workbench/history", "history", icon="clock"),
+    SidebarItem("Settings", "/workbench/settings", "settings", icon="settings"),
 ]
 
 
@@ -40,7 +41,7 @@ async def render_workbench_sidebar_page(
 
     Args:
         content: The page content to render in the main area.
-        active: The active sidebar item slug (e.g. "upload", "submit", "history").
+        active: The active sidebar item slug (e.g. "upload", "submit", "history", "settings").
         request: The request object for auth detection.
     """
     return await SidebarPage(
