@@ -167,6 +167,16 @@ def _search_button(active_page: str = "") -> A:
     )
 
 
+def _signout_button() -> A:
+    """Create sign-out icon button for the navbar right section."""
+    return A(
+        Span("Sign out", cls="sr-only"),
+        UkIcon("log-out", cls="size-6", aria_hidden="true"),
+        href="/logout",
+        cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground",
+    )
+
+
 def _notification_button(unread_count: int = 0) -> Button:
     """Create notification bell button with optional badge."""
     button_content = [
@@ -239,88 +249,6 @@ def _logout_menu_item(
         Span("Sign out"),
         href="/logout",
         cls=cls,
-    )
-
-
-def _avatar_dropdown(current_user: str, active_page: str) -> Div:
-    """Profile avatar with click-toggle dropdown showing profile + activity domain links.
-
-    Click on avatar opens/closes the dropdown. Profile link is the first item.
-    Uses Alpine.js x-data/x-show pattern (same as mobile menu) for reliable show/hide.
-    """
-    trigger = Button(
-        Span("Open user menu", cls="sr-only"),
-        _avatar_circle(current_user),
-        type="button",
-        cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
-        **{
-            "@click": "avatarOpen = !avatarOpen",
-            "aria-haspopup": "true",
-            ":aria-expanded": "avatarOpen.toString()",
-        },
-    )
-
-    item_cls = (
-        "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md"
-    )
-    close = {"@click": "avatarOpen = false"}
-
-    profile_item = A(
-        UkIcon("user", cls="size-4", aria_hidden="true"),
-        Span("Profile"),
-        href="/profile",
-        cls=item_cls,
-        **close,
-    )
-
-    # Activity domain links
-    activity_links = [
-        A(
-            UkIcon(icon, cls="size-4", aria_hidden="true"),
-            Span(label),
-            href=href,
-            cls=item_cls,
-            **close,
-        )
-        for label, href, icon in [
-            ("Tasks", "/tasks", "check-square"),
-            ("Goals", "/goals", "target"),
-            ("Habits", "/habits", "repeat"),
-            ("Events", "/events", "calendar"),
-            ("Choices", "/choices", "git-branch"),
-            ("Principles", "/principles", "compass"),
-        ]
-    ]
-
-    logout_item = A(
-        UkIcon("log-out", cls="size-4", aria_hidden="true"),
-        Span("Sign out"),
-        href="/logout",
-        cls=item_cls,
-        **close,
-    )
-
-    dropdown_menu = Div(
-        profile_item,
-        Div(cls="my-1 border-t border-border"),
-        *activity_links,
-        Div(cls="my-1 border-t border-border"),
-        logout_item,
-        cls="absolute left-0 top-full mt-1 w-48 bg-background border border-border rounded-lg shadow-lg py-1 z-50",
-        role="menu",
-        **{
-            "x-show": "avatarOpen",
-            "x-transition": "",
-            "@click.outside": "avatarOpen = false",
-            "x-cloak": "",
-        },
-    )
-
-    return Div(
-        trigger,
-        dropdown_menu,
-        cls="relative",
-        **{"x-data": "{ avatarOpen: false }"},
     )
 
 
@@ -486,18 +414,14 @@ def create_navbar(
         **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
     )
 
-    # Left section: avatar (non-admin authenticated users)
-    left_avatar: Any = None
-    if is_authenticated and current_user and not is_admin:
-        left_avatar = _avatar_dropdown(current_user, active_page)
-
-    # Right section: search + notifications (or admin profile / auth buttons)
+    # Right section: search + notifications + sign-out (or admin profile / auth buttons)
     if is_authenticated and current_user and is_admin:
         right_section: Any = _admin_profile_section(current_user)
     elif is_authenticated:
         right_section = Div(
             _search_button(active_page),
             _notification_button(unread_insights),
+            _signout_button(),
             cls="flex items-center gap-2",
         )
     else:
@@ -515,8 +439,6 @@ def create_navbar(
         )
     if hub_link is not None:
         left_col.append(hub_link)
-    if left_avatar is not None:
-        left_col.append(left_avatar)
     left_col.extend(icon_links)
 
     return Nav(
