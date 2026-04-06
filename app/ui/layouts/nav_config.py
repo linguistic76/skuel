@@ -128,22 +128,6 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         has_dropdown=False,
         icon="book-open",
     ),
-    IconNavItem(
-        "Submissions",
-        "",
-        "/submissions",
-        "submissions",
-        has_dropdown=False,
-        icon="file-up",
-    ),
-    IconNavItem(
-        "GradeBook",
-        "",
-        "/gradebook",
-        "gradebook",
-        has_dropdown=False,
-        icon="clipboard-check",
-    ),
 )
 
 

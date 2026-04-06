@@ -11,7 +11,7 @@ from fasthtml.common import Div
 from ui.patterns.hub import HubBlockData, HubDomainBlockList
 from ui.patterns.page_header import PageHeader
 
-_SUBMISSIONS_BLOCKS: list[HubBlockData] = [
+SUBMISSIONS_BLOCKS: list[HubBlockData] = [
     HubBlockData(
         "Upload Activity Data",
         "upload",
@@ -46,5 +46,5 @@ def SubmissionsHub() -> Div:
             "Submissions",
             subtitle="Upload activity data, submit exercises, and track your submissions",
         ),
-        HubDomainBlockList(_SUBMISSIONS_BLOCKS),
+        HubDomainBlockList(SUBMISSIONS_BLOCKS),
     )

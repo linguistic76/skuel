@@ -1,13 +1,16 @@
-"""Home hub page — post-login landing with cards linking to the 6 main sections.
+"""Home hub page — post-login landing with Submissions, GradeBook, and navigational cards.
 
-Uses HubContainerGrid (navigational cards, no HTMX previews) for a 3x2 grid
-linking to Tasks +, Explore, Library, Submissions, GradeBook, and Settings.
+Inlines Submissions and GradeBook HTMX preview blocks at the top,
+followed by a 2x2 card grid linking to Tasks+, Explore, Library, and Settings.
 """
 
 from fasthtml.common import Div
 
-from ui.patterns.hub import HubCardData, HubContainerGrid
+from ui.gradebook.hub import GRADEBOOK_BLOCKS
+from ui.patterns.hub import HubCardData, HubContainerGrid, HubDomainBlockList
 from ui.patterns.page_header import PageHeader
+from ui.patterns.section_header import SectionHeader
+from ui.workbench.hub import SUBMISSIONS_BLOCKS
 
 _HOME_CARDS: list[HubCardData] = [
     HubCardData(
@@ -29,18 +32,6 @@ _HOME_CARDS: list[HubCardData] = [
         description="Browse exercises, resources, and curriculum",
     ),
     HubCardData(
-        icon="\U0001f4e4",
-        name="Submissions",
-        href="/submissions",
-        description="Upload data, submit exercises, track history",
-    ),
-    HubCardData(
-        icon="\U0001f4cb",
-        name="GradeBook",
-        href="/gradebook",
-        description="Track submissions and feedback",
-    ),
-    HubCardData(
         icon="\u2699\ufe0f",
         name="Settings",
         href="/settings",
@@ -50,8 +41,18 @@ _HOME_CARDS: list[HubCardData] = [
 
 
 def HomeHub() -> Div:
-    """Home hub — 6 navigational cards in a 3x2 grid."""
+    """Home hub — Submissions + GradeBook previews, then 4 navigational cards."""
     return Div(
         PageHeader("Home", subtitle="Welcome to SKUEL"),
-        HubContainerGrid(_HOME_CARDS, cols=3),
+        Div(
+            SectionHeader("Submissions"),
+            HubDomainBlockList(SUBMISSIONS_BLOCKS),
+            cls="mb-8",
+        ),
+        Div(
+            SectionHeader("GradeBook"),
+            HubDomainBlockList(GRADEBOOK_BLOCKS),
+            cls="mb-8",
+        ),
+        HubContainerGrid(_HOME_CARDS, cols=2),
     )
