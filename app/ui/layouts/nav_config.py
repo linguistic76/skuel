@@ -93,6 +93,15 @@ STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
 # requires_auth=True  → visible only when authenticated (ContentScope.USER_OWNED pages)
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
     IconNavItem(
+        "Hub",
+        "",
+        "/home",
+        "home",
+        requires_auth=True,
+        has_dropdown=False,
+        icon="home",
+    ),
+    IconNavItem(
         "Explore",
         "",
         "/explore",

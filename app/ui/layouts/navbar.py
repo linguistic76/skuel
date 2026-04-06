@@ -292,10 +292,20 @@ def _avatar_dropdown(current_user: str, active_page: str) -> Div:
         ]
     ]
 
+    logout_item = A(
+        UkIcon("log-out", cls="size-4", aria_hidden="true"),
+        Span("Sign out"),
+        href="/logout",
+        cls=item_cls,
+        **close,
+    )
+
     dropdown_menu = Div(
         profile_item,
         Div(cls="my-1 border-t border-border"),
         *activity_links,
+        Div(cls="my-1 border-t border-border"),
+        logout_item,
         cls="absolute left-0 top-full mt-1 w-48 bg-background border border-border rounded-lg shadow-lg py-1 z-50",
         role="menu",
         **{
@@ -508,6 +518,15 @@ def create_navbar(
                         mobile=True,
                     )
                 )
+        if is_authenticated:
+            mobile_icon_links.append(
+                A(
+                    UkIcon("log-out", cls="size-4", aria_hidden="true"),
+                    Span("Sign out"),
+                    href="/logout",
+                    cls="flex items-center gap-2 rounded-md px-3 py-2 text-base font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                )
+            )
     mobile_links = Div(
         Div(
             *mobile_icon_links,
@@ -532,7 +551,6 @@ def create_navbar(
         right_section = Div(
             _search_button(active_page),
             _notification_button(unread_insights),
-            _hub_dropdown(),
             cls="flex items-center gap-2",
         )
     else:
