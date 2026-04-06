@@ -20,7 +20,7 @@ __version__ = "1.0"
 from datetime import date, timedelta
 from typing import Any
 
-from fasthtml.common import H2, H3, H4, Div, Form, Option, P, Span
+from fasthtml.common import H3, H4, Div, Form, Option, P, Span
 
 from core.models.event.calendar_models import (
     CalendarData,
@@ -29,7 +29,7 @@ from core.models.event.calendar_models import (
     CalendarOccurrence,
 )
 from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card
+from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
@@ -673,15 +673,16 @@ def error_response(error_message: Any) -> Div:
     """
     return Div(
         Card(
-            H2("Error", cls="text-xl font-bold text-error mb-2"),
-            P(str(error_message), cls="text-muted-foreground"),
-            Button(
-                "Go Back",
-                variant=ButtonT.primary,
-                cls="mt-4",
-                onclick="window.history.back()",
+            CardHeader(CardTitle("Error", cls="text-error")),
+            CardBody(
+                P(str(error_message), cls="text-muted-foreground"),
+                Button(
+                    "Go Back",
+                    variant=ButtonT.primary,
+                    cls="mt-4",
+                    onclick="window.history.back()",
+                ),
             ),
-            cls="bg-background shadow-md p-6",
         ),
         cls="container max-w-md mx-auto mt-8",
     )

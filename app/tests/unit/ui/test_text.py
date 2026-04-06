@@ -2,13 +2,12 @@
 Tests for UI Typography Components
 ====================================
 
-Verifies tag types and Tailwind classes for all 8 typography helpers.
+Verifies tag types and Tailwind classes for all 7 typography helpers.
 """
 
 from ui.text import (
     BodyText,
     Caption,
-    CardTitle,
     PageTitle,
     SectionTitle,
     SmallText,
@@ -41,19 +40,6 @@ class TestSectionTitle:
         result = SectionTitle("My Section")
         assert "text-2xl" in str(result)
         assert "My Section" in str(result)
-
-
-class TestCardTitle:
-    def test_default_truncate(self) -> None:
-        result = CardTitle("Card Header")
-        rendered = str(result)
-        assert "text-lg" in rendered
-        assert "truncate-1" in rendered
-
-    def test_no_truncate(self) -> None:
-        result = CardTitle("Full Title", truncate=False)
-        rendered = str(result)
-        assert "truncate-1" not in rendered
 
 
 class TestSubtitle:

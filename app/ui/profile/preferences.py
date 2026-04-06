@@ -11,10 +11,10 @@ Date: 2025-10-14
 
 from typing import Any
 
-from fasthtml.common import H2, Div, Form, Option, P, Span
+from fasthtml.common import Div, Form, Option, P, Span
 
 from ui.buttons import Button, ButtonT
-from ui.cards import Card
+from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT
 from ui.forms import Checkbox, Label, LabelInput, LabelSelect
 from ui.patterns.page_header import PageHeader
@@ -43,33 +43,35 @@ class UserPreferencesComponents:
             PageHeader("User Settings & Preferences", subtitle="Customize your SKUEL experience"),
             # Learning Preferences Section
             Card(
-                H2("🎓 Learning Preferences", cls="text-2xl font-semibold mb-4"),
-                UserPreferencesComponents._render_learning_prefs_form(user_preferences),
-                cls="bg-background shadow-sm p-6 mb-6",
+                CardHeader(CardTitle("🎓 Learning Preferences")),
+                CardBody(UserPreferencesComponents._render_learning_prefs_form(user_preferences)),
+                cls="mb-6",
             ),
             # Scheduling Preferences Section
             Card(
-                H2("📅 Scheduling & Time", cls="text-2xl font-semibold mb-4"),
-                UserPreferencesComponents._render_scheduling_prefs_form(user_preferences),
-                cls="bg-background shadow-sm p-6 mb-6",
+                CardHeader(CardTitle("📅 Scheduling & Time")),
+                CardBody(UserPreferencesComponents._render_scheduling_prefs_form(user_preferences)),
+                cls="mb-6",
             ),
             # Notification Preferences Section
             Card(
-                H2("🔔 Notifications", cls="text-2xl font-semibold mb-4"),
-                UserPreferencesComponents._render_notification_prefs_form(user_preferences),
-                cls="bg-background shadow-sm p-6 mb-6",
+                CardHeader(CardTitle("🔔 Notifications")),
+                CardBody(
+                    UserPreferencesComponents._render_notification_prefs_form(user_preferences)
+                ),
+                cls="mb-6",
             ),
             # Display Preferences Section
             Card(
-                H2("🎨 Display & Appearance", cls="text-2xl font-semibold mb-4"),
-                UserPreferencesComponents._render_display_prefs_form(user_preferences),
-                cls="bg-background shadow-sm p-6 mb-6",
+                CardHeader(CardTitle("🎨 Display & Appearance")),
+                CardBody(UserPreferencesComponents._render_display_prefs_form(user_preferences)),
+                cls="mb-6",
             ),
             # Goal Preferences Section
             Card(
-                H2("🎯 Goals & Targets", cls="text-2xl font-semibold mb-4"),
-                UserPreferencesComponents._render_goal_prefs_form(user_preferences),
-                cls="bg-background shadow-sm p-6 mb-6",
+                CardHeader(CardTitle("🎯 Goals & Targets")),
+                CardBody(UserPreferencesComponents._render_goal_prefs_form(user_preferences)),
+                cls="mb-6",
             ),
             # Save button
             Div(

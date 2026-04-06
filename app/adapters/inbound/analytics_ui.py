@@ -13,7 +13,6 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
-    H2,
     H3,
     H4,
     Div,
@@ -33,7 +32,7 @@ from core.models.enums import AnalyticsDomain
 from core.models.enums.principle_enums import AlignmentLevel
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonT
-from ui.cards import Card
+from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT
 from ui.forms import Input, Select
@@ -68,59 +67,61 @@ class AnalyticsUIComponents:
             ),
             # Analytics generator form
             Card(
-                H3("Generate Analytics", cls="text-lg font-semibold mb-4"),
-                Form(
-                    # Domain selection
-                    Div(
-                        Label("Domain", cls="label"),
-                        Select(
-                            Option("Tasks", value="tasks"),
-                            Option("Habits", value="habits"),
-                            Option("Goals", value="goals"),
-                            Option("Events", value="events"),
-                            Option("Finance", value="finance"),
-                            Option("Choices", value="choices"),
-                            name="analytics_domain",
-                            id="analytics-domain-select",
+                CardHeader(CardTitle("Generate Analytics")),
+                CardBody(
+                    Form(
+                        # Domain selection
+                        Div(
+                            Label("Domain", cls="label"),
+                            Select(
+                                Option("Tasks", value="tasks"),
+                                Option("Habits", value="habits"),
+                                Option("Goals", value="goals"),
+                                Option("Events", value="events"),
+                                Option("Finance", value="finance"),
+                                Option("Choices", value="choices"),
+                                name="analytics_domain",
+                                id="analytics-domain-select",
+                            ),
+                            cls="mb-4",
                         ),
-                        cls="mb-4",
-                    ),
-                    # Period selection
-                    Div(
-                        Label("Period", cls="label"),
-                        Select(
-                            Option("This Week", value="week_current"),
-                            Option("Last Week", value="week_last"),
-                            Option("This Month", value="month_current"),
-                            Option("Last Month", value="month_last"),
-                            Option("This Year", value="year_current"),
-                            Option("Custom Range", value="custom"),
-                            name="period",
-                            id="period-select",
-                            **{
-                                "hx-get": "/ui/analytics/period-fields",
-                                "hx-target": "#period-fields",
-                                "hx-trigger": "change",
-                            },
+                        # Period selection
+                        Div(
+                            Label("Period", cls="label"),
+                            Select(
+                                Option("This Week", value="week_current"),
+                                Option("Last Week", value="week_last"),
+                                Option("This Month", value="month_current"),
+                                Option("Last Month", value="month_last"),
+                                Option("This Year", value="year_current"),
+                                Option("Custom Range", value="custom"),
+                                name="period",
+                                id="period-select",
+                                **{
+                                    "hx-get": "/ui/analytics/period-fields",
+                                    "hx-target": "#period-fields",
+                                    "hx-trigger": "change",
+                                },
+                            ),
+                            cls="mb-4",
                         ),
-                        cls="mb-4",
-                    ),
-                    # Dynamic period fields (for custom range)
-                    Div(id="period-fields"),
-                    # Submit button
-                    Div(
-                        Button(
-                            "Generate Analytics",
-                            type="button",
-                            hx_get="/ui/analytics/view",
-                            hx_include="[name='analytics_domain'],[name='period'],[name='start_date'],[name='end_date']",
-                            hx_target="#analytics-display",
-                            variant=ButtonT.primary,
+                        # Dynamic period fields (for custom range)
+                        Div(id="period-fields"),
+                        # Submit button
+                        Div(
+                            Button(
+                                "Generate Analytics",
+                                type="button",
+                                hx_get="/ui/analytics/view",
+                                hx_include="[name='analytics_domain'],[name='period'],[name='start_date'],[name='end_date']",
+                                hx_target="#analytics-display",
+                                variant=ButtonT.primary,
+                            ),
+                            cls="mb-4",
                         ),
-                        cls="mb-4",
-                    ),
+                    )
                 ),
-                cls="bg-background shadow-sm p-6 mb-6",
+                cls="mb-6",
             ),
             # Analytics display area
             Div(id="analytics-display", cls="mt-6"),
@@ -151,12 +152,14 @@ class AnalyticsUIComponents:
         return Div(
             # Analytics header
             Card(
-                H2(report.title, cls="text-xl font-bold mb-2"),
-                P(
-                    f"{report.format_period()} • Generated {report.generated_at.strftime('%Y-%m-%d %H:%M')}",
-                    cls="text-muted-foreground text-sm",
+                CardHeader(CardTitle(report.title)),
+                CardBody(
+                    P(
+                        f"{report.format_period()} • Generated {report.generated_at.strftime('%Y-%m-%d %H:%M')}",
+                        cls="text-muted-foreground text-sm",
+                    ),
                 ),
-                cls="bg-background shadow-sm p-6 mb-4",
+                cls="mb-4",
             ),
             # Metrics cards
             AnalyticsUIComponents.render_metrics_cards(report),
@@ -419,49 +422,58 @@ class AnalyticsUIComponents:
             StatCard(label="Alignment Score", value=f"{score_percentage}%", color=score_color),
             # Knowledge Breakdown
             Card(
-                H2("Knowledge Embodiment", cls="text-xl font-semibold mb-4"),
-                StatsGrid(
-                    [
-                        StatItem(label="Total Knowledge", value=str(knowledge_count)),
-                        StatItem(label="Embodied (0.8+)", value=str(embodied)),
-                        StatItem(label="Theoretical (<0.5)", value=str(theoretical)),
-                    ],
-                    cols=3,
+                CardHeader(CardTitle("Knowledge Embodiment")),
+                CardBody(
+                    StatsGrid(
+                        [
+                            StatItem(label="Total Knowledge", value=str(knowledge_count)),
+                            StatItem(label="Embodied (0.8+)", value=str(embodied)),
+                            StatItem(label="Theoretical (<0.5)", value=str(theoretical)),
+                        ],
+                        cols=3,
+                    ),
                 ),
-                cls="bg-background shadow-sm mb-6 p-6",
+                cls="mb-6",
             ),
             # Domain Contributions
             Card(
-                H2("Domain Contributions to Life Path", cls="text-xl font-semibold mb-4"),
-                Div(
-                    *[
-                        AnalyticsUIComponents._render_domain_contribution_bar(domain, contribution)
-                        for domain, contribution in domain_contributions.items()
-                    ],
-                    cls="space-y-3",
-                )
-                if domain_contributions
-                else EmptyState(title="No domain activity detected"),
-                cls="bg-background shadow-sm mb-6 p-6",
+                CardHeader(CardTitle("Domain Contributions to Life Path")),
+                CardBody(
+                    Div(
+                        *[
+                            AnalyticsUIComponents._render_domain_contribution_bar(
+                                domain, contribution
+                            )
+                            for domain, contribution in domain_contributions.items()
+                        ],
+                        cls="space-y-3",
+                    )
+                    if domain_contributions
+                    else EmptyState(title="No domain activity detected"),
+                ),
+                cls="mb-6",
             ),
             # Gaps
             Card(
-                H2("Knowledge Gaps", cls="text-xl font-semibold mb-4"),
-                Div(
-                    *[AnalyticsUIComponents._render_gap_item(gap) for gap in gaps[:5]],
-                    cls="space-y-2",
-                )
-                if gaps
-                else P("No gaps detected - excellent embodiment!", cls="text-success"),
-                cls="bg-background shadow-sm mb-6 p-6",
+                CardHeader(CardTitle("Knowledge Gaps")),
+                CardBody(
+                    Div(
+                        *[AnalyticsUIComponents._render_gap_item(gap) for gap in gaps[:5]],
+                        cls="space-y-2",
+                    )
+                    if gaps
+                    else P("No gaps detected - excellent embodiment!", cls="text-success"),
+                ),
+                cls="mb-6",
             ),
             # Recommendations
             Card(
-                H2("Recommendations", cls="text-xl font-semibold mb-4"),
-                Div(*[P(f"• {rec}", cls="mb-2") for rec in recommendations], cls="space-y-1")
-                if recommendations
-                else P("Keep up the great work!", cls="text-success"),
-                cls="bg-background shadow-sm p-6",
+                CardHeader(CardTitle("Recommendations")),
+                CardBody(
+                    Div(*[P(f"• {rec}", cls="mb-2") for rec in recommendations], cls="space-y-1")
+                    if recommendations
+                    else P("Keep up the great work!", cls="text-success"),
+                ),
             ),
             cls="max-w-4xl mx-auto p-6",
         )
@@ -562,16 +574,18 @@ class AnalyticsUIComponents:
         in_progress_steps = curriculum_progress.get("in_progress_path_steps", 0)
 
         return Card(
-            H2("Layer 0: Knowledge & Learning", cls="text-xl font-semibold mb-4"),
-            StatsGrid(
-                [
-                    StatItem(label="Avg Substance", value=f"{int(avg_substance * 100)}%"),
-                    StatItem(label="Embodied", value=str(embodied)),
-                    StatItem(label="Active Paths", value=str(active_paths)),
-                    StatItem(label="In-Progress Steps", value=str(in_progress_steps)),
-                ]
+            CardHeader(CardTitle("Layer 0: Knowledge & Learning")),
+            CardBody(
+                StatsGrid(
+                    [
+                        StatItem(label="Avg Substance", value=f"{int(avg_substance * 100)}%"),
+                        StatItem(label="Embodied", value=str(embodied)),
+                        StatItem(label="Active Paths", value=str(active_paths)),
+                        StatItem(label="In-Progress Steps", value=str(in_progress_steps)),
+                    ]
+                ),
             ),
-            cls="bg-background shadow-sm mb-6 p-6",
+            cls="mb-6",
         )
 
     @staticmethod
@@ -586,21 +600,26 @@ class AnalyticsUIComponents:
         top_themes = layer2_data.get("top_themes", [])
 
         return Card(
-            H2("Layer 2: Reflection & Journals", cls="text-xl font-semibold mb-4"),
-            StatsGrid(
-                [
-                    StatItem(label="Entries", value=str(entry_count)),
-                    StatItem(label="Frequency", value=f"{reflection_frequency:.1f}/day"),
-                    StatItem(label="Metacognition", value=f"{int(metacognition_score * 100)}%"),
-                ],
-                cols=3,
-                cls="mb-4",
+            CardHeader(CardTitle("Layer 2: Reflection & Journals")),
+            CardBody(
+                StatsGrid(
+                    [
+                        StatItem(label="Entries", value=str(entry_count)),
+                        StatItem(label="Frequency", value=f"{reflection_frequency:.1f}/day"),
+                        StatItem(label="Metacognition", value=f"{int(metacognition_score * 100)}%"),
+                    ],
+                    cols=3,
+                    cls="mb-4",
+                ),
+                Div(
+                    P("Top Themes:", cls="font-medium mb-2"),
+                    P(
+                        ", ".join(top_themes[:3]) if top_themes else "None",
+                        cls="text-muted-foreground",
+                    ),
+                ),
             ),
-            Div(
-                P("Top Themes:", cls="font-medium mb-2"),
-                P(", ".join(top_themes[:3]) if top_themes else "None", cls="text-muted-foreground"),
-            ),
-            cls="bg-background shadow-sm mb-6 p-6",
+            cls="mb-6",
         )
 
     @staticmethod
@@ -614,30 +633,32 @@ class AnalyticsUIComponents:
         learning_doing = insights.get("learning_doing_alignment", {})
 
         return Card(
-            H2("Cross-Layer Insights", cls="text-xl font-semibold mb-4"),
-            P(
-                "Synthesis across all architectural layers:",
-                cls="text-sm text-muted-foreground mb-4",
-            ),
-            # Knowledge-Activity Correlation
-            Div(
-                H3("Knowledge → Activity", cls="font-semibold mb-2"),
+            CardHeader(CardTitle("Cross-Layer Insights")),
+            CardBody(
                 P(
-                    knowledge_correlation.get("insight", ""),
+                    "Synthesis across all architectural layers:",
                     cls="text-sm text-muted-foreground mb-4",
                 ),
+                # Knowledge-Activity Correlation
+                Div(
+                    H3("Knowledge → Activity", cls="font-semibold mb-2"),
+                    P(
+                        knowledge_correlation.get("insight", ""),
+                        cls="text-sm text-muted-foreground mb-4",
+                    ),
+                ),
+                # Journal Impact
+                Div(
+                    H3("Reflection Impact", cls="font-semibold mb-2"),
+                    P(journal_impact.get("insight", ""), cls="text-sm text-muted-foreground mb-4"),
+                ),
+                # Learning-Doing Alignment
+                Div(
+                    H3("Learning ↔ Doing", cls="font-semibold mb-2"),
+                    P(learning_doing.get("insight", ""), cls="text-sm text-muted-foreground"),
+                ),
             ),
-            # Journal Impact
-            Div(
-                H3("Reflection Impact", cls="font-semibold mb-2"),
-                P(journal_impact.get("insight", ""), cls="text-sm text-muted-foreground mb-4"),
-            ),
-            # Learning-Doing Alignment
-            Div(
-                H3("Learning ↔ Doing", cls="font-semibold mb-2"),
-                P(learning_doing.get("insight", ""), cls="text-sm text-muted-foreground"),
-            ),
-            cls="bg-secondary/10 mb-6 p-6",
+            cls="mb-6",
         )
 
 

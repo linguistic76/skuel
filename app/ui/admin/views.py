@@ -19,12 +19,12 @@ Usage:
 
 from typing import Any, ClassVar
 
-from fasthtml.common import H2, A, Div, Form, Option, P, Span, Td
+from fasthtml.common import A, Div, Form, Option, P, Span, Td
 
 from core.models.type_hints import UserUID
 from ui.admin.types import UserCardData
 from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card
+from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select
@@ -598,15 +598,15 @@ class AdminAnalyticsComponents:
         return Div(
             # User distribution section
             Card(
-                H2("User Distribution", cls="text-xl font-semibold mb-4"),
-                AdminAnalyticsComponents.render_user_distribution(user_stats),
-                cls="bg-background shadow-sm p-6 mb-6",
+                CardHeader(CardTitle("User Distribution")),
+                CardBody(AdminAnalyticsComponents.render_user_distribution(user_stats)),
+                cls="mb-6",
             ),
             # Activity stats section
             Card(
-                H2("Activity Statistics (30 days)", cls="text-xl font-semibold mb-4"),
-                AdminAnalyticsComponents.render_activity_stats(activity_stats),
-                cls="bg-background shadow-sm p-6 mb-6",
+                CardHeader(CardTitle("Activity Statistics (30 days)")),
+                CardBody(AdminAnalyticsComponents.render_activity_stats(activity_stats)),
+                cls="mb-6",
             ),
         )
 
@@ -724,15 +724,15 @@ class AdminSystemComponents:
         return Div(
             # Overall status
             Card(
-                H2("System Status", cls="text-xl font-semibold mb-4"),
-                AdminSystemComponents.render_overall_status(overall_status),
-                cls="bg-background shadow-sm p-6 mb-6",
+                CardHeader(CardTitle("System Status")),
+                CardBody(AdminSystemComponents.render_overall_status(overall_status)),
+                cls="mb-6",
             ),
             # Component status
             Card(
-                H2("Component Health", cls="text-xl font-semibold mb-4"),
-                AdminSystemComponents.render_components_grid(components),
-                cls="bg-background shadow-sm p-6 mb-6",
+                CardHeader(CardTitle("Component Health")),
+                CardBody(AdminSystemComponents.render_components_grid(components)),
+                cls="mb-6",
             ),
         )
 

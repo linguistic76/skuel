@@ -181,27 +181,28 @@ Generic card container. `CardT` is re-exported directly from MonsterUI — use M
 
 **Examples:**
 ```python
-from ui.cards import Card, CardBody, CardT
-from ui.text import CardTitle
+from ui.cards import Card, CardBody, CardHeader, CardTitle, CardT
 from fasthtml.common import P
 
-# Default card
-Card(CardBody(
-    CardTitle("Task Details"),
-    P("Complete the quarterly report by Friday"),
-))
+# Default card with semantic header
+Card(
+    CardHeader(CardTitle("Task Details")),
+    CardBody(P("Complete the quarterly report by Friday")),
+)
 
 # Primary emphasis card
-Card(CardBody(
-    CardTitle("Important"),
-    P("Highlighted content"),
-), variant=CardT.primary)
+Card(
+    CardHeader(CardTitle("Important")),
+    CardBody(P("Highlighted content")),
+    variant=CardT.primary,
+)
 
 # Interactive hover card
-Card(CardBody(
-    H2("Statistics"),
-    P("Total: 42"),
-), variant=CardT.hover)
+Card(
+    CardHeader(CardTitle("Statistics")),
+    CardBody(P("Total: 42")),
+    variant=CardT.hover,
+)
 ```
 
 ---
@@ -460,16 +461,7 @@ Text truncated to specified number of lines.
 
 **Examples:**
 ```python
-from ui.text import CardTitle, SmallText, TruncatedText
-
-# Card title
-CardTitle("Complete Quarterly Report")
-
-# Truncated title
-CardTitle(
-    "Very long title that might overflow the container",
-    truncate=True,
-)
+from ui.text import SmallText, TruncatedText
 
 # Small metadata text
 SmallText("Due: Dec 15, 2024")

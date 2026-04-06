@@ -642,9 +642,9 @@ DivCentered(
 ```python
 # Responsive grid (1 col mobile, 2 on sm, 3 on md+)
 Grid(
-    Card(CardBody(H3("Card 1"))),
-    Card(CardBody(H3("Card 2"))),
-    Card(CardBody(H3("Card 3"))),
+    Card(CardHeader(CardTitle("Card 1")), CardBody(P("Content"))),
+    Card(CardHeader(CardTitle("Card 2")), CardBody(P("Content"))),
+    Card(CardHeader(CardTitle("Card 3")), CardBody(P("Content"))),
     cols=3,
     gap=4
 )
@@ -925,7 +925,30 @@ PageHeader("Pathways Dashboard", subtitle="Track your learning journey")
 PageHeader("Invoices", actions=Span(f"{count} total", cls="text-sm text-muted-foreground"))
 ```
 
-**Skip PageHeader for:** error page headings inside Cards, modal titles, sub-section headings within cards (e.g. `H2("Learning Overview")` inside a `Card()`), and genuinely custom layouts with badges/progress indicators below the title.
+**Skip PageHeader for:** error page headings inside Cards (use `CardHeader(CardTitle(...))`), modal titles, sub-section headings within CardBody, and genuinely custom layouts with badges/progress indicators below the title.
+
+### Use Semantic Card Structure — Never Raw H2/H3 Inside Card()
+
+Card titles must use `CardHeader(CardTitle(...))` — never raw `H2()` or `H3()` directly inside `Card()`:
+
+```python
+# CORRECT — semantic MonsterUI structure
+Card(
+    CardHeader(CardTitle("Learning Overview")),
+    CardBody(content),
+)
+
+# WRONG — bypasses MonsterUI's uk-card-header/uk-card-title styling
+Card(
+    H2("Learning Overview", cls="text-xl font-semibold mb-4"),
+    content,
+    cls="bg-background shadow-sm p-6",
+)
+```
+
+Import from `ui.cards`: `Card, CardBody, CardHeader, CardTitle`. The `CardTitle` in `ui.cards` wraps MonsterUI's `MCardTitle` (semantic). The `p-6` and `bg-background shadow-sm` classes are provided automatically by MonsterUI's `uk-card-body` and `uk-card` — only add external layout classes like `mb-6` to `Card()`.
+
+**Adoption status:** All card titles across ~12 files use semantic `CardHeader(CardTitle(...))`. Zero raw H2/H3 inside Card.
 
 ### Don't Use Raw `A()` for Action CTAs
 

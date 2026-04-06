@@ -261,12 +261,13 @@ DivFullySpaced(
 ### Typography (`ui/text.py`)
 
 ```python
-from ui.text import PageTitle, SectionTitle, CardTitle, Subtitle
+from ui.text import PageTitle, SectionTitle, Subtitle
 from ui.text import BodyText, SmallText, Caption, TruncatedText
+from ui.cards import CardHeader, CardTitle  # semantic card title
 
 PageTitle("Dashboard", subtitle="Welcome back, Mike")   # h1 + optional subtitle
 SectionTitle("Active Goals")                             # h2
-CardTitle("Morning Routine", truncate=True)              # h3, truncates by default
+CardTitle("Morning Routine")                             # MonsterUI semantic card title
 Subtitle("Weekly Summary")                               # h4
 
 BodyText("Task details go here")                         # <p>

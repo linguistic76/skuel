@@ -16,7 +16,7 @@ Type Scale:
 
 from typing import Any
 
-from fasthtml.common import H1, H2, H3, H4, Div, P, Span
+from fasthtml.common import H1, H2, H4, Div, P, Span
 
 
 def PageTitle(text: str, subtitle: str | None = None, **kwargs: Any) -> Div:
@@ -47,21 +47,6 @@ def SectionTitle(text: str, **kwargs: Any) -> H2:
         An H2 element with section styling
     """
     return H2(text, cls="text-2xl font-semibold tracking-tight text-foreground mb-6", **kwargs)
-
-
-def CardTitle(text: str, truncate: bool = True, **kwargs: Any) -> H3:
-    """Card title (h3) with optional truncation.
-
-    Args:
-        text: The card title text
-        truncate: Whether to truncate text that overflows (default: True)
-        **kwargs: Additional attributes passed to the H3 element
-
-    Returns:
-        An H3 element with card title styling
-    """
-    truncate_cls = "truncate-1" if truncate else ""
-    return H3(text, cls=f"text-lg font-semibold text-foreground {truncate_cls}".strip(), **kwargs)
 
 
 def Subtitle(text: str, **kwargs: Any) -> H4:

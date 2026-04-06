@@ -18,7 +18,7 @@ Date: 2026-01-21
 
 from typing import Any
 
-from fasthtml.common import H1, H2, Div, P, Pre
+from fasthtml.common import H1, Div, P, Pre
 
 from adapters.inbound.auth import (
     get_current_user,
@@ -29,7 +29,7 @@ from adapters.inbound.auth import (
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card, CardBody
+from ui.cards import Card, CardBody, CardHeader, CardTitle
 
 logger = get_logger("skuel.routes.auth_api")
 
@@ -96,8 +96,8 @@ def create_auth_api_routes(
         return Div(
             H1("Current User (Admin)", cls="text-3xl font-bold mb-6"),
             Card(
+                CardHeader(CardTitle("Session Information")),
                 CardBody(
-                    H2("Session Information", cls="text-xl font-semibold mb-4"),
                     Div(
                         P("User UID:", cls="font-medium"),
                         P(user_uid or "None", cls="text-muted-foreground font-mono"),

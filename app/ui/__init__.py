@@ -1,8 +1,7 @@
 """SKUEL UI Design System — MonsterUI + Typography-First Architecture."""
 
 from ui.buttons import Button, ButtonLink, ButtonT, IconButton
-from ui.cards import Card, CardActions, CardBody, CardFigure, CardLink, CardT
-from ui.cards import CardTitle as DaisyCardTitle
+from ui.cards import Card, CardActions, CardBody, CardFigure, CardHeader, CardLink, CardT, CardTitle
 from ui.feedback import (
     Alert,
     AlertT,
@@ -35,7 +34,6 @@ from ui.patterns.section_header import SectionHeader
 from ui.text import (
     BodyText,
     Caption,
-    CardTitle,
     PageTitle,
     SectionTitle,
     SmallText,
@@ -70,8 +68,9 @@ __all__ = [
     "CardBody",
     "CardFigure",
     "CardLink",
+    "CardHeader",
     "CardT",
-    "DaisyCardTitle",
+    "CardTitle",
     # Feedback
     "Alert",
     "AlertT",
@@ -98,7 +97,6 @@ __all__ = [
     # Typography
     "BodyText",
     "Caption",
-    "CardTitle",
     "PageTitle",
     "SectionTitle",
     "SmallText",

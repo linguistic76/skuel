@@ -19,7 +19,6 @@ from typing import Any
 from fasthtml.common import (
     H1,
     H3,
-    Card,
     Div,
     Form,
     P,
@@ -33,6 +32,7 @@ from core.utils.logging import get_logger
 from routes.graphql import GraphQLContext, create_graphql_context, create_graphql_schema
 from services_bootstrap import Services
 from ui.buttons import Button, ButtonT
+from ui.cards import Card, CardBody, CardHeader, CardTitle
 
 logger = get_logger(__name__)
 
@@ -125,11 +125,16 @@ def create_graphql_routes(app: Any, rt: Any, services: Services, _sync_service: 
                     cls="mb-4",
                 ),
                 Card(
-                    H3("Result"),
-                    Div(
-                        P("Execute a query to see results here...", cls="text-muted-foreground"),
-                        id="graphql-result",
-                        cls="font-mono text-sm",
+                    CardHeader(CardTitle("Result")),
+                    CardBody(
+                        Div(
+                            P(
+                                "Execute a query to see results here...",
+                                cls="text-muted-foreground",
+                            ),
+                            id="graphql-result",
+                            cls="font-mono text-sm",
+                        ),
                     ),
                 ),
                 cls="container mx-auto p-4",

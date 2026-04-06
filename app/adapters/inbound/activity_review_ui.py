@@ -42,7 +42,7 @@ from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody
+from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Checkbox, Input, Label, LabelInput, LabelSelect, LabelTextArea
 from ui.layout import Size
@@ -223,9 +223,8 @@ def create_activity_review_ui_routes(
         content = Div(
             PageHeader("Review Queue", subtitle="Pending activity review requests from users"),
             Card(
-                H3("Pending Requests", cls="font-semibold mb-4"),
-                queue_content,
-                cls="bg-background shadow-sm p-4",
+                CardHeader(CardTitle("Pending Requests")),
+                CardBody(queue_content),
             ),
         )
 
@@ -271,48 +270,50 @@ def create_activity_review_ui_routes(
             )
 
         snapshot_form = Card(
-            H3("Load Activity Snapshot", cls="font-semibold mb-4"),
-            Form(
-                LabelInput(
-                    "User UID",
-                    type="text",
-                    name="subject_uid",
-                    value=subject_uid,
-                    placeholder="user_name",
-                    id="snapshot-subject-uid",
-                    cls="space-y-2 mb-3",
-                ),
-                LabelSelect(
-                    Option("Last 7 days", value="7d", selected=(time_period == "7d")),
-                    Option("Last 14 days", value="14d", selected=(time_period == "14d")),
-                    Option("Last 30 days", value="30d", selected=(time_period == "30d")),
-                    Option("Last 90 days", value="90d", selected=(time_period == "90d")),
-                    label="Time Period",
-                    name="time_period",
-                    id="snapshot-time-period",
-                    cls="space-y-2 mb-3",
-                ),
-                Div(
-                    Label("Domains"),
-                    Div(*domain_checkboxes, cls="flex flex-wrap gap-4 mt-1"),
-                    cls="space-y-2 mb-4",
-                ),
-                Div(
-                    Button(
-                        "Load Snapshot",
-                        type="submit",
-                        variant=ButtonT.secondary,
+            CardHeader(CardTitle("Load Activity Snapshot")),
+            CardBody(
+                Form(
+                    LabelInput(
+                        "User UID",
+                        type="text",
+                        name="subject_uid",
+                        value=subject_uid,
+                        placeholder="user_name",
+                        id="snapshot-subject-uid",
+                        cls="space-y-2 mb-3",
                     ),
-                    cls="text-right",
-                ),
-                **{
-                    "hx-get": "/activity-review/snapshot-fragment",
-                    "hx-target": "#snapshot-display",
-                    "hx-swap": "innerHTML",
-                    "hx-include": "[name='subject_uid'],[name='time_period'],[name='domains']",
-                },
+                    LabelSelect(
+                        Option("Last 7 days", value="7d", selected=(time_period == "7d")),
+                        Option("Last 14 days", value="14d", selected=(time_period == "14d")),
+                        Option("Last 30 days", value="30d", selected=(time_period == "30d")),
+                        Option("Last 90 days", value="90d", selected=(time_period == "90d")),
+                        label="Time Period",
+                        name="time_period",
+                        id="snapshot-time-period",
+                        cls="space-y-2 mb-3",
+                    ),
+                    Div(
+                        Label("Domains"),
+                        Div(*domain_checkboxes, cls="flex flex-wrap gap-4 mt-1"),
+                        cls="space-y-2 mb-4",
+                    ),
+                    Div(
+                        Button(
+                            "Load Snapshot",
+                            type="submit",
+                            variant=ButtonT.secondary,
+                        ),
+                        cls="text-right",
+                    ),
+                    **{
+                        "hx-get": "/activity-review/snapshot-fragment",
+                        "hx-target": "#snapshot-display",
+                        "hx-swap": "innerHTML",
+                        "hx-include": "[name='subject_uid'],[name='time_period'],[name='domains']",
+                    },
+                )
             ),
-            cls="bg-background shadow-sm p-4 mb-4",
+            cls="mb-4",
         )
 
         snapshot_display = Div(
@@ -324,40 +325,47 @@ def create_activity_review_ui_routes(
         )
 
         feedback_form = Card(
-            H3("Write Feedback", cls="font-semibold mb-4"),
-            Form(
-                Input(
-                    type="hidden", name="subject_uid", id="feedback-subject-uid", value=subject_uid
-                ),
-                Input(
-                    type="hidden", name="time_period", id="feedback-time-period", value=time_period
-                ),
-                LabelTextArea(
-                    "Feedback",
-                    name="feedback_text",
-                    placeholder="Write your qualitative feedback here. What patterns do you notice? What recommendations do you have?",
-                    input_cls="h-40",
-                    cls="space-y-2 mb-4",
-                ),
-                Div(
-                    Button(
-                        "Submit Feedback",
-                        type="submit",
-                        variant=ButtonT.primary,
+            CardHeader(CardTitle("Write Feedback")),
+            CardBody(
+                Form(
+                    Input(
+                        type="hidden",
+                        name="subject_uid",
+                        id="feedback-subject-uid",
+                        value=subject_uid,
                     ),
-                    cls="text-right",
+                    Input(
+                        type="hidden",
+                        name="time_period",
+                        id="feedback-time-period",
+                        value=time_period,
+                    ),
+                    LabelTextArea(
+                        "Feedback",
+                        name="feedback_text",
+                        placeholder="Write your qualitative feedback here. What patterns do you notice? What recommendations do you have?",
+                        input_cls="h-40",
+                        cls="space-y-2 mb-4",
+                    ),
+                    Div(
+                        Button(
+                            "Submit Feedback",
+                            type="submit",
+                            variant=ButtonT.primary,
+                        ),
+                        cls="text-right",
+                    ),
+                    Div(id="submit-status", cls="mt-3"),
+                    **{
+                        "hx-post": "/activity-review/submit-feedback",
+                        "hx-target": "#submit-status",
+                        "hx-swap": "innerHTML",
+                        "hx-include": "[name='subject_uid'],[name='time_period'],[name='feedback_text']",
+                    },
                 ),
-                Div(id="submit-status", cls="mt-3"),
-                **{
-                    "hx-post": "/activity-review/submit-feedback",
-                    "hx-target": "#submit-status",
-                    "hx-swap": "innerHTML",
-                    "hx-include": "[name='subject_uid'],[name='time_period'],[name='feedback_text']",
-                },
-            ),
-            # Sync hidden fields from snapshot form before posting
-            Script(
-                NotStr("""
+                # Sync hidden fields from snapshot form before posting
+                Script(
+                    NotStr("""
                 document.body.addEventListener('htmx:afterRequest', function(evt) {
                     if (evt.detail.elt.getAttribute('hx-target') === '#snapshot-display') {
                         var subjectEl = document.getElementById('snapshot-subject-uid');
@@ -369,8 +377,9 @@ def create_activity_review_ui_routes(
                     }
                 });
                 """)
+                ),
             ),
-            cls="bg-background shadow-sm p-4 mt-4",
+            cls="mt-4",
         )
 
         content = Div(

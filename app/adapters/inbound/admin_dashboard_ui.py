@@ -27,7 +27,7 @@ Date: 2025-12-07
 
 from typing import Any
 
-from fasthtml.common import H2, H3, Div, P, Span
+from fasthtml.common import Div, P, Span
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.utils.logging import get_logger
@@ -39,7 +39,7 @@ from ui.admin.views import (
     AdminUIComponents,
 )
 from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card
+from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.layout import Size
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
@@ -146,9 +146,8 @@ def create_admin_dashboard_routes(_app, rt, services):
             ),
             # System status summary
             Card(
-                H2("System Status", cls="text-xl font-semibold mb-4"),
-                system_status_content,
-                cls="bg-background shadow-sm p-6",
+                CardHeader(CardTitle("System Status")),
+                CardBody(system_status_content),
             ),
         )
 
@@ -240,24 +239,27 @@ def create_admin_dashboard_routes(_app, rt, services):
             stats_content,
             # Filters
             Card(
-                H3("Filters", cls="text-lg font-semibold mb-3"),
-                Div(
-                    AdminUIComponents.render_role_filter(role),
-                    AdminUIComponents.render_status_filter(status),
-                    cls="flex flex-wrap gap-4",
+                CardHeader(CardTitle("Filters")),
+                CardBody(
+                    Div(
+                        AdminUIComponents.render_role_filter(role),
+                        AdminUIComponents.render_status_filter(status),
+                        cls="flex flex-wrap gap-4",
+                    ),
                 ),
-                cls="bg-background shadow-sm p-4 mb-6",
+                cls="mb-6",
             ),
             # Error banner (if user list failed)
             users_error_banner,
             # User table
             Card(
-                H3("Users", cls="text-lg font-semibold mb-3"),
-                Div(
-                    AdminUIComponents.render_users_table(users_data),
-                    id="user-list",
+                CardHeader(CardTitle("Users")),
+                CardBody(
+                    Div(
+                        AdminUIComponents.render_users_table(users_data),
+                        id="user-list",
+                    ),
                 ),
-                cls="bg-background shadow-sm p-4",
             ),
         )
 
@@ -374,69 +376,76 @@ def create_admin_dashboard_routes(_app, rt, services):
             ),
             # User details card
             Card(
-                H2("User Details", cls="text-xl font-semibold mb-4"),
-                Div(
-                    _detail_row("UID", user_data.uid),
-                    _detail_row("Username", f"@{user_data.username}"),
-                    _detail_row("Email", user_data.email),
-                    _detail_row("Created", user_data.created_at or "Unknown"),
-                    _detail_row("Last Login", user_data.last_login_at),
-                    _detail_row("Verified", "Yes" if user_data.is_verified else "No"),
-                    cls="space-y-3",
+                CardHeader(CardTitle("User Details")),
+                CardBody(
+                    Div(
+                        _detail_row("UID", user_data.uid),
+                        _detail_row("Username", f"@{user_data.username}"),
+                        _detail_row("Email", user_data.email),
+                        _detail_row("Created", user_data.created_at or "Unknown"),
+                        _detail_row("Last Login", user_data.last_login_at),
+                        _detail_row("Verified", "Yes" if user_data.is_verified else "No"),
+                        cls="space-y-3",
+                    ),
                 ),
-                cls="bg-background shadow-sm p-6 mb-6",
+                cls="mb-6",
             ),
             # Activity & session stats
             Card(
-                H2("User Statistics", cls="text-xl font-semibold mb-4"),
-                render_error_banner("User statistics unavailable", severity="warning")
-                if detail_stats_error
-                else AdminUIComponents.render_user_activity_stats(detail_stats, uid),
-                cls="bg-background shadow-sm p-6 mb-6",
+                CardHeader(CardTitle("User Statistics")),
+                CardBody(
+                    render_error_banner("User statistics unavailable", severity="warning")
+                    if detail_stats_error
+                    else AdminUIComponents.render_user_activity_stats(detail_stats, uid),
+                ),
+                cls="mb-6",
             ),
             # Link to teaching view for submission/learning data
             Card(
-                H2("Student Work", cls="text-xl font-semibold mb-4"),
-                Div(
-                    P(
-                        "Submissions, reports, and learning progress are managed in the Teaching section.",
-                        cls="text-muted-foreground text-sm mb-3",
-                    ),
-                    ButtonLink(
-                        "View submissions →",
-                        href=f"/teaching/students/{uid}",
-                        variant=ButtonT.outline,
-                        size=Size.sm,
-                    ),
-                    ButtonLink(
-                        "KU progress →",
-                        href=f"/teaching/students/{uid}?tab=ku",
-                        variant=ButtonT.outline,
-                        size=Size.sm,
-                        cls="ml-2",
+                CardHeader(CardTitle("Student Work")),
+                CardBody(
+                    Div(
+                        P(
+                            "Submissions, reports, and learning progress are managed in the Teaching section.",
+                            cls="text-muted-foreground text-sm mb-3",
+                        ),
+                        ButtonLink(
+                            "View submissions →",
+                            href=f"/teaching/students/{uid}",
+                            variant=ButtonT.outline,
+                            size=Size.sm,
+                        ),
+                        ButtonLink(
+                            "KU progress →",
+                            href=f"/teaching/students/{uid}?tab=ku",
+                            variant=ButtonT.outline,
+                            size=Size.sm,
+                            cls="ml-2",
+                        ),
                     ),
                 ),
-                cls="bg-background shadow-sm p-6 mb-6",
+                cls="mb-6",
             ),
             # Role change section
             Card(
-                H2("Change Role", cls="text-xl font-semibold mb-4"),
-                AdminUIComponents.render_role_change_form(user_data),
-                cls="bg-background shadow-sm p-6 mb-6",
+                CardHeader(CardTitle("Change Role")),
+                CardBody(AdminUIComponents.render_role_change_form(user_data)),
+                cls="mb-6",
             ),
             # Actions
             Card(
-                H2("Account Actions", cls="text-xl font-semibold mb-4"),
-                Div(
-                    Button(
-                        "Deactivate Account" if user_data.is_active else "Activate Account",
-                        variant=ButtonT.error if user_data.is_active else ButtonT.success,
-                        hx_post=f"/api/admin/users/{uid}/{'deactivate' if user_data.is_active else 'activate'}",
-                        hx_confirm=f"Are you sure you want to {'deactivate' if user_data.is_active else 'activate'} this user?",
+                CardHeader(CardTitle("Account Actions")),
+                CardBody(
+                    Div(
+                        Button(
+                            "Deactivate Account" if user_data.is_active else "Activate Account",
+                            variant=ButtonT.error if user_data.is_active else ButtonT.success,
+                            hx_post=f"/api/admin/users/{uid}/{'deactivate' if user_data.is_active else 'activate'}",
+                            hx_confirm=f"Are you sure you want to {'deactivate' if user_data.is_active else 'activate'} this user?",
+                        ),
+                        cls="flex gap-4",
                     ),
-                    cls="flex gap-4",
                 ),
-                cls="bg-background shadow-sm p-6",
             ),
         )
 

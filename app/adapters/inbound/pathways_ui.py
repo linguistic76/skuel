@@ -11,7 +11,6 @@ from typing import Any
 
 from fasthtml.common import (
     H1,
-    H2,
     H3,
     H4,
     Div,
@@ -27,7 +26,7 @@ from adapters.inbound.auth import require_authenticated_user
 from core.models.pathways.pathways_request import LearningPathFilterRequest
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card
+from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.forms import LabelSelect
 from ui.layout import Size
@@ -351,76 +350,81 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
             ),
             # Learning Stats Overview
             Card(
-                H2("Learning Overview", cls="text-xl font-semibold mb-4"),
-                StatsGrid(
-                    [
-                        StatItem(
-                            label="Learning Hours",
-                            value=f"{stats.total_hours:.0f}",
-                            color="primary",
-                        ),
-                        StatItem(
-                            label="Concepts Mastered",
-                            value=str(stats.concepts_mastered),
-                            color="success",
-                        ),
-                        StatItem(
-                            label="Active Paths", value=str(len(active_paths)), color="primary"
-                        ),
-                        StatItem(
-                            label="Completion Rate",
-                            value=f"{stats.completion_rate * 100:.0f}%",
-                            color="warning",
-                        ),
-                    ],
-                    cls="mb-6",
+                CardHeader(CardTitle("Learning Overview")),
+                CardBody(
+                    StatsGrid(
+                        [
+                            StatItem(
+                                label="Learning Hours",
+                                value=f"{stats.total_hours:.0f}",
+                                color="primary",
+                            ),
+                            StatItem(
+                                label="Concepts Mastered",
+                                value=str(stats.concepts_mastered),
+                                color="success",
+                            ),
+                            StatItem(
+                                label="Active Paths", value=str(len(active_paths)), color="primary"
+                            ),
+                            StatItem(
+                                label="Completion Rate",
+                                value=f"{stats.completion_rate * 100:.0f}%",
+                                color="warning",
+                            ),
+                        ],
+                    ),
                 ),
                 cls="mb-8",
             ),
             # Active Learning Paths
             Card(
-                Div(
-                    H2("Active Learning Paths", cls="text-xl font-semibold mb-4"),
+                CardHeader(
                     Div(
-                        ButtonLink(
-                            "Browse Learning Paths",
-                            href="/pathways/browse",
-                            variant=ButtonT.primary,
-                            size=Size.sm,
+                        CardTitle("Active Learning Paths"),
+                        Div(
+                            ButtonLink(
+                                "Browse Learning Paths",
+                                href="/pathways/browse",
+                                variant=ButtonT.primary,
+                                size=Size.sm,
+                            ),
+                            ButtonLink(
+                                "Browse Learning Steps",
+                                href="/pathways/steps",
+                                variant=ButtonT.secondary,
+                                size=Size.sm,
+                            ),
+                            cls="flex flex-wrap gap-2",
                         ),
-                        ButtonLink(
-                            "Browse Learning Steps",
-                            href="/pathways/steps",
-                            variant=ButtonT.secondary,
-                            size=Size.sm,
-                        ),
-                        cls="flex flex-wrap gap-2",
+                        cls="flex justify-between items-center",
                     ),
-                    cls="flex justify-between items-center mb-4",
                 ),
-                paths_section,
+                CardBody(paths_section),
                 cls="mb-8",
             ),
             # Quick Actions
             Card(
-                H2("Quick Actions", cls="text-xl font-semibold mb-4"),
-                Div(
-                    ButtonLink(
-                        "View Analytics",
-                        href="/pathways/analytics",
-                        variant=ButtonT.secondary,
+                CardHeader(CardTitle("Quick Actions")),
+                CardBody(
+                    Div(
+                        ButtonLink(
+                            "View Analytics",
+                            href="/pathways/analytics",
+                            variant=ButtonT.secondary,
+                        ),
+                        ButtonLink(
+                            "Browse Paths",
+                            href="/pathways/browse",
+                            variant=ButtonT.outline,
+                        ),
+                        ButtonLink(
+                            "Browse Steps",
+                            href="/pathways/steps",
+                            variant=ButtonT.outline,
+                        ),
+                        cls="flex flex-wrap gap-3",
                     ),
-                    ButtonLink(
-                        "Browse Paths",
-                        href="/pathways/browse",
-                        variant=ButtonT.outline,
-                    ),
-                    ButtonLink(
-                        "Browse Steps",
-                        href="/pathways/steps",
-                        variant=ButtonT.outline,
-                    ),
-                    cls="flex flex-wrap gap-3",
                 ),
                 cls="mb-8",
             ),
@@ -468,10 +472,12 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
             ),
             # Filters Section
             Card(
-                H3("Filter Learning Paths", cls="text-lg font-semibold mb-4"),
-                Div(
-                    PathwaysUIComponents.render_filter_form(),
-                    cls="grid grid-cols-1 md:grid-cols-3 gap-4",
+                CardHeader(CardTitle("Filter Learning Paths")),
+                CardBody(
+                    Div(
+                        PathwaysUIComponents.render_filter_form(),
+                        cls="grid grid-cols-1 md:grid-cols-3 gap-4",
+                    ),
                 ),
                 cls="mb-8",
             ),
@@ -670,22 +676,24 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
             ),
             # Curriculum — flat step list
             Card(
-                H2("Curriculum", cls="text-xl font-semibold mb-4"),
-                steps_section,
+                CardHeader(CardTitle("Curriculum")),
+                CardBody(steps_section),
                 cls="mb-8",
             ),
             # Learning Outcomes
             Card(
-                H3("Learning Outcomes", cls="text-lg font-semibold mb-3"),
-                Ul(
-                    *[
-                        Li(Span("->", cls="mr-2"), outcome, cls="flex items-start")
-                        for outcome in outcomes
-                    ],
-                    cls="space-y-2",
-                )
-                if outcomes
-                else EmptyState(title="No learning outcomes specified"),
+                CardHeader(CardTitle("Learning Outcomes")),
+                CardBody(
+                    Ul(
+                        *[
+                            Li(Span("->", cls="mr-2"), outcome, cls="flex items-start")
+                            for outcome in outcomes
+                        ],
+                        cls="space-y-2",
+                    )
+                    if outcomes
+                    else EmptyState(title="No learning outcomes specified"),
+                ),
                 cls="mb-8",
             ),
             cls="container mx-auto px-4 py-6",
@@ -719,34 +727,39 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
             PageHeader("Learning Analytics", subtitle="Insights into your learning journey"),
             # Analytics Overview
             Card(
-                H2("Knowledge Profile", cls="text-xl font-semibold mb-4"),
-                StatsGrid(
-                    [
-                        StatItem(
-                            label="Concepts Mastered", value=str(concepts_mastered), color="success"
-                        ),
-                        StatItem(label="In Progress", value=str(in_progress), color="primary"),
-                        StatItem(
-                            label="Avg Retention",
-                            value=f"{avg_retention * 100:.0f}%",
-                            color="warning",
-                        ),
-                    ],
-                    cols=3,
-                    cls="mb-6",
+                CardHeader(CardTitle("Knowledge Profile")),
+                CardBody(
+                    StatsGrid(
+                        [
+                            StatItem(
+                                label="Concepts Mastered",
+                                value=str(concepts_mastered),
+                                color="success",
+                            ),
+                            StatItem(label="In Progress", value=str(in_progress), color="primary"),
+                            StatItem(
+                                label="Avg Retention",
+                                value=f"{avg_retention * 100:.0f}%",
+                                color="warning",
+                            ),
+                        ],
+                        cols=3,
+                    ),
                 ),
                 cls="mb-8",
             ),
             # Detail Cards
             Card(
-                H2("Learning Health", cls="text-xl font-semibold mb-4"),
-                StatsGrid(
-                    [
-                        StatItem(label="Active Paths", value=str(active_paths_count)),
-                        StatItem(label="Needs Review", value=str(needs_review)),
-                        StatItem(label="Struggling", value=str(struggling)),
-                    ],
-                    cols=3,
+                CardHeader(CardTitle("Learning Health")),
+                CardBody(
+                    StatsGrid(
+                        [
+                            StatItem(label="Active Paths", value=str(active_paths_count)),
+                            StatItem(label="Needs Review", value=str(needs_review)),
+                            StatItem(label="Struggling", value=str(struggling)),
+                        ],
+                        cols=3,
+                    ),
                 ),
                 cls="mb-8",
             ),

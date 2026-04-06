@@ -85,24 +85,25 @@ async def render_entity_not_found_page(
         domain_slug: URL path segment, e.g. "tasks", "goals"
         request: The Starlette request (passed to BasePage)
     """
-    from fasthtml.common import H2, P
+    from fasthtml.common import P
 
     from ui.buttons import Button, ButtonT
-    from ui.cards import Card
+    from ui.cards import Card, CardBody, CardHeader, CardTitle
     from ui.layouts.base_page import BasePage
     from ui.layouts.page_types import PageType
 
     return await BasePage(
         content=Card(
-            H2(f"{entity_label} Not Found", cls="text-xl font-bold text-error mb-4"),
-            P(f"Could not find {entity_label.lower()}: {uid}", cls="text-muted-foreground"),
-            Button(
-                f"← Back to {entity_label}s",
-                **{"hx-get": f"/{domain_slug}", "hx-target": "body"},
-                variant=ButtonT.primary,
-                cls="mt-4",
+            CardHeader(CardTitle(f"{entity_label} Not Found", cls="text-error")),
+            CardBody(
+                P(f"Could not find {entity_label.lower()}: {uid}", cls="text-muted-foreground"),
+                Button(
+                    f"← Back to {entity_label}s",
+                    **{"hx-get": f"/{domain_slug}", "hx-target": "body"},
+                    variant=ButtonT.primary,
+                    cls="mt-4",
+                ),
             ),
-            cls="p-6",
         ),
         title=f"{entity_label} Not Found",
         page_type=PageType.STANDARD,

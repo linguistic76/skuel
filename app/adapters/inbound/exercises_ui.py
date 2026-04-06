@@ -20,7 +20,7 @@ from fasthtml.common import H2, H3, H4, A, Code, Div, Form, Li, Option, P, Pre, 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from core.utils.logging import get_logger
 from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card
+from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.forms import Input, Label, Select, Textarea
 from ui.layout import Size
@@ -298,26 +298,33 @@ class ExerciseUIComponents:
             ),
             # Instructions
             Card(
-                H3("Instructions", cls="text-lg font-semibold mb-3"),
-                Pre(
-                    Code(exercise.instructions, cls="text-sm"),
-                    cls="bg-muted p-4 rounded overflow-x-auto",
+                CardHeader(CardTitle("Instructions")),
+                CardBody(
+                    Pre(
+                        Code(exercise.instructions, cls="text-sm"),
+                        cls="bg-muted p-4 rounded overflow-x-auto",
+                    ),
                 ),
                 cls="mb-4",
             ),
             # Model
             Card(
-                H3("Model", cls="text-lg font-semibold mb-3"),
-                P(f"{exercise.model}", cls="text-muted-foreground"),
+                CardHeader(CardTitle("Model")),
+                CardBody(P(f"{exercise.model}", cls="text-muted-foreground")),
                 cls="mb-4",
             ),
             # Context notes
             (
                 Card(
-                    H3("Context Notes", cls="text-lg font-semibold mb-3"),
-                    Ul(
-                        *[Li(note, cls="text-muted-foreground") for note in exercise.context_notes],
-                        cls="list-disc list-inside",
+                    CardHeader(CardTitle("Context Notes")),
+                    CardBody(
+                        Ul(
+                            *[
+                                Li(note, cls="text-muted-foreground")
+                                for note in exercise.context_notes
+                            ],
+                            cls="list-disc list-inside",
+                        ),
                     ),
                     cls="mb-4",
                 )
@@ -326,14 +333,16 @@ class ExerciseUIComponents:
             ),
             # Example prompt preview
             Card(
-                H3("Example Prompt Preview", cls="text-lg font-semibold mb-3"),
-                P(
-                    "Here's what the complete prompt would look like with an example entry:",
-                    cls="text-muted-foreground mb-3",
-                ),
-                Pre(
-                    Code(example_prompt, cls="text-sm"),
-                    cls="bg-muted p-4 rounded overflow-x-auto",
+                CardHeader(CardTitle("Example Prompt Preview")),
+                CardBody(
+                    P(
+                        "Here's what the complete prompt would look like with an example entry:",
+                        cls="text-muted-foreground mb-3",
+                    ),
+                    Pre(
+                        Code(example_prompt, cls="text-sm"),
+                        cls="bg-muted p-4 rounded overflow-x-auto",
+                    ),
                 ),
                 cls="mb-4",
             ),

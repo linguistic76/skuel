@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import (
-    H3,
     H4,
     Div,
     P,
@@ -33,7 +32,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card, CardBody
+from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
@@ -598,8 +597,8 @@ def create_submissions_ui_routes(
             is_owner = submission_result.value.user_uid == user_uid
 
         detail_card = Card(
+            CardHeader(CardTitle("Submission Details")),
             CardBody(
-                H3("Submission Details"),
                 Div(
                     P("Loading submission details...", cls="text-center text-muted-foreground"),
                     id="submission-info",
