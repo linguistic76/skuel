@@ -313,7 +313,9 @@ def render_exercise_report_detail(report: Any, revised_exercise: Any = None) -> 
         H3("Report Content", cls="font-semibold mb-3"),
         P(report_content, cls="text-sm whitespace-pre-wrap leading-relaxed")
         if report_content
-        else render_error_banner("Report content is missing — this report may have incomplete data.", severity="warning"),
+        else render_error_banner(
+            "Report content is missing — this report may have incomplete data.", severity="warning"
+        ),
         cls="mb-6",
     )
 

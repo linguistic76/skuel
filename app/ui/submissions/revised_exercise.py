@@ -18,6 +18,7 @@ from fasthtml.common import (
     Span,
 )
 
+from core.models.enums.learning_enums import FeedbackCategory
 from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
@@ -87,7 +88,10 @@ def render_revised_exercise_detail(entity: Any) -> Any:
         H3("Revision Instructions", cls="font-semibold mb-3"),
         P(instructions, cls="text-sm whitespace-pre-wrap leading-relaxed")
         if instructions
-        else render_error_banner("Revision instructions are missing — this revision may have incomplete data.", severity="warning"),
+        else render_error_banner(
+            "Revision instructions are missing — this revision may have incomplete data.",
+            severity="warning",
+        ),
         cls="mb-6",
     )
 
@@ -98,7 +102,7 @@ def render_revised_exercise_detail(entity: Any) -> Any:
         for fp in feedback_points:
             category = getattr(fp, "category", None)
             detail = getattr(fp, "detail", "") or ""
-            if category is not None and hasattr(category, "get_label"):
+            if isinstance(category, FeedbackCategory):
                 category_label = category.get_label()
                 category_color = category.get_color()
             else:

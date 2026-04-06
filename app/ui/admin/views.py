@@ -797,7 +797,10 @@ class AdminSystemComponents:
     def render_components_grid(components: dict) -> Div:
         """Render grid of component health cards."""
         if not components:
-            return render_error_banner("No component health data returned — health check may have failed.", severity="warning")
+            return render_error_banner(
+                "No component health data returned — health check may have failed.",
+                severity="warning",
+            )
 
         cards = [
             AdminSystemComponents.render_component_health_card(name, data)
