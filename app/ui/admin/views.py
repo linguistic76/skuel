@@ -30,6 +30,7 @@ from ui.feedback import Badge, BadgeT
 from ui.forms import Select
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_error_banner
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 
@@ -796,7 +797,7 @@ class AdminSystemComponents:
     def render_components_grid(components: dict) -> Div:
         """Render grid of component health cards."""
         if not components:
-            return P("No component data available", cls="text-muted-foreground")
+            return render_error_banner("No component health data returned — health check may have failed.", severity="warning")
 
         cards = [
             AdminSystemComponents.render_component_health_card(name, data)

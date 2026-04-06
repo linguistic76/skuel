@@ -7,11 +7,12 @@ See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 
 from typing import Any
 
-from fasthtml.common import H2, H3, A, Div, P, Span
+from fasthtml.common import H3, A, Div, P, Span
 
 from core.models.type_hints import UserUID
 from core.services.user.unified_user_context import UserContext
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.section_header import SectionHeader
 
 
 def KnowledgeDomainView(
@@ -36,10 +37,10 @@ def KnowledgeDomainView(
     ready = len(context.ready_to_learn_uids)
 
     return Div(
-        H2("Knowledge Units", cls="text-2xl font-bold mb-2"),
+        SectionHeader("Knowledge Units"),
         P(
             "All knowledge units in the curriculum. Track your learning progress.",
-            cls="text-muted-foreground mb-6",
+            cls="text-muted-foreground mb-4",
         ),
         # Quick stats row
         Div(
@@ -77,10 +78,10 @@ def PathStepsDomainView(_context: UserContext, _focus_uid: str | None = None) ->
     Shows a clean empty state explaining what path steps are.
     """
     return Div(
-        H2("Learning Steps", cls="text-2xl font-bold mb-2"),
+        SectionHeader("Learning Steps"),
         P(
             "Structured sequences within a learning path.",
-            cls="text-muted-foreground mb-6",
+            cls="text-muted-foreground mb-4",
         ),
         EmptyState(
             title="No path steps available yet",
@@ -117,10 +118,10 @@ def LearningPathsDomainView(context: UserContext, focus_uid: str | None = None) 
 
     return Div(
         back_link,
-        H2("Learning Paths", cls="text-2xl font-bold mb-2"),
+        SectionHeader("Learning Paths"),
         P(
             "Structured learning journeys through the curriculum.",
-            cls="text-muted-foreground mb-6",
+            cls="text-muted-foreground mb-4",
         ),
         # Learning Paths section
         H3("Your Paths", cls="text-lg font-semibold text-foreground mt-2 mb-4"),

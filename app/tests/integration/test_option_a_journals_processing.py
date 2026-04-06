@@ -374,7 +374,7 @@ class TestOptionAJournalsProcessing:
     # ARCHITECTURE VALIDATION TESTS
     # ==========================================================================
 
-    async def test_ku_type_discriminator_works(self, mock_submissions_service):
+    async def test_entity_type_discriminator_works(self, mock_submissions_service):
         """Test that entity_type discriminator works correctly."""
         # Arrange
         assignment_ku = Submission(

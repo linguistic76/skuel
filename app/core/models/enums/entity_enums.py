@@ -217,7 +217,6 @@ class EntityType(StrEnum):
             "ku" -> KU (canonical)
             "ps" -> PATH_STEP
             "lp" -> LEARNING_PATH
-            "submission_report" -> EXERCISE_REPORT
         """
         normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
         return _ENTITY_TYPE_ALIASES.get(normalized)

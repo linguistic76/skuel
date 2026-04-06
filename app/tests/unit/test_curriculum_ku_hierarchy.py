@@ -39,7 +39,7 @@ class TestCurriculumKuCreation:
         # Curriculum base class uses Entity's default entity_type (EntityType.KU)
         assert cu.entity_type == EntityType.KU
 
-    def test_does_not_force_ku_type(self):
+    def test_does_not_force_entity_type(self):
         """Curriculum base class does NOT force entity_type — only leaf classes do."""
         # Passing entity_type=TASK is preserved (Curriculum is a base class, not a leaf)
         cu = Curriculum(uid="ku_test", title="Test", entity_type=EntityType.TASK)

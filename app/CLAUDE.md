@@ -193,7 +193,7 @@ UniversalNeo4jBackend[T]  <- ONE instance per domain, NO wrappers
 |--------|-------------|
 | **Three-Tier Type System** | Pydantic at edges, frozen dataclasses at core, DTOs between |
 | **Protocol-Based DI** | Zero concrete dependencies in route signatures — all services injected as protocols |
-| **Typed Protocol Returns** | ~170 protocol methods return specific models/TypedDicts; 0 `Result[Any]` in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed. Route handlers: 0 `Result[Any]` across 27 API files (2 intentional `# boundary:` for FastHTML FT components) |
+| **Typed Protocol Returns** | ~170 protocol methods return specific models/TypedDicts; 0 `Result[Any]` in protocols. Service-layer `Result[Any]` also narrowed. Route handlers: 0 `Result[Any]` across 27 API files (2 intentional `# boundary:` for FastHTML FT components) |
 | **Any Usage Policy** | Every `Any` is justified (Category C boundary) or eliminated (Categories A + B) |
 | **Search Protocol Generics** | All 6 `DomainSearchOperations` extensions parameterized with domain model type (`Goal`, `Event`, etc.), not `Entity` |
 | **Enum-Enforced Boundaries** | `UserRole`, `ExerciseScope`, `SubmissionModality`, `EntityStatus`, `FeedbackCategory`, `MasteryImpact`, `ProcessorType`, `Visibility`, `EnrichmentMode` — zero raw string comparisons for roles, scopes, modalities, status checks, feedback categorization, mastery scoring, processor types, visibility levels, enrichment modes |

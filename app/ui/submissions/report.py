@@ -32,6 +32,7 @@ from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_error_banner
 
 # ============================================================================
 # SHARED HELPERS
@@ -312,7 +313,7 @@ def render_exercise_report_detail(report: Any, revised_exercise: Any = None) -> 
         H3("Report Content", cls="font-semibold mb-3"),
         P(report_content, cls="text-sm whitespace-pre-wrap leading-relaxed")
         if report_content
-        else P("No content available.", cls="text-sm text-muted-foreground"),
+        else render_error_banner("Report content is missing — this report may have incomplete data.", severity="warning"),
         cls="mb-6",
     )
 
@@ -563,7 +564,7 @@ def render_activity_report_detail(
         H3("Report Content", cls="font-semibold mb-3"),
         P(content, cls="text-sm whitespace-pre-wrap leading-relaxed")
         if content
-        else P("No content generated.", cls="text-sm text-muted-foreground"),
+        else render_error_banner("Report content has not been generated yet.", severity="info"),
         cls="mb-6",
     )
 

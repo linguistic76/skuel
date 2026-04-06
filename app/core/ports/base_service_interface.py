@@ -208,7 +208,7 @@ class ConversionOperations(Protocol[T]):
         self,
         user_uid: UserUID | None,
         operation: str,
-    ) -> Result[Any] | None:
+    ) -> Result[None] | None:
         """
         Validate that user_uid is present for an operation.
 

@@ -23,6 +23,7 @@ from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_error_banner
 
 # ============================================================================
 # HELPERS
@@ -86,7 +87,7 @@ def render_revised_exercise_detail(entity: Any) -> Any:
         H3("Revision Instructions", cls="font-semibold mb-3"),
         P(instructions, cls="text-sm whitespace-pre-wrap leading-relaxed")
         if instructions
-        else P("No instructions provided.", cls="text-sm text-muted-foreground"),
+        else render_error_banner("Revision instructions are missing — this revision may have incomplete data.", severity="warning"),
         cls="mb-6",
     )
 

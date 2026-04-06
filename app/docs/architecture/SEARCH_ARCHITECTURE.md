@@ -53,32 +53,26 @@ SKUEL's search architecture consists of **three complementary systems** that wor
 
 **Core Principle:** "Property filters for speed, graph patterns for depth, user context for personalization, semantic relationships for relevance"
 
-## Searchable Domains (14 total)
+## Searchable Entity Types (14 total)
 
-All 14 domains are searchable via `SearchRouter` using `graph_aware_faceted_search()`.
+All 14 entity types are searchable via `SearchRouter` using `graph_aware_faceted_search()`.
 
-| Group | Domains | Ownership | Search Mode |
+| Group | Entity Types | Ownership | Search Mode |
 |-------|---------|-----------|-------------|
 | Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | User-owned (`OWNS`) | Graph-Aware |
-| Curriculum (3) | Lesson, PS, LP | Shared content (no ownership filter) | Graph-Aware |
-| Learning Loop (3) | Exercise, RevisedExercise, Submission | User-owned (`OWNS`) | Graph-Aware |
+| Curriculum (3) | KU, PS, LP | Shared content (no ownership filter) | Graph-Aware |
+| Learning Loop (3) | Exercise, RevisedExercise, ExerciseSubmission | User-owned (`OWNS`) | Graph-Aware |
 | Forms (2) | FormTemplate, FormSubmission | Template=shared, Submission=user-owned | Standard |
 
 **Note:** MOC is emergent identity (any entity with `ORGANIZES` relationships), not an `EntityType`, and is not a standalone searchable domain.
 
 ```python
-_GRAPH_AWARE_DOMAINS: frozenset[str] = frozenset(
-    {"tasks", "goals", "habits", "events", "choices", "principles",
-     "ku", "ls", "lp",
-     "exercises", "revised_exercises", "submissions"}
-)
-
 _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
     # Activity (6)
     EntityType.TASK, EntityType.GOAL, EntityType.HABIT,
     EntityType.EVENT, EntityType.CHOICE, EntityType.PRINCIPLE,
     # Curriculum (3)
-    EntityType.LESSON, EntityType.PATH_STEP, EntityType.LEARNING_PATH,
+    EntityType.KU, EntityType.PATH_STEP, EntityType.LEARNING_PATH,
     # Learning Loop (3)
     EntityType.EXERCISE, EntityType.REVISED_EXERCISE, EntityType.EXERCISE_SUBMISSION,
 })

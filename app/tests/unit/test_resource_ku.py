@@ -25,7 +25,7 @@ class TestResourceKuCreation:
         assert r.title == "Yoga for Beginners"
         assert r.entity_type == EntityType.RESOURCE
 
-    def test_forces_ku_type_resource(self):
+    def test_forces_entity_type_resource(self):
         """__post_init__ forces entity_type=RESOURCE regardless of input."""
         r = Resource(uid="ku_test", title="Test", entity_type=EntityType.PATH_STEP)
         assert r.entity_type == EntityType.RESOURCE

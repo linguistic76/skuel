@@ -243,7 +243,7 @@ class NeoLabel(StrEnum):
 _ENTITY_TYPE_TO_LABEL: dict[EntityType, NeoLabel] = {}
 
 
-def _init_ku_type_mapping() -> None:
+def _init_entity_type_mapping() -> None:
     """Initialize the EntityType -> NeoLabel mapping. Called on first use."""
     from core.models.enums.entity_enums import EntityType
 
@@ -277,4 +277,4 @@ def _init_ku_type_mapping() -> None:
 def _ensure_mapping() -> None:
     """Ensure the mapping is initialized."""
     if not _ENTITY_TYPE_TO_LABEL:
-        _init_ku_type_mapping()
+        _init_entity_type_mapping()

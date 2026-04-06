@@ -832,5 +832,63 @@ All 11 domain facades (6 Activity + 5 Curriculum) implement `get_filtered_contex
 
 ---
 
-**Last Updated:** March 21, 2026
+---
+
+## `execute_query` in Services — Permitted Tiers
+
+**Core Rule:** "Services call `self.backend.method_name()` — never inline Cypher via `execute_query()`."
+
+In practice, `execute_query` appears in ~63 files. This is intentional — the rule applies to **domain CRUD**, not to every query in the system. The usage falls into clear tiers:
+
+### Tier 1: Always Permitted — Cross-Domain Aggregation
+
+Services that span multiple domains have no single typed backend. They inject a `QueryExecutor` protocol and write Cypher directly. This is correct by design.
+
+| Service | Access Pattern | Why |
+|---------|---------------|-----|
+| `UserProgressService` | `self.executor` | Traverses User + KU + PS domains for readiness/prerequisites |
+| `AdminStatsService` | `self.query_executor` | System-wide counts across all 6 Activity domains + knowledge |
+| `LpIntelligenceService` | `self.executor` | LP progression analytics across LP + User + KU |
+| `GraphIntelligenceService` | `self.executor` | Cross-domain graph traversal for context retrieval |
+
+### Tier 2: Always Permitted — Infrastructure Services
+
+Database-level concerns that operate below the domain layer.
+
+| Service | Access Pattern | Why |
+|---------|---------------|-----|
+| `Neo4jSchemaService` | `self.neo4j_adapter.execute_query()` | Schema introspection (`CALL db.labels()`, `SHOW INDEXES`) |
+| `Neo4jVectorSearchService` | `self.executor` | Vector index operations (`db.index.vector.queryNodes()`) |
+| `UnifiedIngestionService` | Various | Bulk cross-domain writes |
+| `UnifiedRelationshipService` | `self.backend.execute_query()` | Cross-domain relationship ops with complex edge metadata |
+
+### Tier 3: Always Permitted — BaseService Mixins
+
+The BaseService mixins *implement* the backend abstraction. They call `execute_query` because they are the infrastructure that makes `self.backend.search()` work.
+
+| Mixin | Methods |
+|-------|---------|
+| `SearchOperationsMixin` | `search()`, `get_by_relationship()`, `search_connected_to()` |
+| `RelationshipOperationsMixin` | `get_prerequisites()`, `get_enables()` |
+| `TimeQueryMixin` | `get_user_items_in_range()`, `get_due_soon()`, `get_overdue()` |
+| `ContextOperationsMixin` | `get_with_context()` |
+
+### Tier 4: Tolerated — Domain Sub-Services
+
+Domain sub-services (e.g., `EventsSearchService`, `GoalsIntelligenceService`) call `self.backend.execute_query()` for complex domain-specific queries that don't fit the generic mixin patterns. These go *through* the backend object (not around it), but the queries aren't encapsulated as named backend methods.
+
+**Current state:** ~18 sub-services across all 6 Activity domains do this.
+
+**Why it exists:** The queries are complex and domain-specific (date-range + secondary sort, recurrence filtering, conditional WHERE clauses). Adding a named backend method for each variation would create method proliferation on the backend with little reuse.
+
+**What we might tighten:** If a domain sub-service query is called from multiple places or represents core domain functionality, it should be extracted to a named method on the domain backend (e.g., `EventsBackend.get_events_by_date_range()`). One-off complex queries used in a single sub-service are acceptable as inline Cypher through `execute_query`.
+
+**Decision criteria for future work:**
+- Query used in 2+ places → extract to domain backend method
+- Query represents a core domain concept (e.g., "recurring events") → extract to domain backend method
+- Query is a one-off analytical or intelligence query → leave as `execute_query`
+
+---
+
+**Last Updated:** April 5, 2026
 **Status:** Active - Core pattern for all query operations in SKUEL

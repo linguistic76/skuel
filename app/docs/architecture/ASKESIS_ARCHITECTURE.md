@@ -190,11 +190,11 @@ Askesis is created in `compose_services()` AFTER the intelligence factory, via `
 from core.services.askesis_factory import create_askesis_service
 
 if tier.ai_enabled:
-    # First: Create factory with all 13 domain services
+    # First: Create factory with all domain services
     context_intelligence_factory = UserContextIntelligenceFactory(
         tasks=activity_services["tasks"].relationships,
         goals=activity_services["goals"].relationships,
-        # ... all 13 domains
+        # ... all activity + curriculum domains
     )
 
     # Then: Create Askesis via factory function (handles AskesisDeps construction)

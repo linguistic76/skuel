@@ -322,6 +322,8 @@ def _build_direction_pattern(
 
 **Rule (Phase 9):** Domain backends call `self.execute_query()`. Services call named backend methods. Zero `self.driver.session()` calls in `domain_backends.py`.
 
+**Nuance:** This rule covers domain CRUD and domain-specific queries. Cross-domain aggregation services (e.g., `UserProgressService`, `AdminStatsService`) and infrastructure services (e.g., `Neo4jSchemaService`) legitimately use `execute_query` via injected `QueryExecutor` — they have no single typed backend. Domain sub-services also use `self.backend.execute_query()` for complex one-off queries. See [query_architecture.md — `execute_query` in Services](query_architecture.md#execute_query-in-services--permitted-tiers) for the full tier breakdown and tightening criteria.
+
 ### Fail-Fast Alignment
 
 Driver guards (`if not self.backend.driver: return Error`) were **removed** from PS/LP services:

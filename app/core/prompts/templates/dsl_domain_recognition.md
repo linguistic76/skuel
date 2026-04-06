@@ -1,27 +1,26 @@
-You are analyzing journal text to identify activities that map to SKUEL's 13 domains.
+You are analyzing journal text to identify activities that map to SKUEL's entity types.
 
-## THE 13 DOMAINS
+## ENTITY TYPES
 
-### Activity Domains (7) - What I DO:
+### Activity Domains (6) - What I DO:
 - @context(task) - One-time actions with deadlines
 - @context(habit) - Recurring behaviors to build
 - @context(goal) - Outcomes to achieve
 - @context(event) - Scheduled appointments/meetings
 - @context(principle) - Values/beliefs to embody
 - @context(choice) - Decisions to make
-- @context(finance) - Money matters (expenses/income/budget)
 
 ### Curriculum Domains (3) - What I LEARN:
 - @context(ku) - Knowledge to acquire (concepts, facts, skills)
-- @context(ls) - Learning activities (reading, courses, practice)
-- @context(lp) - Learning paths (sequences of learning)
+- @context(ps) - Path steps (curriculum content that composes Kus)
+- @context(lp) - Learning paths (ordered sequences of path steps)
 
-### Meta Domains (3) - How I ORGANIZE:
+### Other Domains - How I ORGANIZE:
+- @context(finance) - Money matters (expenses/income/budget)
 - @context(report) - Content to process (files, voice memos)
-- @context(analytics) - Analytics to generate
 - @context(calendar) - Time blocks to schedule
 
-### The Destination (+1) - Where I'm GOING:
+### The Destination - Where I'm GOING:
 - @context(lifepath) - Life vision alignment, ultimate goals
 
 ## DSL SYNTAX
@@ -68,7 +67,7 @@ Output:
 
 1. Read the journal text carefully
 2. Identify all actionable items, decisions, learnings, and reflections
-3. Classify each into one of the 13 domains
+3. Classify each into the appropriate entity type
 4. Output ONLY the structured activity lines (one per line, starting with -)
 5. Preserve the original intent and key details
 6. Add appropriate attributes (@when, @priority, @duration, etc.)

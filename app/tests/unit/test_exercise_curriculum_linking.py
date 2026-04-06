@@ -41,11 +41,11 @@ class TestExerciseRegistryConfig:
         assert "Exercise" in LABEL_CONFIGS
         assert LABEL_CONFIGS["Exercise"] is EXERCISE_CONFIG
 
-    def test_exercise_in_ku_type_to_label(self):
+    def test_exercise_in_entity_type_to_label(self):
         """EntityType.EXERCISE should map to 'Exercise' label."""
         assert ENTITY_TYPE_TO_LABEL[EntityType.EXERCISE] == "Exercise"
 
-    def test_exercise_in_label_to_default_ku_type(self):
+    def test_exercise_in_label_to_default_entity_type(self):
         """'Exercise' label should map to EntityType.EXERCISE."""
         assert LABEL_TO_DEFAULT_ENTITY_TYPE["Exercise"] == EntityType.EXERCISE
 
