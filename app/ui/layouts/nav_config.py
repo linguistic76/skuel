@@ -104,8 +104,8 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
     IconNavItem(
         "Tasks+",
         "",
-        "/profile",
-        "profile",
+        "/tasks",
+        "tasks",
         requires_auth=True,
         has_dropdown=False,
         icon="check-square",

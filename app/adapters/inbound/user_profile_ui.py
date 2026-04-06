@@ -300,29 +300,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         )
 
     @rt("/profile")
-    async def profile_page(request: Request) -> Any:
-        """Profile overview — Focus + Velocity + Activity domains at a glance."""
-        user_uid = require_authenticated_user(request)
+    async def profile_redirect(request: Request) -> Any:
+        """301 redirect: profile moved to /tasks."""
+        from starlette.responses import RedirectResponse
 
-        try:
-            context = await _get_context(user_uid)
-        except ValueError as e:
-            logger.error(
-                "Failed to load context for profile page",
-                extra={"user_uid": user_uid, "error": str(e)},
-            )
-            return await error_page(str(e), 500, request=request)
-
-        from ui.profile.hub import ProfileHubView
-
-        content = ProfileHubView(context)
-
-        return await BasePage(
-            content=content,
-            title="Profile",
-            request=request,
-            active_page="profile",
-        )
+        return RedirectResponse(url="/tasks", status_code=301)
 
     @rt("/api/profile/{slug}/preview")
     async def domain_card_preview(request: Request, slug: str) -> Any:

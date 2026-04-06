@@ -16,7 +16,7 @@ _HOME_CARDS: list[HubCardData] = [
     HubCardData(
         icon="\u2713",
         name="Tasks +",
-        href="/profile",
+        href="/tasks",
         description="Your tasks, goals, habits, and more at a glance",
     ),
     HubCardData(
