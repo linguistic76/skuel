@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 ACTIVITY_STORAGE_KEY = "activity-sidebar"
 
 ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Activities", "/tasks", "activities", icon="activity"),
     SidebarItem("Tasks", "/tasks", "tasks", icon="check-square"),
     SidebarItem("Goals", "/goals", "goals", icon="target"),
     SidebarItem("Habits", "/habits", "habits", icon="repeat"),
@@ -51,7 +50,8 @@ async def render_activity_sidebar_page(
         content=content,
         items=ACTIVITY_SIDEBAR_ITEMS,
         active=active,
-        title="Activity",
+        title="Tasks+",
+        title_icon="check-square",
         storage_key=ACTIVITY_STORAGE_KEY,
         request=request,
         active_page="activity",
