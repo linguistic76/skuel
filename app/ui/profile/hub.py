@@ -423,7 +423,7 @@ def _nous_section() -> Div:
 
 
 def _settings_link() -> Div:
-    """Compact settings + upload links at the bottom."""
+    """Compact settings + workbench links at the bottom."""
     return Div(
         Div(
             A(
@@ -433,9 +433,9 @@ def _settings_link() -> Div:
                 cls="text-sm text-muted-foreground hover:text-foreground",
             ),
             A(
-                Span("\u2b06\ufe0f", cls="mr-2"),
-                "Upload Activity Data",
-                href="/upload",
+                Span("\U0001f6e0\ufe0f", cls="mr-2"),
+                "Workbench",
+                href="/workbench",
                 cls="text-sm text-muted-foreground hover:text-foreground ml-6",
             ),
             cls="flex items-center gap-2",

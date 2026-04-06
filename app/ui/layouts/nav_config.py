@@ -118,6 +118,14 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         has_dropdown=False,
         icon="arrow-left-right",
     ),
+    IconNavItem(
+        "Workbench",
+        "",
+        "/workbench",
+        "workbench",
+        has_dropdown=False,
+        icon="hammer",
+    ),
 )
 
 

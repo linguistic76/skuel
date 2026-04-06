@@ -5,7 +5,7 @@ GradeBook UI Routes — ExerciseSubmission Pages
 Routes for submitting work, browsing submissions, and viewing submission details.
 
 Routes:
-- GET /submit — File upload form (sidebar: Submit)
+- GET /submit — File upload form (Workbench sidebar)
 - GET /gradebook — Hub page (no sidebar, container navigation)
 - GET /gradebook/mysubmissions — My Submissions list (sidebar: My Submissions)
 - POST /gradebook/mysubmissions/delete — Delete a user-owned submission (HTMX)
@@ -165,7 +165,9 @@ def create_submissions_ui_routes(
             ),
             upload_form_script(),
         )
-        return await render_gradebook_sidebar_page(
+        from ui.workbench.nav import render_workbench_sidebar_page
+
+        return await render_workbench_sidebar_page(
             content=content,
             active="submit",
             request=request,
