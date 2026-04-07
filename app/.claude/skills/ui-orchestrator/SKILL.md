@@ -181,6 +181,51 @@ grep -rn 'service_a\|service_b' app/adapters/inbound/{name}_ui.py
 | `LibraryOrchestrator` | `library_orchestrator.py` | 6 | Library / Assets |
 | `TeacherOrchestrator` | `teacher_orchestrator.py` | 4 | Teaching & Review |
 
+## Related Pattern: OOB Swaps for Shared-Data Hub Blocks
+
+The Orchestrator pattern solves *service dependency gravity* (many services → one facade). A complementary pattern solves *DB query gravity* on hub preview blocks: when N hub blocks all need the same underlying data, collapsing their N HTMX endpoints into one combined OOB endpoint eliminates duplicate round-trips.
+
+**Example — StudentHub (canonical):**
+
+Before: 3 preview blocks each fired their own endpoint → 3 identical `get_student_submissions()` DB calls.  
+After: one `GET /api/teaching/students/{uid}/submissions/preview` endpoint calls `_get_bucketed_submissions()` once and returns 3 OOB fragments.
+
+```python
+# Combined endpoint — one DB call, three panel updates
+@rt("/api/teaching/students/{uid}/submissions/preview")
+async def student_submissions_preview(request, uid, ...):
+    pending, revision, completed, _ = await _get_bucketed_submissions(user_uid, uid)
+
+    def _make_fragment(slug, rows, empty_label):
+        content = HubPreviewGrid([...]) if rows else HubPreviewEmpty(empty_label)
+        return Div(content, id=f"hub-panel-{slug}", hx_swap_oob="true")
+
+    return Div(
+        _make_fragment("pending",   pending,   "submissions needing review"),
+        _make_fragment("revision",  revision,  "revision requests"),
+        _make_fragment("completed", completed, "completed submissions"),
+    )
+```
+
+```python
+# Hub component — passive OOB targets + single hidden trigger
+oob_trigger = Div(
+    hx_get=f"{base_api}/submissions/preview",
+    hx_trigger="load",
+    hx_swap="none",   # no main swap — all updates are OOB
+)
+blocks = [
+    HubBlockData(..., slug="pending",   preview_url=None),  # passive OOB target
+    HubBlockData(..., slug="revision",  preview_url=None),  # passive OOB target
+    HubBlockData(..., slug="completed", preview_url=None),  # passive OOB target
+    HubBlockData(..., slug="ku", preview_url=".../ku/preview"),  # independent
+]
+```
+
+**Decision:** Use OOB when 2+ hub blocks share the same DB query. Blocks with independent queries keep their own `preview_url` and self-load normally.
+
+**See also:** `docs/patterns/HUB_PAGE_PATTERN.md` → "Pattern: OOB Swaps for Shared-Data Hub Blocks" and `ui-browser` skill → "HTMX: Out-of-Band (OOB) Swaps".
+
 ## Anti-Patterns to Avoid
 
 1. **God Orchestrator** — One orchestrator serving multiple unrelated pages. Each orchestrator should be 1:1 with a Hub.

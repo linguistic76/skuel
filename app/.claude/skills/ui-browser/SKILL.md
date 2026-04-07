@@ -218,6 +218,121 @@ for f in raw_files:
 
 **Example:** `/upload` page — see `adapters/inbound/upload_ui.py`.
 
+### Out-of-Band (OOB) Swaps — One Request, Multiple DOM Updates
+
+OOB swaps let a single HTTP response update multiple, non-adjacent DOM elements at once. Any element in the response body tagged with `hx-swap-oob="true"` is pulled out and routed to the page element with the same `id`, independently of where the request was made.
+
+**Mental model:** Normal HTMX swaps one target. OOB swaps are "side channel" deliveries — the server attaches extra payloads to a response and HTMX distributes them automatically.
+
+#### When to use OOB
+
+| Scenario | Solution |
+|----------|----------|
+| One action should update two unrelated UI regions | OOB |
+| Multiple hub blocks share the same DB query | OOB combined endpoint (see Hub Page pattern) |
+| N independent hub blocks each need their own DB call | Individual `preview_url` per block |
+| Sidebar badges that load after the page is painted | OOB |
+
+**Rule of thumb:** If you find yourself calling the same service method from 3 different HTMX endpoints to populate 3 blocks on the same page, collapse them into one OOB endpoint.
+
+#### Basic pattern
+
+```python
+# FastHTML: server returns multiple OOB elements
+@rt("/api/sidebar/badges")
+async def sidebar_badges(request):
+    stats = await service.get_stats(user_uid)
+    fragments = []
+    for slug, count in stats.items():
+        fragments.append(
+            Span(
+                count,
+                id=f"sidebar-badge-{slug}",   # matches page element id
+                hx_swap_oob="true",            # this is the OOB marker
+            )
+        )
+    return Div(*fragments)
+```
+
+```python
+# FastHTML: page renders passive targets (id only, no HTMX attrs)
+# and a hidden trigger with hx_swap="none"
+Span(id="sidebar-badge-tasks"),    # passive — waits for OOB
+Span(id="sidebar-badge-goals"),    # passive — waits for OOB
+
+# Hidden trigger — fires once on load, main swap is discarded
+Div(
+    hx_get="/api/sidebar/badges",
+    hx_trigger="load",
+    hx_swap="none",   # ← critical: trigger div has no content to swap
+)
+```
+
+#### Hub blocks with shared data: StudentHub (canonical example)
+
+The StudentHub has 3 preview blocks (Needs Review, Revision Requested, Completed) that all come from a single `get_student_submissions()` DB call. Before OOB, each block fired its own endpoint — 3 identical DB round-trips. After:
+
+```python
+# ui/teaching/student_hub.py
+#
+# preview_url=None → HubDomainBlock renders the panel with id only, no hx-* attrs.
+# The combined endpoint will OOB-swap the content in.
+blocks = [
+    HubBlockData(..., slug="pending",   preview_url=None),   # OOB target
+    HubBlockData(..., slug="revision",  preview_url=None),   # OOB target
+    HubBlockData(..., slug="completed", preview_url=None),   # OOB target
+    HubBlockData(..., slug="ku", preview_url=".../ku/preview"),  # independent — different DB call
+]
+
+# One hidden trigger covers the 3 shared blocks
+oob_trigger = Div(
+    hx_get=f"/api/teaching/students/{uid}/submissions/preview",
+    hx_trigger="load",
+    hx_swap="none",
+)
+```
+
+```python
+# adapters/inbound/teaching_ui.py — combined endpoint
+@rt("/api/teaching/students/{uid}/submissions/preview")
+async def student_submissions_preview(request, uid, ...):
+    pending, revision, completed, _ = await _get_bucketed_submissions(user_uid, uid)
+
+    def _make_fragment(slug, rows, empty_label):
+        content = HubPreviewGrid([...]) if rows else HubPreviewEmpty(empty_label)
+        return Div(content, id=f"hub-panel-{slug}", hx_swap_oob="true")  # ← OOB
+
+    return Div(
+        _make_fragment("pending",   pending,   "submissions needing review"),
+        _make_fragment("revision",  revision,  "revision requests"),
+        _make_fragment("completed", completed, "completed submissions"),
+    )
+# Result: 1 DB call instead of 3 identical ones.
+```
+
+Network tab before/after on `/teaching/students/{uid}`:
+- **Before:** 4 HTMX requests (pending/preview, revision/preview, completed/preview, ku/preview)
+- **After:** 2 HTMX requests (submissions/preview → OOB, ku/preview → independent)
+
+#### SKUEL live examples
+
+| Location | Endpoint | OOB count | What it updates |
+|----------|----------|-----------|-----------------|
+| `user_profile_ui.py:363` | `GET /api/sidebar/badges` | 9 | Sidebar count+health badges |
+| `teaching_ui.py` | `GET /api/teaching/students/{uid}/submissions/preview` | 3 | StudentHub submission buckets |
+
+#### Implementation checklist
+
+1. Give each target element a stable, unique `id` (e.g. `hub-panel-{slug}`, `sidebar-badge-{slug}`)
+2. Do NOT put HTMX attrs on the passive target elements — they are just `<div id="...">Loading...</div>`
+3. The trigger element uses `hx_swap="none"` — its only job is to fire the request
+4. Each fragment in the response has `hx_swap_oob="true"` and the matching `id`
+5. Wrap all OOB fragments in an outer `Div` so FastHTML renders them — the outer element is the main swap target and gets discarded since `hx_swap="none"`
+
+**See also:** `docs/patterns/HUB_PAGE_PATTERN.md` → "Pattern: OOB Swaps for Shared-Data Hub Blocks"
+
+---
+
 ### HTMX Response Headers (Server → Browser)
 
 ```python

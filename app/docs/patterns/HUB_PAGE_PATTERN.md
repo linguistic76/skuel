@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-04-03
+updated: 2026-04-07
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
@@ -91,19 +91,142 @@ Bigger than `HubCard` — more padding, larger icon, full description paragraph,
 class HubBlockData:
     label: str
     slug: str
-    icon: str        # Feather icon name (UkIcon)
-    color: str       # hex color for header
-    href: str        # "View all" link
-    preview_url: str # HTMX endpoint
+    icon: str               # Feather icon name (UkIcon)
+    color: str              # hex color for header
+    href: str               # "View all" link
+    preview_url: str | None = None  # HTMX endpoint; None = OOB-populated by a combined endpoint
 
 def HubDomainBlock(block: HubBlockData) -> Div:
-    """Colored header + HTMX lazy-loaded preview area."""
+    """Colored header + HTMX lazy-loaded preview area.
+
+    When preview_url is set, the panel self-loads on page render via hx-trigger="load".
+    When preview_url is None, the panel renders as a passive OOB target (id set, no HTMX
+    attrs) — a combined endpoint will swap its content in via hx-swap-oob.
+    """
 
 def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
     """Vertical stack of domain blocks."""
 ```
 
-Used by hub pages (`/profile`, `/gradebook`, `/library`, `/teaching/students/{uid}`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards on page load. The Teaching root hub (`/teaching`) uses static `HubContainerGrid`; the nested student hub uses `HubDomainBlockList` with per-student preview endpoints.
+Used by hub pages (`/profile`, `/gradebook`, `/library`, `/teaching/students/{uid}`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards on page load. The Teaching root hub (`/teaching`) uses static `HubContainerGrid`; the nested student hub uses `HubDomainBlockList` with a mix of self-loading blocks and OOB-populated blocks (see pattern below).
+
+---
+
+## Pattern: OOB Swaps for Shared-Data Hub Blocks
+
+**Rule: When multiple hub blocks load from the same data source, use one combined endpoint with HTMX OOB swaps — not N independent endpoints.**
+
+### The Problem It Solves
+
+The naive implementation of a hub with N blocks fires N independent HTMX requests on page load. When those blocks all need the same underlying data (e.g., all three submission-status buckets come from one `get_student_submissions()` DB query), you end up with N identical round-trips:
+
+```
+Page load →
+  GET /api/.../pending/preview   → DB query A
+  GET /api/.../revision/preview  → DB query A  (duplicate!)
+  GET /api/.../completed/preview → DB query A  (duplicate!)
+```
+
+With OOB swaps, this collapses to one:
+
+```
+Page load →
+  GET /api/.../submissions/preview → DB query A → 3 OOB fragments returned
+```
+
+### How HTMX OOB Swaps Work
+
+HTMX normally puts a server response into the element that made the request (the "main swap target"). Out-of-band (OOB) swaps are additional elements in the same response that get routed to *different* DOM elements by matching their `id`.
+
+HTMX's rule: any element in the response that has `hx-swap-oob="true"` is pulled out and swapped into the element on the page that has the same `id`. The main swap target can be `hx-swap="none"` — meaning the request itself has no primary target at all, its only purpose is to deliver OOB fragments.
+
+```html
+<!-- Page has 3 passive target divs (no hx-* attrs, just IDs): -->
+<div id="hub-panel-pending">Loading...</div>
+<div id="hub-panel-revision">Loading...</div>
+<div id="hub-panel-completed">Loading...</div>
+
+<!-- One hidden trigger fires on load, main swap is "none": -->
+<div hx-get="/api/students/{uid}/submissions/preview"
+     hx-trigger="load"
+     hx-swap="none">
+</div>
+
+<!-- Server response contains 3 OOB fragments: -->
+<div id="hub-panel-pending"  hx-swap-oob="true">...pending cards...</div>
+<div id="hub-panel-revision" hx-swap-oob="true">...revision cards...</div>
+<div id="hub-panel-completed" hx-swap-oob="true">...completed cards...</div>
+```
+
+HTMX matches each response fragment to its page target by `id` and swaps them in. The trigger div itself swaps nothing (`hx-swap="none"`).
+
+### SKUEL Implementation
+
+**Two established examples:**
+
+1. **Sidebar badges** (`user_profile_ui.py:363`) — `GET /api/sidebar/badges` returns 9 badge spans (activity + curriculum domains) as OOB swaps. The sidebar renders each badge placeholder with its `id`; a single hidden trigger on the sidebar fires once on load.
+
+2. **StudentHub submission blocks** (`teaching_ui.py`) — `GET /api/teaching/students/{uid}/submissions/preview` returns 3 bucket previews (pending, revision, completed) as OOB swaps. One DB call, three panels populated.
+
+**Combined endpoint pattern (FastHTML):**
+
+```python
+@rt("/api/teaching/students/{uid}/submissions/preview")
+@require_role(UserRole.TEACHER, get_user_service)
+async def student_submissions_preview(request, uid, current_user=None):
+    """OOB fragment: all 3 submission bucket previews in one DB round-trip."""
+    user_uid = require_authenticated_user(request)
+    pending, revision, completed, _ = await _get_bucketed_submissions(user_uid, uid)
+
+    def _make_fragment(slug, rows, empty_label):
+        content = HubPreviewGrid([...]) if rows else HubPreviewEmpty(empty_label)
+        return Div(content, id=f"hub-panel-{slug}", hx_swap_oob="true")
+
+    return Div(
+        _make_fragment("pending",  pending,   "submissions needing review"),
+        _make_fragment("revision", revision,  "revision requests"),
+        _make_fragment("completed", completed, "completed submissions"),
+    )
+```
+
+**Hub component wiring (FastHTML):**
+
+```python
+def StudentHub(student_name, student_uid):
+    base_api = f"/api/teaching/students/{student_uid}"
+
+    blocks = [
+        HubBlockData(..., slug="pending",   preview_url=None),  # OOB target
+        HubBlockData(..., slug="revision",  preview_url=None),  # OOB target
+        HubBlockData(..., slug="completed", preview_url=None),  # OOB target
+        HubBlockData(..., slug="ku", preview_url=f"{base_api}/ku/preview"),  # independent
+    ]
+
+    # Hidden div fires combined endpoint; hx_swap="none" because all updates are OOB
+    oob_trigger = Div(
+        hx_get=f"{base_api}/submissions/preview",
+        hx_trigger="load",
+        hx_swap="none",
+    )
+
+    return Div(oob_trigger, HubDomainBlockList(blocks))
+```
+
+**Key implementation notes:**
+- Set `preview_url=None` on blocks that will be OOB-populated — `HubDomainBlock` renders them without HTMX attrs (just `id`), making them passive targets.
+- Independent blocks (different data source, like KU progress) keep their own `preview_url` and self-load normally. Mix both patterns on the same hub freely.
+- The combined endpoint returns `Div(*fragments)` — the outer `Div` is the main swap target (swapped into the trigger div, immediately discarded since `hx_swap="none"`); only the inner OOB fragments matter.
+- Each OOB fragment needs `id=f"hub-panel-{slug}"` matching the IDs rendered by `HubDomainBlock`.
+
+### Decision Guide: Independent loads vs OOB
+
+| Situation | Use |
+|-----------|-----|
+| Each block has a different service/DB call | Independent `preview_url` on each block |
+| 2+ blocks share the same DB query | OOB combined endpoint, `preview_url=None` on shared blocks |
+| Mix of shared + independent | OOB trigger for the shared group + `preview_url` on independent blocks |
+
+**See also:** `ui-browser` skill → "HTMX: Out-of-Band (OOB) Swaps" for the HTMX mechanics.
 
 ### HubPreviewCard + HubPreviewGrid + HubPreviewEmpty
 
@@ -176,7 +299,7 @@ Each block loads 3 preview cards via HTMX from its `preview_url`. Preview endpoi
 - Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`, wired via `library_routes.py`)
 - GradeBook: `/api/gradebook/{section}/preview` (4 sections, split across `submissions_ui.py`, `exercise_reports_ui.py`, `activity_reports_ui.py`)
 - Submissions: `/api/submissions/{section}/preview` (3 sections: upload, submit, history — in `workbench_routes.py`)
-- Student hub: `/api/teaching/students/{uid}/{section}/preview` (4 sections: pending, revision, completed, ku — in `teaching_ui.py`)
+- Student hub: `/api/teaching/students/{uid}/submissions/preview` (OOB — 3 buckets in one call) + `/api/teaching/students/{uid}/ku/preview` (independent — in `teaching_ui.py`)
 
 ## Usage: Graph-Driven Hub Page
 
