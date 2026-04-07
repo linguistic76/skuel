@@ -549,10 +549,14 @@ async def _wire_all_routes(
 
     create_principles_routes(app, rt, services)
 
-    # -- Submissions --
-    from adapters.inbound.submissions_routes import create_submissions_routes
+    # -- Submissions (API + UI) --
+    from adapters.inbound.submissions_routes import (
+        create_submissions_routes,
+        create_submissions_ui_orchestrator,
+    )
 
     create_submissions_routes(app, rt, services, None)
+    create_submissions_ui_orchestrator(app, rt, services)
 
     # -- Journals --
     from adapters.inbound.journals_routes import create_journals_routes
@@ -659,10 +663,8 @@ async def _wire_all_routes(
     create_advanced_routes(app, rt, services)
 
     # -- Hubs --
-    from adapters.inbound.learning_loop_routes import create_learning_loop_routes
     from adapters.inbound.library_routes import create_library_routes
 
-    create_learning_loop_routes(app, rt, services)
     create_library_routes(app, rt, services)
 
     from adapters.inbound.curriculum_hub_ui import create_curriculum_hub_ui_routes

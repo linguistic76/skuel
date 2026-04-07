@@ -1,14 +1,20 @@
-"""Submissions Routes - File Submission and Processing Pipeline
-================================================================
+"""Submissions Routes — API + UI Orchestrator
+=============================================
 
-Wires Submissions API and Sharing routes using DomainRouteConfig.
-UI routes are top-level (/submit, /gradebook, etc. — see learning_loop_routes.py).
+Wires Submissions API routes (DomainRouteConfig) and all submission-adjacent
+UI routes (/submit, /gradebook, /exercise-reports, /activity-reports, /revised-exercises).
 
 Standard factories (via DomainRouteConfig):
 - create_submissions_api_routes: Upload, list, process, download, content management
 
 Extension factories (manual):
 - create_submissions_sharing_api_routes: Share, unshare, visibility, portfolio
+
+UI sub-factories (registered directly):
+- create_submissions_ui_routes → /submit, /submissions/history, /gradebook
+- create_exercise_reports_ui_routes → /exercise-reports
+- create_activity_reports_ui_routes → /activity-reports
+- create_revised_exercises_ui_routes → /revised-exercises
 
 Journals have their own standalone route config — see journals_routes.py.
 
@@ -135,4 +141,44 @@ def create_submissions_routes(
         logger.info("Batch transcription API routes registered (admin-only)")
 
 
-__all__ = ["create_submissions_routes"]
+def create_submissions_ui_orchestrator(
+    app: FastHTMLApp, rt: RouteDecorator, services: Any
+) -> None:
+    """Wire all submission-adjacent UI routes."""
+    from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
+    from adapters.inbound.exercise_reports_ui import create_exercise_reports_ui_routes
+    from adapters.inbound.revised_exercises_ui import create_revised_exercises_ui_routes
+    from adapters.inbound.submissions_ui import create_submissions_ui_routes
+
+    create_submissions_ui_routes(
+        app,
+        rt,
+        submissions_service=services.submissions,
+        processing_service=getattr(services, "submissions_processor", None),
+        exercises_service=getattr(services, "exercises", None),
+        submissions_search_service=getattr(services, "submissions_search", None),
+        submissions_core_service=getattr(services, "submissions_core", None),
+        teacher_review_service=getattr(services, "teacher_review", None),
+        user_service=getattr(services, "user_service", None),
+    )
+    create_exercise_reports_ui_routes(
+        app,
+        rt,
+        submissions_core_service=getattr(services, "submissions_core", None),
+        revised_exercise_service=getattr(services, "revised_exercises", None),
+    )
+    create_activity_reports_ui_routes(
+        app,
+        rt,
+        submissions_service=services.submissions,
+        activity_report_service=getattr(services, "activity_report", None),
+    )
+    create_revised_exercises_ui_routes(
+        app,
+        rt,
+        revised_exercise_service=getattr(services, "revised_exercises", None),
+    )
+    logger.info("Submission UI routes registered (submissions + exercise/activity reports + revisions)")
+
+
+__all__ = ["create_submissions_routes", "create_submissions_ui_orchestrator"]

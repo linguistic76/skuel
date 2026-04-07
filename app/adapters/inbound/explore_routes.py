@@ -36,6 +36,7 @@ EXPLORE_CONFIG = DomainRouteConfig(
         "ps_service": "ps",
         "user_relationship_service": "user_relationships",
         "exercises_service": "exercises",
+        "submissions_search_service": "submissions_search",
     },
 )
 
