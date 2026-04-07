@@ -153,7 +153,7 @@ class HubBlockData:
     icon: str  # Feather icon name (UkIcon)
     color: str  # hex color for header
     href: str  # "View all" link
-    preview_url: str  # HTMX endpoint
+    preview_url: str | None = None  # HTMX endpoint; None = OOB-populated by a combined endpoint
 
 
 def HubPreviewCard(title: str, href: str, badge: FT | None = None) -> A:
@@ -213,13 +213,19 @@ def HubDomainBlock(block: HubBlockData) -> Div:
             ),
             cls="flex items-center justify-between mb-3",
         ),
-        # HTMX lazy-loaded card content
+        # HTMX lazy-loaded card content — self-loading when preview_url set, OOB target otherwise
         Div(
             P("Loading...", cls="text-center text-muted-foreground py-4"),
             id=f"hub-panel-{block.slug}",
-            hx_get=block.preview_url,
-            hx_trigger="load",
-            hx_swap="innerHTML",
+            **(
+                {
+                    "hx_get": block.preview_url,
+                    "hx_trigger": "load",
+                    "hx_swap": "innerHTML",
+                }
+                if block.preview_url is not None
+                else {}
+            ),
         ),
         cls="pb-5 mb-5 border-b border-border last:border-b-0 last:mb-0 last:pb-0",
     )

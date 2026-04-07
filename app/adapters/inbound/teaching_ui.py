@@ -644,61 +644,41 @@ def create_teaching_ui_routes(
         label = status.replace("_", " ").title() if status else "Unknown"
         return Span(label, cls="text-[10px] font-medium text-muted-foreground")
 
-    @rt("/api/teaching/students/{uid}/pending/preview")
+    @rt("/api/teaching/students/{uid}/submissions/preview")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def student_pending_preview(request: Request, uid: str, current_user: Any = None) -> Any:
-        """HTMX fragment: top 3 pending submissions for student hub preview."""
-        user_uid = require_authenticated_user(request)
-        pending, _, _, _ = await _get_bucketed_submissions(user_uid, uid)
-        if not pending:
-            return HubPreviewEmpty("submissions needing review")
-        cards = [
-            HubPreviewCard(
-                title=row.title or "Untitled",
-                href=f"/teaching/students/{uid}/submissions?tab=pending",
-                badge=_submission_preview_badge(row.status),
-            )
-            for row in pending[:3]
-        ]
-        return HubPreviewGrid(cards)
-
-    @rt("/api/teaching/students/{uid}/revision/preview")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def student_revision_preview(request: Request, uid: str, current_user: Any = None) -> Any:
-        """HTMX fragment: top 3 revision-requested submissions for student hub preview."""
-        user_uid = require_authenticated_user(request)
-        _, revision, _, _ = await _get_bucketed_submissions(user_uid, uid)
-        if not revision:
-            return HubPreviewEmpty("revision requests")
-        cards = [
-            HubPreviewCard(
-                title=row.title or "Untitled",
-                href=f"/teaching/students/{uid}/submissions?tab=revision",
-                badge=_submission_preview_badge(row.status),
-            )
-            for row in revision[:3]
-        ]
-        return HubPreviewGrid(cards)
-
-    @rt("/api/teaching/students/{uid}/completed/preview")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def student_completed_preview(
+    async def student_submissions_preview(
         request: Request, uid: str, current_user: Any = None
     ) -> Any:
-        """HTMX fragment: top 3 completed submissions for student hub preview."""
+        """HTMX OOB fragment: all 3 submission bucket previews in one DB round-trip.
+
+        Replaces the former /pending/preview, /revision/preview, /completed/preview
+        endpoints that each called _get_bucketed_submissions() independently.
+        Returns 3 OOB-swapped Divs targeting hub-panel-{slug} placeholders rendered
+        by StudentHub without HTMX attrs.
+        """
         user_uid = require_authenticated_user(request)
-        _, _, completed, _ = await _get_bucketed_submissions(user_uid, uid)
-        if not completed:
-            return HubPreviewEmpty("completed submissions")
-        cards = [
-            HubPreviewCard(
-                title=row.title or "Untitled",
-                href=f"/teaching/students/{uid}/submissions?tab=completed",
-                badge=_submission_preview_badge(row.status),
-            )
-            for row in completed[:3]
-        ]
-        return HubPreviewGrid(cards)
+        pending, revision, completed, _ = await _get_bucketed_submissions(user_uid, uid)
+
+        def _make_fragment(slug: str, rows: list[SubmissionRow], empty_label: str) -> Div:
+            if not rows:
+                content: Any = HubPreviewEmpty(empty_label)
+            else:
+                cards = [
+                    HubPreviewCard(
+                        title=row.title or "Untitled",
+                        href=f"/teaching/students/{uid}/submissions?tab={slug}",
+                        badge=_submission_preview_badge(row.status),
+                    )
+                    for row in rows[:3]
+                ]
+                content = HubPreviewGrid(cards)
+            return Div(content, id=f"hub-panel-{slug}", hx_swap_oob="true")
+
+        return Div(
+            _make_fragment("pending", pending, "submissions needing review"),
+            _make_fragment("revision", revision, "revision requests"),
+            _make_fragment("completed", completed, "completed submissions"),
+        )
 
     @rt("/api/teaching/students/{uid}/ku/preview")
     @require_role(UserRole.TEACHER, get_user_service)

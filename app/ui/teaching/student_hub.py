@@ -17,6 +17,9 @@ def StudentHub(student_name: str, student_uid: str) -> Div:
     base_href = f"/teaching/students/{student_uid}/submissions"
     base_api = f"/api/teaching/students/{student_uid}"
 
+    # The 3 submission blocks share one DB call — populated via OOB swap from
+    # /api/teaching/students/{uid}/submissions/preview (no individual preview_url).
+    # KU progress has an independent data source so it self-loads as normal.
     blocks: list[HubBlockData] = [
         HubBlockData(
             label="Needs Review",
@@ -24,7 +27,6 @@ def StudentHub(student_name: str, student_uid: str) -> Div:
             icon="inbox",
             color="#F59E0B",
             href=f"{base_href}?tab=pending",
-            preview_url=f"{base_api}/pending/preview",
         ),
         HubBlockData(
             label="Revision Requested",
@@ -32,7 +34,6 @@ def StudentHub(student_name: str, student_uid: str) -> Div:
             icon="edit-3",
             color="#EF4444",
             href=f"{base_href}?tab=revision",
-            preview_url=f"{base_api}/revision/preview",
         ),
         HubBlockData(
             label="Completed",
@@ -40,7 +41,6 @@ def StudentHub(student_name: str, student_uid: str) -> Div:
             icon="check-circle",
             color="#10B981",
             href=f"{base_href}?tab=completed",
-            preview_url=f"{base_api}/completed/preview",
         ),
         HubBlockData(
             label="KU Progress",
@@ -59,8 +59,17 @@ def StudentHub(student_name: str, student_uid: str) -> Div:
         cls="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-4",
     )
 
+    # Single hidden trigger — fetches all 3 submission buckets in one DB round-trip,
+    # swapping each into hub-panel-{slug} via OOB. Mirrors the sidebar badges pattern.
+    oob_trigger = Div(
+        hx_get=f"{base_api}/submissions/preview",
+        hx_trigger="load",
+        hx_swap="none",
+    )
+
     return Div(
         back_link,
         PageHeader(student_name, subtitle="Student overview"),
+        oob_trigger,
         HubDomainBlockList(blocks),
     )
