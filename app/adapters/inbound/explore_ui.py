@@ -337,171 +337,112 @@ def _filter_items(
 
 
 # =============================================================================
-# Route factory
+# Shared data loader (module-level — used by both API and UI factories)
 # =============================================================================
 
 
-def create_explore_ui_routes(
+async def _load_explore_data(
+    request: Request,
+    ku_service: Any,
+    ps_service: Any,
+    user_relationship_service: Any,
+) -> tuple[list[tuple[Any, str]], set[str], dict[str, str]]:
+    """Load all Ku + PS, pins, and learning states.
+
+    Runs independent queries concurrently via asyncio.gather for faster loads.
+
+    Returns:
+        (unified_items, pinned_uids, learning_states)
+        where unified_items is list of (entity, "ku"|"ps") tuples,
+        and learning_states maps uid -> state label.
+    """
+    import asyncio
+
+    # --- Fire content queries concurrently ---
+    ku_coro = (
+        ku_service.core.list(limit=500)
+        if ku_service and getattr(ku_service, "core", None)
+        else asyncio.sleep(0)
+    )
+    ps_coro = (
+        ps_service.core.list(limit=200)
+        if ps_service and getattr(ps_service, "core", None)
+        else asyncio.sleep(0)
+    )
+
+    # Authenticated user queries (pins + learning states)
+    user_uid = require_authenticated_user(request) if is_authenticated(request) else None
+
+    pins_coro = (
+        user_relationship_service.get_pinned_entities(user_uid)
+        if user_uid and user_relationship_service
+        else asyncio.sleep(0)
+    )
+    ku_states_coro = (
+        ku_service.get_user_learning_states(user_uid)
+        if user_uid and ku_service
+        else asyncio.sleep(0)
+    )
+    ps_states_coro = (
+        ps_service.mastery.get_in_progress_step_uids(user_uid)
+        if user_uid and ps_service
+        else asyncio.sleep(0)
+    )
+
+    ku_result, ps_result, pins_result, ku_states_result, ps_states_result = (
+        await asyncio.gather(ku_coro, ps_coro, pins_coro, ku_states_coro, ps_states_coro)
+    )
+
+    # --- Assemble items ---
+    items: list[tuple[Any, str]] = []
+    if ku_result and not getattr(ku_result, "is_error", False) and getattr(ku_result, "value", None):
+        items.extend((ku, "ku") for ku in ku_result.value)
+    if ps_result and not getattr(ps_result, "is_error", False) and getattr(ps_result, "value", None):
+        raw = ps_result.value if isinstance(ps_result.value, list) else ps_result.value[0]
+        items.extend((ps, "ps") for ps in raw)
+
+    # --- Assemble user-specific data ---
+    pinned_uids: set[str] = set()
+    learning_states: dict[str, str] = {}
+
+    if user_uid:
+        if pins_result and not getattr(pins_result, "is_error", False) and getattr(pins_result, "value", None):
+            pinned_uids = set(pins_result.value)
+
+        if ku_states_result and getattr(ku_states_result, "is_ok", False) and getattr(ku_states_result, "value", None):
+            for rec in ku_states_result.value:
+                ku_uid = rec.get("uid", "")
+                if rec.get("is_understood"):
+                    learning_states[ku_uid] = "Understood"
+                elif rec.get("is_studying"):
+                    learning_states[ku_uid] = "Studying"
+
+        if ps_states_result and not getattr(ps_states_result, "is_error", False) and getattr(ps_states_result, "value", None):
+            for ps_uid in ps_states_result.value:
+                learning_states[ps_uid] = "In Progress"
+
+    return items, pinned_uids, learning_states
+
+
+# =============================================================================
+# API factory
+# =============================================================================
+
+
+def create_explore_api_routes(
     _app: Any,
     rt: Any,
     ku_service: Any,
-    ps_service: Any,
+    ps_service: Any = None,
     user_relationship_service: Any = None,
-    exercises_service: Any = None,
-    submissions_search_service: Any = None,
 ) -> list[Any]:
-    """Create /explore UI routes.
+    """Register /api/explore/* JSON + HTMX API routes.
 
     Args:
-        ku_service: KuService (services.ku).
-        ps_service: PsService (services.ps).
-        user_relationship_service: For pinned entities.
-        exercises_service: For REQUIRES_KNOWLEDGE reverse lookup.
-        submissions_search_service: For PathStep submission/feedback HTMX fragments.
+        ku_service: KuService (services.ku) — primary service.
+        ps_service: PsService (services.ps) — for in-progress PathStep graph nodes.
+        user_relationship_service: For pinned entity graph markers.
     """
-
-    # -----------------------------------------------------------------
-    # Shared data loader
-    # -----------------------------------------------------------------
-
-    async def _load_explore_data(
-        request: Request,
-    ) -> tuple[list[tuple[Any, str]], set[str], dict[str, str]]:
-        """Load all Ku + PS, pins, and learning states.
-
-        Runs independent queries concurrently via asyncio.gather for faster loads.
-
-        Returns:
-            (unified_items, pinned_uids, learning_states)
-            where unified_items is list of (entity, "ku"|"ps") tuples,
-            and learning_states maps uid -> state label.
-        """
-        import asyncio
-
-        # --- Fire content queries concurrently ---
-        ku_coro = (
-            ku_service.core.list(limit=500)
-            if ku_service and getattr(ku_service, "core", None)
-            else asyncio.sleep(0)
-        )
-        ps_coro = (
-            ps_service.core.list(limit=200)
-            if ps_service and getattr(ps_service, "core", None)
-            else asyncio.sleep(0)
-        )
-
-        # Authenticated user queries (pins + learning states)
-        user_uid = require_authenticated_user(request) if is_authenticated(request) else None
-
-        pins_coro = (
-            user_relationship_service.get_pinned_entities(user_uid)
-            if user_uid and user_relationship_service
-            else asyncio.sleep(0)
-        )
-        ku_states_coro = (
-            ku_service.get_user_learning_states(user_uid)
-            if user_uid and ku_service
-            else asyncio.sleep(0)
-        )
-        ps_states_coro = (
-            ps_service.mastery.get_in_progress_step_uids(user_uid)
-            if user_uid and ps_service
-            else asyncio.sleep(0)
-        )
-
-        ku_result, ps_result, pins_result, ku_states_result, ps_states_result = (
-            await asyncio.gather(ku_coro, ps_coro, pins_coro, ku_states_coro, ps_states_coro)
-        )
-
-        # --- Assemble items ---
-        items: list[tuple[Any, str]] = []
-        if ku_result and not getattr(ku_result, "is_error", False) and getattr(ku_result, "value", None):
-            items.extend((ku, "ku") for ku in ku_result.value)
-        if ps_result and not getattr(ps_result, "is_error", False) and getattr(ps_result, "value", None):
-            raw = ps_result.value if isinstance(ps_result.value, list) else ps_result.value[0]
-            items.extend((ps, "ps") for ps in raw)
-
-        # --- Assemble user-specific data ---
-        pinned_uids: set[str] = set()
-        learning_states: dict[str, str] = {}
-
-        if user_uid:
-            if pins_result and not getattr(pins_result, "is_error", False) and getattr(pins_result, "value", None):
-                pinned_uids = set(pins_result.value)
-
-            if ku_states_result and getattr(ku_states_result, "is_ok", False) and getattr(ku_states_result, "value", None):
-                for rec in ku_states_result.value:
-                    ku_uid = rec.get("uid", "")
-                    if rec.get("is_understood"):
-                        learning_states[ku_uid] = "Understood"
-                    elif rec.get("is_studying"):
-                        learning_states[ku_uid] = "Studying"
-
-            if ps_states_result and not getattr(ps_states_result, "is_error", False) and getattr(ps_states_result, "value", None):
-                for ps_uid in ps_states_result.value:
-                    learning_states[ps_uid] = "In Progress"
-
-        return items, pinned_uids, learning_states
-
-    # -----------------------------------------------------------------
-    # GET /explore — Discovery index
-    # -----------------------------------------------------------------
-
-    @rt("/explore")
-    async def explore_index(request: Request) -> Any:
-        """Explore page — discovery-first bento card grid of Ku + PathStep."""
-        items, pinned_uids, learning_states = await _load_explore_data(request)
-
-        # Collect tags from all items
-        all_tags = sorted(
-            {t for item, _ in items for t in (getattr(item, "tags", None) or ())} - {""}
-        )
-
-        # Default sort: newest first
-        items.sort(key=_sort_by_created_at, reverse=True)
-
-        # Render card grid
-        cards = [
-            _explore_card(
-                item,
-                entity_type=et,
-                learning_state=learning_states.get(item.uid, ""),
-                is_pinned=item.uid in pinned_uids,
-            )
-            for item, et in items
-        ]
-
-        grid = (
-            Div(
-                *cards,
-                cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
-                id="explore-grid",
-            )
-            if cards
-            else EmptyState(
-                "No content yet",
-                description="Ingest Ku or PathStep YAML files to populate this page.",
-                id="explore-grid",
-            )
-        )
-
-        content = Div(
-            PageHeader("Explore", subtitle="Discover knowledge units and path steps"),
-            _explore_search_panel(all_tags),
-            grid,
-        )
-
-        return await render_explore_sidebar_page(
-            content=content,
-            ku_service=ku_service,
-            ps_service=ps_service,
-            user_relationship_service=user_relationship_service,
-            request=request,
-        )
-
-    # -----------------------------------------------------------------
-    # GET /api/explore/search — HTMX fragment
-    # -----------------------------------------------------------------
 
     @rt("/api/explore/search")
     async def explore_search(
@@ -512,7 +453,9 @@ def create_explore_ui_routes(
         sort: str = "created_at",
     ) -> Any:
         """Return filtered card grid HTML fragment for HTMX swap."""
-        items, pinned_uids, learning_states = await _load_explore_data(request)
+        items, pinned_uids, learning_states = await _load_explore_data(
+            request, ku_service, ps_service, user_relationship_service
+        )
 
         filtered = _filter_items(items, q.strip(), type, tag, sort)
 
@@ -533,10 +476,6 @@ def create_explore_ui_routes(
             *cards,
             cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
         )
-
-    # -----------------------------------------------------------------
-    # GET /api/explore/graph — Hub learning universe graph (Vis.js format)
-    # -----------------------------------------------------------------
 
     @rt("/api/explore/graph")
     async def explore_graph(request: Request) -> Any:
@@ -634,6 +573,92 @@ def create_explore_ui_routes(
             )
 
         return JSONResponse({"nodes": nodes, "edges": edges})
+
+    logger.info("Explore API routes registered: /api/explore/search, /api/explore/graph")
+    return []
+
+
+# =============================================================================
+# UI factory
+# =============================================================================
+
+
+def create_explore_ui_routes(
+    _app: Any,
+    rt: Any,
+    ku_service: Any,
+    ps_service: Any,
+    exercises_service: Any,
+    submissions_search_service: Any,
+    user_relationship_service: Any = None,
+) -> list[Any]:
+    """Create /explore UI routes.
+
+    Args:
+        ku_service: KuService (services.ku).
+        ps_service: PsService (services.ps).
+        exercises_service: Required — REQUIRES_KNOWLEDGE lookup + PS exercise fragments.
+        submissions_search_service: Required — PathStep submission/feedback HTMX fragments.
+        user_relationship_service: For pinned entities.
+    """
+
+    # -----------------------------------------------------------------
+    # GET /explore — Discovery index
+    # -----------------------------------------------------------------
+
+    @rt("/explore")
+    async def explore_index(request: Request) -> Any:
+        """Explore page — discovery-first bento card grid of Ku + PathStep."""
+        items, pinned_uids, learning_states = await _load_explore_data(
+            request, ku_service, ps_service, user_relationship_service
+        )
+
+        # Collect tags from all items
+        all_tags = sorted(
+            {t for item, _ in items for t in (getattr(item, "tags", None) or ())} - {""}
+        )
+
+        # Default sort: newest first
+        items.sort(key=_sort_by_created_at, reverse=True)
+
+        # Render card grid
+        cards = [
+            _explore_card(
+                item,
+                entity_type=et,
+                learning_state=learning_states.get(item.uid, ""),
+                is_pinned=item.uid in pinned_uids,
+            )
+            for item, et in items
+        ]
+
+        grid = (
+            Div(
+                *cards,
+                cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
+                id="explore-grid",
+            )
+            if cards
+            else EmptyState(
+                "No content yet",
+                description="Ingest Ku or PathStep YAML files to populate this page.",
+                id="explore-grid",
+            )
+        )
+
+        content = Div(
+            PageHeader("Explore", subtitle="Discover knowledge units and path steps"),
+            _explore_search_panel(all_tags),
+            grid,
+        )
+
+        return await render_explore_sidebar_page(
+            content=content,
+            ku_service=ku_service,
+            ps_service=ps_service,
+            user_relationship_service=user_relationship_service,
+            request=request,
+        )
 
     # -----------------------------------------------------------------
     # GET /explore/ku/{uid} — Ku detail page
@@ -1045,8 +1070,6 @@ def create_explore_ui_routes(
     async def get_ps_exercises(request: Request, ps_uid: str) -> Any:
         """HTMX fragment: exercises for a PathStep with submission/feedback status."""
         user_uid = require_authenticated_user(request)
-        if exercises_service is None:
-            return render_inline_error("Exercise service unavailable")
         result = await exercises_service.get_exercises_for_path_step_with_status(ps_uid, user_uid)
         if result.is_error:
             return render_inline_error("Could not load exercises")
@@ -1056,8 +1079,6 @@ def create_explore_ui_routes(
     async def get_ps_submissions_and_feedback(request: Request, ps_uid: str) -> Any:
         """HTMX fragment: user's submissions + feedback for this PathStep."""
         user_uid = require_authenticated_user(request)
-        if submissions_search_service is None:
-            return render_inline_error("Submissions service unavailable")
         result = await submissions_search_service.get_submissions_for_path_step(user_uid, ps_uid)
         if result.is_error:
             return render_inline_error("Could not load submissions")
@@ -1070,12 +1091,11 @@ def create_explore_ui_routes(
         )
 
     logger.info(
-        "Explore UI routes registered: /explore, /api/explore/search, "
-        "/api/explore/graph, /explore/ku/{uid}, /explore/ps/{uid}, "
+        "Explore UI routes registered: /explore, /explore/ku/{uid}, /explore/ps/{uid}, "
         "/learning-loop/ps/{uid}/exercises, /learning-loop/ps/{uid}/submissions-and-feedback"
     )
 
     return []
 
 
-__all__ = ["create_explore_ui_routes"]
+__all__ = ["create_explore_api_routes", "create_explore_ui_routes"]

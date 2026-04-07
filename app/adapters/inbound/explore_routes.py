@@ -14,7 +14,7 @@ Routes:
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.explore_ui import create_explore_ui_routes
+from adapters.inbound.explore_ui import create_explore_api_routes, create_explore_ui_routes
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
@@ -22,15 +22,14 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 
-def _explore_api_routes(_app: Any, _rt: Any, _service: Any, **_kw: Any) -> list[Any]:
-    """Explore API routes are registered inline in explore_ui.py via @rt()."""
-    return []
-
-
 EXPLORE_CONFIG = DomainRouteConfig(
     domain_name="explore",
     primary_service_attr="ku",  # services.ku -> KuService (primary)
-    api_factory=_explore_api_routes,
+    api_factory=create_explore_api_routes,
+    api_related_services={
+        "ps_service": "ps",
+        "user_relationship_service": "user_relationships",
+    },
     ui_factory=create_explore_ui_routes,
     ui_related_services={
         "ps_service": "ps",
