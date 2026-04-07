@@ -17,6 +17,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.user import User
     from core.services.admin_stats_service import AdminStatsService
     from core.services.system_service import SystemService
     from core.services.user_service import UserService
@@ -53,28 +54,26 @@ class AdminOrchestrator:
     # System Health
     # ------------------------------------------------------------------
 
-    async def get_system_status(self) -> tuple[dict[str, Any], bool]:
+    async def get_system_status(self) -> dict[str, Any]:
         """Get system health summary for navbar/overview widgets.
 
-        Returns:
-            (status_dict, had_error) — mirrors the old _get_system_status()
-            helper signature so route call-sites need no restructuring.
+        Never raises — returns ``{"status": "unknown", "healthy": False}``
+        when the system service is unavailable or returns an error.
         """
         try:
             if self._system_service:
                 result = await self._system_service.get_health_status()
                 if not result.is_error:
-                    status = (
+                    return (
                         dict(result.value)
                         if result.value
-                        else {"status": "unknown", "healthy": True}
+                        else {"status": "unknown", "healthy": False}
                     )
-                    return status, False
-                return {"status": "unknown", "healthy": True}, True
+                logger.warning(f"System health check failed: {result.expect_error().message}")
         except Exception as e:  # safety-net: dashboard degrades gracefully on health check failure
             logger.warning(f"Failed to get system status: {e}")
 
-        return {"status": "unknown", "healthy": True}, True
+        return {"status": "unknown", "healthy": False}
 
     async def get_full_health_status(self) -> dict[str, Any]:
         """Get detailed system health for the /admin/system page.
@@ -110,7 +109,7 @@ class AdminOrchestrator:
     # User Management
     # ------------------------------------------------------------------
 
-    async def get_user(self, uid: str) -> Result[Any]:
+    async def get_user(self, uid: str) -> "Result[User | None]":
         """Fetch a single user by UID."""
         return await self._user_service.get_user(uid)
 
@@ -118,18 +117,18 @@ class AdminOrchestrator:
         self,
         role_filter: str | None = None,
         active_only: bool = True,
-    ) -> Result[list[Any]]:
+    ) -> "Result[list[dict[str, Any]]]":
         """Fetch users with their activity counts, optionally filtered."""
         return await self._admin_stats.get_users_with_activity_counts(
             role_filter=role_filter,
             active_only=active_only,
         )
 
-    async def get_user_role_counts(self) -> Result[dict[str, Any]]:
+    async def get_user_role_counts(self) -> "Result[dict[str, int]]":
         """Fetch aggregate user counts grouped by role."""
         return await self._admin_stats.get_user_role_counts()
 
-    async def get_user_detail_stats(self, uid: str) -> Result[dict[str, Any]]:
+    async def get_user_detail_stats(self, uid: str) -> "Result[dict[str, int]]":
         """Fetch per-user activity and session stats for the detail view."""
         return await self._admin_stats.get_user_detail_stats(uid)
 
@@ -137,7 +136,7 @@ class AdminOrchestrator:
     # Analytics
     # ------------------------------------------------------------------
 
-    async def get_activity_entity_counts(self) -> Result[dict[str, Any]]:
+    async def _get_activity_entity_counts(self) -> "Result[dict[str, int]]":
         """Fetch entity counts across activity domains (tasks, habits, etc.)."""
         return await self._admin_stats.get_activity_entity_counts()
 
@@ -156,7 +155,7 @@ class AdminOrchestrator:
         if user_stats_result.is_error:
             logger.error(f"Failed to load user role counts: {user_stats_result.error}")
 
-        activity_result = await self.get_activity_entity_counts()
+        activity_result = await self._get_activity_entity_counts()
         activity_stats: dict[str, Any] = (
             activity_result.value
             if not activity_result.is_error

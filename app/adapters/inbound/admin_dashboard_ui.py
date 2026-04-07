@@ -78,11 +78,11 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
         Returns:
             Admin page with overview content
         """
-        system_status, status_error = await orchestrator.get_system_status()
+        system_status = await orchestrator.get_system_status()
 
         system_status_content = (
             render_error_banner("System status unavailable", severity="warning")
-            if status_error
+            if not system_status.get("healthy", True)
             else _render_system_summary(system_status)
         )
 
@@ -213,7 +213,7 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                 "registered": 0,
             }
         )
-        system_status, _status_error = await orchestrator.get_system_status()
+        system_status = await orchestrator.get_system_status()
 
         users_error_banner = (
             render_error_banner(
@@ -349,7 +349,7 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
             last_login_at=user.last_login_at.isoformat() if user.last_login_at else "Never",
         )
 
-        system_status, _status_error = await orchestrator.get_system_status()
+        system_status = await orchestrator.get_system_status()
 
         # Fetch user activity stats
         detail_stats_result = await orchestrator.get_user_detail_stats(uid)
@@ -498,7 +498,7 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
         Returns:
             Admin page with analytics content
         """
-        system_status, _status_error = await orchestrator.get_system_status()
+        system_status = await orchestrator.get_system_status()
         analytics_data = await orchestrator.get_analytics_data()
 
         content = Div(
