@@ -48,9 +48,9 @@ def create_submissions_routes(
 ) -> None:
     """Register Submissions hub, preview, and child routes."""
 
-    submissions_service = getattr(services, "submissions", None)
-    submissions_search_service = getattr(services, "submissions_search", None)
-    teacher_review_service = getattr(services, "teacher_review", None)
+    orchestrator = services.submissions_orchestrator
+    if orchestrator is None:
+        raise RuntimeError("SubmissionsOrchestrator is required — check bootstrap wiring")
 
     # ========================================================================
     # HUB PAGE
@@ -90,9 +90,7 @@ def create_submissions_routes(
     async def history_preview(request: Request) -> Any:
         """HTMX preview: 3 most recent submissions for hub preview."""
         user_uid = require_authenticated_user(request)
-        if not submissions_service:
-            return HubPreviewEmpty("submissions")
-        result = await submissions_service.list_submissions(
+        result = await orchestrator.list_submissions(
             user_uid, entity_type=EntityType.EXERCISE_SUBMISSION, limit=3
         )
         if result.is_error:
@@ -126,15 +124,14 @@ def create_submissions_routes(
             title="No submissions yet",
             description="Submit your first exercise to see it here.",
         )
-        if submissions_search_service:
-            result = await submissions_search_service.get_submissions_with_feedback_status(user_uid)
-            if result.is_error:
-                logger.error(f"Error loading submissions history: {result.error}")
-                submissions_content = render_error_banner(
-                    "Failed to load submissions", str(result.error)
-                )
-            else:
-                submissions_content = render_yours_list(result.value or [])
+        result = await orchestrator.get_submissions_with_feedback_status(user_uid)
+        if result.is_error:
+            logger.error(f"Error loading submissions history: {result.error}")
+            submissions_content = render_error_banner(
+                "Failed to load submissions", str(result.error)
+            )
+        else:
+            submissions_content = render_yours_list(result.value or [])
 
         content = Div(
             PageHeader(
@@ -158,12 +155,7 @@ def create_submissions_routes(
         """HTMX fragment: student's submissions with teacher review status."""
         try:
             user_uid = require_authenticated_user(request)
-            if not submissions_search_service:
-                return Div(
-                    render_error_banner("Submissions service unavailable"),
-                    id="submissions-yours-list",
-                )
-            result = await submissions_search_service.get_submissions_with_feedback_status(user_uid)
+            result = await orchestrator.get_submissions_with_feedback_status(user_uid)
             if result.is_error:
                 logger.error(f"Error loading submissions history: {result.error}")
                 return Div(
@@ -183,11 +175,8 @@ def create_submissions_routes(
         """Delete a user-owned submission (only if no feedback received)."""
         user_uid = require_authenticated_user(request)
 
-        if not submissions_service:
-            return render_error_banner("Submissions service unavailable")
-
         # Verify the submission exists and belongs to this user
-        sub_result = await submissions_service.get_submission(uid)
+        sub_result = await orchestrator.get_submission(uid)
         if sub_result.is_error or not sub_result.value:
             return render_error_banner("Submission not found")
         submission = sub_result.value
@@ -195,12 +184,11 @@ def create_submissions_routes(
             return render_error_banner("Access denied")
 
         # Guard: don't delete submissions that already have feedback
-        if teacher_review_service:
-            history_result = await teacher_review_service.get_report_history(uid)
-            if not history_result.is_error and history_result.value:
-                return render_error_banner("Cannot delete a submission that has received feedback")
+        history_result = await orchestrator.get_report_history(uid)
+        if not history_result.is_error and history_result.value:
+            return render_error_banner("Cannot delete a submission that has received feedback")
 
-        delete_result = await submissions_service.delete_submission_with_file(uid)
+        delete_result = await orchestrator.delete_submission_with_file(uid)
         if delete_result.is_error:
             return render_error_banner("Failed to delete submission", str(delete_result.error))
 

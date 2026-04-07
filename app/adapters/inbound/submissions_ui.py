@@ -120,6 +120,8 @@ def create_submissions_ui_routes(
         rt: Router instance
         orchestrator: SubmissionsOrchestrator for unified access to services
     """
+    if orchestrator is None:
+        raise RuntimeError("SubmissionsOrchestrator is required — check bootstrap wiring")
 
     # ========================================================================
     # SUBMIT PAGE (standalone — deep-linked from exercises)
@@ -131,10 +133,9 @@ def create_submissions_ui_routes(
         user_uid = require_authenticated_user(request)
 
         assigned_exercises: list[Any] = []
-        if orchestrator:
-            exercises_result = await orchestrator.get_student_exercises(user_uid)
-            if not exercises_result.is_error and exercises_result.value:
-                assigned_exercises = exercises_result.value
+        exercises_result = await orchestrator.get_student_exercises(user_uid)
+        if not exercises_result.is_error and exercises_result.value:
+            assigned_exercises = exercises_result.value
 
         selected_exercise_uid = request.query_params.get("exercise_uid")
         # PathStep context from navigation — passed through as hidden field so the
@@ -244,9 +245,8 @@ def create_submissions_ui_routes(
                 str(form.get("from_ps")).strip() or None if form.get("from_ps") else None
             )
             context_learning_path_uid: str | None = None
-            if orchestrator:
-                ctx_result = await orchestrator.build_user_context(user_uid)
-                if ctx_result.is_ok:
+            ctx_result = await orchestrator.build_user_context(user_uid)
+            if ctx_result.is_ok:
                     ctx = ctx_result.value
                     if not context_path_step_uid:
                         context_path_step_uid = next(iter(ctx.current_ps_uids), None)
@@ -381,12 +381,6 @@ def create_submissions_ui_routes(
             if sub_result.value.user_uid != user_uid:
                 return Div(render_inline_error("Access denied"), id="feedback-section")
 
-            if not orchestrator:
-                return Div(
-                    EmptyState(title="No feedback yet"),
-                    id="feedback-section",
-                )
-
             history_result = await orchestrator.get_report_history(uid)
             if history_result.is_error:
                 logger.error(f"Error loading feedback for {uid}: {history_result.error}")
@@ -420,9 +414,6 @@ def create_submissions_ui_routes(
         """HTMX endpoint: which exercise this submission fulfills."""
         try:
             require_authenticated_user(request)
-
-            if not orchestrator:
-                return Div(id="exercise-link")
 
             result = await orchestrator.get_exercise_for_submission(uid)
 

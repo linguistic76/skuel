@@ -1071,7 +1071,7 @@ async def compose_services(
         logger.info("✅ Orchestration services created")
 
         from core.orchestrator.profile_orchestrator import ProfileOrchestrator
-        
+
         profile_orchestrator = ProfileOrchestrator(
             tasks_service=activity_services["tasks"],
             goals_service=activity_services["goals"],
@@ -1089,10 +1089,9 @@ async def compose_services(
         logger.info("✅ Profile Orchestrator created")
 
         from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
-        
+
         submissions_orchestrator = SubmissionsOrchestrator(
             submissions_service=submissions_service,
-            processing_service=submissions_processor if "submissions_processor" in locals() else getattr(services, "submissions_processor", None),
             exercises_service=exercise_service,
             submissions_search_service=submissions_search_service,
             submissions_core_service=submissions_core_service,
