@@ -130,7 +130,7 @@ def render_class_card(item: ClassSummary) -> Div:
         show_labels=False,
         actions=ButtonLink(
             "View Group",
-            href=f"/teaching/groups/{item.uid}",
+            href=f"/teaching/groups/{item.uid}?name={item.name}",
             variant=ButtonT.primary,
             size=Size.sm,
         ),

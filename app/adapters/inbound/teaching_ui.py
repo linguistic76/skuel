@@ -89,7 +89,7 @@ def create_teaching_ui_routes(
     rt: Any,
     orchestrator: "TeacherOrchestrator",
     user_service: Any,
-) -> list[Any]:
+) -> None:
     """
     Create teaching UI routes for the teacher dashboard.
 
@@ -588,6 +588,7 @@ def create_teaching_ui_routes(
         """Group detail page — members with submission progress stats."""
         user_uid = require_authenticated_user(request)
 
+        group_name = request.query_params.get("name") or uid
         result = await orchestrator.get_group_detail(group_uid=uid, teacher_uid=user_uid)
 
         if result.is_error:
@@ -624,7 +625,7 @@ def create_teaching_ui_routes(
         )
 
         content = Div(
-            PageHeader(f"Group: {uid}", subtitle="Members and their submission progress"),
+            PageHeader(group_name, subtitle="Members and their submission progress"),
             members_content,
             back_link,
         )
@@ -739,7 +740,6 @@ def create_teaching_ui_routes(
         return HubPreviewGrid(cards)
 
     logger.info("Teaching UI routes registered")
-    return []
 
 
 def _display_student_name(name: str) -> str:
