@@ -1344,7 +1344,11 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 
 **Route thinning rule (2026-04-07):** A route file importing `Form`, `Input`, `Label`, or `Textarea` directly is a signal that HTML construction is leaking into routing. Extract those blocks to a `render_*` function in the domain's `ui/` package.
 
-**Teaching UI as canonical example:** `ui/teaching/forms.py` holds `render_feedback_submission_form()`, `render_revision_request_form()`, `render_submission_metadata()`, `render_form_responses_section()`. `teaching_ui.py` and `teaching_forms_ui.py` call these functions — they contain no inline `Form`/`Input`/`Label` construction.
+**Teaching UI as canonical example:** `ui/teaching/forms.py` holds `render_feedback_submission_form()`, `render_revision_request_form()`, `render_submission_metadata()`, `render_form_responses_section()`. `teaching_ui.py` and `teaching_forms_ui.py` call these functions — they contain no inline `Form`/`Input`/`Label` construction. Status constants and dict→dataclass converters live in `ui/teaching/types.py` (single source of truth).
+
+**Exercises UI as second example:** `ui/exercises/editor.py` holds `render_exercise_editor()` (the Form/Input/Label/Textarea-heavy component), `ui/exercises/detail.py` holds `render_exercise_view()` and `render_exercise_student_detail()`, `ui/exercises/cards.py` holds `render_exercises_list()` and `render_exercise_card()`. `exercises_ui.py` is ~180 lines — pure auth + service call + delegation.
+
+**Explore UI:** `ui/explore/cards.py` holds `render_explore_card()` and `render_explore_search_panel()`. `ui/explore/filters.py` holds `filter_items()` and sort helpers. Sidebar data aggregation moved to `ExploreOrchestrator.get_sidebar_data()`. `render_explore_sidebar_page()` accepts pre-fetched `sidebar_data: dict[str, Any] | None` instead of raw services.
 
 **Reference pattern (from Tasks):**
 ```python

@@ -33,7 +33,7 @@ For implementation guidance, see:
 |---|---|---|---|
 | `ProfileOrchestrator` | `user_profile_ui.py` | 9 → 1 | Terminal-state filtering, priority sorting |
 | `SubmissionsOrchestrator` | `submissions_routes.py` + 4 sub-factories | 9 → 1 | Eliminated multi-factory injection pattern |
-| `ExploreOrchestrator` | `explore_ui.py` (API + UI factories) | 5 → 1 | Absorbed 80-line concurrent loader + 90-line Vis.js graph builder |
+| `ExploreOrchestrator` | `explore_ui.py` (API + UI factories) | 5 → 1 | Absorbed 80-line concurrent loader + 90-line Vis.js graph builder + sidebar data aggregation (`get_sidebar_data`) |
 | `LibraryOrchestrator` | `library_ui.py` | 6 → 1 | Deduplicated multi-step pin/enroll queries |
 | `TeacherOrchestrator` | `teaching_ui.py` | 4 → 1 | Review queue, student list, groups, KU detail under one facade |
 
