@@ -119,15 +119,6 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         has_dropdown=False,
         icon="compass",
     ),
-    IconNavItem(
-        "Library",
-        "",
-        "/library",
-        "library",
-        requires_auth=False,
-        has_dropdown=False,
-        icon="book-open",
-    ),
 )
 
 

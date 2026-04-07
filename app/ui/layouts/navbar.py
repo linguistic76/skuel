@@ -2,173 +2,55 @@
 Navbar Component - SKUEL Patterns (MonsterUI)
 ==============================================
 
-Navigation bar using Tailwind utilities + Alpine.js.
-Alpine.js handles UI state, FastHTML handles rendering.
+Navigation bar using Tailwind utilities.
+
+Layout:
+- Mobile: slim top bar (brand + bell + signout) + fixed bottom nav (Hub/Tasks+/Explore/Search)
+- Desktop: slim top bar (brand + text nav links + search + bell + signout)
 
 Usage:
-    from ui.layouts.navbar import create_navbar_for_request
-
-    navbar = create_navbar_for_request(request, active_page="calendar")
+    from ui.layouts.navbar import create_navbar, create_bottom_nav
+    from ui.layouts.navbar import create_navbar_for_request, create_bottom_nav_for_request
 """
 
 from typing import Any
 
-from fasthtml.common import A, Button, Div, Nav, Span
+from fasthtml.common import A, Div, Nav, Span
 from monsterui.franken import UkIcon
 
 from adapters.inbound.fasthtml_types import Request
 from ui.layouts.nav_config import (
-    ACTIVITY_DROPDOWN_ITEMS,
-    CURRICULUM_DROPDOWN_ITEMS,
     ICON_NAV_ITEMS,
     MAIN_NAV_ITEMS,
-    STUDY_DROPDOWN_ITEMS,
-    DropdownItem,
     IconNavItem,
     NavItem,
 )
 
-# Mapping from icon page_key to its dropdown items
-_DROPDOWN_ITEMS_MAP: dict[str, tuple[DropdownItem, ...]] = {
-    "curriculum": CURRICULUM_DROPDOWN_ITEMS,
-    "study": STUDY_DROPDOWN_ITEMS,
-}
 
-
-def _icon_content(item: IconNavItem) -> tuple[Any, str]:
-    """Return (content, extra_css) for an IconNavItem's circular button."""
-    if item.icon:
-        return UkIcon(item.icon, cls="size-5", aria_hidden="true"), ""
-    is_emoji = len(item.letter) > 1 or not item.letter.isascii()
-    text_cls = "text-base" if is_emoji else "font-semibold text-sm"
-    return item.letter, text_cls
-
-
-def _icon_nav_link(item: IconNavItem, active_page: str) -> Any:
-    """Create a circular letter icon link, with optional hover dropdown."""
-    if item.has_dropdown:
-        return _icon_nav_dropdown(item, active_page)
-
+def _nav_link(item: NavItem, active_page: str) -> A:
+    """Desktop text nav link with active state."""
     is_active = item.page_key == active_page
-    active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
-    inactive_cls = "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-
-    content, text_cls = _icon_content(item)
-
-    return A(
-        Span(item.label, cls="sr-only"),
-        Div(
-            content,
-            cls=f"size-8 rounded-full flex items-center justify-center {text_cls} "
-            f"{active_cls if is_active else inactive_cls}",
-            aria_hidden="true",
-        ),
-        href=item.href,
-        cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
-    )
-
-
-def _icon_nav_dropdown(item: IconNavItem, active_page: str) -> Div:
-    """Create an icon button with a hover dropdown for activity domains."""
-    is_active = item.page_key == active_page
-    active_cls = "bg-primary/20 text-primary ring-1 ring-primary/30"
-    inactive_cls = "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-
-    content, text_cls = _icon_content(item)
-
-    trigger = Div(
-        Span(item.label, cls="sr-only"),
-        Div(
-            content,
-            cls=f"size-8 rounded-full flex items-center justify-center {text_cls} cursor-default "
-            f"{active_cls if is_active else inactive_cls}",
-            aria_hidden="true",
-        ),
-        cls="inline-flex items-center justify-center size-11 rounded-full",
-        role="button",
-        aria_haspopup="true",
-        tabindex="0",
-    )
-
-    dropdown_items = [
-        A(
-            UkIcon(di.icon, cls="size-4", aria_hidden="true") if di.icon else None,
-            Span(di.label),
-            href=di.href,
-            cls="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
-        )
-        for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ())
-    ]
-
-    dropdown_menu = Div(
-        *dropdown_items,
-        cls="absolute left-0 top-full mt-1 w-44 bg-background border border-border rounded-lg shadow-lg py-1 z-50 "
-        "opacity-0 invisible group-hover:opacity-100 group-hover:visible "
-        "transition-all duration-150",
-        role="menu",
-    )
-
-    return Div(
-        trigger,
-        dropdown_menu,
-        cls="relative group",
-    )
-
-
-def _nav_link(item: NavItem, active_page: str, mobile: bool = False) -> A:
-    """Create a navigation link with active state styling and keyboard focus."""
-    is_active = item.page_key == active_page
-
-    if mobile:
-        base_cls = (
-            "block rounded-md px-3 py-2 text-base font-medium focus:outline-none focus:bg-accent"
-        )
-        active_cls = "bg-accent text-accent-foreground"
-        inactive_cls = "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-    else:
-        base_cls = "rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
-        active_cls = "bg-accent text-accent-foreground"
-        inactive_cls = "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-
-    cls = f"{base_cls} {active_cls if is_active else inactive_cls}"
-
+    active_cls = "bg-accent text-accent-foreground"
+    inactive_cls = "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+    cls = f"rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary {active_cls if is_active else inactive_cls}"
     return A(item.label, href=item.href, cls=cls)
 
 
-def _bell_icon():
-    """Notification bell icon (decorative - button has sr-only label)."""
-    return UkIcon("bell", cls="size-6", aria_hidden="true")
-
-
-def _hamburger_icon():
-    """Hamburger menu icon (decorative - button has sr-only label)."""
-    return UkIcon("menu", cls="size-6", aria_hidden="true")
-
-
-def _close_icon():
-    """Close X icon (decorative - button has sr-only label)."""
-    return UkIcon("x", cls="size-6", aria_hidden="true")
-
-
-def _search_icon():
-    """Search magnifying glass icon (decorative - link has sr-only label)."""
-    return UkIcon("search", cls="size-6", aria_hidden="true")
-
-
-def _search_button(active_page: str = "") -> A:
-    """Create search icon button that navigates to /search."""
+def _search_button(active_page: str = "", desktop_only: bool = False) -> A:
+    """Search icon button linking to /search."""
     is_active = active_page == "search"
-    active_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
+    color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
+    visibility = "hidden sm:inline-flex" if desktop_only else "inline-flex"
     return A(
         Span("Search", cls="sr-only"),
-        _search_icon(),
+        UkIcon("search", cls="size-6", aria_hidden="true"),
         href="/search",
-        cls=f"inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {active_cls}",
+        cls=f"{visibility} items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
     )
 
 
 def _signout_button() -> A:
-    """Create sign-out icon button for the navbar right section."""
+    """Sign-out icon button."""
     return A(
         Span("Sign out", cls="sr-only"),
         UkIcon("log-out", cls="size-6", aria_hidden="true"),
@@ -177,46 +59,29 @@ def _signout_button() -> A:
     )
 
 
-def _notification_button(unread_count: int = 0) -> Button:
-    """Create notification bell button with optional badge."""
-    button_content = [
+def _notification_button(unread_count: int = 0) -> Any:
+    """Notification bell icon button with optional unread badge."""
+    from fasthtml.common import Button
+
+    button_content: list[Any] = [
         Span("View notifications", cls="sr-only"),
-        _bell_icon(),
+        UkIcon("bell", cls="size-6", aria_hidden="true"),
     ]
-
     if unread_count > 0:
-        badge = Div(
-            Span(
-                str(unread_count) if unread_count < 100 else "99+",
-                cls="text-xs font-bold text-white",
-            ),
-            cls="absolute -top-1 -right-1 size-5 rounded-full bg-yellow-500 flex items-center justify-center",
+        button_content.append(
+            Div(
+                Span(
+                    str(unread_count) if unread_count < 100 else "99+",
+                    cls="text-xs font-bold text-white",
+                ),
+                cls="absolute -top-1 -right-1 size-5 rounded-full bg-yellow-500 flex items-center justify-center",
+            )
         )
-        button_content.append(badge)
-
     return Button(
         *button_content,
         type="button",
         cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground relative",
         **{"hx-get": "/notifications"},
-    )
-
-
-def _mobile_menu_button() -> Button:
-    """Create hamburger/close toggle button for mobile with keyboard navigation."""
-    return Button(
-        Span("Open menu", cls="sr-only"),
-        Span(_hamburger_icon(), **{"x-show": "!mobileMenuOpen"}),
-        Span(_close_icon(), **{"x-show": "mobileMenuOpen", "x-cloak": ""}),
-        type="button",
-        cls="inline-flex items-center justify-center size-11 rounded-md hover:bg-accent sm:hidden",
-        **{
-            "@click": "toggleMobile()",
-            "@keydown.down.prevent": "toggleMobile()",
-            "aria-label": "Toggle menu",
-            ":aria-expanded": "mobileMenuOpen.toString()",
-            "aria-haspopup": "true",
-        },
     )
 
 
@@ -229,7 +94,7 @@ def _avatar_hue(name: str) -> int:
 
 
 def _avatar_circle(current_user: str, fallback: str = "U") -> Div:
-    """Render the colored avatar circle with the user's initial."""
+    """Colored avatar circle with the user's initial."""
     initial = current_user[0].upper() if current_user else fallback
     hue = _avatar_hue(current_user)
     return Div(
@@ -240,20 +105,8 @@ def _avatar_circle(current_user: str, fallback: str = "U") -> Div:
     )
 
 
-def _logout_menu_item(
-    cls: str = "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md",
-) -> A:
-    """Sign-out link with icon and text, used in both avatar dropdown and admin section."""
-    return A(
-        UkIcon("log-out", cls="size-4", aria_hidden="true"),
-        Span("Sign out"),
-        href="/logout",
-        cls=cls,
-    )
-
-
-def _admin_profile_section(current_user: str) -> Div:
-    """Simplified profile section for admin users (desktop only)."""
+def _admin_right_section(current_user: str) -> Div:
+    """Admin right section: avatar link + sign out."""
     return Div(
         A(
             Span("Go to home", cls="sr-only"),
@@ -261,15 +114,18 @@ def _admin_profile_section(current_user: str) -> Div:
             href="/",
             cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
         ),
-        _logout_menu_item(
+        A(
+            UkIcon("log-out", cls="size-4", aria_hidden="true"),
+            Span("Sign out"),
+            href="/logout",
             cls="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent",
         ),
-        cls="hidden sm:flex items-center gap-2",
+        cls="flex items-center gap-2",
     )
 
 
 def _auth_buttons() -> Div:
-    """Create login/signup buttons for unauthenticated users."""
+    """Login/signup buttons for unauthenticated users."""
     return Div(
         A(
             "Login",
@@ -294,7 +150,10 @@ def create_navbar(
     unread_insights: int = 0,
 ) -> Nav:
     """
-    Create the navigation bar.
+    Create the slim top navigation bar.
+
+    Mobile: brand + bell + signout (search lives in bottom nav).
+    Desktop: brand + text nav links + search + bell + signout.
 
     Args:
         current_user: Current user's display name or UID
@@ -302,164 +161,134 @@ def create_navbar(
         active_page: Current page slug for highlighting
         is_admin: Whether user has admin role
         is_teacher: Whether user has teacher role or higher
-        unread_insights: Number of unread insights
+        unread_insights: Number of unread insights/notifications
 
     Returns:
-        FastHTML Nav element with Alpine.js state management
+        FastHTML Nav element (slim top bar)
     """
-
-    def _should_show_item(item: NavItem) -> bool:
-        if item.requires_admin and not is_admin:
-            return False
-        if item.hide_for_admin and is_admin:
-            return False
-        return not (item.requires_teacher and not (is_teacher or is_admin))
-
-    nav_items = [item for item in MAIN_NAV_ITEMS if _should_show_item(item)]
-
-    # Icon navigation links — shown when not admin; public items shown to all users
-    # Hub icon separated so it renders furthest left (before avatar)
-    hub_link: Any = None
-    icon_links: list[Any] = []
-    if not is_admin:
-        for item in ICON_NAV_ITEMS:
-            if item.requires_auth and not is_authenticated:
-                continue
-            if item.page_key == "home":
-                hub_link = _icon_nav_link(item, active_page)
-            else:
-                icon_links.append(_icon_nav_link(item, active_page))
-
-    # Desktop navigation links
-    desktop_links = Div(
-        *[_nav_link(item, active_page) for item in nav_items],
-        cls="hidden sm:flex sm:space-x-1",
-    )
-
-    # Mobile navigation links — expand all dropdowns (activity + icon nav) into individual links
-    mobile_nav_items = list(nav_items)
-    mobile_icon_links: list[Any] = []
     if is_admin:
-        for label, href, key in [
-            ("Admin", "/admin", "admin"),
-            ("Teaching", "/teaching/students", "teaching"),
-        ]:
-            mobile_icon_links.append(_nav_link(NavItem(label, href, key), active_page, mobile=True))
-        mobile_icon_links.append(
-            A(
-                UkIcon("log-out", cls="size-4", aria_hidden="true"),
-                Span("Sign out"),
-                href="/logout",
-                cls="flex items-center gap-2 rounded-md px-3 py-2 text-base font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-            )
-        )
-    else:
-        if is_authenticated:
-            # Activity domains only shown to authenticated users
-            for di in ACTIVITY_DROPDOWN_ITEMS:
-                mobile_icon_links.append(
-                    _nav_link(
-                        NavItem(
-                            f"{di.icon} {di.label}" if di.icon else di.label,
-                            di.href,
-                            di.label.lower(),
-                        ),
-                        active_page,
-                        mobile=True,
-                    )
-                )
-        # Icon nav items — respect requires_auth flag
-        for item in ICON_NAV_ITEMS:
-            if item.requires_auth and not is_authenticated:
-                continue
-            if item.has_dropdown:
-                for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
-                    mobile_icon_links.append(
-                        _nav_link(
-                            NavItem(
-                                f"{di.icon} {di.label}" if di.icon else di.label,
-                                di.href,
-                                di.label.lower(),
-                            ),
-                            active_page,
-                            mobile=True,
-                        )
-                    )
-            else:
-                mobile_icon_links.append(
-                    _nav_link(
-                        NavItem(item.label, item.href, item.page_key),
-                        active_page,
-                        mobile=True,
-                    )
-                )
-        if is_authenticated:
-            mobile_icon_links.append(
+        # Admin: brand on left, avatar + signout on right
+        return Nav(
+            Div(
                 A(
-                    UkIcon("log-out", cls="size-4", aria_hidden="true"),
-                    Span("Sign out"),
-                    href="/logout",
-                    cls="flex items-center gap-2 rounded-md px-3 py-2 text-base font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                )
-            )
-    mobile_links = Div(
-        Div(
-            *mobile_icon_links,
-            *[_nav_link(item, active_page, mobile=True) for item in mobile_nav_items],
-            cls="space-y-1 px-2 pt-2 pb-3",
-            role="menu",
-            **{"aria-orientation": "vertical"},
-        ),
-        cls="sm:hidden",
-        **{"x-show": "mobileMenuOpen", "x-transition": "", "x-cloak": ""},
+                    Span("SKUEL", cls="text-lg font-bold text-primary"),
+                    href="/",
+                    cls="hidden sm:inline-flex items-center justify-center px-2 py-1 rounded hover:bg-accent",
+                ),
+                Div(
+                    _admin_right_section(current_user or "") if current_user else Div(),
+                    cls="flex items-center justify-end flex-1",
+                ),
+                cls="flex items-center h-14 flex-1 px-4 sm:px-6 lg:px-8",
+            ),
+            cls="bg-background border-b border-border sticky top-0 z-40",
+        )
+
+    # --- Regular user top bar ---
+
+    # Desktop center: text links derived from ICON_NAV_ITEMS + teacher link
+    def _should_show(item: IconNavItem) -> bool:
+        # Hub is omitted — the SKUEL brand link already goes to /home
+        if item.page_key == "home":
+            return False
+        return not (item.requires_auth and not is_authenticated)
+
+    desktop_links = Div(
+        *[
+            _nav_link(NavItem(item.label, item.href, item.page_key), active_page)
+            for item in ICON_NAV_ITEMS
+            if _should_show(item)
+        ],
+        *[
+            _nav_link(item, active_page)
+            for item in MAIN_NAV_ITEMS
+            if not (item.requires_admin and not is_admin)
+            and not (item.requires_teacher and not (is_teacher or is_admin))
+            and not (item.hide_for_admin and is_admin)
+        ],
+        cls="hidden sm:flex items-center gap-1",
     )
 
-    # Right section: search + notifications + sign-out (or admin profile / auth buttons)
-    if is_authenticated and current_user and is_admin:
-        right_section: Any = _admin_profile_section(current_user)
-    elif is_authenticated:
-        right_section = Div(
-            _search_button(active_page),
+    # Right section
+    if is_authenticated:
+        right_section: Any = Div(
+            _search_button(active_page, desktop_only=True),
             _notification_button(unread_insights),
             _signout_button(),
-            cls="flex items-center gap-2",
+            cls="flex items-center gap-1",
         )
     else:
         right_section = _auth_buttons()
 
-    # Build left column items
-    left_col: list[Any] = [_mobile_menu_button()]
-    if is_admin:
-        left_col.append(
-            A(
-                Span("SKUEL", cls="text-lg font-bold text-primary"),
-                href="/",
-                cls="hidden sm:inline-flex items-center justify-center px-2 py-1 rounded hover:bg-accent",
-            )
-        )
-    if hub_link is not None:
-        left_col.append(hub_link)
-    left_col.extend(icon_links)
-
     return Nav(
         Div(
-            # Left column: Mobile menu button + Avatar + Icon Nav
-            Div(
-                *left_col,
-                cls="flex items-center gap-2 flex-1",
+            # Left: brand
+            A(
+                "SKUEL",
+                href="/home" if is_authenticated else "/",
+                cls="text-sm font-bold text-primary px-2 py-1 rounded hover:bg-accent",
             ),
-            # Center column: Desktop navigation links
+            # Center: desktop nav links
             desktop_links,
-            # Right column: Search + Notifications
-            Div(
-                right_section,
-                cls="flex items-center justify-end flex-1",
-            ),
-            cls="flex items-center h-16 flex-1 px-4 sm:px-6 lg:px-8",
+            # Right: utilities
+            Div(right_section, cls="flex items-center justify-end flex-1"),
+            cls="flex items-center h-14 px-4 sm:px-6",
         ),
-        mobile_links,
-        **{"x-data": "navbar()"},
-        cls="bg-background border-b border-border sticky top-0 z-50",
+        cls="bg-background border-b border-border sticky top-0 z-40",
+    )
+
+
+def create_bottom_nav(
+    is_authenticated: bool = False,
+    active_page: str = "",
+    is_admin: bool = False,
+) -> Any:
+    """
+    Create the mobile-only fixed bottom navigation bar.
+
+    Shown only on mobile (sm:hidden) for authenticated non-admin users.
+    Four tabs: Hub | Tasks+ | Explore | Search.
+    Respects iOS safe-area-inset-bottom for notched devices.
+
+    Args:
+        is_authenticated: Whether user is logged in
+        active_page: Current page slug for active tab highlighting
+        is_admin: Whether user has admin role
+
+    Returns:
+        FastHTML Nav element or empty Div if not applicable
+    """
+    if not is_authenticated or is_admin:
+        return Div()
+
+    items = [
+        ("home", "home", "Hub", "/home"),
+        ("check-square", "tasks", "Tasks+", "/tasks"),
+        ("compass", "explore", "Explore", "/explore"),
+        ("search", "search", "Search", "/search"),
+    ]
+
+    nav_items = []
+    for icon_name, page_key, label, href in items:
+        is_active = active_page == page_key
+        color_cls = "text-primary" if is_active else "text-muted-foreground"
+        extra: dict[str, Any] = {"aria-current": "page"} if is_active else {}
+        nav_items.append(
+            A(
+                UkIcon(icon_name, cls="size-5", aria_hidden="true"),
+                Span(label, cls="text-xs mt-0.5"),
+                Span(f"Go to {label}", cls="sr-only"),
+                href=href,
+                cls=f"flex flex-col items-center justify-center gap-0.5 flex-1 py-2 {color_cls} hover:text-foreground transition-colors",
+                **extra,
+            )
+        )
+
+    return Nav(
+        *nav_items,
+        cls="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-background border-t border-border flex items-stretch h-16",
+        style="padding-bottom: env(safe-area-inset-bottom)",
+        **{"aria-label": "Primary navigation"},
     )
 
 
@@ -470,7 +299,7 @@ async def create_navbar_for_request(
     notification_service: Any = None,
 ) -> Nav:
     """
-    Create navbar with automatic user/admin detection from session.
+    Create top navbar with automatic user/admin detection from session.
 
     Args:
         request: Starlette/FastHTML request object
@@ -479,9 +308,8 @@ async def create_navbar_for_request(
         notification_service: Optional NotificationService for unread notification count
 
     Returns:
-        FastHTML Nav element with proper authentication state
+        FastHTML Nav element (slim top bar)
     """
-
     from adapters.inbound.auth import (
         get_current_user,
         get_is_admin,
@@ -489,7 +317,6 @@ async def create_navbar_for_request(
         is_authenticated,
     )
 
-    # Get unread insight count
     unread_insights = 0
     if is_authenticated(request) and insight_store:
         try:
@@ -502,7 +329,6 @@ async def create_navbar_for_request(
         except Exception:  # safety-net: badge count must not crash navbar
             pass
 
-    # Get unread notification count
     unread_notifications = 0
     if is_authenticated(request) and notification_service:
         try:
@@ -525,4 +351,32 @@ async def create_navbar_for_request(
     )
 
 
-__all__ = ["create_navbar", "create_navbar_for_request"]
+async def create_bottom_nav_for_request(
+    request: Request,
+    active_page: str = "",
+) -> Any:
+    """
+    Create mobile bottom nav with automatic auth/admin detection from session.
+
+    Args:
+        request: Starlette/FastHTML request object
+        active_page: Current page slug for active tab highlighting
+
+    Returns:
+        FastHTML Nav element or empty Div
+    """
+    from adapters.inbound.auth import get_is_admin, is_authenticated
+
+    return create_bottom_nav(
+        is_authenticated=is_authenticated(request),
+        active_page=active_page,
+        is_admin=get_is_admin(request),
+    )
+
+
+__all__ = [
+    "create_bottom_nav",
+    "create_bottom_nav_for_request",
+    "create_navbar",
+    "create_navbar_for_request",
+]

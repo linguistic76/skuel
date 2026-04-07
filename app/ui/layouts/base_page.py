@@ -26,7 +26,12 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Body, Button, Div, Head, Html, Link, Main, Meta, P, Script, Title
 
-from ui.layouts.navbar import create_navbar, create_navbar_for_request
+from ui.layouts.navbar import (
+    create_bottom_nav,
+    create_bottom_nav_for_request,
+    create_navbar,
+    create_navbar_for_request,
+)
 from ui.layouts.page_types import PAGE_CONFIG, PageType
 from ui.theme import ALPINE_VERSION, BRAND_THEME, HTMX_VERSION, pwa_headers
 
@@ -96,7 +101,7 @@ async def _build_navbar(
     is_authenticated: bool,
     is_admin: bool,
 ) -> "FT":
-    """Build navbar, preferring request-based for auto-detection."""
+    """Build slim top navbar, preferring request-based for auto-detection."""
     if request is not None:
         # Get notification_service from app state if available
         notification_service = getattr(
@@ -114,6 +119,22 @@ async def _build_navbar(
         )
     return create_navbar(
         current_user=user_display_name,
+        is_authenticated=is_authenticated,
+        active_page=active_page,
+        is_admin=is_admin,
+    )
+
+
+async def _build_bottom_nav(
+    request: "Request | None",
+    active_page: str,
+    is_authenticated: bool,
+    is_admin: bool,
+) -> "FT":
+    """Build mobile bottom nav, preferring request-based for auto-detection."""
+    if request is not None:
+        return await create_bottom_nav_for_request(request, active_page=active_page)
+    return create_bottom_nav(
         is_authenticated=is_authenticated,
         active_page=active_page,
         is_admin=is_admin,
@@ -156,18 +177,42 @@ async def BasePage(
     """
     config = PAGE_CONFIG[page_type]
 
+    # Determine effective admin/auth state for layout decisions
+    effective_is_admin = is_admin
+    effective_is_authenticated = is_authenticated
+    if request is not None:
+        from adapters.inbound.auth import get_is_admin
+        from adapters.inbound.auth import is_authenticated as check_auth
+
+        effective_is_admin = get_is_admin(request)
+        effective_is_authenticated = check_auth(request)
+
     navbar = await _build_navbar(
         request=request,
         active_page=active_page,
         user_display_name=user_display_name,
-        is_authenticated=is_authenticated,
-        is_admin=is_admin,
+        is_authenticated=effective_is_authenticated,
+        is_admin=effective_is_admin,
+    )
+
+    bottom_nav = await _build_bottom_nav(
+        request=request,
+        active_page=active_page,
+        is_authenticated=effective_is_authenticated,
+        is_admin=effective_is_admin,
+    )
+
+    # Mobile bottom nav adds 4rem (h-16) to the viewport. Pad main content so it
+    # isn't hidden under the nav. Only needed for authenticated non-admin users on
+    # mobile; sm:pb-0 removes it on desktop where there is no bottom nav.
+    bottom_pad = (
+        "" if effective_is_admin or not effective_is_authenticated else "pb-16 sm:pb-0"
     )
 
     # Build main content area based on page type
     if page_type == PageType.CUSTOM:
         # Custom layout: page manages its own container and padding
-        main_area = Main(content, id="main-content")
+        main_area = Main(content, id="main-content", cls=bottom_pad)
     else:
         # Standard layout: centered content
         main_area = Main(
@@ -176,7 +221,7 @@ async def BasePage(
                 cls=f"{config['container']} {config['content_padding']}",
             ),
             id="main-content",
-            cls="min-h-screen",
+            cls=f"min-h-screen {bottom_pad}",
         )
 
     return Html(
@@ -190,6 +235,7 @@ async def BasePage(
             ),
             navbar,
             main_area,
+            bottom_nav,
             # Modal container for overlays
             Div(id="modal"),
             # Live region for screen reader announcements (Task 10: WCAG 2.1 Level AA)
