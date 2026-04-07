@@ -97,26 +97,39 @@ Create `app/core/orchestrator/{name}_orchestrator.py`. The class provides semant
 
 ```python
 # app/core/orchestrator/example_orchestrator.py
-from typing import Any
-from core.utils.result import Result
-from core.utils.errors import Errors
+from typing import TYPE_CHECKING, Any
+from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.foo_service import FooService
+    from core.services.bar_service import BarService
+    from core.services.optional_intelligence import OptionalIntelligence
+
 
 class ExampleOrchestrator:
+    """Facade for the Example Hub UI layer.
+
+    All service dependencies are required — bootstrap raises if any are missing
+    (Fail-Fast Dependency Philosophy).
+
+    ``optional_intelligence`` is the one legitimate optional: it is ``None``
+    when ``INTELLIGENCE_TIER=core``.
+    """
+
     def __init__(
         self,
-        service_a: Any,
-        service_b: Any,
-        service_c: Any | None = None,
+        foo_service: "FooService",         # required — no default
+        bar_service: "BarService",         # required — no default
+        optional_intelligence: "OptionalIntelligence | None",  # legitimate optional
     ):
-        self._service_a = service_a
-        self._service_b = service_b
-        self._service_c = service_c
+        self._foo = foo_service
+        self._bar = bar_service
+        self._intelligence = optional_intelligence
 
-    async def get_hub_data(self, user_uid: str) -> Result[dict]:
+    async def get_hub_data(self, user_uid: str) -> Result[dict[str, Any]]:
         """Aggregate data from multiple services for the hub page."""
-        if not self._service_a:
-            return Result.fail(Errors.system("Service A not initialized"))
-        # Fetch, filter, sort — return EXACTLY what the UI needs
+        # Fetch, filter, sort — return EXACTLY what the UI needs.
+        # No `if not self._foo` guard — required services are always present.
         ...
 ```
 
@@ -201,7 +214,9 @@ def create_example_ui_routes(_app, rt, orchestrator):
 
 ## Design Constraints
 
+- **Fail-Fast Dependencies.** All service dependencies are required — no `| None` defaults except for `INTELLIGENCE_TIER`-gated services. Bootstrap raises immediately if any required service is `None`. Never guard required services with `if not self._service`.
+- **Typed `TYPE_CHECKING` Imports.** Use concrete typed imports (not `Any`) for all `__init__` parameters. `Any` appears only in return type annotations where the underlying domain model varies.
 - **UI-Scoped Only.** Orchestrators are strictly for the UI rendering layer. They must NOT be reused by API routes or backend business logic.
 - **No God Objects.** Each orchestrator serves one hub/page. Do not create a single orchestrator that serves multiple unrelated pages.
 - **Read-Model Focus.** Orchestrators primarily aggregate and transform data for display. Write operations should be thin delegations (e.g., `orchestrator.process_submission(...)` just calls the underlying service).
-- **Service Properties for Backward Compatibility.** When sidebar renderers or other UI components still need raw services, expose them via `@property` accessors (e.g., `orchestrator.ku_service`) rather than breaking the component layer.
+- **Service Properties for Sidebar Compatibility.** When sidebar renderers or other UI components still need raw services, expose them via `@property` accessors (e.g., `orchestrator.ku_service`) rather than breaking the component layer.

@@ -41,37 +41,56 @@ Apply this pattern when a FastHTML route file (or its factory function) requires
 {Name} UI Orchestrator
 =======================
 Application orchestrator for the {Name} Hub.
+
+All service dependencies are required — bootstrap raises if any are missing
+(Fail-Fast Dependency Philosophy).
 """
-from typing import Any
-from core.utils.errors import Errors
-from core.utils.result import Result
+from typing import TYPE_CHECKING, Any
+from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.foo_service import FooService
+    from core.services.bar_service import BarService
+    from core.services.optional_intelligence import OptionalIntelligence
+
 
 class {Name}Orchestrator:
+    """Facade for the {Name} Hub UI layer.
+
+    All service dependencies are required — bootstrap raises if any are missing
+    (Fail-Fast Dependency Philosophy).
+
+    ``optional_intelligence`` is the one legitimate optional: it is ``None``
+    when ``INTELLIGENCE_TIER=core``.
+    """
+
     def __init__(
         self,
-        service_a: Any,
-        service_b: Any | None = None,
+        foo_service: "FooService",          # required — no default
+        bar_service: "BarService",          # required — no default
+        optional_intelligence: "OptionalIntelligence | None",  # legitimate optional (tier)
     ):
-        self._service_a = service_a
-        self._service_b = service_b
+        self._foo = foo_service
+        self._bar = bar_service
+        self._intelligence = optional_intelligence
 
-    # Proxy methods — delegate to underlying services
-    async def get_items(self, user_uid: str) -> Result[list]:
-        if not self._service_a:
-            return Result.fail(Errors.system("Service A not initialized"))
-        return await self._service_a.list_items(user_uid)
+    # Proxy methods — thin delegations to underlying services
+    async def get_items(self, user_uid: str) -> Result[list[Any]]:
+        return await self._foo.list_items(user_uid)
 
     # Aggregation methods — absorb multi-step inline logic
-    async def get_hub_summary(self, user_uid: str) -> Result[dict]:
+    async def get_hub_summary(self, user_uid: str) -> Result[dict[str, Any]]:
         """Aggregate data from multiple services for the hub page."""
         ...
 ```
 
 **Design Rules:**
-- Import `Result` and `Errors` for consistent error handling
-- Use `Any` type hints (or `TYPE_CHECKING` imports) for service dependencies
+- Use `TYPE_CHECKING` imports for all service type hints — concrete types, not `Any`
+- All required services are positional parameters with **no default** — fail at bootstrap if missing
+- Only `INTELLIGENCE_TIER`-gated services are legitimately `| None`
+- Never guard required services with `if not self._service` — they are always present
 - Return `Result` from all public methods
-- Proxy methods are thin delegations; aggregation methods absorb real logic
+- Proxy methods are thin delegations; aggregation methods absorb real multi-step logic
 
 ### 2. Register in Container
 

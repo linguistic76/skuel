@@ -1,31 +1,26 @@
-# UI Orchestration Expansion Roadmap 🚀
+# UI Orchestration Expansion Roadmap
 
-**Status:** Proposed | **Last Updated:** 2026-04-06
+**Status:** Active | **Last Updated:** 2026-04-07
 
 ## The "Dependency Gravity" Problem
 
-As SKÜEL has grown, our "Hub" pages (Dashboards, Overviews, Lists) have grown increasingly complex. These backend-rendered FastHTML routes must assemble data from 5-10 different micro-services to render a single complex UI page. 
+As SKUEL has grown, Hub pages (Dashboards, Overviews, Lists) must assemble data from 5-10 different micro-services to render a single complex UI page.
 
-Without an orchestrator layer, the route files become **Service Locators** with massive dependency-injection signatures. This violates Clean Architecture by pulling deep backend interactions and domain-level business logic (such as filtering or formatting specific model states) into the HTTP presentation layer.
+Without an orchestrator layer, route files become **Service Locators** with massive dependency-injection signatures — violating Clean Architecture by pulling business logic into the HTTP presentation layer.
 
 **The Solution:** The UI Orchestrator Pattern (see `/docs/patterns/UI_ORCHESTRATOR_PATTERN.md`).
-By isolating these specific view needs into a dedicated Facade layer (`app/core/orchestrator/`), the UI routing files become very thin, focusing purely on FastHTML routing and layout.
+By isolating view needs into a dedicated Facade layer (`app/core/orchestrator/`), UI route files become thin and focused on layout alone.
 
 ---
 
-## Phase 1: Completed
-- [x] **User Profile Hub** (`user_profile_ui.py`): Resolved via `ProfileOrchestrator`. Collapsed 9 individual service dependencies down into 1.
+## Phase 1 & 2: Completed (all 4 orchestrators hardened)
 
----
-- [x] **Submissions Hub** (`submissions_routes.py` & `submissions_ui.py`):
-  - **Dependencies:** Tracks submissions, processing engines, exercises, core tracking, teacher review, search, and users.
-  - **Complexity:** Requires a heavy `create_submissions_ui_orchestrator` method just to inject 9 services to 4 different sub-factories (`submissions_ui`, `activity_reports_ui`, `exercise_reports_ui`, `revised_exercises_ui`).
-  - **Proposed Fix:** Create a `SubmissionsOrchestrator` that exposes exact Read models (e.g. `get_student_submissions()`, `get_recent_reviews()`) so the UI doesn't have to piece them together.
+All orchestrators now follow the **Fail-Fast Dependency Philosophy** — typed `TYPE_CHECKING` imports, no `| None` defaults for required services, no `if not self._service` guards.
 
-- explore
-  - library
-
-  ## 2 do
+- [x] **User Profile Hub** (`user_profile_ui.py`) → `ProfileOrchestrator` — 9 → 1. Intelligence moved in; partial-failure isolation per intelligence call.
+- [x] **Submissions Hub** (`submissions_routes.py` + 4 sub-factories) → `SubmissionsOrchestrator` — 9 → 1. Eliminated multi-factory injection pattern.
+- [x] **Explore Hub** (`explore_ui.py`) → `ExploreOrchestrator` — 5 → 1. Absorbed 80-line concurrent loader + 90-line Vis.js graph builder.
+- [x] **Library Hub** (`library_ui.py`) → `LibraryOrchestrator` — 6 → 1. Unified UID-resolve → batch-fetch pattern for bookmarked KUs and enrolled PathSteps.
 
 ---
 
