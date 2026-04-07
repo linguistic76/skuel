@@ -37,6 +37,7 @@ For implementation guidance, see:
 | `ExploreOrchestrator` | `explore_ui.py` (API + UI factories) | 5 → 1 | Absorbed 80-line concurrent loader + 90-line Vis.js graph builder + sidebar data aggregation (`get_sidebar_data`) |
 | `LibraryOrchestrator` | `library_ui.py` | 6 → 1 | Deduplicated multi-step pin/enroll queries |
 | `TeacherOrchestrator` | `teaching_ui.py` | 4 → 1 | Review queue, student list, groups, KU detail under one facade |
+| `JournalOrchestrator` | `journals_ui.py` | 6 → 1 | Compound `get_journal_for_download()` consolidates ownership check + TRANSFORMS lookup; centralises `journal_output_service` availability guards (CORE tier) |
 
 All orchestrators live in `app/core/orchestrator/` and are registered in `services_bootstrap/_container.py`.
 
@@ -63,6 +64,7 @@ graph TD
         EO[ExploreOrchestrator]
         LO[LibraryOrchestrator]
         TO[TeacherOrchestrator]
+        JO[JournalOrchestrator]
     end
 
     subgraph "Domain Services"

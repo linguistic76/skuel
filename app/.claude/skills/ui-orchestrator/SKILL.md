@@ -181,6 +181,7 @@ grep -rn 'service_a\|service_b' app/adapters/inbound/{name}_ui.py
 | `ExploreOrchestrator` | `explore_orchestrator.py` | 5 | Explore & Knowledge |
 | `LibraryOrchestrator` | `library_orchestrator.py` | 6 | Library / Assets |
 | `TeacherOrchestrator` | `teacher_orchestrator.py` | 4 | Teaching & Review |
+| `JournalOrchestrator` | `journal_orchestrator.py` | 6 | Journals / Timeline |
 
 ## Related Pattern: OOB Swaps for Shared-Data Hub Blocks
 
