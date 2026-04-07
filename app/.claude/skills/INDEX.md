@@ -60,7 +60,7 @@ updated: 2026-02-01
 |-------|---------|------------|
 | [activity-domains](activity-domains/SKILL.md) | Tasks, Goals, Habits, Events, Choices, Principles | python, result-pattern, neo4j-cypher-patterns |
 | [curriculum-domains](curriculum-domains/SKILL.md) | KU, PS, LP, MOC (shared knowledge content) | python, result-pattern, neo4j-cypher-patterns |
-| [ui-orchestrator](ui-orchestrator/SKILL.md) | UI Orchestrator Facade for Hub pages (Profile, Submissions, Explore, Library) | fasthtml, domain-route-config |
+| [ui-orchestrator](ui-orchestrator/SKILL.md) | UI Orchestrator Facade for Hub pages (Admin, Profile, Submissions, Explore, Library, Teaching) | fasthtml, domain-route-config |
 
 ### Intelligence Layer
 

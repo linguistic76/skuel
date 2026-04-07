@@ -13,28 +13,21 @@ By isolating view needs into a dedicated Facade layer (`app/core/orchestrator/`)
 
 ---
 
-## Phase 1–3: Completed (all 5 orchestrators hardened)
+## Phase 1–4: Completed (all 6 orchestrators hardened)
 
-All orchestrators now follow the **Fail-Fast Dependency Philosophy** — typed `TYPE_CHECKING` imports, no `| None` defaults for required services, no `if not self._service` guards.
+All orchestrators follow the **Fail-Fast Dependency Philosophy** — typed `TYPE_CHECKING` imports, no `| None` defaults for required services, no `if not self._service` guards.
 
 - [x] **User Profile Hub** (`user_profile_ui.py`) → `ProfileOrchestrator` — 9 → 1. Intelligence moved in; partial-failure isolation per intelligence call.
 - [x] **Submissions Hub** (`submissions_routes.py` + 4 sub-factories) → `SubmissionsOrchestrator` — 9 → 1. Eliminated multi-factory injection pattern.
 - [x] **Explore Hub** (`explore_ui.py`) → `ExploreOrchestrator` — 5 → 1. Absorbed 80-line concurrent loader + 90-line Vis.js graph builder.
 - [x] **Library Hub** (`library_ui.py`) → `LibraryOrchestrator` — 6 → 1. Unified UID-resolve → batch-fetch pattern for bookmarked KUs and enrolled PathSteps.
 - [x] **Teaching & Review Hub** (`teaching_ui.py`) → `TeacherOrchestrator` — 4 → 1. Review queue, student list, groups, KU detail consolidated; `admin_stats` optional (degrades gracefully).
+- [x] **Admin Dashboard** (`admin_dashboard_ui.py`) → `AdminOrchestrator` — 3 → 1. Eliminated `_get_system_status(services)` helper repeated across 4 routes; `get_analytics_data()` collapses two service calls into one aggregated method.
 
 ---
 
-## Phase 4: Future Candidates
+## Phase 5: Future Candidates
 
-The following UI routing modules have been identified as high-priority candidates for the UI Orchestrator Pattern, based on their file size, complexity, and the number of cross-domain services they import:
-
-### 1. Administrator Dashboard (`admin_dashboard_ui.py`)
-- **Impact:** High
-- **Why:** Inherently needs an app-wide snapshot of System Health, Users, Transcriptions, System queues, and Graph Database integrity.
-- **Goal:** `AdminOrchestrator` -> Provide unified metrics and system state without injecting `user_service`, `db_service`, `transcription_service`, `metrics_service`, etc.
-
-
-### 5. Journal / Timeline Hub (`journals_ui.py`)
+### Journal / Timeline Hub (`journals_ui.py`)
 - **Impact:** Low
 - **Why:** Although the file is very large (46KB), much of it may be specialized UX components rather than cross-domain dependencies. Still, a `JournalOrchestrator` could abstract timeline generation algorithms away from the presentation logic.

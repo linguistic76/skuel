@@ -31,6 +31,7 @@ For implementation guidance, see:
 
 | Orchestrator | Hub / Routes | Services Consolidated | Key Wins |
 |---|---|---|---|
+| `AdminOrchestrator` | `admin_dashboard_ui.py` | 3 → 1 | Eliminated repeated `_get_system_status(services)` helper across 4 routes; `get_analytics_data()` collapses two service calls into one |
 | `ProfileOrchestrator` | `user_profile_ui.py` | 9 → 1 | Terminal-state filtering, priority sorting |
 | `SubmissionsOrchestrator` | `submissions_routes.py` + 4 sub-factories | 9 → 1 | Eliminated multi-factory injection pattern |
 | `ExploreOrchestrator` | `explore_ui.py` (API + UI factories) | 5 → 1 | Absorbed 80-line concurrent loader + 90-line Vis.js graph builder + sidebar data aggregation (`get_sidebar_data`) |
@@ -56,6 +57,7 @@ graph TD
     end
 
     subgraph "Orchestrator Layer (Facades)"
+        AO[AdminOrchestrator]
         PO[ProfileOrchestrator]
         SO[SubmissionsOrchestrator]
         EO[ExploreOrchestrator]
@@ -69,14 +71,17 @@ graph TD
         KU[KuService] ; PS[PsService] ; Ex[Exercises]
         Res[Resources] ; UR[UserRelationships]
         TR[TeacherReview] ; AS[AdminStats]
+        US[UserService] ; SS[SystemService]
     end
 
+    UI_Routes --> AO
     UI_Routes --> PO
     UI_Routes --> SO
     UI_Routes --> EO
     UI_Routes --> LO
     UI_Routes --> TO
 
+    AO --> US ; AO --> AS ; AO --> SS
     PO --> TS ; PO --> GS ; PO --> HS
     SO --> Sub ; SO --> Proc ; SO --> Rev
     EO --> KU ; EO --> PS ; EO --> Ex
@@ -88,8 +93,8 @@ graph TD
     classDef dev fill:#dfd,stroke:#333;
 
     class UI_Routes route;
-    class PO,SO,EO,LO,TO facade;
-    class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR,TR,AS dev;
+    class AO,PO,SO,EO,LO,TO facade;
+    class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR,TR,AS,US,SS dev;
 ```
 
 ## Implementation Checklist

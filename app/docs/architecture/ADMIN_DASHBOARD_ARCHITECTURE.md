@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2025-12-07
+updated: 2026-04-07
 status: current
 category: architecture
 tags:
@@ -14,16 +14,18 @@ related:
 - UNIFIED_USER_ARCHITECTURE.md
 related_skills:
 - chartjs
+- ui-orchestrator
 ---
 
 # Admin Dashboard Architecture
 
-**Last Updated**: March 18, 2026 (Service extraction: get_user_role_counts, get_activity_entity_counts)
+**Last Updated**: April 7, 2026 (AdminOrchestrator — resolved dependency gravity)
+
 ## Related Skills
 
 For implementation guidance, see:
 - [@chartjs](../../.claude/skills/chartjs/SKILL.md)
-
+- [@ui-orchestrator](../../.claude/skills/ui-orchestrator/SKILL.md)
 
 ## Overview
 
@@ -86,6 +88,23 @@ The user management section (`/admin/users`) provides:
 │   │   │  Ingestion → │    │                                    │   │   │
 │   │   └──────────────┘    └────────────────────────────────────┘   │   │
 │   └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      ORCHESTRATOR LAYER                                  │
+│                                                                          │
+│   AdminOrchestrator  (core/orchestrator/admin_orchestrator.py)          │
+│   ├─ get_system_status()          → SystemService.get_health_status()   │
+│   ├─ get_full_health_status()     → SystemService (with error guard)    │
+│   ├─ get_user(uid)                → UserService.get_user()              │
+│   ├─ get_users_with_activity_counts() → AdminStatsService               │
+│   ├─ get_user_role_counts()       → AdminStatsService                   │
+│   ├─ get_user_detail_stats(uid)   → AdminStatsService                   │
+│   ├─ get_activity_entity_counts() → AdminStatsService                   │
+│   └─ get_analytics_data()         → aggregates role_counts + entity_counts│
+│                                                                          │
+│   user_service property           → exposed for @require_admin          │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼

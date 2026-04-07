@@ -175,6 +175,7 @@ grep -rn 'service_a\|service_b' app/adapters/inbound/{name}_ui.py
 
 | Orchestrator | File | Services | Hub |
 |---|---|---|---|
+| `AdminOrchestrator` | `admin_orchestrator.py` | 3 | Admin Dashboard |
 | `ProfileOrchestrator` | `profile_orchestrator.py` | 9 | User Profile |
 | `SubmissionsOrchestrator` | `submissions_orchestrator.py` | 9 | Submissions |
 | `ExploreOrchestrator` | `explore_orchestrator.py` | 5 | Explore & Knowledge |
