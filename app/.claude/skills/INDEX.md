@@ -60,6 +60,7 @@ updated: 2026-02-01
 |-------|---------|------------|
 | [activity-domains](activity-domains/SKILL.md) | Tasks, Goals, Habits, Events, Choices, Principles | python, result-pattern, neo4j-cypher-patterns |
 | [curriculum-domains](curriculum-domains/SKILL.md) | KU, PS, LP, MOC (shared knowledge content) | python, result-pattern, neo4j-cypher-patterns |
+| [ui-orchestrator](ui-orchestrator/SKILL.md) | UI Orchestrator Facade for Hub pages (Profile, Submissions, Explore, Library) | fasthtml, domain-route-config |
 
 ### Intelligence Layer
 
@@ -134,6 +135,7 @@ updated: 2026-02-01
 | skuel-search-architecture | 1 | SearchRouter unified search |
 | tailwind-css | 5 | Tailwind CSS utilities |
 | ui-error-handling | 1 | Result[T] propagation to UI, error banners, pure computation helpers |
+| ui-orchestrator | 1 | UI Orchestrator Facade for Hub pages (resolves Dependency Gravity) |
 | user-context-intelligence | 4 | Central cross-domain intelligence hub (8 flagship methods) |
 | vis-network | 1 | Vis.js Network for interactive graph visualization |
 | zpd | 1 | Zone of Proximal Development — pedagogical gravity well |

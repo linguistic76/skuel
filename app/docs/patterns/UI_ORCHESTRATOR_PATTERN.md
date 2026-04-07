@@ -1,0 +1,207 @@
+---
+title: UI Orchestrator Pattern
+updated: '2026-04-06'
+category: patterns
+related_skills:
+- fasthtml
+- ui-orchestrator
+related_docs:
+- DOMAIN_ROUTE_CONFIG_PATTERN.md
+- HUB_PAGE_PATTERN.md
+---
+# UI Orchestrator Pattern
+
+**Status:** Active | **Last Updated:** 2026-04-06
+
+## Related Skills
+
+For implementation guidance, see:
+- [@ui-orchestrator](../../.claude/skills/ui-orchestrator/SKILL.md)
+- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
+
+## Overview
+
+**What:** An Application Facade (Orchestrator) pattern specifically built to serve a complex UI view or Hub page.
+
+**Why:** Resolves the "Dependency Gravity" problem where backend-rendered routes (like FastHTML) must assemble data from 5-10 different micro-services to render a single complex page. Without an orchestrator, the route files become bloated Service Locators or require massive dependency-injection signatures, violating Clean Architecture and polluting the HTTP layer with business logic.
+
+**Impact:** Strips out inline business logic (like terminal state filtering, concurrent data aggregation, and cross-domain priority sorting) from the UI layer. Reduces the number of injected services in UI router files from N (often 6-10) down to 1 (`orchestrator`).
+
+## Adoption
+
+| Orchestrator | Hub / Routes | Services Consolidated | Key Wins |
+|---|---|---|---|
+| `ProfileOrchestrator` | `user_profile_ui.py` | 9 → 1 | Terminal-state filtering, priority sorting |
+| `SubmissionsOrchestrator` | `submissions_routes.py` + 4 sub-factories | 9 → 1 | Eliminated multi-factory injection pattern |
+| `ExploreOrchestrator` | `explore_ui.py` (API + UI factories) | 5 → 1 | Absorbed 80-line concurrent loader + 90-line Vis.js graph builder |
+| `LibraryOrchestrator` | `library_ui.py` | 6 → 1 | Deduplicated multi-step pin/enroll queries |
+
+All orchestrators live in `app/core/orchestrator/` and are registered in `services_bootstrap/_container.py`.
+
+## The Pattern
+
+### Core Components
+
+1. **Application Orchestrator Layer** (`app/core/orchestrator/`): Highly specific classes designed to serve a unique, specialized UI page.
+2. **Dependency Aggregation**: The Orchestrator ingests all base-level domain services at application bootstrap.
+3. **Route Simplification**: UI Routers only accept the Orchestrator, removing the need to pull raw domain services from the `Services` container.
+
+### Architecture
+
+```mermaid
+graph TD
+    subgraph "Route Layer (Thin)"
+        UI_Routes["UI Routes / Factories"]
+    end
+
+    subgraph "Orchestrator Layer (Facades)"
+        PO[ProfileOrchestrator]
+        SO[SubmissionsOrchestrator]
+        EO[ExploreOrchestrator]
+        LO[LibraryOrchestrator]
+    end
+
+    subgraph "Domain Services"
+        TS[Tasks] ; GS[Goals] ; HS[Habits]
+        Sub[Submissions] ; Proc[Processing] ; Rev[Reviews]
+        KU[KuService] ; PS[PsService] ; Ex[Exercises]
+        Res[Resources] ; UR[UserRelationships]
+    end
+
+    UI_Routes --> PO
+    UI_Routes --> SO
+    UI_Routes --> EO
+    UI_Routes --> LO
+
+    PO --> TS ; PO --> GS ; PO --> HS
+    SO --> Sub ; SO --> Proc ; SO --> Rev
+    EO --> KU ; EO --> PS ; EO --> Ex
+    LO --> Res ; LO --> UR ; LO --> Ex
+
+    classDef route fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef facade fill:#bbf,stroke:#333,stroke-width:4px;
+    classDef dev fill:#dfd,stroke:#333;
+
+    class UI_Routes route;
+    class PO,SO,EO,LO facade;
+    class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR dev;
+```
+
+## Implementation Checklist
+
+When creating a new orchestrator, follow these steps:
+
+### 1. Create the Orchestrator
+
+Create `app/core/orchestrator/{name}_orchestrator.py`. The class provides semantic, view-oriented methods and absorbs business logic previously scattered in route handlers.
+
+```python
+# app/core/orchestrator/example_orchestrator.py
+from typing import Any
+from core.utils.result import Result
+from core.utils.errors import Errors
+
+class ExampleOrchestrator:
+    def __init__(
+        self,
+        service_a: Any,
+        service_b: Any,
+        service_c: Any | None = None,
+    ):
+        self._service_a = service_a
+        self._service_b = service_b
+        self._service_c = service_c
+
+    async def get_hub_data(self, user_uid: str) -> Result[dict]:
+        """Aggregate data from multiple services for the hub page."""
+        if not self._service_a:
+            return Result.fail(Errors.system("Service A not initialized"))
+        # Fetch, filter, sort — return EXACTLY what the UI needs
+        ...
+```
+
+### 2. Register in Container
+
+Add to `services_bootstrap/_container.py`:
+
+```python
+# In the TYPE_CHECKING block:
+from core.orchestrator.example_orchestrator import ExampleOrchestrator
+
+# In the Services dataclass:
+example_orchestrator: "ExampleOrchestrator | None" = None
+```
+
+### 3. Wire in Compose
+
+Instantiate in `services_bootstrap/compose.py` after all domain services are created:
+
+```python
+from core.orchestrator.example_orchestrator import ExampleOrchestrator
+
+example_orchestrator = ExampleOrchestrator(
+    service_a=my_service_a,
+    service_b=my_service_b,
+    service_c=some_optional_service,
+)
+logger.info("✅ Example Orchestrator created")
+```
+
+And assign to the `Services` container:
+```python
+services = Services(
+    ...,
+    example_orchestrator=example_orchestrator,
+)
+```
+
+### 4. Simplify Route Wiring
+
+Update the route registration to pass only the orchestrator:
+
+```python
+# Before (Dependency Gravity):
+create_example_ui_routes(
+    app, rt,
+    service_a=getattr(services, "a", None),
+    service_b=getattr(services, "b", None),
+    service_c=getattr(services, "c", None),
+)
+
+# After (Orchestrated):
+create_example_ui_routes(app, rt, orchestrator=services.example_orchestrator)
+```
+
+### 5. Refactor UI Factory
+
+```python
+# Before:
+def create_example_ui_routes(_app, rt, service_a, service_b, service_c=None):
+    ...
+
+# After:
+def create_example_ui_routes(_app, rt, orchestrator):
+    ...
+```
+
+## When to Use This Pattern
+
+### ✓ Use the UI Orchestrator When:
+
+1. **Hub Pages & Dashboards** — Pages that pull data from many independent domain contexts (e.g., Profile, Analytics Dashboard, Submissions Hub).
+2. **Heavy View-Model Logic** — The FastHTML route is performing multi-step filtering, sorting, or data transformation before rendering the HTML.
+3. **High Dependency Gravity** — A single route file imports or extracts more than 3-4 distinct domain services to fulfill its data requirements.
+4. **Duplicated Multi-Step Queries** — The same pin-resolve → batch-fetch pattern appears in both tab handlers AND hub preview handlers.
+
+### ✗ Don't Use the UI Orchestrator When:
+
+1. **Standard CRUD Pages** — Pages managing a single entity type (like the `/tasks` or `/habits` views). The standard `DomainRouteConfig` pattern is sufficient.
+2. **Simple Associations** — A UI element that just needs to look up the User name for a Task. Use the related service directly.
+3. **Cross-Domain Business Invariants** — If you need to ensure a business rule spans multiple domains (e.g., "Deleting a goal cancels all its tasks"), use an Application Service or Domain Event wrapper, not a UI Orchestrator. UI Orchestrators should ideally be Read-Only or lightweight delegators.
+
+## Design Constraints
+
+- **UI-Scoped Only.** Orchestrators are strictly for the UI rendering layer. They must NOT be reused by API routes or backend business logic.
+- **No God Objects.** Each orchestrator serves one hub/page. Do not create a single orchestrator that serves multiple unrelated pages.
+- **Read-Model Focus.** Orchestrators primarily aggregate and transform data for display. Write operations should be thin delegations (e.g., `orchestrator.process_submission(...)` just calls the underlying service).
+- **Service Properties for Backward Compatibility.** When sidebar renderers or other UI components still need raw services, expose them via `@property` accessors (e.g., `orchestrator.ku_service`) rather than breaking the component layer.
