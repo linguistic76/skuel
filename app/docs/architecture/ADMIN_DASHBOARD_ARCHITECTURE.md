@@ -101,7 +101,7 @@ The user management section (`/admin/users`) provides:
 │   ├─ get_users_with_activity_counts() → AdminStatsService               │
 │   ├─ get_user_role_counts()       → AdminStatsService                   │
 │   ├─ get_user_detail_stats(uid)   → AdminStatsService                   │
-│   ├─ get_activity_entity_counts() → AdminStatsService                   │
+│   ├─ _get_activity_entity_counts() → AdminStatsService (private)        │
 │   └─ get_analytics_data()         → aggregates role_counts + entity_counts│
 │                                                                          │
 │   user_service property           → exposed for @require_admin          │
@@ -460,21 +460,25 @@ get_user_service = make_service_getter(services.user_service)
 
 ### 4. Partial Failure Banners
 
-Service methods return `Result[T]`. The `_get_system_status` helper returns `tuple[data, bool]` where the bool indicates an error. Routes unpack and conditionally render `render_error_banner(msg, severity="warning")` per section:
+Service methods return `Result[T]`. Routes conditionally render `render_error_banner(msg, severity="warning")` per section on failure.
+
+`AdminOrchestrator.get_system_status()` returns `dict[str, Any]` — never raises. On error it returns `{"status": "unknown", "healthy": False}`. Routes check the `healthy` key:
 
 ```python
-user_stats_result = await services.admin_stats.get_user_role_counts()
-stats_error = user_stats_result.is_error
-user_stats = user_stats_result.value if not stats_error else {
-    "total": 0, "admins": 0, "teachers": 0, "members": 0, "registered": 0,
-}
+system_status = await orchestrator.get_system_status()
 
-Card(
-    H2("User Statistics"),
-    render_error_banner("User statistics unavailable", severity="warning")
-    if stats_error
-    else AdminUIComponents.render_user_stats(user_stats),
+system_status_content = (
+    render_error_banner("System status unavailable", severity="warning")
+    if not system_status.get("healthy", True)
+    else _render_system_summary(system_status)
 )
+```
+
+`get_analytics_data()` is partial-failure tolerant — returns zero-value fallbacks for each failed sub-query rather than surfacing a top-level error:
+
+```python
+analytics_data = await orchestrator.get_analytics_data()
+AdminAnalyticsComponents.render_analytics_dashboard(analytics_data)
 ```
 
 **Applied to:** system status (overview), user stats (users list), activity entity counts (analytics), detail stats (user detail). KU metrics + user progress are handled per-student in the Teaching UI (`/teaching/students/{uid}/submissions?tab=ku`).

@@ -142,8 +142,8 @@ create_{name}_ui_routes(
 )
 
 # After:
-if services and services.{name}_orchestrator:
-    create_{name}_ui_routes(app, rt, orchestrator=services.{name}_orchestrator)
+assert services.{name}_orchestrator is not None, "{Name}Orchestrator not initialised"
+create_{name}_ui_routes(app, rt, orchestrator=services.{name}_orchestrator)
 ```
 
 ### 5. Refactor UI Factory

@@ -192,6 +192,7 @@ create_example_ui_routes(
 )
 
 # After (Orchestrated):
+assert services.example_orchestrator is not None, "ExampleOrchestrator not initialised"
 create_example_ui_routes(app, rt, orchestrator=services.example_orchestrator)
 ```
 
@@ -224,7 +225,7 @@ def create_example_ui_routes(_app, rt, orchestrator):
 
 ## Design Constraints
 
-- **Fail-Fast Dependencies.** All service dependencies are required — no `| None` defaults except for `INTELLIGENCE_TIER`-gated services. Bootstrap raises immediately if any required service is `None`. Never guard required services with `if not self._service`.
+- **Fail-Fast Dependencies.** All service dependencies are required — no `| None` defaults except for `INTELLIGENCE_TIER`-gated services. Bootstrap raises immediately if any required service is `None`. Never guard required services with `if not self._service`. At the bootstrap call site, narrow the container's `| None` type with `assert services.{name}_orchestrator is not None` before passing to the route factory.
 - **Typed `TYPE_CHECKING` Imports.** Use concrete typed imports (not `Any`) for all `__init__` parameters. `Any` appears only in return type annotations where the underlying domain model varies.
 - **UI-Scoped Only.** Orchestrators are strictly for the UI rendering layer. They must NOT be reused by API routes or backend business logic.
 - **No God Objects.** Each orchestrator serves one hub/page. Do not create a single orchestrator that serves multiple unrelated pages.
