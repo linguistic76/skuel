@@ -13,7 +13,7 @@ By isolating view needs into a dedicated Facade layer (`app/core/orchestrator/`)
 
 ---
 
-## Phase 1 & 2: Completed (all 4 orchestrators hardened)
+## Phase 1–3: Completed (all 5 orchestrators hardened)
 
 All orchestrators now follow the **Fail-Fast Dependency Philosophy** — typed `TYPE_CHECKING` imports, no `| None` defaults for required services, no `if not self._service` guards.
 
@@ -21,19 +21,15 @@ All orchestrators now follow the **Fail-Fast Dependency Philosophy** — typed `
 - [x] **Submissions Hub** (`submissions_routes.py` + 4 sub-factories) → `SubmissionsOrchestrator` — 9 → 1. Eliminated multi-factory injection pattern.
 - [x] **Explore Hub** (`explore_ui.py`) → `ExploreOrchestrator` — 5 → 1. Absorbed 80-line concurrent loader + 90-line Vis.js graph builder.
 - [x] **Library Hub** (`library_ui.py`) → `LibraryOrchestrator` — 6 → 1. Unified UID-resolve → batch-fetch pattern for bookmarked KUs and enrolled PathSteps.
+- [x] **Teaching & Review Hub** (`teaching_ui.py`) → `TeacherOrchestrator` — 4 → 1. Review queue, student list, groups, KU detail consolidated; `admin_stats` optional (degrades gracefully).
 
 ---
 
-## Phase 3: Future Candidates
+## Phase 4: Future Candidates
 
 The following UI routing modules have been identified as high-priority candidates for the UI Orchestrator Pattern, based on their file size, complexity, and the number of cross-domain services they import:
 
-### 1. Teaching & Review Hub (`teaching_ui.py`)
-- **Impact:** High
-- **Why:** The teacher dashboard has to pull from Users (rosters), Submissions (queue), Reports, Exercises, and Analytics to accurately display the "needs review" state.
-- **Goal:** `TeacherOrchestrator` -> `get_teacher_dashboard_state(teacher_uid)`.
-
-### 2. Administrator Dashboard (`admin_dashboard_ui.py`)
+### 1. Administrator Dashboard (`admin_dashboard_ui.py`)
 - **Impact:** High
 - **Why:** Inherently needs an app-wide snapshot of System Health, Users, Transcriptions, System queues, and Graph Database integrity.
 - **Goal:** `AdminOrchestrator` -> Provide unified metrics and system state without injecting `user_service`, `db_service`, `transcription_service`, `metrics_service`, etc.

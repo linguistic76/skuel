@@ -91,6 +91,7 @@ class {Name}Orchestrator:
 - Never guard required services with `if not self._service` — they are always present
 - Return `Result` from all public methods
 - Proxy methods are thin delegations; aggregation methods absorb real multi-step logic
+- Only add composite methods (e.g. `get_hub_dashboard()`) when a hub page actually calls them — don't build aggregation methods speculatively for pages that don't exist yet
 
 ### 2. Register in Container
 
@@ -178,6 +179,7 @@ grep -rn 'service_a\|service_b' app/adapters/inbound/{name}_ui.py
 | `SubmissionsOrchestrator` | `submissions_orchestrator.py` | 9 | Submissions |
 | `ExploreOrchestrator` | `explore_orchestrator.py` | 5 | Explore & Knowledge |
 | `LibraryOrchestrator` | `library_orchestrator.py` | 6 | Library / Assets |
+| `TeacherOrchestrator` | `teacher_orchestrator.py` | 4 | Teaching & Review |
 
 ## Anti-Patterns to Avoid
 

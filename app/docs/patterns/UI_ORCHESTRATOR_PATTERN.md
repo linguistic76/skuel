@@ -1,6 +1,6 @@
 ---
 title: UI Orchestrator Pattern
-updated: '2026-04-06'
+updated: '2026-04-07'
 category: patterns
 related_skills:
 - fasthtml
@@ -35,6 +35,7 @@ For implementation guidance, see:
 | `SubmissionsOrchestrator` | `submissions_routes.py` + 4 sub-factories | 9 → 1 | Eliminated multi-factory injection pattern |
 | `ExploreOrchestrator` | `explore_ui.py` (API + UI factories) | 5 → 1 | Absorbed 80-line concurrent loader + 90-line Vis.js graph builder |
 | `LibraryOrchestrator` | `library_ui.py` | 6 → 1 | Deduplicated multi-step pin/enroll queries |
+| `TeacherOrchestrator` | `teaching_ui.py` | 4 → 1 | Review queue, student list, groups, KU detail under one facade |
 
 All orchestrators live in `app/core/orchestrator/` and are registered in `services_bootstrap/_container.py`.
 
@@ -59,6 +60,7 @@ graph TD
         SO[SubmissionsOrchestrator]
         EO[ExploreOrchestrator]
         LO[LibraryOrchestrator]
+        TO[TeacherOrchestrator]
     end
 
     subgraph "Domain Services"
@@ -66,25 +68,28 @@ graph TD
         Sub[Submissions] ; Proc[Processing] ; Rev[Reviews]
         KU[KuService] ; PS[PsService] ; Ex[Exercises]
         Res[Resources] ; UR[UserRelationships]
+        TR[TeacherReview] ; AS[AdminStats]
     end
 
     UI_Routes --> PO
     UI_Routes --> SO
     UI_Routes --> EO
     UI_Routes --> LO
+    UI_Routes --> TO
 
     PO --> TS ; PO --> GS ; PO --> HS
     SO --> Sub ; SO --> Proc ; SO --> Rev
     EO --> KU ; EO --> PS ; EO --> Ex
     LO --> Res ; LO --> UR ; LO --> Ex
+    TO --> TR ; TO --> AS
 
     classDef route fill:#f9f,stroke:#333,stroke-width:2px;
     classDef facade fill:#bbf,stroke:#333,stroke-width:4px;
     classDef dev fill:#dfd,stroke:#333;
 
     class UI_Routes route;
-    class PO,SO,EO,LO facade;
-    class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR dev;
+    class PO,SO,EO,LO,TO facade;
+    class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR,TR,AS dev;
 ```
 
 ## Implementation Checklist
@@ -219,4 +224,5 @@ def create_example_ui_routes(_app, rt, orchestrator):
 - **UI-Scoped Only.** Orchestrators are strictly for the UI rendering layer. They must NOT be reused by API routes or backend business logic.
 - **No God Objects.** Each orchestrator serves one hub/page. Do not create a single orchestrator that serves multiple unrelated pages.
 - **Read-Model Focus.** Orchestrators primarily aggregate and transform data for display. Write operations should be thin delegations (e.g., `orchestrator.process_submission(...)` just calls the underlying service).
+- **UI factory return type is `None`.** Orchestrator-driven UI factory functions (`create_{name}_ui_routes`) return `-> None` — not `list[Any]`. The `list[Any]` return belongs to sub-factories consumed by `DomainRouteConfig`. Returning `[]` from an orchestrator-driven factory is wrong.
 - **Service Properties for Sidebar Compatibility.** When sidebar renderers or other UI components still need raw services, expose them via `@property` accessors (e.g., `orchestrator.ku_service`) rather than breaking the component layer.
