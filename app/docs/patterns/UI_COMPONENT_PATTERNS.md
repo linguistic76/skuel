@@ -1350,6 +1350,14 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 
 **Explore UI:** `ui/explore/cards.py` holds `render_explore_card()` and `render_explore_search_panel()`. `ui/explore/filters.py` holds `filter_items()` and sort helpers. Sidebar data aggregation moved to `ExploreOrchestrator.get_sidebar_data()`. `render_explore_sidebar_page()` accepts pre-fetched `sidebar_data: dict[str, Any] | None` instead of raw services.
 
+**LifePath UI:** `ui/lifepath/` — `dashboard.py` (dashboard content + daily focus), `vision.py` (vision form + recommendations page), `alignment.py` (5-dimension alignment dashboard), `nav.py` (sidebar items + page wrapper). `lifepath_ui.py` is ~175 lines — pure auth + service call + delegation.
+
+**Askesis UI:** `ui/askesis/` — `welcome.py` (centered welcome + chat form), `chat.py` (message bubbles), `settings.py` (settings form), `nav.py` (sidebar items + page wrapper). Dissolved `AskesisUI` class. `askesis_ui.py` is ~168 lines.
+
+**Activity Review UI:** `ui/activity_review/` — `cards.py` (queue items + snapshot domain cards), `forms.py` (snapshot form + feedback form with Script sync), `types.py` (domain choices config), `nav.py` (sidebar). `activity_review_ui.py` is ~266 lines.
+
+**Analytics UI:** `ui/analytics/` — `dashboard.py` (dashboard + period fields + result rendering), `domain_metrics.py` (7 per-domain metric renderers), `life_path.py` (alignment dashboard), `life_summary.py` (weekly cross-layer summary). Dissolved `AnalyticsUIComponents` class. `analytics_ui.py` is ~167 lines.
+
 **Reference pattern (from Tasks):**
 ```python
 from adapters.inbound.ui_helpers import render_entity_not_found_page

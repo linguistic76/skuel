@@ -1269,9 +1269,9 @@ def test_validate_task_form_data_missing_title():
 - `/adapters/inbound/insights_ui.py` - Error state with load-more pagination
 - `/adapters/inbound/calendar_api.py` - `render_inline_error()` for reschedule validation
 - `/adapters/inbound/activities_ui.py` - `render_inline_error()` for preview card loading
-- `/adapters/inbound/analytics_ui.py` - `EmptyState` for no Life Path, no domain activity, no weekly data
+- `/ui/analytics/life_path.py` - `EmptyState` for no Life Path; `/ui/analytics/life_summary.py` - `EmptyState` for no weekly data (delegated from `analytics_ui.py`)
 - `/adapters/inbound/form_submissions_ui.py` - `render_error_banner()` for full-page, `EmptyState` for empty data
-- `/adapters/inbound/lifepath_ui.py` - `EmptyState` with CTA for no matching Learning Paths
+- `/ui/lifepath/vision.py` - `EmptyState` with CTA for no matching Learning Paths (delegated from `lifepath_ui.py`)
 
 ### Shared Helpers (`/adapters/inbound/ui_helpers.py`)
 - `render_dashboard_error_page(title, subtitle, error_message, view, render_view_tabs, page_creator, request)` — Standard error page for dashboard routes with tabs/nav preserved (all 6 Activity domains). Domains with multiple calls (e.g., Principles) wrap this in a local `_dashboard_error()` helper to DRY the static args.
@@ -1320,10 +1320,10 @@ def test_validate_task_form_data_missing_title():
 - ✅ Finance (`finance_ui.py`) — typed context methods with Result[TypedDict]
 - ✅ Calendar (`calendar_api.py`) — `render_inline_error()` for reschedule validation
 - ✅ Activities (`activities_ui.py`) — `render_inline_error()` for preview card loading
-- ✅ Analytics (`analytics_ui.py`) — `EmptyState` for no Life Path, no domain activity, no weekly data
+- ✅ Analytics (`ui/analytics/`) — `EmptyState` for no Life Path, no domain activity, no weekly data (delegated from `analytics_ui.py`)
 - ✅ Form Submissions (`form_submissions_ui.py`) — `render_error_banner()` + `EmptyState` for empty data
-- ✅ LifePath (`lifepath_ui.py`) — `EmptyState` with CTA for no matching Learning Paths
-- ✅ Activity Review (`activity_review_ui.py`) — `render_inline_error()` for missing UID, context builder
+- ✅ LifePath (`ui/lifepath/`) — `EmptyState` with CTA for no matching Learning Paths (delegated from `lifepath_ui.py`)
+- ✅ Activity Review (`activity_review_ui.py` + `ui/activity_review/`) — `render_inline_error()` for missing UID, context builder
 
 **Component exports:** `render_error_banner`, `render_inline_error` from `ui/patterns/error_banner.py`; `EmptyState` from `ui/patterns/empty_state.py`.
 

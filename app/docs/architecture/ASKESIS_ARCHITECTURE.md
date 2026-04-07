@@ -279,7 +279,8 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
 | `/core/ports/askesis_protocols.py` | Protocol definitions |
 | `/adapters/inbound/askesis_routes.py` | Route wiring (DomainRouteConfig) |
 | `/adapters/inbound/askesis_api.py` | JSON API endpoints |
-| `/adapters/inbound/askesis_ui.py` | UI components |
+| `/adapters/inbound/askesis_ui.py` | UI routes (thin — delegates to `ui/askesis/`) |
+| `/ui/askesis/` | UI components (welcome, chat, settings, nav) |
 
 ---
 
@@ -359,7 +360,7 @@ class AskesisAnalysis:
 | `/api/askesis/ask` | POST | Natural language Q&A |
 | `/api/askesis/synergies` | GET | Cross-domain synergies |
 
-### UI Routes (`/adapters/inbound/askesis_ui.py`)
+### UI Routes (`/adapters/inbound/askesis_ui.py` — thin, delegates to `ui/askesis/`)
 
 | Route | Purpose |
 |-------|---------|

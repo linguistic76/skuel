@@ -758,10 +758,9 @@ LIFEPATH_CONFIG = DomainRouteConfig(
 **API Routes:** (`lifepath_api.py` - 121 lines)
 - 4 JSON endpoints for vision capture, designation, alignment
 
-**UI Routes:** (`lifepath_ui.py` - 501 lines)
-- 5 UI routes with drawer navigation layout
-- 7 helper functions for dashboard, recommendations, alignment views
-- Complex presentation logic isolated in UI file
+**UI Routes:** (`lifepath_ui.py` - ~175 lines, thinned 2026-04-07)
+- 5 UI routes with sidebar navigation layout
+- HTML construction delegated to `ui/lifepath/` (dashboard, vision, alignment, nav)
 
 **Key features:**
 - Self-contained service facade (no api_related_services needed)

@@ -97,7 +97,7 @@ LifePathService (Facade)
 | **Request Models** | `/core/models/lifepath/lifepath_request.py` |
 | **Routes** | `/adapters/inbound/lifepath_routes.py` (factory) |
 | **API Routes** | `/adapters/inbound/lifepath_api.py` (4 routes) |
-| **UI Routes** | `/adapters/inbound/lifepath_ui.py` (5 routes + helpers) |
+| **UI Routes** | `/adapters/inbound/lifepath_ui.py` (5 routes, thin — delegates to `ui/lifepath/`) |
 
 ## Domain Model
 
