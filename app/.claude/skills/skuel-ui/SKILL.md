@@ -178,10 +178,17 @@ Is it domain-agnostic styling (button, card, input)?
 Is it reusable across multiple domains?
 ├─ YES → /ui/patterns/ (Pattern)
 Is it domain-specific but reusable within domain?
-├─ YES → /ui/{domain}/views.py (Domain Pattern)
+├─ YES → /ui/{domain}/ (e.g. ui/teaching/forms.py, ui/activities/_shared.py)
 Is it one-off UI for a single route?
-└─ YES → Inline in route handler (no separate component)
+├─ Non-trivial (forms, multi-section panels, display helpers with FT trees)
+│  └─ YES → /ui/{domain}/ as a render_*() function — routes must NOT inline Form/Input/Label/Textarea
+└─ Trivial (single Div wrapper, layout glue, 1-2 token classes)
+   └─ YES → Inline in route handler
 ```
+
+**Route thinning signal:** If a `*_ui.py` file imports `Form`, `Input`, `Label`, or `Textarea` from fasthtml, HTML construction is leaking into routing. Extract those blocks to a `render_*` function in the domain's `ui/` package.
+
+**Canonical example:** `ui/teaching/forms.py` — holds `render_feedback_submission_form()`, `render_revision_request_form()`, `render_submission_metadata()`. `teaching_ui.py` calls them; it imports none of the form primitives itself.
 
 ### Component API Design
 

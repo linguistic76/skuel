@@ -1321,7 +1321,7 @@ async def tasks_view_list(request) -> Any:
 **Reference Files:**
 - `/adapters/inbound/tasks_ui.py` - Reference pattern (Activity)
 - `/adapters/inbound/goals_ui.py` - Calendar-enabled variant
-- `/adapters/inbound/teaching_ui.py` - Hub page pattern: `/teaching` hub (BasePage) → child pages with teaching sidebar (`ui/teaching/nav.py`) + nested student hub at `/teaching/students/{uid}` (BasePage, HTMX preview blocks) → student submissions with Alpine section sidebar
+- `/adapters/inbound/teaching_ui.py` - Hub page pattern: `/teaching` hub (BasePage) → child pages with teaching sidebar (`ui/teaching/nav.py`) + nested student hub at `/teaching/students/{uid}` (BasePage, HTMX preview blocks) → student submissions with Alpine section sidebar. All HTML construction delegated to `ui/teaching/` — routes only do auth + service call + delegation.
 - `/adapters/inbound/study_ui.py` - HTMX fragments with error banners
 - `/adapters/inbound/ku_ui.py` - Error state vs empty state
 - `/adapters/inbound/admin_dashboard_ui.py` - Per-section partial failure banners via `tuple[data, bool]` helpers
@@ -1329,18 +1329,22 @@ async def tasks_view_list(request) -> Any:
 
 ### Activity Domain Detail Page Pattern
 
-*Harmonized: 2026-02-07*
+*Harmonized: 2026-02-07 | Updated: 2026-04-07 (route thinning rule)*
 
-All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow a single pattern: **inline HTML in the route handler + BasePage wrapper**.
+All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **route handles auth + service call + layout assembly; non-trivial HTML is delegated to `ui/{domain}/` components**.
 
 **Required elements:**
 1. `require_authenticated_user(request)` for user_uid
 2. `service.get_for_user(uid, user_uid)` for ownership-verified fetch
 3. BasePage-wrapped error card on failure (not bare `Div` or `Response`)
-4. Inline HTML content in the route handler (not delegated to `*ViewComponents` static methods)
+4. HTML construction: trivial layout glue (a `Div` wrapper, `Container`/`Spacing` tokens) may remain inline; non-trivial blocks (forms, multi-section panels, display helpers) **must** go in `ui/{domain}/` — route files must not import `Form`, `Input`, `Label`, `Textarea` to build them inline
 5. `Container.STANDARD` + `Spacing.PAGE` tokens on outer content Div
 6. `EntityRelationshipsSection(entity_uid=..., entity_type=...)` for lateral relationships
 7. `BasePage(content=content, title=..., page_type=PageType.STANDARD, request=request, active_page="{domain}")`
+
+**Route thinning rule (2026-04-07):** A route file importing `Form`, `Input`, `Label`, or `Textarea` directly is a signal that HTML construction is leaking into routing. Extract those blocks to a `render_*` function in the domain's `ui/` package.
+
+**Teaching UI as canonical example:** `ui/teaching/forms.py` holds `render_feedback_submission_form()`, `render_revision_request_form()`, `render_submission_metadata()`, `render_form_responses_section()`. `teaching_ui.py` and `teaching_forms_ui.py` call these functions — they contain no inline `Form`/`Input`/`Label` construction.
 
 **Reference pattern (from Tasks):**
 ```python
