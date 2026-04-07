@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.config.intelligence_tier import IntelligenceTier
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.orchestrator.admin_orchestrator import AdminOrchestrator
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
     from core.orchestrator.profile_orchestrator import ProfileOrchestrator
@@ -292,6 +293,7 @@ class Services:
         None  # HabitEventScheduler - Auto-schedule events from habits
     )
     # Orchestrators (Application Layer)
+    admin_orchestrator: "AdminOrchestrator | None" = None
     profile_orchestrator: "ProfileOrchestrator | None" = None
     submissions_orchestrator: "SubmissionsOrchestrator | None" = None
     explore_orchestrator: "ExploreOrchestrator | None" = None

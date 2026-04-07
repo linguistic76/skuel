@@ -25,7 +25,7 @@ Version: 1.0.0
 Date: 2025-12-07
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, P, Span
 
@@ -45,10 +45,13 @@ from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader
 
+if TYPE_CHECKING:
+    from core.orchestrator.admin_orchestrator import AdminOrchestrator
+
 logger = get_logger("skuel.routes.admin.ui")
 
 
-def create_admin_dashboard_routes(_app, rt, services):
+def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrchestrator") -> None:
     """
     Create admin dashboard UI routes.
 
@@ -57,10 +60,10 @@ def create_admin_dashboard_routes(_app, rt, services):
     Args:
         _app: FastHTML app instance
         rt: Route decorator
-        services: Service container with user_service, system_service
+        orchestrator: AdminOrchestrator facade (user_service, admin_stats, system_service)
     """
 
-    get_user_service = make_service_getter(services.user_service)
+    get_user_service = make_service_getter(orchestrator.user_service)
 
     # ========================================================================
     # OVERVIEW DASHBOARD
@@ -75,8 +78,7 @@ def create_admin_dashboard_routes(_app, rt, services):
         Returns:
             Admin page with overview content
         """
-        # Fetch system health
-        system_status, status_error = await _get_system_status(services)
+        system_status, status_error = await orchestrator.get_system_status()
 
         system_status_content = (
             render_error_banner("System status unavailable", severity="warning")
@@ -189,7 +191,7 @@ def create_admin_dashboard_routes(_app, rt, services):
             active_only = False
 
         # Fetch users with activity counts
-        users_result = await services.admin_stats.get_users_with_activity_counts(
+        users_result = await orchestrator.get_users_with_activity_counts(
             role_filter=role_filter_str,
             active_only=active_only,
         )
@@ -198,9 +200,9 @@ def create_admin_dashboard_routes(_app, rt, services):
         users_data = users_result.value if not users_result.is_error else []
 
         # Fetch stats for header via efficient Cypher COUNT query
-        user_stats_result = await services.admin_stats.get_user_role_counts()
+        user_stats_result = await orchestrator.get_user_role_counts()
         stats_error = user_stats_result.is_error
-        user_stats = (
+        user_stats: dict[str, Any] = (
             user_stats_result.value
             if not stats_error
             else {
@@ -211,7 +213,7 @@ def create_admin_dashboard_routes(_app, rt, services):
                 "registered": 0,
             }
         )
-        system_status, _status_error = await _get_system_status(services)
+        system_status, _status_error = await orchestrator.get_system_status()
 
         users_error_banner = (
             render_error_banner(
@@ -291,8 +293,7 @@ def create_admin_dashboard_routes(_app, rt, services):
         if status == "all":
             active_only = False
 
-        # Fetch users with activity counts
-        users_result = await services.admin_stats.get_users_with_activity_counts(
+        users_result = await orchestrator.get_users_with_activity_counts(
             role_filter=role_filter_str,
             active_only=active_only,
         )
@@ -318,7 +319,7 @@ def create_admin_dashboard_routes(_app, rt, services):
         Returns:
             Admin page with user details and role form
         """
-        result = await services.user_service.get_user(uid)
+        result = await orchestrator.get_user(uid)
 
         if result.is_error or not result.value:
             content = Div(
@@ -348,10 +349,10 @@ def create_admin_dashboard_routes(_app, rt, services):
             last_login_at=user.last_login_at.isoformat() if user.last_login_at else "Never",
         )
 
-        system_status, _status_error = await _get_system_status(services)
+        system_status, _status_error = await orchestrator.get_system_status()
 
         # Fetch user activity stats
-        detail_stats_result = await services.admin_stats.get_user_detail_stats(uid)
+        detail_stats_result = await orchestrator.get_user_detail_stats(uid)
         detail_stats_error = detail_stats_result.is_error
         if detail_stats_error:
             logger.warning(f"Failed to load detail stats for {uid}: {detail_stats_result.error}")
@@ -466,7 +467,7 @@ def create_admin_dashboard_routes(_app, rt, services):
 
         Returns role change form HTML.
         """
-        result = await services.user_service.get_user(uid)
+        result = await orchestrator.get_user(uid)
 
         if result.is_error or not result.value:
             return Div(
@@ -497,41 +498,11 @@ def create_admin_dashboard_routes(_app, rt, services):
         Returns:
             Admin page with analytics content
         """
-        # Fetch user stats via efficient Cypher COUNT query
-        user_stats_result = await services.admin_stats.get_user_role_counts()
-        _stats_error = user_stats_result.is_error
-        user_stats = (
-            user_stats_result.value
-            if not _stats_error
-            else {
-                "total": 0,
-                "admins": 0,
-                "teachers": 0,
-                "members": 0,
-                "registered": 0,
-            }
-        )
-        system_status, _status_error = await _get_system_status(services)
-
-        # Fetch activity entity counts via efficient Cypher COUNT query
-        activity_result = await services.admin_stats.get_activity_entity_counts()
-        if activity_result.is_error:
-            logger.error(f"Error fetching activity stats: {activity_result.error}")
-            activity_stats: dict[str, Any] = {
-                k: "N/A"
-                for k in ("tasks_created", "habits_active", "goals_active", "journals_submitted")
-            }
-        else:
-            activity_stats = activity_result.value
-
-        analytics_data = {
-            "user_stats": user_stats,
-            "activity_stats": activity_stats,
-        }
+        system_status, _status_error = await orchestrator.get_system_status()
+        analytics_data = await orchestrator.get_analytics_data()
 
         content = Div(
             PageHeader("Analytics", subtitle="Platform usage and user statistics"),
-            # Analytics dashboard
             AdminAnalyticsComponents.render_analytics_dashboard(analytics_data),
         )
 
@@ -557,34 +528,10 @@ def create_admin_dashboard_routes(_app, rt, services):
         Returns:
             Admin page with system health content
         """
-        # Fetch detailed health status
-        health_data = {"status": "unknown", "components": {}}
-
-        try:
-            if services.system_service:
-                result = await services.system_service.get_health_status()
-                if not result.is_error:
-                    health_data = result.value
-                else:
-                    logger.warning(
-                        f"Failed to fetch system health: {result.expect_error().message}"
-                    )
-                    health_data = {
-                        "status": "error",
-                        "components": {},
-                        "error_message": result.expect_error().message,
-                    }
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.error(f"Unexpected error fetching system health: {e}")
-            health_data = {
-                "status": "error",
-                "components": {},
-                "error_message": str(e),
-            }
+        health_data = await orchestrator.get_full_health_status()
 
         content = Div(
             PageHeader("System Health", subtitle="Monitor system components and services"),
-            # Health dashboard
             AdminSystemComponents.render_health_dashboard(health_data),
             # Refresh button
             Div(
@@ -619,23 +566,6 @@ def create_admin_dashboard_routes(_app, rt, services):
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
-
-
-async def _get_system_status(services) -> tuple[dict[str, Any], bool]:
-    """Get system health status. Returns (status_dict, had_error)."""
-    try:
-        if services.system_service:
-            result = await services.system_service.get_health_status()
-            if not result.is_error:
-                status = (
-                    dict(result.value) if result.value else {"status": "unknown", "healthy": True}
-                )
-                return status, False
-            return {"status": "unknown", "healthy": True}, True
-    except Exception as e:  # safety-net: dashboard degrades gracefully on health check failure
-        logger.warning(f"Failed to get system status: {e}")
-
-    return {"status": "unknown", "healthy": True}, True
 
 
 def _render_system_summary(status_data: dict) -> Div:

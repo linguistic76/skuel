@@ -681,7 +681,7 @@ async def _wire_all_routes(
 
     from adapters.inbound.admin_dashboard_ui import create_admin_dashboard_routes
 
-    create_admin_dashboard_routes(app, rt, services)
+    create_admin_dashboard_routes(app, rt, orchestrator=services.admin_orchestrator)
 
     if services.cross_domain_analytics:
         from adapters.inbound.analytics_api import register_analytics_routes

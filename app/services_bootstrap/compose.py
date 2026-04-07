@@ -1135,6 +1135,15 @@ async def compose_services(
         )
         logger.info("✅ Teacher Orchestrator created")
 
+        from core.orchestrator.admin_orchestrator import AdminOrchestrator
+
+        admin_orchestrator = AdminOrchestrator(
+            user_service=user_service,
+            admin_stats=admin_stats_service,
+            system_service=system_service,
+        )
+        logger.info("✅ Admin Orchestrator created")
+
         # Wire orchestration services into context_service
         context_service.goal_task_generator = orchestration["goal_task_generator"]
         context_service.habits_service = activity_services["habits"]
@@ -1262,6 +1271,7 @@ async def compose_services(
             # Orchestration (Activity Domains already assigned above)
             goal_task_generator=orchestration["goal_task_generator"],
             habit_event_scheduler=orchestration["habit_event_scheduler"],
+            admin_orchestrator=admin_orchestrator,
             profile_orchestrator=profile_orchestrator,
             submissions_orchestrator=submissions_orchestrator,
             explore_orchestrator=explore_orchestrator,

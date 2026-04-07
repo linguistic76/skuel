@@ -9,4 +9,5 @@ Implemented orchestrators:
 - ExploreOrchestrator    — Explore / Discovery Hub
 - LibraryOrchestrator    — Library Hub
 - TeacherOrchestrator    — Teaching & Review Hub
+- AdminOrchestrator      — Admin Dashboard Hub
 """
