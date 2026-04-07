@@ -9,6 +9,11 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.config.intelligence_tier import IntelligenceTier
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.orchestrator.explore_orchestrator import ExploreOrchestrator
+    from core.orchestrator.library_orchestrator import LibraryOrchestrator
+    from core.orchestrator.profile_orchestrator import ProfileOrchestrator
+    from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
+    from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
     from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.adaptive_lp.adaptive_lp_cross_domain_service import (
         AdaptiveLpCrossDomainService,
@@ -19,10 +24,6 @@ if TYPE_CHECKING:
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
     from core.services.background.progress_report_worker import ProgressReportWorker
     from core.services.calendar_optimization_service import CalendarOptimizationService
-    from core.orchestrator.profile_orchestrator import ProfileOrchestrator
-    from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
-    from core.orchestrator.explore_orchestrator import ExploreOrchestrator
-    from core.orchestrator.library_orchestrator import LibraryOrchestrator
 
     # Facade services — concrete class IS the contract (no parallel protocol needed)
     from core.services.choices_service import ChoicesService
@@ -295,6 +296,7 @@ class Services:
     submissions_orchestrator: "SubmissionsOrchestrator | None" = None
     explore_orchestrator: "ExploreOrchestrator | None" = None
     library_orchestrator: "LibraryOrchestrator | None" = None
+    teacher_orchestrator: "TeacherOrchestrator | None" = None
 
     # Advanced services
     calendar_optimization: "CalendarOptimizationService | None" = None

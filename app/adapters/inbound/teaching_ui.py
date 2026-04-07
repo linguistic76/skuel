@@ -1,6 +1,6 @@
 """
-Teaching UI Routes — Teacher Dashboard
-========================================
+Teaching UI Routes — Orchestrator-Driven Teacher Dashboard
+============================================================
 
 Teacher-facing pages for the teaching workflow:
 - Student list + student hub + student submissions
@@ -8,6 +8,9 @@ Teacher-facing pages for the teaching workflow:
 - Groups management
 
 /teaching redirects to /teaching/students (hub removed 2026-04-03).
+
+All data access goes through TeacherOrchestrator — the routing layer
+only handles HTTP concerns (auth, request parsing, template rendering).
 
 TEACHER role required for all endpoints.
 
@@ -71,7 +74,7 @@ from ui.teaching.types import (
 )
 
 if TYPE_CHECKING:
-    from core.ports import TeacherReviewOperations
+    from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 
 logger = get_logger("skuel.routes.teaching.ui")
 
@@ -84,10 +87,8 @@ logger = get_logger("skuel.routes.teaching.ui")
 def create_teaching_ui_routes(
     _app: Any,
     rt: Any,
-    teacher_review_service: "TeacherReviewOperations",
+    orchestrator: "TeacherOrchestrator",
     user_service: Any,
-    exercises_service: Any,
-    admin_stats: Any = None,
 ) -> list[Any]:
     """
     Create teaching UI routes for the teacher dashboard.
@@ -95,11 +96,11 @@ def create_teaching_ui_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        teacher_review_service: TeacherReviewService instance
+        orchestrator: TeacherOrchestrator for unified access to services
         user_service: UserService for role checks
-        exercises_service: ExerciseService (retained for route config compatibility)
-        admin_stats: AdminStatsService for KU progression data
     """
+    if not orchestrator:
+        raise RuntimeError("TeacherOrchestrator is required — check bootstrap wiring")
 
     get_user_service = make_service_getter(user_service)
 
@@ -137,7 +138,7 @@ def create_teaching_ui_routes(
         user_uid: str, student_uid: str
     ) -> tuple[list[SubmissionRow], list[SubmissionRow], list[SubmissionRow], str]:
         """Fetch and bucket student submissions into (pending, revision, completed, student_name)."""
-        result = await teacher_review_service.get_student_submissions(
+        result = await orchestrator.get_student_submissions(
             teacher_uid=user_uid, student_uid=student_uid
         )
         pending: list[SubmissionRow] = []
@@ -185,7 +186,7 @@ def create_teaching_ui_routes(
         """Review queue — pending student submissions."""
         user_uid = require_authenticated_user(request)
 
-        result = await teacher_review_service.get_review_queue(teacher_uid=user_uid)
+        result = await orchestrator.get_review_queue(teacher_uid=user_uid)
 
         if result.is_error:
             queue_content: Any = render_error_banner(
@@ -220,7 +221,7 @@ def create_teaching_ui_routes(
         user_uid = require_authenticated_user(request)
 
         # Fetch submission content
-        detail_result = await teacher_review_service.get_submission_detail(
+        detail_result = await orchestrator.get_submission_detail(
             submission_uid=uid, teacher_uid=user_uid
         )
         submission_section: Any = ""
@@ -247,7 +248,7 @@ def create_teaching_ui_routes(
 
         # Fetch feedback history
         feedback_history_section: Any = ""
-        history_result = await teacher_review_service.get_report_history(uid)
+        history_result = await orchestrator.get_report_history(uid)
         if not history_result.is_error and history_result.value:
             feedback_items = [render_report_item(fb) for fb in history_result.value]
             feedback_history_section = Div(
@@ -378,7 +379,7 @@ def create_teaching_ui_routes(
         """Students page — clean list of clickable student names."""
         user_uid = require_authenticated_user(request)
 
-        result = await teacher_review_service.get_students_summary(teacher_uid=user_uid)
+        result = await orchestrator.get_students_summary(teacher_uid=user_uid)
 
         if result.is_error:
             students_content: Any = render_error_banner(
@@ -425,7 +426,7 @@ def create_teaching_ui_routes(
         user_uid = require_authenticated_user(request)
 
         # Resolve student display name from submissions
-        result = await teacher_review_service.get_student_submissions(
+        result = await orchestrator.get_student_submissions(
             teacher_uid=user_uid, student_uid=uid
         )
         student_name = uid
@@ -466,7 +467,7 @@ def create_teaching_ui_routes(
             user_uid, uid
         )
 
-        ku_detail = await _fetch_ku_detail(admin_stats, uid)
+        ku_detail = await orchestrator.get_student_ku_detail(uid)
         section_content: Any = render_student_detail_sections(
             pending=pending,
             revision_requested=revision_requested,
@@ -540,7 +541,7 @@ def create_teaching_ui_routes(
         """Groups page — teacher's groups with student and exercise counts."""
         user_uid = require_authenticated_user(request)
 
-        result = await teacher_review_service.get_teacher_groups_with_stats(teacher_uid=user_uid)
+        result = await orchestrator.get_teacher_groups_with_stats(teacher_uid=user_uid)
 
         if result.is_error:
             groups_content: Any = render_error_banner("Failed to load groups", str(result.error))
@@ -587,7 +588,7 @@ def create_teaching_ui_routes(
         """Group detail page — members with submission progress stats."""
         user_uid = require_authenticated_user(request)
 
-        result = await teacher_review_service.get_group_detail(group_uid=uid, teacher_uid=user_uid)
+        result = await orchestrator.get_group_detail(group_uid=uid, teacher_uid=user_uid)
 
         if result.is_error:
             members_content: Any = render_error_banner(
@@ -703,7 +704,7 @@ def create_teaching_ui_routes(
     async def student_ku_preview(request: Request, uid: str, current_user: Any = None) -> Any:
         """HTMX fragment: top 3 KU progress items for student hub preview."""
         require_authenticated_user(request)
-        ku_detail = await _fetch_ku_detail(admin_stats, uid)
+        ku_detail = await orchestrator.get_student_ku_detail(uid)
         if not ku_detail:
             return HubPreviewEmpty("KU progress")
 
@@ -748,12 +749,4 @@ def _display_student_name(name: str) -> str:
     return name
 
 
-async def _fetch_ku_detail(admin_stats: Any, student_uid: str) -> dict[str, Any] | None:
-    """Fetch KU detail for a student, returning None if unavailable."""
-    if not admin_stats:
-        return None
-    result = await admin_stats.get_user_ku_detail(student_uid)
-    if result.is_error:
-        logger.warning(f"Failed to load KU detail for {student_uid}: {result.error}")
-        return None
-    return result.value or None
+# _fetch_ku_detail removed — absorbed into TeacherOrchestrator.get_student_ku_detail()

@@ -1125,6 +1125,16 @@ async def compose_services(
         )
         logger.info("✅ Library Orchestrator created")
 
+        admin_stats_service = AdminStatsService(query_executor=query_executor)
+
+        from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
+
+        teacher_orchestrator = TeacherOrchestrator(
+            teacher_review_service=teacher_review_service,
+            admin_stats=admin_stats_service,
+        )
+        logger.info("✅ Teacher Orchestrator created")
+
         # Wire orchestration services into context_service
         context_service.goal_task_generator = orchestration["goal_task_generator"]
         context_service.habits_service = activity_services["habits"]
@@ -1215,7 +1225,7 @@ async def compose_services(
             user_upload_service=user_upload_service,  # Per-user bulk upload
             calendar=calendar_service,
             system_service=system_service,
-            admin_stats=AdminStatsService(query_executor=query_executor),
+            admin_stats=admin_stats_service,
             visualization=visualization_service,  # Chart.js/Vis.js/Gantt adapters
             transcription=core_services["transcription"],
             # User management
@@ -1256,6 +1266,7 @@ async def compose_services(
             submissions_orchestrator=submissions_orchestrator,
             explore_orchestrator=explore_orchestrator,
             library_orchestrator=library_orchestrator,
+            teacher_orchestrator=teacher_orchestrator,
             # Advanced
             calendar_optimization=advanced["calendar_optimization"],
             jupyter_sync=advanced["jupyter_sync"],
