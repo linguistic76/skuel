@@ -324,34 +324,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         user_uid = require_authenticated_user(request)
 
-        async def _fetch_items() -> Result[list[Any]]:
-            """Dispatch to the correct service based on slug."""
-            if slug == "tasks":
-                if services.tasks is None:
-                    return Result.fail(Errors.system("Tasks service not initialized"))
-                return await services.tasks.get_user_tasks(user_uid)
-            elif slug == "goals":
-                if services.goals is None:
-                    return Result.fail(Errors.system("Goals service not initialized"))
-                return await services.goals.get_user_goals(user_uid)
-            elif slug == "habits":
-                if services.habits is None:
-                    return Result.fail(Errors.system("Habits service not initialized"))
-                return await services.habits.get_user_habits(user_uid)
-            elif slug == "events":
-                if services.events is None:
-                    return Result.fail(Errors.system("Events service not initialized"))
-                return await services.events.get_user_events(user_uid)
-            elif slug == "choices":
-                if services.choices is None:
-                    return Result.fail(Errors.system("Choices service not initialized"))
-                return await services.choices.get_user_choices(user_uid)
-            else:  # principles
-                if services.principles is None:
-                    return Result.fail(Errors.system("Principles service not initialized"))
-                return await services.principles.get_user_principles(user_uid)
+        if not services.profile_orchestrator:
+            from fasthtml.common import P as Para
+            return Para("Orchestrator not initialized", cls="text-error text-sm")
 
-        result = await _fetch_items()
+        result = await services.profile_orchestrator.get_domain_preview_items(user_uid, slug)
 
         if result.is_error:
             from fasthtml.common import P as Para
@@ -362,20 +339,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             )
             return Para("Unable to load items", cls="text-sm text-muted-foreground py-2")
 
-        # Filter terminal statuses (completed, failed, cancelled, archived).
-        # Guard against string status values returned by some service backends.
-        _terminal_strings = frozenset(["completed", "failed", "cancelled", "archived"])
-        active_items = [
-            item
-            for item in result.value
-            if str(getattr(item, "status", "active")).lower() not in _terminal_strings
-        ]
-
-        # Sort by priority (most important first), take top 3
-        sorted_items = sorted(active_items, key=_preview_priority_sort_key)
-        preview_items = sorted_items[:3]
-
-        return render_domain_card_preview(preview_items, slug)
+        return render_domain_card_preview(result.value, slug)
 
     # ------------------------------------------------------------------
     # HTMX report summary fragments for profile hub
@@ -388,10 +352,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         user_uid = require_authenticated_user(request)
 
-        if services.exercise_report is None:
-            return P("Reports not available", cls="text-sm text-muted-foreground py-2")
+        if not services.profile_orchestrator:
+            return P("Orchestrator not available", cls="text-sm text-muted-foreground py-2")
 
-        result = await services.exercise_report.get_assessments_for_student(user_uid, limit=5)
+        result = await services.profile_orchestrator.get_recent_exercise_reports(user_uid, limit=5)
         if result.is_error:
             return P("Unable to load reports", cls="text-sm text-muted-foreground py-2")
 
@@ -432,10 +396,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         user_uid = require_authenticated_user(request)
 
-        if services.activity_report is None:
-            return P("Reports not available", cls="text-sm text-muted-foreground py-2")
+        if not services.profile_orchestrator:
+            return P("Orchestrator not available", cls="text-sm text-muted-foreground py-2")
 
-        result = await services.activity_report.get_history(user_uid, limit=5)
+        result = await services.profile_orchestrator.get_recent_activity_reports(user_uid, limit=5)
         if result.is_error:
             return P("Unable to load reports", cls="text-sm text-muted-foreground py-2")
 
@@ -495,9 +459,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             user_uid = require_authenticated_user(request)
 
             assigned_exercises: list[Any] = []
-            exercises_service = getattr(services, "exercises", None)
-            if exercises_service:
-                exercises_result = await exercises_service.get_student_exercises(user_uid)
+            if services.profile_orchestrator:
+                exercises_result = await services.profile_orchestrator.get_assigned_exercises(user_uid)
                 if not exercises_result.is_error and exercises_result.value:
                     assigned_exercises = exercises_result.value
 
@@ -620,8 +583,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         from ui.layout import Size
 
         shared_reports = []
-        if services.sharing:
-            reports_result = await services.sharing.get_shared_with_me(
+        if services.profile_orchestrator:
+            reports_result = await services.profile_orchestrator.get_shared_with_me_items(
                 user_uid=user_uid,
                 limit=50,
             )
@@ -715,10 +678,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         from fasthtml.common import H4, A, Div, P, Span
 
-        # Query all KUs with user's relationship status via PsService
+        # Query all KUs with user's relationship status via orchestrator
         all_kus: list[dict] = []
-        if services.ps:
-            result = await services.ps.get_all_user_knowledge_status(user_uid)
+        if services.profile_orchestrator:
+            result = await services.profile_orchestrator.get_knowledge_status(user_uid)
             if result.is_error:
                 logger.warning(f"Failed to fetch KUs: {result.expect_error()}")
             else:

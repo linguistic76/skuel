@@ -19,6 +19,10 @@ if TYPE_CHECKING:
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
     from core.services.background.progress_report_worker import ProgressReportWorker
     from core.services.calendar_optimization_service import CalendarOptimizationService
+    from core.orchestrator.profile_orchestrator import ProfileOrchestrator
+    from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
+    from core.orchestrator.explore_orchestrator import ExploreOrchestrator
+    from core.orchestrator.library_orchestrator import LibraryOrchestrator
 
     # Facade services — concrete class IS the contract (no parallel protocol needed)
     from core.services.choices_service import ChoicesService
@@ -286,6 +290,11 @@ class Services:
     habit_event_scheduler: HabitEventSchedulerOperations | None = (
         None  # HabitEventScheduler - Auto-schedule events from habits
     )
+    # Orchestrators (Application Layer)
+    profile_orchestrator: "ProfileOrchestrator | None" = None
+    submissions_orchestrator: "SubmissionsOrchestrator | None" = None
+    explore_orchestrator: "ExploreOrchestrator | None" = None
+    library_orchestrator: "LibraryOrchestrator | None" = None
 
     # Advanced services
     calendar_optimization: "CalendarOptimizationService | None" = None

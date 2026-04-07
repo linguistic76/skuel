@@ -1,13 +1,14 @@
 """
-Explore Routes — Configuration-Driven Registration
+Explore Routes — Orchestrator-Driven Registration
 ====================================================
 
-Wires the /explore discovery page using DomainRouteConfig pattern.
+Wires the /explore discovery page using the ExploreOrchestrator.
 Merges Ku + PathStep into a single exploratory surface.
 
 Routes:
 - GET  /explore              — Discovery index
 - GET  /api/explore/search   — HTMX fragment: filtered card grid
+- GET  /api/explore/graph    — Hub learning universe graph (Vis.js JSON)
 - GET  /explore/ku/{uid}     — Ku detail page
 - GET  /explore/ps/{uid}     — PathStep detail page
 """
@@ -16,35 +17,23 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.explore_ui import create_explore_api_routes, create_explore_ui_routes
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
-from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
 
 
-EXPLORE_CONFIG = DomainRouteConfig(
-    domain_name="explore",
-    primary_service_attr="ku",  # services.ku -> KuService (primary)
-    api_factory=create_explore_api_routes,
-    api_related_services={
-        "ps_service": "ps",
-        "user_relationship_service": "user_relationships",
-    },
-    ui_factory=create_explore_ui_routes,
-    ui_related_services={
-        "ps_service": "ps",
-        "user_relationship_service": "user_relationships",
-        "exercises_service": "exercises",
-        "submissions_search_service": "submissions_search",
-    },
-)
-
-
 def create_explore_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
 ) -> None:
-    """Wire explore UI routes."""
-    register_domain_routes(app, rt, services, EXPLORE_CONFIG)
+    """Wire explore UI + API routes via ExploreOrchestrator."""
+    if not services or not services.explore_orchestrator:
+        return
+
+    orchestrator = services.explore_orchestrator
+
+    create_explore_api_routes(app, rt, orchestrator=orchestrator)
+    create_explore_ui_routes(app, rt, orchestrator=orchestrator)
 
 
 __all__ = ["create_explore_routes"]
+

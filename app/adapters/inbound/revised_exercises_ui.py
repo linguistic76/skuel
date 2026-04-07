@@ -45,14 +45,14 @@ logger = get_logger("skuel.routes.revised_exercises_ui")
 def create_revised_exercises_ui_routes(
     _app: Any,
     rt: RouteDecorator,
-    revised_exercise_service: Any = None,
+    orchestrator: Any = None,
 ) -> list[Any]:
     """Create /revised-exercises UI routes.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        revised_exercise_service: RevisedExerciseService for student revisions
+        orchestrator: SubmissionsOrchestrator for unified states
     """
 
     # ========================================================================
@@ -108,14 +108,14 @@ def create_revised_exercises_ui_routes(
                 request=request,
             )
 
-        if not revised_exercise_service:
+        if not orchestrator:
             return await render_gradebook_sidebar_page(
-                content=Div(render_error_banner("Revision service unavailable")),
+                content=Div(render_error_banner("Revision orchestrator unavailable")),
                 active="revised-exercises",
                 request=request,
             )
 
-        result = await revised_exercise_service.get(uid)
+        result = await orchestrator.get_revised_exercise(uid)
         if result.is_error:
             logger.warning(f"Revised exercise not found: {uid}")
             return await render_gradebook_sidebar_page(
@@ -151,12 +151,12 @@ def create_revised_exercises_ui_routes(
         """HTMX fragment: revised exercises for current student."""
         try:
             user_uid = require_authenticated_user(request)
-            if not revised_exercise_service:
+            if not orchestrator:
                 return Div(
-                    render_error_banner("Revision service unavailable"),
+                    render_error_banner("Revision orchestrator unavailable"),
                     id="revisions-list",
                 )
-            result = await revised_exercise_service.list_for_student(user_uid)
+            result = await orchestrator.list_revised_exercises(user_uid)
             if result.is_error:
                 logger.error(f"Error loading revisions list: {result.error}")
                 return Div(
@@ -179,9 +179,9 @@ def create_revised_exercises_ui_routes(
     async def revised_exercises_preview(request: Request) -> Any:
         """HTMX fragment: 3 most recent revisions for hub preview."""
         user_uid = require_authenticated_user(request)
-        if not revised_exercise_service:
+        if not orchestrator:
             return HubPreviewEmpty("revisions")
-        result = await revised_exercise_service.list_for_student(user_uid)
+        result = await orchestrator.list_revised_exercises(user_uid)
         if result.is_error:
             return HubPreviewEmpty("revisions")
         revisions = result.value or []

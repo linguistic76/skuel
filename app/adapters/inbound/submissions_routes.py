@@ -153,30 +153,22 @@ def create_submissions_ui_orchestrator(
     create_submissions_ui_routes(
         app,
         rt,
-        submissions_service=services.submissions,
-        processing_service=getattr(services, "submissions_processor", None),
-        exercises_service=getattr(services, "exercises", None),
-        submissions_search_service=getattr(services, "submissions_search", None),
-        submissions_core_service=getattr(services, "submissions_core", None),
-        teacher_review_service=getattr(services, "teacher_review", None),
-        user_service=getattr(services, "user_service", None),
+        orchestrator=services.submissions_orchestrator,
     )
     create_exercise_reports_ui_routes(
         app,
         rt,
-        submissions_core_service=getattr(services, "submissions_core", None),
-        revised_exercise_service=getattr(services, "revised_exercises", None),
+        orchestrator=services.submissions_orchestrator,
     )
     create_activity_reports_ui_routes(
         app,
         rt,
-        submissions_service=services.submissions,
-        activity_report_service=getattr(services, "activity_report", None),
+        orchestrator=services.submissions_orchestrator,
     )
     create_revised_exercises_ui_routes(
         app,
         rt,
-        revised_exercise_service=getattr(services, "revised_exercises", None),
+        orchestrator=services.submissions_orchestrator,
     )
     logger.info("Submission UI routes registered (submissions + exercise/activity reports + revisions)")
 

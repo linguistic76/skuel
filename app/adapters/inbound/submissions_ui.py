@@ -111,25 +111,14 @@ def parse_submission_filters(request: Request) -> SubmissionFilters:
 def create_submissions_ui_routes(
     _app: Any,
     rt: RouteDecorator,
-    submissions_service: Any,
-    processing_service: Any,
-    exercises_service: Any = None,
-    submissions_search_service: Any = None,
-    submissions_core_service: Any = None,
-    teacher_review_service: Any = None,
-    user_service: Any = None,
+    orchestrator: Any,
 ) -> list[Any]:
     """Create /submit and /gradebook UI routes.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        submissions_service: SubmissionsService
-        processing_service: SubmissionsProcessingService
-        exercises_service: ExerciseService for exercise dropdown
-        submissions_search_service: SubmissionsSearchService for feedback status queries
-        submissions_core_service: SubmissionsCoreService for received assessments
-        teacher_review_service: TeacherReviewService for feedback on submissions
+        orchestrator: SubmissionsOrchestrator for unified access to services
     """
 
     # ========================================================================
@@ -142,8 +131,8 @@ def create_submissions_ui_routes(
         user_uid = require_authenticated_user(request)
 
         assigned_exercises: list[Any] = []
-        if exercises_service:
-            exercises_result = await exercises_service.get_student_exercises(user_uid)
+        if orchestrator:
+            exercises_result = await orchestrator.get_student_exercises(user_uid)
             if not exercises_result.is_error and exercises_result.value:
                 assigned_exercises = exercises_result.value
 
@@ -255,15 +244,15 @@ def create_submissions_ui_routes(
                 str(form.get("from_ps")).strip() or None if form.get("from_ps") else None
             )
             context_learning_path_uid: str | None = None
-            if user_service and getattr(user_service, "context_builder", None):
-                ctx_result = await user_service.context_builder.build(user_uid)
+            if orchestrator:
+                ctx_result = await orchestrator.build_user_context(user_uid)
                 if ctx_result.is_ok:
                     ctx = ctx_result.value
                     if not context_path_step_uid:
                         context_path_step_uid = next(iter(ctx.current_ps_uids), None)
                     context_learning_path_uid = ctx.current_learning_path_uid
 
-            result = await submissions_service.submit_file(
+            result = await orchestrator.process_submission(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
@@ -303,7 +292,7 @@ def create_submissions_ui_routes(
             if filters.status:
                 kwargs["status"] = filters.status
 
-            result = await submissions_service.list_submissions(**kwargs)
+            result = await orchestrator.list_submissions(**kwargs)
 
             if result.is_error:
                 return Div(
@@ -329,7 +318,7 @@ def create_submissions_ui_routes(
     async def get_submission_info(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading submission detail info."""
         try:
-            result = await submissions_service.get_submission(uid)
+            result = await orchestrator.get_submission(uid)
 
             if result.is_error:
                 return Div(
@@ -365,7 +354,7 @@ def create_submissions_ui_routes(
     async def get_submission_content(request: Request, uid: str) -> Any:
         """HTMX endpoint for loading submission processed content."""
         try:
-            result = await submissions_service.get_submission(uid)
+            result = await orchestrator.get_submission(uid)
 
             if result.is_error or not result.value:
                 return render_processed_content(None, False)
@@ -386,19 +375,19 @@ def create_submissions_ui_routes(
         try:
             user_uid = require_authenticated_user(request)
 
-            sub_result = await submissions_service.get_submission(uid)
+            sub_result = await orchestrator.get_submission(uid)
             if sub_result.is_error or not sub_result.value:
                 return Div(render_inline_error("Submission not found"), id="feedback-section")
             if sub_result.value.user_uid != user_uid:
                 return Div(render_inline_error("Access denied"), id="feedback-section")
 
-            if not teacher_review_service:
+            if not orchestrator:
                 return Div(
                     EmptyState(title="No feedback yet"),
                     id="feedback-section",
                 )
 
-            history_result = await teacher_review_service.get_report_history(uid)
+            history_result = await orchestrator.get_report_history(uid)
             if history_result.is_error:
                 logger.error(f"Error loading feedback for {uid}: {history_result.error}")
                 return Div(
@@ -432,10 +421,10 @@ def create_submissions_ui_routes(
         try:
             require_authenticated_user(request)
 
-            if not exercises_service:
+            if not orchestrator:
                 return Div(id="exercise-link")
 
-            result = await exercises_service.get_exercise_for_submission(uid)
+            result = await orchestrator.get_exercise_for_submission(uid)
 
             if result.is_error or not result.value:
                 return Div(id="exercise-link")
@@ -457,7 +446,7 @@ def create_submissions_ui_routes(
     async def get_category_selector(request: Request, uid: str) -> Any:
         """HTMX endpoint for category selector."""
         try:
-            result = await submissions_service.get_submission(uid)
+            result = await orchestrator.get_submission(uid)
             if result.is_error:
                 return render_inline_error("Report not found")
 
@@ -472,7 +461,7 @@ def create_submissions_ui_routes(
     async def get_tags_manager(request: Request, uid: str) -> Any:
         """HTMX endpoint for tags manager."""
         try:
-            result = await submissions_service.get_submission(uid)
+            result = await orchestrator.get_submission(uid)
             if result.is_error:
                 return render_inline_error("Report not found")
 
@@ -511,7 +500,7 @@ def create_submissions_ui_routes(
         """Submission detail view with HTMX-loaded sections."""
         user_uid = require_authenticated_user(request)
 
-        submission_result = await submissions_service.get_submission(uid)
+        submission_result = await orchestrator.get_submission(uid)
         is_owner = False
         if not submission_result.is_error and submission_result.value is not None:
             is_owner = submission_result.value.user_uid == user_uid

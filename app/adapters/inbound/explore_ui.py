@@ -337,91 +337,17 @@ def _filter_items(
 
 
 # =============================================================================
-# Shared data loader (module-level — used by both API and UI factories)
+# Shared data loader — delegates to ExploreOrchestrator
 # =============================================================================
 
 
 async def _load_explore_data(
     request: Request,
-    ku_service: Any,
-    ps_service: Any,
-    user_relationship_service: Any,
+    orchestrator: Any,
 ) -> tuple[list[tuple[Any, str]], set[str], dict[str, str]]:
-    """Load all Ku + PS, pins, and learning states.
-
-    Runs independent queries concurrently via asyncio.gather for faster loads.
-
-    Returns:
-        (unified_items, pinned_uids, learning_states)
-        where unified_items is list of (entity, "ku"|"ps") tuples,
-        and learning_states maps uid -> state label.
-    """
-    import asyncio
-
-    # --- Fire content queries concurrently ---
-    ku_coro = (
-        ku_service.core.list(limit=500)
-        if ku_service and getattr(ku_service, "core", None)
-        else asyncio.sleep(0)
-    )
-    ps_coro = (
-        ps_service.core.list(limit=200)
-        if ps_service and getattr(ps_service, "core", None)
-        else asyncio.sleep(0)
-    )
-
-    # Authenticated user queries (pins + learning states)
+    """Thin adapter over ExploreOrchestrator.load_explore_index."""
     user_uid = require_authenticated_user(request) if is_authenticated(request) else None
-
-    pins_coro = (
-        user_relationship_service.get_pinned_entities(user_uid)
-        if user_uid and user_relationship_service
-        else asyncio.sleep(0)
-    )
-    ku_states_coro = (
-        ku_service.get_user_learning_states(user_uid)
-        if user_uid and ku_service
-        else asyncio.sleep(0)
-    )
-    ps_states_coro = (
-        ps_service.mastery.get_in_progress_step_uids(user_uid)
-        if user_uid and ps_service
-        else asyncio.sleep(0)
-    )
-
-    ku_result, ps_result, pins_result, ku_states_result, ps_states_result = (
-        await asyncio.gather(ku_coro, ps_coro, pins_coro, ku_states_coro, ps_states_coro)
-    )
-
-    # --- Assemble items ---
-    items: list[tuple[Any, str]] = []
-    if ku_result and not getattr(ku_result, "is_error", False) and getattr(ku_result, "value", None):
-        items.extend((ku, "ku") for ku in ku_result.value)
-    if ps_result and not getattr(ps_result, "is_error", False) and getattr(ps_result, "value", None):
-        raw = ps_result.value if isinstance(ps_result.value, list) else ps_result.value[0]
-        items.extend((ps, "ps") for ps in raw)
-
-    # --- Assemble user-specific data ---
-    pinned_uids: set[str] = set()
-    learning_states: dict[str, str] = {}
-
-    if user_uid:
-        if pins_result and not getattr(pins_result, "is_error", False) and getattr(pins_result, "value", None):
-            pinned_uids = set(pins_result.value)
-
-        if ku_states_result and getattr(ku_states_result, "is_ok", False) and getattr(ku_states_result, "value", None):
-            for rec in ku_states_result.value:
-                ku_uid = rec.get("uid", "")
-                if rec.get("is_understood"):
-                    learning_states[ku_uid] = "Understood"
-                elif rec.get("is_studying"):
-                    learning_states[ku_uid] = "Studying"
-
-        if ps_states_result and not getattr(ps_states_result, "is_error", False) and getattr(ps_states_result, "value", None):
-            for ps_uid in ps_states_result.value:
-                learning_states[ps_uid] = "In Progress"
-
-    return items, pinned_uids, learning_states
+    return await orchestrator.load_explore_index(user_uid)
 
 
 # =============================================================================
@@ -432,16 +358,12 @@ async def _load_explore_data(
 def create_explore_api_routes(
     _app: Any,
     rt: Any,
-    ku_service: Any,
-    ps_service: Any = None,
-    user_relationship_service: Any = None,
+    orchestrator: Any,
 ) -> list[Any]:
     """Register /api/explore/* JSON + HTMX API routes.
 
     Args:
-        ku_service: KuService (services.ku) — primary service.
-        ps_service: PsService (services.ps) — for in-progress PathStep graph nodes.
-        user_relationship_service: For pinned entity graph markers.
+        orchestrator: ExploreOrchestrator for unified data access.
     """
 
     @rt("/api/explore/search")
@@ -454,7 +376,7 @@ def create_explore_api_routes(
     ) -> Any:
         """Return filtered card grid HTML fragment for HTMX swap."""
         items, pinned_uids, learning_states = await _load_explore_data(
-            request, ku_service, ps_service, user_relationship_service
+            request, orchestrator
         )
 
         filtered = _filter_items(items, q.strip(), type, tag, sort)
@@ -487,92 +409,12 @@ def create_explore_api_routes(
         """
         from starlette.responses import JSONResponse
 
-        nodes: list[dict[str, Any]] = []
-        edges: list[dict[str, Any]] = []
-
         if not is_authenticated(request):
-            return JSONResponse({"nodes": nodes, "edges": edges})
+            return JSONResponse({"nodes": [], "edges": []})
 
         user_uid = require_authenticated_user(request)
-
-        # Gather user's learning entities
-        studying_ku_uids: list[str] = []
-        in_progress_ps_uids: list[str] = []
-
-        if ku_service:
-            states_result = await ku_service.get_user_learning_states(user_uid)
-            if states_result.is_ok and states_result.value:
-                for rec in states_result.value:
-                    ku_uid = rec.get("uid", "")
-                    ku_title = rec.get("title", ku_uid)
-                    state = "studying" if rec.get("is_studying") else "understood"
-                    if rec.get("is_studying") or rec.get("is_understood"):
-                        studying_ku_uids.append(ku_uid)
-                        nodes.append(
-                            {
-                                "id": ku_uid,
-                                "label": ku_title,
-                                "type": "ku",
-                                "group": "related",
-                                "learning_state": state,
-                                "is_pinned": False,
-                            }
-                        )
-
-        if ps_service:
-            in_progress_result = await ps_service.mastery.get_in_progress_step_uids(user_uid)
-            if not in_progress_result.is_error and in_progress_result.value:
-                in_progress_ps_uids = list(in_progress_result.value[:10])
-                if in_progress_ps_uids:
-                    batch_result = await ps_service.get_steps_batch(in_progress_ps_uids)
-                    if batch_result.is_ok and batch_result.value:
-                        nodes.extend(
-                            {
-                                "id": ps.uid,
-                                "label": ps.title or ps.uid,
-                                "type": "ps",
-                                "group": "related",
-                                "learning_state": "in_progress",
-                                "is_pinned": False,
-                            }
-                            for ps in batch_result.value
-                        )
-
-        # Mark pinned entities
-        if user_relationship_service:
-            pins_result = await user_relationship_service.get_pinned_entities(user_uid)
-            if pins_result.is_ok and pins_result.value:
-                pinned_set = set(pins_result.value)
-                for node in nodes:
-                    if node["id"] in pinned_set:
-                        node["is_pinned"] = True
-
-        # Add virtual "You" center node
-        if nodes:
-            nodes.insert(
-                0,
-                {
-                    "id": "__you__",
-                    "label": "You",
-                    "type": "you",
-                    "group": "center",
-                    "learning_state": None,
-                    "is_pinned": False,
-                },
-            )
-            # Connect "You" to all learning entities
-            edges.extend(
-                {
-                    "from": "__you__",
-                    "to": node["id"],
-                    "color": {"color": "#94A3B8", "opacity": 0.4},
-                    "width": 1,
-                    "dashes": [4, 4],
-                }
-                for node in nodes[1:]
-            )
-
-        return JSONResponse({"nodes": nodes, "edges": edges})
+        graph_data = await orchestrator.generate_learning_graph(user_uid)
+        return JSONResponse(graph_data)
 
     logger.info("Explore API routes registered: /api/explore/search, /api/explore/graph")
     return []
@@ -586,20 +428,12 @@ def create_explore_api_routes(
 def create_explore_ui_routes(
     _app: Any,
     rt: Any,
-    ku_service: Any,
-    ps_service: Any,
-    exercises_service: Any,
-    submissions_search_service: Any,
-    user_relationship_service: Any = None,
+    orchestrator: Any,
 ) -> list[Any]:
     """Create /explore UI routes.
 
     Args:
-        ku_service: KuService (services.ku).
-        ps_service: PsService (services.ps).
-        exercises_service: Required — REQUIRES_KNOWLEDGE lookup + PS exercise fragments.
-        submissions_search_service: Required — PathStep submission/feedback HTMX fragments.
-        user_relationship_service: For pinned entities.
+        orchestrator: ExploreOrchestrator for unified data access.
     """
 
     # -----------------------------------------------------------------
@@ -610,7 +444,7 @@ def create_explore_ui_routes(
     async def explore_index(request: Request) -> Any:
         """Explore page — discovery-first bento card grid of Ku + PathStep."""
         items, pinned_uids, learning_states = await _load_explore_data(
-            request, ku_service, ps_service, user_relationship_service
+            request, orchestrator
         )
 
         # Collect tags from all items
@@ -654,9 +488,9 @@ def create_explore_ui_routes(
 
         return await render_explore_sidebar_page(
             content=content,
-            ku_service=ku_service,
-            ps_service=ps_service,
-            user_relationship_service=user_relationship_service,
+            ku_service=orchestrator.ku_service,
+            ps_service=orchestrator.ps_service,
+            user_relationship_service=orchestrator.user_relationship_service,
             request=request,
         )
 
@@ -673,7 +507,7 @@ def create_explore_ui_routes(
         """
         user_uid: str | None = get_current_user(request)
 
-        ku_result = await ku_service.get_ku(uid) if ku_service else None
+        ku_result = await orchestrator.get_ku(uid)
 
         if not ku_result or ku_result.is_error or not ku_result.value:
             return await BasePage(
@@ -704,13 +538,12 @@ def create_explore_ui_routes(
         learning_state: dict[str, bool] = {"is_studying": False, "is_understood": False}
         is_pinned = False
         if user_uid:
-            state_result = await ku_service.get_ku_learning_state(user_uid, uid)
+            state_result = await orchestrator.get_ku_learning_state(user_uid, uid)
             if state_result.is_ok:
                 learning_state = state_result.value
-            if user_relationship_service:
-                pins_result = await user_relationship_service.get_pinned_entities(user_uid)
-                if pins_result.is_ok and pins_result.value:
-                    is_pinned = uid in set(pins_result.value)
+            pins_result = await orchestrator.get_pinned_entities(user_uid)
+            if pins_result.is_ok and pins_result.value:
+                is_pinned = uid in set(pins_result.value)
 
         # Render markdown with TOC
         content_html, toc_html = render_markdown_with_toc(content_body)
@@ -738,9 +571,8 @@ def create_explore_ui_routes(
 
         # Exercises
         exercises_for_ku: list[dict] = []
-        if exercises_service:
-            exercises_result = await exercises_service.get_exercises_for_curriculum(uid)
-            exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
+        exercises_result = await orchestrator.get_exercises_for_curriculum(uid)
+        exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
 
         # Breadcrumbs
         breadcrumb_path = [
@@ -814,9 +646,9 @@ def create_explore_ui_routes(
 
         return await render_explore_sidebar_page(
             content=content,
-            ku_service=ku_service,
-            ps_service=ps_service,
-            user_relationship_service=user_relationship_service,
+            ku_service=orchestrator.ku_service,
+            ps_service=orchestrator.ps_service,
+            user_relationship_service=orchestrator.user_relationship_service,
             request=request,
             page_title=ku.title,
             current_uid=uid,
@@ -836,7 +668,7 @@ def create_explore_ui_routes(
         """
         user_uid: str | None = get_current_user(request)
 
-        result = await ps_service.get_with_content(uid)
+        result = await orchestrator.get_ps_with_content(uid)
         if result.is_error:
             return await BasePage(
                 content=Div(
@@ -848,7 +680,7 @@ def create_explore_ui_routes(
                                 cls="text-muted-foreground mt-2",
                             ),
                             ButtonLink(
-                                "\u2190 Back to Explore",
+                                "← Back to Explore",
                                 href="/explore",
                                 variant=ButtonT.ghost,
                                 size=Size.sm,
@@ -872,8 +704,8 @@ def create_explore_ui_routes(
         is_in_progress = False
         is_mastered = False
         if user_uid:
-            await ps_service.mastery.record_view(user_uid, uid)
-            state_result = await ps_service.mastery.get_learning_state(user_uid, uid)
+            await orchestrator.record_ps_view(user_uid, uid)
+            state_result = await orchestrator.get_ps_learning_state(user_uid, uid)
             is_marked_read = state_result.value.is_marked_as_read if state_result.is_ok else False
             is_bookmarked = state_result.value.is_bookmarked if state_result.is_ok else False
             is_in_progress = (
@@ -962,7 +794,7 @@ def create_explore_ui_routes(
         else:
             # Unauthenticated: simple exercise links (read-only)
             exercises_section = Div()
-            exercises_result = await ps_service.get_exercises_for_path_step(uid)
+            exercises_result = await orchestrator.get_exercises_for_path_step(uid)
             if exercises_result.is_ok and exercises_result.value:
                 exercise_links = []
                 for ex in exercises_result.value:
@@ -1053,9 +885,9 @@ def create_explore_ui_routes(
 
         return await render_explore_sidebar_page(
             content=content,
-            ku_service=ku_service,
-            ps_service=ps_service,
-            user_relationship_service=user_relationship_service,
+            ku_service=orchestrator.ku_service,
+            ps_service=orchestrator.ps_service,
+            user_relationship_service=orchestrator.user_relationship_service,
             request=request,
             page_title=step.title,
             current_uid=uid,
@@ -1070,7 +902,7 @@ def create_explore_ui_routes(
     async def get_ps_exercises(request: Request, ps_uid: str) -> Any:
         """HTMX fragment: exercises for a PathStep with submission/feedback status."""
         user_uid = require_authenticated_user(request)
-        result = await exercises_service.get_exercises_for_path_step_with_status(ps_uid, user_uid)
+        result = await orchestrator.get_exercises_for_path_step_with_status(ps_uid, user_uid)
         if result.is_error:
             return render_inline_error("Could not load exercises")
         return render_exercise_list(result.value or [], from_ps=ps_uid)
@@ -1079,7 +911,7 @@ def create_explore_ui_routes(
     async def get_ps_submissions_and_feedback(request: Request, ps_uid: str) -> Any:
         """HTMX fragment: user's submissions + feedback for this PathStep."""
         user_uid = require_authenticated_user(request)
-        result = await submissions_search_service.get_submissions_for_path_step(user_uid, ps_uid)
+        result = await orchestrator.get_submissions_for_path_step(user_uid, ps_uid)
         if result.is_error:
             return render_inline_error("Could not load submissions")
         rows = result.value or []

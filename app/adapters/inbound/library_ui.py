@@ -21,7 +21,6 @@ from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
-from core.models.enums.entity_enums import EntityType
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
@@ -208,26 +207,14 @@ def render_resource_list(resources: list[Any]) -> Div:
 def create_library_ui_routes(
     _app: Any,
     rt: RouteDecorator,
-    exercises_service: Any = None,
-    resource_service: Any = None,
-    ku_service: Any = None,
-    ps_service: Any = None,
-    submissions_service: Any = None,
-    user_relationship_service: Any = None,
-    **_kwargs: Any,
+    orchestrator: Any,
 ) -> None:
     """Create /library hub routes.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        exercises_service: ExerciseService for fetching registered exercises
-        resource_service: ResourceService for Resource listing
-        ku_service: KuService for Ku listing
-        ps_service: PsService for PathStep listing
-        submissions_service: SubmissionsService for the Submissions tab
-        user_relationship_service: UserRelationshipService for pinned Ku lookup
-        **_kwargs: Ignored — accepts legacy keyword args for backwards-compatible call sites
+        orchestrator: LibraryOrchestrator for unified access to services
     """
 
     # ========================================================================
@@ -257,10 +244,10 @@ def create_library_ui_routes(
         """Exercises with submission/feedback status via group membership."""
         user_uid = require_authenticated_user(request)
 
-        if not exercises_service:
-            fragment = render_error_banner("Exercise service unavailable")
+        if not orchestrator:
+            fragment = render_error_banner("Library orchestrator unavailable")
         else:
-            result = await exercises_service.get_student_exercises_with_status(user_uid)
+            result = await orchestrator.get_student_exercises_with_status(user_uid)
             if result.is_error:
                 logger.error(f"Library: failed to load student exercises: {result.error}")
                 fragment = render_error_banner("Failed to load exercises", str(result.error))
@@ -282,12 +269,10 @@ def create_library_ui_routes(
         """User's exercise submissions."""
         user_uid = require_authenticated_user(request)
 
-        if not submissions_service:
-            fragment = render_error_banner("Submissions service unavailable")
+        if not orchestrator:
+            fragment = render_error_banner("Library orchestrator unavailable")
         else:
-            result = await submissions_service.list_submissions(
-                user_uid, entity_type=EntityType.EXERCISE_SUBMISSION, limit=50
-            )
+            result = await orchestrator.list_exercise_submissions(user_uid)
             if result.is_error:
                 logger.error(f"Library: failed to load submissions: {result.error}")
                 fragment = render_error_banner("Failed to load submissions", str(result.error))
@@ -307,10 +292,10 @@ def create_library_ui_routes(
     @rt("/library/resources")
     async def library_resources(request: Request) -> Any:
         """Admin-curated Resource entity list. Public: shared content."""
-        if not resource_service:
-            fragment = render_error_banner("Resource service unavailable")
+        if not orchestrator:
+            fragment = render_error_banner("Library orchestrator unavailable")
         else:
-            result = await resource_service.list_all()
+            result = await orchestrator.list_resources()
             if result.is_error:
                 logger.error(f"Library: failed to load Resources: {result.error}")
                 fragment = render_error_banner("Failed to load resources", str(result.error))
@@ -330,8 +315,8 @@ def create_library_ui_routes(
     @rt("/library/ku")
     async def library_ku(request: Request) -> Any:
         """Ku the user has bookmarked (PINNED relationship)."""
-        if not ku_service:
-            fragment = render_error_banner("Knowledge service unavailable")
+        if not orchestrator:
+            fragment = render_error_banner("Library orchestrator unavailable")
         else:
             user = get_current_user(request)
             if not user:
@@ -350,26 +335,12 @@ def create_library_ui_routes(
 
     async def _build_ku_fragment(user: str) -> Any:
         """Build the Ku bookmarks fragment content."""
-        # Resolve pinned UIDs
-        pinned_uids: set[str] = set()
-        if user_relationship_service:
-            pins_result = await user_relationship_service.get_pinned_entities(user)
-            if not pins_result.is_error:
-                pinned_uids = set(pins_result.value or [])
-
-        if not pinned_uids:
-            return EmptyState(
-                title="No bookmarked Ku yet",
-                description="Pin Ku on the Knowledge page to track what matters to you.",
-            )
-
-        # Fetch only the pinned Kus by UID
-        result = await ku_service.core.backend.get_many(list(pinned_uids))  # type: ignore[union-attr]
+        result = await orchestrator.get_bookmarked_kus(user)
         if result.is_error:
             logger.error(f"Library: failed to load Kus: {result.error}")
             return render_error_banner("Failed to load knowledge units", str(result.error))
 
-        kus = [ku for ku in (result.value or []) if ku is not None]
+        kus = result.value or []
         if not kus:
             return EmptyState(
                 title="No bookmarked Ku yet",
@@ -411,8 +382,8 @@ def create_library_ui_routes(
     @rt("/library/path-steps")
     async def library_path_steps(request: Request) -> Any:
         """Path Steps the user is enrolled in (IN_PROGRESS)."""
-        if not ps_service:
-            fragment = render_error_banner("Path Steps service unavailable")
+        if not orchestrator:
+            fragment = render_error_banner("Library orchestrator unavailable")
         else:
             user = get_current_user(request)
             if not user:
@@ -431,25 +402,12 @@ def create_library_ui_routes(
 
     async def _build_path_steps_fragment(user: str) -> Any:
         """Build the enrolled Path Steps fragment content."""
-        # Resolve enrolled UIDs
-        enrolled_uids: set[str] = set()
-        uids_result = await ps_service.mastery.get_in_progress_step_uids(user)  # type: ignore[union-attr]
-        if not uids_result.is_error:
-            enrolled_uids = set(uids_result.value or [])
-
-        if not enrolled_uids:
-            return EmptyState(
-                title="No enrolled Path Steps yet",
-                description="Start a Path Step on the Path Steps page to track your progress here.",
-            )
-
-        # Fetch only the enrolled PathSteps by UID
-        result = await ps_service.core.backend.get_many(list(enrolled_uids))  # type: ignore[union-attr]
+        result = await orchestrator.get_enrolled_path_steps(user)
         if result.is_error:
             logger.error(f"Library: failed to load PathSteps: {result.error}")
             return render_error_banner("Failed to load path steps", str(result.error))
 
-        steps = [s for s in (result.value or []) if s is not None]
+        steps = result.value or []
         if not steps:
             return EmptyState(
                 title="No enrolled Path Steps yet",
@@ -497,9 +455,9 @@ def create_library_ui_routes(
     async def library_exercises_preview(request: Request) -> Any:
         """HTMX fragment: top 3 exercises with status pill for hub preview."""
         user_uid = require_authenticated_user(request)
-        if not exercises_service:
+        if not orchestrator:
             return HubPreviewEmpty("exercises")
-        result = await exercises_service.get_student_exercises_with_status(user_uid)
+        result = await orchestrator.get_student_exercises_with_status(user_uid)
         if result.is_error:
             return HubPreviewEmpty("exercises")
         rows = result.value or []
@@ -521,9 +479,9 @@ def create_library_ui_routes(
     @rt("/api/library/resources/preview")
     async def library_resources_preview(request: Request) -> Any:
         """HTMX fragment: top 3 resources with media badge for hub preview."""
-        if not resource_service:
+        if not orchestrator:
             return HubPreviewEmpty("resources")
-        result = await resource_service.list_all()
+        result = await orchestrator.list_resources()
         if result.is_error:
             return HubPreviewEmpty("resources")
         resources = result.value or []
@@ -546,18 +504,12 @@ def create_library_ui_routes(
     async def library_ku_preview(request: Request) -> Any:
         """HTMX fragment: top 3 bookmarked Ku for hub preview."""
         user = get_current_user(request)
-        if not user or not ku_service or not user_relationship_service:
+        if not user or not orchestrator:
             return HubPreviewEmpty("bookmarked Ku")
-        pins_result = await user_relationship_service.get_pinned_entities(user)
-        if pins_result.is_error:
-            return HubPreviewEmpty("bookmarked Ku")
-        pinned_uids = list(pins_result.value or [])
-        if not pinned_uids:
-            return HubPreviewEmpty("bookmarked Ku")
-        result = await ku_service.core.backend.get_many(pinned_uids[:3])  # type: ignore[union-attr]
+        result = await orchestrator.get_bookmarked_kus_preview(user, limit=3)
         if result.is_error:
             return HubPreviewEmpty("bookmarked Ku")
-        kus = [ku for ku in (result.value or []) if ku is not None]
+        kus = result.value or []
         if not kus:
             return HubPreviewEmpty("bookmarked Ku")
         cards = [
@@ -574,18 +526,12 @@ def create_library_ui_routes(
     async def library_path_steps_preview(request: Request) -> Any:
         """HTMX fragment: top 3 enrolled path steps for hub preview."""
         user = get_current_user(request)
-        if not user or not ps_service:
+        if not user or not orchestrator:
             return HubPreviewEmpty("enrolled path steps")
-        uids_result = await ps_service.mastery.get_in_progress_step_uids(user)  # type: ignore[union-attr]
-        if uids_result.is_error:
-            return HubPreviewEmpty("enrolled path steps")
-        enrolled_uids = list(uids_result.value or [])
-        if not enrolled_uids:
-            return HubPreviewEmpty("enrolled path steps")
-        result = await ps_service.core.backend.get_many(enrolled_uids[:3])  # type: ignore[union-attr]
+        result = await orchestrator.get_enrolled_path_steps_preview(user, limit=3)
         if result.is_error:
             return HubPreviewEmpty("enrolled path steps")
-        steps = [s for s in (result.value or []) if s is not None]
+        steps = result.value or []
         if not steps:
             return HubPreviewEmpty("enrolled path steps")
         cards = [

@@ -1070,6 +1070,61 @@ async def compose_services(
         )
         logger.info("✅ Orchestration services created")
 
+        from core.orchestrator.profile_orchestrator import ProfileOrchestrator
+        
+        profile_orchestrator = ProfileOrchestrator(
+            tasks_service=activity_services["tasks"],
+            goals_service=activity_services["goals"],
+            habits_service=activity_services["habits"],
+            events_service=activity_services["events"],
+            choices_service=activity_services["choices"],
+            principles_service=activity_services["principles"],
+            exercise_report_service=exercise_report_service,
+            activity_report_service=activity_report_service,
+            sharing_service=unified_sharing_service,
+            ps_service=learning_services["ps"],
+            exercises_service=exercise_service,
+        )
+        logger.info("✅ Profile Orchestrator created")
+
+        from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
+        
+        submissions_orchestrator = SubmissionsOrchestrator(
+            submissions_service=submissions_service,
+            processing_service=submissions_processor if "submissions_processor" in locals() else getattr(services, "submissions_processor", None),
+            exercises_service=exercise_service,
+            submissions_search_service=submissions_search_service,
+            submissions_core_service=submissions_core_service,
+            teacher_review_service=teacher_review_service,
+            user_service=user_service,
+            activity_report_service=activity_report_service,
+            revised_exercise_service=revised_exercise_service,
+        )
+        logger.info("✅ Submissions Orchestrator created")
+
+        from core.orchestrator.explore_orchestrator import ExploreOrchestrator
+
+        explore_orchestrator = ExploreOrchestrator(
+            ku_service=learning_services["atomic_ku_service"],
+            ps_service=learning_services["ps"],
+            user_relationship_service=user_relationships,
+            exercises_service=exercise_service,
+            submissions_search_service=submissions_search_service,
+        )
+        logger.info("✅ Explore Orchestrator created")
+
+        from core.orchestrator.library_orchestrator import LibraryOrchestrator
+
+        library_orchestrator = LibraryOrchestrator(
+            exercises_service=exercise_service,
+            resource_service=resource_service,
+            ku_service=learning_services["atomic_ku_service"],
+            ps_service=learning_services["ps"],
+            submissions_service=submissions_service,
+            user_relationship_service=user_relationships,
+        )
+        logger.info("✅ Library Orchestrator created")
+
         # Wire orchestration services into context_service
         context_service.goal_task_generator = orchestration["goal_task_generator"]
         context_service.habits_service = activity_services["habits"]
@@ -1197,6 +1252,10 @@ async def compose_services(
             # Orchestration (Activity Domains already assigned above)
             goal_task_generator=orchestration["goal_task_generator"],
             habit_event_scheduler=orchestration["habit_event_scheduler"],
+            profile_orchestrator=profile_orchestrator,
+            submissions_orchestrator=submissions_orchestrator,
+            explore_orchestrator=explore_orchestrator,
+            library_orchestrator=library_orchestrator,
             # Advanced
             calendar_optimization=advanced["calendar_optimization"],
             jupyter_sync=advanced["jupyter_sync"],

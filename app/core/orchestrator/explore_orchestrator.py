@@ -1,0 +1,343 @@
+"""Explore UI Orchestrator
+=========================
+
+Application orchestrator for the Explore & Knowledge Hub. Consolidates
+KU, PathStep, UserRelationship, Exercise, and SubmissionsSearch services
+into a single unified facade for UI rendering.
+
+Absorbs the heavy ``_load_explore_data`` helper and the Vis.js graph
+generation that previously lived inline inside ``explore_ui.py``.
+"""
+
+import asyncio
+from typing import Any
+
+from core.utils.errors import Errors
+from core.utils.result import Result
+
+
+class ExploreOrchestrator:
+    """Facade for the Explore / Knowledge Hub UI layer."""
+
+    def __init__(
+        self,
+        ku_service: Any,
+        ps_service: Any,
+        user_relationship_service: Any | None = None,
+        exercises_service: Any | None = None,
+        submissions_search_service: Any | None = None,
+    ):
+        self._ku = ku_service
+        self._ps = ps_service
+        self._user_relationships = user_relationship_service
+        self._exercises = exercises_service
+        self._submissions_search = submissions_search_service
+
+    # ------------------------------------------------------------------
+    # Service proxies exposed for sidebar and DomainRouteConfig compat
+    # ------------------------------------------------------------------
+
+    @property
+    def ku_service(self) -> Any:
+        return self._ku
+
+    @property
+    def ps_service(self) -> Any:
+        return self._ps
+
+    @property
+    def user_relationship_service(self) -> Any:
+        return self._user_relationships
+
+    @property
+    def exercises_service(self) -> Any:
+        return self._exercises
+
+    @property
+    def submissions_search_service(self) -> Any:
+        return self._submissions_search
+
+    # ------------------------------------------------------------------
+    # Ku operations
+    # ------------------------------------------------------------------
+
+    async def get_ku(self, uid: str) -> Result[Any]:
+        """Fetch a Knowledge Unit by UID."""
+        if not self._ku:
+            return Result.fail(Errors.system("KU service not initialized"))
+        return await self._ku.get_ku(uid)
+
+    async def get_ku_learning_state(self, user_uid: str, ku_uid: str) -> Result[dict]:
+        """Get a user's learning state for a specific KU."""
+        if not self._ku:
+            return Result.fail(Errors.system("KU service not initialized"))
+        return await self._ku.get_ku_learning_state(user_uid, ku_uid)
+
+    async def get_exercises_for_curriculum(self, ku_uid: str) -> Result[list]:
+        """Get exercises associated with a KU."""
+        if not self._exercises:
+            return Result.ok([])
+        return await self._exercises.get_exercises_for_curriculum(ku_uid)
+
+    async def get_pinned_entities(self, user_uid: str) -> Result[Any]:
+        """Get UIDs of entities pinned by the user."""
+        if not self._user_relationships:
+            return Result.ok(set())
+        return await self._user_relationships.get_pinned_entities(user_uid)
+
+    # ------------------------------------------------------------------
+    # PathStep operations
+    # ------------------------------------------------------------------
+
+    async def get_ps_with_content(self, uid: str) -> Result[Any]:
+        """Fetch a PathStep with its full content body."""
+        if not self._ps:
+            return Result.fail(Errors.system("PS service not initialized"))
+        return await self._ps.get_with_content(uid)
+
+    async def record_ps_view(self, user_uid: str, ps_uid: str) -> None:
+        """Record that a user viewed a PathStep (best-effort)."""
+        if self._ps:
+            await self._ps.mastery.record_view(user_uid, ps_uid)
+
+    async def get_ps_learning_state(self, user_uid: str, ps_uid: str) -> Result[Any]:
+        """Get learning mastery state for a specific PathStep."""
+        if not self._ps:
+            return Result.fail(Errors.system("PS service not initialized"))
+        return await self._ps.mastery.get_learning_state(user_uid, ps_uid)
+
+    async def get_exercises_for_path_step(self, ps_uid: str) -> Result[list]:
+        """Get exercises linked to a PathStep (unauthenticated read-only view)."""
+        if not self._ps:
+            return Result.ok([])
+        return await self._ps.get_exercises_for_path_step(ps_uid)
+
+    async def get_exercises_for_path_step_with_status(
+        self, ps_uid: str, user_uid: str
+    ) -> Result[list]:
+        """Get exercises for a PathStep with per-user submission/feedback status."""
+        if not self._exercises:
+            return Result.fail(Errors.system("Exercises service not initialized"))
+        return await self._exercises.get_exercises_for_path_step_with_status(
+            ps_uid, user_uid
+        )
+
+    async def get_submissions_for_path_step(
+        self, user_uid: str, ps_uid: str
+    ) -> Result[list]:
+        """Get a user's submissions + feedback for a specific PathStep."""
+        if not self._submissions_search:
+            return Result.fail(
+                Errors.system("Submissions search service not initialized")
+            )
+        return await self._submissions_search.get_submissions_for_path_step(
+            user_uid, ps_uid
+        )
+
+    # ------------------------------------------------------------------
+    # Index data aggregation (was _load_explore_data)
+    # ------------------------------------------------------------------
+
+    async def load_explore_index(
+        self, user_uid: str | None
+    ) -> tuple[list[tuple[Any, str]], set[str], dict[str, str]]:
+        """Load all Ku + PS items, pins, and learning states for the index page.
+
+        Runs independent queries concurrently via asyncio.gather.
+
+        Returns:
+            (unified_items, pinned_uids, learning_states)
+        """
+        # Content queries
+        ku_coro = (
+            self._ku.core.list(limit=500)
+            if self._ku and getattr(self._ku, "core", None)
+            else asyncio.sleep(0)
+        )
+        ps_coro = (
+            self._ps.core.list(limit=200)
+            if self._ps and getattr(self._ps, "core", None)
+            else asyncio.sleep(0)
+        )
+
+        # User-specific queries
+        pins_coro = (
+            self._user_relationships.get_pinned_entities(user_uid)
+            if user_uid and self._user_relationships
+            else asyncio.sleep(0)
+        )
+        ku_states_coro = (
+            self._ku.get_user_learning_states(user_uid)
+            if user_uid and self._ku
+            else asyncio.sleep(0)
+        )
+        ps_states_coro = (
+            self._ps.mastery.get_in_progress_step_uids(user_uid)
+            if user_uid and self._ps
+            else asyncio.sleep(0)
+        )
+
+        ku_result, ps_result, pins_result, ku_states_result, ps_states_result = (
+            await asyncio.gather(
+                ku_coro, ps_coro, pins_coro, ku_states_coro, ps_states_coro
+            )
+        )
+
+        # Assemble items
+        items: list[tuple[Any, str]] = []
+        if (
+            ku_result
+            and not getattr(ku_result, "is_error", False)
+            and getattr(ku_result, "value", None)
+        ):
+            items.extend((ku, "ku") for ku in ku_result.value)
+        if (
+            ps_result
+            and not getattr(ps_result, "is_error", False)
+            and getattr(ps_result, "value", None)
+        ):
+            raw = (
+                ps_result.value
+                if isinstance(ps_result.value, list)
+                else ps_result.value[0]
+            )
+            items.extend((ps, "ps") for ps in raw)
+
+        # Assemble user-specific data
+        pinned_uids: set[str] = set()
+        learning_states: dict[str, str] = {}
+
+        if user_uid:
+            if (
+                pins_result
+                and not getattr(pins_result, "is_error", False)
+                and getattr(pins_result, "value", None)
+            ):
+                pinned_uids = set(pins_result.value)
+
+            if (
+                ku_states_result
+                and getattr(ku_states_result, "is_ok", False)
+                and getattr(ku_states_result, "value", None)
+            ):
+                for rec in ku_states_result.value:
+                    ku_uid = rec.get("uid", "")
+                    if rec.get("is_understood"):
+                        learning_states[ku_uid] = "Understood"
+                    elif rec.get("is_studying"):
+                        learning_states[ku_uid] = "Studying"
+
+            if (
+                ps_states_result
+                and not getattr(ps_states_result, "is_error", False)
+                and getattr(ps_states_result, "value", None)
+            ):
+                for ps_uid in ps_states_result.value:
+                    learning_states[ps_uid] = "In Progress"
+
+        return items, pinned_uids, learning_states
+
+    # ------------------------------------------------------------------
+    # Learning universe graph (was inline in /api/explore/graph)
+    # ------------------------------------------------------------------
+
+    async def generate_learning_graph(
+        self, user_uid: str | None
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Build the Vis.js {nodes, edges} JSON for the learning universe.
+
+        Returns the full graph payload dict ready for JSONResponse.
+        """
+        nodes: list[dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
+
+        if not user_uid:
+            return {"nodes": nodes, "edges": edges}
+
+        # Studying / understood KUs
+        studying_ku_uids: list[str] = []
+        if self._ku:
+            states_result = await self._ku.get_user_learning_states(user_uid)
+            if states_result.is_ok and states_result.value:
+                for rec in states_result.value:
+                    ku_uid = rec.get("uid", "")
+                    ku_title = rec.get("title", ku_uid)
+                    state = (
+                        "studying" if rec.get("is_studying") else "understood"
+                    )
+                    if rec.get("is_studying") or rec.get("is_understood"):
+                        studying_ku_uids.append(ku_uid)
+                        nodes.append(
+                            {
+                                "id": ku_uid,
+                                "label": ku_title,
+                                "type": "ku",
+                                "group": "related",
+                                "learning_state": state,
+                                "is_pinned": False,
+                            }
+                        )
+
+        # In-progress PathSteps
+        if self._ps:
+            in_progress_result = (
+                await self._ps.mastery.get_in_progress_step_uids(user_uid)
+            )
+            if (
+                not in_progress_result.is_error
+                and in_progress_result.value
+            ):
+                in_progress_ps_uids = list(in_progress_result.value[:10])
+                if in_progress_ps_uids:
+                    batch_result = await self._ps.get_steps_batch(
+                        in_progress_ps_uids
+                    )
+                    if batch_result.is_ok and batch_result.value:
+                        nodes.extend(
+                            {
+                                "id": ps.uid,
+                                "label": ps.title or ps.uid,
+                                "type": "ps",
+                                "group": "related",
+                                "learning_state": "in_progress",
+                                "is_pinned": False,
+                            }
+                            for ps in batch_result.value
+                        )
+
+        # Mark pinned entities
+        if self._user_relationships:
+            pins_result = await self._user_relationships.get_pinned_entities(
+                user_uid
+            )
+            if pins_result.is_ok and pins_result.value:
+                pinned_set = set(pins_result.value)
+                for node in nodes:
+                    if node["id"] in pinned_set:
+                        node["is_pinned"] = True
+
+        # Virtual "You" center node
+        if nodes:
+            nodes.insert(
+                0,
+                {
+                    "id": "__you__",
+                    "label": "You",
+                    "type": "you",
+                    "group": "center",
+                    "learning_state": None,
+                    "is_pinned": False,
+                },
+            )
+            edges.extend(
+                {
+                    "from": "__you__",
+                    "to": node["id"],
+                    "color": {"color": "#94A3B8", "opacity": 0.4},
+                    "width": 1,
+                    "dashes": [4, 4],
+                }
+                for node in nodes[1:]
+            )
+
+        return {"nodes": nodes, "edges": edges}

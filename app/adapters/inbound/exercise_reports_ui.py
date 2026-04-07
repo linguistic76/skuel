@@ -44,16 +44,14 @@ logger = get_logger("skuel.routes.exercise_reports")
 def create_exercise_reports_ui_routes(
     _app: Any,
     rt: RouteDecorator,
-    submissions_core_service: Any = None,
-    revised_exercise_service: Any = None,
+    orchestrator: Any = None,
 ) -> list[Any]:
     """Create /exercise-reports UI routes.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        submissions_core_service: SubmissionsCoreService for received assessments
-        revised_exercise_service: RevisedExerciseService for revision lookups
+        orchestrator: SubmissionsOrchestrator for unified state
     """
 
     # ========================================================================
@@ -109,14 +107,14 @@ def create_exercise_reports_ui_routes(
                 request=request,
             )
 
-        if not submissions_core_service:
+        if not orchestrator:
             return await render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report service unavailable")),
                 active="exercise-reports",
                 request=request,
             )
 
-        result = await submissions_core_service.get_submission(uid)
+        result = await orchestrator.get_assessment(uid)
         if result.is_error:
             logger.warning(f"Exercise report not found: {uid}")
             return await render_gradebook_sidebar_page(
@@ -138,10 +136,10 @@ def create_exercise_reports_ui_routes(
 
         # Look up associated RevisedExercise (if teacher requested revision)
         revised_exercise = None
-        if revised_exercise_service:
+        if orchestrator:
             report_uid = getattr(report, "uid", None)
             if report_uid:
-                re_result = await revised_exercise_service.get_by_report_uid(report_uid)
+                re_result = await orchestrator.get_revision_by_report(report_uid)
                 if not re_result.is_error and re_result.value:
                     revised_exercise = re_result.value
 
@@ -161,13 +159,13 @@ def create_exercise_reports_ui_routes(
         """HTMX fragment: teacher assessments received."""
         try:
             user_uid = require_authenticated_user(request)
-            if not submissions_core_service:
+            if not orchestrator:
                 return Div(
                     render_error_banner("Feedback service unavailable"),
                     id="feedback-list",
                 )
-            result = await submissions_core_service.get_assessments_for_student(
-                student_uid=user_uid
+            result = await orchestrator.get_assessments_for_student(
+                user_uid
             )
             if result.is_error:
                 logger.error(f"Error loading feedback list: {result.error}")
@@ -191,10 +189,10 @@ def create_exercise_reports_ui_routes(
     async def exercise_reports_preview(request: Request) -> Any:
         """HTMX fragment: 3 most recent exercise reports for hub preview."""
         user_uid = require_authenticated_user(request)
-        if not submissions_core_service:
+        if not orchestrator:
             return HubPreviewEmpty("exercise reports")
-        result = await submissions_core_service.get_assessments_for_student(
-            student_uid=user_uid, limit=3
+        result = await orchestrator.get_assessments_for_student(
+            user_uid, limit=3
         )
         if result.is_error:
             return HubPreviewEmpty("exercise reports")

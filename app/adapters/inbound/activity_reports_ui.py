@@ -54,16 +54,14 @@ logger = get_logger("skuel.routes.activity_reports")
 def create_activity_reports_ui_routes(
     _app: Any,
     rt: RouteDecorator,
-    submissions_service: Any = None,
-    activity_report_service: Any = None,
+    orchestrator: Any = None,
 ) -> list[Any]:
     """Create /activity-reports UI routes.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        submissions_service: SubmissionsService for progress report queries
-        activity_report_service: ActivityReportService for activity feedback history
+        orchestrator: SubmissionsOrchestrator for unified states
     """
 
     # ========================================================================
@@ -144,15 +142,15 @@ def create_activity_reports_ui_routes(
                 request=request,
             )
 
-        if not activity_report_service:
+        if not orchestrator:
             return await render_gradebook_sidebar_page(
-                content=Div(render_error_banner("Activity report service unavailable")),
+                content=Div(render_error_banner("Activity report orchestrator unavailable")),
                 active="activity-reports",
                 request=request,
             )
 
         # Fetch the report from history (service returns list, find by uid)
-        history_result = await activity_report_service.get_history(subject_uid=user_uid, limit=100)
+        history_result = await orchestrator.get_activity_report_history(user_uid, limit=100)
         if history_result.is_error:
             return await render_gradebook_sidebar_page(
                 content=Div(
@@ -201,15 +199,15 @@ def create_activity_reports_ui_routes(
         """HTMX fragment: activity reports with optional time_period filter."""
         try:
             user_uid = require_authenticated_user(request)
-            if not activity_report_service:
+            if not orchestrator:
                 return Div(
                     render_error_banner(
-                        "Activity feedback service unavailable", severity="warning"
+                        "Activity feedback orchestrator unavailable", severity="warning"
                     ),
                     id="activity-feedback-list",
                 )
             time_period = request.query_params.get("time_period", "")
-            result = await activity_report_service.get_history(subject_uid=user_uid, limit=50)
+            result = await orchestrator.get_activity_report_history(user_uid, limit=50)
             if result.is_error:
                 logger.error(f"Error loading activity feedback: {result.error}")
                 return Div(
@@ -232,12 +230,12 @@ def create_activity_reports_ui_routes(
         """HTMX fragment: progress reports."""
         try:
             user_uid = require_authenticated_user(request)
-            if not submissions_service:
+            if not orchestrator:
                 return Div(
-                    render_error_banner("Submissions service unavailable"),
+                    render_error_banner("Submissions orchestrator unavailable"),
                     id="progress-list",
                 )
-            result = await submissions_service.list_submissions(
+            result = await orchestrator.list_submissions(
                 user_uid=user_uid,
                 entity_type=EntityType.ACTIVITY_REPORT,
                 limit=10,
@@ -264,9 +262,9 @@ def create_activity_reports_ui_routes(
     async def activity_reports_preview(request: Request) -> Any:
         """HTMX fragment: 3 most recent activity reports for hub preview."""
         user_uid = require_authenticated_user(request)
-        if not activity_report_service:
+        if not orchestrator:
             return HubPreviewEmpty("activity reports")
-        result = await activity_report_service.get_history(subject_uid=user_uid, limit=3)
+        result = await orchestrator.get_activity_report_history(user_uid, limit=3)
         if result.is_error:
             return HubPreviewEmpty("activity reports")
         reports = result.value or []
