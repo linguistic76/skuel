@@ -1358,6 +1358,10 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 
 **Analytics UI:** `ui/analytics/` — `dashboard.py` (dashboard + period fields + result rendering), `domain_metrics.py` (7 per-domain metric renderers), `life_path.py` (alignment dashboard), `life_summary.py` (weekly cross-layer summary). Dissolved `AnalyticsUIComponents` class. `analytics_ui.py` is ~167 lines.
 
+**Ingestion UI:** `ui/ingestion/` — `dashboard.py` (form groups, ingestion cards, results display + JS handlers). `ingestion_ui.py` is ~59 lines — pure admin auth + delegation.
+
+**System UI:** `ui/system/` — `landing.py` (login landing page with hero + form), `admin_hub.py` (admin home hub cards), `error_pages.py` (404 page). `system_ui.py` is ~73 lines — pure auth checks + delegation.
+
 **Reference pattern (from Tasks):**
 ```python
 from adapters.inbound.ui_helpers import render_entity_not_found_page
