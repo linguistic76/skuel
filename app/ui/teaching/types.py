@@ -1,11 +1,21 @@
 """Teaching UI view model types.
 
-Frozen dataclasses for teaching queue and detail components.
+Frozen dataclasses for teaching queue and detail components,
+plus canonical status classification constants and dict-to-dataclass converters.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from core.models.type_hints import UserUID
+
+# ============================================================================
+# Submission workflow status classification — single source of truth
+# ============================================================================
+
+NEEDS_REVIEW_STATUSES: frozenset[str] = frozenset({"submitted", "active", "queued", "processing"})
+REVISION_STATUSES: frozenset[str] = frozenset({"revision_requested"})
+COMPLETED_STATUSES: frozenset[str] = frozenset({"completed", "failed"})
 
 
 @dataclass(frozen=True)
@@ -88,3 +98,37 @@ class ClassMember:
     submission_count: int = 0
     reviewed_count: int = 0
     pending_count: int = 0
+
+
+# ============================================================================
+# Dict-to-dataclass converters (pure functions, no async/service deps)
+# ============================================================================
+
+
+def queue_item_from_dict(d: dict[str, Any]) -> QueueItem:
+    """Convert an orchestrator result dict to a QueueItem."""
+    return QueueItem(
+        title=d.get("title", ""),
+        student_name=d.get("student_name") or d.get("student_uid") or "Unknown",
+        student_uid=d.get("student_uid", ""),
+        status=d.get("status") or "unknown",
+        entity_type=d.get("entity_type"),
+        exercise_name=d.get("exercise_name"),
+        submission_uid=d.get("submission_uid", ""),
+        feedback_count=d.get("feedback_count", 0),
+        original_filename=d.get("original_filename"),
+    )
+
+
+def submission_row_from_dict(d: dict[str, Any]) -> SubmissionRow:
+    """Convert an orchestrator result dict to a SubmissionRow."""
+    return SubmissionRow(
+        uid=d.get("uid", ""),
+        title=d.get("title", ""),
+        student_name=d.get("student_name") or d.get("student_uid") or "Unknown",
+        student_uid=d.get("student_uid", ""),
+        status=d.get("status") or "unknown",
+        feedback_count=d.get("feedback_count", 0),
+        exercise_title=d.get("exercise_title"),
+        original_filename=d.get("original_filename"),
+    )

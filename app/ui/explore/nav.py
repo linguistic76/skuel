@@ -8,11 +8,12 @@ The sidebar has two zones:
 Usage:
     from ui.explore.nav import render_explore_sidebar_page
 
+    # Route handler fetches sidebar_data from orchestrator first:
+    sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
+
     return await render_explore_sidebar_page(
         content=my_content,
-        ku_service=ku_service,
-        ps_service=ps_service,
-        user_relationship_service=user_relationship_service,
+        sidebar_data=sidebar_data,
         request=request,
     )
 """
@@ -21,7 +22,6 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Div, Li, P, Span, Ul
 
-from adapters.inbound.auth import get_current_user
 from ui.buttons import ButtonLink, ButtonT
 from ui.explore.graph import ExploreGraphView
 from ui.layout import Size
@@ -127,101 +127,9 @@ def _build_section(
     return section
 
 
-async def _fetch_sidebar_data(
-    user_uid: str,
-    ku_service: Any,
-    ps_service: Any,
-    user_relationship_service: Any,
-) -> dict[str, Any]:
-    """Fetch learning states, partitions into studying/understood Kus, in-progress PS, pinned UIDs.
-
-    Runs independent queries concurrently via asyncio.gather for faster sidebar loads.
-
-    Returns dict with keys:
-        studying_kus: list of {uid, title} dicts
-        understood_kus: list of {uid, title} dicts
-        in_progress_ps: list of PathStep entities
-        pinned_uids: set of pinned entity UIDs
-        pinned_items: list of (uid, title, entity_type) tuples
-    """
-    import asyncio
-
-    # Fire all three independent queries concurrently
-    ku_states_coro = (
-        ku_service.get_user_learning_states(user_uid) if ku_service else asyncio.sleep(0)
-    )
-    ps_uids_coro = (
-        ps_service.mastery.get_in_progress_step_uids(user_uid) if ps_service else asyncio.sleep(0)
-    )
-    pins_coro = (
-        user_relationship_service.get_pinned_entities(user_uid)
-        if user_relationship_service
-        else asyncio.sleep(0)
-    )
-
-    ku_states_result, ps_uids_result, pins_result = await asyncio.gather(
-        ku_states_coro, ps_uids_coro, pins_coro
-    )
-
-    # Process Ku learning states
-    studying_kus: list[dict[str, str]] = []
-    understood_kus: list[dict[str, str]] = []
-    if ku_states_result and getattr(ku_states_result, "is_ok", False) and getattr(ku_states_result, "value", None):
-        for rec in ku_states_result.value:
-            ku_uid = rec.get("uid", "")
-            ku_title = rec.get("title", ku_uid)
-            if rec.get("is_understood"):
-                understood_kus.append({"uid": ku_uid, "title": ku_title})
-            elif rec.get("is_studying"):
-                studying_kus.append({"uid": ku_uid, "title": ku_title})
-
-    # Process PS in-progress (batch-fetch entities for the top 5)
-    in_progress_ps: list[Any] = []
-    if ps_uids_result and not getattr(ps_uids_result, "is_error", False) and getattr(ps_uids_result, "value", None):
-        uids = ps_uids_result.value[:5]
-        if uids:
-            batch_result = await ps_service.get_steps_batch(uids)
-            if batch_result.is_ok and batch_result.value:
-                in_progress_ps = list(batch_result.value)
-
-    # Process pinned entities
-    pinned_uids: set[str] = set()
-    pinned_items: list[tuple[str, str, str]] = []
-    if pins_result and getattr(pins_result, "is_ok", False) and getattr(pins_result, "value", None):
-        pinned_uids = set(pins_result.value)
-        # Resolve titles for pinned items — check against already-loaded data
-        known_titles: dict[str, tuple[str, str]] = {}
-        for rec in studying_kus + understood_kus:
-            known_titles[rec["uid"]] = (rec["title"], "ku")
-        for ps in in_progress_ps:
-            known_titles[ps.uid] = (ps.title or ps.uid, "ps")
-
-        for pin_uid in pins_result.value:
-            if pin_uid in known_titles:
-                title, et = known_titles[pin_uid]
-                pinned_items.append((pin_uid, title, et))
-            elif pin_uid.startswith("ku_"):
-                # Fetch individual Ku title
-                ku_result = await ku_service.get_ku(pin_uid)
-                if ku_result.is_ok and ku_result.value:
-                    pinned_items.append((pin_uid, ku_result.value.title or pin_uid, "ku"))
-            elif pin_uid.startswith("ps:"):
-                pinned_items.append((pin_uid, pin_uid, "ps"))
-
-    return {
-        "studying_kus": studying_kus[:5],
-        "understood_kus": understood_kus,
-        "in_progress_ps": in_progress_ps[:2],
-        "pinned_uids": pinned_uids,
-        "pinned_items": pinned_items,
-    }
-
-
 async def render_explore_sidebar_page(
     content: Any,
-    ku_service: Any,
-    ps_service: Any,
-    user_relationship_service: Any,
+    sidebar_data: dict[str, Any] | None,
     request: "Request",
     page_title: str = "Explore",
     current_uid: str = "",
@@ -231,15 +139,13 @@ async def render_explore_sidebar_page(
 
     Args:
         content: The page content to render in the main area.
-        ku_service: KuService for learning states.
-        ps_service: PsService for in-progress steps.
-        user_relationship_service: For pinned entities.
-        request: The request object for auth detection.
+        sidebar_data: Pre-fetched sidebar data from ExploreOrchestrator.get_sidebar_data(),
+            or None for unauthenticated users.
+        request: The request object for layout rendering.
         page_title: Page title (default "Explore", or entity title on detail pages).
         current_uid: UID of the currently viewed entity (for graph centering).
         current_entity_type: 'ku' or 'ps' — type of current entity.
     """
-    user_uid = get_current_user(request)
     sections: list[Any] = []
 
     # Determine graph mode
@@ -255,7 +161,7 @@ async def render_explore_sidebar_page(
         standalone=False,
     )
 
-    if not user_uid:
+    if sidebar_data is None:
         # Unauthenticated: graph + sign-in prompt in one Alpine scope
         sign_in_prompt = P(
             "Sign in to track your learning",
@@ -272,9 +178,7 @@ async def render_explore_sidebar_page(
             )
         )
     else:
-        data = await _fetch_sidebar_data(
-            user_uid, ku_service, ps_service, user_relationship_service
-        )
+        data = sidebar_data
 
         # Section: Learning (studying Kus + in-progress PSes)
         learning_links: list[Any] = []

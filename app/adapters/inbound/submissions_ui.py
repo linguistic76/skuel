@@ -56,30 +56,20 @@ from ui.submissions.sharing import render_sharing_section
 logger = get_logger("skuel.routes.submissions")
 
 
-def _parse_md_frontmatter(content: bytes) -> dict[str, str]:
-    """Parse simple YAML frontmatter from a Markdown file's bytes.
+def _parse_md_frontmatter(content: bytes) -> dict[str, Any]:
+    """Parse YAML frontmatter from a Markdown file's bytes.
 
-    Reads the block between the opening and closing ``---`` lines and
-    returns a flat key→value mapping.  Only the scalar ``key: value``
-    lines produced by the exercise renderer are expected — no nested
-    structures or multi-line values.
+    Delegates to core/utils/frontmatter.parse_frontmatter for robust
+    YAML parsing. Returns empty dict on malformed/missing frontmatter.
     """
+    from core.utils.frontmatter import parse_frontmatter
+
     try:
         text = content.decode("utf-8", errors="replace")
     except Exception:  # safety-net: malformed bytes should not crash upload
         return {}
-    if not text.startswith("---"):
-        return {}
-    end = text.find("\n---", 3)
-    if end == -1:
-        return {}
-    block = text[3:end].strip()
-    result: dict[str, str] = {}
-    for line in block.splitlines():
-        if ":" in line:
-            key, _, val = line.partition(":")
-            result[key.strip()] = val.strip().strip('"').strip("'")
-    return result
+    frontmatter, _ = parse_frontmatter(text)
+    return frontmatter
 
 
 # ============================================================================
@@ -208,28 +198,28 @@ def create_submissions_ui_routes(
             filename = uploaded_file.filename or "unknown"
 
             # Parse YAML frontmatter from .md files (exercise worksheets)
-            frontmatter: dict[str, str] = {}
+            frontmatter: dict[str, Any] = {}
             if filename.endswith(".md"):
                 frontmatter = _parse_md_frontmatter(file_content)
 
             # exercise_uid: form selector wins; fallback to frontmatter
             raw_exercise_uid = form.get("fulfills_exercise_uid")
+            fm_exercise_uid = frontmatter.get("exercise_uid")
             fulfills_exercise_uid = (
                 (str(raw_exercise_uid).strip() or None if raw_exercise_uid else None)
-                or frontmatter.get("exercise_uid")
+                or (str(fm_exercise_uid) if fm_exercise_uid else None)
                 or None
             )
 
             # revision from frontmatter (default 1)
-            revision_str = frontmatter.get("revision", "1")
             try:
-                revision_number = int(revision_str)
-            except ValueError:
+                revision_number = int(frontmatter.get("revision", 1))
+            except (ValueError, TypeError):
                 revision_number = 1
 
             submission_metadata: dict[str, Any] = {}
             if frontmatter.get("exercise_number"):
-                submission_metadata["exercise_number"] = frontmatter["exercise_number"]
+                submission_metadata["exercise_number"] = str(frontmatter["exercise_number"])
             if revision_number != 1:
                 submission_metadata["revision_number"] = revision_number
 

@@ -17,12 +17,12 @@ from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.sidebar import SidebarItem
 from ui.teaching.badges import entity_type_badge
-from ui.teaching.types import ClassMember, SubmissionDetail, SubmissionRow
-
-# Statuses that require teacher action
-_NEEDS_REVIEW_STATUSES = {"submitted", "active", "queued", "processing"}
-_REVISION_STATUSES = {"revision_requested"}
-_COMPLETED_STATUSES = {"completed", "failed"}
+from ui.teaching.types import (
+    NEEDS_REVIEW_STATUSES,
+    ClassMember,
+    SubmissionDetail,
+    SubmissionRow,
+)
 
 
 def render_submission_content(detail: SubmissionDetail) -> Div:
@@ -109,7 +109,7 @@ def render_review_panel_inline(
     """
     dom_id = uid.replace(":", "-").replace(".", "-")
     status = (detail.get("status") or "").lower()
-    is_actionable = status in _NEEDS_REVIEW_STATUSES
+    is_actionable = status in NEEDS_REVIEW_STATUSES
 
     # Submission content
     if detail:

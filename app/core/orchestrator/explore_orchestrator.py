@@ -15,7 +15,7 @@ All service dependencies are required — bootstrap raises if any are missing
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.services.exercises.exercise_service import ExerciseService
@@ -40,7 +40,7 @@ class ExploreOrchestrator:
         user_relationship_service: "UserRelationshipService",
         exercises_service: "ExerciseService",
         submissions_search_service: "SubmissionsSearchService",
-    ):
+    ) -> None:
         self._ku = ku_service
         self._ps = ps_service
         self._user_relationships = user_relationship_service
@@ -310,3 +310,79 @@ class ExploreOrchestrator:
             )
 
         return {"nodes": nodes, "edges": edges}
+
+    # ------------------------------------------------------------------
+    # Sidebar data aggregation (was _fetch_sidebar_data in ui/explore/nav.py)
+    # ------------------------------------------------------------------
+
+    async def get_sidebar_data(self, user_uid: str) -> dict[str, Any]:
+        """Fetch learning states, pins, and in-progress items for the Explore sidebar.
+
+        Runs independent queries concurrently via asyncio.gather.
+
+        Returns dict with keys:
+            studying_kus: list of {uid, title} dicts
+            understood_kus: list of {uid, title} dicts
+            in_progress_ps: list of PathStep entities
+            pinned_uids: set of pinned entity UIDs
+            pinned_items: list of (uid, title, entity_type) tuples
+        """
+        ku_states_coro = self._ku.get_user_learning_states(user_uid)
+        ps_uids_coro = self._ps.mastery.get_in_progress_step_uids(user_uid)
+        pins_coro = self._user_relationships.get_pinned_entities(user_uid)
+
+        ku_states_result, ps_uids_result, pins_result = await asyncio.gather(
+            ku_states_coro, ps_uids_coro, pins_coro
+        )
+
+        # Process Ku learning states
+        studying_kus: list[dict[str, str]] = []
+        understood_kus: list[dict[str, str]] = []
+        if ku_states_result and getattr(ku_states_result, "is_ok", False) and getattr(ku_states_result, "value", None):
+            for rec in ku_states_result.value:
+                ku_uid = rec.get("uid", "")
+                ku_title = rec.get("title", ku_uid)
+                if rec.get("is_understood"):
+                    understood_kus.append({"uid": ku_uid, "title": ku_title})
+                elif rec.get("is_studying"):
+                    studying_kus.append({"uid": ku_uid, "title": ku_title})
+
+        # Process PS in-progress (batch-fetch entities for the top 5)
+        in_progress_ps: list[Any] = []
+        if ps_uids_result and not getattr(ps_uids_result, "is_error", False) and getattr(ps_uids_result, "value", None):
+            uids = ps_uids_result.value[:5]
+            if uids:
+                batch_result = await self._ps.get_steps_batch(uids)
+                if batch_result.is_ok and batch_result.value:
+                    in_progress_ps = list(batch_result.value)
+
+        # Process pinned entities
+        pinned_uids: set[str] = set()
+        pinned_items: list[tuple[str, str, str]] = []
+        if pins_result and getattr(pins_result, "is_ok", False) and getattr(pins_result, "value", None):
+            pinned_uids = set(pins_result.value)
+            # Resolve titles for pinned items — check against already-loaded data
+            known_titles: dict[str, tuple[str, str]] = {}
+            for rec in studying_kus + understood_kus:
+                known_titles[rec["uid"]] = (rec["title"], "ku")
+            for ps in in_progress_ps:
+                known_titles[ps.uid] = (ps.title or ps.uid, "ps")
+
+            for pin_uid in pins_result.value:
+                if pin_uid in known_titles:
+                    title, et = known_titles[pin_uid]
+                    pinned_items.append((pin_uid, title, et))
+                elif pin_uid.startswith("ku_"):
+                    ku_result = await self._ku.get_ku(pin_uid)
+                    if ku_result.is_ok and ku_result.value:
+                        pinned_items.append((pin_uid, ku_result.value.title or pin_uid, "ku"))
+                elif pin_uid.startswith("ps:"):
+                    pinned_items.append((pin_uid, pin_uid, "ps"))
+
+        return {
+            "studying_kus": studying_kus[:5],
+            "understood_kus": understood_kus,
+            "in_progress_ps": in_progress_ps[:2],
+            "pinned_uids": pinned_uids,
+            "pinned_items": pinned_items,
+        }

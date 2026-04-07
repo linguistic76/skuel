@@ -57,11 +57,15 @@ from ui.teaching.forms import render_feedback_submission_form, render_revision_r
 from ui.teaching.nav import render_teaching_sidebar_page
 from ui.teaching.student_hub import StudentHub
 from ui.teaching.types import (
+    COMPLETED_STATUSES,
+    NEEDS_REVIEW_STATUSES,
+    REVISION_STATUSES,
     ClassMember,
     ClassSummary,
-    QueueItem,
     SubmissionDetail,
     SubmissionRow,
+    queue_item_from_dict,
+    submission_row_from_dict,
 )
 
 if TYPE_CHECKING:
@@ -95,36 +99,6 @@ def create_teaching_ui_routes(
 
     get_user_service = make_service_getter(user_service)
 
-    def _to_queue_item(d: dict[str, Any]) -> QueueItem:
-        return QueueItem(
-            title=d.get("title", ""),
-            student_name=d.get("student_name") or d.get("student_uid") or "Unknown",
-            student_uid=d.get("student_uid", ""),
-            status=d.get("status") or "unknown",
-            entity_type=d.get("entity_type"),
-            exercise_name=d.get("exercise_name"),
-            submission_uid=d.get("submission_uid", ""),
-            feedback_count=d.get("feedback_count", 0),
-            original_filename=d.get("original_filename"),
-        )
-
-    def _to_submission_row(d: dict[str, Any]) -> SubmissionRow:
-        return SubmissionRow(
-            uid=d.get("uid", ""),
-            title=d.get("title", ""),
-            student_name=d.get("student_name") or d.get("student_uid") or "Unknown",
-            student_uid=d.get("student_uid", ""),
-            status=d.get("status") or "unknown",
-            feedback_count=d.get("feedback_count", 0),
-            exercise_title=d.get("exercise_title"),
-            original_filename=d.get("original_filename"),
-        )
-
-    # Status sets for bucketing submissions
-    _needs_review = {"submitted", "active", "queued", "processing"}
-    _revision_statuses = {"revision_requested"}
-    _completed_statuses = {"completed", "failed"}
-
     async def _get_bucketed_submissions(
         user_uid: str, student_uid: str
     ) -> tuple[list[SubmissionRow], list[SubmissionRow], list[SubmissionRow], str]:
@@ -142,13 +116,13 @@ def create_teaching_ui_routes(
                 raw_name = item.get("student_name")
                 if raw_name and student_name == student_uid:
                     student_name = str(raw_name)
-                row = _to_submission_row(item)
+                row = submission_row_from_dict(item)
                 status_str = (row.status or "").lower()
-                if status_str in _needs_review:
+                if status_str in NEEDS_REVIEW_STATUSES:
                     pending.append(row)
-                elif status_str in _revision_statuses:
+                elif status_str in REVISION_STATUSES:
                     revision.append(row)
-                elif status_str in _completed_statuses:
+                elif status_str in COMPLETED_STATUSES:
                     completed.append(row)
                 else:
                     pending.append(row)
@@ -189,7 +163,7 @@ def create_teaching_ui_routes(
                 description="When students submit work against your assignments, it will appear here.",
             )
         else:
-            queue_content = Div(*[render_queue_item(_to_queue_item(item)) for item in result.value])
+            queue_content = Div(*[render_queue_item(queue_item_from_dict(item)) for item in result.value])
 
         content = Div(
             PageHeader("Review Queue", subtitle="Student submissions awaiting your review"),
