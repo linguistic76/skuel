@@ -37,7 +37,7 @@ from core.models.enums.submissions_enums import EnrichmentMode
 from core.models.exercises.exercise import Exercise
 from core.models.journal.je_input import JeInput
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT
@@ -761,16 +761,11 @@ def create_journals_ui_routes(
             # Ownership check + TRANSFORMS lookup in one call
             download_result = await orchestrator.get_journal_for_download(uid, user_uid)
             if download_result.is_error:
-                error_msg = str(download_result.error)
-                if "not found" in error_msg.lower():
-                    logger.warning(f"Journal entry {uid} not found for download")
+                err = download_result.expect_error()
+                if err.category == ErrorCategory.NOT_FOUND:
+                    logger.warning(f"Journal entry {uid} not found or not owned by {user_uid}")
                     return render_inline_error("Journal entry not found")
-                if "not authorized" in error_msg.lower():
-                    logger.warning(
-                        f"User {user_uid} attempted to download journal {uid} — unauthorized"
-                    )
-                    return render_inline_error("Not authorized to download this journal entry")
-                logger.warning(f"No je_output found for journal entry {uid}: {error_msg}")
+                logger.warning(f"No je_output available for journal entry {uid}: {err}")
                 return render_inline_error("No output file available for this journal entry")
 
             je_input, je_output = download_result.value

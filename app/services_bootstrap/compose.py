@@ -1151,8 +1151,6 @@ async def compose_services(
             journal_output_service=journal_output_service,
             exercises_service=exercise_service,
             user_service=user_service,
-            batch_transcription_service=batch_transcription,
-            batch_processing_service=batch_processing,
         )
         logger.info("✅ Journal Orchestrator created")
 

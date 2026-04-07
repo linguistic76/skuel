@@ -34,10 +34,6 @@ class JournalOrchestrator:
     orchestrator. JournalInputService, ExerciseService, and UserService are
     always required. JournalOutputService is optional — callers receive a
     graceful ``Result.fail`` when the service is unavailable (CORE tier).
-
-    Batch services (batch_transcription_service, batch_processing_service) are
-    exposed as properties so admin routes can pass them directly to their
-    respective API endpoints.
     """
 
     def __init__(  # noqa: ANN204
@@ -46,32 +42,16 @@ class JournalOrchestrator:
         exercises_service: "ExerciseService",
         user_service: "UserService",
         journal_output_service: "JournalOutputService | None" = None,
-        batch_transcription_service: Any = None,
-        batch_processing_service: Any = None,
     ):
         self._journal_input = journal_input_service
         self._journal_output = journal_output_service
         self._exercises = exercises_service
         self._user_service = user_service
-        self._batch_transcription = batch_transcription_service
-        self._batch_processing = batch_processing_service
-
-    # --- Properties for optional batch services (admin routes) ---
 
     @property
     def user_service(self) -> "UserService":
         """Expose user service for admin role checks."""
         return self._user_service
-
-    @property
-    def batch_transcription_service(self) -> Any:
-        """Optional batch transcription service (Tier 1: audio → txt)."""
-        return self._batch_transcription
-
-    @property
-    def batch_processing_service(self) -> Any:
-        """Optional batch processing service (Tier 2: txt → md via LLM)."""
-        return self._batch_processing
 
     # --- Journal Input ---
 
@@ -146,12 +126,8 @@ class JournalOrchestrator:
 
         je_input = input_result.value
         if je_input.user_uid != user_uid:
-            return Result.fail(
-                Errors.validation(
-                    message="Not authorized to download this journal entry",
-                    field="user_uid",
-                )
-            )
+            # Per SKUEL ownership pattern: return not_found rather than leaking existence
+            return Result.fail(Errors.not_found(resource="JeInput", identifier=uid))
 
         if not self._journal_output:
             return Result.fail(
