@@ -10,10 +10,10 @@ Three pages for viewing FormTemplate submissions:
 TEACHER role required for all endpoints.
 """
 
-from datetime import datetime
+import json
 from typing import Any
 
-from fasthtml.common import A, Div, P, Small, Span, Strong
+from fasthtml.common import A, Div, Small, Span
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
@@ -26,58 +26,15 @@ from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
+from ui.teaching.forms import (
+    format_date,
+    form_data_preview,
+    render_form_responses_section,
+    render_submission_metadata,
+)
 from ui.teaching.nav import render_teaching_sidebar_page
 
 logger = get_logger(__name__)
-
-
-def _format_date(value: Any) -> str:
-    """Format a date value for display."""
-    if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d %H:%M")
-    if isinstance(value, str) and len(value) >= 10:
-        return value[:16].replace("T", " ")
-    return str(value) if value else "—"
-
-
-def _form_data_preview(form_data: dict[str, Any] | None, max_fields: int = 3) -> str:
-    """Build a short preview string from form_data."""
-    if not form_data:
-        return "No data"
-    items = list(form_data.items())[:max_fields]
-    parts = [f"{k}: {v}" for k, v in items if v is not None]
-    preview = " · ".join(parts)
-    if len(form_data) > max_fields:
-        preview += f" (+{len(form_data) - max_fields} more)"
-    return preview or "No data"
-
-
-def _render_form_data_detail(
-    form_data: dict[str, Any] | None,
-    form_schema: tuple[dict[str, Any], ...] | None = None,
-) -> Div:
-    """Render form_data as read-only key-value pairs, using schema labels if available."""
-    if not form_data:
-        return EmptyState("No form data")
-
-    label_map: dict[str, str] = {}
-    if form_schema:
-        for spec in form_schema:
-            name = spec.get("name", "")
-            label_map[name] = spec.get("label", name)
-
-    rows = []
-    for key, value in form_data.items():
-        label = label_map.get(key, key)
-        display_value = str(value) if value is not None else "—"
-        rows.append(
-            Div(
-                Strong(label, cls="text-sm text-foreground"),
-                P(display_value, cls="text-sm text-muted-foreground mt-0.5"),
-                cls="py-2 border-b border-border last:border-0",
-            )
-        )
-    return Div(*rows)
 
 
 def create_teaching_forms_ui_routes(
@@ -221,19 +178,17 @@ def create_teaching_forms_ui_routes(
         submission_rows = []
         for sub in submissions:
             user_name = sub.get("user_name") or sub.get("user_uid") or "Unknown"
-            created_at = _format_date(sub.get("created_at"))
+            created_at = format_date(sub.get("created_at"))
 
             # Parse form_data for preview
-            form_data = sub.get("form_data")
-            if isinstance(form_data, str):
-                import json
-
+            raw_form_data = sub.get("form_data")
+            if isinstance(raw_form_data, str):
                 try:
-                    form_data = json.loads(form_data)
+                    raw_form_data = json.loads(raw_form_data)
                 except (json.JSONDecodeError, TypeError):
-                    form_data = None
+                    raw_form_data = None
 
-            preview = _form_data_preview(form_data)
+            preview = form_data_preview(raw_form_data)
             sub_uid = sub.get("uid", "")
 
             submission_rows.append(
@@ -315,47 +270,12 @@ def create_teaching_forms_ui_routes(
             cls="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block",
         )
 
-        # Metadata section
-        meta_items = [
-            Div(
-                Strong("Submitted by", cls="text-sm"),
-                P(submission.user_uid or "Unknown", cls="text-sm text-muted-foreground mt-0.5"),
-                cls="py-2",
-            ),
-            Div(
-                Strong("Date", cls="text-sm"),
-                P(_format_date(submission.created_at), cls="text-sm text-muted-foreground mt-0.5"),
-                cls="py-2",
-            ),
-        ]
-        if template:
-            meta_items.insert(
-                0,
-                Div(
-                    Strong("Template", cls="text-sm"),
-                    P(template.title, cls="text-sm text-muted-foreground mt-0.5"),
-                    cls="py-2",
-                ),
-            )
-
-        metadata_section = Div(
-            *meta_items,
-            cls="border border-border rounded p-4 mb-6",
-        )
-
-        # Form data section
         form_schema = template.form_schema if template else None
-        form_data_section = Div(
-            P("Responses", cls="text-base font-semibold mb-3"),
-            _render_form_data_detail(submission.form_data, form_schema),
-            cls="border border-border rounded p-4",
-        )
-
         content = Div(
             back_link,
             PageHeader(submission.title or "Form Submission"),
-            metadata_section,
-            form_data_section,
+            render_submission_metadata(submission, template),
+            render_form_responses_section(submission.form_data, form_schema),
         )
         return await render_teaching_sidebar_page(content, active="forms", request=request)
 

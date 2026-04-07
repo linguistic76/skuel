@@ -21,25 +21,14 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import (
-    H3,
-    A,
-    Div,
-    Form,
-    Input,
-    Label,
-    P,
-    Span,
-)
+from fasthtml.common import H3, A, Div, P
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody
-from ui.forms import Textarea
+from ui.buttons import ButtonLink, ButtonT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
@@ -51,6 +40,7 @@ from ui.patterns.sidebar import (
     alpine_mobile_section_renderer,
     alpine_section_renderer,
 )
+from ui.teaching.badges import submission_preview_badge
 from ui.teaching.cards import (
     render_class_card,
     render_queue_item,
@@ -63,6 +53,7 @@ from ui.teaching.detail import (
     render_submission_content,
     student_detail_sidebar_items,
 )
+from ui.teaching.forms import render_feedback_submission_form, render_revision_request_form
 from ui.teaching.nav import render_teaching_sidebar_page
 from ui.teaching.student_hub import StudentHub
 from ui.teaching.types import (
@@ -261,98 +252,8 @@ def create_teaching_ui_routes(
             PageHeader("Review Submission"),
             submission_section,
             feedback_history_section,
-            # Submit feedback — file upload
-            Card(
-                CardBody(
-                    P(
-                        "Upload your feedback as a Markdown file (.md).",
-                        cls="text-sm text-muted-foreground mb-3",
-                    ),
-                    Form(
-                        Div(
-                            Label(
-                                "Feedback file",
-                                fr="feedback_file",
-                                cls="text-sm font-medium mb-1 block",
-                            ),
-                            Input(
-                                type="file",
-                                name="feedback_file",
-                                id="feedback_file",
-                                accept=".md",
-                                required=True,
-                                cls="block w-full text-sm file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer",
-                            ),
-                            cls="mb-4",
-                        ),
-                        Button(
-                            "Submit Feedback",
-                            variant=ButtonT.primary,
-                            type="submit",
-                        ),
-                        enctype="multipart/form-data",
-                        **{
-                            "hx-post": f"/api/teaching/review/{uid}/report",
-                            "hx-target": "#review-result",
-                            "hx-swap": "innerHTML",
-                            "hx-encoding": "multipart/form-data",
-                        },
-                    ),
-                    Div(id="review-result", cls="mt-4"),
-                ),
-                cls="bg-background shadow-sm mb-3",
-            ),
-            # Request revision — text notes
-            Card(
-                CardBody(
-                    P(
-                        "Request the student revise their work.",
-                        cls="text-sm text-muted-foreground mb-3",
-                    ),
-                    Form(
-                        Div(
-                            Label(
-                                "Revision notes",
-                                fr="revision_notes",
-                                cls="text-sm font-medium mb-1 block",
-                            ),
-                            Textarea(
-                                name="notes",
-                                id="revision_notes",
-                                placeholder="Describe what needs to be revised...",
-                                cls="h-24",
-                                required=True,
-                            ),
-                            cls="mb-4",
-                        ),
-                        Div(
-                            Button(
-                                "Request Revision",
-                                variant=ButtonT.warning,
-                                type="submit",
-                            ),
-                            Button(
-                                "Approve",
-                                variant=ButtonT.success,
-                                type="button",
-                                **{
-                                    "hx-post": f"/api/teaching/review/{uid}/approve",
-                                    "hx-target": "#review-result",
-                                    "hx-swap": "innerHTML",
-                                    "hx-confirm": "Approve this submission?",
-                                },
-                            ),
-                            cls="flex gap-3",
-                        ),
-                        **{
-                            "hx-post": f"/api/teaching/review/{uid}/revision",
-                            "hx-target": "#review-result",
-                            "hx-swap": "innerHTML",
-                        },
-                    ),
-                ),
-                cls="bg-background shadow-sm",
-            ),
+            render_feedback_submission_form(uid),
+            render_revision_request_form(uid),
             Div(
                 ButtonLink(
                     "Back to Queue",
@@ -639,11 +540,6 @@ def create_teaching_ui_routes(
     # STUDENT HUB PREVIEW ENDPOINTS (HTMX lazy-loaded)
     # ------------------------------------------------------------------
 
-    def _submission_preview_badge(status: str) -> Span:
-        """Status badge for submission preview cards."""
-        label = status.replace("_", " ").title() if status else "Unknown"
-        return Span(label, cls="text-[10px] font-medium text-muted-foreground")
-
     @rt("/api/teaching/students/{uid}/submissions/preview")
     @require_role(UserRole.TEACHER, get_user_service)
     async def student_submissions_preview(
@@ -667,7 +563,7 @@ def create_teaching_ui_routes(
                     HubPreviewCard(
                         title=row.title or "Untitled",
                         href=f"/teaching/students/{uid}/submissions?tab={slug}",
-                        badge=_submission_preview_badge(row.status),
+                        badge=submission_preview_badge(row.status),
                     )
                     for row in rows[:3]
                 ]
@@ -713,7 +609,7 @@ def create_teaching_ui_routes(
             HubPreviewCard(
                 title=title,
                 href=f"/teaching/students/{uid}/submissions?tab=ku",
-                badge=Span(label, cls="text-[10px] font-medium text-muted-foreground"),
+                badge=submission_preview_badge(label),
             )
             for title, label in items
         ]

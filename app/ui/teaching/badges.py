@@ -7,9 +7,17 @@ Status and entity type badge components for teaching views.
 
 from typing import Any
 
+from fasthtml.common import Span
+
 from core.models.enums import EntityType
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+
+
+def submission_preview_badge(status: str) -> Span:
+    """Status badge for submission preview cards (student hub + KU preview)."""
+    label = status.replace("_", " ").title() if status else "Unknown"
+    return Span(label, cls="text-[10px] font-medium text-muted-foreground")
 
 
 def entity_type_badge(entity_type: EntityType | str | None) -> Any:
