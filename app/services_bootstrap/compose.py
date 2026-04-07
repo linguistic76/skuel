@@ -1084,6 +1084,7 @@ async def compose_services(
             sharing_service=unified_sharing_service,
             ps_service=learning_services["ps"],
             exercises_service=exercise_service,
+            context_intelligence=context_service.intelligence_factory,
         )
         logger.info("✅ Profile Orchestrator created")
 

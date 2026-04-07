@@ -30,10 +30,9 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 from adapters.inbound.auth import require_authenticated_user
-from core.models.enums import Priority
 from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.cards import Card, CardBody
 from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Badge, BadgeT
@@ -55,32 +54,6 @@ from ui.profile.domain_stats_config import (
 from ui.profile.overview import render_domain_card_preview
 
 logger = get_logger("skuel.routes.user_profile")
-
-_PREVIEW_PRIORITY_ORDER = {
-    Priority.CRITICAL: 0,
-    Priority.HIGH: 1,
-    Priority.MEDIUM: 2,
-    Priority.LOW: 3,
-}
-
-
-def _preview_priority_sort_key(item: Any) -> int:
-    """Sort key for domain card preview items by priority (CRITICAL first).
-
-    Coerces string priority values to Priority enum before lookup so that
-    service backends returning plain strings sort correctly.
-    """
-    raw = getattr(item, "priority", Priority.LOW)
-    if not isinstance(raw, Priority):
-        try:
-            raw = Priority(str(raw).lower())
-        except ValueError:
-            raw = Priority.LOW
-    return _PREVIEW_PRIORITY_ORDER.get(raw, 4)
-
-
-# Valid Activity Domain slugs for the preview endpoint
-_PREVIEW_VALID_SLUGS = frozenset({"tasks", "goals", "habits", "events", "choices", "principles"})
 
 
 # ============================================================================
@@ -168,6 +141,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         raise RuntimeError("UserService is required for profile routes")
     user_service = services.user_service
 
+    if profile_orchestrator is None:
+        raise RuntimeError("ProfileOrchestrator is required for profile routes")
+    profile_orchestrator = profile_orchestrator
+
     # ========================================================================
     # SETTINGS REDIRECT — moved to /settings (2026-04-06)
     # ========================================================================
@@ -203,102 +180,6 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             raise ValueError(f"Failed to load context for user: {user_uid}")
         return context_result.value
 
-    async def _get_intelligence_data(
-        context: UserContext,
-    ) -> "Result[dict[str, Any] | None]":
-        """
-        Get intelligence data for OverviewView if available.
-
-        Calls UserContextIntelligence methods independently to get:
-        - Daily work plan (THE flagship)
-        - Life path alignment (5 dimensions)
-        - Cross-domain synergies
-        - Optimal path steps
-
-        Each call is independent — a failure in one does not block the others.
-        Partial failures are tracked in ``partial_errors`` so the UI can show
-        a warning banner while still rendering the sections that succeeded.
-
-        Returns:
-            - Result.ok(dict) - Intelligence data (some values may be None on partial failure)
-            - Result.ok(None) - Intelligence not available (use basic mode UI)
-            - Result.fail() - All intelligence calls failed
-
-        Profile Hub operates in two modes:
-        - Basic mode: Core profile data always works
-        - Full mode: Intelligence features when properly configured
-        """
-        # Check if factory is available
-        if not services.context_intelligence:
-            logger.info("Intelligence factory not configured - using basic mode")
-            return Result.ok(None)
-
-        try:
-            intelligence = services.context_intelligence.create(context)
-        except (AttributeError, TypeError, KeyError) as e:
-            logger.warning(
-                "Intelligence services not properly configured - using basic mode",
-                extra={"error_type": type(e).__name__, "error_message": str(e)},
-            )
-            return Result.ok(None)
-
-        # Independent calls — partial failures are tracked, not propagated
-        daily_plan = alignment = synergies = path_steps = None
-        partial_errors: list[str] = []
-
-        try:
-            plan_result = await intelligence.get_ready_to_work_on_today()
-            if plan_result.is_error:
-                partial_errors.append("Daily plan unavailable")
-            else:
-                daily_plan = plan_result.value
-        except Exception as e:  # safety-net: individual intelligence call
-            logger.warning(f"Daily plan call failed: {e}")
-            partial_errors.append("Daily plan unavailable")
-
-        try:
-            alignment_result = await intelligence.calculate_life_path_alignment()
-            if alignment_result.is_error:
-                partial_errors.append("Life path alignment unavailable")
-            else:
-                alignment = alignment_result.value
-        except Exception as e:  # safety-net: individual intelligence call
-            logger.warning(f"Alignment call failed: {e}")
-            partial_errors.append("Life path alignment unavailable")
-
-        try:
-            synergies_result = await intelligence.get_cross_domain_synergies()
-            if synergies_result.is_error:
-                partial_errors.append("Cross-domain synergies unavailable")
-            else:
-                synergies = synergies_result.value
-        except Exception as e:  # safety-net: individual intelligence call
-            logger.warning(f"Synergies call failed: {e}")
-            partial_errors.append("Cross-domain synergies unavailable")
-
-        try:
-            steps_result = await intelligence.get_optimal_next_path_steps()
-            if steps_result.is_error:
-                partial_errors.append("Learning step recommendations unavailable")
-            else:
-                path_steps = steps_result.value
-        except Exception as e:  # safety-net: individual intelligence call
-            logger.warning(f"Learning steps call failed: {e}")
-            partial_errors.append("Learning step recommendations unavailable")
-
-        if all(v is None for v in [daily_plan, alignment, synergies, path_steps]):
-            return Result.fail(Errors.system("All intelligence calls failed"))
-
-        return Result.ok(
-            {
-                "daily_plan": daily_plan,
-                "alignment": alignment,
-                "synergies": synergies,
-                "path_steps": path_steps,
-                "partial_errors": partial_errors,
-            }
-        )
-
     @rt("/profile")
     async def profile_redirect(request: Request) -> Any:
         """301 redirect: profile moved to /tasks."""
@@ -317,18 +198,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         Requires authentication.
         """
-        if slug not in _PREVIEW_VALID_SLUGS:
-            from fasthtml.common import P as Para
-
-            return Para("Unknown domain", cls="text-error text-sm")
-
         user_uid = require_authenticated_user(request)
 
-        if not services.profile_orchestrator:
-            from fasthtml.common import P as Para
-            return Para("Orchestrator not initialized", cls="text-error text-sm")
-
-        result = await services.profile_orchestrator.get_domain_preview_items(user_uid, slug)
+        result = await profile_orchestrator.get_domain_preview_items(user_uid, slug)
 
         if result.is_error:
             from fasthtml.common import P as Para
@@ -352,10 +224,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         user_uid = require_authenticated_user(request)
 
-        if not services.profile_orchestrator:
-            return P("Orchestrator not available", cls="text-sm text-muted-foreground py-2")
-
-        result = await services.profile_orchestrator.get_recent_exercise_reports(user_uid, limit=5)
+        result = await profile_orchestrator.get_recent_exercise_reports(user_uid, limit=5)
         if result.is_error:
             return P("Unable to load reports", cls="text-sm text-muted-foreground py-2")
 
@@ -396,10 +265,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         user_uid = require_authenticated_user(request)
 
-        if not services.profile_orchestrator:
-            return P("Orchestrator not available", cls="text-sm text-muted-foreground py-2")
-
-        result = await services.profile_orchestrator.get_recent_activity_reports(user_uid, limit=5)
+        result = await profile_orchestrator.get_recent_activity_reports(user_uid, limit=5)
         if result.is_error:
             return P("Unable to load reports", cls="text-sm text-muted-foreground py-2")
 
@@ -459,10 +325,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             user_uid = require_authenticated_user(request)
 
             assigned_exercises: list[Any] = []
-            if services.profile_orchestrator:
-                exercises_result = await services.profile_orchestrator.get_assigned_exercises(user_uid)
-                if not exercises_result.is_error and exercises_result.value:
-                    assigned_exercises = exercises_result.value
+            exercises_result = await profile_orchestrator.get_assigned_exercises(user_uid)
+            if not exercises_result.is_error and exercises_result.value:
+                assigned_exercises = exercises_result.value
 
             from ui.submissions.forms import render_upload_form, upload_form_script
 
@@ -583,13 +448,12 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         from ui.layout import Size
 
         shared_reports = []
-        if services.profile_orchestrator:
-            reports_result = await services.profile_orchestrator.get_shared_with_me_items(
-                user_uid=user_uid,
-                limit=50,
-            )
-            if not reports_result.is_error:
-                shared_reports = reports_result.value
+        reports_result = await profile_orchestrator.get_shared_with_me_items(
+            user_uid=user_uid,
+            limit=50,
+        )
+        if not reports_result.is_error:
+            shared_reports = reports_result.value
 
         # Build shared content view
         def shared_content_card(report: Any) -> Any:
@@ -680,12 +544,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Query all KUs with user's relationship status via orchestrator
         all_kus: list[dict] = []
-        if services.profile_orchestrator:
-            result = await services.profile_orchestrator.get_knowledge_status(user_uid)
-            if result.is_error:
-                logger.warning(f"Failed to fetch KUs: {result.expect_error()}")
-            else:
-                all_kus = result.value or []
+        result = await profile_orchestrator.get_knowledge_status(user_uid)
+        if result.is_error:
+            logger.warning(f"Failed to fetch KUs: {result.expect_error()}")
+        else:
+            all_kus = result.value or []
 
         # Build KU cards
         def entity_card(ku: dict) -> Any:
@@ -840,7 +703,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 }
             )
 
-        intel_result = await _get_intelligence_data(context)
+        intel_result = await profile_orchestrator.get_intelligence_data(context)
         if intel_result.is_error or intel_result.value is None:
             return _empty_alignment_chart("No Data")
 
@@ -1023,7 +886,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             )
 
         # Get intelligence data - may return None for basic mode
-        intel_result = await _get_intelligence_data(context)
+        intel_result = await profile_orchestrator.get_intelligence_data(context)
         if intel_result.is_error:
             from ui.patterns.empty_state import EmptyState
 
