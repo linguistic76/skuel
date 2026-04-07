@@ -477,13 +477,13 @@ def PrincipleDetailView(
 
 def PrincipleConnectionsSection(connections: list[dict[str, str]]) -> "FT":
     """Display incoming connections grouped by domain (gravity well view)."""
-    # Group by source_type
+    # Group by connected_type
     groups: dict[str, list[dict[str, str]]] = {}
     for conn in connections:
-        source_type = conn.get("source_type", "unknown")
-        if source_type not in groups:
-            groups[source_type] = []
-        groups[source_type].append(conn)
+        connected_type = conn.get("connected_type", "unknown")
+        if connected_type not in groups:
+            groups[connected_type] = []
+        groups[connected_type].append(conn)
 
     domain_labels = {
         "task": ("Tasks embodying this principle", "check-square", "/tasks/detail?uid="),
@@ -503,8 +503,8 @@ def PrincipleConnectionsSection(connections: list[dict[str, str]]) -> "FT":
             Li(
                 UkIcon(icon, height=12, width=12, cls="inline mr-2"),
                 A(
-                    conn.get("title", conn.get("source_uid", "?")),
-                    href=f"{base_href}{conn.get('source_uid', '')}" if base_href != "#" else "#",
+                    conn.get("title", conn.get("connected_uid", "?")),
+                    href=f"{base_href}{conn.get('connected_uid', '')}" if base_href != "#" else "#",
                     cls="hover:underline text-muted-foreground",
                 ),
             )
@@ -535,47 +535,3 @@ def StrengthBadge(strength: str) -> "FT":
     return Badge(strength.title(), variant=BadgeT.primary, style=style)
 
 
-def filter_principles(
-    principles: list["Principle"],
-    status_filter: str = "active",
-    category_filter: str = "all",
-    strength_filter: str = "all",
-    sort_by: str = "strength",
-) -> list["Principle"]:
-    """Apply filters and sorting to a principle list."""
-    filtered = list(principles)
-
-    # Status filter
-    if status_filter == "active":
-        filtered = [p for p in filtered if p.is_active is None or p.is_active]
-
-    # Category filter
-    if category_filter != "all":
-        filtered = [
-            p
-            for p in filtered
-            if p.principle_category and p.principle_category.value == category_filter
-        ]
-
-    # Strength filter
-    if strength_filter != "all":
-        filtered = [p for p in filtered if p.strength and p.strength.value == strength_filter]
-
-    # Sort
-    def by_strength(p: Any) -> int:
-        return _STRENGTH_ORDER.get(p.strength.value if p.strength else "", 5)
-
-    def by_name(p: Any) -> str:
-        return (p.title or "").lower()
-
-    def by_created(p: Any) -> str:
-        return str(p.created_at or "")
-
-    if sort_by == "strength":
-        filtered.sort(key=by_strength)
-    elif sort_by == "name":
-        filtered.sort(key=by_name)
-    elif sort_by == "created":
-        filtered.sort(key=by_created, reverse=True)
-
-    return filtered

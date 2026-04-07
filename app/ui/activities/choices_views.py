@@ -7,7 +7,6 @@ Usage:
     from ui.activities.choices_views import ChoiceList, CHOICE_FILTER_CONFIG, ChoiceStatsBar
 """
 
-from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
@@ -21,7 +20,7 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
-from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, MetadataField, safe_id
+from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
 from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
@@ -170,7 +169,7 @@ def ChoiceCard(
     # Deadline
     deadline_el = Span()
     if choice.decision_deadline:
-        overdue = _is_deadline_past(choice)
+        overdue = choice.is_deadline_past()
         dl_str = str(choice.decision_deadline)[:10]
         if overdue and not is_decided:
             dl_str += " (overdue)"
@@ -312,7 +311,7 @@ def ChoiceDetailView(
     # Timing
     timing_items: list[Any] = []
     if choice.decision_deadline:
-        overdue = _is_deadline_past(choice) and not is_decided
+        overdue = choice.is_deadline_past() and not is_decided
         dl_cls = "text-destructive font-bold" if overdue else ""
         timing_items.append(
             MetadataField("Deadline", Span(str(choice.decision_deadline)[:10], cls=dl_cls))
@@ -395,64 +394,3 @@ def OptionsSection(options: tuple["ChoiceOption", ...], selected_uid: str | None
     )
 
 
-def _is_deadline_past(choice: "Choice") -> bool:
-    """Check if decision deadline has passed."""
-    if not choice.decision_deadline:
-        return False
-    try:
-        if isinstance(choice.decision_deadline, (date, datetime)):
-            dl = (
-                choice.decision_deadline
-                if isinstance(choice.decision_deadline, date)
-                else choice.decision_deadline.date()
-            )
-            return dl < date.today()
-        d = datetime.fromisoformat(str(choice.decision_deadline)).date()
-        return d < date.today()
-    except (ValueError, TypeError):
-        return False
-
-
-def filter_choices(
-    choices: list["Choice"],
-    status_filter: str = "pending",
-    sort_by: str = "deadline",
-) -> list["Choice"]:
-    """Apply filters and sorting to a choice list."""
-    filtered = list(choices)
-
-    # Status filter
-    if status_filter == "pending":
-        filtered = [
-            c
-            for c in filtered
-            if not c.decided_at and not (c.status and c.status.value == "completed")
-        ]
-    elif status_filter == "decided":
-        filtered = [
-            c for c in filtered if c.decided_at or (c.status and c.status.value == "completed")
-        ]
-
-    # Sort
-    def by_deadline(c: Any) -> str:
-        return str(c.decision_deadline or "9999-12-31")[:10]
-
-    def by_priority(c: Any) -> int:
-        return PRIORITY_ORDER.get(str(c.priority) if c.priority else "", 4)
-
-    def by_title(c: Any) -> str:
-        return (c.title or "").lower()
-
-    def by_created(c: Any) -> str:
-        return str(c.created_at or "")
-
-    if sort_by == "deadline":
-        filtered.sort(key=by_deadline)
-    elif sort_by == "priority":
-        filtered.sort(key=by_priority)
-    elif sort_by == "title":
-        filtered.sort(key=by_title)
-    elif sort_by == "created":
-        filtered.sort(key=by_created, reverse=True)
-
-    return filtered

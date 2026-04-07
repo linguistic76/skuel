@@ -147,6 +147,18 @@ class Event(UserOwnedEntity):
             return self.event_date < date.today()
         return False
 
+    def is_today(self) -> bool:
+        """Check if event date is today."""
+        if self.event_date:
+            return self.event_date == date.today()
+        return False
+
+    def is_upcoming(self) -> bool:
+        """Check if event is in the future and not completed."""
+        if self.status and self.status.value == "completed":
+            return False
+        return not self.is_past()
+
     @property
     def category(self) -> str | None:
         """Event category -- uses domain field (events have no special category)."""

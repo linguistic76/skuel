@@ -90,6 +90,44 @@ class TeacherOrchestrator:
             teacher_uid=teacher_uid, student_uid=student_uid
         )
 
+    # Submission workflow status classification — single source of truth
+    NEEDS_REVIEW_STATUSES: frozenset[str] = frozenset(
+        {"submitted", "active", "queued", "processing"}
+    )
+    REVISION_STATUSES: frozenset[str] = frozenset({"revision_requested"})
+    COMPLETED_STATUSES: frozenset[str] = frozenset({"completed", "failed"})
+
+    async def get_bucketed_student_submissions(
+        self, teacher_uid: str, student_uid: str
+    ) -> Result[tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str]]:
+        """Fetch and bucket student submissions into (pending, revision, completed, student_name)."""
+        result = await self.get_student_submissions(
+            teacher_uid=teacher_uid, student_uid=student_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        pending: list[dict[str, Any]] = []
+        revision: list[dict[str, Any]] = []
+        completed: list[dict[str, Any]] = []
+        student_name = student_uid
+
+        for item in result.value or []:
+            raw_name = item.get("student_name")
+            if raw_name and student_name == student_uid:
+                student_name = str(raw_name)
+            status_str = (item.get("status") or "").lower()
+            if status_str in self.NEEDS_REVIEW_STATUSES:
+                pending.append(item)
+            elif status_str in self.REVISION_STATUSES:
+                revision.append(item)
+            elif status_str in self.COMPLETED_STATUSES:
+                completed.append(item)
+            else:
+                pending.append(item)
+
+        return Result.ok((pending, revision, completed, student_name))
+
     # ------------------------------------------------------------------
     # Groups
     # ------------------------------------------------------------------

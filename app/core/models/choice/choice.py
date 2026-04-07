@@ -19,7 +19,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -83,6 +83,12 @@ class Choice(UserOwnedEntity):
     # =========================================================================
     # CHOICE-SPECIFIC METHODS
     # =========================================================================
+
+    def is_deadline_past(self) -> bool:
+        """Check if decision deadline has passed."""
+        if not self.decision_deadline:
+            return False
+        return self.decision_deadline.date() < date.today()
 
     def has_high_stakes(self) -> bool:
         """Check if choice has high stakes."""

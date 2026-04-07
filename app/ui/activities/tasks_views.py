@@ -7,7 +7,6 @@ Usage:
     from ui.activities.tasks_views import TaskList, TASK_FILTER_CONFIG, TaskStatsBar
 """
 
-from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
@@ -19,7 +18,7 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
-from ui.activities._shared import PRIORITY_ORDER, ConnectionBadges, MetadataField, safe_id
+from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
 from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
@@ -44,7 +43,7 @@ def TaskStatsBar(tasks: list["Task"]) -> "FT":
         1 for t in tasks if t.status and t.status.value in ("active", "in_progress", "ready")
     )
     completed = sum(1 for t in tasks if t.status and t.status.value == "completed")
-    overdue = sum(1 for t in tasks if _is_overdue(t))
+    overdue = sum(1 for t in tasks if t.is_overdue())
 
     stats = [
         StatItem(label="Total", value=total, href="/tasks?status=all"),
@@ -129,7 +128,7 @@ def TaskCard(
 ) -> "FT":
     """Single task card with status toggle, priority, due date, and connections."""
     is_completed = task.status and task.status.value == "completed"
-    overdue = _is_overdue(task)
+    overdue = task.is_overdue()
 
     # Status toggle button
     new_status = "active" if is_completed else "completed"
@@ -207,19 +206,6 @@ def TaskCard(
     )
 
 
-def _is_overdue(task: "Task") -> bool:
-    """Check if a task is overdue (has due_date in the past and not completed)."""
-    if not task.due_date:
-        return False
-    if task.status and task.status.value == "completed":
-        return False
-    try:
-        if isinstance(task.due_date, date):
-            return task.due_date < date.today()
-        due = datetime.fromisoformat(str(task.due_date)).date()
-        return due < date.today()
-    except (ValueError, TypeError):
-        return False
 
 
 def _task_connection_badges(
@@ -235,9 +221,9 @@ def _task_connection_badges(
         return ConnectionBadges(
             [
                 {
-                    "target_type": "goal",
+                    "connected_type": "goal",
                     "title": task.fulfills_goal_uid,
-                    "target_uid": task.fulfills_goal_uid,
+                    "connected_uid": task.fulfills_goal_uid,
                 }
             ]
         )
@@ -277,7 +263,7 @@ def TaskDetailView(
     # Metadata grid
     meta_items: list[Any] = []
     if task.due_date:
-        overdue = _is_overdue(task)
+        overdue = task.is_overdue()
         due_cls = "text-destructive font-bold" if overdue else ""
         meta_items.append(MetadataField("Due Date", Span(str(task.due_date), cls=due_cls)))
     if task.duration_minutes:
@@ -332,70 +318,3 @@ def TaskDetailView(
     )
 
 
-def _sort_by_priority(task: "Task") -> int:
-    """Sort key: priority order (critical first)."""
-    return PRIORITY_ORDER.get(str(task.priority) if task.priority else "", 4)
-
-
-def _sort_by_due_date(task: "Task") -> str:
-    """Sort key: due date ascending (no date sorts last)."""
-    return str(task.due_date or "9999-12-31")
-
-
-def _sort_by_title(task: "Task") -> str:
-    """Sort key: title alphabetically."""
-    return (task.title or "").lower()
-
-
-def _sort_by_updated(task: "Task") -> str:
-    """Sort key: updated_at descending."""
-    return str(task.updated_at or "")
-
-
-def filter_tasks(
-    tasks: list["Task"],
-    status_filter: str = "active",
-    priority_filter: str = "all",
-    sort_by: str = "priority",
-) -> list["Task"]:
-    """Apply filters and sorting to a task list.
-
-    Args:
-        tasks: Full list of user tasks
-        status_filter: "active", "completed", or "all"
-        priority_filter: "critical", "high", "medium", "low", or "all"
-        sort_by: "priority", "due_date", "updated", or "title"
-
-    Returns:
-        Filtered and sorted task list
-    """
-    filtered = list(tasks)
-
-    # Status filter
-    if status_filter == "active":
-        filtered = [
-            t
-            for t in filtered
-            if not t.status
-            or t.status.value in ("active", "in_progress", "ready", "draft", "blocked")
-        ]
-    elif status_filter == "completed":
-        filtered = [t for t in filtered if t.status and t.status.value == "completed"]
-    elif status_filter == "overdue":
-        filtered = [t for t in filtered if _is_overdue(t)]
-
-    # Priority filter
-    if priority_filter != "all":
-        filtered = [t for t in filtered if t.priority and str(t.priority) == priority_filter]
-
-    # Sort
-    if sort_by == "priority":
-        filtered.sort(key=_sort_by_priority)
-    elif sort_by == "due_date":
-        filtered.sort(key=_sort_by_due_date)
-    elif sort_by == "title":
-        filtered.sort(key=_sort_by_title)
-    elif sort_by == "updated":
-        filtered.sort(key=_sort_by_updated, reverse=True)
-
-    return filtered

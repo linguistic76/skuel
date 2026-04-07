@@ -57,9 +57,6 @@ from ui.teaching.forms import render_feedback_submission_form, render_revision_r
 from ui.teaching.nav import render_teaching_sidebar_page
 from ui.teaching.student_hub import StudentHub
 from ui.teaching.types import (
-    COMPLETED_STATUSES,
-    NEEDS_REVIEW_STATUSES,
-    REVISION_STATUSES,
     ClassMember,
     ClassSummary,
     SubmissionDetail,
@@ -102,32 +99,20 @@ def create_teaching_ui_routes(
     async def _get_bucketed_submissions(
         user_uid: str, student_uid: str
     ) -> tuple[list[SubmissionRow], list[SubmissionRow], list[SubmissionRow], str]:
-        """Fetch and bucket student submissions into (pending, revision, completed, student_name)."""
-        result = await orchestrator.get_student_submissions(
+        """Fetch bucketed submissions from orchestrator and convert to view models."""
+        result = await orchestrator.get_bucketed_student_submissions(
             teacher_uid=user_uid, student_uid=student_uid
         )
-        pending: list[SubmissionRow] = []
-        revision: list[SubmissionRow] = []
-        completed: list[SubmissionRow] = []
-        student_name = student_uid
+        if result.is_error:
+            return [], [], [], student_uid
 
-        if not result.is_error and result.value:
-            for item in result.value:
-                raw_name = item.get("student_name")
-                if raw_name and student_name == student_uid:
-                    student_name = str(raw_name)
-                row = submission_row_from_dict(item)
-                status_str = (row.status or "").lower()
-                if status_str in NEEDS_REVIEW_STATUSES:
-                    pending.append(row)
-                elif status_str in REVISION_STATUSES:
-                    revision.append(row)
-                elif status_str in COMPLETED_STATUSES:
-                    completed.append(row)
-                else:
-                    pending.append(row)
-
-        return pending, revision, completed, student_name
+        raw_pending, raw_revision, raw_completed, student_name = result.value
+        return (
+            [submission_row_from_dict(d) for d in raw_pending],
+            [submission_row_from_dict(d) for d in raw_revision],
+            [submission_row_from_dict(d) for d in raw_completed],
+            student_name,
+        )
 
     # ------------------------------------------------------------------
     # TEACHING ROOT — redirect to students list

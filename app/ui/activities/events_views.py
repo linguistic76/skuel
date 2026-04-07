@@ -7,7 +7,6 @@ Usage:
     from ui.activities.events_views import EventList, EVENT_FILTER_CONFIG, EventStatsBar
 """
 
-from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
@@ -40,8 +39,8 @@ if TYPE_CHECKING:
 def EventStatsBar(events: list["Event"]) -> "FT":
     """Quick stats bar showing event counts."""
     total = len(events)
-    upcoming = sum(1 for e in events if _is_upcoming(e))
-    today = sum(1 for e in events if _is_today(e))
+    upcoming = sum(1 for e in events if e.is_upcoming())
+    today = sum(1 for e in events if e.is_today())
     completed = sum(1 for e in events if e.status and e.status.value == "completed")
 
     stats = [
@@ -114,7 +113,7 @@ def EventCard(
 ) -> "FT":
     """Single event card with date/time, location, and connections."""
     is_completed = event.status and event.status.value == "completed"
-    is_past = _is_past(event)
+    is_past = event.is_past()
 
     # Status toggle button
     new_status = "active" if is_completed else "completed"
@@ -164,7 +163,7 @@ def EventCard(
         date_cls = "text-muted-foreground"
         if is_past and not is_completed:
             date_cls = "text-destructive"
-        elif _is_today(event):
+        elif event.is_today():
             date_cls = "text-yellow-600 font-bold"
         date_el = Small(date_str, cls=date_cls)
 
@@ -242,7 +241,7 @@ def EventDetailView(
     # Schedule section
     sched_items: list[Any] = []
     if event.event_date:
-        is_past = _is_past(event)
+        is_past = event.is_past()
         date_cls = (
             "text-destructive"
             if is_past and not (event.status and event.status.value == "completed")
@@ -393,45 +392,6 @@ def EventDetailView(
     )
 
 
-def _is_upcoming(event: "Event") -> bool:
-    """Check if an event is in the future and not completed."""
-    if event.status and event.status.value == "completed":
-        return False
-    if not event.event_date:
-        return True  # No date = treat as upcoming
-    try:
-        if isinstance(event.event_date, date):
-            return event.event_date >= date.today()
-        d = datetime.fromisoformat(str(event.event_date)).date()
-        return d >= date.today()
-    except (ValueError, TypeError):
-        return True
-
-
-def _is_today(event: "Event") -> bool:
-    """Check if an event is scheduled for today."""
-    if not event.event_date:
-        return False
-    try:
-        if isinstance(event.event_date, date):
-            return event.event_date == date.today()
-        d = datetime.fromisoformat(str(event.event_date)).date()
-        return d == date.today()
-    except (ValueError, TypeError):
-        return False
-
-
-def _is_past(event: "Event") -> bool:
-    """Check if an event date is in the past."""
-    if not event.event_date:
-        return False
-    try:
-        if isinstance(event.event_date, date):
-            return event.event_date < date.today()
-        d = datetime.fromisoformat(str(event.event_date)).date()
-        return d < date.today()
-    except (ValueError, TypeError):
-        return False
 
 
 def _format_time_range(event: "Event") -> str:
@@ -444,37 +404,3 @@ def _format_time_range(event: "Event") -> str:
     return " - ".join(parts)
 
 
-def filter_events(
-    events: list["Event"],
-    status_filter: str = "upcoming",
-    sort_by: str = "date",
-) -> list["Event"]:
-    """Apply filters and sorting to an event list."""
-    filtered = list(events)
-
-    # Status filter
-    if status_filter == "upcoming":
-        filtered = [e for e in filtered if _is_upcoming(e)]
-    elif status_filter == "today":
-        filtered = [e for e in filtered if _is_today(e)]
-    elif status_filter == "completed":
-        filtered = [e for e in filtered if e.status and e.status.value == "completed"]
-
-    # Sort
-    def by_date(e: Any) -> str:
-        return str(e.event_date or "9999-12-31")
-
-    def by_title(e: Any) -> str:
-        return (e.title or "").lower()
-
-    def by_created(e: Any) -> str:
-        return str(e.created_at or "")
-
-    if sort_by == "date":
-        filtered.sort(key=by_date)
-    elif sort_by == "title":
-        filtered.sort(key=by_title)
-    elif sort_by == "created":
-        filtered.sort(key=by_created, reverse=True)
-
-    return filtered

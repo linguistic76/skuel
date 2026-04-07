@@ -20,7 +20,7 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
-from ui.activities._shared import PRIORITY_ORDER, ConnectionSummary, MetadataField, safe_id
+from ui.activities._shared import ConnectionSummary, MetadataField, safe_id
 from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.patterns.empty_state import EmptyState
@@ -397,13 +397,13 @@ def MilestonesSection(milestones: tuple["Milestone", ...]) -> "FT":
 
 def GoalConnectionsSection(connections: list[dict[str, str]]) -> "FT":
     """Display connections grouped by domain: tasks fulfilling, habits supporting, etc."""
-    # Group by source_type
+    # Group by connected_type
     groups: dict[str, list[dict[str, str]]] = {}
     for conn in connections:
-        source_type = conn.get("source_type", "unknown")
-        if source_type not in groups:
-            groups[source_type] = []
-        groups[source_type].append(conn)
+        connected_type = conn.get("connected_type", "unknown")
+        if connected_type not in groups:
+            groups[connected_type] = []
+        groups[connected_type].append(conn)
 
     domain_labels = {
         "task": ("Tasks fulfilling this goal", "check-square", "/tasks/detail?uid="),
@@ -423,8 +423,8 @@ def GoalConnectionsSection(connections: list[dict[str, str]]) -> "FT":
             Li(
                 UkIcon(icon, height=12, width=12, cls="inline mr-1"),
                 A(
-                    conn.get("title", conn.get("source_uid", "?")),
-                    href=f"{base_href}{conn.get('source_uid', '')}" if base_href != "#" else "#",
+                    conn.get("title", conn.get("connected_uid", "?")),
+                    href=f"{base_href}{conn.get('connected_uid', '')}" if base_href != "#" else "#",
                     cls="hover:underline text-muted-foreground",
                 ),
             )
@@ -448,56 +448,3 @@ def GoalConnectionsSection(connections: list[dict[str, str]]) -> "FT":
     )
 
 
-def _sort_by_priority(goal: "Goal") -> int:
-    """Sort key: priority order (critical first)."""
-    return PRIORITY_ORDER.get(str(goal.priority) if goal.priority else "", 4)
-
-
-def _sort_by_target_date(goal: "Goal") -> str:
-    """Sort key: target_date ascending (no date sorts last)."""
-    return str(goal.target_date or "9999-12-31")
-
-
-def _sort_by_progress(goal: "Goal") -> float:
-    """Sort key: progress descending."""
-    return -goal.calculate_progress()
-
-
-def _sort_by_title(goal: "Goal") -> str:
-    """Sort key: title alphabetically."""
-    return (goal.title or "").lower()
-
-
-def filter_goals(
-    goals: list["Goal"],
-    status_filter: str = "active",
-    sort_by: str = "target_date",
-) -> list["Goal"]:
-    """Apply filters and sorting to a goal list."""
-    filtered = list(goals)
-
-    # Status filter
-    if status_filter == "active":
-        filtered = [
-            g
-            for g in filtered
-            if not g.status or g.status.value in ("active", "in_progress", "not_started", "ready")
-        ]
-    elif status_filter == "completed":
-        filtered = [g for g in filtered if g.is_completed]
-    elif status_filter == "on_track":
-        filtered = [g for g in filtered if g.is_on_track() and not g.is_completed]
-    elif status_filter == "wobbly":
-        filtered = [g for g in filtered if not g.is_on_track() and not g.is_completed]
-
-    # Sort
-    if sort_by == "target_date":
-        filtered.sort(key=_sort_by_target_date)
-    elif sort_by == "priority":
-        filtered.sort(key=_sort_by_priority)
-    elif sort_by == "progress":
-        filtered.sort(key=_sort_by_progress)
-    elif sort_by == "title":
-        filtered.sort(key=_sort_by_title)
-
-    return filtered

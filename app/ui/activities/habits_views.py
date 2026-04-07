@@ -44,7 +44,7 @@ def HabitStatsBar(habits: list["Habit"]) -> "FT":
     streaks = [h.current_streak for h in habits if h.current_streak and h.current_streak > 0]
     if streaks:
         avg_streak = sum(streaks) / len(streaks)
-    keystone = sum(1 for h in habits if _is_keystone(h))
+    keystone = sum(1 for h in habits if h.is_keystone)
 
     stats = [
         StatItem(label="Total", value=total, href="/habits?status=all"),
@@ -418,56 +418,3 @@ def HabitDetailView(
     )
 
 
-def _is_keystone(habit: "Habit") -> bool:
-    """Check if a habit is a keystone habit (high streak + identity-based)."""
-    has_streak = habit.current_streak is not None and habit.current_streak >= 7
-    return has_streak or bool(habit.is_identity_habit)
-
-
-def filter_habits(
-    habits: list["Habit"],
-    status_filter: str = "active",
-    category_filter: str = "all",
-    sort_by: str = "streak",
-) -> list["Habit"]:
-    """Apply filters and sorting to a habit list."""
-    filtered = list(habits)
-
-    # Status filter
-    if status_filter == "active":
-        filtered = [
-            h
-            for h in filtered
-            if not h.status or h.status.value in ("active", "in_progress", "ready")
-        ]
-    elif status_filter == "paused":
-        filtered = [h for h in filtered if h.status and h.status.value == "paused"]
-    elif status_filter == "completed":
-        filtered = [h for h in filtered if h.status and h.status.value == "completed"]
-    elif status_filter == "keystone":
-        filtered = [h for h in filtered if _is_keystone(h)]
-
-    # Category filter
-    if category_filter != "all":
-        filtered = [
-            h for h in filtered if h.habit_category and h.habit_category.value == category_filter
-        ]
-
-    # Sort
-    def by_streak(h: Any) -> int:
-        return -(h.current_streak or 0)
-
-    def by_name(h: Any) -> str:
-        return (h.title or "").lower()
-
-    def by_created(h: Any) -> str:
-        return str(h.created_at or "")
-
-    if sort_by == "streak":
-        filtered.sort(key=by_streak)
-    elif sort_by == "name":
-        filtered.sort(key=by_name)
-    elif sort_by == "created":
-        filtered.sort(key=by_created, reverse=True)
-
-    return filtered

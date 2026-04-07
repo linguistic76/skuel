@@ -13,13 +13,14 @@ from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
+from core.utils.connection_fetcher import CHOICE_CONNECTION_CONFIG, fetch_entity_connections
 from core.utils.logging import get_logger
+from core.utils.entity_filters import filter_choices
 from ui.activities.choices_views import (
     CHOICE_FILTER_CONFIG,
     ChoiceDetailView,
     ChoiceList,
     ChoiceStatsBar,
-    filter_choices,
 )
 from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.nav import render_activity_sidebar_page
@@ -31,61 +32,6 @@ if TYPE_CHECKING:
     from core.services.choices_service import ChoicesService
 
 logger = get_logger("skuel.routes.choices_ui")
-
-
-async def _fetch_choice_connections(
-    choices_service: ChoicesService,
-    choice_uids: list[str],
-) -> dict[str, list[dict[str, str]]]:
-    """Batch-fetch outbound cross-domain connections for a list of choices.
-
-    Returns a map of choice_uid -> list of connection dicts with keys:
-    rel_type, target_uid, title, target_type.
-    """
-    if not choice_uids:
-        return {}
-
-    query = """
-    MATCH (c:Entity:Choice)
-    WHERE c.uid IN $choice_uids
-    OPTIONAL MATCH (c)-[r]->(target:Entity)
-    WHERE type(r) IN [
-        'INFORMS_GOAL_STRATEGY', 'ENABLES_HABIT', 'EXPRESSES_PRINCIPLE',
-        'APPLIES_KNOWLEDGE', 'RELATED_TO'
-    ]
-    RETURN c.uid AS choice_uid,
-           type(r) AS rel_type,
-           target.uid AS target_uid,
-           target.title AS title,
-           target.entity_type AS target_type
-    """
-    try:
-        result = await choices_service.core.backend.execute_query(
-            query, {"choice_uids": choice_uids}
-        )
-    except Exception:  # safety-net: Neo4j query failure shouldn't break the page
-        logger.warning("Failed to fetch choice connections", exc_info=True)
-        return {}
-
-    if result.is_error:
-        return {}
-
-    connections_map: dict[str, list[dict[str, str]]] = {}
-    for record in result.value:
-        choice_uid = record["choice_uid"]
-        if record.get("rel_type") is None:
-            continue
-        if choice_uid not in connections_map:
-            connections_map[choice_uid] = []
-        connections_map[choice_uid].append(
-            {
-                "rel_type": record["rel_type"],
-                "target_uid": record.get("target_uid", ""),
-                "title": record.get("title", ""),
-                "target_type": record.get("target_type", ""),
-            }
-        )
-    return connections_map
 
 
 def create_choices_ui_routes(
@@ -120,7 +66,9 @@ def create_choices_ui_routes(
 
         # Batch-fetch connections
         choice_uids = [c.uid for c in filtered]
-        connections_map = await _fetch_choice_connections(choices_service, choice_uids)
+        connections_map = await fetch_entity_connections(
+            choices_service.core.backend, CHOICE_CONNECTION_CONFIG, choice_uids
+        )
 
         choice_count = len(all_choices)
         subtitle = f"{choice_count} choice{'s' if choice_count != 1 else ''}"
@@ -152,7 +100,9 @@ def create_choices_ui_routes(
         filtered = filter_choices(all_choices, status_filter, sort_by)
 
         choice_uids = [c.uid for c in filtered]
-        connections_map = await _fetch_choice_connections(choices_service, choice_uids)
+        connections_map = await fetch_entity_connections(
+            choices_service.core.backend, CHOICE_CONNECTION_CONFIG, choice_uids
+        )
 
         return ChoiceList(filtered, connections_map)
 
@@ -186,7 +136,9 @@ def create_choices_ui_routes(
             )
 
         # Fetch connections
-        connections_map = await _fetch_choice_connections(choices_service, [choice.uid])
+        connections_map = await fetch_entity_connections(
+            choices_service.core.backend, CHOICE_CONNECTION_CONFIG, [choice.uid]
+        )
         connections = connections_map.get(choice.uid, [])
 
         content = ChoiceDetailView(choice, connections)

@@ -57,11 +57,11 @@ def ConnectionBadges(connections: list[dict[str, str]]) -> "FT":
 
     badges: list[Any] = []
     for conn in connections:
-        target_type = conn.get("target_type", "")
-        title = conn.get("title", conn.get("target_uid", "?"))
-        target_uid = conn.get("target_uid", "")
-        icon, base_href = CONNECTION_ICONS.get(target_type, ("link", "#"))
-        href = f"{base_href}{target_uid}" if base_href != "#" else "#"
+        connected_type = conn.get("connected_type", "")
+        title = conn.get("title", conn.get("connected_uid", "?"))
+        connected_uid = conn.get("connected_uid", "")
+        icon, base_href = CONNECTION_ICONS.get(connected_type, ("link", "#"))
+        href = f"{base_href}{connected_uid}" if base_href != "#" else "#"
 
         badges.append(
             A(
@@ -87,8 +87,8 @@ def ConnectionSummary(connections: list[dict[str, str]]) -> "FT":
 
     counts: dict[str, int] = {}
     for conn in connections:
-        source_type = conn.get("source_type", "unknown")
-        counts[source_type] = counts.get(source_type, 0) + 1
+        connected_type = conn.get("connected_type", "unknown")
+        counts[connected_type] = counts.get(connected_type, 0) + 1
 
     parts: list[Any] = []
     for domain, count in sorted(counts.items()):

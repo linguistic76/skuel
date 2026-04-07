@@ -13,14 +13,15 @@ from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
+from core.utils.connection_fetcher import HABIT_CONNECTION_CONFIG, fetch_entity_connections
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import ActivityFilterBar
+from core.utils.entity_filters import filter_habits
 from ui.activities.habits_views import (
     HABIT_FILTER_CONFIG,
     HabitDetailView,
     HabitList,
     HabitStatsBar,
-    filter_habits,
 )
 from ui.activities.nav import render_activity_sidebar_page
 from ui.patterns import PageHeader
@@ -31,60 +32,6 @@ if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
 
 logger = get_logger("skuel.routes.habits_ui")
-
-
-async def _fetch_habit_connections(
-    habits_service: HabitsService,
-    habit_uids: list[str],
-) -> dict[str, list[dict[str, str]]]:
-    """Batch-fetch outbound cross-domain connections for a list of habits.
-
-    Returns a map of habit_uid -> list of connection dicts with keys:
-    rel_type, target_uid, title, target_type.
-    """
-    if not habit_uids:
-        return {}
-
-    query = """
-    MATCH (h:Entity:Habit)
-    WHERE h.uid IN $habit_uids
-    OPTIONAL MATCH (h)-[r]->(target:Entity)
-    WHERE type(r) IN [
-        'REINFORCES_GOAL', 'APPLIES_KNOWLEDGE', 'REINFORCED_BY_PRINCIPLE',
-        'PART_OF_PATH_STEP', 'PART_OF_LEARNING_PATH',
-        'RELATED_TO'
-    ]
-    RETURN h.uid AS habit_uid,
-           type(r) AS rel_type,
-           target.uid AS target_uid,
-           target.title AS title,
-           target.entity_type AS target_type
-    """
-    try:
-        result = await habits_service.core.backend.execute_query(query, {"habit_uids": habit_uids})
-    except Exception:  # safety-net: Neo4j query failure shouldn't break the page
-        logger.warning("Failed to fetch habit connections", exc_info=True)
-        return {}
-
-    if result.is_error:
-        return {}
-
-    connections_map: dict[str, list[dict[str, str]]] = {}
-    for record in result.value:
-        habit_uid = record["habit_uid"]
-        if record.get("rel_type") is None:
-            continue
-        if habit_uid not in connections_map:
-            connections_map[habit_uid] = []
-        connections_map[habit_uid].append(
-            {
-                "rel_type": record["rel_type"],
-                "target_uid": record.get("target_uid", ""),
-                "title": record.get("title", ""),
-                "target_type": record.get("target_type", ""),
-            }
-        )
-    return connections_map
 
 
 def create_habits_ui_routes(
@@ -120,7 +67,9 @@ def create_habits_ui_routes(
 
         # Batch-fetch connections
         habit_uids = [h.uid for h in filtered]
-        connections_map = await _fetch_habit_connections(habits_service, habit_uids)
+        connections_map = await fetch_entity_connections(
+            habits_service.core.backend, HABIT_CONNECTION_CONFIG, habit_uids
+        )
 
         habit_count = len(all_habits)
         subtitle = f"{habit_count} habit{'s' if habit_count != 1 else ''}"
@@ -156,7 +105,9 @@ def create_habits_ui_routes(
         filtered = filter_habits(all_habits, status_filter, category_filter, sort_by)
 
         habit_uids = [h.uid for h in filtered]
-        connections_map = await _fetch_habit_connections(habits_service, habit_uids)
+        connections_map = await fetch_entity_connections(
+            habits_service.core.backend, HABIT_CONNECTION_CONFIG, habit_uids
+        )
 
         return HabitList(filtered, connections_map)
 
@@ -190,7 +141,9 @@ def create_habits_ui_routes(
             )
 
         # Fetch connections
-        connections_map = await _fetch_habit_connections(habits_service, [habit.uid])
+        connections_map = await fetch_entity_connections(
+            habits_service.core.backend, HABIT_CONNECTION_CONFIG, [habit.uid]
+        )
         connections = connections_map.get(habit.uid, [])
 
         content = HabitDetailView(habit, connections)

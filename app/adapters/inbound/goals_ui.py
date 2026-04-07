@@ -13,14 +13,15 @@ from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
+from core.utils.connection_fetcher import GOAL_CONNECTION_CONFIG, fetch_entity_connections
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import ActivityFilterBar
+from core.utils.entity_filters import filter_goals
 from ui.activities.goals_views import (
     GOAL_FILTER_CONFIG,
     GoalDetailView,
     GoalList,
     GoalStatsBar,
-    filter_goals,
 )
 from ui.activities.nav import render_activity_sidebar_page
 from ui.patterns import PageHeader
@@ -31,61 +32,6 @@ if TYPE_CHECKING:
     from core.services.goals_service import GoalsService
 
 logger = get_logger("skuel.routes.goals_ui")
-
-
-async def _fetch_goal_connections(
-    goals_service: GoalsService,
-    goal_uids: list[str],
-) -> dict[str, list[dict[str, str]]]:
-    """Batch-fetch incoming cross-domain connections for a list of goals.
-
-    Goals are the gravity well: entities point AT goals.
-    Returns a map of goal_uid -> list of connection dicts with keys:
-    rel_type, source_uid, title, source_type.
-    """
-    if not goal_uids:
-        return {}
-
-    query = """
-    MATCH (g:Entity:Goal)
-    WHERE g.uid IN $goal_uids
-    OPTIONAL MATCH (source:Entity)-[r]->(g)
-    WHERE type(r) IN [
-        'FULFILLS_GOAL', 'SUPPORTS_GOAL', 'CONTRIBUTES_TO_GOAL',
-        'REINFORCES_GOAL', 'APPLIES_KNOWLEDGE', 'INFORMED_BY_GOAL',
-        'RELATED_TO'
-    ]
-    RETURN g.uid AS goal_uid,
-           type(r) AS rel_type,
-           source.uid AS source_uid,
-           source.title AS title,
-           source.entity_type AS source_type
-    """
-    try:
-        result = await goals_service.core.backend.execute_query(query, {"goal_uids": goal_uids})
-    except Exception:  # safety-net: Neo4j query failure shouldn't break the page
-        logger.warning("Failed to fetch goal connections", exc_info=True)
-        return {}
-
-    if result.is_error:
-        return {}
-
-    connections_map: dict[str, list[dict[str, str]]] = {}
-    for record in result.value:
-        goal_uid = record["goal_uid"]
-        if record.get("rel_type") is None:
-            continue
-        if goal_uid not in connections_map:
-            connections_map[goal_uid] = []
-        connections_map[goal_uid].append(
-            {
-                "rel_type": record["rel_type"],
-                "source_uid": record.get("source_uid", ""),
-                "title": record.get("title", ""),
-                "source_type": record.get("source_type", ""),
-            }
-        )
-    return connections_map
 
 
 def create_goals_ui_routes(
@@ -120,7 +66,9 @@ def create_goals_ui_routes(
 
         # Batch-fetch incoming connections for visible goals
         goal_uids = [g.uid for g in filtered]
-        connections_map = await _fetch_goal_connections(goals_service, goal_uids)
+        connections_map = await fetch_entity_connections(
+            goals_service.core.backend, GOAL_CONNECTION_CONFIG, goal_uids
+        )
 
         goal_count = len(all_goals)
         subtitle = f"{goal_count} goal{'s' if goal_count != 1 else ''}"
@@ -152,7 +100,9 @@ def create_goals_ui_routes(
         filtered = filter_goals(all_goals, status_filter, sort_by)
 
         goal_uids = [g.uid for g in filtered]
-        connections_map = await _fetch_goal_connections(goals_service, goal_uids)
+        connections_map = await fetch_entity_connections(
+            goals_service.core.backend, GOAL_CONNECTION_CONFIG, goal_uids
+        )
 
         return GoalList(filtered, connections_map)
 
@@ -186,7 +136,9 @@ def create_goals_ui_routes(
             )
 
         # Fetch incoming connections for this goal (gravity well)
-        connections_map = await _fetch_goal_connections(goals_service, [goal.uid])
+        connections_map = await fetch_entity_connections(
+            goals_service.core.backend, GOAL_CONNECTION_CONFIG, [goal.uid]
+        )
         connections = connections_map.get(goal.uid, [])
 
         content = GoalDetailView(goal, connections)
