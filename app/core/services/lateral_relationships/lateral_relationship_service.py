@@ -720,8 +720,7 @@ class LateralRelationshipService:
             all_types = [rt.value for rt in RelationshipName if rt.is_lateral_relationship()]
             type_filter = "|".join(all_types)
 
-        # Color mapping for relationship types (centralized in ui/palette.py)
-        from ui.palette import RelationshipColor
+        from core.utils.palette import RelationshipColor
 
         # Query graph with depth limit
         result = await self.backend.get_relationship_graph(

@@ -20,6 +20,7 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
+from core.utils.activity_stats import compute_goal_stats
 from ui.activities._shared import ConnectionSummary, MetadataField, safe_id
 from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
@@ -42,39 +43,22 @@ def GoalStatsBar(goals: list["Goal"]) -> "FT":
     "Wobbly" is the opposite of "On Track" — goals that need attention:
     behind schedule (progress < expected) or overdue (past target date).
     """
-    total = len(goals)
-    active = sum(1 for g in goals if g.status and g.status.value in ("active", "in_progress"))
-    on_track = sum(1 for g in goals if g.is_on_track() and not g.is_completed)
-    completed = sum(1 for g in goals if g.is_completed)
-
-    # Wobbly = goals that are NOT on track and NOT completed
-    overdue = [g for g in goals if g.is_overdue()]
-    behind = [g for g in goals if not g.is_on_track() and not g.is_completed and not g.is_overdue()]
-    wobbly_count = len(overdue) + len(behind)
-
-    # Build a breakdown sub-label for the Wobbly card
-    wobbly_detail = None
-    if wobbly_count > 0:
-        parts = []
-        if behind:
-            parts.append(f"{len(behind)} behind")
-        if overdue:
-            parts.append(f"{len(overdue)} overdue")
-        wobbly_detail = ", ".join(parts)
-
+    s = compute_goal_stats(goals)
     stats = [
-        StatItem(label="Total", value=total, href="/goals?status=all"),
-        StatItem(label="Active", value=active, color="primary", href="/goals?status=active"),
-        StatItem(label="On Track", value=on_track, color="success", href="/goals?status=on_track"),
+        StatItem(label="Total", value=s.total, href="/goals?status=all"),
+        StatItem(label="Active", value=s.active, color="primary", href="/goals?status=active"),
         StatItem(
-            label="Completed", value=completed, color="success", href="/goals?status=completed"
+            label="On Track", value=s.on_track, color="success", href="/goals?status=on_track"
+        ),
+        StatItem(
+            label="Completed", value=s.completed, color="success", href="/goals?status=completed"
         ),
         StatItem(
             label="Wobbly",
-            value=wobbly_count,
-            color="error" if wobbly_count > 0 else None,
-            change=wobbly_detail,
-            trend="down" if wobbly_count > 0 else None,
+            value=s.wobbly_count,
+            color="error" if s.wobbly_count > 0 else None,
+            change=s.wobbly_detail,
+            trend="down" if s.wobbly_count > 0 else None,
             href="/goals?status=wobbly",
         ),
     ]

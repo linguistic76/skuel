@@ -18,6 +18,7 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
+from core.utils.activity_stats import compute_habit_stats
 from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
 from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.buttons import Button, ButtonT
@@ -38,26 +39,19 @@ if TYPE_CHECKING:
 
 def HabitStatsBar(habits: list["Habit"]) -> "FT":
     """Quick stats bar showing habit counts."""
-    total = len(habits)
-    active = sum(1 for h in habits if h.status and h.status.value in ("active", "in_progress"))
-    avg_streak = 0.0
-    streaks = [h.current_streak for h in habits if h.current_streak and h.current_streak > 0]
-    if streaks:
-        avg_streak = sum(streaks) / len(streaks)
-    keystone = sum(1 for h in habits if h.is_keystone)
-
+    s = compute_habit_stats(habits)
     stats = [
-        StatItem(label="Total", value=total, href="/habits?status=all"),
-        StatItem(label="Active", value=active, color="primary", href="/habits?status=active"),
+        StatItem(label="Total", value=s.total, href="/habits?status=all"),
+        StatItem(label="Active", value=s.active, color="primary", href="/habits?status=active"),
         StatItem(
             label="Avg Streak",
-            value=f"{avg_streak:.1f}",
-            color="success" if avg_streak > 0 else None,
+            value=f"{s.avg_streak:.1f}",
+            color="success" if s.avg_streak > 0 else None,
         ),
         StatItem(
             label="Keystone",
-            value=keystone,
-            color="warning" if keystone > 0 else None,
+            value=s.keystone_count,
+            color="warning" if s.keystone_count > 0 else None,
             href="/habits?status=keystone",
         ),
     ]

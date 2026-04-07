@@ -3,10 +3,11 @@
 Status and count badges for the profile sidebar.
 """
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from fasthtml.common import A, Div, Span
+
+from core.services.user.domain_health import DomainStatus
 
 if TYPE_CHECKING:
     from ui.profile.layout import ProfileDomainItem
@@ -100,78 +101,6 @@ def DomainSidebarItem(domain: "ProfileDomainItem", is_active: bool) -> A:
         cls=f"{base_classes} {state_classes}",
     )
 
-
-@dataclass
-class DomainStatus:
-    """Helper for calculating domain status from UserContext."""
-
-    @staticmethod
-    def calculate_tasks_status(
-        overdue_count: int,
-        blocked_count: int,
-    ) -> str:
-        """Calculate tasks domain health status."""
-        if overdue_count > 3 or blocked_count > 5:
-            return "critical"
-        elif overdue_count > 0 or blocked_count > 0:
-            return "warning"
-        return "healthy"
-
-    @staticmethod
-    def calculate_habits_status(at_risk_count: int) -> str:
-        """Calculate habits domain health status."""
-        if at_risk_count > 2:
-            return "critical"
-        elif at_risk_count > 0:
-            return "warning"
-        return "healthy"
-
-    @staticmethod
-    def calculate_goals_status(
-        at_risk_count: int,
-        stalled_count: int,
-    ) -> str:
-        """Calculate goals domain health status."""
-        if at_risk_count > 0:
-            return "critical"
-        elif stalled_count > 0:
-            return "warning"
-        return "healthy"
-
-    @staticmethod
-    def calculate_events_status(
-        missed_today: int,
-        missed_week: int,
-    ) -> str:
-        """Calculate events domain health status."""
-        if missed_today > 0:
-            return "critical"
-        elif missed_week > 0:
-            return "warning"
-        return "healthy"
-
-    @staticmethod
-    def calculate_principles_status(
-        aligned_count: int,
-        against_count: int,
-    ) -> str:
-        """Calculate principles domain health status."""
-        if against_count > aligned_count:
-            return "critical"
-        elif aligned_count == 0 and against_count == 0:
-            return "healthy"  # No decisions yet
-        elif aligned_count < against_count * 2:
-            return "warning"
-        return "healthy"
-
-    @staticmethod
-    def calculate_choices_status(pending_count: int) -> str:
-        """Calculate choices domain health status."""
-        if pending_count > 5:
-            return "critical"
-        elif pending_count > 0:
-            return "warning"
-        return "healthy"
 
 
 __all__ = [

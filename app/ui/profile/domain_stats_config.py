@@ -26,8 +26,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
+from core.services.user.domain_health import DomainStatus
 from core.services.user.unified_user_context import UserContext
-from ui.profile.badges import DomainStatus
 
 
 class StatusCalculator(Protocol):
@@ -176,16 +176,11 @@ def knowledge_active(ctx: UserContext) -> int:
 
 def knowledge_status(ctx: UserContext) -> str:
     """Calculate knowledge domain status based on learning progress."""
-    mastered = len(ctx.mastered_knowledge_uids)
-    in_progress = len(ctx.in_progress_knowledge_uids)
-    blocked = len(ctx.prerequisites_needed)
-
-    if blocked > (mastered + in_progress) * 0.5 and (mastered + in_progress) > 0:
-        return "critical"
-    elif blocked > 0:
-        return "warning"
-    else:
-        return "healthy"
+    return DomainStatus.calculate_knowledge_status(
+        blocked=len(ctx.prerequisites_needed),
+        mastered=len(ctx.mastered_knowledge_uids),
+        in_progress=len(ctx.in_progress_knowledge_uids),
+    )
 
 
 # Path Steps domain extractors (PS)
@@ -217,15 +212,10 @@ def learning_paths_active(ctx: UserContext) -> int:
 
 def learning_paths_status(ctx: UserContext) -> str:
     """Calculate learning paths status based on blocked prerequisites."""
-    blocked = len(ctx.prerequisites_needed)
-    enrolled_paths = len(ctx.enrolled_path_uids)
-
-    if blocked > enrolled_paths * 0.5 and enrolled_paths > 0:
-        return "critical"
-    elif blocked > 0:
-        return "warning"
-    else:
-        return "healthy"
+    return DomainStatus.calculate_learning_paths_status(
+        blocked=len(ctx.prerequisites_needed),
+        enrolled=len(ctx.enrolled_path_uids),
+    )
 
 
 # ============================================================================

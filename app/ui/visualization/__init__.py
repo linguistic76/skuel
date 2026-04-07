@@ -1,9 +1,9 @@
 """Visualization adapters — transform domain data to library-specific formats.
 
-Re-exports VisualizationService and its data structures for convenient import.
+Re-exports VisualizationService and its data structures from core.
 """
 
-from ui.visualization.visualization_service import (
+from core.services.visualization_service import (
     ChartConfig,
     ChartData,
     ChartDataset,

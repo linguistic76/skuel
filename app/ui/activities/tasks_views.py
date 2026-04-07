@@ -18,6 +18,7 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
+from core.utils.activity_stats import compute_task_stats
 from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
 from ui.activities.filter_bar import FilterBarConfig, FilterSelect
 from ui.buttons import Button, ButtonT
@@ -38,23 +39,17 @@ if TYPE_CHECKING:
 
 def TaskStatsBar(tasks: list["Task"]) -> "FT":
     """Quick stats bar showing task counts by status."""
-    total = len(tasks)
-    active = sum(
-        1 for t in tasks if t.status and t.status.value in ("active", "in_progress", "ready")
-    )
-    completed = sum(1 for t in tasks if t.status and t.status.value == "completed")
-    overdue = sum(1 for t in tasks if t.is_overdue())
-
+    s = compute_task_stats(tasks)
     stats = [
-        StatItem(label="Total", value=total, href="/tasks?status=all"),
-        StatItem(label="Active", value=active, color="primary", href="/tasks?status=active"),
+        StatItem(label="Total", value=s.total, href="/tasks?status=all"),
+        StatItem(label="Active", value=s.active, color="primary", href="/tasks?status=active"),
         StatItem(
-            label="Completed", value=completed, color="success", href="/tasks?status=completed"
+            label="Completed", value=s.completed, color="success", href="/tasks?status=completed"
         ),
         StatItem(
             label="Overdue",
-            value=overdue,
-            color="error" if overdue > 0 else None,
+            value=s.overdue,
+            color="error" if s.overdue > 0 else None,
             href="/tasks?status=overdue",
         ),
     ]
