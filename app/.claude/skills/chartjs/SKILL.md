@@ -72,7 +72,7 @@ def habit_dashboard():
 | File | Purpose |
 |------|---------|
 | `/static/js/skuel.js` | `chartVis()` Alpine component (lines 514-571) |
-| `/ui/visualization/visualization_service.py` | Data transformation to Chart.js JSON |
+| `/core/services/visualization_service.py` | Data transformation to Chart.js JSON (canonical; `ui/visualization/` re-exports) |
 | `/ui/goals/visualization.py` | FastHTML component wrappers |
 | `/adapters/inbound/visualization_routes.py` | API endpoints returning Chart.js configs |
 | `/static/vendor/chart.js/` | Chart.js library (local vendor) |
@@ -153,10 +153,10 @@ Alpine.data('chartVis', function(dataUrl, chartType) {
 
 ## Color Schemes
 
-SKUEL centralizes all visualization colors in `ui/palette.py`:
+SKUEL centralizes all visualization colors in `core/utils/palette.py` (importable as either `from core.utils.palette import SemanticColor` or `from ui.palette import SemanticColor`):
 
 ```python
-from ui.palette import SemanticColor
+from core.utils.palette import SemanticColor
 
 # Semantic chart colors (for color cycling, datasets)
 SemanticColor.PRIMARY   # "#3B82F6" (Blue)
@@ -280,7 +280,7 @@ options = {"responsive": True, "maintainAspectRatio": False}
 
 ```python
 # GOOD: Use centralized palette colors
-from ui.palette import SemanticColor
+from core.utils.palette import SemanticColor
 colors = SemanticColor.ALL
 
 # AVOID: Hardcoding colors
@@ -356,5 +356,5 @@ SKUEL also includes:
 
 ## See Also
 
-- `/ui/visualization/visualization_service.py` - VisualizationService source
+- `/core/services/visualization_service.py` - VisualizationService source (canonical)
 - Chart.js Docs: https://www.chartjs.org/docs/

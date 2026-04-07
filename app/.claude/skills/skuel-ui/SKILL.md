@@ -1172,7 +1172,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/page_contexts.py` | Per-domain TypedDicts (`TasksPageContext`, `GoalsPageContext`, etc.) for route→UI contracts |
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
-| `/ui/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants |
+| `/core/utils/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants (`ui/palette.py` re-exports) |
 | `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 7 focused modules (March 2026) |
 | `/static/js/skuel.js` | All Alpine.data() components |
 | `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |

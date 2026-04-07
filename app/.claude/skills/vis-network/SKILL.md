@@ -730,8 +730,8 @@ SKUEL uses consistent colors across all domains for relationship types:
 **Implementation:**
 
 ```python
-# Centralized in ui/palette.py
-from ui.palette import RelationshipColor
+# Centralized in core/utils/palette.py (also importable via ui/palette re-export)
+from core.utils.palette import RelationshipColor
 
 # Get color for a relationship type
 color = RelationshipColor.for_type("BLOCKS")      # "#EF4444" (Red)

@@ -51,7 +51,7 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 - `/ui/layouts/base_page.py` - Unified page wrapper
 - `/ui/layouts/page_types.py` - Page type definitions (HUB vs STANDARD)
 - `/ui/tokens.py` - Spacing, container, and styling tokens
-- `/ui/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback)
+- `/core/utils/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback) — `ui/palette.py` re-exports for backward compat
 - `/ui/buttons.py`, `/ui/cards.py`, `/ui/forms/`, `/ui/feedback.py`, `/ui/layout.py`, `/ui/navigation.py`, `/ui/data.py` - MonsterUI wrappers (7 focused modules, March 2026)
 
 ---
@@ -256,7 +256,8 @@ DOMAIN_STATS_CONFIG["projects"] = DomainStatsConfig(
 - **Unknown domains:** Fallback to `count=0, active=0, status="healthy"`
 
 **Files:**
-- `/ui/profile/domain_stats_config.py` - Configuration and extractor functions
+- `/core/services/user/domain_health.py` - `DomainStatus` class (canonical — 8 `calculate_*_status()` methods)
+- `/ui/profile/domain_stats_config.py` - Configuration and extractor functions (imports `DomainStatus` from core)
 - `/adapters/inbound/user_profile_ui.py` - Uses configuration in `_build_domain_items()`
 - `/tests/unit/ui/test_domain_stats_config.py` - 31 tests covering all domains
 

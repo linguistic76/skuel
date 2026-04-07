@@ -58,6 +58,7 @@ Used by the `/api/sidebar/badges` endpoint (not by the hub view itself).
 
 ```python
 # /ui/profile/domain_stats_config.py
+# DomainStatus lives in core/services/user/domain_health.py
 DOMAIN_STATS_CONFIG: dict[str, DomainStatsConfig] = {
     "tasks": DomainStatsConfig(
         count_fn=tasks_count,
