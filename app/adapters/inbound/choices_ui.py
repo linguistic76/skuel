@@ -14,8 +14,8 @@ from fasthtml.common import Div
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.connection_fetcher import CHOICE_CONNECTION_CONFIG, fetch_entity_connections
-from core.utils.logging import get_logger
 from core.utils.entity_filters import filter_choices
+from core.utils.logging import get_logger
 from ui.activities.choices_views import (
     CHOICE_FILTER_CONFIG,
     ChoiceDetailView,

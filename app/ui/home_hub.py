@@ -9,18 +9,20 @@ from ui.library.hub import LIBRARY_BLOCKS
 from ui.patterns.hub import HubDomainBlockList
 from ui.workbench.hub import SUBMISSIONS_BLOCKS
 
-
 _TAB_BTN_BASE = (
     "px-5 py-3 text-sm font-semibold border-b-3 cursor-pointer transition-colors"
     " focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
 )
 _TAB_BTN_ACTIVE = "border-primary text-primary"
-_TAB_BTN_INACTIVE = "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+_TAB_BTN_INACTIVE = (
+    "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+)
 
 
 def HomeHub() -> Div:
     """Home hub — Submissions, GradeBook, and Library previews in tabs."""
     return Div(
+        Div(
             # Tab bar
             Div(
                 Button(
@@ -77,9 +79,16 @@ def HomeHub() -> Div:
                 role="tabpanel",
                 **{"x-show": "activeTab === 'library'"},
             ),
-        **{"x-data": "{ activeTab: 'submissions' }", "x-cloak": True},
-    ),
-    Div(
-        ButtonLink(UkIcon("settings", height=14, width=14, cls="inline mr-1"), "Settings", href="/settings", variant=ButtonT.ghost, cls="text-muted-foreground"),
-        cls="flex justify-end mt-4",
-    ),
+            **{"x-data": "{ activeTab: 'submissions' }", "x-cloak": True},
+        ),
+        Div(
+            ButtonLink(
+                UkIcon("settings", height=14, width=14, cls="inline mr-1"),
+                "Settings",
+                href="/settings",
+                variant=ButtonT.ghost,
+                cls="text-muted-foreground",
+            ),
+            cls="flex justify-end mt-4",
+        ),
+    )

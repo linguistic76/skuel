@@ -392,5 +392,3 @@ def OptionsSection(options: tuple["ChoiceOption", ...], selected_uid: str | None
         Ul(*items),
         cls="my-4",
     )
-
-

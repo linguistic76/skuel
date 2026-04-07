@@ -14,10 +14,10 @@ from fasthtml.common import Div
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.connection_fetcher import TASK_CONNECTION_CONFIG, fetch_entity_connections
+from core.utils.entity_filters import filter_tasks
 from core.utils.logging import get_logger
 from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.nav import render_activity_sidebar_page
-from core.utils.entity_filters import filter_tasks
 from ui.activities.tasks_views import (
     TASK_FILTER_CONFIG,
     TaskDetailView,

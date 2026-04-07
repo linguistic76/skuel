@@ -102,7 +102,6 @@ def DomainSidebarItem(domain: "ProfileDomainItem", is_active: bool) -> A:
     )
 
 
-
 __all__ = [
     "CountBadge",
     "DomainSidebarItem",

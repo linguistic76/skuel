@@ -392,8 +392,6 @@ def EventDetailView(
     )
 
 
-
-
 def _format_time_range(event: "Event") -> str:
     """Format start_time - end_time as a string."""
     parts = []
@@ -402,5 +400,3 @@ def _format_time_range(event: "Event") -> str:
     if event.end_time:
         parts.append(str(event.end_time)[:5])
     return " - ".join(parts)
-
-

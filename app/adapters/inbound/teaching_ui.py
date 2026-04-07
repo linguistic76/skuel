@@ -148,7 +148,9 @@ def create_teaching_ui_routes(
                 description="When students submit work against your assignments, it will appear here.",
             )
         else:
-            queue_content = Div(*[render_queue_item(queue_item_from_dict(item)) for item in result.value])
+            queue_content = Div(
+                *[render_queue_item(queue_item_from_dict(item)) for item in result.value]
+            )
 
         content = Div(
             PageHeader("Review Queue", subtitle="Student submissions awaiting your review"),
@@ -286,9 +288,7 @@ def create_teaching_ui_routes(
         user_uid = require_authenticated_user(request)
 
         # Resolve student display name from submissions
-        result = await orchestrator.get_student_submissions(
-            teacher_uid=user_uid, student_uid=uid
-        )
+        result = await orchestrator.get_student_submissions(teacher_uid=user_uid, student_uid=uid)
         student_name = uid
         if not result.is_error and result.value:
             for item in result.value:

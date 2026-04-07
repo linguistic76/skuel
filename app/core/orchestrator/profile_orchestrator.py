@@ -88,7 +88,7 @@ class ProfileOrchestrator:
         ps_service: "PsService",
         exercises_service: "ExerciseService",
         context_intelligence: "UserContextIntelligenceFactory | None",
-    ):
+    ) -> None:
         self._tasks_service = tasks_service
         self._goals_service = goals_service
         self._habits_service = habits_service
@@ -111,6 +111,7 @@ class ProfileOrchestrator:
         if slug not in _PREVIEW_VALID_SLUGS:
             return Result.fail(Errors.validation(f"Unknown domain slug: {slug}"))
 
+        result: Result[list[Any]]
         if slug == "tasks":
             result = await self._tasks_service.get_user_tasks(user_uid)
         elif slug == "goals":
@@ -137,15 +138,23 @@ class ProfileOrchestrator:
         sorted_items = sorted(active_items, key=_preview_priority_sort_key)
         return Result.ok(sorted_items[:3])
 
-    async def get_recent_exercise_reports(self, user_uid: UserUID, limit: int = 5) -> Result[list[Any]]:
+    async def get_recent_exercise_reports(
+        self, user_uid: UserUID, limit: int = 5
+    ) -> Result[list[Any]]:
         """Get recent exercise reports for the user."""
-        return await self._exercise_report_service.get_assessments_for_student(user_uid, limit=limit)
+        return await self._exercise_report_service.get_assessments_for_student(
+            user_uid, limit=limit
+        )
 
-    async def get_recent_activity_reports(self, user_uid: UserUID, limit: int = 5) -> Result[list[Any]]:
+    async def get_recent_activity_reports(
+        self, user_uid: UserUID, limit: int = 5
+    ) -> Result[list[Any]]:
         """Get recent activity reports for the user."""
         return await self._activity_report_service.get_history(user_uid, limit=limit)
 
-    async def get_shared_with_me_items(self, user_uid: UserUID, limit: int = 50) -> Result[list[Any]]:
+    async def get_shared_with_me_items(
+        self, user_uid: UserUID, limit: int = 50
+    ) -> Result[list[Any]]:
         """Get content shared with the user."""
         return await self._sharing_service.get_shared_with_me(user_uid=user_uid, limit=limit)
 

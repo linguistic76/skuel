@@ -39,28 +39,28 @@ STRENGTH_ORDER: dict[str, int] = {
 # =============================================================================
 
 
-def _task_sort_by_priority(task: "Task") -> int:
+def _task_sort_by_priority(task: Task) -> int:
     return PRIORITY_ORDER.get(str(task.priority) if task.priority else "", 4)
 
 
-def _task_sort_by_due_date(task: "Task") -> str:
+def _task_sort_by_due_date(task: Task) -> str:
     return str(task.due_date or "9999-12-31")
 
 
-def _task_sort_by_title(task: "Task") -> str:
+def _task_sort_by_title(task: Task) -> str:
     return (task.title or "").lower()
 
 
-def _task_sort_by_updated(task: "Task") -> str:
+def _task_sort_by_updated(task: Task) -> str:
     return str(task.updated_at or "")
 
 
 def filter_tasks(
-    tasks: list["Task"],
+    tasks: list[Task],
     status_filter: str = "active",
     priority_filter: str = "all",
     sort_by: str = "priority",
-) -> list["Task"]:
+) -> list[Task]:
     """Apply filters and sorting to a task list."""
     filtered = list(tasks)
 
@@ -96,27 +96,27 @@ def filter_tasks(
 # =============================================================================
 
 
-def _goal_sort_by_priority(goal: "Goal") -> int:
+def _goal_sort_by_priority(goal: Goal) -> int:
     return PRIORITY_ORDER.get(str(goal.priority) if goal.priority else "", 4)
 
 
-def _goal_sort_by_target_date(goal: "Goal") -> str:
+def _goal_sort_by_target_date(goal: Goal) -> str:
     return str(goal.target_date or "9999-12-31")
 
 
-def _goal_sort_by_progress(goal: "Goal") -> float:
+def _goal_sort_by_progress(goal: Goal) -> float:
     return -goal.calculate_progress()
 
 
-def _goal_sort_by_title(goal: "Goal") -> str:
+def _goal_sort_by_title(goal: Goal) -> str:
     return (goal.title or "").lower()
 
 
 def filter_goals(
-    goals: list["Goal"],
+    goals: list[Goal],
     status_filter: str = "active",
     sort_by: str = "target_date",
-) -> list["Goal"]:
+) -> list[Goal]:
     """Apply filters and sorting to a goal list."""
     filtered = list(goals)
 
@@ -151,11 +151,11 @@ def filter_goals(
 
 
 def filter_habits(
-    habits: list["Habit"],
+    habits: list[Habit],
     status_filter: str = "active",
     category_filter: str = "all",
     sort_by: str = "streak",
-) -> list["Habit"]:
+) -> list[Habit]:
     """Apply filters and sorting to a habit list."""
     filtered = list(habits)
 
@@ -202,10 +202,10 @@ def filter_habits(
 
 
 def filter_events(
-    events: list["Event"],
+    events: list[Event],
     status_filter: str = "upcoming",
     sort_by: str = "date",
-) -> list["Event"]:
+) -> list[Event]:
     """Apply filters and sorting to an event list."""
     filtered = list(events)
 
@@ -241,10 +241,10 @@ def filter_events(
 
 
 def filter_choices(
-    choices: list["Choice"],
+    choices: list[Choice],
     status_filter: str = "pending",
     sort_by: str = "deadline",
-) -> list["Choice"]:
+) -> list[Choice]:
     """Apply filters and sorting to a choice list."""
     filtered = list(choices)
 
@@ -289,12 +289,12 @@ def filter_choices(
 
 
 def filter_principles(
-    principles: list["Principle"],
+    principles: list[Principle],
     status_filter: str = "active",
     category_filter: str = "all",
     strength_filter: str = "all",
     sort_by: str = "strength",
-) -> list["Principle"]:
+) -> list[Principle]:
     """Apply filters and sorting to a principle list."""
     filtered = list(principles)
 

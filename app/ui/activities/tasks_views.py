@@ -201,8 +201,6 @@ def TaskCard(
     )
 
 
-
-
 def _task_connection_badges(
     task: "Task",
     connections: list[dict[str, str]],
@@ -311,5 +309,3 @@ def TaskDetailView(
         relationships,
         size="3xl",
     )
-
-

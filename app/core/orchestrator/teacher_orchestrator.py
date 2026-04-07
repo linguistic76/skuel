@@ -62,9 +62,7 @@ class TeacherOrchestrator:
     # Submission Detail + Report History
     # ------------------------------------------------------------------
 
-    async def get_submission_detail(
-        self, submission_uid: str, teacher_uid: str
-    ) -> Result[Any]:
+    async def get_submission_detail(self, submission_uid: str, teacher_uid: str) -> Result[Any]:
         """Get full submission detail for teacher review (access-checked)."""
         return await self._review.get_submission_detail(
             submission_uid=submission_uid, teacher_uid=teacher_uid
@@ -132,27 +130,19 @@ class TeacherOrchestrator:
     # Groups
     # ------------------------------------------------------------------
 
-    async def get_teacher_groups_with_stats(
-        self, teacher_uid: str
-    ) -> Result[list[Any]]:
+    async def get_teacher_groups_with_stats(self, teacher_uid: str) -> Result[list[Any]]:
         """Get teacher's groups with member/exercise/pending counts."""
         return await self._review.get_teacher_groups_with_stats(teacher_uid=teacher_uid)
 
-    async def get_group_detail(
-        self, group_uid: str, teacher_uid: str
-    ) -> Result[list[Any]]:
+    async def get_group_detail(self, group_uid: str, teacher_uid: str) -> Result[list[Any]]:
         """Get group members with submission progress stats."""
-        return await self._review.get_group_detail(
-            group_uid=group_uid, teacher_uid=teacher_uid
-        )
+        return await self._review.get_group_detail(group_uid=group_uid, teacher_uid=teacher_uid)
 
     # ------------------------------------------------------------------
     # KU Detail (optional — degrades when admin_stats is None)
     # ------------------------------------------------------------------
 
-    async def get_student_ku_detail(
-        self, student_uid: str
-    ) -> dict[str, Any] | None:
+    async def get_student_ku_detail(self, student_uid: str) -> dict[str, Any] | None:
         """Fetch KU detail for a student, returning None if unavailable.
 
         Absorbs the ``_fetch_ku_detail`` helper that was previously in
@@ -165,4 +155,3 @@ class TeacherOrchestrator:
             logger.warning(f"Failed to load KU detail for {student_uid}: {result.error}")
             return None
         return result.value or None
-

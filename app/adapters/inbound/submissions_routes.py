@@ -141,9 +141,7 @@ def create_submissions_routes(
         logger.info("Batch transcription API routes registered (admin-only)")
 
 
-def create_submissions_ui_orchestrator(
-    app: FastHTMLApp, rt: RouteDecorator, services: Any
-) -> None:
+def create_submissions_ui_orchestrator(app: FastHTMLApp, rt: RouteDecorator, services: Any) -> None:
     """Wire all submission-adjacent UI routes."""
     from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
     from adapters.inbound.exercise_reports_ui import create_exercise_reports_ui_routes
@@ -170,7 +168,9 @@ def create_submissions_ui_orchestrator(
         rt,
         orchestrator=services.submissions_orchestrator,
     )
-    logger.info("Submission UI routes registered (submissions + exercise/activity reports + revisions)")
+    logger.info(
+        "Submission UI routes registered (submissions + exercise/activity reports + revisions)"
+    )
 
 
 __all__ = ["create_submissions_routes", "create_submissions_ui_orchestrator"]

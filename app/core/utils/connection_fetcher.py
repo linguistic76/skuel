@@ -17,7 +17,6 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from core.ports.base_protocols import QueryExecutor
 from core.utils.logging import get_logger
@@ -161,9 +160,7 @@ async def fetch_entity_connections(
     try:
         result = await backend.execute_query(query, {"uids": entity_uids, "rel_types": rel_list})
     except Exception:  # safety-net: Neo4j query failure shouldn't break the page
-        logger.warning(
-            "Failed to fetch %s connections", config.entity_label, exc_info=True
-        )
+        logger.warning("Failed to fetch %s connections", config.entity_label, exc_info=True)
         return {}
 
     if result.is_error:

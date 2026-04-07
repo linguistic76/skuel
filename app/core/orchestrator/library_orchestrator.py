@@ -11,7 +11,7 @@ All service dependencies are required — bootstrap raises if any are missing
 
 from typing import TYPE_CHECKING, Any
 
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.services.exercises.exercise_service import ExerciseService
@@ -38,7 +38,7 @@ class LibraryOrchestrator:
         ps_service: "PsService",
         submissions_service: "SubmissionsService",
         user_relationship_service: "UserRelationshipService",
-    ):
+    ) -> None:
         self._exercises = exercises_service
         self._resource = resource_service
         self._ku = ku_service
@@ -50,9 +50,7 @@ class LibraryOrchestrator:
     # Exercises
     # ------------------------------------------------------------------
 
-    async def get_student_exercises_with_status(
-        self, user_uid: str
-    ) -> Result[list[Any]]:
+    async def get_student_exercises_with_status(self, user_uid: str) -> Result[list[Any]]:
         """Get exercises assigned to the student with submission/feedback status."""
         return await self._exercises.get_student_exercises_with_status(user_uid)
 
@@ -68,9 +66,7 @@ class LibraryOrchestrator:
     # Submissions
     # ------------------------------------------------------------------
 
-    async def list_exercise_submissions(
-        self, user_uid: str, limit: int = 50
-    ) -> Result[list[Any]]:
+    async def list_exercise_submissions(self, user_uid: str, limit: int = 50) -> Result[list[Any]]:
         """List user's exercise submissions."""
         from core.models.enums.entity_enums import EntityType
 

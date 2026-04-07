@@ -14,8 +14,8 @@ from fasthtml.common import Div
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.connection_fetcher import EVENT_CONNECTION_CONFIG, fetch_entity_connections
-from core.utils.logging import get_logger
 from core.utils.entity_filters import filter_events
+from core.utils.logging import get_logger
 from ui.activities.events_views import (
     EVENT_FILTER_CONFIG,
     EventDetailView,

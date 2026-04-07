@@ -78,9 +78,7 @@ class SubmissionsOrchestrator:
 
     async def get_submissions_with_feedback_status(self, user_uid: str) -> Result[list[Any]]:
         """Get submissions with teacher review status for the history view."""
-        return await self._submissions_search_service.get_submissions_with_feedback_status(
-            user_uid
-        )
+        return await self._submissions_search_service.get_submissions_with_feedback_status(user_uid)
 
     # --- Exercises ---
 
@@ -98,13 +96,9 @@ class SubmissionsOrchestrator:
         """Fetch a teacher assessment (exercise report) by ID."""
         return await self._submissions_core_service.get_submission(uid)
 
-    async def get_assessments_for_student(
-        self, user_uid: str, **kwargs: Any
-    ) -> Result[list[Any]]:
+    async def get_assessments_for_student(self, user_uid: str, **kwargs: Any) -> Result[list[Any]]:
         """Get all received assessments for a student."""
-        return await self._submissions_core_service.get_assessments_for_student(
-            user_uid, **kwargs
-        )
+        return await self._submissions_core_service.get_assessments_for_student(user_uid, **kwargs)
 
     async def get_report_history(self, submission_uid: str) -> Result[Any]:
         """Get the teacher review thread history for a submission."""
@@ -116,9 +110,7 @@ class SubmissionsOrchestrator:
         self, user_uid: str, limit: int = 50
     ) -> Result[list[Any]]:
         """Fetch history of activity-based feedback."""
-        return await self._activity_report_service.get_history(
-            subject_uid=user_uid, limit=limit
-        )
+        return await self._activity_report_service.get_history(subject_uid=user_uid, limit=limit)
 
     # --- Revised Exercises ---
 

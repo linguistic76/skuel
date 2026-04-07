@@ -164,9 +164,7 @@ def create_exercise_reports_ui_routes(
                     render_error_banner("Feedback service unavailable"),
                     id="feedback-list",
                 )
-            result = await orchestrator.get_assessments_for_student(
-                user_uid
-            )
+            result = await orchestrator.get_assessments_for_student(user_uid)
             if result.is_error:
                 logger.error(f"Error loading feedback list: {result.error}")
                 return Div(
@@ -191,9 +189,7 @@ def create_exercise_reports_ui_routes(
         user_uid = require_authenticated_user(request)
         if not orchestrator:
             return HubPreviewEmpty("exercise reports")
-        result = await orchestrator.get_assessments_for_student(
-            user_uid, limit=3
-        )
+        result = await orchestrator.get_assessments_for_student(user_uid, limit=3)
         if result.is_error:
             return HubPreviewEmpty("exercise reports")
         reports = result.value or []

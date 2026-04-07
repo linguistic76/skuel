@@ -205,9 +205,7 @@ async def BasePage(
     # Mobile bottom nav adds 4rem (h-16) to the viewport. Pad main content so it
     # isn't hidden under the nav. Only needed for authenticated non-admin users on
     # mobile; sm:pb-0 removes it on desktop where there is no bottom nav.
-    bottom_pad = (
-        "" if effective_is_admin or not effective_is_authenticated else "pb-16 sm:pb-0"
-    )
+    bottom_pad = "" if effective_is_admin or not effective_is_authenticated else "pb-16 sm:pb-0"
 
     # Build main content area based on page type
     if page_type == PageType.CUSTOM:

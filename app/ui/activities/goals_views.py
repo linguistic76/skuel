@@ -430,5 +430,3 @@ def GoalConnectionsSection(connections: list[dict[str, str]]) -> "FT":
         *sections,
         cls="my-4",
     )
-
-

@@ -27,8 +27,8 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
 from ui.teaching.forms import (
-    format_date,
     form_data_preview,
+    format_date,
     render_form_responses_section,
     render_submission_metadata,
 )

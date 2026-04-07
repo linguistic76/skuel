@@ -160,7 +160,7 @@ class AdminOrchestrator:
             activity_result.value
             if not activity_result.is_error
             else {
-                k: "N/A"
+                k: 0
                 for k in ("tasks_created", "habits_active", "goals_active", "journals_submitted")
             }
         )

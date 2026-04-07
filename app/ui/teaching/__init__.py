@@ -7,8 +7,8 @@ Public exports for the teaching UI package.
 
 from ui.teaching.badges import entity_type_badge, submission_preview_badge
 from ui.teaching.forms import (
-    format_date,
     form_data_preview,
+    format_date,
     render_feedback_submission_form,
     render_form_data_detail,
     render_form_responses_section,

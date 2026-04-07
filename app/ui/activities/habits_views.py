@@ -410,5 +410,3 @@ def HabitDetailView(
         relationships,
         size="3xl",
     )
-
-

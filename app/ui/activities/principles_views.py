@@ -533,5 +533,3 @@ def StrengthBadge(strength: str) -> "FT":
     hex_color = StrengthColor.for_level(strength)
     style = f"background-color: {hex_color}; color: white;"
     return Badge(strength.title(), variant=BadgeT.primary, style=style)
-
-

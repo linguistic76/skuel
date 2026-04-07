@@ -303,5 +303,3 @@ def _reports_section() -> Div:
         ),
         cls="mb-6",
     )
-
-

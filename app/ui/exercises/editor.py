@@ -16,7 +16,9 @@ from ui.forms import Input, Label, Select, Textarea
 from ui.patterns.section_header import SectionHeader
 
 
-def render_exercise_editor(exercise: Any = None, user_uid: str | None = None, mode: str = "create") -> Any:
+def render_exercise_editor(
+    exercise: Any = None, user_uid: str | None = None, mode: str = "create"
+) -> Any:
     """Exercise editor form - TRANSPARENCY: User sees and edits instructions."""
     is_edit = mode == "edit"
     form_title = "Edit Exercise" if is_edit else "Create New Exercise"

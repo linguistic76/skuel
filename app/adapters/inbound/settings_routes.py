@@ -32,6 +32,8 @@ def create_settings_routes(
     """Register Settings routes."""
 
     user_service = services.user_service
+    if user_service is None:
+        raise RuntimeError("UserService is required for settings routes")
 
     @rt("/settings")
     async def settings_page(request: Request) -> Any:

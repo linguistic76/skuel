@@ -69,9 +69,7 @@ def compute_goal_stats(goals: list["Goal"]) -> GoalStats:
     completed = sum(1 for g in goals if g.is_completed)
     overdue_count = sum(1 for g in goals if g.is_overdue())
     behind_count = sum(
-        1
-        for g in goals
-        if not g.is_on_track() and not g.is_completed and not g.is_overdue()
+        1 for g in goals if not g.is_on_track() and not g.is_completed and not g.is_overdue()
     )
     return GoalStats(
         total=total,

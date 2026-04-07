@@ -115,17 +115,11 @@ class ExploreOrchestrator:
         self, ps_uid: str, user_uid: str
     ) -> Result[list]:
         """Get exercises for a PathStep with per-user submission/feedback status."""
-        return await self._exercises.get_exercises_for_path_step_with_status(
-            ps_uid, user_uid
-        )
+        return await self._exercises.get_exercises_for_path_step_with_status(ps_uid, user_uid)
 
-    async def get_submissions_for_path_step(
-        self, user_uid: str, ps_uid: str
-    ) -> Result[list]:
+    async def get_submissions_for_path_step(self, user_uid: str, ps_uid: str) -> Result[list]:
         """Get a user's submissions + feedback for a specific PathStep."""
-        return await self._submissions_search.get_submissions_for_path_step(
-            user_uid, ps_uid
-        )
+        return await self._submissions_search.get_submissions_for_path_step(user_uid, ps_uid)
 
     # ------------------------------------------------------------------
     # Index data aggregation (was _load_explore_data)
@@ -147,26 +141,22 @@ class ExploreOrchestrator:
 
         # User-specific queries
         pins_coro = (
-            self._user_relationships.get_pinned_entities(user_uid)
-            if user_uid
-            else asyncio.sleep(0)
+            self._user_relationships.get_pinned_entities(user_uid) if user_uid else asyncio.sleep(0)
         )
         ku_states_coro = (
-            self._ku.get_user_learning_states(user_uid)
-            if user_uid
-            else asyncio.sleep(0)
+            self._ku.get_user_learning_states(user_uid) if user_uid else asyncio.sleep(0)
         )
         ps_states_coro = (
-            self._ps.mastery.get_in_progress_step_uids(user_uid)
-            if user_uid
-            else asyncio.sleep(0)
+            self._ps.mastery.get_in_progress_step_uids(user_uid) if user_uid else asyncio.sleep(0)
         )
 
-        ku_result, ps_result, pins_result, ku_states_result, ps_states_result = (
-            await asyncio.gather(
-                ku_coro, ps_coro, pins_coro, ku_states_coro, ps_states_coro
-            )
-        )
+        (
+            ku_result,
+            ps_result,
+            pins_result,
+            ku_states_result,
+            ps_states_result,
+        ) = await asyncio.gather(ku_coro, ps_coro, pins_coro, ku_states_coro, ps_states_coro)
 
         # Assemble items
         items: list[tuple[Any, str]] = []
@@ -181,11 +171,7 @@ class ExploreOrchestrator:
             and not getattr(ps_result, "is_error", False)
             and getattr(ps_result, "value", None)
         ):
-            raw = (
-                ps_result.value
-                if isinstance(ps_result.value, list)
-                else ps_result.value[0]
-            )
+            raw = ps_result.value if isinstance(ps_result.value, list) else ps_result.value[0]
             items.extend((ps, "ps") for ps in raw)
 
         # Assemble user-specific data
@@ -338,7 +324,11 @@ class ExploreOrchestrator:
         # Process Ku learning states
         studying_kus: list[dict[str, str]] = []
         understood_kus: list[dict[str, str]] = []
-        if ku_states_result and getattr(ku_states_result, "is_ok", False) and getattr(ku_states_result, "value", None):
+        if (
+            ku_states_result
+            and getattr(ku_states_result, "is_ok", False)
+            and getattr(ku_states_result, "value", None)
+        ):
             for rec in ku_states_result.value:
                 ku_uid = rec.get("uid", "")
                 ku_title = rec.get("title", ku_uid)
@@ -349,7 +339,11 @@ class ExploreOrchestrator:
 
         # Process PS in-progress (batch-fetch entities for the top 5)
         in_progress_ps: list[Any] = []
-        if ps_uids_result and not getattr(ps_uids_result, "is_error", False) and getattr(ps_uids_result, "value", None):
+        if (
+            ps_uids_result
+            and not getattr(ps_uids_result, "is_error", False)
+            and getattr(ps_uids_result, "value", None)
+        ):
             uids = ps_uids_result.value[:5]
             if uids:
                 batch_result = await self._ps.get_steps_batch(uids)
@@ -359,7 +353,11 @@ class ExploreOrchestrator:
         # Process pinned entities
         pinned_uids: set[str] = set()
         pinned_items: list[tuple[str, str, str]] = []
-        if pins_result and getattr(pins_result, "is_ok", False) and getattr(pins_result, "value", None):
+        if (
+            pins_result
+            and getattr(pins_result, "is_ok", False)
+            and getattr(pins_result, "value", None)
+        ):
             pinned_uids = set(pins_result.value)
             # Resolve titles for pinned items — check against already-loaded data
             known_titles: dict[str, tuple[str, str]] = {}

@@ -72,8 +72,8 @@ from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
-from core.utils.result_simplified import Errors, Result
 from core.utils.palette import CalendarFallback
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.services.calendar")
 

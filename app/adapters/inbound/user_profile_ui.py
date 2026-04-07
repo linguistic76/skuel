@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 from adapters.inbound.auth import require_authenticated_user
 from core.services.user.unified_user_context import UserContext
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
 from ui.cards import Card, CardBody
 from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Badge, BadgeT
@@ -141,9 +140,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         raise RuntimeError("UserService is required for profile routes")
     user_service = services.user_service
 
+    profile_orchestrator = services.profile_orchestrator
     if profile_orchestrator is None:
         raise RuntimeError("ProfileOrchestrator is required for profile routes")
-    profile_orchestrator = profile_orchestrator
 
     # ========================================================================
     # SETTINGS REDIRECT — moved to /settings (2026-04-06)

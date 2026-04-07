@@ -20,4 +20,3 @@ def create_library_routes(
     """Wire Library hub routes via LibraryOrchestrator."""
     create_library_ui_routes(app, rt, orchestrator=services.library_orchestrator)
     logger.info("Library hub routes wired")
-

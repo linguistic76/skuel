@@ -237,10 +237,10 @@ def create_submissions_ui_routes(
             context_learning_path_uid: str | None = None
             ctx_result = await orchestrator.build_user_context(user_uid)
             if ctx_result.is_ok:
-                    ctx = ctx_result.value
-                    if not context_path_step_uid:
-                        context_path_step_uid = next(iter(ctx.current_ps_uids), None)
-                    context_learning_path_uid = ctx.current_learning_path_uid
+                ctx = ctx_result.value
+                if not context_path_step_uid:
+                    context_path_step_uid = next(iter(ctx.current_ps_uids), None)
+                context_learning_path_uid = ctx.current_learning_path_uid
 
             result = await orchestrator.process_submission(
                 file_content=file_content,

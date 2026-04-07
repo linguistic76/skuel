@@ -36,4 +36,3 @@ def create_explore_routes(
 
 
 __all__ = ["create_explore_routes"]
-

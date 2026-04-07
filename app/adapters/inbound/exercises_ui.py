@@ -122,9 +122,7 @@ def create_exercises_ui_routes(
             knowledge_result = await exercises_service.get_required_knowledge(uid)
             required_knowledge = knowledge_result.value if knowledge_result.is_ok else []
 
-            return render_exercise_view(
-                exercise, required_knowledge=required_knowledge
-            )
+            return render_exercise_view(exercise, required_knowledge=required_knowledge)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error viewing exercise: {e}")
