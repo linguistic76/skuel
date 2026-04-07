@@ -525,7 +525,7 @@ endpoints lazy-load into the page:
 | **My Submissions** | `GET /learning-loop/ps/{ps_uid}/submissions` | User's submissions discovered via `Interaction -[:INTERACTION_DURING]-> PathStep`, with status badges and links to view submission or feedback |
 | **Feedback** | `GET /learning-loop/ps/{ps_uid}/feedback` | Same submissions filtered to those with reports, showing outcome badges (Approved / Revision Requested) |
 
-Routes wired in `adapters/inbound/learning_loop_routes.py`. Fragment renderers in
+Routes wired in `adapters/inbound/explore_ui.py` (`create_explore_ui_routes`). Fragment renderers in
 `ui/learning_loop/` (shared with Library exercises tab). The `from_ps` parameter
 threads through exercise links so the submit form knows which PathStep the student
 navigated from, enabling deterministic Interaction context recording.
@@ -544,7 +544,8 @@ status pills or submission/feedback sections.
 | Purpose | File |
 |---|---|
 | Learning loop UI renderers | `ui/learning_loop/` (`exercise_status.py`, `submissions_section.py`, `feedback_section.py`) |
-| Learning loop routes (GradeBook + PS fragments) | `adapters/inbound/learning_loop_routes.py` |
+| PS learning loop fragment routes | `adapters/inbound/explore_ui.py` (`create_explore_ui_routes`) |
+| Submissions UI orchestration (GradeBook sub-factories) | `adapters/inbound/submissions_routes.py` (`create_submissions_ui_orchestrator`) |
 | Lesson domain model | `core/models/lesson/lesson.py` |
 | Mastery + intelligence models | `core/models/pathways/mastery.py` |
 | Curriculum progress + journey models | `core/models/pathways/learning_progress.py` |

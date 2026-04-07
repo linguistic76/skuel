@@ -896,7 +896,7 @@ EmptyState(title="No habits for today!", icon="🎉")
 
 **Location:** `ui/learning_loop/` — shared exercise status helpers + PathStep submission/feedback renderers.
 
-The PathStep detail page (`/explore/ps/{uid}`) HTMX-loads three learning loop sections for authenticated users. Fragment endpoints in `learning_loop_routes.py`, renderers in `ui/learning_loop/`:
+The PathStep detail page (`/explore/ps/{uid}`) HTMX-loads three learning loop sections for authenticated users. Fragment endpoints wired in `explore_ui.py` (`create_explore_ui_routes`), renderers in `ui/learning_loop/`:
 
 - `exercise_status.py` — `render_exercise_list()`, status pills (`_STATUS_PILL`), action links with `from_ps` context. Shared with Library exercises tab (`/library/exercises`).
 - `submissions_section.py` — `render_ps_submissions()` — submission rows with status badges.

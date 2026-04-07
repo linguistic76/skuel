@@ -219,7 +219,7 @@ lazy-load exercises (with status pills), submissions, and feedback:
 | `GET /learning-loop/ps/{ps_uid}/exercises` | `ExerciseService.get_exercises_for_path_step_with_status()` | `render_exercise_list()` with `from_ps` context |
 | `GET /learning-loop/ps/{ps_uid}/submissions-and-feedback` | `SubmissionsSearchService.get_submissions_for_path_step()` | `render_ps_submissions()` + `render_ps_feedback()` (single query) |
 
-Routes wired in `adapters/inbound/learning_loop_routes.py`. Renderers in `ui/learning_loop/`
+Routes wired in `adapters/inbound/explore_ui.py` (`create_explore_ui_routes`). Renderers in `ui/learning_loop/`
 (`exercise_status.py`, `submissions_section.py`, `feedback_section.py`). The exercise status
 helpers are shared with the Library exercises tab (`/library/exercises`).
 
