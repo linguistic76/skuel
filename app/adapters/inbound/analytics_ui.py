@@ -1,9 +1,9 @@
 """
-Analytics Dashboard UI - Statistical Domain Analysis
-=====================================================
+Analytics Dashboard UI Routes
+==============================
 
-Clean dashboard for viewing statistical analytics.
-Following SKUEL principles: just numbers and charts, no AI recommendations.
+UI routes for statistical domain analytics. All HTML construction
+delegated to ui/analytics/.
 
 Uses StatCard/StatsGrid from ui/patterns/stats_grid.py for all metric displays.
 """
@@ -12,654 +12,24 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import (
-    H3,
-    H4,
-    Div,
-    Form,
-    Label,
-    Option,
-    P,
-    Span,
-)
+if TYPE_CHECKING:
+    from core.services.analytics_service import AnalyticsService
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
-
-if TYPE_CHECKING:
-    from core.services.analytics_service import AnalyticsService
 from core.models.enums import AnalyticsDomain
-from core.models.enums.principle_enums import AlignmentLevel
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
-from ui.data import TableFromDicts, TableT
-from ui.feedback import Alert, AlertT
-from ui.forms import Input, Select
-from ui.layouts.navbar import create_navbar_for_request
-from ui.patterns.empty_state import EmptyState
+from ui.analytics import (
+    render_analytics_dashboard,
+    render_analytics_result,
+    render_life_path_alignment_dashboard,
+    render_markdown_view,
+    render_period_fields,
+    render_weekly_life_summary,
+)
 from ui.patterns.error_banner import render_inline_error
-from ui.patterns.page_header import PageHeader
-from ui.patterns.section_header import SectionHeader
-from ui.patterns.stats_grid import StatCard, StatItem, StatsGrid
 
 logger = get_logger("skuel.routes.analytics.ui")
-
-
-# ============================================================================
-# UI COMPONENT LIBRARY
-# ============================================================================
-
-
-class AnalyticsUIComponents:
-    """Reusable analytics UI components"""
-
-    @staticmethod
-    def render_analytics_dashboard(request) -> Any:
-        """Main analytics dashboard - select domain and period"""
-        navbar = create_navbar_for_request(request, active_page="analytics")
-
-        return Div(
-            navbar,
-            PageHeader(
-                "Analytics Dashboard",
-                subtitle="Generate statistical analytics for any domain. Pure metrics — no AI recommendations, just transparent data.",
-            ),
-            # Analytics generator form
-            Card(
-                CardHeader(CardTitle("Generate Analytics")),
-                CardBody(
-                    Form(
-                        # Domain selection
-                        Div(
-                            Label("Domain", cls="label"),
-                            Select(
-                                Option("Tasks", value="tasks"),
-                                Option("Habits", value="habits"),
-                                Option("Goals", value="goals"),
-                                Option("Events", value="events"),
-                                Option("Finance", value="finance"),
-                                Option("Choices", value="choices"),
-                                name="analytics_domain",
-                                id="analytics-domain-select",
-                            ),
-                            cls="mb-4",
-                        ),
-                        # Period selection
-                        Div(
-                            Label("Period", cls="label"),
-                            Select(
-                                Option("This Week", value="week_current"),
-                                Option("Last Week", value="week_last"),
-                                Option("This Month", value="month_current"),
-                                Option("Last Month", value="month_last"),
-                                Option("This Year", value="year_current"),
-                                Option("Custom Range", value="custom"),
-                                name="period",
-                                id="period-select",
-                                **{
-                                    "hx-get": "/ui/analytics/period-fields",
-                                    "hx-target": "#period-fields",
-                                    "hx-trigger": "change",
-                                },
-                            ),
-                            cls="mb-4",
-                        ),
-                        # Dynamic period fields (for custom range)
-                        Div(id="period-fields"),
-                        # Submit button
-                        Div(
-                            Button(
-                                "Generate Analytics",
-                                type="button",
-                                hx_get="/ui/analytics/view",
-                                hx_include="[name='analytics_domain'],[name='period'],[name='start_date'],[name='end_date']",
-                                hx_target="#analytics-display",
-                                variant=ButtonT.primary,
-                            ),
-                            cls="mb-4",
-                        ),
-                    )
-                ),
-                cls="mb-6",
-            ),
-            # Analytics display area
-            Div(id="analytics-display", cls="mt-6"),
-            cls="container mx-auto p-6",
-        )
-
-    @staticmethod
-    def render_period_fields(period) -> Any:
-        """Dynamic period input fields"""
-        if period == "custom":
-            return Div(
-                Div(
-                    Label("Start Date", cls="label"),
-                    Input(type="date", name="start_date"),
-                    cls="mb-4",
-                ),
-                Div(
-                    Label("End Date", cls="label"),
-                    Input(type="date", name="end_date"),
-                    cls="mb-4",
-                ),
-            )
-        return ""
-
-    @staticmethod
-    def render_analytics_result(report) -> Any:
-        """Render generated analytics result"""
-        return Div(
-            # Analytics header
-            Card(
-                CardHeader(CardTitle(report.title)),
-                CardBody(
-                    P(
-                        f"{report.format_period()} • Generated {report.generated_at.strftime('%Y-%m-%d %H:%M')}",
-                        cls="text-muted-foreground text-sm",
-                    ),
-                ),
-                cls="mb-4",
-            ),
-            # Metrics cards
-            AnalyticsUIComponents.render_metrics_cards(report),
-            # Markdown view toggle
-            Div(
-                Button(
-                    "📄 View as Markdown",
-                    hx_get=f"/ui/analytics/{report.uid}/markdown",
-                    hx_target="#markdown-view",
-                    variant=ButtonT.ghost,
-                    cls="mb-4",
-                ),
-                Div(id="markdown-view"),
-            ),
-            cls="mt-6",
-        )
-
-    @staticmethod
-    def render_metrics_cards(report) -> Any:
-        """Render metric cards based on analytics domain"""
-        metrics = report.metrics
-
-        if report.analytics_domain == AnalyticsDomain.TASKS:
-            return AnalyticsUIComponents.render_tasks_metrics(metrics)
-        elif report.analytics_domain == AnalyticsDomain.HABITS:
-            return AnalyticsUIComponents.render_habits_metrics(metrics)
-        elif report.analytics_domain == AnalyticsDomain.GOALS:
-            return AnalyticsUIComponents.render_goals_metrics(metrics)
-        elif report.analytics_domain == AnalyticsDomain.EVENTS:
-            return AnalyticsUIComponents.render_events_metrics(metrics)
-        elif report.analytics_domain == AnalyticsDomain.FINANCE:
-            return AnalyticsUIComponents.render_finance_metrics(metrics)
-        elif report.analytics_domain == AnalyticsDomain.CHOICES:
-            return AnalyticsUIComponents.render_choices_metrics(metrics)
-        else:
-            return AnalyticsUIComponents.render_generic_metrics(metrics)
-
-    @staticmethod
-    def render_tasks_metrics(metrics) -> Any:
-        """Render task metrics using shared components"""
-        return Div(
-            H3("📋 Task Metrics", cls="text-lg font-semibold mb-4"),
-            StatsGrid(
-                [
-                    StatItem(label="Total Tasks", value=str(metrics.get("total_count", 0))),
-                    StatItem(label="Completed", value=str(metrics.get("completed_count", 0))),
-                    StatItem(label="In Progress", value=str(metrics.get("in_progress_count", 0))),
-                    StatItem(label="Pending", value=str(metrics.get("pending_count", 0))),
-                ],
-                cls="mb-6",
-            ),
-            StatCard(
-                label="Completion Rate",
-                value=f"{metrics.get('completion_rate', 0)}%",
-                change="Tasks completed in period",
-                color="success",
-            ),
-            # Priority distribution
-            (
-                Card(
-                    H4("Priority Distribution", cls="font-semibold mb-3"),
-                    TableFromDicts(
-                        header_data=["Priority", "Count"],
-                        body_data=[
-                            {"Priority": p.title(), "Count": str(c)}
-                            for p, c in metrics.get("priority_distribution", {}).items()
-                        ],
-                        cls=(TableT.striped,),
-                    ),
-                    cls="bg-background shadow-sm p-4 mb-4",
-                )
-                if metrics.get("priority_distribution")
-                else ""
-            ),
-            # Overdue tasks
-            (
-                Alert(
-                    Div(
-                        Span("⚠️", cls="text-2xl mr-2"),
-                        Span(
-                            f"{metrics.get('overdue_count', 0)} Overdue Tasks", cls="font-semibold"
-                        ),
-                        cls="flex items-center",
-                    ),
-                    variant=AlertT.warning,
-                )
-                if metrics.get("overdue_count", 0) > 0
-                else ""
-            ),
-        )
-
-    @staticmethod
-    def render_habits_metrics(metrics) -> Any:
-        """Render habit metrics using shared components"""
-        return Div(
-            H3("🎯 Habit Metrics", cls="text-lg font-semibold mb-4"),
-            StatsGrid(
-                [
-                    StatItem(label="Active Habits", value=str(metrics.get("total_active", 0))),
-                    StatItem(label="Consistency", value=f"{metrics.get('consistency_rate', 0)}%"),
-                ],
-                cols=2,
-                cls="mb-6",
-            ),
-            # Streaks
-            (
-                Card(
-                    H4("Current Streaks", cls="font-semibold mb-3"),
-                    *[
-                        Div(
-                            Span(habit_name, cls="font-medium"),
-                            Span(f"{days} days", cls="text-success"),
-                            cls="flex justify-between py-2",
-                        )
-                        for habit_name, days in metrics.get("current_streaks", {}).items()
-                    ],
-                    cls="bg-background shadow-sm p-4",
-                )
-                if metrics.get("current_streaks")
-                else ""
-            ),
-        )
-
-    @staticmethod
-    def render_goals_metrics(metrics) -> Any:
-        """Render goal metrics using shared components"""
-        return Div(
-            H3("🎯 Goal Metrics", cls="text-lg font-semibold mb-4"),
-            StatsGrid(
-                [
-                    StatItem(label="Active Goals", value=str(metrics.get("total_active", 0))),
-                    StatItem(label="On Track", value=str(metrics.get("on_track_count", 0))),
-                    StatItem(label="At Risk", value=str(metrics.get("at_risk_count", 0))),
-                    StatItem(
-                        label="Avg Progress",
-                        value=f"{metrics.get('avg_progress_percentage', 0)}%",
-                    ),
-                ]
-            ),
-        )
-
-    @staticmethod
-    def render_events_metrics(metrics) -> Any:
-        """Render event metrics using shared components"""
-        return Div(
-            H3("📅 Event Metrics", cls="text-lg font-semibold mb-4"),
-            StatsGrid(
-                [
-                    StatItem(label="Total Events", value=str(metrics.get("total_count", 0))),
-                    StatItem(label="Upcoming", value=str(metrics.get("upcoming_count", 0))),
-                    StatItem(label="Completed", value=str(metrics.get("completed_count", 0))),
-                    StatItem(
-                        label="Hours Scheduled",
-                        value=str(metrics.get("total_hours_scheduled", 0)),
-                    ),
-                ]
-            ),
-        )
-
-    @staticmethod
-    def render_finance_metrics(metrics) -> Any:
-        """Render finance metrics using shared components"""
-        net_balance = metrics.get("net_balance", 0)
-
-        return Div(
-            H3("💰 Finance Metrics", cls="text-lg font-semibold mb-4"),
-            StatsGrid(
-                [
-                    StatItem(
-                        label="Total Expenses",
-                        value=f"${metrics.get('total_expenses', 0):,.2f}",
-                    ),
-                    StatItem(label="Total Income", value=f"${metrics.get('total_income', 0):,.2f}"),
-                    StatItem(label="Net Balance", value=f"${net_balance:,.2f}"),
-                ],
-                cols=3,
-            ),
-        )
-
-    @staticmethod
-    def render_choices_metrics(metrics) -> Any:
-        """Render choice metrics using shared components"""
-        return Div(
-            H3("🤔 Choice Metrics", cls="text-lg font-semibold mb-4"),
-            StatsGrid(
-                [
-                    StatItem(label="Total Choices", value=str(metrics.get("total_choices", 0))),
-                    StatItem(label="Reviewed", value=str(metrics.get("choices_reviewed_count", 0))),
-                ],
-                cols=2,
-            ),
-        )
-
-    @staticmethod
-    def render_generic_metrics(metrics) -> Any:
-        """Fallback for generic metrics display"""
-        return Card(
-            H4("Metrics", cls="font-semibold mb-3"),
-            TableFromDicts(
-                header_data=["Metric", "Value"],
-                body_data=[
-                    {"Metric": k.replace("_", " ").title(), "Value": str(v)}
-                    for k, v in metrics.items()
-                    if not isinstance(v, dict)
-                ],
-                cls=(TableT.striped,),
-            ),
-            cls="bg-background shadow-sm p-4",
-        )
-
-    # Note: metric_card() removed - now using StatCard from ui.patterns.stats_grid
-
-    @staticmethod
-    def render_markdown_view(markdown_content) -> Any:
-        """Render markdown content"""
-        return Card(
-            Div(markdown_content, cls="prose max-w-none"),
-            cls="bg-background shadow-sm p-6 mt-4",
-        )
-
-    # ========================================================================
-    # LIFE PATH ALIGNMENT DASHBOARD
-    # ========================================================================
-
-    @staticmethod
-    def render_life_path_alignment_dashboard(alignment_data: dict[str, Any]) -> Any:
-        """
-        Render Life Path alignment dashboard.
-
-        Shows comprehensive alignment analysis:
-        - Alignment score (0.0-1.0)
-        - Knowledge embodiment breakdown
-        - Domain contributions
-        - Gaps and recommendations
-        """
-        if not alignment_data or not alignment_data.get("life_path_uid"):
-            return EmptyState(
-                title="No Life Path Yet",
-                description="Set your Life Path to track alignment.",
-                action_text="Set Life Path",
-                action_href="/lifepath",
-                icon="🧭",
-            )
-
-        life_path_title = alignment_data.get("life_path_title", "Unknown")
-        alignment_score = alignment_data.get("alignment_score", 0.0)
-        knowledge_count = alignment_data.get("knowledge_count", 0)
-        embodied = alignment_data.get("embodied_knowledge", 0)
-        theoretical = alignment_data.get("theoretical_knowledge", 0)
-        domain_contributions = alignment_data.get("domain_contributions", {})
-        gaps = alignment_data.get("gaps", [])
-        recommendations = alignment_data.get("recommendations", [])
-
-        score_color = AlignmentLevel.from_score(alignment_score).get_color()
-        score_percentage = int(alignment_score * 100)
-
-        return Div(
-            PageHeader(f"Life Path: {life_path_title}"),
-            # Alignment Score Card
-            StatCard(label="Alignment Score", value=f"{score_percentage}%", color=score_color),
-            # Knowledge Breakdown
-            Card(
-                CardHeader(CardTitle("Knowledge Embodiment")),
-                CardBody(
-                    StatsGrid(
-                        [
-                            StatItem(label="Total Knowledge", value=str(knowledge_count)),
-                            StatItem(label="Embodied (0.8+)", value=str(embodied)),
-                            StatItem(label="Theoretical (<0.5)", value=str(theoretical)),
-                        ],
-                        cols=3,
-                    ),
-                ),
-                cls="mb-6",
-            ),
-            # Domain Contributions
-            Card(
-                CardHeader(CardTitle("Domain Contributions to Life Path")),
-                CardBody(
-                    Div(
-                        *[
-                            AnalyticsUIComponents._render_domain_contribution_bar(
-                                domain, contribution
-                            )
-                            for domain, contribution in domain_contributions.items()
-                        ],
-                        cls="space-y-3",
-                    )
-                    if domain_contributions
-                    else EmptyState(title="No domain activity detected"),
-                ),
-                cls="mb-6",
-            ),
-            # Gaps
-            Card(
-                CardHeader(CardTitle("Knowledge Gaps")),
-                CardBody(
-                    Div(
-                        *[AnalyticsUIComponents._render_gap_item(gap) for gap in gaps[:5]],
-                        cls="space-y-2",
-                    )
-                    if gaps
-                    else P("No gaps detected - excellent embodiment!", cls="text-success"),
-                ),
-                cls="mb-6",
-            ),
-            # Recommendations
-            Card(
-                CardHeader(CardTitle("Recommendations")),
-                CardBody(
-                    Div(*[P(f"• {rec}", cls="mb-2") for rec in recommendations], cls="space-y-1")
-                    if recommendations
-                    else P("Keep up the great work!", cls="text-success"),
-                ),
-            ),
-            cls="max-w-4xl mx-auto p-6",
-        )
-
-    @staticmethod
-    def _render_domain_contribution_bar(domain: str, contribution: float) -> Any:
-        """Render single domain contribution bar"""
-        contribution_percentage = int(contribution * 100)
-        bar_width = f"{contribution_percentage}%"
-
-        return Div(
-            Div(
-                Span(domain.title(), cls="font-medium"),
-                Span(f"{contribution_percentage}%", cls="ml-auto text-muted-foreground"),
-                cls="flex justify-between mb-1",
-            ),
-            Div(
-                Div(cls="bg-primary h-2 rounded", style=f"width: {bar_width}"),
-                cls="bg-muted h-2 rounded overflow-hidden",
-            ),
-        )
-
-    @staticmethod
-    def _render_gap_item(gap: dict[str, Any]) -> Any:
-        """Render single knowledge gap item"""
-        title = gap.get("title", "Unknown")
-        substance = gap.get("substance", 0.0)
-
-        return Div(
-            Span(title, cls="font-medium"),
-            Span(f"({substance:.1f} substance)", cls="ml-2 text-muted-foreground text-sm"),
-            cls="p-2 bg-error/10 rounded",
-        )
-
-    # ========================================================================
-    # CROSS-LAYER LIFE SUMMARY
-    # ========================================================================
-
-    @staticmethod
-    def render_weekly_life_summary(summary_data: dict[str, Any]) -> Any:
-        """
-        Render weekly life summary across ALL 4 layers.
-
-        Shows:
-        - Layer 1: Activity across 7 domains
-        - Layer 0: Knowledge substance
-        - Layer 2: Reflection patterns
-        - Cross-layer insights
-        """
-        if not summary_data:
-            return EmptyState(
-                title="No Data Available",
-                description="No data available for this period.",
-            )
-
-        period = summary_data.get("period", {})
-        start_date = period.get("start", "")
-        end_date = period.get("end", "")
-
-        total_activity = summary_data.get("total_activity_score", 0.0)
-        summary_text = summary_data.get("summary", "")
-
-        layer0_knowledge = summary_data.get("layer_0_knowledge", {})
-        layer2_reflection = summary_data.get("layer_2_reflection", {})
-        cross_layer_insights = summary_data.get("cross_layer_insights", {})
-
-        return Div(
-            PageHeader("Weekly Life Summary", subtitle=f"{start_date} to {end_date}"),
-            # Overall Activity Score
-            StatCard(label="Overall Activity", value=str(int(total_activity)), color="primary"),
-            # Summary Text
-            Card(
-                SectionHeader("Summary"),
-                P(summary_text, cls="text-muted-foreground"),
-                cls="bg-background shadow-sm mb-6 p-6",
-            ),
-            # Layer 0: Knowledge
-            AnalyticsUIComponents._render_knowledge_layer_card(layer0_knowledge),
-            # Layer 2: Reflection
-            AnalyticsUIComponents._render_reflection_layer_card(layer2_reflection),
-            # Cross-Layer Insights
-            AnalyticsUIComponents._render_cross_layer_insights_card(cross_layer_insights),
-            cls="max-w-4xl mx-auto p-6",
-        )
-
-    @staticmethod
-    def _render_knowledge_layer_card(layer0_data: dict[str, Any]) -> Any:
-        """Render Layer 0 knowledge metrics card"""
-        if not layer0_data:
-            return Div()
-
-        substance_metrics = layer0_data.get("substance_metrics", {})
-        curriculum_progress = layer0_data.get("curriculum_progress", {})
-
-        avg_substance = substance_metrics.get("avg_substance_score", 0.0)
-        embodied = substance_metrics.get("embodied_knowledge", 0)
-        active_paths = curriculum_progress.get("active_learning_paths", 0)
-        in_progress_steps = curriculum_progress.get("in_progress_path_steps", 0)
-
-        return Card(
-            CardHeader(CardTitle("Layer 0: Knowledge & Learning")),
-            CardBody(
-                StatsGrid(
-                    [
-                        StatItem(label="Avg Substance", value=f"{int(avg_substance * 100)}%"),
-                        StatItem(label="Embodied", value=str(embodied)),
-                        StatItem(label="Active Paths", value=str(active_paths)),
-                        StatItem(label="In-Progress Steps", value=str(in_progress_steps)),
-                    ]
-                ),
-            ),
-            cls="mb-6",
-        )
-
-    @staticmethod
-    def _render_reflection_layer_card(layer2_data: dict[str, Any]) -> Any:
-        """Render Layer 2 reflection metrics card"""
-        if not layer2_data:
-            return Div()
-
-        entry_count = layer2_data.get("total_entries", 0)
-        reflection_frequency = layer2_data.get("reflection_frequency", 0.0)
-        metacognition_score = layer2_data.get("metacognition_score", 0.0)
-        top_themes = layer2_data.get("top_themes", [])
-
-        return Card(
-            CardHeader(CardTitle("Layer 2: Reflection & Journals")),
-            CardBody(
-                StatsGrid(
-                    [
-                        StatItem(label="Entries", value=str(entry_count)),
-                        StatItem(label="Frequency", value=f"{reflection_frequency:.1f}/day"),
-                        StatItem(label="Metacognition", value=f"{int(metacognition_score * 100)}%"),
-                    ],
-                    cols=3,
-                    cls="mb-4",
-                ),
-                Div(
-                    P("Top Themes:", cls="font-medium mb-2"),
-                    P(
-                        ", ".join(top_themes[:3]) if top_themes else "None",
-                        cls="text-muted-foreground",
-                    ),
-                ),
-            ),
-            cls="mb-6",
-        )
-
-    @staticmethod
-    def _render_cross_layer_insights_card(insights: dict[str, Any]) -> Any:
-        """Render cross-layer synthesis insights card"""
-        if not insights:
-            return Div()
-
-        knowledge_correlation = insights.get("knowledge_activity_correlation", {})
-        journal_impact = insights.get("journal_reflection_impact", {})
-        learning_doing = insights.get("learning_doing_alignment", {})
-
-        return Card(
-            CardHeader(CardTitle("Cross-Layer Insights")),
-            CardBody(
-                P(
-                    "Synthesis across all architectural layers:",
-                    cls="text-sm text-muted-foreground mb-4",
-                ),
-                # Knowledge-Activity Correlation
-                Div(
-                    H3("Knowledge → Activity", cls="font-semibold mb-2"),
-                    P(
-                        knowledge_correlation.get("insight", ""),
-                        cls="text-sm text-muted-foreground mb-4",
-                    ),
-                ),
-                # Journal Impact
-                Div(
-                    H3("Reflection Impact", cls="font-semibold mb-2"),
-                    P(journal_impact.get("insight", ""), cls="text-sm text-muted-foreground mb-4"),
-                ),
-                # Learning-Doing Alignment
-                Div(
-                    H3("Learning ↔ Doing", cls="font-semibold mb-2"),
-                    P(learning_doing.get("insight", ""), cls="text-sm text-muted-foreground"),
-                ),
-            ),
-            cls="mb-6",
-        )
 
 
 # ============================================================================
@@ -689,44 +59,31 @@ def parse_period_params(request: Request) -> PeriodParams:
 def create_analytics_ui_routes(
     app: FastHTMLApp, rt: RouteDecorator, analytics_service: "AnalyticsService"
 ) -> None:
-    """
-    Register analytics UI routes.
-
-    Args:
-        app: FastHTML app instance
-        rt: Route decorator
-        analytics_service: Analytics service instance
-
-    Returns:
-        List of registered route functions
-    """
+    """Register analytics UI routes."""
 
     @app.get("/ui/analytics")
-    async def analytics_dashboard(request) -> Any:
-        """Analytics dashboard"""
+    async def analytics_dashboard(request: Any) -> Any:
+        """Analytics dashboard."""
         require_authenticated_user(request)
-        return AnalyticsUIComponents.render_analytics_dashboard(request)
+        return render_analytics_dashboard(request)
 
     @app.get("/ui/analytics/period-fields")
-    async def get_period_fields(request) -> Any:
-        """Get dynamic period input fields"""
+    async def get_period_fields(request: Any) -> Any:
+        """Get dynamic period input fields."""
         require_authenticated_user(request)
         params = parse_period_params(request)
-
-        return AnalyticsUIComponents.render_period_fields(params.period)
+        return render_period_fields(params.period)
 
     @app.get("/ui/analytics/view")
-    async def view_analytics(request) -> Any:
-        """Generate and view analytics"""
+    async def view_analytics(request: Any) -> Any:
+        """Generate and view analytics."""
         user_uid = require_authenticated_user(request)
         try:
             analytics_domain_str = request.query_params.get("analytics_domain", "tasks")
             period = request.query_params.get("period", "month_current")
 
-            # Parse analytics domain
             analytics_domain = AnalyticsDomain(analytics_domain_str)
 
-            # Calculate dates based on period
             if period == "week_current":
                 today = date.today()
                 week_start = today - timedelta(days=today.weekday())
@@ -743,63 +100,46 @@ def create_analytics_ui_routes(
                 result = await analytics_service.generate_yearly_report(
                     user_uid, analytics_domain, today.year
                 )
-            # Add more period handling...
             else:
                 return render_inline_error("Invalid period selection")
 
             if result.is_error:
                 return render_inline_error(f"Error generating analytics: {result.error}")
 
-            report = result.value
-
-            return AnalyticsUIComponents.render_analytics_result(report)
+            return render_analytics_result(result.value)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error viewing analytics: {e}")
             return render_inline_error(f"Error: {e}")
 
     @app.get("/ui/analytics/{uid}/markdown")
-    async def view_markdown(_request, _uid: str) -> Any:
-        """View analytics as markdown"""
-        # For now, just show the markdown from a stored analytics result
-        # In production, you'd fetch the analytics from storage
-        return AnalyticsUIComponents.render_markdown_view("# Analytics markdown would go here...")
-
-    # ========================================================================
-    # LIFE PATH ALIGNMENT UI
-    # ========================================================================
+    async def view_markdown(_request: Any, _uid: str) -> Any:
+        """View analytics as markdown."""
+        return render_markdown_view("# Analytics markdown would go here...")
 
     @app.get("/ui/analytics/life-path-alignment")
-    async def life_path_alignment_ui(request) -> Any:
-        """Render Life Path alignment dashboard UI"""
+    async def life_path_alignment_ui(request: Any) -> Any:
+        """Render Life Path alignment dashboard UI."""
         user_uid = require_authenticated_user(request)
 
         try:
-            # Get alignment data from service
             result = await analytics_service.calculate_life_path_alignment(user_uid)
-
             if result.is_error:
                 return render_inline_error(f"Error: {result.expect_error().message}")
 
-            # Render dashboard
-            return AnalyticsUIComponents.render_life_path_alignment_dashboard(result.value)
+            return render_life_path_alignment_dashboard(result.value)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering Life Path alignment: {e}")
             return render_inline_error(f"Error: {e}")
 
-    # ========================================================================
-    # CROSS-LAYER LIFE SUMMARY UI
-    # ========================================================================
-
     @app.get("/ui/analytics/weekly-life-summary")
-    async def weekly_life_summary_ui(request) -> Any:
-        """Render weekly life summary UI (ALL layers)"""
+    async def weekly_life_summary_ui(request: Any) -> Any:
+        """Render weekly life summary UI (ALL layers)."""
         user_uid = require_authenticated_user(request)
         start_date_str = request.query_params.get("start_date")
 
         try:
-            # Parse start date if provided
             if start_date_str:
                 try:
                     start_date = date.fromisoformat(start_date_str)
@@ -810,14 +150,12 @@ def create_analytics_ui_routes(
                     user_uid, week_start=start_date
                 )
             else:
-                # Default to current week
                 result = await analytics_service.generate_weekly_life_summary(user_uid)
 
             if result.is_error:
                 return render_inline_error(f"Error: {result.expect_error().message}")
 
-            # Render summary
-            return AnalyticsUIComponents.render_weekly_life_summary(result.value)
+            return render_weekly_life_summary(result.value)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering weekly life summary: {e}")
@@ -826,4 +164,4 @@ def create_analytics_ui_routes(
     logger.info("Analytics UI routes registered (including Life Path + cross-layer)")
 
 
-__all__ = ["AnalyticsUIComponents", "create_analytics_ui_routes"]
+__all__ = ["create_analytics_ui_routes"]

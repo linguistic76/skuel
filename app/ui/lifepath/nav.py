@@ -1,0 +1,26 @@
+"""LifePath sidebar navigation."""
+
+from typing import Any
+
+from adapters.inbound.fasthtml_types import Request
+from ui.patterns.sidebar import SidebarItem, SidebarPage
+
+LIFEPATH_SIDEBAR_ITEMS: list[SidebarItem] = [
+    SidebarItem("Dashboard", "/lifepath", "dashboard", icon="\U0001f3e0"),
+    SidebarItem("Vision", "/lifepath/vision", "vision", icon="\U0001f441"),
+    SidebarItem("Alignment", "/lifepath/alignment", "alignment", icon="\U0001f4ca"),
+]
+
+
+async def lifepath_sidebar_page(active_page: str, content: Any, request: Request) -> Any:
+    """Create sidebar page for LifePath routes."""
+    return await SidebarPage(
+        content=content,
+        items=LIFEPATH_SIDEBAR_ITEMS,
+        active=active_page,
+        title="Life Path",
+        subtitle="Your Journey",
+        storage_key="lifepath-sidebar",
+        request=request,
+        active_page="lifepath",
+    )

@@ -2,9 +2,7 @@
 LifePath UI Routes
 ==================
 
-UI routes and presentation logic for LifePath domain.
-
-Domain #14: The Destination - "Everything flows toward the life path"
+UI routes for LifePath domain. All HTML construction delegated to ui/lifepath/.
 
 UI Routes:
 - GET /lifepath - Main dashboard
@@ -12,55 +10,58 @@ UI Routes:
 - POST /lifepath/vision - Process vision capture
 - POST /lifepath/designate - Designate an LP as life path
 - GET /lifepath/alignment - Alignment dashboard
-
-Philosophy:
-    "The user's vision is understood via the words user uses to communicate,
-    the UserContext is determined via user's actions."
 """
 
 from typing import Any
 
-from fasthtml.common import H2, H3, Div, Form, P, Span
+from fasthtml.common import Div
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
-from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card
-from ui.feedback import Badge, BadgeT, Progress
-from ui.forms import Label, Textarea
-from ui.layout import Size
-from ui.patterns.empty_state import EmptyState
+from ui.buttons import ButtonLink, ButtonT
+from ui.lifepath import (
+    lifepath_sidebar_page,
+    render_alignment_dashboard,
+    render_dashboard_content,
+    render_recommendations_page,
+    render_vision_form,
+)
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.page_header import PageHeader
-from ui.patterns.sidebar import SidebarItem, SidebarPage
-from ui.tokens import Container
 
 logger = get_logger("skuel.routes.lifepath.ui")
 
-# Menu items for LifePath sidebar navigation
-LIFEPATH_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Dashboard", "/lifepath", "dashboard", icon="🏠"),
-    SidebarItem("Vision", "/lifepath/vision", "vision", icon="👁"),
-    SidebarItem("Alignment", "/lifepath/alignment", "alignment", icon="📊"),
-]
+
+# ============================================================================
+# ERROR HELPERS
+# ============================================================================
 
 
-async def _lifepath_sidebar_page(active_page: str, content: Any, request: Request) -> Any:
-    """Create sidebar page for LifePath routes."""
-    return await SidebarPage(
-        content=content,
-        items=LIFEPATH_SIDEBAR_ITEMS,
-        active=active_page,
-        title="Life Path",
-        subtitle="Your Journey",
-        storage_key="lifepath-sidebar",
-        request=request,
-        active_page="lifepath",
+def _service_unavailable_page() -> Any:
+    """Return page when LifePath service is not available."""
+    return Div(
+        render_error_banner(
+            "Service Unavailable",
+            technical_details="The LifePath service is not available. Please try again later.",
+        ),
+        cls="container mx-auto px-4 py-8",
     )
+
+
+def _error_page(message: str) -> Any:
+    """Return error page."""
+    return Div(
+        render_error_banner("Error", technical_details=message),
+        ButtonLink("Go back", href="/lifepath", variant=ButtonT.primary, cls="mt-4"),
+        cls="container mx-auto px-4 py-8",
+    )
+
+
+# ============================================================================
+# ROUTE HANDLERS
+# ============================================================================
 
 
 def create_lifepath_ui_routes(
@@ -69,18 +70,7 @@ def create_lifepath_ui_routes(
     lifepath_service: Any,
     services: Any = None,
 ) -> list[Any]:
-    """
-    Create LifePath UI routes.
-
-    Args:
-        _app: FastHTML app instance (unused)
-        rt: FastHTML route decorator
-        lifepath_service: LifePath service facade
-        services: Services container (optional, for future use)
-
-    Returns:
-        List of registered route functions
-    """
+    """Create LifePath UI routes."""
 
     @rt("/lifepath")
     async def lifepath_dashboard(request: Request) -> Any:
@@ -91,16 +81,11 @@ def create_lifepath_ui_routes(
             return _service_unavailable_page()
 
         status_result = await lifepath_service.get_full_status(user_uid)
-
         if status_result.is_error:
             return _error_page(str(status_result.expect_error()))
 
-        status = status_result.value
-
-        # Build dashboard content
-        content = _build_dashboard_content(status, user_uid)
-
-        return await _lifepath_sidebar_page("dashboard", content, request)
+        content = render_dashboard_content(status_result.value, user_uid)
+        return await lifepath_sidebar_page("dashboard", content, request)
 
     @rt("/lifepath/vision")
     async def vision_capture_page(request: Request) -> Any:
@@ -110,54 +95,13 @@ def create_lifepath_ui_routes(
         if not lifepath_service:
             return _service_unavailable_page()
 
-        # Check if user already has a vision
         designation_result = await lifepath_service.core.get_designation(user_uid)
         existing_vision = ""
         if designation_result.is_ok and designation_result.value:
             existing_vision = designation_result.value.vision_statement
 
-        content = Div(
-            PageHeader(
-                "Express Your Vision",
-                subtitle="What do you want to become? Express your life vision in your own words.",
-            ),
-            Card(
-                Div(
-                    Form(
-                        Div(
-                            Label("Your Vision", for_="vision"),
-                            Textarea(
-                                existing_vision or "",
-                                id="vision",
-                                name="vision_statement",
-                                placeholder="I want to become a mindful technical leader who builds products that matter and makes a positive impact on the world...",
-                                cls="w-full h-48 p-4 border rounded-lg",
-                                required=True,
-                            ),
-                            P(
-                                "Be specific about who you want to become, not just what you want to achieve.",
-                                cls="text-sm text-muted-foreground mt-2",
-                            ),
-                            cls="mb-6",
-                        ),
-                        Button(
-                            "Extract Themes & Get Recommendations",
-                            type="submit",
-                            variant=ButtonT.primary,
-                            cls="w-full",
-                        ),
-                        method="post",
-                        action="/lifepath/vision",
-                        cls="space-y-4",
-                    ),
-                    cls="p-6",
-                ),
-                cls=Container.NARROW,
-            ),
-            cls="container mx-auto px-4 py-8",
-        )
-
-        return await _lifepath_sidebar_page("vision", content, request)
+        content = render_vision_form(existing_vision)
+        return await lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/vision", methods=["POST"])
     async def process_vision_capture(request: Request) -> Any:
@@ -173,18 +117,12 @@ def create_lifepath_ui_routes(
         if not lifepath_service:
             return _service_unavailable_page()
 
-        # Capture and recommend
         result = await lifepath_service.capture_and_recommend(user_uid, vision_statement)
-
         if result.is_error:
             return _error_page(str(result.expect_error()))
 
-        data = result.value
-
-        # Build recommendations page
-        content = _build_recommendations_page(data, user_uid)
-
-        return await _lifepath_sidebar_page("vision", content, request)
+        content = render_recommendations_page(result.value, user_uid)
+        return await lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/designate", methods=["POST"])
     async def designate_life_path(request: Request) -> Any:
@@ -200,13 +138,10 @@ def create_lifepath_ui_routes(
         if not lifepath_service:
             return _service_unavailable_page()
 
-        # Designate and calculate initial alignment
         result = await lifepath_service.designate_and_calculate(user_uid, life_path_uid)
-
         if result.is_error:
             return _error_page(str(result.expect_error()))
 
-        # Redirect to alignment dashboard
         return RedirectResponse(url="/lifepath/alignment", status_code=303)
 
     @rt("/lifepath/alignment")
@@ -218,19 +153,15 @@ def create_lifepath_ui_routes(
             return _service_unavailable_page()
 
         status_result = await lifepath_service.get_full_status(user_uid)
-
         if status_result.is_error:
             return _error_page(str(status_result.expect_error()))
 
         status = status_result.value
-
         if not status.get("has_designation"):
-            # Redirect to vision capture if no designation
             return RedirectResponse(url="/lifepath/vision", status_code=303)
 
-        content = _build_alignment_dashboard(status, user_uid)
-
-        return await _lifepath_sidebar_page("alignment", content, request)
+        content = render_alignment_dashboard(status, user_uid)
+        return await lifepath_sidebar_page("alignment", content, request)
 
     logger.info("LifePath UI routes registered (5 routes)")
 
@@ -241,273 +172,3 @@ def create_lifepath_ui_routes(
         designate_life_path,
         alignment_dashboard,
     ]
-
-
-# ============================================================================
-# UI HELPER FUNCTIONS
-# ============================================================================
-
-
-def _service_unavailable_page():
-    """Return page when LifePath service is not available."""
-    return Div(
-        render_error_banner(
-            "Service Unavailable",
-            technical_details="The LifePath service is not available. Please try again later.",
-        ),
-        cls="container mx-auto px-4 py-8",
-    )
-
-
-def _error_page(message: str):
-    """Return error page."""
-    return Div(
-        render_error_banner("Error", technical_details=message),
-        ButtonLink("Go back", href="/lifepath", variant=ButtonT.primary, cls="mt-4"),
-        cls="container mx-auto px-4 py-8",
-    )
-
-
-def _build_dashboard_content(status: dict, user_uid: UserUID) -> Any:
-    """Build the main dashboard content."""
-    if not status.get("has_vision"):
-        return Div(
-            PageHeader(
-                "Welcome to Your Life Path",
-                subtitle="You haven't expressed your vision yet. Start by telling us what you want to become.",
-            ),
-            ButtonLink(
-                "Express Your Vision",
-                href="/lifepath/vision",
-                variant=ButtonT.primary,
-                size=Size.lg,
-            ),
-            cls="container mx-auto px-4 py-8 text-center",
-        )
-
-    # Has vision - show summary
-    alignment = status.get("alignment", {})
-    alignment_score = alignment.get("alignment_score", 0)
-    alignment_level = alignment.get("alignment_level", "unknown")
-
-    return Div(
-        PageHeader("Your Life Path"),
-        # Vision summary
-        Card(
-            Div(
-                H3("Your Vision", cls="font-semibold text-lg mb-2"),
-                P(
-                    status.get("vision", {}).get("statement", "No vision"),
-                    cls="text-muted-foreground italic",
-                ),
-                Div(
-                    *[
-                        Badge(theme, variant=BadgeT.outline, cls="mr-2")
-                        for theme in status.get("vision", {}).get("themes", [])[:5]
-                    ],
-                    cls="mt-4",
-                ),
-                cls="p-4",
-            ),
-            cls="mb-6",
-        ),
-        # Alignment score
-        Card(
-            Div(
-                H3("Alignment Score", cls="font-semibold text-lg mb-2"),
-                Div(
-                    Span(f"{int(alignment_score * 100)}%", cls="text-4xl font-bold"),
-                    Span(f" ({alignment_level})", cls="text-xl text-muted-foreground ml-2"),
-                    cls="mb-4",
-                ),
-                Progress(
-                    value=int(alignment_score * 100),
-                    max=100,
-                    cls="w-full h-4",
-                ),
-                P(
-                    "Are you LIVING what you SAID?",
-                    cls="text-sm text-muted-foreground mt-2",
-                ),
-                cls="p-4",
-            ),
-            cls="mb-6",
-        ),
-        # Quick actions
-        Div(
-            ButtonLink(
-                "View Alignment Details",
-                href="/lifepath/alignment",
-                variant=ButtonT.outline,
-                cls="mr-4",
-            ),
-            ButtonLink("Update Vision", href="/lifepath/vision", variant=ButtonT.outline),
-            cls="flex gap-4",
-        ),
-        # Daily focus
-        _build_daily_focus(status.get("daily_focus")),
-        cls="container mx-auto px-4 py-8",
-    )
-
-
-def _build_recommendations_page(data: dict, user_uid: UserUID) -> Any:
-    """Build recommendations page after vision capture."""
-    vision = data.get("vision", {})
-    recommendations = data.get("recommendations", [])
-
-    rec_cards = [
-        Card(
-            Form(
-                Div(
-                    H3(rec.get("lp_name", "Unknown"), cls="font-semibold text-lg"),
-                    P(
-                        f"Match: {int(rec.get('match_score', 0) * 100)}%",
-                        cls="text-sm text-muted-foreground",
-                    ),
-                    Div(
-                        *[
-                            Badge(t, variant=BadgeT.primary, size=Size.sm, cls="mr-1")
-                            for t in rec.get("matching_themes", [])[:3]
-                        ],
-                        cls="mt-2",
-                    ),
-                    cls="p-4",
-                ),
-                Div(
-                    Button(
-                        "Choose This Path",
-                        type="submit",
-                        variant=ButtonT.primary,
-                        size=Size.sm,
-                    ),
-                    cls="p-4 pt-0",
-                ),
-                method="post",
-                action="/lifepath/designate",
-                **{
-                    "hx-post": "/lifepath/designate",
-                    "hx-vals": f'{{"life_path_uid": "{rec.get("lp_uid", "")}"}}',
-                },
-            ),
-            cls="mb-4",
-        )
-        for rec in recommendations
-    ]
-
-    return Div(
-        PageHeader("Choose Your Life Path"),
-        P(f'Your vision: "{vision.get("statement", "")}"', cls="text-muted-foreground italic mb-2"),
-        P(
-            f"Themes extracted: {', '.join(vision.get('themes', []))}",
-            cls="text-sm text-muted-foreground mb-8",
-        ),
-        H2("Recommended Learning Paths", cls="text-xl font-semibold mb-4"),
-        *rec_cards
-        if rec_cards
-        else [
-            EmptyState(
-                title="No Matching Learning Paths",
-                description="No matching Learning Paths found.",
-                action_text="Create one",
-                action_href="/learning-paths",
-            )
-        ],
-        cls=f"container mx-auto px-4 py-8 {Container.NARROW}",
-    )
-
-
-def _build_alignment_dashboard(status: dict, user_uid: UserUID) -> Any:
-    """Build alignment dashboard with 5-dimension breakdown."""
-    alignment = status.get("alignment", {})
-    dimensions = alignment.get("dimensions", {})
-    recommendations = status.get("recommendations", [])
-
-    dimension_cards = []
-    for dim_name, score in dimensions.items():
-        color = "text-success" if score >= 0.7 else "text-warning" if score >= 0.4 else "text-error"
-        dimension_cards.append(
-            Div(
-                Div(
-                    Span(dim_name.title(), cls="text-sm font-medium"),
-                    Span(f"{int(score * 100)}%", cls=f"text-lg font-bold {color}"),
-                    cls="flex justify-between items-center mb-1",
-                ),
-                Progress(value=int(score * 100), max=100, cls="w-full h-2"),
-                cls="mb-4",
-            )
-        )
-
-    rec_items = [
-        Div(
-            Span(rec.get("title", ""), cls="font-medium"),
-            P(rec.get("description", ""), cls="text-sm text-muted-foreground"),
-            cls="p-3 bg-muted rounded mb-2",
-        )
-        for rec in recommendations[:5]
-    ]
-
-    return Div(
-        PageHeader("Life Path Alignment"),
-        # Overall score
-        Card(
-            Div(
-                Div(
-                    Span(
-                        f"{int(alignment.get('alignment_score', 0) * 100)}%",
-                        cls="text-5xl font-bold",
-                    ),
-                    Span(
-                        alignment.get("alignment_level", "").title(),
-                        cls="text-2xl text-muted-foreground ml-4",
-                    ),
-                    cls="flex items-baseline mb-4",
-                ),
-                P(
-                    "Are you LIVING what you SAID?",
-                    cls="text-muted-foreground",
-                ),
-                cls="p-6 text-center",
-            ),
-            cls="mb-8",
-        ),
-        # Dimension breakdown
-        Card(
-            Div(
-                H3("5-Dimension Breakdown", cls="font-semibold text-lg mb-4"),
-                *dimension_cards,
-                cls="p-6",
-            ),
-            cls="mb-8",
-        ),
-        # Recommendations
-        Card(
-            Div(
-                H3("Recommendations", cls="font-semibold text-lg mb-4"),
-                *rec_items if rec_items else [P("Great work! Keep it up.")],
-                cls="p-6",
-            ),
-            cls="mb-8",
-        ),
-        ButtonLink("Back to Dashboard", href="/lifepath", variant=ButtonT.outline),
-        cls=f"container mx-auto px-4 py-8 {Container.NARROW}",
-    )
-
-
-def _build_daily_focus(daily_focus: dict | None) -> Any:
-    """Build daily focus card."""
-    if not daily_focus:
-        return Div()
-
-    return Card(
-        Div(
-            H3("Today's Focus", cls="font-semibold text-lg mb-2"),
-            P(daily_focus.get("focus", ""), cls="text-xl font-medium mb-2"),
-            P(daily_focus.get("reason", ""), cls="text-sm text-muted-foreground"),
-            P(
-                f"Action: {daily_focus.get('action', '')}",
-                cls="text-sm text-muted-foreground mt-2 italic",
-            ),
-            cls="p-4",
-        ),
-        cls="mt-6",
-    )

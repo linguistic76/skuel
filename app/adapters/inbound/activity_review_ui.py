@@ -3,11 +3,7 @@ Activity Review UI Routes — Admin Human Feedback on Activity Domains
 =====================================================================
 
 Admin-facing UI for reviewing a user's Activity Domain data and writing
-structured feedback. Feedback stored as ActivityReport with ProcessorType.HUMAN.
-
-Two trigger paths:
-1. Admin-initiated: admin navigates to /activity-review/new?subject_uid=...
-2. User-initiated: user requests review → appears in /activity-review/queue
+structured feedback. All HTML construction delegated to ui/activity_review/.
 
 Routes:
 - GET /activity-review           — redirect to queue
@@ -25,135 +21,27 @@ if TYPE_CHECKING:
     from core.ports.report_protocols import ActivityReportOperations, ReviewQueueOperations
     from core.services.user.user_context_builder import UserContextBuilder
 
-from fasthtml.common import (
-    H3,
-    H4,
-    Div,
-    Form,
-    NotStr,
-    Option,
-    P,
-    Script,
-    Span,
-)
+from fasthtml.common import H3, Div, P
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonLink, ButtonT
+from ui.activity_review import (
+    activity_review_sidebar_page,
+    render_feedback_form,
+    render_queue_item,
+    render_snapshot_domain_card,
+    render_snapshot_form,
+)
+from ui.activity_review.types import DOMAIN_CHOICES
 from ui.cards import Card, CardBody, CardHeader, CardTitle
-from ui.feedback import Alert, AlertT, Badge, BadgeT
-from ui.forms import Checkbox, Input, Label, LabelInput, LabelSelect, LabelTextArea
-from ui.layout import Size
+from ui.feedback import Alert, AlertT
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
-from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.routes.activity_review.ui")
-
-
-# ============================================================================
-# SIDEBAR NAVIGATION
-# ============================================================================
-
-ACTIVITY_REVIEW_SIDEBAR_ITEMS = [
-    SidebarItem("Queue", "/activity-review/queue", "queue", icon="📋"),
-    SidebarItem("New Review", "/activity-review/new", "new", icon="✍️"),
-]
-
-_DOMAIN_CHOICES = [
-    ("tasks", "Tasks"),
-    ("goals", "Goals"),
-    ("habits", "Habits"),
-    ("events", "Events"),
-    ("choices", "Choices"),
-    ("principles", "Principles"),
-]
-
-
-# ============================================================================
-# FRAGMENT RENDERERS
-# ============================================================================
-
-
-def _render_queue_item(item: dict[str, Any]) -> Any:
-    """Render a single pending review request card."""
-    subject_uid = item.get("subject_uid", "")
-    time_period = item.get("time_period", "7d")
-    domains = item.get("domains") or []
-    message = item.get("message") or ""
-    created_at = item.get("created_at", "")
-
-    date_str = ""
-    if created_at:
-        try:
-            from datetime import datetime
-
-            dt = datetime.fromisoformat(str(created_at))
-            date_str = dt.strftime("%d %b %Y")
-        except (ValueError, TypeError):
-            date_str = str(created_at)[:10]
-
-    domain_badges = [Badge(d, variant=BadgeT.ghost, size=Size.xs) for d in (domains or [])]
-
-    review_href = f"/activity-review/new?subject_uid={subject_uid}&time_period={time_period}"
-
-    return Div(
-        Card(
-            CardBody(
-                H4(subject_uid, cls="font-semibold mb-1"),
-                P(
-                    f"{date_str} · {time_period}",
-                    cls="text-xs text-muted-foreground mb-2",
-                ),
-                Div(*domain_badges, cls="flex flex-wrap gap-1 mb-2") if domain_badges else None,
-                P(message, cls="text-sm text-muted-foreground mb-3") if message else None,
-                ButtonLink(
-                    "Start Review",
-                    href=review_href,
-                    variant=ButtonT.primary,
-                    size=Size.sm,
-                ),
-                cls="p-4",
-            ),
-            cls="bg-background shadow-sm mb-3",
-        ),
-    )
-
-
-def _render_snapshot_domain_card(domain_name: str, items: list[Any]) -> Any:
-    """Render a single domain's activity snapshot card."""
-    if not items:
-        return Card(
-            H4(domain_name.title(), cls="font-semibold mb-1"),
-            P("No recent activity.", cls="text-sm text-muted-foreground"),
-            cls="bg-muted p-4 mb-3",
-        )
-
-    item_rows = []
-    for item in items[:10]:
-        title = item.get("title", "") if isinstance(item, dict) else getattr(item, "title", "")
-        status = item.get("status", "") if isinstance(item, dict) else getattr(item, "status", "")
-        item_rows.append(
-            Div(
-                Span(title, cls="text-sm flex-1"),
-                Badge(status, variant=BadgeT.ghost, size=Size.xs) if status else None,
-                cls="flex items-center gap-2 py-1 border-b border-border last:border-0",
-            )
-        )
-
-    return Card(
-        H4(f"{domain_name.title()} ({len(items)})", cls="font-semibold mb-3"),
-        Div(*item_rows),
-        cls="bg-muted p-4 mb-3",
-    )
-
-
-# ============================================================================
-# ROUTE CREATION
-# ============================================================================
 
 
 def create_activity_review_ui_routes(
@@ -164,36 +52,15 @@ def create_activity_review_ui_routes(
     user_service: Any = None,
     context_builder: "UserContextBuilder | None" = None,
 ) -> list[Any]:
-    """
-    Create Activity Review admin UI routes.
-
-    Args:
-        _app: FastHTML application instance
-        rt: Router instance
-        activity_report: ActivityReportService for snapshot + feedback operations
-        review_queue: ReviewQueueService for pending review queue
-        context_builder: UserContextBuilder for building UserContext (required for snapshots)
-        user_service: UserService for admin role checks
-
-    Returns:
-        List of registered route functions
-    """
+    """Create Activity Review admin UI routes."""
     logger.info("Creating Activity Review UI routes")
 
     get_user_service = make_service_getter(user_service)
-
-    # ========================================================================
-    # REDIRECT
-    # ========================================================================
 
     @rt("/activity-review")
     async def activity_review_landing(request: Request) -> Any:
         """Redirect to queue."""
         return RedirectResponse("/activity-review/queue", status_code=303)
-
-    # ========================================================================
-    # QUEUE PAGE (admin-only)
-    # ========================================================================
 
     @rt("/activity-review/queue")
     @require_admin(get_user_service)
@@ -213,7 +80,7 @@ def create_activity_review_ui_routes(
             logger.error(f"Error loading review queue: {e}", exc_info=True)
 
         if pending:
-            queue_content: Any = Div(*[_render_queue_item(item) for item in pending])
+            queue_content: Any = Div(*[render_queue_item(item) for item in pending])
         else:
             queue_content = EmptyState(
                 title="No pending review requests",
@@ -228,22 +95,9 @@ def create_activity_review_ui_routes(
             ),
         )
 
-        return await SidebarPage(
-            content=content,
-            items=ACTIVITY_REVIEW_SIDEBAR_ITEMS,
-            active="queue",
-            title="Activity Review",
-            subtitle="Admin feedback on Activity Domains",
-            storage_key="activity-review-sidebar",
-            page_title="Review Queue",
-            request=request,
-            active_page="activity-review",
-            title_href="/activity-review",
+        return await activity_review_sidebar_page(
+            "queue", content, request, page_title="Review Queue"
         )
-
-    # ========================================================================
-    # NEW REVIEW PAGE (admin-only)
-    # ========================================================================
 
     @rt("/activity-review/new")
     @require_admin(get_user_service)
@@ -254,68 +108,6 @@ def create_activity_review_ui_routes(
         time_period: str = "7d",
     ) -> Any:
         """Admin review form: load snapshot, write feedback, submit."""
-        domain_checkboxes = []
-        for domain_value, domain_label in _DOMAIN_CHOICES:
-            domain_checkboxes.append(
-                Div(
-                    Checkbox(
-                        name="domains",
-                        value=domain_value,
-                        checked=True,
-                        id=f"domain-{domain_value}",
-                    ),
-                    Label(domain_label, _for=f"domain-{domain_value}", cls="ml-2"),
-                    cls="flex items-center gap-1",
-                )
-            )
-
-        snapshot_form = Card(
-            CardHeader(CardTitle("Load Activity Snapshot")),
-            CardBody(
-                Form(
-                    LabelInput(
-                        "User UID",
-                        type="text",
-                        name="subject_uid",
-                        value=subject_uid,
-                        placeholder="user_name",
-                        id="snapshot-subject-uid",
-                        cls="space-y-2 mb-3",
-                    ),
-                    LabelSelect(
-                        Option("Last 7 days", value="7d", selected=(time_period == "7d")),
-                        Option("Last 14 days", value="14d", selected=(time_period == "14d")),
-                        Option("Last 30 days", value="30d", selected=(time_period == "30d")),
-                        Option("Last 90 days", value="90d", selected=(time_period == "90d")),
-                        label="Time Period",
-                        name="time_period",
-                        id="snapshot-time-period",
-                        cls="space-y-2 mb-3",
-                    ),
-                    Div(
-                        Label("Domains"),
-                        Div(*domain_checkboxes, cls="flex flex-wrap gap-4 mt-1"),
-                        cls="space-y-2 mb-4",
-                    ),
-                    Div(
-                        Button(
-                            "Load Snapshot",
-                            type="submit",
-                            variant=ButtonT.secondary,
-                        ),
-                        cls="text-right",
-                    ),
-                    **{
-                        "hx-get": "/activity-review/snapshot-fragment",
-                        "hx-target": "#snapshot-display",
-                        "hx-swap": "innerHTML",
-                        "hx-include": "[name='subject_uid'],[name='time_period'],[name='domains']",
-                    },
-                )
-            ),
-            cls="mb-4",
-        )
-
         snapshot_display = Div(
             P(
                 'Enter a user UID and click "Load Snapshot" to preview their activity data.',
@@ -324,90 +116,17 @@ def create_activity_review_ui_routes(
             id="snapshot-display",
         )
 
-        feedback_form = Card(
-            CardHeader(CardTitle("Write Feedback")),
-            CardBody(
-                Form(
-                    Input(
-                        type="hidden",
-                        name="subject_uid",
-                        id="feedback-subject-uid",
-                        value=subject_uid,
-                    ),
-                    Input(
-                        type="hidden",
-                        name="time_period",
-                        id="feedback-time-period",
-                        value=time_period,
-                    ),
-                    LabelTextArea(
-                        "Feedback",
-                        name="feedback_text",
-                        placeholder="Write your qualitative feedback here. What patterns do you notice? What recommendations do you have?",
-                        input_cls="h-40",
-                        cls="space-y-2 mb-4",
-                    ),
-                    Div(
-                        Button(
-                            "Submit Feedback",
-                            type="submit",
-                            variant=ButtonT.primary,
-                        ),
-                        cls="text-right",
-                    ),
-                    Div(id="submit-status", cls="mt-3"),
-                    **{
-                        "hx-post": "/activity-review/submit-feedback",
-                        "hx-target": "#submit-status",
-                        "hx-swap": "innerHTML",
-                        "hx-include": "[name='subject_uid'],[name='time_period'],[name='feedback_text']",
-                    },
-                ),
-                # Sync hidden fields from snapshot form before posting
-                Script(
-                    NotStr("""
-                document.body.addEventListener('htmx:afterRequest', function(evt) {
-                    if (evt.detail.elt.getAttribute('hx-target') === '#snapshot-display') {
-                        var subjectEl = document.getElementById('snapshot-subject-uid');
-                        var periodEl = document.getElementById('snapshot-time-period');
-                        var fbSubjectEl = document.getElementById('feedback-subject-uid');
-                        var fbPeriodEl = document.getElementById('feedback-time-period');
-                        if (subjectEl && fbSubjectEl) fbSubjectEl.value = subjectEl.value;
-                        if (periodEl && fbPeriodEl) fbPeriodEl.value = periodEl.value;
-                    }
-                });
-                """)
-                ),
-            ),
-            cls="mt-4",
-        )
-
         content = Div(
             PageHeader(
                 "New Activity Review",
                 subtitle="Review a user's Activity Domain data and write feedback",
             ),
-            snapshot_form,
+            render_snapshot_form(subject_uid, time_period),
             snapshot_display,
-            feedback_form,
+            render_feedback_form(subject_uid, time_period),
         )
 
-        return await SidebarPage(
-            content=content,
-            items=ACTIVITY_REVIEW_SIDEBAR_ITEMS,
-            active="new",
-            title="Activity Review",
-            subtitle="Admin feedback on Activity Domains",
-            storage_key="activity-review-sidebar",
-            page_title="New Review",
-            request=request,
-            active_page="activity-review",
-            title_href="/activity-review",
-        )
-
-    # ========================================================================
-    # SNAPSHOT FRAGMENT (HTMX)
-    # ========================================================================
+        return await activity_review_sidebar_page("new", content, request, page_title="New Review")
 
     @rt("/activity-review/snapshot-fragment")
     @require_admin(get_user_service)
@@ -453,11 +172,10 @@ def create_activity_review_ui_routes(
 
         snapshot = result.value or {}
 
-        # Build domain cards from snapshot data
         domain_cards = []
-        for domain_name in domains or [d for d, _ in _DOMAIN_CHOICES]:
+        for domain_name in domains or [d for d, _ in DOMAIN_CHOICES]:
             items = snapshot.get(domain_name) or []
-            domain_cards.append(_render_snapshot_domain_card(domain_name, items))
+            domain_cards.append(render_snapshot_domain_card(domain_name, items))
 
         return Div(
             H3(
@@ -466,10 +184,6 @@ def create_activity_review_ui_routes(
             ),
             *domain_cards,
         )
-
-    # ========================================================================
-    # SUBMIT FEEDBACK FRAGMENT (HTMX)
-    # ========================================================================
 
     @rt("/activity-review/submit-feedback", methods=["POST"])
     @require_admin(get_user_service)

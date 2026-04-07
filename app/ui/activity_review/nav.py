@@ -1,0 +1,29 @@
+"""Activity Review sidebar navigation."""
+
+from typing import Any
+
+from adapters.inbound.fasthtml_types import Request
+from ui.patterns.sidebar import SidebarItem, SidebarPage
+
+ACTIVITY_REVIEW_SIDEBAR_ITEMS = [
+    SidebarItem("Queue", "/activity-review/queue", "queue", icon="\U0001f4cb"),
+    SidebarItem("New Review", "/activity-review/new", "new", icon="\u270d\ufe0f"),
+]
+
+
+async def activity_review_sidebar_page(
+    active: str, content: Any, request: Request, *, page_title: str
+) -> Any:
+    """Create sidebar page for Activity Review routes."""
+    return await SidebarPage(
+        content=content,
+        items=ACTIVITY_REVIEW_SIDEBAR_ITEMS,
+        active=active,
+        title="Activity Review",
+        subtitle="Admin feedback on Activity Domains",
+        storage_key="activity-review-sidebar",
+        page_title=page_title,
+        request=request,
+        active_page="activity-review",
+        title_href="/activity-review",
+    )
