@@ -10,4 +10,5 @@ Implemented orchestrators:
 - LibraryOrchestrator    — Library Hub
 - TeacherOrchestrator    — Teaching & Review Hub
 - AdminOrchestrator      — Admin Dashboard Hub
+- JournalOrchestrator    — Journals Hub
 """

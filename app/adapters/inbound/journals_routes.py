@@ -29,11 +29,7 @@ JOURNAPS_CONFIG = DomainRouteConfig(
     api_factory=_journals_noop_api_factory,
     ui_factory=create_journals_ui_routes,
     ui_related_services={
-        "journal_output_service": "journal_generator",
-        "report_projects_service": "exercises",
-        "user_service": "user_service",
-        "batch_transcription_service": "batch_transcription",
-        "batch_processing_service": "batch_processing",
+        "orchestrator": "journal_orchestrator",
     },
 )
 

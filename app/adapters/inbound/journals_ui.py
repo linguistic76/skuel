@@ -4,7 +4,7 @@ Journals UI Routes — Personal AI-Processed Journal Entries
 
 Standalone journal UI routes for JeInput + JeOutput entities.
 Users upload files here to be processed by AI using default or custom instructions.
-Route config in journals_routes.py — primary service is JournalInputService.
+Route config in journals_routes.py. All service access goes through JournalOrchestrator.
 
 Layout: Unified sidebar (Tailwind + Alpine) with 3 nav items.
 Desktop: collapsible sidebar. Mobile: horizontal tabs.
@@ -29,15 +29,13 @@ from fasthtml.common import (
 from starlette.datastructures import UploadFile
 from starlette.responses import FileResponse
 
-from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
+from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.submissions_enums import EnrichmentMode
 from core.models.exercises.exercise import Exercise
 from core.models.journal.je_input import JeInput
-from core.ports.curriculum_protocols import ExerciseOperations
-from core.ports.journal_protocols import JournalInputOperations, JournalOutputOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.buttons import Button, ButtonLink, ButtonT
@@ -529,12 +527,7 @@ def _render_journals_grid_container() -> Any:
 def create_journals_ui_routes(
     _app: FastHTMLApp,
     rt: RouteDecorator,
-    journal_input_service: JournalInputOperations,
-    journal_output_service: JournalOutputOperations | None = None,
-    report_projects_service: ExerciseOperations | None = None,
-    user_service: Any = None,  # no narrow protocol yet
-    batch_transcription_service: Any = None,  # no narrow protocol yet
-    batch_processing_service: Any = None,  # no narrow protocol yet
+    orchestrator: Any,
 ) -> list[Any]:
     """
     Create journal UI routes — available to all authenticated users.
@@ -542,17 +535,15 @@ def create_journals_ui_routes(
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        journal_input_service: JournalInputService — CRUD + file upload for JeInput
-        journal_output_service: JournalOutputService for LLM processing and cleanup
-        report_projects_service: ExerciseService (optional — enables custom instructions)
-        user_service: UserService for admin role checks
-        batch_transcription_service: BatchTranscriptionService (optional — batch audio → txt)
-        batch_processing_service: BatchProcessingService (optional — batch txt → md)
+        orchestrator: JournalOrchestrator — unified facade for all journal services
     """
+    if orchestrator is None:
+        raise RuntimeError("JournalOrchestrator is required — check bootstrap wiring")
 
     logger.info("Creating Journals UI routes")
 
-    get_user_service = make_service_getter(user_service)
+    def get_user_service() -> Any:
+        return orchestrator.user_service
 
     # ========================================================================
     # SIDEBAR PAGES
@@ -572,15 +563,14 @@ def create_journals_ui_routes(
         user_uid = require_authenticated_user(request)
 
         exercises: list[Exercise] = []
-        if report_projects_service:
-            ex_result = await report_projects_service.list_user_exercises(user_uid)
-            if ex_result.is_ok:
-                exercises = ex_result.value or []
-            else:
-                logger.warning(
-                    "Failed to list exercises for submit page",
-                    extra={"error": str(ex_result.error)},
-                )
+        ex_result = await orchestrator.list_user_exercises(user_uid)
+        if ex_result.is_ok:
+            exercises = ex_result.value or []
+        else:
+            logger.warning(
+                "Failed to list exercises for submit page",
+                extra={"error": str(ex_result.error)},
+            )
 
         content = Div(
             PageHeader(
@@ -645,15 +635,9 @@ def create_journals_ui_routes(
             user_uid = require_authenticated_user(request)
             file_content = await uploaded_file.read()
             filename = uploaded_file.filename or "unknown"
-
-            if not journal_input_service:
-                return _render_upload_status(
-                    "error", "Journal upload service unavailable", is_error=True
-                )
-
             metadata = {"custom_title": custom_title} if custom_title else None
 
-            result = await journal_input_service.submit_journal_file(
+            result = await orchestrator.submit_journal_file(
                 file_content=file_content,
                 original_filename=filename,
                 user_uid=user_uid,
@@ -698,26 +682,24 @@ def create_journals_ui_routes(
 
             filename = uploaded_file.filename or "instructions.txt"
 
-            if report_projects_service:
-                create_result = await report_projects_service.create_exercise(
-                    user_uid=user_uid,
-                    name=filename,
-                    instructions=instructions_text,
-                )
-                if create_result.is_error:
-                    logger.warning(f"Failed to save instruction file: {create_result.error}")
+            create_result = await orchestrator.create_exercise(
+                user_uid=user_uid,
+                name=filename,
+                instructions=instructions_text,
+            )
+            if create_result.is_error:
+                logger.warning(f"Failed to save instruction file: {create_result.error}")
 
             # Fetch updated list and return refreshed fragment
             exercises: list[Exercise] = []
-            if report_projects_service:
-                ex_result = await report_projects_service.list_user_exercises(user_uid)
-                if ex_result.is_ok:
-                    exercises = ex_result.value or []
-                else:
-                    logger.warning(
-                        "Failed to refresh exercise list after upload",
-                        extra={"error": str(ex_result.error)},
-                    )
+            ex_result = await orchestrator.list_user_exercises(user_uid)
+            if ex_result.is_ok:
+                exercises = ex_result.value or []
+            else:
+                logger.warning(
+                    "Failed to refresh exercise list after upload",
+                    extra={"error": str(ex_result.error)},
+                )
 
             logger.info(f"Instruction file saved for {user_uid}: {filename}")
             return _render_instruction_list(exercises)
@@ -742,7 +724,7 @@ def create_journals_ui_routes(
                         id="journals-grid-container",
                     )
 
-            result = await journal_input_service.list_je_inputs(
+            result = await orchestrator.list_je_inputs(
                 user_uid=user_uid,
                 status=status,
                 limit=50,
@@ -776,29 +758,22 @@ def create_journals_ui_routes(
         try:
             user_uid = require_authenticated_user(request)
 
-            # Get the JeInput to verify ownership
-            input_result = await journal_input_service.get_je_input(uid)
-            if input_result.is_error or input_result.value is None:
-                logger.warning(f"Journal entry {uid} not found for download")
-                return render_inline_error("Journal entry not found")
-
-            je_input = input_result.value
-            if je_input.user_uid != user_uid:
-                logger.warning(
-                    f"User {user_uid} attempted to download journal {uid} owned by {je_input.user_uid}"
-                )
-                return render_inline_error("Not authorized to download this journal entry")
-
-            if not journal_output_service:
-                return render_inline_error("Output service unavailable")
-
-            # Get the JeOutput for this input via TRANSFORMS relationship
-            output_result = await journal_output_service.get_je_output_for_input(uid)
-            if output_result.is_error or output_result.value is None:
-                logger.warning(f"No je_output found for journal entry {uid}")
+            # Ownership check + TRANSFORMS lookup in one call
+            download_result = await orchestrator.get_journal_for_download(uid, user_uid)
+            if download_result.is_error:
+                error_msg = str(download_result.error)
+                if "not found" in error_msg.lower():
+                    logger.warning(f"Journal entry {uid} not found for download")
+                    return render_inline_error("Journal entry not found")
+                if "not authorized" in error_msg.lower():
+                    logger.warning(
+                        f"User {user_uid} attempted to download journal {uid} — unauthorized"
+                    )
+                    return render_inline_error("Not authorized to download this journal entry")
+                logger.warning(f"No je_output found for journal entry {uid}: {error_msg}")
                 return render_inline_error("No output file available for this journal entry")
 
-            je_output = output_result.value
+            je_input, je_output = download_result.value
             if not je_output.output_file_path or not Path(je_output.output_file_path).exists():
                 logger.error(f"je_output file not found on disk for journal entry {uid}")
                 return render_inline_error("Output file not found on disk")
@@ -1052,14 +1027,6 @@ def create_journals_ui_routes(
         Returns:
             JSON with cleanup stats: {files_deleted: int, bytes_freed: int}
         """
-        if not journal_output_service:
-            return Result.fail(
-                Errors.system(
-                    message="Journal generator service not available",
-                    service="journal_output_service",
-                )
-            )
-
         # Parse dates
         try:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
@@ -1084,7 +1051,7 @@ def create_journals_ui_routes(
             f"Admin {current_user.uid} cleaning up je_outputs from {start_date} to {end_date}"
         )
 
-        result = journal_output_service.cleanup_date_range(start_dt, end_dt)
+        result = orchestrator.cleanup_date_range(start_dt, end_dt)
 
         if result.is_error:
             return Result.fail(result)

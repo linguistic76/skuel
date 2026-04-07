@@ -1144,6 +1144,18 @@ async def compose_services(
         )
         logger.info("✅ Admin Orchestrator created")
 
+        from core.orchestrator.journal_orchestrator import JournalOrchestrator
+
+        journal_orchestrator = JournalOrchestrator(
+            journal_input_service=journal_input_service,
+            journal_output_service=journal_output_service,
+            exercises_service=exercise_service,
+            user_service=user_service,
+            batch_transcription_service=batch_transcription,
+            batch_processing_service=batch_processing,
+        )
+        logger.info("✅ Journal Orchestrator created")
+
         # Wire orchestration services into context_service
         context_service.goal_task_generator = orchestration["goal_task_generator"]
         context_service.habits_service = activity_services["habits"]
@@ -1277,6 +1289,7 @@ async def compose_services(
             explore_orchestrator=explore_orchestrator,
             library_orchestrator=library_orchestrator,
             teacher_orchestrator=teacher_orchestrator,
+            journal_orchestrator=journal_orchestrator,
             # Advanced
             calendar_optimization=advanced["calendar_optimization"],
             jupyter_sync=advanced["jupyter_sync"],

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
     from core.orchestrator.admin_orchestrator import AdminOrchestrator
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
+    from core.orchestrator.journal_orchestrator import JournalOrchestrator
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
     from core.orchestrator.profile_orchestrator import ProfileOrchestrator
     from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
@@ -299,6 +300,7 @@ class Services:
     explore_orchestrator: "ExploreOrchestrator | None" = None
     library_orchestrator: "LibraryOrchestrator | None" = None
     teacher_orchestrator: "TeacherOrchestrator | None" = None
+    journal_orchestrator: "JournalOrchestrator | None" = None
 
     # Advanced services
     calendar_optimization: "CalendarOptimizationService | None" = None
