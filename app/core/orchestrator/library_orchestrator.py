@@ -4,25 +4,40 @@
 Application orchestrator for the Library Hub. Consolidates Exercises,
 Resources, KU, PathStep, Submissions, and UserRelationship services
 into a single unified facade for UI rendering.
+
+All service dependencies are required — bootstrap raises if any are missing
+(Fail-Fast Dependency Philosophy).
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from core.utils.errors import Errors
-from core.utils.result import Result
+from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.exercises.exercise_service import ExerciseService
+    from core.services.ku_service import KuService
+    from core.services.ps_service import PsService
+    from core.services.resource_service import ResourceService
+    from core.services.submissions.submissions_service import SubmissionsService
+    from core.services.user_relationship_service import UserRelationshipService
 
 
 class LibraryOrchestrator:
-    """Facade for the Library Hub UI layer."""
+    """Facade for the Library Hub UI layer.
+
+    Abstracts cross-domain reads so the UI routing layer depends only on this
+    orchestrator. All service dependencies are required — bootstrap raises if
+    any are missing (Fail-Fast Dependency Philosophy).
+    """
 
     def __init__(
         self,
-        exercises_service: Any | None = None,
-        resource_service: Any | None = None,
-        ku_service: Any | None = None,
-        ps_service: Any | None = None,
-        submissions_service: Any | None = None,
-        user_relationship_service: Any | None = None,
+        exercises_service: "ExerciseService",
+        resource_service: "ResourceService",
+        ku_service: "KuService",
+        ps_service: "PsService",
+        submissions_service: "SubmissionsService",
+        user_relationship_service: "UserRelationshipService",
     ):
         self._exercises = exercises_service
         self._resource = resource_service
@@ -39,8 +54,6 @@ class LibraryOrchestrator:
         self, user_uid: str
     ) -> Result[list[Any]]:
         """Get exercises assigned to the student with submission/feedback status."""
-        if not self._exercises:
-            return Result.fail(Errors.system("Exercise service not initialized"))
         return await self._exercises.get_student_exercises_with_status(user_uid)
 
     # ------------------------------------------------------------------
@@ -49,8 +62,6 @@ class LibraryOrchestrator:
 
     async def list_resources(self) -> Result[list[Any]]:
         """List all admin-curated resources."""
-        if not self._resource:
-            return Result.fail(Errors.system("Resource service not initialized"))
         return await self._resource.list_all()
 
     # ------------------------------------------------------------------
@@ -61,8 +72,6 @@ class LibraryOrchestrator:
         self, user_uid: str, limit: int = 50
     ) -> Result[list[Any]]:
         """List user's exercise submissions."""
-        if not self._submissions:
-            return Result.fail(Errors.system("Submissions service not initialized"))
         from core.models.enums.entity_enums import EntityType
 
         return await self._submissions.list_submissions(
@@ -73,19 +82,15 @@ class LibraryOrchestrator:
     # Bookmarked KU
     # ------------------------------------------------------------------
 
-    async def get_pinned_entities(self, user_uid: str) -> Result[Any]:
-        """Get UIDs of entities pinned by the user."""
-        if not self._user_relationships:
-            return Result.ok([])
-        return await self._user_relationships.get_pinned_entities(user_uid)
+    async def get_bookmarked_kus(
+        self, user_uid: str, limit: int | None = None
+    ) -> Result[list[Any]]:
+        """Get the KU entities that the user has pinned/bookmarked.
 
-    async def get_bookmarked_kus(self, user_uid: str) -> Result[list[Any]]:
-        """Get the KU entities that the user has pinned/bookmarked."""
-        if not self._ku or not self._user_relationships:
-            return Result.fail(
-                Errors.system("KU or relationship service not initialized")
-            )
-
+        Args:
+            user_uid: The user to look up pins for.
+            limit: Cap the returned list. ``None`` returns all pinned KUs.
+        """
         pins_result = await self._user_relationships.get_pinned_entities(user_uid)
         if pins_result.is_error:
             return pins_result
@@ -94,31 +99,10 @@ class LibraryOrchestrator:
         if not pinned_uids:
             return Result.ok([])
 
-        result = await self._ku.core.backend.get_many(pinned_uids)
+        fetch_uids = pinned_uids[:limit] if limit is not None else pinned_uids
+        result = await self._ku.core.backend.get_many(fetch_uids)
         if result.is_error:
             return result
-
-        kus = [ku for ku in (result.value or []) if ku is not None]
-        return Result.ok(kus)
-
-    async def get_bookmarked_kus_preview(
-        self, user_uid: str, limit: int = 3
-    ) -> Result[list[Any]]:
-        """Get a limited preview of bookmarked KUs for hub cards."""
-        if not self._ku or not self._user_relationships:
-            return Result.ok([])
-
-        pins_result = await self._user_relationships.get_pinned_entities(user_uid)
-        if pins_result.is_error:
-            return Result.ok([])
-
-        pinned_uids = list(pins_result.value or [])
-        if not pinned_uids:
-            return Result.ok([])
-
-        result = await self._ku.core.backend.get_many(pinned_uids[:limit])
-        if result.is_error:
-            return Result.ok([])
 
         kus = [ku for ku in (result.value or []) if ku is not None]
         return Result.ok(kus)
@@ -127,11 +111,15 @@ class LibraryOrchestrator:
     # Enrolled PathSteps
     # ------------------------------------------------------------------
 
-    async def get_enrolled_path_steps(self, user_uid: str) -> Result[list[Any]]:
-        """Get PathStep entities the user is currently enrolled in (IN_PROGRESS)."""
-        if not self._ps:
-            return Result.fail(Errors.system("PS service not initialized"))
+    async def get_enrolled_path_steps(
+        self, user_uid: str, limit: int | None = None
+    ) -> Result[list[Any]]:
+        """Get PathStep entities the user is currently enrolled in (IN_PROGRESS).
 
+        Args:
+            user_uid: The user to look up enrollment for.
+            limit: Cap the returned list. ``None`` returns all enrolled steps.
+        """
         uids_result = await self._ps.mastery.get_in_progress_step_uids(user_uid)
         if uids_result.is_error:
             return uids_result
@@ -140,31 +128,18 @@ class LibraryOrchestrator:
         if not enrolled_uids:
             return Result.ok([])
 
-        result = await self._ps.core.backend.get_many(enrolled_uids)
+        fetch_uids = enrolled_uids[:limit] if limit is not None else enrolled_uids
+        result = await self._ps.core.backend.get_many(fetch_uids)
         if result.is_error:
             return result
 
         steps = [s for s in (result.value or []) if s is not None]
         return Result.ok(steps)
 
-    async def get_enrolled_path_steps_preview(
-        self, user_uid: str, limit: int = 3
-    ) -> Result[list[Any]]:
-        """Get a limited preview of enrolled PathSteps for hub cards."""
-        if not self._ps:
-            return Result.ok([])
+    # ------------------------------------------------------------------
+    # Pinned entity UIDs (pass-through for sidebar / other consumers)
+    # ------------------------------------------------------------------
 
-        uids_result = await self._ps.mastery.get_in_progress_step_uids(user_uid)
-        if uids_result.is_error:
-            return Result.ok([])
-
-        enrolled_uids = list(uids_result.value or [])
-        if not enrolled_uids:
-            return Result.ok([])
-
-        result = await self._ps.core.backend.get_many(enrolled_uids[:limit])
-        if result.is_error:
-            return Result.ok([])
-
-        steps = [s for s in (result.value or []) if s is not None]
-        return Result.ok(steps)
+    async def get_pinned_entities(self, user_uid: str) -> Result[Any]:
+        """Get UIDs of entities pinned by the user."""
+        return await self._user_relationships.get_pinned_entities(user_uid)

@@ -18,10 +18,6 @@ def create_library_routes(
     app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
 ) -> None:
     """Wire Library hub routes via LibraryOrchestrator."""
-    if not services or not services.library_orchestrator:
-        return
-
     create_library_ui_routes(app, rt, orchestrator=services.library_orchestrator)
-
     logger.info("Library hub routes wired")
 

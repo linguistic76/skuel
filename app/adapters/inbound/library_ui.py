@@ -15,13 +15,16 @@ Dual-purpose: returns fragment for HTMX requests, full sidebar page for direct n
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from core.orchestrator.library_orchestrator import LibraryOrchestrator
 from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
@@ -207,7 +210,7 @@ def render_resource_list(resources: list[Any]) -> Div:
 def create_library_ui_routes(
     _app: Any,
     rt: RouteDecorator,
-    orchestrator: Any,
+    orchestrator: "LibraryOrchestrator",
 ) -> None:
     """Create /library hub routes.
 
@@ -244,15 +247,12 @@ def create_library_ui_routes(
         """Exercises with submission/feedback status via group membership."""
         user_uid = require_authenticated_user(request)
 
-        if not orchestrator:
-            fragment = render_error_banner("Library orchestrator unavailable")
+        result = await orchestrator.get_student_exercises_with_status(user_uid)
+        if result.is_error:
+            logger.error(f"Library: failed to load student exercises: {result.error}")
+            fragment = render_error_banner("Failed to load exercises", str(result.error))
         else:
-            result = await orchestrator.get_student_exercises_with_status(user_uid)
-            if result.is_error:
-                logger.error(f"Library: failed to load student exercises: {result.error}")
-                fragment = render_error_banner("Failed to load exercises", str(result.error))
-            else:
-                fragment = render_exercise_list(result.value or [])
+            fragment = render_exercise_list(result.value or [])
 
         if request.headers.get("HX-Request"):
             return fragment
@@ -269,15 +269,12 @@ def create_library_ui_routes(
         """User's exercise submissions."""
         user_uid = require_authenticated_user(request)
 
-        if not orchestrator:
-            fragment = render_error_banner("Library orchestrator unavailable")
+        result = await orchestrator.list_exercise_submissions(user_uid)
+        if result.is_error:
+            logger.error(f"Library: failed to load submissions: {result.error}")
+            fragment = render_error_banner("Failed to load submissions", str(result.error))
         else:
-            result = await orchestrator.list_exercise_submissions(user_uid)
-            if result.is_error:
-                logger.error(f"Library: failed to load submissions: {result.error}")
-                fragment = render_error_banner("Failed to load submissions", str(result.error))
-            else:
-                fragment = render_submissions_list(result.value or [])
+            fragment = render_submissions_list(result.value or [])
 
         if request.headers.get("HX-Request"):
             return fragment
@@ -292,15 +289,12 @@ def create_library_ui_routes(
     @rt("/library/resources")
     async def library_resources(request: Request) -> Any:
         """Admin-curated Resource entity list. Public: shared content."""
-        if not orchestrator:
-            fragment = render_error_banner("Library orchestrator unavailable")
+        result = await orchestrator.list_resources()
+        if result.is_error:
+            logger.error(f"Library: failed to load Resources: {result.error}")
+            fragment = render_error_banner("Failed to load resources", str(result.error))
         else:
-            result = await orchestrator.list_resources()
-            if result.is_error:
-                logger.error(f"Library: failed to load Resources: {result.error}")
-                fragment = render_error_banner("Failed to load resources", str(result.error))
-            else:
-                fragment = render_resource_list(result.value or [])
+            fragment = render_resource_list(result.value or [])
 
         if request.headers.get("HX-Request"):
             return fragment
@@ -315,17 +309,14 @@ def create_library_ui_routes(
     @rt("/library/ku")
     async def library_ku(request: Request) -> Any:
         """Ku the user has bookmarked (PINNED relationship)."""
-        if not orchestrator:
-            fragment = render_error_banner("Library orchestrator unavailable")
+        user = get_current_user(request)
+        if not user:
+            fragment = EmptyState(
+                title="Sign in to see your bookmarked Ku",
+                description="Bookmark Ku on the Knowledge page to track what matters to you.",
+            )
         else:
-            user = get_current_user(request)
-            if not user:
-                fragment = EmptyState(
-                    title="Sign in to see your bookmarked Ku",
-                    description="Bookmark Ku on the Knowledge page to track what matters to you.",
-                )
-            else:
-                fragment = await _build_ku_fragment(user)
+            fragment = await _build_ku_fragment(user)
 
         if request.headers.get("HX-Request"):
             return fragment
@@ -382,17 +373,14 @@ def create_library_ui_routes(
     @rt("/library/path-steps")
     async def library_path_steps(request: Request) -> Any:
         """Path Steps the user is enrolled in (IN_PROGRESS)."""
-        if not orchestrator:
-            fragment = render_error_banner("Library orchestrator unavailable")
+        user = get_current_user(request)
+        if not user:
+            fragment = EmptyState(
+                title="Sign in to see your enrolled Path Steps",
+                description="Start a Path Step on the Path Steps page to track your progress here.",
+            )
         else:
-            user = get_current_user(request)
-            if not user:
-                fragment = EmptyState(
-                    title="Sign in to see your enrolled Path Steps",
-                    description="Start a Path Step on the Path Steps page to track your progress here.",
-                )
-            else:
-                fragment = await _build_path_steps_fragment(user)
+            fragment = await _build_path_steps_fragment(user)
 
         if request.headers.get("HX-Request"):
             return fragment
@@ -455,8 +443,6 @@ def create_library_ui_routes(
     async def library_exercises_preview(request: Request) -> Any:
         """HTMX fragment: top 3 exercises with status pill for hub preview."""
         user_uid = require_authenticated_user(request)
-        if not orchestrator:
-            return HubPreviewEmpty("exercises")
         result = await orchestrator.get_student_exercises_with_status(user_uid)
         if result.is_error:
             return HubPreviewEmpty("exercises")
@@ -479,8 +465,6 @@ def create_library_ui_routes(
     @rt("/api/library/resources/preview")
     async def library_resources_preview(request: Request) -> Any:
         """HTMX fragment: top 3 resources with media badge for hub preview."""
-        if not orchestrator:
-            return HubPreviewEmpty("resources")
         result = await orchestrator.list_resources()
         if result.is_error:
             return HubPreviewEmpty("resources")
@@ -504,9 +488,9 @@ def create_library_ui_routes(
     async def library_ku_preview(request: Request) -> Any:
         """HTMX fragment: top 3 bookmarked Ku for hub preview."""
         user = get_current_user(request)
-        if not user or not orchestrator:
+        if not user:
             return HubPreviewEmpty("bookmarked Ku")
-        result = await orchestrator.get_bookmarked_kus_preview(user, limit=3)
+        result = await orchestrator.get_bookmarked_kus(user, limit=3)
         if result.is_error:
             return HubPreviewEmpty("bookmarked Ku")
         kus = result.value or []
@@ -526,9 +510,9 @@ def create_library_ui_routes(
     async def library_path_steps_preview(request: Request) -> Any:
         """HTMX fragment: top 3 enrolled path steps for hub preview."""
         user = get_current_user(request)
-        if not user or not orchestrator:
+        if not user:
             return HubPreviewEmpty("enrolled path steps")
-        result = await orchestrator.get_enrolled_path_steps_preview(user, limit=3)
+        result = await orchestrator.get_enrolled_path_steps(user, limit=3)
         if result.is_error:
             return HubPreviewEmpty("enrolled path steps")
         steps = result.value or []
