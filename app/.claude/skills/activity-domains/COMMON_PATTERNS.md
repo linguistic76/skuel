@@ -68,13 +68,19 @@ Activity Domains use a read-focused UI — no CRUD forms, data enters via `/uplo
 /api/{domain}/{uid}/status # HTMX status toggle (POST)
 ```
 
+**Cross-domain connections** (`core/utils/connection_fetcher.py`):
+- `fetch_entity_connections(backend, config, entity_uids)` — unified batch query for cross-domain relationships. Each domain has a `ConnectionConfig` constant (e.g. `TASK_CONNECTION_CONFIG`) specifying entity label, direction (`outgoing` or `incoming` for gravity wells), and relationship types.
+- Returns `dict[str, list[dict[str, str]]]` with normalized keys: `rel_type`, `connected_uid`, `title`, `connected_type`.
+
+**Entity filtering** (`core/utils/entity_filters.py`):
+- `filter_tasks()`, `filter_goals()`, `filter_habits()`, `filter_events()`, `filter_choices()`, `filter_principles()` — pure functions applying status/category/priority filtering and sorting to domain model lists. Business rules (what "active" or "overdue" means) live here, not in UI views.
+
 **Shared UI utilities** (`ui/activities/_shared.py`):
 - `MetadataField(label, *value)` — label + value pair for detail page metadata grids. Variadic `*value` supports simple (`Span`), paragraph (`P`), list (`Ul`), and multi-element (stars + score) content. Used ~60 times across all 6 detail views.
 - `safe_id(uid)` — converts UIDs to safe HTML id attributes (replaces `.` and `:` with `-`)
-- `PRIORITY_ORDER` — `{"critical": 0, "high": 1, "medium": 2, "low": 3}` sort-key dict
 - `CONNECTION_ICONS` — universal icon + href mapping for all 9 cross-domain connection types
-- `ConnectionBadges(connections)` — renders icon+title badge links for outgoing connections (used by Tasks, Habits, Events, Choices)
-- `ConnectionSummary(connections)` — renders compact icon+count badges for incoming connections (used by gravity-well domains: Goals, Principles)
+- `ConnectionBadges(connections)` — renders icon+title badge links for outgoing connections (used by Tasks, Habits, Events, Choices). Reads `connected_uid`/`connected_type` keys.
+- `ConnectionSummary(connections)` — renders compact icon+count badges for incoming connections (used by gravity-well domains: Goals, Principles). Reads `connected_type` keys.
 
 Calendar cross-cutting system still works (reads service protocols, not UI routes).
 

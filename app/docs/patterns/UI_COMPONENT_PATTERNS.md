@@ -1344,7 +1344,9 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 
 **Route thinning rule (2026-04-07):** A route file importing `Form`, `Input`, `Label`, or `Textarea` directly is a signal that HTML construction is leaking into routing. Extract those blocks to a `render_*` function in the domain's `ui/` package.
 
-**Teaching UI as canonical example:** `ui/teaching/forms.py` holds `render_feedback_submission_form()`, `render_revision_request_form()`, `render_submission_metadata()`, `render_form_responses_section()`. `teaching_ui.py` and `teaching_forms_ui.py` call these functions — they contain no inline `Form`/`Input`/`Label` construction. Status constants and dict→dataclass converters live in `ui/teaching/types.py` (single source of truth).
+**Business logic extraction rule (2026-04-07):** Raw Cypher queries, domain filtering/sorting, and workflow bucketing must not live in route or UI view files. Cross-domain connection fetching uses `fetch_entity_connections()` from `core/utils/connection_fetcher.py`. Entity filtering uses `filter_{domain}()` from `core/utils/entity_filters.py`. Domain predicate methods (`is_overdue()`, `is_keystone`, `is_upcoming()`, `is_today()`, `is_deadline_past()`) live on domain models, not as UI helpers.
+
+**Teaching UI as canonical example:** `ui/teaching/forms.py` holds `render_feedback_submission_form()`, `render_revision_request_form()`, `render_submission_metadata()`, `render_form_responses_section()`. `teaching_ui.py` and `teaching_forms_ui.py` call these functions — they contain no inline `Form`/`Input`/`Label` construction. Dict→dataclass converters live in `ui/teaching/types.py`; submission bucketing lives in `TeacherOrchestrator.get_bucketed_student_submissions()`.
 
 **Exercises UI as second example:** `ui/exercises/editor.py` holds `render_exercise_editor()` (the Form/Input/Label/Textarea-heavy component), `ui/exercises/detail.py` holds `render_exercise_view()` and `render_exercise_student_detail()`, `ui/exercises/cards.py` holds `render_exercises_list()` and `render_exercise_card()`. `exercises_ui.py` is ~180 lines — pure auth + service call + delegation.
 
@@ -1478,7 +1480,7 @@ Domains outside the Activity pattern use the same principle — service methods 
 
 **Insights** (`insights_ui.py`): Module-level `filter_insights()` and `build_filter_query_string()` helpers DRY the filtering logic shared between `insights_dashboard` and `load_more_insights` routes.
 
-**Pattern:** Routes should only do: authenticate → parse → call service → handle error → render. Data assembly, computation, and reshaping belong in service methods.
+**Pattern:** Routes should only do: authenticate → parse → call service → handle error → render. Data assembly, computation, and reshaping belong in service methods. Entity filtering/sorting lives in `core/utils/entity_filters.py`, not in UI view files. Cross-domain connection fetching lives in `core/utils/connection_fetcher.py`, not in route files.
 
 ### Route-Level Conventions
 

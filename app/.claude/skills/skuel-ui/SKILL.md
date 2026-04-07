@@ -1191,7 +1191,9 @@ When building a new SKUEL page or feature, verify:
 | `/ui/learning_loop/` | Shared learning loop renderers: `exercise_status.py` (status pills, action links, exercise list), `submissions_section.py` (PS submissions), `feedback_section.py` (PS feedback) |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/activities/filter_bar.py` | Config-driven `ActivityFilterBar` component (`FilterBarConfig`, `FilterSelect`) — shared across all 6 Activity Domains |
-| `/ui/activities/_shared.py` | Shared Activity Domain UI utilities (`MetadataField`, `safe_id`, `PRIORITY_ORDER`, `CONNECTION_ICONS`, `ConnectionBadges`, `ConnectionSummary`) |
+| `/ui/activities/_shared.py` | Shared Activity Domain UI utilities (`MetadataField`, `safe_id`, `CONNECTION_ICONS`, `ConnectionBadges`, `ConnectionSummary`). Connection dicts use `connected_uid`/`connected_type` keys. |
+| `/core/utils/connection_fetcher.py` | Unified `fetch_entity_connections()` — batch cross-domain connection query with per-domain `ConnectionConfig` constants |
+| `/core/utils/entity_filters.py` | `filter_tasks/goals/habits/events/choices/principles()` — business filtering/sorting logic extracted from UI views |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, PS, LP profile views |
 | `/ui/profile/overview.py` | `OverviewView` + all intelligence helper functions |

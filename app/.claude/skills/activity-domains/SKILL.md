@@ -81,6 +81,8 @@ ui/activities/activity_hub.py        # ActivityHubView — 6 domain preview bloc
 ui/activities/{domain}_views.py      # Pure view components (StatsBar, List, Card, DetailView, filter config)
 ui/activities/filter_bar.py          # Shared config-driven filter bar (plain <select>, not <uk-select>)
 ui/activities/_shared.py             # Shared helpers (MetadataField, ConnectionBadges, safe_id)
+core/utils/connection_fetcher.py     # Unified cross-domain connection fetching (replaces per-domain Cypher)
+core/utils/entity_filters.py        # filter_tasks/goals/habits/events/choices/principles (business rules)
 ```
 
 ## Common Operations

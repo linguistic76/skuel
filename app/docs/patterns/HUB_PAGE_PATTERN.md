@@ -166,7 +166,7 @@ HTMX matches each response fragment to its page target by `id` and swaps them in
 
 1. **Sidebar badges** (`user_profile_ui.py:363`) — `GET /api/sidebar/badges` returns 9 badge spans (activity + curriculum domains) as OOB swaps. The sidebar renders each badge placeholder with its `id`; a single hidden trigger on the sidebar fires once on load.
 
-2. **StudentHub submission blocks** (`teaching_ui.py`) — `GET /api/teaching/students/{uid}/submissions/preview` returns 3 bucket previews (pending, revision, completed) as OOB swaps. One DB call, three panels populated.
+2. **StudentHub submission blocks** (`teaching_ui.py`) — `GET /api/teaching/students/{uid}/submissions/preview` returns 3 bucket previews (pending, revision, completed) as OOB swaps. One DB call, three panels populated. Bucketing logic lives in `TeacherOrchestrator.get_bucketed_student_submissions()`.
 
 **Combined endpoint pattern (FastHTML):**
 
@@ -176,6 +176,7 @@ HTMX matches each response fragment to its page target by `id` and swaps them in
 async def student_submissions_preview(request, uid, current_user=None):
     """OOB fragment: all 3 submission bucket previews in one DB round-trip."""
     user_uid = require_authenticated_user(request)
+    # Orchestrator returns bucketed raw dicts; route converts to SubmissionRow view models
     pending, revision, completed, _ = await _get_bucketed_submissions(user_uid, uid)
 
     def _make_fragment(slug, rows, empty_label):

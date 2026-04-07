@@ -1171,7 +1171,7 @@ Each domain defines a module-level config constant (`TASK_FILTER_CONFIG`, `GOAL_
 
 Read-focused task view components (2026-03-30). A clean list with HTMX status toggle, priority/status filtering, and knowledge connections. Uses shared utilities from `_shared.py`.
 
-Components: `TASK_FILTER_CONFIG`, `TaskStatsBar`, `TaskList`, `TaskCard`, `filter_tasks`.
+Components: `TASK_FILTER_CONFIG`, `TaskStatsBar`, `TaskList`, `TaskCard`. Filter logic: `filter_tasks()` in `core/utils/entity_filters.py`.
 
 Routes: `GET /tasks` (page), `GET /tasks/list-fragment` (HTMX), `POST /api/tasks/{uid}/status` (status update).
 
