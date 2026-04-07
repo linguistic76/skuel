@@ -365,6 +365,8 @@ def create_explore_api_routes(
     Args:
         orchestrator: ExploreOrchestrator for unified data access.
     """
+    if orchestrator is None:
+        raise RuntimeError("ExploreOrchestrator is required — bootstrap misconfigured")
 
     @rt("/api/explore/search")
     async def explore_search(
@@ -435,6 +437,8 @@ def create_explore_ui_routes(
     Args:
         orchestrator: ExploreOrchestrator for unified data access.
     """
+    if orchestrator is None:
+        raise RuntimeError("ExploreOrchestrator is required — bootstrap misconfigured")
 
     # -----------------------------------------------------------------
     # GET /explore — Discovery index

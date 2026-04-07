@@ -7,25 +7,39 @@ into a single unified facade for UI rendering.
 
 Absorbs the heavy ``_load_explore_data`` helper and the Vis.js graph
 generation that previously lived inline inside ``explore_ui.py``.
+
+All service dependencies are required — bootstrap raises if any are missing
+(Fail-Fast Dependency Philosophy).
 """
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from core.utils.errors import Errors
-from core.utils.result import Result
+from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.exercises.exercise_service import ExerciseService
+    from core.services.ku_service import KuService
+    from core.services.ps_service import PsService
+    from core.services.submissions.submissions_search_service import SubmissionsSearchService
+    from core.services.user_relationship_service import UserRelationshipService
 
 
 class ExploreOrchestrator:
-    """Facade for the Explore / Knowledge Hub UI layer."""
+    """Facade for the Explore / Knowledge Hub UI layer.
+
+    Abstracts cross-domain reads so the UI routing layer depends only on this
+    orchestrator. All service dependencies are required — bootstrap raises if
+    any are missing (Fail-Fast Dependency Philosophy).
+    """
 
     def __init__(
         self,
-        ku_service: Any,
-        ps_service: Any,
-        user_relationship_service: Any | None = None,
-        exercises_service: Any | None = None,
-        submissions_search_service: Any | None = None,
+        ku_service: "KuService",
+        ps_service: "PsService",
+        user_relationship_service: "UserRelationshipService",
+        exercises_service: "ExerciseService",
+        submissions_search_service: "SubmissionsSearchService",
     ):
         self._ku = ku_service
         self._ps = ps_service
@@ -38,23 +52,23 @@ class ExploreOrchestrator:
     # ------------------------------------------------------------------
 
     @property
-    def ku_service(self) -> Any:
+    def ku_service(self) -> "KuService":
         return self._ku
 
     @property
-    def ps_service(self) -> Any:
+    def ps_service(self) -> "PsService":
         return self._ps
 
     @property
-    def user_relationship_service(self) -> Any:
+    def user_relationship_service(self) -> "UserRelationshipService":
         return self._user_relationships
 
     @property
-    def exercises_service(self) -> Any:
+    def exercises_service(self) -> "ExerciseService":
         return self._exercises
 
     @property
-    def submissions_search_service(self) -> Any:
+    def submissions_search_service(self) -> "SubmissionsSearchService":
         return self._submissions_search
 
     # ------------------------------------------------------------------
@@ -63,26 +77,18 @@ class ExploreOrchestrator:
 
     async def get_ku(self, uid: str) -> Result[Any]:
         """Fetch a Knowledge Unit by UID."""
-        if not self._ku:
-            return Result.fail(Errors.system("KU service not initialized"))
         return await self._ku.get_ku(uid)
 
     async def get_ku_learning_state(self, user_uid: str, ku_uid: str) -> Result[dict]:
         """Get a user's learning state for a specific KU."""
-        if not self._ku:
-            return Result.fail(Errors.system("KU service not initialized"))
         return await self._ku.get_ku_learning_state(user_uid, ku_uid)
 
     async def get_exercises_for_curriculum(self, ku_uid: str) -> Result[list]:
         """Get exercises associated with a KU."""
-        if not self._exercises:
-            return Result.ok([])
         return await self._exercises.get_exercises_for_curriculum(ku_uid)
 
     async def get_pinned_entities(self, user_uid: str) -> Result[Any]:
         """Get UIDs of entities pinned by the user."""
-        if not self._user_relationships:
-            return Result.ok(set())
         return await self._user_relationships.get_pinned_entities(user_uid)
 
     # ------------------------------------------------------------------
@@ -91,33 +97,24 @@ class ExploreOrchestrator:
 
     async def get_ps_with_content(self, uid: str) -> Result[Any]:
         """Fetch a PathStep with its full content body."""
-        if not self._ps:
-            return Result.fail(Errors.system("PS service not initialized"))
         return await self._ps.get_with_content(uid)
 
     async def record_ps_view(self, user_uid: str, ps_uid: str) -> None:
         """Record that a user viewed a PathStep (best-effort)."""
-        if self._ps:
-            await self._ps.mastery.record_view(user_uid, ps_uid)
+        await self._ps.mastery.record_view(user_uid, ps_uid)
 
     async def get_ps_learning_state(self, user_uid: str, ps_uid: str) -> Result[Any]:
         """Get learning mastery state for a specific PathStep."""
-        if not self._ps:
-            return Result.fail(Errors.system("PS service not initialized"))
         return await self._ps.mastery.get_learning_state(user_uid, ps_uid)
 
     async def get_exercises_for_path_step(self, ps_uid: str) -> Result[list]:
         """Get exercises linked to a PathStep (unauthenticated read-only view)."""
-        if not self._ps:
-            return Result.ok([])
         return await self._ps.get_exercises_for_path_step(ps_uid)
 
     async def get_exercises_for_path_step_with_status(
         self, ps_uid: str, user_uid: str
     ) -> Result[list]:
         """Get exercises for a PathStep with per-user submission/feedback status."""
-        if not self._exercises:
-            return Result.fail(Errors.system("Exercises service not initialized"))
         return await self._exercises.get_exercises_for_path_step_with_status(
             ps_uid, user_uid
         )
@@ -126,10 +123,6 @@ class ExploreOrchestrator:
         self, user_uid: str, ps_uid: str
     ) -> Result[list]:
         """Get a user's submissions + feedback for a specific PathStep."""
-        if not self._submissions_search:
-            return Result.fail(
-                Errors.system("Submissions search service not initialized")
-            )
         return await self._submissions_search.get_submissions_for_path_step(
             user_uid, ps_uid
         )
@@ -149,31 +142,23 @@ class ExploreOrchestrator:
             (unified_items, pinned_uids, learning_states)
         """
         # Content queries
-        ku_coro = (
-            self._ku.core.list(limit=500)
-            if self._ku and getattr(self._ku, "core", None)
-            else asyncio.sleep(0)
-        )
-        ps_coro = (
-            self._ps.core.list(limit=200)
-            if self._ps and getattr(self._ps, "core", None)
-            else asyncio.sleep(0)
-        )
+        ku_coro = self._ku.core.list(limit=500)
+        ps_coro = self._ps.core.list(limit=200)
 
         # User-specific queries
         pins_coro = (
             self._user_relationships.get_pinned_entities(user_uid)
-            if user_uid and self._user_relationships
+            if user_uid
             else asyncio.sleep(0)
         )
         ku_states_coro = (
             self._ku.get_user_learning_states(user_uid)
-            if user_uid and self._ku
+            if user_uid
             else asyncio.sleep(0)
         )
         ps_states_coro = (
             self._ps.mastery.get_in_progress_step_uids(user_uid)
-            if user_uid and self._ps
+            if user_uid
             else asyncio.sleep(0)
         )
 
@@ -255,66 +240,50 @@ class ExploreOrchestrator:
             return {"nodes": nodes, "edges": edges}
 
         # Studying / understood KUs
-        studying_ku_uids: list[str] = []
-        if self._ku:
-            states_result = await self._ku.get_user_learning_states(user_uid)
-            if states_result.is_ok and states_result.value:
-                for rec in states_result.value:
-                    ku_uid = rec.get("uid", "")
-                    ku_title = rec.get("title", ku_uid)
-                    state = (
-                        "studying" if rec.get("is_studying") else "understood"
+        states_result = await self._ku.get_user_learning_states(user_uid)
+        if states_result.is_ok and states_result.value:
+            for rec in states_result.value:
+                ku_uid = rec.get("uid", "")
+                ku_title = rec.get("title", ku_uid)
+                state = "studying" if rec.get("is_studying") else "understood"
+                if rec.get("is_studying") or rec.get("is_understood"):
+                    nodes.append(
+                        {
+                            "id": ku_uid,
+                            "label": ku_title,
+                            "type": "ku",
+                            "group": "related",
+                            "learning_state": state,
+                            "is_pinned": False,
+                        }
                     )
-                    if rec.get("is_studying") or rec.get("is_understood"):
-                        studying_ku_uids.append(ku_uid)
-                        nodes.append(
-                            {
-                                "id": ku_uid,
-                                "label": ku_title,
-                                "type": "ku",
-                                "group": "related",
-                                "learning_state": state,
-                                "is_pinned": False,
-                            }
-                        )
 
         # In-progress PathSteps
-        if self._ps:
-            in_progress_result = (
-                await self._ps.mastery.get_in_progress_step_uids(user_uid)
-            )
-            if (
-                not in_progress_result.is_error
-                and in_progress_result.value
-            ):
-                in_progress_ps_uids = list(in_progress_result.value[:10])
-                if in_progress_ps_uids:
-                    batch_result = await self._ps.get_steps_batch(
-                        in_progress_ps_uids
+        in_progress_result = await self._ps.mastery.get_in_progress_step_uids(user_uid)
+        if not in_progress_result.is_error and in_progress_result.value:
+            in_progress_ps_uids = list(in_progress_result.value[:10])
+            if in_progress_ps_uids:
+                batch_result = await self._ps.get_steps_batch(in_progress_ps_uids)
+                if batch_result.is_ok and batch_result.value:
+                    nodes.extend(
+                        {
+                            "id": ps.uid,
+                            "label": ps.title or ps.uid,
+                            "type": "ps",
+                            "group": "related",
+                            "learning_state": "in_progress",
+                            "is_pinned": False,
+                        }
+                        for ps in batch_result.value
                     )
-                    if batch_result.is_ok and batch_result.value:
-                        nodes.extend(
-                            {
-                                "id": ps.uid,
-                                "label": ps.title or ps.uid,
-                                "type": "ps",
-                                "group": "related",
-                                "learning_state": "in_progress",
-                                "is_pinned": False,
-                            }
-                            for ps in batch_result.value
-                        )
 
         # Mark pinned entities
-        if self._user_relationships:
-            pins_result = await self._user_relationships.get_pinned_entities(
-                user_uid
-            )
-            if pins_result.is_ok and pins_result.value:
-                pinned_set = set(pins_result.value)
-                for node in nodes:
-                    if node["id"] in pinned_set:
-                        node["is_pinned"] = True
+        pins_result = await self._user_relationships.get_pinned_entities(user_uid)
+        if pins_result.is_ok and pins_result.value:
+            pinned_set = set(pins_result.value)
+            for node in nodes:
+                if node["id"] in pinned_set:
+                    node["is_pinned"] = True
 
         # Virtual "You" center node
         if nodes:
