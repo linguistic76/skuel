@@ -97,7 +97,7 @@ async def task_detail_content_fragment(request: Request) -> Any:
     uid = request.query_params.get("uid", "")
     task_result = await tasks_service.get_task(uid)
     if task_result.is_error or task_result.value.user_uid != user_uid:
-        return render_error_banner("Task not found")
+        return Div(render_error_banner("Task not found"), id="task-detail-content")
     task = task_result.value
     connections_map = await fetch_entity_connections(backend, config, [task.uid])
     return TaskDetailView(task, connections_map.get(task.uid, []))
@@ -115,7 +115,7 @@ async def explore_ku_detail(request: Request, uid: str) -> Any:
 async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
     ku_result = await orchestrator.get_ku(uid)
     if ku_result.is_error:
-        return Div(render_error_banner(f"Not found: {uid}"), ButtonLink("← Back", href="/explore"))
+        return Div(render_error_banner(f"Not found: {uid}"), ButtonLink("← Back", href="/explore"), id="ku-detail-content")
     return build_ku_main_column(ku_result.value, ...)
 ```
 

@@ -375,7 +375,7 @@ async def settings_content_fragment(request: Request) -> Any:
     return Div(render_preferences_editor(user), id="settings-content")
 ```
 
-The `id` on the fragment's root element is optional when using `hx_swap="outerHTML"` — the placeholder is replaced entirely. Add the `id` on error returns so retry attempts re-target correctly.
+**Always set `id=` on every fragment return** — success and error alike. The placeholder div that HTMX replaces carries the target id; once swapped out, that id is gone. A bare `render_error_banner(...)` without an `id` leaves nothing for retries to target. Rule: every `return` in a `*/content` fragment must include `id="<target-id>"` on its root element.
 
 **Navbar notification bell** is a miniature version of this pattern — already in `_notification_badge_placeholder()`:
 ```python
