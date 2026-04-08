@@ -8,7 +8,7 @@ captures only the methods called from routes.
 
 Protocols:
 - CalendarServiceOperations — Calendar aggregation
-- VisualizationOperations — Chart.js/Vis.js/Gantt formatting
+- VisualizationOperations — Chart.js/Vis.js/Gantt aggregation + formatting
 - SystemServiceOperations — Health checks and monitoring
 - CrossDomainAnalyticsOperations — Event-driven analytics
 - LifePathOperations — Vision-to-action bridge
@@ -21,7 +21,7 @@ Protocols:
 
 from collections.abc import Callable
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
@@ -132,13 +132,14 @@ class VisualizationOperations(Protocol):
     """Chart.js, Vis.js, and Gantt visualization operations.
 
     Route consumer: visualization_api.py
-    Implementation: VisualizationService
+    Implementation: VisualizationAggregationService
 
-    Includes both async data-fetching methods and sync formatting methods,
-    since routes call both.
+    Async methods only — each fetches domain data and returns a formatted
+    chart/timeline/gantt config. Pure formatting lives in VisualizationService
+    and is not part of this protocol.
+
+    See: core/services/analytics/visualization_aggregation_service.py
     """
-
-    # Async data-fetching + formatting methods (return Chart.js/Vis.js/Gantt configs)
 
     async def get_completion_chart_data(
         self,
@@ -202,67 +203,6 @@ class VisualizationOperations(Protocol):
         goal_uid: str,
     ) -> Result[GanttConfig]:
         """Get goal with tasks as Gantt data formatted for Frappe Gantt."""
-        ...
-
-    # Sync formatting methods (kept public for direct use/testing)
-
-    def format_completion_chart(
-        self,
-        completed: list[int],
-        total: list[int],
-        labels: list[str],
-        chart_type: Literal["line", "bar"] = "line",
-    ) -> Result[ChartJsConfig]:
-        """Format completion data for Chart.js."""
-        ...
-
-    def format_distribution_chart(
-        self,
-        data: dict[str, int],
-        title: str = "Distribution",
-        chart_type: Literal["pie", "doughnut", "bar"] = "doughnut",
-    ) -> Result[ChartJsConfig]:
-        """Format distribution data for Chart.js."""
-        ...
-
-    def format_streak_chart(
-        self,
-        streaks: list[dict[str, Any]],
-    ) -> Result[ChartJsConfig]:
-        """Format streak data for Chart.js."""
-        ...
-
-    def format_for_visjs(
-        self,
-        calendar_data: Any,
-        group_by: Literal["type", "project", "none"] = "type",
-    ) -> Result[VisTimelineConfig]:
-        """Format calendar data for Vis.js timeline."""
-        ...
-
-    def format_tasks_for_visjs(
-        self,
-        tasks: list[Any],
-        show_deadlines: bool = True,
-    ) -> Result[VisTimelineConfig]:
-        """Format tasks for Vis.js timeline."""
-        ...
-
-    def format_for_gantt(
-        self,
-        tasks: list[Any],
-        dependencies: dict[str, list[str]] | None = None,
-    ) -> Result[GanttConfig]:
-        """Format tasks for Frappe Gantt."""
-        ...
-
-    def format_goal_gantt(
-        self,
-        goal: Any,
-        tasks: list[Any],
-        milestones: list[dict[str, Any]] | None = None,
-    ) -> Result[GanttConfig]:
-        """Format goal with tasks for Gantt."""
         ...
 
 

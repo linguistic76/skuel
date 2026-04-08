@@ -1,7 +1,9 @@
 """Re-exports from core.services.visualization_service.
 
-VisualizationService has moved to core. This shim preserves backward compat
-for any direct imports of this module path.
+VisualizationService is the pure formatter (Chart.js/Vis.js/Gantt adapters).
+Data fetching and aggregation live in VisualizationAggregationService.
+
+See: core/services/analytics/visualization_aggregation_service.py
 """
 
 from core.services.visualization_service import (

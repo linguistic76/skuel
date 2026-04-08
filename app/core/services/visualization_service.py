@@ -2,7 +2,7 @@
 Visualization Service
 =====================
 
-Adapters for transforming SKUEL data to visualization library formats.
+Pure adapters for transforming SKUEL data to visualization library formats.
 
 Supports three visualization libraries:
 - Chart.js: Progress metrics, completion rates, trends
@@ -10,35 +10,31 @@ Supports three visualization libraries:
 - Frappe Gantt: Project planning with dependencies
 
 Architecture:
-- Adapts domain models to library-specific JSON formats
-- Async data-fetching methods call domain services
-- Sync formatting methods are pure transformations
+- Pure formatting: all methods are synchronous transformations of pre-fetched data
+- No domain service dependencies — callers supply the data
+- Data fetching and aggregation live in VisualizationAggregationService
+
+See: core/services/analytics/visualization_aggregation_service.py
 
 Usage:
-    service = VisualizationService(
-        tasks_service=...,
-        habits_service=...,
-        goals_service=...,
-        calendar_service=...,
-    )
+    service = VisualizationService()
 
-    # Chart.js
-    chart_data = await service.get_completion_chart_data(user_uid, "week")
+    # Chart.js — pass pre-computed counts
+    chart = service.format_completion_chart(completed=[3, 5], total=[5, 7], labels=["Mon", "Tue"])
 
-    # Vis.js Timeline
-    timeline_data = await service.get_timeline_data(user_uid, start, end)
+    # Vis.js Timeline — pass CalendarData from CalendarService
+    timeline = service.format_for_visjs(calendar_data, group_by="type")
 
-    # Frappe Gantt
-    gantt_data = await service.get_tasks_gantt_data(user_uid)
+    # Frappe Gantt — pass Task domain models
+    gantt = service.format_for_gantt(tasks, dependencies)
 """
 
 from dataclasses import asdict, dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any, ClassVar, Literal
 
 from core.models.enums import EntityStatus, Priority
 from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarItemType
-from core.models.type_hints import UserUID
 from core.ports.query_types import ChartJsConfig, GanttConfig, VisTimelineConfig
 from core.utils.logging import get_logger
 from core.utils.palette import SemanticColor
@@ -148,30 +144,18 @@ class GanttData:
 
 
 # =============================================================================
-# Visualization Service
+# Visualization Service (pure formatter — no domain service dependencies)
 # =============================================================================
 
 
 class VisualizationService:
     """
-    Transform SKUEL data models to visualization library formats.
+    Transform pre-fetched SKUEL data to visualization library formats.
 
-    Owns domain service dependencies for data aggregation.
-    Formatting methods are synchronous (pure transformation).
-    Data-fetching methods are async (call domain services).
+    All methods are synchronous pure transformations. No domain service
+    dependencies — data fetching and aggregation are handled by
+    VisualizationAggregationService.
     """
-
-    def __init__(
-        self,
-        tasks_service: Any,
-        habits_service: Any,
-        goals_service: Any,
-        calendar_service: Any,
-    ) -> None:
-        self.tasks_service = tasks_service
-        self.habits_service = habits_service
-        self.goals_service = goals_service
-        self.calendar_service = calendar_service
 
     ITEM_TYPE_GROUPS: ClassVar[dict[CalendarItemType, str]] = {
         CalendarItemType.TASK_WORK: "tasks",
@@ -207,11 +191,9 @@ class VisualizationService:
         if len(completed) != len(total) or len(completed) != len(labels):
             return Result.fail(Errors.validation("Data arrays must have same length"))
 
-        # Calculate completion rates
-        rates = []
-        for c, t in zip(completed, total, strict=False):
-            rate = round((c / t * 100) if t > 0 else 0, 1)
-            rates.append(rate)
+        rates = [
+            round((c / t * 100) if t > 0 else 0, 1) for c, t in zip(completed, total, strict=False)
+        ]
 
         config = ChartConfig(
             type=chart_type,
@@ -271,7 +253,6 @@ class VisualizationService:
         labels = list(data.keys())
         values = list(data.values())
 
-        # Generate colors for each segment
         color_cycle = SemanticColor.ALL
         colors = [color_cycle[i % len(color_cycle)] for i in range(len(labels))]
 
@@ -324,20 +305,17 @@ class VisualizationService:
         if not series:
             return Result.fail(Errors.validation("Series cannot be empty"))
 
-        datasets = []
         color_cycle = SemanticColor.ALL
-
-        for i, s in enumerate(series):
-            color = s.get("color", color_cycle[i % len(color_cycle)])
-            datasets.append(
-                ChartDataset(
-                    label=s["name"],
-                    data=s["data"],
-                    borderColor=color,
-                    backgroundColor="transparent",
-                    tension=0.3,
-                )
+        datasets = [
+            ChartDataset(
+                label=s["name"],
+                data=s["data"],
+                borderColor=s.get("color", color_cycle[i % len(color_cycle)]),
+                backgroundColor="transparent",
+                tension=0.3,
             )
+            for i, s in enumerate(series)
+        ]
 
         config = ChartConfig(
             type="line",
@@ -371,24 +349,20 @@ class VisualizationService:
         if not streaks:
             return Result.fail(Errors.validation("Streaks cannot be empty"))
 
-        labels = [s["name"] for s in streaks]
-        current_data = [s["current"] for s in streaks]
-        best_data = [s["best"] for s in streaks]
-
         config = ChartConfig(
             type="bar",
             data=ChartData(
-                labels=labels,
+                labels=[s["name"] for s in streaks],
                 datasets=[
                     ChartDataset(
                         label="Current Streak",
-                        data=current_data,
+                        data=[s["current"] for s in streaks],
                         backgroundColor=SemanticColor.SUCCESS,
                         borderColor=SemanticColor.SUCCESS,
                     ),
                     ChartDataset(
                         label="Best Streak",
-                        data=best_data,
+                        data=[s["best"] for s in streaks],
                         backgroundColor=SemanticColor.INFO,
                         borderColor=SemanticColor.INFO,
                     ),
@@ -427,18 +401,15 @@ class VisualizationService:
             Vis.js Timeline configuration dict
         """
         items: list[VisTimelineItem] = []
-        groups: list[VisTimelineGroup] = []
         group_ids: set[str] = set()
 
         for item in calendar_data.items:
             vis_item = self._calendar_item_to_visjs(item, group_by)
             items.append(vis_item)
-
-            # Track groups
             if vis_item.group and vis_item.group not in group_ids:
                 group_ids.add(vis_item.group)
 
-        # Build groups
+        groups: list[VisTimelineGroup] = []
         if group_by == "type":
             groups = self._build_type_groups(group_ids)
         elif group_by == "project":
@@ -477,7 +448,6 @@ class VisualizationService:
         items: list[VisTimelineItem] = []
 
         for task in tasks:
-            # Work block (scheduled date + duration)
             if task.scheduled_date:
                 start_dt = datetime.combine(
                     task.scheduled_date, datetime.min.time().replace(hour=9)
@@ -497,7 +467,6 @@ class VisualizationService:
                     )
                 )
 
-            # Deadline marker
             if show_deadlines and task.due_date:
                 deadline_dt = datetime.combine(
                     task.due_date, datetime.min.time().replace(hour=23, minute=59)
@@ -553,25 +522,20 @@ class VisualizationService:
         if not tasks:
             return Result.fail(Errors.validation("Tasks cannot be empty"))
 
+        from datetime import date, timedelta
+
         dependencies = dependencies or {}
         gantt_tasks: list[GanttTask] = []
 
         for task in tasks:
-            # Determine start and end dates
             start_date = task.scheduled_date or task.due_date or date.today()
             if task.due_date and task.due_date > start_date:
                 end_date = task.due_date
             else:
-                # Default: start + duration (convert minutes to days, minimum 1 day)
                 duration_days = max(1, (task.duration_minutes or 30) // (8 * 60))
                 end_date = start_date + timedelta(days=duration_days)
 
-            # Calculate progress
-            progress = self._calculate_task_progress(task)
-
-            # Get dependencies for this task
             task_deps = dependencies.get(task.uid, [])
-            deps_str = ", ".join(task_deps) if task_deps else ""
 
             gantt_tasks.append(
                 GanttTask(
@@ -579,8 +543,8 @@ class VisualizationService:
                     name=task.title,
                     start=start_date.isoformat(),
                     end=end_date.isoformat(),
-                    progress=progress,
-                    dependencies=deps_str,
+                    progress=self._calculate_task_progress(task),
+                    dependencies=", ".join(task_deps) if task_deps else "",
                     custom_class=self._get_gantt_class(task),
                 )
             )
@@ -615,9 +579,10 @@ class VisualizationService:
         Returns:
             Frappe Gantt configuration dict
         """
+        from datetime import date, timedelta
+
         gantt_tasks: list[GanttTask] = []
 
-        # Add goal as parent task
         goal_start = getattr(goal, "start_date", None) or date.today()
         goal_end = getattr(goal, "target_date", None) or goal_start + timedelta(days=90)
         goal_progress = getattr(goal, "progress", 0) or 0
@@ -633,7 +598,6 @@ class VisualizationService:
             )
         )
 
-        # Add tasks
         for task in tasks:
             start_date = task.scheduled_date or task.due_date or goal_start
             end_date = task.due_date or start_date + timedelta(days=1)
@@ -645,12 +609,11 @@ class VisualizationService:
                     start=start_date.isoformat(),
                     end=end_date.isoformat(),
                     progress=self._calculate_task_progress(task),
-                    dependencies=goal.uid,  # All tasks depend on goal
+                    dependencies=goal.uid,
                     custom_class=self._get_gantt_class(task),
                 )
             )
 
-        # Add milestones
         if milestones:
             for ms in milestones:
                 ms_date = ms.get("date", goal_end)
@@ -670,323 +633,27 @@ class VisualizationService:
         return Result.ok(self._gantt_data_to_dict(data))
 
     # =========================================================================
-    # Data Aggregation Methods
+    # Gantt Progress Helper (presentation logic: status → progress bar %)
     # =========================================================================
 
-    async def get_completion_chart_data(
-        self,
-        user_uid: UserUID,
-        period: str,
-    ) -> Result[ChartJsConfig]:
-        """
-        Get task completion data formatted for Chart.js.
+    def _calculate_task_progress(self, task: Any) -> int:
+        """Map task status and time-tracking fields to a 0-100 Gantt progress value."""
+        status = getattr(task, "status", EntityStatus.DRAFT)
 
-        Returns formatted Chart.js config.
-        """
-        from datetime import date, timedelta
-
-        today = date.today()
-
-        # Calculate date range and labels based on period
-        if period == "week":
-            start_date = today - timedelta(days=6)
-            labels = [(start_date + timedelta(days=i)).strftime("%a") for i in range(7)]
-        elif period == "month":
-            start_date = today - timedelta(days=29)
-            labels = [(start_date + timedelta(days=i)).strftime("%m/%d") for i in range(0, 30, 3)]
-        elif period == "quarter":
-            start_date = today - timedelta(days=89)
-            labels = [(start_date + timedelta(days=i)).strftime("%m/%d") for i in range(0, 90, 7)]
-        else:
-            return Result.fail(
-                Errors.validation(
-                    message="Invalid period. Must be: week, month, or quarter",
-                    field="period",
-                    value=period,
-                )
-            )
-
-        # Get task data from service
-        result = await self.tasks_service.get_user_items_in_range(
-            user_uid=user_uid,
-            start_date=start_date,
-            end_date=today,
-            include_completed=True,
-        )
-
-        if result.is_error:
-            return result
-
-        tasks = result.value or []
-
-        # Calculate completed/total per period
-        completed = []
-        total = []
-
-        if period == "week":
-            for i in range(7):
-                d = start_date + timedelta(days=i)
-                day_tasks = [t for t in tasks if self._task_due_on(t, d)]
-                day_completed = [t for t in day_tasks if self._is_completed(t)]
-                total.append(len(day_tasks))
-                completed.append(len(day_completed))
-        elif period == "month":
-            for i in range(0, 30, 3):
-                d_start = start_date + timedelta(days=i)
-                d_end = d_start + timedelta(days=2)
-                period_tasks = [t for t in tasks if self._task_in_range(t, d_start, d_end)]
-                period_completed = [t for t in period_tasks if self._is_completed(t)]
-                total.append(len(period_tasks))
-                completed.append(len(period_completed))
-        else:  # quarter
-            for i in range(0, 90, 7):
-                d_start = start_date + timedelta(days=i)
-                d_end = d_start + timedelta(days=6)
-                period_tasks = [t for t in tasks if self._task_in_range(t, d_start, d_end)]
-                period_completed = [t for t in period_tasks if self._is_completed(t)]
-                total.append(len(period_tasks))
-                completed.append(len(period_completed))
-
-        return self.format_completion_chart(completed, total, labels)
-
-    async def get_priority_distribution_chart_data(
-        self,
-        user_uid: UserUID,
-    ) -> Result[ChartJsConfig]:
-        """
-        Get task priority distribution formatted for Chart.js.
-
-        Returns formatted Chart.js config.
-        """
-        from enum import Enum
-
-        distribution: dict[str, int] = {}
-
-        result = await self.tasks_service.search.get_by_status(
-            user_uid=user_uid,
-            status="active",
-        )
-
-        if result.is_error:
-            return result
-
-        tasks = result.value or []
-        for task in tasks:
-            priority = getattr(task, "priority", None)
-            if priority:
-                key = priority.value if isinstance(priority, Enum) else str(priority)
-                distribution[key] = distribution.get(key, 0) + 1
-
-        if not distribution:
-            return Result.fail(Errors.not_found("No active tasks found for priority distribution"))
-
-        return self.format_distribution_chart(
-            distribution, "Task Priority Distribution", "doughnut"
-        )
-
-    async def get_streak_chart_data(
-        self,
-        user_uid: UserUID,
-    ) -> Result[ChartJsConfig]:
-        """
-        Get habit streak data formatted for Chart.js.
-
-        Returns formatted Chart.js config.
-        """
-        result = await self.habits_service.search.get_by_status(
-            user_uid=user_uid,
-            status="active",
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        habits = result.value or []
-        streaks: list[dict[str, Any]] = []
-        for habit in habits:
-            streak = {
-                "name": getattr(habit, "title", "Habit"),
-                "current": getattr(habit, "current_streak", 0) or 0,
-                "best": getattr(habit, "best_streak", 0) or 0,
-            }
-            streaks.append(streak)
-
-        if not streaks:
-            return Result.fail(Errors.not_found("No active habits found for streak chart"))
-
-        return self.format_streak_chart(streaks)
-
-    async def get_status_distribution_chart_data(
-        self,
-        user_uid: UserUID,
-        days_back: int = 30,
-    ) -> Result[ChartJsConfig]:
-        """
-        Get task status distribution formatted for Chart.js.
-
-        Returns formatted Chart.js config.
-        """
-        from datetime import date, timedelta
-        from enum import Enum
-
-        distribution: dict[str, int] = {}
-
-        today = date.today()
-        result = await self.tasks_service.get_user_items_in_range(
-            user_uid=user_uid,
-            start_date=today - timedelta(days=days_back),
-            end_date=today,
-            include_completed=True,
-        )
-
-        if result.is_error:
-            return result
-
-        tasks = result.value or []
-        for task in tasks:
-            status = getattr(task, "status", None)
-            if status:
-                key = status.value if isinstance(status, Enum) else str(status)
-                distribution[key] = distribution.get(key, 0) + 1
-
-        if not distribution:
-            return Result.fail(Errors.not_found("No tasks found for status distribution"))
-
-        return self.format_distribution_chart(distribution, "Task Status Distribution", "pie")
-
-    async def get_timeline_data(
-        self,
-        user_uid: UserUID,
-        start_date: date,
-        end_date: date,
-        group_by: str = "type",
-    ) -> Result[VisTimelineConfig]:
-        """Get calendar timeline data formatted for Vis.js."""
-        result = await self.calendar_service.get_calendar_view(
-            user_uid=user_uid,
-            start_date=start_date,
-            end_date=end_date,
-        )
-
-        if result.is_error:
-            return result
-
-        return self.format_for_visjs(result.value, group_by)
-
-    async def get_tasks_timeline_data(
-        self,
-        user_uid: UserUID,
-        project: str | None = None,
-    ) -> Result[VisTimelineConfig]:
-        """Get tasks-only timeline data formatted for Vis.js."""
-        today = date.today()
-
-        result = await self.tasks_service.get_user_items_in_range(
-            user_uid=user_uid,
-            start_date=today - timedelta(days=30),
-            end_date=today + timedelta(days=60),
-            include_completed=True,
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        tasks = result.value or []
-
-        if project:
-            tasks = [t for t in tasks if getattr(t, "project", None) == project]
-
-        return self.format_tasks_for_visjs(tasks)
-
-    async def get_tasks_gantt_data(
-        self,
-        user_uid: UserUID,
-        project: str | None = None,
-    ) -> Result[GanttConfig]:
-        """Get tasks Gantt data formatted for Frappe Gantt."""
-        today = date.today()
-
-        result = await self.tasks_service.get_user_items_in_range(
-            user_uid=user_uid,
-            start_date=today - timedelta(days=7),
-            end_date=today + timedelta(days=60),
-            include_completed=True,
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        tasks = result.value or []
-
-        if project:
-            tasks = [t for t in tasks if getattr(t, "project", None) == project]
-
-        # Get dependencies
-        dependencies: dict[str, list[str]] = {}
-        for task in tasks:
-            try:
-                deps_result = await self.tasks_service.relationships.get_task_prerequisites(
-                    task.uid
-                )
-                if deps_result.is_ok and deps_result.value:
-                    dependencies[task.uid] = [d.uid for d in deps_result.value]
-            except Exception:  # safety-net: dependency lookup is optional enrichment
-                pass
-
-        return self.format_for_gantt(tasks, dependencies)
-
-    async def get_goal_gantt_data(
-        self,
-        user_uid: UserUID,
-        goal_uid: str,
-    ) -> Result[GanttConfig]:
-        """Get goal with tasks as Gantt data formatted for Frappe Gantt."""
-        goal_result = await self.goals_service.get_for_user(goal_uid, user_uid)
-
-        if goal_result.is_error:
-            return Result.fail(goal_result)
-
-        goal = goal_result.value
-
-        tasks = []
-        tasks_result = await self.goals_service.relationships.get_goal_tasks(goal_uid)
-        if tasks_result.is_ok:
-            tasks = tasks_result.value or []
-
-        return self.format_goal_gantt(goal, tasks)
+        if status == EntityStatus.COMPLETED:
+            return 100
+        if status == EntityStatus.ACTIVE:
+            actual = getattr(task, "actual_minutes", 0) or 0
+            duration = getattr(task, "duration_minutes", 30) or 30
+            if actual > 0:
+                return min(95, int(actual / duration * 100))
+            return 50  # Default for in-progress
+        if status == EntityStatus.BLOCKED:
+            return 25
+        return 0
 
     # =========================================================================
-    # Helper Methods (Task Filtering)
-    # =========================================================================
-
-    def _task_due_on(self, task: Any, d: date) -> bool:
-        """Check if task is due on specific date."""
-        due = getattr(task, "due_date", None)
-        scheduled = getattr(task, "scheduled_date", None)
-        return (due == d) or (scheduled == d)
-
-    def _task_in_range(self, task: Any, start: date, end: date) -> bool:
-        """Check if task falls within date range."""
-        due = getattr(task, "due_date", None)
-        scheduled = getattr(task, "scheduled_date", None)
-
-        if due and start <= due <= end:
-            return True
-        return bool(scheduled and start <= scheduled <= end)
-
-    def _is_completed(self, task: Any) -> bool:
-        """Check if task is completed."""
-        from enum import Enum
-
-        status = getattr(task, "status", None)
-        if status is None:
-            return False
-        if isinstance(status, Enum):
-            return status == EntityStatus.COMPLETED
-        return str(status).lower() in ("done", "completed")
-
-    # =========================================================================
-    # Helper Methods (Serialization)
+    # Serialization Helpers
     # =========================================================================
 
     def _chart_config_to_dict(self, config: ChartConfig) -> dict[str, Any]:
@@ -1026,9 +693,12 @@ class VisualizationService:
             "options": data.options,
         }
 
+    # =========================================================================
+    # Calendar / Group Conversion Helpers
+    # =========================================================================
+
     def _calendar_item_to_visjs(self, item: CalendarItem, group_by: str) -> VisTimelineItem:
         """Convert CalendarItem to VisTimelineItem."""
-        # Determine group
         if group_by == "type":
             group = self.ITEM_TYPE_GROUPS.get(item.item_type, "other")
         elif group_by == "project":
@@ -1036,7 +706,6 @@ class VisualizationService:
         else:
             group = None
 
-        # Determine type (range vs point)
         vis_type = "range" if item.end_time != item.start_time else "point"
 
         return VisTimelineItem(
@@ -1061,25 +730,25 @@ class VisualizationService:
             "milestones": "Milestones",
             "other": "Other",
         }
-
-        groups = []
-        for gid in sorted(group_ids):
-            groups.append(
-                VisTimelineGroup(
-                    id=gid,
-                    content=group_labels.get(gid, gid.title()),
-                    className=f"group-{gid}",
-                )
+        return [
+            VisTimelineGroup(
+                id=gid,
+                content=group_labels.get(gid, gid.title()),
+                className=f"group-{gid}",
             )
-        return groups
+            for gid in sorted(group_ids)
+        ]
 
     def _build_project_groups(self, group_ids: set[str]) -> list[VisTimelineGroup]:
         """Build Vis.js groups for project-based grouping."""
-        groups = []
-        for gid in sorted(group_ids):
-            label = "No Project" if gid == "no-project" else gid
-            groups.append(VisTimelineGroup(id=gid, content=label, className="group-project"))
-        return groups
+        return [
+            VisTimelineGroup(
+                id=gid,
+                content="No Project" if gid == "no-project" else gid,
+                className="group-project",
+            )
+            for gid in sorted(group_ids)
+        ]
 
     def _get_priority_class(self, priority: Priority) -> str:
         """Get CSS class for priority."""
@@ -1088,8 +757,6 @@ class VisualizationService:
     def _get_gantt_class(self, task: Any) -> str:
         """Get CSS class for Gantt task based on status and priority."""
         classes = []
-
-        # Status-based class
         status = getattr(task, "status", EntityStatus.DRAFT)
         if status == EntityStatus.COMPLETED:
             classes.append("completed")
@@ -1098,26 +765,7 @@ class VisualizationService:
         elif status == EntityStatus.BLOCKED:
             classes.append("blocked")
 
-        # Priority-based class
         priority = getattr(task, "priority", Priority.MEDIUM)
         classes.append(f"priority-{priority.value}")
 
         return " ".join(classes)
-
-    def _calculate_task_progress(self, task: Any) -> int:
-        """Calculate task progress percentage."""
-        status = getattr(task, "status", EntityStatus.DRAFT)
-
-        if status == EntityStatus.COMPLETED:
-            return 100
-        elif status == EntityStatus.ACTIVE:
-            # If task has actual_minutes and duration_minutes, calculate
-            actual = getattr(task, "actual_minutes", 0) or 0
-            duration = getattr(task, "duration_minutes", 30) or 30
-            if actual > 0:
-                return min(95, int(actual / duration * 100))
-            return 50  # Default for in-progress
-        elif status == EntityStatus.BLOCKED:
-            return 25
-        else:
-            return 0

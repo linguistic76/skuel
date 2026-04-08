@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
     from core.services.background.progress_report_worker import ProgressReportWorker
+
     # Facade services — concrete class IS the contract (no parallel protocol needed)
     from core.services.choices_service import ChoicesService
     from core.services.content_enrichment_service import ContentEnrichmentService

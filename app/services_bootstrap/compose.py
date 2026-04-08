@@ -607,14 +607,21 @@ async def compose_services(
         # AdminStatsService: cross-domain stats for admin dashboard
         from core.services.admin_stats_service import AdminStatsService
 
-        # Create visualization service (Chart.js/Vis.js/Gantt adapters)
+        # Create visualization services:
+        # - VisualizationService: pure formatter (no domain deps)
+        # - VisualizationAggregationService: fetches data + delegates formatting
+        from core.services.analytics.visualization_aggregation_service import (
+            VisualizationAggregationService,
+        )
         from core.services.visualization_service import VisualizationService
 
-        visualization_service = VisualizationService(
+        _vis_formatter = VisualizationService()
+        visualization_service = VisualizationAggregationService(
             tasks_service=activity_services["tasks"],
             habits_service=activity_services["habits"],
             goals_service=activity_services["goals"],
             calendar_service=calendar_service,
+            visualization_service=_vis_formatter,
         )
         logger.info("✅ Visualization service created (Chart.js/Vis.js adapters)")
 
