@@ -280,7 +280,7 @@ def ProfileHubView(context: UserContext) -> Div:
 
 ## Usage: HTMX Hub Pages (Activity, GradeBook, Library, Submissions)
 
-All hub pages use `HubDomainBlockList` with `HubBlockData` config. Each block loads 3 preview cards via HTMX from its `preview_url`. Preview endpoints return `HubPreviewGrid(cards)` or `HubPreviewEmpty(domain)`.
+All hub pages use `HubDomainBlockList` with `HubBlockData` config. Each block loads content via HTMX from its `preview_url`. Preview endpoints typically return `HubPreviewGrid(cards)` or `HubPreviewEmpty(domain)` for data blocks, or an embedded action widget (e.g. a form) for action-first blocks like the Submissions upload block.
 
 ### Activity hub (inline in `/profile`)
 
