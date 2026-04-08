@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Shell-First Page Loading"
-updated: 2026-04-07
+updated: 2026-04-08
 status: current
 category: patterns
 tags: [ui, htmx, performance, page-load]
@@ -14,6 +14,8 @@ related: [docs/patterns/UI_COMPONENT_PATTERNS.md, docs/patterns/HUB_PAGE_PATTERN
 ```python
 from ui.patterns.loading import content_loading_placeholder
 ```
+
+`content_loading_placeholder` renders an `animate-pulse` skeleton shimmer (four bars at varying widths) while the fragment is in flight.  The `loading_text` arg is kept as a `sr-only` label for screen readers — it does not appear visually.
 
 ## Why
 
@@ -171,6 +173,8 @@ The `GET /api/navbar/notification-badge` fragment fetches the actual unread coun
 **Activity domain detail pages (6):** `/tasks/detail`, `/goals/detail`, `/habits/detail`, `/events/detail`, `/choices/detail`, `/principles/detail`
 
 **Calendar (3):** `/events/month/{year}/{month}`, `/events/week/{date_str}`, `/events/day/{date_str}`
+
+**Library (1):** `/library/path-steps`
 
 **Other pages (8):** `/settings`, `/exercises`, `/exercises/get`, `/learning-paths`, `/teaching/students`, `/teaching/students/{uid}`, `/teaching/review/{uid}`, `/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`
 

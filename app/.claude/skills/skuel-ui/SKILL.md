@@ -143,6 +143,8 @@ All SKUEL pages that need DB data use the **shell-first pattern**: the route han
 from ui.patterns.loading import content_loading_placeholder
 ```
 
+`content_loading_placeholder` renders an `animate-pulse` skeleton shimmer while the fragment loads — four bars at varying widths give a content-shape cue. `loading_text` is `sr-only` (screen readers only).
+
 ```python
 # ✅ CORRECT: shell returns immediately, content fills in via HTMX
 @rt("/tasks")
