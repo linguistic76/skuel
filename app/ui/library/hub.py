@@ -18,6 +18,14 @@ LIBRARY_BLOCKS: list[HubBlockData] = [
         "/api/library/exercises/preview",
     ),
     HubBlockData(
+        "Submission History",
+        "history",
+        "file-text",
+        "#8B5CF6",
+        "/submissions/history",
+        "/api/submissions/history/preview",
+    ),
+    HubBlockData(
         "Resources",
         "resources",
         "bookmark",

@@ -25,12 +25,4 @@ SUBMISSIONS_BLOCKS: list[HubBlockData] = [
         "/submit",
         "/api/submissions/submit/preview",
     ),
-    HubBlockData(
-        "Submission History",
-        "history",
-        "file-text",
-        "#8B5CF6",
-        "/submissions/history",
-        "/api/submissions/history/preview",
-    ),
 ]

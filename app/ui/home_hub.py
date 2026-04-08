@@ -20,7 +20,7 @@ _INACTIVE_STYLE = (
     " color: hsl(var(--muted-foreground));"
     " border-radius: 0.375rem;"
 )
-_TAB_BASE = "px-5 py-2 text-sm font-semibold cursor-pointer transition-all"
+_TAB_BASE = "flex-1 text-center px-3 py-2.5 text-sm font-semibold cursor-pointer transition-all"
 
 
 def HomeHub(active_tab: str = "submissions") -> Div:
@@ -68,7 +68,7 @@ def HomeHub(active_tab: str = "submissions") -> Div:
                     },
                 ),
                 role="tablist",
-                style="display: inline-flex; gap: 4px; padding: 4px; background-color: hsl(var(--muted)); border-radius: 0.5rem; margin-bottom: 1.5rem;",
+                style="display: flex; width: 100%; gap: 4px; padding: 4px; background-color: hsl(var(--muted)); border-radius: 0.5rem; margin-bottom: 1.5rem;",
             ),
             # Submissions panel
             Div(
