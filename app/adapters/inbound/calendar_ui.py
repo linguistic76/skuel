@@ -19,7 +19,7 @@ Routes:
 
 import calendar as cal
 from calendar import monthrange
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any
 
 from fasthtml.common import (
@@ -28,30 +28,37 @@ from fasthtml.common import (
     Div,
     P,
     Script,
-    Span,
 )
-from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from adapters.inbound.auth import require_authenticated_user
-from ui.patterns.loading import content_loading_placeholder
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_int, safe_form_string
-from core.models.event.calendar_models import CalendarItemType, CalendarView
+from core.models.event.calendar_models import CalendarView
 from core.utils.logging import get_logger
-from core.utils.timestamp_helpers import next_month, prev_month, week_bounds
+from core.utils.timestamp_helpers import (
+    next_day,
+    next_month,
+    next_week,
+    prev_day,
+    prev_month,
+    prev_week,
+    week_bounds,
+)
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.calendar.components import (
     create_day_timeline,
+    create_item_details_modal,
     create_month_grid,
     create_reschedule_form,
     create_view_switcher,
     create_week_grid,
     error_response,
 )
-from ui.feedback import Alert, AlertT, Badge, BadgeT
+from ui.feedback import Alert, AlertT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.modal import AlpineModal
 from ui.patterns.page_header import PageHeader
 
@@ -78,245 +85,13 @@ async def _wrap_calendar_page(request: Any, content: Any, title: str = "Calendar
     )
 
 
-# ============================================================================
-# NAVIGATION HELPERS
-# ============================================================================
-
-
+# Navigation aliases for internal use
 _get_prev_month = prev_month
 _get_next_month = next_month
-
-
-def _get_prev_week(d: date) -> str:
-    """Calculate previous week ISO date string."""
-    return (d - timedelta(days=7)).isoformat()
-
-
-def _get_next_week(d: date) -> str:
-    """Calculate next week ISO date string."""
-    return (d + timedelta(days=7)).isoformat()
-
-
-def _get_prev_day(d: date) -> str:
-    """Calculate previous day ISO date string."""
-    return (d - timedelta(days=1)).isoformat()
-
-
-def _get_next_day(d: date) -> str:
-    """Calculate next day ISO date string."""
-    return (d + timedelta(days=1)).isoformat()
-
-
-# ============================================================================
-# HTMX FRAGMENT RENDERING
-# ============================================================================
-
-
-def _format_datetime(dt: datetime) -> str:
-    """Format datetime for display."""
-    return dt.strftime("%b %d, %I:%M %p")
-
-
-def _render_item_details_modal(item: Any) -> Div:
-    """
-    Render calendar item details as an HTMX modal fragment.
-
-    Returns server-rendered HTML instead of JSON for HTMX swap.
-    """
-    # Type badge
-    type_badge = Span(
-        item.item_type.value.replace("_", " ").upper(),
-        cls="px-3 py-1 rounded-full text-xs font-medium",
-        style=f"background-color: {item.color}20; color: {item.color}",
-    )
-
-    # Priority stars
-    priority_stars = ""
-    if item.priority:
-        priority_stars = Span(
-            "⭐" * item.priority,
-            cls="text-sm text-muted-foreground ml-4",
-        )
-
-    # Schedule info
-    schedule_text = (
-        "All Day"
-        if item.all_day
-        else f"{_format_datetime(item.start_time)} - {_format_datetime(item.end_time)}"
-    )
-
-    recurrence_info = None
-    if item.is_recurring:
-        recurrence_info = P(
-            f"🔁 Recurring: {item.recurrence_pattern}",
-            cls="text-sm text-muted-foreground mt-1",
-        )
-
-    # Description section
-    description_section = None
-    if item.description:
-        description_section = Div(
-            P("Description", cls="text-sm font-semibold text-muted-foreground mb-2"),
-            P(item.description, cls="text-muted-foreground"),
-            cls="mb-4",
-        )
-
-    # Event-specific info (location, attendees)
-    event_info = None
-    if item.item_type == CalendarItemType.EVENT:
-        event_details = []
-        if item.location:
-            event_details.append(
-                P(
-                    Span("📍 Location:", cls="font-semibold text-muted-foreground"),
-                    Span(item.location, cls="text-muted-foreground ml-2"),
-                    cls="text-sm mb-2",
-                )
-            )
-        if item.is_online:
-            event_details.append(
-                P(
-                    Span("💻 Format:", cls="font-semibold text-muted-foreground"),
-                    Span("Online Meeting", cls="text-muted-foreground ml-2"),
-                    cls="text-sm mb-2",
-                )
-            )
-        if len(item.attendee_emails) > 0:
-            attendee_badges = [
-                Span(
-                    email,
-                    cls="px-2 py-1 bg-background border border-info/20 text-info rounded text-xs mr-1 mb-1",
-                )
-                for email in list(item.attendee_emails)[:5]
-            ]
-            event_details.append(
-                Div(
-                    P(
-                        f"👥 Attendees ({len(item.attendee_emails)}"
-                        + (f"/{item.max_attendees})" if item.max_attendees else ")"),
-                        cls="text-sm font-semibold text-muted-foreground mb-1",
-                    ),
-                    Div(*attendee_badges, cls="flex flex-wrap"),
-                    cls="mt-2",
-                )
-            )
-        if event_details:
-            event_info = Div(*event_details, cls="bg-info/10 p-4 rounded-lg mb-4")
-
-    # Habit streak info
-    habit_info = None
-    if item.item_type == CalendarItemType.HABIT and item.streak_count is not None:
-        habit_info = Div(
-            P(
-                f"Current Streak: {item.streak_count} days 🔥",
-                cls="text-sm font-semibold text-success",
-            ),
-            cls="bg-success/10 p-4 rounded-lg mb-4",
-        )
-
-    # Tags
-    tags_section = None
-    if item.tags:
-        tag_badges = [
-            Badge(tag, variant=BadgeT.info, size=Size.sm, cls="mr-1") for tag in item.tags
-        ]
-        tags_section = Div(
-            P("Tags", cls="text-sm font-semibold text-muted-foreground mb-2"),
-            Div(*tag_badges, cls="flex flex-wrap"),
-            cls="mb-4",
-        )
-
-    # Close expression: hide via Alpine, then remove wrapper after transition
-    close_expr = (
-        "open = false; $nextTick(() => document.getElementById('item-details-modal')?.remove())"
-    )
-
-    # Action buttons based on type
-    action_buttons = [
-        Button(
-            "Close",
-            variant=ButtonT.ghost,
-            **{"x-on:click": close_expr},
-        )
-    ]
-
-    if item.item_type in (CalendarItemType.TASK_WORK, CalendarItemType.TASK_DEADLINE):
-        action_buttons.insert(
-            0,
-            ButtonLink(
-                "Edit Task",
-                href=f"/tasks/{item.source_uid}/edit",
-                variant=ButtonT.primary,
-                cls="mr-2",
-            ),
-        )
-    elif item.item_type == CalendarItemType.EVENT:
-        action_buttons.insert(
-            0,
-            ButtonLink(
-                "Edit Event",
-                href=f"/events/{item.source_uid}/edit",
-                variant=ButtonT.success,
-                cls="mr-2",
-            ),
-        )
-    elif item.item_type == CalendarItemType.HABIT:
-        action_buttons.insert(
-            0,
-            Button(
-                "Mark Complete",
-                variant=ButtonT.secondary,
-                cls="mr-2",
-                hx_post=f"/events/calendar/habit/{item.source_uid}/complete",
-                hx_swap="none",
-            ),
-        )
-
-    return Div(
-        AlpineModal(
-            # Header with title and close button
-            Div(
-                H2(
-                    Span(item.icon or "📅", cls="mr-2"),
-                    item.title,
-                    cls="text-2xl font-bold flex items-center",
-                ),
-                Button(
-                    UkIcon("x", cls="w-6 h-6"),
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    cls="text-muted-foreground hover:text-muted-foreground",
-                    **{"x-on:click": close_expr},
-                ),
-                cls="flex justify-between items-start mb-4",
-            ),
-            # Type and priority
-            Div(type_badge, priority_stars, cls="flex items-center space-x-4 mb-4"),
-            # Schedule
-            Div(
-                P("Schedule", cls="text-sm font-semibold text-muted-foreground mb-2"),
-                P(schedule_text, cls="text-sm text-muted-foreground"),
-                recurrence_info,
-                cls="bg-muted p-4 rounded-lg mb-4",
-            ),
-            # Description
-            description_section,
-            # Event info
-            event_info,
-            # Habit info
-            habit_info,
-            # Tags
-            tags_section,
-            # Actions
-            Div(*action_buttons, cls="flex pt-4 border-t"),
-            show="open",
-            close=close_expr,
-            max_width="max-w-2xl",
-            scrollable=True,
-        ),
-        x_data="{ open: true }",
-        id="item-details-modal",
-    )
+_get_prev_week = prev_week
+_get_next_week = next_week
+_get_prev_day = prev_day
+_get_next_day = next_day
 
 
 # ============================================================================
@@ -507,9 +282,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             ),
             cls="max-w-7xl mx-auto p-6",
         )
-        return await _wrap_calendar_page(
-            request, content, target_date.strftime("%A, %B %d, %Y")
-        )
+        return await _wrap_calendar_page(request, content, target_date.strftime("%A, %B %d, %Y"))
 
     @rt("/events/day/{date_str}/content")
     async def calendar_day_content(request: Request, date_str: str) -> Any:
@@ -677,7 +450,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         result = await calendar_service.get_item(item_id)
 
         if result.is_ok and result.value:
-            return _render_item_details_modal(result.value)
+            return create_item_details_modal(result.value)
 
         # Error state
         close_expr = (
