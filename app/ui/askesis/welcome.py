@@ -130,6 +130,8 @@ def _render_chat_form() -> Any:
         hx_swap="beforeend",
         hx_indicator="#loading-indicator",
         hx_disabled_elt="#send-btn",
-        **{"hx-on::after-request": "this.reset(); document.getElementById('chat-messages').classList.remove('hidden');"},
+        **{
+            "hx-on::after-request": "this.reset(); document.getElementById('chat-messages').classList.remove('hidden');"
+        },
         cls="space-y-4",
     )

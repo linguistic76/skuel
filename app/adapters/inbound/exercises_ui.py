@@ -89,7 +89,10 @@ def create_exercises_ui_routes(
             return Div(render_exercises_list(exercises), id="exercises-content")
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error loading exercises content: {e}")
-            return Div(render_error_banner("Error loading exercises", technical_details=str(e)), id="exercises-content")
+            return Div(
+                render_error_banner("Error loading exercises", technical_details=str(e)),
+                id="exercises-content",
+            )
 
     @app.get("/exercises/new")
     @require_teacher(get_user_service)
@@ -189,7 +192,10 @@ def create_exercises_ui_routes(
             return render_exercise_student_detail(exercise, from_ps=from_ps)
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error loading exercise content {uid}: {e}")
-            return Div(render_error_banner("Error loading exercise", technical_details=str(e)), id="exercise-detail-content")
+            return Div(
+                render_error_banner("Error loading exercise", technical_details=str(e)),
+                id="exercise-detail-content",
+            )
 
     logger.info("Exercises UI routes registered")
 

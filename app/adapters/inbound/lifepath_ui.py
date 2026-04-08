@@ -87,9 +87,7 @@ def create_lifepath_ui_routes(
         """HTMX fragment: lifepath dashboard body."""
         user_uid = require_authenticated_user(request)
         if not lifepath_service:
-            return Div(
-                render_error_banner("Service Unavailable"), id="lifepath-dashboard-content"
-            )
+            return Div(render_error_banner("Service Unavailable"), id="lifepath-dashboard-content")
         status_result = await lifepath_service.get_full_status(user_uid)
         if status_result.is_error:
             return Div(
@@ -174,9 +172,7 @@ def create_lifepath_ui_routes(
         """HTMX fragment: lifepath alignment body."""
         user_uid = require_authenticated_user(request)
         if not lifepath_service:
-            return Div(
-                render_error_banner("Service Unavailable"), id="lifepath-alignment-content"
-            )
+            return Div(render_error_banner("Service Unavailable"), id="lifepath-alignment-content")
         status_result = await lifepath_service.get_full_status(user_uid)
         if status_result.is_error:
             return Div(
@@ -186,9 +182,7 @@ def create_lifepath_ui_routes(
         status = status_result.value
         if not status.get("has_designation"):
             return HTMLResponse("", status_code=200, headers={"HX-Redirect": "/lifepath/vision"})
-        return Div(
-            render_alignment_dashboard(status, user_uid), id="lifepath-alignment-content"
-        )
+        return Div(render_alignment_dashboard(status, user_uid), id="lifepath-alignment-content")
 
     logger.info("LifePath UI routes registered (5 routes)")
 

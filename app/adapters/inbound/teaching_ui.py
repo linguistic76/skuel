@@ -304,7 +304,9 @@ def create_teaching_ui_routes(
     ) -> Any:
         """Student hub — shell renders immediately, content loads via HTMX."""
         return await BasePage(
-            content=content_loading_placeholder(f"/teaching/students/{uid}/content", "student-hub-content"),
+            content=content_loading_placeholder(
+                f"/teaching/students/{uid}/content", "student-hub-content"
+            ),
             title="Student",
             request=request,
             active_page="teaching",

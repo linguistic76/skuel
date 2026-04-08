@@ -16,9 +16,7 @@ _ACTIVE_STYLE = (
     " box-shadow: 0 1px 3px rgba(0,0,0,0.2);"
 )
 _INACTIVE_STYLE = (
-    "background-color: transparent;"
-    " color: hsl(var(--muted-foreground));"
-    " border-radius: 0.375rem;"
+    "background-color: transparent; color: hsl(var(--muted-foreground)); border-radius: 0.375rem;"
 )
 _TAB_BASE = "flex-1 text-center px-3 py-3 text-sm font-semibold cursor-pointer transition-all"
 

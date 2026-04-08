@@ -210,9 +210,7 @@ class Services:
     teacher_review: TeacherReviewOperations | None = (
         None  # TeacherReviewService - review queue + feedback
     )
-    notifications: "NotificationService | None" = (
-        None  # NotificationService - in-app notifications
-    )
+    notifications: "NotificationService | None" = None  # NotificationService - in-app notifications
 
     # System services
     # Note: sync field REMOVED (January 2026) - use unified_ingestion instead

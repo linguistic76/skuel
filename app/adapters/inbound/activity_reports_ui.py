@@ -174,9 +174,7 @@ def create_activity_reports_ui_routes(
                 report = r
                 break
         if not report:
-            return Div(
-                render_error_banner("Report not found"), id="activity-report-detail-content"
-            )
+            return Div(render_error_banner("Report not found"), id="activity-report-detail-content")
         metadata = getattr(report, "metadata", None) or {}
         snapshot = metadata.get("snapshot") if isinstance(metadata, dict) else None
         intelligence = metadata.get("intelligence") if isinstance(metadata, dict) else None

@@ -1790,9 +1790,7 @@ class TestLearningPathBlockersMasteryCheck:
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
         services.ps.get_prerequisites = AsyncMock(return_value=FakeResult(value=[prereq]))
         # user_service returns error
-        services.user.get_user_mastery = AsyncMock(
-            return_value=FakeResult(error="DB error")
-        )
+        services.user.get_user_mastery = AsyncMock(return_value=FakeResult(error="DB error"))
 
         ctx = _make_context(
             services=services,

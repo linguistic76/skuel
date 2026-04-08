@@ -647,11 +647,11 @@ def render_activity_report_detail(
             hx_target="#annotation-status",
             hx_swap="innerHTML",
             hx_vals="js:{"
-                + '"uid": document.querySelector("[name=uid]").value,'
-                + '"annotation_mode": document.querySelector("[name=annotation_mode]:checked").value,'
-                + '"user_annotation": document.querySelector("[name=annotation_mode]:checked").value === "additive" ? document.querySelector("[name=annotation_text]").value : null,'
-                + '"user_revision": document.querySelector("[name=annotation_mode]:checked").value === "revision" ? document.querySelector("[name=annotation_text]").value : null'
-                + "}",
+            + '"uid": document.querySelector("[name=uid]").value,'
+            + '"annotation_mode": document.querySelector("[name=annotation_mode]:checked").value,'
+            + '"user_annotation": document.querySelector("[name=annotation_mode]:checked").value === "additive" ? document.querySelector("[name=annotation_text]").value : null,'
+            + '"user_revision": document.querySelector("[name=annotation_mode]:checked").value === "revision" ? document.querySelector("[name=annotation_text]").value : null'
+            + "}",
             hx_headers='{"Content-Type": "application/json"}',
         ),
     )
