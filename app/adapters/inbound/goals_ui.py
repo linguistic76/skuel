@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
+from fasthtml.common import Div, P
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -44,43 +44,48 @@ def create_goals_ui_routes(
 
     @rt("/goals")
     async def goals_page(request: Request) -> Any:
-        """Main goals page — lists all user goals with filters."""
+        """Main goals page — shell renders immediately, content loads via HTMX."""
+        require_authenticated_user(request)
+        content = Div(
+            PageHeader("Goals"),
+            Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="goals-content",
+                hx_get="/goals/content",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
+        )
+        return await render_activity_sidebar_page(content, active="goals", request=request)
+
+    @rt("/goals/content")
+    async def goals_content_fragment(request: Request) -> Any:
+        """HTMX fragment: goal list with stats and filters."""
         user_uid = require_authenticated_user(request)
 
         result = await goals_service.get_user_goals(user_uid)
         if result.is_error:
             error = result.expect_error()
-            content = Div(
-                PageHeader("Goals"),
-                render_error_banner(error.user_message or error.message),
-            )
-            return await render_activity_sidebar_page(content, active="goals", request=request)
+            return Div(render_error_banner(error.user_message or error.message), id="goals-content")
 
         all_goals = result.value
 
-        # Parse filter params
         status_filter = request.query_params.get("status", "active")
         sort_by = request.query_params.get("sort_by", "target_date")
 
         filtered = filter_goals(all_goals, status_filter, sort_by)
 
-        # Batch-fetch incoming connections for visible goals
         goal_uids = [g.uid for g in filtered]
         connections_map = await fetch_entity_connections(
             goals_service.core.backend, GOAL_CONNECTION_CONFIG, goal_uids
         )
 
-        goal_count = len(all_goals)
-        subtitle = f"{goal_count} goal{'s' if goal_count != 1 else ''}"
-
-        content = Div(
-            PageHeader("Goals", subtitle=subtitle),
+        return Div(
             GoalStatsBar(all_goals),
             ActivityFilterBar(GOAL_FILTER_CONFIG, {"status": status_filter, "sort_by": sort_by}),
             GoalList(filtered, connections_map),
+            id="goals-content",
         )
-
-        return await render_activity_sidebar_page(content, active="goals", request=request)
 
     @rt("/goals/list-fragment")
     async def goals_list_fragment(request: Request) -> Any:
@@ -108,9 +113,8 @@ def create_goals_ui_routes(
 
     @rt("/goals/detail")
     async def goal_detail_page(request: Request) -> Any:
-        """Detail page for a single goal with connections and relationships."""
-        user_uid = require_authenticated_user(request)
-
+        """Detail page for a single goal — shell renders immediately, content loads via HTMX."""
+        require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
             return await render_activity_sidebar_page(
@@ -118,32 +122,39 @@ def create_goals_ui_routes(
                 active="goals",
                 request=request,
             )
+        content = Div(
+            Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="goal-detail-content",
+                hx_get=f"/goals/detail/content?uid={uid}",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
+        )
+        return await render_activity_sidebar_page(content, active="goals", request=request)
+
+    @rt("/goals/detail/content")
+    async def goal_detail_content_fragment(request: Request) -> Any:
+        """HTMX fragment: goal detail with connections and relationships."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return render_error_banner("Missing goal UID")
 
         goal_result = await goals_service.get_goal(uid)
         if goal_result.is_error:
-            return await render_activity_sidebar_page(
-                Div(render_error_banner("Goal not found")),
-                active="goals",
-                request=request,
-            )
+            return render_error_banner("Goal not found")
 
         goal = goal_result.value
         if goal.user_uid != user_uid:
-            return await render_activity_sidebar_page(
-                Div(render_error_banner("Goal not found")),
-                active="goals",
-                request=request,
-            )
+            return render_error_banner("Goal not found")
 
-        # Fetch incoming connections for this goal (gravity well)
         connections_map = await fetch_entity_connections(
             goals_service.core.backend, GOAL_CONNECTION_CONFIG, [goal.uid]
         )
         connections = connections_map.get(goal.uid, [])
 
-        content = GoalDetailView(goal, connections)
+        return GoalDetailView(goal, connections)
 
-        return await render_activity_sidebar_page(content, active="goals", request=request)
-
-    routes.extend([goals_page, goals_list_fragment, goal_detail_page])
+    routes.extend([goals_page, goals_content_fragment, goals_list_fragment, goal_detail_page, goal_detail_content_fragment])
     return routes

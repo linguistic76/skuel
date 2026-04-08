@@ -169,7 +169,29 @@ def create_teaching_ui_routes(
     @rt("/teaching/review/{uid}")
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_review_detail(request: Request, uid: str, current_user: Any = None) -> Any:
-        """Review detail — submission content + feedback history + action form."""
+        """Review detail — shell renders immediately, content loads via HTMX."""
+        content = Div(
+            PageHeader("Review Submission"),
+            Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="review-detail-content",
+                hx_get=f"/teaching/review/{uid}/content",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
+        )
+        return await render_teaching_sidebar_page(
+            content=content,
+            active="queue",
+            request=request,
+        )
+
+    @rt("/teaching/review/{uid}/content")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_review_detail_content_fragment(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Any:
+        """HTMX fragment: review detail with submission content + feedback history + forms."""
         user_uid = require_authenticated_user(request)
 
         # Fetch submission content
@@ -209,8 +231,7 @@ def create_teaching_ui_routes(
                 cls="mb-6",
             )
 
-        content = Div(
-            PageHeader("Review Submission"),
+        return Div(
             submission_section,
             feedback_history_section,
             render_feedback_submission_form(uid),
@@ -224,11 +245,7 @@ def create_teaching_ui_routes(
                     cls="mt-4",
                 ),
             ),
-        )
-        return await render_teaching_sidebar_page(
-            content=content,
-            active="queue",
-            request=request,
+            id="review-detail-content",
         )
 
     # ------------------------------------------------------------------
@@ -238,7 +255,27 @@ def create_teaching_ui_routes(
     @rt("/teaching/students")
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_students_page(request: Request, current_user: Any = None) -> Any:
-        """Students page — clean list of clickable student names."""
+        """Students page — shell renders immediately, content loads via HTMX."""
+        content = Div(
+            PageHeader("Students", subtitle="Students who have submitted work"),
+            Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="students-content",
+                hx_get="/teaching/students/content",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
+        )
+        return await render_teaching_sidebar_page(
+            content=content,
+            active="students",
+            request=request,
+        )
+
+    @rt("/teaching/students/content")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_students_content_fragment(request: Request, current_user: Any = None) -> Any:
+        """HTMX fragment: students list."""
         user_uid = require_authenticated_user(request)
 
         result = await orchestrator.get_students_summary(teacher_uid=user_uid)
@@ -265,15 +302,7 @@ def create_teaching_ui_routes(
                 ]
             )
 
-        content = Div(
-            PageHeader("Students", subtitle="Students who have submitted work"),
-            students_content,
-        )
-        return await render_teaching_sidebar_page(
-            content=content,
-            active="students",
-            request=request,
-        )
+        return Div(students_content, id="students-content")
 
     # ------------------------------------------------------------------
     # STUDENT HUB — teacher's view of individual student
@@ -284,10 +313,27 @@ def create_teaching_ui_routes(
     async def teaching_student_hub_page(
         request: Request, uid: str, current_user: Any = None
     ) -> Any:
-        """Student hub — HTMX-loaded preview blocks for submissions + KU progress."""
-        user_uid = require_authenticated_user(request)
+        """Student hub — shell renders immediately, content loads via HTMX."""
+        return await BasePage(
+            content=Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="student-hub-content",
+                hx_get=f"/teaching/students/{uid}/content",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
+            title="Student",
+            request=request,
+            active_page="teaching",
+        )
 
-        # Resolve student display name from submissions
+    @rt("/teaching/students/{uid}/content")
+    @require_role(UserRole.TEACHER, get_user_service)
+    async def teaching_student_hub_content_fragment(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Any:
+        """HTMX fragment: student hub with resolved display name."""
+        user_uid = require_authenticated_user(request)
         result = await orchestrator.get_student_submissions(teacher_uid=user_uid, student_uid=uid)
         student_name = uid
         if not result.is_error and result.value:
@@ -296,15 +342,8 @@ def create_teaching_ui_routes(
                 if raw_name:
                     student_name = str(raw_name)
                     break
-
         display_name = _display_student_name(student_name)
-
-        return await BasePage(
-            content=StudentHub(student_name=display_name, student_uid=uid),
-            title=display_name,
-            request=request,
-            active_page="teaching",
-        )
+        return StudentHub(student_name=display_name, student_uid=uid)
 
     # ------------------------------------------------------------------
     # STUDENT SUBMISSIONS — Alpine section switching (moved from student detail)

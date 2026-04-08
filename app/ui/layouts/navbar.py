@@ -85,6 +85,18 @@ def _notification_button(unread_count: int = 0) -> Any:
     )
 
 
+def _notification_badge_placeholder() -> Any:
+    """Bell button placeholder — renders immediately with 0 count, lazy-loads actual count."""
+    return Div(
+        _notification_button(0),
+        id="notification-bell",
+        hx_get="/api/navbar/notification-badge",
+        hx_trigger="load",
+        hx_swap="outerHTML",
+        cls="relative",
+    )
+
+
 def _avatar_hue(name: str) -> int:
     """Deterministic hue (0-359) from a name string for per-user avatar color."""
     h = 0
@@ -213,7 +225,7 @@ def create_navbar(
     if is_authenticated:
         right_section: Any = Div(
             _search_button(active_page, desktop_only=True),
-            _notification_button(unread_insights),
+            _notification_badge_placeholder(),
             _signout_button(),
             cls="flex items-center gap-1",
         )
@@ -302,11 +314,14 @@ async def create_navbar_for_request(
     """
     Create top navbar with automatic user/admin detection from session.
 
+    Badge counts (notifications, insights) are lazy-loaded via HTMX from
+    /api/navbar/notification-badge — not fetched here to keep page render fast.
+
     Args:
         request: Starlette/FastHTML request object
         active_page: Current page slug for highlighting
-        insight_store: Optional InsightStore for fetching unread insight count
-        notification_service: Optional NotificationService for unread notification count
+        insight_store: Unused — retained for signature compatibility
+        notification_service: Unused — retained for signature compatibility
 
     Returns:
         FastHTML Nav element (slim top bar)
@@ -318,37 +333,13 @@ async def create_navbar_for_request(
         is_authenticated,
     )
 
-    unread_insights = 0
-    if is_authenticated(request) and insight_store:
-        try:
-            from adapters.inbound.auth import require_authenticated_user
-
-            user_uid = require_authenticated_user(request)
-            stats_result = await insight_store.get_insight_stats(user_uid)
-            if not stats_result.is_error:
-                unread_insights = stats_result.value.get("active_insights", 0)
-        except Exception:  # safety-net: badge count must not crash navbar
-            pass
-
-    unread_notifications = 0
-    if is_authenticated(request) and notification_service:
-        try:
-            from adapters.inbound.auth import require_authenticated_user
-
-            user_uid = require_authenticated_user(request)
-            count_result = await notification_service.get_unread_count(user_uid)
-            if not count_result.is_error:
-                unread_notifications = count_result.value
-        except Exception:  # safety-net: badge count must not crash navbar
-            pass
-
     return create_navbar(
         current_user=get_current_user(request),
         is_authenticated=is_authenticated(request),
         active_page=active_page,
         is_admin=get_is_admin(request),
         is_teacher=get_is_teacher(request),
-        unread_insights=unread_insights + unread_notifications,
+        unread_insights=0,
     )
 
 
@@ -380,4 +371,6 @@ __all__ = [
     "create_bottom_nav_for_request",
     "create_navbar",
     "create_navbar_for_request",
+    "_notification_button",
+    "_notification_badge_placeholder",
 ]

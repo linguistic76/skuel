@@ -7,7 +7,7 @@ Routes:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
+from fasthtml.common import Div, P
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -37,16 +37,39 @@ def create_settings_routes(
 
     @rt("/settings")
     async def settings_page(request: Request) -> Any:
-        """User settings and preferences page."""
+        """User settings page — shell renders immediately, content loads via HTMX."""
+        require_authenticated_user(request)
+        from ui.layouts.base_page import BasePage
+
+        content = Div(
+            PageHeader("Settings", subtitle="Manage your preferences"),
+            Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="settings-content",
+                hx_get="/settings/content",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
+        )
+        return await BasePage(
+            content=content,
+            title="Settings",
+            request=request,
+            active_page="settings",
+        )
+
+    @rt("/settings/content")
+    async def settings_content_fragment(request: Request) -> Any:
+        """HTMX fragment: user preferences editor."""
         user_uid = require_authenticated_user(request)
 
         user_result = await user_service.get_user(user_uid)
         if user_result.is_error:
             logger.error("Failed to load user for settings", extra={"user_uid": user_uid})
-            return render_error_banner("Failed to load user settings")
+            return Div(render_error_banner("Failed to load user settings"), id="settings-content")
         user = user_result.value
         if user is None:
-            return render_error_banner("User not found")
+            return Div(render_error_banner("User not found"), id="settings-content")
 
         prefs_dict: dict[str, Any] = {}
         if user.preferences is not None:
@@ -68,19 +91,11 @@ def create_settings_routes(
                 "monthly_learning_hours": prefs.monthly_learning_hours,
             }
 
-        from ui.layouts.base_page import BasePage
         from ui.profile.preferences import UserPreferencesComponents
 
-        content = Div(
-            PageHeader("Settings", subtitle="Manage your preferences"),
+        return Div(
             UserPreferencesComponents.render_preferences_editor(prefs_dict),
-        )
-
-        return await BasePage(
-            content=content,
-            title="Settings",
-            request=request,
-            active_page="settings",
+            id="settings-content",
         )
 
     @rt("/settings/save")

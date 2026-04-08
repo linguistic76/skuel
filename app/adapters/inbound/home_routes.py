@@ -38,6 +38,24 @@ def create_home_routes(
             active_page="home",
         )
 
+    @rt("/api/navbar/notification-badge")
+    async def notification_badge_fragment(request: Request) -> Any:
+        """HTMX fragment: notification bell with lazy-loaded unread count."""
+        from ui.layouts.navbar import _notification_button
+
+        user_uid = require_authenticated_user(request)
+        count = 0
+        ns = services.notification_service if services else None
+        if ns:
+            result = await ns.get_unread_count(user_uid)
+            if not result.is_error:
+                count = result.value
+        return Div(
+            _notification_button(count),
+            id="notification-bell",
+            cls="relative",
+        )
+
     @rt("/api/personal-header")
     async def personal_header_fragment(request: Request) -> Any:
         """HTMX fragment: Focus + Velocity header (lazy-loaded to avoid MEGA_QUERY blocking page render)."""

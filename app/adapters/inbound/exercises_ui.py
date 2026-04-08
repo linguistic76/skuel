@@ -55,19 +55,22 @@ def create_exercises_ui_routes(
 
     @app.get("/exercises")
     async def exercises_dashboard(request) -> Any:
-        """Exercises dashboard — open to all authenticated users, Learn sidebar layout."""
+        """Exercises dashboard — shell renders immediately, content loads via HTMX."""
         try:
-            user_uid = require_authenticated_user(request)
-
-            result = await exercises_service.list_user_exercises(user_uid)
-            exercises = [] if result.is_error else result.value
+            require_authenticated_user(request)
 
             content = Div(
                 PageHeader(
                     "Exercises",
                     subtitle="Practice with exercises linked to path steps and knowledge units",
                 ),
-                render_exercises_list(exercises),
+                Div(
+                    P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                    id="exercises-content",
+                    hx_get="/exercises/content",
+                    hx_trigger="load",
+                    hx_swap="outerHTML",
+                ),
                 id="main-content",
             )
             return await BasePage(
@@ -80,6 +83,18 @@ def create_exercises_ui_routes(
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering exercises dashboard: {e}")
             return render_error_banner("Error loading exercises", technical_details=str(e))
+
+    @app.get("/exercises/content")
+    async def exercises_content_fragment(request) -> Any:
+        """HTMX fragment: exercises list."""
+        try:
+            user_uid = require_authenticated_user(request)
+            result = await exercises_service.list_user_exercises(user_uid)
+            exercises = [] if result.is_error else result.value
+            return Div(render_exercises_list(exercises), id="exercises-content")
+        except Exception as e:  # safety-net: HTTP error boundary
+            logger.error(f"Error loading exercises content: {e}")
+            return Div(render_error_banner("Error loading exercises", technical_details=str(e)), id="exercises-content")
 
     @app.get("/exercises/new")
     @require_teacher(get_user_service)
@@ -130,26 +145,16 @@ def create_exercises_ui_routes(
 
     @app.get("/exercises/get")
     async def exercise_detail(request, uid: str, from_ps: str = "") -> Any:
-        """Student-facing exercise detail page.
-
-        Shows title, description, form fields, and instructions so a student
-        knows exactly what is expected before submitting. Linked from the
-        Library Exercises tab.
-        """
+        """Student-facing exercise detail page — shell renders immediately, content loads via HTMX."""
         try:
             require_authenticated_user(request)
 
-            result = await exercises_service.get_exercise(uid)
-            if result.is_error or not result.value:
+            if not uid:
                 return await BasePage(
                     Div(
                         PageHeader("Exercise Not Found"),
-                        P("This exercise could not be found.", cls="text-base-content/70"),
-                        ButtonLink(
-                            "← Back to Library",
-                            href="/library",
-                            variant=ButtonT.ghost,
-                        ),
+                        P("Missing exercise UID.", cls="text-base-content/70"),
+                        ButtonLink("← Back to Library", href="/library", variant=ButtonT.ghost),
                         cls=f"{Container.STANDARD} {Spacing.PAGE}",
                     ),
                     title="Exercise Not Found",
@@ -157,12 +162,20 @@ def create_exercises_ui_routes(
                     active_page="library",
                 )
 
-            exercise = result.value
-            content = render_exercise_student_detail(exercise, from_ps=from_ps)
+            fragment_url = f"/exercises/get/content?uid={uid}"
+            if from_ps:
+                fragment_url += f"&from_ps={from_ps}"
 
+            content = Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="exercise-detail-content",
+                hx_get=fragment_url,
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            )
             return await BasePage(
                 content,
-                title=exercise.title,
+                title="Exercise",
                 request=request,
                 active_page="library",
             )
@@ -170,6 +183,24 @@ def create_exercises_ui_routes(
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering exercise detail {uid}: {e}")
             return render_error_banner("Error loading exercise", technical_details=str(e))
+
+    @app.get("/exercises/get/content")
+    async def exercise_detail_content_fragment(request, uid: str, from_ps: str = "") -> Any:
+        """HTMX fragment: exercise detail content."""
+        try:
+            require_authenticated_user(request)
+            result = await exercises_service.get_exercise(uid)
+            if result.is_error or not result.value:
+                return Div(
+                    render_error_banner("Exercise not found"),
+                    ButtonLink("← Back to Library", href="/library", variant=ButtonT.ghost),
+                    id="exercise-detail-content",
+                )
+            exercise = result.value
+            return render_exercise_student_detail(exercise, from_ps=from_ps)
+        except Exception as e:  # safety-net: HTTP error boundary
+            logger.error(f"Error loading exercise content {uid}: {e}")
+            return Div(render_error_banner("Error loading exercise", technical_details=str(e)), id="exercise-detail-content")
 
     logger.info("Exercises UI routes registered")
 

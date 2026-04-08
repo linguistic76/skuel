@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
+from fasthtml.common import Div, P
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -46,48 +46,53 @@ def create_tasks_ui_routes(
 
     @rt("/tasks")
     async def tasks_page(request: Request) -> Any:
-        """Main tasks page — lists all user tasks with filters."""
+        """Main tasks page — shell renders immediately, content loads via HTMX."""
+        require_authenticated_user(request)
+        content = Div(
+            PageHeader("Tasks"),
+            personal_header_placeholder(),
+            Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="tasks-content",
+                hx_get="/tasks/content",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
+        )
+        return await render_activity_sidebar_page(content, active="tasks", request=request)
+
+    @rt("/tasks/content")
+    async def tasks_content_fragment(request: Request) -> Any:
+        """HTMX fragment: task list with stats and filters."""
         user_uid = require_authenticated_user(request)
 
         result = await tasks_service.get_user_tasks(user_uid)
         if result.is_error:
             error = result.expect_error()
-            content = Div(
-                PageHeader("Tasks"),
-                render_error_banner(error.user_message or error.message),
-            )
-            return await render_activity_sidebar_page(content, active="tasks", request=request)
+            return Div(render_error_banner(error.user_message or error.message), id="tasks-content")
 
         all_tasks = result.value
 
-        # Parse filter params from query string
         status_filter = request.query_params.get("status", "active")
         priority_filter = request.query_params.get("priority", "all")
         sort_by = request.query_params.get("sort_by", "priority")
 
         filtered = filter_tasks(all_tasks, status_filter, priority_filter, sort_by)
 
-        # Batch-fetch cross-domain connections for visible tasks
         task_uids = [t.uid for t in filtered]
         connections_map = await fetch_entity_connections(
             tasks_service.core.backend, TASK_CONNECTION_CONFIG, task_uids
         )
 
-        task_count = len(all_tasks)
-        subtitle = f"{task_count} task{'s' if task_count != 1 else ''}"
-
-        content = Div(
-            PageHeader("Tasks", subtitle=subtitle),
-            personal_header_placeholder(),
+        return Div(
             TaskStatsBar(all_tasks),
             ActivityFilterBar(
                 TASK_FILTER_CONFIG,
                 {"status": status_filter, "priority": priority_filter, "sort_by": sort_by},
             ),
             TaskList(filtered, connections_map),
+            id="tasks-content",
         )
-
-        return await render_activity_sidebar_page(content, active="tasks", request=request)
 
     @rt("/tasks/list-fragment")
     async def tasks_list_fragment(request: Request) -> Any:
@@ -116,9 +121,8 @@ def create_tasks_ui_routes(
 
     @rt("/tasks/detail")
     async def task_detail_page(request: Request) -> Any:
-        """Detail page for a single task with connections and relationships."""
-        user_uid = require_authenticated_user(request)
-
+        """Detail page for a single task — shell renders immediately, content loads via HTMX."""
+        require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
             return await render_activity_sidebar_page(
@@ -126,32 +130,39 @@ def create_tasks_ui_routes(
                 active="tasks",
                 request=request,
             )
+        content = Div(
+            Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="task-detail-content",
+                hx_get=f"/tasks/detail/content?uid={uid}",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
+        )
+        return await render_activity_sidebar_page(content, active="tasks", request=request)
+
+    @rt("/tasks/detail/content")
+    async def task_detail_content_fragment(request: Request) -> Any:
+        """HTMX fragment: task detail with connections and relationships."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return render_error_banner("Missing task UID")
 
         task_result = await tasks_service.get_task(uid)
         if task_result.is_error:
-            return await render_activity_sidebar_page(
-                Div(render_error_banner("Task not found")),
-                active="tasks",
-                request=request,
-            )
+            return render_error_banner("Task not found")
 
         task = task_result.value
         if task.user_uid != user_uid:
-            return await render_activity_sidebar_page(
-                Div(render_error_banner("Task not found")),
-                active="tasks",
-                request=request,
-            )
+            return render_error_banner("Task not found")
 
-        # Fetch connections for this task
         connections_map = await fetch_entity_connections(
             tasks_service.core.backend, TASK_CONNECTION_CONFIG, [task.uid]
         )
         connections = connections_map.get(task.uid, [])
 
-        content = TaskDetailView(task, connections)
+        return TaskDetailView(task, connections)
 
-        return await render_activity_sidebar_page(content, active="tasks", request=request)
-
-    routes.extend([tasks_page, tasks_list_fragment, task_detail_page])
+    routes.extend([tasks_page, tasks_content_fragment, tasks_list_fragment, task_detail_page, task_detail_content_fragment])
     return routes

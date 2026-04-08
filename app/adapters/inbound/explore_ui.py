@@ -40,7 +40,6 @@ from ui.explore.filters import filter_items, sort_by_created_at
 from ui.explore.nav import render_explore_sidebar_page
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
-from ui.layouts.base_page import BasePage
 from ui.learning_loop.exercise_status import render_exercise_list
 from ui.learning_loop.feedback_section import render_ps_feedback
 from ui.learning_loop.submissions_section import render_ps_submissions
@@ -150,19 +149,34 @@ def create_explore_ui_routes(
 
     @rt("/explore")
     async def explore_index(request: Request) -> Any:
-        """Explore page — discovery-first bento card grid of Ku + PathStep."""
+        """Explore page — shell renders immediately, content loads via HTMX."""
+        content = Div(
+            PageHeader("Explore", subtitle="Discover knowledge units and path steps"),
+            Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="explore-content",
+                hx_get="/explore/content",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
+        )
+        return await render_explore_sidebar_page(
+            content=content,
+            sidebar_data=None,
+            request=request,
+        )
+
+    @rt("/explore/content")
+    async def explore_content_fragment(request: Request) -> Any:
+        """HTMX fragment: explore card grid with search panel."""
         user_uid = require_authenticated_user(request) if is_authenticated(request) else None
         items, pinned_uids, learning_states = await orchestrator.load_explore_index(user_uid)
 
-        # Collect tags from all items
         all_tags = sorted(
             {t for item, _ in items for t in (getattr(item, "tags", None) or ())} - {""}
         )
-
-        # Default sort: newest first
         items.sort(key=sort_by_created_at, reverse=True)
 
-        # Render card grid
         cards = [
             render_explore_card(
                 item,
@@ -187,17 +201,10 @@ def create_explore_ui_routes(
             )
         )
 
-        content = Div(
-            PageHeader("Explore", subtitle="Discover knowledge units and path steps"),
+        return Div(
             render_explore_search_panel(all_tags),
             grid,
-        )
-
-        sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
-        return await render_explore_sidebar_page(
-            content=content,
-            sidebar_data=sidebar_data,
-            request=request,
+            id="explore-content",
         )
 
     # -----------------------------------------------------------------
@@ -206,35 +213,45 @@ def create_explore_ui_routes(
 
     @rt("/explore/ku/{uid}")
     async def explore_ku_detail(request: Request, uid: str) -> Any:
-        """Ku detail page within explore context.
+        """Ku detail page — shell renders immediately, content loads via HTMX."""
+        content = Div(
+            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+            id="ku-detail-content",
+            hx_get=f"/explore/ku/{uid}/content",
+            hx_trigger="load",
+            hx_swap="outerHTML",
+        )
+        return await render_explore_sidebar_page(
+            content=content,
+            sidebar_data=None,
+            request=request,
+            current_uid=uid,
+            current_entity_type="ku",
+        )
 
-        Public: shared curriculum content is readable without authentication.
-        Learning state tracking requires authentication.
-        """
+    @rt("/explore/ku/{uid}/content")
+    async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
+        """HTMX fragment: Ku detail content with learning state and exercises."""
         user_uid: str | None = get_current_user(request)
 
         ku_result = await orchestrator.get_ku(uid)
 
         if not ku_result or ku_result.is_error or not ku_result.value:
-            return await BasePage(
-                content=Div(
-                    Card(
-                        CardBody(
-                            H3("Knowledge Unit Not Found", cls="text-lg font-bold"),
-                            P(f"No KU with identifier: {uid}", cls="text-muted-foreground mt-2"),
-                            ButtonLink(
-                                "\u2190 Back to Explore",
-                                href="/explore",
-                                variant=ButtonT.ghost,
-                                size=Size.sm,
-                                cls="mt-4",
-                            ),
+            return Div(
+                Card(
+                    CardBody(
+                        H3("Knowledge Unit Not Found", cls="text-lg font-bold"),
+                        P(f"No KU with identifier: {uid}", cls="text-muted-foreground mt-2"),
+                        ButtonLink(
+                            "\u2190 Back to Explore",
+                            href="/explore",
+                            variant=ButtonT.ghost,
+                            size=Size.sm,
+                            cls="mt-4",
                         ),
                     ),
-                    cls="max-w-4xl mx-auto p-8",
                 ),
-                title="KU Not Found",
-                request=request,
+                cls="max-w-4xl mx-auto p-8",
             )
 
         ku = ku_result.value
@@ -346,19 +363,8 @@ def create_explore_ui_routes(
                 ),
                 cls="hidden lg:block w-56 shrink-0 border-l border-border",
             )
-            content = Div(main_column, toc_sidebar, cls="flex gap-6")
-        else:
-            content = main_column
-
-        sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
-        return await render_explore_sidebar_page(
-            content=content,
-            sidebar_data=sidebar_data,
-            request=request,
-            page_title=ku.title,
-            current_uid=uid,
-            current_entity_type="ku",
-        )
+            return Div(main_column, toc_sidebar, cls="flex gap-6")
+        return main_column
 
     # -----------------------------------------------------------------
     # GET /explore/ps/{uid} — PathStep detail page
@@ -366,37 +372,47 @@ def create_explore_ui_routes(
 
     @rt("/explore/ps/{uid}")
     async def explore_ps_detail(request: Request, uid: str) -> Any:
-        """PathStep detail page within explore context.
+        """PathStep detail page — shell renders immediately, content loads via HTMX."""
+        content = Div(
+            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+            id="ps-detail-content",
+            hx_get=f"/explore/ps/{uid}/content",
+            hx_trigger="load",
+            hx_swap="outerHTML",
+        )
+        return await render_explore_sidebar_page(
+            content=content,
+            sidebar_data=None,
+            request=request,
+            current_uid=uid,
+            current_entity_type="ps",
+        )
 
-        Public: shared curriculum content is readable without authentication.
-        Learning state tracking requires authentication.
-        """
+    @rt("/explore/ps/{uid}/content")
+    async def explore_ps_content_fragment(request: Request, uid: str) -> Any:
+        """HTMX fragment: PathStep detail content with learning state and learning loop."""
         user_uid: str | None = get_current_user(request)
 
         result = await orchestrator.get_ps_with_content(uid)
         if result.is_error:
-            return await BasePage(
-                content=Div(
-                    Card(
-                        CardBody(
-                            H3("Path Step Not Found", cls="text-lg font-bold"),
-                            P(
-                                f"No path step with identifier: {uid}",
-                                cls="text-muted-foreground mt-2",
-                            ),
-                            ButtonLink(
-                                "← Back to Explore",
-                                href="/explore",
-                                variant=ButtonT.ghost,
-                                size=Size.sm,
-                                cls="mt-4",
-                            ),
+            return Div(
+                Card(
+                    CardBody(
+                        H3("Path Step Not Found", cls="text-lg font-bold"),
+                        P(
+                            f"No path step with identifier: {uid}",
+                            cls="text-muted-foreground mt-2",
+                        ),
+                        ButtonLink(
+                            "← Back to Explore",
+                            href="/explore",
+                            variant=ButtonT.ghost,
+                            size=Size.sm,
+                            cls="mt-4",
                         ),
                     ),
-                    cls="max-w-4xl mx-auto p-8",
                 ),
-                title="Path Step Not Found",
-                request=request,
+                cls="max-w-4xl mx-auto p-8",
             )
 
         step, content_body = result.value
@@ -584,19 +600,8 @@ def create_explore_ui_routes(
                 ),
                 cls="hidden lg:block w-56 shrink-0 border-l border-border",
             )
-            content = Div(main_column, toc_sidebar, cls="flex gap-6")
-        else:
-            content = main_column
-
-        sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
-        return await render_explore_sidebar_page(
-            content=content,
-            sidebar_data=sidebar_data,
-            request=request,
-            page_title=step.title,
-            current_uid=uid,
-            current_entity_type="ps",
-        )
+            return Div(main_column, toc_sidebar, cls="flex gap-6")
+        return main_column
 
     # -----------------------------------------------------------------
     # PathStep learning loop HTMX fragments (loaded by /explore/ps/{uid})
@@ -627,7 +632,8 @@ def create_explore_ui_routes(
         )
 
     logger.info(
-        "Explore UI routes registered: /explore, /explore/ku/{uid}, /explore/ps/{uid}, "
+        "Explore UI routes registered: /explore, /explore/ku/{uid}, /explore/ps/{uid} "
+        "(shell-first with /content fragments), "
         "/learning-loop/ps/{uid}/exercises, /learning-loop/ps/{uid}/submissions-and-feedback"
     )
 

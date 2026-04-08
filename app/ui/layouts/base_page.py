@@ -40,6 +40,11 @@ if TYPE_CHECKING:
 
     from adapters.inbound.fasthtml_types import Request
 
+# Cache MonsterUI headers at import time — local_headers() downloads vendor files from CDN
+# on every call (httpx.get per file). Caching here means the download happens once at
+# module import, not on every page render.
+_MU_HEADERS = BRAND_THEME.local_headers(static_dir="static/vendor/monsterui", radii="sm")
+
 
 def build_head(
     title: str,
@@ -65,15 +70,12 @@ def build_head(
     if extra_css:
         css_links = [Link(rel="stylesheet", href=path) for path in extra_css]
 
-    # MonsterUI theme headers (FrankenUI + Tailwind + icons) — local vendor files
-    mu_headers = BRAND_THEME.local_headers(static_dir="static/vendor/monsterui", radii="sm")
-
     return Head(
         Meta(charset="UTF-8"),
         Meta(name="viewport", content="width=device-width, initial-scale=1.0, viewport-fit=cover"),
         Title(f"{title} - SKUEL"),
-        # MonsterUI headers (FrankenUI CSS/JS + Tailwind + Lucide icons)
-        *mu_headers,
+        # MonsterUI headers (FrankenUI CSS/JS + Tailwind + Lucide icons) — cached at import
+        *_MU_HEADERS,
         # HTMX for hypermedia
         Script(src=f"https://unpkg.com/htmx.org@{HTMX_VERSION}"),
         # Alpine.js (self-hosted, version-pinned)

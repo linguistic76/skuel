@@ -9,7 +9,7 @@ Routes:
 
 from typing import Any
 
-from fasthtml.common import Div
+from fasthtml.common import Div, P
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
@@ -30,17 +30,16 @@ def create_learning_paths_ui_routes(
 
     @rt("/learning-paths")
     async def learning_paths_browser(request: Request) -> Any:
-        """Learning Paths browser. Public: shared curriculum content."""
-        lp_service = services.lp
-        items: list[Any] = []
-        if lp_service:
-            result = await lp_service.core.list(limit=50)
-            if not result.is_error:
-                items = result.value if isinstance(result.value, list) else result.value[0]
-
+        """Learning Paths browser — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Learning Paths", subtitle="Ordered sequences of path step collections"),
-            _entity_list(items),
+            Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="learning-paths-content",
+                hx_get="/learning-paths/content",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
             id="main-content",
         )
         return await BasePage(
@@ -49,6 +48,17 @@ def create_learning_paths_ui_routes(
             request=request,
             active_page="learning-paths",
         )
+
+    @rt("/learning-paths/content")
+    async def learning_paths_content_fragment(request: Request) -> Any:
+        """HTMX fragment: learning paths list."""
+        lp_service = services.lp
+        items: list[Any] = []
+        if lp_service:
+            result = await lp_service.core.list(limit=50)
+            if not result.is_error:
+                items = result.value if isinstance(result.value, list) else result.value[0]
+        return Div(_entity_list(items), id="learning-paths-content")
 
 
 def _entity_list(items: list[Any]) -> Div:

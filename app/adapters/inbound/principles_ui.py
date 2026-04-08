@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
+from fasthtml.common import Div, P
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -44,21 +44,34 @@ def create_principles_ui_routes(
 
     @rt("/principles")
     async def principles_page(request: Request) -> Any:
-        """Main principles page — lists all user principles with filters."""
+        """Main principles page — shell renders immediately, content loads via HTMX."""
+        require_authenticated_user(request)
+        content = Div(
+            PageHeader("Principles"),
+            Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="principles-content",
+                hx_get="/principles/content",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
+        )
+        return await render_activity_sidebar_page(content, active="principles", request=request)
+
+    @rt("/principles/content")
+    async def principles_content_fragment(request: Request) -> Any:
+        """HTMX fragment: principle list with stats and filters."""
         user_uid = require_authenticated_user(request)
 
         result = await principles_service.get_user_principles(user_uid)
         if result.is_error:
             error = result.expect_error()
-            content = Div(
-                PageHeader("Principles"),
-                render_error_banner(error.user_message or error.message),
+            return Div(
+                render_error_banner(error.user_message or error.message), id="principles-content"
             )
-            return await render_activity_sidebar_page(content, active="principles", request=request)
 
         all_principles = result.value
 
-        # Parse filter params
         status_filter = request.query_params.get("status", "active")
         category_filter = request.query_params.get("category", "all")
         strength_filter = request.query_params.get("strength", "all")
@@ -68,17 +81,12 @@ def create_principles_ui_routes(
             all_principles, status_filter, category_filter, strength_filter, sort_by
         )
 
-        # Batch-fetch incoming connections
         principle_uids = [p.uid for p in filtered]
         connections_map = await fetch_entity_connections(
             principles_service.core.backend, PRINCIPLE_CONNECTION_CONFIG, principle_uids
         )
 
-        principle_count = len(all_principles)
-        subtitle = f"{principle_count} principle{'s' if principle_count != 1 else ''}"
-
-        content = Div(
-            PageHeader("Principles", subtitle=subtitle),
+        return Div(
             PrincipleStatsBar(all_principles),
             ActivityFilterBar(
                 PRINCIPLE_FILTER_CONFIG,
@@ -90,9 +98,8 @@ def create_principles_ui_routes(
                 },
             ),
             PrincipleList(filtered, connections_map),
+            id="principles-content",
         )
-
-        return await render_activity_sidebar_page(content, active="principles", request=request)
 
     @rt("/principles/list-fragment")
     async def principles_list_fragment(request: Request) -> Any:
@@ -124,9 +131,8 @@ def create_principles_ui_routes(
 
     @rt("/principles/detail")
     async def principle_detail_page(request: Request) -> Any:
-        """Detail page for a single principle with connections and relationships."""
-        user_uid = require_authenticated_user(request)
-
+        """Detail page for a single principle — shell renders immediately, content loads via HTMX."""
+        require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
             return await render_activity_sidebar_page(
@@ -134,32 +140,39 @@ def create_principles_ui_routes(
                 active="principles",
                 request=request,
             )
+        content = Div(
+            Div(
+                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+                id="principle-detail-content",
+                hx_get=f"/principles/detail/content?uid={uid}",
+                hx_trigger="load",
+                hx_swap="outerHTML",
+            ),
+        )
+        return await render_activity_sidebar_page(content, active="principles", request=request)
+
+    @rt("/principles/detail/content")
+    async def principle_detail_content_fragment(request: Request) -> Any:
+        """HTMX fragment: principle detail with connections and relationships."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return render_error_banner("Missing principle UID")
 
         principle_result = await principles_service.get_principle(uid)
         if principle_result.is_error:
-            return await render_activity_sidebar_page(
-                Div(render_error_banner("Principle not found")),
-                active="principles",
-                request=request,
-            )
+            return render_error_banner("Principle not found")
 
         principle = principle_result.value
         if principle.user_uid != user_uid:
-            return await render_activity_sidebar_page(
-                Div(render_error_banner("Principle not found")),
-                active="principles",
-                request=request,
-            )
+            return render_error_banner("Principle not found")
 
-        # Fetch incoming connections (gravity well)
         connections_map = await fetch_entity_connections(
             principles_service.core.backend, PRINCIPLE_CONNECTION_CONFIG, [principle.uid]
         )
         connections = connections_map.get(principle.uid, [])
 
-        content = PrincipleDetailView(principle, connections)
+        return PrincipleDetailView(principle, connections)
 
-        return await render_activity_sidebar_page(content, active="principles", request=request)
-
-    routes.extend([principles_page, principles_list_fragment, principle_detail_page])
+    routes.extend([principles_page, principles_content_fragment, principles_list_fragment, principle_detail_page, principle_detail_content_fragment])
     return routes
