@@ -11,11 +11,11 @@ if TYPE_CHECKING:
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
     from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
     from core.orchestrator.admin_orchestrator import AdminOrchestrator
-    from core.orchestrator.explore_orchestrator import ExploreOrchestrator
-    from core.orchestrator.journal_orchestrator import JournalOrchestrator
     from core.orchestrator.calendar_optimization_orchestrator import (
         CalendarOptimizationOrchestrator,
     )
+    from core.orchestrator.explore_orchestrator import ExploreOrchestrator
+    from core.orchestrator.journal_orchestrator import JournalOrchestrator
     from core.orchestrator.lateral_relationships_orchestrator import (
         LateralRelationshipsOrchestrator,
     )

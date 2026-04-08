@@ -36,8 +36,8 @@ from ui.learning_loop.exercise_status import (
 from ui.library.nav import render_library_sidebar_page
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
+from ui.patterns.loading import content_loading_placeholder
 
 logger = get_logger("skuel.routes.library")
 

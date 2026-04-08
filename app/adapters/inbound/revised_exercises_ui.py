@@ -17,7 +17,6 @@ from typing import Any
 
 from fasthtml.common import (
     Div,
-    P,
     Span,
 )
 

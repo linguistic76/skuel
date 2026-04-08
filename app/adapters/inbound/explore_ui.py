@@ -46,8 +46,8 @@ from ui.learning_loop.submissions_section import render_ps_submissions
 from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_inline_error
-from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.loading import content_loading_placeholder
+from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.page_header import PageHeader
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection

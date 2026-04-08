@@ -22,10 +22,10 @@ from fasthtml.common import H1, Body, Div, Head, Html, Link, Meta, Option, P, Sc
 from core.models.type_hints import UserUID
 from ui.buttons import Button, ButtonT
 from ui.feedback import Loading, LoadingT
-from ui.patterns.skeleton import SkeletonTimeline
 from ui.forms import Input, Label, Select
 from ui.layout import Size
 from ui.patterns.page_header import PageHeader
+from ui.patterns.skeleton import SkeletonTimeline
 
 
 def render_timeline_viewer_page(

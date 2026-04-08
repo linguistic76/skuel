@@ -7,7 +7,7 @@ Routes:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, P
+from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request

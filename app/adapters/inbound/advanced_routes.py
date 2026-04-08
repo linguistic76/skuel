@@ -84,11 +84,12 @@ def create_calendar_optimization_routes(
                 Errors.validation(f"Invalid strategy: {strategy}", field="strategy", value=strategy)
             )
 
-        return await calendar_optimization_orchestrator.optimize_schedule(
+        result: Result[Any] = await calendar_optimization_orchestrator.optimize_schedule(
             user_uid=user_uid,
             target_date=opt_date,
             strategy=strat,
         )
+        return result
 
     @rt("/events/calendar/cognitive-load")
     @boundary_handler()
@@ -109,7 +110,7 @@ def create_calendar_optimization_routes(
             opt_date = date.today()
 
         task_list, analyses = await calendar_optimization_orchestrator.get_cognitive_load_analyses(
-            opt_date
+            user_uid=_user_uid, target_date=opt_date
         )
         return Result.ok(
             {
