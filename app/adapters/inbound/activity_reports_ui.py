@@ -18,7 +18,6 @@ from typing import Any
 
 from fasthtml.common import (
     Div,
-    P,
     Span,
 )
 
@@ -127,63 +126,66 @@ def create_activity_reports_ui_routes(
 
     @rt("/activity-reports/detail")
     async def activity_report_detail(request: Request) -> Any:
-        """Activity report detail view with domain breakdown and annotation."""
-        user_uid = require_authenticated_user(request)
+        """Activity report detail — shell only, content loads via HTMX."""
+        require_authenticated_user(request)
         uid = request.query_params.get("uid", "").strip()
-
         if not uid:
             return await render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report UID is required")),
                 active="activity-reports",
                 request=request,
             )
-
-        if not orchestrator:
-            return await render_gradebook_sidebar_page(
-                content=Div(render_error_banner("Activity report orchestrator unavailable")),
-                active="activity-reports",
-                request=request,
-            )
-
-        # Fetch the report from history (service returns list, find by uid)
-        history_result = await orchestrator.get_activity_report_history(user_uid, limit=100)
-        if history_result.is_error:
-            return await render_gradebook_sidebar_page(
-                content=Div(
-                    render_error_banner("Failed to load report", str(history_result.error))
-                ),
-                active="activity-reports",
-                request=request,
-            )
-
-        report = None
-        for r in history_result.value or []:
-            if getattr(r, "uid", None) == uid:
-                report = r
-                break
-
-        if not report:
-            return await render_gradebook_sidebar_page(
-                content=Div(render_error_banner("Report not found")),
-                active="activity-reports",
-                request=request,
-            )
-
-        # Extract snapshot, intelligence, and comparison from metadata
-        metadata = getattr(report, "metadata", None) or {}
-        snapshot = metadata.get("snapshot") if isinstance(metadata, dict) else None
-        intelligence = metadata.get("intelligence") if isinstance(metadata, dict) else None
-        comparison = metadata.get("comparison") if isinstance(metadata, dict) else None
-
         content = Div(
-            render_activity_report_detail(
-                report, snapshot=snapshot, intelligence=intelligence, comparison=comparison
+            content_loading_placeholder(
+                f"/activity-reports/detail/content?uid={uid}",
+                "activity-report-detail-content",
             )
         )
         return await render_gradebook_sidebar_page(
             content=content,
             active="activity-reports",
             request=request,
+        )
+
+    @rt("/activity-reports/detail/content")
+    async def activity_report_detail_content(request: Request) -> Any:
+        """HTMX fragment: activity report detail body."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "").strip()
+        if not uid:
+            return Div(
+                render_error_banner("Report UID is required"),
+                id="activity-report-detail-content",
+            )
+        if not orchestrator:
+            return Div(
+                render_error_banner("Activity report orchestrator unavailable"),
+                id="activity-report-detail-content",
+            )
+        history_result = await orchestrator.get_activity_report_history(user_uid, limit=100)
+        if history_result.is_error:
+            return Div(
+                render_error_banner("Failed to load report", str(history_result.error)),
+                id="activity-report-detail-content",
+            )
+        report = None
+        for r in history_result.value or []:
+            if getattr(r, "uid", None) == uid:
+                report = r
+                break
+        if not report:
+            return Div(
+                render_error_banner("Report not found"), id="activity-report-detail-content"
+            )
+        metadata = getattr(report, "metadata", None) or {}
+        snapshot = metadata.get("snapshot") if isinstance(metadata, dict) else None
+        intelligence = metadata.get("intelligence") if isinstance(metadata, dict) else None
+        comparison = metadata.get("comparison") if isinstance(metadata, dict) else None
+        return Div(
+            render_activity_report_detail(
+                report, snapshot=snapshot, intelligence=intelligence, comparison=comparison
+            ),
+            id="activity-report-detail-content",
         )
 
     # ========================================================================
@@ -287,6 +289,7 @@ def create_activity_reports_ui_routes(
         activity_reports_page,
         submit_activity_report_page,
         activity_report_detail,
+        activity_report_detail_content,
         activity_report_list_fragment,
         progress_list_fragment,
     ]

@@ -15,7 +15,7 @@ UI Routes:
 from typing import Any
 
 from fasthtml.common import Div
-from starlette.responses import RedirectResponse
+from starlette.responses import HTMLResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -30,6 +30,7 @@ from ui.lifepath import (
     render_vision_form,
 )
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.loading import content_loading_placeholder
 
 logger = get_logger("skuel.routes.lifepath.ui")
 
@@ -74,18 +75,31 @@ def create_lifepath_ui_routes(
 
     @rt("/lifepath")
     async def lifepath_dashboard(request: Request) -> Any:
-        """Main life path dashboard."""
-        user_uid = require_authenticated_user(request)
-
+        """Main life path dashboard — shell only, content loads via HTMX."""
+        require_authenticated_user(request)
         if not lifepath_service:
             return _service_unavailable_page()
+        content = content_loading_placeholder("/lifepath/content", "lifepath-dashboard-content")
+        return await lifepath_sidebar_page("dashboard", content, request)
 
+    @rt("/lifepath/content")
+    async def lifepath_dashboard_content(request: Request) -> Any:
+        """HTMX fragment: lifepath dashboard body."""
+        user_uid = require_authenticated_user(request)
+        if not lifepath_service:
+            return Div(
+                render_error_banner("Service Unavailable"), id="lifepath-dashboard-content"
+            )
         status_result = await lifepath_service.get_full_status(user_uid)
         if status_result.is_error:
-            return _error_page(str(status_result.expect_error()))
-
-        content = render_dashboard_content(status_result.value, user_uid)
-        return await lifepath_sidebar_page("dashboard", content, request)
+            return Div(
+                render_error_banner(str(status_result.expect_error())),
+                id="lifepath-dashboard-content",
+            )
+        return Div(
+            render_dashboard_content(status_result.value, user_uid),
+            id="lifepath-dashboard-content",
+        )
 
     @rt("/lifepath/vision")
     async def vision_capture_page(request: Request) -> Any:
@@ -146,29 +160,44 @@ def create_lifepath_ui_routes(
 
     @rt("/lifepath/alignment")
     async def alignment_dashboard(request: Request) -> Any:
-        """Alignment dashboard showing word-action alignment."""
-        user_uid = require_authenticated_user(request)
-
+        """Alignment dashboard — shell only, content loads via HTMX."""
+        require_authenticated_user(request)
         if not lifepath_service:
             return _service_unavailable_page()
+        content = content_loading_placeholder(
+            "/lifepath/alignment/content", "lifepath-alignment-content"
+        )
+        return await lifepath_sidebar_page("alignment", content, request)
 
+    @rt("/lifepath/alignment/content")
+    async def alignment_dashboard_content(request: Request) -> Any:
+        """HTMX fragment: lifepath alignment body."""
+        user_uid = require_authenticated_user(request)
+        if not lifepath_service:
+            return Div(
+                render_error_banner("Service Unavailable"), id="lifepath-alignment-content"
+            )
         status_result = await lifepath_service.get_full_status(user_uid)
         if status_result.is_error:
-            return _error_page(str(status_result.expect_error()))
-
+            return Div(
+                render_error_banner(str(status_result.expect_error())),
+                id="lifepath-alignment-content",
+            )
         status = status_result.value
         if not status.get("has_designation"):
-            return RedirectResponse(url="/lifepath/vision", status_code=303)
-
-        content = render_alignment_dashboard(status, user_uid)
-        return await lifepath_sidebar_page("alignment", content, request)
+            return HTMLResponse("", status_code=200, headers={"HX-Redirect": "/lifepath/vision"})
+        return Div(
+            render_alignment_dashboard(status, user_uid), id="lifepath-alignment-content"
+        )
 
     logger.info("LifePath UI routes registered (5 routes)")
 
     return [
         lifepath_dashboard,
+        lifepath_dashboard_content,
         vision_capture_page,
         process_vision_capture,
         designate_life_path,
         alignment_dashboard,
+        alignment_dashboard_content,
     ]

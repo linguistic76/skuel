@@ -35,6 +35,7 @@ from ui.layouts.page_types import PageType
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.form_generator import FormGenerator
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -299,10 +300,30 @@ def create_pathways_ui_routes(
 
     @rt("/pathways")
     async def pathways_dashboard(request) -> Any:
-        """Main pathways dashboard with progress overview and active paths."""
-        user_uid = require_authenticated_user(request)
+        """Main pathways dashboard — shell only, content loads via HTMX."""
+        require_authenticated_user(request)
+        content = Div(
+            PageHeader(
+                "Pathways Dashboard",
+                subtitle="Track your learning journey and discover new knowledge",
+            ),
+            content_loading_placeholder("/pathways/content", "pathways-dashboard-content"),
+            cls="container mx-auto px-4 py-6",
+        )
+        return await BasePage(
+            content=content,
+            title="Pathways Dashboard",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="pathways",
+        )
 
-        # Fetch dashboard summary from service
+    routes.append(pathways_dashboard)
+
+    @rt("/pathways/content")
+    async def pathways_dashboard_content(request) -> Any:
+        """HTMX fragment: pathways dashboard body."""
+        user_uid = require_authenticated_user(request)
         summary_result = await orchestrator.get_dashboard_summary(user_uid)
         active_paths: list[ActivePathData] = []
         stats = LearningStatsData(
@@ -315,7 +336,6 @@ def create_pathways_ui_routes(
             active_paths = summary_result.value["active_paths"]
             stats = summary_result.value["stats"]
 
-        # Build active paths section
         if active_paths:
             paths_section = Div(
                 *[PathwaysUIComponents.render_learning_path_card(p) for p in active_paths],
@@ -343,12 +363,7 @@ def create_pathways_ui_routes(
                 cls="text-center",
             )
 
-        content = Div(
-            PageHeader(
-                "Pathways Dashboard",
-                subtitle="Track your learning journey and discover new knowledge",
-            ),
-            # Learning Stats Overview
+        return Div(
             Card(
                 CardHeader(CardTitle("Learning Overview")),
                 CardBody(
@@ -365,7 +380,9 @@ def create_pathways_ui_routes(
                                 color="success",
                             ),
                             StatItem(
-                                label="Active Paths", value=str(len(active_paths)), color="primary"
+                                label="Active Paths",
+                                value=str(len(active_paths)),
+                                color="primary",
                             ),
                             StatItem(
                                 label="Completion Rate",
@@ -377,7 +394,6 @@ def create_pathways_ui_routes(
                 ),
                 cls="mb-8",
             ),
-            # Active Learning Paths
             Card(
                 CardHeader(
                     Div(
@@ -403,7 +419,6 @@ def create_pathways_ui_routes(
                 CardBody(paths_section),
                 cls="mb-8",
             ),
-            # Quick Actions
             Card(
                 CardHeader(CardTitle("Quick Actions")),
                 CardBody(
@@ -428,22 +443,35 @@ def create_pathways_ui_routes(
                 ),
                 cls="mb-8",
             ),
-            cls="container mx-auto px-4 py-6",
+            id="pathways-dashboard-content",
         )
 
+    routes.append(pathways_dashboard_content)
+
+    @rt("/pathways/browse")
+    async def browse_learning_paths(request) -> Any:
+        """Browse learning paths — shell only, content loads via HTMX."""
+        content = Div(
+            PageHeader(
+                "Browse Learning Paths",
+                subtitle="Discover structured learning paths to achieve your goals",
+            ),
+            content_loading_placeholder("/pathways/browse/content", "pathways-browse-content"),
+            cls="container mx-auto px-4 py-6",
+        )
         return await BasePage(
             content=content,
-            title="Pathways Dashboard",
+            title="Browse Learning Paths",
             page_type=PageType.STANDARD,
             request=request,
             active_page="pathways",
         )
 
-    routes.append(pathways_dashboard)
+    routes.append(browse_learning_paths)
 
-    @rt("/pathways/browse")
-    async def browse_learning_paths(request) -> Any:
-        """Browse available learning paths with filtering and recommendations."""
+    @rt("/pathways/browse/content")
+    async def browse_learning_paths_content(request) -> Any:
+        """HTMX fragment: browse learning paths body."""
         available_paths: list[dict[str, Any]] = []
         paths_result = await orchestrator.list_all_paths(limit=50)
         if not paths_result.is_error and paths_result.value:
@@ -465,12 +493,7 @@ def create_pathways_ui_routes(
                 ),
             )
 
-        content = Div(
-            PageHeader(
-                "Browse Learning Paths",
-                subtitle="Discover structured learning paths to achieve your goals",
-            ),
-            # Filters Section
+        return Div(
             Card(
                 CardHeader(CardTitle("Filter Learning Paths")),
                 CardBody(
@@ -481,24 +504,11 @@ def create_pathways_ui_routes(
                 ),
                 cls="mb-8",
             ),
-            # Learning Paths Grid
-            Div(
-                grid_content,
-                id="learning-paths-grid",
-                cls="mb-8",
-            ),
-            cls="container mx-auto px-4 py-6",
+            Div(grid_content, id="learning-paths-grid", cls="mb-8"),
+            id="pathways-browse-content",
         )
 
-        return await BasePage(
-            content=content,
-            title="Browse Learning Paths",
-            page_type=PageType.STANDARD,
-            request=request,
-            active_page="pathways",
-        )
-
-    routes.append(browse_learning_paths)
+    routes.append(browse_learning_paths_content)
 
     @rt("/pathways/steps")
     async def browse_path_steps(request) -> Any:
@@ -577,11 +587,31 @@ def create_pathways_ui_routes(
 
     @rt("/pathways/path/{path_uid}")
     async def learning_path_detail(request, path_uid: str) -> Any:
-        """Detailed view of a specific learning path with curriculum and progress."""
+        """Learning path detail — shell only, content loads via HTMX."""
+        require_authenticated_user(request)
+        content = Div(
+            content_loading_placeholder(
+                f"/pathways/path/{path_uid}/content", "pathways-path-content"
+            ),
+            cls="container mx-auto px-4 py-6",
+        )
+        return await BasePage(
+            content=content,
+            title="Learning Path",
+            page_type=PageType.STANDARD,
+            request=request,
+            active_page="pathways",
+        )
+
+    routes.append(learning_path_detail)
+
+    @rt("/pathways/path/{path_uid}/content")
+    async def learning_path_detail_content(request, path_uid: str) -> Any:
+        """HTMX fragment: learning path detail body."""
         user_uid = require_authenticated_user(request)
         detail_result = await orchestrator.get_path_detail_progress(path_uid, user_uid)
         if detail_result.is_error:
-            content = Div(
+            return Div(
                 Card(
                     H1("Learning Path Not Found", cls="text-2xl font-bold mb-4"),
                     P(
@@ -596,14 +626,7 @@ def create_pathways_ui_routes(
                     ),
                     cls="p-6",
                 ),
-                cls="container mx-auto px-4 py-6",
-            )
-            return await BasePage(
-                content=content,
-                title="Path Not Found",
-                page_type=PageType.STANDARD,
-                request=request,
-                active_page="pathways",
+                id="pathways-path-content",
             )
 
         detail = detail_result.value
@@ -614,7 +637,6 @@ def create_pathways_ui_routes(
         is_enrolled = detail["is_enrolled"]
         progress = detail["progress"]
 
-        # Build steps list
         if steps:
             steps_section = Div(
                 *[
@@ -628,12 +650,10 @@ def create_pathways_ui_routes(
         else:
             steps_section = EmptyState(title="No steps defined for this path yet")
 
-        # Learning outcomes
         outcomes = path.outcomes or ()
         difficulty = _difficulty_label(path.difficulty_rating)
 
-        content = Div(
-            # Header with Path Info
+        return Div(
             Header(
                 Div(
                     H1(path.title or "Untitled Path", cls="text-3xl font-bold text-primary"),
@@ -668,13 +688,11 @@ def create_pathways_ui_routes(
                 ),
                 cls="flex items-start justify-between mb-8",
             ),
-            # Curriculum — flat step list
             Card(
                 CardHeader(CardTitle("Curriculum")),
                 CardBody(steps_section),
                 cls="mb-8",
             ),
-            # Learning Outcomes
             Card(
                 CardHeader(CardTitle("Learning Outcomes")),
                 CardBody(
@@ -690,24 +708,36 @@ def create_pathways_ui_routes(
                 ),
                 cls="mb-8",
             ),
-            cls="container mx-auto px-4 py-6",
+            id="pathways-path-content",
         )
 
+    routes.append(learning_path_detail_content)
+
+    @rt("/pathways/analytics")
+    async def learning_analytics(request) -> Any:
+        """Learning analytics dashboard — shell only, content loads via HTMX."""
+        require_authenticated_user(request)
+        content = Div(
+            PageHeader("Learning Analytics", subtitle="Insights into your learning journey"),
+            content_loading_placeholder(
+                "/pathways/analytics/content", "pathways-analytics-content"
+            ),
+            cls="container mx-auto px-4 py-6",
+        )
         return await BasePage(
             content=content,
-            title=f"Learning Path: {path.title or path_uid}",
+            title="Learning Analytics",
             page_type=PageType.STANDARD,
             request=request,
             active_page="pathways",
         )
 
-    routes.append(learning_path_detail)
+    routes.append(learning_analytics)
 
-    @rt("/pathways/analytics")
-    async def learning_analytics(request) -> Any:
-        """Learning analytics dashboard with real data from user progress profile."""
+    @rt("/pathways/analytics/content")
+    async def learning_analytics_content(request) -> Any:
+        """HTMX fragment: learning analytics body."""
         user_uid = require_authenticated_user(request)
-
         analytics_result = await orchestrator.get_learning_analytics(user_uid)
         analytics = analytics_result.value if not analytics_result.is_error else {}
         concepts_mastered = analytics.get("concepts_mastered", 0)
@@ -717,9 +747,7 @@ def create_pathways_ui_routes(
         active_paths_count = analytics.get("active_paths_count", 0)
         avg_retention = analytics.get("avg_retention", 0.0)
 
-        content = Div(
-            PageHeader("Learning Analytics", subtitle="Insights into your learning journey"),
-            # Analytics Overview
+        return Div(
             Card(
                 CardHeader(CardTitle("Knowledge Profile")),
                 CardBody(
@@ -742,7 +770,6 @@ def create_pathways_ui_routes(
                 ),
                 cls="mb-8",
             ),
-            # Detail Cards
             Card(
                 CardHeader(CardTitle("Learning Health")),
                 CardBody(
@@ -757,18 +784,10 @@ def create_pathways_ui_routes(
                 ),
                 cls="mb-8",
             ),
-            cls="container mx-auto px-4 py-6",
+            id="pathways-analytics-content",
         )
 
-        return await BasePage(
-            content=content,
-            title="Learning Analytics",
-            page_type=PageType.STANDARD,
-            request=request,
-            active_page="pathways",
-        )
-
-    routes.append(learning_analytics)
+    routes.append(learning_analytics_content)
 
     # ========================================================================
     # LEARNING PATH DETAIL PAGE
