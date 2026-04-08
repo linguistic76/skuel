@@ -6,7 +6,7 @@ after the page chrome has been painted.
 See: docs/patterns/SHELL_FIRST_PAGE_PATTERN.md
 """
 
-from fasthtml.common import Div, P, Span
+from fasthtml.common import Div, Span
 
 
 def content_loading_placeholder(
