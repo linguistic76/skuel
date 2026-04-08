@@ -606,6 +606,7 @@ Graphs are lazy-loaded via HTMX's `hx-trigger="intersect once"`:
 
 ```python
 from fasthtml.common import Div
+from ui.patterns.skeleton import SkeletonLines
 
 Div(
     **{
@@ -613,7 +614,7 @@ Div(
         "hx-trigger": "intersect once",  # Load when scrolled into view
         "hx-swap": "innerHTML",
     },
-    Div("Loading graph...", cls="skeleton h-96"),  # Placeholder
+    SkeletonLines(count=4),  # Shimmer placeholder while graph loads
 )
 ```
 
@@ -1504,18 +1505,22 @@ Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
 **GOOD:**
 
 ```python
+from ui.patterns.skeleton import SkeletonLines
+
 # Alpine component handles loading automatically
 Div(
     **{
         "x-data": "relationshipGraph('task_123', 'tasks', 1)",
         "x-init": "loadGraph()",
     },
-    # Loading state built into component
-    Div("Loading graph...", **{"x-show": "loading"}),
+    # Shimmer skeleton visible while loading — never plain text
+    Div(SkeletonLines(count=4), **{"x-show": "loading"}),
     Div("Error: ", **{"x-show": "error", "x-text": "error"}),
     Div(**{"x-ref": "container", "x-show": "!loading && !error"}),
 )
 ```
+
+**Explore graph note:** `ExploreGraphView` (`ui/explore/graph.py`) uses a different approach — an SVG with shimmer circles and edges is embedded directly inside `explore-graph-container`, and JS removes it by id (`#explore-graph-skeleton`) just before `new vis.Network()` renders. This gives a graph-shaped cue rather than text lines.
 
 **Why?**
 - ✅ Reactive loading states (no manual DOM updates)

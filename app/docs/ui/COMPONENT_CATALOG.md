@@ -1041,7 +1041,23 @@ Navigation breadcrumbs trail.
 
 **Location:** `/ui/patterns/skeleton.py`
 
-Loading skeleton placeholders.
+Animate-pulse shimmer placeholders that mirror the visual shape of the content being loaded.
+
+| Component | Use case |
+|-----------|----------|
+| `SkeletonCard()` | Single card loading state |
+| `SkeletonList(count=3)` | Hub panels, HTMX fragment containers that load card lists |
+| `SkeletonLines(count=3)` | Inline/panel states (expand-on-click panels, tree nodes, small lists) |
+| `SkeletonTimeline()` | Vis.js Timeline — full date-axis bar + 7 labelled Gantt rows filling `h-[70vh]` |
+| `SkeletonStats()` | Stats/metrics card |
+| `SkeletonTable(rows=5)` | Table loading state |
+| `SkeletonSidebar(domain_count=7)` | Sidebar with domain item rows |
+| `SkeletonDomainView()` | Domain stats summary + item list |
+| `SkeletonIntelligence()` | Intelligence section (alignment, daily plan, synergies) |
+
+**SVG graph skeleton** — the `ExploreGraphView` component (`ui/explore/graph.py`) embeds a static SVG inside `explore-graph-container`: 5 shimmer circles (hub + 4 satellites) with connecting lines. JS removes it by id (`#explore-graph-skeleton`) just before `new vis.Network()` paints. Not a reusable function — it is baked into the component.
+
+**Rule:** Use `SkeletonList` for hub panels and HTMX containers that load card lists. Use `SkeletonLines` for lightweight inline states (panels, tree nodes). Never use plain `P("Loading...")` or `Span("Loading...")` as a loading placeholder.
 
 ---
 
