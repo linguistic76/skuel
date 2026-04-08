@@ -63,12 +63,10 @@ def render_snapshot_form(subject_uid: str = "", time_period: str = "7d") -> Any:
                     ),
                     cls="text-right",
                 ),
-                **{
-                    "hx-get": "/activity-review/snapshot-fragment",
-                    "hx-target": "#snapshot-display",
-                    "hx-swap": "innerHTML",
-                    "hx-include": "[name='subject_uid'],[name='time_period'],[name='domains']",
-                },
+                hx_get="/activity-review/snapshot-fragment",
+                hx_target="#snapshot-display",
+                hx_swap="innerHTML",
+                hx_include="[name='subject_uid'],[name='time_period'],[name='domains']",
             )
         ),
         cls="mb-4",
@@ -109,12 +107,10 @@ def render_feedback_form(subject_uid: str = "", time_period: str = "7d") -> Any:
                     cls="text-right",
                 ),
                 Div(id="submit-status", cls="mt-3"),
-                **{
-                    "hx-post": "/activity-review/submit-feedback",
-                    "hx-target": "#submit-status",
-                    "hx-swap": "innerHTML",
-                    "hx-include": "[name='subject_uid'],[name='time_period'],[name='feedback_text']",
-                },
+                hx_post="/activity-review/submit-feedback",
+                hx_target="#submit-status",
+                hx_swap="innerHTML",
+                hx_include="[name='subject_uid'],[name='time_period'],[name='feedback_text']",
             ),
             # Sync hidden fields from snapshot form before posting
             Script(

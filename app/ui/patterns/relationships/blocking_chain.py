@@ -56,11 +56,9 @@ def BlockingChainView(entity_uid: EntityUID, entity_type: str) -> Div:
             Div(
                 Div("Loading blocking chain...", cls="skeleton h-32"),
                 id=f"chain-{entity_uid}",
-                **{
-                    "hx-get": f"/api/{entity_type}/{entity_uid}/lateral/chain",
-                    "hx-trigger": "load",
-                    "hx-swap": "innerHTML",
-                },
+                hx_get=f"/api/{entity_type}/{entity_uid}/lateral/chain",
+                hx_trigger="load",
+                hx_swap="innerHTML",
             ),
         ),
         **{"x-data": "{ chain_depth: 0 }"},

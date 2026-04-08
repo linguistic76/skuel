@@ -47,6 +47,7 @@ from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_inline_error
 from ui.patterns.metadata_badge import metadata_badge
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
@@ -152,13 +153,7 @@ def create_explore_ui_routes(
         """Explore page — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Explore", subtitle="Discover knowledge units and path steps"),
-            Div(
-                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                id="explore-content",
-                hx_get="/explore/content",
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            ),
+            content_loading_placeholder("/explore/content", "explore-content"),
         )
         return await render_explore_sidebar_page(
             content=content,
@@ -214,13 +209,7 @@ def create_explore_ui_routes(
     @rt("/explore/ku/{uid}")
     async def explore_ku_detail(request: Request, uid: str) -> Any:
         """Ku detail page — shell renders immediately, content loads via HTMX."""
-        content = Div(
-            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-            id="ku-detail-content",
-            hx_get=f"/explore/ku/{uid}/content",
-            hx_trigger="load",
-            hx_swap="outerHTML",
-        )
+        content = content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content")
         return await render_explore_sidebar_page(
             content=content,
             sidebar_data=None,
@@ -373,13 +362,7 @@ def create_explore_ui_routes(
     @rt("/explore/ps/{uid}")
     async def explore_ps_detail(request: Request, uid: str) -> Any:
         """PathStep detail page — shell renders immediately, content loads via HTMX."""
-        content = Div(
-            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-            id="ps-detail-content",
-            hx_get=f"/explore/ps/{uid}/content",
-            hx_trigger="load",
-            hx_swap="outerHTML",
-        )
+        content = content_loading_placeholder(f"/explore/ps/{uid}/content", "ps-detail-content")
         return await render_explore_sidebar_page(
             content=content,
             sidebar_data=None,

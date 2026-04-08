@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, P
+from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -26,6 +26,8 @@ from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.nav import render_activity_sidebar_page
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.loading import content_loading_placeholder
+from ui.patterns.personal_header import personal_header_placeholder
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -48,13 +50,8 @@ def create_choices_ui_routes(
         require_authenticated_user(request)
         content = Div(
             PageHeader("Choices"),
-            Div(
-                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                id="choices-content",
-                hx_get="/choices/content",
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            ),
+            personal_header_placeholder(),
+            content_loading_placeholder("/choices/content", "choices-content"),
         )
         return await render_activity_sidebar_page(content, active="choices", request=request)
 
@@ -123,13 +120,7 @@ def create_choices_ui_routes(
                 request=request,
             )
         content = Div(
-            Div(
-                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                id="choice-detail-content",
-                hx_get=f"/choices/detail/content?uid={uid}",
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            ),
+            content_loading_placeholder(f"/choices/detail/content?uid={uid}", "choice-detail-content"),
         )
         return await render_activity_sidebar_page(content, active="choices", request=request)
 

@@ -11,6 +11,10 @@ related: [docs/patterns/UI_COMPONENT_PATTERNS.md, docs/patterns/HUB_PAGE_PATTERN
 
 > Route handlers return page chrome immediately (zero DB calls). A `hx-trigger="load"` placeholder fires the content fragment once the browser has painted the shell.
 
+```python
+from ui.patterns.loading import content_loading_placeholder
+```
+
 ## Why
 
 Before this pattern, route handlers blocked on Neo4j queries before returning any HTML. The browser showed a blank screen until the DB finished. Shell-first eliminates the blank screen: the navbar, sidebar, and page header appear in ~50ms regardless of DB latency. Content fills in shortly after.
@@ -33,13 +37,7 @@ async def domain_page(request: Request) -> Any:
     require_authenticated_user(request)               # auth only, no DB
     content = Div(
         PageHeader("Domain"),
-        Div(
-            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-            id="domain-content",
-            hx_get="/domain/content",
-            hx_trigger="load",
-            hx_swap="outerHTML",
-        ),
+        content_loading_placeholder("/domain/content", "domain-content"),
     )
     return await SomeSidebarPage(content, ...)        # returns in ~50ms
 
@@ -89,13 +87,7 @@ async def task_detail_page(request: Request) -> Any:
             Div(render_error_banner("Missing task UID")), active="tasks", request=request
         )
     content = Div(
-        Div(
-            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-            id="task-detail-content",
-            hx_get=f"/tasks/detail/content?uid={uid}",
-            hx_trigger="load",
-            hx_swap="outerHTML",
-        ),
+        content_loading_placeholder(f"/tasks/detail/content?uid={uid}", "task-detail-content"),
     )
     return await render_activity_sidebar_page(content, active="tasks", request=request)
 
@@ -116,13 +108,7 @@ async def task_detail_content_fragment(request: Request) -> Any:
 ```python
 @rt("/explore/ku/{uid}")
 async def explore_ku_detail(request: Request, uid: str) -> Any:
-    content = Div(
-        P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-        id="ku-detail-content",
-        hx_get=f"/explore/ku/{uid}/content",
-        hx_trigger="load",
-        hx_swap="outerHTML",
-    )
+    content = content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content")
     return await render_explore_sidebar_page(content=content, sidebar_data=None, request=request)
 
 @rt("/explore/ku/{uid}/content")
@@ -141,7 +127,7 @@ Apply `@require_role` to **both** shell and fragment:
 @rt("/teaching/students")
 @require_role(UserRole.TEACHER, get_user_service)
 async def teaching_students_page(request, current_user=None):
-    content = Div(PageHeader("Students"), loading_placeholder("/teaching/students/content"))
+    content = Div(PageHeader("Students"), content_loading_placeholder("/teaching/students/content", "students-content"))
     return await render_teaching_sidebar_page(content, active="students", request=request)
 
 @rt("/teaching/students/content")

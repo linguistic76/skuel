@@ -81,7 +81,7 @@ def _notification_button(unread_count: int = 0) -> Any:
         *button_content,
         type="button",
         cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground relative",
-        **{"hx-get": "/notifications"},
+        hx_get="/notifications",
     )
 
 

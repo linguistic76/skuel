@@ -107,12 +107,10 @@ def render_upload_form(
                     cls="text-center",
                 ),
                 Div(id="upload-status", cls="mt-4 text-center"),
-                **{
-                    "hx-post": "/gradebook/upload",
-                    "hx-target": "#upload-status",
-                    "hx-swap": "outerHTML",
-                    "hx-encoding": "multipart/form-data",
-                },
+                hx_post="/gradebook/upload",
+                hx_target="#upload-status",
+                hx_swap="outerHTML",
+                hx_encoding="multipart/form-data",
                 id="upload-form",
             ),
         ),
@@ -186,12 +184,10 @@ def render_filters_section() -> Any:
                     ),
                     cls="flex gap-4",
                 ),
-                **{
-                    "hx-get": "/grid",
-                    "hx-target": "#submissions-grid-container",
-                    "hx-swap": "outerHTML",
-                    "hx-trigger": "change from:select",
-                },
+                hx_get="/grid",
+                hx_target="#submissions-grid-container",
+                hx_swap="outerHTML",
+                hx_trigger="change from:select",
                 id="filter-form",
             ),
         ),
@@ -205,11 +201,9 @@ def render_submissions_grid_container() -> Any:
         P("Loading submissions...", cls="text-center text-muted-foreground"),
         id="submissions-grid-container",
         cls="mt-4",
-        **{
-            "hx-get": "/grid",
-            "hx-trigger": "load",
-            "hx-swap": "outerHTML",
-        },
+        hx_get="/grid",
+        hx_trigger="load",
+        hx_swap="outerHTML",
     )
 
 
@@ -219,11 +213,9 @@ def render_yours_list_container() -> Any:
         P("Loading your submissions...", cls="text-center text-muted-foreground"),
         id="submissions-yours-list",
         cls="mt-4",
-        **{
-            "hx-get": "/gradebook/list",
-            "hx-trigger": "load",
-            "hx-swap": "outerHTML",
-        },
+        hx_get="/gradebook/list",
+        hx_trigger="load",
+        hx_swap="outerHTML",
     )
 
 

@@ -25,6 +25,7 @@ from ui.exercises.detail import render_exercise_student_detail, render_exercise_
 from ui.exercises.editor import render_exercise_editor
 from ui.layouts.base_page import BasePage
 from ui.patterns.error_banner import render_error_banner, render_inline_error
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.tokens import Container, Spacing
 
@@ -64,13 +65,7 @@ def create_exercises_ui_routes(
                     "Exercises",
                     subtitle="Practice with exercises linked to path steps and knowledge units",
                 ),
-                Div(
-                    P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                    id="exercises-content",
-                    hx_get="/exercises/content",
-                    hx_trigger="load",
-                    hx_swap="outerHTML",
-                ),
+                content_loading_placeholder("/exercises/content", "exercises-content"),
                 id="main-content",
             )
             return await BasePage(
@@ -166,13 +161,7 @@ def create_exercises_ui_routes(
             if from_ps:
                 fragment_url += f"&from_ps={from_ps}"
 
-            content = Div(
-                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                id="exercise-detail-content",
-                hx_get=fragment_url,
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            )
+            content = content_loading_placeholder(fragment_url, "exercise-detail-content")
             return await BasePage(
                 content,
                 title="Exercise",

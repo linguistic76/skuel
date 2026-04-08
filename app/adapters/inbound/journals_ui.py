@@ -336,12 +336,10 @@ def _render_upload_form(exercises: list[Exercise] | None = None) -> Any:
                     ),
                     # Upload status (HTMX target)
                     Div(id="upload-status", cls="mt-4 text-center"),
-                    **{
-                        "hx-post": "/journals/upload",
-                        "hx-target": "#upload-status",
-                        "hx-swap": "outerHTML",
-                        "hx-encoding": "multipart/form-data",
-                    },
+                    hx_post="/journals/upload",
+                    hx_target="#upload-status",
+                    hx_swap="outerHTML",
+                    hx_encoding="multipart/form-data",
                     id="upload-form",
                 ),
                 # Instruction file picker — sibling of Form, shares Alpine scope from card-body
@@ -351,13 +349,11 @@ def _render_upload_form(exercises: list[Exercise] | None = None) -> Any:
                     name="instruction_file",
                     cls="hidden",
                     accept=".txt,.md,.rst,text/plain,text/markdown",
-                    **{
-                        "hx-post": "/journals/instructions/upload",
-                        "hx-target": "#instruction-file-list",
-                        "hx-swap": "outerHTML",
-                        "hx-encoding": "multipart/form-data",
-                        "hx-trigger": "change",
-                    },
+                    hx_post="/journals/instructions/upload",
+                    hx_target="#instruction-file-list",
+                    hx_swap="outerHTML",
+                    hx_encoding="multipart/form-data",
+                    hx_trigger="change",
                 ),
                 **{
                     "x-data": """{
@@ -492,12 +488,10 @@ def _render_filters_section() -> Any:
                     ),
                     cls="mb-2",
                 ),
-                **{
-                    "hx-get": "/journals/grid",
-                    "hx-target": "#journals-grid-container",
-                    "hx-swap": "outerHTML",
-                    "hx-trigger": "change from:select",
-                },
+                hx_get="/journals/grid",
+                hx_target="#journals-grid-container",
+                hx_swap="outerHTML",
+                hx_trigger="change from:select",
                 id="filter-form",
             ),
         ),
@@ -511,11 +505,9 @@ def _render_journals_grid_container() -> Any:
         P("Loading journals...", cls="text-center text-muted-foreground"),
         id="journals-grid-container",
         cls="mt-4",
-        **{
-            "hx-get": "/journals/grid",
-            "hx-trigger": "load",
-            "hx-swap": "outerHTML",
-        },
+        hx_get="/journals/grid",
+        hx_trigger="load",
+        hx_swap="outerHTML",
     )
 
 

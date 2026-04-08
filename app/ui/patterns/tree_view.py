@@ -79,11 +79,9 @@ def TreeView(
             Div(
                 Span("Loading...", cls="text-muted-foreground text-sm italic"),
                 cls="px-2 py-1",
-                **{
-                    "hx-get": f"{children_endpoint.replace('{uid}', root_uid)}?parent_depth=-1",
-                    "hx-trigger": "load",
-                    "hx-swap": "outerHTML",
-                },
+                hx_get=f"{children_endpoint.replace('{uid}', root_uid)}?parent_depth=-1",
+                hx_trigger="load",
+                hx_swap="outerHTML",
             ),
             id=f"tree-root-{root_uid}",
             cls="tree-view",

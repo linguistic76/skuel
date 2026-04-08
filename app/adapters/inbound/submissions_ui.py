@@ -493,19 +493,15 @@ def create_submissions_ui_routes(
                     P("Loading submission details...", cls="text-center text-muted-foreground"),
                     id="submission-info",
                     cls="mb-4",
-                    **{
-                        "hx-get": f"/gradebook/{uid}/info",
-                        "hx-trigger": "load",
-                        "hx-swap": "outerHTML",
-                    },
+                    hx_get=f"/gradebook/{uid}/info",
+                    hx_trigger="load",
+                    hx_swap="outerHTML",
                 ),
                 Div(
                     id="exercise-link",
-                    **{
-                        "hx-get": f"/gradebook/{uid}/exercise",
-                        "hx-trigger": "load",
-                        "hx-swap": "outerHTML",
-                    },
+                    hx_get=f"/gradebook/{uid}/exercise",
+                    hx_trigger="load",
+                    hx_swap="outerHTML",
                 ),
                 Div(
                     H4("Processed Content", cls="mt-6 mb-4"),
@@ -514,11 +510,9 @@ def create_submissions_ui_routes(
                         id="processed-content",
                         cls="p-4 bg-muted rounded-lg",
                         style="max-height: 600px; overflow-y: auto;",
-                        **{
-                            "hx-get": f"/gradebook/{uid}/content",
-                            "hx-trigger": "load",
-                            "hx-swap": "outerHTML",
-                        },
+                        hx_get=f"/gradebook/{uid}/content",
+                        hx_trigger="load",
+                        hx_swap="outerHTML",
                     ),
                     id="content-section",
                     cls="mb-4",
@@ -527,11 +521,9 @@ def create_submissions_ui_routes(
                     P("Loading feedback...", cls="text-center text-muted-foreground py-2"),
                     id="feedback-section",
                     cls="mb-4",
-                    **{
-                        "hx-get": f"/gradebook/{uid}/report",
-                        "hx-trigger": "load",
-                        "hx-swap": "outerHTML",
-                    },
+                    hx_get=f"/gradebook/{uid}/report",
+                    hx_trigger="load",
+                    hx_swap="outerHTML",
                 ),
                 (
                     render_sharing_section(submission_result.value)

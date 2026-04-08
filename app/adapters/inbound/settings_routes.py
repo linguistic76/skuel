@@ -15,6 +15,7 @@ from adapters.inbound.form_helpers import safe_form_bool, safe_form_int, safe_fo
 from core.ports import get_enum_value
 from core.utils.logging import get_logger
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 
 if TYPE_CHECKING:
@@ -43,13 +44,7 @@ def create_settings_routes(
 
         content = Div(
             PageHeader("Settings", subtitle="Manage your preferences"),
-            Div(
-                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                id="settings-content",
-                hx_get="/settings/content",
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            ),
+            content_loading_placeholder("/settings/content", "settings-content"),
         )
         return await BasePage(
             content=content,

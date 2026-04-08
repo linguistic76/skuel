@@ -35,6 +35,7 @@ from ui.patterns.generate_report import (
     render_recent_reports_section,
 )
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.submissions.report import (
     render_activity_report_detail,
@@ -85,15 +86,10 @@ def create_activity_reports_ui_routes(
                 ),
             ),
             render_time_period_filter(),
-            Div(
-                P("Loading activity reports...", cls="text-center text-muted-foreground"),
-                id="activity-feedback-list",
-                cls="mt-2",
-                **{
-                    "hx-get": "/reports/activity-list",
-                    "hx-trigger": "load",
-                    "hx-swap": "outerHTML",
-                },
+            content_loading_placeholder(
+                "/reports/activity-list",
+                "activity-feedback-list",
+                loading_text="Loading activity reports...",
             ),
         )
         return await render_gradebook_sidebar_page(

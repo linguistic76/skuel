@@ -263,10 +263,8 @@ def _render_item_details_modal(item: Any) -> Div:
                 "Mark Complete",
                 variant=ButtonT.secondary,
                 cls="mr-2",
-                **{
-                    "hx-post": f"/events/calendar/habit/{item.source_uid}/complete",
-                    "hx-swap": "none",
-                },
+                hx_post=f"/events/calendar/habit/{item.source_uid}/complete",
+                hx_swap="none",
             ),
         )
 

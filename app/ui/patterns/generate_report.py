@@ -5,6 +5,8 @@ Used by both the Transfer hub (HTMX fragment) and the Study submit-activity-repo
 
 from fasthtml.common import H3, Div, Form, Label, Option, P
 
+from ui.patterns.loading import content_loading_placeholder
+
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Select
@@ -67,13 +69,5 @@ def render_recent_reports_section():
     """HTMX-loading section for recent activity reports."""
     return Div(
         H3("Recent Activity Reports", cls="font-semibold mb-4"),
-        Div(
-            P("Loading...", cls="text-center text-muted-foreground"),
-            id="progress-list",
-            **{
-                "hx-get": "/reports/progress-list",
-                "hx-trigger": "load",
-                "hx-swap": "outerHTML",
-            },
-        ),
+        content_loading_placeholder("/reports/progress-list", "progress-list"),
     )

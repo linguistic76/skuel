@@ -49,11 +49,9 @@ def AlternativesComparisonGrid(entity_uid: EntityUID, entity_type: str) -> Div:
             Div(
                 Div("Loading alternatives...", cls="skeleton h-48"),
                 id=f"alternatives-{entity_uid}",
-                **{
-                    "hx-get": f"/api/{entity_type}/{entity_uid}/lateral/alternatives/compare",
-                    "hx-trigger": "load delay:300ms",  # Staggered loading
-                    "hx-swap": "innerHTML",
-                },
+                hx_get=f"/api/{entity_type}/{entity_uid}/lateral/alternatives/compare",
+                hx_trigger="load delay:300ms",
+                hx_swap="innerHTML",
             ),
         ),
     )

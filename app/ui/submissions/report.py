@@ -114,12 +114,10 @@ def render_submission_history_row(item: dict) -> Any:
             variant=ButtonT.error,
             size=Size.sm,
             cls="ml-1",
-            **{
-                "hx-post": f"/submissions/history/delete?uid={uid}",
-                "hx-target": f"#submission-row-{uid}",
-                "hx-swap": "outerHTML",
-                "hx-confirm": "Delete this submission? This cannot be undone.",
-            },
+            hx_post=f"/submissions/history/delete?uid={uid}",
+            hx_target=f"#submission-row-{uid}",
+            hx_swap="outerHTML",
+            hx_confirm="Delete this submission? This cannot be undone.",
         )
 
     return Card(
@@ -464,11 +462,9 @@ def render_time_period_filter(active_period: str = "") -> Any:
             HtmlButton(
                 label,
                 cls=cls,
-                **{
-                    "hx-get": f"/reports/activity-list?time_period={value}",
-                    "hx-target": "#activity-feedback-list",
-                    "hx-swap": "outerHTML",
-                },
+                hx_get=f"/reports/activity-list?time_period={value}",
+                hx_target="#activity-feedback-list",
+                hx_swap="outerHTML",
             )
         )
     return Div(*buttons, cls="flex gap-2 flex-wrap mb-4")
@@ -647,18 +643,16 @@ def render_activity_report_detail(
                 Div(id="annotation-status", cls="ml-3 text-sm"),
                 cls="flex items-center",
             ),
-            **{
-                "hx-post": "/api/activity-reports/annotate",
-                "hx-target": "#annotation-status",
-                "hx-swap": "innerHTML",
-                "hx-vals": "js:{"
+            hx_post="/api/activity-reports/annotate",
+            hx_target="#annotation-status",
+            hx_swap="innerHTML",
+            hx_vals="js:{"
                 + '"uid": document.querySelector("[name=uid]").value,'
                 + '"annotation_mode": document.querySelector("[name=annotation_mode]:checked").value,'
                 + '"user_annotation": document.querySelector("[name=annotation_mode]:checked").value === "additive" ? document.querySelector("[name=annotation_text]").value : null,'
                 + '"user_revision": document.querySelector("[name=annotation_mode]:checked").value === "revision" ? document.querySelector("[name=annotation_text]").value : null'
                 + "}",
-                "hx-headers": '{"Content-Type": "application/json"}',
-            },
+            hx_headers='{"Content-Type": "application/json"}',
         ),
     )
 

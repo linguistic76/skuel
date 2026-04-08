@@ -138,13 +138,11 @@ def _upload_form() -> Form:
             ),
             cls="flex items-center",
         ),
-        **{
-            "hx-post": "/upload/files",
-            "hx-target": "#upload-results",
-            "hx-swap": "innerHTML",
-            "hx-encoding": "multipart/form-data",
-            "hx-indicator": "#upload-spinner",
-        },
+        hx_post="/upload/files",
+        hx_target="#upload-results",
+        hx_swap="innerHTML",
+        hx_encoding="multipart/form-data",
+        hx_indicator="#upload-spinner",
     )
 
 

@@ -34,6 +34,7 @@ from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import (
     SidebarPage,
@@ -172,13 +173,7 @@ def create_teaching_ui_routes(
         """Review detail — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Review Submission"),
-            Div(
-                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                id="review-detail-content",
-                hx_get=f"/teaching/review/{uid}/content",
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            ),
+            content_loading_placeholder(f"/teaching/review/{uid}/content", "review-detail-content"),
         )
         return await render_teaching_sidebar_page(
             content=content,
@@ -258,13 +253,7 @@ def create_teaching_ui_routes(
         """Students page — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Students", subtitle="Students who have submitted work"),
-            Div(
-                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                id="students-content",
-                hx_get="/teaching/students/content",
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            ),
+            content_loading_placeholder("/teaching/students/content", "students-content"),
         )
         return await render_teaching_sidebar_page(
             content=content,
@@ -315,13 +304,7 @@ def create_teaching_ui_routes(
     ) -> Any:
         """Student hub — shell renders immediately, content loads via HTMX."""
         return await BasePage(
-            content=Div(
-                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                id="student-hub-content",
-                hx_get=f"/teaching/students/{uid}/content",
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            ),
+            content=content_loading_placeholder(f"/teaching/students/{uid}/content", "student-hub-content"),
             title="Student",
             request=request,
             active_page="teaching",

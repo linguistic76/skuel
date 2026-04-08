@@ -28,6 +28,7 @@ from ui.cards import Card
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.submissions.revised_exercise import (
     render_revised_exercise_detail,
@@ -65,15 +66,10 @@ def create_revised_exercises_ui_routes(
         require_authenticated_user(request)
 
         revisions_section = Card(
-            Div(
-                P("Loading revisions...", cls="text-center text-muted-foreground"),
-                id="revisions-list",
-                cls="mt-2",
-                **{
-                    "hx-get": "/revised-exercises/list",
-                    "hx-trigger": "load",
-                    "hx-swap": "outerHTML",
-                },
+            content_loading_placeholder(
+                "/revised-exercises/list",
+                "revisions-list",
+                loading_text="Loading revisions...",
             ),
             cls="bg-background shadow-sm p-4",
         )

@@ -84,11 +84,9 @@ def _notification_card(notif: dict[str, Any]) -> Div:
             "Mark read",
             variant=ButtonT.ghost,
             size=Size.xs,
-            **{
-                "hx-post": f"/notifications/{notif['uid']}/read",
-                "hx-target": f"#notif-{notif['uid']}",
-                "hx-swap": "outerHTML",
-            },
+            hx_post=f"/notifications/{notif['uid']}/read",
+            hx_target=f"#notif-{notif['uid']}",
+            hx_swap="outerHTML",
         )
 
     return Div(
@@ -176,11 +174,9 @@ def create_notifications_ui_routes(
                 "Mark all as read",
                 variant=ButtonT.ghost,
                 size=Size.sm,
-                **{
-                    "hx-post": "/notifications/read-all",
-                    "hx-target": "#notification-list",
-                    "hx-swap": "innerHTML",
-                },
+                hx_post="/notifications/read-all",
+                hx_target="#notification-list",
+                hx_swap="innerHTML",
             )
 
         if notifications:

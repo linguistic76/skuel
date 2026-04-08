@@ -93,10 +93,8 @@ def render_recommendations_page(data: dict, user_uid: UserUID) -> Any:
                 ),
                 method="post",
                 action="/lifepath/designate",
-                **{
-                    "hx-post": "/lifepath/designate",
-                    "hx-vals": f'{{"life_path_uid": "{rec.get("lp_uid", "")}"}}',
-                },
+                hx_post="/lifepath/designate",
+                hx_vals=f'{{"life_path_uid": "{rec.get("lp_uid", "")}"}}',
             ),
             cls="mb-4",
         )

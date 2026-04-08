@@ -229,10 +229,8 @@ class PathwaysUIComponents:
                 variant=ButtonT.primary,
                 size=Size.sm,
                 cls="flex-1",
-                **{
-                    "hx-post": f"/api/pathways/enroll/{path['uid']}",
-                    "hx-target": "#main-content",
-                },
+                hx_post=f"/api/pathways/enroll/{path['uid']}",
+                hx_target="#main-content",
             ),
             cls="flex gap-2",
         )
@@ -592,7 +590,8 @@ def create_pathways_ui_routes(
                     ),
                     Button(
                         "Back to Pathways",
-                        **{"hx-get": "/pathways", "hx-target": "body"},
+                        hx_get="/pathways",
+                        hx_target="body",
                         variant=ButtonT.ghost,
                     ),
                     cls="p-6",
@@ -662,10 +661,8 @@ def create_pathways_ui_routes(
                         "Enroll Now",
                         variant=ButtonT.primary,
                         size=Size.lg,
-                        **{
-                            "hx-post": f"/api/pathways/enroll/{path_uid}",
-                            "hx-target": "#main-content",
-                        },
+                        hx_post=f"/api/pathways/enroll/{path_uid}",
+                        hx_target="#main-content",
                     ),
                     cls="flex-shrink-0",
                 ),

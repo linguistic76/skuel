@@ -151,11 +151,9 @@ def create_day_cell(
             cls="calendar-item px-1 py-0.5 rounded text-white mb-1 cursor-pointer hover:opacity-80",
             style=f"background-color: {item.color}",
             data_item_id=item.uid,
-            **{
-                "hx-get": f"/events/calendar/item-details/{item.uid}",
-                "hx-target": "body",
-                "hx-swap": "beforeend",
-            },
+            hx_get=f"/events/calendar/item-details/{item.uid}",
+            hx_target="body",
+            hx_swap="beforeend",
         )
         for item in items
     ]
@@ -301,13 +299,11 @@ def create_week_item(item: CalendarItem) -> Div:
         style=f"background-color: {item.color}",
         draggable="true",
         # Alpine.js: drag-and-drop handling
-        **{
-            "x-on:dragstart": f"handleDragStart($event, '{item.uid}')",
-            # Use HTMX for modal loading instead of JavaScript
-            "hx-get": f"/events/calendar/item-details/{item.uid}",
-            "hx-target": "body",
-            "hx-swap": "beforeend",
-        },
+        **{"x-on:dragstart": f"handleDragStart($event, '{item.uid}')"},
+        # Use HTMX for modal loading instead of JavaScript
+        hx_get=f"/events/calendar/item-details/{item.uid}",
+        hx_target="body",
+        hx_swap="beforeend",
     )
 
 
@@ -394,12 +390,10 @@ def create_timeline_item(item: CalendarItem) -> Div:
         style=f"border-left: 4px solid {item.color}",
         draggable="true",
         # Alpine.js: drag-and-drop handling + HTMX for modal loading
-        **{
-            "x-on:dragstart": f"handleDragStart($event, '{item.uid}')",
-            "hx-get": f"/events/calendar/item-details/{item.uid}",
-            "hx-target": "body",
-            "hx-swap": "beforeend",
-        },
+        **{"x-on:dragstart": f"handleDragStart($event, '{item.uid}')"},
+        hx_get=f"/events/calendar/item-details/{item.uid}",
+        hx_target="body",
+        hx_swap="beforeend",
     )
 
 
@@ -436,36 +430,30 @@ def create_habit_check_in(item: CalendarItem) -> Div:
                 type="button",
                 variant=ButtonT.success,
                 size=Size.sm,
-                **{
-                    "hx-post": f"/events/calendar/habit/{habit_uid}/record/done",
-                    "hx-target": f"#habit-status-{habit_uid}",
-                    "hx-swap": "innerHTML",
-                    "hx-include": f"#{note_input_id}",
-                },
+                hx_post=f"/events/calendar/habit/{habit_uid}/record/done",
+                hx_target=f"#habit-status-{habit_uid}",
+                hx_swap="innerHTML",
+                hx_include=f"#{note_input_id}",
             ),
             Button(
                 "⏭️",
                 type="button",
                 variant=ButtonT.warning,
                 size=Size.sm,
-                **{
-                    "hx-post": f"/events/calendar/habit/{habit_uid}/record/skipped",
-                    "hx-target": f"#habit-status-{habit_uid}",
-                    "hx-swap": "innerHTML",
-                    "hx-include": f"#{note_input_id}",
-                },
+                hx_post=f"/events/calendar/habit/{habit_uid}/record/skipped",
+                hx_target=f"#habit-status-{habit_uid}",
+                hx_swap="innerHTML",
+                hx_include=f"#{note_input_id}",
             ),
             Button(
                 "❌",
                 type="button",
                 variant=ButtonT.error,
                 size=Size.sm,
-                **{
-                    "hx-post": f"/events/calendar/habit/{habit_uid}/record/missed",
-                    "hx-target": f"#habit-status-{habit_uid}",
-                    "hx-swap": "innerHTML",
-                    "hx-include": f"#{note_input_id}",
-                },
+                hx_post=f"/events/calendar/habit/{habit_uid}/record/missed",
+                hx_target=f"#habit-status-{habit_uid}",
+                hx_swap="innerHTML",
+                hx_include=f"#{note_input_id}",
             ),
             cls="flex gap-1",
         ),
@@ -551,11 +539,9 @@ def create_quick_add_modal() -> Div:
                 cls="flex justify-end",
             ),
             # HTMX form submission
-            **{
-                "hx-post": "/events/calendar/quick-create",
-                "hx-target": "#quick-add-status",
-                "hx-swap": "innerHTML",
-            },
+            hx_post="/events/calendar/quick-create",
+            hx_target="#quick-add-status",
+            hx_swap="innerHTML",
         ),
         show="open",
         close="closeQuickAdd()",

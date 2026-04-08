@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, P
+from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
@@ -26,6 +26,7 @@ from ui.activities.tasks_views import (
 )
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.personal_header import personal_header_placeholder
 
 if TYPE_CHECKING:
@@ -51,13 +52,7 @@ def create_tasks_ui_routes(
         content = Div(
             PageHeader("Tasks"),
             personal_header_placeholder(),
-            Div(
-                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                id="tasks-content",
-                hx_get="/tasks/content",
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            ),
+            content_loading_placeholder("/tasks/content", "tasks-content"),
         )
         return await render_activity_sidebar_page(content, active="tasks", request=request)
 
@@ -131,13 +126,7 @@ def create_tasks_ui_routes(
                 request=request,
             )
         content = Div(
-            Div(
-                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                id="task-detail-content",
-                hx_get=f"/tasks/detail/content?uid={uid}",
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            ),
+            content_loading_placeholder(f"/tasks/detail/content?uid={uid}", "task-detail-content"),
         )
         return await render_activity_sidebar_page(content, active="tasks", request=request)
 

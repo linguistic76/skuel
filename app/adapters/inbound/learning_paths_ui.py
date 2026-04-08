@@ -9,13 +9,14 @@ Routes:
 
 from typing import Any
 
-from fasthtml.common import Div, P
+from fasthtml.common import Div
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from ui.layouts.base_page import BasePage
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.learning_paths")
@@ -33,13 +34,7 @@ def create_learning_paths_ui_routes(
         """Learning Paths browser — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Learning Paths", subtitle="Ordered sequences of path step collections"),
-            Div(
-                P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-                id="learning-paths-content",
-                hx_get="/learning-paths/content",
-                hx_trigger="load",
-                hx_swap="outerHTML",
-            ),
+            content_loading_placeholder("/learning-paths/content", "learning-paths-content"),
             id="main-content",
         )
         return await BasePage(
