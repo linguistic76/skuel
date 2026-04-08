@@ -10,129 +10,23 @@ Layout: Standard BasePage (no sidebar needed — simple list view).
 See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import (
-    Div,
-    P,
-    Span,
-)
+from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody
-from ui.feedback import Badge, BadgeT
+from ui.buttons import Button, ButtonT
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
-from ui.patterns.empty_state import EmptyState
+from ui.notifications import render_notification_card, render_notification_empty_state
 from ui.patterns.page_header import PageHeader
 
 if TYPE_CHECKING:
     from core.services.notifications.notification_service import NotificationService
 
 logger = get_logger("skuel.routes.notifications.ui")
-
-
-# ============================================================================
-# NOTIFICATION TYPE CONFIG
-# ============================================================================
-
-_NOTIFICATION_ICONS: dict[str, str] = {
-    "feedback_received": "💬",
-    "revision_requested": "✏️",
-}
-
-_NOTIFICATION_BADGE_VARIANT: dict[str, BadgeT] = {
-    "feedback_received": BadgeT.info,
-    "revision_requested": BadgeT.warning,
-}
-
-
-# ============================================================================
-# COMPONENTS
-# ============================================================================
-
-
-def _notification_card(notif: dict[str, Any]) -> Div:
-    """Render a single notification card."""
-    ntype = notif.get("notification_type", "")
-    icon = _NOTIFICATION_ICONS.get(ntype, "🔔")
-    badge_variant = _NOTIFICATION_BADGE_VARIANT.get(ntype, BadgeT.ghost)
-    is_read = notif.get("read", False)
-
-    read_cls = "opacity-60" if is_read else ""
-    bg_cls = "bg-background" if is_read else "bg-background border-l-4 border-primary"
-
-    # Format created_at
-    created_at = notif.get("created_at", "")
-    time_display = ""
-    if created_at:
-        if isinstance(created_at, datetime):
-            time_display = created_at.strftime("%b %d, %H:%M")
-        else:
-            time_display = str(created_at)[:16]
-
-    source_uid = notif.get("source_uid", "")
-    link_href = f"/gradebook/{source_uid}" if source_uid else "#"
-
-    mark_read_btn = ""
-    if not is_read:
-        mark_read_btn = Button(
-            "Mark read",
-            variant=ButtonT.ghost,
-            size=Size.xs,
-            hx_post=f"/notifications/{notif['uid']}/read",
-            hx_target=f"#notif-{notif['uid']}",
-            hx_swap="outerHTML",
-        )
-
-    return Div(
-        CardBody(
-            Div(
-                Span(icon, cls="text-lg", aria_hidden="true"),
-                Div(
-                    Div(
-                        Span(notif.get("title", ""), cls="font-medium"),
-                        Badge(
-                            ntype.replace("_", " ").title(),
-                            variant=badge_variant,
-                            size=Size.sm,
-                            cls="ml-2",
-                        ),
-                        cls="flex items-center gap-1",
-                    ),
-                    P(notif.get("message", ""), cls="text-sm text-muted-foreground mt-1"),
-                    Div(
-                        Span(time_display, cls="text-xs text-muted-foreground"),
-                        ButtonLink(
-                            "View →",
-                            href=link_href,
-                            variant=ButtonT.ghost,
-                            size=Size.xs,
-                        ),
-                        mark_read_btn,
-                        cls="flex items-center gap-3 mt-2",
-                    ),
-                    cls="flex-1",
-                ),
-                cls="flex items-start gap-3",
-            ),
-            cls="p-4",
-        ),
-        cls=f"card {bg_cls} shadow-sm {read_cls}",
-        id=f"notif-{notif['uid']}",
-    )
-
-
-def _empty_state() -> Div:
-    """Show when there are no notifications."""
-    return Card(
-        EmptyState("No notifications", description="You're all caught up!", icon="🔔"),
-        cls="bg-background",
-    )
 
 
 # ============================================================================
@@ -180,14 +74,14 @@ def create_notifications_ui_routes(
             )
 
         if notifications:
-            notif_cards = [_notification_card(n) for n in notifications]
+            notif_cards = [render_notification_card(n) for n in notifications]
             content = Div(
                 Div(mark_all_btn, cls="flex justify-end mb-4") if mark_all_btn else "",
                 Div(*notif_cards, cls="space-y-3"),
                 id="notification-list",
             )
         else:
-            content = Div(_empty_state(), id="notification-list")
+            content = Div(render_notification_empty_state(), id="notification-list")
 
         return BasePage(
             Div(header, content),
@@ -209,7 +103,7 @@ def create_notifications_ui_routes(
         # Find the specific notification to re-render
         for n in notifications:
             if n.get("uid") == notification_uid:
-                return _notification_card(n)
+                return render_notification_card(n)
 
         # If not found, return empty (was deleted)
         return ""
@@ -226,8 +120,8 @@ def create_notifications_ui_routes(
         notifications = result.value if not result.is_error else []
 
         if notifications:
-            return Div(*[_notification_card(n) for n in notifications], cls="space-y-3")
+            return Div(*[render_notification_card(n) for n in notifications], cls="space-y-3")
 
-        return _empty_state()
+        return render_notification_empty_state()
 
     return []
