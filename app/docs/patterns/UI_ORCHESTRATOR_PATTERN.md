@@ -40,6 +40,7 @@ For implementation guidance, see:
 | `JournalOrchestrator` | `journals_ui.py` | 6 → 1 | Compound `get_journal_for_download()` consolidates ownership check + TRANSFORMS lookup; centralises `journal_output_service` availability guards (CORE tier) |
 | `ActivityReviewOrchestrator` | `activity_review_ui.py` | 4 → 1 | Collapses ActivityReportOperations + ReviewQueueOperations + UserService + UserContextBuilder; context_builder gracefully degrades when unavailable |
 | `PathwaysOrchestrator` | `pathways_ui.py` | 3 → 1 | Wraps LpService with UserProgressService injection; routes never reference user_progress directly |
+| `LateralRelationshipsOrchestrator` | `lateral_routes.py` | 7 → 1 | Absorbed `_create_relationship` / `_get_relationships` module-level helpers; routes extract `user_uid` themselves and delegate; `lateral_service` property exposes the raw service for `LateralRouteFactory` construction |
 
 All orchestrators live in `app/core/orchestrator/` and are registered in `services_bootstrap/_container.py`.
 
@@ -69,6 +70,7 @@ graph TD
         JO[JournalOrchestrator]
         ARO[ActivityReviewOrchestrator]
         PWO[PathwaysOrchestrator]
+        LRO[LateralRelationshipsOrchestrator]
     end
 
     subgraph "Domain Services"
@@ -80,6 +82,8 @@ graph TD
         US[UserService] ; SS[SystemService]
         AR[ActivityReport] ; RQ[ReviewQueue] ; CB[ContextBuilder]
         LP[LpService] ; UP[UserProgress]
+        LAT[LateralRelationshipService]
+        EV[Events] ; CH[Choices] ; PR[Principles]
     end
 
     UI_Routes --> AO
@@ -90,6 +94,7 @@ graph TD
     UI_Routes --> TO
     UI_Routes --> ARO
     UI_Routes --> PWO
+    UI_Routes --> LRO
 
     AO --> US ; AO --> AS ; AO --> SS
     PO --> TS ; PO --> GS ; PO --> HS
@@ -99,14 +104,15 @@ graph TD
     TO --> TR ; TO --> AS
     ARO --> AR ; ARO --> RQ ; ARO --> US ; ARO --> CB
     PWO --> LP ; PWO --> UP
+    LRO --> LAT ; LRO --> TS ; LRO --> GS ; LRO --> HS ; LRO --> EV ; LRO --> CH ; LRO --> PR
 
     classDef route fill:#f9f,stroke:#333,stroke-width:2px;
     classDef facade fill:#bbf,stroke:#333,stroke-width:4px;
     classDef dev fill:#dfd,stroke:#333;
 
     class UI_Routes route;
-    class AO,PO,SO,EO,LO,TO,ARO,PWO facade;
-    class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR,TR,AS,US,SS,AR,RQ,CB,LP,UP dev;
+    class AO,PO,SO,EO,LO,TO,ARO,PWO,LRO facade;
+    class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR,TR,AS,US,SS,AR,RQ,CB,LP,UP,LAT,EV,CH,PR dev;
 ```
 
 ## Implementation Checklist
