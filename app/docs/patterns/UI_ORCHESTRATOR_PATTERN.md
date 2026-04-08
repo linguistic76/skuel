@@ -11,7 +11,7 @@ related_docs:
 ---
 # UI Orchestrator Pattern
 
-**Status:** Active | **Last Updated:** 2026-04-06
+**Status:** Active | **Last Updated:** 2026-04-07
 
 ## Related Skills
 
@@ -38,6 +38,8 @@ For implementation guidance, see:
 | `LibraryOrchestrator` | `library_ui.py` | 6 → 1 | Deduplicated multi-step pin/enroll queries |
 | `TeacherOrchestrator` | `teaching_ui.py` | 4 → 1 | Review queue, student list, groups, KU detail under one facade |
 | `JournalOrchestrator` | `journals_ui.py` | 6 → 1 | Compound `get_journal_for_download()` consolidates ownership check + TRANSFORMS lookup; centralises `journal_output_service` availability guards (CORE tier) |
+| `ActivityReviewOrchestrator` | `activity_review_ui.py` | 4 → 1 | Collapses ActivityReportOperations + ReviewQueueOperations + UserService + UserContextBuilder; context_builder gracefully degrades when unavailable |
+| `PathwaysOrchestrator` | `pathways_ui.py` | 3 → 1 | Wraps LpService with UserProgressService injection; routes never reference user_progress directly |
 
 All orchestrators live in `app/core/orchestrator/` and are registered in `services_bootstrap/_container.py`.
 
@@ -65,6 +67,8 @@ graph TD
         LO[LibraryOrchestrator]
         TO[TeacherOrchestrator]
         JO[JournalOrchestrator]
+        ARO[ActivityReviewOrchestrator]
+        PWO[PathwaysOrchestrator]
     end
 
     subgraph "Domain Services"
@@ -74,6 +78,8 @@ graph TD
         Res[Resources] ; UR[UserRelationships]
         TR[TeacherReview] ; AS[AdminStats]
         US[UserService] ; SS[SystemService]
+        AR[ActivityReport] ; RQ[ReviewQueue] ; CB[ContextBuilder]
+        LP[LpService] ; UP[UserProgress]
     end
 
     UI_Routes --> AO
@@ -82,6 +88,8 @@ graph TD
     UI_Routes --> EO
     UI_Routes --> LO
     UI_Routes --> TO
+    UI_Routes --> ARO
+    UI_Routes --> PWO
 
     AO --> US ; AO --> AS ; AO --> SS
     PO --> TS ; PO --> GS ; PO --> HS
@@ -89,14 +97,16 @@ graph TD
     EO --> KU ; EO --> PS ; EO --> Ex
     LO --> Res ; LO --> UR ; LO --> Ex
     TO --> TR ; TO --> AS
+    ARO --> AR ; ARO --> RQ ; ARO --> US ; ARO --> CB
+    PWO --> LP ; PWO --> UP
 
     classDef route fill:#f9f,stroke:#333,stroke-width:2px;
     classDef facade fill:#bbf,stroke:#333,stroke-width:4px;
     classDef dev fill:#dfd,stroke:#333;
 
     class UI_Routes route;
-    class AO,PO,SO,EO,LO,TO facade;
-    class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR,TR,AS,US,SS dev;
+    class AO,PO,SO,EO,LO,TO,ARO,PWO facade;
+    class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR,TR,AS,US,SS,AR,RQ,CB,LP,UP dev;
 ```
 
 ## Implementation Checklist
