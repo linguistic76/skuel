@@ -30,7 +30,7 @@ Usage:
         supports_goal_filter=True,
         supports_habit_filter=True,
         api_related_services={
-            "user_service": "user_service",
+            "user_service": "user",
             "goals_service": "goals",
             "habits_service": "habits",
         },

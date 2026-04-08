@@ -466,7 +466,7 @@ async def _wire_all_routes(
     init_result = await initialize_system_service(system_service, services)
     if init_result.is_error:
         raise ValueError(f"Failed to initialize SystemService: {init_result.error}")
-    services.system_service = system_service
+    services.system = system_service
 
     from adapters.inbound.system_routes import create_system_routes
 

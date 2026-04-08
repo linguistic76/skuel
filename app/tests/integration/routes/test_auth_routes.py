@@ -26,7 +26,7 @@ class MockServices:
     """Mock services container for auth route testing."""
 
     def __init__(self):
-        self.user_service = MagicMock()
+        self.user = MagicMock()
         self.graph_auth = MagicMock()
 
 
@@ -109,10 +109,10 @@ class TestRegistrationSubmit:
 
     def test_registration_creates_neo4j_user(self, mock_services):
         """Test that registration creates user in Neo4j."""
-        mock_services.user_service.create_user = AsyncMock(return_value=Result.ok(MockUser()))
+        mock_services.user.create_user = AsyncMock(return_value=Result.ok(MockUser()))
 
         # Verify the method signature
-        assert hasattr(mock_services.user_service, "create_user")
+        assert hasattr(mock_services.user, "create_user")
 
     def test_registration_handles_auth_error(self, mock_graph_auth):
         """Test that registration handles auth errors gracefully."""
@@ -172,20 +172,20 @@ class TestLoginSubmit:
 
     def test_login_looks_up_user_by_username(self, mock_services):
         """Test that login can look up user by username."""
-        mock_services.user_service.get_user_by_username = AsyncMock(
+        mock_services.user.get_user_by_username = AsyncMock(
             return_value=Result.ok(MockUser(email="test@example.com"))
         )
 
         # Verify the lookup method exists
-        assert hasattr(mock_services.user_service, "get_user_by_username")
+        assert hasattr(mock_services.user, "get_user_by_username")
 
     def test_login_retrieves_user_from_neo4j(self, mock_services):
         """Test that login retrieves user from Neo4j."""
-        mock_services.user_service.get_user_by_email = AsyncMock(
+        mock_services.user.get_user_by_email = AsyncMock(
             return_value=Result.ok(MockUser(uid="user.test123"))
         )
 
-        assert hasattr(mock_services.user_service, "get_user_by_email")
+        assert hasattr(mock_services.user, "get_user_by_email")
 
     def test_login_sets_session_data(self):
         """Test that login sets session data."""

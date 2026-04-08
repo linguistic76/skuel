@@ -910,8 +910,8 @@ class Query:
                     is_mastered = False
 
                     # Check mastery if user_service is available
-                    if context.services.user_service:
-                        mastery_result = await context.services.user_service.get_user_mastery(
+                    if context.services.user:
+                        mastery_result = await context.services.user.get_user_mastery(
                             user_uid=target_user_uid, concept_uid=prereq_ku.uid
                         )
 

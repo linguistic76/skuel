@@ -97,7 +97,7 @@ async def resolve_target_user(
 
     # Override requested — verify caller is admin
     context: GraphQLContext = info.context
-    user_service = context.services.user_service
+    user_service = context.services.user
     if not user_service:
         raise PermissionError("User service unavailable — cannot verify admin role")
 

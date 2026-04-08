@@ -39,7 +39,7 @@ PATHWAYS_CONFIG = DomainRouteConfig(
     api_factory=create_pathways_api_routes,
     ui_factory=create_pathways_ui_routes,
     api_related_services={
-        "user_service": "user_service",
+        "user_service": "user",
         "user_progress": "user_progress",
     },
     ui_related_services={

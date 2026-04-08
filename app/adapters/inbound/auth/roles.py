@@ -183,7 +183,7 @@ async def is_current_user_admin(request: Request, user_service: Any) -> bool:
 
     Usage:
         ```python
-        is_admin = await is_current_user_admin(request, services.user_service)
+        is_admin = await is_current_user_admin(request, services.user)
         navbar = create_navbar(
             current_user=user_uid, is_authenticated=True, is_admin=is_admin
         )

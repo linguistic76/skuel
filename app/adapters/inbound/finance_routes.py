@@ -35,11 +35,11 @@ FINANCE_CONFIG = DomainRouteConfig(
     ui_factory=create_finance_ui_routes,
     api_related_services={
         # Format: {kwarg_name: container_attr}
-        "user_service": "user_service",  # user_service=services.user_service
+        "user_service": "user",  # user_service=services.user
     },
     ui_related_services={
         # Format: {kwarg_name: container_attr}
-        "user_service": "user_service",  # user_service=services.user_service
+        "user_service": "user",  # user_service=services.user
     },
 )
 

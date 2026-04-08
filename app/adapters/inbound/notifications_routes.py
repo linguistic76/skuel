@@ -23,7 +23,7 @@ def _noop_api_factory(_app: Any, _rt: Any, _primary: Any, **_kw: Any) -> list[An
 
 NOTIFICATIONS_CONFIG = DomainRouteConfig(
     domain_name="notifications",
-    primary_service_attr="notification_service",
+    primary_service_attr="notifications",
     api_factory=_noop_api_factory,
     ui_factory=create_notifications_ui_routes,
 )

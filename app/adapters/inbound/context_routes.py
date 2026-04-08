@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 CONTEXT_CONFIG = DomainRouteConfig(
     domain_name="context",
-    primary_service_attr="context_service",
+    primary_service_attr="context",
     api_factory=create_context_aware_api_routes,
     ui_factory=None,  # No UI routes — profile page handles context display
     api_related_services={},

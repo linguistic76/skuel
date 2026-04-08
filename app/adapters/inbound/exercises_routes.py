@@ -34,11 +34,11 @@ EXERCISES_CONFIG = DomainRouteConfig(
     api_related_services={
         "transcript_service": "content_enrichment",
         "exercise_report_service": "exercise_report",
-        "user_service": "user_service",
+        "user_service": "user",
     },
     ui_related_services={
         "transcript_service": "content_enrichment",
-        "user_service": "user_service",
+        "user_service": "user",
     },
     crud=CRUDRouteConfig(
         create_schema=ExerciseCreateRequest,

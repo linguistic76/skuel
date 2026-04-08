@@ -151,7 +151,7 @@ def create_monitoring_api_routes(
 
 MONITORING_CONFIG = DomainRouteConfig(
     domain_name="monitoring",
-    primary_service_attr="user_service",
+    primary_service_attr="user",
     api_factory=create_monitoring_api_routes,
     api_related_services={
         "embedding_worker": "embedding_worker",

@@ -23,10 +23,10 @@ INGESTION_CONFIG = DomainRouteConfig(
     api_factory=create_ingestion_api_routes,
     ui_factory=create_ingestion_ui_routes,
     api_related_services={
-        "user_service": "user_service",
+        "user_service": "user",
     },
     ui_related_services={
-        "user_service": "user_service",
+        "user_service": "user",
     },
 )
 

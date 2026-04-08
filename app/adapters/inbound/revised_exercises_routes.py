@@ -32,7 +32,7 @@ REVISED_EXERCISES_CONFIG = DomainRouteConfig(
     api_factory=create_revised_exercises_api_routes,
     ui_factory=None,  # No UI routes yet — API-only
     api_related_services={
-        "user_service": "user_service",
+        "user_service": "user",
     },
     crud=CRUDRouteConfig(
         create_schema=RevisedExerciseCreateRequest,

@@ -136,9 +136,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         services: Services container with all backends
     """
 
-    if services.user_service is None:
+    if services.user is None:
         raise RuntimeError("UserService is required for profile routes")
-    user_service = services.user_service
+    user_service = services.user
 
     profile_orchestrator = services.profile_orchestrator
     if profile_orchestrator is None:

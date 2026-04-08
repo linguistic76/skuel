@@ -29,11 +29,11 @@ if TYPE_CHECKING:
 
 GROUPS_CONFIG = DomainRouteConfig(
     domain_name="groups",
-    primary_service_attr="group_service",
+    primary_service_attr="groups",
     api_factory=create_groups_api_routes,
     ui_factory=create_groups_ui_routes,
     api_related_services={
-        "user_service": "user_service",
+        "user_service": "user",
     },
     crud=CRUDRouteConfig(
         create_schema=GroupCreateRequest,

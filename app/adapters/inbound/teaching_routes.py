@@ -32,7 +32,7 @@ TEACHING_API_CONFIG = DomainRouteConfig(
     api_factory=create_teaching_api_routes,
     ui_factory=None,  # UI wired separately via orchestrator
     api_related_services={
-        "user_service": "user_service",
+        "user_service": "user",
         "exercises_service": "exercises",
         "submissions_service": "submissions",
         "revised_exercise_service": "revised_exercises",
@@ -57,7 +57,7 @@ def create_teaching_routes(
             _app=app,
             rt=rt,
             orchestrator=services.teacher_orchestrator,
-            user_service=services.user_service,
+            user_service=services.user,
         )
 
         # 3. Forms UI routes (separate concern)
@@ -66,7 +66,7 @@ def create_teaching_routes(
             rt=rt,
             form_template_service=services.form_templates,
             form_submission_service=services.form_submissions,
-            user_service=services.user_service,
+            user_service=services.user,
         )
 
 

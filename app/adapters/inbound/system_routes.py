@@ -22,11 +22,11 @@ if TYPE_CHECKING:
 
 SYSTEM_CONFIG = DomainRouteConfig(
     domain_name="system",
-    primary_service_attr="system_service",
+    primary_service_attr="system",
     api_factory=create_system_api_routes,
     ui_factory=create_system_ui_routes,
     api_related_services={
-        "user_service": "user_service",
+        "user_service": "user",
     },
     ui_related_services={},
 )

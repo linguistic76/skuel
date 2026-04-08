@@ -265,16 +265,16 @@ def _wire_event_subscribers(event_bus: EventBusOperations, services: Services):
     '''Wire all event subscribers.'''
 
     # User context invalidation on task events
-    event_bus.subscribe(TaskCompleted, services.user_service.handle_task_completed)
-    event_bus.subscribe(TaskCreated, services.user_service.handle_task_created)
-    event_bus.subscribe(TaskDeleted, services.user_service.handle_task_deleted)
+    event_bus.subscribe(TaskCompleted, services.user.handle_task_completed)
+    event_bus.subscribe(TaskCreated, services.user.handle_task_created)
+    event_bus.subscribe(TaskDeleted, services.user.handle_task_deleted)
 
     # User context invalidation on goal events
-    event_bus.subscribe(GoalAchieved, services.user_service.handle_goal_achieved)
-    event_bus.subscribe(GoalProgressUpdated, services.user_service.handle_goal_updated)
+    event_bus.subscribe(GoalAchieved, services.user.handle_goal_achieved)
+    event_bus.subscribe(GoalProgressUpdated, services.user.handle_goal_updated)
 
     # User context invalidation on habit events
-    event_bus.subscribe(HabitCompleted, services.user_service.handle_habit_completed)
+    event_bus.subscribe(HabitCompleted, services.user.handle_habit_completed)
 
     # Context refresh on invalidation
     event_bus.subscribe(UserContextInvalidated, services.askesis.handle_context_invalidated)

@@ -31,7 +31,7 @@ FORM_TEMPLATES_CONFIG = DomainRouteConfig(
     api_factory=create_form_templates_api_routes,
     ui_factory=None,  # No dedicated UI routes — forms render inline in path steps
     api_related_services={
-        "user_service": "user_service",
+        "user_service": "user",
     },
     crud=CRUDRouteConfig(
         create_schema=FormTemplateCreateRequest,

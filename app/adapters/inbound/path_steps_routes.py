@@ -24,7 +24,7 @@ PS_CONFIG = DomainRouteConfig(
     api_factory=create_path_steps_api_routes,
     ui_factory=create_path_steps_ui_routes,
     api_related_services={
-        "user_service": "user_service",
+        "user_service": "user",
     },
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )

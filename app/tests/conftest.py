@@ -71,7 +71,7 @@ async def skuel_app():
     from core.services.user.user_context_builder import UserContextBuilder
     from core.services.user.user_stats_aggregator import UserStatsAggregator
 
-    user_service = container.services.user_service
+    user_service = container.services.user
     if user_service and getattr(user_service, "context_builder", None):
         raw_driver = user_service.context_builder.executor
         # If executor is a raw AsyncDriver (not already a QueryExecutor), wrap it

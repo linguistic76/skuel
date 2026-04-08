@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 ADMIN_CONFIG = DomainRouteConfig(
     domain_name="admin",
-    primary_service_attr="user_service",
+    primary_service_attr="user",
     api_factory=create_admin_api_routes,
     ui_factory=None,  # No UI routes for admin
     api_related_services={

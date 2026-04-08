@@ -374,7 +374,7 @@ class TestResolveTargetUser:
         user_service.get_user.return_value = FakeResult(value=caller_user)
 
         services = MagicMock()
-        services.user_service = user_service
+        services.user = user_service
 
         ctx = _make_context(services=services, user_uid="user.caller")
         info = _make_info(ctx)
@@ -392,7 +392,7 @@ class TestResolveTargetUser:
         user_service.get_user.return_value = FakeResult(value=caller_user)
 
         services = MagicMock()
-        services.user_service = user_service
+        services.user = user_service
 
         ctx = _make_context(services=services, user_uid="user.admin")
         info = _make_info(ctx)
@@ -405,7 +405,7 @@ class TestResolveTargetUser:
         from routes.graphql.auth import resolve_target_user
 
         services = MagicMock()
-        services.user_service = None
+        services.user = None
 
         ctx = _make_context(services=services, user_uid="user.caller")
         info = _make_info(ctx)
@@ -1083,7 +1083,7 @@ class TestLearningPathBlockersResolver:
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
         services.ps.get_prerequisites = AsyncMock(return_value=FakeResult(value=[]))
-        services.user_service = None  # Skip mastery checks
+        services.user = None  # Skip mastery checks
 
         ctx = _make_context(
             services=services,
@@ -1115,7 +1115,7 @@ class TestLearningPathBlockersResolver:
                 FakeResult(value=[]),  # step2 prereqs
             ]
         )
-        services.user_service = None
+        services.user = None
 
         ctx = _make_context(
             services=services,
@@ -1168,7 +1168,7 @@ class TestLearningPathBlockersResolver:
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
         services.ps.get_prerequisites = AsyncMock(return_value=FakeResult(value=[]))
-        services.user_service = None
+        services.user = None
 
         ctx = _make_context(
             services=services,
@@ -1736,7 +1736,7 @@ class TestLearningPathBlockersMasteryCheck:
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
         services.ps.get_prerequisites = AsyncMock(return_value=FakeResult(value=[prereq]))
         # user_service returns mastery score above threshold (0.7)
-        services.user_service.get_user_mastery = AsyncMock(return_value=FakeResult(value=0.9))
+        services.user.get_user_mastery = AsyncMock(return_value=FakeResult(value=0.9))
 
         ctx = _make_context(
             services=services,
@@ -1763,7 +1763,7 @@ class TestLearningPathBlockersMasteryCheck:
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
         services.ps.get_prerequisites = AsyncMock(return_value=FakeResult(value=[prereq]))
         # user_service returns mastery score below threshold
-        services.user_service.get_user_mastery = AsyncMock(return_value=FakeResult(value=0.3))
+        services.user.get_user_mastery = AsyncMock(return_value=FakeResult(value=0.3))
 
         ctx = _make_context(
             services=services,
@@ -1790,7 +1790,7 @@ class TestLearningPathBlockersMasteryCheck:
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
         services.ps.get_prerequisites = AsyncMock(return_value=FakeResult(value=[prereq]))
         # user_service returns error
-        services.user_service.get_user_mastery = AsyncMock(
+        services.user.get_user_mastery = AsyncMock(
             return_value=FakeResult(error="DB error")
         )
 
@@ -1823,7 +1823,7 @@ class TestLearningPathBlockersPrereqTruncation:
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=steps))
         services.ps.get_prerequisites = AsyncMock(return_value=FakeResult(value=prereqs))
         # All prereqs not mastered
-        services.user_service.get_user_mastery = AsyncMock(return_value=FakeResult(value=0.1))
+        services.user.get_user_mastery = AsyncMock(return_value=FakeResult(value=0.1))
 
         ctx = _make_context(
             services=services,
@@ -1854,7 +1854,7 @@ class TestLearningPathBlockersLaterStepNoKuUid:
         services = MagicMock()
         services.lp.get_path_steps = AsyncMock(return_value=FakeResult(value=[step1, step2]))
         services.ps.get_prerequisites = AsyncMock(return_value=FakeResult(value=[]))
-        services.user_service = None
+        services.user = None
 
         ctx = _make_context(
             services=services,

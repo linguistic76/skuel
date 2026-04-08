@@ -206,11 +206,11 @@ class Services:
     # ========================================================================
     # GROUP & TEACHING (ADR-040) - Teacher exercise workflow
     # ========================================================================
-    group_service: GroupOperations | None = None  # GroupService - CRUD + membership for groups
+    groups: GroupOperations | None = None  # GroupService - CRUD + membership for groups
     teacher_review: TeacherReviewOperations | None = (
         None  # TeacherReviewService - review queue + feedback
     )
-    notification_service: "NotificationService | None" = (
+    notifications: "NotificationService | None" = (
         None  # NotificationService - in-app notifications
     )
 
@@ -220,7 +220,7 @@ class Services:
     calendar: CalendarServiceOperations | None = (
         None  # CalendarService - unified calendar aggregation
     )
-    system_service: SystemServiceOperations | None = (
+    system: SystemServiceOperations | None = (
         None  # SystemService - health checks and system monitoring
     )
     admin_stats: "AdminStatsService | None" = (
@@ -231,10 +231,10 @@ class Services:
     )
 
     # User management (fundamental)
-    user_service: "UserService | None" = None  # Facade — concrete type per CLAUDE.md
+    user: "UserService | None" = None  # Facade — concrete type per CLAUDE.md
     user_relationships: "UserRelationshipService | None" = None
     graph_auth: GraphAuthOperations | None = None  # GraphAuthService - graph-native authentication
-    context_service: UserContextOperations | None = (
+    context: UserContextOperations | None = (
         None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)
     )
     context_intelligence: "UserContextIntelligenceFactory | None" = None

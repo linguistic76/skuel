@@ -45,7 +45,7 @@ def create_home_routes(
 
         user_uid = require_authenticated_user(request)
         count = 0
-        ns = services.notification_service if services else None
+        ns = services.notifications if services else None
         if ns:
             result = await ns.get_unread_count(user_uid)
             if not result.is_error:
@@ -60,7 +60,7 @@ def create_home_routes(
     async def personal_header_fragment(request: Request) -> Any:
         """HTMX fragment: Focus + Velocity header (lazy-loaded to avoid MEGA_QUERY blocking page render)."""
         user_uid = require_authenticated_user(request)
-        user_service = services.user_service
+        user_service = services.user
         if not user_service:
             return Div()
         context_result = await user_service.get_rich_unified_context(user_uid)

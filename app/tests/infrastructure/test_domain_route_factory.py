@@ -145,13 +145,13 @@ def test_query_config_triggers_factory(mock_query: MagicMock):
     """query config → CommonQueryRouteFactory instantiated and registered."""
     user_svc = MagicMock()
     goals_svc = MagicMock()
-    services = _make_services(extras={"user_service": user_svc, "goals": goals_svc})
+    services = _make_services(extras={"user": user_svc, "goals": goals_svc})
     primary = services.tasks
     config = DomainRouteConfig(
         domain_name="tasks",
         primary_service_attr="tasks",
         api_factory=_noop_api_factory,
-        api_related_services={"user_service": "user_service", "goals_service": "goals"},
+        api_related_services={"user_service": "user", "goals_service": "goals"},
         query=QueryRouteConfig(supports_goal_filter=True, supports_habit_filter=False),
     )
 
@@ -430,7 +430,7 @@ def test_full_roundtrip_factory_to_register(mock_crud, mock_query, mock_intel):
     services = _make_services(
         primary_value=primary,
         extras={
-            "user_service": MagicMock(),
+            "user": MagicMock(),
             "goals": MagicMock(),
             "habits": MagicMock(),
             "prometheus_metrics": MagicMock(),
@@ -453,7 +453,7 @@ def test_full_roundtrip_factory_to_register(mock_crud, mock_query, mock_intel):
         supports_goal_filter=True,
         supports_habit_filter=True,
         api_related_services={
-            "user_service": "user_service",
+            "user_service": "user",
             "goals_service": "goals",
             "habits_service": "habits",
         },
@@ -480,7 +480,7 @@ def test_api_factory_kwargs_absorbs_extra_related_services():
 
     services = _make_services(
         extras={
-            "user_service": "user-svc",
+            "user": "user-svc",
             "goals": "goals-svc",
             "habits": "habits-svc",
         }
@@ -490,7 +490,7 @@ def test_api_factory_kwargs_absorbs_extra_related_services():
         primary_service_attr="tasks",
         api_factory=api_factory,
         api_related_services={
-            "user_service": "user_service",
+            "user_service": "user",
             "goals_service": "goals",
             "habits_service": "habits",
         },

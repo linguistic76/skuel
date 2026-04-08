@@ -32,7 +32,7 @@ def create_settings_routes(
 ) -> None:
     """Register Settings routes."""
 
-    user_service = services.user_service
+    user_service = services.user
     if user_service is None:
         raise RuntimeError("UserService is required for settings routes")
 

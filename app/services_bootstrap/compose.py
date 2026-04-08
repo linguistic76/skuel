@@ -1272,10 +1272,10 @@ async def compose_services(
             batch_transcription=batch_transcription,
             batch_processing=batch_processing,
             # Group & Teaching (ADR-040: Teacher exercise workflow)
-            group_service=group_service,
+            groups=group_service,
             teacher_review=teacher_review_service,
             # Notifications
-            notification_service=notification_service,
+            notifications=notification_service,
             # Note: audio_service removed (Dec 2025) - use transcription service directly
             # Reports
             submissions=submissions_service,
@@ -1294,15 +1294,15 @@ async def compose_services(
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion
             user_upload_service=user_upload_service,  # Per-user bulk upload
             calendar=calendar_service,
-            system_service=system_service,
+            system=system_service,
             admin_stats=admin_stats_service,
             visualization=visualization_service,  # Chart.js/Vis.js/Gantt adapters
             transcription=core_services["transcription"],
             # User management
-            user_service=core_services["user"],
+            user=core_services["user"],
             user_relationships=user_relationships,  # UserRelationshipService (pinning, following)
             graph_auth=graph_auth,  # Graph-native authentication (January 2026)
-            context_service=context_service,  # Context-aware intelligence (NEW: 2025-11-18)
+            context=context_service,  # Context-aware intelligence (NEW: 2025-11-18)
             # Learning services
             user_progress=learning_services["user_progress"],
             # unified_progress DELETED (January 2026) - use user_progress

@@ -43,7 +43,7 @@ SUBMISSIONS_CONFIG = DomainRouteConfig(
         "submissions_search_service": "submissions_search",
         "submissions_core_service": "submissions_core",
         "teacher_review_service": "teacher_review",
-        "user_service": "user_service",
+        "user_service": "user",
     },
 )
 
@@ -105,7 +105,7 @@ def create_submissions_routes(
 
     # Extension: assessment routes (require TEACHER role)
     if services and services.submissions_core:
-        get_user_service = make_service_getter(services.user_service)
+        get_user_service = make_service_getter(services.user)
 
         assessment_routes = create_exercise_report_api_routes(
             app,

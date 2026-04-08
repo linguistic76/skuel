@@ -63,7 +63,7 @@ def mock_services() -> Any:
     services = MagicMock()
 
     # Mock user service
-    services.user_service = AsyncMock()
+    services.user = AsyncMock()
 
     # Mock domain services
     services.tasks = AsyncMock()
@@ -428,12 +428,12 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_missing_user_service(self, mock_services):
         """Test handling when user service is unavailable."""
-        mock_services.user_service = None
+        mock_services.user = None
 
         # Should handle gracefully without user service
         user = None
-        if mock_services.user_service:
-            user_result = await mock_services.user_service.get_user("user.mike")
+        if mock_services.user:
+            user_result = await mock_services.user.get_user("user.mike")
             if user_result.is_ok:
                 user = user_result.value
 
