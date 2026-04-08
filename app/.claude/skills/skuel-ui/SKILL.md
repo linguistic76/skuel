@@ -71,7 +71,7 @@ Auth pages use the same SKUEL component wrappers (`LabelInput`, `Button`, `Card`
 | `/events` | Events list + detail | `STANDARD` | Scheduling, location, recurrence, milestones |
 | `/choices` | Choices list + detail | `STANDARD` | Options list, decision framework, outcome/satisfaction |
 | `/principles` | Principles list + detail | `STANDARD` | Strength badge, alignment, gravity-well connections |
-| `/submissions` | Submissions hub | `STANDARD` | Upload, Submit, History — 3 domain blocks |
+| `/submissions` | Submissions hub | `STANDARD` | `HomeHub(active_tab='submissions')` — same tabbed interface as `/home` |
 
 ```python
 from ui.layouts.page_types import PageType
@@ -482,7 +482,7 @@ Admin users see a different navbar than regular users:
 - **Right:** Admin avatar (→ `/`) + Sign out (icon+text)
 - **Mobile:** Hamburger menu with Admin (`/admin`) + Teaching (`/teaching`) + Sign out links
 
-The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users redirect to `/home` (post-login landing with Focus+Velocity, Submissions previews, GradeBook previews, and 4 navigational cards: Tasks+, Explore, Library, Settings). Icon links are hidden for admins.
+The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users redirect to `/home` (post-login landing — three-tab interface: Submissions / GradeBook / Library, with HTMX-loaded domain blocks per tab; Settings footer). `/submissions`, `/gradebook`, `/library` render the same `HomeHub(active_tab=...)` with the matching tab pre-selected. Icon links are hidden for admins.
 
 ### Navbar Icon Links (Regular Users)
 
@@ -537,8 +537,8 @@ Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. F
 
 - **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — 7 items (profile link + 6 domains). Used on `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`. Activity Domains content is embedded inline in `/profile`.
 - **Explore** — `render_explore_sidebar_page()` from `ui/explore/nav.py` — graph-centered sidebar (wider `w-96`/384px via `sidebar_width` param, no nav items, uses `extra_sidebar_sections`). **Signature:** `render_explore_sidebar_page(content, sidebar_data: dict[str, Any] | None, request, ...)` — route handlers call `orchestrator.get_sidebar_data(user_uid)` first, then pass the pre-fetched dict. Hero: `ExploreGraphView` (`ui/explore/graph.py`) — interactive Vis.js force-directed graph. Hub mode (`/explore`): user's learning universe with "You" center node + studying Kus + in-progress PSes; fetched from `GET /api/explore/graph`. Entity mode (`/explore/ku/{uid}`, `/explore/ps/{uid}`): centers on current entity with lateral relationships. Filter tabs (All/Learning/Saved) control both graph node highlighting and list section visibility. Three supporting sections below graph: Learning, Saved, Completed. Alpine component: `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`. Graph expands to full-screen JS overlay on `document.body` (Escape/backdrop click to close) — creates a second Vis.js network to escape sidebar `overflow:hidden` + `transform`. Node colors: violet for Ku, teal for PS, blue for "You". Detail pages pass `current_entity_type` for graph centering. Unauthenticated: shows graph + "Sign in to track your learning". **PathStep detail** (`/explore/ps/{uid}`) is the **learning loop anchor** — authenticated users see three HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback) served by `/learning-loop/ps/{ps_uid}/*` fragment endpoints; unauthenticated users see simple exercise links. **Supporting modules:** `ui/explore/cards.py` (card rendering + search panel), `ui/explore/filters.py` (client-side filter/sort helpers).
-- **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 3 items (Exercise Reports, Activity Reports, Revisions). Used on child pages: `/exercise-reports`, `/activity-reports`, `/submit-activity-report`, `/activity-reports/detail`, `/revised-exercises`, `/revised-exercises/detail`. The hub at `/gradebook` is a container grid page (`BasePage(STANDARD)`, no sidebar) with 3 HTMX-loaded blocks — see `ui/gradebook/hub.py`. My Submissions moved to Submissions (`/submissions/history`).
-- **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. The hub at `/library` is a container grid page (`BasePage(STANDARD)`, no sidebar) — see `ui/library/hub.py`.
+- **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 3 items (Exercise Reports, Activity Reports, Revisions). Used on child pages: `/exercise-reports`, `/activity-reports`, `/submit-activity-report`, `/activity-reports/detail`, `/revised-exercises`, `/revised-exercises/detail`. The hub at `/gradebook` renders `HomeHub(active_tab='gradebook')` — same tabbed interface as `/home`, GradeBook tab pre-selected. Block definitions in `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`).
+- **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. The hub at `/library` renders `HomeHub(active_tab='library')` — Library tab pre-selected. Block definitions in `ui/library/hub.py` (`LIBRARY_BLOCKS`).
 
 `/profile` is a **personal overview hub** using `BasePage` directly — Focus/Velocity, Activity Domains (6 HTMX blocks inline via `ActivityHubView()`), Nous placeholder, Settings. See `ui/profile/hub.py`.
 
@@ -1178,7 +1178,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
 | `/ui/gradebook/nav.py` | GradeBook sidebar config (`GRADEBOOK_SIDEBAR_ITEMS`) + `render_gradebook_sidebar_page()` helper |
-| `/ui/workbench/hub.py` | `SubmissionsHub` — 3 domain blocks (Upload, Submit, History) |
+| `/ui/workbench/hub.py` | `SUBMISSIONS_BLOCKS` — block definitions for Submissions tab in `HomeHub` |
 | `/ui/workbench/nav.py` | Submissions sidebar config (`SUBMISSIONS_SIDEBAR_ITEMS`) + `render_submissions_sidebar_page()` helper |
 | `/adapters/inbound/submissions_hub_routes.py` | Submissions hub page + HTMX preview endpoints + history |
 | `/adapters/inbound/settings_routes.py` | Settings page (extracted from Workbench) — `/settings` + `/settings/save` |

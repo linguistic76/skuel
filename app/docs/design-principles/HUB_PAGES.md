@@ -1,6 +1,6 @@
 ---
 title: "Design Principle: Hub Pages"
-updated: 2026-04-03
+updated: 2026-04-07
 status: current
 category: design-principles
 tags: [design, principles, ui, navigation, moc, hub]
@@ -29,25 +29,31 @@ SKUEL values standards-compliant, non-cutting-edge UI. Hub pages are the oldest 
 
 ### Top-Level Navigation Structure
 
-The navbar provides five entry points. Three are **container hub pages** (no sidebar), one is a **sidebar hub**, and one is a personal overview:
+The navbar provides five entry points. Three share a unified tabbed hub, one is a static container hub, and one is a personal overview:
 
 | Page | Hub Pattern | What It Organizes |
 |------|-------------|-------------------|
-| `/gradebook` | Container hub | Exercise Reports, Activity Reports, Revisions |
-| `/library` | Container hub | Exercises, Resources, Ku (bookmarked), Path Steps (enrolled) |
-| `/submissions` | Container hub | Upload Activity Data, Submit Exercise, Submission History |
+| `/home` | Tabbed hub (default: Submissions tab) | Submissions blocks, GradeBook blocks, Library blocks |
+| `/submissions` | Tabbed hub (Submissions tab active) | Same as `/home` — Submissions tab pre-selected |
+| `/gradebook` | Tabbed hub (GradeBook tab active) | Same as `/home` — GradeBook tab pre-selected |
+| `/library` | Tabbed hub (Library tab active) | Same as `/home` — Library tab pre-selected |
 | `/teaching` | Container hub | Students, Groups, Review Queue, Forms (TEACHER role) |
-| `/home` | Post-login landing | Focus/Velocity, Submissions (3 blocks), GradeBook (3 blocks), Tasks+, Explore, Library, Settings |
 | `/profile` | Personal overview | Focus/Velocity, Activity Domains (6 HTMX blocks) |
 
-### Container Hub Pages (Hub → Child with Sidebar)
+### Unified Tabbed Hub (`/home`, `/submissions`, `/gradebook`, `/library`)
 
-GradeBook and Library follow the **hub-first pattern**: the navbar icon opens a hub page with `HubContainerGrid` — no sidebar, just containers that describe each section. Clicking a container enters a child page that uses `SidebarPage` for within-section navigation. The sidebar title links back to the hub.
+All four pages render `HomeHub(active_tab=...)` from `ui/home_hub.py`. The Alpine.js `x-data` initializes with the correct tab pre-selected. Clicking a different tab switches instantly (client-side, no page reload).
 
-- **GradeBook** (`/gradebook`) — 3 blocks: Exercise Reports (`/exercise-reports`), Activity Reports (`/activity-reports`), Revisions (`/revised-exercises`). Hub view in `ui/gradebook/hub.py`, sidebar nav in `ui/gradebook/nav.py`.
-- **Library** (`/library`) — 4 containers: Exercises (`/library/exercises`), Resources (`/library/resources`), Ku (`/library/ku`), Path Steps (`/library/path-steps`). Hub view in `ui/library/hub.py`, sidebar nav in `ui/library/nav.py`.
-- **Submissions** (`/submissions`) — 3 blocks: Upload Activity Data (`/upload`), Submit Exercise (`/submit`), Submission History (`/submissions/history`). Hub view in `ui/workbench/hub.py`, sidebar nav in `ui/workbench/nav.py`.
-- **Teaching** (`/teaching`) — 4 containers: Students (`/teaching/students`), Groups (`/teaching/groups`), Review Queue (`/teaching/queue`), Forms (`/teaching/forms`). Hub view in `ui/teaching/hub.py`, sidebar nav in `ui/teaching/nav.py`. Individual students have a **nested hub** at `/teaching/students/{uid}` — 4 HTMX-loaded preview blocks (Needs Review, Revision Requested, Completed, KU Progress) showing actual submission/KU data inline, linking to `/teaching/students/{uid}/submissions?tab=...`. Preview endpoints: `/api/teaching/students/{uid}/{section}/preview`.
+Each tab shows a `HubDomainBlockList` populated by a `*_BLOCKS` constant:
+- **Submissions tab** — `SUBMISSIONS_BLOCKS` from `ui/workbench/hub.py`: Upload Activity Data, Submit Exercise, Submission History
+- **GradeBook tab** — `GRADEBOOK_BLOCKS` from `ui/gradebook/hub.py`: Exercise Reports, Activity Reports, Revisions
+- **Library tab** — `LIBRARY_BLOCKS` from `ui/library/hub.py`: Exercises, Resources, Ku, Path Steps
+
+Visiting any of the four URLs lands you on the same interface with the appropriate tab highlighted. Child pages use `SidebarPage` for within-section navigation.
+
+### Static Container Hub (Teaching)
+
+**Teaching** (`/teaching`) — 4 containers: Students (`/teaching/students`), Groups (`/teaching/groups`), Review Queue (`/teaching/queue`), Forms (`/teaching/forms`). Hub view in `ui/teaching/hub.py`, sidebar nav in `ui/teaching/nav.py`. Individual students have a **nested hub** at `/teaching/students/{uid}` — 4 HTMX-loaded preview blocks (Needs Review, Revision Requested, Completed, KU Progress) showing actual submission/KU data inline, linking to `/teaching/students/{uid}/submissions?tab=...`. Preview endpoints: `/api/teaching/students/{uid}/{section}/preview`.
 
 **Components:** `HubContainerGrid` and `HubContainer` in `ui/patterns/hub.py` — bigger than `HubCard`, with more padding, full description, and arrow affordance.
 

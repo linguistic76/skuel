@@ -16,7 +16,7 @@ This document covers *how to build one*.
 
 ## Architecture
 
-**Home** (`/home`) is the **post-login landing hub** — a 3x2 `HubContainerGrid` with 6 navigational cards linking to Tasks+, Explore, Library, Submissions, GradeBook, and Settings. Hub view in `ui/home_hub.py`.
+**Home** (`/home`) is the **post-login landing hub** — a three-tab interface (Submissions / GradeBook / Library) with HTMX-loaded domain blocks per tab and a Settings footer. `/submissions`, `/gradebook`, and `/library` render the same `HomeHub(active_tab=...)` with the matching tab pre-selected. Hub view in `ui/home_hub.py`.
 
 **Profile** (`/profile`) is the **personal overview hub** — Focus/Velocity indicators, Activity Domains (6 HTMX lazy-loaded preview blocks inline), the Nous community feed placeholder, and Settings. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
@@ -278,9 +278,11 @@ def ProfileHubView(context: UserContext) -> Div:
 
 `personal_header(context)` requires a `UserContext` already in scope (use on `/profile` and the HTMX fragment endpoint). For pages that load `UserContext` only for the header, use `personal_header_placeholder()` instead — it renders an HTMX div that lazy-loads via `GET /api/personal-header` without blocking the page render. Both are defined in `ui/patterns/personal_header.py`; the endpoint is registered in `adapters/inbound/home_routes.py`.
 
-## Usage: HTMX Hub Pages (Activity, GradeBook, Library)
+## Usage: HTMX Hub Pages (Activity, GradeBook, Library, Submissions)
 
-All three hub pages use the same shared pattern — `HubDomainBlockList` with `HubBlockData` config:
+All hub pages use `HubDomainBlockList` with `HubBlockData` config. Each block loads 3 preview cards via HTMX from its `preview_url`. Preview endpoints return `HubPreviewGrid(cards)` or `HubPreviewEmpty(domain)`.
+
+### Activity hub (inline in `/profile`)
 
 ```python
 # ui/activities/activity_hub.py
@@ -293,12 +295,24 @@ def ActivityHubView() -> Div:
     return Div(PageHeader(...), HubDomainBlockList(_ACTIVITY_BLOCKS))
 ```
 
-Each block loads 3 preview cards via HTMX from its `preview_url`. Preview endpoints return `HubPreviewGrid(cards)` or `HubPreviewEmpty(domain)`.
+### Unified tabbed hub (`/home`, `/submissions`, `/gradebook`, `/library`)
+
+`HomeHub(active_tab)` in `ui/home_hub.py` renders all three tab panels using the `*_BLOCKS` constants:
+
+```python
+# *_BLOCKS constants (no hub functions — just data):
+# ui/workbench/hub.py  → SUBMISSIONS_BLOCKS (3 blocks)
+# ui/gradebook/hub.py  → GRADEBOOK_BLOCKS (3 blocks)
+# ui/library/hub.py    → LIBRARY_BLOCKS (4 blocks)
+
+def HomeHub(active_tab: str = "submissions") -> Div:
+    """x-data initializes with active_tab; all three panels rendered, x-show controls visibility."""
+```
 
 **Preview endpoints:**
 - Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
 - Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`, wired via `library_routes.py`)
-- GradeBook: `/api/gradebook/{section}/preview` (4 sections, split across `submissions_ui.py`, `exercise_reports_ui.py`, `activity_reports_ui.py`)
+- GradeBook: `/api/gradebook/{section}/preview` (3 sections, split across `submissions_ui.py`, `exercise_reports_ui.py`, `activity_reports_ui.py`)
 - Submissions: `/api/submissions/{section}/preview` (3 sections: upload, submit, history — in `submissions_hub_routes.py`)
 - Student hub: `/api/teaching/students/{uid}/submissions/preview` (OOB — 3 buckets in one call) + `/api/teaching/students/{uid}/ku/preview` (independent — in `teaching_ui.py`)
 
@@ -314,7 +328,7 @@ section = HubSection("Contents", cards)
 
 **Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub. Activity Domains are embedded inline in `/profile` via `ActivityHubView()`.
 
-**Files:** `ui/gradebook/hub.py`, `ui/library/hub.py`, `ui/workbench/hub.py`, `ui/activities/activity_hub.py` (used inline in `/profile`), `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
+**Files:** `ui/home_hub.py` (unified tabbed hub — `HomeHub(active_tab)`), `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`), `ui/library/hub.py` (`LIBRARY_BLOCKS`), `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`), `ui/activities/activity_hub.py` (used inline in `/profile`), `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
 
 ## Shelved Hubs
 
@@ -334,11 +348,12 @@ section = HubSection("Contents", cards)
 | Activity hub view | `ui/activities/activity_hub.py` (embedded in `/profile`) |
 | Activity hub redirect | — (removed; `/activities` route no longer exists) |
 | Activity sidebar | `ui/activities/nav.py` |
-| GradeBook hub view | `ui/gradebook/hub.py` |
+| Unified tabbed hub | `ui/home_hub.py` (`HomeHub(active_tab)`) |
+| GradeBook block definitions | `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`) |
 | GradeBook sidebar | `ui/gradebook/nav.py` |
-| Library hub view | `ui/library/hub.py` |
+| Library block definitions | `ui/library/hub.py` (`LIBRARY_BLOCKS`) |
 | Library sidebar | `ui/library/nav.py` |
-| Submissions hub view | `ui/workbench/hub.py` |
+| Submissions block definitions | `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`) |
 | Submissions sidebar | `ui/workbench/nav.py` |
 | Submissions routes | `adapters/inbound/submissions_hub_routes.py` |
 | Teaching hub view | `ui/teaching/hub.py` |
