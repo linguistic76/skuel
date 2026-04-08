@@ -170,6 +170,8 @@ The `GET /api/navbar/notification-badge` fragment fetches the actual unread coun
 
 **Activity domain detail pages (6):** `/tasks/detail`, `/goals/detail`, `/habits/detail`, `/events/detail`, `/choices/detail`, `/principles/detail`
 
+**Calendar (3):** `/events/month/{year}/{month}`, `/events/week/{date_str}`, `/events/day/{date_str}`
+
 **Other pages (8):** `/settings`, `/exercises`, `/exercises/get`, `/learning-paths`, `/teaching/students`, `/teaching/students/{uid}`, `/teaching/review/{uid}`, `/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`
 
 **Navbar:** notification bell placeholder (all authenticated pages)

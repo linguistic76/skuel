@@ -106,7 +106,7 @@ def create_principles_ui_routes(
         result = await principles_service.get_user_principles(user_uid)
         if result.is_error:
             error = result.expect_error()
-            return render_error_banner(error.user_message or error.message)
+            return Div(render_error_banner(error.user_message or error.message), id="principle-list")
 
         all_principles = result.value
 
@@ -148,15 +148,15 @@ def create_principles_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_error_banner("Missing principle UID")
+            return Div(render_error_banner("Missing principle UID"), id="principle-detail-content")
 
         principle_result = await principles_service.get_principle(uid)
         if principle_result.is_error:
-            return render_error_banner("Principle not found")
+            return Div(render_error_banner("Principle not found"), id="principle-detail-content")
 
         principle = principle_result.value
         if principle.user_uid != user_uid:
-            return render_error_banner("Principle not found")
+            return Div(render_error_banner("Principle not found"), id="principle-detail-content")
 
         connections_map = await fetch_entity_connections(
             principles_service.core.backend, PRINCIPLE_CONNECTION_CONFIG, [principle.uid]

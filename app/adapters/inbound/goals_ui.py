@@ -92,7 +92,7 @@ def create_goals_ui_routes(
         result = await goals_service.get_user_goals(user_uid)
         if result.is_error:
             error = result.expect_error()
-            return render_error_banner(error.user_message or error.message)
+            return Div(render_error_banner(error.user_message or error.message), id="goal-list")
 
         all_goals = result.value
 
@@ -130,15 +130,15 @@ def create_goals_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_error_banner("Missing goal UID")
+            return Div(render_error_banner("Missing goal UID"), id="goal-detail-content")
 
         goal_result = await goals_service.get_goal(uid)
         if goal_result.is_error:
-            return render_error_banner("Goal not found")
+            return Div(render_error_banner("Goal not found"), id="goal-detail-content")
 
         goal = goal_result.value
         if goal.user_uid != user_uid:
-            return render_error_banner("Goal not found")
+            return Div(render_error_banner("Goal not found"), id="goal-detail-content")
 
         connections_map = await fetch_entity_connections(
             goals_service.core.backend, GOAL_CONNECTION_CONFIG, [goal.uid]

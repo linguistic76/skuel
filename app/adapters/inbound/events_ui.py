@@ -92,7 +92,7 @@ def create_events_ui_routes(
         result = await events_service.get_user_events(user_uid)
         if result.is_error:
             error = result.expect_error()
-            return render_error_banner(error.user_message or error.message)
+            return Div(render_error_banner(error.user_message or error.message), id="event-list")
 
         all_events = result.value
 
@@ -130,15 +130,15 @@ def create_events_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_error_banner("Missing event UID")
+            return Div(render_error_banner("Missing event UID"), id="event-detail-content")
 
         event_result = await events_service.get_event(uid)
         if event_result.is_error:
-            return render_error_banner("Event not found")
+            return Div(render_error_banner("Event not found"), id="event-detail-content")
 
         event = event_result.value
         if event.user_uid != user_uid:
-            return render_error_banner("Event not found")
+            return Div(render_error_banner("Event not found"), id="event-detail-content")
 
         connections_map = await fetch_entity_connections(
             events_service.core.backend, EVENT_CONNECTION_CONFIG, [event.uid]

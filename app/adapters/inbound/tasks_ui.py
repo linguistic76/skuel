@@ -97,7 +97,7 @@ def create_tasks_ui_routes(
         result = await tasks_service.get_user_tasks(user_uid)
         if result.is_error:
             error = result.expect_error()
-            return render_error_banner(error.user_message or error.message)
+            return Div(render_error_banner(error.user_message or error.message), id="task-list")
 
         all_tasks = result.value
 
@@ -136,15 +136,15 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_error_banner("Missing task UID")
+            return Div(render_error_banner("Missing task UID"), id="task-detail-content")
 
         task_result = await tasks_service.get_task(uid)
         if task_result.is_error:
-            return render_error_banner("Task not found")
+            return Div(render_error_banner("Task not found"), id="task-detail-content")
 
         task = task_result.value
         if task.user_uid != user_uid:
-            return render_error_banner("Task not found")
+            return Div(render_error_banner("Task not found"), id="task-detail-content")
 
         connections_map = await fetch_entity_connections(
             tasks_service.core.backend, TASK_CONNECTION_CONFIG, [task.uid]

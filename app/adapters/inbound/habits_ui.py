@@ -96,7 +96,7 @@ def create_habits_ui_routes(
         result = await habits_service.get_user_habits(user_uid)
         if result.is_error:
             error = result.expect_error()
-            return render_error_banner(error.user_message or error.message)
+            return Div(render_error_banner(error.user_message or error.message), id="habit-list")
 
         all_habits = result.value
 
@@ -135,15 +135,15 @@ def create_habits_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_error_banner("Missing habit UID")
+            return Div(render_error_banner("Missing habit UID"), id="habit-detail-content")
 
         habit_result = await habits_service.get_habit(uid)
         if habit_result.is_error:
-            return render_error_banner("Habit not found")
+            return Div(render_error_banner("Habit not found"), id="habit-detail-content")
 
         habit = habit_result.value
         if habit.user_uid != user_uid:
-            return render_error_banner("Habit not found")
+            return Div(render_error_banner("Habit not found"), id="habit-detail-content")
 
         connections_map = await fetch_entity_connections(
             habits_service.core.backend, HABIT_CONNECTION_CONFIG, [habit.uid]

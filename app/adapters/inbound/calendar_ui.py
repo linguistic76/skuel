@@ -6,9 +6,12 @@ Page views and HTMX fragment endpoints for the calendar.
 
 Routes:
     GET /events                                            — Default (current month)
-    GET /events/month/{year}/{month}                       — Month view
-    GET /events/week/{date_str}                            — Week view
-    GET /events/day/{date_str}                             — Day view
+    GET /events/month/{year}/{month}                       — Month view shell
+    GET /events/month/{year}/{month}/content               — Month grid fragment
+    GET /events/week/{date_str}                            — Week view shell
+    GET /events/week/{date_str}/content                    — Week grid fragment
+    GET /events/day/{date_str}                             — Day view shell
+    GET /events/day/{date_str}/content                     — Day timeline fragment
     GET /events/calendar/quick-create                      — HTMX quick-create form
     GET /events/calendar/habit/{habit_uid}/record/{status} — HTMX habit recording
     GET /events/calendar/item-details/{item_id}            — HTMX item-details modal
@@ -30,6 +33,7 @@ from fasthtml.common import (
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from adapters.inbound.auth import require_authenticated_user
+from ui.patterns.loading import content_loading_placeholder
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_int, safe_form_string
 from core.models.event.calendar_models import CalendarItemType, CalendarView
@@ -325,205 +329,205 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
 
     @rt("/events/month/{year}/{month}")
     async def calendar_month(request: Request, year: int, month: int) -> Any:
-        """Month view of the calendar."""
-        user_uid = require_authenticated_user(request)  # Enforce authentication
+        """Month view shell — renders chrome immediately, grid loads via HTMX."""
+        require_authenticated_user(request)
+        first_day = date(year, month, 1)
+        month_name = cal.month_name[month]
+        prev_y, prev_m = _get_prev_month(year, month)
+        next_y, next_m = _get_next_month(year, month)
+        content = Div(
+            Container(
+                Div(
+                    PageHeader(f"{month_name} {year}"),
+                    create_view_switcher("month", first_day),
+                    Div(
+                        ButtonLink(
+                            "← Previous",
+                            href=f"/events/month/{prev_y}/{prev_m}",
+                            variant=ButtonT.ghost,
+                            size=Size.sm,
+                        ),
+                        ButtonLink(
+                            "Today",
+                            href="/events",
+                            variant=ButtonT.primary,
+                            size=Size.sm,
+                            cls="mx-2",
+                        ),
+                        ButtonLink(
+                            "Next →",
+                            href=f"/events/month/{next_y}/{next_m}",
+                            variant=ButtonT.ghost,
+                            size=Size.sm,
+                        ),
+                        cls="flex justify-center mb-6",
+                    ),
+                    cls="mb-6",
+                ),
+                content_loading_placeholder(
+                    f"/events/month/{year}/{month}/content",
+                    "calendar-month-content",
+                    loading_text="Loading calendar...",
+                ),
+                create_reschedule_form(),
+            ),
+            cls="max-w-7xl mx-auto p-6",
+        )
+        return await _wrap_calendar_page(request, content, f"{month_name} {year}")
 
-        # Calculate date range for the month
+    @rt("/events/month/{year}/{month}/content")
+    async def calendar_month_content(request: Request, year: int, month: int) -> Any:
+        """HTMX fragment: month grid."""
+        user_uid = require_authenticated_user(request)
         first_day = date(year, month, 1)
         last_day = date(year, month, monthrange(year, month)[1])
-
-        # Get calendar data
         result = await calendar_service.get_calendar_view(
             user_uid=user_uid,
             start_date=first_day,
             end_date=last_day,
             view_type=CalendarView.MONTH,
         )
-
         if not result.is_ok:
-            return error_response(result.error)
-
-        calendar_data = result.value
-        month_name = cal.month_name[month]
-
-        return await _wrap_calendar_page(
-            request,
-            Div(
-                Container(
-                    # Header with navigation
-                    Div(
-                        PageHeader(f"{month_name} {year}"),
-                        create_view_switcher("month", first_day),
-                        # Month navigation - using links instead of JavaScript
-                        Div(
-                            ButtonLink(
-                                "← Previous",
-                                href=f"/events/month/{_get_prev_month(year, month)[0]}/{_get_prev_month(year, month)[1]}",
-                                variant=ButtonT.ghost,
-                                size=Size.sm,
-                            ),
-                            ButtonLink(
-                                "Today",
-                                href="/events",
-                                variant=ButtonT.primary,
-                                size=Size.sm,
-                                cls="mx-2",
-                            ),
-                            ButtonLink(
-                                "Next →",
-                                href=f"/events/month/{_get_next_month(year, month)[0]}/{_get_next_month(year, month)[1]}",
-                                variant=ButtonT.ghost,
-                                size=Size.sm,
-                            ),
-                            cls="flex justify-center mb-6",
-                        ),
-                        cls="mb-6",
-                    ),
-                    # Month grid
-                    create_month_grid(calendar_data),
-                    # Hidden form for HTMX drag-drop reschedule
-                    create_reschedule_form(),
-                ),
-                cls="max-w-7xl mx-auto p-6",
-            ),
-            f"{month_name} {year}",
-        )
+            return Div(error_response(result.error), id="calendar-month-content")
+        return Div(create_month_grid(result.value), id="calendar-month-content")
 
     @rt("/events/week/{date_str}")
     async def calendar_week(request: Request, date_str: str) -> Any:
-        """Week view of the calendar."""
-        user_uid = require_authenticated_user(request)  # Enforce authentication
-
+        """Week view shell — renders chrome immediately, grid loads via HTMX."""
+        require_authenticated_user(request)
         try:
             target_date = date.fromisoformat(date_str)
         except ValueError:
             target_date = date.today()
+        week_start, _ = week_bounds(target_date)
+        content = Div(
+            Container(
+                Div(
+                    PageHeader(f"Week of {week_start.strftime('%B %d, %Y')}"),
+                    create_view_switcher("week", week_start),
+                    Div(
+                        ButtonLink(
+                            "← Previous Week",
+                            href=f"/events/week/{_get_prev_week(week_start)}",
+                            variant=ButtonT.ghost,
+                            size=Size.sm,
+                        ),
+                        ButtonLink(
+                            "This Week",
+                            href=f"/events/week/{date.today().isoformat()}",
+                            variant=ButtonT.primary,
+                            size=Size.sm,
+                            cls="mx-2",
+                        ),
+                        ButtonLink(
+                            "Next Week →",
+                            href=f"/events/week/{_get_next_week(week_start)}",
+                            variant=ButtonT.ghost,
+                            size=Size.sm,
+                        ),
+                        cls="flex justify-center mb-6",
+                    ),
+                    cls="mb-6",
+                ),
+                content_loading_placeholder(
+                    f"/events/week/{date_str}/content",
+                    "calendar-week-content",
+                    loading_text="Loading calendar...",
+                ),
+                create_reschedule_form(),
+            ),
+            cls="max-w-7xl mx-auto p-6",
+        )
+        return await _wrap_calendar_page(
+            request, content, f"Week of {week_start.strftime('%B %d, %Y')}"
+        )
 
-        # Calculate week range (Monday to Sunday)
+    @rt("/events/week/{date_str}/content")
+    async def calendar_week_content(request: Request, date_str: str) -> Any:
+        """HTMX fragment: week grid."""
+        user_uid = require_authenticated_user(request)
+        try:
+            target_date = date.fromisoformat(date_str)
+        except ValueError:
+            target_date = date.today()
         week_start, week_end = week_bounds(target_date)
-
-        # Get calendar data
         result = await calendar_service.get_calendar_view(
             user_uid=user_uid,
             start_date=week_start,
             end_date=week_end,
             view_type=CalendarView.WEEK,
         )
-
         if not result.is_ok:
-            return error_response(result.error)
-
-        calendar_data = result.value
-        week_start = calendar_data.start_date
-
-        return await _wrap_calendar_page(
-            request,
-            Div(
-                Container(
-                    # Header
-                    Div(
-                        PageHeader(f"Week of {week_start.strftime('%B %d, %Y')}"),
-                        create_view_switcher("week", week_start),
-                        # Week navigation - using links instead of JavaScript
-                        Div(
-                            ButtonLink(
-                                "← Previous Week",
-                                href=f"/events/week/{_get_prev_week(week_start)}",
-                                variant=ButtonT.ghost,
-                                size=Size.sm,
-                            ),
-                            ButtonLink(
-                                "This Week",
-                                href=f"/events/week/{date.today().isoformat()}",
-                                variant=ButtonT.primary,
-                                size=Size.sm,
-                                cls="mx-2",
-                            ),
-                            ButtonLink(
-                                "Next Week →",
-                                href=f"/events/week/{_get_next_week(week_start)}",
-                                variant=ButtonT.ghost,
-                                size=Size.sm,
-                            ),
-                            cls="flex justify-center mb-6",
-                        ),
-                        cls="mb-6",
-                    ),
-                    # Week grid
-                    create_week_grid(calendar_data),
-                    # Hidden form for HTMX drag-drop reschedule
-                    create_reschedule_form(),
-                ),
-                cls="max-w-7xl mx-auto p-6",
-            ),
-            f"Week of {week_start.strftime('%B %d, %Y')}",
-        )
+            return Div(error_response(result.error), id="calendar-week-content")
+        return Div(create_week_grid(result.value), id="calendar-week-content")
 
     @rt("/events/day/{date_str}")
     async def calendar_day(request: Request, date_str: str) -> Any:
-        """Day view of the calendar."""
-        user_uid = require_authenticated_user(request)  # Enforce authentication
-
+        """Day view shell — renders chrome immediately, timeline loads via HTMX."""
+        require_authenticated_user(request)
         try:
             target_date = date.fromisoformat(date_str)
         except ValueError:
             target_date = date.today()
+        content = Div(
+            Container(
+                Div(
+                    PageHeader(target_date.strftime("%A, %B %d, %Y")),
+                    create_view_switcher("day", target_date),
+                    Div(
+                        ButtonLink(
+                            "← Previous Day",
+                            href=f"/events/day/{_get_prev_day(target_date)}",
+                            variant=ButtonT.ghost,
+                            size=Size.sm,
+                        ),
+                        ButtonLink(
+                            "Today",
+                            href=f"/events/day/{date.today().isoformat()}",
+                            variant=ButtonT.primary,
+                            size=Size.sm,
+                            cls="mx-2",
+                        ),
+                        ButtonLink(
+                            "Next Day →",
+                            href=f"/events/day/{_get_next_day(target_date)}",
+                            variant=ButtonT.ghost,
+                            size=Size.sm,
+                        ),
+                        cls="flex justify-center mb-6",
+                    ),
+                    cls="mb-6",
+                ),
+                content_loading_placeholder(
+                    f"/events/day/{date_str}/content",
+                    "calendar-day-content",
+                    loading_text="Loading calendar...",
+                ),
+                create_reschedule_form(),
+            ),
+            cls="max-w-7xl mx-auto p-6",
+        )
+        return await _wrap_calendar_page(
+            request, content, target_date.strftime("%A, %B %d, %Y")
+        )
 
-        # Get calendar data
+    @rt("/events/day/{date_str}/content")
+    async def calendar_day_content(request: Request, date_str: str) -> Any:
+        """HTMX fragment: day timeline."""
+        user_uid = require_authenticated_user(request)
+        try:
+            target_date = date.fromisoformat(date_str)
+        except ValueError:
+            target_date = date.today()
         result = await calendar_service.get_calendar_view(
             user_uid=user_uid,
             start_date=target_date,
             end_date=target_date,
             view_type=CalendarView.DAY,
         )
-
         if not result.is_ok:
-            return error_response(result.error)
-
-        calendar_data = result.value
-
-        return await _wrap_calendar_page(
-            request,
-            Div(
-                Container(
-                    # Header
-                    Div(
-                        PageHeader(target_date.strftime("%A, %B %d, %Y")),
-                        create_view_switcher("day", target_date),
-                        # Day navigation - using links instead of JavaScript
-                        Div(
-                            ButtonLink(
-                                "← Previous Day",
-                                href=f"/events/day/{_get_prev_day(target_date)}",
-                                variant=ButtonT.ghost,
-                                size=Size.sm,
-                            ),
-                            ButtonLink(
-                                "Today",
-                                href=f"/events/day/{date.today().isoformat()}",
-                                variant=ButtonT.primary,
-                                size=Size.sm,
-                                cls="mx-2",
-                            ),
-                            ButtonLink(
-                                "Next Day →",
-                                href=f"/events/day/{_get_next_day(target_date)}",
-                                variant=ButtonT.ghost,
-                                size=Size.sm,
-                            ),
-                            cls="flex justify-center mb-6",
-                        ),
-                        cls="mb-6",
-                    ),
-                    # Day timeline
-                    create_day_timeline(calendar_data),
-                    # Hidden form for HTMX drag-drop reschedule
-                    create_reschedule_form(),
-                ),
-                cls="max-w-7xl mx-auto p-6",
-            ),
-            "Day View",
-        )
+            return Div(error_response(result.error), id="calendar-day-content")
+        return Div(create_day_timeline(result.value), id="calendar-day-content")
 
     # =========================================================================
     # HTMX Fragment Routes

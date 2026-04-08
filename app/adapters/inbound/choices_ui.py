@@ -92,7 +92,7 @@ def create_choices_ui_routes(
         result = await choices_service.get_user_choices(user_uid)
         if result.is_error:
             error = result.expect_error()
-            return render_error_banner(error.user_message or error.message)
+            return Div(render_error_banner(error.user_message or error.message), id="choice-list")
 
         all_choices = result.value
 
@@ -130,15 +130,15 @@ def create_choices_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return render_error_banner("Missing choice UID")
+            return Div(render_error_banner("Missing choice UID"), id="choice-detail-content")
 
         choice_result = await choices_service.get_choice(uid)
         if choice_result.is_error:
-            return render_error_banner("Choice not found")
+            return Div(render_error_banner("Choice not found"), id="choice-detail-content")
 
         choice = choice_result.value
         if choice.user_uid != user_uid:
-            return render_error_banner("Choice not found")
+            return Div(render_error_banner("Choice not found"), id="choice-detail-content")
 
         connections_map = await fetch_entity_connections(
             choices_service.core.backend, CHOICE_CONNECTION_CONFIG, [choice.uid]

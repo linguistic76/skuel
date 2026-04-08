@@ -240,6 +240,7 @@ def create_explore_ui_routes(
                         ),
                     ),
                 ),
+                id="ku-detail-content",
                 cls="max-w-4xl mx-auto p-8",
             )
 
@@ -395,6 +396,7 @@ def create_explore_ui_routes(
                         ),
                     ),
                 ),
+                id="ps-detail-content",
                 cls="max-w-4xl mx-auto p-8",
             )
 
