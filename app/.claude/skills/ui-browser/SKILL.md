@@ -355,19 +355,15 @@ response.headers["HX-Push-Url"] = "/tasks"
 The standard SKUEL pattern for eliminating blank-screen waits: the route returns page chrome immediately, a `hx-trigger="load"` div fires the content request after the browser paints.
 
 ```python
+from ui.patterns.loading import content_loading_placeholder
+
 # Shell — returns immediately (zero DB calls)
 @rt("/settings")
 async def settings_page(request: Request) -> Any:
     require_authenticated_user(request)
     content = Div(
         PageHeader("Settings", subtitle="Manage your preferences"),
-        Div(
-            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-            id="settings-content",
-            hx_get="/settings/content",
-            hx_trigger="load",
-            hx_swap="outerHTML",
-        ),
+        content_loading_placeholder("/settings/content", "settings-content"),
     )
     return await BasePage(content, title="Settings", request=request)
 

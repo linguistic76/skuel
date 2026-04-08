@@ -140,19 +140,17 @@ SectionHeader(
 All SKUEL pages that need DB data use the **shell-first pattern**: the route handler returns page chrome immediately (zero DB calls), while a `hx_trigger="load"` div fires a `*/content` fragment endpoint that does the work.
 
 ```python
+from ui.patterns.loading import content_loading_placeholder
+```
+
+```python
 # ✅ CORRECT: shell returns immediately, content fills in via HTMX
 @rt("/tasks")
 async def tasks_page(request: Request) -> Any:
     require_authenticated_user(request)
     content = Div(
         PageHeader("Tasks", subtitle="Manage your daily work"),
-        Div(
-            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-            id="tasks-content",
-            hx_get="/tasks/content",
-            hx_trigger="load",
-            hx_swap="outerHTML",
-        ),
+        content_loading_placeholder("/tasks/content", "tasks-content"),
     )
     return await BasePage(content, title="Tasks", request=request, active_page="tasks")
 
@@ -178,13 +176,7 @@ async def task_detail_page(request: Request) -> Any:
             Div(render_error_banner("Missing task UID")), active="tasks", request=request
         )
     content = Div(
-        Div(
-            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-            id="task-detail-content",
-            hx_get=f"/tasks/detail/content?uid={uid}",
-            hx_trigger="load",
-            hx_swap="outerHTML",
-        ),
+        content_loading_placeholder(f"/tasks/detail/content?uid={uid}", "task-detail-content"),
     )
     return await render_activity_sidebar_page(content, active="tasks", request=request)
 
@@ -205,13 +197,7 @@ async def task_detail_content_fragment(request: Request) -> Any:
 ```python
 @rt("/explore/ku/{uid}")
 async def explore_ku_detail(request: Request, uid: str) -> Any:
-    content = Div(
-        P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
-        id="ku-detail-content",
-        hx_get=f"/explore/ku/{uid}/content",
-        hx_trigger="load",
-        hx_swap="outerHTML",
-    )
+    content = content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content")
     return await render_explore_sidebar_page(content=content, sidebar_data=None, request=request)
 
 @rt("/explore/ku/{uid}/content")
