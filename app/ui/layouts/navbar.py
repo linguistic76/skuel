@@ -179,13 +179,46 @@ def create_navbar(
         FastHTML Nav element (slim top bar)
     """
     if is_admin:
-        # Admin: brand on left, avatar + signout on right
+        # Admin: hamburger (mobile) + brand + avatar/signout
+        # Mobile dropdown links to /admin and /teaching/students (no bottom nav for admins)
         return Nav(
             Div(
+                # Hamburger button — mobile only
+                Div(
+                    A(
+                        Span("Menu", cls="sr-only"),
+                        UkIcon("menu", cls="size-5", aria_hidden="true"),
+                        cls="sm:hidden inline-flex items-center justify-center size-11 rounded-full"
+                        " hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer",
+                        **{"@click": "mobileMenuOpen = !mobileMenuOpen", "aria-label": "Open menu"},
+                    ),
+                    # Mobile dropdown panel — fixed below navbar, sm:hidden
+                    Div(
+                        A("Admin", href="/admin", cls="block px-4 py-3 text-sm hover:bg-accent"),
+                        A(
+                            "Teaching",
+                            href="/teaching/students",
+                            cls="block px-4 py-3 text-sm hover:bg-accent",
+                        ),
+                        A(
+                            "Sign out",
+                            href="/logout",
+                            cls="block px-4 py-3 text-sm text-destructive hover:bg-accent border-t border-border",
+                        ),
+                        cls="sm:hidden fixed top-14 inset-x-0 z-50 bg-background border-b border-border shadow-md",
+                        **{
+                            "x-show": "mobileMenuOpen",
+                            "@click.away": "mobileMenuOpen = false",
+                            "x-cloak": True,
+                        },
+                    ),
+                    **{"x-data": "{ mobileMenuOpen: false }"},
+                ),
+                # Brand — always visible
                 A(
                     Span("SKUEL", cls="text-lg font-bold text-primary"),
                     href="/",
-                    cls="hidden sm:inline-flex items-center justify-center px-2 py-1 rounded hover:bg-accent",
+                    cls="inline-flex items-center justify-center px-2 py-1 rounded hover:bg-accent",
                 ),
                 Div(
                     _admin_right_section(current_user or "") if current_user else Div(),

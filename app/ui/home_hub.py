@@ -20,7 +20,7 @@ _INACTIVE_STYLE = (
     " color: hsl(var(--muted-foreground));"
     " border-radius: 0.375rem;"
 )
-_TAB_BASE = "flex-1 text-center px-3 py-2.5 text-sm font-semibold cursor-pointer transition-all"
+_TAB_BASE = "flex-1 text-center px-3 py-3 text-sm font-semibold cursor-pointer transition-all"
 
 
 def HomeHub(active_tab: str = "submissions") -> Div:

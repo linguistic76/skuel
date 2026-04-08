@@ -256,7 +256,7 @@ def alpine_mobile_section_renderer(
         return Div(
             *tab_children,
             role="tab",
-            cls="whitespace-nowrap px-3 py-2 text-sm border-b-2 cursor-pointer flex items-center gap-1.5",
+            cls="whitespace-nowrap px-3 py-2.5 min-h-[44px] text-sm border-b-2 cursor-pointer flex items-center gap-1.5",
             **{
                 "@click": f"{state_var} = '{item.slug}'",
                 ":class": f"{state_var} === '{item.slug}' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
@@ -403,7 +403,7 @@ def SidebarNav(
                     *tab_children,
                     href=item.href,
                     role="tab",
-                    cls=f"whitespace-nowrap px-3 py-2 text-sm border-b-2 flex items-center gap-1.5 {'border-primary text-primary font-medium' if is_active else 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}",
+                    cls=f"whitespace-nowrap px-3 py-2.5 min-h-[44px] text-sm border-b-2 flex items-center gap-1.5 {'border-primary text-primary font-medium' if is_active else 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}",
                     **item.hx_attrs,
                 )
             )

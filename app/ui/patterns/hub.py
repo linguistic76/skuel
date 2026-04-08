@@ -180,8 +180,8 @@ def HubPreviewCard(title: str, href: str, badge: FT | None = None) -> A:
 
 
 def HubPreviewGrid(cards: list[A]) -> Div:
-    """3-column grid of preview cards."""
-    return Div(*cards, cls="grid grid-cols-3 gap-2")
+    """Responsive preview card grid — 2 columns on mobile, 3 on sm+."""
+    return Div(*cards, cls="grid grid-cols-2 sm:grid-cols-3 gap-2")
 
 
 def HubPreviewEmpty(domain: str) -> Div:
