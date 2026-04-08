@@ -750,7 +750,7 @@ def create_tasks_routes(app, rt, services, _sync_service=None) -> None:
     register_domain_routes(app, rt, services, TASKS_CONFIG)
 ```
 
-**Adoption:** 42 of 46 route files (91%). All 6 Activity Domains use `create_activity_domain_route_config()`. Non-adopters: graphql_routes.py, metrics_routes.py, pwa_routes.py, library_routes.py (hub orchestrator). ai_routes.py uses its own config-driven pattern (AIRouteSpec).
+**Adoption:** Majority of `*_routes.py` files. All 6 Activity Domains use `create_activity_domain_route_config()`. Three wiring patterns exist — see `docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` § "Route Wiring Patterns" for the decision guide: **A — DomainRouteConfig** (default, entity domains), **B — Orchestrator** (`explore_routes.py`, `lateral_routes.py`, `library_routes.py`), **C — Manual `@rt()`** (`home_routes.py`, `settings_routes.py`, `submissions_hub_routes.py`, `graphql_routes.py`). `ai_routes.py` uses its own config-driven pattern (AIRouteSpec).
 
 **See:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`
 

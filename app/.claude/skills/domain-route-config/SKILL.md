@@ -8,7 +8,12 @@ allowed-tools: Read, Grep, Glob
 
 > "Configuration over code for route registration"
 
-DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. Used by 42 of 46 route files (91% adoption). All 6 Activity Domains use `create_activity_domain_route_config()`. Five proven pattern variants cover every route registration scenario in SKUEL. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
+DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. The majority of `*_routes.py` files use it. All 6 Activity Domains use `create_activity_domain_route_config()`. Five proven pattern variants cover every route registration scenario in SKUEL. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
+
+**Three wiring patterns exist** — see `docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` "Route Wiring Patterns" for when to use each:
+- **A — DomainRouteConfig** (default): entity domains, soft-fail on missing service
+- **B — Orchestrator-driven**: cross-domain coordination (`explore_routes.py`, `lateral_routes.py`, `library_routes.py`)
+- **C — Manual `@rt()`**: structural/infrastructure routes (`home_routes.py`, `settings_routes.py`, `graphql_routes.py`)
 
 ---
 
@@ -296,9 +301,18 @@ The manual block follows the same service-null-guard pattern that `register_doma
 
 ### Upload Routes (Simple Two-Factory)
 
+Manual registration — no DomainRouteConfig because there are only two flat factories with no secondary services; the config object adds no value. Follows the standard route factory signature.
+
 ```python
 # adapters/inbound/upload_routes.py — manual two-factory orchestrator
-def create_upload_routes(app, rt, services) -> None:
+def create_upload_routes(
+    app: "FastHTMLApp",
+    rt: "RouteDecorator",
+    services: "Services | None",
+    _sync_service: Any = None,
+) -> None:
+    if services is None:
+        return
     upload_service = services.user_upload_service
     if upload_service is None:
         return
