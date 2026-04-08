@@ -48,30 +48,6 @@ class ExploreOrchestrator:
         self._submissions_search = submissions_search_service
 
     # ------------------------------------------------------------------
-    # Service proxies exposed for sidebar and DomainRouteConfig compat
-    # ------------------------------------------------------------------
-
-    @property
-    def ku_service(self) -> "KuService":
-        return self._ku
-
-    @property
-    def ps_service(self) -> "PsService":
-        return self._ps
-
-    @property
-    def user_relationship_service(self) -> "UserRelationshipService":
-        return self._user_relationships
-
-    @property
-    def exercises_service(self) -> "ExerciseService":
-        return self._exercises
-
-    @property
-    def submissions_search_service(self) -> "SubmissionsSearchService":
-        return self._submissions_search
-
-    # ------------------------------------------------------------------
     # Ku operations
     # ------------------------------------------------------------------
 
