@@ -6,7 +6,7 @@ after the page chrome has been painted.
 See: docs/patterns/SHELL_FIRST_PAGE_PATTERN.md
 """
 
-from fasthtml.common import Div, P
+from fasthtml.common import Div, P, Span
 
 
 def content_loading_placeholder(
@@ -18,21 +18,34 @@ def content_loading_placeholder(
 ) -> Div:
     """HTMX div that fires a fragment request on page load.
 
+    Renders an animated skeleton shimmer (``animate-pulse`` bars) while the
+    fragment is in flight.  ``loading_text`` is retained as a screen-reader
+    label only — it does not appear visually.
+
     Args:
         fragment_url: The URL to GET when the div loads (e.g. "/tasks/content").
         target_id: The ``id`` attribute set on the Div — HTMX replaces this
             element when the fragment returns.
-        loading_text: Visible text while the fragment is in flight.
-            Defaults to "Loading...". Use a domain-specific string like
-            "Loading activity reports..." where appropriate.
+        loading_text: Accessible label for screen readers while loading.
+            Defaults to "Loading...".
         swap: HTMX swap strategy. Defaults to "outerHTML" (replaces entire Div).
 
     Returns:
-        A Div that immediately triggers an HTMX GET and shows a loading
-        indicator while waiting.
+        A Div that immediately triggers an HTMX GET and shows a skeleton
+        shimmer while waiting.
     """
+    skeleton = Div(
+        Span(loading_text, cls="sr-only"),
+        Div(
+            Div(cls="h-4 bg-muted rounded w-3/4"),
+            Div(cls="h-4 bg-muted rounded w-full"),
+            Div(cls="h-4 bg-muted rounded w-5/6"),
+            Div(cls="h-4 bg-muted rounded w-2/3"),
+            cls="animate-pulse space-y-3 py-6 px-1",
+        ),
+    )
     return Div(
-        P(loading_text, cls="text-muted-foreground py-8 text-center text-sm"),
+        skeleton,
         id=target_id,
         hx_get=fragment_url,
         hx_trigger="load",

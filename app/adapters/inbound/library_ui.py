@@ -10,7 +10,7 @@ Unified learning hub with sidebar navigation:
 - Path Steps  — User's enrolled path steps
 
 Each section is a standalone route wrapped in SidebarPage.
-Dual-purpose: returns fragment for HTMX requests, full sidebar page for direct navigation.
+Most tabs use dual-mode (fragment + full page); Path Steps uses shell-first.
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -36,6 +36,7 @@ from ui.learning_loop.exercise_status import (
 from ui.library.nav import render_library_sidebar_page
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 
 logger = get_logger("skuel.routes.library")
@@ -372,21 +373,29 @@ def create_library_ui_routes(
 
     @rt("/library/path-steps")
     async def library_path_steps(request: Request) -> Any:
-        """Path Steps the user is enrolled in (IN_PROGRESS)."""
+        """Path Steps the user is enrolled in — shell renders immediately, content loads via HTMX."""
+        return await render_library_sidebar_page(
+            content=Div(
+                content_loading_placeholder(
+                    "/library/path-steps/content",
+                    "library-path-steps-content",
+                    loading_text="Loading path steps...",
+                )
+            ),
+            active="path-steps",
+            request=request,
+        )
+
+    @rt("/library/path-steps/content")
+    async def library_path_steps_content(request: Request) -> Any:
+        """HTMX fragment: enrolled Path Steps content."""
         user = get_current_user(request)
         if not user:
-            fragment = EmptyState(
+            return EmptyState(
                 title="Sign in to see your enrolled Path Steps",
                 description="Start a Path Step on the Path Steps page to track your progress here.",
             )
-        else:
-            fragment = await _build_path_steps_fragment(user)
-
-        if request.headers.get("HX-Request"):
-            return fragment
-        return await render_library_sidebar_page(
-            content=Div(fragment), active="path-steps", request=request
-        )
+        return await _build_path_steps_fragment(user)
 
     async def _build_path_steps_fragment(user: str) -> Any:
         """Build the enrolled Path Steps fragment content."""
