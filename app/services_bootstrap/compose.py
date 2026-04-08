@@ -1172,6 +1172,21 @@ async def compose_services(
         )
         logger.info("✅ Pathways Orchestrator created")
 
+        from core.orchestrator.lateral_relationships_orchestrator import (
+            LateralRelationshipsOrchestrator,
+        )
+
+        lateral_orchestrator = LateralRelationshipsOrchestrator(
+            lateral_service=lateral_service,
+            tasks_service=activity_services["tasks"],
+            goals_service=activity_services["goals"],
+            habits_service=activity_services["habits"],
+            events_service=activity_services["events"],
+            choices_service=activity_services["choices"],
+            principles_service=activity_services["principles"],
+        )
+        logger.info("✅ Lateral Relationships Orchestrator created")
+
         # Wire orchestration services into context_service
         context_service.goal_task_generator = orchestration["goal_task_generator"]
         context_service.habits_service = activity_services["habits"]
@@ -1308,6 +1323,7 @@ async def compose_services(
             journal_orchestrator=journal_orchestrator,
             activity_review_orchestrator=activity_review_orchestrator,
             pathways_orchestrator=pathways_orchestrator,
+            lateral_orchestrator=lateral_orchestrator,
             # Advanced
             calendar_optimization=advanced["calendar_optimization"],
             jupyter_sync=advanced["jupyter_sync"],

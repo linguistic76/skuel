@@ -13,6 +13,9 @@ if TYPE_CHECKING:
     from core.orchestrator.admin_orchestrator import AdminOrchestrator
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
     from core.orchestrator.journal_orchestrator import JournalOrchestrator
+    from core.orchestrator.lateral_relationships_orchestrator import (
+        LateralRelationshipsOrchestrator,
+    )
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
     from core.orchestrator.pathways_orchestrator import PathwaysOrchestrator
     from core.orchestrator.profile_orchestrator import ProfileOrchestrator
@@ -305,6 +308,7 @@ class Services:
     journal_orchestrator: "JournalOrchestrator | None" = None
     activity_review_orchestrator: "ActivityReviewOrchestrator | None" = None
     pathways_orchestrator: "PathwaysOrchestrator | None" = None
+    lateral_orchestrator: "LateralRelationshipsOrchestrator | None" = None
 
     # Advanced services
     calendar_optimization: "CalendarOptimizationService | None" = None
