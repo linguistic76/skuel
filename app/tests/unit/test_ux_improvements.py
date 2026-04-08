@@ -196,7 +196,11 @@ async def test_base_page_viewport_safe_area():
 
 
 def test_navbar_mobile_button_aria():
-    """Verify navbar mobile button has proper ARIA attributes."""
+    """Verify navbar has proper ARIA attributes.
+
+    SKUEL uses a fixed bottom nav for mobile (not a hamburger button),
+    so we verify the top nav landmark has aria-label for screen readers.
+    """
     from ui.layouts.navbar import create_navbar
 
     navbar = create_navbar(
@@ -207,11 +211,8 @@ def test_navbar_mobile_button_aria():
 
     html_str = str(navbar)
 
-    # Should have aria-label for mobile menu button
+    # Top nav landmark must have aria-label for screen reader orientation
     assert "aria-label" in html_str or "aria_label" in html_str
-
-    # Should have aria-expanded binding
-    assert "aria-expanded" in html_str or "aria_expanded" in html_str
 
 
 def test_all_skeleton_components_importable():

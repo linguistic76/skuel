@@ -235,6 +235,7 @@ def create_navbar(
             cls="flex items-center h-14 px-4 sm:px-6",
         ),
         cls="bg-background border-b border-border sticky top-0 z-40",
+        **{"aria-label": "Main navigation"},
     )
 
 
