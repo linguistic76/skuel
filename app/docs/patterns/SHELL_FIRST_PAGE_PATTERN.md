@@ -166,7 +166,7 @@ The `GET /api/navbar/notification-badge` fragment fetches the actual unread coun
 | Fragment endpoints themselves | DB calls in fragments are expected and correct |
 | Admin pages | Lower traffic; simpler blocking approach is fine |
 
-## Pages Using This Pattern (as of 2026-04-07)
+## Pages Using This Pattern (as of 2026-04-08)
 
 **Activity domain lists (6):** `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`
 
@@ -176,7 +176,13 @@ The `GET /api/navbar/notification-badge` fragment fetches the actual unread coun
 
 **Library (1):** `/library/path-steps`
 
-**Other pages (8):** `/settings`, `/exercises`, `/exercises/get`, `/learning-paths`, `/teaching/students`, `/teaching/students/{uid}`, `/teaching/review/{uid}`, `/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`
+**Pathways (4):** `/pathways`, `/pathways/browse`, `/pathways/path/{uid}`, `/pathways/analytics`
+
+**LifePath (2):** `/lifepath`, `/lifepath/alignment`
+
+**GradeBook detail (1):** `/activity-reports/detail`
+
+**Other pages (10):** `/settings`, `/exercises`, `/exercises/get`, `/learning-paths`, `/teaching/students`, `/teaching/students/{uid}`, `/teaching/review/{uid}`, `/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`
 
 **Navbar:** notification bell placeholder (all authenticated pages)
 
