@@ -527,16 +527,49 @@ Adopted in: calendar components, sharing modal, insight card modal.
 
 ### Tabs
 
-```html
-<div x-data="{ tab: 'first' }">
-  <div class="tabs tabs-bordered">
-    <button @click="tab = 'first'" :class="{ 'tab-active': tab === 'first' }" class="tab">First</button>
-    <button @click="tab = 'second'" :class="{ 'tab-active': tab === 'second' }" class="tab">Second</button>
-  </div>
-  <div x-show="tab === 'first'">First content</div>
-  <div x-show="tab === 'second'">Second content</div>
-</div>
+**Important:** DaisyUI's `.tabs`, `.tabs-boxed`, `.tab`, `.tab-active` classes are NOT available in MonsterUI. Use Alpine `:style` with MonsterUI CSS custom properties for dynamic tab styling — this bypasses all CSS class compilation concerns.
+
+```python
+# ✅ SKUEL tab pattern — inline styles via Alpine :style (home_hub.py canonical example)
+_ACTIVE_STYLE = (
+    "background-color: hsl(var(--primary));"
+    " color: hsl(var(--primary-foreground));"
+    " border-radius: 0.375rem;"
+    " box-shadow: 0 1px 3px rgba(0,0,0,0.2);"
+)
+_INACTIVE_STYLE = (
+    "background-color: transparent;"
+    " color: hsl(var(--muted-foreground));"
+    " border-radius: 0.375rem;"
+)
+
+Div(
+    Div(
+        Button("First", role="tab", cls="px-5 py-2 text-sm font-semibold cursor-pointer transition-all",
+               **{":style": f"tab === 'first' ? '{_ACTIVE_STYLE}' : '{_INACTIVE_STYLE}'",
+                  "@click": "tab = 'first'"}),
+        Button("Second", role="tab", cls="px-5 py-2 text-sm font-semibold cursor-pointer transition-all",
+               **{":style": f"tab === 'second' ? '{_ACTIVE_STYLE}' : '{_INACTIVE_STYLE}'",
+                  "@click": "tab = 'second'"}),
+        role="tablist",
+        style="display: inline-flex; gap: 4px; padding: 4px; background-color: hsl(var(--muted)); border-radius: 0.5rem; margin-bottom: 1.5rem;",
+    ),
+    Div(content_one, role="tabpanel", **{"x-show": "tab === 'first'"}),
+    Div(content_two, role="tabpanel", **{"x-show": "tab === 'second'"}),
+    **{"x-data": "{ tab: 'first' }", "x-cloak": True},
+)
 ```
+
+**Why `:style` not `:class`:**  Tailwind only compiles classes found in scanned content files at build time. Classes added dynamically via Alpine `:class` must already exist in `franken_css.js` or they have no effect. Inline styles via `:style` use CSS custom properties that MonsterUI guarantees are always defined.
+
+**Available MonsterUI CSS custom properties for tab styling:**
+| Property | Value | Visual |
+|----------|-------|--------|
+| `hsl(var(--primary))` | Dark charcoal (240°, 5.9%, 10%) | Near-black background |
+| `hsl(var(--primary-foreground))` | Off-white (0°, 0%, 98%) | Light text on dark |
+| `hsl(var(--muted))` | Light gray | Container background |
+| `hsl(var(--muted-foreground))` | Medium gray | Inactive tab text |
+| `hsl(var(--background))` | White | Page background |
 
 ### Dropdown with Click-Outside
 

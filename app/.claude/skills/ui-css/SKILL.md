@@ -428,7 +428,7 @@ MonsterUI orchestrates three CSS frameworks loaded from **local vendor files** (
 
 | Framework | Classes | Loaded From |
 |-----------|---------|-------------|
-| **FrankenUI** | `uk-*` (uk-input, uk-btn, uk-card) | `franken_css.js` |
+| **FrankenUI** | `uk-*` (uk-input, uk-btn, uk-card) + shadcn-style utilities | `franken_css.js` |
 | **DaisyUI** | `.btn`, `.card`, `.input` | `daisyui.js` |
 | **Tailwind** | Utilities (flex, p-4, etc.) | `tailwind.css` |
 
@@ -440,7 +440,44 @@ MonsterUI orchestrates three CSS frameworks loaded from **local vendor files** (
 
 **Button & input visibility:** `main.css` overrides FrankenUI default styling for internal `.uk-btn`, `.uk-input/.uk-select/.uk-textarea` classes. Python code uses SKUEL wrapper components (Button, Input, Select) which map to these internally.
 
-`output.css` is a pre-compiled Tailwind+DaisyUI file for build tooling — NOT loaded by `build_head()`.
+`output.css` is a pre-compiled Tailwind+DaisyUI file for build tooling — **NOT loaded by `build_head()`**. Only classes that appear in `franken_css.js`, `daisyui.js`, and `tailwind.css` are available at runtime.
+
+**Critical: DaisyUI tab classes are NOT in MonsterUI** — `.tabs`, `.tabs-boxed`, `.tab`, `.tab-active` come from DaisyUI's component CSS which is separate from the utility classes in `daisyui.js`. Using these causes collapsed/broken layouts. Use the Alpine `:style` pattern instead (see below).
+
+**`border-b-3` does not exist** — MonsterUI's Tailwind only includes `border-b`, `border-b-2`, `border-b-4`, `border-b-8`. Use `border-b-2` or `border-b-[3px]` (arbitrary value) for a 3px bottom border.
+
+## Dynamic Styling with Alpine `:style`
+
+For Alpine-driven style changes (tabs, toggles, active states), **prefer `:style` with CSS custom properties over `:class`**. Tailwind only compiles classes scanned from content files at build time — a class used only inside an Alpine `:class` string may exist in `franken_css.js` but specificity or load order can still cause failures.
+
+CSS custom properties are guaranteed by MonsterUI and have no compilation dependency:
+
+```python
+# ✅ Reliable — uses CSS variables, not Tailwind class names
+_ACTIVE = (
+    "background-color: hsl(var(--primary));"
+    " color: hsl(var(--primary-foreground));"
+    " border-radius: 0.375rem;"
+)
+_INACTIVE = "background-color: transparent; color: hsl(var(--muted-foreground)); border-radius: 0.375rem;"
+
+Button("Tab", **{":style": f"active ? '{_ACTIVE}' : '{_INACTIVE}'"})
+
+# Container: use style= (not cls=) for guaranteed rendering
+Div(..., style="display: inline-flex; gap: 4px; padding: 4px; background-color: hsl(var(--muted)); border-radius: 0.5rem;")
+```
+
+**MonsterUI CSS custom properties for dynamic styling:**
+
+| Property | Value (light theme) | Use |
+|----------|--------------------|----|
+| `hsl(var(--primary))` | Dark charcoal (240°, 5.9%, 10%) | Active tab/button background |
+| `hsl(var(--primary-foreground))` | Off-white (0°, 0%, 98%) | Text on primary background |
+| `hsl(var(--muted))` | Light gray | Container background, subtle fills |
+| `hsl(var(--muted-foreground))` | Medium gray | Secondary/inactive text |
+| `hsl(var(--background))` | White | Page background |
+| `hsl(var(--border))` | Light gray border | Dividers, outlines |
+| `hsl(var(--destructive))` | Red | Delete/danger states |
 
 **MonsterUI `cls` gotcha:** Never pass `cls=None` to MonsterUI components — it renders as the literal string `"None"` in the HTML class attribute. SKUEL's Card/CardBody/CardTitle/CardHeader wrappers handle this by omitting `cls` when empty. If calling MonsterUI components directly, use `cls=""` or omit the parameter.
 
