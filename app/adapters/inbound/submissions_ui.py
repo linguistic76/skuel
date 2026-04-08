@@ -155,13 +155,13 @@ def create_submissions_ui_routes(
 
     @rt("/gradebook")
     async def gradebook_hub(request: Request) -> Any:
-        """GradeBook hub — entry point with container navigation, no sidebar."""
+        """GradeBook hub — tabbed hub with GradeBook tab active."""
         require_authenticated_user(request)
-        from ui.gradebook.hub import GradeBookHub
+        from ui.home_hub import HomeHub
         from ui.layouts.base_page import BasePage
 
         return await BasePage(
-            content=GradeBookHub(),
+            content=HomeHub(active_tab="gradebook"),
             title="GradeBook",
             request=request,
             active_page="gradebook",

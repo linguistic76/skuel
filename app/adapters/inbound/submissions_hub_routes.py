@@ -58,13 +58,13 @@ def create_submissions_hub_routes(
 
     @rt("/submissions")
     async def submissions_hub(request: Request) -> Any:
-        """Submissions hub — entry point with domain blocks, no sidebar."""
+        """Submissions hub — tabbed hub with Submissions tab active."""
         require_authenticated_user(request)
+        from ui.home_hub import HomeHub
         from ui.layouts.base_page import BasePage
-        from ui.workbench.hub import SubmissionsHub
 
         return await BasePage(
-            content=SubmissionsHub(),
+            content=HomeHub(active_tab="submissions"),
             title="Submissions",
             request=request,
             active_page="submissions",

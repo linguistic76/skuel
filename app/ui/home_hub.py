@@ -19,8 +19,12 @@ _TAB_BTN_INACTIVE = (
 )
 
 
-def HomeHub() -> Div:
-    """Home hub — Submissions, GradeBook, and Library previews in tabs."""
+def HomeHub(active_tab: str = "submissions") -> Div:
+    """Home hub — Submissions, GradeBook, and Library previews in tabs.
+
+    Args:
+        active_tab: Which tab to show on load. One of 'submissions', 'gradebook', 'library'.
+    """
     return Div(
         Div(
             # Tab bar
@@ -79,7 +83,7 @@ def HomeHub() -> Div:
                 role="tabpanel",
                 **{"x-show": "activeTab === 'library'"},
             ),
-            **{"x-data": "{ activeTab: 'submissions' }", "x-cloak": True},
+            **{"x-data": f"{{ activeTab: '{active_tab}' }}", "x-cloak": True},
         ),
         Div(
             ButtonLink(

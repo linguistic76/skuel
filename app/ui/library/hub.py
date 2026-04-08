@@ -1,15 +1,12 @@
-"""Library hub page — HTMX-loaded preview blocks for learning resources.
+"""Library hub — block definitions for the shared tabbed hub interface.
 
-Hub page with no sidebar. Each block loads a preview via HTMX
-and links to a child page that uses SidebarPage for within-section navigation.
+LIBRARY_BLOCKS is imported by ui/home_hub.py to populate the Library tab
+on /home, /submissions, /gradebook, and /library.
 
 See: /docs/design-principles/HUB_PAGES.md
 """
 
-from fasthtml.common import Div
-
-from ui.patterns.hub import HubBlockData, HubDomainBlockList
-from ui.patterns.page_header import PageHeader
+from ui.patterns.hub import HubBlockData
 
 LIBRARY_BLOCKS: list[HubBlockData] = [
     HubBlockData(
@@ -45,11 +42,3 @@ LIBRARY_BLOCKS: list[HubBlockData] = [
         "/api/library/path-steps/preview",
     ),
 ]
-
-
-def LibraryHub() -> Div:
-    """Library hub — 4 domain blocks with HTMX previews."""
-    return Div(
-        PageHeader("Library", subtitle="Browse exercises, resources, and knowledge"),
-        HubDomainBlockList(LIBRARY_BLOCKS),
-    )

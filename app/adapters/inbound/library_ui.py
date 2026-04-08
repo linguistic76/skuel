@@ -226,13 +226,13 @@ def create_library_ui_routes(
 
     @rt("/library")
     async def library_hub(request: Request) -> Any:
-        """Library hub — entry point with container navigation, no sidebar."""
+        """Library hub — tabbed hub with Library tab active."""
         require_authenticated_user(request)
+        from ui.home_hub import HomeHub
         from ui.layouts.base_page import BasePage
-        from ui.library.hub import LibraryHub
 
         return await BasePage(
-            content=LibraryHub(),
+            content=HomeHub(active_tab="library"),
             title="Library",
             request=request,
             active_page="library",

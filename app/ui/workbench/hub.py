@@ -1,15 +1,12 @@
-"""Submissions hub page — where users upload data, submit exercises, and track history.
+"""Submissions hub — block definitions for the shared tabbed hub interface.
 
-Hub page with no sidebar. Each block loads a preview via HTMX
-and links to a child page that uses SidebarPage for within-section navigation.
+SUBMISSIONS_BLOCKS is imported by ui/home_hub.py to populate the Submissions tab
+on /home, /submissions, /gradebook, and /library.
 
 See: /docs/design-principles/HUB_PAGES.md
 """
 
-from fasthtml.common import Div
-
-from ui.patterns.hub import HubBlockData, HubDomainBlockList
-from ui.patterns.page_header import PageHeader
+from ui.patterns.hub import HubBlockData
 
 SUBMISSIONS_BLOCKS: list[HubBlockData] = [
     HubBlockData(
@@ -37,14 +34,3 @@ SUBMISSIONS_BLOCKS: list[HubBlockData] = [
         "/api/submissions/history/preview",
     ),
 ]
-
-
-def SubmissionsHub() -> Div:
-    """Submissions hub — 3 domain blocks with HTMX previews."""
-    return Div(
-        PageHeader(
-            "Submissions",
-            subtitle="Upload activity data, submit exercises, and track your submissions",
-        ),
-        HubDomainBlockList(SUBMISSIONS_BLOCKS),
-    )
