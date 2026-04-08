@@ -2,10 +2,13 @@
 Upload Route Configuration - Per-User Bulk File Upload
 ======================================================
 
-DomainRouteConfig-based route registration for user upload feature.
+Manual route registration for the user upload feature. Uses direct service
+extraction rather than DomainRouteConfig because upload delegates straight to
+two flat factories (API + UI) with no secondary services — the config object
+would add no value here.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.upload_api import create_upload_api_routes
 from adapters.inbound.upload_ui import create_upload_ui_routes
@@ -21,9 +24,12 @@ logger = get_logger("skuel.routes.upload")
 def create_upload_routes(
     app: "FastHTMLApp",
     rt: "RouteDecorator",
-    services: "Services",
+    services: "Services | None",
+    _sync_service: Any = None,
 ) -> None:
     """Register upload API and UI routes."""
+    if services is None:
+        return
     upload_service = services.user_upload_service
     if upload_service is None:
         logger.warning("UserUploadService not available — upload routes not registered")

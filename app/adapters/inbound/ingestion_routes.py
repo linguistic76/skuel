@@ -7,7 +7,7 @@ Minimal factory that wires unified ingestion API and UI routes using DomainRoute
 Handles both MD and YAML formats for all entity types.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.ingestion_api import create_ingestion_api_routes
@@ -32,7 +32,7 @@ INGESTION_CONFIG = DomainRouteConfig(
 
 
 def create_ingestion_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None"
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
 ) -> None:
     """Wire ingestion API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, INGESTION_CONFIG)

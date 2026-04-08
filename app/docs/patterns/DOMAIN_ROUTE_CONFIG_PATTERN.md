@@ -381,9 +381,56 @@ def create_{domain}_ui_routes(
 
 **Note:** UI factories use a standardized `services` parameter instead of `**related_services` kwargs for consistency across all domains.
 
-## When to Use This Pattern
+## Route Wiring Patterns
 
-### ✓ Use DomainRouteConfig When:
+SKUEL has three distinct route wiring patterns. Choose deliberately — mixing them without reason creates cognitive load.
+
+### Pattern A: DomainRouteConfig (default — 79% of route files)
+
+Declarative config object + `register_domain_routes()`. Soft-fails when primary service is absent (logs a warning, skips registration).
+
+**Use when:** Standard entity domain with a primary service + optional related services, and distinct `*_api.py` / `*_ui.py` factories.
+
+**Examples:** Every Activity Domain, Ku, PathStep, LearningPath, Exercises, Forms, Finance, Ingestion, Journals, Upload.
+
+### Pattern B: Orchestrator-Driven (3 files)
+
+Route factory creates or receives an orchestrator object that encapsulates cross-domain coordination, then delegates registration to it. Raises `RuntimeError` on missing orchestrator — these routes are required.
+
+**Use when:** Registration requires coordinating multiple services that don't fit a single primary-service model (explore graph + learning state, lateral relationships across all domains, library aggregation).
+
+**Current adopters:** `explore_routes.py`, `lateral_routes.py`, `library_routes.py`.
+
+**Do not add new files here** unless DomainRouteConfig genuinely cannot express the coordination needed.
+
+### Pattern C: Manual `@rt()` (4 files)
+
+Routes registered directly with `@rt()` decorators inside the factory function. No config object. Service-missing behavior is ad-hoc per file.
+
+**Use when:** The routes are structural (auth flow, PWA shell, GraphQL schema mounting, settings page) and don't map to an entity domain. These are stable and unlikely to grow.
+
+**Current adopters:** `home_routes.py`, `settings_routes.py`, `submissions_hub_routes.py`, `graphql_routes.py`.
+
+**Do not use for new entity domains** — reach for DomainRouteConfig instead.
+
+---
+
+### Decision Guide
+
+```
+New route file for an entity domain?
+  └─ YES → Pattern A (DomainRouteConfig)
+      └─ Need cross-domain orchestration a single primary service can't handle?
+          └─ YES → Pattern B (Orchestrator-Driven) — justify in docstring
+New route file for structural/infrastructure concerns?
+  └─ YES → Pattern C (Manual @rt()) — only for auth, shell, schema mounting
+```
+
+---
+
+## When to Use DomainRouteConfig
+
+### ✓ Use When:
 
 1. **Standard service extraction** - You need primary service + optional related services
 2. **Activity domains** - Tasks, Goals, Habits, Events, Choices, Principles
@@ -392,7 +439,7 @@ def create_{domain}_ui_routes(
 5. **Minimal custom logic** - Route wiring doesn't require complex conditional logic
 6. **Separation of API/UI** - You have distinct `*_api.py` and `*_ui.py` files
 
-### ✗ Don't Use DomainRouteConfig When:
+### ✗ Don't Use When:
 
 1. **Complex conditional logic** - Route registration depends on runtime conditions
 2. **Non-standard dependencies** - Services don't follow canonical factory signature

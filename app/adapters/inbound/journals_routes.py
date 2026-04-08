@@ -31,7 +31,9 @@ JOURNALS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_journals_routes(app: FastHTMLApp, rt: RouteDecorator, services: Any) -> None:
+def create_journals_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
+) -> None:
     """Wire journal routes using configuration-driven registration.
 
     Args:
