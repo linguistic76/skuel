@@ -301,9 +301,9 @@ def ActivityHubView() -> Div:
 
 ```python
 # *_BLOCKS constants (no hub functions — just data):
-# ui/workbench/hub.py  → SUBMISSIONS_BLOCKS (3 blocks)
+# ui/workbench/hub.py  → SUBMISSIONS_BLOCKS (2 blocks)
 # ui/gradebook/hub.py  → GRADEBOOK_BLOCKS (3 blocks)
-# ui/library/hub.py    → LIBRARY_BLOCKS (4 blocks)
+# ui/library/hub.py    → LIBRARY_BLOCKS (5 blocks)
 
 def HomeHub(active_tab: str = "submissions") -> Div:
     """x-data initializes with active_tab; all three panels rendered, x-show controls visibility."""
@@ -313,7 +313,7 @@ def HomeHub(active_tab: str = "submissions") -> Div:
 - Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
 - Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`, wired via `library_routes.py`)
 - GradeBook: `/api/gradebook/{section}/preview` (3 sections, split across `submissions_ui.py`, `exercise_reports_ui.py`, `activity_reports_ui.py`)
-- Submissions: `/api/submissions/{section}/preview` (3 sections: upload, submit, history — in `submissions_hub_routes.py`)
+- Submissions: `/api/submissions/{section}/preview` (2 sections: upload, submit — in `submissions_hub_routes.py`); history preview served via `/api/submissions/history/preview` (rendered in Library tab)
 - Student hub: `/api/teaching/students/{uid}/submissions/preview` (OOB — 3 buckets in one call) + `/api/teaching/students/{uid}/ku/preview` (independent — in `teaching_ui.py`)
 
 ## Usage: Graph-Driven Hub Page
