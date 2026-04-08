@@ -9,14 +9,18 @@ from ui.library.hub import LIBRARY_BLOCKS
 from ui.patterns.hub import HubDomainBlockList
 from ui.workbench.hub import SUBMISSIONS_BLOCKS
 
-_TAB_BTN_BASE = (
-    "px-5 py-3 text-sm font-semibold border-b-3 cursor-pointer transition-colors"
-    " focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+_ACTIVE_STYLE = (
+    "background-color: hsl(var(--primary));"
+    " color: hsl(var(--primary-foreground));"
+    " border-radius: 0.375rem;"
+    " box-shadow: 0 1px 3px rgba(0,0,0,0.2);"
 )
-_TAB_BTN_ACTIVE = "border-primary text-primary"
-_TAB_BTN_INACTIVE = (
-    "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+_INACTIVE_STYLE = (
+    "background-color: transparent;"
+    " color: hsl(var(--muted-foreground));"
+    " border-radius: 0.375rem;"
 )
+_TAB_BASE = "px-5 py-2 text-sm font-semibold cursor-pointer transition-all"
 
 
 def HomeHub(active_tab: str = "submissions") -> Div:
@@ -27,43 +31,44 @@ def HomeHub(active_tab: str = "submissions") -> Div:
     """
     return Div(
         Div(
-            # Tab bar
+            # Tab bar — segmented-control using inline styles via Alpine :style to
+            # bypass CSS class compilation. MonsterUI CSS variables drive the colors.
             Div(
                 Button(
                     "Submissions",
                     role="tab",
-                    cls=_TAB_BTN_BASE,
+                    cls=_TAB_BASE,
                     **{
                         ":aria-selected": "activeTab === 'submissions'",
                         ":tabindex": "activeTab === 'submissions' ? 0 : -1",
-                        ":class": f"activeTab === 'submissions' ? '{_TAB_BTN_ACTIVE}' : '{_TAB_BTN_INACTIVE}'",
+                        ":style": f"activeTab === 'submissions' ? '{_ACTIVE_STYLE}' : '{_INACTIVE_STYLE}'",
                         "@click": "activeTab = 'submissions'",
                     },
                 ),
                 Button(
                     "GradeBook",
                     role="tab",
-                    cls=_TAB_BTN_BASE,
+                    cls=_TAB_BASE,
                     **{
                         ":aria-selected": "activeTab === 'gradebook'",
                         ":tabindex": "activeTab === 'gradebook' ? 0 : -1",
-                        ":class": f"activeTab === 'gradebook' ? '{_TAB_BTN_ACTIVE}' : '{_TAB_BTN_INACTIVE}'",
+                        ":style": f"activeTab === 'gradebook' ? '{_ACTIVE_STYLE}' : '{_INACTIVE_STYLE}'",
                         "@click": "activeTab = 'gradebook'",
                     },
                 ),
                 Button(
                     "Library",
                     role="tab",
-                    cls=_TAB_BTN_BASE,
+                    cls=_TAB_BASE,
                     **{
                         ":aria-selected": "activeTab === 'library'",
                         ":tabindex": "activeTab === 'library' ? 0 : -1",
-                        ":class": f"activeTab === 'library' ? '{_TAB_BTN_ACTIVE}' : '{_TAB_BTN_INACTIVE}'",
+                        ":style": f"activeTab === 'library' ? '{_ACTIVE_STYLE}' : '{_INACTIVE_STYLE}'",
                         "@click": "activeTab = 'library'",
                     },
                 ),
                 role="tablist",
-                cls="flex border-b border-border mb-6",
+                style="display: inline-flex; gap: 4px; padding: 4px; background-color: hsl(var(--muted)); border-radius: 0.5rem; margin-bottom: 1.5rem;",
             ),
             # Submissions panel
             Div(
