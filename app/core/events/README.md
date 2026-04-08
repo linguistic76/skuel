@@ -199,8 +199,8 @@ def _wire_event_subscribers(event_bus: EventBusOperations, services: Services):
     """Wire all event subscribers."""
 
     # User context invalidation
-    event_bus.subscribe(TaskCompleted, services.user_service.handle_task_completed)
-    event_bus.subscribe(GoalUpdated, services.user_service.handle_goal_updated)
+    event_bus.subscribe(TaskCompleted, services.user.handle_task_completed)
+    event_bus.subscribe(GoalUpdated, services.user.handle_goal_updated)
 
     # Analytics
     event_bus.subscribe(TaskCompleted, services.analytics.handle_task_completed)

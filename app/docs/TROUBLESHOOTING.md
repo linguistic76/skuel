@@ -108,7 +108,7 @@ if services.tasks:
     # Register API routes
     create_tasks_api_routes(
         app, rt, services.tasks,
-        user_service=services.user_service,
+        user_service=services.user,
         # ... other services
     )
 

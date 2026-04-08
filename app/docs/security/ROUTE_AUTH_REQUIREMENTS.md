@@ -82,7 +82,7 @@ async def route(request, user_uid, entity):
 ### Admin Role Verification
 
 ```python
-get_user_service = make_service_getter(services.user_service)
+get_user_service = make_service_getter(services.user)
 
 @rt("/api/admin/endpoint")
 @require_admin(get_user_service)

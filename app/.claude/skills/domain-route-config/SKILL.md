@@ -71,14 +71,14 @@ api_related_services={
 # register_domain_routes() resolves it at runtime:
 api_factory(
     app, rt, primary_service,
-    user_service=services.user_service,   # getattr(services, "user_service")
-    goals_service=services.goals,         # getattr(services, "goals")
+    user_service=services.user,   # getattr(services, "user")
+    goals_service=services.goals,  # getattr(services, "goals")
 )
 ```
 
 **Service attribute naming convention:**
 - Activity domains use short names: `services.tasks`, `services.goals`, `services.habits`
-- Shared services use full names: `services.user_service`
+- Shared services use bare names: `services.user`, `services.system`
 - Special cases: `services.event_bus`, `services.driver`
 
 **What these service attributes are:** `services.tasks`, `services.goals`, etc. are `TasksService`/`GoalsService` facade instances. Their `.relationships` attribute is a `UnifiedRelationshipService` (URS) — a shell + 6 focused mixins (`PlanningMixin`, `DomainPlanningMixin`, `LifePathMixin`, `IntelligenceMixin`, `OrderedRelationshipsMixin`, `BatchOperationsMixin`). DomainRouteConfig wires the facade; the URS methods are used by intelligence services internally. Public API unchanged across the decomposition.
@@ -507,7 +507,7 @@ ui_related_services={
 # In the UI factory:
 def create_tasks_ui_routes(_app, rt, tasks_service, services=None):
     if services:
-        user_service = services.user_service  # Access via container if needed
+        user_service = services.user  # Access via container if needed
 ```
 
 ---

@@ -142,7 +142,7 @@ async def tasks_page(request):
 ```python
 from adapters.inbound.auth import make_service_getter, require_admin, require_teacher
 
-get_user_service = make_service_getter(services.user_service)
+get_user_service = make_service_getter(services.user)
 
 
 @rt("/api/admin/users")

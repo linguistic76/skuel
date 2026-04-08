@@ -255,7 +255,7 @@ user_uid: UserUID = require_authenticated_user(request)
 
 # Role protection (use named function, not lambda - SKUEL012)
 def get_user_service():
-    return services.user_service
+    return services.user
 
 @require_admin(get_user_service)
 async def admin_route(request, current_user): ...

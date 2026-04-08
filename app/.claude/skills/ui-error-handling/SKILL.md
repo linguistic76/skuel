@@ -714,7 +714,7 @@ async def _get_user_stats(services) -> tuple[dict, bool]:
     """Returns (stats_dict, had_error)."""
     stats = {"total": 0, "admins": 0, ...}
     try:
-        result = await services.user_service.list_users(...)
+        result = await services.user.list_users(...)
         if result.is_error:
             return stats, True
         # ... populate stats ...

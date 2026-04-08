@@ -146,7 +146,7 @@ Four-tier system stored in `User.role` (Neo4j field):
 
 **Route protection:**
 ```python
-get_user_service = make_service_getter(services.user_service)
+get_user_service = make_service_getter(services.user)
 
 @require_admin(get_user_service)
 async def admin_only_route(request, current_user):

@@ -176,7 +176,7 @@ api_related_services={
 This is passed to the factory as:
 ```python
 api_factory(app, rt, primary_service,
-    user_service=services.user_service,
+    user_service=services.user,
     goals_service=services.goals,
     habits_service=services.habits
 )
@@ -469,8 +469,8 @@ def create_finance_api_routes(app, rt, finance_service, user_service: Any = None
 
 # ❌ WRONG - takes full services container
 def create_system_api_routes(app, rt, services, sync_service):
-    system_service = services.system_service
-    # Must refactor to extract services.system_service first
+    system_service = services.system
+    # Must refactor to extract services.system first
 
 # ❌ WRONG - sub-factory doesn't return list (DomainRouteConfig calls .extend())
 def create_old_api_routes(app, rt, service):
@@ -521,9 +521,9 @@ TASKS_CONFIG = DomainRouteConfig(
     ui_factory=create_tasks_ui_routes,
     api_related_services={
         # Map factory kwargs to container attributes
-        "user_service": "user_service",    # services.user_service
-        "goals_service": "goals",          # services.goals
-        "habits_service": "habits",        # services.habits
+        "user_service": "user",    # services.user
+        "goals_service": "goals",  # services.goals
+        "habits_service": "habits",  # services.habits
     },
     # ui_related_services is empty (UI factory only needs primary service)
 )
@@ -600,8 +600,8 @@ HABITS_CONFIG = DomainRouteConfig(
     api_related_services={
         # Format: {kwarg_name: container_attr}
         # Each entry is passed to api_factory as: kwarg_name=getattr(services, container_attr)
-        "user_service": "user_service",  # user_service=services.user_service
-        "goals_service": "goals",        # goals_service=services.goals
+        "user_service": "user",  # user_service=services.user
+        "goals_service": "goals",  # goals_service=services.goals
     },
 )
 ```
@@ -623,11 +623,11 @@ FINANCE_CONFIG = DomainRouteConfig(
     ui_factory=create_finance_ui_routes,
     api_related_services={
         # Format: {kwarg_name: container_attr}
-        "user_service": "user_service",  # user_service=services.user_service
+        "user_service": "user",  # user_service=services.user
     },
     ui_related_services={
         # Format: {kwarg_name: container_attr}
-        "user_service": "user_service",  # user_service=services.user_service
+        "user_service": "user",  # user_service=services.user
     },
 )
 ```
@@ -994,7 +994,7 @@ The `services` parameter comes from `/services_bootstrap/`:
 services.tasks = TasksService(...)
 services.goals = GoalsService(...)
 services.habits = HabitsService(...)
-services.user_service = UserService(...)
+services.user = UserService(...)
 
 # DomainRouteConfig extracts them
 primary_service = getattr(services, "tasks")  # From primary_service_attr
@@ -1003,7 +1003,7 @@ goals_service = getattr(services, "goals")    # From api_related_services["goals
 
 **Service attribute naming:**
 - Activity domains: Use domain name (e.g., `services.tasks`, `services.goals`)
-- Shared services: Use descriptive name (e.g., `services.user_service`)
+- Shared services: Use bare domain name (e.g., `services.user`, `services.system`)
 - Special cases: `services.event_bus`, `services.sync_service`
 
 ### Clean Architecture

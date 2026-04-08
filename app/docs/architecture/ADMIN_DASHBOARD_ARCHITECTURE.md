@@ -287,7 +287,7 @@ All methods use pure Cypher via `QueryExecutor` (no APOC — SKUEL001 compliant)
 All admin routes use `@require_admin` decorator:
 
 ```python
-get_user_service = make_service_getter(services.user_service)
+get_user_service = make_service_getter(services.user)
 
 @rt("/admin/users")
 @require_admin(get_user_service)
@@ -450,12 +450,12 @@ No lambdas in route decorators — use `make_service_getter`:
 
 ```python
 # ✅ Correct
-get_user_service = make_service_getter(services.user_service)
+get_user_service = make_service_getter(services.user)
 
 @require_admin(get_user_service)
 
 # ❌ Wrong (SKUEL012 violation)
-@require_admin(lambda: services.user_service)
+@require_admin(lambda: services.user)
 ```
 
 ### 4. Partial Failure Banners
