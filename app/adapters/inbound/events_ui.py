@@ -9,31 +9,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
-
-from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request
-from core.utils.connection_fetcher import EVENT_CONNECTION_CONFIG, fetch_entity_connections
+from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
+from core.utils.connection_fetcher import EVENT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_events
-from core.utils.logging import get_logger
 from ui.activities.events_views import (
     EVENT_FILTER_CONFIG,
     EventDetailView,
     EventList,
     EventStatsBar,
 )
-from ui.activities.filter_bar import ActivityFilterBar
-from ui.activities.nav import render_activity_sidebar_page
-from ui.patterns import PageHeader
-from ui.patterns.error_banner import render_error_banner
-from ui.patterns.loading import content_loading_placeholder
-from ui.patterns.personal_header import personal_header_placeholder
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.services.events_service import EventsService
-
-logger = get_logger("skuel.routes.events_ui")
 
 
 def create_events_ui_routes(
@@ -42,110 +30,19 @@ def create_events_ui_routes(
     events_service: EventsService,
 ) -> list[Any]:
     """Register Events UI routes."""
-    routes: list[Any] = []
-
-    @rt("/events")
-    async def events_page(request: Request) -> Any:
-        """Main events page — shell renders immediately, content loads via HTMX."""
-        require_authenticated_user(request)
-        content = Div(
-            PageHeader("Events"),
-            content_loading_placeholder("/events/content", "events-content"),
-            personal_header_placeholder(),
-        )
-        return await render_activity_sidebar_page(content, active="events", request=request)
-
-    @rt("/events/content")
-    async def events_content_fragment(request: Request) -> Any:
-        """HTMX fragment: event list with stats and filters."""
-        user_uid = require_authenticated_user(request)
-
-        result = await events_service.get_user_events(user_uid)
-        if result.is_error:
-            error = result.expect_error()
-            return Div(render_error_banner(error.user_message or error.message), id="events-content")
-
-        all_events = result.value
-
-        status_filter = request.query_params.get("status", "upcoming")
-        sort_by = request.query_params.get("sort_by", "date")
-
-        filtered = filter_events(all_events, status_filter, sort_by)
-
-        event_uids = [e.uid for e in filtered]
-        connections_map = await fetch_entity_connections(
-            events_service.core.backend, EVENT_CONNECTION_CONFIG, event_uids
-        )
-
-        return Div(
-            ActivityFilterBar(EVENT_FILTER_CONFIG, {"status": status_filter, "sort_by": sort_by}),
-            EventList(filtered, connections_map),
-            EventStatsBar(all_events),
-            id="events-content",
-        )
-
-    @rt("/events/list-fragment")
-    async def events_list_fragment(request: Request) -> Any:
-        """HTMX fragment: filtered event list for filter updates."""
-        user_uid = require_authenticated_user(request)
-
-        result = await events_service.get_user_events(user_uid)
-        if result.is_error:
-            error = result.expect_error()
-            return Div(render_error_banner(error.user_message or error.message), id="event-list")
-
-        all_events = result.value
-
-        status_filter = request.query_params.get("status", "upcoming")
-        sort_by = request.query_params.get("sort_by", "date")
-
-        filtered = filter_events(all_events, status_filter, sort_by)
-
-        event_uids = [e.uid for e in filtered]
-        connections_map = await fetch_entity_connections(
-            events_service.core.backend, EVENT_CONNECTION_CONFIG, event_uids
-        )
-
-        return EventList(filtered, connections_map)
-
-    @rt("/events/detail")
-    async def event_detail_page(request: Request) -> Any:
-        """Detail page for a single event — shell renders immediately, content loads via HTMX."""
-        require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return await render_activity_sidebar_page(
-                Div(render_error_banner("Missing event UID")),
-                active="events",
-                request=request,
-            )
-        content = Div(
-            content_loading_placeholder(f"/events/detail/content?uid={uid}", "event-detail-content"),
-        )
-        return await render_activity_sidebar_page(content, active="events", request=request)
-
-    @rt("/events/detail/content")
-    async def event_detail_content_fragment(request: Request) -> Any:
-        """HTMX fragment: event detail with connections and relationships."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Div(render_error_banner("Missing event UID"), id="event-detail-content")
-
-        event_result = await events_service.get_event(uid)
-        if event_result.is_error:
-            return Div(render_error_banner("Event not found"), id="event-detail-content")
-
-        event = event_result.value
-        if event.user_uid != user_uid:
-            return Div(render_error_banner("Event not found"), id="event-detail-content")
-
-        connections_map = await fetch_entity_connections(
-            events_service.core.backend, EVENT_CONNECTION_CONFIG, [event.uid]
-        )
-        connections = connections_map.get(event.uid, [])
-
-        return EventDetailView(event, connections)
-
-    routes.extend([events_page, events_content_fragment, events_list_fragment, event_detail_page, event_detail_content_fragment])
-    return routes
+    config = ActivityUIConfig(
+        domain_name="events",
+        domain_singular="event",
+        page_title="Events",
+        filter_params=(("status", "upcoming"), ("sort_by", "date")),
+        get_all=events_service.get_user_events,
+        get_one=events_service.get_event,
+        backend=events_service.core.backend,
+        filter_fn=filter_events,
+        connection_config=EVENT_CONNECTION_CONFIG,
+        filter_config=EVENT_FILTER_CONFIG,
+        list_component=EventList,
+        stats_component=EventStatsBar,
+        detail_component=EventDetailView,
+    )
+    return create_activity_ui_routes(app, rt, config)

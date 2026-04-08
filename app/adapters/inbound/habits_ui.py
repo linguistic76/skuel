@@ -9,31 +9,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
-
-from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request
-from core.utils.connection_fetcher import HABIT_CONNECTION_CONFIG, fetch_entity_connections
+from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
+from core.utils.connection_fetcher import HABIT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_habits
-from core.utils.logging import get_logger
-from ui.activities.filter_bar import ActivityFilterBar
 from ui.activities.habits_views import (
     HABIT_FILTER_CONFIG,
     HabitDetailView,
     HabitList,
     HabitStatsBar,
 )
-from ui.activities.nav import render_activity_sidebar_page
-from ui.patterns import PageHeader
-from ui.patterns.error_banner import render_error_banner
-from ui.patterns.loading import content_loading_placeholder
-from ui.patterns.personal_header import personal_header_placeholder
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.services.habits_service import HabitsService
-
-logger = get_logger("skuel.routes.habits_ui")
 
 
 def create_habits_ui_routes(
@@ -42,115 +30,19 @@ def create_habits_ui_routes(
     habits_service: HabitsService,
 ) -> list[Any]:
     """Register Habits UI routes."""
-    routes: list[Any] = []
-
-    @rt("/habits")
-    async def habits_page(request: Request) -> Any:
-        """Main habits page — shell renders immediately, content loads via HTMX."""
-        require_authenticated_user(request)
-        content = Div(
-            PageHeader("Habits"),
-            content_loading_placeholder("/habits/content", "habits-content"),
-            personal_header_placeholder(),
-        )
-        return await render_activity_sidebar_page(content, active="habits", request=request)
-
-    @rt("/habits/content")
-    async def habits_content_fragment(request: Request) -> Any:
-        """HTMX fragment: habit list with stats and filters."""
-        user_uid = require_authenticated_user(request)
-
-        result = await habits_service.get_user_habits(user_uid)
-        if result.is_error:
-            error = result.expect_error()
-            return Div(render_error_banner(error.user_message or error.message), id="habits-content")
-
-        all_habits = result.value
-
-        status_filter = request.query_params.get("status", "active")
-        category_filter = request.query_params.get("category", "all")
-        sort_by = request.query_params.get("sort_by", "streak")
-
-        filtered = filter_habits(all_habits, status_filter, category_filter, sort_by)
-
-        habit_uids = [h.uid for h in filtered]
-        connections_map = await fetch_entity_connections(
-            habits_service.core.backend, HABIT_CONNECTION_CONFIG, habit_uids
-        )
-
-        return Div(
-            ActivityFilterBar(
-                HABIT_FILTER_CONFIG,
-                {"status": status_filter, "category": category_filter, "sort_by": sort_by},
-            ),
-            HabitList(filtered, connections_map),
-            HabitStatsBar(all_habits),
-            id="habits-content",
-        )
-
-    @rt("/habits/list-fragment")
-    async def habits_list_fragment(request: Request) -> Any:
-        """HTMX fragment: filtered habit list for filter updates."""
-        user_uid = require_authenticated_user(request)
-
-        result = await habits_service.get_user_habits(user_uid)
-        if result.is_error:
-            error = result.expect_error()
-            return Div(render_error_banner(error.user_message or error.message), id="habit-list")
-
-        all_habits = result.value
-
-        status_filter = request.query_params.get("status", "active")
-        category_filter = request.query_params.get("category", "all")
-        sort_by = request.query_params.get("sort_by", "streak")
-
-        filtered = filter_habits(all_habits, status_filter, category_filter, sort_by)
-
-        habit_uids = [h.uid for h in filtered]
-        connections_map = await fetch_entity_connections(
-            habits_service.core.backend, HABIT_CONNECTION_CONFIG, habit_uids
-        )
-
-        return HabitList(filtered, connections_map)
-
-    @rt("/habits/detail")
-    async def habit_detail_page(request: Request) -> Any:
-        """Detail page for a single habit — shell renders immediately, content loads via HTMX."""
-        require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return await render_activity_sidebar_page(
-                Div(render_error_banner("Missing habit UID")),
-                active="habits",
-                request=request,
-            )
-        content = Div(
-            content_loading_placeholder(f"/habits/detail/content?uid={uid}", "habit-detail-content"),
-        )
-        return await render_activity_sidebar_page(content, active="habits", request=request)
-
-    @rt("/habits/detail/content")
-    async def habit_detail_content_fragment(request: Request) -> Any:
-        """HTMX fragment: habit detail with connections and relationships."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Div(render_error_banner("Missing habit UID"), id="habit-detail-content")
-
-        habit_result = await habits_service.get_habit(uid)
-        if habit_result.is_error:
-            return Div(render_error_banner("Habit not found"), id="habit-detail-content")
-
-        habit = habit_result.value
-        if habit.user_uid != user_uid:
-            return Div(render_error_banner("Habit not found"), id="habit-detail-content")
-
-        connections_map = await fetch_entity_connections(
-            habits_service.core.backend, HABIT_CONNECTION_CONFIG, [habit.uid]
-        )
-        connections = connections_map.get(habit.uid, [])
-
-        return HabitDetailView(habit, connections)
-
-    routes.extend([habits_page, habits_content_fragment, habits_list_fragment, habit_detail_page, habit_detail_content_fragment])
-    return routes
+    config = ActivityUIConfig(
+        domain_name="habits",
+        domain_singular="habit",
+        page_title="Habits",
+        filter_params=(("status", "active"), ("category", "all"), ("sort_by", "streak")),
+        get_all=habits_service.get_user_habits,
+        get_one=habits_service.get_habit,
+        backend=habits_service.core.backend,
+        filter_fn=filter_habits,
+        connection_config=HABIT_CONNECTION_CONFIG,
+        filter_config=HABIT_FILTER_CONFIG,
+        list_component=HabitList,
+        stats_component=HabitStatsBar,
+        detail_component=HabitDetailView,
+    )
+    return create_activity_ui_routes(app, rt, config)

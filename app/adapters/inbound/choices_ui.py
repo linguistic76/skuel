@@ -9,31 +9,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
-
-from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request
-from core.utils.connection_fetcher import CHOICE_CONNECTION_CONFIG, fetch_entity_connections
+from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
+from core.utils.connection_fetcher import CHOICE_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_choices
-from core.utils.logging import get_logger
 from ui.activities.choices_views import (
     CHOICE_FILTER_CONFIG,
     ChoiceDetailView,
     ChoiceList,
     ChoiceStatsBar,
 )
-from ui.activities.filter_bar import ActivityFilterBar
-from ui.activities.nav import render_activity_sidebar_page
-from ui.patterns import PageHeader
-from ui.patterns.error_banner import render_error_banner
-from ui.patterns.loading import content_loading_placeholder
-from ui.patterns.personal_header import personal_header_placeholder
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.services.choices_service import ChoicesService
-
-logger = get_logger("skuel.routes.choices_ui")
 
 
 def create_choices_ui_routes(
@@ -42,110 +30,19 @@ def create_choices_ui_routes(
     choices_service: ChoicesService,
 ) -> list[Any]:
     """Register Choices UI routes."""
-    routes: list[Any] = []
-
-    @rt("/choices")
-    async def choices_page(request: Request) -> Any:
-        """Main choices page — shell renders immediately, content loads via HTMX."""
-        require_authenticated_user(request)
-        content = Div(
-            PageHeader("Choices"),
-            content_loading_placeholder("/choices/content", "choices-content"),
-            personal_header_placeholder(),
-        )
-        return await render_activity_sidebar_page(content, active="choices", request=request)
-
-    @rt("/choices/content")
-    async def choices_content_fragment(request: Request) -> Any:
-        """HTMX fragment: choice list with stats and filters."""
-        user_uid = require_authenticated_user(request)
-
-        result = await choices_service.get_user_choices(user_uid)
-        if result.is_error:
-            error = result.expect_error()
-            return Div(render_error_banner(error.user_message or error.message), id="choices-content")
-
-        all_choices = result.value
-
-        status_filter = request.query_params.get("status", "pending")
-        sort_by = request.query_params.get("sort_by", "deadline")
-
-        filtered = filter_choices(all_choices, status_filter, sort_by)
-
-        choice_uids = [c.uid for c in filtered]
-        connections_map = await fetch_entity_connections(
-            choices_service.core.backend, CHOICE_CONNECTION_CONFIG, choice_uids
-        )
-
-        return Div(
-            ActivityFilterBar(CHOICE_FILTER_CONFIG, {"status": status_filter, "sort_by": sort_by}),
-            ChoiceList(filtered, connections_map),
-            ChoiceStatsBar(all_choices),
-            id="choices-content",
-        )
-
-    @rt("/choices/list-fragment")
-    async def choices_list_fragment(request: Request) -> Any:
-        """HTMX fragment: filtered choice list for filter updates."""
-        user_uid = require_authenticated_user(request)
-
-        result = await choices_service.get_user_choices(user_uid)
-        if result.is_error:
-            error = result.expect_error()
-            return Div(render_error_banner(error.user_message or error.message), id="choice-list")
-
-        all_choices = result.value
-
-        status_filter = request.query_params.get("status", "pending")
-        sort_by = request.query_params.get("sort_by", "deadline")
-
-        filtered = filter_choices(all_choices, status_filter, sort_by)
-
-        choice_uids = [c.uid for c in filtered]
-        connections_map = await fetch_entity_connections(
-            choices_service.core.backend, CHOICE_CONNECTION_CONFIG, choice_uids
-        )
-
-        return ChoiceList(filtered, connections_map)
-
-    @rt("/choices/detail")
-    async def choice_detail_page(request: Request) -> Any:
-        """Detail page for a single choice — shell renders immediately, content loads via HTMX."""
-        require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return await render_activity_sidebar_page(
-                Div(render_error_banner("Missing choice UID")),
-                active="choices",
-                request=request,
-            )
-        content = Div(
-            content_loading_placeholder(f"/choices/detail/content?uid={uid}", "choice-detail-content"),
-        )
-        return await render_activity_sidebar_page(content, active="choices", request=request)
-
-    @rt("/choices/detail/content")
-    async def choice_detail_content_fragment(request: Request) -> Any:
-        """HTMX fragment: choice detail with connections and relationships."""
-        user_uid = require_authenticated_user(request)
-        uid = request.query_params.get("uid", "")
-        if not uid:
-            return Div(render_error_banner("Missing choice UID"), id="choice-detail-content")
-
-        choice_result = await choices_service.get_choice(uid)
-        if choice_result.is_error:
-            return Div(render_error_banner("Choice not found"), id="choice-detail-content")
-
-        choice = choice_result.value
-        if choice.user_uid != user_uid:
-            return Div(render_error_banner("Choice not found"), id="choice-detail-content")
-
-        connections_map = await fetch_entity_connections(
-            choices_service.core.backend, CHOICE_CONNECTION_CONFIG, [choice.uid]
-        )
-        connections = connections_map.get(choice.uid, [])
-
-        return ChoiceDetailView(choice, connections)
-
-    routes.extend([choices_page, choices_content_fragment, choices_list_fragment, choice_detail_page, choice_detail_content_fragment])
-    return routes
+    config = ActivityUIConfig(
+        domain_name="choices",
+        domain_singular="choice",
+        page_title="Choices",
+        filter_params=(("status", "pending"), ("sort_by", "deadline")),
+        get_all=choices_service.get_user_choices,
+        get_one=choices_service.get_choice,
+        backend=choices_service.core.backend,
+        filter_fn=filter_choices,
+        connection_config=CHOICE_CONNECTION_CONFIG,
+        filter_config=CHOICE_FILTER_CONFIG,
+        list_component=ChoiceList,
+        stats_component=ChoiceStatsBar,
+        detail_component=ChoiceDetailView,
+    )
+    return create_activity_ui_routes(app, rt, config)
