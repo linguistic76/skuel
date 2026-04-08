@@ -76,9 +76,11 @@ def create_submissions_hub_routes(
 
     @rt("/api/submissions/upload/preview")
     async def upload_preview(request: Request) -> Any:
-        """HTMX preview: recent uploads summary."""
+        """HTMX preview: upload form embedded directly in the hub block."""
         require_authenticated_user(request)
-        return HubPreviewEmpty("uploads")
+        from adapters.inbound.upload_ui import _results_area, _upload_form
+
+        return Div(_upload_form(), _results_area())
 
     @rt("/api/submissions/submit/preview")
     async def submit_preview(request: Request) -> Any:
