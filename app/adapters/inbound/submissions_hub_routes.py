@@ -1,4 +1,4 @@
-"""Submissions Route Configuration — hub, preview endpoints, and submission history.
+"""Submissions Hub Routes — hub page, preview endpoints, and submission history.
 
 The Submissions section is where users upload activity data, submit exercises,
 and view their submission history.
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.routes.submissions")
 
 
-def create_submissions_routes(
+def create_submissions_hub_routes(
     app: "FastHTMLApp",
     rt: "RouteDecorator",
     services: "Services",
@@ -214,7 +214,7 @@ def create_submissions_routes(
         """301 redirect: /workbench/settings → /settings."""
         return RedirectResponse("/settings", status_code=301)
 
-    logger.info("Submissions routes registered")
+    logger.info("Submissions hub routes registered")
 
 
-__all__ = ["create_submissions_routes"]
+__all__ = ["create_submissions_hub_routes"]

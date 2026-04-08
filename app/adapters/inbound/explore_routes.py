@@ -23,11 +23,11 @@ if TYPE_CHECKING:
 
 
 def create_explore_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: "Services", _sync_service: Any = None
 ) -> None:
     """Wire explore UI + API routes via ExploreOrchestrator."""
-    if not services or not services.explore_orchestrator:
-        return
+    if services.explore_orchestrator is None:
+        raise RuntimeError("ExploreOrchestrator is required — check bootstrap wiring")
 
     orchestrator = services.explore_orchestrator
 

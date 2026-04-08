@@ -3,7 +3,7 @@ GradeBook UI Routes — ExerciseSubmission Pages
 ===============================================
 
 Routes for submitting work and viewing submission details.
-Submission listing moved to Submissions (/submissions/history) — see workbench_routes.py.
+Submission listing moved to Submissions (/submissions/history) — see submissions_hub_routes.py.
 
 Routes:
 - GET /submit — File upload form (Submissions sidebar)
