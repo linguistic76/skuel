@@ -50,8 +50,8 @@ def create_choices_ui_routes(
         require_authenticated_user(request)
         content = Div(
             PageHeader("Choices"),
-            personal_header_placeholder(),
             content_loading_placeholder("/choices/content", "choices-content"),
+            personal_header_placeholder(),
         )
         return await render_activity_sidebar_page(content, active="choices", request=request)
 
@@ -78,9 +78,9 @@ def create_choices_ui_routes(
         )
 
         return Div(
-            ChoiceStatsBar(all_choices),
             ActivityFilterBar(CHOICE_FILTER_CONFIG, {"status": status_filter, "sort_by": sort_by}),
             ChoiceList(filtered, connections_map),
+            ChoiceStatsBar(all_choices),
             id="choices-content",
         )
 

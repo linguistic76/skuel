@@ -50,8 +50,8 @@ def create_habits_ui_routes(
         require_authenticated_user(request)
         content = Div(
             PageHeader("Habits"),
-            personal_header_placeholder(),
             content_loading_placeholder("/habits/content", "habits-content"),
+            personal_header_placeholder(),
         )
         return await render_activity_sidebar_page(content, active="habits", request=request)
 
@@ -79,12 +79,12 @@ def create_habits_ui_routes(
         )
 
         return Div(
-            HabitStatsBar(all_habits),
             ActivityFilterBar(
                 HABIT_FILTER_CONFIG,
                 {"status": status_filter, "category": category_filter, "sort_by": sort_by},
             ),
             HabitList(filtered, connections_map),
+            HabitStatsBar(all_habits),
             id="habits-content",
         )
 

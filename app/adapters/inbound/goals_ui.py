@@ -50,8 +50,8 @@ def create_goals_ui_routes(
         require_authenticated_user(request)
         content = Div(
             PageHeader("Goals"),
-            personal_header_placeholder(),
             content_loading_placeholder("/goals/content", "goals-content"),
+            personal_header_placeholder(),
         )
         return await render_activity_sidebar_page(content, active="goals", request=request)
 
@@ -78,9 +78,9 @@ def create_goals_ui_routes(
         )
 
         return Div(
-            GoalStatsBar(all_goals),
             ActivityFilterBar(GOAL_FILTER_CONFIG, {"status": status_filter, "sort_by": sort_by}),
             GoalList(filtered, connections_map),
+            GoalStatsBar(all_goals),
             id="goals-content",
         )
 

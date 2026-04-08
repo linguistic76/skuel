@@ -50,8 +50,8 @@ def create_principles_ui_routes(
         require_authenticated_user(request)
         content = Div(
             PageHeader("Principles"),
-            personal_header_placeholder(),
             content_loading_placeholder("/principles/content", "principles-content"),
+            personal_header_placeholder(),
         )
         return await render_activity_sidebar_page(content, active="principles", request=request)
 
@@ -84,7 +84,6 @@ def create_principles_ui_routes(
         )
 
         return Div(
-            PrincipleStatsBar(all_principles),
             ActivityFilterBar(
                 PRINCIPLE_FILTER_CONFIG,
                 {
@@ -95,6 +94,7 @@ def create_principles_ui_routes(
                 },
             ),
             PrincipleList(filtered, connections_map),
+            PrincipleStatsBar(all_principles),
             id="principles-content",
         )
 

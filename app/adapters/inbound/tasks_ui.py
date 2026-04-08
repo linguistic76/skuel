@@ -51,8 +51,8 @@ def create_tasks_ui_routes(
         require_authenticated_user(request)
         content = Div(
             PageHeader("Tasks"),
-            personal_header_placeholder(),
             content_loading_placeholder("/tasks/content", "tasks-content"),
+            personal_header_placeholder(),
         )
         return await render_activity_sidebar_page(content, active="tasks", request=request)
 
@@ -80,12 +80,12 @@ def create_tasks_ui_routes(
         )
 
         return Div(
-            TaskStatsBar(all_tasks),
             ActivityFilterBar(
                 TASK_FILTER_CONFIG,
                 {"status": status_filter, "priority": priority_filter, "sort_by": sort_by},
             ),
             TaskList(filtered, connections_map),
+            TaskStatsBar(all_tasks),
             id="tasks-content",
         )
 
