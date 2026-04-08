@@ -1,0 +1,195 @@
+---
+title: "Pattern: Shell-First Page Loading"
+updated: 2026-04-07
+status: current
+category: patterns
+tags: [ui, htmx, performance, page-load]
+related: [docs/patterns/UI_COMPONENT_PATTERNS.md, docs/patterns/HUB_PAGE_PATTERN.md]
+---
+
+# Shell-First Page Loading Pattern
+
+> Route handlers return page chrome immediately (zero DB calls). A `hx-trigger="load"` placeholder fires the content fragment once the browser has painted the shell.
+
+## Why
+
+Before this pattern, route handlers blocked on Neo4j queries before returning any HTML. The browser showed a blank screen until the DB finished. Shell-first eliminates the blank screen: the navbar, sidebar, and page header appear in ~50ms regardless of DB latency. Content fills in shortly after.
+
+## The Mechanical Transformation
+
+**Before (blocks on DB):**
+```python
+@rt("/domain")
+async def domain_page(request: Request) -> Any:
+    user_uid = require_authenticated_user(request)
+    result = await some_service.get_data(user_uid)   # BLOCKS — browser sees nothing
+    return await SomeSidebarPage(Div(PageHeader(...), DataComponent(result.value)), ...)
+```
+
+**After (shell-first):**
+```python
+@rt("/domain")
+async def domain_page(request: Request) -> Any:
+    require_authenticated_user(request)               # auth only, no DB
+    content = Div(
+        PageHeader("Domain"),
+        Div(
+            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+            id="domain-content",
+            hx_get="/domain/content",
+            hx_trigger="load",
+            hx_swap="outerHTML",
+        ),
+    )
+    return await SomeSidebarPage(content, ...)        # returns in ~50ms
+
+@rt("/domain/content")
+async def domain_content_fragment(request: Request) -> Any:
+    user_uid = require_authenticated_user(request)
+    result = await some_service.get_data(user_uid)   # DB work here, after paint
+    return Div(DataComponent(result.value), id="domain-content")
+```
+
+## Naming Conventions
+
+| Page type | Shell route | Fragment route |
+|-----------|-------------|----------------|
+| List page | `GET /domain` | `GET /domain/content` |
+| Detail (query param) | `GET /domain/detail` | `GET /domain/detail/content?uid=` |
+| Detail (path param) | `GET /domain/{uid}` | `GET /domain/{uid}/content` |
+
+## Shell Responsibilities
+
+The shell does exactly three things:
+1. Auth check (`require_authenticated_user`)
+2. UID extraction from query/path params
+3. Fast error for missing UID (no DB needed to know if `uid=""`)
+
+Everything else belongs in the fragment.
+
+## Fragment Responsibilities
+
+The fragment does all the work the shell deferred:
+- All service/DB calls
+- Ownership verification
+- Content rendering
+- Error states (wrapped with `id=` so retry can re-target)
+
+## Variants
+
+### Detail page with query param UID
+
+```python
+@rt("/tasks/detail")
+async def task_detail_page(request: Request) -> Any:
+    require_authenticated_user(request)
+    uid = request.query_params.get("uid", "")
+    if not uid:
+        return await render_activity_sidebar_page(
+            Div(render_error_banner("Missing task UID")), active="tasks", request=request
+        )
+    content = Div(
+        Div(
+            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+            id="task-detail-content",
+            hx_get=f"/tasks/detail/content?uid={uid}",
+            hx_trigger="load",
+            hx_swap="outerHTML",
+        ),
+    )
+    return await render_activity_sidebar_page(content, active="tasks", request=request)
+
+@rt("/tasks/detail/content")
+async def task_detail_content_fragment(request: Request) -> Any:
+    user_uid = require_authenticated_user(request)
+    uid = request.query_params.get("uid", "")
+    task_result = await tasks_service.get_task(uid)
+    if task_result.is_error or task_result.value.user_uid != user_uid:
+        return render_error_banner("Task not found")
+    task = task_result.value
+    connections_map = await fetch_entity_connections(backend, config, [task.uid])
+    return TaskDetailView(task, connections_map.get(task.uid, []))
+```
+
+### Detail page with path param
+
+```python
+@rt("/explore/ku/{uid}")
+async def explore_ku_detail(request: Request, uid: str) -> Any:
+    content = Div(
+        P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+        id="ku-detail-content",
+        hx_get=f"/explore/ku/{uid}/content",
+        hx_trigger="load",
+        hx_swap="outerHTML",
+    )
+    return await render_explore_sidebar_page(content=content, sidebar_data=None, request=request)
+
+@rt("/explore/ku/{uid}/content")
+async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
+    ku_result = await orchestrator.get_ku(uid)
+    if ku_result.is_error:
+        return Div(render_error_banner(f"Not found: {uid}"), ButtonLink("← Back", href="/explore"))
+    return build_ku_main_column(ku_result.value, ...)
+```
+
+### Role-gated pages (teaching routes)
+
+Apply `@require_role` to **both** shell and fragment:
+
+```python
+@rt("/teaching/students")
+@require_role(UserRole.TEACHER, get_user_service)
+async def teaching_students_page(request, current_user=None):
+    content = Div(PageHeader("Students"), loading_placeholder("/teaching/students/content"))
+    return await render_teaching_sidebar_page(content, active="students", request=request)
+
+@rt("/teaching/students/content")
+@require_role(UserRole.TEACHER, get_user_service)
+async def teaching_students_content_fragment(request, current_user=None):
+    user_uid = require_authenticated_user(request)
+    result = await orchestrator.get_students_summary(teacher_uid=user_uid)
+    ...
+```
+
+## Notification Bell — Miniature Version
+
+`_notification_badge_placeholder()` in `ui/layouts/navbar.py` is the same pattern applied to a navbar element:
+
+```python
+Div(
+    _notification_button(0),          # renders 0-count immediately
+    id="notification-bell",
+    hx_get="/api/navbar/notification-badge",
+    hx_trigger="load",
+    hx_swap="outerHTML",
+    cls="relative",
+)
+```
+
+The `GET /api/navbar/notification-badge` fragment fetches the actual unread count and replaces the placeholder, so the navbar never blocks on a DB call.
+
+## What This Pattern Does NOT Apply To
+
+| Case | Reason |
+|------|--------|
+| POST mutation routes | Must return synchronous confirmation |
+| Hub pages (`/home`, `/submissions`, `/gradebook`, `/library`) | Already use HTMX tab blocks |
+| Fragment endpoints themselves | DB calls in fragments are expected and correct |
+| Admin pages | Lower traffic; simpler blocking approach is fine |
+
+## Pages Using This Pattern (as of 2026-04-07)
+
+**Activity domain lists (6):** `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`
+
+**Activity domain detail pages (6):** `/tasks/detail`, `/goals/detail`, `/habits/detail`, `/events/detail`, `/choices/detail`, `/principles/detail`
+
+**Other pages (8):** `/settings`, `/exercises`, `/exercises/get`, `/learning-paths`, `/teaching/students`, `/teaching/students/{uid}`, `/teaching/review/{uid}`, `/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`
+
+**Navbar:** notification bell placeholder (all authenticated pages)
+
+## See Also
+
+- `skuel-ui` skill → "Shell-First Page Loading — The Standard Pattern"
+- `ui-browser` skill → "Shell-First Page Loading"
+- `docs/patterns/HUB_PAGE_PATTERN.md` — OOB swaps for shared-data hub blocks (complementary pattern)

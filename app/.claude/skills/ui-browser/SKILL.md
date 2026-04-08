@@ -350,6 +350,58 @@ response.headers["HX-Refresh"] = "true"
 response.headers["HX-Push-Url"] = "/tasks"
 ```
 
+### Shell-First Page Loading
+
+The standard SKUEL pattern for eliminating blank-screen waits: the route returns page chrome immediately, a `hx-trigger="load"` div fires the content request after the browser paints.
+
+```python
+# Shell — returns immediately (zero DB calls)
+@rt("/settings")
+async def settings_page(request: Request) -> Any:
+    require_authenticated_user(request)
+    content = Div(
+        PageHeader("Settings", subtitle="Manage your preferences"),
+        Div(
+            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+            id="settings-content",
+            hx_get="/settings/content",
+            hx_trigger="load",
+            hx_swap="outerHTML",
+        ),
+    )
+    return await BasePage(content, title="Settings", request=request)
+
+# Fragment — DB work here, replaces the placeholder
+@rt("/settings/content")
+async def settings_content_fragment(request: Request) -> Any:
+    user_uid = require_authenticated_user(request)
+    user = await user_service.get_user(user_uid)
+    return Div(render_preferences_editor(user), id="settings-content")
+```
+
+The `id` on the fragment's root element is optional when using `hx_swap="outerHTML"` — the placeholder is replaced entirely. Add the `id` on error returns so retry attempts re-target correctly.
+
+**Navbar notification bell** is a miniature version of this pattern — already in `_notification_badge_placeholder()`:
+```python
+Div(
+    _notification_button(0),          # renders 0-count immediately
+    id="notification-bell",
+    hx_get="/api/navbar/notification-badge",
+    hx_trigger="load",
+    hx_swap="outerHTML",
+    cls="relative",
+)
+```
+
+**When NOT to use this pattern:**
+- POST mutation routes (must return synchronous result)
+- Hub pages with HTMX tab blocks (already lazy by design)
+- Fragments themselves — DB calls in fragments are expected
+
+**See also:** `docs/patterns/SHELL_FIRST_PAGE_PATTERN.md`, `skuel-ui` skill → "Shell-First Page Loading"
+
+---
+
 ### Loading States
 
 ```html

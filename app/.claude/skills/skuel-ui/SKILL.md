@@ -135,24 +135,101 @@ SectionHeader(
 )
 ```
 
-### Complete Page Example
+### Shell-First Page Loading — The Standard Pattern
+
+All SKUEL pages that need DB data use the **shell-first pattern**: the route handler returns page chrome immediately (zero DB calls), while a `hx_trigger="load"` div fires a `*/content` fragment endpoint that does the work.
 
 ```python
+# ✅ CORRECT: shell returns immediately, content fills in via HTMX
 @rt("/tasks")
-async def get_tasks(request: Request):
-    user_uid = require_authenticated_user(request)
-    tasks_result = await tasks_service.list_for_user(user_uid)
-    if tasks_result.is_error:
-        return render_error_banner(str(tasks_result.error))
-
+async def tasks_page(request: Request) -> Any:
+    require_authenticated_user(request)
     content = Div(
         PageHeader("Tasks", subtitle="Manage your daily work"),
-        TasksList(tasks_result.value),
-        cls=f"{Spacing.PAGE} {Container.STANDARD}",
+        Div(
+            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+            id="tasks-content",
+            hx_get="/tasks/content",
+            hx_trigger="load",
+            hx_swap="outerHTML",
+        ),
     )
+    return await BasePage(content, title="Tasks", request=request, active_page="tasks")
 
-    return BasePage(content, title="Tasks", request=request, active_page="tasks")
+@rt("/tasks/content")
+async def tasks_content_fragment(request: Request) -> Any:
+    user_uid = require_authenticated_user(request)
+    result = await tasks_service.get_user_tasks(user_uid)
+    if result.is_error:
+        error = result.expect_error()
+        return Div(render_error_banner(error.user_message or error.message), id="tasks-content")
+    return Div(TasksList(result.value), id="tasks-content")
 ```
+
+**Detail pages** (UID from query param) — validate the UID in the shell (cheap), pass it to the fragment:
+
+```python
+@rt("/tasks/detail")
+async def task_detail_page(request: Request) -> Any:
+    require_authenticated_user(request)
+    uid = request.query_params.get("uid", "")
+    if not uid:
+        return await render_activity_sidebar_page(
+            Div(render_error_banner("Missing task UID")), active="tasks", request=request
+        )
+    content = Div(
+        Div(
+            P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+            id="task-detail-content",
+            hx_get=f"/tasks/detail/content?uid={uid}",
+            hx_trigger="load",
+            hx_swap="outerHTML",
+        ),
+    )
+    return await render_activity_sidebar_page(content, active="tasks", request=request)
+
+@rt("/tasks/detail/content")
+async def task_detail_content_fragment(request: Request) -> Any:
+    user_uid = require_authenticated_user(request)
+    uid = request.query_params.get("uid", "")
+    task_result = await tasks_service.get_task(uid)
+    if task_result.is_error or task_result.value.user_uid != user_uid:
+        return render_error_banner("Task not found")
+    task = task_result.value
+    connections_map = await fetch_entity_connections(backend, config, [task.uid])
+    return TaskDetailView(task, connections_map.get(task.uid, []))
+```
+
+**Path-param routes** (`/explore/ku/{uid}`) — embed the param in the fragment URL:
+
+```python
+@rt("/explore/ku/{uid}")
+async def explore_ku_detail(request: Request, uid: str) -> Any:
+    content = Div(
+        P("Loading...", cls="text-muted-foreground py-8 text-center text-sm"),
+        id="ku-detail-content",
+        hx_get=f"/explore/ku/{uid}/content",
+        hx_trigger="load",
+        hx_swap="outerHTML",
+    )
+    return await render_explore_sidebar_page(content=content, sidebar_data=None, request=request)
+
+@rt("/explore/ku/{uid}/content")
+async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
+    ku_result = await orchestrator.get_ku(uid)
+    if ku_result.is_error:
+        return render_error_banner(f"Not found: {uid}")
+    return build_ku_content(ku_result.value, ...)
+```
+
+**Fragment naming conventions:**
+- List pages: `*/content` (replaces the whole content area)
+- Detail pages: `*/detail/content?uid=` (replaces detail content area)
+- Path-param pages: `*/{uid}/content` (replaces content area for that entity)
+
+**Rule:** Every route that calls a service before rendering belongs in a `*/content` fragment, not the shell. The shell only does: auth check, UID extraction, error for missing UID.
+
+**See also:** `docs/patterns/SHELL_FIRST_PAGE_PATTERN.md`
 
 ---
 
