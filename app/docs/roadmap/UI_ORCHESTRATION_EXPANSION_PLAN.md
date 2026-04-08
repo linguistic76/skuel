@@ -13,7 +13,7 @@ By isolating view needs into a dedicated Facade layer (`app/core/orchestrator/`)
 
 ---
 
-## Phase 1–6: Completed (all 9 orchestrators hardened)
+## Phase 1–7: Completed (all 11 orchestrators hardened)
 
 All orchestrators follow the **Fail-Fast Dependency Philosophy** — typed `TYPE_CHECKING` imports, no `| None` defaults for required services, no `if not self._service` guards.
 
@@ -27,3 +27,4 @@ All orchestrators follow the **Fail-Fast Dependency Philosophy** — typed `TYPE
 - [x] **Activity Review Admin Hub** (`activity_review_ui.py`) → `ActivityReviewOrchestrator` — 4 → 1. Collapses ActivityReportOperations + ReviewQueueOperations + UserService + UserContextBuilder; `context_builder` gracefully returns `Result.fail` when unavailable.
 - [x] **Pathways UI** (`pathways_ui.py`) → `PathwaysOrchestrator` — 3 → 1. Wraps LpService with UserProgressService injection; all `lp_service.method(user_uid, user_progress)` calls simplified to `orchestrator.method(user_uid)` in routes.
 - [x] **Lateral Relationships API** (`lateral_routes.py`) → `LateralRelationshipsOrchestrator` — 7 → 1. Absorbed `_create_relationship` / `_get_relationships` module-level helpers; routes extract `user_uid` themselves and delegate; `lateral_service` property exposes the raw service for `LateralRouteFactory` construction (necessary since the factory lives in the adapter layer). Replaced `DomainRouteConfig` with direct early-return wiring. Route file: 399 → 285 lines.
+- [x] **Calendar Optimization API** (`advanced_routes.py`) → `CalendarOptimizationOrchestrator` — 3 → 1. Absorbed tasks/events fetch + coordination from `create_calendar_optimization_routes`; `optimize_schedule()` and `get_cognitive_load_analyses()` consolidate the multi-service calls; `api_related_services` eliminated from `ADVANCED_CONFIG`. Route file: 319 → 222 lines.

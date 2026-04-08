@@ -41,6 +41,7 @@ For implementation guidance, see:
 | `ActivityReviewOrchestrator` | `activity_review_ui.py` | 4 → 1 | Collapses ActivityReportOperations + ReviewQueueOperations + UserService + UserContextBuilder; context_builder gracefully degrades when unavailable |
 | `PathwaysOrchestrator` | `pathways_ui.py` | 3 → 1 | Wraps LpService with UserProgressService injection; routes never reference user_progress directly |
 | `LateralRelationshipsOrchestrator` | `lateral_routes.py` | 7 → 1 | Absorbed `_create_relationship` / `_get_relationships` module-level helpers; routes extract `user_uid` themselves and delegate; `lateral_service` property exposes the raw service for `LateralRouteFactory` construction |
+| `CalendarOptimizationOrchestrator` | `advanced_routes.py` | 3 → 1 | Absorbed tasks/events fetch + coordination; `api_related_services` eliminated from `ADVANCED_CONFIG` |
 
 All orchestrators live in `app/core/orchestrator/` and are registered in `services_bootstrap/_container.py`.
 
@@ -71,6 +72,7 @@ graph TD
         ARO[ActivityReviewOrchestrator]
         PWO[PathwaysOrchestrator]
         LRO[LateralRelationshipsOrchestrator]
+        COO[CalendarOptimizationOrchestrator]
     end
 
     subgraph "Domain Services"
@@ -84,6 +86,7 @@ graph TD
         LP[LpService] ; UP[UserProgress]
         LAT[LateralRelationshipService]
         EV[Events] ; CH[Choices] ; PR[Principles]
+        CAL[CalendarOptimizationService]
     end
 
     UI_Routes --> AO
@@ -95,6 +98,7 @@ graph TD
     UI_Routes --> ARO
     UI_Routes --> PWO
     UI_Routes --> LRO
+    UI_Routes --> COO
 
     AO --> US ; AO --> AS ; AO --> SS
     PO --> TS ; PO --> GS ; PO --> HS
@@ -105,14 +109,15 @@ graph TD
     ARO --> AR ; ARO --> RQ ; ARO --> US ; ARO --> CB
     PWO --> LP ; PWO --> UP
     LRO --> LAT ; LRO --> TS ; LRO --> GS ; LRO --> HS ; LRO --> EV ; LRO --> CH ; LRO --> PR
+    COO --> CAL ; COO --> TS ; COO --> EV
 
     classDef route fill:#f9f,stroke:#333,stroke-width:2px;
     classDef facade fill:#bbf,stroke:#333,stroke-width:4px;
     classDef dev fill:#dfd,stroke:#333;
 
     class UI_Routes route;
-    class AO,PO,SO,EO,LO,TO,ARO,PWO,LRO facade;
-    class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR,TR,AS,US,SS,AR,RQ,CB,LP,UP,LAT,EV,CH,PR dev;
+    class AO,PO,SO,EO,LO,TO,ARO,PWO,LRO,COO facade;
+    class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR,TR,AS,US,SS,AR,RQ,CB,LP,UP,LAT,EV,CH,PR,CAL dev;
 ```
 
 ## Implementation Checklist

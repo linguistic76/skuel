@@ -13,6 +13,9 @@ if TYPE_CHECKING:
     from core.orchestrator.admin_orchestrator import AdminOrchestrator
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
     from core.orchestrator.journal_orchestrator import JournalOrchestrator
+    from core.orchestrator.calendar_optimization_orchestrator import (
+        CalendarOptimizationOrchestrator,
+    )
     from core.orchestrator.lateral_relationships_orchestrator import (
         LateralRelationshipsOrchestrator,
     )
@@ -30,8 +33,6 @@ if TYPE_CHECKING:
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
     from core.services.background.progress_report_worker import ProgressReportWorker
-    from core.services.calendar_optimization_service import CalendarOptimizationService
-
     # Facade services — concrete class IS the contract (no parallel protocol needed)
     from core.services.choices_service import ChoicesService
     from core.services.content_enrichment_service import ContentEnrichmentService
@@ -309,9 +310,9 @@ class Services:
     activity_review_orchestrator: "ActivityReviewOrchestrator | None" = None
     pathways_orchestrator: "PathwaysOrchestrator | None" = None
     lateral_orchestrator: "LateralRelationshipsOrchestrator | None" = None
+    calendar_optimization_orchestrator: "CalendarOptimizationOrchestrator | None" = None
 
     # Advanced services
-    calendar_optimization: "CalendarOptimizationService | None" = None
     jupyter_sync: "JupyterNeo4jSync | None" = None
     performance_optimization: "PerformanceOptimizationService | None" = None
 

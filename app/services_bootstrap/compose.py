@@ -1187,6 +1187,22 @@ async def compose_services(
         )
         logger.info("✅ Lateral Relationships Orchestrator created")
 
+        # Create advanced services
+        advanced = _create_advanced_services(driver, query_executor=query_executor)
+        await advanced["performance_optimization"].initialize()
+        logger.info("✅ Advanced services created")
+
+        from core.orchestrator.calendar_optimization_orchestrator import (
+            CalendarOptimizationOrchestrator,
+        )
+
+        calendar_optimization_orchestrator = CalendarOptimizationOrchestrator(
+            calendar_service=advanced["calendar_optimization"],
+            tasks_service=activity_services["tasks"],
+            events_service=activity_services["events"],
+        )
+        logger.info("✅ Calendar Optimization Orchestrator created")
+
         # Wire orchestration services into context_service
         context_service.goal_task_generator = orchestration["goal_task_generator"]
         context_service.habits_service = activity_services["habits"]
@@ -1200,11 +1216,6 @@ async def compose_services(
         # Post-wire habits_service into goals intelligence (cross-domain dependency)
         activity_services["goals"].intelligence.habits_service = activity_services["habits"]
         logger.info("✅ GoalsIntelligenceService wired with HabitsService")
-
-        # Create advanced services
-        advanced = _create_advanced_services(driver, query_executor=query_executor)
-        await advanced["performance_optimization"].initialize()
-        logger.info("✅ Advanced services created")
 
         # Wire all event subscribers (context invalidation + cross-domain + intelligence)
         _wire_event_subscribers(
@@ -1324,8 +1335,8 @@ async def compose_services(
             activity_review_orchestrator=activity_review_orchestrator,
             pathways_orchestrator=pathways_orchestrator,
             lateral_orchestrator=lateral_orchestrator,
+            calendar_optimization_orchestrator=calendar_optimization_orchestrator,
             # Advanced
-            calendar_optimization=advanced["calendar_optimization"],
             jupyter_sync=advanced["jupyter_sync"],
             performance_optimization=advanced["performance_optimization"],
             # Cross-cutting AI services (require LLM/embeddings)

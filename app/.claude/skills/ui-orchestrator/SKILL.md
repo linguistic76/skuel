@@ -185,6 +185,7 @@ grep -rn 'service_a\|service_b' app/adapters/inbound/{name}_ui.py
 | `ActivityReviewOrchestrator` | `activity_review_orchestrator.py` | 4 | Activity Review Admin Hub |
 | `PathwaysOrchestrator` | `pathways_orchestrator.py` | 2 | Pathways UI |
 | `LateralRelationshipsOrchestrator` | `lateral_relationships_orchestrator.py` | 7 | Lateral Relationships API |
+| `CalendarOptimizationOrchestrator` | `calendar_optimization_orchestrator.py` | 3 | Calendar Optimization API |
 
 ## Related Pattern: OOB Swaps for Shared-Data Hub Blocks
 

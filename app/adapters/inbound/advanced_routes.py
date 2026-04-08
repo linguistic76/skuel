@@ -4,7 +4,7 @@ Advanced Routes - Optional Services
 
 Wires advanced API routes using DomainRouteConfig (Multi-Factory variant).
 
-Primary service: calendar_optimization (Calendar cognitive-load balancing)
+Primary service: calendar_optimization_orchestrator (Calendar cognitive-load balancing)
 Extension factories:
 - create_jupyter_sync_routes: Jupyter-Neo4j-Obsidian workflow (4 endpoints)
 - create_performance_routes: Scale & speed optimization (4 endpoints)
@@ -48,7 +48,7 @@ logger = get_logger("skuel.routes.advanced")
 
 
 def create_calendar_optimization_routes(
-    _app: Any, rt: Any, calendar_optimization: Any, tasks: Any = None, events: Any = None
+    _app: Any, rt: Any, calendar_optimization_orchestrator: Any
 ) -> list[Any]:
     """Register calendar optimization endpoints."""
 
@@ -69,7 +69,6 @@ def create_calendar_optimization_routes(
                      Options: cognitive_balanced, knowledge_focused, deadline_driven,
                              energy_aligned, spaced_repetition
         """
-        # Parse target date
         if target_date:
             date_result = parse_date_param_strict(target_date, "target_date")
             if date_result.is_error:
@@ -78,7 +77,6 @@ def create_calendar_optimization_routes(
         else:
             opt_date = date.today()
 
-        # Parse strategy
         try:
             strat = SchedulingStrategy(strategy)
         except ValueError:
@@ -86,40 +84,11 @@ def create_calendar_optimization_routes(
                 Errors.validation(f"Invalid strategy: {strategy}", field="strategy", value=strategy)
             )
 
-        # Get tasks and events for the date
-        task_list: list[Any] = []
-        event_list: list[Any] = []
-        knowledge_units: list[Any] = []
-
-        if tasks:
-            tasks_result = await tasks.get_tasks_for_date(opt_date)
-            if tasks_result.is_ok:
-                task_list = tasks_result.value or []
-            else:
-                logger.warning(
-                    "Failed to get tasks for scheduling",
-                    extra={"date": str(opt_date), "error": str(tasks_result.error)},
-                )
-
-        if events:
-            events_result = await events.get_events_for_date(opt_date)
-            if events_result.is_ok:
-                event_list = events_result.value or []
-            else:
-                logger.warning(
-                    "Failed to get events for scheduling",
-                    extra={"date": str(opt_date), "error": str(events_result.error)},
-                )
-
-        result: Result[Any] = await calendar_optimization.optimize_knowledge_scheduling(
+        return await calendar_optimization_orchestrator.optimize_schedule(
             user_uid=user_uid,
             target_date=opt_date,
-            tasks=task_list,
-            events=event_list,
-            knowledge_units=knowledge_units,
             strategy=strat,
         )
-        return result
 
     @rt("/events/calendar/cognitive-load")
     @boundary_handler()
@@ -139,30 +108,9 @@ def create_calendar_optimization_routes(
         else:
             opt_date = date.today()
 
-        # Get tasks for the date
-        task_list: list[Any] = []
-        if tasks:
-            tasks_result = await tasks.get_tasks_for_date(opt_date)
-            if tasks_result.is_ok:
-                task_list = tasks_result.value or []
-            else:
-                logger.warning(
-                    "Failed to get tasks for cognitive load",
-                    extra={"date": str(opt_date), "error": str(tasks_result.error)},
-                )
-
-        # Analyze cognitive load for each task
-        analyses = []
-        for task in task_list:
-            analysis = calendar_optimization.analyze_cognitive_load(task, [])
-            analyses.append(
-                {
-                    "task_uid": task.uid,
-                    "task_title": task.title,
-                    "cognitive_load": analysis.to_dict(),
-                }
-            )
-
+        task_list, analyses = await calendar_optimization_orchestrator.get_cognitive_load_analyses(
+            opt_date
+        )
         return Result.ok(
             {
                 "date": opt_date.isoformat(),
@@ -285,12 +233,8 @@ def create_performance_routes(
 
 ADVANCED_CONFIG = DomainRouteConfig(
     domain_name="advanced",
-    primary_service_attr="calendar_optimization",
+    primary_service_attr="calendar_optimization_orchestrator",
     api_factory=create_calendar_optimization_routes,
-    api_related_services={
-        "tasks": "tasks",
-        "events": "events",
-    },
 )
 
 
@@ -300,8 +244,7 @@ def create_advanced_routes(
     """
     Wire advanced API routes using DomainRouteConfig (Multi-Factory variant).
 
-    Primary: calendar_optimization routes via DomainRouteConfig (pulls tasks/events
-    as related services).
+    Primary: calendar_optimization_orchestrator routes via DomainRouteConfig.
     Extensions: jupyter_sync and performance_optimization factories appended
     conditionally after primary registration.
 
