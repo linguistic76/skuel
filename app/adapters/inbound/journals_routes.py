@@ -25,12 +25,9 @@ def _journals_noop_api_factory(_app: Any, _rt: Any, _primary: Any, **_kw: Any) -
 
 JOURNALS_CONFIG = DomainRouteConfig(
     domain_name="journals",
-    primary_service_attr="journal_input",
+    primary_service_attr="journal_orchestrator",
     api_factory=_journals_noop_api_factory,
     ui_factory=create_journals_ui_routes,
-    ui_related_services={
-        "orchestrator": "journal_orchestrator",
-    },
 )
 
 

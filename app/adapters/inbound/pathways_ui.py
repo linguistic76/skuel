@@ -292,7 +292,9 @@ class PathwaysUIComponents:
         )
 
 
-def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_service=None):
+def create_pathways_ui_routes(
+    _app: Any, rt: Any, _primary_service: Any, orchestrator: Any = None
+) -> list[Any]:
     """Create UI routes for pathway browsing and progress tracking."""
 
     routes: list[Any] = []
@@ -303,7 +305,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
         user_uid = require_authenticated_user(request)
 
         # Fetch dashboard summary from service
-        summary_result = await lp_service.get_dashboard_summary(user_uid, user_progress)
+        summary_result = await orchestrator.get_dashboard_summary(user_uid)
         active_paths: list[ActivePathData] = []
         stats = LearningStatsData(
             total_hours=0.0,
@@ -445,7 +447,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
     async def browse_learning_paths(request) -> Any:
         """Browse available learning paths with filtering and recommendations."""
         available_paths: list[dict[str, Any]] = []
-        paths_result = await lp_service.list_all_paths(limit=50)
+        paths_result = await orchestrator.list_all_paths(limit=50)
         if not paths_result.is_error and paths_result.value:
             available_paths.extend(_path_to_display_dict(path) for path in paths_result.value)
 
@@ -506,10 +508,9 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
         require_authenticated_user(request)
 
         steps: list[Any] = []
-        if ps_service:
-            steps_result = await ps_service.list_steps(limit=50)
-            if not steps_result.is_error and steps_result.value:
-                steps = steps_result.value
+        steps_result = await orchestrator.list_steps(limit=50)
+        if not steps_result.is_error and steps_result.value:
+            steps = steps_result.value
 
         if steps:
             grid_content = Div(
@@ -554,7 +555,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
         domain = form_data.get("domain", "all")
         duration = form_data.get("duration", "all")
 
-        filter_result = await lp_service.filter_paths(
+        filter_result = await orchestrator.filter_paths(
             difficulty=difficulty,
             domain=domain,
             duration=duration,
@@ -580,11 +581,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
     async def learning_path_detail(request, path_uid: str) -> Any:
         """Detailed view of a specific learning path with curriculum and progress."""
         user_uid = require_authenticated_user(request)
-        detail_result = await lp_service.get_path_detail_progress(
-            path_uid,
-            user_progress,
-            user_uid,
-        )
+        detail_result = await orchestrator.get_path_detail_progress(path_uid, user_uid)
         if detail_result.is_error:
             content = Div(
                 Card(
@@ -714,7 +711,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
         """Learning analytics dashboard with real data from user progress profile."""
         user_uid = require_authenticated_user(request)
 
-        analytics_result = await lp_service.get_learning_analytics(user_uid, user_progress)
+        analytics_result = await orchestrator.get_learning_analytics(user_uid)
         analytics = analytics_result.value if not analytics_result.is_error else {}
         concepts_mastered = analytics.get("concepts_mastered", 0)
         in_progress = analytics.get("in_progress", 0)
@@ -783,7 +780,7 @@ def create_pathways_ui_routes(_app, rt, lp_service, user_progress=None, ps_servi
     @rt("/lp/{uid}")
     async def lp_detail_view(request, uid: str) -> Any:
         """Learning Path detail view with full context and relationships."""
-        path_result = await lp_service.get_learning_path(uid)
+        path_result = await orchestrator.get_learning_path(uid)
 
         if not path_result.is_error and path_result.value:
             path = path_result.value

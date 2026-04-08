@@ -9,10 +9,12 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.config.intelligence_tier import IntelligenceTier
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
+    from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
     from core.orchestrator.admin_orchestrator import AdminOrchestrator
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
     from core.orchestrator.journal_orchestrator import JournalOrchestrator
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
+    from core.orchestrator.pathways_orchestrator import PathwaysOrchestrator
     from core.orchestrator.profile_orchestrator import ProfileOrchestrator
     from core.orchestrator.submissions_orchestrator import SubmissionsOrchestrator
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
@@ -301,6 +303,8 @@ class Services:
     library_orchestrator: "LibraryOrchestrator | None" = None
     teacher_orchestrator: "TeacherOrchestrator | None" = None
     journal_orchestrator: "JournalOrchestrator | None" = None
+    activity_review_orchestrator: "ActivityReviewOrchestrator | None" = None
+    pathways_orchestrator: "PathwaysOrchestrator | None" = None
 
     # Advanced services
     calendar_optimization: "CalendarOptimizationService | None" = None

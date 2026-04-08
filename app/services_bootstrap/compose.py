@@ -1154,6 +1154,24 @@ async def compose_services(
         )
         logger.info("✅ Journal Orchestrator created")
 
+        from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
+
+        activity_review_orchestrator = ActivityReviewOrchestrator(
+            activity_report=activity_report_service,
+            user_service=user_service,
+            review_queue=review_queue_service,
+            context_builder=context_builder,
+        )
+        logger.info("✅ Activity Review Orchestrator created")
+
+        from core.orchestrator.pathways_orchestrator import PathwaysOrchestrator
+
+        pathways_orchestrator = PathwaysOrchestrator(
+            lp_service=learning_services["learning_paths"],
+            user_progress=learning_services["user_progress"],
+        )
+        logger.info("✅ Pathways Orchestrator created")
+
         # Wire orchestration services into context_service
         context_service.goal_task_generator = orchestration["goal_task_generator"]
         context_service.habits_service = activity_services["habits"]
@@ -1288,6 +1306,8 @@ async def compose_services(
             library_orchestrator=library_orchestrator,
             teacher_orchestrator=teacher_orchestrator,
             journal_orchestrator=journal_orchestrator,
+            activity_review_orchestrator=activity_review_orchestrator,
+            pathways_orchestrator=pathways_orchestrator,
             # Advanced
             calendar_optimization=advanced["calendar_optimization"],
             jupyter_sync=advanced["jupyter_sync"],

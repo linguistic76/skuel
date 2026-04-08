@@ -18,8 +18,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.ports.report_protocols import ActivityReportOperations, ReviewQueueOperations
-    from core.services.user.user_context_builder import UserContextBuilder
+    from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
 
 from fasthtml.common import H3, Div, P
 from starlette.responses import RedirectResponse
@@ -47,15 +46,12 @@ logger = get_logger("skuel.routes.activity_review.ui")
 def create_activity_review_ui_routes(
     _app: Any,
     rt: Any,
-    activity_report: "ActivityReportOperations",
-    review_queue: "ReviewQueueOperations | None" = None,
-    user_service: Any = None,
-    context_builder: "UserContextBuilder | None" = None,
+    orchestrator: "ActivityReviewOrchestrator",
 ) -> list[Any]:
     """Create Activity Review admin UI routes."""
     logger.info("Creating Activity Review UI routes")
 
-    get_user_service = make_service_getter(user_service)
+    get_user_service = make_service_getter(orchestrator.user_service)
 
     @rt("/activity-review")
     async def activity_review_landing(request: Request) -> Any:
@@ -72,10 +68,9 @@ def create_activity_review_ui_routes(
 
         pending: list[Any] = []
         try:
-            if review_queue is not None:
-                result = await review_queue.get_pending_reviews(_admin_uid=admin_uid)
-                if not result.is_error:
-                    pending = result.value or []
+            result = await orchestrator.get_pending_reviews(admin_uid)
+            if not result.is_error:
+                pending = result.value or []
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error loading review queue: {e}", exc_info=True)
 
@@ -142,16 +137,13 @@ def create_activity_review_ui_routes(
             return render_inline_error("Please enter a user UID")
 
         try:
-            if not context_builder:
-                return render_inline_error("Context builder not configured")
-
-            ctx_result = await context_builder.build_rich(subject_uid, window=time_period)
+            ctx_result = await orchestrator.build_rich_context(subject_uid, window=time_period)
             if ctx_result.is_error:
                 return Div(
                     P(f"Failed to build context: {ctx_result.error}", cls="text-error text-sm")
                 )
 
-            result = await activity_report.create_snapshot(
+            result = await orchestrator.create_snapshot(
                 context=ctx_result.value,
                 time_period=time_period,
                 domains=domains,
@@ -209,7 +201,7 @@ def create_activity_review_ui_routes(
             )
 
         try:
-            result = await activity_report.submit_report(
+            result = await orchestrator.submit_report(
                 admin_uid=admin_uid,
                 subject_uid=subject_uid,
                 feedback_text=feedback_text,

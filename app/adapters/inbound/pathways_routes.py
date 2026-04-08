@@ -35,7 +35,7 @@ logger = get_logger("skuel.routes.pathways")
 # Configuration for main LP routes
 PATHWAYS_CONFIG = DomainRouteConfig(
     domain_name="pathways",
-    primary_service_attr="lp",  # services.lp
+    primary_service_attr="lp",  # services.lp — API routes use LpService directly
     api_factory=create_pathways_api_routes,
     ui_factory=create_pathways_ui_routes,
     api_related_services={
@@ -43,8 +43,7 @@ PATHWAYS_CONFIG = DomainRouteConfig(
         "user_progress": "user_progress",
     },
     ui_related_services={
-        "user_progress": "user_progress",
-        "ps_service": "ps",
+        "orchestrator": "pathways_orchestrator",
     },
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )

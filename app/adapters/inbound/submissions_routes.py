@@ -95,18 +95,11 @@ def create_submissions_routes(
         logger.info("Progress report + activity report routes registered")
 
     # Extension: activity review UI routes (admin-only)
-    activity_report_svc = getattr(services, "activity_report", None)
-    if activity_report_svc:
+    activity_review_orch = getattr(services, "activity_review_orchestrator", None)
+    if activity_review_orch:
         from adapters.inbound.activity_review_ui import create_activity_review_ui_routes
 
-        ar_routes = create_activity_review_ui_routes(
-            app,
-            rt,
-            activity_report_svc,
-            review_queue=getattr(services, "review_queue", None),
-            user_service=getattr(services, "user_service", None),
-            context_builder=getattr(activity_report_svc, "context_builder", None),
-        )
+        ar_routes = create_activity_review_ui_routes(app, rt, activity_review_orch)
         routes.extend(ar_routes or [])
         logger.info("Activity review UI routes registered")
 
