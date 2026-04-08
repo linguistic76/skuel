@@ -30,6 +30,7 @@ from starlette.datastructures import UploadFile
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.entity_enums import EntityType, ProcessorType
+from core.utils.frontmatter import parse_frontmatter_bytes
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
 from ui.cards import Card, CardBody, CardHeader, CardTitle
@@ -55,21 +56,6 @@ from ui.submissions.sharing import render_sharing_section
 
 logger = get_logger("skuel.routes.submissions")
 
-
-def _parse_md_frontmatter(content: bytes) -> dict[str, Any]:
-    """Parse YAML frontmatter from a Markdown file's bytes.
-
-    Delegates to core/utils/frontmatter.parse_frontmatter for robust
-    YAML parsing. Returns empty dict on malformed/missing frontmatter.
-    """
-    from core.utils.frontmatter import parse_frontmatter
-
-    try:
-        text = content.decode("utf-8", errors="replace")
-    except Exception:  # safety-net: malformed bytes should not crash upload
-        return {}
-    frontmatter, _ = parse_frontmatter(text)
-    return frontmatter
 
 
 # ============================================================================
@@ -200,7 +186,7 @@ def create_submissions_ui_routes(
             # Parse YAML frontmatter from .md files (exercise worksheets)
             frontmatter: dict[str, Any] = {}
             if filename.endswith(".md"):
-                frontmatter = _parse_md_frontmatter(file_content)
+                frontmatter = parse_frontmatter_bytes(file_content)
 
             # exercise_uid: form selector wins; fallback to frontmatter
             raw_exercise_uid = form.get("fulfills_exercise_uid")

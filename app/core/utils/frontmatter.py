@@ -49,7 +49,22 @@ def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
     return frontmatter, body
 
 
+def parse_frontmatter_bytes(content: bytes) -> dict[str, Any]:
+    """Parse YAML frontmatter from raw bytes.
+
+    Decodes bytes to text (replacing errors) then delegates to parse_frontmatter.
+    Returns empty dict on malformed/missing frontmatter.
+    """
+    try:
+        text = content.decode("utf-8", errors="replace")
+    except Exception:  # safety-net: malformed bytes should not crash upload
+        return {}
+    frontmatter, _ = parse_frontmatter(text)
+    return frontmatter
+
+
 __all__ = [
     "parse_frontmatter",
+    "parse_frontmatter_bytes",
     "split_frontmatter",
 ]
