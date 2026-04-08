@@ -2435,6 +2435,9 @@
                         edges: new vis.DataSet(styledEdges)
                     };
 
+                    var skel = container.querySelector('#explore-graph-skeleton');
+                    if (skel) skel.remove();
+
                     this.network = new vis.Network(container, visData, options);
                     this._visNodes = visData.nodes;
                     this._visEdges = visData.edges;

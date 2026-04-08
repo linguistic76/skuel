@@ -30,6 +30,7 @@ from fasthtml.common import Div, Input, Span
 
 from ui.buttons import Button, ButtonT
 from ui.layout import Size
+from ui.patterns.skeleton import SkeletonLines
 
 
 def TreeView(
@@ -77,8 +78,7 @@ def TreeView(
             # Initial loading state - will be replaced by HTMX
             # Note: parent_depth=-1 so root nodes render at depth 0
             Div(
-                Span("Loading...", cls="text-muted-foreground text-sm italic"),
-                cls="px-2 py-1",
+                SkeletonLines(count=3),
                 hx_get=f"{children_endpoint.replace('{uid}', root_uid)}?parent_depth=-1",
                 hx_trigger="load",
                 hx_swap="outerHTML",

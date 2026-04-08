@@ -22,6 +22,7 @@ from ui.feedback import Badge, BadgeT
 from ui.forms import Label, LabelInput, LabelSelect, Select
 from ui.layout import Size
 from ui.patterns.modal import AlpineModal
+from ui.patterns.skeleton import SkeletonLines
 
 
 def render_visibility_dropdown(submission: Any) -> Any:
@@ -147,7 +148,7 @@ def render_shared_users_list(report_uid: str) -> Any:
     return Div(
         H4("Shared With", cls="font-bold mb-2"),
         Div(
-            P("Loading shared users...", cls="text-muted-foreground text-sm"),
+            SkeletonLines(count=2),
             id="shared-users-list",
             hx_get=f"/gradebook/{report_uid}/shared-users",
             hx_trigger="load",

@@ -16,6 +16,7 @@ from ui.forms import Textarea
 from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.sidebar import SidebarItem
+from ui.patterns.skeleton import SkeletonLines
 from ui.teaching.badges import entity_type_badge
 from ui.teaching.types import (
     NEEDS_REVIEW_STATUSES,
@@ -362,10 +363,7 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
     )
 
     panel = Div(
-        Div(
-            Span("Loading…", cls="text-sm text-muted-foreground"),
-            cls="py-4",
-        ),
+        SkeletonLines(count=3),
         id=f"panel-{dom_id}",
         **{"x-show": "open"},
     )

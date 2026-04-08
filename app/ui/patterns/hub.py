@@ -18,6 +18,7 @@ from monsterui.franken import UkIcon
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from ui.buttons import ButtonLink, ButtonT
 from ui.layout import Size
+from ui.patterns.skeleton import SkeletonList
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -215,7 +216,7 @@ def HubDomainBlock(block: HubBlockData) -> Div:
         ),
         # HTMX lazy-loaded card content — self-loading when preview_url set, OOB target otherwise
         Div(
-            P("Loading...", cls="text-center text-muted-foreground py-4"),
+            SkeletonList(count=3),
             id=f"hub-panel-{block.slug}",
             **(
                 {

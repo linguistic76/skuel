@@ -240,9 +240,72 @@ def SkeletonDomainView() -> Div:
     )
 
 
+def SkeletonTimeline() -> Div:
+    """Skeleton for Vis.js Timeline loading state — mimics a Gantt chart layout.
+
+    Renders a date-axis bar at the top followed by labelled rows of shimmer
+    timeline items.  Designed to fill its parent container (``h-full``) so it
+    occupies the full ``h-[70vh]`` timeline box while data loads.
+
+    Returns:
+        A full-height div with animate-pulse axis + row bars.
+    """
+    _widths = ["w-1/3", "w-1/4", "w-2/5", "w-1/3", "w-1/5", "w-2/5", "w-1/4"]
+    _offsets = ["ml-0", "ml-8", "ml-16", "ml-4", "ml-20", "ml-12", "ml-6"]
+    _widths2: list[str | None] = [None, "w-1/5", None, "w-1/4", None, "w-1/5", "w-1/6"]
+    _offsets2: list[str | None] = [None, "ml-4", None, "ml-2", None, "ml-6", "ml-8"]
+
+    rows = []
+    for i in range(7):
+        bar_items: list[Div] = [
+            Div(cls=f"h-5 bg-muted rounded {_widths[i]} {_offsets[i]} animate-pulse")
+        ]
+        if _widths2[i]:
+            bar_items.append(
+                Div(cls=f"h-5 bg-muted rounded {_widths2[i]} {_offsets2[i]} animate-pulse")
+            )
+        rows.append(
+            Div(
+                Div(cls="w-24 h-4 bg-muted rounded animate-pulse flex-shrink-0"),
+                Div(*bar_items, cls="flex-1 flex items-center gap-2"),
+                cls="flex items-center gap-4 py-2 border-b border-border/30",
+            )
+        )
+
+    return Div(
+        Div(
+            Div(cls="h-6 bg-muted rounded animate-pulse w-full"),
+            cls="border-b border-border/40 pb-2 mb-2",
+        ),
+        Div(*rows, cls="space-y-1"),
+        cls="w-full h-full p-4 overflow-hidden",
+    )
+
+
+def SkeletonLines(count: int = 3) -> Div:
+    """Skeleton for lightweight inline loading states (panels, lists, tree nodes).
+
+    Args:
+        count: Number of shimmer lines to render (default 3).
+
+    Returns:
+        A div with ``count`` animate-pulse bars at staggered widths.
+    """
+    widths = ["w-3/4", "w-full", "w-5/6", "w-2/3", "w-4/5"]
+    return Div(
+        *[
+            Div(cls=f"h-4 bg-muted rounded {widths[i % len(widths)]} animate-pulse")
+            for i in range(count)
+        ],
+        cls="space-y-2 py-2",
+    )
+
+
 __all__ = [
     "SkeletonCard",
     "SkeletonList",
+    "SkeletonTimeline",
+    "SkeletonLines",
     "SkeletonStats",
     "SkeletonTable",
     "SkeletonSidebarItem",

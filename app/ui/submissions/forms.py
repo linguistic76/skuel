@@ -22,6 +22,7 @@ from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
+from ui.patterns.skeleton import SkeletonList
 
 
 def render_upload_form(
@@ -198,7 +199,7 @@ def render_filters_section() -> Any:
 def render_submissions_grid_container() -> Any:
     """Render the HTMX-loading reports grid container."""
     return Div(
-        P("Loading submissions...", cls="text-center text-muted-foreground"),
+        SkeletonList(count=4),
         id="submissions-grid-container",
         cls="mt-4",
         hx_get="/grid",
@@ -210,7 +211,7 @@ def render_submissions_grid_container() -> Any:
 def render_yours_list_container() -> Any:
     """HTMX-loading container for the submissions history list."""
     return Div(
-        P("Loading your submissions...", cls="text-center text-muted-foreground"),
+        SkeletonList(count=3),
         id="submissions-yours-list",
         cls="mt-4",
         hx_get="/gradebook/list",
