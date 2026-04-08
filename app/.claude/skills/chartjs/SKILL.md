@@ -10,12 +10,13 @@ allowed-tools: Read, Grep, Glob
 
 > "Data becomes insight through visualization. Charts tell the story that numbers cannot."
 
-In SKUEL, Chart.js visualizes the 6 activity domains (Tasks, Goals, Habits, Events, Choices, Principles) through a clean four-layer architecture:
+In SKUEL, Chart.js visualizes the 6 activity domains (Tasks, Goals, Habits, Events, Choices, Principles) through a clean five-layer architecture:
 
 | Layer | Responsibility | Component |
 |-------|----------------|-----------|
 | **Data** | Fetch domain metrics | Domain services (TasksService, etc.) |
-| **Transform** | Format for Chart.js JSON | `VisualizationService` |
+| **Aggregate** | Query + compute per-period counts | `VisualizationAggregationService` |
+| **Format** | Transform aggregates to Chart.js JSON | `VisualizationService` (pure, no domain deps) |
 | **Render** | Alpine component loads chart | `chartVis()` in skuel.js |
 | **Container** | FastHTML generates HTML | `create_chart_view()` |
 
@@ -72,7 +73,8 @@ def habit_dashboard():
 | File | Purpose |
 |------|---------|
 | `/static/js/skuel.js` | `chartVis()` Alpine component (lines 514-571) |
-| `/core/services/visualization_service.py` | Data transformation to Chart.js JSON (canonical; `ui/visualization/` re-exports) |
+| `/core/services/analytics/visualization_aggregation_service.py` | Data fetching + aggregation (owns domain service deps); delegates formatting |
+| `/core/services/visualization_service.py` | Pure Chart.js/Vis.js/Gantt formatter (no domain deps; `ui/visualization/` re-exports) |
 | `/ui/goals/visualization.py` | FastHTML component wrappers |
 | `/adapters/inbound/visualization_routes.py` | API endpoints returning Chart.js configs |
 | `/static/vendor/chart.js/` | Chart.js library (local vendor) |
@@ -110,14 +112,25 @@ Alpine.data('chartVis', function(dataUrl, chartType) {
 </div>
 ```
 
-### VisualizationService Methods
+### Service Methods
+
+**VisualizationAggregationService** — route-facing, owns domain service deps:
+
+| Method | Returns | Data Source |
+|--------|---------|-------------|
+| `get_completion_chart_data(user_uid, period)` | Chart.js config | TasksService |
+| `get_priority_distribution_chart_data(user_uid)` | Chart.js config | TasksService |
+| `get_streak_chart_data(user_uid)` | Chart.js config | HabitsService |
+| `get_status_distribution_chart_data(user_uid)` | Chart.js config | TasksService |
+
+**VisualizationService** — pure formatter, no domain deps (call directly with pre-fetched data):
 
 | Method | Returns | Use Case |
 |--------|---------|----------|
-| `format_completion_chart()` | Line/bar config | Completion rates over time |
-| `format_distribution_chart()` | Pie/doughnut/bar config | Category distributions |
-| `format_trend_chart()` | Multi-series line config | Trend comparisons |
-| `format_streak_chart()` | Horizontal bar config | Habit streaks |
+| `format_completion_chart(completed, total, labels)` | Line/bar config | Completion rates over time |
+| `format_distribution_chart(data, title, chart_type)` | Pie/doughnut/bar config | Category distributions |
+| `format_trend_chart(series, labels, title)` | Multi-series line config | Trend comparisons |
+| `format_streak_chart(streaks)` | Horizontal bar config | Habit streaks |
 
 ### API Endpoints
 
@@ -356,5 +369,6 @@ SKUEL also includes:
 
 ## See Also
 
-- `/core/services/visualization_service.py` - VisualizationService source (canonical)
+- `/core/services/analytics/visualization_aggregation_service.py` - VisualizationAggregationService (data fetching + aggregation)
+- `/core/services/visualization_service.py` - VisualizationService (pure formatter)
 - Chart.js Docs: https://www.chartjs.org/docs/

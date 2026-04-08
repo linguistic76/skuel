@@ -103,7 +103,7 @@ Standalone services without subfolders.
 | **Content** | `conversion_service.py`, `content_enrichment_service.py` |
 | **User Secondary** | `user_progress_service.py`, `user_relationship_service.py` |
 | **System** | `system_service.py`, `schema_service.py`, `performance_optimization_service.py` |
-| **Visualization** | `core/services/visualization_service.py` — `ui/visualization/` re-exports for backward compat |
+| **Visualization** | `core/services/visualization_service.py` (pure formatter — no domain deps) + `core/services/analytics/visualization_aggregation_service.py` (data fetching + aggregation — delegates formatting to VisualizationService) |
 | **Config/Helpers** | `domain_config.py`, `query_builder.py`, `entity_timestamp_mixin.py`, `context_first_mixin.py` |
 
 ---

@@ -69,7 +69,7 @@ def priority_distribution_chart(user_uid: UserUID):
     )
 ```
 
-**Colors (from VisualizationService):**
+**Colors (from `SemanticColor` palette, applied by VisualizationService):**
 - Critical: `#EF4444` (red)
 - High: `#F59E0B` (amber)
 - Medium: `#3B82F6` (blue)
@@ -487,7 +487,7 @@ async def get_new_metric(request: Request):
     if result.is_error:
         return JSONResponse({"error": result.error}, status_code=500)
 
-    # Use VisualizationService to format
+    # Use VisualizationService (pure formatter) to transform pre-fetched data
     chart_result = vis_service.format_distribution_chart(
         result.value,
         "Metric Title",
@@ -526,4 +526,5 @@ def domain_dashboard(user_uid: UserUID):
 - [SKILL.md](SKILL.md) - Main Chart.js guide
 - [chart-types-reference.md](chart-types-reference.md) - Chart type catalog
 - [fasthtml-patterns.md](fasthtml-patterns.md) - Python integration
-- `/ui/visualization/visualization_service.py` - Data transformation
+- `/core/services/analytics/visualization_aggregation_service.py` - Data fetching + aggregation
+- `/core/services/visualization_service.py` - Pure formatter (Chart.js JSON adapters)
