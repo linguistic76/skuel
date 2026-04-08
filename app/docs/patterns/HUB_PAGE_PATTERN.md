@@ -299,7 +299,7 @@ Each block loads 3 preview cards via HTMX from its `preview_url`. Preview endpoi
 - Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
 - Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`, wired via `library_routes.py`)
 - GradeBook: `/api/gradebook/{section}/preview` (4 sections, split across `submissions_ui.py`, `exercise_reports_ui.py`, `activity_reports_ui.py`)
-- Submissions: `/api/submissions/{section}/preview` (3 sections: upload, submit, history — in `workbench_routes.py`)
+- Submissions: `/api/submissions/{section}/preview` (3 sections: upload, submit, history — in `submissions_hub_routes.py`)
 - Student hub: `/api/teaching/students/{uid}/submissions/preview` (OOB — 3 buckets in one call) + `/api/teaching/students/{uid}/ku/preview` (independent — in `teaching_ui.py`)
 
 ## Usage: Graph-Driven Hub Page
@@ -340,7 +340,7 @@ section = HubSection("Contents", cards)
 | Library sidebar | `ui/library/nav.py` |
 | Submissions hub view | `ui/workbench/hub.py` |
 | Submissions sidebar | `ui/workbench/nav.py` |
-| Submissions routes | `adapters/inbound/workbench_routes.py` |
+| Submissions routes | `adapters/inbound/submissions_hub_routes.py` |
 | Teaching hub view | `ui/teaching/hub.py` |
 | Teaching sidebar | `ui/teaching/nav.py` |
 | Student hub view | `ui/teaching/student_hub.py` |
