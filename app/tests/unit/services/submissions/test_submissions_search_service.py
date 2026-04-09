@@ -191,19 +191,33 @@ class TestListReportsByDateRange:
 
         assert backend.find_by.call_args.kwargs["limit"] == 25
 
-    async def test_entity_type_override(
+    async def test_rejects_non_submission_entity_type(
         self, service: SubmissionsSearchService, backend: AsyncMock
     ) -> None:
-        backend.find_by.return_value = Result.ok([])
-
-        await service.list_reports_by_date_range(
+        """Whitelist guard: ACTIVITY_REPORT is not a submission type and must
+        not reach the backend — silent cross-domain bleed would return foreign
+        rows typed as SubmissionEntity to callers."""
+        result = await service.list_reports_by_date_range(
             user_uid="user_1",
             start_date=date(2026, 4, 1),
             end_date=date(2026, 4, 7),
             entity_type=EntityType.ACTIVITY_REPORT,
         )
 
-        assert backend.find_by.call_args.kwargs["entity_type"] == EntityType.ACTIVITY_REPORT.value
+        assert result.is_error
+        backend.find_by.assert_not_called()
+
+    async def test_inverted_range_returns_validation_error(
+        self, service: SubmissionsSearchService, backend: AsyncMock
+    ) -> None:
+        result = await service.list_reports_by_date_range(
+            user_uid="user_1",
+            start_date=date(2026, 4, 10),
+            end_date=date(2026, 4, 1),
+        )
+
+        assert result.is_error
+        backend.find_by.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +234,36 @@ class TestSearchSubmissions:
         assert result.is_ok
         assert result.value == []
         backend.execute_query.assert_not_called()
+
+    async def test_whitespace_only_query_short_circuits(
+        self, service: SubmissionsSearchService, backend: AsyncMock
+    ) -> None:
+        """Regression: bare `if not query:` would let `"   "` through and
+        trigger a full CONTAINS scan across every submission."""
+        result = await service.search_submissions(user_uid="user_1", query="   ")
+
+        assert result.is_ok
+        assert result.value == []
+        backend.execute_query.assert_not_called()
+
+    async def test_single_char_query_short_circuits(
+        self, service: SubmissionsSearchService, backend: AsyncMock
+    ) -> None:
+        result = await service.search_submissions(user_uid="user_1", query="a")
+
+        assert result.is_ok
+        assert result.value == []
+        backend.execute_query.assert_not_called()
+
+    async def test_clamps_oversized_limit(
+        self, service: SubmissionsSearchService, backend: AsyncMock
+    ) -> None:
+        backend.execute_query.return_value = Result.ok([])
+
+        await service.search_submissions(user_uid="user_1", query="Fractions", limit=10_000_000)
+
+        _, params = backend.execute_query.call_args.args
+        assert params["limit"] == 10_000
 
     async def test_cypher_uses_case_insensitive_contains(
         self, service: SubmissionsSearchService, backend: AsyncMock
@@ -299,16 +343,24 @@ class TestGetRecentSubmissions:
         assert kwargs["sort_order"] == "desc"
         assert kwargs["sort_by"] == "created_at"
 
-    async def test_explicit_entity_type_override(
+    async def test_rejects_non_submission_entity_type(
+        self, service: SubmissionsSearchService, backend: AsyncMock
+    ) -> None:
+        result = await service.get_recent_submissions(
+            user_uid="user_1", entity_type=EntityType.ACTIVITY_REPORT
+        )
+
+        assert result.is_error
+        backend.find_by.assert_not_called()
+
+    async def test_clamps_oversized_limit(
         self, service: SubmissionsSearchService, backend: AsyncMock
     ) -> None:
         backend.find_by.return_value = Result.ok([])
 
-        await service.get_recent_submissions(
-            user_uid="user_1", entity_type=EntityType.ACTIVITY_REPORT
-        )
+        await service.get_recent_submissions(user_uid="user_1", limit=10_000_000)
 
-        assert backend.find_by.call_args.kwargs["entity_type"] == EntityType.ACTIVITY_REPORT.value
+        assert backend.find_by.call_args.kwargs["limit"] == 10_000
 
     async def test_returns_entities(
         self, service: SubmissionsSearchService, backend: AsyncMock

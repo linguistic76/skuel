@@ -16,6 +16,15 @@ Python. The backend label is `:Entity`, so every query must carry an explicit
 `entity_type = $submission_type` predicate or it will scan all user-owned
 entities.
 
+Timestamp invariant
+-------------------
+`Entity.created_at` defaults to `datetime.now()` (naive local) and is
+serialized via `.isoformat()` with no tz suffix. This service builds its
+date-boundary bounds the same way so ISO-string comparisons stay consistent.
+If the storage invariant ever changes to tz-aware, every `datetime.combine(...)
+.isoformat()` call here must be updated in lockstep — string comparison across
+a tz-aware and a naive value is silently broken at day boundaries.
+
 Methods like `get_reports_by_mood`/`get_reports_by_category` that used to live
 here were removed when the journal domain was extracted — `metadata.mood` and
 `metadata.category` belong to JeInput/JeOutput now, not ExerciseSubmission.
@@ -39,9 +48,15 @@ from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import from_neo4j_node
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.services.submissions_search")
+
+# Hard ceiling for caller-supplied `limit` values. A misconfigured caller
+# passing an unbounded limit would otherwise drag the user's entire submission
+# history through the driver. QueryLimit.MAXIMUM (10_000) is the project-wide
+# "admin only" bound and is well above any legitimate UI use case.
+_MAX_LIMIT = QueryLimit.MAXIMUM
 
 
 class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
@@ -116,14 +131,33 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     # SUBMISSION QUERIES
     # ========================================================================
 
+    # Entity types this service is allowed to query. FORM_SUBMISSION is a
+    # distinct domain (FormSubmissionService) and must not be reachable via
+    # an `entity_type=` override — a silent cross-domain bleed would return
+    # foreign rows typed as `SubmissionEntity` to the caller.
+    _ALLOWED_SUBMISSION_TYPES: ClassVar[frozenset[EntityType]] = frozenset(
+        {EntityType.EXERCISE_SUBMISSION}
+    )
+
     def _resolve_submission_type(self, entity_type: EntityType | None) -> str:
         """Return the Cypher-facing entity_type string.
 
         Defaults to EXERCISE_SUBMISSION (the only concrete leaf in today's
         SubmissionEntity union). Never inline entity-type literals into queries
         — SKUEL014 — keep the enum as the single source of truth.
+
+        Raises:
+            ValueError: if the caller passes an EntityType that is not a
+                submission type (e.g. TASK, GOAL, FORM_SUBMISSION). Caught by
+                ``@with_error_handling`` and returned as a validation Result.
         """
-        return (entity_type or EntityType.EXERCISE_SUBMISSION).value
+        resolved = entity_type or EntityType.EXERCISE_SUBMISSION
+        if resolved not in self._ALLOWED_SUBMISSION_TYPES:
+            raise ValueError(
+                f"entity_type={resolved.value!r} is not a submission type. "
+                f"Allowed: {sorted(t.value for t in self._ALLOWED_SUBMISSION_TYPES)}"
+            )
+        return resolved.value
 
     @with_error_handling("get_report_for_date")
     async def get_report_for_date(
@@ -190,6 +224,17 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing submissions newest-first.
         """
+        if start_date > end_date:
+            return Result.fail(
+                Errors.validation(
+                    message=f"start_date ({start_date}) must be <= end_date ({end_date})",
+                    field="start_date",
+                    value=start_date.isoformat(),
+                )
+            )
+
+        limit = max(1, min(limit, _MAX_LIMIT))
+
         start_iso = datetime.combine(start_date, time.min).isoformat()
         end_iso = datetime.combine(end_date + timedelta(days=1), time.min).isoformat()
 
@@ -230,8 +275,14 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing matching submissions newest-first.
         """
-        if not query:
+        # Reject empty, whitespace-only, and single-char queries. A bare
+        # `if not query:` would let `"   "` through and trigger a full
+        # CONTAINS scan across every submission.
+        query = (query or "").strip()
+        if len(query) < 2:
             return Result.ok([])
+
+        limit = max(1, min(limit, _MAX_LIMIT))
 
         cypher = f"""
         MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
@@ -385,13 +436,27 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         total_words = sum(_word_count(k) for k in reports)
         average_words = round(total_words / total_reports, 1)
 
-        report_dates = sorted(k.created_at.date() for k in reports)
+        # Defensive: driver quirks / migration artifacts can leave `created_at`
+        # as a string. Skip (and log) rather than 500 the whole stats call.
+        dated_reports: list[tuple[datetime, Entity]] = []
+        for k in reports:
+            ts = k.created_at
+            if not isinstance(ts, datetime):
+                self.logger.warning(
+                    "submissions_search.stats_skip_non_datetime",
+                    uid=getattr(k, "uid", None),
+                    created_at_type=type(ts).__name__,
+                )
+                continue
+            dated_reports.append((ts, k))
+
+        report_dates = sorted(ts.date() for ts, _ in dated_reports)
         longest_streak = self._calculate_longest_streak(report_dates)
         current_streak = self._calculate_current_streak(report_dates)
 
         day_of_week_counts: dict[str, int] = {}
-        for k in reports:
-            day_name = k.created_at.strftime("%A")
+        for ts, _ in dated_reports:
+            day_name = ts.strftime("%A")
             day_of_week_counts[day_name] = day_of_week_counts.get(day_name, 0) + 1
 
         type_counts: dict[str, int] = {}
@@ -435,12 +500,18 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
 
         return longest
 
-    def _calculate_current_streak(self, dates: list[date]) -> int:
-        """Calculate current consecutive day streak ending today."""
+    def _calculate_current_streak(self, dates: list[date], today: date | None = None) -> int:
+        """Calculate current consecutive day streak ending today.
+
+        Args:
+            dates: Sorted list of submission dates.
+            today: Reference "today" date. Defaults to ``date.today()`` (local
+                tz). Injectable for tests and for callers in non-local tz.
+        """
         if not dates:
             return 0
 
-        today = date.today()
+        today = today or date.today()
         yesterday = today - timedelta(days=1)
 
         last_date = dates[-1]
@@ -483,6 +554,8 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing submissions newest-first.
         """
+        limit = max(1, min(limit, _MAX_LIMIT))
+
         result = await self.backend.find_by(
             user_uid=user_uid,
             entity_type=self._resolve_submission_type(entity_type),
