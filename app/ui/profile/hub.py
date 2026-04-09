@@ -23,6 +23,10 @@ def ProfileHubView(context: UserContext) -> Div:
     """Profile hub — personal overview with Activity Domains inline."""
     return Div(
         ActivityHubView(),
+        _knowledge_section(context),
+        _path_steps_section(context),
+        _exercises_section(context),
+        _reports_section(),
     )
 
 

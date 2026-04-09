@@ -168,6 +168,32 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             raise ValueError(f"Failed to load context for user: {user_uid}")
         return context_result.value
 
+    @rt("/profile")
+    async def profile_hub(request: Request) -> Any:
+        """Profile hub — Activity Domains + Knowledge + Path Steps + Exercises + Reports."""
+        user_uid = require_authenticated_user(request)
+        try:
+            context = await _get_context(user_uid)
+        except ValueError:
+            return await error_page(
+                "Unable to load your profile. Please try again.",
+                500,
+                request=request,
+            )
+
+        from ui.patterns.personal_header import personal_header
+        from ui.profile.hub import ProfileHubView
+
+        return await BasePage(
+            content=Div(
+                personal_header(context),
+                ProfileHubView(context),
+            ),
+            title="Profile",
+            request=request,
+            active_page="activity",
+        )
+
     @rt("/api/profile/{slug}/preview")
     async def domain_card_preview(request: Request, slug: str) -> Any:
         """
