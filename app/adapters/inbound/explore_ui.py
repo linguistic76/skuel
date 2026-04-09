@@ -136,13 +136,15 @@ def create_explore_ui_routes(
     @rt("/explore")
     async def explore_index(request: Request) -> Any:
         """Explore page — shell renders immediately, content loads via HTMX."""
+        user_uid = require_authenticated_user(request) if is_authenticated(request) else None
+        sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
         content = Div(
             PageHeader("Explore", subtitle="Discover knowledge units and path steps"),
             content_loading_placeholder("/explore/content", "explore-content"),
         )
         return await render_explore_sidebar_page(
             content=content,
-            sidebar_data=None,
+            sidebar_data=sidebar_data,
             request=request,
         )
 
@@ -194,10 +196,12 @@ def create_explore_ui_routes(
     @rt("/explore/ku/{uid}")
     async def explore_ku_detail(request: Request, uid: str) -> Any:
         """Ku detail page — shell renders immediately, content loads via HTMX."""
+        user_uid = get_current_user(request)
+        sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
         content = content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content")
         return await render_explore_sidebar_page(
             content=content,
-            sidebar_data=None,
+            sidebar_data=sidebar_data,
             request=request,
             current_uid=uid,
             current_entity_type="ku",
@@ -251,10 +255,12 @@ def create_explore_ui_routes(
     @rt("/explore/ps/{uid}")
     async def explore_ps_detail(request: Request, uid: str) -> Any:
         """PathStep detail page — shell renders immediately, content loads via HTMX."""
+        user_uid = get_current_user(request)
+        sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
         content = content_loading_placeholder(f"/explore/ps/{uid}/content", "ps-detail-content")
         return await render_explore_sidebar_page(
             content=content,
-            sidebar_data=None,
+            sidebar_data=sidebar_data,
             request=request,
             current_uid=uid,
             current_entity_type="ps",
