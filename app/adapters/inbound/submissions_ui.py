@@ -8,7 +8,6 @@ Submission listing moved to Submissions (/submissions/history) — see submissio
 Routes:
 - GET /submit — File upload form (Submissions sidebar)
 - GET /gradebook — Hub page (no sidebar, container navigation)
-- GET /gradebook/mysubmissions — 301 redirect to /submissions/history
 - GET /gradebook/{uid} — Submission detail page
 - HTMX fragments: /upload, /grid,
   /gradebook/{uid}/{info,content,report,exercise,category-selector,tags-manager,shared-users}
@@ -151,13 +150,6 @@ def create_submissions_ui_routes(
             request=request,
             active_page="gradebook",
         )
-
-    @rt("/gradebook/mysubmissions")
-    async def gradebook_mysubmissions_redirect(request: Request) -> Any:
-        """301 redirect — submissions list moved to Submissions."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse("/submissions/history", status_code=301)
 
     # ========================================================================
     # HTMX ENDPOINTS

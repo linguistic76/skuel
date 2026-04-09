@@ -11,18 +11,11 @@ Routes:
 - GET /submissions/history — submission history page
 - GET /submissions/history/list — HTMX fragment: refresh submissions list
 - POST /submissions/history/delete — HTMX: delete a user-owned submission
-
-Legacy redirects:
-- GET /workbench → 301 /submissions
-- GET /workbench/history → 301 /submissions/history
-- GET /workbench/settings → 301 /settings
 """
 
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, Span
-from starlette.responses import RedirectResponse
-
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.models.enums.entity_enums import EntityType
@@ -196,25 +189,6 @@ def create_submissions_hub_routes(
 
         # Return empty div — HTMX outerHTML swap removes the row
         return Div()
-
-    # ========================================================================
-    # LEGACY REDIRECTS
-    # ========================================================================
-
-    @rt("/workbench")
-    async def workbench_redirect(request: Request) -> RedirectResponse:
-        """301 redirect: /workbench → /submissions."""
-        return RedirectResponse("/submissions", status_code=301)
-
-    @rt("/workbench/history")
-    async def workbench_history_redirect(request: Request) -> RedirectResponse:
-        """301 redirect: /workbench/history → /submissions/history."""
-        return RedirectResponse("/submissions/history", status_code=301)
-
-    @rt("/workbench/settings")
-    async def workbench_settings_redirect(request: Request) -> RedirectResponse:
-        """301 redirect: /workbench/settings → /settings."""
-        return RedirectResponse("/settings", status_code=301)
 
     logger.info("Submissions hub routes registered")
 

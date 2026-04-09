@@ -145,17 +145,6 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         raise RuntimeError("ProfileOrchestrator is required for profile routes")
 
     # ========================================================================
-    # SETTINGS REDIRECT — moved to /settings (2026-04-06)
-    # ========================================================================
-
-    @rt("/profile/settings")
-    async def profile_settings_redirect(request: Request) -> Any:
-        """301 redirect: settings moved to /settings."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/settings", status_code=301)
-
-    # ========================================================================
     # PROFILE HUB ROUTES - Sidebar Navigation with Domain Views
     # ========================================================================
 
@@ -178,13 +167,6 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         if context_result.is_error:
             raise ValueError(f"Failed to load context for user: {user_uid}")
         return context_result.value
-
-    @rt("/profile")
-    async def profile_redirect(request: Request) -> Any:
-        """301 redirect: profile moved to /tasks."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/tasks", status_code=301)
 
     @rt("/api/profile/{slug}/preview")
     async def domain_card_preview(request: Request, slug: str) -> Any:

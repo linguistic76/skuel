@@ -7,8 +7,6 @@ Teacher-facing pages for the teaching workflow:
 - Review queue + review detail
 - Groups management
 
-/teaching redirects to /teaching/students (hub removed 2026-04-03).
-
 All data access goes through TeacherOrchestrator — the routing layer
 only handles HTTP concerns (auth, request parsing, template rendering).
 
@@ -114,18 +112,6 @@ def create_teaching_ui_routes(
             [submission_row_from_dict(d) for d in raw_completed],
             student_name,
         )
-
-    # ------------------------------------------------------------------
-    # TEACHING ROOT — redirect to students list
-    # ------------------------------------------------------------------
-
-    @rt("/teaching")
-    @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_root_redirect(request: Request, current_user: Any = None) -> Any:
-        """Redirect /teaching → /teaching/students (hub removed)."""
-        from starlette.responses import RedirectResponse
-
-        return RedirectResponse(url="/teaching/students", status_code=301)
 
     # ------------------------------------------------------------------
     # REVIEW QUEUE

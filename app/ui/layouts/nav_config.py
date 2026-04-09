@@ -79,15 +79,6 @@ ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
 )
 
 
-# Curriculum domain dropdown items — SHELVED (2026-03-29)
-# Curriculum sidebar removed; pages accessible via /profile hub cards
-CURRICULUM_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
-
-# Study workspace dropdown items — SHELVED (2026-03-29)
-# Study sidebar removed; pages accessible via /profile hub cards
-STUDY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = ()
-
-
 # Icon navigation items — rendered as circular icon buttons in the left navbar section
 # requires_auth=False → visible to unauthenticated users (ContentScope.SHARED pages)
 # requires_auth=True  → visible only when authenticated (ContentScope.USER_OWNED pages)
@@ -124,11 +115,9 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
 
 __all__ = [
     "ACTIVITY_DROPDOWN_ITEMS",
-    "CURRICULUM_DROPDOWN_ITEMS",
     "DropdownItem",
     "ICON_NAV_ITEMS",
     "IconNavItem",
     "MAIN_NAV_ITEMS",
     "NavItem",
-    "STUDY_DROPDOWN_ITEMS",
 ]
