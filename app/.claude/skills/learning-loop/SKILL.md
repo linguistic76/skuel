@@ -74,7 +74,16 @@ system automatically propagates progress upward: KU mastery → Lesson completio
 PS progress → LP progress. See
 [LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md).
 
-**Learning loop intelligence:** `LearningLoopEventHandlerService` listens to
+**Learning loop intelligence:** The learning loop has two sibling services in
+`core/services/submissions/`:
+
+- **Write side** — `LearningLoopEventHandlerService` (event-driven, fire-and-forget).
+- **Read side** — `LearningLoopQueryService` (Cypher queries that traverse
+  `Interaction`/`Exercise`/`Report` edges). New learning-loop reads land here,
+  not on `SubmissionsSearchService` (which is for generic date/mood/category/text
+  search).
+
+`LearningLoopEventHandlerService` listens to
 `SubmissionCreated`, `ReportSubmitted`, and `SubmissionApproved` to track submission
 iterations (how many attempts per exercise), teacher feedback turnaround (EMA on
 User node), and mastery velocity (quick vs persistent learner). Persists insights
@@ -776,7 +785,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Submission processing** | `SubmissionsProcessingService` | `SubmissionProcessingOperations` | `SubmissionsBackend` | Processing pipeline |
 | **Submission report** | `ExerciseReportService` + `AssessmentService` | `ExerciseReportOperations` | `SubmissionsBackend` | `generate_report` (via `UnifiedLLMCaller`), `create_assessment` |
 | **Journal output** | `JournalOutputService` | `JournalOutputOperations` | `JournalOutputBackend` | `process_je_input`, `generate_output`, `get_je_output`, `cleanup_date_range` (standalone domain — not under submissions) |
-| **Learning Loop Intelligence** | `LearningLoopEventHandlerService` | — | `SubmissionsBackend` | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
+| **Learning Loop Intelligence (write)** | `LearningLoopEventHandlerService` | — | `SubmissionsBackend` | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
+| **Learning Loop Intelligence (read)** | `LearningLoopQueryService` | — | `SubmissionsBackend` | `get_submissions_for_path_step` (Interaction traversal, report status enrichment). New learning-loop reads land here, not on `SubmissionsSearchService` |
 | **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `SubmissionsBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `get_report_history`, `submit_report` (file upload → `report_content` + `report_file_path`), `request_revision` (text notes), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from OWNS exercise_submission — any submitter, no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
 | **Activity Report (scheduled)** | `ProgressReportWorker` | — | — | Background worker; calls `ProgressReportGenerator` on schedule |

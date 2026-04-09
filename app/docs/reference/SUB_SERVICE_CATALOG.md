@@ -352,6 +352,31 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 
 ---
 
+### LearningLoopQueryService
+
+**Domain:** Submissions (learning loop read-side)
+**File:** `learning_loop_query_service.py`
+**Package:** `core/services/submissions/`
+
+**Responsibility:** Read-only queries that traverse the five-phase learning loop graph (Exercise → Submission → Interaction → Report → RevisedExercise). Read-side peer of `LearningLoopEventHandlerService`.
+
+**Rationale:** Keeps generic submission search (`SubmissionsSearchService`) free of Cypher that traverses Interaction/Exercise/Report edges. New learning-loop reads land here.
+
+**Key Methods:**
+- `get_submissions_for_path_step(user_uid, ps_uid)` - Submissions + report status for a PathStep, discovered via Interaction edges. Powers the PathStep detail page's submissions/feedback HTMX fragment.
+
+**Consumers:** `ExploreOrchestrator` (for the PathStep detail page).
+
+**Usage:**
+```python
+from core.services.submissions import LearningLoopQueryService
+
+service = LearningLoopQueryService(submissions_backend=submissions_backend)
+result = await service.get_submissions_for_path_step(user_uid, ps_uid)
+```
+
+---
+
 ### LearningService
 
 **Domains:** Habits, Choices, Goals

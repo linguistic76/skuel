@@ -319,6 +319,8 @@ ActivityKnowledgeIntelligenceService (core/services/knowledge/)
 
 **Learning Loop Intelligence:** `LearningLoopEventHandlerService` follows the same fire-and-forget pattern but is wired directly (not part of a facade). Subscribes to `SubmissionCreated`, `ReportSubmitted`, `SubmissionApproved`. Persists `LEARNING_PROGRESS`, `COMPLETION_PATTERN`, and `MASTERY_ACHIEVED` insights. File: `core/services/submissions/learning_loop_event_handler_service.py`.
 
+Its read-side peer is `LearningLoopQueryService` (file: `core/services/submissions/learning_loop_query_service.py`), which owns Cypher that traverses Interaction/Exercise/Report edges — e.g. `get_submissions_for_path_step()`. Keeping these queries out of `SubmissionsSearchService` means generic submission search stays free of learning-loop shape. New learning-loop reads land in the query service.
+
 ---
 
 ## Sub-Service Communication
@@ -615,11 +617,13 @@ Routes / Application Code
 │   └─ unified_sharing_service.py     (entity-agnostic SHARES_WITH + SHARED_WITH_GROUP)
 │
 ├─ submissions/
-│   ├─ submissions_service.py         (entry point — not a root-level facade)
+│   ├─ submissions_service.py              (entry point — not a root-level facade)
 │   ├─ submissions_core_service.py
-│   ├─ submissions_search_service.py
+│   ├─ submissions_search_service.py       (generic: date, mood, category, text)
 │   ├─ submissions_processing_service.py
 │   ├─ submissions_relationship_service.py
+│   ├─ learning_loop_event_handler_service.py  (event-driven writes)
+│   └─ learning_loop_query_service.py          (read-side: Interaction/Report traversals)
 │
 ├─ journal/
 │   ├─ journal_input_service.py     (JeInput CRUD + file upload — JournalInputOperations)
