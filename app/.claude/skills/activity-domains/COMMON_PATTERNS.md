@@ -176,8 +176,10 @@ class TasksIntelligenceService(BaseAnalyticsService[TasksOperations, Task]):
 
 **Shared knowledge intelligence** (suggestions, prerequisites, learning opportunities) lives in
 `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — wired into all 6 activity
-domain facades as `self.knowledge_intelligence`. Satisfies `KnowledgeIntelligenceOperations`
-protocol (4 methods): `get_knowledge_suggestions()`, `generate_knowledge_from_entities()`,
+domain facades as `self.knowledge_intelligence`. The 4 delegation methods are provided by
+`KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`) — facades inherit it instead of
+copy-pasting the methods. Satisfies `KnowledgeIntelligenceOperations` protocol (4 methods):
+`get_knowledge_suggestions()`, `generate_knowledge_from_entities()`,
 `get_knowledge_prerequisites()`, `get_learning_opportunities()`.
 Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` so `find_by(user_uid=...)` returns
 user-owned activity entities across all domains (shared entities lack `user_uid` and filter out).

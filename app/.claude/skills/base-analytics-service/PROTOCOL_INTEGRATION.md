@@ -20,7 +20,7 @@ from core.ports.intelligence_protocols import (
 
 ### KnowledgeIntelligenceOperations (shared)
 
-Implemented by `ActivityKnowledgeIntelligenceService` — a single instance wired into all 6 activity domain facades via `self.knowledge_intelligence`.
+Implemented by `ActivityKnowledgeIntelligenceService` — a single instance wired into all 6 activity domain facades via `self.knowledge_intelligence`. The 4 delegation methods are provided by `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`).
 
 ```python
 @runtime_checkable

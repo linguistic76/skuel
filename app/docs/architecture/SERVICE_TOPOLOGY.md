@@ -301,7 +301,7 @@ Activity Domain Facades (6 total)
     └─ core, search, alignment, learning, planning, reflection, intelligence, knowledge_intelligence, ai, event_handler
 ```
 
-**Pattern:** All 6 domains share 5 common sub-services (core, search, intelligence, knowledge_intelligence, ai) plus domain-specific services.
+**Pattern:** All 6 domains share 4 common sub-services (core, search, relationships, intelligence) created by factory, plus knowledge_intelligence (shared singleton via `KnowledgeIntelligenceDelegationMixin`) and ai.
 
 **Shared Knowledge Intelligence (singleton):**
 ```
@@ -311,8 +311,10 @@ ActivityKnowledgeIntelligenceService (core/services/knowledge/)
 │   └─ find_by(user_uid=...) returns user-owned activity entities across all domains
 │      (shared entities lack user_uid and naturally filter out)
 ├─ Responsibility: Domain-agnostic knowledge suggestions, prerequisites, learning opportunities
-└─ Methods: get_knowledge_suggestions(), generate_knowledge_from_entities(),
-            get_knowledge_prerequisites(), get_learning_opportunities()
+├─ Methods: get_knowledge_suggestions(), generate_knowledge_from_entities(),
+│           get_knowledge_prerequisites(), get_learning_opportunities()
+└─ Delegation: KnowledgeIntelligenceDelegationMixin (core/services/mixins/)
+               — all 6 facades inherit this mixin instead of repeating delegation methods
 ```
 
 **Learning Loop Intelligence:** `LearningLoopEventHandlerService` follows the same fire-and-forget pattern but is wired directly (not part of a facade). Subscribes to `SubmissionCreated`, `ReportSubmitted`, `SubmissionApproved`. Persists `LEARNING_PROGRESS`, `COMPLETION_PATTERN`, and `MASTERY_ACHIEVED` insights. File: `core/services/submissions/learning_loop_event_handler_service.py`.
@@ -647,44 +649,46 @@ Routes / Application Code
 ### create_common_sub_services() Flow
 
 ```
-TasksService.__init__()
+EventsService.__init__()
     │
     ▼
 create_common_sub_services(
-    domain="tasks",
+    domain="events",
     backend=backend,
     graph_intel=graph_intelligence_service,
     event_bus=event_bus,
+    skip={"core", "intelligence"},  # optional — skip sub-services created manually
 )
     │
     ▼
-ACTIVITY_DOMAIN_CONFIGS["tasks"]  ← Registry lookup
+ACTIVITY_DOMAIN_CONFIGS["events"]  ← Registry lookup
     │
-    ├─ core_class: "TasksCoreService"
-    ├─ search_class: "TasksSearchService"
-    ├─ intelligence_class: "TasksIntelligenceService"
-    └─ relationship_config: TASK_CONFIG
-    │
-    ▼
-Dynamic imports + instantiation
-    │
-    ├─ core = TasksCoreService(backend=backend, ...)
-    ├─ search = TasksSearchService(backend=backend, ...)
-    ├─ intel = TasksIntelligenceService(backend=backend, ...)
-    └─ rels = UnifiedRelationshipService(backend=backend, config=TASKS_CONFIG)
+    ├─ core_class: "EventsCoreService"
+    ├─ search_class: "EventsSearchService"
+    ├─ intelligence_class: "EventsIntelligenceService"
+    └─ relationship_config: EVENTS_CONFIG
     │
     ▼
-CommonSubServices[TasksIntelligenceService]
-    ├─ core: TasksCoreService
-    ├─ search: TasksSearchService
+Dynamic imports + instantiation (skipping names in skip set)
+    │
+    ├─ core = None  (skipped)
+    ├─ search = EventsSearchService(backend=backend, ...)
+    ├─ intel = None  (skipped)
+    └─ rels = UnifiedRelationshipService(backend=backend, config=EVENTS_CONFIG)
+    │
+    ▼
+CommonSubServices[EventsIntelligenceService]
+    ├─ core: None
+    ├─ search: EventsSearchService
     ├─ relationships: UnifiedRelationshipService
-    └─ intelligence: TasksIntelligenceService
+    └─ intelligence: None
 ```
 
 **Benefits:**
 - Eliminates ~80 lines of boilerplate per facade
 - Centralized configuration via `ACTIVITY_DOMAIN_CONFIGS` registry
 - Generic type parameter for intelligence service
+- `skip` parameter avoids constructing sub-services the facade overrides (Tasks skips core+intelligence, Goals skips intelligence)
 
 ---
 
@@ -734,7 +738,7 @@ BaseService._get_config_value("search_fields")
 1. **Mixin Composition** — 7 focused mixins provide 100+ methods to `BaseService`
 2. **Facade Pattern** — 1 facade per domain delegates to 7–14 specialized sub-services
 3. **Explicit Delegation** — Facade services have explicit `async def` delegation methods (not dynamic generation)
-4. **Factory Pattern** — `create_common_sub_services()` creates 4 sub-services from registry + passes through 1 shared singleton (knowledge_intelligence)
+4. **Factory Pattern** — `create_common_sub_services()` creates up to 4 sub-services from registry (with `skip` to omit those created manually); knowledge_intelligence wired via `KnowledgeIntelligenceDelegationMixin`
 5. **Configuration Pattern** — `DomainConfig` dataclass is single source of truth
 6. **Event-Driven** — Domain events published for side effects (analytics, achievements, etc.)
 

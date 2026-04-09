@@ -7,12 +7,13 @@
 ```python
 from typing import Any
 
-class TasksService(BaseService[TasksOperations, Task]):
+class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService[TasksOperations, Task]):
     # Class-level type annotations (for IDE and MyPy)
     core: TasksCoreService
     search: TasksSearchService
     relationships: UnifiedRelationshipService
     intelligence: TasksIntelligenceService
+    # KnowledgeIntelligenceDelegationMixin provides 4 knowledge methods
     # AI sub-services (.ai) restored (2026-03-29). Some analytics sub-services
     # removed as the UI shifted to read-focused pattern.
 
@@ -95,25 +96,41 @@ def create_tasks_api_routes(
 ```python
 from core.services.activity_domain_config import create_common_sub_services
 
-def __init__(self, backend, graph_intelligence_service, event_bus=None):
-    super().__init__(backend, "tasks")
+def __init__(self, backend, graph_intelligence_service, event_bus=None,
+             activity_knowledge_intelligence=None):
+    super().__init__(backend, "events")
 
-    # Create 4 common sub-services + pass through knowledge_intelligence singleton
+    # Create 4 common sub-services via factory
     common = create_common_sub_services(
-        domain="tasks",
+        domain="events",
         backend=backend,
         graph_intel=graph_intelligence_service,
         event_bus=event_bus,
-        knowledge_intelligence=activity_knowledge_intelligence,
     )
     self.core = common.core
     self.search = common.search
     self.relationships = common.relationships
     self.intelligence = common.intelligence
-    self.knowledge_intelligence = common.knowledge_intelligence
+
+    # Knowledge intelligence — shared singleton, assigned directly (mixin provides methods)
+    self.knowledge_intelligence = activity_knowledge_intelligence
 
     # Domain-specific sub-services (manual creation)
-    self.progress = TasksProgressService(backend=backend)
+    self.progress = EventsProgressService(backend=backend, event_bus=event_bus)
+```
+
+The `skip` parameter avoids constructing sub-services the facade replaces manually:
+
+```python
+# Tasks skips core + intelligence (needs domain-specific parameters)
+common = create_common_sub_services(
+    domain="tasks", backend=backend, graph_intel=graph_intel,
+    event_bus=event_bus, skip={"core", "intelligence"},
+)
+self.search = common.search
+self.relationships = common.relationships
+# Then create core/intelligence manually with extra params
+self.core = TasksCoreService(backend=backend, ku_inference_service=ku_inference_service, ...)
 ```
 
 ## Adding New Facade Methods

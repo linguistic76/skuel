@@ -192,7 +192,7 @@ result = await rels.link_to_knowledge(task_uid, ku_uid, knowledge_score_required
 - Entity-level backend (`NeoLabel.ENTITY`) — queries across ALL 6 activity domains
 - `GraphIntelligenceService` (graph traversal)
 
-**Wiring:** Created once in `services_bootstrap.py`, injected into all 6 Activity Domain facades as `self.knowledge_intelligence`. NOT a per-domain instance — one shared singleton. Each facade delegates its 4 knowledge intelligence methods to this service.
+**Wiring:** Created once in `services_bootstrap.py`, injected into all 6 Activity Domain facades as `self.knowledge_intelligence`. NOT a per-domain instance — one shared singleton. The 4 delegation methods are provided by `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`) — facades inherit it instead of repeating the methods.
 
 **Access:** Via any Activity Domain facade — `service.get_knowledge_suggestions(user_uid)`
 
@@ -559,12 +559,12 @@ common = create_common_sub_services(
     backend=backend,
     graph_intel=graph_intelligence_service,
     event_bus=event_bus,
+    skip={"core", "intelligence"},  # optional — skip sub-services created manually
 )
 
-self.core = common.core
 self.search = common.search
 self.relationships = common.relationships
-self.intelligence = common.intelligence
+# core and intelligence created manually when they need domain-specific params
 ```
 
 **When to use:**
@@ -575,6 +575,7 @@ self.intelligence = common.intelligence
 - Eliminates ~80 lines of repetitive init code
 - Consistent sub-service creation
 - Centralized configuration
+- `skip` parameter avoids constructing sub-services the facade overrides
 
 ---
 
@@ -589,7 +590,7 @@ self.intelligence = common.intelligence
 | Choices | 7 | 5 | 2 (learning, event_handler) |
 | Principles | 10 | 5 | 5 (alignment, learning, reflection, planning, event_handler) |
 
-**Common 5:** core, search, relationships, intelligence (created by factory) + knowledge_intelligence (shared singleton)
+**Common 4:** core, search, relationships, intelligence (created by factory). Knowledge intelligence is a shared singleton wired separately via `KnowledgeIntelligenceDelegationMixin`.
 **Most Complex:** Habits (14 sub-services)
 **Simplest:** Choices (7 sub-services)
 

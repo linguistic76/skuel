@@ -592,7 +592,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 **Knowledge Intelligence Extraction + Wiring (2026-03-21):**
 - ✅ `ActivityKnowledgeIntelligenceService` created (`core/services/knowledge/`)
 - ✅ Wired into all 6 Activity Domain facades as `self.knowledge_intelligence` (shared singleton)
-- ✅ Each facade delegates 4 methods: `get_knowledge_suggestions()`, `generate_knowledge_from_entities()`, `get_knowledge_prerequisites()`, `get_learning_opportunities()`
+- ✅ 4 delegation methods provided by `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`) — facades inherit it (April 2026, replaced copy-pasted methods)
 - ✅ Skill vocabulary derived from Ku titles/tags in graph (replaces hardcoded programming keywords)
 - Backend: `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries user-owned activity entities across all domains
 - Type: `BaseAnalyticsService[Any, Entity]`
