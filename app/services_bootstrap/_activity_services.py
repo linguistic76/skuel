@@ -73,6 +73,7 @@ def _create_activity_services(
             backend=habits_backend,
             graph_intelligence_service=graph_intelligence,
             completions_backend=habit_completions_backend,  # REQUIRED - fail-fast
+            cross_domain_query=cross_domain_query,
             event_bus=event_bus,
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,

@@ -34,6 +34,7 @@ from core.models.type_hints import EntityUID, UserUID
 from core.services.cross_domain.cross_domain_types import (
     ActiveTaskCount,
     AlignedEntity,
+    HabitKnowledgeReinforcement,
     KnowledgeApplyingTask,
     PrincipleAlignmentEvidence,
     TasksForKnowledge,
@@ -115,6 +116,31 @@ _COUNT_ACTIVE_TASKS_FOR_GOAL_QUERY = f"""
 MATCH (t:Entity {{entity_type: 'task'}})-[:{RelationshipName.FULFILLS_GOAL.value}]->(g:Entity {{uid: $goal_uid, entity_type: 'goal'}})
 WHERE t.status IN $active_statuses
 RETURN count(t) AS count
+"""
+
+
+# Active habit statuses — habits that should contribute to ZPD knowledge
+# reinforcement signals. ``"pending"`` is a legacy alias that maps to DRAFT
+# via ``EntityStatus._MISSING_`` but is preserved as a literal here so
+# historical rows keep matching (see ``entity_enums.py:631``).
+_HABIT_ACTIVE_STATUSES: list[str] = [
+    EntityStatus.ACTIVE.value,
+    "pending",
+]
+
+
+# Cypher: find every active habit the user owns plus the KUs it reinforces via
+# REINFORCES_KNOWLEDGE. One round-trip; OPTIONAL MATCH preserves habits with
+# no KU links (filtered at the Python boundary).
+_HABIT_KNOWLEDGE_REINFORCEMENT_QUERY = f"""
+MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(h:Entity {{entity_type: 'habit'}})
+WHERE h.status IN $active_statuses
+OPTIONAL MATCH (h)-[:{RelationshipName.REINFORCES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: 'ku'}})
+RETURN h.uid AS habit_uid,
+       h.current_streak AS current_streak,
+       h.success_rate AS success_rate,
+       h.status AS status,
+       collect(ku.uid) AS ku_uids
 """
 
 
@@ -273,3 +299,39 @@ class CrossDomainQueryService:
         rows = result.value or []
         count = int(rows[0]["count"]) if rows else 0
         return Result.ok(ActiveTaskCount(goal_uid=goal_uid, count=count))
+
+    async def get_habit_knowledge_reinforcement(
+        self, user_uid: UserUID
+    ) -> Result[tuple[HabitKnowledgeReinforcement, ...]]:
+        """
+        Fetch every active habit the user owns together with the KUs it
+        reinforces via ``REINFORCES_KNOWLEDGE``.
+
+        One Cypher round-trip. Rows with no reinforcing KUs are dropped at
+        the boundary so callers only see habits that actually contribute to
+        ZPD reinforcement signals. Used by
+        ``HabitsIntelligenceService.get_zpd_knowledge_signals`` to feed
+        ``ZPDService.assess_zone``.
+        """
+        result = await self.executor.execute_query(
+            _HABIT_KNOWLEDGE_REINFORCEMENT_QUERY,
+            {"user_uid": user_uid, "active_statuses": _HABIT_ACTIVE_STATUSES},
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        rows = []
+        for record in result.value or []:
+            ku_uids = tuple(uid for uid in (record.get("ku_uids") or []) if uid)
+            if not ku_uids:
+                continue
+            rows.append(
+                HabitKnowledgeReinforcement(
+                    habit_uid=record["habit_uid"],
+                    current_streak=int(record.get("current_streak") or 0),
+                    success_rate=float(record.get("success_rate") or 0.0),
+                    status=record.get("status") or "",
+                    ku_uids=ku_uids,
+                )
+            )
+        return Result.ok(tuple(rows))

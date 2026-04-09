@@ -52,6 +52,7 @@ def habits_service(
         backend=mock_backend,
         graph_intelligence_service=mock_graph_intel,
         completions_backend=mock_completions_backend,
+        cross_domain_query=AsyncMock(),
         event_bus=None,
     )
     # Replace sub-services with AsyncMocks AFTER construction

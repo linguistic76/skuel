@@ -24,7 +24,6 @@ from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.graph_context import GraphContext
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
-from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 
@@ -48,6 +47,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import HabitsRelationshipOperations
+    from core.services.cross_domain import CrossDomainQueryService
     from core.services.insight.insight_store import InsightStore
 
 
@@ -80,6 +80,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         self,
         backend: HabitsOperations,
         relationship_service: "HabitsRelationshipOperations",
+        cross_domain_query: "CrossDomainQueryService",
         graph_intelligence_service=None,
         insight_store: "InsightStore | None" = None,
     ) -> None:
@@ -101,6 +102,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
         )
+        self.cross_domain_query = cross_domain_query
         self.insight_store = insight_store
 
         # Initialize GraphContextOrchestrator for generic get_with_context pattern
@@ -1000,35 +1002,19 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         See: core/services/zpd/zpd_service.py — ZPDService.assess_zone()
              counts reinforced KUs toward current_zone scoring.
         """
-        # Query all active habits with their REINFORCES_KNOWLEDGE relationships
-        query = f"""
-        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(h:Entity {{entity_type: 'habit'}})
-        WHERE h.status IN ['active', 'pending']
-        OPTIONAL MATCH (h)-[:{RelationshipName.REINFORCES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: 'ku'}})
-        RETURN
-            h.uid AS habit_uid,
-            h.current_streak AS current_streak,
-            h.success_rate AS success_rate,
-            h.status AS status,
-            collect(ku.uid) AS ku_uids
-        """
-
-        result = await self.backend.execute_query(query, {"user_uid": user_uid})
-
-        if result.is_error:
-            return Result.fail(result)
+        # Cross-domain row fetch: habits + their reinforced KUs. Single Cypher,
+        # typed rows — see CrossDomainQueryService.get_habit_knowledge_reinforcement.
+        rows_result = await self.cross_domain_query.get_habit_knowledge_reinforcement(user_uid)
+        if rows_result.is_error:
+            return Result.fail(rows_result)
 
         reinforced_ku_uids: list[str] = []
         reinforcement_strength: dict[str, float] = {}
         at_risk_ku_uids: list[str] = []
 
-        for record in result.value or []:
-            ku_uids = [uid for uid in record.get("ku_uids", []) if uid]
-            if not ku_uids:
-                continue
-
-            current_streak = record.get("current_streak") or 0
-            success_rate = record.get("success_rate") or 0.0
+        for row in rows_result.value or ():
+            current_streak = row.current_streak
+            success_rate = row.success_rate
 
             # Strength: blend streak (cap at 30 days) and success rate
             streak_factor = min(1.0, current_streak / 30.0)
@@ -1038,7 +1024,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             # success rate has dropped below 50%
             is_at_risk = current_streak == 0 or success_rate < 0.5
 
-            for ku_uid in ku_uids:
+            for ku_uid in row.ku_uids:
                 if ku_uid not in reinforced_ku_uids:
                     reinforced_ku_uids.append(ku_uid)
                 # Take max strength if the same KU is reinforced by multiple habits

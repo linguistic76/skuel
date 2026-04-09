@@ -67,3 +67,19 @@ class ActiveTaskCount:
 
     goal_uid: EntityUID
     count: int
+
+
+@dataclass(frozen=True)
+class HabitKnowledgeReinforcement:
+    """One habit's relationship to the KUs it reinforces, raw rows from Neo4j.
+
+    Raw signal rows used by ``HabitsIntelligenceService.get_zpd_knowledge_signals``
+    to compute strength blending + at-risk status. ``ku_uids`` is always non-empty
+    at the boundary — rows with no reinforcing KU are dropped upstream.
+    """
+
+    habit_uid: EntityUID
+    current_streak: int
+    success_rate: float
+    status: str
+    ku_uids: tuple[EntityUID, ...]

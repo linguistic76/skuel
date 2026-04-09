@@ -83,6 +83,7 @@ def _make_intelligence_service(backend=None, relationships=None):
     return HabitsIntelligenceService(
         backend=backend,
         relationship_service=relationships,
+        cross_domain_query=AsyncMock(),
     )
 
 

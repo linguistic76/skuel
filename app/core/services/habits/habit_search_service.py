@@ -56,7 +56,6 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
     Habit-Specific Methods:
     - get_by_frequency() - Filter by HabitFrequency (daily, weekly, monthly)
     - get_needing_attention() - Habits with low/broken streaks
-    - get_supporting_goal() - Habits that support a specific goal
     - get_at_risk() - Habits at risk of breaking streak
     - get_due_today() - Habits due today based on frequency
     - get_by_category() - Filter by category string
@@ -465,25 +464,6 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         self.logger.debug(f"Found {len(needing_attention)} habits needing attention")
         return Result.ok(needing_attention)
 
-    @with_error_handling("get_supporting_goal", error_type="database", uid_param="goal_uid")
-    async def get_supporting_goal(self, goal_uid: str) -> Result[list[Habit]]:
-        """
-        Get habits that support a specific goal.
-
-        Query: (Habit)-[:SUPPORTS_GOAL]->(Goal)
-
-        Args:
-            goal_uid: Goal UID
-
-        Returns:
-            Result containing habits supporting the goal
-        """
-        return await self.get_by_relationship(
-            related_uid=goal_uid,
-            relationship_type=RelationshipName.SUPPORTS_GOAL,
-            direction="incoming",
-        )
-
     @with_error_handling("get_at_risk", error_type="database")
     async def get_at_risk(
         self, user_context: UserContext, risk_threshold_days: int = 2
@@ -615,27 +595,6 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
         return Result.ok(due_today)
 
     # get_by_category() and list_categories() - inherited from BaseService
-
-    @with_error_handling(
-        "get_reinforcing_knowledge", error_type="database", uid_param="knowledge_uid"
-    )
-    async def get_reinforcing_knowledge(self, knowledge_uid: str) -> Result[list[Habit]]:
-        """
-        Get habits that reinforce specific knowledge.
-
-        Query: (Habit)-[:REINFORCES_KNOWLEDGE]->(KnowledgeUnit)
-
-        Args:
-            knowledge_uid: Knowledge unit UID
-
-        Returns:
-            Result containing habits reinforcing the knowledge
-        """
-        return await self.get_by_relationship(
-            related_uid=knowledge_uid,
-            relationship_type=RelationshipName.REINFORCES_KNOWLEDGE,
-            direction="incoming",
-        )
 
     @with_error_handling("get_active_habits", error_type="database", uid_param="user_uid")
     async def get_active_habits(self, user_uid: UserUID) -> Result[list[Habit]]:

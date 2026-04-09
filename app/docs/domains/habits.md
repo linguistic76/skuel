@@ -220,8 +220,6 @@ The habit model tracks all four components of the habit loop:
 | `get_by_streak_status(min_streak, user_uid)` | Filter by streak length |
 | `get_active_habits(user_uid)` | Active habits only |
 | `get_habits_needing_attention(user_uid)` | Broken streaks or declining |
-| `get_reinforcing_knowledge(ku_uid, user_uid)` | Habits reinforcing a KU |
-| `get_supporting_goal(goal_uid, user_uid)` | Habits supporting a goal |
 | `intelligent_search(query, user_uid, context)` | AI-enhanced search |
 | `get_habits_by_time_of_day(time, user_uid)` | Morning/afternoon/evening habits |
 | `get_habit_chain_candidates(habit_uid, user_uid)` | Potential habit stacking |

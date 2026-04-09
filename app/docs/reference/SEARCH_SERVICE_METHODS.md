@@ -291,8 +291,6 @@ _graph_enrichment_patterns = [
 | `get_by_streak_status` | `(min_streak: int, user_uid: UserUID) -> Result[list[Habit]]` | Filter by streak length |
 | `get_active_habits` | `(user_uid: UserUID) -> Result[list[Habit]]` | Active habits only |
 | `get_habits_needing_attention` | `(user_uid: UserUID) -> Result[list[Habit]]` | Broken streaks or declining |
-| `get_reinforcing_knowledge` | `(ku_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Habits reinforcing a KU |
-| `get_supporting_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Habits supporting a goal |
 | `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Habit]]` | AI-enhanced search |
 | `get_habits_by_time_of_day` | `(time_of_day: str, user_uid: UserUID) -> Result[list[Habit]]` | Morning/afternoon/evening habits |
 | `get_habit_chain_candidates` | `(habit_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Potential habit stacking |
@@ -555,13 +553,6 @@ if path_result.is_ok:
             progress = await ku_search.get_user_progress(ku_uid, "user.123")
             if progress.is_ok and progress.value["mastery_level"] < 0.8:
                 print(f"Gap: {ku_uid}")
-```
-
-### Find habits reinforcing knowledge you're learning
-
-```python
-# Get habits that reinforce a specific KU
-habits_result = await habits_search.get_reinforcing_knowledge("ku.mindfulness", "user.123")
 ```
 
 ### Get principles relevant to a decision

@@ -86,6 +86,7 @@ if TYPE_CHECKING:
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import HabitsSearchOperations
+    from core.services.cross_domain import CrossDomainQueryService
     from core.services.habits.habits_ai_service import HabitsAIService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
     from core.services.user import UserContext
@@ -484,6 +485,7 @@ class HabitsService(KnowledgeIntelligenceDelegationMixin, BaseService[HabitsOper
         backend: HabitsOperations,
         graph_intelligence_service: GraphIntelligenceService,
         completions_backend: BackendOperations[HabitCompletion],
+        cross_domain_query: CrossDomainQueryService,
         event_bus: EventBusOperations | None = None,
         insight_store: Any = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
@@ -516,21 +518,36 @@ class HabitsService(KnowledgeIntelligenceDelegationMixin, BaseService[HabitsOper
         self.ai: HabitsAIService | None = ai_service
 
         self.graph_intel = graph_intelligence_service
+        self.cross_domain_query = cross_domain_query
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.habits")  # type: ignore[assignment]  # structlog BoundLogger
 
-        # Initialize 4 common sub-services via factory (eliminates ~30 lines of repetitive code)
+        # Initialize core/search/relationships via factory. Intelligence is
+        # built manually because HabitsIntelligenceService takes
+        # cross_domain_query for the ZPD knowledge-signals bridge.
         common: CommonSubServices[HabitsIntelligenceService] = create_common_sub_services(
             domain="habits",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
             insight_store=insight_store,
+            skip={"intelligence"},
         )
         self.core = common.core
         self.search: HabitsSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
         self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
-        self.intelligence: HabitsIntelligenceService = common.intelligence  # type: ignore[assignment]  # never skipped
+
+        from core.services.habits.habits_intelligence_service import (
+            HabitsIntelligenceService as _HabitsIntelligenceService,
+        )
+
+        self.intelligence: HabitsIntelligenceService = _HabitsIntelligenceService(
+            backend=backend,
+            relationship_service=self.relationships,
+            cross_domain_query=cross_domain_query,
+            graph_intelligence_service=graph_intelligence_service,
+            insight_store=insight_store,
+        )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
         self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap

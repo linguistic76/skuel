@@ -430,10 +430,6 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
         """Get habits that need attention (broken streaks, missed completions)."""
         ...
 
-    async def get_supporting_goal(self, goal_uid: str) -> Result[list["Habit"]]:
-        """Get habits supporting a goal."""
-        ...
-
     async def get_at_risk(
         self, user_uid: UserUID, days_threshold: int = 3, limit: int = 20
     ) -> Result[list["Habit"]]:
@@ -460,12 +456,6 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
 
     async def list_all_categories(self) -> Result[list[str]]:
         """List all habit categories (admin use)."""
-        ...
-
-    async def get_reinforcing_knowledge(
-        self, knowledge_uid: str, limit: int = 20
-    ) -> Result[list["Habit"]]:
-        """Get habits that reinforce a knowledge unit."""
         ...
 
     async def get_active_habits(self, user_uid: UserUID) -> Result[list["Habit"]]:

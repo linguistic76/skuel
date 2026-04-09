@@ -23,6 +23,7 @@ from core.services.cross_domain import (
     ActiveTaskCount,
     AlignedEntity,
     CrossDomainQueryService,
+    HabitKnowledgeReinforcement,
     KnowledgeApplyingTask,
     TasksForKnowledge,
 )
@@ -230,5 +231,98 @@ class TestCountActiveTasksForGoal:
         )
 
         result = await service.count_active_tasks_for_goal(goal_uid="goal_1")
+
+        assert result.is_error
+
+
+# ---------------------------------------------------------------------------
+# get_habit_knowledge_reinforcement (Habits migration — N=4)
+# ---------------------------------------------------------------------------
+
+
+class TestGetHabitKnowledgeReinforcement:
+    @pytest.mark.asyncio
+    async def test_returns_typed_rows(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.ok(
+            [
+                {
+                    "habit_uid": "habit_1",
+                    "current_streak": 10,
+                    "success_rate": 0.8,
+                    "status": "active",
+                    "ku_uids": ["ku_a", "ku_b"],
+                },
+                {
+                    "habit_uid": "habit_2",
+                    "current_streak": 0,
+                    "success_rate": 0.3,
+                    "status": "active",
+                    "ku_uids": ["ku_c"],
+                },
+            ]
+        )
+
+        result = await service.get_habit_knowledge_reinforcement(user_uid="user_mike")
+
+        assert result.is_ok
+        rows = result.value
+        assert isinstance(rows, tuple)
+        assert len(rows) == 2
+        assert rows[0] == HabitKnowledgeReinforcement(
+            habit_uid="habit_1",
+            current_streak=10,
+            success_rate=0.8,
+            status="active",
+            ku_uids=("ku_a", "ku_b"),
+        )
+        assert rows[1].habit_uid == "habit_2"
+
+        assert mock_executor.execute_query.await_count == 1
+        params = mock_executor.execute_query.call_args.args[1]
+        assert params["user_uid"] == "user_mike"
+        assert "active" in params["active_statuses"]
+        assert "pending" in params["active_statuses"]
+
+    @pytest.mark.asyncio
+    async def test_skips_rows_with_no_kus(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.ok(
+            [
+                {
+                    "habit_uid": "habit_lone",
+                    "current_streak": 5,
+                    "success_rate": 0.9,
+                    "status": "active",
+                    "ku_uids": [],
+                },
+                {
+                    "habit_uid": "habit_with_ku",
+                    "current_streak": 1,
+                    "success_rate": 0.5,
+                    "status": "active",
+                    "ku_uids": ["ku_x"],
+                },
+            ]
+        )
+
+        result = await service.get_habit_knowledge_reinforcement(user_uid="user_mike")
+
+        assert result.is_ok
+        rows = result.value
+        assert len(rows) == 1
+        assert rows[0].habit_uid == "habit_with_ku"
+
+    @pytest.mark.asyncio
+    async def test_propagates_executor_error(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.fail(
+            Errors.database(operation="execute_query", message="neo4j down")
+        )
+
+        result = await service.get_habit_knowledge_reinforcement(user_uid="user_mike")
 
         assert result.is_error
