@@ -363,7 +363,7 @@ handler = LearningLoopEventHandlerService(backend=submissions_backend, insight_s
 **Rationale:** Keeps generic submission search (`SubmissionsSearchService`) free of Cypher that traverses Interaction/Exercise/Report edges. New learning-loop reads land here.
 
 **Key Methods:**
-- `get_submissions_for_path_step(user_uid, ps_uid)` - Submissions + report status for a PathStep, discovered via Interaction edges. Powers the PathStep detail page's submissions/feedback HTMX fragment.
+- `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` - Submissions + report status for a PathStep, discovered via Interaction edges. Bounded by `limit` (default 100) so a learner with hundreds of submissions on one PathStep can't unbounded-load the detail page. The entity_type filter is parameterized via `EntityType.EXERCISE_SUBMISSION.value` (no inline string literals). Powers the PathStep detail page's submissions/feedback HTMX fragment.
 
 **Consumers:** `ExploreOrchestrator` (for the PathStep detail page).
 
