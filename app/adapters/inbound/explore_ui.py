@@ -18,39 +18,24 @@ from typing import Any
 from fasthtml.common import (
     H3,
     Div,
-    Li,
-    NotStr,
-    P,
     Request,
-    Ul,
 )
 
 from adapters.inbound.auth import get_current_user, is_authenticated, require_authenticated_user
-from adapters.inbound.ku_ui import (
-    _exercises_for_ku_section,
-    _ku_learning_buttons,
-)
-from adapters.inbound.path_steps_ui import _start_step_button
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody
 from ui.explore.cards import render_explore_card, render_explore_search_panel
 from ui.explore.filters import filter_items, sort_by_created_at
+from ui.explore.ku_detail import render_ku_detail_content, render_ku_not_found
 from ui.explore.nav import render_explore_sidebar_page
-from ui.feedback import Badge, BadgeT
-from ui.layout import Size
+from ui.explore.ps_detail import render_ps_detail_content, render_ps_not_found
 from ui.learning_loop.exercise_status import render_exercise_list
 from ui.learning_loop.feedback_section import render_ps_feedback
 from ui.learning_loop.submissions_section import render_ps_submissions
-from ui.patterns.breadcrumbs import Breadcrumbs
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_inline_error
 from ui.patterns.loading import content_loading_placeholder
-from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.page_header import PageHeader
-from ui.patterns.pin_button import PinButton
-from ui.patterns.relationships import EntityRelationshipsSection
 
 logger = get_logger("skuel.routes.explore")
 
@@ -226,26 +211,9 @@ def create_explore_ui_routes(
         ku_result = await orchestrator.get_ku(uid)
 
         if not ku_result or ku_result.is_error or not ku_result.value:
-            return Div(
-                Card(
-                    CardBody(
-                        H3("Knowledge Unit Not Found", cls="text-lg font-bold"),
-                        P(f"No KU with identifier: {uid}", cls="text-muted-foreground mt-2"),
-                        ButtonLink(
-                            "\u2190 Back to Explore",
-                            href="/explore",
-                            variant=ButtonT.ghost,
-                            size=Size.sm,
-                            cls="mt-4",
-                        ),
-                    ),
-                ),
-                id="ku-detail-content",
-                cls="max-w-4xl mx-auto p-8",
-            )
+            return render_ku_not_found(uid)
 
         ku = ku_result.value
-        content_body = ku.description or ""
 
         # Learning state
         learning_state: dict[str, bool] = {"is_studying": False, "is_understood": False}
@@ -258,103 +226,23 @@ def create_explore_ui_routes(
             if pins_result.is_ok and pins_result.value:
                 is_pinned = uid in set(pins_result.value)
 
-        # Render markdown with TOC
-        content_html, toc_html = render_markdown_with_toc(content_body)
-        has_toc = bool(toc_html and toc_html.strip())
-
-        # Metadata badges
-        metadata_items = []
-        if getattr(ku, "domain", None):
-            domain_label = getattr(ku.domain, "value", str(ku.domain))
-            metadata_items.append(metadata_badge("Domain:", domain_label, BadgeT.primary))
-        if getattr(ku, "namespace", None):
-            metadata_items.append(metadata_badge("Namespace:", ku.namespace))
-        if getattr(ku, "ku_category", None):
-            metadata_items.append(metadata_badge("Category:", ku.ku_category))
-
-        metadata_section = (
-            Div(*metadata_items, cls="flex flex-wrap gap-2") if metadata_items else None
-        )
-
-        # Tags
-        tags_section = None
-        if getattr(ku, "tags", None):
-            tag_badges = [Badge(tag, variant=BadgeT.outline, size=Size.sm) for tag in ku.tags]
-            tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mt-3")
-
         # Exercises
-        exercises_for_ku: list[dict] = []
         exercises_result = await orchestrator.get_exercises_for_curriculum(uid)
         exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
 
-        # Breadcrumbs
-        breadcrumb_path = [
-            {"uid": "explore", "title": "Explore", "url": "/explore"},
-            {"uid": uid, "title": ku.title, "url": ""},
-        ]
+        # Render markdown
+        content_html, toc_html = render_markdown_with_toc(ku.description or "")
 
-        reading_content = Div(
-            NotStr(content_html or "No content available."),
-            cls="prose prose-lg max-w-none",
+        return render_ku_detail_content(
+            ku=ku,
+            uid=uid,
+            content_html=content_html,
+            toc_html=toc_html,
+            learning_state=learning_state,
+            is_pinned=is_pinned,
+            user_uid=user_uid,
+            exercises_for_ku=exercises_for_ku,
         )
-
-        # Action buttons
-        if user_uid:
-            ku_action_area: Any = Div(
-                _ku_learning_buttons(
-                    uid, learning_state["is_studying"], learning_state["is_understood"]
-                ),
-                PinButton(entity_uid=uid, is_pinned=is_pinned),
-                cls="flex gap-2 items-center border-t border-border pt-6 mt-8",
-            )
-        else:
-            ku_action_area = Div(
-                ButtonLink(
-                    "Log in to track your progress",
-                    href="/login",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                ),
-                cls="border-t border-border pt-6 mt-8",
-            )
-
-        # Metadata footer
-        metadata_footer_items = []
-        if metadata_section:
-            metadata_footer_items.append(metadata_section)
-        if tags_section:
-            metadata_footer_items.append(tags_section)
-
-        metadata_footer = (
-            Div(*metadata_footer_items, cls="border-t border-border pt-6 mt-8")
-            if metadata_footer_items
-            else Div()
-        )
-
-        main_column = Div(
-            Breadcrumbs(path=breadcrumb_path, show_home=False),
-            reading_content,
-            ku_action_area,
-            metadata_footer,
-            _exercises_for_ku_section(exercises_for_ku),
-            Div(
-                EntityRelationshipsSection(entity_uid=uid, entity_type="ku"),
-                cls="mt-8",
-            ),
-            cls="flex-1 min-w-0 max-w-4xl",
-        )
-
-        if has_toc:
-            toc_sidebar = Div(
-                Div(
-                    H3("Contents", cls="font-semibold text-sm mb-3"),
-                    Div(NotStr(toc_html), cls="prose prose-sm max-w-none toc-nav"),
-                    cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
-                ),
-                cls="hidden lg:block w-56 shrink-0 border-l border-border",
-            )
-            return Div(main_column, toc_sidebar, cls="flex gap-6")
-        return main_column
 
     # -----------------------------------------------------------------
     # GET /explore/ps/{uid} — PathStep detail page
@@ -379,26 +267,7 @@ def create_explore_ui_routes(
 
         result = await orchestrator.get_ps_with_content(uid)
         if result.is_error:
-            return Div(
-                Card(
-                    CardBody(
-                        H3("Path Step Not Found", cls="text-lg font-bold"),
-                        P(
-                            f"No path step with identifier: {uid}",
-                            cls="text-muted-foreground mt-2",
-                        ),
-                        ButtonLink(
-                            "← Back to Explore",
-                            href="/explore",
-                            variant=ButtonT.ghost,
-                            size=Size.sm,
-                            cls="mt-4",
-                        ),
-                    ),
-                ),
-                id="ps-detail-content",
-                cls="max-w-4xl mx-auto p-8",
-            )
+            return render_ps_not_found(uid)
 
         step, content_body = result.value
         if not content_body and getattr(step, "content", None):
@@ -421,172 +290,28 @@ def create_explore_ui_routes(
                 state_result.value.state.value == "mastered" if state_result.is_ok else False
             )
 
-        # Render markdown with TOC
-        content_html, toc_html = render_markdown_with_toc(content_body or "")
-        has_toc = bool(toc_html and toc_html.strip())
-
-        # Breadcrumbs
-        breadcrumb_path = [
-            {"uid": "explore", "title": "Explore", "url": "/explore"},
-            {"uid": uid, "title": step.title, "url": ""},
-        ]
-
-        # Metadata badges
-        metadata_items = []
-        if step.domain:
-            domain_label = getattr(step.domain, "value", str(step.domain))
-            metadata_items.append(metadata_badge("Domain:", domain_label, BadgeT.primary))
-        if step.complexity:
-            metadata_items.append(metadata_badge("Complexity:", str(step.complexity.value)))
-        if step.learning_level:
-            metadata_items.append(metadata_badge("Level:", str(step.learning_level.value)))
-        if step.estimated_time_minutes:
-            metadata_items.append(metadata_badge("Time:", f"{step.estimated_time_minutes} min"))
-        if step.estimated_hours:
-            metadata_items.append(metadata_badge("Hours:", f"{step.estimated_hours:.1f}h"))
-
-        metadata_section = (
-            Div(*metadata_items, cls="flex flex-wrap gap-2 mb-4") if metadata_items else Div()
-        )
-
-        # Learning objectives
-        objectives_section = Div()
-        if step.learning_objectives:
-            objectives_section = Div(
-                H3("Learning Objectives", cls="text-base font-semibold mb-2"),
-                Ul(
-                    *[
-                        Li(obj, cls="text-sm text-muted-foreground")
-                        for obj in step.learning_objectives
-                    ],
-                    cls="list-disc pl-5 space-y-1 mb-6",
-                ),
-            )
-
-        # Tags
-        tags_section = Div()
-        if step.tags:
-            tag_badges = [Badge(tag, variant=BadgeT.outline, size=Size.sm) for tag in step.tags]
-            tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mt-3")
-
-        # Reading content
-        reading_content = Div(
-            NotStr(content_html or "No content available."),
-            cls="prose prose-lg max-w-none",
-        )
-
-        # Exercises + Submissions + Feedback (learning loop sections)
-        submissions_section: Any = Div()
-        feedback_section: Any = Div()
-        if user_uid:
-            # Authenticated: HTMX lazy-loads exercises with status pills
-            exercises_section: Any = Div(
-                H3("Exercises", cls="text-base font-semibold mb-2 mt-8"),
-                Div(
-                    id=f"ps-exercises-{uid}",
-                    hx_get=f"/learning-loop/ps/{uid}/exercises",
-                    hx_trigger="load",
-                    hx_swap="innerHTML",
-                ),
-                cls="border-t border-border pt-6 mt-8",
-            )
-            submissions_section = Div(
-                id=f"ps-submissions-feedback-{uid}",
-                hx_get=f"/learning-loop/ps/{uid}/submissions-and-feedback",
-                hx_trigger="load",
-                hx_swap="innerHTML",
-            )
-            feedback_section = Div()
-        else:
-            # Unauthenticated: simple exercise links (read-only)
-            exercises_section = Div()
+        # Exercises for unauthenticated users
+        exercises: list[dict] = []
+        if not user_uid:
             exercises_result = await orchestrator.get_exercises_for_path_step(uid)
             if exercises_result.is_ok and exercises_result.value:
-                exercise_links = []
-                for ex in exercises_result.value:
-                    ex_uid = ex.get("uid", "")
-                    ex_title = ex.get("title") or ex_uid
-                    ex_time = ex.get("estimated_time_minutes")
-                    time_note = f" \u00b7 {ex_time} min" if ex_time else ""
-                    exercise_links.append(
-                        Li(
-                            ButtonLink(
-                                f"{ex_title}{time_note} \u2192",
-                                href=f"/exercises/get?uid={ex_uid}&from_ps={uid}",
-                                variant=ButtonT.ghost,
-                                size=Size.sm,
-                            ),
-                            cls="list-none",
-                        )
-                    )
-                exercises_section = Div(
-                    H3("Exercises", cls="text-base font-semibold mb-2 mt-8"),
-                    Ul(*exercise_links, cls="list-none p-0 space-y-1"),
-                    cls="border-t border-border pt-6 mt-8",
-                )
+                exercises = exercises_result.value
 
-        # Action buttons
-        if user_uid:
-            mark_read_btn = Button(
-                "Marked as Read" if is_marked_read else "Mark as Read",
-                variant=ButtonT.success if is_marked_read else ButtonT.primary,
-                size=Size.sm,
-                hx_post=f"/api/path-steps/{uid}/mark-read",
-                hx_swap="outerHTML",
-                hx_target="this",
-                disabled=is_marked_read,
-            )
-            bookmark_btn = Button(
-                "Bookmarked" if is_bookmarked else "Bookmark",
-                variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
-                size=Size.sm,
-                hx_post=f"/api/path-steps/{uid}/bookmark",
-                hx_swap="outerHTML",
-                hx_target="this",
-            )
-            action_area: Any = Div(
-                _start_step_button(uid, is_in_progress, is_mastered),
-                mark_read_btn,
-                bookmark_btn,
-                cls="flex gap-2 border-t border-border pt-6 mt-8",
-            )
-        else:
-            action_area = Div(
-                ButtonLink(
-                    "Log in to track your progress",
-                    href="/login",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                ),
-                cls="border-t border-border pt-6 mt-8",
-            )
+        # Render markdown
+        content_html, toc_html = render_markdown_with_toc(content_body or "")
 
-        # Main content column
-        main_column = Div(
-            Breadcrumbs(path=breadcrumb_path, show_home=False),
-            metadata_section,
-            objectives_section,
-            reading_content,
-            exercises_section,
-            submissions_section,
-            feedback_section,
-            action_area,
-            Div(tags_section, cls="border-t border-border pt-6 mt-8") if step.tags else Div(),
-            EntityRelationshipsSection(entity_uid=uid, entity_type="ps"),
-            cls="flex-1 min-w-0 max-w-4xl",
+        return render_ps_detail_content(
+            step=step,
+            uid=uid,
+            content_html=content_html,
+            toc_html=toc_html,
+            is_marked_read=is_marked_read,
+            is_bookmarked=is_bookmarked,
+            is_in_progress=is_in_progress,
+            is_mastered=is_mastered,
+            user_uid=user_uid,
+            exercises=exercises,
         )
-
-        if has_toc:
-            toc_sidebar = Div(
-                Div(
-                    H3("Contents", cls="font-semibold text-sm mb-3"),
-                    Div(NotStr(toc_html), cls="prose prose-sm max-w-none toc-nav"),
-                    cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
-                ),
-                cls="hidden lg:block w-56 shrink-0 border-l border-border",
-            )
-            return Div(main_column, toc_sidebar, cls="flex gap-6")
-        return main_column
 
     # -----------------------------------------------------------------
     # PathStep learning loop HTMX fragments (loaded by /explore/ps/{uid})
