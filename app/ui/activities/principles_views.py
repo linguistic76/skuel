@@ -491,7 +491,7 @@ def PrincipleConnectionsSection(connections: list[dict[str, str]]) -> "FT":
         "goal": ("Goals aligned with this principle", "target", "/goals/detail?uid="),
         "event": ("Events demonstrating this principle", "calendar", "/events/detail?uid="),
         "choice": ("Choices expressing this principle", "git-branch", "/choices/detail?uid="),
-        "ku": ("Knowledge connected", "atom", "/ku/get?uid="),
+        "ku": ("Knowledge connected", "atom", "/explore/ku/"),
     }
 
     sections: list[Any] = []

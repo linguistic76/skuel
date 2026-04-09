@@ -6,11 +6,12 @@ with status badges, exercise names, and links to view submission/feedback.
 
 from typing import Any
 
-from fasthtml.common import A, Div, Span
+from fasthtml.common import H3, A, Div, Span
 
 from core.ports.query_types import PathStepSubmissionRow
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
+from ui.learning_loop.feedback_section import render_ps_feedback
 from ui.patterns.empty_state import EmptyState
 
 # Submission statuses that are valid EntityStatus values
@@ -88,3 +89,17 @@ def render_ps_submissions(submissions: list[PathStepSubmissionRow]) -> Div:
     )
     rows = [_submission_row(s) for s in submissions]
     return Div(count_note, Div(*rows))
+
+
+def render_ps_submissions_and_feedback(rows: list[PathStepSubmissionRow]) -> Div:
+    """Render both submissions and feedback sections for a PathStep.
+
+    Composes the submissions list and feedback list into a single fragment,
+    used by the /learning-loop/ps/{ps_uid}/submissions-and-feedback endpoint.
+    """
+    return Div(
+        H3("My Submissions", cls="text-base font-semibold mb-2 mt-6"),
+        render_ps_submissions(rows),
+        H3("Feedback", cls="text-base font-semibold mb-2 mt-6"),
+        render_ps_feedback(rows),
+    )

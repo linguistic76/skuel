@@ -11,12 +11,13 @@ Routes:
 - GET  /api/explore/graph    — Hub learning universe graph (Vis.js JSON)
 - GET  /explore/ku/{uid}     — Ku detail page with sidebar
 - GET  /explore/ps/{uid}     — PathStep detail page with sidebar
+
+Learning loop fragment routes (/learning-loop/ps/*) are in learning_loop_routes.py.
 """
 
 from typing import Any
 
 from fasthtml.common import (
-    H3,
     Div,
     Request,
 )
@@ -29,11 +30,7 @@ from ui.explore.filters import filter_items, sort_by_created_at
 from ui.explore.ku_detail import render_ku_detail_content, render_ku_not_found
 from ui.explore.nav import render_explore_sidebar_page
 from ui.explore.ps_detail import render_ps_detail_content, render_ps_not_found
-from ui.learning_loop.exercise_status import render_exercise_list
-from ui.learning_loop.feedback_section import render_ps_feedback
-from ui.learning_loop.submissions_section import render_ps_submissions
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.error_banner import render_inline_error
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 
@@ -319,38 +316,9 @@ def create_explore_ui_routes(
             exercises=exercises,
         )
 
-    # -----------------------------------------------------------------
-    # PathStep learning loop HTMX fragments (loaded by /explore/ps/{uid})
-    # -----------------------------------------------------------------
-
-    @rt("/learning-loop/ps/{ps_uid}/exercises")
-    async def get_ps_exercises(request: Request, ps_uid: str) -> Any:
-        """HTMX fragment: exercises for a PathStep with submission/feedback status."""
-        user_uid = require_authenticated_user(request)
-        result = await orchestrator.get_exercises_for_path_step_with_status(ps_uid, user_uid)
-        if result.is_error:
-            return render_inline_error("Could not load exercises")
-        return render_exercise_list(result.value or [], from_ps=ps_uid)
-
-    @rt("/learning-loop/ps/{ps_uid}/submissions-and-feedback")
-    async def get_ps_submissions_and_feedback(request: Request, ps_uid: str) -> Any:
-        """HTMX fragment: user's submissions + feedback for this PathStep."""
-        user_uid = require_authenticated_user(request)
-        result = await orchestrator.get_submissions_for_path_step(user_uid, ps_uid)
-        if result.is_error:
-            return render_inline_error("Could not load submissions")
-        rows = result.value or []
-        return Div(
-            H3("My Submissions", cls="text-base font-semibold mb-2 mt-6"),
-            render_ps_submissions(rows),
-            H3("Feedback", cls="text-base font-semibold mb-2 mt-6"),
-            render_ps_feedback(rows),
-        )
-
     logger.info(
         "Explore UI routes registered: /explore, /explore/ku/{uid}, /explore/ps/{uid} "
-        "(shell-first with /content fragments), "
-        "/learning-loop/ps/{uid}/exercises, /learning-loop/ps/{uid}/submissions-and-feedback"
+        "(shell-first with /content fragments)"
     )
 
     return []

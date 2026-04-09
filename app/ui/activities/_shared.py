@@ -40,7 +40,7 @@ CONNECTION_ICONS: dict[str, tuple[str, str]] = {
     "event": ("calendar", "/events/detail?uid="),
     "choice": ("git-branch", "/choices/detail?uid="),
     "principle": ("compass", "/principles/detail?uid="),
-    "ku": ("atom", "/ku/get?uid="),
+    "ku": ("atom", "/explore/ku/"),
     "path_step": ("list", "#"),
     "learning_path": ("map", "#"),
 }
