@@ -35,9 +35,20 @@ def mock_backend() -> AsyncMock:
 
 
 @pytest.fixture
-def alignment_service(mock_backend) -> PrinciplesAlignmentService:
+def mock_cross_domain_query() -> AsyncMock:
+    """Mock CrossDomainQueryService — required by PrinciplesAlignmentService."""
+    return AsyncMock()
+
+
+@pytest.fixture
+def alignment_service(mock_backend, mock_cross_domain_query) -> PrinciplesAlignmentService:
     """Create alignment service with mock backend."""
-    return PrinciplesAlignmentService(backend=mock_backend, goals_backend=None, habits_backend=None)
+    return PrinciplesAlignmentService(
+        backend=mock_backend,
+        cross_domain_query=mock_cross_domain_query,
+        goals_backend=None,
+        habits_backend=None,
+    )
 
 
 @pytest.fixture

@@ -59,9 +59,7 @@ def compute_task_stats(tasks: list["Task"]) -> TaskStats:
     total = len(tasks)
     completed = sum(1 for t in tasks if t.status == EntityStatus.COMPLETED)
     overdue = sum(
-        1
-        for t in tasks
-        if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
+        1 for t in tasks if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
     )
     return TaskStats(
         total=total,
@@ -215,7 +213,9 @@ def compute_event_stats(events: list["Event"]) -> EventStats:
     today = date.today()
     total = len(events)
     active = sum(
-        1 for e in events if get_enum_attr_str(e, "status", "scheduled") not in _EVENT_TERMINAL_STATUSES
+        1
+        for e in events
+        if get_enum_attr_str(e, "status", "scheduled") not in _EVENT_TERMINAL_STATUSES
     )
     scheduled = sum(1 for e in events if get_enum_attr_str(e, "status", "scheduled") == "scheduled")
     today_count = sum(1 for e in events if getattr(e, "event_date", None) == today)

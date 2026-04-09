@@ -16,8 +16,10 @@ Sub-Services:
 
 from __future__ import annotations
 
-from datetime import date, time
 from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from datetime import date, time
 
 from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved

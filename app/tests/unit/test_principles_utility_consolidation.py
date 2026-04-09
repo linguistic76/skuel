@@ -52,6 +52,7 @@ def _make_principles_service() -> PrinciplesService:
     return PrinciplesService(
         backend=mock_backend,
         graph_intelligence_service=mock_graph_intel,
+        cross_domain_query=MagicMock(),
     )
 
 

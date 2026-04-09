@@ -514,16 +514,22 @@ async def services(neo4j_driver):
         graph_intelligence_service=mock_graph_intel,
     )
 
-    # Create Principles service (requires graph_intelligence_service)
-    principles_service = PrinciplesService(
-        backend=principles_backend,
-        graph_intelligence_service=mock_graph_intel,
-    )
-
     # Create QueryExecutor adapter for services that require it
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
     query_executor = Neo4jQueryExecutor(neo4j_driver)
+
+    # Cross-domain query service (graph-direct cross-domain reads)
+    from core.services.cross_domain import CrossDomainQueryService
+
+    cross_domain_query = CrossDomainQueryService(query_executor)
+
+    # Create Principles service (requires graph_intelligence_service + cross_domain_query)
+    principles_service = PrinciplesService(
+        backend=principles_backend,
+        graph_intelligence_service=mock_graph_intel,
+        cross_domain_query=cross_domain_query,
+    )
 
     # Create PS service (used by LP service)
     # January 2026: graph_intel now REQUIRED for unified Curriculum architecture

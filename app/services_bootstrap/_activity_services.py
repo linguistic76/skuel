@@ -18,6 +18,7 @@ def _create_activity_services(
     principles_backend: Any,
     # Shared dependencies
     graph_intelligence: Any = None,
+    cross_domain_query: Any = None,
     event_bus: Any = None,
     # Tasks-specific optional dependencies
     ku_inference_service: Any = None,
@@ -92,6 +93,7 @@ def _create_activity_services(
         "principles": PrinciplesService(
             backend=principles_backend,
             graph_intelligence_service=graph_intelligence,
+            cross_domain_query=cross_domain_query,
             goals_backend=goals_backend,
             habits_backend=habits_backend,
             event_bus=event_bus,

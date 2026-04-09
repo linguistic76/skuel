@@ -37,8 +37,8 @@ from core.models.type_hints import EntityUID, UserUID
 
 # Protocol interfaces - Use main Operations protocols (not QueryOperations aliases)
 from core.ports.domain_protocols import GoalsOperations, HabitsOperations
+from core.services.cross_domain import CrossDomainQueryService
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_principle_priority, get_timestamp
@@ -91,6 +91,7 @@ class PrinciplesAlignmentService:
     def __init__(
         self,
         backend,
+        cross_domain_query: CrossDomainQueryService,
         goals_backend: GoalsOperations | None = None,
         habits_backend: HabitsOperations | None = None,
         event_bus=None,
@@ -100,11 +101,17 @@ class PrinciplesAlignmentService:
 
         Args:
             backend: Backend for principle operations,
-            goals_backend: Backend for goal queries,
-            habits_backend: Backend for habit queries
+            cross_domain_query: CrossDomainQueryService for graph-derived
+                cross-domain reads (REQUIRED — fail-fast).
+            goals_backend: Backend for single-goal lookups (used by
+                ``assess_goal_alignment``; cross-domain reads now go through
+                ``cross_domain_query``).
+            habits_backend: Backend for single-habit lookups (used by
+                ``assess_habit_alignment``).
             event_bus: Event bus for publishing domain events (optional)
         """
         self.backend = backend
+        self.cross_domain_query = cross_domain_query
         self.goals_backend = goals_backend
         self.habits_backend = habits_backend
         self.event_bus = event_bus
@@ -462,67 +469,41 @@ class PrinciplesAlignmentService:
         self, principle: Principle, user_uid: UserUID
     ) -> dict[str, Any]:
         """
-        Calculate system alignment from goals, habits, and choices.
+        Calculate system alignment for a principle from the graph.
 
-        Examines:
-        - Goals guided by this principle
-        - Habits inspired by this principle
-        - Recent choices aligned with this principle
+        Delegates to ``CrossDomainQueryService.get_principle_alignment_evidence``
+        — one Cypher query that walks the explicit alignment edges
+        (``GUIDES_GOAL``, ``GUIDED_BY_PRINCIPLE``, ``INSPIRES_HABIT``,
+        ``EMBODIES_PRINCIPLE``) instead of pulling every goal and habit into
+        Python and looping with a string-overlap heuristic.
 
         Returns:
-            Dict with alignment_level, score, and evidence list
+            Dict with alignment_level, score, and evidence list (kept as a
+            dict to preserve the contract with the caller).
         """
-        evidence = []
-        total_score = 0.0
-        count = 0
+        evidence_result = await self.cross_domain_query.get_principle_alignment_evidence(
+            principle.uid, user_uid
+        )
+        if evidence_result.is_error:
+            self.logger.warning(
+                "cross_domain_query.get_principle_alignment_evidence failed",
+                extra={"principle_uid": principle.uid, "user_uid": user_uid},
+            )
+            return {
+                "alignment_level": AlignmentLevel.UNKNOWN,
+                "score": 0.0,
+                "evidence": [],
+            }
 
-        # Check goals (if backend available)
-        if self.goals_backend:
-            try:
-                goals_result = await self.goals_backend.find_by(user_uid=user_uid)
-                goals = goals_result.value if not goals_result.is_error else []
-                for goal in goals:
-                    # Check if goal aligns with principle
-                    alignment = self._assess_entity_alignment(principle, goal.title, goal.category)
-                    if alignment in [AlignmentLevel.ALIGNED, AlignmentLevel.MOSTLY_ALIGNED]:
-                        evidence.append(f"Goal '{goal.title}' embodies this principle")
-                        total_score += self._calculate_alignment_score(alignment)
-                        count += 1
-            except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-                self.logger.debug(f"Could not check goals: {e}")
-
-        # Check habits (if backend available)
-        if self.habits_backend:
-            try:
-                habits_result = await self.habits_backend.find_by(user_uid=user_uid)
-                habits = habits_result.value if not habits_result.is_error else []
-                for habit in habits:
-                    # Check if habit aligns with principle
-                    habit_cat = habit.habit_category.value if habit.habit_category else "other"
-                    polarity = habit.polarity.value if habit.polarity else "build"
-                    alignment = self._assess_entity_alignment(
-                        principle, habit.title, f"{habit_cat}/{polarity}"
-                    )
-                    if alignment in [AlignmentLevel.ALIGNED, AlignmentLevel.MOSTLY_ALIGNED]:
-                        evidence.append(f"Habit '{habit.title}' practices this principle")
-                        total_score += self._calculate_alignment_score(alignment)
-                        count += 1
-            except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-                self.logger.debug(f"Could not check habits: {e}")
-
-        # Calculate overall alignment
-        if count > 0:
-            avg_score = total_score / count
-        else:
-            avg_score = 0.25  # Unknown if no connected entities
-
-        # Convert score to alignment level
-        system_level = self._score_to_alignment_level(avg_score)
+        evidence_data = evidence_result.value
+        evidence_strings = [
+            f"Goal '{g.title}' embodies this principle" for g in evidence_data.aligned_goals
+        ] + [f"Habit '{h.title}' practices this principle" for h in evidence_data.aligned_habits]
 
         return {
-            "alignment_level": system_level,
-            "score": avg_score,
-            "evidence": evidence,
+            "alignment_level": evidence_data.alignment_level,
+            "score": evidence_data.score,
+            "evidence": evidence_strings,
         }
 
     def _calculate_perception_gap(

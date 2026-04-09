@@ -380,6 +380,13 @@ async def compose_services(
         # ========================================================================
         # ACTIVITY DOMAIN SERVICES (6) - Unified creation
         # ========================================================================
+        # Cross-domain query service — graph-direct cross-domain reads
+        # (replaces the "fetch all of A, fetch all of B, loop in Python" pattern)
+        from core.services.cross_domain import CrossDomainQueryService
+
+        cross_domain_query = CrossDomainQueryService(query_executor)
+        logger.info("✅ CrossDomainQueryService created")
+
         activity_services = _create_activity_services(
             tasks_backend=tasks_backend,
             events_backend=events_backend,
@@ -390,6 +397,7 @@ async def compose_services(
             principles_backend=principles_backend,
             # reflection_backend removed — PrinciplesReflectionService shelved (2026-03-28)
             graph_intelligence=graph_intelligence,
+            cross_domain_query=cross_domain_query,
             event_bus=event_bus,
             ku_inference_service=ku_inference_service,
             analytics_engine=analytics_engine,

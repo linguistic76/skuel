@@ -30,6 +30,7 @@ from core.ports.domain_protocols import (
 )
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
+from core.services.cross_domain import CrossDomainQueryService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
 from core.services.mixins import KnowledgeIntelligenceDelegationMixin
@@ -390,6 +391,7 @@ class PrinciplesService(
         self,
         backend: PrinciplesOperations,
         graph_intelligence_service: Any,
+        cross_domain_query: CrossDomainQueryService,
         goals_backend: GoalsOperations | None = None,
         habits_backend: HabitsOperations | None = None,
         event_bus: Any = None,
@@ -441,6 +443,7 @@ class PrinciplesService(
         # Domain-specific sub-services (not common to all facades)
         self.alignment = PrinciplesAlignmentService(
             backend=backend,
+            cross_domain_query=cross_domain_query,
             goals_backend=goals_backend,
             habits_backend=habits_backend,
             event_bus=event_bus,
