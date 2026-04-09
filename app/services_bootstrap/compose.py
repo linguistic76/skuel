@@ -833,6 +833,7 @@ async def compose_services(
 
         # Create submissions submission and processing pipeline services
         from core.services.submissions import (
+            LearningLoopQueryService,
             SubmissionsCoreService,
             SubmissionsProcessingService,
             SubmissionsSearchService,
@@ -990,12 +991,22 @@ async def compose_services(
             submissions_backend=submissions_backend, event_bus=event_bus
         )
 
+        # Learning loop query service — read-side peer of LearningLoopEventHandlerService.
+        # Owns Cypher that traverses Interaction/Exercise/Report edges, keeping
+        # generic submission search free of learning-loop shape.
+        learning_loop_query_service = LearningLoopQueryService(
+            submissions_backend=submissions_backend,
+        )
+
         logger.info("✅ Submissions pipeline services created")
         logger.info(
             "✅ Submissions core service created (content management: categories, tags, bulk ops)"
         )
         logger.info(
             "✅ Submissions search service created (unified query interface for all submission types)"
+        )
+        logger.info(
+            "✅ Learning loop query service created (read-side peer of LearningLoopEventHandlerService)"
         )
 
         # Create progress report generator and schedule service
@@ -1116,7 +1127,7 @@ async def compose_services(
             ps_service=learning_services["ps"],
             user_relationship_service=user_relationships,
             exercises_service=exercise_service,
-            submissions_search_service=submissions_search_service,
+            learning_loop_query_service=learning_loop_query_service,
         )
         logger.info("✅ Explore Orchestrator created")
 

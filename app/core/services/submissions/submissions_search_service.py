@@ -23,7 +23,6 @@ from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.models.type_hints import UserUID
 from core.ports import BackendOperations
-from core.ports.query_types import PathStepSubmissionRow
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
@@ -48,6 +47,8 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     - File uploads (use SubmissionsService)
     - Audio processing (use TranscriptionService)
     - Content processing (use SubmissionsProcessingService)
+    - Learning loop queries that traverse Interaction/Exercise/Report edges
+      (use LearningLoopQueryService)
     """
 
     # =========================================================================
@@ -373,54 +374,6 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
                     "feedback_count": record["feedback_count"] or 0,
                 }
                 for record in result.value
-            ]
-        )
-
-    @with_error_handling("get_submissions_for_path_step")
-    async def get_submissions_for_path_step(
-        self,
-        user_uid: UserUID,
-        ps_uid: str,
-    ) -> Result[list[PathStepSubmissionRow]]:
-        """Get a user's submissions that occurred during a specific PathStep.
-
-        Discovers submissions via Interaction relationships:
-            (user)-[:OWNS]->(sub)-[:RECORDS]<-(interaction)-[:INTERACTION_DURING]->(ps)
-
-        Returns submissions enriched with exercise title and report status,
-        used by the PathStep detail page's learning loop sections.
-        """
-        query = f"""
-        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(sub:Entity {{entity_type: 'exercise_submission'}})
-        MATCH (i:Entity:Interaction)-[:{RelationshipName.RECORDS.value}]->(sub)
-        MATCH (i)-[:{RelationshipName.INTERACTION_DURING.value}]->(ps:Entity {{uid: $ps_uid}})
-        OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
-        OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
-        RETURN sub.uid AS uid, sub.title AS title, sub.status AS status,
-               sub.created_at AS created_at,
-               ex.uid AS exercise_uid, ex.title AS exercise_title,
-               report.uid AS report_uid,
-               report.assessment_outcome AS report_outcome
-        ORDER BY sub.created_at DESC
-        """
-
-        result = await self.backend.execute_query(query, {"user_uid": user_uid, "ps_uid": ps_uid})
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            [
-                PathStepSubmissionRow(
-                    uid=record["uid"],
-                    title=record["title"],
-                    status=record["status"],
-                    created_at=record["created_at"],
-                    exercise_uid=record.get("exercise_uid"),
-                    exercise_title=record.get("exercise_title"),
-                    report_uid=record.get("report_uid"),
-                    report_outcome=record.get("report_outcome"),
-                )
-                for record in result.value or []
             ]
         )
 

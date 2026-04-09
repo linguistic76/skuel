@@ -183,9 +183,7 @@ def create_explore_ui_routes(
             id="explore-content",
         )
 
-    logger.info(
-        "Explore UI routes registered: /explore, /explore/content"
-    )
+    logger.info("Explore UI routes registered: /explore, /explore/content")
 
     return []
 

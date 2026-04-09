@@ -18,8 +18,12 @@ Sub-services:
 - SubmissionsProcessingService: Processing orchestration (audio, text, PDF)
 - SubmissionsCoreService: Content management facade (delegates assessment)
   - AssessmentService: Teacher assessment CRUD, authority verification
-- SubmissionsSearchService: Query and search operations
+- SubmissionsSearchService: Generic submission search (date, mood, category, text)
 - SubmissionsRelationshipService: Graph relationship creation
+- LearningLoopEventHandlerService: Event-driven writes (iteration tracking,
+  turnaround calibration, mastery velocity)
+- LearningLoopQueryService: Read-side peer — queries that traverse
+  Interaction/Exercise/Report edges for the five-phase learning loop
 
 Sharing lives in core.services.sharing (cross-domain).
 Report services live in core.services.report.
@@ -28,10 +32,11 @@ Journal services live in core.services.journal.
 
 from core.services.submissions.assessment_service import AssessmentService
 
-# Learning loop intelligence (event-driven insights)
+# Learning loop intelligence (event-driven writes + read-side queries)
 from core.services.submissions.learning_loop_event_handler_service import (
     LearningLoopEventHandlerService,
 )
+from core.services.submissions.learning_loop_query_service import LearningLoopQueryService
 from core.services.submissions.submission_processing_types import (
     SubmissionAIInsights,
     SubmissionProcessingContext,
@@ -47,6 +52,7 @@ from core.services.submissions.submissions_service import SubmissionsService
 __all__ = [
     "AssessmentService",
     "LearningLoopEventHandlerService",
+    "LearningLoopQueryService",
     "SubmissionAIInsights",
     "SubmissionProcessingContext",
     "SubmissionsCoreService",

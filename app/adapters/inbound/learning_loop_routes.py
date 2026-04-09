@@ -234,9 +234,7 @@ def create_learning_loop_fragment_routes(
             return render_inline_error("Could not load submissions")
         return render_ps_submissions_and_feedback(result.value or [])
 
-    logger.info(
-        "Learning loop fragment routes registered: /learning-loop/ps/{ps_uid}/*"
-    )
+    logger.info("Learning loop fragment routes registered: /learning-loop/ps/{ps_uid}/*")
 
 
 # =============================================================================

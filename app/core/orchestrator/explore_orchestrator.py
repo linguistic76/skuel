@@ -2,7 +2,7 @@
 =========================
 
 Application orchestrator for the Explore & Knowledge Hub. Consolidates
-KU, PathStep, UserRelationship, Exercise, and SubmissionsSearch services
+KU, PathStep, UserRelationship, Exercise, and LearningLoopQuery services
 into a single unified facade for UI rendering.
 
 Absorbs the heavy ``_load_explore_data`` helper and the Vis.js graph
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.ku_service import KuService
     from core.services.ps_service import PsService
-    from core.services.submissions.submissions_search_service import SubmissionsSearchService
+    from core.services.submissions.learning_loop_query_service import LearningLoopQueryService
     from core.services.user_relationship_service import UserRelationshipService
 
 
@@ -39,13 +39,13 @@ class ExploreOrchestrator:
         ps_service: "PsService",
         user_relationship_service: "UserRelationshipService",
         exercises_service: "ExerciseService",
-        submissions_search_service: "SubmissionsSearchService",
+        learning_loop_query_service: "LearningLoopQueryService",
     ) -> None:
         self._ku = ku_service
         self._ps = ps_service
         self._user_relationships = user_relationship_service
         self._exercises = exercises_service
-        self._submissions_search = submissions_search_service
+        self._learning_loop_queries = learning_loop_query_service
 
     # ------------------------------------------------------------------
     # Ku operations
@@ -95,7 +95,7 @@ class ExploreOrchestrator:
 
     async def get_submissions_for_path_step(self, user_uid: str, ps_uid: str) -> Result[list]:
         """Get a user's submissions + feedback for a specific PathStep."""
-        return await self._submissions_search.get_submissions_for_path_step(user_uid, ps_uid)
+        return await self._learning_loop_queries.get_submissions_for_path_step(user_uid, ps_uid)
 
     # ------------------------------------------------------------------
     # Index data aggregation (was _load_explore_data)

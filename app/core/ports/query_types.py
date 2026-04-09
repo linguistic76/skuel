@@ -2560,7 +2560,7 @@ class ExerciseStatusRow(TypedDict):
 
 
 class PathStepSubmissionRow(TypedDict):
-    """Return shape for SubmissionsBackend.get_submissions_for_path_step().
+    """Return shape for LearningLoopQueryService.get_submissions_for_path_step().
 
     A user's submissions that occurred during a specific PathStep, enriched
     with the exercise title and report status for the learning loop UI.
