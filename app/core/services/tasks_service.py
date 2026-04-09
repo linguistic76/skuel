@@ -56,6 +56,7 @@ from core.services.tasks import (
     TasksProgressService,
     TasksSchedulingService,
 )
+from core.utils.activity_stats import compute_task_stats
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
@@ -136,19 +137,13 @@ class TaskAnalyticsDashboard(TypedDict):
 
 
 def _compute_task_stats(all_tasks: list[Any]) -> dict[str, int | float]:
-    """Compute pre-filter stats from the full task set."""
-    today = date.today()
-    total = len(all_tasks)
-    completed = sum(1 for t in all_tasks if t.status == EntityStatus.COMPLETED)
+    """Dict projection of TaskStats for the cross-domain ListContext contract."""
+    s = compute_task_stats(all_tasks)
     return {
-        "total": total,
-        "active": total - completed,
-        "completed": completed,
-        "overdue": sum(
-            1
-            for t in all_tasks
-            if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
-        ),
+        "total": s.total,
+        "active": s.active,
+        "completed": s.completed,
+        "overdue": s.overdue,
     }
 
 

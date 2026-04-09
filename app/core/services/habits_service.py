@@ -55,6 +55,7 @@ from core.services.habits.habits_scheduling_service import DEFAULT_MAX_DAILY_LOA
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 from core.services.relationships import UnifiedRelationshipService
+from core.utils.activity_stats import compute_habit_stats
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
@@ -98,12 +99,9 @@ def _compute_habit_metadata(_all_habits: list[Any]) -> dict[str, Any]:
 
 
 def _compute_habit_stats(all_habits: list[Any]) -> dict[str, int | float]:
-    """Compute pre-filter stats from the full habit set."""
-    return {
-        "total": len(all_habits),
-        "active": sum(1 for h in all_habits if h.status == EntityStatus.ACTIVE),
-        "streaks": sum(1 for h in all_habits if getattr(h, "current_streak", 0) > 0),
-    }
+    """Dict projection of HabitStats for the cross-domain ListContext contract."""
+    s = compute_habit_stats(all_habits)
+    return {"total": s.total, "active": s.active, "streaks": s.streaks}
 
 
 def _is_habit_active(h: Any) -> bool:

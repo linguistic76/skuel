@@ -34,6 +34,7 @@ from core.services.filtered_context import build_filtered_context
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 from core.services.relationships import UnifiedRelationshipService
+from core.utils.activity_stats import compute_choice_stats
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -85,13 +86,13 @@ def _get_choice_priority(c: Any) -> str:
 
 
 def _compute_choice_stats(all_choices: list[Any]) -> dict[str, int | float]:
-    """Compute pre-filter stats from the full choice set."""
-    pending = sum(1 for c in all_choices if _get_choice_enum_value(c, "status") == "pending")
+    """Dict projection of ChoiceStats for the cross-domain ListContext contract."""
+    s = compute_choice_stats(all_choices)
     return {
-        "total": len(all_choices),
-        "active": pending,
-        "pending": pending,
-        "decided": sum(1 for c in all_choices if _get_choice_enum_value(c, "status") == "decided"),
+        "total": s.total,
+        "active": s.active,
+        "pending": s.pending,
+        "decided": s.decided,
     }
 
 

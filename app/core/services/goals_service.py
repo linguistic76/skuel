@@ -46,6 +46,7 @@ from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
+from core.utils.activity_stats import compute_goal_stats
 from core.utils.dto_helpers import to_domain_model
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
@@ -124,17 +125,9 @@ def _compute_goal_metadata(_all_goals: list[Any]) -> dict[str, Any]:
 
 
 def _compute_goal_stats(all_goals: list[Any]) -> dict[str, int | float]:
-    """Compute pre-filter stats from the full goal set."""
-    return {
-        "total": len(all_goals),
-        "active": sum(
-            1
-            for g in all_goals
-            if _get_goal_status_str(g)
-            not in (EntityStatus.COMPLETED, EntityStatus.CANCELLED, EntityStatus.ARCHIVED)
-        ),
-        "completed": sum(1 for g in all_goals if _get_goal_status_str(g) == EntityStatus.COMPLETED),
-    }
+    """Dict projection of GoalStats for the cross-domain ListContext contract."""
+    s = compute_goal_stats(all_goals)
+    return {"total": s.total, "active": s.active, "completed": s.completed}
 
 
 def _is_goal_active(g: Any) -> bool:

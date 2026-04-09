@@ -43,6 +43,7 @@ from core.services.principles import (
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
+from core.utils.activity_stats import compute_principle_stats
 from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -97,12 +98,9 @@ def _compute_principle_metadata(_all_principles: list[Any]) -> dict[str, Any]:
 
 
 def _compute_principle_stats(all_principles: list[Any]) -> dict[str, int | float]:
-    """Compute pre-filter stats from the full principle set."""
-    return {
-        "total": len(all_principles),
-        "core": sum(1 for p in all_principles if _get_principle_strength_value(p) >= 5),
-        "active": sum(1 for p in all_principles if getattr(p, "is_active", True)),
-    }
+    """Dict projection of PrincipleStats for the cross-domain ListContext contract."""
+    s = compute_principle_stats(all_principles)
+    return {"total": s.total, "core": s.core, "active": s.active}
 
 
 def _get_principle_strength_value(p: Any) -> int:

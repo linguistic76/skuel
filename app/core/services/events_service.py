@@ -48,6 +48,7 @@ from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
+from core.utils.activity_stats import compute_event_stats
 from core.utils.list_helpers import (
     FilterConfig,
     SortConfig,
@@ -94,14 +95,13 @@ def _get_event_status_value(event: Any) -> str:
 
 
 def _compute_event_stats(all_events: list[Any]) -> dict[str, int | float]:
-    """Compute pre-filter stats from the full event set."""
-    today = date.today()
-    terminal = {"completed", "cancelled", "archived"}
+    """Dict projection of EventStats for the cross-domain ListContext contract."""
+    s = compute_event_stats(all_events)
     return {
-        "total": len(all_events),
-        "active": sum(1 for e in all_events if _get_event_status_value(e) not in terminal),
-        "scheduled": sum(1 for e in all_events if _get_event_status_value(e) == "scheduled"),
-        "today": sum(1 for e in all_events if getattr(e, "event_date", None) == today),
+        "total": s.total,
+        "active": s.active,
+        "scheduled": s.scheduled,
+        "today": s.today,
     }
 
 
