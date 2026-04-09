@@ -344,8 +344,8 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         """
         query = f"""
         MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
-        WHERE s.entity_type = 'exercise_submission'
-        OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
+        WHERE s.entity_type = $submission_type
+        OPTIONAL MATCH (fb:Entity {{entity_type: $report_type}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
         WITH s, count(fb) AS feedback_count
         RETURN s.uid AS uid,
                s.title AS title,
@@ -358,7 +358,15 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         LIMIT $limit
         """
 
-        result = await self.backend.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        result = await self.backend.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "limit": limit,
+                "submission_type": EntityType.EXERCISE_SUBMISSION.value,
+                "report_type": EntityType.EXERCISE_REPORT.value,
+            },
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -366,14 +374,14 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             [
                 {
                     "uid": record["uid"],
-                    "title": record["title"],
-                    "original_filename": record["original_filename"],
-                    "status": record["status"],
-                    "entity_type": record["entity_type"],
-                    "created_at": record["created_at"],
-                    "feedback_count": record["feedback_count"] or 0,
+                    "title": record.get("title"),
+                    "original_filename": record.get("original_filename"),
+                    "status": record.get("status"),
+                    "entity_type": record.get("entity_type"),
+                    "created_at": record.get("created_at"),
+                    "feedback_count": record.get("feedback_count") or 0,
                 }
-                for record in result.value
+                for record in result.value or []
             ]
         )
 

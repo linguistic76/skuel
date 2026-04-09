@@ -16,7 +16,9 @@ Keeping these concerns apart prevents generic search from accreting Cypher
 that traverses Interaction/Exercise/Report edges.
 """
 
+from core.constants import QueryLimit
 from core.models.entity_types import SubmissionEntity
+from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports import BackendOperations
@@ -57,6 +59,7 @@ class LearningLoopQueryService:
         self,
         user_uid: UserUID,
         ps_uid: str,
+        limit: int = QueryLimit.COMPREHENSIVE,
     ) -> Result[list[PathStepSubmissionRow]]:
         """Get a user's submissions that occurred during a specific PathStep.
 
@@ -65,9 +68,16 @@ class LearningLoopQueryService:
 
         Returns submissions enriched with exercise title and report status,
         used by the PathStep detail page's learning loop sections.
+
+        Args:
+            user_uid: Owner of the submissions to return.
+            ps_uid: PathStep UID to scope the Interaction traversal to.
+            limit: Max rows to return (default `QueryLimit.COMPREHENSIVE`). Bounds the
+                result set so a learner with hundreds of submissions on one
+                PathStep can't unbounded-load the detail page.
         """
         query = f"""
-        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(sub:Entity {{entity_type: 'exercise_submission'}})
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(sub:Entity {{entity_type: $submission_type}})
         MATCH (i:Entity:Interaction)-[:{RelationshipName.RECORDS.value}]->(sub)
         MATCH (i)-[:{RelationshipName.INTERACTION_DURING.value}]->(ps:Entity {{uid: $ps_uid}})
         OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
@@ -78,9 +88,18 @@ class LearningLoopQueryService:
                report.uid AS report_uid,
                report.assessment_outcome AS report_outcome
         ORDER BY sub.created_at DESC
+        LIMIT $limit
         """
 
-        result = await self.backend.execute_query(query, {"user_uid": user_uid, "ps_uid": ps_uid})
+        result = await self.backend.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "ps_uid": ps_uid,
+                "submission_type": EntityType.EXERCISE_SUBMISSION.value,
+                "limit": limit,
+            },
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -88,9 +107,9 @@ class LearningLoopQueryService:
             [
                 PathStepSubmissionRow(
                     uid=record["uid"],
-                    title=record["title"],
-                    status=record["status"],
-                    created_at=record["created_at"],
+                    title=record.get("title"),
+                    status=record.get("status"),
+                    created_at=record.get("created_at"),
                     exercise_uid=record.get("exercise_uid"),
                     exercise_title=record.get("exercise_title"),
                     report_uid=record.get("report_uid"),
