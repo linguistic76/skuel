@@ -5,13 +5,23 @@ Submissions Search Service
 Service for querying submissions across all types.
 
 Core Capabilities:
-- Query submissions by type, date range, status
-- Filter by metadata (category, mood, tags)
-- Search submission content
+- Query submissions by date, date range, recency
+- Full-text search across submission content (case-insensitive)
 - Calculate statistics (streaks, word count, etc.)
+- Enrich submissions with teacher-feedback counts for review UI
+
+Filtering is pushed into Cypher via either `find_by(**operators)` or raw
+parameterized queries — never by fetching a superset and post-filtering in
+Python. The backend label is `:Entity`, so every query must carry an explicit
+`entity_type = $submission_type` predicate or it will scan all user-owned
+entities.
+
+Methods like `get_reports_by_mood`/`get_reports_by_category` that used to live
+here were removed when the journal domain was extracted — `metadata.mood` and
+`metadata.category` belong to JeInput/JeOutput now, not ExerciseSubmission.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any, ClassVar
 
 from core.constants import QueryLimit
@@ -23,10 +33,12 @@ from core.models.relationship_names import RelationshipName
 from core.models.submissions.submission_dto import SubmissionDTO
 from core.models.type_hints import UserUID
 from core.ports import BackendOperations
+from core.ports.query_types import SubmissionStatistics
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
+from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Result
 
 logger = get_logger("skuel.services.submissions_search")
@@ -104,6 +116,15 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
     # SUBMISSION QUERIES
     # ========================================================================
 
+    def _resolve_submission_type(self, entity_type: EntityType | None) -> str:
+        """Return the Cypher-facing entity_type string.
+
+        Defaults to EXERCISE_SUBMISSION (the only concrete leaf in today's
+        SubmissionEntity union). Never inline entity-type literals into queries
+        — SKUEL014 — keep the enum as the single source of truth.
+        """
+        return (entity_type or EntityType.EXERCISE_SUBMISSION).value
+
     @with_error_handling("get_report_for_date")
     async def get_report_for_date(
         self,
@@ -111,33 +132,38 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         target_date: date,
         entity_type: EntityType | None = None,
     ) -> Result[Entity | None]:
-        """
-        Get submission for a specific date.
+        """Get the most recent submission whose created_at falls on ``target_date``.
+
+        Filters at the database level — previous implementations fetched the
+        single newest row and then silently returned ``None`` whenever its date
+        didn't match. This version only returns ``None`` when there genuinely
+        is no submission on that day.
 
         Args:
-            user_uid: User identifier
-            target_date: Date to search for
-            entity_type: Optional type filter
+            user_uid: Owner of the submissions.
+            target_date: Calendar day to match.
+            entity_type: Optional type override; defaults to EXERCISE_SUBMISSION.
 
         Returns:
-            Result containing submission or None if not found
+            Result containing the newest matching submission or ``None``.
         """
-        filters: dict[str, Any] = {"user_uid": user_uid, "limit": 1}
-        if entity_type:
-            filters["entity_type"] = entity_type.value
+        start_iso = datetime.combine(target_date, time.min).isoformat()
+        end_iso = datetime.combine(target_date + timedelta(days=1), time.min).isoformat()
 
-        result = await self.backend.find_by(**filters)
-
+        result = await self.backend.find_by(
+            user_uid=user_uid,
+            entity_type=self._resolve_submission_type(entity_type),
+            created_at__gte=start_iso,
+            created_at__lt=end_iso,
+            sort_by="created_at",
+            sort_order="desc",
+            limit=1,
+        )
         if result.is_error:
             return Result.fail(result)
 
-        submissions = result.value
-
-        for submission in submissions:
-            if submission.created_at.date() == target_date:
-                return Result.ok(submission)
-
-        return Result.ok(None)
+        submissions = result.value or []
+        return Result.ok(submissions[0] if submissions else None)
 
     @with_error_handling("list_reports_by_date_range")
     async def list_reports_by_date_range(
@@ -146,134 +172,40 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         start_date: date,
         end_date: date,
         entity_type: EntityType | None = None,
-        limit: int = 100,
+        limit: int = QueryLimit.COMPREHENSIVE,
     ) -> Result[list[Entity]]:
-        """
-        List submissions within a date range.
+        """List submissions within an inclusive date range.
+
+        Both ``start_date`` and ``end_date`` are inclusive (the range ``[start,
+        end]``). Filtering happens at the database — the previous implementation
+        fetched a superset and post-filtered in Python.
 
         Args:
-            user_uid: User identifier
-            start_date: Start date (inclusive)
-            end_date: End date (inclusive)
-            entity_type: Optional type filter
-            limit: Max results (default 100)
+            user_uid: Owner of the submissions.
+            start_date: Earliest day to include (inclusive).
+            end_date: Latest day to include (inclusive).
+            entity_type: Optional type override; defaults to EXERCISE_SUBMISSION.
+            limit: Max rows to return (default ``QueryLimit.COMPREHENSIVE``).
 
         Returns:
-            Result containing list of submissions
+            Result containing submissions newest-first.
         """
-        filters: dict[str, Any] = {
-            "user_uid": user_uid,
-            "limit": limit,
-            "sort_by": "created_at",
-            "sort_order": "desc",
-        }
-        if entity_type:
-            filters["entity_type"] = entity_type.value
+        start_iso = datetime.combine(start_date, time.min).isoformat()
+        end_iso = datetime.combine(end_date + timedelta(days=1), time.min).isoformat()
 
-        result = await self.backend.find_by(**filters)
-
+        result = await self.backend.find_by(
+            user_uid=user_uid,
+            entity_type=self._resolve_submission_type(entity_type),
+            created_at__gte=start_iso,
+            created_at__lt=end_iso,
+            sort_by="created_at",
+            sort_order="desc",
+            limit=limit,
+        )
         if result.is_error:
-            return result
+            return Result.fail(result)
 
-        reports = result.value
-        filtered = [k for k in reports if start_date <= k.created_at.date() <= end_date]
-
-        return Result.ok(filtered)
-
-    @with_error_handling("get_reports_by_category")
-    async def get_reports_by_category(
-        self,
-        user_uid: UserUID,
-        category: str,
-        entity_type: EntityType | None = None,
-        limit: int = 50,
-    ) -> Result[list[Entity]]:
-        """
-        Get submissions filtered by category (stored in metadata).
-
-        Args:
-            user_uid: User identifier
-            category: Category name
-            entity_type: Optional type filter
-            limit: Max results
-
-        Returns:
-            Result containing list of submissions
-        """
-        filters: dict[str, Any] = {
-            "user_uid": user_uid,
-            "limit": limit * 2,
-            "sort_by": "created_at",
-            "sort_order": "desc",
-        }
-        if entity_type:
-            filters["entity_type"] = entity_type.value
-
-        result = await self.backend.find_by(**filters)
-
-        if result.is_error:
-            return result
-
-        reports = result.value
-        filtered = [k for k in reports if k.metadata and k.metadata.get("category") == category][
-            :limit
-        ]
-
-        return Result.ok(filtered)
-
-    @with_error_handling("get_reports_by_mood")
-    async def get_reports_by_mood(
-        self,
-        user_uid: UserUID,
-        mood: str,
-        start_date: date | None = None,
-        end_date: date | None = None,
-        entity_type: EntityType | None = None,
-        limit: int = 50,
-    ) -> Result[list[Entity]]:
-        """
-        Get submissions filtered by mood (stored in metadata).
-
-        Args:
-            user_uid: User identifier
-            mood: Mood name
-            start_date: Optional start date filter
-            end_date: Optional end date filter
-            entity_type: Optional type filter
-            limit: Max results
-
-        Returns:
-            Result containing list of submissions
-        """
-        filters: dict[str, Any] = {
-            "user_uid": user_uid,
-            "limit": limit * 2,
-            "sort_by": "created_at",
-            "sort_order": "desc",
-        }
-        if entity_type:
-            filters["entity_type"] = entity_type.value
-
-        result = await self.backend.find_by(**filters)
-
-        if result.is_error:
-            return result
-
-        reports = result.value
-
-        filtered = []
-        for k in reports:
-            if not k.metadata or k.metadata.get("mood") != mood:
-                continue
-            if start_date and k.created_at.date() < start_date:
-                continue
-            if end_date and k.created_at.date() > end_date:
-                continue
-            filtered.append(k)
-            if len(filtered) >= limit:
-                break
-
-        return Result.ok(filtered)
+        return Result.ok(result.value or [])
 
     @with_error_handling("search_submissions")
     async def search_submissions(
@@ -283,44 +215,48 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         entity_type: EntityType | None = None,
         limit: int = 50,
     ) -> Result[list[Entity]]:
-        """
-        Search submission content using text search.
+        """Case-insensitive substring search across ``processed_content``.
 
-        Searches in processed_content field.
+        Filtering happens inside Cypher via
+        ``toLower(s.processed_content) CONTAINS toLower($query)`` — no more
+        over-fetching a ``limit * 3`` superset and filtering in Python.
 
         Args:
-            user_uid: User identifier
-            query: Search query string
-            entity_type: Optional type filter
-            limit: Max results
+            user_uid: Owner of the submissions.
+            query: Substring to match (case-insensitive).
+            entity_type: Optional type override; defaults to EXERCISE_SUBMISSION.
+            limit: Max rows to return.
 
         Returns:
-            Result containing list of matching submissions
+            Result containing matching submissions newest-first.
         """
-        filters: dict[str, Any] = {
-            "user_uid": user_uid,
-            "limit": limit * 3,
-            "sort_by": "created_at",
-            "sort_order": "desc",
-        }
-        if entity_type:
-            filters["entity_type"] = entity_type.value
+        if not query:
+            return Result.ok([])
 
-        result = await self.backend.find_by(**filters)
+        cypher = f"""
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
+        WHERE s.entity_type = $submission_type
+          AND s.processed_content IS NOT NULL
+          AND toLower(s.processed_content) CONTAINS toLower($query)
+        RETURN s
+        ORDER BY s.created_at DESC
+        LIMIT $limit
+        """
 
+        result = await self.backend.execute_query(
+            cypher,
+            {
+                "user_uid": user_uid,
+                "submission_type": self._resolve_submission_type(entity_type),
+                "query": query,
+                "limit": limit,
+            },
+        )
         if result.is_error:
-            return result
+            return Result.fail(result)
 
-        reports = result.value
-        query_lower = query.lower()
-
-        def _has_matching_content(k: Entity) -> bool:
-            pc = getattr(k, "processed_content", None)
-            return bool(pc and query_lower in pc.lower())
-
-        filtered = [k for k in reports if _has_matching_content(k)][:limit]
-
-        return Result.ok(filtered)
+        entities = [from_neo4j_node(record["s"], Entity) for record in result.value or []]
+        return Result.ok(entities)
 
     @with_error_handling("get_submissions_with_feedback_status")
     async def get_submissions_with_feedback_status(
@@ -396,19 +332,23 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         start_date: date,
         end_date: date,
         entity_type: EntityType | None = None,
-    ) -> Result[dict[str, Any]]:
-        """
-        Calculate submission statistics for date range.
+    ) -> Result[SubmissionStatistics]:
+        """Calculate submission statistics for a date range.
 
-        Statistics include:
-        - Total submissions
-        - Total words written
-        - Average words per submission
-        - Longest streak (consecutive days)
-        - Current streak
-        - Most productive day of week
-        - Category distribution
-        - Type distribution (if not filtered)
+        Delegates to :meth:`list_reports_by_date_range` for the database read,
+        then derives word counts, streaks, and distributions in memory. Return
+        shape conforms to the ``SubmissionStatistics`` TypedDict — key names
+        use the ``submissions_by_*`` prefix, not the stale ``kus_by_*`` prefix
+        left over from the "everything is a Ku" era.
+
+        Args:
+            user_uid: Owner of the submissions.
+            start_date: Earliest day to include (inclusive).
+            end_date: Latest day to include (inclusive).
+            entity_type: Optional type override; defaults to EXERCISE_SUBMISSION.
+
+        Returns:
+            Result containing submission statistics.
         """
         reports_result = await self.list_reports_by_date_range(
             user_uid=user_uid,
@@ -421,68 +361,61 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         if reports_result.is_error:
             return Result.fail(reports_result)
 
-        reports = reports_result.value
+        reports = reports_result.value or []
 
         total_reports = len(reports)
         if total_reports == 0:
-            return Result.ok(
-                {
-                    "total_reports": 0,
-                    "total_words": 0,
-                    "average_words": 0,
-                    "longest_streak": 0,
-                    "current_streak": 0,
-                    "kus_by_day_of_week": {},
-                    "kus_by_category": {},
-                    "kus_by_type": {},
-                }
-            )
+            empty: SubmissionStatistics = {
+                "total": 0,
+                "total_words": 0,
+                "average_words": 0.0,
+                "longest_streak": 0,
+                "current_streak": 0,
+                "submissions_by_day_of_week": {},
+                "submissions_by_type": {},
+                "by_type": {},
+                "by_status": {},
+            }
+            return Result.ok(empty)
 
-        # Total words
         def _word_count(k: Entity) -> int:
             pc = getattr(k, "processed_content", None)
             return len(pc.split()) if pc else 0
 
         total_words = sum(_word_count(k) for k in reports)
-        average_words = total_words / total_reports if total_reports > 0 else 0
+        average_words = round(total_words / total_reports, 1)
 
-        # Streak calculation
-        report_dates = sorted([k.created_at.date() for k in reports])
+        report_dates = sorted(k.created_at.date() for k in reports)
         longest_streak = self._calculate_longest_streak(report_dates)
         current_streak = self._calculate_current_streak(report_dates)
 
-        # Day of week distribution
         day_of_week_counts: dict[str, int] = {}
         for k in reports:
             day_name = k.created_at.strftime("%A")
             day_of_week_counts[day_name] = day_of_week_counts.get(day_name, 0) + 1
 
-        # Category distribution
-        category_counts: dict[str, int] = {}
-        for k in reports:
-            if k.metadata and "category" in k.metadata:
-                category = k.metadata["category"]
-                category_counts[category] = category_counts.get(category, 0) + 1
-
-        # Type distribution
         type_counts: dict[str, int] = {}
-        if not entity_type:
-            for k in reports:
-                type_name = k.entity_type.value
-                type_counts[type_name] = type_counts.get(type_name, 0) + 1
+        for k in reports:
+            type_name = k.entity_type.value
+            type_counts[type_name] = type_counts.get(type_name, 0) + 1
 
-        return Result.ok(
-            {
-                "total_reports": total_reports,
-                "total_words": total_words,
-                "average_words": round(average_words, 1),
-                "longest_streak": longest_streak,
-                "current_streak": current_streak,
-                "kus_by_day_of_week": day_of_week_counts,
-                "kus_by_category": category_counts,
-                "kus_by_type": type_counts,
-            }
-        )
+        status_counts: dict[str, int] = {}
+        for k in reports:
+            status_name = k.status.value if k.status else "unknown"
+            status_counts[status_name] = status_counts.get(status_name, 0) + 1
+
+        stats: SubmissionStatistics = {
+            "total": total_reports,
+            "total_words": total_words,
+            "average_words": average_words,
+            "longest_streak": longest_streak,
+            "current_streak": current_streak,
+            "submissions_by_day_of_week": day_of_week_counts,
+            "submissions_by_type": type_counts,
+            "by_type": type_counts,
+            "by_status": status_counts,
+        }
+        return Result.ok(stats)
 
     def _calculate_longest_streak(self, dates: list[date]) -> int:
         """Calculate longest consecutive day streak."""
@@ -535,24 +468,29 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
         entity_type: EntityType | None = None,
         limit: int = 10,
     ) -> Result[list[Entity]]:
-        """
-        Get most recent submissions.
+        """Get the user's most recent submissions.
+
+        The ``entity_type`` filter is applied unconditionally — even when the
+        caller passes ``None``, the query scopes to
+        ``EntityType.EXERCISE_SUBMISSION`` so it can't bleed into Tasks, Goals,
+        or any other user-owned entity sharing the ``:Entity`` label.
 
         Args:
-            user_uid: User identifier
-            entity_type: Optional type filter
-            limit: Max results (default 10)
+            user_uid: Owner of the submissions.
+            entity_type: Optional type override; defaults to EXERCISE_SUBMISSION.
+            limit: Max rows to return (default 10).
 
         Returns:
-            Result containing list of recent submissions
+            Result containing submissions newest-first.
         """
-        filters: dict[str, Any] = {
-            "user_uid": user_uid,
-            "limit": limit,
-            "sort_by": "created_at",
-            "sort_order": "desc",
-        }
-        if entity_type:
-            filters["entity_type"] = entity_type.value
+        result = await self.backend.find_by(
+            user_uid=user_uid,
+            entity_type=self._resolve_submission_type(entity_type),
+            sort_by="created_at",
+            sort_order="desc",
+            limit=limit,
+        )
+        if result.is_error:
+            return Result.fail(result)
 
-        return await self.backend.find_by(**filters)
+        return Result.ok(result.value or [])

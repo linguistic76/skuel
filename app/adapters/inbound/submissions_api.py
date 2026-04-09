@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     from core.ports.submission_protocols import (
         SubmissionOperations,
         SubmissionProcessingOperations,
-        SubmissionSearchOperations,
     )
     from core.services.user_service import UserService
 
@@ -85,7 +84,6 @@ def create_submissions_api_routes(
     rt: Any,
     submission_service: "SubmissionOperations",
     processing_service: "SubmissionProcessingOperations",
-    submissions_search_service: "SubmissionSearchOperations | None" = None,
     submissions_core_service: "SubmissionOperations | None" = None,
     teacher_review_service: "TeacherReviewOperations | None" = None,
     user_service: "UserService | None" = None,
@@ -98,7 +96,6 @@ def create_submissions_api_routes(
         rt: Router instance
         submission_service: SubmissionsService for upload and retrieval
         processing_service: SubmissionsProcessingService for content processing
-        submissions_search_service: SubmissionsSearchService for cross-domain queries
         submissions_core_service: SubmissionsCoreService for content management
         teacher_review_service: TeacherReviewService for feedback history queries
         user_service: UserService for building UserContext (supplies Interaction context fields)

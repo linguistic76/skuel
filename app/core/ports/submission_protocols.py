@@ -270,7 +270,10 @@ class SubmissionProcessingOperations(Protocol):
 class SubmissionSearchOperations(Protocol):
     """Cross-type search and statistics across submission entity types.
 
-    Route consumer: submissions_api.py
+    The protocol only lists methods the service actually implements. A single
+    orchestrator (``SubmissionsOrchestrator``) consumes these; no routes call
+    them directly.
+
     Implementation: SubmissionsSearchService
     """
 
@@ -281,10 +284,10 @@ class SubmissionSearchOperations(Protocol):
         entity_type: EntityType | None = None,
         limit: int = 50,
     ) -> "Result[list[SubmissionEntity]]":
-        """Search submissions with text and type filters. Returns Result[list[Submission]]."""
+        """Case-insensitive substring search on submission processed content."""
         ...
 
-    async def get_submission_statistics(
+    async def get_report_statistics(
         self,
         user_uid: UserUID,
         start_date: date,
@@ -300,13 +303,13 @@ class SubmissionSearchOperations(Protocol):
         entity_type: EntityType | None = None,
         limit: int = 10,
     ) -> "Result[list[SubmissionEntity]]":
-        """Get recent submissions. Returns Result[list[Submission]]."""
+        """Get recent submissions newest-first."""
         ...
 
-    async def get_journal_for_submission(
+    async def get_submissions_with_feedback_status(
         self,
-        ku_uid: str,
         user_uid: UserUID,
-    ) -> Result[dict[str, Any] | None]:
-        """Get journal metadata for a submission entity. Returns Result[dict | None]."""
+        limit: int = 50,
+    ) -> "Result[list[dict[str, Any]]]":
+        """Get a student's submissions enriched with teacher feedback counts."""
         ...

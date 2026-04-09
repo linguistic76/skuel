@@ -40,7 +40,6 @@ SUBMISSIONS_CONFIG = DomainRouteConfig(
     api_factory=create_submissions_api_routes,
     api_related_services={
         "processing_service": "submissions_processor",
-        "submissions_search_service": "submissions_search",
         "submissions_core_service": "submissions_core",
         "teacher_review_service": "teacher_review",
         "user_service": "user",

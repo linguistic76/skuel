@@ -16,6 +16,7 @@ Routes:
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, Span
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.models.enums.entity_enums import EntityType
