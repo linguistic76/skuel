@@ -553,10 +553,11 @@ async def services(neo4j_driver):
         cross_domain_query=cross_domain_query,
     )
 
-    # Create Goals service (requires graph_intelligence_service)
+    # Create Goals service (requires graph_intelligence_service + cross_domain_query)
     goals_service = GoalsService(
         backend=goals_backend,
         graph_intelligence_service=mock_graph_intel,
+        cross_domain_query=cross_domain_query,
     )
 
     # Create Events service (requires graph_intelligence_service)
@@ -873,9 +874,15 @@ async def goals_backend(neo4j_driver):
 @pytest_asyncio.fixture
 async def goals_service(goals_backend, event_bus):
     """Create goals core service for testing."""
+    from unittest.mock import AsyncMock
+
     from core.services.goals.goals_core_service import GoalsCoreService
 
-    return GoalsCoreService(backend=goals_backend, event_bus=event_bus)
+    return GoalsCoreService(
+        backend=goals_backend,
+        cross_domain_query=AsyncMock(),
+        event_bus=event_bus,
+    )
 
 
 @pytest_asyncio.fixture

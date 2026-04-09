@@ -27,10 +27,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from core.models.enums import EntityStatus
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.cross_domain.cross_domain_types import (
+    ActiveTaskCount,
     AlignedEntity,
     KnowledgeApplyingTask,
     PrincipleAlignmentEvidence,
@@ -92,6 +94,27 @@ _GOALS_FOR_TASK_QUERY = f"""
 MATCH (t:Entity {{uid: $task_uid, entity_type: 'task'}})
 MATCH (t)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}|{RelationshipName.FULFILLS_GOAL.value}]->(g:Entity {{entity_type: 'goal'}})
 RETURN DISTINCT g.uid AS uid, g.title AS title
+"""
+
+
+# Non-terminal task statuses — used by the goal-abandonment guard. A goal can
+# only be cancelled when no task linked via FULFILLS_GOAL is still active in
+# one of these states. Built from the enum so a status rename can't drift.
+_ACTIVE_TASK_STATUSES: list[str] = [
+    EntityStatus.ACTIVE.value,
+    EntityStatus.SCHEDULED.value,
+    EntityStatus.BLOCKED.value,
+    EntityStatus.PAUSED.value,
+]
+
+
+# Cypher: count tasks that FULFILL the given goal and are still in a
+# non-terminal state. One round-trip; the WHERE clause uses an IN-list against
+# ``$active_statuses`` so the enum stays the source of truth.
+_COUNT_ACTIVE_TASKS_FOR_GOAL_QUERY = f"""
+MATCH (t:Entity {{entity_type: 'task'}})-[:{RelationshipName.FULFILLS_GOAL.value}]->(g:Entity {{uid: $goal_uid, entity_type: 'goal'}})
+WHERE t.status IN $active_statuses
+RETURN count(t) AS count
 """
 
 
@@ -230,3 +253,23 @@ class CrossDomainQueryService:
             if row and row.get("uid")
         )
         return Result.ok(goals)
+
+    async def count_active_tasks_for_goal(self, goal_uid: EntityUID) -> Result[ActiveTaskCount]:
+        """
+        Count tasks linked to ``goal_uid`` via ``FULFILLS_GOAL`` whose status is
+        non-terminal (ACTIVE / SCHEDULED / BLOCKED / PAUSED).
+
+        One Cypher round-trip. Used by the goal-abandonment guard in
+        ``GoalsCoreService.update`` to block cancelling a goal that still has
+        active tasks underneath it. Empty result → ``count=0``.
+        """
+        result = await self.executor.execute_query(
+            _COUNT_ACTIVE_TASKS_FOR_GOAL_QUERY,
+            {"goal_uid": goal_uid, "active_statuses": _ACTIVE_TASK_STATUSES},
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        rows = result.value or []
+        count = int(rows[0]["count"]) if rows else 0
+        return Result.ok(ActiveTaskCount(goal_uid=goal_uid, count=count))

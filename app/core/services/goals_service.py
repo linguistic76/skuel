@@ -69,6 +69,7 @@ if TYPE_CHECKING:
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import GoalsSearchOperations
+    from core.services.cross_domain import CrossDomainQueryService
     from core.services.goals.goals_ai_service import GoalsAIService
     from core.services.goals.goals_scheduling_service import (
         AchievabilityResult,
@@ -448,6 +449,7 @@ class GoalsService(KnowledgeIntelligenceDelegationMixin, BaseService[GoalsOperat
         self,
         backend: GoalsOperations,
         graph_intelligence_service: GraphIntelligenceService,
+        cross_domain_query: CrossDomainQueryService,
         event_bus: EventBusOperations | None = None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
@@ -477,16 +479,24 @@ class GoalsService(KnowledgeIntelligenceDelegationMixin, BaseService[GoalsOperat
         self.graph_intel = graph_intelligence_service
         self.logger = get_logger("skuel.services.goals")  # type: ignore[assignment]  # structlog BoundLogger
 
-        # Initialize core, search, relationships via factory
-        # (intelligence skipped — needs progress_service, created below)
+        # Initialize search and relationships via factory.
+        # core is built manually because GoalsCoreService takes cross_domain_query
+        # for the goal-abandonment guard. intelligence is skipped because it
+        # needs progress_service, which is created below.
         common = create_common_sub_services(
             domain="goals",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
-            skip={"intelligence"},
+            skip={"core", "intelligence"},
         )
-        self.core = common.core
+        from core.services.goals.goals_core_service import GoalsCoreService
+
+        self.core = GoalsCoreService(
+            backend=backend,
+            cross_domain_query=cross_domain_query,
+            event_bus=event_bus,
+        )
         self.search: GoalsSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
         self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
 

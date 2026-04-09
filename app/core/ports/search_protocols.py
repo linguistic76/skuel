@@ -585,20 +585,8 @@ class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
         """List all goal categories (admin use)."""
         ...
 
-    async def get_goals_for_task(self, task_uid: str) -> Result[list["Goal"]]:
-        """Get goals that a task fulfills."""
-        ...
-
-    async def get_goals_for_habit(self, habit_uid: str) -> Result[list["Goal"]]:
-        """Get goals that a habit supports."""
-        ...
-
     async def get_sub_goals(self, parent_goal_uid: str) -> Result[list["Goal"]]:
         """Get sub-goals of a parent goal."""
-        ...
-
-    async def get_related_goals(self, goal_uid: str, limit: int = 10) -> Result[list["Goal"]]:
-        """Get goals related to a given goal."""
         ...
 
 

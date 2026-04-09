@@ -59,3 +59,11 @@ class TasksForKnowledge:
     knowledge_uid: EntityUID
     user_uid: UserUID
     tasks: tuple[KnowledgeApplyingTask, ...]
+
+
+@dataclass(frozen=True)
+class ActiveTaskCount:
+    """Count of non-terminal tasks linked to a goal via FULFILLS_GOAL."""
+
+    goal_uid: EntityUID
+    count: int

@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from core.services.cross_domain import (
+    ActiveTaskCount,
     AlignedEntity,
     CrossDomainQueryService,
     KnowledgeApplyingTask,
@@ -177,5 +178,57 @@ class TestGetGoalsForTask:
         )
 
         result = await service.get_goals_for_task(task_uid="task_1")
+
+        assert result.is_error
+
+
+# ---------------------------------------------------------------------------
+# count_active_tasks_for_goal
+# ---------------------------------------------------------------------------
+
+
+class TestCountActiveTasksForGoal:
+    @pytest.mark.asyncio
+    async def test_returns_count(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.ok([{"count": 3}])
+
+        result = await service.count_active_tasks_for_goal(goal_uid="goal_1")
+
+        assert result.is_ok
+        assert result.value == ActiveTaskCount(goal_uid="goal_1", count=3)
+
+        # Exactly one Cypher round-trip.
+        assert mock_executor.execute_query.await_count == 1
+        params = mock_executor.execute_query.call_args.args[1]
+        assert params["goal_uid"] == "goal_1"
+        # Active statuses passed as a list, sourced from the EntityStatus enum.
+        assert isinstance(params["active_statuses"], list)
+        assert "active" in params["active_statuses"]
+        assert "scheduled" in params["active_statuses"]
+        assert "blocked" in params["active_statuses"]
+        assert "paused" in params["active_statuses"]
+
+    @pytest.mark.asyncio
+    async def test_zero_when_empty(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.ok([])
+
+        result = await service.count_active_tasks_for_goal(goal_uid="goal_orphan")
+
+        assert result.is_ok
+        assert result.value == ActiveTaskCount(goal_uid="goal_orphan", count=0)
+
+    @pytest.mark.asyncio
+    async def test_propagates_error(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.fail(
+            Errors.database(operation="execute_query", message="neo4j down")
+        )
+
+        result = await service.count_active_tasks_for_goal(goal_uid="goal_1")
 
         assert result.is_error

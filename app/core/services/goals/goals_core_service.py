@@ -25,6 +25,7 @@ from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
     from core.models.goal.goal_request import GoalCreateRequest
+    from core.services.cross_domain import CrossDomainQueryService
 
 from core.events import publish_event
 from core.events.goal_events import (
@@ -37,7 +38,6 @@ from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
-from core.models.relationship_names import RelationshipName
 from core.ports import get_enum_value
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalStats, GoalUpdatePayload
@@ -66,17 +66,25 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     - Publishes GoalAbandoned when goal cancelled
     """
 
-    def __init__(self, backend: GoalsOperations, event_bus=None) -> None:
+    def __init__(
+        self,
+        backend: GoalsOperations,
+        cross_domain_query: "CrossDomainQueryService",
+        event_bus=None,
+    ) -> None:
         """
         Initialize goals core service.
 
         Args:
             backend: Protocol-based backend for goal operations
+            cross_domain_query: CrossDomainQueryService for the goal-abandonment
+                guard (FULFILLS_GOAL active-task count). REQUIRED — fail-fast.
             event_bus: Event bus for publishing domain events (optional)
         """
         super().__init__(backend, "goals")
         self.logger = get_logger("skuel.services.goals.core")  # type: ignore[assignment]  # structlog BoundLogger
         self.event_bus = event_bus
+        self.cross_domain_query = cross_domain_query
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -378,47 +386,25 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             - GoalAchieved: If status changed to COMPLETED
         """
         # Business Rule: Goal abandonment protection (requires async relationship query)
-        # Cannot abandon goal with active tasks - forces user to handle dependencies first
+        # Cannot abandon goal with active tasks - forces user to handle dependencies first.
+        # Delegated to CrossDomainQueryService — one Cypher round-trip, typed result.
         if "status" in updates and updates["status"] == EntityStatus.CANCELLED.value:
-            # Query for active tasks linked to this goal
-            from adapters.persistence.neo4j.query import build_relationship_count
-
-            # Check for tasks that are not in terminal states (i.e., still active/pending)
-            # We can't filter by non-terminal in a simple property match, so we check for
-            # the most common active states: IN_PROGRESS, SCHEDULED, BLOCKED, PAUSED
-            query, params = build_relationship_count(
-                uid=uid,
-                relationship_type=RelationshipName.FULFILLS_GOAL.value,
-                direction="incoming",  # (task)-[:FULFILLS_GOAL]->(goal)
-                properties={
-                    "status__in": [
-                        EntityStatus.ACTIVE.value,
-                        EntityStatus.SCHEDULED.value,
-                        EntityStatus.BLOCKED.value,
-                        EntityStatus.PAUSED.value,
-                    ]
-                },
-            )
-
-            query_result = await self.backend.execute_query(query, params)
-            if query_result.is_error:
-                # Log warning but continue - don't block on relationship query failure
+            count_result = await self.cross_domain_query.count_active_tasks_for_goal(uid)
+            if count_result.is_error:
+                # Log warning but continue — don't block on relationship query failure
+                # (preserve existing behavior; this isn't the migration to change it).
                 self.logger.warning(
-                    f"Failed to check active tasks for goal {uid}: {query_result.expect_error()}"
+                    f"Failed to check active tasks for goal {uid}: {count_result.expect_error()}"
                 )
-            else:
-                active_task_count = query_result.value[0]["count"] if query_result.value else 0
-
-                if active_task_count > 0:
-                    from core.utils.result_simplified import Errors
-
-                    return Result.fail(
-                        Errors.validation(
-                            message=f"Cannot abandon goal with {active_task_count} active task(s). Complete or reassign tasks first.",
-                            field="status",
-                            value=updates["status"],
-                        )
+            elif count_result.value.count > 0:
+                active_task_count = count_result.value.count
+                return Result.fail(
+                    Errors.validation(
+                        message=f"Cannot abandon goal with {active_task_count} active task(s). Complete or reassign tasks first.",
+                        field="status",
+                        value=updates["status"],
                     )
+                )
 
         # Get current goal to track changes (always fetch if updating progress or status)
         old_goal = None

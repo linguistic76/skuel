@@ -362,52 +362,6 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
 
     # list_categories() - inherited from BaseService (uses _category_field = "domain")
 
-    async def get_goals_for_task(self, task_uid: str) -> Result[list[Goal]]:
-        """
-        Get goals that a task fulfills.
-
-        Query: (Task)-[:FULFILLS_GOAL]->(Goal)
-
-        Args:
-            task_uid: Task UID
-
-        Returns:
-            Result containing goals the task contributes to
-        """
-        try:
-            return await self.get_by_relationship(
-                related_uid=task_uid,
-                relationship_type=RelationshipName.FULFILLS_GOAL,
-                direction="outgoing",
-            )
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Get goals for task failed: {e}")
-            return Result.fail(Errors.database(operation="get_goals_for_task", message=str(e)))
-
-    async def get_goals_for_habit(self, habit_uid: str) -> Result[list[Goal]]:
-        """
-        Get goals that a habit supports.
-
-        Query: (Habit)-[:SUPPORTS_GOAL]->(Goal)
-
-        Args:
-            habit_uid: Habit UID
-
-        Returns:
-            Result containing goals the habit supports
-        """
-        try:
-            return await self.get_by_relationship(
-                related_uid=habit_uid,
-                relationship_type=RelationshipName.SUPPORTS_GOAL,
-                direction="outgoing",
-            )
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Get goals for habit failed: {e}")
-            return Result.fail(Errors.database(operation="get_goals_for_habit", message=str(e)))
-
     async def get_sub_goals(self, parent_goal_uid: str) -> Result[list[Goal]]:
         """
         Get child goals (sub-goals) of a parent goal.
@@ -430,44 +384,6 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Get sub goals failed: {e}")
             return Result.fail(Errors.database(operation="get_sub_goals", message=str(e)))
-
-    @with_error_handling("get_related_goals", error_type="database", uid_param="goal_uid")
-    async def get_related_goals(self, goal_uid: str, limit: int = 10) -> Result[list[Goal]]:
-        """
-        Get goals related to a given goal (shared tasks, habits, or knowledge).
-
-        Args:
-            goal_uid: Goal UID to find related goals for
-            limit: Maximum results to return
-
-        Returns:
-            Result containing related goals
-        """
-        # Query for goals sharing tasks or habits
-        cypher_query = f"""
-        MATCH (g:Entity {{uid: $uid, entity_type: 'goal'}})<-[:{RelationshipName.FULFILLS_GOAL.value}|{RelationshipName.SUPPORTS_GOAL.value}]-(shared)-[:{RelationshipName.FULFILLS_GOAL.value}|{RelationshipName.SUPPORTS_GOAL.value}]->(related:Entity {{entity_type: 'goal'}})
-        WHERE related <> g
-        RETURN DISTINCT related as g, count(shared) as shared_count
-        ORDER BY shared_count DESC
-        LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(cypher_query, {"uid": goal_uid, "limit": limit})
-        if result.is_error:
-            return Result.fail(result)
-
-        # Convert to Goals
-        goals = []
-        for record in result.value:
-            goal_node = record["g"]
-            dto = GoalDTO.from_dict(dict(goal_node))
-            goal = Goal.from_dto(dto)
-            # Store shared count in metadata
-            goal.metadata["shared_count"] = record.get("shared_count", 0)
-            goals.append(goal)
-
-        self.logger.debug(f"Found {len(goals)} goals related to {goal_uid}")
-        return Result.ok(goals)
 
     # ========================================================================
     # GRAPH-AWARE FACETED SEARCH

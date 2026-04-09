@@ -56,7 +56,13 @@ class TestGoalsCoreOperations:
 
     @pytest_asyncio.fixture
     async def goals_core(self, goals_backend, event_bus):
-        return GoalsCoreService(backend=goals_backend, event_bus=event_bus)
+        from unittest.mock import AsyncMock
+
+        return GoalsCoreService(
+            backend=goals_backend,
+            cross_domain_query=AsyncMock(),
+            event_bus=event_bus,
+        )
 
     @pytest_asyncio.fixture
     async def goals_search(self, goals_backend):

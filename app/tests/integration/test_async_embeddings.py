@@ -304,11 +304,17 @@ class TestGoalEmbeddingEvents:
         WHEN: Creating a goal
         THEN: Goal creation succeeds (graceful degradation)
         """
+        # Create service without event bus
+        from unittest.mock import AsyncMock
+
         from core.models.goal.goal_request import GoalCreateRequest
         from core.services.goals.goals_core_service import GoalsCoreService
 
-        # Create service without event bus
-        goals_service = GoalsCoreService(backend=goals_backend, event_bus=None)
+        goals_service = GoalsCoreService(
+            backend=goals_backend,
+            cross_domain_query=AsyncMock(),
+            event_bus=None,
+        )
 
         request = GoalCreateRequest(
             title="Test Goal", description="Test description", vision_statement="Test vision"

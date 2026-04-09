@@ -42,6 +42,7 @@ def goals_service(mock_backend: Mock, mock_graph_intel: Mock) -> GoalsService:
     service = GoalsService(
         backend=mock_backend,
         graph_intelligence_service=mock_graph_intel,
+        cross_domain_query=AsyncMock(),
         event_bus=None,
     )
     # Replace sub-services with AsyncMocks AFTER construction

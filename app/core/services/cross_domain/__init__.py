@@ -13,6 +13,7 @@ anti-pattern by letting the graph do the work.
 
 from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
 from core.services.cross_domain.cross_domain_types import (
+    ActiveTaskCount,
     AlignedEntity,
     KnowledgeApplyingTask,
     PrincipleAlignmentEvidence,
@@ -20,6 +21,7 @@ from core.services.cross_domain.cross_domain_types import (
 )
 
 __all__ = [
+    "ActiveTaskCount",
     "AlignedEntity",
     "CrossDomainQueryService",
     "KnowledgeApplyingTask",
