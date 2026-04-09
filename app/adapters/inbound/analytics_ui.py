@@ -117,20 +117,14 @@ def create_analytics_ui_routes(
                 )
             elif params.period == "custom":
                 if not params.start_date or not params.end_date:
-                    return render_inline_error(
-                        "Custom range requires both start and end dates."
-                    )
+                    return render_inline_error("Custom range requires both start and end dates.")
                 try:
                     start = date.fromisoformat(params.start_date)
                     end = date.fromisoformat(params.end_date)
                 except ValueError:
-                    return render_inline_error(
-                        "Invalid date format. Use YYYY-MM-DD."
-                    )
+                    return render_inline_error("Invalid date format. Use YYYY-MM-DD.")
                 if start > end:
-                    return render_inline_error(
-                        "Start date must be before end date."
-                    )
+                    return render_inline_error("Start date must be before end date.")
                 result = await analytics_service.generate_report(
                     user_uid, analytics_domain, start, end
                 )
