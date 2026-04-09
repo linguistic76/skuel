@@ -80,8 +80,8 @@ PS progress → LP progress. See
 - **Write side** — `LearningLoopEventHandlerService` (event-driven, fire-and-forget).
 - **Read side** — `LearningLoopQueryService` (Cypher queries that traverse
   `Interaction`/`Exercise`/`Report` edges). New learning-loop reads land here,
-  not on `SubmissionsSearchService` (which is for generic date/mood/category/text
-  search).
+  not on `SubmissionsSearchService` (which is for generic date-bounded reads,
+  recency, text CONTAINS, and stats — whitelisted to `EXERCISE_SUBMISSION`).
 
 `LearningLoopEventHandlerService` listens to
 `SubmissionCreated`, `ReportSubmitted`, and `SubmissionApproved` to track submission

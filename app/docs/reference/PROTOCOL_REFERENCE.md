@@ -457,7 +457,7 @@ Map to the **Submission** stage of the educational loop (`Lesson → Exercise �
 |----------|---------------|---------|----------------|
 | `SubmissionOperations` | `submissions`, `submissions_core` | submit_file, list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `submissions_api.py`, `exercise_report_api.py` |
 | `SubmissionProcessingOperations` | `submissions_processor` | 2 (process_submission, reprocess_submission) | `submissions_api.py` |
-| `SubmissionSearchOperations` | `submissions_search` | 4 (search_submissions, get_submission_statistics, get_recent_submissions, get_journal_for_submission) | `submissions_api.py` |
+| `SubmissionSearchOperations` | `submissions_search` | 4 (search_submissions, get_report_statistics, get_recent_submissions, get_submissions_with_feedback_status) | consumed by `SubmissionsOrchestrator` — no direct route callers |
 
 ### Sharing Protocol (1) — `sharing_protocols.py`
 

@@ -54,7 +54,7 @@ The Submissions + Reports domain handles the artifact-based side of SKUEL's Five
 | Processing Service | `submissions_processing_service.py` |
 | Core Service | `submissions_core_service.py` (delegates assessment to sub-services) |
 | Assessment Sub-Service | `assessment_service.py` (teacher assessment CRUD) |
-| Search Service | `submissions_search_service.py` (generic: date, mood, category, text) |
+| Search Service | `submissions_search_service.py` (date-bounded reads, text CONTAINS, recency, stats — all filtering in Cypher, entity_type whitelisted to EXERCISE_SUBMISSION) |
 | Relationship Service | `submissions_relationship_service.py` |
 | Learning Loop Handler | `learning_loop_event_handler_service.py` (event-driven writes: iteration tracking, turnaround calibration, mastery velocity) |
 | Learning Loop Query Service | `learning_loop_query_service.py` (read-side peer: queries traversing Interaction/Exercise/Report edges — e.g. submissions-for-path-step) |

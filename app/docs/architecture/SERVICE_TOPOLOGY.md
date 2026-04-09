@@ -619,7 +619,7 @@ Routes / Application Code
 ├─ submissions/
 │   ├─ submissions_service.py              (entry point — not a root-level facade)
 │   ├─ submissions_core_service.py
-│   ├─ submissions_search_service.py       (generic: date, mood, category, text)
+│   ├─ submissions_search_service.py       (generic: date-bounded, text CONTAINS, recency, stats)
 │   ├─ submissions_processing_service.py
 │   ├─ submissions_relationship_service.py
 │   ├─ learning_loop_event_handler_service.py  (event-driven writes)
