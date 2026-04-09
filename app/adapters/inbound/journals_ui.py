@@ -15,16 +15,10 @@ from pathlib import Path
 from typing import Any
 
 from fasthtml.common import (
-    H4,
-    H5,
     Div,
-    Form,
     NotStr,
-    Option,
     P,
     Script,
-    Span,
-    Textarea,
 )
 from starlette.datastructures import UploadFile
 from starlette.responses import FileResponse
@@ -33,129 +27,23 @@ from adapters.inbound.auth import require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.submissions_enums import EnrichmentMode
 from core.models.exercises.exercise import Exercise
-from core.models.journal.je_input import JeInput
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, Errors, Result
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody
-from ui.feedback import Alert, AlertT
-from ui.forms import Input, Label, Radio, Select
-from ui.layout import Size
-from ui.patterns.empty_state import EmptyState
+from ui.journals.cards import render_instruction_list, render_journals_grid
+from ui.journals.components import (
+    render_batch_directories_card,
+    render_batch_processing_card,
+    render_filters_section,
+    render_journals_grid_container,
+    render_upload_status,
+)
+from ui.journals.forms import render_upload_form, upload_form_script
 from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 logger = get_logger("skuel.routes.journals.ui")
-
-
-# ============================================================================
-# HTMX FRAGMENT RENDERING
-# ============================================================================
-
-
-def _render_upload_status(
-    status: str,
-    message: str,
-    je_input_uid: str | None = None,
-    is_error: bool = False,
-) -> Any:
-    """Render upload status as HTML fragment for HTMX swap."""
-    if is_error:
-        return Div(
-            Alert(
-                H4("Upload Failed", cls="mb-0"),
-                P(message, cls="mb-0"),
-                variant=AlertT.error,
-            ),
-            id="upload-status",
-        )
-
-    return Div(
-        Alert(
-            H4("Submitted to AI", cls="mb-0"),
-            P(f"Entry: {je_input_uid}", cls="mb-0") if je_input_uid else None,
-            P(f"Status: {status}", cls="mb-0"),
-            ButtonLink(
-                "Browse Journals",
-                href="/journals/browse",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mt-2",
-            )
-            if je_input_uid
-            else None,
-            variant=AlertT.success,
-        ),
-        id="upload-status",
-    )
-
-
-def _render_journal_card(je_input: JeInput) -> Any:
-    """Render a single journal entry card for the browse grid using CardGenerator."""
-    from ui.patterns.card_generator import CardGenerator
-
-    file_size = je_input.file_size or 0
-    file_size_mb = file_size / 1024 / 1024 if file_size else 0
-
-    status = je_input.status
-    status_str = (
-        status.value if isinstance(status, EntityStatus) else str(status) if status else None
-    )
-
-    # Build metadata line
-    meta_parts: list[str] = []
-    if je_input.original_filename:
-        meta_parts.append(je_input.original_filename)
-    if file_size_mb > 0:
-        meta_parts.append(f"{file_size_mb:.2f} MB")
-    if je_input.file_type:
-        meta_parts.append(je_input.file_type)
-
-    # Build action buttons
-    action_buttons: list[Any] = []
-
-    # Download button for completed entries (download endpoint handles JeOutput lookup)
-    is_completed = status == EntityStatus.COMPLETED
-    if is_completed:
-        action_buttons.append(
-            ButtonLink(
-                "Download",
-                href=f"/journals/{je_input.uid}/download",
-                variant=ButtonT.primary,
-                size=Size.sm,
-            )
-        )
-
-    from ui.feedback import StatusBadge
-
-    return CardGenerator.from_dataclass(
-        {"title": je_input.title or "Untitled"},
-        display_fields=[],
-        header_badges=[
-            StatusBadge(status_str) if status_str else None,
-        ],
-        show_labels=False,
-        metadata=[" \u2022 ".join(meta_parts)] if meta_parts else None,
-        actions=Div(*action_buttons, cls="flex gap-2") if action_buttons else None,
-        card_attrs={"cls": "mb-2"},
-    )
-
-
-def _render_journals_grid(je_inputs: list[JeInput]) -> Any:
-    """Render journal entries grid as HTML fragment for HTMX swap."""
-    if not je_inputs:
-        return Div(
-            EmptyState(title="No journals found"),
-            id="journals-grid-container",
-        )
-
-    return Div(
-        *[_render_journal_card(ji) for ji in je_inputs],
-        id="journals-grid-container",
-    )
 
 
 # ============================================================================
@@ -167,348 +55,6 @@ JOURNALS_SIDEBAR_ITEMS = [
     SidebarItem("My Journals", "/journals/browse", "browse", icon="📄"),
     SidebarItem("Batch Ops", "/journals/batch", "batch", icon="📦"),
 ]
-
-
-# ============================================================================
-# CONTENT FRAGMENTS
-# ============================================================================
-
-
-def _render_instruction_card(ex: Exercise, is_first: bool = False) -> Any:
-    """Render one saved instruction file as a selectable card."""
-    uid = ex.uid
-    title = ex.title or "Unnamed"
-    created_at = ex.created_at
-
-    if isinstance(created_at, datetime):
-        date_str = created_at.strftime("%b %d, %Y")
-    elif isinstance(created_at, str) and created_at:
-        date_str = created_at[:10]
-    else:
-        date_str = ""
-
-    selected_cls = "ring-2 ring-primary bg-muted" if is_first else ""
-    return Div(
-        Div(
-            Span(title, cls="text-sm font-semibold truncate"),
-            Span(date_str, cls="text-xs text-muted-foreground shrink-0 ml-2"),
-            cls="flex items-center justify-between",
-        ),
-        cls=f"instruction-card border border-border rounded-lg p-3 cursor-pointer hover:bg-muted transition-colors {selected_cls}",
-        **{
-            "data-uid": uid,
-            "onclick": f"selectInstruction('{uid}', this)",
-        },
-    )
-
-
-def _exercise_created_at(exercise: Exercise) -> str:
-    """Sort key — ISO string for consistent ordering."""
-    return exercise.created_at.isoformat() if exercise.created_at else ""
-
-
-def _render_instruction_list(exercises: list[Exercise], error: str | None = None) -> Any:
-    """Return the #instruction-file-list fragment (initial render or HTMX swap)."""
-    exercises_sorted = sorted(
-        exercises,
-        key=_exercise_created_at,
-        reverse=True,
-    )[:5]
-
-    parts: list[Any] = []
-    if error:
-        parts.append(P(f"Error: {error}", cls="text-sm text-error mb-2"))
-
-    if exercises_sorted:
-        parts.extend(
-            _render_instruction_card(ex, is_first=(i == 0)) for i, ex in enumerate(exercises_sorted)
-        )
-    else:
-        parts.append(EmptyState(title="No saved instruction files yet"))
-
-    return Div(*parts, id="instruction-file-list", cls="space-y-2")
-
-
-def _render_upload_form(exercises: list[Exercise] | None = None) -> Any:
-    """Render the file upload form — title + instruction selector + file."""
-    exercises = exercises or []
-    return Div(
-        Card(
-            # x-data on card-body so both Form and instruction file picker share scope
-            CardBody(
-                Form(
-                    # Title input (optional — auto-generated if left blank)
-                    Div(
-                        Label("Title (optional)"),
-                        Input(
-                            type="text",
-                            name="title",
-                            placeholder="Leave blank to auto-generate (e.g. Journal — mike — Mar 02, 2026 — #1)",
-                        ),
-                        P(
-                            "Leave blank to use the auto-generated title",
-                            cls="text-xs text-muted-foreground mt-1",
-                        ),
-                        cls="mb-4",
-                    ),
-                    # Hidden exercise_uid — set by selectInstruction() JS, cleared on default mode
-                    Input(type="hidden", name="exercise_uid", id="exercise-uid-input", value=""),
-                    # Processing instructions section
-                    Div(
-                        Label("Processing Instructions"),
-                        Div(
-                            # Default radio
-                            Label(
-                                Radio(
-                                    name="instruction_mode",
-                                    value="default",
-                                    **{
-                                        "x-model": "instructionMode",
-                                        "@change": "clearInstructionUid()",
-                                    },
-                                ),
-                                Span("Default instructions", cls="ml-2"),
-                                cls="flex items-center cursor-pointer",
-                            ),
-                            # Custom file radio
-                            Label(
-                                Radio(
-                                    name="instruction_mode",
-                                    value="custom",
-                                    **{
-                                        "x-model": "instructionMode",
-                                        "@change": "autoSelectFirstInstruction()",
-                                    },
-                                ),
-                                Span("Custom instruction file", cls="ml-2"),
-                                cls="flex items-center cursor-pointer",
-                            ),
-                            # Custom mode panel (shown when custom radio selected)
-                            Div(
-                                # Upload button triggers the instruction file picker (outside form)
-                                Button(
-                                    "+ Upload instruction file",
-                                    type="button",
-                                    variant=ButtonT.outline,
-                                    size=Size.sm,
-                                    cls="mb-3",
-                                    **{
-                                        "@click": "document.getElementById('instruction-file-picker').click()"
-                                    },
-                                ),
-                                # Saved instruction list (HTMX target)
-                                _render_instruction_list(exercises),
-                                cls="mt-2",
-                                **{"x-show": "instructionMode === 'custom'"},
-                            ),
-                            cls="flex flex-col gap-2",
-                        ),
-                        cls="mb-4",
-                    ),
-                    # Journal file picker (hidden, triggered by drop-zone click)
-                    Input(
-                        type="file",
-                        name="file",
-                        id="file-input",
-                        accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
-                        cls="hidden",
-                        required=True,
-                        **{"x-on:change": "handleFileSelect($event)"},
-                    ),
-                    # Drop-zone
-                    Div(
-                        Div(
-                            P("Select File", cls="text-center mb-0", id="file-label-text"),
-                            P(
-                                "Click to browse (audio, text, PDF, images, video)",
-                                cls="text-sm text-muted-foreground text-center mt-0",
-                                id="file-label-hint",
-                            ),
-                            cls="p-4 text-center bg-muted rounded-lg cursor-pointer border-2 border-dashed border-border",
-                            **{"x-on:click": "document.getElementById('file-input').click()"},
-                        ),
-                        cls="mb-4",
-                    ),
-                    # Submit button
-                    Div(
-                        Button("Submit to AI", variant=ButtonT.primary, type="submit"),
-                        cls="text-center",
-                    ),
-                    # Upload status (HTMX target)
-                    Div(id="upload-status", cls="mt-4 text-center"),
-                    hx_post="/journals/upload",
-                    hx_target="#upload-status",
-                    hx_swap="outerHTML",
-                    hx_encoding="multipart/form-data",
-                    id="upload-form",
-                ),
-                # Instruction file picker — sibling of Form, shares Alpine scope from card-body
-                Input(
-                    type="file",
-                    id="instruction-file-picker",
-                    name="instruction_file",
-                    cls="hidden",
-                    accept=".txt,.md,.rst,text/plain,text/markdown",
-                    hx_post="/journals/instructions/upload",
-                    hx_target="#instruction-file-list",
-                    hx_swap="outerHTML",
-                    hx_encoding="multipart/form-data",
-                    hx_trigger="change",
-                ),
-                **{
-                    "x-data": """{
-                        selectedFile: null,
-                        instructionMode: 'default',
-                        handleFileSelect(event) {
-                            const file = event.target.files[0];
-                            if (file) {
-                                this.selectedFile = file;
-                                const labelText = document.getElementById('file-label-text');
-                                const labelHint = document.getElementById('file-label-hint');
-                                if (labelText) labelText.textContent = file.name;
-                                if (labelHint) labelHint.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
-                            }
-                        },
-                        clearInstructionUid() {
-                            const inp = document.getElementById('exercise-uid-input');
-                            if (inp) inp.value = '';
-                        },
-                        autoSelectFirstInstruction() {
-                            const card = document.querySelector('#instruction-file-list .instruction-card[data-uid]');
-                            if (card) selectInstruction(card.dataset.uid, card);
-                        }
-                    }"""
-                },
-            ),
-            cls="bg-background shadow-sm hover:shadow-md transition-shadow",
-        ),
-    )
-
-
-def _upload_form_script() -> Any:
-    """HTMX event handlers and helpers for the journal upload form."""
-    return Script(
-        NotStr("""
-        // Global: highlight selected instruction card and store its uid
-        function selectInstruction(uid, el) {
-            document.querySelectorAll('.instruction-card').forEach(function(c) {
-                c.classList.remove('ring-2', 'ring-primary', 'bg-muted');
-            });
-            if (el) el.classList.add('ring-2', 'ring-primary', 'bg-muted');
-            var inp = document.getElementById('exercise-uid-input');
-            if (inp) inp.value = uid || '';
-        }
-
-        // After instruction file upload: auto-select the first (newest) card
-        document.body.addEventListener('htmx:afterSwap', function(evt) {
-            if (evt.detail.target && evt.detail.target.id === 'instruction-file-list') {
-                var firstCard = evt.detail.target.querySelector('.instruction-card[data-uid]');
-                if (firstCard) selectInstruction(firstCard.dataset.uid, firstCard);
-            }
-        });
-
-        document.body.addEventListener('htmx:beforeRequest', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id === 'upload-form') {
-                console.log('[Journals] Starting upload...');
-
-                // Check if file is selected
-                var fileInput = document.getElementById('file-input');
-                if (fileInput && fileInput.files.length === 0) {
-                    console.error('[Journals] No file selected');
-                    evt.preventDefault();
-                    alert('Please select a file first');
-                    return;
-                }
-
-                var btn = form.querySelector('button[type="submit"]');
-                if (btn) {
-                    btn.disabled = true;
-                    btn.textContent = 'Processing...';
-                }
-            }
-        });
-
-        document.body.addEventListener('htmx:afterRequest', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id === 'upload-form') {
-                console.log('[Journals] Upload request completed');
-
-                // Reset form (file input will be cleared)
-                form.reset();
-
-                // Clear custom file label
-                var labelText = document.getElementById('file-label-text');
-                var labelHint = document.getElementById('file-label-hint');
-                if (labelText) labelText.textContent = 'Select File';
-                if (labelHint) labelHint.textContent = 'Click to browse (audio, text, PDF, images, video)';
-
-                var btn = form.querySelector('button[type="submit"]');
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = 'Submit to AI';
-                }
-            }
-        });
-
-        document.body.addEventListener('htmx:responseError', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id === 'upload-form') {
-                console.error('[Journals] Upload failed:', evt.detail.xhr.status, evt.detail.xhr.statusText);
-                alert('Upload failed: ' + evt.detail.xhr.status + ' - ' + evt.detail.xhr.statusText);
-            }
-        });
-
-        document.body.addEventListener('htmx:sendError', function(evt) {
-            var form = evt.detail.elt;
-            if (form.id === 'upload-form') {
-                console.error('[Journals] Network error:', evt.detail.error);
-                alert('Network error. Please check your connection and try again.');
-            }
-        });
-    """)
-    )
-
-
-def _render_filters_section() -> Any:
-    """Render the status filter controls card."""
-    return Card(
-        CardBody(
-            Form(
-                Div(
-                    Label("Status"),
-                    Select(
-                        Option("All Status", value="", selected=True),
-                        Option("Submitted", value=EntityStatus.SUBMITTED.value),
-                        Option("Queued", value=EntityStatus.QUEUED.value),
-                        Option("Processing", value=EntityStatus.PROCESSING.value),
-                        Option("Completed", value=EntityStatus.COMPLETED.value),
-                        Option("Failed", value=EntityStatus.FAILED.value),
-                        name="status",
-                    ),
-                    cls="mb-2",
-                ),
-                hx_get="/journals/grid",
-                hx_target="#journals-grid-container",
-                hx_swap="outerHTML",
-                hx_trigger="change from:select",
-                id="filter-form",
-            ),
-        ),
-        cls="bg-background shadow-sm mb-6",
-    )
-
-
-def _render_journals_grid_container() -> Any:
-    """Render the HTMX-loading journals grid container."""
-    return Div(
-        P("Loading journals...", cls="text-center text-muted-foreground"),
-        id="journals-grid-container",
-        cls="mt-4",
-        hx_get="/journals/grid",
-        hx_trigger="load",
-        hx_swap="outerHTML",
-    )
 
 
 # ============================================================================
@@ -569,8 +115,8 @@ def create_journals_ui_routes(
                 "New Journal Entry",
                 subtitle="Upload a file to be processed by AI",
             ),
-            _render_upload_form(exercises),
-            _upload_form_script(),
+            render_upload_form(exercises),
+            upload_form_script(),
         )
         return await SidebarPage(
             content=content,
@@ -592,8 +138,8 @@ def create_journals_ui_routes(
 
         content = Div(
             PageHeader("My Journals", subtitle="Browse your AI-processed journal entries"),
-            _render_filters_section(),
-            _render_journals_grid_container(),
+            render_filters_section(),
+            render_journals_grid_container(),
         )
         return await SidebarPage(
             content=content,
@@ -622,7 +168,7 @@ def create_journals_ui_routes(
             custom_title = str(raw_title).strip() if raw_title else ""
 
             if not uploaded_file or not isinstance(uploaded_file, UploadFile):
-                return _render_upload_status("error", "No file provided", is_error=True)
+                return render_upload_status("error", "No file provided", is_error=True)
 
             user_uid = require_authenticated_user(request)
             file_content = await uploaded_file.read()
@@ -637,10 +183,10 @@ def create_journals_ui_routes(
             )
 
             if result.is_error:
-                return _render_upload_status("error", str(result.error), is_error=True)
+                return render_upload_status("error", str(result.error), is_error=True)
 
             je_input = result.value
-            return _render_upload_status(
+            return render_upload_status(
                 str(je_input.status.value)
                 if isinstance(je_input.status, EntityStatus)
                 else str(je_input.status),
@@ -650,7 +196,7 @@ def create_journals_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error uploading journal: {e}", exc_info=True)
-            return _render_upload_status("error", f"Upload failed: {e}", is_error=True)
+            return render_upload_status("error", f"Upload failed: {e}", is_error=True)
 
     @rt("/journals/instructions/upload")
     async def upload_instruction_file(request: Request) -> Any:
@@ -661,16 +207,16 @@ def create_journals_ui_routes(
             uploaded_file = form.get("instruction_file")
 
             if not uploaded_file or not isinstance(uploaded_file, UploadFile):
-                return _render_instruction_list([], error="No file provided")
+                return render_instruction_list([], error="No file provided")
 
             file_bytes = await uploaded_file.read()
             try:
                 instructions_text = file_bytes.decode("utf-8")
             except UnicodeDecodeError:
-                return _render_instruction_list([], error="File must be plain text (UTF-8)")
+                return render_instruction_list([], error="File must be plain text (UTF-8)")
 
             if not instructions_text.strip():
-                return _render_instruction_list([], error="File is empty")
+                return render_instruction_list([], error="File is empty")
 
             filename = uploaded_file.filename or "instructions.txt"
 
@@ -694,11 +240,11 @@ def create_journals_ui_routes(
                 )
 
             logger.info(f"Instruction file saved for {user_uid}: {filename}")
-            return _render_instruction_list(exercises)
+            return render_instruction_list(exercises)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error saving instruction file: {e}", exc_info=True)
-            return _render_instruction_list([], error=str(e))
+            return render_instruction_list([], error=str(e))
 
     @rt("/journals/grid")
     async def get_journals_grid(request: Request) -> Any:
@@ -729,7 +275,7 @@ def create_journals_ui_routes(
                 )
 
             je_inputs = result.value or []
-            return _render_journals_grid(je_inputs)
+            return render_journals_grid(je_inputs)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error loading journals: {e}", exc_info=True)
@@ -794,102 +340,8 @@ def create_journals_ui_routes(
                 "Batch Operations",
                 subtitle="Transcribe and process multiple audio files",
             ),
-            # Directories card
-            Card(
-                CardBody(
-                    H5("Directories", cls="mb-3 font-semibold"),
-                    Div(
-                        Label("Audio Input Directory"),
-                        Input(type="text", id="input-dir", value="data/je_inputs"),
-                        cls="mb-3",
-                    ),
-                    Div(
-                        Label("Output Directory"),
-                        Input(type="text", id="output-dir", value="data/je_outputs"),
-                        cls="mb-3",
-                    ),
-                    Div(
-                        Button(
-                            "Preview Files",
-                            variant=ButtonT.outline,
-                            type="button",
-                            id="preview-btn",
-                        ),
-                        Button(
-                            "Transcribe All",
-                            variant=ButtonT.primary,
-                            type="button",
-                            id="transcribe-btn",
-                            cls="ml-2",
-                        ),
-                        cls="flex gap-2",
-                    ),
-                ),
-                cls="bg-background shadow-sm mb-4",
-            ),
-            # Processing options card
-            Card(
-                CardBody(
-                    H5("LLM Processing Options", cls="mb-3 font-semibold"),
-                    Div(
-                        Label("Enrichment Mode"),
-                        Select(
-                            Option(
-                                "Activity Tracking",
-                                value=EnrichmentMode.ACTIVITY_TRACKING.value,
-                                selected=True,
-                            ),
-                            Option(
-                                "Idea Articulation", value=EnrichmentMode.IDEA_ARTICULATION.value
-                            ),
-                            Option(
-                                "Critical Thinking", value=EnrichmentMode.CRITICAL_THINKING.value
-                            ),
-                            id="enrichment-mode",
-                            name="enrichment_mode",
-                        ),
-                        cls="mb-3",
-                    ),
-                    Div(
-                        Label("Model"),
-                        Select(
-                            Option("GPT-4o Mini", value="gpt-4o-mini", selected=True),
-                            Option("GPT-4o", value="gpt-4o"),
-                            id="llm-model",
-                            name="model",
-                        ),
-                        cls="mb-3",
-                    ),
-                    Div(
-                        Label("Custom Instructions (optional — overrides mode)"),
-                        Textarea(
-                            id="custom-instructions",
-                            name="custom_instructions",
-                            rows="3",
-                            placeholder="Leave blank to use the enrichment mode template",
-                            cls="w-full",
-                        ),
-                        cls="mb-3",
-                    ),
-                    Div(
-                        Button(
-                            "Process Transcripts",
-                            variant=ButtonT.outline,
-                            type="button",
-                            id="process-btn",
-                        ),
-                        Button(
-                            "Transcribe + Process",
-                            variant=ButtonT.primary,
-                            type="button",
-                            id="combined-btn",
-                            cls="ml-2",
-                        ),
-                        cls="flex gap-2",
-                    ),
-                ),
-                cls="bg-background shadow-sm mb-4",
-            ),
+            render_batch_directories_card(),
+            render_batch_processing_card(),
             # Results area
             Div(id="batch-results", cls="mt-4"),
             # Batch operations script

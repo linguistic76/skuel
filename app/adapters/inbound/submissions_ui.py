@@ -57,7 +57,6 @@ from ui.submissions.sharing import render_sharing_section
 logger = get_logger("skuel.routes.submissions")
 
 
-
 # ============================================================================
 # TYPED QUERY PARAMETERS
 # ============================================================================

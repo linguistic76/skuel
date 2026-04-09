@@ -6,18 +6,25 @@ UI routes for displaying and managing event-driven insights.
 (January 2026): Insight dashboard with dismiss/action functionality.
 """
 
-from dataclasses import dataclass
 from typing import Any
 
-from fasthtml.common import H3, Div, NotStr, P, Span
+from fasthtml.common import Div, P, Span
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.forms import Input, Label, LabelInput, LabelSelect
-from ui.insights.insight_card import InsightCard
+from ui.buttons import ButtonLink, ButtonT
+from ui.insights.components import (
+    render_bulk_action_bar,
+    render_charts_section,
+    render_filter_form,
+    render_insight_card_with_checkbox,
+    render_select_all_header,
+)
+from ui.insights.filters import (
+    build_filter_query_string,
+    filter_insights,
+    parse_insights_filters,
+)
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
@@ -28,78 +35,6 @@ from ui.patterns.section_header import SectionHeader
 from ui.patterns.stats_grid import StatItem, StatsGrid
 
 logger = get_logger("skuel.routes.insights.ui")
-
-
-# ============================================================================
-# TYPED QUERY PARAMETERS
-# ============================================================================
-
-
-@dataclass
-class InsightsFilters:
-    """Typed filters for insights list queries."""
-
-    domain: str | None
-    impact: str | None
-    search: str
-    insight_type: str | None
-    action_status: str | None
-    offset: int
-
-
-def parse_insights_filters(request: Request) -> InsightsFilters:
-    """
-    Extract insights filter parameters from request query params.
-
-    Args:
-        request: Starlette request object
-
-    Returns:
-        Typed InsightsFilters with defaults applied
-    """
-    offset = parse_int_query_param(request.query_params, "offset", 0, minimum=0)
-
-    return InsightsFilters(
-        domain=request.query_params.get("domain"),
-        impact=request.query_params.get("impact"),
-        search=request.query_params.get("search", ""),
-        insight_type=request.query_params.get("type"),
-        action_status=request.query_params.get("status"),
-        offset=offset,
-    )
-
-
-def filter_insights(insights: list[Any], filters: InsightsFilters) -> list[Any]:
-    """Apply client-side filters to a list of insights.
-
-    Delegates to InsightStore.filter_insights for the actual filtering logic.
-    Used by both the main dashboard and load-more HTMX endpoint.
-    """
-    from core.services.insight import InsightStore
-
-    return InsightStore.filter_insights(
-        insights,
-        impact=filters.impact,
-        insight_type=filters.insight_type,
-        action_status=filters.action_status,
-        search=filters.search or None,
-    )
-
-
-def build_filter_query_string(filters: InsightsFilters) -> str:
-    """Build URL query string from insight filters."""
-    params = []
-    if filters.domain:
-        params.append(f"domain={filters.domain}")
-    if filters.impact:
-        params.append(f"impact={filters.impact}")
-    if filters.search:
-        params.append(f"search={filters.search}")
-    if filters.insight_type:
-        params.append(f"type={filters.insight_type}")
-    if filters.action_status:
-        params.append(f"status={filters.action_status}")
-    return "&".join(params)
 
 
 def create_insights_ui_routes(
@@ -126,12 +61,12 @@ def create_insights_ui_routes(
         # Parse typed filter parameters
         filters = parse_insights_filters(request)
 
-        # , Task 8: Progressive loading - load 10 initially for fast page load
+        # Progressive loading - load 10 initially for fast page load
         page_size = 10
         result = await insight_store.get_active_insights(
             user_uid=user_uid,
             domain=filters.domain,
-            limit=page_size,  # Initial load: 10 insights only
+            limit=page_size,
         )
 
         insights_load_error = False
@@ -142,180 +77,17 @@ def create_insights_ui_routes(
         else:
             insights = filter_insights(result.value, filters)
 
-        # Build advanced filter form
-        filter_form = Div(
-            # Row 1: Search + Domain
-            Div(
-                # Full-text search (debounced 300ms)
-                LabelInput(
-                    "Search",
-                    lbl_cls="text-xs",
-                    type="text",
-                    placeholder="Search insights...",
-                    size=Size.sm,
-                    cls="space-y-2 flex-1",
-                    **{"x-model": "filters.search"},
-                    **{"@input.debounce.300ms": "applyFilters()"},
-                ),
-                # Domain filter
-                LabelSelect(
-                    NotStr(
-                        '<option value="">All Domains</option>'
-                        '<option value="tasks">Tasks</option>'
-                        '<option value="goals">Goals</option>'
-                        '<option value="habits">Habits</option>'
-                        '<option value="events">Events</option>'
-                        '<option value="choices">Choices</option>'
-                        '<option value="principles">Principles</option>'
-                    ),
-                    label="Domain",
-                    lbl_cls="text-xs",
-                    size=Size.sm,
-                    full_width=False,
-                    **{"x-model": "filters.domain"},
-                    **{"@change": "applyFilters()"},
-                ),
-                cls="flex gap-3",
-            ),
-            # Row 2: Impact + Type + Status
-            Div(
-                # Impact filter
-                LabelSelect(
-                    NotStr(
-                        '<option value="">All Impact</option>'
-                        '<option value="critical">Critical</option>'
-                        '<option value="high">High</option>'
-                        '<option value="medium">Medium</option>'
-                        '<option value="low">Low</option>'
-                    ),
-                    label="Impact",
-                    lbl_cls="text-xs",
-                    size=Size.sm,
-                    full_width=False,
-                    **{"x-model": "filters.impact"},
-                    **{"@change": "applyFilters()"},
-                ),
-                # Insight type filter
-                LabelSelect(
-                    NotStr(
-                        '<option value="">All Types</option>'
-                        '<option value="difficulty_pattern">Difficulty Pattern</option>'
-                        '<option value="completion_streak">Completion Streak</option>'
-                        '<option value="habit_synergy">Habit Synergy</option>'
-                        '<option value="goal_alignment">Goal Alignment</option>'
-                        '<option value="principle_violation">Principle Violation</option>'
-                        '<option value="learning_opportunity">Learning Opportunity</option>'
-                    ),
-                    label="Type",
-                    lbl_cls="text-xs",
-                    size=Size.sm,
-                    full_width=False,
-                    **{"x-model": "filters.type"},
-                    **{"@change": "applyFilters()"},
-                ),
-                # Action status filter
-                LabelSelect(
-                    NotStr(
-                        '<option value="all">All</option>'
-                        '<option value="unactioned">Not Acted On</option>'
-                        '<option value="actioned">Acted On</option>'
-                    ),
-                    label="Status",
-                    lbl_cls="text-xs",
-                    size=Size.sm,
-                    full_width=False,
-                    **{"x-model": "filters.status"},
-                    **{"@change": "applyFilters()"},
-                ),
-                cls="flex gap-3 mt-3",
-            ),
-            # Action buttons with loading indicator
-            Div(
-                Button(
-                    "Clear",
-                    type="button",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    **{"@click": "clearFilters()"},
-                ),
-                # Loading indicator (shown during debounce/navigation)
-                Span(
-                    "Filtering...",
-                    cls="text-xs text-muted-foreground animate-spin",
-                    **{"x-show": "loading"},
-                ),
-                cls="flex gap-2 mt-3 items-center",
-            ),
-            cls="mb-6 p-4 bg-muted rounded-lg",
-            **{
-                "x-data": f"insightFiltersDebounced({{search: '{filters.search}', domain: '{filters.domain or ''}', impact: '{filters.impact or ''}', type: '{filters.insight_type or ''}', status: '{filters.action_status or 'all'}'}})"
-            },
-        )
+        # Build filter form
+        filter_form = render_filter_form(filters)
 
-        # , Task 9: Bulk actions bar (only shown when insights selected)
-        bulk_action_bar = Div(
-            Div(
-                # Selection count
-                Div(
-                    Span(
-                        NotStr("<span x-text='selectedCount'></span>"),
-                        " insight",
-                        NotStr("<span x-show='selectedCount !== 1'>s</span>"),
-                        " selected",
-                        cls="text-sm font-medium",
-                    ),
-                    cls="flex-1",
-                ),
-                # Action buttons
-                Div(
-                    Button(
-                        "Dismiss Selected",
-                        variant=ButtonT.ghost,
-                        size=Size.sm,
-                        **{"@click": "bulkDismiss()"},
-                    ),
-                    Button(
-                        "Mark as Actioned",
-                        variant=ButtonT.primary,
-                        size=Size.sm,
-                        **{"@click": "bulkMarkActioned()"},
-                    ),
-                    Button(
-                        "Deselect All",
-                        variant=ButtonT.ghost,
-                        size=Size.sm,
-                        **{"@click": "deselectAll()"},
-                    ),
-                    cls="flex gap-2",
-                ),
-                cls="flex items-center justify-between",
-            ),
-            cls="mb-4 p-4 bg-primary/10 border border-primary/30 rounded-lg",
-            **{"x-show": "showBulkActions"},
-            **{"x-transition": ""},
-        )
+        # Bulk actions bar (shown when insights selected)
+        bulk_action_bar = render_bulk_action_bar()
 
-        # , Task 9: Select-all header (only shown when insights present)
-        select_all_header = None
-        if insights:
-            select_all_header = Div(
-                Label(
-                    Input(
-                        type="checkbox",
-                        cls="checkbox checkbox-primary",
-                        **{"x-model": "selectAllChecked"},
-                        **{"@change": "toggleSelectAll()"},
-                    ),
-                    Span("Select All", cls="ml-2 text-sm font-medium"),
-                    cls="cursor-pointer justify-start gap-2",
-                ),
-                cls="mb-4 p-3 bg-muted rounded-lg",
-            )
+        # Select-all header (only shown when insights present)
+        select_all_header = render_select_all_header() if insights else None
 
-        # , Task 8: Progressive loading with HTMX infinite scroll
         # Build insight cards with load-more trigger
         if insights:
-            # Encode filters for load-more URL
             filter_query = build_filter_query_string(filters)
             load_more_url = (
                 f"/insights/load-more?offset={page_size}&{filter_query}"
@@ -323,40 +95,17 @@ def create_insights_ui_routes(
                 else f"/insights/load-more?offset={page_size}"
             )
 
-            # , Task 9: Wrap each insight card with checkbox
-            insight_card_items = []
-            for insight in insights:
-                card_with_checkbox = Div(
-                    # Checkbox (left side)
-                    Label(
-                        Input(
-                            type="checkbox",
-                            name="insight-checkbox",
-                            value=insight.uid,
-                            cls="checkbox checkbox-primary",
-                            **{"@change": f"toggleSelection('{insight.uid}')"},
-                            **{":checked": f"isSelected('{insight.uid}')"},
-                        ),
-                        cls="mr-3 flex-shrink-0 mt-1",
-                    ),
-                    # Insight card (right side)
-                    Div(
-                        InsightCard(insight),
-                        cls="flex-1",
-                    ),
-                    cls="flex items-start gap-2",
-                )
-                insight_card_items.append(card_with_checkbox)
+            insight_card_items = [
+                render_insight_card_with_checkbox(insight) for insight in insights
+            ]
 
             # Container for insights with HTMX infinite scroll
             insight_cards = Div(
-                # Initial batch of insights
                 Div(
                     *insight_card_items,
                     id="insights-list",
                     cls="space-y-4",
                 ),
-                # Load more trigger (revealed when scrolled into view)
                 Div(
                     id="load-more-trigger",
                     hx_get=load_more_url,
@@ -364,7 +113,6 @@ def create_insights_ui_routes(
                     hx_swap="outerHTML",
                     hx_indicator="#loading-indicator",
                 ),
-                # Loading indicator
                 Div(
                     Div(
                         Span("Loading more insights...", cls="text-muted-foreground text-sm"),
@@ -375,13 +123,11 @@ def create_insights_ui_routes(
                 ),
             )
         elif insights_load_error:
-            # Error state — service failed
             insight_cards = render_error_banner(
                 "Unable to load insights. Please try again later.",
                 str(result.error),
             )
         else:
-            # Empty state
             insight_cards = EmptyState(
                 title="No Active Insights",
                 description="Your intelligence services haven't detected any patterns yet. "
@@ -389,44 +135,8 @@ def create_insights_ui_routes(
                 icon="💡",
             )
 
-        # Charts visualization section (only show if there are insights)
-        charts_section = None
-        if len(insights) >= 3:  # Only show charts if meaningful data (3+ insights)
-            charts_section = Div(
-                H3("Visual Analytics", cls="text-xl font-bold mb-4"),
-                Div(
-                    # Impact distribution (doughnut)
-                    Div(
-                        **{
-                            "x-data": "chartVis('/api/insights/charts/impact-distribution', 'doughnut')",
-                            "class": "bg-background p-4 rounded-lg shadow",
-                        }
-                    ),
-                    # Domain distribution (bar)
-                    Div(
-                        **{
-                            "x-data": "chartVis('/api/insights/charts/domain-distribution', 'bar')",
-                            "class": "bg-background p-4 rounded-lg shadow",
-                        }
-                    ),
-                    # Type distribution (doughnut)
-                    Div(
-                        **{
-                            "x-data": "chartVis('/api/insights/charts/type-distribution', 'doughnut')",
-                            "class": "bg-background p-4 rounded-lg shadow",
-                        }
-                    ),
-                    # Action rate (gauge)
-                    Div(
-                        **{
-                            "x-data": "chartVis('/api/insights/charts/action-rate', 'doughnut')",
-                            "class": "bg-background p-4 rounded-lg shadow",
-                        }
-                    ),
-                    cls="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6",
-                ),
-                cls="mb-8",
-            )
+        # Charts visualization section
+        charts_section = render_charts_section(len(insights))
 
         # Build page content
         content = Div(
@@ -434,7 +144,6 @@ def create_insights_ui_routes(
                 title="💡 Insights",
                 subtitle=f"{len(insights)} active insight{'s' if len(insights) != 1 else ''} from your behavior patterns",
             ),
-            # , Task 17: Link to history page
             Div(
                 ButtonLink(
                     "📜 View History",
@@ -445,19 +154,19 @@ def create_insights_ui_routes(
                 cls="mb-4",
             ),
             filter_form,
-            charts_section if charts_section else Div(),  # Add charts section if available
-            bulk_action_bar,  # bulk action bar (shown when insights selected)
-            select_all_header if select_all_header else Div(),  # select-all checkbox
+            charts_section if charts_section else Div(),
+            bulk_action_bar,
+            select_all_header if select_all_header else Div(),
             insight_cards,
             cls="space-y-6",
-            **{"x-data": "bulkInsightManager()"},  # Alpine component for bulk selection
+            **{"x-data": "bulkInsightManager()"},
         )
 
         return await BasePage(
             content,
             title="Insights | SKUEL",
             page_type=PageType.STANDARD,
-            request=request,  # Pass request for auto-detected auth state
+            request=request,
             active_page="insights",
         )
 
@@ -466,7 +175,6 @@ def create_insights_ui_routes(
         """Display insight statistics page."""
         user_uid = require_authenticated_user(request)
 
-        # Get insight stats
         result = await insight_store.get_insight_stats(user_uid)
 
         stats_load_error = False
@@ -477,7 +185,6 @@ def create_insights_ui_routes(
         else:
             stats = result.value
 
-        # Build stats display
         stats_content = Div(
             SectionHeader("Insight Statistics"),
             StatsGrid(
@@ -515,7 +222,7 @@ def create_insights_ui_routes(
             content,
             title="Insight Statistics | SKUEL",
             page_type=PageType.STANDARD,
-            request=request,  # Pass request for auto-detected auth state
+            request=request,
             active_page="insights",
         )
 
@@ -528,15 +235,13 @@ def create_insights_ui_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        # Parse typed filter parameters
         filters = parse_insights_filters(request)
         page_size = 10
 
-        # Get next batch of insights
         result = await insight_store.get_active_insights(
             user_uid=user_uid,
             domain=filters.domain,
-            limit=page_size + filters.offset,  # Get all up to this point
+            limit=page_size + filters.offset,
         )
 
         if result.is_error:
@@ -544,15 +249,11 @@ def create_insights_ui_routes(
             return render_error_banner("Failed to load more insights", str(result.error))
 
         all_insights = filter_insights(result.value, filters)
-
-        # Get only the new batch (slice from offset)
         new_insights = all_insights[filters.offset : filters.offset + page_size]
 
         if not new_insights:
-            # No more insights - return end marker
             return EmptyState("No more insights to load", id="load-more-trigger", cls="py-4")
 
-        # Encode filters for next load-more URL
         filter_query = build_filter_query_string(filters)
         next_offset = filters.offset + page_size
         next_url = (
@@ -561,36 +262,10 @@ def create_insights_ui_routes(
             else f"/insights/load-more?offset={next_offset}"
         )
 
-        # , Task 9: Wrap each loaded insight with checkbox
-        loaded_card_items = []
-        for insight in new_insights:
-            card_with_checkbox = Div(
-                # Checkbox (left side)
-                Label(
-                    Input(
-                        type="checkbox",
-                        name="insight-checkbox",
-                        value=insight.uid,
-                        cls="checkbox checkbox-primary",
-                        **{"@change": f"toggleSelection('{insight.uid}')"},
-                        **{":checked": f"isSelected('{insight.uid}')"},
-                    ),
-                    cls="mr-3 flex-shrink-0 mt-1",
-                ),
-                # Insight card (right side)
-                Div(
-                    InsightCard(insight),
-                    cls="flex-1",
-                ),
-                cls="flex items-start gap-2",
-            )
-            loaded_card_items.append(card_with_checkbox)
+        loaded_card_items = [render_insight_card_with_checkbox(insight) for insight in new_insights]
 
-        # Return new insight cards + new load-more trigger
         return Div(
-            # New batch of insights (append to existing list)
             *loaded_card_items,
-            # New load-more trigger for next batch
             Div(
                 id="load-more-trigger",
                 hx_get=next_url,
