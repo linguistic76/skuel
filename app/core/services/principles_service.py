@@ -32,6 +32,7 @@ from core.services.activity_domain_config import CommonSubServices, create_commo
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
+from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 
 # Import sub-services and their types
 from core.services.principles import (
@@ -55,7 +56,8 @@ if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.models.principle.principle_types import PrincipleDecision
-    from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
+    from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
+    from core.ports.query_types import ListContext
     from core.ports.search_protocols import PrinciplesSearchOperations
     from core.services.principles.principles_ai_service import PrinciplesAIService
     from core.services.principles.principles_alignment_service import (
@@ -175,7 +177,9 @@ def _apply_principle_sort(principles: list[Any], sort_by: str = "strength") -> l
     return apply_entity_sort(principles, sort_by, _PRINCIPLE_SORT_CONFIG, "strength")
 
 
-class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
+class PrinciplesService(
+    KnowledgeIntelligenceDelegationMixin, BaseService[PrinciplesOperations, Principle]
+):
     """
     Principles service facade with specialized sub-services.
 
@@ -392,7 +396,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         habits_backend: HabitsOperations | None = None,
         event_bus: Any = None,
         insight_store: Any = None,
-        activity_knowledge_intelligence: Any = None,
+        activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
         ai_service: PrinciplesAIService | None = None,
     ) -> None:
         """
@@ -433,8 +437,8 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         )
         self.core = common.core
         self.search: PrinciplesSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
-        self.relationships: UnifiedRelationshipService = common.relationships
-        self.intelligence: PrinciplesIntelligenceService = common.intelligence
+        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.intelligence: PrinciplesIntelligenceService = common.intelligence  # type: ignore[assignment]  # never skipped
 
         # Domain-specific sub-services (not common to all facades)
         self.alignment = PrinciplesAlignmentService(
@@ -465,41 +469,13 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
         )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = activity_knowledge_intelligence
+        self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
             "PrinciplesService facade initialized with 8 sub-services: "
             "core, search, alignment, learning, relationships, intelligence, "
             "planning, event_handler, knowledge_intelligence"
         )
-
-    # ========================================================================
-    # KNOWLEDGE INTELLIGENCE - Delegate to ActivityKnowledgeIntelligenceService
-    # ========================================================================
-
-    async def get_knowledge_suggestions(
-        self, user_uid: UserUID, entity_uid: EntityUID | None = None
-    ) -> Result[dict[str, Any]]:
-        """Generate knowledge suggestions from entity patterns."""
-        return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
-
-    async def generate_knowledge_from_entities(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        """Generate knowledge units from completed entities."""
-        return await self.knowledge_intelligence.generate_knowledge_from_entities(
-            user_uid, period_days
-        )
-
-    async def get_knowledge_prerequisites(
-        self, entity_uid: EntityUID
-    ) -> Result[KnowledgePrerequisitesResult]:
-        """Analyze knowledge prerequisites for an entity."""
-        return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
-
-    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
-        """Discover learning opportunities from entity patterns."""
-        return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT

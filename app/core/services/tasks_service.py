@@ -21,7 +21,7 @@ from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
-    from core.ports.query_types import KnowledgePrerequisitesResult
+    from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
     from core.ports.search_protocols import TasksSearchOperations
     from core.services.insight.insight_store import InsightStore
     from core.services.tasks.tasks_ai_service import TasksAIService
@@ -41,6 +41,7 @@ from core.services.analytics_engine import (
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
+from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
@@ -224,7 +225,7 @@ def _apply_task_sort(tasks: list[Any], sort_by: str = "due_date") -> list[Any]:
     return apply_entity_sort(tasks, sort_by, _TASK_SORT_CONFIG, "due_date")
 
 
-class TasksService(BaseService["TasksOperations", Task]):
+class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOperations", Task]):
     """
     Tasks service facade with specialized sub-services.
 
@@ -287,7 +288,7 @@ class TasksService(BaseService["TasksOperations", Task]):
         graph_intelligence_service=None,
         event_bus=None,
         insight_store: InsightStore | None = None,
-        activity_knowledge_intelligence: Any = None,
+        activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
         ai_service: TasksAIService | None = None,
     ) -> None:
         """
@@ -309,20 +310,20 @@ class TasksService(BaseService["TasksOperations", Task]):
 
         self.logger = get_logger("skuel.services.tasks")  # type: ignore[assignment]  # structlog BoundLogger
 
-        # Use factory for search and relationships (common sub-services)
+        # Use factory for search and relationships only (core and intelligence
+        # need domain-specific parameters — created manually below)
         common = create_common_sub_services(
             domain="tasks",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
+            skip={"core", "intelligence"},
         )
 
         # NOTE: Named 'search' for consistency with other domain facades
         # This shadows BaseService.search(), intentionally - we delegate via self.search.search()
         self.search: TasksSearchOperations = common.search
-        self.relationships: UnifiedRelationshipService = common.relationships
-
-        # Core and intelligence need domain-specific parameters - create manually
+        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
         self.core = TasksCoreService(
             backend=backend, ku_inference_service=ku_inference_service, event_bus=event_bus
         )
@@ -370,41 +371,13 @@ class TasksService(BaseService["TasksOperations", Task]):
         self.ku_generation_service = ku_generation_service
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = activity_knowledge_intelligence
+        self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
             "TasksService facade initialized with 11 sub-services: "
             "core, search, progress, scheduling, planning, relationships, "
             "intelligence, productivity, learning_metrics, event_handler, knowledge_intelligence"
         )
-
-    # ========================================================================
-    # KNOWLEDGE INTELLIGENCE - Delegate to ActivityKnowledgeIntelligenceService
-    # ========================================================================
-
-    async def get_knowledge_suggestions(
-        self, user_uid: UserUID, entity_uid: EntityUID | None = None
-    ) -> Result[dict[str, Any]]:
-        """Generate knowledge suggestions from entity patterns."""
-        return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
-
-    async def generate_knowledge_from_entities(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        """Generate knowledge units from completed entities."""
-        return await self.knowledge_intelligence.generate_knowledge_from_entities(
-            user_uid, period_days
-        )
-
-    async def get_knowledge_prerequisites(
-        self, entity_uid: EntityUID
-    ) -> Result[KnowledgePrerequisitesResult]:
-        """Analyze knowledge prerequisites for an entity."""
-        return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
-
-    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
-        """Discover learning opportunities from entity patterns."""
-        return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT

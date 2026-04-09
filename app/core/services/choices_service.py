@@ -32,6 +32,7 @@ from core.services.filtered_context import build_filtered_context
 
 # Unified relationship service
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
@@ -54,7 +55,8 @@ if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
-    from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
+    from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
+    from core.ports.query_types import ListContext
     from core.ports.search_protocols import ChoicesSearchOperations
     from core.services.choices.choices_ai_service import ChoicesAIService
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
@@ -129,7 +131,9 @@ def _apply_choice_sort(choices: list[Any], sort_by: str = "deadline") -> list[An
     return apply_entity_sort(choices, sort_by, _CHOICE_SORT_CONFIG, "deadline")
 
 
-class ChoicesService(BaseService["ChoicesOperations", Choice]):
+class ChoicesService(
+    KnowledgeIntelligenceDelegationMixin, BaseService["ChoicesOperations", Choice]
+):
     """
     Choices service facade with specialized sub-services.
 
@@ -335,7 +339,7 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
         insight_store: Any = None,
-        activity_knowledge_intelligence: Any = None,
+        activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
         ai_service: ChoicesAIService | None = None,
     ) -> None:
         """
@@ -373,8 +377,8 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         )
         self.core = common.core
         self.search: ChoicesSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
-        self.relationships: UnifiedRelationshipService = common.relationships
-        self.intelligence: ChoicesIntelligenceService = common.intelligence
+        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.intelligence: ChoicesIntelligenceService = common.intelligence  # type: ignore[assignment]  # never skipped
 
         # Domain-specific sub-services (not common to all facades)
         self.learning = ChoicesLearningService(backend=backend)
@@ -386,41 +390,13 @@ class ChoicesService(BaseService["ChoicesOperations", Choice]):
         )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = activity_knowledge_intelligence
+        self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
             "ChoicesService facade initialized with 7 sub-services: "
             "core, search, learning, relationships, intelligence, "
             "event_handler, knowledge_intelligence"
         )
-
-    # ========================================================================
-    # KNOWLEDGE INTELLIGENCE - Delegate to ActivityKnowledgeIntelligenceService
-    # ========================================================================
-
-    async def get_knowledge_suggestions(
-        self, user_uid: UserUID, entity_uid: EntityUID | None = None
-    ) -> Result[dict[str, Any]]:
-        """Generate knowledge suggestions from entity patterns."""
-        return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
-
-    async def generate_knowledge_from_entities(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        """Generate knowledge units from completed entities."""
-        return await self.knowledge_intelligence.generate_knowledge_from_entities(
-            user_uid, period_days
-        )
-
-    async def get_knowledge_prerequisites(
-        self, entity_uid: EntityUID
-    ) -> Result[KnowledgePrerequisitesResult]:
-        """Analyze knowledge prerequisites for an entity."""
-        return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
-
-    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
-        """Discover learning opportunities from entity patterns."""
-        return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT

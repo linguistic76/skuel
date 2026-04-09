@@ -143,20 +143,24 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
 @dataclass
 class CommonSubServices(Generic[T_Intelligence]):
     """
-    Container for the 5 common sub-services created by the factory.
+    Container for common sub-services created by the factory.
 
     Generic over T_Intelligence to preserve the concrete intelligence service type.
     Facades should annotate the assignment to get proper type checking:
 
         common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(...)
         self.intelligence = common.intelligence # MyPy knows this is TasksIntelligenceService
+
+    Fields may be None when the corresponding service name is in the ``skip`` set.
     """
 
     core: Any
     search: Any
-    relationships: UnifiedRelationshipService
-    intelligence: T_Intelligence
-    knowledge_intelligence: Any  # ActivityKnowledgeIntelligenceService (shared singleton)
+    relationships: UnifiedRelationshipService | None
+    intelligence: T_Intelligence | None
+
+
+_VALID_SKIP_NAMES = frozenset({"core", "search", "relationships", "intelligence"})
 
 
 def create_common_sub_services(
@@ -165,10 +169,10 @@ def create_common_sub_services(
     graph_intel: Any,
     event_bus: Any = None,
     insight_store: Any = None,
-    knowledge_intelligence: Any = None,
+    skip: set[str] | None = None,
 ) -> CommonSubServices[Any]:
     """
-    Factory function to create the 5 common sub-services for Activity Domain facades.
+    Factory function to create common sub-services for Activity Domain facades.
 
     This eliminates ~80 lines of repetitive initialization code per facade.
 
@@ -177,74 +181,81 @@ def create_common_sub_services(
         backend: Domain backend operations (protocol-typed)
         graph_intel: GraphIntelligenceService for analytics
         event_bus: Event bus for domain events (optional)
-        insight_store: InsightStore for persisting event-driven insights (optional, - January 2026)
-        knowledge_intelligence: ActivityKnowledgeIntelligenceService (shared singleton)
+        insight_store: InsightStore for persisting event-driven insights (optional)
+        skip: Sub-service names to skip constructing (set to None in result).
+            Valid names: "core", "search", "relationships", "intelligence".
+            Use when the facade creates these manually with domain-specific parameters.
 
     Returns:
-        CommonSubServices dataclass with core, search, relationships, intelligence,
-        knowledge_intelligence.
+        CommonSubServices dataclass. Skipped fields are None.
         Callers should annotate with specific intelligence type for type safety:
 
             common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(...)
 
     Example:
         common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(
-            "tasks", backend, graph_intel, event_bus, insight_store, knowledge_intelligence
+            "tasks", backend, graph_intel, event_bus, insight_store
         )
         self.core = common.core
         self.search = common.search
         self.relationships = common.relationships
-        self.intelligence = common.intelligence # Typed as TasksIntelligenceService
-        self.knowledge_intelligence = common.knowledge_intelligence
+        self.intelligence = common.intelligence  # Typed as TasksIntelligenceService
     """
     import importlib
+
+    skip = skip or set()
+    invalid = skip - _VALID_SKIP_NAMES
+    if invalid:
+        msg = f"Invalid skip names: {invalid}. Valid: {_VALID_SKIP_NAMES}"
+        raise ValueError(msg)
 
     config = ACTIVITY_DOMAIN_CONFIGS[domain]
 
     # Dynamically import service classes to avoid circular imports
-    core_module = importlib.import_module(config.core_module)
-    core_class = getattr(core_module, config.core_class)
+    # (only import what we need)
+    core = None
+    if "core" not in skip:
+        core_module = importlib.import_module(config.core_module)
+        core_class = getattr(core_module, config.core_class)
+        core = core_class(backend=backend, event_bus=event_bus)
 
-    search_module = importlib.import_module(config.search_module)
-    search_class = getattr(search_module, config.search_class)
+    search = None
+    if "search" not in skip:
+        search_module = importlib.import_module(config.search_module)
+        search_class = getattr(search_module, config.search_class)
+        search = search_class(backend=backend)
 
-    intel_module = importlib.import_module(config.intelligence_module)
-    intel_class = getattr(intel_module, config.intelligence_class)
-
-    # Create core service (all take backend + optional event_bus)
-    core = core_class(backend=backend, event_bus=event_bus)
-
-    # Create search service (just backend)
-    search = search_class(backend=backend)
-
-    # Create relationships service (backend + config + graph_intel)
-    relationships = UnifiedRelationshipService(
-        backend=backend,
-        config=config.relationship_config,
-        graph_intel=graph_intel,
-    )
-
-    # Create intelligence service (backend + graph_intel + relationships + insight_store)
-    # Note: Not all intelligence services support insight_store yet - pass if available
-    try:
-        intelligence = intel_class(
+    relationships = None
+    if "relationships" not in skip:
+        relationships = UnifiedRelationshipService(
             backend=backend,
-            graph_intelligence_service=graph_intel,
-            relationship_service=relationships,
-            insight_store=insight_store,
+            config=config.relationship_config,
+            graph_intel=graph_intel,
         )
-    except TypeError:
-        # Fallback for intelligence services that don't have insight_store parameter yet
-        intelligence = intel_class(
-            backend=backend,
-            graph_intelligence_service=graph_intel,
-            relationship_service=relationships,
-        )
+
+    intelligence = None
+    if "intelligence" not in skip:
+        intel_module = importlib.import_module(config.intelligence_module)
+        intel_class = getattr(intel_module, config.intelligence_class)
+        # Note: Not all intelligence services support insight_store yet - pass if available
+        try:
+            intelligence = intel_class(
+                backend=backend,
+                graph_intelligence_service=graph_intel,
+                relationship_service=relationships,
+                insight_store=insight_store,
+            )
+        except TypeError:
+            # Fallback for intelligence services that don't have insight_store parameter yet
+            intelligence = intel_class(
+                backend=backend,
+                graph_intelligence_service=graph_intel,
+                relationship_service=relationships,
+            )
 
     return CommonSubServices(
         core=core,
         search=search,
         relationships=relationships,
         intelligence=intelligence,
-        knowledge_intelligence=knowledge_intelligence,
     )

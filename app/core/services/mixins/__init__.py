@@ -12,12 +12,16 @@ BaseService Decomposition Mixins (January 2026):
     - TimeQueryMixin: Date-based queries for calendar integration
     - UserProgressMixin: Progress and mastery tracking
     - ContextOperationsMixin: Graph context retrieval and enrichment
+
+Activity Domain Mixins (April 2026):
+    - KnowledgeIntelligenceDelegationMixin: Shared knowledge intelligence delegation
 """
 
 # BaseService decomposition mixins (January 2026)
 from core.services.mixins.context_operations_mixin import ContextOperationsMixin
 from core.services.mixins.conversion_helpers_mixin import ConversionHelpersMixin
 from core.services.mixins.crud_operations_mixin import CrudOperationsMixin
+from core.services.mixins.knowledge_intelligence_mixin import KnowledgeIntelligenceDelegationMixin
 from core.services.mixins.relationship_operations_mixin import RelationshipOperationsMixin
 from core.services.mixins.search_operations_mixin import SearchOperationsMixin
 from core.services.mixins.time_query_mixin import TimeQueryMixin
@@ -32,4 +36,6 @@ __all__ = [
     "TimeQueryMixin",
     "UserProgressMixin",
     "ContextOperationsMixin",
+    # Activity Domain mixins
+    "KnowledgeIntelligenceDelegationMixin",
 ]

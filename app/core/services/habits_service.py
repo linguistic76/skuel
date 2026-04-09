@@ -53,6 +53,7 @@ from core.services.habits.habits_scheduling_service import DEFAULT_MAX_DAILY_LOA
 
 # Unified relationship service
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
@@ -81,7 +82,8 @@ if TYPE_CHECKING:
     )
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
-    from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
+    from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
+    from core.ports.query_types import ListContext
     from core.ports.search_protocols import HabitsSearchOperations
     from core.services.habits.habits_ai_service import HabitsAIService
     from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
@@ -138,7 +140,7 @@ def _apply_habit_sort(habits: list[Any], sort_by: str = "streak") -> list[Any]:
     return apply_entity_sort(habits, sort_by, _HABIT_SORT_CONFIG, "streak")
 
 
-class HabitsService(BaseService[HabitsOperations, Habit]):
+class HabitsService(KnowledgeIntelligenceDelegationMixin, BaseService[HabitsOperations, Habit]):
     """
     Habits service facade with specialized sub-services.
 
@@ -486,7 +488,7 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         completions_backend: BackendOperations[HabitCompletion],
         event_bus: EventBusOperations | None = None,
         insight_store: Any = None,
-        activity_knowledge_intelligence: Any = None,
+        activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
         ai_service: HabitsAIService | None = None,
     ) -> None:
         """
@@ -529,11 +531,11 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
         )
         self.core = common.core
         self.search: HabitsSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
-        self.relationships: UnifiedRelationshipService = common.relationships
-        self.intelligence: HabitsIntelligenceService = common.intelligence
+        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.intelligence: HabitsIntelligenceService = common.intelligence  # type: ignore[assignment]  # never skipped
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = activity_knowledge_intelligence
+        self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         # Completion tracking service (REQUIRED - fail-fast) - create before progress
         self.completions = HabitsCompletionService(
@@ -581,34 +583,6 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
             "core, search, progress, learning, planning, scheduling, relationships, "
             "intelligence, event_integration, event_handler, completions, patterns, goal_analytics"
         )
-
-    # ========================================================================
-    # KNOWLEDGE INTELLIGENCE - Delegate to ActivityKnowledgeIntelligenceService
-    # ========================================================================
-
-    async def get_knowledge_suggestions(
-        self, user_uid: UserUID, entity_uid: EntityUID | None = None
-    ) -> Result[dict[str, Any]]:
-        """Generate knowledge suggestions from entity patterns."""
-        return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
-
-    async def generate_knowledge_from_entities(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        """Generate knowledge units from completed entities."""
-        return await self.knowledge_intelligence.generate_knowledge_from_entities(
-            user_uid, period_days
-        )
-
-    async def get_knowledge_prerequisites(
-        self, entity_uid: EntityUID
-    ) -> Result[KnowledgePrerequisitesResult]:
-        """Analyze knowledge prerequisites for an entity."""
-        return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
-
-    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
-        """Discover learning opportunities from entity patterns."""
-        return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT

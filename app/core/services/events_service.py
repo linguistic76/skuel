@@ -44,6 +44,7 @@ from core.services.events import (
 )
 from core.services.filtered_context import build_filtered_context
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
+from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
@@ -73,7 +74,8 @@ if TYPE_CHECKING:
     from core.models.pathways.lp_position import LpPosition
     from core.ports.domain_protocols import EventsOperations
     from core.ports.infrastructure_protocols import EventBusOperations
-    from core.ports.query_types import KnowledgePrerequisitesResult, ListContext
+    from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
+    from core.ports.query_types import ListContext
     from core.ports.search_protocols import EventsSearchOperations
     from core.services.events.events_ai_service import EventsAIService
     from core.services.events.events_intelligence_service import EventsIntelligenceService
@@ -136,7 +138,7 @@ def _apply_event_sort(events: list[Any], sort_by: str = "start_time") -> list[An
     return apply_entity_sort(events, sort_by, _EVENT_SORT_CONFIG, "start_time")
 
 
-class EventsService(BaseService["EventsOperations", Event]):
+class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOperations", Event]):
     """
     Events service facade with specialized sub-services.
 
@@ -541,7 +543,7 @@ class EventsService(BaseService["EventsOperations", Event]):
         graph_intelligence_service: GraphIntelligenceService,
         event_bus: EventBusOperations | None = None,
         insight_store: InsightStore | None = None,
-        activity_knowledge_intelligence: Any = None,
+        activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
         ai_service: EventsAIService | None = None,
     ) -> None:
         """
@@ -577,8 +579,8 @@ class EventsService(BaseService["EventsOperations", Event]):
         )
         self.core = common.core
         self.search: EventsSearchOperations = common.search
-        self.relationships: UnifiedRelationshipService = common.relationships
-        self.intelligence: EventsIntelligenceService = common.intelligence
+        self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
+        self.intelligence: EventsIntelligenceService = common.intelligence  # type: ignore[assignment]  # never skipped
 
         # Domain-specific sub-services (not common to all facades)
         self.habits = EventsHabitIntegrationService(backend=backend, event_bus=event_bus)
@@ -592,41 +594,13 @@ class EventsService(BaseService["EventsOperations", Event]):
         )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = activity_knowledge_intelligence
+        self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
             "EventsService facade initialized with 10 sub-services: "
             "core, search, habits, learning, progress, scheduling, relationships, "
             "event_handler, intelligence, knowledge_intelligence"
         )
-
-    # ========================================================================
-    # KNOWLEDGE INTELLIGENCE - Delegate to ActivityKnowledgeIntelligenceService
-    # ========================================================================
-
-    async def get_knowledge_suggestions(
-        self, user_uid: UserUID, entity_uid: EntityUID | None = None
-    ) -> Result[dict[str, Any]]:
-        """Generate knowledge suggestions from entity patterns."""
-        return await self.knowledge_intelligence.get_knowledge_suggestions(user_uid, entity_uid)
-
-    async def generate_knowledge_from_entities(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[dict[str, Any]]:
-        """Generate knowledge units from completed entities."""
-        return await self.knowledge_intelligence.generate_knowledge_from_entities(
-            user_uid, period_days
-        )
-
-    async def get_knowledge_prerequisites(
-        self, entity_uid: EntityUID
-    ) -> Result[KnowledgePrerequisitesResult]:
-        """Analyze knowledge prerequisites for an entity."""
-        return await self.knowledge_intelligence.get_knowledge_prerequisites(entity_uid)
-
-    async def get_learning_opportunities(self, user_uid: UserUID) -> Result[dict[str, Any]]:
-        """Discover learning opportunities from entity patterns."""
-        return await self.knowledge_intelligence.get_learning_opportunities(user_uid)
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
