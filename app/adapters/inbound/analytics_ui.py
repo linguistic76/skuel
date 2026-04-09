@@ -23,7 +23,6 @@ from ui.analytics import (
     render_analytics_dashboard,
     render_analytics_result,
     render_life_path_alignment_dashboard,
-    render_markdown_view,
     render_period_fields,
     render_weekly_life_summary,
 )
@@ -42,12 +41,16 @@ class PeriodParams:
     """Typed parameters for period selection."""
 
     period: str
+    start_date: str
+    end_date: str
 
 
 def parse_period_params(request: Request) -> PeriodParams:
     """Extract period parameters from request query params."""
     return PeriodParams(
         period=request.query_params.get("period", ""),
+        start_date=request.query_params.get("start_date", ""),
+        end_date=request.query_params.get("end_date", ""),
     )
 
 
@@ -80,25 +83,56 @@ def create_analytics_ui_routes(
         user_uid = require_authenticated_user(request)
         try:
             analytics_domain_str = request.query_params.get("analytics_domain", "tasks")
-            period = request.query_params.get("period", "month_current")
+            params = parse_period_params(request)
 
             analytics_domain = AnalyticsDomain(analytics_domain_str)
+            today = date.today()
 
-            if period == "week_current":
-                today = date.today()
+            if params.period == "week_current":
                 week_start = today - timedelta(days=today.weekday())
                 result = await analytics_service.generate_weekly_report(
                     user_uid, analytics_domain, week_start
                 )
-            elif period == "month_current":
-                today = date.today()
+            elif params.period == "week_last":
+                last_week_start = today - timedelta(days=today.weekday() + 7)
+                result = await analytics_service.generate_weekly_report(
+                    user_uid, analytics_domain, last_week_start
+                )
+            elif params.period == "month_current":
                 result = await analytics_service.generate_monthly_report(
                     user_uid, analytics_domain, today.year, today.month
                 )
-            elif period == "year_current":
-                today = date.today()
+            elif params.period == "month_last":
+                first_of_month = today.replace(day=1)
+                last_month_end = first_of_month - timedelta(days=1)
+                result = await analytics_service.generate_monthly_report(
+                    user_uid,
+                    analytics_domain,
+                    last_month_end.year,
+                    last_month_end.month,
+                )
+            elif params.period == "year_current":
                 result = await analytics_service.generate_yearly_report(
                     user_uid, analytics_domain, today.year
+                )
+            elif params.period == "custom":
+                if not params.start_date or not params.end_date:
+                    return render_inline_error(
+                        "Custom range requires both start and end dates."
+                    )
+                try:
+                    start = date.fromisoformat(params.start_date)
+                    end = date.fromisoformat(params.end_date)
+                except ValueError:
+                    return render_inline_error(
+                        "Invalid date format. Use YYYY-MM-DD."
+                    )
+                if start > end:
+                    return render_inline_error(
+                        "Start date must be before end date."
+                    )
+                result = await analytics_service.generate_report(
+                    user_uid, analytics_domain, start, end
                 )
             else:
                 return render_inline_error("Invalid period selection")
@@ -111,11 +145,6 @@ def create_analytics_ui_routes(
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error viewing analytics: {e}")
             return render_inline_error(f"Error: {e}")
-
-    @app.get("/ui/analytics/{uid}/markdown")
-    async def view_markdown(_request: Any, _uid: str) -> Any:
-        """View analytics as markdown."""
-        return render_markdown_view("# Analytics markdown would go here...")
 
     @app.get("/ui/analytics/life-path-alignment")
     async def life_path_alignment_ui(request: Any) -> Any:

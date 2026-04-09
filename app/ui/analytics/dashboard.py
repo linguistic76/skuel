@@ -35,6 +35,7 @@ def render_analytics_dashboard(request: Any) -> Any:
                             Option("Events", value="events"),
                             Option("Finance", value="finance"),
                             Option("Choices", value="choices"),
+                            Option("Principles", value="principles"),
                             name="analytics_domain",
                             id="analytics-domain-select",
                         ),
@@ -113,20 +114,21 @@ def render_analytics_result(report: Any) -> Any:
         Div(
             Button(
                 "View as Markdown",
-                hx_get=f"/ui/analytics/{report.uid}/markdown",
-                hx_target="#markdown-view",
                 variant=ButtonT.ghost,
                 cls="mb-4",
+                **{"@click": "showMarkdown = !showMarkdown"},
             ),
-            Div(id="markdown-view"),
+            render_markdown_view(report.markdown_content),
+            **{"x-data": "{ showMarkdown: false }"},
         ),
         cls="mt-6",
     )
 
 
 def render_markdown_view(markdown_content: str) -> Any:
-    """Render markdown content."""
+    """Render markdown content, toggled by Alpine showMarkdown state."""
     return Card(
-        Div(markdown_content, cls="prose max-w-none"),
+        Div(markdown_content, cls="prose max-w-none whitespace-pre-wrap"),
         cls="bg-background shadow-sm p-6 mt-4",
+        **{"x-show": "showMarkdown", "x-cloak": True},
     )

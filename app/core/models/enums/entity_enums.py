@@ -1057,6 +1057,7 @@ class AnalyticsDomain(StrEnum):
     EVENTS = "events"
     FINANCE = "finance"
     CHOICES = "choices"
+    PRINCIPLES = "principles"
 
     def get_metrics(self) -> list[str]:
         """Get available metrics for this analytics domain"""
@@ -1108,6 +1109,12 @@ class AnalyticsDomain(StrEnum):
                 "choices_by_domain",
                 "decision_quality_avg",
                 "choices_reviewed_count",
+            ],
+            AnalyticsDomain.PRINCIPLES: [
+                "total_principles",
+                "active_count",
+                "embodied_count",
+                "alignment_score_avg",
             ],
         }
         return metrics.get(self, [])
