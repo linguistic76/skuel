@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
     from core.ports.search_protocols import TasksSearchOperations
+    from core.services.cross_domain import CrossDomainQueryService
     from core.services.insight.insight_store import InsightStore
     from core.services.tasks.tasks_ai_service import TasksAIService
 
@@ -277,6 +278,7 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
     def __init__(
         self,
         backend: TasksOperations,
+        cross_domain_query: CrossDomainQueryService,
         ku_inference_service=None,
         analytics_engine=None,
         ku_generation_service=None,
@@ -348,6 +350,7 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
         self.scheduling = TasksSchedulingService(backend=backend)
         self.planning = TasksPlanningService(
             backend=backend,
+            cross_domain_query=cross_domain_query,
             relationship_service=self.relationships,
         )
 

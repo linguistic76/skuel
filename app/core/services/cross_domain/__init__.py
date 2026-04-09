@@ -14,11 +14,15 @@ anti-pattern by letting the graph do the work.
 from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
 from core.services.cross_domain.cross_domain_types import (
     AlignedEntity,
+    KnowledgeApplyingTask,
     PrincipleAlignmentEvidence,
+    TasksForKnowledge,
 )
 
 __all__ = [
     "AlignedEntity",
     "CrossDomainQueryService",
+    "KnowledgeApplyingTask",
     "PrincipleAlignmentEvidence",
+    "TasksForKnowledge",
 ]

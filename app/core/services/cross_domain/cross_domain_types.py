@@ -41,3 +41,21 @@ class PrincipleAlignmentEvidence:
     @property
     def total_connections(self) -> int:
         return len(self.aligned_goals) + len(self.aligned_habits)
+
+
+@dataclass(frozen=True)
+class KnowledgeApplyingTask:
+    """A task connected to a knowledge unit by an APPLIES/REQUIRES edge."""
+
+    uid: EntityUID
+    title: str
+    relationship: str  # "APPLIES_KNOWLEDGE" | "REQUIRES_KNOWLEDGE"
+
+
+@dataclass(frozen=True)
+class TasksForKnowledge:
+    """Tasks a user owns that engage with a specific knowledge unit."""
+
+    knowledge_uid: EntityUID
+    user_uid: UserUID
+    tasks: tuple[KnowledgeApplyingTask, ...]

@@ -548,7 +548,10 @@ async def services(neo4j_driver):
     )
 
     # Create Tasks service
-    tasks_service = TasksService(backend=tasks_backend)
+    tasks_service = TasksService(
+        backend=tasks_backend,
+        cross_domain_query=cross_domain_query,
+    )
 
     # Create Goals service (requires graph_intelligence_service)
     goals_service = GoalsService(

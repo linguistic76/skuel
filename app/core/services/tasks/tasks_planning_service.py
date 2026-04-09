@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.task.task import Task
 from core.models.type_hints import UserUID
 from core.services.base_planning_service import BasePlanningService
+from core.services.cross_domain import KnowledgeApplyingTask
 from core.services.infrastructure import PrerequisiteChecker
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
     from core.models.context_types import ContextualDependencies, ContextualTask
     from core.ports.domain_protocols import TasksOperations
     from core.ports.query_types import RichEntityItem
+    from core.services.cross_domain import CrossDomainQueryService
     from core.services.user.unified_user_context import UserContext
 
 
@@ -66,16 +68,19 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
     def __init__(
         self,
         backend: TasksOperations,
+        cross_domain_query: CrossDomainQueryService,
         relationship_service: Any | None = None,
     ) -> None:
         """
-        Initialize service with required backend.
+        Initialize service with required backend and cross-domain query service.
 
         Args:
             backend: TasksOperations backend (required)
+            cross_domain_query: CrossDomainQueryService for multi-label reads (required)
             relationship_service: UnifiedRelationshipService for relationship queries (optional)
         """
         super().__init__(backend=backend, relationship_service=relationship_service)
+        self.cross_domain_query = cross_domain_query
 
     # ========================================================================
     # PRIVATE HELPER METHODS (Domain-Specific)
@@ -87,38 +92,22 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
 
     async def _find_tasks_for_knowledge(
         self, knowledge_uid: str, user_uid: UserUID, limit: int = 20
-    ) -> Result[list[Task]]:
+    ) -> Result[tuple[KnowledgeApplyingTask, ...]]:
         """
         Find tasks that apply a specific knowledge unit for a user.
 
-        Uses direct Cypher query (Direct Driver pattern) since this cross-domain
-        reverse query doesn't map cleanly to UnifiedRelationshipService's generic API.
-
-        Args:
-            knowledge_uid: UID of the knowledge unit
-            user_uid: UID of the user
-            limit: Maximum tasks to return
-
-        Returns:
-            Result containing list of Tasks that apply the knowledge unit
+        Delegates to ``CrossDomainQueryService.get_tasks_applying_knowledge`` —
+        a single-query, typed cross-domain read. Returns lightweight
+        ``KnowledgeApplyingTask`` projections (uid + title + edge type) because
+        the single caller (``get_learning_tasks_for_user``) only reads those
+        two fields — reconstructing a full ``Task`` would be waste.
         """
-        from core.models.task.task import Task
-        from core.utils.neo4j_mapper import from_neo4j_node
-
-        query = """
-        MATCH (t:Entity)-[:APPLIES_KNOWLEDGE|REQUIRES_KNOWLEDGE]->(ku:Entity {uid: $knowledge_uid})
-        WHERE t.user_uid = $user_uid
-        RETURN t
-        LIMIT $limit
-        """
-        result = await self.backend.execute_query(
-            query, {"knowledge_uid": knowledge_uid, "user_uid": user_uid, "limit": limit}
+        result = await self.cross_domain_query.get_tasks_applying_knowledge(
+            knowledge_uid, user_uid, limit
         )
         if result.is_error:
             return Result.fail(result)
-
-        tasks = [from_neo4j_node(record["t"], Task) for record in result.value]
-        return Result.ok(tasks)
+        return Result.ok(result.value.tasks)
 
     # ========================================================================
     # CONTEXT-FIRST METHODS
@@ -203,7 +192,14 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         for dep in deps:
             dep_knowledge = await self._get_related_uids("prerequisite_knowledge", dep.uid)
             dep_prereq_tasks = await self._get_related_uids("prerequisite_tasks", dep.uid)
-            dep_goals: list[str] = []  # Would need goal relationship query
+            # TODO(cross-domain-batch): batch these per-dep goal queries into a
+            # single Cypher walk over all deps at once. For now this fixes the
+            # latent bug where dep_goals was hardcoded empty, silently zeroing
+            # goal-alignment scoring on every dependency.
+            goals_result = await self.cross_domain_query.get_goals_for_task(dep.uid)
+            dep_goals: list[str] = (
+                [g.uid for g in goals_result.value] if not goals_result.is_error else []
+            )
 
             contextual = ContextualTask.from_entity_and_context(
                 uid=dep.uid,

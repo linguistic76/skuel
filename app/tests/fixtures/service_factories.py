@@ -197,6 +197,7 @@ def create_finance_service_for_testing(
 
 def create_tasks_service_for_testing(
     backend: Mock | None = None,
+    cross_domain_query: Any = None,
     ku_inference_service: Mock | None = None,
     analytics_engine: Mock | None = None,
     ku_generation_service: Mock | None = None,
@@ -239,9 +240,14 @@ def create_tasks_service_for_testing(
     if backend is None:
         backend = create_mock_backend(backend_behavior)
 
+    # CrossDomainQueryService is required — mock if not provided
+    if cross_domain_query is None:
+        cross_domain_query = AsyncMock()
+
     # Create service using production pattern
     return TasksService(
         backend=backend,
+        cross_domain_query=cross_domain_query,
         ku_inference_service=ku_inference_service,
         analytics_engine=analytics_engine,
         ku_generation_service=ku_generation_service,

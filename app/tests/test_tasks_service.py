@@ -26,6 +26,12 @@ def mock_event_bus() -> Mock:
 
 
 @pytest.fixture
+def mock_cross_domain_query() -> AsyncMock:
+    """Mock CrossDomainQueryService — required by TasksService."""
+    return AsyncMock()
+
+
+@pytest.fixture
 def mock_tasks_backend() -> Any:
     """Mock tasks backend for testing."""
     from datetime import datetime
@@ -64,11 +70,12 @@ def mock_tasks_backend() -> Any:
 
 
 @pytest.mark.asyncio
-async def test_create_task_succeeds(mock_tasks_backend):
+async def test_create_task_succeeds(mock_tasks_backend, mock_cross_domain_query):
     """Test that creating a task succeeds with required user_uid."""
     # Arrange
     service = TasksService(
         backend=mock_tasks_backend,
+        cross_domain_query=mock_cross_domain_query,
         event_bus=None,  # Simplified - no event bus for basic test
     )
 
@@ -87,11 +94,12 @@ async def test_create_task_succeeds(mock_tasks_backend):
 
 
 @pytest.mark.asyncio
-async def test_no_event_bus_doesnt_crash(mock_tasks_backend):
+async def test_no_event_bus_doesnt_crash(mock_tasks_backend, mock_cross_domain_query):
     """Test that service works without event bus (backward compatibility)."""
     # Arrange
     service = TasksService(
         backend=mock_tasks_backend,
+        cross_domain_query=mock_cross_domain_query,
         event_bus=None,  # No event bus
     )
 
@@ -105,12 +113,18 @@ async def test_no_event_bus_doesnt_crash(mock_tasks_backend):
 
 
 @pytest.mark.asyncio
-async def test_event_publishing_failure_doesnt_break_operation(mock_event_bus, mock_tasks_backend):
+async def test_event_publishing_failure_doesnt_break_operation(
+    mock_event_bus, mock_tasks_backend, mock_cross_domain_query
+):
     """Test that event publishing failure doesn't break the operation."""
     # Arrange
     mock_event_bus.publish_async = AsyncMock(side_effect=Exception("Event bus down"))
 
-    service = TasksService(backend=mock_tasks_backend, event_bus=mock_event_bus)
+    service = TasksService(
+        backend=mock_tasks_backend,
+        cross_domain_query=mock_cross_domain_query,
+        event_bus=mock_event_bus,
+    )
 
     task_request = TaskCreateRequest(title="New Task", priority=Priority.HIGH)
 
@@ -128,9 +142,15 @@ async def test_event_publishing_failure_doesnt_break_operation(mock_event_bus, m
 
 
 @pytest.fixture
-def tasks_service_with_mocked_subservices(mock_tasks_backend: Any) -> TasksService:
+def tasks_service_with_mocked_subservices(
+    mock_tasks_backend: Any, mock_cross_domain_query: AsyncMock
+) -> TasksService:
     """TasksService with all sub-services replaced by AsyncMocks post-construction."""
-    service = TasksService(backend=mock_tasks_backend, event_bus=None)
+    service = TasksService(
+        backend=mock_tasks_backend,
+        cross_domain_query=mock_cross_domain_query,
+        event_bus=None,
+    )
     service.core = AsyncMock()
     service.progress = AsyncMock()
     service.relationships = AsyncMock()

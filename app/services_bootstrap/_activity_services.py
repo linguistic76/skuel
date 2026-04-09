@@ -53,6 +53,7 @@ def _create_activity_services(
     return {
         "tasks": TasksService(
             backend=tasks_backend,
+            cross_domain_query=cross_domain_query,
             ku_inference_service=ku_inference_service,
             analytics_engine=analytics_engine,
             ku_generation_service=ku_generation_service,
