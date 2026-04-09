@@ -1276,6 +1276,15 @@ When building a new SKUEL page or feature, verify:
 | `/ui/activities/_shared.py` | Shared Activity Domain UI utilities (`MetadataField`, `safe_id`, `CONNECTION_ICONS`, `ConnectionBadges`, `ConnectionSummary`). Connection dicts use `connected_uid`/`connected_type` keys. |
 | `/core/utils/connection_fetcher.py` | Unified `fetch_entity_connections()` — batch cross-domain connection query with per-domain `ConnectionConfig` constants |
 | `/core/utils/entity_filters.py` | `filter_tasks/goals/habits/events/choices/principles()` — business filtering/sorting logic extracted from UI views |
+| `/adapters/inbound/activity_ui_factory.py` | `ActivityUIConfig` dataclass + `create_activity_ui_routes()` — shared factory generating 5 routes per Activity Domain (page shell, content fragment, list-fragment, detail shell, detail content). Each `{domain}_ui.py` is ~50 lines creating an `ActivityUIConfig` and delegating here |
+| `/ui/journals/` | Journal UI rendering: `cards.py`, `components.py`, `forms.py` — extracted from `journals_ui.py` |
+| `/ui/insights/` | Insight UI rendering: `components.py`, `filters.py`, `insight_card.py` — extracted from `insights_ui.py` |
+| `/ui/pathways/` | Pathways UI rendering: `components.py` — extracted from `pathways_ui.py` |
+| `/ui/notifications/` | Notification UI rendering: `cards.py` — extracted from `notifications_routes.py` |
+| `/ui/calendar/` | Calendar UI rendering: `components.py`, `converters.py` — extracted from `calendar_ui.py` |
+| `/ui/finance/` | Finance UI rendering: `components.py`, `invoice_views.py`, `layout.py`, `section_views.py`, `types.py` — extracted from `finance_ui.py` |
+| `/ui/explore/ku_detail.py` | Ku detail page rendering — extracted from `explore_ui.py` |
+| `/ui/explore/ps_detail.py` | PathStep detail page rendering — extracted from `explore_ui.py` |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, PS, LP profile views |
 | `/ui/profile/overview.py` | `OverviewView` + all intelligence helper functions |

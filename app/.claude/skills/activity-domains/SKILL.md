@@ -73,16 +73,23 @@ core/services/{domain}_service.py  # Facade
 core/events/{domain}_events.py     # Domain events
 
 # Read-focused UI (all 6 domains + hub):
-adapters/inbound/{domain}_routes.py  # Route wiring
-adapters/inbound/{domain}_ui.py      # UI Routes (list, detail, HTMX fragment)
-adapters/inbound/{domain}_api.py     # API Routes (status toggle)
-ui/activities/nav.py                 # Activity sidebar config + render_activity_sidebar_page()
-ui/activities/activity_hub.py        # ActivityHubView — 6 domain preview blocks (embedded in /profile)
-ui/activities/{domain}_views.py      # Pure view components (StatsBar, List, Card, DetailView, filter config)
-ui/activities/filter_bar.py          # Shared config-driven filter bar (plain <select>, not <uk-select>)
-ui/activities/_shared.py             # Shared helpers (MetadataField, ConnectionBadges, safe_id)
-core/utils/connection_fetcher.py     # Unified cross-domain connection fetching (replaces per-domain Cypher)
-core/utils/entity_filters.py        # filter_tasks/goals/habits/events/choices/principles (business rules)
+adapters/inbound/{domain}_routes.py      # Route wiring (DomainRouteConfig + register_domain_routes)
+adapters/inbound/{domain}_ui.py          # ~50-line config: creates ActivityUIConfig, delegates to shared factory
+adapters/inbound/activity_ui_factory.py  # THE shared factory — ActivityUIConfig dataclass + create_activity_ui_routes()
+                                         #   Generates 5 routes per domain:
+                                         #     /{domain}                — Page shell (HTMX loading placeholder)
+                                         #     /{domain}/content        — HTMX fragment: filter bar + list + stats bar
+                                         #     /{domain}/list-fragment  — HTMX fragment: filtered list only
+                                         #     /{domain}/detail         — Detail page shell (HTMX loading placeholder)
+                                         #     /{domain}/detail/content — HTMX fragment: entity detail + connections
+adapters/inbound/{domain}_api.py         # API Routes (status toggle)
+ui/activities/nav.py                     # Activity sidebar config + render_activity_sidebar_page()
+ui/activities/activity_hub.py            # ActivityHubView — 6 domain preview blocks (embedded in /profile)
+ui/activities/{domain}_views.py          # Pure view components (StatsBar, List, Card, DetailView, filter config)
+ui/activities/filter_bar.py              # Shared config-driven filter bar (plain <select>, not <uk-select>)
+ui/activities/_shared.py                 # Shared helpers (MetadataField, ConnectionBadges, safe_id)
+core/utils/connection_fetcher.py         # Unified cross-domain connection fetching (replaces per-domain Cypher)
+core/utils/entity_filters.py            # filter_tasks/goals/habits/events/choices/principles (business rules)
 ```
 
 ## Common Operations

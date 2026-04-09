@@ -189,8 +189,10 @@ __all__ = ["create_tasks_routes"]
 
 **What stays in `api_factory`:** `OwnershipRouteFactory` (domain-specific ownership routes), `StatusRouteFactory` (transitions), `AnalyticsRouteFactory`, and manual routes with custom logic.
 
-**What `ui_factory` registers (inside `create_{domain}_ui_routes`):**
-- Manual `@rt()` handlers for domain-specific routes (list page, detail views, list-fragment for HTMX filter updates)
+**What `ui_factory` does (inside `create_{domain}_ui_routes`):**
+- Creates an `ActivityUIConfig` dataclass (~50 lines) with domain-specific callbacks and components
+- Delegates to `create_activity_ui_routes(app, rt, config)` from `activity_ui_factory.py`
+- The shared factory generates 5 routes: `/{domain}`, `/{domain}/content`, `/{domain}/list-fragment`, `/{domain}/detail`, `/{domain}/detail/content`
 - Uses `ActivityFilterBar` with per-domain `FilterBarConfig` for config-driven filter bars
 
 ---
