@@ -2,15 +2,18 @@
 Explore Routes — Orchestrator-Driven Registration
 ====================================================
 
-Wires the /explore discovery page and /learning-loop engagement
-fragments using the ExploreOrchestrator.
+Wires the /explore discovery surface and learning loop engagement
+pages using the ExploreOrchestrator.
 
-Routes:
-- GET  /explore              — Discovery index
+Discovery (explore_ui.py):
+- GET  /explore              — Discovery index with search + bento card grid
+- GET  /explore/content      — HTMX fragment: card grid with search panel
 - GET  /api/explore/search   — HTMX fragment: filtered card grid
 - GET  /api/explore/graph    — Hub learning universe graph (Vis.js JSON)
+
+Engagement (learning_loop_routes.py):
 - GET  /explore/ku/{uid}     — Ku detail page
-- GET  /explore/ps/{uid}     — PathStep detail page
+- GET  /explore/ps/{uid}     — PathStep detail page (learning loop anchor)
 - GET  /learning-loop/ps/{ps_uid}/exercises                — Exercise list fragment
 - GET  /learning-loop/ps/{ps_uid}/submissions-and-feedback — Submissions + feedback fragment
 """

@@ -1,18 +1,18 @@
 """
-Explore UI Routes — Discovery Page for Ku + PathStep
-=====================================================
+Explore UI Routes — Discovery Surface
+=======================================
 
-Unified exploration surface where Ku and PathStep entities intermingle
-in a discovery-first bento card layout with search and filtering.
+Discovery page where Ku and PathStep entities intermingle
+in a bento card layout with search, filtering, and graph.
 
 Routes:
 - GET  /explore              — Discovery index with search + bento card grid
+- GET  /explore/content      — HTMX fragment: card grid with search panel
 - GET  /api/explore/search   — HTMX fragment: filtered card grid
 - GET  /api/explore/graph    — Hub learning universe graph (Vis.js JSON)
-- GET  /explore/ku/{uid}     — Ku detail page with sidebar
-- GET  /explore/ps/{uid}     — PathStep detail page with sidebar
 
-Learning loop fragment routes (/learning-loop/ps/*) are in learning_loop_routes.py.
+Detail pages (/explore/ku/{uid}, /explore/ps/{uid}) and learning loop
+fragments (/learning-loop/ps/*) are in learning_loop_routes.py.
 """
 
 from typing import Any
@@ -22,14 +22,11 @@ from fasthtml.common import (
     Request,
 )
 
-from adapters.inbound.auth import get_current_user, is_authenticated, require_authenticated_user
+from adapters.inbound.auth import is_authenticated, require_authenticated_user
 from core.utils.logging import get_logger
-from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.explore.cards import render_explore_card, render_explore_search_panel
 from ui.explore.filters import filter_items, sort_by_created_at
-from ui.explore.ku_detail import render_ku_detail_content, render_ku_not_found
 from ui.explore.nav import render_explore_sidebar_page
-from ui.explore.ps_detail import render_ps_detail_content, render_ps_not_found
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
@@ -118,7 +115,7 @@ def create_explore_ui_routes(
     rt: Any,
     orchestrator: Any,
 ) -> list[Any]:
-    """Create /explore UI routes.
+    """Create /explore discovery UI routes.
 
     Args:
         orchestrator: ExploreOrchestrator for unified data access.
@@ -186,139 +183,8 @@ def create_explore_ui_routes(
             id="explore-content",
         )
 
-    # -----------------------------------------------------------------
-    # GET /explore/ku/{uid} — Ku detail page
-    # -----------------------------------------------------------------
-
-    @rt("/explore/ku/{uid}")
-    async def explore_ku_detail(request: Request, uid: str) -> Any:
-        """Ku detail page — shell renders immediately, content loads via HTMX."""
-        user_uid = get_current_user(request)
-        sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
-        content = content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content")
-        return await render_explore_sidebar_page(
-            content=content,
-            sidebar_data=sidebar_data,
-            request=request,
-            current_uid=uid,
-            current_entity_type="ku",
-        )
-
-    @rt("/explore/ku/{uid}/content")
-    async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
-        """HTMX fragment: Ku detail content with learning state and exercises."""
-        user_uid: str | None = get_current_user(request)
-
-        ku_result = await orchestrator.get_ku(uid)
-
-        if not ku_result or ku_result.is_error or not ku_result.value:
-            return render_ku_not_found(uid)
-
-        ku = ku_result.value
-
-        # Learning state
-        learning_state: dict[str, bool] = {"is_studying": False, "is_understood": False}
-        is_pinned = False
-        if user_uid:
-            state_result = await orchestrator.get_ku_learning_state(user_uid, uid)
-            if state_result.is_ok:
-                learning_state = state_result.value
-            pins_result = await orchestrator.get_pinned_entities(user_uid)
-            if pins_result.is_ok and pins_result.value:
-                is_pinned = uid in set(pins_result.value)
-
-        # Exercises
-        exercises_result = await orchestrator.get_exercises_for_curriculum(uid)
-        exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
-
-        # Render markdown
-        content_html, toc_html = render_markdown_with_toc(ku.description or "")
-
-        return render_ku_detail_content(
-            ku=ku,
-            uid=uid,
-            content_html=content_html,
-            toc_html=toc_html,
-            learning_state=learning_state,
-            is_pinned=is_pinned,
-            user_uid=user_uid,
-            exercises_for_ku=exercises_for_ku,
-        )
-
-    # -----------------------------------------------------------------
-    # GET /explore/ps/{uid} — PathStep detail page
-    # -----------------------------------------------------------------
-
-    @rt("/explore/ps/{uid}")
-    async def explore_ps_detail(request: Request, uid: str) -> Any:
-        """PathStep detail page — shell renders immediately, content loads via HTMX."""
-        user_uid = get_current_user(request)
-        sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
-        content = content_loading_placeholder(f"/explore/ps/{uid}/content", "ps-detail-content")
-        return await render_explore_sidebar_page(
-            content=content,
-            sidebar_data=sidebar_data,
-            request=request,
-            current_uid=uid,
-            current_entity_type="ps",
-        )
-
-    @rt("/explore/ps/{uid}/content")
-    async def explore_ps_content_fragment(request: Request, uid: str) -> Any:
-        """HTMX fragment: PathStep detail content with learning state and learning loop."""
-        user_uid: str | None = get_current_user(request)
-
-        result = await orchestrator.get_ps_with_content(uid)
-        if result.is_error:
-            return render_ps_not_found(uid)
-
-        step, content_body = result.value
-        if not content_body and getattr(step, "content", None):
-            content_body = str(step.content)
-
-        # Learning state
-        is_marked_read = False
-        is_bookmarked = False
-        is_in_progress = False
-        is_mastered = False
-        if user_uid:
-            await orchestrator.record_ps_view(user_uid, uid)
-            state_result = await orchestrator.get_ps_learning_state(user_uid, uid)
-            is_marked_read = state_result.value.is_marked_as_read if state_result.is_ok else False
-            is_bookmarked = state_result.value.is_bookmarked if state_result.is_ok else False
-            is_in_progress = (
-                state_result.value.state.value == "in_progress" if state_result.is_ok else False
-            )
-            is_mastered = (
-                state_result.value.state.value == "mastered" if state_result.is_ok else False
-            )
-
-        # Exercises for unauthenticated users
-        exercises: list[dict] = []
-        if not user_uid:
-            exercises_result = await orchestrator.get_exercises_for_path_step(uid)
-            if exercises_result.is_ok and exercises_result.value:
-                exercises = exercises_result.value
-
-        # Render markdown
-        content_html, toc_html = render_markdown_with_toc(content_body or "")
-
-        return render_ps_detail_content(
-            step=step,
-            uid=uid,
-            content_html=content_html,
-            toc_html=toc_html,
-            is_marked_read=is_marked_read,
-            is_bookmarked=is_bookmarked,
-            is_in_progress=is_in_progress,
-            is_mastered=is_mastered,
-            user_uid=user_uid,
-            exercises=exercises,
-        )
-
     logger.info(
-        "Explore UI routes registered: /explore, /explore/ku/{uid}, /explore/ps/{uid} "
-        "(shell-first with /content fragments)"
+        "Explore UI routes registered: /explore, /explore/content"
     )
 
     return []
