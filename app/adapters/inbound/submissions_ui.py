@@ -25,6 +25,7 @@ from fasthtml.common import (
     Span,
 )
 from starlette.datastructures import UploadFile
+from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
@@ -150,6 +151,15 @@ def create_submissions_ui_routes(
             request=request,
             active_page="gradebook",
         )
+
+    # ========================================================================
+    # REDIRECTS
+    # ========================================================================
+
+    @rt("/gradebook/mysubmissions")
+    async def gradebook_mysubmissions_redirect(request: Request) -> RedirectResponse:
+        """Legacy redirect: /gradebook/mysubmissions → /submissions/history."""
+        return RedirectResponse("/submissions/history", status_code=301)
 
     # ========================================================================
     # HTMX ENDPOINTS
