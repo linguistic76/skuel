@@ -343,15 +343,13 @@ async def compose_services(
         graph_intelligence = GraphIntelligenceService(query_executor)
         logger.info("✅ GraphIntelligenceService created")
 
-        # Create analytics services (needed by tasks service)
-        from core.services.analytics_engine import AnalyticsEngine
+        # Create inference services (passed through to TasksService)
         from core.services.entity_inference_service import EntityInferenceService
         from core.services.insight_generation_service import InsightGenerationService
 
-        analytics_engine = AnalyticsEngine()
         ku_inference_service = EntityInferenceService()
         ku_generation_service = InsightGenerationService()
-        logger.info("✅ Analytics and inference services created")
+        logger.info("✅ Inference services created (ku_inference, ku_generation)")
 
         # Create InsightStore
         from core.services.insight import InsightStore
@@ -400,7 +398,6 @@ async def compose_services(
             cross_domain_query=cross_domain_query,
             event_bus=event_bus,
             ku_inference_service=ku_inference_service,
-            analytics_engine=analytics_engine,
             ku_generation_service=ku_generation_service,
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,
@@ -423,11 +420,7 @@ async def compose_services(
         )
         logger.info("✅ Core services created (with event bus + Deepgram wiring)")
 
-        # GRAPH-NATIVE: Wire analytics engine with UnifiedRelationshipService
-        # tasks_service comes from activity_services (unified Activity Domain creation)
         tasks_service = activity_services["tasks"]
-        analytics_engine.relationship_service = tasks_service.relationships
-        logger.info("✅ AnalyticsEngine wired with UnifiedRelationshipService")
 
         # Wire tasks_service into context_service for context-aware operations
         context_service.tasks_service = tasks_service
@@ -1408,7 +1401,6 @@ async def compose_services(
         # VALIDATE POST-CONSTRUCTION WIRING (fail-fast if any was missed)
         # ========================================================================
         post_wiring_checks = {
-            "analytics_engine.relationship_service": analytics_engine.relationship_service,
             "context_service.tasks_service": context_service.tasks_service,
             "context_service.goal_task_generator": context_service.goal_task_generator,
             "context_service.habits_service": context_service.habits_service,

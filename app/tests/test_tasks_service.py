@@ -173,7 +173,7 @@ class TestCompleteTaskWithCascade:
     ) -> None:
         """complete_task_with_cascade delegates to progress; skips generation when no ku_generation_service."""
         service = tasks_service_with_mocked_subservices
-        service.ku_generation_service = None
+        service._ku_generation_service = None
 
         mock_task = Mock()
         service.progress.complete_task_with_cascade = AsyncMock(return_value=Result.ok(mock_task))
@@ -199,7 +199,7 @@ class TestCompleteTaskWithCascade:
         service.progress.complete_task_with_cascade = AsyncMock(return_value=Result.ok(mock_task))
 
         mock_ku_gen = AsyncMock()
-        service.ku_generation_service = mock_ku_gen
+        service._ku_generation_service = mock_ku_gen
 
         user_context = Mock()
         user_context.user_uid = "user_test"
@@ -218,7 +218,7 @@ class TestCompleteTaskWithCascade:
     ) -> None:
         """complete_task_with_cascade does NOT trigger ku_generation when progress fails."""
         service = tasks_service_with_mocked_subservices
-        service.ku_generation_service = AsyncMock()  # service IS present
+        service._ku_generation_service = AsyncMock()  # service IS present
 
         service.progress.complete_task_with_cascade = AsyncMock(
             return_value=Result.fail(Errors.not_found(resource="Task", identifier="task_abc"))

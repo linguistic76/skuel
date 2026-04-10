@@ -32,7 +32,7 @@ Architecture:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
@@ -47,6 +47,7 @@ from core.models.graph_context import GraphContext
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
+from core.services.analytics_engine import AnalyticsEngine
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.intelligence import (
@@ -138,6 +139,10 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
             event_bus=event_bus,
             insight_store=insight_store,
         )
+
+        # AnalyticsEngine owned here — requires relationship_service to be wired
+        # (BaseAnalyticsService stores relationship_service as self.relationships)
+        self._analytics_engine = AnalyticsEngine(relationship_service=relationship_service)
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
@@ -555,6 +560,168 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
                     for g in context.contributing_goals
                 ],
             }
+        )
+
+    # ========================================================================
+    # ANALYTICS ENGINE METHODS (moved from TasksService facade — January 2026)
+    # These methods own the AnalyticsEngine interaction directly.
+    # ========================================================================
+
+    async def analyze_learning_patterns(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> Result[list[Any]]:
+        """
+        Analyze learning patterns across user's task activities.
+
+        Args:
+            user_uid: User to analyze
+            timeframe_days: Analysis timeframe in days
+
+        Returns:
+            Result containing detected learning patterns
+        """
+        tasks_result = await self.backend.find_by(user_uid=user_uid)
+        if tasks_result.is_error:
+            return Result.fail(tasks_result)
+
+        return await self._analytics_engine.analyze_learning_patterns(
+            tasks_result.value, timeframe_days
+        )
+
+    async def calculate_knowledge_aware_priorities(
+        self, user_uid: UserUID, task_uids: list[str] | None = None
+    ) -> Result[list[Any]]:
+        """
+        Calculate knowledge-aware priority scores for tasks.
+
+        Args:
+            user_uid: User whose tasks to prioritize
+            task_uids: Specific task UIDs to prioritize (None for all)
+
+        Returns:
+            Result containing knowledge-aware priority scores
+        """
+        from operator import attrgetter
+
+        from core.services.tasks.task_relationships import TaskRelationships
+
+        tasks_result = await self.backend.find_by(user_uid=user_uid)
+        if tasks_result.is_error:
+            return Result.fail(tasks_result)
+
+        all_tasks = tasks_result.value
+
+        # Filter to specific tasks or pending tasks
+        if task_uids:
+            tasks_to_prioritize = [t for t in all_tasks if t.uid in task_uids]
+        else:
+            from core.models.enums import EntityStatus
+
+            tasks_to_prioritize = [
+                t
+                for t in all_tasks
+                if t.status in [EntityStatus.DRAFT, EntityStatus.ACTIVE, EntityStatus.SCHEDULED]
+            ]
+
+        # Get learning patterns
+        patterns_result = await self.analyze_learning_patterns(user_uid)
+        patterns = patterns_result.value if patterns_result.is_ok else []
+
+        # Fetch relationships and get knowledge UIDs
+        import asyncio
+
+        rels_list = await asyncio.gather(
+            *[TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks]
+        )
+
+        all_knowledge_uids: set[str] = set()
+        for task, _rels in zip(all_tasks, rels_list, strict=False):
+            all_knowledge_uids.update(task.get_combined_knowledge_uids())
+
+        # Get mastery progressions
+        mastery_result = await self._analytics_engine.track_knowledge_mastery_progression(
+            all_tasks, list(all_knowledge_uids)
+        )
+        mastery_progressions = mastery_result.value if mastery_result.is_ok else {}
+
+        # Calculate priorities
+        priorities = []
+        for task in tasks_to_prioritize:
+            priority_result = await self._analytics_engine.calculate_knowledge_aware_priority(
+                task, mastery_progressions, patterns
+            )
+            if priority_result.is_ok:
+                priorities.append(priority_result.value)
+
+        priorities.sort(key=attrgetter("final_priority_score"), reverse=True)
+        return Result.ok(priorities)
+
+    async def generate_task_insights(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> Result[list[Any]]:
+        """
+        Generate insights from user's completed tasks.
+
+        Args:
+            user_uid: User to analyze
+            timeframe_days: Analysis timeframe in days
+
+        Returns:
+            Result containing generated task insights
+        """
+        tasks_result = await self.backend.find_by(user_uid=user_uid)
+        if tasks_result.is_error:
+            return Result.fail(tasks_result)
+
+        cutoff_date = date.today() - timedelta(days=timeframe_days)
+        completed_tasks = [
+            task
+            for task in tasks_result.value
+            if task.status == EntityStatus.COMPLETED
+            and task.completion_date
+            and task.completion_date >= cutoff_date
+        ]
+
+        patterns_result = await self.analyze_learning_patterns(user_uid, timeframe_days)
+        patterns = patterns_result.value if patterns_result.is_ok else []
+
+        return await self._analytics_engine.generate_task_insights(completed_tasks, patterns)
+
+    async def track_knowledge_mastery_progression(
+        self, user_uid: UserUID, knowledge_uids: list[str] | None = None
+    ) -> Result[dict[str, Any]]:
+        """
+        Track knowledge mastery progression for user.
+
+        Args:
+            user_uid: User to analyze
+            knowledge_uids: Specific knowledge UIDs to track (None for all)
+
+        Returns:
+            Result containing mastery progressions by knowledge UID
+        """
+        import asyncio
+
+        from core.services.tasks.task_relationships import TaskRelationships
+
+        tasks_result = await self.backend.find_by(user_uid=user_uid)
+        if tasks_result.is_error:
+            return Result.fail(tasks_result)
+
+        all_tasks = tasks_result.value
+
+        # Determine knowledge UIDs to track
+        if knowledge_uids is None:
+            rels_list = await asyncio.gather(
+                *[TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks]
+            )
+            all_knowledge_uids: set[str] = set()
+            for task, _rels in zip(all_tasks, rels_list, strict=False):
+                all_knowledge_uids.update(task.get_combined_knowledge_uids())
+            knowledge_uids = list(all_knowledge_uids)
+
+        return await self._analytics_engine.track_knowledge_mastery_progression(
+            all_tasks, knowledge_uids
         )
 
     # ========================================================================

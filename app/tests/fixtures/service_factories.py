@@ -199,7 +199,6 @@ def create_tasks_service_for_testing(
     backend: Mock | None = None,
     cross_domain_query: Any = None,
     ku_inference_service: Mock | None = None,
-    analytics_engine: Mock | None = None,
     ku_generation_service: Mock | None = None,
     graph_intelligence_service: Mock | None = None,
     event_bus: Mock | None = None,
@@ -211,7 +210,6 @@ def create_tasks_service_for_testing(
     Args:
         backend: Optional mock backend (created if not provided)
         ku_inference_service: Optional KU inference service
-        analytics_engine: Optional analytics engine
         ku_generation_service: Optional KU generation service
         graph_intelligence_service: Optional graph intelligence service
         event_bus: Optional event bus
@@ -248,10 +246,9 @@ def create_tasks_service_for_testing(
     return TasksService(
         backend=backend,
         cross_domain_query=cross_domain_query,
-        ku_inference_service=ku_inference_service,
-        analytics_engine=analytics_engine,
-        ku_generation_service=ku_generation_service,
         graph_intelligence_service=graph_intelligence_service,
+        ku_inference_service=ku_inference_service,
+        ku_generation_service=ku_generation_service,
         event_bus=event_bus,
     )
 

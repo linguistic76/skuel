@@ -66,15 +66,9 @@ def mock_context_service() -> Any:
 
 
 @pytest.fixture
-def mock_analytics_engine() -> Mock:
-    """Create a mock analytics engine."""
-    return Mock()
-
-
-@pytest.fixture
-def progress_service(mock_backend, mock_analytics_engine) -> TasksProgressService:
+def progress_service(mock_backend) -> TasksProgressService:
     """Create TasksProgressService instance."""
-    return TasksProgressService(backend=mock_backend, analytics_engine=mock_analytics_engine)
+    return TasksProgressService(backend=mock_backend)
 
 
 @pytest.fixture

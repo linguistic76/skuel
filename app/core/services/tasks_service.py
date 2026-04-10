@@ -14,7 +14,7 @@ Sub-Services:
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from core.models.type_hints import EntityUID, UserUID
@@ -24,7 +24,10 @@ if TYPE_CHECKING:
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
     from core.ports.search_protocols import TasksSearchOperations
     from core.services.cross_domain import CrossDomainQueryService
+    from core.services.entity_inference_service import EntityInferenceService
+    from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
     from core.services.insight.insight_store import InsightStore
+    from core.services.insight_generation_service import InsightGenerationService
     from core.services.tasks.tasks_ai_service import TasksAIService
 
 # Domain models
@@ -32,11 +35,6 @@ from core.models.enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.services.activity_domain_config import create_common_sub_services
-
-# Analytics engine
-from core.services.analytics_engine import (
-    AnalyticsEngine,
-)
 
 # Base service
 from core.services.base_service import BaseService
@@ -57,8 +55,9 @@ from core.services.tasks import (
     TasksProgressService,
     TasksSchedulingService,
 )
+from core.services.tasks._orchestration_mixin import _OrchestrationMixin
+from core.services.tasks._relationship_mixin import _RelationshipMixin
 from core.utils.activity_stats import compute_task_stats
-from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -73,7 +72,6 @@ from core.utils.sort_functions import (
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.context_types import ContextualDependencies, ContextualTask
-    from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.models.task.task_request import TaskCreateRequest
     from core.ports.query_types import ListContext
@@ -221,7 +219,12 @@ def _apply_task_sort(tasks: list[Any], sort_by: str = "due_date") -> list[Any]:
     return apply_entity_sort(tasks, sort_by, _TASK_SORT_CONFIG, "due_date")
 
 
-class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOperations", Task]):
+class TasksService(
+    _OrchestrationMixin,
+    _RelationshipMixin,
+    KnowledgeIntelligenceDelegationMixin,
+    BaseService["TasksOperations", Task],
+):
     """
     Tasks service facade with specialized sub-services.
 
@@ -272,6 +275,9 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
     intelligence: TasksIntelligenceService
     ai: TasksAIService | None
     # TasksProductivityService shelved (2026-03-28)
+    # NOTE: Named 'learning_metrics' intentionally — provides task-level analytics (completion
+    # patterns, knowledge mastery). Other domains' 'learning' services link entities to
+    # curriculum paths; Tasks has no such service. This asymmetry is architectural, not an oversight.
     learning_metrics: TasksLearningMetricsService
     event_handler: TaskEventHandlerService
 
@@ -279,10 +285,9 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
         self,
         backend: TasksOperations,
         cross_domain_query: CrossDomainQueryService,
-        ku_inference_service=None,
-        analytics_engine=None,
-        ku_generation_service=None,
-        graph_intelligence_service=None,
+        graph_intelligence_service: GraphIntelligenceService | None = None,
+        ku_inference_service: EntityInferenceService | None = None,
+        ku_generation_service: InsightGenerationService | None = None,
         event_bus=None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
@@ -292,13 +297,15 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
         Initialize enhanced tasks service with specialized sub-services.
 
         Args:
-            backend: Protocol-based backend for task operations,
-            ku_inference_service: Service for automatic knowledge inference,
-            analytics_engine: AnalyticsEngine for advanced analytics,
-            ku_generation_service: InsightGenerationService for automatic knowledge generation,
-            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
+            backend: Protocol-based backend for task operations
+            cross_domain_query: Cross-domain query service (required)
+            graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (required)
+            ku_inference_service: Service for automatic knowledge inference (required)
+            ku_generation_service: InsightGenerationService for automatic knowledge generation (required)
             event_bus: Event bus for publishing domain events (optional)
             insight_store: For persisting event-driven insights (optional)
+            activity_knowledge_intelligence: Shared knowledge intelligence singleton (optional)
+            ai_service: Optional AI service — None when INTELLIGENCE_TIER=core (optional)
         """
         super().__init__(backend, "tasks")
 
@@ -348,9 +355,7 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
         )
 
         # Domain-specific sub-services
-        self.progress = TasksProgressService(
-            backend=backend, analytics_engine=analytics_engine, event_bus=event_bus
-        )
+        self.progress = TasksProgressService(backend=backend, event_bus=event_bus)
         self.scheduling = TasksSchedulingService(backend=backend)
         self.planning = TasksPlanningService(
             backend=backend,
@@ -361,21 +366,16 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
         # Event-driven reactive handlers (fire-and-forget)
         self.event_handler: TaskEventHandlerService = common.event_handler
 
-        # Analytics engine for direct calls (simplified from TasksAnalyticsService)
-        # January 2026: TasksAnalyticsService removed - AnalyticsEngine called directly
-        self.analytics_engine = analytics_engine or AnalyticsEngine(
-            relationship_service=self.relationships
-        )
-        self.ku_generation_service = ku_generation_service
+        # Private — not part of facade's public API
+        self._ku_generation_service = ku_generation_service
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
         self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
-            "TasksService facade initialized with 12 sub-services: "
+            "TasksService facade initialized with 9 sub-services: "
             "core, search, progress, scheduling, planning, relationships, "
-            "intelligence, learning_metrics, event_handler, analytics_engine, "
-            "ku_generation_service, knowledge_intelligence"
+            "intelligence, learning_metrics, event_handler"
         )
 
     # ========================================================================
@@ -612,28 +612,7 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
         # Access backend through BaseService
         return await self.backend.get_many(uids)
 
-    # ========================================================================
-    # PROGRESS TRACKING - Explicit orchestration method
-    # ========================================================================
-
-    async def complete_task_with_cascade(
-        self,
-        task_uid: str,
-        user_context: UserContext,
-        actual_minutes: int | None = None,
-        quality_score: int | None = None,
-    ) -> Result[Task]:
-        """Complete a task and cascade updates through the system."""
-        # Delegate to progress service for core completion
-        result = await self.progress.complete_task_with_cascade(
-            task_uid, user_context, actual_minutes, quality_score
-        )
-
-        # Trigger automatic knowledge generation - facade orchestration
-        if result.is_ok and self.ku_generation_service:
-            await self._trigger_knowledge_generation(user_context.user_uid)
-
-        return result
+    # complete_task_with_cascade is provided by _OrchestrationMixin
 
     async def complete_task(
         self,
@@ -660,447 +639,37 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
         return await self.core.update_task(uid, {"status": EntityStatus.ACTIVE})
 
     # ========================================================================
-    # RELATIONSHIPS AND DEPENDENCIES - Explicit methods (custom logic)
-    # ========================================================================
-    # Note: Simple delegations (get_task_completion_impact, analyze_task_learning_context,
-    # get_task_with_semantic_context) are auto-generated via _delegations.
-
-    async def get_task_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Task, GraphContext]]:
-        """Get task with full graph context using pure Cypher graph intelligence."""
-        return await self.relationships.get_with_context(uid, depth)
-
-    async def get_task_with_dependencies(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
-        """Get task with complete dependency graph."""
-        # Use get_with_context with "dependencies" intent
-        result = await self.relationships.get_with_context(uid, depth, intent="dependencies")
-        if result.is_error:
-            return result
-        task, context = result.value
-        return Result.ok({"task": task, "graph_context": context})
-
-    async def get_task_practice_opportunities(
-        self, uid: str, depth: int = 2
-    ) -> Result[dict[str, Any]]:
-        """Find practice opportunities related to this task."""
-        # Use get_with_context with "practice" intent
-        result = await self.relationships.get_with_context(uid, depth, intent="practice")
-        if result.is_error:
-            return result
-        task, context = result.value
-        return Result.ok({"task": task, "practice_context": context})
-
-    async def link_task_to_knowledge(
-        self,
-        task_uid: str,
-        knowledge_uid: str,
-        knowledge_score_required: float = 0.8,
-        is_learning_opportunity: bool = False,
-    ) -> Result[bool]:
-        """Link task to required knowledge unit."""
-        return await self.relationships.link_to_knowledge(
-            task_uid,
-            knowledge_uid,
-            knowledge_score_required=knowledge_score_required,
-            is_learning_opportunity=is_learning_opportunity,
-        )
-
-    async def link_task_to_goal(
-        self,
-        task_uid: str,
-        goal_uid: str,
-        contribution_percentage: float = 0.1,
-        milestone_uid: str | None = None,
-    ) -> Result[bool]:
-        """Link task to goal it contributes to."""
-        return await self.relationships.link_to_goal(
-            task_uid,
-            goal_uid,
-            contribution_percentage=contribution_percentage,
-            milestone_uid=milestone_uid,
-        )
-
-    async def create_task_dependency(
-        self,
-        dependent_task_uid: str,
-        blocks_task_uid: str,
-        is_hard_dependency: bool = True,
-        dependency_type: str = "blocks",
-    ) -> Result[bool]:
-        """Create dependency between tasks."""
-        properties = {
-            "is_hard_dependency": is_hard_dependency,
-            "dependency_type": dependency_type,
-        }
-        return await self.relationships.create_relationship(
-            "prerequisite_tasks", dependent_task_uid, blocks_task_uid, properties
-        )
-
-    async def get_user_assigned_tasks(
-        self, user_uid: UserUID, include_completed: bool = False, limit: int = 100
-    ) -> Result[list[Task]]:
-        """Get tasks assigned to user via graph traversal."""
-        # Use backend list with user_uid filter
-        filters: dict[str, Any] = {"user_uid": user_uid}
-        if not include_completed:
-            filters["status__ne"] = "completed"
-        result = await self.backend.list(filters=filters, limit=limit)
-        if result.is_error:
-            return Result.fail(result)
-        # list() returns tuple[list[Task], int]
-        tasks, _ = result.value
-        return Result.ok(tasks)
-
-    async def get_tasks_requiring_knowledge(
-        self, knowledge_uid: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list[Task]]:
-        """Get tasks that require specific knowledge (returns Task objects, not dicts)."""
-        # Use find_by_semantic_filter to find tasks with relationship to this knowledge
-        return await self.relationships.find_by_semantic_filter(
-            target_uid=knowledge_uid,
-            min_confidence=0.0,  # Include all relationships
-            direction="incoming",
-        )
-
-    async def create_semantic_knowledge_relationship(
-        self,
-        task_uid: str,
-        knowledge_uid: str,
-        semantic_type: SemanticRelationshipType,
-        confidence: float = 0.9,
-        notes: str | None = None,
-    ) -> Result[dict[str, Any]]:
-        """Create a semantic relationship between task and knowledge."""
-        return await self.relationships.create_semantic_relationship(
-            task_uid, knowledge_uid, semantic_type, confidence, notes
-        )
-
-    # ========================================================================
-    # KNOWLEDGE ANALYSIS - Explicit orchestration method
+    # RELATIONSHIPS AND DEPENDENCIES — provided by _RelationshipMixin
+    # KNOWLEDGE ANALYSIS / ORCHESTRATION — provided by _OrchestrationMixin
     # ========================================================================
 
-    async def analyze_task_knowledge_impact(self, task_uid: str) -> Result[dict[str, Any]]:
-        """
-        Analyze the knowledge impact of a specific task using unified Task model.
-
-        GRAPH-NATIVE: Fetches relationship data from graph to pass to Task methods.
-
-        Args:
-            task_uid: Task identifier
-
-        Returns:
-            Result containing knowledge impact analysis
-        """
-        from core.services.tasks.task_relationships import TaskRelationships
-
-        # Get task from backend
-        task_result = await self.get_task(task_uid)
-        if task_result.is_error:
-            return Result.fail(task_result)
-
-        task = task_result.value
-
-        # GRAPH-NATIVE: Fetch relationship data from graph
-        _rels = await TaskRelationships.fetch(task.uid, self.relationships)
-
-        # Use unified Task model knowledge capabilities
-        impact_analysis = {
-            "task_uid": task.uid,
-            "title": task.title,
-            "knowledge_complexity_score": task.calculate_knowledge_complexity(),
-            "learning_impact_score": task.calculate_learning_impact(),
-            "is_knowledge_bridge": task.is_knowledge_bridge(),
-            "validates_mastery": task.validates_knowledge_mastery(),
-            "enhancement_summary": task.get_knowledge_enhancement_summary(),  # type: ignore[attr-defined]
-            "all_knowledge_connections": task.get_all_knowledge_connections(),  # type: ignore[attr-defined]
-            "combined_knowledge_uids": task.get_combined_knowledge_uids(),
-        }
-
-        return Result.ok(impact_analysis)
-
     # ========================================================================
-    # ANALYTICS ENGINE - Direct calls (January 2026)
-    # These methods call AnalyticsEngine directly, replacing TasksAnalyticsService.
+    # ANALYTICS — thin delegations to TasksIntelligenceService
     # ========================================================================
 
     async def analyze_learning_patterns(
         self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
-        """
-        Analyze learning patterns across user's task activities.
-
-        Args:
-            user_uid: User to analyze
-            timeframe_days: Analysis timeframe in days
-
-        Returns:
-            Result containing detected learning patterns
-        """
-        tasks_result = await self.core.get_user_tasks(user_uid)
-        if tasks_result.is_error:
-            return Result.fail(tasks_result)
-
-        return await self.analytics_engine.analyze_learning_patterns(
-            tasks_result.value, timeframe_days
-        )
+        """Analyze learning patterns across user's task activities."""
+        return await self.intelligence.analyze_learning_patterns(user_uid, timeframe_days)
 
     async def calculate_knowledge_aware_priorities(
         self, user_uid: UserUID, task_uids: list[str] | None = None
     ) -> Result[list[Any]]:
-        """
-        Calculate knowledge-aware priority scores for tasks.
-
-        Args:
-            user_uid: User whose tasks to prioritize
-            task_uids: Specific task UIDs to prioritize (None for all)
-
-        Returns:
-            Result containing knowledge-aware priority scores
-        """
-        from operator import attrgetter
-
-        from core.services.tasks.task_relationships import TaskRelationships
-
-        tasks_result = await self.core.get_user_tasks(user_uid)
-        if tasks_result.is_error:
-            return Result.fail(tasks_result)
-
-        all_tasks = tasks_result.value
-
-        # Filter to specific tasks or pending tasks
-        if task_uids:
-            tasks_to_prioritize = [t for t in all_tasks if t.uid in task_uids]
-        else:
-            tasks_to_prioritize = [
-                t
-                for t in all_tasks
-                if t.status in [EntityStatus.DRAFT, EntityStatus.ACTIVE, EntityStatus.SCHEDULED]
-            ]
-
-        # Get learning patterns
-        patterns_result = await self.analyze_learning_patterns(user_uid)
-        patterns = patterns_result.value if patterns_result.is_ok else []
-
-        # Fetch relationships and get knowledge UIDs
-        import asyncio
-
-        rels_list = await asyncio.gather(
-            *[TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks]
-        )
-
-        all_knowledge_uids: set[str] = set()
-        for task, _rels in zip(all_tasks, rels_list, strict=False):
-            all_knowledge_uids.update(task.get_combined_knowledge_uids())
-
-        # Get mastery progressions
-        mastery_result = await self.analytics_engine.track_knowledge_mastery_progression(
-            all_tasks, list(all_knowledge_uids)
-        )
-        mastery_progressions = mastery_result.value if mastery_result.is_ok else {}
-
-        # Calculate priorities
-        priorities = []
-        for task in tasks_to_prioritize:
-            priority_result = await self.analytics_engine.calculate_knowledge_aware_priority(
-                task, mastery_progressions, patterns
-            )
-            if priority_result.is_ok:
-                priorities.append(priority_result.value)
-
-        priorities.sort(key=attrgetter("final_priority_score"), reverse=True)
-        return Result.ok(priorities)
+        """Calculate knowledge-aware priority scores for tasks."""
+        return await self.intelligence.calculate_knowledge_aware_priorities(user_uid, task_uids)
 
     async def generate_task_insights(
         self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
-        """
-        Generate insights from user's completed tasks.
-
-        Args:
-            user_uid: User to analyze
-            timeframe_days: Analysis timeframe in days
-
-        Returns:
-            Result containing generated task insights
-        """
-
-        tasks_result = await self.core.get_user_tasks(user_uid)
-        if tasks_result.is_error:
-            return Result.fail(tasks_result)
-
-        cutoff_date = date.today() - timedelta(days=timeframe_days)
-        completed_tasks = [
-            task
-            for task in tasks_result.value
-            if task.status == EntityStatus.COMPLETED
-            and task.completion_date
-            and task.completion_date >= cutoff_date
-        ]
-
-        patterns_result = await self.analyze_learning_patterns(user_uid, timeframe_days)
-        patterns = patterns_result.value if patterns_result.is_ok else []
-
-        return await self.analytics_engine.generate_task_insights(completed_tasks, patterns)
+        """Generate insights from user's completed tasks."""
+        return await self.intelligence.generate_task_insights(user_uid, timeframe_days)
 
     async def track_knowledge_mastery_progression(
         self, user_uid: UserUID, knowledge_uids: list[str] | None = None
     ) -> Result[dict[str, Any]]:
-        """
-        Track knowledge mastery progression for user.
-
-        Args:
-            user_uid: User to analyze
-            knowledge_uids: Specific knowledge UIDs to track (None for all)
-
-        Returns:
-            Result containing mastery progressions by knowledge UID
-        """
-        import asyncio
-
-        from core.services.tasks.task_relationships import TaskRelationships
-
-        tasks_result = await self.core.get_user_tasks(user_uid)
-        if tasks_result.is_error:
-            return Result.fail(tasks_result)
-
-        all_tasks = tasks_result.value
-
-        # Determine knowledge UIDs to track
-        if knowledge_uids is None:
-            rels_list = await asyncio.gather(
-                *[TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks]
-            )
-            all_knowledge_uids: set[str] = set()
-            for task, _rels in zip(all_tasks, rels_list, strict=False):
-                all_knowledge_uids.update(task.get_combined_knowledge_uids())
-            knowledge_uids = list(all_knowledge_uids)
-
-        return await self.analytics_engine.track_knowledge_mastery_progression(
-            all_tasks, knowledge_uids
-        )
-
-    # ========================================================================
-    # AUTOMATIC KNOWLEDGE GENERATION
-    # ========================================================================
-
-    async def _trigger_knowledge_generation(self, user_uid: UserUID) -> None:
-        """
-        Trigger automatic knowledge generation from completed tasks.
-
-        This method is called automatically when tasks are completed.
-        """
-        if not self.ku_generation_service:
-            return
-
-        try:
-            knowledge_result = (
-                await self.ku_generation_service.extract_knowledge_from_completed_tasks(
-                    user_uid=user_uid, days_back=30, min_tasks=3
-                )
-            )
-
-            if knowledge_result.is_ok and knowledge_result.value:
-                curation_result = await self.ku_generation_service.curate_generated_knowledge(
-                    knowledge_result.value
-                )
-
-                if curation_result.is_ok:
-                    auto_published = curation_result.value.get("auto_publish", [])
-                    for knowledge_dto in auto_published:
-                        if self.ku_generation_service.ku_service:
-                            await self.ku_generation_service.ku_service.create(
-                                title=knowledge_dto.title,
-                                body=knowledge_dto.content,
-                                summary=knowledge_dto.content[:200] + "..."
-                                if len(knowledge_dto.content) > 200
-                                else knowledge_dto.content,
-                                tags=knowledge_dto.tags,
-                                domain=str(knowledge_dto.domain.value),
-                                **knowledge_dto.metadata,
-                            )
-        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-            self.logger.warning(f"Knowledge generation failed for user {user_uid}: {e}")
-
-    async def trigger_manual_knowledge_generation(
-        self, user_uid: UserUID, days_back: int = 30, min_tasks: int = 3
-    ) -> Result[dict[str, Any]]:
-        """
-        Manually trigger knowledge generation and return results for review.
-
-        Args:
-            user_uid: User whose tasks to analyze
-            days_back: Days of history to analyze
-            min_tasks: Minimum completed tasks needed
-
-        Returns:
-            Result containing generation summary and knowledge units
-        """
-
-        from core.utils.result_simplified import Errors
-
-        if not self.ku_generation_service:
-            return Result.fail(
-                Errors.system(
-                    message="Knowledge generation service not available",
-                    operation="trigger_manual_knowledge_generation",
-                )
-            )
-
-        try:
-            knowledge_result = (
-                await self.ku_generation_service.extract_knowledge_from_completed_tasks(
-                    user_uid=user_uid, days_back=days_back, min_tasks=min_tasks
-                )
-            )
-
-            if knowledge_result.is_error:
-                return Result.fail(knowledge_result)
-
-            generated_knowledge = knowledge_result.value
-
-            if not generated_knowledge:
-                return Result.ok(
-                    {
-                        "message": "No knowledge could be generated from completed tasks",
-                        "generated_count": 0,
-                        "curated_knowledge": {},
-                    }
-                )
-
-            curation_result = await self.ku_generation_service.curate_generated_knowledge(
-                generated_knowledge
-            )
-
-            if curation_result.is_error:
-                return curation_result
-
-            curated_knowledge = curation_result.value
-
-            return Result.ok(
-                {
-                    "user_uid": user_uid,
-                    "analysis_period_days": days_back,
-                    "generated_knowledge_count": len(generated_knowledge),
-                    "curated_knowledge": curated_knowledge,
-                    "statistics": {
-                        "auto_publish_ready": len(curated_knowledge.get("auto_publish", [])),
-                        "review_recommended": len(curated_knowledge.get("review_recommended", [])),
-                        "needs_improvement": len(curated_knowledge.get("needs_improvement", [])),
-                        "low_quality": len(curated_knowledge.get("low_quality", [])),
-                    },
-                    "generation_timestamp": datetime.now().isoformat(),
-                }
-            )
-
-        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-            self.logger.error(f"Manual knowledge generation failed for user {user_uid}: {e}")
-            return Result.fail(
-                Errors.system(
-                    message=f"Knowledge generation failed: {e!s}",
-                    operation="trigger_manual_knowledge_generation",
-                )
-            )
+        """Track knowledge mastery progression for user."""
+        return await self.intelligence.track_knowledge_mastery_progression(user_uid, knowledge_uids)
 
     # ========================================================================
     # QUERY LAYER

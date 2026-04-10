@@ -15,7 +15,6 @@ Handles task completion, progress tracking, and cascade effects.
 **Dependencies:**
 - TasksOperations (backend protocol)
 - UserContextOperations (optional protocol - for context invalidation)
-- AnalyticsEngine (optional - for analytics)
 """
 
 from __future__ import annotations
@@ -66,7 +65,6 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
     def __init__(
         self,
         backend: TasksOperations,
-        analytics_engine: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:
         """
@@ -74,7 +72,6 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
 
         Args:
             backend: TasksOperations backend (required)
-            analytics_engine: AnalyticsEngine for analytics (optional)
             event_bus: Event bus for publishing domain events (optional)
 
         Note:
@@ -82,7 +79,6 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             TaskCompleted events trigger user_service.invalidate_context() in bootstrap.
         """
         super().__init__(backend=backend, service_name="tasks.progress")
-        self.analytics_engine = analytics_engine
         self.event_bus = event_bus
 
     # ========================================================================
