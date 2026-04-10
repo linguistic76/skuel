@@ -229,8 +229,8 @@ def create_library_ui_routes(
     async def library_hub(request: Request) -> Any:
         """Library hub — exercises, submission history, resources, and curriculum."""
         require_authenticated_user(request)
-        from ui.library.hub import LibraryHub
         from ui.layouts.base_page import BasePage
+        from ui.library.hub import LibraryHub
 
         return await BasePage(
             content=LibraryHub(),

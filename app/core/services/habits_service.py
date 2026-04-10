@@ -34,8 +34,10 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from datetime import date
 from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from datetime import date
 
 from core.models.enums import Domain, EntityStatus, RecurrencePattern
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty

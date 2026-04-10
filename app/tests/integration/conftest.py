@@ -463,15 +463,13 @@ async def services(neo4j_driver):
             return getattr(self.backend, name)
 
     # Create backends with test wrappers
-    from adapters.persistence.neo4j.domain_backends import PsBackend
+    from adapters.persistence.neo4j.domain_backends import PsBackend, TasksBackend
     from core.models.choice.choice import Choice
     from core.models.enums.neo_labels import NeoLabel
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
-
-    from adapters.persistence.neo4j.domain_backends import TasksBackend
 
     raw_tasks_backend = TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
     tasks_backend = TestBackendWrapper(raw_tasks_backend, Task)
