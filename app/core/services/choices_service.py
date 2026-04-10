@@ -62,6 +62,7 @@ if TYPE_CHECKING:
     from core.services.choices.choices_ai_service import ChoicesAIService
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.choices.choices_types import ChoiceImpactAnalysis, DecisionIntelligence
+    from core.services.cross_domain import CrossDomainQueryService
     from core.services.user import UserContext
 
 
@@ -338,6 +339,7 @@ class ChoicesService(
         self,
         backend: ChoicesOperations,
         graph_intelligence_service: GraphIntelligenceService,
+        cross_domain_query: CrossDomainQueryService,
         event_bus: EventBusOperations | None = None,
         insight_store: Any = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
@@ -349,6 +351,7 @@ class ChoicesService(
         Args:
             backend: Protocol-based backend for choice operations
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
+            cross_domain_query: CrossDomainQueryService for cross-domain reads (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
             insight_store: InsightStore for persisting event-driven insights (optional)
 
@@ -363,23 +366,38 @@ class ChoicesService(
         super().__init__(backend, "choices")
 
         self.graph_intel = graph_intelligence_service
+        self.cross_domain_query = cross_domain_query
         self.event_bus = event_bus
         # Optional AI service (ADR-030: AI features are optional)
         self.ai: ChoicesAIService | None = ai_service
         self.logger = get_logger("skuel.services.choices")  # type: ignore[assignment]  # structlog BoundLogger
 
-        # Initialize 4 common sub-services via factory (eliminates ~30 lines of repetitive code)
+        # Initialize core/search/relationships via factory. Intelligence is
+        # built manually because ChoicesIntelligenceService takes
+        # cross_domain_query for the ZPD behavioral-signals bridge.
         common: CommonSubServices[ChoicesIntelligenceService] = create_common_sub_services(
             domain="choices",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
             insight_store=insight_store,
+            skip={"intelligence"},
         )
         self.core = common.core
         self.search: ChoicesSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
         self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
-        self.intelligence: ChoicesIntelligenceService = common.intelligence  # type: ignore[assignment]  # never skipped
+
+        from core.services.choices.choices_intelligence_service import (
+            ChoicesIntelligenceService as _ChoicesIntelligenceService,
+        )
+
+        self.intelligence: ChoicesIntelligenceService = _ChoicesIntelligenceService(
+            backend=backend,
+            cross_domain_query=cross_domain_query,
+            relationship_service=self.relationships,
+            graph_intelligence_service=graph_intelligence_service,
+            insight_store=insight_store,
+        )
 
         # Domain-specific sub-services (not common to all facades)
         self.learning = ChoicesLearningService(backend=backend)

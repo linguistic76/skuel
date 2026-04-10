@@ -22,6 +22,9 @@ import pytest
 from core.services.cross_domain import (
     ActiveTaskCount,
     AlignedEntity,
+    ChoiceAlignmentDetail,
+    ChoicePrincipleAdherence,
+    ChoicePrincipleConflictCount,
     CrossDomainQueryService,
     HabitKnowledgeReinforcement,
     KnowledgeApplyingTask,
@@ -324,5 +327,127 @@ class TestGetHabitKnowledgeReinforcement:
         )
 
         result = await service.get_habit_knowledge_reinforcement(user_uid="user_mike")
+
+        assert result.is_error
+
+
+# ---------------------------------------------------------------------------
+# get_choice_principle_adherence (Choices migration — N=5)
+# ---------------------------------------------------------------------------
+
+
+class TestGetChoicePrincipleAdherence:
+    @pytest.mark.asyncio
+    async def test_returns_typed_result(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.ok(
+            [
+                {
+                    "total_choices": 10,
+                    "aligned_count": 7,
+                    "choice_details": [
+                        {
+                            "choice_uid": "choice_1",
+                            "principles": ["principle_a", "principle_b"],
+                            "satisfaction": 4.0,
+                        },
+                        {
+                            "choice_uid": "choice_2",
+                            "principles": [],
+                            "satisfaction": None,
+                        },
+                    ],
+                }
+            ]
+        )
+
+        result = await service.get_choice_principle_adherence(user_uid="user_mike", period_days=90)
+
+        assert result.is_ok
+        adherence = result.value
+        assert isinstance(adherence, ChoicePrincipleAdherence)
+        assert adherence.total_choices == 10
+        assert adherence.aligned_count == 7
+        assert len(adherence.choice_details) == 2
+        assert adherence.choice_details[0] == ChoiceAlignmentDetail(
+            choice_uid="choice_1",
+            principle_uids=("principle_a", "principle_b"),
+            satisfaction=4.0,
+        )
+        assert adherence.choice_details[1].principle_uids == ()
+
+        assert mock_executor.execute_query.await_count == 1
+        params = mock_executor.execute_query.call_args.args[1]
+        assert params["user_uid"] == "user_mike"
+        assert params["period_days"] == 90
+
+    @pytest.mark.asyncio
+    async def test_empty_result(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.ok([])
+
+        result = await service.get_choice_principle_adherence(user_uid="user_mike", period_days=90)
+
+        assert result.is_ok
+        assert result.value == ChoicePrincipleAdherence(
+            total_choices=0, aligned_count=0, choice_details=()
+        )
+
+    @pytest.mark.asyncio
+    async def test_propagates_error(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.fail(
+            Errors.database(operation="execute_query", message="neo4j down")
+        )
+
+        result = await service.get_choice_principle_adherence(user_uid="user_mike", period_days=90)
+
+        assert result.is_error
+
+
+# ---------------------------------------------------------------------------
+# get_choice_conflict_count (Choices migration — N=5)
+# ---------------------------------------------------------------------------
+
+
+class TestGetChoiceConflictCount:
+    @pytest.mark.asyncio
+    async def test_returns_count(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.ok([{"conflict_count": 3}])
+
+        result = await service.get_choice_conflict_count(user_uid="user_mike")
+
+        assert result.is_ok
+        assert result.value == ChoicePrincipleConflictCount(conflict_count=3)
+
+        assert mock_executor.execute_query.await_count == 1
+        params = mock_executor.execute_query.call_args.args[1]
+        assert params["user_uid"] == "user_mike"
+
+    @pytest.mark.asyncio
+    async def test_empty_result(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.ok([])
+
+        result = await service.get_choice_conflict_count(user_uid="user_mike")
+
+        assert result.is_ok
+        assert result.value == ChoicePrincipleConflictCount(conflict_count=0)
+
+    @pytest.mark.asyncio
+    async def test_propagates_error(
+        self, service: CrossDomainQueryService, mock_executor: AsyncMock
+    ) -> None:
+        mock_executor.execute_query.return_value = Result.fail(
+            Errors.database(operation="execute_query", message="neo4j down")
+        )
+
+        result = await service.get_choice_conflict_count(user_uid="user_mike")
 
         assert result.is_error

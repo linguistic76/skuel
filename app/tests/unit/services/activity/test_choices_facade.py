@@ -4,7 +4,7 @@ Unit tests for ChoicesService facade orchestration methods.
 Tests focus on explicit orchestration logic — NOT pure delegation methods.
 """
 
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
@@ -39,6 +39,7 @@ def choices_service(mock_backend: Mock, mock_graph_intel: Mock) -> ChoicesServic
     service = ChoicesService(
         backend=mock_backend,
         graph_intelligence_service=mock_graph_intel,
+        cross_domain_query=MagicMock(),
         event_bus=None,
     )
     # Replace sub-services with AsyncMocks AFTER construction

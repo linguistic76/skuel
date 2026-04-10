@@ -508,12 +508,6 @@ async def services(neo4j_driver):
     # Mock GraphIntelligenceService for services that require it
     mock_graph_intel = MagicMock()
 
-    # Create Choices service (requires graph_intelligence_service)
-    choices_service = ChoicesService(
-        backend=choices_backend,
-        graph_intelligence_service=mock_graph_intel,
-    )
-
     # Create QueryExecutor adapter for services that require it
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
@@ -523,6 +517,13 @@ async def services(neo4j_driver):
     from core.services.cross_domain import CrossDomainQueryService
 
     cross_domain_query = CrossDomainQueryService(query_executor)
+
+    # Create Choices service (requires graph_intelligence_service + cross_domain_query)
+    choices_service = ChoicesService(
+        backend=choices_backend,
+        graph_intelligence_service=mock_graph_intel,
+        cross_domain_query=cross_domain_query,
+    )
 
     # Create Principles service (requires graph_intelligence_service + cross_domain_query)
     principles_service = PrinciplesService(

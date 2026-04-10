@@ -607,20 +607,10 @@ class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
         """Get choices by urgency level."""
         ...
 
-    async def get_affecting_goal(self, goal_uid: str) -> Result[list["Choice"]]:
-        """Get choices that affect a goal."""
-        ...
-
     async def get_needing_decision(
         self, user_uid: UserUID, deadline_days: int = 7
     ) -> Result[list["Choice"]]:
         """Get choices needing decision within deadline."""
-        ...
-
-    async def get_aligned_with_principle(
-        self, principle_uid: str, limit: int = 20
-    ) -> Result[list["Choice"]]:
-        """Get choices aligned with a principle."""
         ...
 
     async def get_by_category(
@@ -635,12 +625,6 @@ class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
 
     async def list_all_categories(self) -> Result[list[str]]:
         """List all choice categories (admin use)."""
-        ...
-
-    async def get_decided(
-        self, user_uid: UserUID, days_back: int = 30, limit: int = 100
-    ) -> Result[list["Choice"]]:
-        """Get recently decided choices."""
         ...
 
 

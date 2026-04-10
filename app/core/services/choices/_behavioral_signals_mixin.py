@@ -2,16 +2,18 @@
 Behavioral Signals Mixin — ChoicesIntelligenceService
 ======================================================
 
-Dual-track assessment, principle analysis, prediction,
-life-path contribution, and ZPD behavioral signals.
+Dual-track assessment, principle analysis, and ZPD behavioral signals.
 
 Event handlers migrated to ChoiceEventHandlerService (March 2026).
 
 This mixin is the ZPD bridge — it holds the richest behavioral readiness
 signals consumed by ZPDService.assess_zone():
 - analyze_principle_adherence → principle_adherence_score
-- detect_principle_choice_conflicts → active_conflict_count
 - assess_decision_quality_dual_track → decision_consistency_score
+- get_zpd_behavioral_signals → cross-domain conflict count
+
+Cross-domain reads (choice→principle joins) are delegated to
+CrossDomainQueryService. Score blending and business logic stays here.
 
 See: core/services/zpd/zpd_service.py — ZPDService.assess_zone() consumes
      get_zpd_behavioral_signals() for behavioral_readiness computation.
@@ -28,13 +30,12 @@ from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.relationship_names import RelationshipName
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 
 class _BehavioralSignalsMixin:
     """
-    Dual-track assessment, principle analysis, prediction,
-    life-path contribution, and ZPD behavioral signals.
+    Dual-track assessment, principle analysis, and ZPD behavioral signals.
 
     Event handlers migrated to ChoiceEventHandlerService (March 2026).
 
@@ -47,6 +48,7 @@ class _BehavioralSignalsMixin:
     relationships: Any
     insight_store: Any
     logger: Any
+    cross_domain_query: Any
 
     # ========================================================================
     # DUAL-TRACK ASSESSMENT (ADR-030)
@@ -265,8 +267,8 @@ class _BehavioralSignalsMixin:
         """
         Analyze how well user's choices adhere to their principles.
 
-        This method provides insight into the alignment between a user's
-        stated principles and their actual decision-making behavior.
+        Cross-domain read delegated to ``CrossDomainQueryService``.
+        Score blending and recommendation logic stays here.
 
         Args:
             user_uid: User identifier
@@ -284,28 +286,14 @@ class _BehavioralSignalsMixin:
         """
         from core.utils.sort_functions import get_aligned_count
 
-        result = await self.backend.get_principle_adherence_data(user_uid, period_days)
+        result = await self.cross_domain_query.get_choice_principle_adherence(user_uid, period_days)
 
         if result.is_error:
             return Result.fail(result)
 
-        if not result.value:
-            return Result.ok(
-                {
-                    "overall_adherence_score": 0.0,
-                    "principle_breakdown": {},
-                    "aligned_choices_count": 0,
-                    "unaligned_choices_count": 0,
-                    "most_aligned_principle": None,
-                    "least_aligned_principle": None,
-                    "recommendations": ["No choices found - start tracking decisions"],
-                }
-            )
-
-        record = result.value[0]
-        total_choices = record.get("total_choices", 0)
-        aligned_count = record.get("aligned_count", 0)
-        choice_details = record.get("choice_details", [])
+        adherence = result.value
+        total_choices = adherence.total_choices
+        aligned_count = adherence.aligned_count
 
         if total_choices == 0:
             return Result.ok(
@@ -330,13 +318,13 @@ class _BehavioralSignalsMixin:
         principle_breakdown: dict[str, dict[str, Any]] = defaultdict(_empty_principle_entry)
         satisfaction_sums: dict[str, float] = defaultdict(float)
 
-        for detail in choice_details:
-            for p_uid in detail.get("principles", []):
+        for detail in adherence.choice_details:
+            for p_uid in detail.principle_uids:
                 if p_uid:
                     principle_breakdown[p_uid]["aligned_count"] += 1
-                    principle_breakdown[p_uid]["choice_uids"].append(detail["choice_uid"])
-                    if detail.get("satisfaction"):
-                        satisfaction_sums[p_uid] += detail["satisfaction"]
+                    principle_breakdown[p_uid]["choice_uids"].append(detail.choice_uid)
+                    if detail.satisfaction:
+                        satisfaction_sums[p_uid] += detail.satisfaction
 
         # Calculate average satisfaction per principle
         for p_uid, data in principle_breakdown.items():
@@ -384,323 +372,6 @@ class _BehavioralSignalsMixin:
             }
         )
 
-    async def detect_principle_choice_conflicts(
-        self,
-        choice_uid: str,
-        user_uid: UserUID,
-    ) -> Result[dict[str, Any]]:
-        """
-        Detect conflicts between a choice and user's principles.
-
-        Analyzes:
-        1. Direct conflicts - choice explicitly conflicts with a principle
-        2. Implicit conflicts - choice options may violate principles
-        3. Missing alignment - important decisions without principle guidance
-
-        Args:
-            choice_uid: Choice identifier
-            user_uid: User identifier
-
-        Returns:
-            Result containing:
-            - has_conflicts: bool
-            - direct_conflicts: list of conflicting principles with severity
-            - unaligned_warning: bool (True if important choice lacks principle alignment)
-            - mitigation_strategies: list of resolution approaches
-        """
-        result = await self.backend.get_choice_principle_conflicts(choice_uid, user_uid)
-
-        if result.is_error:
-            return Result.fail(result)
-
-        if not result.value:
-            return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
-
-        record = result.value[0]
-        aligned_uids = [u for u in record.get("aligned_uids", []) if u]
-        conflicts = [c for c in record.get("conflicts", []) if c.get("uid")]
-        core_principle_uids = [u for u in record.get("core_principle_uids", []) if u]
-        impact_level = record.get("impact_level", "low")
-
-        # Determine if unaligned warning applies
-        # High-impact choices should be aligned with at least one principle
-        unaligned_warning = (
-            impact_level in ["high", "critical"]
-            and len(aligned_uids) == 0
-            and len(core_principle_uids) > 0
-        )
-
-        # Build direct conflicts list
-        direct_conflicts = [
-            {
-                "principle_uid": c["uid"],
-                "principle_name": c.get("name", "Unknown"),
-                "conflict_reason": "Choice explicitly conflicts with stated principle",
-                "severity": "high",
-            }
-            for c in conflicts
-        ]
-
-        # Generate mitigation strategies
-        mitigation_strategies: list[str] = []
-        if direct_conflicts:
-            mitigation_strategies.append("Review choice alignment with conflicting principles")
-            mitigation_strategies.append(
-                "Consider alternative approaches that honor all principles"
-            )
-            mitigation_strategies.append("Discuss trade-offs with a trusted advisor")
-        if unaligned_warning:
-            mitigation_strategies.append(
-                "Link this high-impact choice to relevant principles for better guidance"
-            )
-            mitigation_strategies.append(
-                "Consider which core principles should inform this decision"
-            )
-
-        return Result.ok(
-            {
-                "has_conflicts": len(direct_conflicts) > 0,
-                "direct_conflicts": direct_conflicts,
-                "unaligned_warning": unaligned_warning,
-                "aligned_principle_count": len(aligned_uids),
-                "mitigation_strategies": mitigation_strategies,
-            }
-        )
-
-    async def predict_decision_quality(
-        self,
-        choice_uid: str,
-        user_uid: UserUID,
-    ) -> Result[dict[str, Any]]:
-        """
-        Predict decision quality based on principle alignment and historical patterns.
-
-        Uses a 4-factor model:
-        1. Principle alignment (35%) - Is the choice guided by principles?
-        2. Knowledge-informed (25%) - Is the choice informed by knowledge?
-        3. Historical correlation (25%) - Past aligned choices vs satisfaction
-        4. Complexity-guidance ratio (15%) - Guidance relative to complexity
-
-        Args:
-            choice_uid: Choice identifier
-            user_uid: User identifier
-
-        Returns:
-            Result containing:
-            - predicted_quality_score: float (0.0-1.0)
-            - confidence: float (0.0-1.0)
-            - quality_factors: breakdown by factor
-            - historical_correlation: float
-            - recommendations: list[str]
-        """
-        from core.models.choice.choice import Choice
-        from core.services.choices.choice_relationships import ChoiceRelationships
-
-        # Get choice
-        choice_result = await self.backend.get(choice_uid)
-        if choice_result.is_error:
-            return Result.fail(choice_result)
-
-        choice = choice_result.value
-        if not choice or not isinstance(choice, Choice):
-            return Result.fail(Errors.not_found(resource="Choice", identifier=choice_uid))
-
-        # Fetch relationships
-        rels = await ChoiceRelationships.fetch(choice_uid, self.relationships)
-
-        # Factor 1: Principle alignment (35% weight)
-        principle_count = len(rels.aligned_principle_uids)
-        if principle_count == 0:
-            principle_factor = 0.0
-        elif principle_count == 1:
-            principle_factor = 0.25
-        else:
-            principle_factor = min(0.35, principle_count * 0.12)
-
-        # Factor 2: Knowledge-informed (25% weight)
-        knowledge_count = len(rels.informed_by_knowledge_uids)
-        knowledge_factor = 0.0 if knowledge_count == 0 else min(0.25, knowledge_count * 0.08)
-
-        # Factor 3: Historical correlation (25% weight)
-        hist_result = await self.backend.get_historical_satisfaction_correlation(user_uid)
-
-        historical_factor = 0.125  # Default neutral
-        historical_correlation = 0.0
-        if hist_result.is_ok and hist_result.value:
-            record = hist_result.value[0]
-            aligned_avg = record.get("aligned_avg") or 3.0
-            unaligned_avg = record.get("unaligned_avg") or 3.0
-            total_choices = record.get("total_choices", 0)
-
-            if total_choices >= 5:  # Need enough data
-                # Calculate correlation (positive if aligned choices have better satisfaction)
-                correlation = (aligned_avg - unaligned_avg) / 5.0
-                historical_correlation = correlation
-
-                if rels.is_principle_aligned() and aligned_avg > unaligned_avg:
-                    historical_factor = 0.25
-                elif not rels.is_principle_aligned() and unaligned_avg > aligned_avg:
-                    historical_factor = 0.20
-                else:
-                    historical_factor = 0.125
-
-        # Factor 4: Complexity-guidance ratio (15% weight)
-        # Choice model always has calculate_decision_complexity method
-        complexity = choice.calculate_decision_complexity()
-        guidance_strength = principle_count * 0.2 + knowledge_count * 0.1
-        if complexity > 0:
-            complexity_factor = 0.15 * min(1.0, guidance_strength / complexity)
-        else:
-            complexity_factor = 0.15 * min(1.0, guidance_strength)
-
-        # Calculate predicted score
-        predicted_score = (
-            principle_factor + knowledge_factor + historical_factor + complexity_factor
-        )
-        predicted_score = min(1.0, max(0.0, predicted_score))
-
-        # Calculate confidence based on data availability
-        confidence = 0.5  # Base confidence
-        if (
-            hist_result.is_ok
-            and hist_result.value
-            and hist_result.value[0].get("total_choices", 0) >= 10
-        ):
-            confidence += 0.2
-        if rels.is_principle_aligned():
-            confidence += 0.15
-        if rels.is_informed_decision():
-            confidence += 0.15
-        confidence = min(1.0, confidence)
-
-        # Generate recommendations
-        recommendations: list[str] = []
-        if not rels.is_principle_aligned():
-            recommendations.append("Link this choice to relevant principles for better outcomes")
-        if not rels.is_informed_decision():
-            recommendations.append("Consider researching more before deciding")
-        if complexity > 0.7 and principle_count < 2:
-            recommendations.append("Complex decision - ensure multiple principles guide you")
-        if predicted_score >= 0.7:
-            recommendations.append("Good decision foundation - proceed with confidence")
-
-        return Result.ok(
-            {
-                "predicted_quality_score": round(predicted_score, 3),
-                "confidence": round(confidence, 3),
-                "quality_factors": {
-                    "principle_alignment": round(principle_factor, 3),
-                    "knowledge_informed": round(knowledge_factor, 3),
-                    "historical_pattern": round(historical_factor, 3),
-                    "complexity_guidance": round(complexity_factor, 3),
-                },
-                "historical_correlation": round(historical_correlation, 3),
-                "recommendations": recommendations,
-            }
-        )
-
-    async def calculate_life_path_contribution_via_principles(
-        self,
-        choice_uid: str,
-        user_uid: UserUID,
-    ) -> Result[dict[str, Any]]:
-        """
-        Calculate how a choice contributes to life path via principle alignment.
-
-        Graph traversal: Choice -> Principle -> LifePath
-
-        This method traces the contribution chain from a specific choice
-        through aligned principles to the user's ultimate life path.
-
-        Args:
-            choice_uid: Choice identifier
-            user_uid: User identifier
-
-        Returns:
-            Result containing:
-            - total_contribution_score: float (0.0-1.0)
-            - direct_contribution: float (if Choice -> LifePath exists)
-            - principle_mediated_contribution: float (via Choice -> Principle -> LifePath)
-            - contributing_principles: list with individual contributions
-            - life_path_uid: str | None
-            - life_path_title: str | None
-        """
-        result = await self.backend.get_life_path_contribution(choice_uid, user_uid)
-
-        if result.is_error:
-            return Result.fail(result)
-
-        if not result.value:
-            return Result.ok(
-                {
-                    "total_contribution_score": 0.0,
-                    "direct_contribution": 0.0,
-                    "principle_mediated_contribution": 0.0,
-                    "contributing_principles": [],
-                    "life_path_uid": None,
-                    "life_path_title": None,
-                    "message": "Choice not found or no life path defined",
-                }
-            )
-
-        record = result.value[0]
-        life_path_uid = record.get("life_path_uid")
-
-        if not life_path_uid:
-            return Result.ok(
-                {
-                    "total_contribution_score": 0.0,
-                    "direct_contribution": 0.0,
-                    "principle_mediated_contribution": 0.0,
-                    "contributing_principles": [],
-                    "life_path_uid": None,
-                    "life_path_title": None,
-                    "message": "No life path defined for user",
-                }
-            )
-
-        direct_score = record.get("direct_score") or 0.0
-        principle_contributions = record.get("principle_contributions", [])
-
-        # Filter valid contributions (have both uid and contribution score)
-        valid_contributions = [
-            {
-                "uid": p["uid"],
-                "name": p.get("name", "Unknown"),
-                "contribution": p["contribution"],
-            }
-            for p in principle_contributions
-            if p.get("uid") and p.get("contribution")
-        ]
-
-        # Calculate principle-mediated contribution (average of contributions)
-        principle_mediated = 0.0
-        if valid_contributions:
-            principle_mediated = sum(p["contribution"] for p in valid_contributions) / len(
-                valid_contributions
-            )
-
-        # Total contribution: weighted combination
-        # Direct contribution is weighted more (60%) if it exists
-        # Principle-mediated fills in the remaining (40%) or full (100%) if no direct
-        if direct_score > 0:
-            total_score = (direct_score * 0.6) + (principle_mediated * 0.4)
-        else:
-            total_score = principle_mediated
-
-        total_score = min(1.0, total_score)
-
-        return Result.ok(
-            {
-                "total_contribution_score": round(total_score, 3),
-                "direct_contribution": round(direct_score, 3),
-                "principle_mediated_contribution": round(principle_mediated, 3),
-                "contributing_principles": valid_contributions,
-                "life_path_uid": life_path_uid,
-                "life_path_title": record.get("life_path_title"),
-            }
-        )
-
     # =========================================================================
     # ZPD BRIDGE (March 2026)
     # =========================================================================
@@ -738,11 +409,11 @@ class _BehavioralSignalsMixin:
             _,
         ) = await self._calculate_system_decision_quality_for_dual_track(user_uid, period_days=30)
 
-        # Active conflicts (principle tensions signal)
-        conflict_result = await self.backend.get_recent_conflict_count(user_uid)
+        # Active conflicts (principle tensions signal) — cross-domain read
+        conflict_result = await self.cross_domain_query.get_choice_conflict_count(user_uid)
         active_conflict_count = 0
-        if conflict_result.is_ok and conflict_result.value:
-            active_conflict_count = conflict_result.value[0].get("conflict_count", 0)
+        if conflict_result.is_ok:
+            active_conflict_count = conflict_result.value.conflict_count
 
         # High-quality decision rate (recent 30 days)
         # Derived from the composite score — scores above 0.6 = high quality

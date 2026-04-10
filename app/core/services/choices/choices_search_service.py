@@ -32,7 +32,6 @@ from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus
-from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -62,9 +61,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
     Choice-Specific Methods:
     - get_pending() - Pending/undecided choices
     - get_by_urgency() - Filter by urgency level
-    - get_affecting_goal() - Choices affecting a goal
     - get_needing_decision() - Choices needing decision within N days
-    - get_aligned_with_principle() - Choices aligned with a principle
     - get_by_category() - Filter by category
 
     Semantic Types Used:
@@ -284,25 +281,6 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         self.logger.debug(f"Found {len(choices)} choices with urgency '{urgency}'")
         return Result.ok(choices)
 
-    @with_error_handling("get_affecting_goal", error_type="database", uid_param="goal_uid")
-    async def get_affecting_goal(self, goal_uid: str) -> Result[list[Choice]]:
-        """
-        Get choices that affect a specific goal.
-
-        Query: (Choice)-[:AFFECTS_GOAL]->(Goal)
-
-        Args:
-            goal_uid: Goal UID
-
-        Returns:
-            Result containing choices affecting the goal
-        """
-        return await self.get_by_relationship(
-            related_uid=goal_uid,
-            relationship_type=RelationshipName.AFFECTS_GOAL,
-            direction="incoming",
-        )
-
     @with_error_handling("get_needing_decision", error_type="database", uid_param="user_uid")
     async def get_needing_decision(
         self, user_uid: UserUID, deadline_days: int = 7
@@ -353,99 +331,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         )
         return Result.ok(choices)
 
-    @with_error_handling(
-        "get_aligned_with_principle", error_type="database", uid_param="principle_uid"
-    )
-    async def get_aligned_with_principle(
-        self, principle_uid: str, min_confidence: float = 0.7
-    ) -> Result[list[Choice]]:
-        """
-        Get choices aligned with a specific principle.
-
-        Query: (Ku {entity_type: 'choice'})-[:ALIGNED_WITH_PRINCIPLE]->(Ku {entity_type: 'principle'})
-
-        Args:
-            principle_uid: Principle UID
-            min_confidence: Minimum alignment confidence
-
-        Returns:
-            Result containing aligned choices
-        """
-        # Query for choices aligned with principle
-        cypher_query = f"""
-        MATCH (c:Entity {{entity_type: 'choice'}})-[r:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{uid: $principle_uid, entity_type: 'principle'}})
-        WHERE r.confidence >= $min_confidence
-        RETURN c
-        ORDER BY r.confidence DESC
-        """
-
-        result = await self.backend.execute_query(
-            cypher_query,
-            {"principle_uid": principle_uid, "min_confidence": min_confidence},
-        )
-        if result.is_error:
-            return Result.fail(result)
-
-        # Convert to Choice
-        choices = []
-        for record in result.value:
-            choice_node = record["c"]
-            dto = ChoiceDTO.from_dict(dict(choice_node))
-            choices.append(Choice.from_dto(dto))
-
-        self.logger.debug(f"Found {len(choices)} choices aligned with principle {principle_uid}")
-        return Result.ok(choices)
-
     # get_by_category() and list_categories() - inherited from BaseService
-
-    @with_error_handling("get_decided", error_type="database", uid_param="user_uid")
-    async def get_decided(
-        self, user_uid: UserUID, days_back: int = 90, limit: int = 100
-    ) -> Result[list[Choice]]:
-        """
-        Get decided/completed choices for a user.
-
-        Args:
-            user_uid: User identifier
-            days_back: Number of days of history
-            limit: Maximum results
-
-        Returns:
-            Result containing decided choices
-        """
-        lookback_date = date.today() - timedelta(days=days_back)
-
-        # Query for decided choices
-        cypher_query = """
-        MATCH (c:Entity {entity_type: 'choice'})
-        WHERE c.user_uid = $user_uid
-          AND c.status IN ['active', 'completed']
-          AND c.decided_at >= date($lookback_date)
-        RETURN c
-        ORDER BY c.decided_at DESC
-        LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(
-            cypher_query,
-            {
-                "user_uid": user_uid,
-                "lookback_date": lookback_date.isoformat(),
-                "limit": limit,
-            },
-        )
-        if result.is_error:
-            return Result.fail(result)
-
-        # Convert to Choice
-        choices = []
-        for record in result.value:
-            choice_node = record["c"]
-            dto = ChoiceDTO.from_dict(dict(choice_node))
-            choices.append(Choice.from_dto(dto))
-
-        self.logger.debug(f"Found {len(choices)} decided choices for user {user_uid}")
-        return Result.ok(choices)
 
     # ========================================================================
     # GRAPH-AWARE FACETED SEARCH

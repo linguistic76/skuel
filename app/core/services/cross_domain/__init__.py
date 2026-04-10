@@ -15,6 +15,9 @@ from core.services.cross_domain.cross_domain_query_service import CrossDomainQue
 from core.services.cross_domain.cross_domain_types import (
     ActiveTaskCount,
     AlignedEntity,
+    ChoiceAlignmentDetail,
+    ChoicePrincipleAdherence,
+    ChoicePrincipleConflictCount,
     HabitKnowledgeReinforcement,
     KnowledgeApplyingTask,
     PrincipleAlignmentEvidence,
@@ -24,6 +27,9 @@ from core.services.cross_domain.cross_domain_types import (
 __all__ = [
     "ActiveTaskCount",
     "AlignedEntity",
+    "ChoiceAlignmentDetail",
+    "ChoicePrincipleAdherence",
+    "ChoicePrincipleConflictCount",
     "CrossDomainQueryService",
     "HabitKnowledgeReinforcement",
     "KnowledgeApplyingTask",

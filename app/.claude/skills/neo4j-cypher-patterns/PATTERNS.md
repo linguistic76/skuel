@@ -478,7 +478,7 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 | Cypher Type | Location | Example |
 |-------------|----------|---------|
 | Generic CRUD | `UniversalNeo4jBackend` (via mixins) | `create()`, `get()`, `update()`, `delete()` |
-| Domain-specific relationships | Domain backend in `domain_backends.py` | `SubmissionsBackend.link_to_exercise()`, `ChoicesBackend.get_principle_adherence_data()` |
+| Domain-specific relationships | Domain backend in `domain_backends.py` | `SubmissionsBackend.link_to_exercise()` |
 | Atomic multi-entity creation | Domain backend in `domain_backends.py` | `SubmissionsBackend.create_report_and_revised_exercise()` — single Cypher creates ExerciseReport + RevisedExercise + all relationships |
 | Lesson-specific Cypher | 5 Lesson mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
 | Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY |

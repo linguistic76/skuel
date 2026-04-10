@@ -335,10 +335,7 @@ Choices support full decision lifecycle:
 |--------|-------------|
 | `get_pending(user_uid)` | Undecided choices |
 | `get_by_urgency(urgency, user_uid)` | Filter by urgency level |
-| `get_affecting_goal(goal_uid, user_uid)` | Choices affecting a goal |
 | `get_needing_decision(user_uid, days=7)` | Choices with deadline approaching |
-| `get_aligned_with_principle(principle_uid, user_uid)` | Choices aligned with principle |
-| `get_decided(user_uid, days=30)` | Recently decided choices |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
 
 **Full catalog:** [Search Service Methods Reference](/docs/reference/SEARCH_SERVICE_METHODS.md)

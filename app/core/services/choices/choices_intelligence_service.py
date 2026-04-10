@@ -10,8 +10,7 @@ Architecture: Shell delegates to 3 focused mixins in the same directory:
   _analytics_mixin.py          — get_quick_decision_metrics, batch_analyze_decision_complexity,
                                   get_decision_patterns, get_choice_quality_correlations,
                                   get_domain_decision_patterns
-  _behavioral_signals_mixin.py — dual-track, principle analysis,
-                                  predict_decision_quality, calculate_life_path_contribution,
+  _behavioral_signals_mixin.py — dual-track, principle analysis (via CrossDomainQueryService),
                                   get_zpd_behavioral_signals()
                                   (event handlers migrated to ChoiceEventHandlerService, March 2026)
 
@@ -38,6 +37,7 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.ports.domain_protocols import ChoicesOperations, ChoicesRelationshipOperations
+    from core.services.cross_domain import CrossDomainQueryService
     from core.services.insight.insight_store import InsightStore
 
 
@@ -66,6 +66,7 @@ class ChoicesIntelligenceService(
     def __init__(
         self,
         backend: ChoicesOperations,
+        cross_domain_query: CrossDomainQueryService,
         graph_intelligence_service=None,
         relationship_service: ChoicesRelationshipOperations | None = None,
         insight_store: InsightStore | None = None,
@@ -75,6 +76,7 @@ class ChoicesIntelligenceService(
 
         Args:
             backend: Protocol-based backend for choice operations (Choice model)
+            cross_domain_query: CrossDomainQueryService for cross-domain reads (REQUIRED)
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
             relationship_service: ChoicesRelationshipOperations protocol for specialized relationship queries
             insight_store: InsightStore for persisting event-driven insights (optional)
@@ -84,6 +86,7 @@ class ChoicesIntelligenceService(
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
         )
+        self.cross_domain_query = cross_domain_query
         self.insight_store = insight_store
 
         # Initialize GraphContextOrchestrator for get_with_context pattern

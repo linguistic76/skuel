@@ -353,10 +353,7 @@ _graph_enrichment_patterns = [
 |--------|-----------|-------------|
 | `get_pending` | `(user_uid: UserUID) -> Result[list[Choice]]` | Undecided choices |
 | `get_by_urgency` | `(urgency: str, user_uid: UserUID) -> Result[list[Choice]]` | Filter by urgency level |
-| `get_affecting_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Choice]]` | Choices affecting a goal |
 | `get_needing_decision` | `(user_uid: UserUID, days: int = 7) -> Result[list[Choice]]` | Choices with deadline approaching |
-| `get_aligned_with_principle` | `(principle_uid: str, user_uid: UserUID) -> Result[list[Choice]]` | Choices aligned with principle |
-| `get_decided` | `(user_uid: UserUID, days: int = 30) -> Result[list[Choice]]` | Recently decided choices |
 | `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Choice]]` | Smart prioritization |
 
 ---

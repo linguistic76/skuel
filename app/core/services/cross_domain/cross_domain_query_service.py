@@ -34,6 +34,9 @@ from core.models.type_hints import EntityUID, UserUID
 from core.services.cross_domain.cross_domain_types import (
     ActiveTaskCount,
     AlignedEntity,
+    ChoiceAlignmentDetail,
+    ChoicePrincipleAdherence,
+    ChoicePrincipleConflictCount,
     HabitKnowledgeReinforcement,
     KnowledgeApplyingTask,
     PrincipleAlignmentEvidence,
@@ -141,6 +144,40 @@ RETURN h.uid AS habit_uid,
        h.success_rate AS success_rate,
        h.status AS status,
        collect(ku.uid) AS ku_uids
+"""
+
+
+# Cypher: find all choices owned by ``user_uid`` created within ``period_days``,
+# with optional principle alignment data. Returns aggregate counts plus per-choice
+# detail (choice_uid, aligned principle UIDs, satisfaction score).
+_CHOICE_PRINCIPLE_ADHERENCE_QUERY = f"""
+MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
+WHERE c.created_at >= datetime() - duration({{days: $period_days}})
+
+OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{entity_type: 'principle'}})
+
+WITH c,
+     collect(DISTINCT p.uid) AS principle_uids,
+     CASE WHEN count(p) > 0 THEN 1 ELSE 0 END AS is_aligned
+
+RETURN
+    count(c) AS total_choices,
+    sum(is_aligned) AS aligned_count,
+    collect({{
+        choice_uid: c.uid,
+        principles: principle_uids,
+        satisfaction: c.satisfaction_score
+    }}) AS choice_details
+"""
+
+
+# Cypher: count distinct choices owned by ``user_uid`` created in the last 30
+# days that have a CONFLICTS_WITH_PRINCIPLE edge. One round-trip.
+_CHOICE_CONFLICT_COUNT_QUERY = f"""
+MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
+WHERE c.created_at >= datetime() - duration({{days: 30}})
+MATCH (c)-[:{RelationshipName.CONFLICTS_WITH_PRINCIPLE.value}]->(:Entity {{entity_type: 'principle'}})
+RETURN count(DISTINCT c) AS conflict_count
 """
 
 
@@ -335,3 +372,72 @@ class CrossDomainQueryService:
                 )
             )
         return Result.ok(tuple(rows))
+
+    async def get_choice_principle_adherence(
+        self, user_uid: UserUID, period_days: int = 90
+    ) -> Result[ChoicePrincipleAdherence]:
+        """
+        Fetch aggregate principle-adherence data for a user's choices over
+        ``period_days``.
+
+        One Cypher round-trip. Returns ``total_choices``, ``aligned_count``,
+        and per-choice detail (choice UID, aligned principle UIDs,
+        satisfaction score). Rows with empty ``principle_uids`` are kept
+        because the adherence calculation needs to count total choices vs
+        aligned choices.
+
+        Used by ``_BehavioralSignalsMixin.analyze_principle_adherence`` and
+        ``get_zpd_behavioral_signals`` for the ZPD behavioral readiness bridge.
+        """
+        result = await self.executor.execute_query(
+            _CHOICE_PRINCIPLE_ADHERENCE_QUERY,
+            {"user_uid": user_uid, "period_days": period_days},
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        rows = result.value or []
+        if not rows:
+            return Result.ok(
+                ChoicePrincipleAdherence(total_choices=0, aligned_count=0, choice_details=())
+            )
+
+        record = rows[0]
+        details = tuple(
+            ChoiceAlignmentDetail(
+                choice_uid=d["choice_uid"],
+                principle_uids=tuple(uid for uid in (d.get("principles") or []) if uid),
+                satisfaction=d.get("satisfaction"),
+            )
+            for d in (record.get("choice_details") or [])
+            if d and d.get("choice_uid")
+        )
+
+        return Result.ok(
+            ChoicePrincipleAdherence(
+                total_choices=int(record.get("total_choices") or 0),
+                aligned_count=int(record.get("aligned_count") or 0),
+                choice_details=details,
+            )
+        )
+
+    async def get_choice_conflict_count(
+        self, user_uid: UserUID
+    ) -> Result[ChoicePrincipleConflictCount]:
+        """
+        Count recent choices (last 30 days) with unresolved principle
+        conflicts for ``user_uid``.
+
+        One Cypher round-trip. Used by ``get_zpd_behavioral_signals`` to
+        surface active principle tensions to ZPDService.
+        """
+        result = await self.executor.execute_query(
+            _CHOICE_CONFLICT_COUNT_QUERY,
+            {"user_uid": user_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        rows = result.value or []
+        count = int(rows[0]["conflict_count"]) if rows else 0
+        return Result.ok(ChoicePrincipleConflictCount(conflict_count=count))

@@ -89,6 +89,7 @@ def _create_activity_services(
         "choices": ChoicesService(
             backend=choices_backend,
             graph_intelligence_service=graph_intelligence,
+            cross_domain_query=cross_domain_query,
             event_bus=event_bus,
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,

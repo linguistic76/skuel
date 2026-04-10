@@ -70,6 +70,31 @@ class ActiveTaskCount:
 
 
 @dataclass(frozen=True)
+class ChoiceAlignmentDetail:
+    """One choice's principle alignment from the adherence query."""
+
+    choice_uid: EntityUID
+    principle_uids: tuple[EntityUID, ...]
+    satisfaction: float | None
+
+
+@dataclass(frozen=True)
+class ChoicePrincipleAdherence:
+    """Aggregate principle adherence data for a user's choices."""
+
+    total_choices: int
+    aligned_count: int
+    choice_details: tuple[ChoiceAlignmentDetail, ...]
+
+
+@dataclass(frozen=True)
+class ChoicePrincipleConflictCount:
+    """Count of recent choices with unresolved principle conflicts."""
+
+    conflict_count: int
+
+
+@dataclass(frozen=True)
 class HabitKnowledgeReinforcement:
     """One habit's relationship to the KUs it reinforces, raw rows from Neo4j.
 

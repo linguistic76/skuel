@@ -227,7 +227,7 @@ Hardened 3 backend methods against Cypher injection and migrated 17 inline Cyphe
 
 | Service File | Queries | Backend |
 |---|---|---|
-| `choices/_behavioral_signals_mixin.py` | 5 | ChoicesBackend (+5 methods: `get_principle_adherence_data`, `get_choice_principle_conflicts`, `get_life_path_contribution`, `get_historical_satisfaction_correlation`, `get_recent_conflict_count`) |
+| `choices/_behavioral_signals_mixin.py` | 0 | Cross-domain reads migrated to `CrossDomainQueryService`; 3 dead methods deleted |
 | `report/report_relationship_service.py` | 5 | SubmissionsBackend (+5 methods: `get_pending_submissions_raw`, `get_unsubmitted_exercises_raw`, `get_report_summary_raw`, `get_learning_loop_chain_raw`, `get_submission_chain_raw`) |
 | `ku/ku_relationships.py` | 6 | KuBackend (+7 methods: `get_related_knowledge_uids`, `get_broader_concept_uids`, `get_narrower_concept_uids`, `get_learning_path_uids`, `get_applying_task_uids`, `get_practicing_event_uids`, `get_reinforcing_habit_uids`) |
 | `submissions/submissions_relationship_service.py` | 1 | SubmissionsBackend (+1 method: `get_supported_goal_uids`) |
