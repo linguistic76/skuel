@@ -786,13 +786,15 @@ class ChoicesService(
 | Habits | 3 (`_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_DualTrackMixin`) |
 | Choices | 3 (`_OptionManagementMixin`, `_RelationshipMixin`, `_EnrichmentMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_BehavioralSignalsMixin`) |
 | Principles | 3 (`_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_AlignmentMixin`) |
-| Tasks, Events | 0 (no facade mixins) | 0 |
+| Tasks | 0 (no facade mixins) | 0 |
+| Events | 0 (no facade mixins) | 0; `get_with_context` inherited from `_CoreIntelligenceMixin` |
 
 **Key rules:**
 - Mixin files are prefixed with `_` (private, not exported from `__init__.py`)
 - Each mixin declares `Any`-typed attributes for sub-services it touches
 - The facade's `__init__` populates those attributes — no `__init__` in mixins
 - Public API unchanged — callers don't know about the decomposition
+- **Shared `_CoreIntelligenceMixin`:** `core/services/intelligence/_core_intelligence_mixin.py` owns `get_with_context()` → orchestrator delegation. All 5 Activity Domain intelligence services (Goals, Habits, Choices, Principles, Events) inherit from it. Domain files only add domain-named aliases (e.g. `get_goal_with_context`).
 
 ---
 

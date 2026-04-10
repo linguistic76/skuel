@@ -268,7 +268,7 @@ Goals track which habits are essential for achievement:
 
 | Mixin | File | Methods |
 |-------|------|---------|
-| `_CoreIntelligenceMixin` | `_core_intelligence_mixin.py` | `get_goal_with_context`, `get_with_context` (protocol) |
+| `_CoreIntelligenceMixin` | `_core_intelligence_mixin.py` | `get_goal_with_context` (alias); inherits `get_with_context` from shared base |
 | `_AnalyticsMixin` | `_analytics_mixin.py` | `get_performance_analytics`, `get_domain_insights`, `get_goal_progress_dashboard`, `_generate_progress_recommendations` |
 | `_PredictiveMixin` | `_predictive_mixin.py` | `predict_goal_success`, `analyze_habit_impact`, `assess_goal_risk`, `run_scenario_analysis` + private helpers |
 | `_DualTrackMixin` | `_dual_track_mixin.py` | `assess_progress_dual_track`, `_calculate_system_progress`, `_progress_level_to_score`, `_generate_progress_gap_*` |

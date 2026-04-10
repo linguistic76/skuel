@@ -9,7 +9,7 @@
 **Mixin decomposition (April 2026):** Shell + 3 mixins for consistency with Choices and Habits:
 | Mixin | File | Methods |
 |-------|------|---------|
-| `_CoreIntelligenceMixin` | `_core_intelligence_mixin.py` | `get_with_context`, `get_performance_analytics`, `get_domain_insights`, `get_principle_with_context` |
+| `_CoreIntelligenceMixin` | `_core_intelligence_mixin.py` | `get_principle_with_context` (alias for `get_with_context`), `get_performance_analytics`, `get_domain_insights`; inherits `get_with_context` from `core/services/intelligence/_CoreIntelligenceMixin` |
 | `_AlignmentIntelligenceMixin` | `_alignment_intelligence_mixin.py` | `assess_principle_alignment`, `assess_alignment_dual_track`, `get_principle_adherence_trends`, alignment helpers |
 | `_InfluenceMixin` | `_influence_mixin.py` | `get_principle_conflict_analysis`, `get_quick_principle_impact`, `batch_analyze_principle_adoption`, `get_choice_guidance_effectiveness` |
 

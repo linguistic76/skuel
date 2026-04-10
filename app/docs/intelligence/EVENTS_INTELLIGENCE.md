@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Architecture:** Extends `BaseAnalyticsService[EventsOperations, Event]`
+**Architecture:** Extends `_CoreIntelligenceMixin, BaseAnalyticsService[EventsOperations, Event]`
 **Location:** `/core/services/events/events_intelligence_service.py`
 **Service Name:** `events.intelligence`
 **Lines:** ~830
@@ -24,6 +24,8 @@ EventsIntelligenceService analyzes events through cross-domain impact tracking, 
 ---
 
 ## Core Methods
+
+**`get_with_context(uid, depth)` — inherited from `_CoreIntelligenceMixin`** (`core/services/intelligence/`). Implements the `IntelligenceOperations` protocol via `self.orchestrator`. No domain mixin file — `EventsIntelligenceService` inherits the shared base directly in its MRO.
 
 ### Method 1: get_event_with_context()
 

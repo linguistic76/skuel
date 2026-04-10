@@ -10,7 +10,7 @@
 | File | Responsibility |
 |------|---------------|
 | `choices_intelligence_service.py` | Shell: `__init__`, `entity_label`, 3 protocol delegation methods |
-| `_core_intelligence_mixin.py` | `get_choice_with_context`, `get_decision_intelligence`, `analyze_choice_impact` |
+| `_core_intelligence_mixin.py` | `get_choice_with_context` (alias for `get_with_context`), `get_decision_intelligence`, `analyze_choice_impact`; inherits `get_with_context` from `core/services/intelligence/_CoreIntelligenceMixin` |
 | `_analytics_mixin.py` | `get_quick_decision_metrics`, `batch_analyze_decision_complexity`, `get_decision_patterns`, `get_choice_quality_correlations`, `get_domain_decision_patterns` |
 | `_behavioral_signals_mixin.py` | Dual-track assessment, principle analysis, prediction, life-path contribution, `get_zpd_behavioral_signals` (event handlers migrated to `ChoiceEventHandlerService`, March 2026). Single-domain Cypher migrated to `ChoicesBackend` (March 2026); cross-domain queries (spanning 2+ labels: Choice + Principle adherence, conflict counts) migrated to `CrossDomainQueryService` (April 2026) — mixin contains pure business logic only. |
 

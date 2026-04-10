@@ -4,6 +4,8 @@
 
 A full analytics service with all common patterns. For large services (1000+ LOC), use mixin decomposition — see `ChoicesIntelligenceService`, `HabitsIntelligenceService`, and `PrinciplesIntelligenceService` for the established local pattern (`_core_intelligence_mixin.py`, `_alignment_intelligence_mixin.py`, `_influence_mixin.py` in the same package directory).
 
+**Shared `get_with_context()` base (April 2026):** All Activity Domain `_core_intelligence_mixin.py` files inherit from `core/services/intelligence/_CoreIntelligenceMixin`, which owns the `get_with_context()` → `self.orchestrator` delegation. Domain files only add domain-named aliases (`get_goal_with_context`, etc.). `EventsIntelligenceService` inherits directly (no domain mixin file).
+
 ```python
 """
 Habits Intelligence Service
