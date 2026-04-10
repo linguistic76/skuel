@@ -227,13 +227,13 @@ def create_library_ui_routes(
 
     @rt("/library")
     async def library_hub(request: Request) -> Any:
-        """Library hub — tabbed hub with Library tab active."""
+        """Library hub — exercises, submission history, resources, and curriculum."""
         require_authenticated_user(request)
-        from ui.home_hub import HomeHub
+        from ui.library.hub import LibraryHub
         from ui.layouts.base_page import BasePage
 
         return await BasePage(
-            content=HomeHub(active_tab="library"),
+            content=LibraryHub(),
             title="Library",
             request=request,
             active_page="library",

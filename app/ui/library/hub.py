@@ -1,12 +1,17 @@
-"""Library hub — block definitions for the shared tabbed hub interface.
+"""Library hub — block definitions and page component for the Library section.
 
 LIBRARY_BLOCKS is imported by ui/home_hub.py to populate the Library tab
 on /home, /submissions, /gradebook, and /library.
 
+LibraryHub() is the standalone page component for /library.
+
 See: /docs/design-principles/HUB_PAGES.md
 """
 
-from ui.patterns.hub import HubBlockData
+from fasthtml.common import Div
+
+from ui.patterns.hub import HubBlockData, HubDomainBlockList
+from ui.patterns.page_header import PageHeader
 
 LIBRARY_BLOCKS: list[HubBlockData] = [
     HubBlockData(
@@ -50,3 +55,11 @@ LIBRARY_BLOCKS: list[HubBlockData] = [
         "/api/library/path-steps/preview",
     ),
 ]
+
+
+def LibraryHub() -> Div:
+    """Library hub page content — PageHeader + block list for /library."""
+    return Div(
+        PageHeader("Library", subtitle="Your exercises, submission history, resources, and curriculum"),
+        HubDomainBlockList(LIBRARY_BLOCKS),
+    )

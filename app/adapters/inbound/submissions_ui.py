@@ -140,13 +140,13 @@ def create_submissions_ui_routes(
 
     @rt("/gradebook")
     async def gradebook_hub(request: Request) -> Any:
-        """GradeBook hub — tabbed hub with GradeBook tab active."""
+        """GradeBook hub — exercise reports, activity reports, and revisions."""
         require_authenticated_user(request)
-        from ui.home_hub import HomeHub
+        from ui.gradebook.hub import GradeBookHub
         from ui.layouts.base_page import BasePage
 
         return await BasePage(
-            content=HomeHub(active_tab="gradebook"),
+            content=GradeBookHub(),
             title="GradeBook",
             request=request,
             active_page="gradebook",
