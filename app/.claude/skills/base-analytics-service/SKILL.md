@@ -99,6 +99,7 @@ def __init__(
     graph_intelligence_service: Any | None = None, # GraphIntelligenceService
     relationship_service: Any | None = None,       # UnifiedRelationshipService
     event_bus: Any | None = None,                  # EventBus
+    insight_store: Any | None = None,              # InsightStore
 ) -> None:
 ```
 
@@ -118,6 +119,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Ku]):
         graph_intelligence_service: GraphIntelligenceService | None = None,
         relationship_service: UnifiedRelationshipService | None = None,
         event_bus: EventBus | None = None,
+        insight_store: InsightStore | None = None,
     ) -> None:
         # ALWAYS call super().__init__() first
         super().__init__(
@@ -125,6 +127,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Ku]):
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
             event_bus=event_bus,
+            insight_store=insight_store,
         )
 
         # Domain-specific initialization AFTER super().__init__()
@@ -141,6 +144,7 @@ After `super().__init__()`, these attributes are available:
 | `self.graph_intel` | `GraphIntelligenceService \| None` | Graph queries |
 | `self.relationships` | `UnifiedRelationshipService \| None` | Relationship queries |
 | `self.event_bus` | `EventBus \| None` | Event publishing |
+| `self.insight_store` | `InsightStore \| None` | Event-driven insight persistence |
 | `self.logger` | `Logger` | Hierarchical logger |
 | `self.orchestrator` | `GraphContextOrchestrator \| None` | Context retrieval |
 
@@ -531,12 +535,14 @@ class NewDomainIntelligenceService(
         graph_intelligence_service=None,
         relationship_service=None,
         event_bus=None,
+        insight_store=None,
     ):
         super().__init__(
             backend=backend,
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
             event_bus=event_bus,
+            insight_store=insight_store,
         )
 
         # Initialize orchestrator

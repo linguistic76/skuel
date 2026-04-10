@@ -335,12 +335,14 @@ class TasksIntelligenceService(
         graph_intel=None,
         relationships=None,
         event_bus=None,
+        insight_store=None,
     ):
         super().__init__(
             backend=backend,
             graph_intel=graph_intel,
             relationships=relationships,
             event_bus=event_bus,
+            insight_store=insight_store,
         )
 
         # Initialize orchestrator

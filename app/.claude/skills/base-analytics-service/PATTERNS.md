@@ -42,6 +42,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
         graph_intelligence_service=None,
         relationship_service=None,
         event_bus=None,
+        insight_store=None,
     ) -> None:
         # ALWAYS call super first
         super().__init__(
@@ -49,6 +50,7 @@ class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
             event_bus=event_bus,
+            insight_store=insight_store,
         )
 
         # Initialize orchestrator if graph intelligence available

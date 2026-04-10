@@ -104,6 +104,7 @@ class BaseAnalyticsService(Generic[B, T]):
         graph_intelligence_service: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
+        insight_store: Any | None = None,
     ) -> None: ...
 ```
 
