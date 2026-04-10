@@ -50,7 +50,7 @@ Created via `create_common_sub_services()` factory:
 |--------|-------------------|
 | **Tasks** | `progress`, `scheduling`, `planning`, `event_handler` |
 | **Goals** | `progress`, `scheduling`, `learning`, `planning`, `event_handler` |
-| **Habits** | `progress`, `completions`, `planning`, `scheduling`, `learning`, `events`, `event_handler`, `patterns`, `goal_analytics` |
+| **Habits** | `progress`, `completions`, `planning`, `scheduling`, `learning`, `event_integration`, `event_handler`, `patterns` — plus 3 **facade mixins**: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin` (April 2026) |
 | **Events** | `habits` (integration), `learning` |
 | **Choices** | `learning`, `event_handler` |
 | **Principles** | `alignment`, `learning`, `reflection`, `planning`, `event_handler` |

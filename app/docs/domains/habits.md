@@ -63,34 +63,41 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 
 **See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
 
-## Facade Pattern (February 2026)
+## Facade Pattern (April 2026)
 
-`HabitsService` uses explicit `async def` delegation methods for clean delegation to 14 specialized sub-services:
+`HabitsService` is SKUEL's most complex Activity Domain facade: **13 sub-services + 3 facade mixins**.
 
 ```python
-class HabitsService(BaseService[HabitsOperations, Habit]):
-    core: HabitsCoreService
-    search: HabitsSearchService
-    completion: HabitsCompletionService
-    planning: HabitsPlanningService
-    scheduling: HabitsSchedulingService
-    intelligence: HabitsIntelligenceService
-    knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
+class HabitsService(
+    _CompletionMixin,       # track/untrack, streak/progress/history, pause/resume/archive, reminders
+    _EnrichmentMixin,       # analytics + enriched metadata views
+    _OrchestrationMixin,    # graph relationships + cross-domain orchestration
+    KnowledgeIntelligenceDelegationMixin,
+    BaseService[HabitsOperations, Habit],
+):
+    # Delegation methods (~45) delegate to the 13 sub-services below
+    async def get_habit(self, uid: str) -> Result[Habit]:
+        return await self.core.get_habit(uid)
 
-    # Explicit delegation — MyPy-native, no mixin needed
-    async def get_habit(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.core.get_habit(*args, **kwargs)
+    async def complete_habit_with_quality(self, ...) -> Result[Habit]:
+        return await self.progress.complete_habit_with_quality(...)
 
-    async def record_completion(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.completion.record_completion(*args, **kwargs)
-
-    async def get_habit_with_context(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.intelligence.get_habit_with_context(*args, **kwargs)
+    async def get_habit_with_context(self, uid: str, ...) -> Result[tuple[Habit, GraphContext]]:
+        return await self.intelligence.get_habit_with_context(uid, ...)
 ```
 
-**Sub-services:**
-| Service | Purpose |
-|---------|---------|
+**Facade Mixins** (`core/services/habits/`):
+
+| Mixin | File | Methods |
+|-------|------|---------|
+| `_CompletionMixin` | `_completion_mixin.py` | `track_habit`, `untrack_habit`, `get_habit_streak/progress/history`, `get_completion_calendar`, `pause/resume/archive_habit`, `set/get/delete_habit_reminder` |
+| `_EnrichmentMixin` | `_enrichment_mixin.py` | `get_habit_analytics`, `get_habits_summary_analytics`, `get_habit_trends`, `get_enriched_learning/curriculum/prerequisite_metadata` |
+| `_OrchestrationMixin` | `_orchestration_mixin.py` | `complete_with_goal_impacts`, `create_with_goal_links`, `create_user_habit_relationship`, `link_habit_to_knowledge/principle`, `get_skills_developed_by_habits`, `create_habit_with_context` |
+
+**Sub-services** (13, created in `__init__`):
+
+| Sub-service | Purpose |
+|-------------|---------|
 | `core` | CRUD operations, habit configuration |
 | `search` | Text search, filtering, graph-aware queries |
 | `progress` | Streaks, consistency, keystone habits |
@@ -100,12 +107,12 @@ class HabitsService(BaseService[HabitsOperations, Habit]):
 | `scheduling` | Smart scheduling and capacity management (January 2026) |
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
 | `intelligence` | Pattern analysis, habit stacking recommendations |
-| `events` | Cross-domain event scheduling integration |
-| `event_handler` | Event-driven reactive logic (timing learning, streak + aggregate badges, difficulty) |
+| `event_integration` | Cross-domain event scheduling integration |
+| `event_handler` | Event-driven reactive logic (streak + aggregate badges, difficulty) |
 | `patterns` | Atomic Habits pattern recognition with confidence scoring |
-| `goal_analytics` | Cross-domain Habits→Goals analytics |
+| `knowledge_intelligence` | Shared singleton — domain-agnostic knowledge intelligence |
 
-Created via `create_common_sub_services()` factory in facade `__init__`.
+Common sub-services created via `create_common_sub_services()` factory (with `skip={"intelligence"}` — Habits intelligence is created manually to receive `cross_domain_query`).
 
 ### Cross-Domain Wiring
 
