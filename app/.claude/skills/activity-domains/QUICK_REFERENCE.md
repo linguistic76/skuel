@@ -18,7 +18,7 @@
 | Domain | Facade | Core | Search | Intelligence |
 |--------|--------|------|--------|--------------|
 | Tasks | `tasks_service.py` | `tasks/tasks_core_service.py` | `tasks_search_service.py` | `tasks_intelligence_service.py` |
-| Goals | `goaps_service.py` | `goals/goaps_core_service.py` | `goaps_search_service.py` | `goaps_intelligence_service.py` |
+| Goals | `goals_service.py` | `goals/goals_core_service.py` | `goals_search_service.py` | `goals_intelligence_service.py` |
 | Habits | `habits_service.py` | `habits/habits_core_service.py` | `habits_search_service.py` | `habits_intelligence_service.py` |
 | Events | `events_service.py` | `events/events_core_service.py` | `events_search_service.py` | `events_intelligence_service.py` |
 | Choices | `choices_service.py` | `choices/choices_core_service.py` | `choices_search_service.py` | `choices_intelligence_service.py` |
@@ -122,7 +122,7 @@ habits, stats = ctx["entities"], ctx["stats"]
 | Principles | `strength` | `all` |
 | Lesson/Ku/PS/LP/Exercise | `title` | `all` |
 
-Module-level helpers (each facade file): `_compute_{domain}_stats` (all 11), `_{DOMAIN}_SORT_CONFIG` + `_apply_{domain}_sort` (all 11, config-driven via `apply_entity_sort`), `_{DOMAIN}_FILTER_CONFIG` (7 domains, config-driven via `apply_entity_filter`), plus `_apply_task_secondary_filters` (Tasks), `_apply_principle_filters` (Principles multi-dimensional), `_compute_*_metadata` (Tasks/Principles/Goals/Habits). Generics in `core/utils/list_helpers.py`.
+Module-level helpers: **Activity domain stats** (`compute_{domain}_stats` for 6 Activity Domains) now live in `core/utils/activity_stats.py` (April 2026), returning frozen dataclasses; facade wrappers project to dicts. Sort/filter configs remain in facade files: `_{DOMAIN}_SORT_CONFIG` + `_apply_{domain}_sort` (all 11, config-driven via `apply_entity_sort`), `_{DOMAIN}_FILTER_CONFIG` (7 domains, config-driven via `apply_entity_filter`), plus `_apply_task_secondary_filters` (Tasks), `_apply_principle_filters` (Principles multi-dimensional), `_compute_*_metadata` (Tasks/Principles/Goals/Habits). Generics in `core/utils/list_helpers.py`. **Cross-domain reads** go through `CrossDomainQueryService` (`core/services/cross_domain/`) — 9 methods, one Cypher per call, returns frozen typed dataclasses.
 
 **Key files:** `core/services/filtered_context.py` (skeleton), `core/ports/filtered_context_protocols.py` (protocol), `core/ports/query_types.py` (ListContext + BaseStats), `core/utils/list_context_helpers.py` (typed accessors)
 

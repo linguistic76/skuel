@@ -11,6 +11,7 @@
 - `EventsProgressService` - Progress tracking, completion, attendance metrics
 - `EventsSchedulingService` - Smart scheduling, conflict detection, calendar density
 - `EventsEventHandlerService` - Fire-and-forget reactive handlers: attendance patterns, rescheduling detection, scheduling density; persists `IMBALANCE_DETECTED` insights for chronic rescheduling and overcommitment to InsightStore (March 2026)
+- `CrossDomainQueryService` - Cross-domain reads spanning 2+ domain labels (replaced per-event N+1 queries, April 2026). Methods removed from EventsIntelligenceService: `get_event_goal_support()`, `get_event_knowledge_reinforcement()`.
 
 ---
 

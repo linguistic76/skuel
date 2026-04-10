@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-03-20
+updated: 2026-04-10
 status: current
 category: domains
 tags:
@@ -66,11 +66,12 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 
 ```python
 class GoalsService(BaseService[GoalsOperations, Goal]):
-    core: GoalsCoreService
+    core: GoalsCoreService  # takes cross_domain_query for goal-abandonment guard
     search: GoalsSearchService
     scheduling: GoalsSchedulingService
     intelligence: GoalsIntelligenceService
     knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
+    cross_domain_query: CrossDomainQueryService  # cross-domain reads (April 2026)
 
     # Explicit delegation — MyPy-native, no mixin needed
     async def get_goal(self, *args: Any, **kwargs: Any) -> Any:
@@ -89,7 +90,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
 **Sub-services:**
 | Service | Purpose |
 |---------|---------|
-| `core` | CRUD operations, status transitions |
+| `core` | CRUD operations, status transitions (takes `cross_domain_query` for goal-abandonment guard) |
 | `search` | Text search, filtering, graph-aware queries |
 | `progress` | Progress tracking and milestones |
 | `learning` | Learning path integration |
@@ -99,7 +100,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
 | `intelligence` | Analytics, predictions, dual-track assessment |
 | `event_handler` | Event-driven reactive handlers (achievements, abandonment, progress) |
 
-Created via `create_common_sub_services()` factory in facade `__init__`.
+Created via `create_common_sub_services()` factory in facade `__init__` (core and intelligence skipped — built manually with extra dependencies).
 
 ## Event Handler — Insight Persistence (March 2026)
 

@@ -208,7 +208,7 @@ See `yaml_templates/_schemas/` for complete field reference. See `/docs/architec
 
 ### Runtime (Service API)
 
-All domains connect via `UnifiedRelationshipService`:
+**Writes** — All domains connect via `UnifiedRelationshipService`:
 
 ```python
 # Link to goal
@@ -225,6 +225,19 @@ related_uids = await service.relationships.get_related_uids(
     "knowledge", entity_uid, direction="outgoing"
 )
 ```
+
+**Reads (cross-domain)** — Queries spanning 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`):
+
+```python
+# Single Cypher query — no N+1, no fan-out-and-loop
+result = await cross_domain_query.get_principle_alignment_evidence(principle_uid, user_uid)
+evidence = result.value  # PrincipleAlignmentEvidence (frozen dataclass)
+
+result = await cross_domain_query.count_active_tasks_for_goal(goal_uid)
+count = result.value  # ActiveTaskCount (frozen dataclass)
+```
+
+Takes only a `QueryExecutor` (no per-domain backends). 9 methods, each runs exactly one Cypher query and returns a frozen typed dataclass from `cross_domain_types.py`. Replaces the old pattern of domain services calling `self.backend.find_by()` across types and joining in Python.
 
 ## Result[T] Error Handling
 

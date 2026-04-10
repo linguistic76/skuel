@@ -2,7 +2,7 @@
 
 **Purpose:** File organization rules, import guidelines, and visual architecture diagrams for `/core/services/`.
 
-**Last Updated:** 2026-03-03
+**Last Updated:** 2026-04-10
 
 ---
 
@@ -85,6 +85,7 @@ Infrastructure modules with no root-level facade.
 | `analytics/` | Domain analytics |
 | `background/` | Background task workers |
 | `notifications/` | Notification services |
+| `cross_domain/` | `CrossDomainQueryService` — 9 single-Cypher cross-domain read methods returning frozen typed dataclasses. Takes only `QueryExecutor`. |
 
 ---
 
@@ -284,8 +285,8 @@ Activity Domain Facades (6 total)
 │   └─ core, search, progress, scheduling, planning, intelligence, productivity,
 │      learning_metrics, event_handler, knowledge_intelligence, ai
 │
-├─ GoalsService      (9 sub-services)
-│   └─ core, search, progress, scheduling, learning, intelligence, event_handler, knowledge_intelligence, ai
+├─ GoalsService      (10 sub-services)
+│   └─ core, search, progress, scheduling, learning, planning, intelligence, event_handler, knowledge_intelligence, ai
 │
 ├─ HabitsService    (14 sub-services)  ← Most complex
 │   └─ core, search, progress, scheduling, planning, learning, completions,
@@ -294,14 +295,14 @@ Activity Domain Facades (6 total)
 ├─ EventsService     (10 sub-services)
 │   └─ core, search, progress, scheduling, learning, habit_integration, event_handler, intelligence, knowledge_intelligence, ai
 │
-├─ ChoicesService    (7 sub-services)
+├─ ChoicesService    (8 sub-services)
 │   └─ core, search, learning, intelligence, event_handler, knowledge_intelligence, ai
 │
 └─ PrinciplesService (10 sub-services)
     └─ core, search, alignment, learning, planning, reflection, intelligence, knowledge_intelligence, ai, event_handler
 ```
 
-**Pattern:** All 6 domains share 4 common sub-services (core, search, relationships, intelligence) created by factory, plus knowledge_intelligence (shared singleton via `KnowledgeIntelligenceDelegationMixin`) and ai.
+**Pattern:** All 6 domains share 4 common sub-services (core, search, relationships, intelligence) created by factory, plus knowledge_intelligence (shared singleton via `KnowledgeIntelligenceDelegationMixin`) and ai. Cross-domain reads spanning 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`), injected as a constructor dependency into facades that need it (Goals, Habits, Choices, Principles). Activity domain stat computation centralized in `core/utils/activity_stats.py` (April 2026).
 
 **Shared Knowledge Intelligence (singleton):**
 ```

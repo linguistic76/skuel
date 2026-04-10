@@ -461,7 +461,7 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 4. **coalesce(prop, default)** for nullable relationship/node properties
 5. **UNWIND** for batch operations — one query for N entities
 6. **No APOC in domain services** (SKUEL001) — pure Cypher only
-7. **No inline Cypher in services** — domain-specific Cypher belongs in domain backends (`domain_backends.py`). Services call `self.backend.method_name()`, never `self.backend.execute_query(cypher, params)`.
+7. **No inline Cypher in domain services** — domain-specific Cypher belongs in domain backends (`domain_backends.py`). Services call `self.backend.method_name()`, never `self.backend.execute_query(cypher, params)`. Two service-layer exceptions: `user_context_queries.py` (MEGA-QUERY) and `CrossDomainQueryService` (targeted cross-domain reads) — both use `QueryExecutor` directly for explicitly cross-domain Cypher spanning 2+ domain labels.
 8. **No json.dumps() in services** — `backend.update()` and `backend.create()` auto-serialize complex types via `to_neo4j_node()`. For custom Cypher reads, use `parse_neo4j_json()` / `deserialize_json_fields()`.
 9. **Validate interpolated identifiers** — Neo4j Cypher cannot parameterize relationship types or labels, so f-string interpolation is unavoidable for those. Use `_validate_rel_name()` and `_ALLOWED_ORDER_BY` from `_backend_helpers.py` (rejects non-`[A-Z0-9_]` relationship names, whitelists ORDER BY fields), `NeoLabel` enum typing for labels. Never accept raw user strings for these positions.
 10. **Parameterize `entity_type` filters via the enum** — `entity_type` is a node *property*, so it CAN (and must) be a `$param`. Bind `EntityType.EXERCISE_SUBMISSION.value` (etc.) instead of inlining `'exercise_submission'`. Inline literals violate SKUEL014 and silently rot if an enum value ever changes. Pattern: `MATCH (s:Entity {entity_type: $submission_type})` + `params={"submission_type": EntityType.EXERCISE_SUBMISSION.value}`.
@@ -481,7 +481,7 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 | Domain-specific relationships | Domain backend in `domain_backends.py` | `SubmissionsBackend.link_to_exercise()` |
 | Atomic multi-entity creation | Domain backend in `domain_backends.py` | `SubmissionsBackend.create_report_and_revised_exercise()` — single Cypher creates ExerciseReport + RevisedExercise + all relationships |
 | Lesson-specific Cypher | 5 Lesson mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
-| Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY |
+| Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY, `CrossDomainQueryService` (9 targeted reads → frozen typed dataclasses) |
 | Vector index calls | `neo4j_vector_search_service.py` (infrastructure, FULL tier only) | `db.index.vector.queryNodes()` |
 | Fulltext index creation | `neo4j_schema_manager.py` (bootstrap, always) | `sync_fulltext_indexes()` — 15 domains |
 | Query generation | `query_optimizer.py`, `query_template_registry.py` | Builds Cypher by design |

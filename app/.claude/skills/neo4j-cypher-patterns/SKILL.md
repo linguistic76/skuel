@@ -171,9 +171,11 @@ Layer 2: Domain Backends (Domain-Specific Cypher)
 └── Rule: If a Cypher query uses domain-specific relationships, it belongs here
 
 Layer 3: Services (Business Logic + Cross-Domain Aggregation)
-├── Delegate to backend methods, NOT execute_query()
-├── Cross-domain aggregation stays here (UserContext MEGA-QUERY, analytics)
-└── Orchestration, events, validation — no inline Cypher
+├── Domain services delegate to backend methods, NOT execute_query()
+├── Two service-layer Cypher exceptions (both use QueryExecutor directly):
+│   ├── user_context_queries.py — MEGA-QUERY (full user state snapshot)
+│   └── CrossDomainQueryService — 9 targeted cross-domain reads (returns frozen typed dataclasses)
+└── Orchestration, events, validation — no other inline Cypher
 ```
 
 ## Filter Operators

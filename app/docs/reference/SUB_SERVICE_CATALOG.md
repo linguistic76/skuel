@@ -2,7 +2,7 @@
 
 **Purpose:** Quick reference for understanding which sub-service handles which responsibilities across SKUEL's Activity Domain facades.
 
-**Last Updated:** 2026-03-03
+**Last Updated:** 2026-04-10
 
 ---
 
@@ -550,7 +550,8 @@ Quick lookup table for finding the right sub-service:
 | **Completion tracking** | ProgressService | Tasks, Habits, Goals |
 | **Scheduling** | SchedulingService | Tasks, Habits, Goals, Events |
 | **Context-aware planning** | PlanningService | Tasks, Habits |
-| **Learning integration** | LearningService | Habits, Choices, Goals |
+| **Learning integration** | LearningService | Habits, Choices, Goals, Events |
+| **Cross-domain reads (multi-label Cypher)** | `CrossDomainQueryService` | All Activity Domains — 9 single-Cypher methods, `QueryExecutor` only, frozen typed dataclass returns (`core/services/cross_domain/`) |
 | **Habit-specific completions** | CompletionsService | Habits only |
 | **Habit-event integration** | EventIntegrationService | Habits only |
 | **Event-driven handlers** | EventHandlerService | Tasks, Goals, Habits, Events, Choices, Principles |
@@ -649,15 +650,15 @@ self.relationships = common.relationships
 | Domain | Total Sub-Services | Common (4+1 shared) | Domain-Specific |
 |--------|-------------------|------------|-----------------|
 | Tasks | 11 | 5 | 6 (progress, scheduling, planning, productivity, learning_metrics, event_handler) |
-| Goals | 9 | 5 | 4 (progress, scheduling, learning, event_handler) |
+| Goals | 10 | 5 | 5 (progress, scheduling, learning, planning, event_handler) |
 | Habits | 14 | 5 | 9 (progress, scheduling, planning, learning, completions, events, event_handler, patterns, goal_analytics) |
 | Events | 10 | 5 | 5 (progress, scheduling, learning, habit_integration, event_handler) |
-| Choices | 7 | 5 | 2 (learning, event_handler) |
+| Choices | 8 | 5 | 3 (learning, event_handler) |
 | Principles | 10 | 5 | 5 (alignment, learning, reflection, planning, event_handler) |
 
 **Common 4:** core, search, relationships, intelligence (created by factory). Knowledge intelligence is a shared singleton wired separately via `KnowledgeIntelligenceDelegationMixin`.
 **Most Complex:** Habits (14 sub-services)
-**Simplest:** Choices (7 sub-services)
+**Simplest:** Choices (8 sub-services)
 
 ---
 

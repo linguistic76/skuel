@@ -49,10 +49,10 @@ Created via `create_common_sub_services()` factory:
 | Domain | Extra Sub-services |
 |--------|-------------------|
 | **Tasks** | `progress`, `scheduling`, `planning`, `event_handler` |
-| **Goals** | `progress`, `scheduling`, `learning`, `event_handler` |
+| **Goals** | `progress`, `scheduling`, `learning`, `planning`, `event_handler` |
 | **Habits** | `progress`, `completions`, `planning`, `scheduling`, `learning`, `events`, `event_handler`, `patterns`, `goal_analytics` |
 | **Events** | `habits` (integration), `learning` |
-| **Choices** | `learning` |
+| **Choices** | `learning`, `event_handler` |
 | **Principles** | `alignment`, `learning`, `reflection`, `planning`, `event_handler` |
 
 ## Explicit Delegation Pattern
@@ -163,9 +163,21 @@ activity_services["habits"].goals_service = activity_services["goals"]
 
 Orchestration methods use `self.goals_service` — routes never pass cross-domain services as parameters.
 
+### Cross-Domain Read Queries (April 2026)
+
+Cross-domain *reads* that span 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`), not through domain backends or fan-out loops. Facades receive it as a constructor dependency:
+
+```python
+class GoalsService(...):
+    def __init__(self, backend, graph_intelligence_service, cross_domain_query, ...):
+        self.cross_domain_query = cross_domain_query
+```
+
+This replaces the old pattern of domain services calling `self.backend.find_by()` across multiple types and joining in Python. `CrossDomainQueryService` takes only a `QueryExecutor`, runs one Cypher per call, and returns frozen typed dataclasses from `cross_domain_types.py`.
+
 ## Backend Sharing
 
-All sub-services share ONE domain-specific backend instance (no wrappers). Activity Domains use `domain_backends.py` subclasses, which add domain-specific relationship Cypher on top of `UniversalNeo4jBackend`. **All Cypher lives in backends — services delegate, never execute inline Cypher.**
+All sub-services share ONE domain-specific backend instance (no wrappers). Activity Domains use `domain_backends.py` subclasses, which add domain-specific relationship Cypher on top of `UniversalNeo4jBackend`. **Single-domain Cypher lives in backends — services delegate, never execute inline Cypher.** The two service-layer exceptions are `user_context_queries.py` (MEGA-QUERY) and `CrossDomainQueryService` (targeted cross-domain reads), both of which use `QueryExecutor` directly for explicitly cross-domain Cypher.
 
 ```python
 # In services_bootstrap/_backends.py

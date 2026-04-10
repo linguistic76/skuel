@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-01-29
+updated: 2026-04-10
 category: patterns
 related_skills:
 - base-analytics-service
@@ -13,7 +13,7 @@ related_docs:
 
 # Service Consolidation Patterns
 
-Six patterns to reduce boilerplate in SKUEL services. Includes the explicit delegation pattern (February 2026) that replaced FacadeDelegationMixin, saving 2,422 lines across all 9 facade services.
+Eight patterns to reduce boilerplate in SKUEL services. Includes the explicit delegation pattern (February 2026) that replaced FacadeDelegationMixin, saving 2,422 lines across all 9 facade services. Patterns 7-8 added April 2026.
 
 ## Quick Start
 
@@ -708,6 +708,51 @@ class LpSubServices:
 
 ---
 
+## 7. Cross-Domain Read Consolidation (April 2026)
+
+**Problem:** Cross-domain reads were scattered across domain backends and services. Each domain had its own N+1 pattern: fetch all entities of one type, then fan-out queries for related entities in another type, then join in Python. This is the relational-brain pattern — treating the graph like SQL tables you join in application code. Cross-domain Cypher lived on the wrong domain's backend (e.g., `ChoicesBackend` knew about Principles, `GoalsBackend` knew about Tasks).
+
+**Solution:** `CrossDomainQueryService` (`core/services/cross_domain/cross_domain_query_service.py`) — 9 methods, each running exactly one Cypher query across 2+ domain labels, returning a frozen typed dataclass from `cross_domain_types.py`.
+
+**Rules (enforced at the top of the file):**
+- Methods MUST touch 2+ domain labels
+- Takes only `QueryExecutor`, never per-domain backends
+- One Cypher per call, no N+1
+- Returns typed dataclass (not `dict[str, Any]`)
+
+**Methods:**
+| Method | Domains Crossed |
+|--------|----------------|
+| `get_principle_alignment_evidence` | Principle + Goal + Habit |
+| `get_tasks_applying_knowledge` | Task + Ku |
+| `get_goals_for_task` | Task + Goal |
+| `count_active_tasks_for_goal` | Goal + Task |
+| `get_habit_knowledge_reinforcement` | Habit + Ku |
+| `get_choice_principle_adherence` | Choice + Principle |
+| `get_choice_conflict_count` | Choice + Principle |
+
+**What it replaced:** ~790 lines of N+1 queries, fan-out loops, and misplaced cross-domain Cypher from 6 Activity Domain backends and services (174 lines from `domain_backends.py`, 375 lines from Choices `_behavioral_signals_mixin.py`, 86 lines from `events_intelligence_service.py`, 84 lines from `goals_search_service.py`, etc.).
+
+**Bootstrap:** Wired in `services_bootstrap/compose.py` before activity services — `CrossDomainQueryService(query_executor)`.
+
+---
+
+## 8. Activity Stats Consolidation (April 2026)
+
+**Problem:** Duplicated stats-building logic across 6 Activity Domain facade files. Each facade had its own `_compute_{domain}_stats()` function with similar patterns (counting active, completed, overdue, etc.) but subtly different implementations.
+
+**Solution:** `core/utils/activity_stats.py` — 6 frozen dataclasses (`TaskStats`, `GoalStats`, `HabitStats`, `EventStats`, `ChoiceStats`, `PrincipleStats`) with corresponding `compute_{domain}_stats()` pure functions. No I/O. The facade-level `_compute_{domain}_stats()` wrappers remain as thin dict projections for the `ListContext` contract.
+
+**Key fields per dataclass:**
+- `TaskStats`: `total, active, completed, overdue`
+- `GoalStats`: `total, active, completed, on_track, wobbly_count, overdue_count, behind_count`
+- `HabitStats`: `total, active, streaks, avg_streak, keystone_count`
+- `EventStats`: `total, active, scheduled, today`
+- `ChoiceStats`: `total, active, pending, decided`
+- `PrincipleStats`: `total, core, active`
+
+---
+
 ## Quick Reference
 
 | Pattern | File | Import |
@@ -718,6 +763,8 @@ class LpSubServices:
 | Relationship Registry | `/core/models/relationship_registry.py` | `from core.models.relationship_registry import generate_graph_enrichment` |
 | Post-Query Processors | `/adapters/persistence/neo4j/query/cypher/post_processors.py` | `from adapters.persistence.neo4j.query.cypher.post_processors import apply_processor, PROCESSOR_REGISTRY` |
 | Lesson/LP Factories | `/core/services/curriculum_domain_config.py` | `from core.services.curriculum_domain_config import create_lesson_sub_services, create_lp_sub_services` |
+| Cross-Domain Reads | `/core/services/cross_domain/cross_domain_query_service.py` | `from core.services.cross_domain import CrossDomainQueryService` |
+| Activity Stats | `/core/utils/activity_stats.py` | `from core.utils.activity_stats import compute_task_stats, TaskStats` |
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-03-17
+updated: 2026-04-10
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -54,10 +54,11 @@ class ChoicesService(BaseService[ChoicesOperations, Choice]):
     core: ChoicesCoreService
     search: ChoicesSearchService
     relationships: UnifiedRelationshipService
-    intelligence: ChoicesIntelligenceService
+    intelligence: ChoicesIntelligenceService  # takes cross_domain_query for ZPD behavioral signals
     knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
     learning: ChoicesLearningService
     event_handler: ChoiceEventHandlerService
+    cross_domain_query: CrossDomainQueryService  # cross-domain reads (April 2026)
 
     # Explicit delegation — MyPy-native, no mixin needed
     async def get_choice(self, *args: Any, **kwargs: Any) -> Any:
@@ -74,10 +75,10 @@ class ChoicesService(BaseService[ChoicesOperations, Choice]):
 | `search` | Text search, filtering, graph-aware queries |
 | `learning` | Learning path guidance integration |
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
-| `intelligence` | Decision support, dual-track assessment, prediction |
+| `intelligence` | Decision support, dual-track assessment, prediction (takes `cross_domain_query` for ZPD behavioral signals) |
 | `event_handler` | Event-driven handlers (outcome tracking, decision patterns) |
 
-Created via `create_common_sub_services()` factory in facade `__init__`.
+Created via `create_common_sub_services()` factory in facade `__init__` (intelligence skipped — built manually with `cross_domain_query` dependency).
 
 ## Model Fields
 

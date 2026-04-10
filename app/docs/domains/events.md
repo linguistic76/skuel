@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-03-20
+updated: 2026-04-10
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -18,7 +18,7 @@ tags: [events, scheduling-domain, integration-domain, domain]
 
 Events represents time commitments — things a user attends, participates in, or schedules. It is one of the 6 Activity Domains alongside Tasks, Goals, Habits, Choices, and Principles. Events shares the same infrastructure as all Activity Domains: `create_common_sub_services()` factory, facade pattern, `UserOwnedEntity` base class.
 
-Events additionally has integration sub-services (`EventsHabitIntegrationService`, `EventsLearningService`) that bridge it with other Activity types, and the `ActivityType` enum (12 types: TASK, HABIT, EVENT, LEARNING, MILESTONE, DEADLINE, etc.) gives Events polymorphic calendar coverage. The **Calendar** cross-cutting system aggregates Events alongside Tasks, Habits, and Goals into a unified timeline — Calendar is the scheduling system, Events are the things being scheduled.
+Events additionally has an integration sub-service (`EventsHabitIntegrationService`) that bridges it with Habits, and the `ActivityType` enum (12 types: TASK, HABIT, EVENT, LEARNING, MILESTONE, DEADLINE, etc.) gives Events polymorphic calendar coverage. The **Calendar** cross-cutting system aggregates Events alongside Tasks, Habits, and Goals into a unified timeline — Calendar is the scheduling system, Events are the things being scheduled.
 
 ## Key Files
 
@@ -63,7 +63,7 @@ class EventsService(BaseService[EventsOperations, Event]):
     core: EventsCoreService
     search: EventsSearchService
     habits: EventsHabitIntegrationService
-    learning: EventsLearningService
+    learning: EventsLearningService  # study sessions, spaced repetition, LP schedules
     progress: EventsProgressService
     scheduling: EventsSchedulingService
     relationships: UnifiedRelationshipService
@@ -75,15 +75,14 @@ class EventsService(BaseService[EventsOperations, Event]):
     async def get_event(self, *args: Any, **kwargs: Any) -> Any:
         return await self.core.get_event(*args, **kwargs)
 
-    async def get_user_items_in_range(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.core.get_user_items_in_range(*args, **kwargs)
-
     async def complete_event_with_cascade(self, *args: Any, **kwargs: Any) -> Any:
         return await self.progress.complete_event_with_cascade(*args, **kwargs)
 
     async def schedule_event_smart(self, *args: Any, **kwargs: Any) -> Any:
         return await self.scheduling.schedule_event_smart(*args, **kwargs)
 ```
+
+**Note (April 2026):** Cross-domain read methods (`get_events_for_knowledge`, `get_knowledge_reinforcement_stats`, `get_events_supporting_goal`, `get_event_goal_support`, `get_event_knowledge_reinforcement`) were removed from the facade — these queries now go through `CrossDomainQueryService`. `EventsLearningService` remains for creation-side methods (study sessions, spaced repetition, LP schedules).
 
 ## Event Handler — Insight Persistence (March 2026)
 
