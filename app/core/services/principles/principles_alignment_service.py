@@ -22,8 +22,6 @@ from typing import Any
 from core.constants import QueryLimit
 from core.events import publish_event
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleStrength
-from core.models.goal.goal import Goal
-from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
 from core.models.principle.principle_types import (
     AlignmentAssessment as UserAlignmentAssessment,
@@ -34,13 +32,11 @@ from core.models.principle.principle_types import (
     PrincipleDecision,
 )
 from core.models.type_hints import EntityUID, UserUID
-
-# Protocol interfaces - Use main Operations protocols (not QueryOperations aliases)
-from core.ports.domain_protocols import GoalsOperations, HabitsOperations
 from core.services.cross_domain import CrossDomainQueryService
+from core.services.cross_domain.cross_domain_types import PrincipleAlignmentEvidence
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_principle_priority, get_timestamp
 
 logger = get_logger(__name__)
@@ -92,28 +88,19 @@ class PrinciplesAlignmentService:
         self,
         backend,
         cross_domain_query: CrossDomainQueryService,
-        goals_backend: GoalsOperations | None = None,
-        habits_backend: HabitsOperations | None = None,
         event_bus=None,
     ) -> None:
         """
         Initialize principles alignment service.
 
         Args:
-            backend: Backend for principle operations,
+            backend: Backend for principle operations.
             cross_domain_query: CrossDomainQueryService for graph-derived
                 cross-domain reads (REQUIRED — fail-fast).
-            goals_backend: Backend for single-goal lookups (used by
-                ``assess_goal_alignment``; cross-domain reads now go through
-                ``cross_domain_query``).
-            habits_backend: Backend for single-habit lookups (used by
-                ``assess_habit_alignment``).
-            event_bus: Event bus for publishing domain events (optional)
+            event_bus: Event bus for publishing domain events (optional).
         """
         self.backend = backend
         self.cross_domain_query = cross_domain_query
-        self.goals_backend = goals_backend
-        self.habits_backend = habits_backend
         self.event_bus = event_bus
         self.alignment_cache: dict[str, AlignmentAssessment] = {}
         self.logger = get_logger(__name__)
@@ -129,103 +116,22 @@ class PrinciplesAlignmentService:
         """
         Assess how a goal aligns with user's principles.
 
+        Uses graph-based alignment evidence (explicit relationships like
+        GUIDES_GOAL, GUIDED_BY_PRINCIPLE, EMBODIES_PRINCIPLE) rather than
+        keyword heuristics.
+
         Args:
-            goal_uid: Goal to assess,
-            user_uid: User whose principles to check
+            goal_uid: Goal to assess.
+            user_uid: User whose principles to check.
 
         Returns:
-            Complete alignment assessment
+            Complete alignment assessment.
         """
-        # Null-safety check
-        if not self.goals_backend:
-            return Result.fail(
-                Errors.system(
-                    message="Goals backend not available", operation="assess_goal_alignment"
-                )
-            )
-
-        # Get goal
-        goal_result = await self.goals_backend.get(goal_uid)
-        if goal_result.is_error:
-            return Result.fail(goal_result)
-        goal = goal_result.value
-        if not goal:
-            return Result.fail(Errors.not_found(resource="Goal", identifier=goal_uid))
-
-        # Get user's principles
-        principles_result = await self.backend.find_by(user_uid=user_uid)
-        if principles_result.is_error:
-            return principles_result
-
-        principles = principles_result.value
-
-        # Assess alignment with each principle
-        alignments = []
-        total_score = 0.0
-
-        for principle in principles:
-            alignment_level = self._assess_entity_alignment(principle, goal.title, goal.category)
-
-            # Calculate alignment score
-            score = self._calculate_alignment_score(alignment_level)
-
-            # Weight by principle priority
-            priority_numeric = get_principle_priority(principle)
-            weighted_score = score * (priority_numeric / 10.0)
-            total_score += weighted_score
-
-            # Create alignment record
-            priority_numeric = get_principle_priority(principle)
-            alignment = PrincipleAlignment(
-                principle_uid=principle.uid,
-                entity_uid=goal_uid,
-                entity_type="goal",
-                alignment_level=alignment_level,
-                alignment_score=score,
-                influence_description=f"{principle.label} influences goal through {goal.category or 'general'}",
-                influence_weight=priority_numeric / 10.0,
-            )
-            alignments.append(alignment)
-
-            # Publish PrincipleAlignmentAssessed event (event-driven architecture)
-            from core.events import PrincipleAlignmentAssessed
-
-            event = PrincipleAlignmentAssessed(
-                principle_uid=principle.uid,
-                entity_uid=goal_uid,
-                entity_type="goal",
-                user_uid=user_uid,
-                alignment_score=score,
-            )
-            await publish_event(self.event_bus, event, self.logger)
-
-        # Calculate overall alignment
-        overall = total_score / len(principles) if principles else 0.0
-
-        # Find primary principle
-        primary = max(principles, key=get_principle_priority) if principles else None
-
-        # Generate insights
-        strengths = self._identify_alignment_strengths(alignments)
-        gaps = self._identify_alignment_gaps(alignments)
-        recommendations = self._generate_alignment_recommendations(goal, alignments, principles)
-
-        assessment = AlignmentAssessment(
+        return await self._assess_entity_alignment_via_graph(
             entity_uid=goal_uid,
             entity_type="goal",
-            entity_name=goal.title,
-            principle_alignments=alignments,
-            overall_alignment=overall,
-            primary_principle=primary,
-            strengths=strengths,
-            gaps=gaps,
-            recommendations=recommendations,
+            user_uid=user_uid,
         )
-
-        # Cache the assessment
-        self.alignment_cache[f"goal_{goal_uid}"] = assessment
-
-        return Result.ok(assessment)
 
     @with_error_handling("assess_habit_alignment", error_type="database")
     async def assess_habit_alignment(
@@ -234,24 +140,42 @@ class PrinciplesAlignmentService:
         """
         Assess how a habit aligns with user's principles.
 
-        Similar to goal alignment but for habits.
+        Uses graph-based alignment evidence (explicit relationships like
+        INSPIRES_HABIT, EMBODIES_PRINCIPLE) rather than keyword heuristics.
+
+        Args:
+            habit_uid: Habit to assess.
+            user_uid: User whose principles to check.
+
+        Returns:
+            Complete alignment assessment.
         """
-        # Null-safety check
-        if not self.habits_backend:
-            return Result.fail(
-                Errors.system(
-                    message="Habits backend not available", operation="assess_habit_alignment"
-                )
-            )
+        return await self._assess_entity_alignment_via_graph(
+            entity_uid=habit_uid,
+            entity_type="habit",
+            user_uid=user_uid,
+        )
 
-        # Get habit
-        habit_result = await self.habits_backend.get(habit_uid)
-        if habit_result.is_error:
-            return Result.fail(habit_result)
-        habit = habit_result.value
-        if not habit:
-            return Result.fail(Errors.not_found(resource="Habit", identifier=habit_uid))
+    # ========================================================================
+    # GRAPH-BASED ALIGNMENT (shared implementation)
+    # ========================================================================
 
+    async def _assess_entity_alignment_via_graph(
+        self, entity_uid: EntityUID, entity_type: str, user_uid: UserUID
+    ) -> Result[AlignmentAssessment]:
+        """
+        Assess how an entity (goal or habit) aligns with user's principles
+        using graph-based alignment evidence.
+
+        For each principle, checks whether ``entity_uid`` appears in the
+        principle's connected goals/habits via explicit relationships
+        (GUIDES_GOAL, GUIDED_BY_PRINCIPLE, INSPIRES_HABIT, EMBODIES_PRINCIPLE).
+
+        Args:
+            entity_uid: Entity to assess.
+            entity_type: "goal" or "habit".
+            user_uid: User whose principles to check.
+        """
         # Get user's principles
         principles_result = await self.backend.find_by(user_uid=user_uid)
         if principles_result.is_error:
@@ -259,43 +183,58 @@ class PrinciplesAlignmentService:
 
         principles = principles_result.value
 
-        # Assess alignment with each principle
-        alignments = []
+        # For each principle, get graph evidence and check if entity is connected
+        alignments: list[PrincipleAlignment] = []
         total_score = 0.0
+        entity_name = ""
 
         for principle in principles:
-            habit_category_str = habit.habit_category.value if habit.habit_category else "other"
-            polarity_str = habit.polarity.value if habit.polarity else "build"
-            alignment_level = self._assess_entity_alignment(
-                principle, habit.title, f"{habit_category_str}/{polarity_str}"
+            evidence_result = await self.cross_domain_query.get_principle_alignment_evidence(
+                principle.uid, user_uid
+            )
+            if evidence_result.is_error:
+                continue
+
+            evidence = evidence_result.value
+            connected, name = self._find_entity_in_evidence(
+                entity_uid, entity_type, evidence
             )
 
-            # Calculate alignment score
-            score = self._calculate_alignment_score(alignment_level)
+            if connected:
+                level = evidence.alignment_level
+                score = evidence.score
+                if name:
+                    entity_name = name
+            else:
+                level = AlignmentLevel.UNKNOWN
+                score = 0.0
+
             priority_numeric = get_principle_priority(principle)
             weighted_score = score * (priority_numeric / 10.0)
             total_score += weighted_score
 
-            # Create alignment record
-            priority_numeric = get_principle_priority(principle)
             alignment = PrincipleAlignment(
                 principle_uid=principle.uid,
-                entity_uid=habit_uid,
-                entity_type="habit",
-                alignment_level=alignment_level,
+                entity_uid=entity_uid,
+                entity_type=entity_type,
+                alignment_level=level,
                 alignment_score=score,
-                influence_description=f"{principle.label} practiced through {habit.title}",
+                influence_description=(
+                    f"{principle.label} connected via graph relationships"
+                    if connected
+                    else f"{principle.label} has no graph connection"
+                ),
                 influence_weight=priority_numeric / 10.0,
             )
             alignments.append(alignment)
 
-            # Publish PrincipleAlignmentAssessed event (event-driven architecture)
+            # Publish event
             from core.events import PrincipleAlignmentAssessed
 
             event = PrincipleAlignmentAssessed(
                 principle_uid=principle.uid,
-                entity_uid=habit_uid,
-                entity_type="habit",
+                entity_uid=entity_uid,
+                entity_type=entity_type,
                 user_uid=user_uid,
                 alignment_score=score,
             )
@@ -303,24 +242,39 @@ class PrinciplesAlignmentService:
 
         # Calculate overall alignment
         overall = total_score / len(principles) if principles else 0.0
-
-        # Find primary principle
         primary = max(principles, key=get_principle_priority) if principles else None
 
-        # Generate insights
         assessment = AlignmentAssessment(
-            entity_uid=habit_uid,
-            entity_type="habit",
-            entity_name=habit.title,
+            entity_uid=entity_uid,
+            entity_type=entity_type,
+            entity_name=entity_name,
             principle_alignments=alignments,
             overall_alignment=overall,
             primary_principle=primary,
             strengths=self._identify_alignment_strengths(alignments),
             gaps=self._identify_alignment_gaps(alignments),
-            recommendations=self._generate_habit_recommendations(habit, alignments, principles),
+            recommendations=self._generate_alignment_recommendations(alignments, principles),
         )
 
+        self.alignment_cache[f"{entity_type}_{entity_uid}"] = assessment
         return Result.ok(assessment)
+
+    @staticmethod
+    def _find_entity_in_evidence(
+        entity_uid: EntityUID,
+        entity_type: str,
+        evidence: PrincipleAlignmentEvidence,
+    ) -> tuple[bool, str]:
+        """Check if an entity appears in a principle's alignment evidence.
+
+        Returns:
+            (is_connected, entity_title) — title is non-empty when found.
+        """
+        entities = evidence.aligned_goals if entity_type == "goal" else evidence.aligned_habits
+        for entity in entities:
+            if entity.uid == entity_uid:
+                return True, entity.title
+        return False, ""
 
     # ========================================================================
     # HYBRID DUAL-TRACK ALIGNMENT (January 2026)
@@ -633,14 +587,15 @@ class PrinciplesAlignmentService:
         """
         Generate complete motivational profile for a user.
 
-        This combines principles with goals and habits to understand
-        the user's core motivations and alignment.
+        Uses graph-based alignment evidence to compute goal/habit alignment
+        scores directly from each principle's connected entities — no need
+        to fetch goals/habits separately.
 
         Args:
-            user_uid: User to profile
+            user_uid: User to profile.
 
         Returns:
-            Complete motivational profile
+            Complete motivational profile.
         """
         # Get principles
         principles_result = await self.backend.find_by(user_uid=user_uid)
@@ -653,32 +608,23 @@ class PrinciplesAlignmentService:
         core_principles = [p for p in all_principles if p.strength == PrincipleStrength.CORE]
         developing = [p for p in all_principles if p.strength == PrincipleStrength.DEVELOPING]
 
-        # Get user's goals and habits
-        goals: list[Goal] = []
-        if self.goals_backend:
-            goals_result = await self.goals_backend.find_by(user_uid=user_uid)
-            if not goals_result.is_error:
-                goals = goals_result.value
-        habits: list[Habit] = []
-        if self.habits_backend:
-            habits_result = await self.habits_backend.find_by(user_uid=user_uid)
-            if not habits_result.is_error:
-                habits = habits_result.value
+        # Collect alignment evidence across all principles
+        goal_scores: list[float] = []
+        habit_scores: list[float] = []
 
-        # Calculate alignment scores
-        goal_scores = []
-        for goal in goals:
-            assessment = await self.assess_goal_alignment(goal.uid, user_uid)
-            if assessment.is_ok:
-                goal_scores.append(assessment.value.overall_alignment)
+        for principle in all_principles:
+            evidence_result = await self.cross_domain_query.get_principle_alignment_evidence(
+                principle.uid, user_uid
+            )
+            if evidence_result.is_error:
+                continue
 
-        habit_scores = []
-        for habit in habits:
-            assessment = await self.assess_habit_alignment(habit.uid, user_uid)
-            if assessment.is_ok:
-                habit_scores.append(assessment.value.overall_alignment)
+            evidence = evidence_result.value
+            if evidence.aligned_goals:
+                goal_scores.append(evidence.score)
+            if evidence.aligned_habits:
+                habit_scores.append(evidence.score)
 
-        # Calculate averages
         goal_alignment = sum(goal_scores) / len(goal_scores) if goal_scores else 0.0
         habit_alignment = sum(habit_scores) / len(habit_scores) if habit_scores else 0.0
 
@@ -693,8 +639,7 @@ class PrinciplesAlignmentService:
         # Generate suggestions
         goal_suggestions = []
         habit_suggestions = []
-
-        for principle in core_principles[:2]:  # Top 2 core principles
+        for principle in core_principles[:2]:
             goal_suggestions.extend(principle.generate_aligned_goals())
             habit_suggestions.extend(principle.generate_aligned_habits())
 
@@ -807,37 +752,6 @@ class PrinciplesAlignmentService:
     # HELPER METHODS
     # ========================================================================
 
-    def _assess_entity_alignment(
-        self, principle: Principle, entity_title: str, entity_category: str | None
-    ) -> AlignmentLevel:
-        """Assess alignment between a principle and an entity using keyword matching."""
-        principle_text = ((principle.statement or "") + " " + (principle.title or "")).lower()
-        entity_text = ((entity_title or "") + " " + (entity_category or "")).lower()
-
-        # Simple keyword overlap heuristic
-        principle_words = set(principle_text.split())
-        entity_words = set(entity_text.split())
-        overlap = len(principle_words & entity_words)
-
-        if overlap >= 3:
-            return AlignmentLevel.ALIGNED
-        elif overlap >= 2:
-            return AlignmentLevel.MOSTLY_ALIGNED
-        elif overlap >= 1:
-            return AlignmentLevel.PARTIAL
-        return AlignmentLevel.UNKNOWN
-
-    def _calculate_alignment_score(self, level: AlignmentLevel) -> float:
-        """Convert alignment level to numeric score"""
-        scores = {
-            AlignmentLevel.ALIGNED: 1.0,
-            AlignmentLevel.MOSTLY_ALIGNED: 0.75,
-            AlignmentLevel.PARTIAL: 0.5,
-            AlignmentLevel.MISALIGNED: 0.0,
-            AlignmentLevel.UNKNOWN: 0.25,
-        }
-        return scores.get(level, 0.25)
-
     def _identify_alignment_strengths(self, alignments: list[PrincipleAlignment]) -> list[str]:
         """Identify where alignment is strong"""
         return [
@@ -855,37 +769,26 @@ class PrinciplesAlignmentService:
         ]
 
     def _generate_alignment_recommendations(
-        self, goal: Goal, alignments: list[PrincipleAlignment], principles: list[Principle]
+        self, alignments: list[PrincipleAlignment], principles: list[Principle]
     ) -> list[str]:
-        """Generate recommendations for improving goal alignment"""
+        """Generate recommendations for improving alignment based on graph evidence."""
         recommendations = []
 
-        # Find misaligned principles
+        # Find unconnected principles — suggest creating explicit links
         for alignment in alignments:
-            if alignment.alignment_level in [AlignmentLevel.MISALIGNED, AlignmentLevel.PARTIAL]:
-                principle = next(p for p in principles if p.uid == alignment.principle_uid)
-                recommendations.append(
-                    f"Consider how {goal.name} can better embody {principle.title}"
+            if alignment.alignment_level in [AlignmentLevel.UNKNOWN, AlignmentLevel.MISALIGNED]:
+                principle = next(
+                    (p for p in principles if p.uid == alignment.principle_uid), None
                 )
+                if principle:
+                    recommendations.append(
+                        f"Create an explicit connection between this entity and '{principle.title}'"
+                    )
 
-        # Suggest habits that support aligned principles
+        # Suggest strengthening already-aligned principles
         for alignment in alignments:
             if alignment.alignment_level == AlignmentLevel.ALIGNED:
                 recommendations.extend(alignment.strengthen_alignment())
-
-        return recommendations[:5]  # Top 5 recommendations
-
-    def _generate_habit_recommendations(
-        self, habit: Habit, alignments: list[PrincipleAlignment], principles: list[Principle]
-    ) -> list[str]:
-        """Generate recommendations for improving habit alignment"""
-        recommendations = []
-
-        # Suggest ways to strengthen alignment
-        for alignment in alignments:
-            if alignment.alignment_score < 0.75:
-                principle = next(p for p in principles if p.uid == alignment.principle_uid)
-                recommendations.append(f"Modify {habit.title} to better practice {principle.title}")
 
         return recommendations[:5]
 

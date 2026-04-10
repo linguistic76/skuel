@@ -39,7 +39,6 @@ def _create_activity_services(
     Domain-specific dependencies:
         - Tasks: ku_inference_service, analytics_engine, ku_generation_service
         - Habits: completions_backend (for achievements)
-        - Principles: goals_backend, habits_backend (cross-domain alignment)
 
     All facades embed intelligence (access via facade.intelligence).
     """
@@ -98,8 +97,6 @@ def _create_activity_services(
             backend=principles_backend,
             graph_intelligence_service=graph_intelligence,
             cross_domain_query=cross_domain_query,
-            goals_backend=goals_backend,
-            habits_backend=habits_backend,
             event_bus=event_bus,
             insight_store=insight_store,
             activity_knowledge_intelligence=activity_knowledge_intelligence,

@@ -46,8 +46,6 @@ def alignment_service(mock_backend, mock_cross_domain_query) -> PrinciplesAlignm
     return PrinciplesAlignmentService(
         backend=mock_backend,
         cross_domain_query=mock_cross_domain_query,
-        goals_backend=None,
-        habits_backend=None,
     )
 
 

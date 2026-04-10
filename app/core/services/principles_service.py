@@ -23,11 +23,7 @@ from core.models.enums.principle_enums import PrincipleCategory, PrincipleStreng
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.type_hints import EntityUID, UserUID
-from core.ports.domain_protocols import (
-    GoalsOperations,
-    HabitsOperations,
-    PrinciplesOperations,
-)
+from core.ports.domain_protocols import PrinciplesOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.cross_domain import CrossDomainQueryService
@@ -392,8 +388,6 @@ class PrinciplesService(
         backend: PrinciplesOperations,
         graph_intelligence_service: Any,
         cross_domain_query: CrossDomainQueryService,
-        goals_backend: GoalsOperations | None = None,
-        habits_backend: HabitsOperations | None = None,
         event_bus: Any = None,
         insight_store: Any = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
@@ -405,18 +399,9 @@ class PrinciplesService(
         Args:
             backend: Protocol-based backend for principle operations
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
-            goals_backend: Backend for goal queries (cross-domain alignment)
-            habits_backend: Backend for habit queries (cross-domain alignment)
+            cross_domain_query: CrossDomainQueryService for graph-derived alignment (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
             insight_store: InsightStore for persisting event-driven insights (optional)
-
-        Note:
-            Context invalidation now happens via event-driven architecture.
-            Principle events trigger user_service.invalidate_context() in bootstrap.
-
-        Migration Note (v3.2.0 - December 2025):
-            Made graph_intelligence_service REQUIRED - relationship service needs it.
-            Fail-fast at construction, not at method call.
         """
         super().__init__(backend, "principles")
 
@@ -444,8 +429,6 @@ class PrinciplesService(
         self.alignment = PrinciplesAlignmentService(
             backend=backend,
             cross_domain_query=cross_domain_query,
-            goals_backend=goals_backend,
-            habits_backend=habits_backend,
             event_bus=event_bus,
         )
         self.learning = PrinciplesLearningService(backend=backend)
