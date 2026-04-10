@@ -121,6 +121,9 @@ DELETED: dict[str, str] = {
     "submissions_sharing_service": "replaced by UnifiedSharingService",
     "activity_review_service.py": "replaced by activity_report_service.py + review_queue_service.py",
     "planning_mixin.ActivityDataReader": "absorbed into UserContextBuilder",
+    # Deleted public attributes
+    "TasksService.analytics_engine": "removed — AnalyticsEngine now private in TasksIntelligenceService as self._analytics_engine",
+    "TasksService.ku_generation_service": "removed — now private as self._ku_generation_service",
     # Deleted classes / concepts
     "ProfileLayout": "deleted — use BasePage(page_type=PageType.CUSTOM)",
     "PageType.HUB": "deleted — sidebar pages use PageType.CUSTOM + SidebarPage",

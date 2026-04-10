@@ -281,9 +281,10 @@ TasksService (Facade)
 ```
 Activity Domain Facades (6 total)
 │
-├─ TasksService     (12 sub-services)
+├─ TasksService     (9 sub-services + 2 facade mixins)
 │   └─ core, search, progress, scheduling, planning, intelligence,
-│      learning_metrics, event_handler, analytics_engine, ku_generation_service, knowledge_intelligence, ai
+│      learning_metrics, event_handler, knowledge_intelligence
+│   └─ mixins: _OrchestrationMixin, _RelationshipMixin
 │
 ├─ GoalsService      (10 sub-services + 2 facade mixins)
 │   └─ core, search, progress, scheduling, learning, planning, intelligence, event_handler, knowledge_intelligence, ai
@@ -386,11 +387,11 @@ Route Layer
 
 ```
 TasksCoreService        ← Depends on: entity_inference_service (optional), event_bus (optional)
-TasksProgressService    ← Depends on: analytics_engine, event_bus (optional)
+TasksProgressService    ← Depends on: event_bus (optional)
 TasksSchedulingService  ← Self-contained
 TasksPlanningService    ← Depends on: relationship_service (UnifiedRelationshipService)
 TasksSearchService      ← Self-contained (uses DomainConfig)
-TasksIntelligenceService← Depends on: graph_intelligence_service, relationship_service
+TasksIntelligenceService← Depends on: graph_intelligence_service, relationship_service, AnalyticsEngine (owned internally)
 UnifiedRelationshipService ← Depends on: relationship_config (TASKS_CONFIG)
 ```
 

@@ -655,7 +655,7 @@ config includes a learning class; singleton is passed in).
 
 | Domain | Sub-services | Facade Mixins | Common (factory) | Domain-Specific |
 |--------|-------------|---------------|-----------------|-----------------|
-| Tasks | 12 | 0 | 6 (core, search, rels, intel, event_handler, knowledge_intelligence) | learning_metrics, progress, scheduling, planning, analytics_engine, ku_generation_service |
+| Tasks | 9 | 2 | 6 (core, search, rels, intel, event_handler, knowledge_intelligence) | learning_metrics, progress, scheduling, planning |
 | Goals | 10 | 2 | 7 (+ learning) | progress, scheduling, planning |
 | Habits | 12 | 3 | 7 (+ learning) | progress, scheduling, planning, completions, patterns |
 | Events | 10 | 0 | 7 (+ learning) | progress, scheduling, habit_integration |
