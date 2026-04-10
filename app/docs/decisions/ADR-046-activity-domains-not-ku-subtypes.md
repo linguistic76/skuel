@@ -20,14 +20,16 @@ Activity Domains remain separate dataclasses. Knowledge connections use graph ed
 
 ### Per-Domain Knowledge Relationships
 
-| Domain | Relationship(s) | Semantics | Backend Method | Status |
-|--------|-----------------|-----------|----------------|--------|
-| Tasks | `APPLIES_KNOWLEDGE`, `REQUIRES_KNOWLEDGE` | Applies knowledge to work; knowledge prerequisite | `link_task_to_knowledge()` | Implemented |
-| Goals | `REQUIRES_KNOWLEDGE` | Knowledge needed to achieve goal | `link_goal_to_knowledge()` | Implemented |
-| Habits | `REINFORCES_KNOWLEDGE` | Strengthens knowledge through repetition | `link_habit_to_knowledge()` | Implemented |
-| Events | `REINFORCES_KNOWLEDGE` | Practices knowledge in scheduled context | `link_event_to_knowledge()` | Implemented |
+| Domain | Relationship(s) | Semantics | Facade Method | Status |
+|--------|-----------------|-----------|---------------|--------|
+| Tasks | `APPLIES_KNOWLEDGE`, `REQUIRES_KNOWLEDGE` | Applies knowledge to work; knowledge prerequisite | `tasks_service.link_task_to_knowledge()` | Implemented |
+| Goals | `REQUIRES_KNOWLEDGE` | Knowledge needed to achieve goal | `goals_service.link_goal_to_knowledge()` | Implemented |
+| Habits | `REINFORCES_KNOWLEDGE` | Strengthens knowledge through repetition | `habits_service.link_habit_to_knowledge()` | Implemented |
+| Events | `REINFORCES_KNOWLEDGE` | Practices knowledge in scheduled context | `events_service.link_event_to_knowledge()` | Implemented |
 | Choices | `INFORMS_CHOICE` | Knowledge informs decision-making | — | Not yet implemented |
 | Principles | `GROUNDED_IN_KNOWLEDGE` | Philosophical grounding in knowledge | — | Not yet implemented |
+
+All facade `link_*` methods delegate to `UnifiedRelationshipService` — no inline Cypher on domain backends.
 
 Confidence scoring for these relationships is defined in `RelationshipStrength` in `core/constants.py`:
 - `APPLIES_KNOWLEDGE: 0.85` (Task applies knowledge)

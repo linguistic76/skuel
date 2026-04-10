@@ -72,8 +72,8 @@ the same dependency pattern.
 
 4. **Create one Task per unmastered, ready step.** Call `self.backend.create()` with a
    `TaskCreateRequest`-style dict. Link the task to the KU via `APPLIES_KNOWLEDGE`
-   (use `TasksBackend.link_task_to_knowledge(task_uid, ku_uid)` — already exists on
-   `TasksBackend` in `domain_backends.py`).
+   (use `tasks_service.link_task_to_knowledge(task_uid, ku_uid)` — facade delegates
+   to `UnifiedRelationshipService`).
 
 5. **Respect capacity.** If `_user_context.available_minutes_daily` is set, cap the
    number of tasks created to fit within that budget (each task has an estimated duration

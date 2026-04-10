@@ -289,7 +289,7 @@ What do I want to do?
 │     Example: tasks_service.complete_task_with_cascade(uid, context)
 │
 └─ Create/query relationships?
-   └─ Use: facade relationship method (delegates to relationships)
+   └─ Use: facade relationship method (delegates to UnifiedRelationshipService)
       Example: tasks_service.link_task_to_knowledge(task_uid, ku_uid)
 ```
 

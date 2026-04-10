@@ -481,22 +481,19 @@ CREATE INDEX task_due_date IF NOT EXISTS FOR (t:Task) ON (t.due_date)
 - Add `estimated_hours` to model → index not automatically created
 - Performance degrades until developer remembers to add index
 
-### 3. **Relationship Definitions** (Semi-Dynamic)
+### 3. **Relationship Definitions** (Dynamic via UnifiedRelationshipService)
 
 **Current State:**
 ```python
-# Relationships defined in enhanced backends
-async def link_task_to_goal(self, task_uid: str, goal_uid: str):
-    query = """
-    MATCH (t:Task {uid: $task_uid})
-    MATCH (g:Goal {uid: $goal_uid})
-    MERGE (t)-[:CONTRIBUTES_TO]->(g)
-    """
+# Cross-domain relationships created via UnifiedRelationshipService (not domain backends)
+# Facade delegates: tasks_service.link_task_to_goal() → self.relationships.link_to_goal()
+await tasks_service.link_task_to_goal(task_uid, goal_uid, contribution_percentage=0.1)
 ```
 
 **Status:**
 - RelationshipType enum is dynamic ✅
-- But creating new relationship methods requires manual backend code ❌
+- Cross-domain relationships handled by `UnifiedRelationshipService` ✅
+- Domain backends handle only domain-specific Cypher (hierarchy, organize, sharing) ✅
 
 ### 4. **Search/Filter Query Generation** (Manual)
 

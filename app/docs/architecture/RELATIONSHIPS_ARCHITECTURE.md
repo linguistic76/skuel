@@ -192,15 +192,14 @@ Complex relationship Cypher that is domain-specific belongs on the domain backen
 
 | Backend | Domain-Specific Relationship Methods |
 |---------|--------------------------------------|
-| `TasksBackend` | `link_task_to_knowledge()`, `link_task_to_goal()`, `link_task_to_principle()` |
-| `GoalsBackend` | `add_milestone()`, `link_goal_to_habit()`, `link_goal_to_knowledge()`, `link_goal_to_principle()` |
-| `HabitsBackend` | `link_habit_to_knowledge()`, `link_habit_to_principle()` |
-| `EventsBackend` | `link_event_to_task()`, `link_event_to_principle()` |
-| `ChoicesBackend` | `link_choice_to_principle()`, `link_choice_to_goal()` |
+| `TasksBackend` | Hierarchy via `_HierarchyMixin` (subtask ops) |
+| `GoalsBackend` | `add_milestone()`, hierarchy via `_HierarchyMixin` |
 | `KuBackend` | `organize()`, `unorganize()`, `reorder()`, `get_organized_children()`, `find_organizers()`, `list_root_organizers()`, `is_organizer()` |
 | `SubmissionsBackend` | `share_submission()`, `unshare_submission()`, `get_shared_with_users()`, `get_submissions_shared_with_me()`, `set_visibility()`, `check_access()`, `verify_shareable()` |
 | `LpBackend` | `get_paths_containing_ku()`, `get_ku_mastery_progress()` |
 | `ExerciseBackend` | `link_to_curriculum()`, `unlink_from_curriculum()`, `get_required_knowledge()` |
+
+**Note:** Cross-domain relationship creation (task→knowledge, goal→habit, goal→principle, etc.) is handled by `UnifiedRelationshipService`, not domain backends. Service facades delegate to `self.relationships` (UnifiedRelationshipService).
 
 ---
 

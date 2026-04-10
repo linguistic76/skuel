@@ -185,14 +185,14 @@ Markdown File (stored in /data/analytics/)
 **Reason:** Analytics doesn't create relationships. It consumes them.
 
 **Contrast with other domains:**
-- **Tasks** → Has relationship methods on `TasksBackend` — creates DEPENDS_ON, CONTRIBUTES_TO_GOAL edges
-- **Goals** → Has relationship methods on `GoalsBackend` — creates SUPPORTS, REQUIRES edges
+- **Tasks** → Facade delegates relationship creation to `UnifiedRelationshipService` — creates DEPENDS_ON, CONTRIBUTES_TO_GOAL edges
+- **Goals** → Facade delegates relationship creation to `UnifiedRelationshipService` — creates SUPPORTS, REQUIRES edges
 - **Analytics** → NO relationship service — only reads existing edges for statistics
 
 **Example:**
 ```python
-# TasksBackend (writes relationships)
-await tasks_backend.link_task_to_goal(task_uid, goal_uid, contribution=0.3)
+# TasksService facade (delegates to UnifiedRelationshipService)
+await tasks_service.link_task_to_goal(task_uid, goal_uid, contribution_percentage=0.3)
 
 # AnalyticsMetricsService (reads relationships for metrics)
 tasks_for_goal = await tasks_service.get_tasks_for_goal(goal_uid)

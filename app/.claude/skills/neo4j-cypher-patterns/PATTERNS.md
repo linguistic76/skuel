@@ -8,52 +8,24 @@
 
 **Problem**: Creating a relationship that may already exist, with metadata you want to update.
 
-**Context**: Domain backends linking entities (task→knowledge, habit→goal, event→knowledge).
+**Context**: Backends linking entities — hierarchy, lateral relationships, badges, LP/PS construction.
 
 **Solution**:
 ```cypher
-// TasksBackend.link_task_to_knowledge()
-MATCH (t:Task {uid: $task_uid})
-MATCH (k:Entity {uid: $knowledge_uid})
-MERGE (t)-[r:REQUIRES_KNOWLEDGE]->(k)
-SET r.knowledge_score_required = $knowledge_score_required,
-    r.is_learning_opportunity = $is_learning_opportunity
+// _hierarchy_mixin.py — parent-child relationship
+MATCH (p:Entity {uid: $parent_uid})
+MATCH (c:Entity {uid: $child_uid})
+MERGE (p)-[r:HAS_SUBTASK]->(c)
+SET r.created_at = datetime()
 RETURN r
 
-// GoalsBackend.link_task_to_goal()
-MATCH (t:Task {uid: $task_uid})
-MATCH (g:Goal {uid: $goal_uid})
-MERGE (t)-[r:CONTRIBUTES_TO_GOAL]->(g)
-SET r.contribution_percentage = $contribution_percentage
+// LateralRelationshipBackend — cross-domain edges
+MATCH (a:Entity {uid: $source_uid})
+MATCH (b:Entity {uid: $target_uid})
+MERGE (a)-[r:RELATED_TO]->(b)
+SET r.confidence = $confidence,
+    r.created_at = datetime()
 RETURN r
-```
-
-**Python (via backend)**:
-```python
-# domain_backends.py pattern — uses self.execute_query() (inherited from UniversalNeo4jBackend)
-async def link_task_to_knowledge(
-    self, task_uid: str, knowledge_uid: str,
-    knowledge_score_required: float = 0.8,
-    is_learning_opportunity: bool = False,
-) -> Result[bool]:
-    query = """
-    MATCH (t:Task {uid: $task_uid})
-    MATCH (k:Entity {uid: $knowledge_uid})
-    MERGE (t)-[r:REQUIRES_KNOWLEDGE]->(k)
-    SET r.knowledge_score_required = $knowledge_score_required,
-        r.is_learning_opportunity = $is_learning_opportunity
-    RETURN r
-    """
-    params = {
-        "task_uid": task_uid,
-        "knowledge_uid": knowledge_uid,
-        "knowledge_score_required": knowledge_score_required,
-        "is_learning_opportunity": is_learning_opportunity,
-    }
-    result = await self.execute_query(query, params)
-    if result.is_error:
-        return Result.fail(result)
-    return Result.ok(True)
 ```
 
 **Trade-offs**:
@@ -61,7 +33,7 @@ async def link_task_to_knowledge(
 - SET overwrites relationship properties on each call
 - Use `ON CREATE SET` if you only want to set props on first creation
 
-**Real-world usage**: All domain backend `link_*` methods in `domain_backends.py`. Also standardized across hierarchy (`_hierarchy_mixin.py`), lateral relationships (`LateralRelationshipBackend`), badges (`EARNED_BADGE`), LP/PS construction (`HAS_STEP`, `CONTAINS_KNOWLEDGE`). **Rule:** Use MERGE (not CREATE) whenever both endpoints already exist — prevents duplicate edges on retry.
+**Real-world usage**: Standardized across hierarchy (`_hierarchy_mixin.py`), lateral relationships (`LateralRelationshipBackend`), badges (`EARNED_BADGE`), LP/PS construction (`HAS_STEP`, `CONTAINS_KNOWLEDGE`). Cross-domain relationship creation (task→knowledge, goal→habit, etc.) is handled by `UnifiedRelationshipService`, not domain backends. **Rule:** Use MERGE (not CREATE) whenever both endpoints already exist — prevents duplicate edges on retry.
 
 ---
 
