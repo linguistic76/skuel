@@ -10,9 +10,9 @@ Responsibilities:
 - Create recurring events for habit reinforcement
 - Handle habit-event cascade effects
 
-Complementary to HabitsEventIntegrationService (which handles Events integration
-FROM the Habits perspective). This service manages actual Event entities and their
-habit-related lifecycle.
+Complementary to HabitsIntelligenceService (which provides event scheduling
+intelligence FROM the Habits perspective). This service manages actual Event
+entities and their habit-related lifecycle.
 """
 
 from __future__ import annotations

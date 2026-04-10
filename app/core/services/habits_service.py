@@ -23,8 +23,7 @@ Sub-Services:
 - HabitsPlanningService: Context-aware habit recommendations (January 2026)
 - HabitsSchedulingService: Smart scheduling and capacity management (January 2026)
 - UnifiedRelationshipService (HABITS_CONFIG): Graph relationships and semantic connections
-- HabitsIntelligenceService: pure Cypher analytics
-- HabitsEventIntegrationService: Cross-domain event scheduling integration
+- HabitsIntelligenceService: pure Cypher analytics + event scheduling intelligence
 - HabitEventHandlerService: Event-driven reactive logic (fire-and-forget handlers)
 - HabitsCompletionService: Completion tracking with quality scores and streaks
 - HabitsPatternService: Atomic Habits pattern recognition with confidence scoring
@@ -53,7 +52,6 @@ from core.services.filtered_context import build_filtered_context
 
 # Import sub-services and mixins
 from core.services.habits import (
-    HabitsEventIntegrationService,
     HabitsLearningService,
     HabitsPlanningService,
     HabitsProgressService,
@@ -165,7 +163,7 @@ class HabitsService(
     - Planning: get_habit_priorities_for_user, get_actionable_habits_for_user, etc.
     - Scheduling: check_habit_capacity, suggest_habit_stacking, etc.
     - Intelligence: get_habit_with_context, analyze_habit_performance, etc.
-    - Events: get_events_for_habit, schedule_events_for_habit
+    - Events: get_event_uids_for_habit, schedule_events_for_habit
 
     Mixin methods (see habits/ package):
     - _CompletionMixin: track_habit, untrack_habit, get_habit_streak/progress/history,
@@ -376,18 +374,18 @@ class HabitsService(
     ) -> Result[dict[str, Any]]:
         return await self.intelligence.get_habit_goal_support(uid, depth, min_confidence)
 
-    # Event integration delegations
-    async def get_events_for_habit(
+    # Event scheduling intelligence delegations
+    async def get_event_uids_for_habit(
         self, habit_uid: str, user_context: UserContext, _days_ahead: int = 7
     ) -> Result[list[str]]:
-        return await self.event_integration.get_events_for_habit(
+        return await self.intelligence.get_event_uids_for_habit(
             habit_uid, user_context, _days_ahead
         )
 
     async def schedule_events_for_habit(
         self, habit_uid: str, _user_context: UserContext, days_to_schedule: int = 7
     ) -> Result[list[dict[str, Any]]]:
-        return await self.event_integration.schedule_events_for_habit(
+        return await self.intelligence.schedule_events_for_habit(
             habit_uid, _user_context, days_to_schedule
         )
 
@@ -576,7 +574,6 @@ class HabitsService(
             event_bus=event_bus,
         )
         self.learning: HabitsLearningService = common.learning
-        self.event_integration = HabitsEventIntegrationService(backend=backend)
 
         # Planning and scheduling services (January 2026)
         self.planning = HabitsPlanningService(
@@ -600,9 +597,9 @@ class HabitsService(
         self.goals_service: Any = None
 
         self.logger.info(
-            "HabitsService facade initialized with 13 sub-services: "
+            "HabitsService facade initialized with 12 sub-services: "
             "core, search, progress, learning, planning, scheduling, relationships, "
-            "intelligence, event_integration, event_handler, completions, patterns, knowledge_intelligence"
+            "intelligence, event_handler, completions, patterns, knowledge_intelligence"
         )
 
     # ========================================================================

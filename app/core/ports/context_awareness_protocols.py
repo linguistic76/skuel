@@ -177,7 +177,7 @@ class HabitAwareness(Protocol):
 
     Example services:
     - HabitsProgressService
-    - HabitsEventIntegrationService
+    - HabitsIntelligenceService
     - EventsHabitIntegrationService
     """
 

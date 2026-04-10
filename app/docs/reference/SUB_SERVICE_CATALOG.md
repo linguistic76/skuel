@@ -459,22 +459,20 @@ result = await service.list_reports_by_date_range(
 
 ---
 
-### EventIntegrationService
+### Event Scheduling Intelligence (on HabitsIntelligenceService)
 
 **Domains:** Habits only
-**File:** `habits_event_integration_service.py`
-**Extends:** `BaseService[HabitsOperations, Habit]`
+**File:** `habits_intelligence_service.py` (methods: `get_event_uids_for_habit`, `schedule_events_for_habit`)
 
-**Responsibility:** Integration between Habits and Events domains
+**Responsibility:** Read-only UserContext intelligence and recurrence logic for habit↔event scheduling
 
 **Key Methods:**
-- `create_event_from_habit()` - Generate event from habit
-- `link_habit_to_event()` - Connect habit to existing event
-- `sync_habit_schedule_to_events()` - Sync to calendar
+- `get_event_uids_for_habit()` - Get upcoming event UIDs from UserContext for a habit
+- `schedule_events_for_habit()` - Generate event suggestion templates for EventsService to create
 
 **When to use:**
-- Creating calendar events from habits
-- Syncing habit schedules to Events domain
+- Looking up which events reinforce a habit (returns UIDs, not Event objects)
+- Generating event scheduling suggestions from habit recurrence patterns
 - Cross-domain habit-event integration
 
 ---
@@ -659,7 +657,7 @@ config includes a learning class; singleton is passed in).
 |--------|-------------|---------------|-----------------|-----------------|
 | Tasks | 12 | 0 | 6 (core, search, rels, intel, event_handler, knowledge_intelligence) | learning_metrics, progress, scheduling, planning, analytics_engine, ku_generation_service |
 | Goals | 10 | 2 | 7 (+ learning) | progress, scheduling, planning |
-| Habits | 13 | 3 | 7 (+ learning) | progress, scheduling, planning, completions, event_integration, patterns |
+| Habits | 12 | 3 | 7 (+ learning) | progress, scheduling, planning, completions, patterns |
 | Events | 10 | 0 | 7 (+ learning) | progress, scheduling, habit_integration |
 | Choices | 7 | 3 | 7 (+ learning) | — |
 | Principles | 10 | 3 | 7 (+ learning) | alignment, planning, reflection |
@@ -670,9 +668,9 @@ config includes a learning class; singleton is passed in).
 (factory-created; Tasks has no learning service).
 **Common (Goals/Habits/Events/Choices/Principles):** + learning.
 
-Habits has two event services: `HabitEventHandlerService` (reactive fire-and-forget, auto-wired by
-factory as `self.event_handler`) and `HabitsEventIntegrationService` (cross-domain integration that
-creates Event entities from Habits — domain-specific, wired as `self.events`).
+Habits has one event service: `HabitEventHandlerService` (reactive fire-and-forget, auto-wired by
+factory as `self.event_handler`). Event scheduling intelligence (recurrence logic, UserContext lookups)
+lives on `HabitsIntelligenceService` as `get_event_uids_for_habit()` and `schedule_events_for_habit()`.
 
 **Most Complex:** Habits (13 sub-services + 3 facade mixins)
 **Simplest:** Choices (7 sub-services + 3 facade mixins)

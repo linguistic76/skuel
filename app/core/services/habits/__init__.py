@@ -5,7 +5,7 @@ Habits Sub-Services
 This package contains focused sub-services and facade mixins that compose the unified
 HabitsService facade.
 
-Architecture: Facade Pattern (13 sub-services + 3 facade mixins)
+Architecture: Facade Pattern (12 sub-services + 3 facade mixins)
 - Each sub-service handles ONE specific responsibility
 - HabitsService (facade) delegates to appropriate sub-service via explicit delegation methods
 - Facade mixins host methods with custom logic (extracted April 2026)
@@ -24,8 +24,7 @@ Sub-Services (in this package):
 - HabitsLearningService: Learning path integration, knowledge reinforcement
 - HabitsPlanningService: Context-aware habit recommendations
 - HabitsSchedulingService: Smart scheduling, capacity management
-- HabitsEventIntegrationService: Cross-domain event scheduling integration
-- HabitsIntelligenceService: Pure Cypher analytics (NO AI dependencies)
+- HabitsIntelligenceService: Pure Cypher analytics + event scheduling intelligence (NO AI dependencies)
 - HabitEventHandlerService: Event-driven reactive logic (fire-and-forget handlers)
 - HabitsPatternService: Atomic Habits pattern recognition with confidence scoring
 - HabitsGoalAnalyticsService: SHELVED (2026-03-28)
@@ -55,7 +54,6 @@ from core.services.habits._enrichment_mixin import _EnrichmentMixin
 from core.services.habits._orchestration_mixin import _OrchestrationMixin
 from core.services.habits.habit_event_handler_service import HabitEventHandlerService
 from core.services.habits.habits_core_service import HabitsCoreService
-from core.services.habits.habits_event_integration_service import HabitsEventIntegrationService
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
 from core.services.habits.habits_learning_service import HabitsLearningService
 from core.services.habits.habits_pattern_service import HabitsPatternService
@@ -73,7 +71,6 @@ __all__ = [
     "HabitEventHandlerService",
     "HabitsSearchService",
     "HabitsCoreService",
-    "HabitsEventIntegrationService",
     "HabitsIntelligenceService",
     "HabitsLearningService",
     "HabitsPatternService",
