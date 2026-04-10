@@ -10,6 +10,11 @@ Sub-Services:
 - ChoicesLearningService: Learning path guidance and integration
 - UnifiedRelationshipService (CHOICES_CONFIG): Cross-domain links and semantic connections
 - ChoicesIntelligenceService: Pure Cypher analytics + decision pattern analysis
+
+Facade Mixins:
+- _OptionManagementMixin: Option CRUD and decision-making
+- _RelationshipMixin: Cross-domain graph relationships and semantic connections
+- _EnrichmentMixin: Analytics delegates and enriched data views
 """
 
 from __future__ import annotations
@@ -26,6 +31,9 @@ from core.services.base_service import BaseService
 
 # Import sub-services
 from core.services.choices import ChoicesLearningService
+from core.services.choices._enrichment_mixin import _EnrichmentMixin
+from core.services.choices._option_management_mixin import _OptionManagementMixin
+from core.services.choices._relationship_mixin import _RelationshipMixin
 from core.services.choices.choice_event_handler_service import ChoiceEventHandlerService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
@@ -134,15 +142,19 @@ def _apply_choice_sort(choices: list[Any], sort_by: str = "deadline") -> list[An
 
 
 class ChoicesService(
-    KnowledgeIntelligenceDelegationMixin, BaseService["ChoicesOperations", Choice]
+    _OptionManagementMixin,
+    _RelationshipMixin,
+    _EnrichmentMixin,
+    KnowledgeIntelligenceDelegationMixin,
+    BaseService["ChoicesOperations", Choice],
 ):
     """
     Choices service facade with specialized sub-services.
 
     This facade:
-    1. Delegates to 6 specialized sub-services for core operations
+    1. Delegates to 7 specialized sub-services for core operations
     2. Uses explicit delegation methods (~26 methods) for sub-service access
-    3. Retains explicit methods for complex operations
+    3. Facade mixins group related explicit methods by concern
     4. Provides clean separation of concerns
 
     Delegations (explicit methods):
@@ -151,13 +163,14 @@ class ChoicesService(
     - Search: search_choices, get_choices_by_status, get_pending_choices, etc.
     - Intelligence: get_choice_with_context, get_decision_intelligence, get_decision_patterns, etc.
 
-    Explicit Methods (custom logic):
-    - Option management: add_option, update_option, remove_option, make_decision
-    - Relationship linking: link_choice_to_goal, link_choice_to_habit, link_choice_to_principle
-    - Semantic relationships: create_semantic_choice_relationship, find_choices_aligned_with_principle
+    Facade Mixins:
+    - _OptionManagementMixin: add_option, update_option, remove_option, make_decision
+    - _RelationshipMixin: link_choice_to_*, create_semantic_*, find_choices_aligned_*
+    - _EnrichmentMixin: analyze_decision_patterns, get_analytics_context
 
     SKUEL Architecture:
     - Uses explicit delegation methods (February 2026)
+    - Facade mixins decomposition (April 2026)
     """
 
     # ========================================================================
@@ -468,171 +481,14 @@ class ChoicesService(
         """Count choices matching filters."""
         return await self.core.count_choices(filters)
 
-    # ========================================================================
-    # OPTION MANAGEMENT - Delegate to ChoicesCoreService
-    # ========================================================================
+    # Note: Option management methods (add_option, update_option, remove_option, make_decision)
+    # provided by _OptionManagementMixin.
 
-    async def add_option(
-        self,
-        choice_uid: str,
-        title: str,
-        description: str,
-        feasibility_score: float = 0.5,
-        risk_level: float = 0.5,
-        potential_impact: float = 0.5,
-        resource_requirement: float = 0.5,
-        estimated_duration: int | None = None,
-        dependencies: list[str] | None = None,
-        tags: list[str] | None = None,
-    ) -> Result[Choice]:
-        """Add a new option to an existing choice."""
-        return await self.core.add_option(
-            choice_uid=choice_uid,
-            title=title,
-            description=description,
-            feasibility_score=feasibility_score,
-            risk_level=risk_level,
-            potential_impact=potential_impact,
-            resource_requirement=resource_requirement,
-            estimated_duration=estimated_duration,
-            dependencies=dependencies,
-            tags=tags,
-        )
+    # Note: Relationship methods (link_choice_to_*, create_semantic_*, find_choices_aligned_*)
+    # provided by _RelationshipMixin.
 
-    async def update_option(
-        self,
-        choice_uid: str,
-        option_uid: str,
-        title: str | None = None,
-        description: str | None = None,
-        feasibility_score: float | None = None,
-        risk_level: float | None = None,
-        potential_impact: float | None = None,
-        resource_requirement: float | None = None,
-        estimated_duration: int | None = None,
-        dependencies: list[str] | None = None,
-        tags: list[str] | None = None,
-    ) -> Result[Choice]:
-        """Update an existing option in a choice."""
-        return await self.core.update_option(
-            choice_uid=choice_uid,
-            option_uid=option_uid,
-            title=title,
-            description=description,
-            feasibility_score=feasibility_score,
-            risk_level=risk_level,
-            potential_impact=potential_impact,
-            resource_requirement=resource_requirement,
-            estimated_duration=estimated_duration,
-            dependencies=dependencies,
-            tags=tags,
-        )
-
-    async def remove_option(
-        self,
-        choice_uid: str,
-        option_uid: str,
-    ) -> Result[Choice]:
-        """Remove an option from a choice."""
-        return await self.core.remove_option(choice_uid=choice_uid, option_uid=option_uid)
-
-    async def make_decision(
-        self,
-        choice_uid: str,
-        selected_option_uid: str,
-        decision_rationale: str | None = None,
-        confidence: float = 0.5,
-    ) -> Result[Choice]:
-        """Make a decision on a choice (select an option)."""
-        return await self.core.make_decision(
-            choice_uid=choice_uid,
-            selected_option_uid=selected_option_uid,
-            decision_rationale=decision_rationale,
-            confidence=confidence,
-        )
-
-    # ========================================================================
-    # CROSS-DOMAIN RELATIONSHIPS - Delegate to UnifiedRelationshipService
-    # ========================================================================
-    # Note: Learning delegations (create_choice_with_learning_guidance, etc.)
-    # delegated via explicit methods below.
-
-    async def link_choice_to_goal(
-        self, choice_uid: str, goal_uid: str, contribution_score: float = 0.5
-    ) -> Result[bool]:
-        """Link choice to goal it supports/advances."""
-        return await self.relationships.link_to_goal(
-            choice_uid, goal_uid, contribution_score=contribution_score
-        )
-
-    async def link_choice_to_habit(
-        self, choice_uid: str, habit_uid: str, reinforcement_strength: float = 0.5
-    ) -> Result[bool]:
-        """Link choice to habit it reinforces/weakens."""
-        properties = {"reinforcement_strength": reinforcement_strength}
-        return await self.relationships.create_relationship(
-            "habits", choice_uid, habit_uid, properties
-        )
-
-    async def link_choice_to_principle(
-        self, choice_uid: str, principle_uid: str, alignment_score: float = 0.5
-    ) -> Result[bool]:
-        """Link choice to principle it aligns with."""
-        return await self.relationships.link_to_principle(
-            choice_uid, principle_uid, alignment_score=alignment_score
-        )
-
-    # Note: get_choice_cross_domain_context, get_choice_with_semantic_context
-    # delegated via explicit methods below.
-
-    async def create_semantic_choice_relationship(
-        self,
-        choice_uid: str,
-        related_uid: str,
-        semantic_type: SemanticRelationshipType,
-        confidence: float = 0.9,
-        notes: str | None = None,
-    ) -> Result[dict[str, Any]]:
-        """Create semantic relationship for choice (to principle, knowledge, or goal)."""
-        return await self.relationships.create_semantic_relationship(
-            choice_uid, related_uid, semantic_type, confidence, notes
-        )
-
-    async def find_choices_aligned_with_principle(
-        self, principle_uid: str, min_confidence: float = 0.8
-    ) -> Result[list[Choice]]:
-        """Find choices aligned with specific principle."""
-        return await self.relationships.find_by_semantic_filter(
-            target_uid=principle_uid, min_confidence=min_confidence, direction="incoming"
-        )
-
-    # ========================================================================
-    # ANALYTICS OPERATIONS - Direct backend delegation
-    # ========================================================================
-
-    async def analyze_decision_patterns(
-        self, user_uid: UserUID, lookback_days: int = 90
-    ) -> Result[dict[str, Any]]:
-        """
-        Analyze user's decision-making patterns across domains.
-
-        Returns comprehensive analysis including:
-        - Decision style distribution
-        - Average time pressure and energy levels
-        - Goal alignment metrics
-        - Habit reinforcement patterns
-        - Principle integrity metrics
-        - Quality correlations (pressure vs satisfaction, energy vs confidence)
-        - Auto-generated recommendations
-
-        Args:
-            user_uid: UID of the user
-            lookback_days: Days to look back (default 90)
-
-        Returns:
-            Result containing decision pattern analysis
-        """
-        return await self.intelligence.get_decision_patterns(user_uid, days=lookback_days)
+    # Note: Analytics methods (analyze_decision_patterns, get_analytics_context)
+    # provided by _EnrichmentMixin.
 
     # ========================================================================
     # QUERY LAYER
@@ -660,71 +516,6 @@ class ChoicesService(
             sort_by=sort_by,
         )
 
-    async def get_analytics_context(self, user_uid: UserUID) -> Result[ChoicesAnalyticsContext]:
-        """Build pre-computed analytics context for the choices analytics view.
-
-        Returns dict with: total_choices, total_decisions, satisfaction_rate,
-        on_time_rate, outcomes.
-        """
-        all_result = await self.core.get_for_user_filtered(user_uid, "all")
-        if all_result.is_error:
-            return Result.fail(all_result)
-
-        choices = all_result.value
-
-        total = len(choices)
-        decided_statuses = ["decided", "implemented", "evaluated"]
-        decided = sum(1 for c in choices if get_enum_attr_str(c, "status") in decided_statuses)
-
-        # Satisfaction rate from choices with satisfaction_score (1-5 scale)
-        choices_with_satisfaction = [
-            c for c in choices if getattr(c, "satisfaction_score", None) is not None
-        ]
-        if choices_with_satisfaction:
-            satisfied_count = sum(
-                1 for c in choices_with_satisfaction if getattr(c, "satisfaction_score", 0) >= 4
-            )
-            satisfaction_rate = satisfied_count / len(choices_with_satisfaction)
-        else:
-            satisfaction_rate = 0.0
-
-        # On-time rate from choices with deadline and decided_at
-        choices_with_deadline = [
-            c
-            for c in choices
-            if getattr(c, "decision_deadline", None) is not None
-            and getattr(c, "decided_at", None) is not None
-        ]
-        if choices_with_deadline:
-            on_time_count = sum(
-                1 for c in choices_with_deadline if c.decided_at <= c.decision_deadline
-            )
-            on_time_rate = on_time_count / len(choices_with_deadline)
-        else:
-            on_time_rate = 0.0
-
-        # Outcomes from evaluated choices
-        outcomes = [
-            {
-                "title": getattr(c, "title", "Choice"),
-                "outcome": getattr(c, "actual_outcome", ""),
-                "satisfaction": getattr(c, "satisfaction_score", None),
-                "lessons": getattr(c, "lessons_learned", ()),
-            }
-            for c in choices
-            if getattr(c, "actual_outcome", None) is not None
-        ]
-
-        return Result.ok(
-            {
-                "total_choices": total,
-                "total_decisions": decided,
-                "satisfaction_rate": satisfaction_rate,
-                "on_time_rate": on_time_rate,
-                "outcomes": outcomes,
-            }
-        )
-
     # Note: Intelligence delegations (get_choice_with_context, get_decision_intelligence,
     # analyze_choice_impact, get_decision_patterns, etc.) and Search delegations
-    # (search_choices, get_choices_by_status, etc.) delegated via explicit methods below.
+    # (search_choices, get_choices_by_status, etc.) delegated via explicit methods above.

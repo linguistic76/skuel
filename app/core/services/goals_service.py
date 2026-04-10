@@ -4,6 +4,12 @@ Enhanced Goals Service - Facade Pattern
 
 Goals service facade that delegates to specialized sub-services.
 
+Architecture: Shell delegates to 2 facade mixins in the goals/ package:
+  _orchestration_mixin.py  — create_goal_with_context, generate_tasks_for_goal,
+                              assess_goal_feasibility
+  _relationship_mixin.py   — link_goal_to_habit/knowledge/principle,
+                              create_semantic_goal_relationship, etc.
+
 Sub-Services:
 - GoalsCoreService: CRUD operations
 - GoalsSearchService: Search and discovery (DomainSearchOperations[Goal] protocol)
@@ -11,8 +17,10 @@ Sub-Services:
 - GoalsLearningService: Learning path integration
 - GoalsSchedulingService: Capacity management and schedule optimization (January 2026)
 - UnifiedRelationshipService (GOAPS_CONFIG): Graph relationships and cross-domain links
-- GoalsIntelligenceService: pure Cypher analytics
+- GoalsIntelligenceService: pure Cypher analytics (5 intelligence mixins)
 - GoalEventHandlerService: Event-driven reactive handlers
+
+See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from __future__ import annotations
@@ -39,18 +47,17 @@ from core.services.goals import (
     GoalsProgressService,
     GoalsSchedulingService,
 )
-from core.services.goals.goal_relationships import GoalRelationships
-from core.services.goals_types import GoalFeasibilityAssessment
+from core.services.goals._orchestration_mixin import _OrchestrationMixin
+from core.services.goals._relationship_mixin import _RelationshipMixin
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 
 # Unified relationship service
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_stats import compute_goal_stats
-from core.utils.dto_helpers import to_domain_model
 from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filter, apply_entity_sort
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from core.utils.sort_functions import (
     PRIORITY_STRING_SORT_ORDER,
     get_created_at_attr,
@@ -166,15 +173,20 @@ def _apply_goal_sort(goals: list[Any], sort_by: str = "target_date") -> list[Any
     return apply_entity_sort(goals, sort_by, _GOAL_SORT_CONFIG, "target_date")
 
 
-class GoalsService(KnowledgeIntelligenceDelegationMixin, BaseService[GoalsOperations, Goal]):
+class GoalsService(
+    _OrchestrationMixin,
+    _RelationshipMixin,
+    KnowledgeIntelligenceDelegationMixin,
+    BaseService[GoalsOperations, Goal],
+):
     """
     Goals service facade with specialized sub-services.
 
-    This facade:
-    1. Delegates to 8 specialized sub-services for core operations
-    2. Uses explicit delegation methods (~40 methods) for sub-service access
-    3. Retains explicit methods for complex orchestration operations
-    4. Provides clean separation of concerns
+    Architecture: Shell delegates to 2 facade mixins + 8 sub-services:
+      _OrchestrationMixin  — create_goal_with_context, generate_tasks_for_goal,
+                              assess_goal_feasibility
+      _RelationshipMixin   — link_goal_to_habit/knowledge/principle,
+                              create_semantic_goal_relationship, etc.
 
     Delegations (explicit methods):
     - Core: get_goal, get_user_goals, get_user_items_in_range, activate/pause/complete/archive
@@ -184,12 +196,9 @@ class GoalsService(KnowledgeIntelligenceDelegationMixin, BaseService[GoalsOperat
     - Intelligence: get_goal_with_context, get_goal_progress_dashboard, etc.
     - Scheduling: check_goal_capacity, suggest_goal_timeline, assess_goal_achievability, etc.
 
-    Explicit Methods (custom logic):
-    - Relationship linking: link_goal_to_habit, link_goal_to_knowledge, link_goal_to_principle
-    - Orchestration: create_goal_with_context, generate_tasks_for_goal, assess_goal_feasibility
-
     SKUEL Architecture:
     - Uses explicit delegation methods (February 2026)
+    - Facade mixins extracted (April 2026)
     """
 
     # ========================================================================
@@ -553,294 +562,8 @@ class GoalsService(KnowledgeIntelligenceDelegationMixin, BaseService[GoalsOperat
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
 
-    # ========================================================================
-    # GRAPH RELATIONSHIPS - Delegate to UnifiedRelationshipService
-    # ========================================================================
-    # Note: Simple delegations (Core CRUD, Progress, Learning) auto-generated
-    # delegated via explicit method below.
-
-    async def create_user_goal_relationship(
-        self, user_uid: UserUID, goal_uid: str, role: str = "owner"
-    ) -> Result[bool]:
-        """Create User→Goal relationship in graph."""
-        properties = {"role": role} if role != "owner" else None
-        return await self.relationships.create_user_relationship(user_uid, goal_uid, properties)
-
-    async def link_goal_to_habit(
-        self,
-        goal_uid: str,
-        habit_uid: str,
-        weight: float = 1.0,
-        contribution_type: str = "consistency",
-    ) -> Result[bool]:
-        """Link goal to supporting habit with weighted contribution."""
-        properties = {"weight": weight, "contribution_type": contribution_type}
-        return await self.relationships.create_relationship(
-            "supporting_habits", goal_uid, habit_uid, properties
-        )
-
-    async def get_goal_habits(self, uid: str) -> Result[list[str]]:
-        """Get habits linked to a goal. Delegates to UnifiedRelationshipService."""
-        return await self.relationships.get_related_uids("supporting_habits", uid)
-
-    async def unlink_goal_from_habit(self, uid: str, habit_uid: str) -> Result[bool]:
-        """Unlink a habit from a goal. Delegates to UnifiedRelationshipService."""
-        return await self.relationships.delete_relationship("supporting_habits", uid, habit_uid)
-
-    async def link_goal_to_knowledge(
-        self,
-        goal_uid: str,
-        knowledge_uid: str,
-        proficiency_required: str = "intermediate",
-        priority: int = 1,
-    ) -> Result[bool]:
-        """Link goal to required knowledge/skill."""
-        return await self.relationships.link_to_knowledge(
-            goal_uid,
-            knowledge_uid,
-            proficiency_required=proficiency_required,
-            priority=priority,
-        )
-
-    async def link_goal_to_principle(
-        self, goal_uid: str, principle_uid: str, alignment_strength: float = 1.0
-    ) -> Result[bool]:
-        """Link goal to guiding principle/value."""
-        return await self.relationships.link_to_principle(
-            goal_uid, principle_uid, alignment_strength=alignment_strength
-        )
-
-    # Note: get_goal_cross_domain_context, get_goal_with_semantic_context auto-generated
-    # delegated via explicit method below.
-
-    async def create_semantic_goal_relationship(
-        self,
-        goal_uid: str,
-        knowledge_uid: str,
-        semantic_type: SemanticRelationshipType,
-        confidence: float = 0.9,
-        notes: str | None = None,
-    ) -> Result[dict[str, Any]]:
-        """Create semantic relationship between goal and knowledge."""
-        return await self.relationships.create_semantic_relationship(
-            goal_uid, knowledge_uid, semantic_type, confidence, notes
-        )
-
-    async def find_goals_requiring_knowledge(
-        self, knowledge_uid: str, min_confidence: float = 0.8
-    ) -> Result[list[Goal]]:
-        """Find goals that require specific knowledge."""
-        return await self.relationships.find_by_semantic_filter(
-            target_uid=knowledge_uid, min_confidence=min_confidence, direction="incoming"
-        )
-
-    # ========================================================================
-    # ORCHESTRATION METHODS - Remain in Facade
-    # ========================================================================
-    # Note: Intelligence delegations (get_goal_with_context, get_goal_progress_dashboard,
-    # get_goal_completion_forecast, get_goal_learning_requirements) auto-generated
-    # delegated via explicit method below.
-
-    async def create_goal_with_context(
-        self, goal_data: GoalCreateRequest, user_context: UserContext
-    ) -> Result[Goal]:
-        """
-        Create a goal with full context awareness (orchestration method).
-
-        This method orchestrates multiple checks:
-        1. Knowledge prerequisites validation
-        2. Habit availability validation
-        3. Goal creation via learning service
-        4. Context invalidation
-        """
-        # Check knowledge prerequisites
-        if goal_data.required_knowledge_uids:
-            missing_prereqs = (
-                set(goal_data.required_knowledge_uids) - user_context.mastered_knowledge_uids
-            )
-            if missing_prereqs:
-                return Result.fail(
-                    Errors.validation(
-                        message="Cannot create goal without required knowledge prerequisites",
-                        field="required_knowledge_uids",
-                        value=list(missing_prereqs),
-                        user_message=f"Please master these knowledge areas first: {', '.join(missing_prereqs)}",
-                    )
-                )
-
-        # Validate habit availability
-        if goal_data.supporting_habit_uids:
-            inactive_habits = [
-                habit_uid
-                for habit_uid in goal_data.supporting_habit_uids
-                if habit_uid not in user_context.active_habit_uids
-            ]
-            if inactive_habits:
-                return Result.fail(
-                    Errors.validation(
-                        message="Cannot create goal with inactive supporting habits",
-                        field="supporting_habit_uids",
-                        value=inactive_habits,
-                        user_message=f"Please activate these habits first: {', '.join(inactive_habits)}",
-                    )
-                )
-
-        # Create goal through learning service (handles DTO creation)
-        result = await self.learning.create_goal_with_learning_integration(goal_data, None)
-        if result.is_error:
-            return result
-
-        # Note: User context invalidation now happens via event-driven architecture
-        # GoalCreated event → invalidate_context_on_goal_event() → user_service.invalidate_context()
-
-        goal = result.value
-        # GRAPH-NATIVE: Get counts from goal_data (input) since relationships stored in graph
-        habit_count = len(goal_data.supporting_habit_uids) if goal_data.supporting_habit_uids else 0
-        knowledge_count = (
-            len(goal_data.required_knowledge_uids) if goal_data.required_knowledge_uids else 0
-        )
-        self.logger.info(
-            "Created goal %s with %d habits, %d knowledge requirements",
-            goal.uid,
-            habit_count,
-            knowledge_count,
-        )
-
-        return Result.ok(goal)
-
-    async def generate_tasks_for_goal(
-        self, goal_uid: str, user_context: UserContext
-    ) -> Result[list[dict[str, Any]]]:
-        """
-        Generate task suggestions for achieving a goal (orchestration method).
-
-        This combines goal data with user context to generate:
-        - Milestone tasks
-        - Knowledge acquisition tasks
-        - Habit reinforcement tasks
-        """
-        goal_result = await self.backend.get_goal(goal_uid)
-        if goal_result.is_error:
-            return Result.fail(goal_result)
-
-        goal = to_domain_model(goal_result.value, GoalDTO, Goal)
-
-        # GRAPH-NATIVE: Fetch relationships from graph
-        rels = await GoalRelationships.fetch(goal_uid, self.relationships)
-
-        task_suggestions = []
-
-        # Generate milestone tasks
-        if goal.milestones:
-            for i, milestone in enumerate(goal.milestones):
-                if not milestone.is_completed:
-                    task = {
-                        "title": f"Complete: {milestone.title}",
-                        "description": milestone.description or "",
-                        "fulfills_goal_uid": goal_uid,
-                        "goal_progress_contribution": 100.0 / len(goal.milestones),
-                        "priority": Priority.HIGH
-                        if goal.days_remaining() < 30
-                        else Priority.MEDIUM,
-                        "tags": ["goal", f"milestone-{i + 1}"],
-                    }
-                    task_suggestions.append(task)
-
-        # Generate knowledge acquisition tasks
-        if rels.required_knowledge_uids:
-            for knowledge_uid in rels.required_knowledge_uids:
-                if knowledge_uid not in user_context.mastered_knowledge_uids:
-                    task = {
-                        "title": f"Learn: {knowledge_uid}",
-                        "fulfills_goal_uid": goal_uid,
-                        "applies_knowledge_uids": [knowledge_uid],
-                        "knowledge_mastery_check": True,
-                        "priority": Priority.HIGH,
-                        "tags": ["learning", "goal"],
-                    }
-                    task_suggestions.append(task)
-
-        # Generate habit reinforcement tasks
-        if rels.supporting_habit_uids:
-            for habit_uid in rels.supporting_habit_uids:
-                if user_context.habit_streaks.get(habit_uid, 0) < 7:
-                    task = {
-                        "title": f"Strengthen habit: {habit_uid}",
-                        "reinforces_habit_uid": habit_uid,
-                        "fulfills_goal_uid": goal_uid,
-                        "habit_streak_maintainer": True,
-                        "priority": Priority.MEDIUM,
-                        "recurring": True,
-                        "tags": ["habit", "goal"],
-                    }
-                    task_suggestions.append(task)
-
-        self.logger.info(
-            "Generated %d task suggestions for goal %s", len(task_suggestions), goal_uid
-        )
-
-        return Result.ok(task_suggestions)
-
-    async def assess_goal_feasibility(
-        self, goal: Goal, user_context: UserContext
-    ) -> Result[GoalFeasibilityAssessment]:
-        """
-        Assess if a goal is feasible given user's context (orchestration method).
-
-        Combines checks across:
-        - Knowledge prerequisites
-        - Habit support
-        - Current workload
-        """
-        # GRAPH-NATIVE: Fetch goal relationships from graph
-        rels = await GoalRelationships.fetch(goal.uid, self.relationships)
-
-        # Mutable accumulation variables
-        is_feasible_flag = True
-        confidence_score = 0.8
-        blockers_list: list[str] = []
-        enablers_list: list[str] = []
-        estimated_date = None
-
-        # Check knowledge prerequisites (from graph relationships)
-        if rels.required_knowledge_uids:
-            missing = set(rels.required_knowledge_uids) - user_context.mastered_knowledge_uids
-            if missing:
-                blockers_list.append(f"Missing {len(missing)} knowledge prerequisites")
-                is_feasible_flag = False
-                confidence_score *= 0.5
-
-        # Check habit support (from graph relationships)
-        if rels.supporting_habit_uids:
-            active_habits = [
-                h for h in rels.supporting_habit_uids if h in user_context.active_habit_uids
-            ]
-            if len(active_habits) < len(rels.supporting_habit_uids) / 2:
-                blockers_list.append("Insufficient habit support")
-                confidence_score *= 0.7
-            else:
-                enablers_list.append(f"{len(active_habits)} supporting habits active")
-
-        # Check workload
-        current_workload = user_context.current_workload_score
-        if current_workload > 0.8:
-            blockers_list.append("Current workload too high")
-            is_feasible_flag = False
-
-        # Estimate completion
-        if is_feasible_flag and goal.target_date:
-            estimated_date = goal.target_date
-
-        # Build immutable result using frozen dataclass
-        assessment = GoalFeasibilityAssessment(
-            is_feasible=is_feasible_flag,
-            confidence=confidence_score,
-            blockers=blockers_list,
-            enablers=enablers_list,
-            estimated_completion_date=estimated_date,
-        )
-
-        return Result.ok(assessment)
+    # Note: Graph relationship methods provided by _RelationshipMixin
+    # Note: Orchestration methods provided by _OrchestrationMixin
 
     # ========================================================================
     # QUERY LAYER

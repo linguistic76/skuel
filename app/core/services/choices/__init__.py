@@ -4,7 +4,7 @@ Choices Sub-Services Package
 
 This package contains focused sub-services that compose the unified ChoicesService facade.
 
-Architecture: Facade Pattern (5 sub-services)
+Architecture: Facade Pattern (7 sub-services + 3 facade mixins)
 - Each sub-service handles ONE specific responsibility
 - ChoicesService (facade) delegates to appropriate sub-service via explicit delegation methods
 - Decision-making domain with principle alignment and learning guidance
@@ -16,6 +16,11 @@ Sub-Services:
 - ChoicesLearningService: Learning path guidance, knowledge integration
 - ChoicesIntelligenceService: Pure Cypher analytics, decision pattern analysis (NO AI dependencies)
 - ChoiceEventHandlerService: Event-driven reactive logic (outcome tracking, decision patterns)
+
+Facade Mixins:
+- _OptionManagementMixin: Option CRUD and decision-making
+- _RelationshipMixin: Cross-domain graph relationships and semantic connections
+- _EnrichmentMixin: Analytics delegates and enriched data views
 
 Additional Exports:
 - choices_types: Frozen dataclasses for intelligence results (DecisionAnalysis, RiskAssessment, etc.)
@@ -38,6 +43,7 @@ Architecture Notes:
 - Uses UnifiedRelationshipService for all relationship operations
 - ChoicesAnalyticsService consolidated into ChoicesIntelligenceService (January 2026)
 - Event handlers extracted from ChoicesIntelligenceService to ChoiceEventHandlerService (March 2026)
+- Facade mixin decomposition (April 2026)
 """
 
 from core.services.choices.choice_event_handler_service import ChoiceEventHandlerService
