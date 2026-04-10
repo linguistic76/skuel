@@ -13,7 +13,7 @@ related_docs:
 
 # Service Consolidation Patterns
 
-Eight patterns to reduce boilerplate in SKUEL services. Includes the explicit delegation pattern (February 2026) that replaced FacadeDelegationMixin, saving 2,422 lines across all 9 facade services. Patterns 7-8 added April 2026.
+Nine patterns to reduce boilerplate in SKUEL services. Includes the explicit delegation pattern (February 2026) that replaced FacadeDelegationMixin, saving 2,422 lines across all 9 facade services. Patterns 7-9 added April 2026.
 
 ## Quick Start
 
@@ -753,6 +753,49 @@ class LpSubServices:
 
 ---
 
+## 9. Facade Mixin Decomposition (April 2026)
+
+**Problem:** Facade files (500-900 lines) mix delegation methods with domain-specific logic (option management, relationship linking, analytics enrichment). Hard to navigate and inconsistent across domains.
+
+**Solution:** Extract related groups of facade methods into `_*_mixin.py` files within the domain package. The facade inherits from the mixins — public API is unchanged, but methods are organized by concern. Mixins declare `Any`-typed class attributes for the sub-services they use (populated by the facade `__init__`).
+
+**Pattern:**
+```python
+# core/services/choices/_relationship_mixin.py
+class _RelationshipMixin:
+    relationships: Any  # populated by ChoicesService.__init__
+
+    async def link_choice_to_goal(self, ...) -> Result[bool]:
+        return await self.relationships.link_to_goal(...)
+
+# core/services/choices_service.py
+class ChoicesService(
+    _OptionManagementMixin,
+    _RelationshipMixin,
+    _EnrichmentMixin,
+    KnowledgeIntelligenceDelegationMixin,
+    BaseService["ChoicesOperations", Choice],
+): ...
+```
+
+**Adoption (April 2026):**
+
+| Domain | Facade Mixins | Intelligence Mixins |
+|--------|--------------|-------------------|
+| Goals | 2 (`_OrchestrationMixin`, `_RelationshipMixin`) | 5 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_PredictiveMixin`, `_DualTrackMixin`, `_LearningRequirementsMixin`) |
+| Habits | 3 (`_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_DualTrackMixin`) |
+| Choices | 3 (`_OptionManagementMixin`, `_RelationshipMixin`, `_EnrichmentMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_BehavioralSignalsMixin`) |
+| Principles | 3 (`_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_AlignmentMixin`) |
+| Tasks, Events | 0 (no facade mixins) | 0 |
+
+**Key rules:**
+- Mixin files are prefixed with `_` (private, not exported from `__init__.py`)
+- Each mixin declares `Any`-typed attributes for sub-services it touches
+- The facade's `__init__` populates those attributes — no `__init__` in mixins
+- Public API unchanged — callers don't know about the decomposition
+
+---
+
 ## Quick Reference
 
 | Pattern | File | Import |
@@ -765,6 +808,7 @@ class LpSubServices:
 | Lesson/LP Factories | `/core/services/curriculum_domain_config.py` | `from core.services.curriculum_domain_config import create_lesson_sub_services, create_lp_sub_services` |
 | Cross-Domain Reads | `/core/services/cross_domain/cross_domain_query_service.py` | `from core.services.cross_domain import CrossDomainQueryService` |
 | Activity Stats | `/core/utils/activity_stats.py` | `from core.utils.activity_stats import compute_task_stats, TaskStats` |
+| Facade Mixins | `/core/services/{domain}/_*_mixin.py` | `from core.services.{domain}._relationship_mixin import _RelationshipMixin` |
 
 ---
 

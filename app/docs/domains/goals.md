@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-04-10
+updated: 2026-04-11
 status: current
 category: domains
 tags:
@@ -60,32 +60,28 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 
 **See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
 
-## Facade Pattern (February 2026)
+## Facade Pattern (February 2026, mixins April 2026)
 
-`GoalsService` uses explicit `async def` delegation methods for clean delegation to 9 specialized sub-services:
+`GoalsService` delegates to sub-services + 2 focused facade mixins for consistency with Habits/Choices/Principles:
 
 ```python
-class GoalsService(BaseService[GoalsOperations, Goal]):
-    core: GoalsCoreService  # takes cross_domain_query for goal-abandonment guard
-    search: GoalsSearchService
-    scheduling: GoalsSchedulingService
-    intelligence: GoalsIntelligenceService
-    knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
-    cross_domain_query: CrossDomainQueryService  # cross-domain reads (April 2026)
-
-    # Explicit delegation — MyPy-native, no mixin needed
-    async def get_goal(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.core.get_goal(*args, **kwargs)
-
-    async def search_goals(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.search.search(*args, **kwargs)
-
-    async def check_goal_capacity(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.scheduling.check_goal_capacity(*args, **kwargs)
-
-    async def get_goal_with_context(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.intelligence.get_goal_with_context(*args, **kwargs)
+class GoalsService(
+    _OrchestrationMixin,    # cross-domain orchestration (create_goal_with_context, etc.)
+    _RelationshipMixin,     # graph relationships (link_goal_to_*, semantic, find_goals_*)
+    KnowledgeIntelligenceDelegationMixin,
+    BaseService[GoalsOperations, Goal],
+):
+    # Delegation methods delegate to the sub-services below
+    async def get_goal(self, uid: str) -> Result[Goal]:
+        return await self.core.get_goal(uid)
 ```
+
+**Facade Mixins** (`core/services/goals/`):
+
+| Mixin | File | Methods |
+|-------|------|---------|
+| `_OrchestrationMixin` | `_orchestration_mixin.py` | `create_goal_with_context`, `generate_tasks_for_goal`, `assess_goal_feasibility` |
+| `_RelationshipMixin` | `_relationship_mixin.py` | `create_user_goal_relationship`, `link_goal_to_habit/knowledge/principle`, `get_goal_habits`, `unlink_goal_from_habit`, `create_semantic_goal_relationship`, `find_goals_requiring_knowledge` |
 
 **Sub-services:**
 | Service | Purpose |
@@ -97,7 +93,7 @@ class GoalsService(BaseService[GoalsOperations, Goal]):
 | `planning` | Context-first planning methods |
 | `scheduling` | Capacity management, timeline optimization (January 2026) |
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
-| `intelligence` | Analytics, predictions, dual-track assessment |
+| `intelligence` | Analytics, predictions, dual-track assessment (decomposed into 5 mixins — see below) |
 | `event_handler` | Event-driven reactive handlers (achievements, abandonment, progress) |
 
 Created via `create_common_sub_services()` factory in facade `__init__` (core and intelligence skipped — built manually with extra dependencies).
@@ -266,18 +262,19 @@ Goals track which habits are essential for achievement:
 - `AchievabilityResult` - Achievability assessment with velocity metrics
 - `GoalSequenceItem` - Goal sequencing with reasoning
 
-## Intelligence Service
+## Intelligence Service (decomposed April 2026)
 
-`GoalsIntelligenceService` provides goal analysis and insights:
+`GoalsIntelligenceService` provides goal analysis and insights. Decomposed into 5 mixins:
 
-| Method | Description |
-|--------|-------------|
-| `get_goal_with_context(uid)` | Goal with full graph neighborhood |
-| `analyze_goal_progress(uid)` | Detailed progress analysis |
-| `get_achievement_recommendations(user_uid)` | Recommendations to achieve goals |
-| `identify_blocking_factors(uid)` | Identify what's blocking goal progress |
+| Mixin | File | Methods |
+|-------|------|---------|
+| `_CoreIntelligenceMixin` | `_core_intelligence_mixin.py` | `get_goal_with_context`, `get_with_context` (protocol) |
+| `_AnalyticsMixin` | `_analytics_mixin.py` | `get_performance_analytics`, `get_domain_insights`, `get_goal_progress_dashboard`, `_generate_progress_recommendations` |
+| `_PredictiveMixin` | `_predictive_mixin.py` | `predict_goal_success`, `analyze_habit_impact`, `assess_goal_risk`, `run_scenario_analysis` + private helpers |
+| `_DualTrackMixin` | `_dual_track_mixin.py` | `assess_progress_dual_track`, `_calculate_system_progress`, `_progress_level_to_score`, `_generate_progress_gap_*` |
+| `_LearningRequirementsMixin` | `_learning_requirements_mixin.py` | `get_goal_completion_forecast`, `get_goal_learning_requirements`, `_generate_learning_recommendations` |
 
-**See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
+**See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md), [Goals Intelligence](/docs/intelligence/GOALS_INTELLIGENCE.md)
 
 ## Events/Publishing
 

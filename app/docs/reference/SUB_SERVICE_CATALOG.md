@@ -655,14 +655,16 @@ config includes a learning class; singleton is passed in).
 
 ## Sub-Service Count by Domain
 
-| Domain | Total | Common (factory) | Domain-Specific |
-|--------|-------|-----------------|-----------------|
-| Tasks | 12 | 6 (core, search, rels, intel, event_handler, knowledge_intelligence) | learning_metrics, progress, scheduling, planning, analytics_engine, ku_generation_service |
-| Goals | 10 | 7 (+ learning) | progress, scheduling, planning |
-| Habits | 13 | 7 (+ learning) | progress, scheduling, planning, completions, event_integration, patterns |
-| Events | 10 | 7 (+ learning) | progress, scheduling, habit_integration |
-| Choices | 7 | 7 (+ learning) | — |
-| Principles | 10 | 7 (+ learning) | alignment, planning, reflection |
+| Domain | Sub-services | Facade Mixins | Common (factory) | Domain-Specific |
+|--------|-------------|---------------|-----------------|-----------------|
+| Tasks | 12 | 0 | 6 (core, search, rels, intel, event_handler, knowledge_intelligence) | learning_metrics, progress, scheduling, planning, analytics_engine, ku_generation_service |
+| Goals | 10 | 2 | 7 (+ learning) | progress, scheduling, planning |
+| Habits | 13 | 3 | 7 (+ learning) | progress, scheduling, planning, completions, event_integration, patterns |
+| Events | 10 | 0 | 7 (+ learning) | progress, scheduling, habit_integration |
+| Choices | 7 | 3 | 7 (+ learning) | — |
+| Principles | 10 | 3 | 7 (+ learning) | alignment, planning, reflection |
+
+**Facade Mixins (April 2026):** Goals (2: `_OrchestrationMixin`, `_RelationshipMixin`), Habits (3: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Choices (3: `_OptionManagementMixin`, `_RelationshipMixin`, `_EnrichmentMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). These group related facade delegation methods by concern — methods are not removed from the facade's public API, just organized into mixin files.
 
 **Common (Tasks):** core, search, relationships, intelligence, event_handler, knowledge_intelligence
 (factory-created; Tasks has no learning service).
@@ -672,8 +674,8 @@ Habits has two event services: `HabitEventHandlerService` (reactive fire-and-for
 factory as `self.event_handler`) and `HabitsEventIntegrationService` (cross-domain integration that
 creates Event entities from Habits — domain-specific, wired as `self.events`).
 
-**Most Complex:** Habits (13 sub-services)
-**Simplest:** Choices (7 sub-services)
+**Most Complex:** Habits (13 sub-services + 3 facade mixins)
+**Simplest:** Choices (7 sub-services + 3 facade mixins)
 
 ---
 

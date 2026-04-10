@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-04-10
+updated: 2026-04-11
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -45,28 +45,30 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 
 **See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
 
-## Facade Pattern (February 2026)
+## Facade Pattern (February 2026, mixins April 2026)
 
-`ChoicesService` uses explicit `async def` delegation methods for clean delegation to 7 specialized sub-services:
+`ChoicesService` delegates to sub-services + 3 focused facade mixins for consistency with Habits/Goals/Principles:
 
 ```python
-class ChoicesService(BaseService[ChoicesOperations, Choice]):
-    core: ChoicesCoreService
-    search: ChoicesSearchService
-    relationships: UnifiedRelationshipService
-    intelligence: ChoicesIntelligenceService  # takes cross_domain_query for ZPD behavioral signals
-    knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
-    learning: ChoicesLearningService
-    event_handler: ChoiceEventHandlerService
-    cross_domain_query: CrossDomainQueryService  # cross-domain reads (April 2026)
-
-    # Explicit delegation — MyPy-native, no mixin needed
-    async def get_choice(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.core.get_choice(*args, **kwargs)
-
-    async def search_choices(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.search.search(*args, **kwargs)
+class ChoicesService(
+    _OptionManagementMixin,  # add/update/remove option, make_decision
+    _RelationshipMixin,      # link_choice_to_*, semantic relationships
+    _EnrichmentMixin,        # analytics delegates + enriched data views
+    KnowledgeIntelligenceDelegationMixin,
+    BaseService[ChoicesOperations, Choice],
+):
+    # Delegation methods delegate to the sub-services below
+    async def get_choice(self, uid: str) -> Result[Choice]:
+        return await self.core.get_choice(uid)
 ```
+
+**Facade Mixins** (`core/services/choices/`):
+
+| Mixin | File | Methods |
+|-------|------|---------|
+| `_OptionManagementMixin` | `_option_management_mixin.py` | `add_option`, `update_option`, `remove_option`, `make_decision` |
+| `_RelationshipMixin` | `_relationship_mixin.py` | `link_choice_to_goal/habit/principle`, `create_semantic_choice_relationship`, `find_choices_aligned_with_principle` |
+| `_EnrichmentMixin` | `_enrichment_mixin.py` | `analyze_decision_patterns`, `get_analytics_context` |
 
 **Sub-services:**
 | Service | Purpose |
@@ -75,7 +77,7 @@ class ChoicesService(BaseService[ChoicesOperations, Choice]):
 | `search` | Text search, filtering, graph-aware queries |
 | `learning` | Learning path guidance integration |
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
-| `intelligence` | Decision support, dual-track assessment, prediction (takes `cross_domain_query` for ZPD behavioral signals) |
+| `intelligence` | Decision support, dual-track assessment, prediction (takes `cross_domain_query` for ZPD behavioral signals; decomposed into 3 intelligence mixins — see CHOICES_INTELLIGENCE.md) |
 | `event_handler` | Event-driven handlers (outcome tracking, decision patterns) |
 
 Created via `create_common_sub_services()` factory in facade `__init__` (intelligence skipped — built manually with `cross_domain_query` dependency).

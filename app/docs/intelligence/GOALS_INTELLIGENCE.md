@@ -3,9 +3,18 @@
 ## Overview
 
 **Architecture:** Extends `BaseAnalyticsService[GoalsOperations, Goal]`
-**Location:** `/core/services/goals/goaps_intelligence_service.py`
+**Location:** `/core/services/goals/goals_intelligence_service.py` (shell ~100 lines)
 **Service Name:** `goals.intelligence`
-**Lines:** ~1,495
+
+**File Structure (decomposed April 2026):**
+| File | Responsibility |
+|------|---------------|
+| `goals_intelligence_service.py` | Shell: `__init__`, `entity_label`, dataclasses (`GoalPrediction`, `HabitImpactAnalysis`) |
+| `_core_intelligence_mixin.py` | `get_goal_with_context`, `get_with_context` (protocol) |
+| `_analytics_mixin.py` | `get_performance_analytics`, `get_domain_insights`, `get_goal_progress_dashboard`, `_generate_progress_recommendations` |
+| `_predictive_mixin.py` | `predict_goal_success`, `analyze_habit_impact`, `assess_goal_risk`, `run_scenario_analysis` + all `_calculate_*` / `_identify_*` / `_determine_*` private helpers |
+| `_dual_track_mixin.py` | `assess_progress_dual_track`, `_calculate_system_progress`, `_progress_level_to_score`, `_generate_progress_gap_*` |
+| `_learning_requirements_mixin.py` | `get_goal_completion_forecast`, `get_goal_learning_requirements`, `_generate_learning_recommendations` |
 
 **Related:** `GoalEventHandlerService` (`/core/services/goals/goal_event_handler_service.py`) — fire-and-forget reactive handlers; persists `COMPLETION_PATTERN` (abandonment, milestones) and `IMBALANCE_DETECTED` (progress stalls) insights to InsightStore (March 2026).
 

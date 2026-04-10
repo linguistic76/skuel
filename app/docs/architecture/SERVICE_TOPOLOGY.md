@@ -285,21 +285,25 @@ Activity Domain Facades (6 total)
 │   └─ core, search, progress, scheduling, planning, intelligence,
 │      learning_metrics, event_handler, analytics_engine, ku_generation_service, knowledge_intelligence, ai
 │
-├─ GoalsService      (10 sub-services)
+├─ GoalsService      (10 sub-services + 2 facade mixins)
 │   └─ core, search, progress, scheduling, learning, planning, intelligence, event_handler, knowledge_intelligence, ai
+│   └─ mixins: _OrchestrationMixin, _RelationshipMixin
 │
-├─ HabitsService    (13 sub-services)  ← Most complex
+├─ HabitsService    (13 sub-services + 3 facade mixins)  ← Most complex
 │   └─ core, search, progress, scheduling, planning, learning, completions,
 │      event_integration, event_handler, intelligence, knowledge_intelligence, ai, patterns
+│   └─ mixins: _CompletionMixin, _EnrichmentMixin, _OrchestrationMixin
 │
 ├─ EventsService     (10 sub-services)
 │   └─ core, search, progress, scheduling, learning, habit_integration, event_handler, intelligence, knowledge_intelligence, ai
 │
-├─ ChoicesService    (7 sub-services)
+├─ ChoicesService    (7 sub-services + 3 facade mixins)
 │   └─ core, search, learning, intelligence, event_handler, knowledge_intelligence, ai
+│   └─ mixins: _OptionManagementMixin, _RelationshipMixin, _EnrichmentMixin
 │
-└─ PrinciplesService (10 sub-services)
+└─ PrinciplesService (10 sub-services + 3 facade mixins)
     └─ core, search, alignment, learning, planning, reflection, intelligence, knowledge_intelligence, ai, event_handler
+    └─ mixins: _EmbodimentMixin, _GravityMixin, _EnrichmentMixin
 ```
 
 **Pattern:** All 6 domains share up to 7 common sub-services via factory: core, search, relationships,
