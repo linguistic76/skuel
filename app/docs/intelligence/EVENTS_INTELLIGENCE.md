@@ -264,7 +264,7 @@ if result.is_ok:
 
 **Dependencies:**
 - EventsOperations backend (REQUIRED)
-- UnifiedRelationshipService (REQUIRED)
+- CrossDomainQueryService (REQUIRED) — batch goal + knowledge counts via `get_event_impact_batch()`
 
 **Impact Scoring:**
 ```
@@ -419,10 +419,8 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.events.intelligence
 events_service = EventsService(
     backend=events_backend,
     graph_intelligence_service=graph_intelligence,
-    embeddings_service=embeddings_service,
-    llm_service=llm_service,
+    cross_domain_query=cross_domain_query,
     event_bus=event_bus,
-    user_service=user_service,
 )
 
 # Access via .intelligence attribute

@@ -47,13 +47,10 @@ actionable = await tasks_service.relationships.get_actionable_for_user(user_cont
 
 ### Mixin Architecture
 
-`UnifiedRelationshipService` is assembled from six focused mixins:
+`UnifiedRelationshipService` is assembled from three focused mixins:
 
 ```
 UnifiedRelationshipService[Ops, Model, DtoType]
-    ├── PlanningMixin              (~430 lines) — UserContext-aware planning + scoring
-    ├── DomainPlanningMixin        (~290 lines) — per-Activity-Domain planning methods
-    ├── LifePathMixin              (~370 lines) — SERVES_LIFE_PATH management
     ├── IntelligenceMixin          (~400 lines) — cross-domain context, semantic queries
     ├── OrderedRelationshipsMixin  (~550 lines) — curriculum hierarchy + edge metadata
     ├── BatchOperationsMixin       (~190 lines) — N+1 elimination
@@ -93,26 +90,6 @@ UnifiedRelationshipService[Ops, Model, DtoType]
 - `create_semantic_relationship(...)` → `Result[bool]`
 - `find_by_semantic_filter(semantic_type, context)` → `Result[list[Model]]`
 
-**LifePathMixin** — "everything flows toward the life path":
-- `link_to_life_path(entity_uid, life_path_uid, contribution_type, score, notes)` → `Result[bool]`
-- `get_life_path_contributors(life_path_uid, entity_types, min_score)` → `Result[list]`
-- `calculate_contribution_score(entity_uid, life_path_uid)` → `Result[float]`
-- `update_contribution_score(entity_uid, life_path_uid, new_score)` → `Result[bool]`
-- `remove_life_path_link(entity_uid, life_path_uid)` → `Result[bool]`
-
-**PlanningMixin** — generic UserContext-aware planning:
-- `get_actionable_for_user(context, limit, include_learning)` → `Result[list[Any]]`
-- `get_blocked_for_user(context, limit)` → `Result[list[dict]]`
-- `get_learning_related_for_user(context, limit)` → `Result[list[Any]]`
-- `get_goal_aligned_for_user(context, goal_uid, limit)` → `Result[list[Any]]`
-
-**DomainPlanningMixin** — per-Activity-Domain planning (called by `DailyPlanningMixin`):
-- `get_actionable_tasks_for_user(context, limit)` → `Result[list[ContextualTask]]`
-- `get_at_risk_habits_for_user(context, limit)` → `Result[list[ContextualHabit]]`
-- `get_upcoming_events_for_user(context, limit)` → `Result[list[ContextualEvent]]`
-- `get_advancing_goals_for_user(context, limit)` → `Result[list[ContextualGoal]]`
-- `get_pending_decisions_for_user(context, limit)` → `Result[list[ContextualChoice]]`
-- `get_aligned_principles_for_user(context, limit)` → `Result[list[ContextualPrinciple]]`
 
 ---
 

@@ -123,11 +123,8 @@ goals_relationship_service = UnifiedRelationshipService(
 ├── _batch_operations_mixin.py       # N+1 elimination (batch_has_relationship, batch_count_related, batch_get_related_uids)
 ├── _ordered_relationships_mixin.py  # Curriculum hierarchy + edge metadata
 ├── _intelligence_mixin.py           # Graph intelligence, semantic, cross-domain context
-├── _life_path_mixin.py              # SERVES_LIFE_PATH ("everything flows toward the life path")
 ├── path_aware_factory.py            # Factory for path-aware entities
-├── relationships_container.py       # Generic relationship container
-├── planning_mixin.py                # Generic UserContext-aware planning + scoring (~430 lines)
-└── _domain_planning_mixin.py        # 6 Activity Domain-specific planning methods (~290 lines)
+└── relationships_container.py       # Generic relationship container
 ```
 
 ### Single Source of Truth

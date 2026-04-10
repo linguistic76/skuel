@@ -98,9 +98,6 @@ knowledge_uids = await tasks_service.get_related_uids("knowledge", task_uid)
 - `/core/services/relationships/_batch_operations_mixin.py` - N+1 elimination helpers
 - `/core/services/relationships/_ordered_relationships_mixin.py` - Curriculum hierarchy + edge metadata
 - `/core/services/relationships/_intelligence_mixin.py` - Graph intelligence, semantic, cross-domain context
-- `/core/services/relationships/_life_path_mixin.py` - SERVES_LIFE_PATH
-- `/core/services/relationships/planning_mixin.py` - Generic UserContext-aware planning (~430 lines)
-- `/core/services/relationships/_domain_planning_mixin.py` - 6 Activity Domain-specific planning methods (~290 lines)
 - `/core/services/relationships/extended_config.py` - Full specifications
 
 *Note: `relationship_config.py` and `domain_configs.py` were removed in February 2026 when all consumers migrated to `relationship_registry.py` as the single source of truth.*
@@ -275,3 +272,4 @@ from core.services.relationships import (
 | 2026-01-06 | Claude | Full API migration complete - all services type-safe, no `Any` hints | 2.2.0 |
 | 2026-03-01 | Claude | `unified_relationship_service.py` decomposed into shell + 5 focused mixin files (same pattern as universal_backend.py) | 3.0.0 |
 | 2026-03-01 | Claude | `planning_mixin.py` split: generic planning (~430 lines) + `_domain_planning_mixin.py` (6 Activity Domain-specific methods, ~290 lines) | 3.1.0 |
+| 2026-04-10 | Claude | Deleted 3 dead mixins (`PlanningMixin`, `DomainPlanningMixin`, `LifePathMixin`) — zero external callers, superseded by per-domain planning sub-services that were never wired | 4.0.0 |

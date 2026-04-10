@@ -96,21 +96,27 @@ def create_tasks_api_routes(
 ```python
 from core.services.activity_domain_config import create_common_sub_services
 
-def __init__(self, backend, graph_intelligence_service, event_bus=None,
-             activity_knowledge_intelligence=None):
+def __init__(self, backend, graph_intelligence_service, cross_domain_query,
+             event_bus=None, activity_knowledge_intelligence=None):
     super().__init__(backend, "events")
 
-    # Create 4 common sub-services via factory
+    # Skip intelligence — created manually to receive cross_domain_query
     common = create_common_sub_services(
         domain="events",
         backend=backend,
         graph_intel=graph_intelligence_service,
         event_bus=event_bus,
+        skip={"intelligence"},
     )
     self.core = common.core
     self.search = common.search
     self.relationships = common.relationships
-    self.intelligence = common.intelligence
+    self.intelligence = EventsIntelligenceService(
+        backend=backend,
+        graph_intelligence_service=graph_intelligence_service,
+        relationship_service=self.relationships,
+        cross_domain_query=cross_domain_query,
+    )
 
     # Knowledge intelligence — shared singleton, assigned directly (mixin provides methods)
     self.knowledge_intelligence = activity_knowledge_intelligence
@@ -131,6 +137,18 @@ self.search = common.search
 self.relationships = common.relationships
 # Then create core/intelligence manually with extra params
 self.core = TasksCoreService(backend=backend, ku_inference_service=ku_inference_service, ...)
+
+# Events skips intelligence only (core/search/relationships are standard)
+common = create_common_sub_services(
+    domain="events", backend=backend, graph_intel=graph_intel,
+    event_bus=event_bus, skip={"intelligence"},
+)
+self.intelligence = EventsIntelligenceService(
+    backend=backend,
+    graph_intelligence_service=graph_intel,
+    relationship_service=common.relationships,
+    cross_domain_query=cross_domain_query,
+)
 ```
 
 ## Adding New Facade Methods
@@ -165,7 +183,7 @@ Orchestration methods use `self.goals_service` — routes never pass cross-domai
 
 ### Cross-Domain Read Queries (April 2026)
 
-Cross-domain *reads* that span 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`), not through domain backends or fan-out loops. Facades receive it as a constructor dependency:
+Cross-domain *reads* that span 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`), not through domain backends or fan-out loops. All 6 Activity Domain facades receive it as a required constructor dependency:
 
 ```python
 class GoalsService(...):
@@ -173,7 +191,7 @@ class GoalsService(...):
         self.cross_domain_query = cross_domain_query
 ```
 
-This replaces the old pattern of domain services calling `self.backend.find_by()` across multiple types and joining in Python. `CrossDomainQueryService` takes only a `QueryExecutor`, runs one Cypher per call, and returns frozen typed dataclasses from `cross_domain_types.py`.
+This replaces the old pattern of domain services calling `self.backend.find_by()` across multiple types and joining in Python. `CrossDomainQueryService` takes only a `QueryExecutor`, runs one Cypher per call, and returns frozen typed dataclasses from `cross_domain_types.py`. When a facade's intelligence sub-service needs `cross_domain_query`, skip `intelligence` in the factory and create it manually (see Events example above).
 
 ## Backend Sharing
 
