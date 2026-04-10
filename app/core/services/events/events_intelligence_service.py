@@ -29,6 +29,7 @@ from core.services.intelligence import (
     GraphContextOrchestrator,
     RecommendationEngine,
 )
+from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -37,7 +38,9 @@ if TYPE_CHECKING:
     from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
 
 
-class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event]):
+class EventsIntelligenceService(
+    _CoreIntelligenceMixin, BaseAnalyticsService["EventsOperations", Event]
+):
     """
     Graph intelligence service for events using pure Cypher graph intelligence.
 
@@ -92,32 +95,8 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory.
+    # get_with_context() is inherited from _CoreIntelligenceMixin.
     # ========================================================================
-
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Event, GraphContext]]:
-        """
-        Get event with full graph context.
-
-        Protocol method: Uses GraphContextOrchestrator for generic pattern.
-        Used by IntelligenceRouteFactory for GET /api/events/context route.
-
-        Args:
-            uid: Event UID
-            depth: Graph traversal depth (default: 2)
-
-        Returns:
-            Result containing (Event, GraphContext) tuple
-        """
-        if self.orchestrator is None:
-            return Result.fail(
-                Errors.system(
-                    message="Graph intelligence service required for context queries",
-                    operation="get_with_context",
-                )
-            )
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)
 
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30

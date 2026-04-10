@@ -15,6 +15,7 @@ Provides:
 - TrendAnalyzer: Trend classification utilities (consolidation)
 """
 
+from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.intelligence.cross_domain_contexts import (
     ChoiceCrossContext,
     CrossDomainContext,
@@ -61,6 +62,8 @@ from core.services.intelligence.trend_analyzer import (
 )
 
 __all__ = [
+    # Shared core intelligence mixin
+    "_CoreIntelligenceMixin",
     # Query intelligence (renamed from BaseIntelligenceService January 2026)
     "QueryIntelligenceService",
     "FacetDetector",

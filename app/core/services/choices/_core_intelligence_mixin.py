@@ -14,8 +14,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
+from core.services.intelligence._core_intelligence_mixin import (
+    _CoreIntelligenceMixin as _SharedCoreMixin,
+)
 from core.utils.decorators import requires_graph_intelligence
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
@@ -26,9 +29,9 @@ if TYPE_CHECKING:
     )
 
 
-class _CoreIntelligenceMixin:
+class _CoreIntelligenceMixin(_SharedCoreMixin):
     """
-    Graph context methods for ChoicesIntelligenceService.
+    Core + decision intelligence for ChoicesIntelligenceService.
 
     Declares class-level attributes used by these methods so mypy
     resolves them without runtime cost.
@@ -36,7 +39,6 @@ class _CoreIntelligenceMixin:
 
     # Populated by ChoicesIntelligenceService.__init__
     backend: Any
-    orchestrator: Any
     relationships: Any
     path_helper: Any
 
@@ -44,63 +46,8 @@ class _CoreIntelligenceMixin:
     async def get_choice_with_context(
         self, uid: str, depth: int = 2
     ) -> Result[tuple[Choice, GraphContext]]:
-        """
-        Get choice with full graph context using pure Cypher graph intelligence.
-
-        Automatically selects optimal query type based on choice's suggested intent:
-        - RELATIONSHIP → Related goals, principles, knowledge
-        - HIERARCHICAL → Decision hierarchy and dependencies
-        - AGGREGATION → Impact analysis across domains
-        - Default → Comprehensive decision ecosystem
-
-        This replaces multiple sequential queries with a single Pure Cypher query,
-        achieving 8-10x performance improvement.
-
-        Args:
-            uid: Choice UID,
-            depth: Graph traversal depth (default: 2)
-
-        Returns:
-            Result containing (choice, GraphContext) tuple with:
-            - choice: The Choice domain model
-            - GraphContext: Rich graph context with cross-domain insights including:
-                * Related goals
-                * Guiding principles
-                * Required knowledge
-                * Impacted tasks and habits
-                * Performance metrics (query time, node counts)
-
-        Performance:
-            - Old approach: ~220ms (3-4 separate queries)
-            - New approach: ~28ms (single APOC query)
-            - 8x faster with single database round trip
-
-        Example:
-            ```python
-            result = await choices_service.get_choice_with_context(
-                "choice_1", GraphDepth.NEIGHBORHOOD
-            )
-            choice, context = result.value
-
-            # Extract cross-domain insights
-            goals = context.get_nodes_by_domain(Domain.GOALS)
-            principles = context.get_nodes_by_domain(Domain.PRINCIPLES)
-            knowledge = context.get_nodes_by_domain(Domain.KNOWLEDGE)
-
-            print(f"This choice relates to {len(goals)} goals")
-            print(f"Guided by {len(principles)} principles")
-            ```
-        """
-        # Use GraphContextOrchestrator pattern (consolidation)
-        # Orchestrator is guaranteed to exist when @requires_graph_intelligence passes
-        if not self.orchestrator:
-            return Result.fail(
-                Errors.system(
-                    message="GraphContextOrchestrator not initialized",
-                    operation="get_choice_with_context",
-                )
-            )
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+        """Domain-named alias for get_with_context(). See shared base."""
+        return await self.get_with_context(uid, depth)  # type: ignore[return-value]
 
     @requires_graph_intelligence("get_decision_intelligence")
     async def get_decision_intelligence(

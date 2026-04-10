@@ -1,6 +1,5 @@
 """
 Core Intelligence Mixin — PrinciplesIntelligenceService
-========================================================
 
 Protocol bridge methods + graph context orchestration.
 
@@ -14,15 +13,18 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import PrincipleStrength
 from core.models.type_hints import UserUID
+from core.services.intelligence._core_intelligence_mixin import (
+    _CoreIntelligenceMixin as _SharedCoreMixin,
+)
 from core.utils.decorators import requires_graph_intelligence
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.principle.principle import Principle
 
 
-class _CoreIntelligenceMixin:
+class _CoreIntelligenceMixin(_SharedCoreMixin):
     """
     Protocol bridge + graph context for PrinciplesIntelligenceService.
 
@@ -32,31 +34,12 @@ class _CoreIntelligenceMixin:
 
     # Populated by PrinciplesIntelligenceService.__init__
     backend: Any
-    orchestrator: Any
     relationships: Any
     logger: Any
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
     # ========================================================================
-
-    async def get_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Principle, GraphContext]]:
-        """
-        Get principle with full graph context.
-
-        Protocol method: Maps to get_principle_with_context.
-        Used by IntelligenceRouteFactory for GET /api/principles/context route.
-
-        Args:
-            uid: Principle UID
-            depth: Graph traversal depth (default: 2)
-
-        Returns:
-            Result containing (Principle, GraphContext) tuple
-        """
-        return await self.get_principle_with_context(uid, depth)  # type: ignore[attr-defined]
 
     async def get_performance_analytics(
         self, user_uid: UserUID, _period_days: int = 30
@@ -143,32 +126,5 @@ class _CoreIntelligenceMixin:
     async def get_principle_with_context(
         self, uid: str, depth: int = 2
     ) -> Result[tuple[Principle, GraphContext]]:
-        """
-        Get principle with full graph context using pure Cypher graph intelligence.
-
-        Automatically selects optimal query type based on principle's suggested intent:
-        - RELATIONSHIP → Activities aligned with principle
-        - HIERARCHICAL → Principle hierarchy and dependencies
-        - AGGREGATION → Alignment statistics and trends
-        - Default → Comprehensive principle ecosystem
-
-        This replaces multiple sequential queries with a single Pure Cypher query,
-        achieving 8-10x performance improvement.
-
-        Args:
-            uid: Principle UID,
-            depth: Graph traversal depth (default: 2)
-
-        Returns:
-            Result containing (principle, GraphContext) tuple
-        """
-        # Use GraphContextOrchestrator pattern (consolidation)
-        # Orchestrator is guaranteed to exist when @requires_graph_intelligence passes
-        if not self.orchestrator:
-            return Result.fail(
-                Errors.system(
-                    message="GraphContextOrchestrator not initialized",
-                    operation="get_principle_with_context",
-                )
-            )
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)
+        """Domain-named alias for get_with_context(). See shared base."""
+        return await self.get_with_context(uid, depth)  # type: ignore[return-value]
