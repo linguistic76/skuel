@@ -106,6 +106,7 @@ class TaskEventHandlerService:
         backend: TasksOperations,
         relationship_service: UnifiedRelationshipService | None = None,
         insight_store: InsightStore | None = None,
+        event_bus: Any = None,
     ) -> None:
         """Initialize task event handler service.
 
@@ -113,6 +114,7 @@ class TaskEventHandlerService:
             backend: Backend for task operations
             relationship_service: For querying related entities (optional)
             insight_store: For persisting event-driven insights (optional)
+            event_bus: Event bus (accepted for factory uniformity, not used)
         """
         self.backend = backend
         self.relationships = relationship_service

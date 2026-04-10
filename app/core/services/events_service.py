@@ -546,14 +546,17 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
         self.ai: EventsAIService | None = ai_service
         self.logger = get_logger("skuel.services.events")  # type: ignore[assignment]  # structlog BoundLogger
 
-        # Initialize core, search, and relationships via factory; intelligence is
-        # created manually to pass cross_domain_query.
+        # Initialize core, search, relationships, event_handler, learning, and
+        # knowledge_intelligence via factory; intelligence is created manually
+        # to pass cross_domain_query.
         common: CommonSubServices[EventsIntelligenceService] = create_common_sub_services(
             domain="events",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
+            insight_store=insight_store,
             skip={"intelligence"},
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         self.core = common.core
         self.search: EventsSearchOperations = common.search
@@ -567,17 +570,15 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
 
         # Domain-specific sub-services (not common to all facades)
         self.habits = EventsHabitIntegrationService(backend=backend, event_bus=event_bus)
-        self.learning = EventsLearningService(backend=backend, event_bus=event_bus)
+        self.learning: EventsLearningService = common.learning
         self.progress = EventsProgressService(backend=backend, event_bus=event_bus)
         self.scheduling = EventsSchedulingService(backend=backend, event_bus=event_bus)
-        self.event_handler = EventsEventHandlerService(
-            backend=backend,
-            relationship_service=self.relationships,
-            insight_store=insight_store,
-        )
+
+        # Event-driven handler from factory
+        self.event_handler: EventsEventHandlerService = common.event_handler
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
             "EventsService facade initialized with 10 sub-services: "

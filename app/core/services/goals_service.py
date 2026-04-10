@@ -479,16 +479,19 @@ class GoalsService(KnowledgeIntelligenceDelegationMixin, BaseService[GoalsOperat
         self.graph_intel = graph_intelligence_service
         self.logger = get_logger("skuel.services.goals")  # type: ignore[assignment]  # structlog BoundLogger
 
-        # Initialize search and relationships via factory.
-        # core is built manually because GoalsCoreService takes cross_domain_query
-        # for the goal-abandonment guard. intelligence is skipped because it
-        # needs progress_service, which is created below.
+        # Initialize search, relationships, event_handler, learning, and
+        # knowledge_intelligence via factory. core is built manually because
+        # GoalsCoreService takes cross_domain_query for the goal-abandonment
+        # guard. intelligence is skipped because it needs progress_service,
+        # which is created below.
         common = create_common_sub_services(
             domain="goals",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
+            insight_store=insight_store,
             skip={"core", "intelligence"},
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         from core.services.goals.goals_core_service import GoalsCoreService
 
@@ -504,14 +507,11 @@ class GoalsService(KnowledgeIntelligenceDelegationMixin, BaseService[GoalsOperat
         self.progress = GoalsProgressService(
             backend=backend,
             event_bus=event_bus,
-            relationships_service=self.relationships,
+            relationship_service=self.relationships,
         )
 
-        self.learning = GoalsLearningService(
-            backend=backend,
-            event_bus=event_bus,
-            relationships_service=self.relationships,
-        )
+        # Learning service from factory
+        self.learning: GoalsLearningService = common.learning
 
         # Intelligence requires progress_service — created manually (skipped in factory)
         self.intelligence: GoalsIntelligenceService = GoalsIntelligenceService(
@@ -521,13 +521,8 @@ class GoalsService(KnowledgeIntelligenceDelegationMixin, BaseService[GoalsOperat
             progress_service=self.progress,
         )
 
-        # Event-driven handlers (replaces GoalsRecommendationService)
-        self.event_handler = GoalEventHandlerService(
-            backend=backend,
-            relationship_service=self.relationships,
-            event_bus=event_bus,
-            insight_store=insight_store,
-        )
+        # Event-driven handlers from factory
+        self.event_handler: GoalEventHandlerService = common.event_handler
 
         # January 2026: Scheduling service for capacity and timeline management
         self.scheduling = GoalsSchedulingService(
@@ -537,7 +532,7 @@ class GoalsService(KnowledgeIntelligenceDelegationMixin, BaseService[GoalsOperat
         )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
             "GoalsService facade initialized with 9 sub-services: "

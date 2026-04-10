@@ -20,7 +20,7 @@ Responsibilities:
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.events.calendar_event_events import (
     CalendarEventCompleted,
@@ -97,6 +97,7 @@ class EventsEventHandlerService:
         backend: EventsOperations,
         relationship_service: UnifiedRelationshipService | None = None,
         insight_store: InsightStore | None = None,
+        event_bus: Any = None,
     ) -> None:
         """Initialize events event handler service.
 
@@ -104,6 +105,7 @@ class EventsEventHandlerService:
             backend: Backend for event operations
             relationship_service: For querying related entities (optional)
             insight_store: For persisting event-driven insights (optional)
+            event_bus: Event bus (accepted for factory uniformity, not used)
         """
         self.backend = backend
         self.relationships = relationship_service

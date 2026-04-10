@@ -372,9 +372,10 @@ class ChoicesService(
         self.ai: ChoicesAIService | None = ai_service
         self.logger = get_logger("skuel.services.choices")  # type: ignore[assignment]  # structlog BoundLogger
 
-        # Initialize core/search/relationships via factory. Intelligence is
-        # built manually because ChoicesIntelligenceService takes
-        # cross_domain_query for the ZPD behavioral-signals bridge.
+        # Initialize core/search/relationships/event_handler/learning/
+        # knowledge_intelligence via factory. Intelligence is built manually
+        # because ChoicesIntelligenceService takes cross_domain_query for the
+        # ZPD behavioral-signals bridge.
         common: CommonSubServices[ChoicesIntelligenceService] = create_common_sub_services(
             domain="choices",
             backend=backend,
@@ -382,6 +383,7 @@ class ChoicesService(
             event_bus=event_bus,
             insight_store=insight_store,
             skip={"intelligence"},
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         self.core = common.core
         self.search: ChoicesSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
@@ -399,17 +401,12 @@ class ChoicesService(
             insight_store=insight_store,
         )
 
-        # Domain-specific sub-services (not common to all facades)
-        self.learning = ChoicesLearningService(backend=backend)
-        self.event_handler = ChoiceEventHandlerService(
-            backend=backend,
-            relationship_service=self.relationships,
-            insight_store=insight_store,
-            event_bus=event_bus,
-        )
+        # Domain-specific sub-services from factory
+        self.learning: ChoicesLearningService = common.learning
+        self.event_handler: ChoiceEventHandlerService = common.event_handler
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
             "ChoicesService facade initialized with 7 sub-services: "

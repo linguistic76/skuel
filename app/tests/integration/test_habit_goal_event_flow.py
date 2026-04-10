@@ -66,7 +66,7 @@ class TestHabitGoalEventFlow:
         return GoalsProgressService(
             backend=goals_backend,
             event_bus=event_bus,
-            relationships_service=None,
+            relationship_service=None,
         )
 
     @pytest_asyncio.fixture

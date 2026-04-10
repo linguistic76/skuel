@@ -522,9 +522,10 @@ class HabitsService(KnowledgeIntelligenceDelegationMixin, BaseService[HabitsOper
         self.event_bus = event_bus
         self.logger = get_logger("skuel.services.habits")  # type: ignore[assignment]  # structlog BoundLogger
 
-        # Initialize core/search/relationships via factory. Intelligence is
-        # built manually because HabitsIntelligenceService takes
-        # cross_domain_query for the ZPD knowledge-signals bridge.
+        # Initialize core/search/relationships/event_handler/learning/
+        # knowledge_intelligence via factory. Intelligence is built manually
+        # because HabitsIntelligenceService takes cross_domain_query for the
+        # ZPD knowledge-signals bridge.
         common: CommonSubServices[HabitsIntelligenceService] = create_common_sub_services(
             domain="habits",
             backend=backend,
@@ -532,6 +533,7 @@ class HabitsService(KnowledgeIntelligenceDelegationMixin, BaseService[HabitsOper
             event_bus=event_bus,
             insight_store=insight_store,
             skip={"intelligence"},
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         self.core = common.core
         self.search: HabitsSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
@@ -550,7 +552,7 @@ class HabitsService(KnowledgeIntelligenceDelegationMixin, BaseService[HabitsOper
         )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         # Completion tracking service (REQUIRED - fail-fast) - create before progress
         self.completions = HabitsCompletionService(
@@ -564,7 +566,7 @@ class HabitsService(KnowledgeIntelligenceDelegationMixin, BaseService[HabitsOper
             relationship_service=self.relationships,
             event_bus=event_bus,
         )
-        self.learning = HabitsLearningService(backend=backend, event_bus=event_bus)
+        self.learning: HabitsLearningService = common.learning
         self.events = HabitsEventIntegrationService(backend=backend)
 
         # Planning and scheduling services (January 2026)
@@ -578,13 +580,8 @@ class HabitsService(KnowledgeIntelligenceDelegationMixin, BaseService[HabitsOper
             event_bus=event_bus,
         )
 
-        # Event-driven handler service (replaces HabitAchievementService, March 2026)
-        self.event_handler = HabitEventHandlerService(
-            backend=backend,
-            relationship_service=self.relationships,
-            insight_store=insight_store,
-            event_bus=event_bus,
-        )
+        # Event-driven handler service from factory
+        self.event_handler: HabitEventHandlerService = common.event_handler
 
         # Pattern recognition (March 2026)
         self.patterns = HabitsPatternService(habits_core=self.core)

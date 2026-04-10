@@ -307,14 +307,17 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
 
         self.logger = get_logger("skuel.services.tasks")  # type: ignore[assignment]  # structlog BoundLogger
 
-        # Use factory for search and relationships only (core and intelligence
-        # need domain-specific parameters — created manually below)
+        # Use factory for search, relationships, event_handler, learning, and
+        # knowledge_intelligence. core and intelligence need domain-specific
+        # parameters — created manually below.
         common = create_common_sub_services(
             domain="tasks",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
+            insight_store=insight_store,
             skip={"core", "intelligence"},
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
 
         # NOTE: Named 'search' for consistency with other domain facades
@@ -355,11 +358,7 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
         )
 
         # Event-driven reactive handlers (fire-and-forget)
-        self.event_handler = TaskEventHandlerService(
-            backend=backend,
-            relationship_service=self.relationships,
-            insight_store=insight_store,
-        )
+        self.event_handler: TaskEventHandlerService = common.event_handler
 
         # Analytics engine for direct calls (simplified from TasksAnalyticsService)
         # January 2026: TasksAnalyticsService removed - AnalyticsEngine called directly
@@ -369,7 +368,7 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
         self.ku_generation_service = ku_generation_service
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
             "TasksService facade initialized with 11 sub-services: "

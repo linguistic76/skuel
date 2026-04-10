@@ -61,6 +61,14 @@ class ActivityDomainConfig:
     intelligence_module: str
     intelligence_class: str
 
+    # Event handler service (required for all 6 domains)
+    event_handler_module: str
+    event_handler_class: str
+
+    # Learning service (None for Tasks, which uses learning_metrics instead)
+    learning_module: str | None
+    learning_class: str | None
+
     # Relationship config
     relationship_config: Any
 
@@ -78,6 +86,10 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="TasksSearchService",
         intelligence_module="core.services.tasks",
         intelligence_class="TasksIntelligenceService",
+        event_handler_module="core.services.tasks.task_event_handler_service",
+        event_handler_class="TaskEventHandlerService",
+        learning_module=None,
+        learning_class=None,
         relationship_config=TASKS_CONFIG,
         domain_name="tasks",
         entity_label="Task",
@@ -89,6 +101,10 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="GoalsSearchService",
         intelligence_module="core.services.goals",
         intelligence_class="GoalsIntelligenceService",
+        event_handler_module="core.services.goals.goal_event_handler_service",
+        event_handler_class="GoalEventHandlerService",
+        learning_module="core.services.goals.goals_learning_service",
+        learning_class="GoalsLearningService",
         relationship_config=GOAPS_CONFIG,
         domain_name="goals",
         entity_label="Goal",
@@ -100,6 +116,10 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="HabitSearchService",
         intelligence_module="core.services.habits",
         intelligence_class="HabitsIntelligenceService",
+        event_handler_module="core.services.habits.habit_event_handler_service",
+        event_handler_class="HabitEventHandlerService",
+        learning_module="core.services.habits.habits_learning_service",
+        learning_class="HabitsLearningService",
         relationship_config=HABITS_CONFIG,
         domain_name="habits",
         entity_label="Habit",
@@ -111,6 +131,10 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="EventsSearchService",
         intelligence_module="core.services.events",
         intelligence_class="EventsIntelligenceService",
+        event_handler_module="core.services.events.events_event_handler_service",
+        event_handler_class="EventsEventHandlerService",
+        learning_module="core.services.events.events_learning_service",
+        learning_class="EventsLearningService",
         relationship_config=EVENTS_CONFIG,
         domain_name="events",
         entity_label="Event",
@@ -122,6 +146,10 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="ChoicesSearchService",
         intelligence_module="core.services.choices",
         intelligence_class="ChoicesIntelligenceService",
+        event_handler_module="core.services.choices.choice_event_handler_service",
+        event_handler_class="ChoiceEventHandlerService",
+        learning_module="core.services.choices.choices_learning_service",
+        learning_class="ChoicesLearningService",
         relationship_config=CHOICES_CONFIG,
         domain_name="choices",
         entity_label="Choice",
@@ -133,6 +161,10 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         search_class="PrinciplesSearchService",
         intelligence_module="core.services.principles",
         intelligence_class="PrinciplesIntelligenceService",
+        event_handler_module="core.services.principles.principles_event_handler_service",
+        event_handler_class="PrincipleEventHandlerService",
+        learning_module="core.services.principles.principles_learning_service",
+        learning_class="PrinciplesLearningService",
         relationship_config=PRINCIPLES_CONFIG,
         domain_name="principles",
         entity_label="Principle",
@@ -152,12 +184,17 @@ class CommonSubServices(Generic[T_Intelligence]):
         self.intelligence = common.intelligence # MyPy knows this is TasksIntelligenceService
 
     Fields may be None when the corresponding service name is in the ``skip`` set.
+    ``event_handler`` and ``learning`` are always built (not skippable via ``skip``).
+    ``knowledge_intelligence`` is None unless passed to the factory.
     """
 
     core: Any
     search: Any
     relationships: UnifiedRelationshipService | None
     intelligence: T_Intelligence | None
+    event_handler: Any
+    learning: Any  # None for Tasks (no learning service)
+    knowledge_intelligence: Any  # None unless passed via activity_knowledge_intelligence
 
 
 _VALID_SKIP_NAMES = frozenset({"core", "search", "relationships", "intelligence"})
@@ -170,6 +207,7 @@ def create_common_sub_services(
     event_bus: Any = None,
     insight_store: Any = None,
     skip: set[str] | None = None,
+    activity_knowledge_intelligence: Any = None,
 ) -> CommonSubServices[Any]:
     """
     Factory function to create common sub-services for Activity Domain facades.
@@ -185,21 +223,28 @@ def create_common_sub_services(
         skip: Sub-service names to skip constructing (set to None in result).
             Valid names: "core", "search", "relationships", "intelligence".
             Use when the facade creates these manually with domain-specific parameters.
+        activity_knowledge_intelligence: Shared knowledge intelligence singleton (optional).
+            Passed through to CommonSubServices.knowledge_intelligence unchanged.
 
     Returns:
         CommonSubServices dataclass. Skipped fields are None.
+        ``event_handler`` and ``learning`` are always built (not in skip set).
         Callers should annotate with specific intelligence type for type safety:
 
             common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(...)
 
     Example:
         common: CommonSubServices[TasksIntelligenceService] = create_common_sub_services(
-            "tasks", backend, graph_intel, event_bus, insight_store
+            "tasks", backend, graph_intel, event_bus, insight_store,
+            activity_knowledge_intelligence=knowledge_intelligence,
         )
         self.core = common.core
         self.search = common.search
         self.relationships = common.relationships
         self.intelligence = common.intelligence  # Typed as TasksIntelligenceService
+        self.event_handler = common.event_handler
+        self.learning = common.learning        # None for Tasks
+        self.knowledge_intelligence = common.knowledge_intelligence
     """
     import importlib
 
@@ -253,9 +298,33 @@ def create_common_sub_services(
                 relationship_service=relationships,
             )
 
+    # event_handler — all 6 domains have one; all accept the same keyword args after Step 1
+    eh_module = importlib.import_module(config.event_handler_module)
+    eh_class = getattr(eh_module, config.event_handler_class)
+    event_handler = eh_class(
+        backend=backend,
+        relationship_service=relationships,
+        insight_store=insight_store,
+        event_bus=event_bus,
+    )
+
+    # learning — 5 domains have one; Tasks (learning_module=None) skips
+    learning = None
+    if config.learning_module is not None:
+        learn_module = importlib.import_module(config.learning_module)
+        learn_class = getattr(learn_module, config.learning_class)
+        learning = learn_class(
+            backend=backend,
+            event_bus=event_bus,
+            relationship_service=relationships,
+        )
+
     return CommonSubServices(
         core=core,
         search=search,
         relationships=relationships,
         intelligence=intelligence,
+        event_handler=event_handler,
+        learning=learning,
+        knowledge_intelligence=activity_knowledge_intelligence,
     )

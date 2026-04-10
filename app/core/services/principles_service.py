@@ -412,13 +412,15 @@ class PrinciplesService(
         self.logger = get_logger("skuel.services.principles")  # type: ignore[assignment]  # structlog BoundLogger
         self.alignment_cache: dict[str, AlignmentAssessment] = {}
 
-        # Initialize 4 common sub-services via factory (eliminates ~30 lines of repetitive code)
+        # Initialize all common sub-services via factory, including event_handler,
+        # learning, and knowledge_intelligence.
         common: CommonSubServices[PrinciplesIntelligenceService] = create_common_sub_services(
             domain="principles",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
             insight_store=insight_store,
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
         self.core = common.core
         self.search: PrinciplesSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
@@ -431,7 +433,7 @@ class PrinciplesService(
             cross_domain_query=cross_domain_query,
             event_bus=event_bus,
         )
-        self.learning = PrinciplesLearningService(backend=backend)
+        self.learning: PrinciplesLearningService = common.learning
 
         # PrinciplesReflectionService shelved (2026-03-28)
 
@@ -441,19 +443,11 @@ class PrinciplesService(
             relationship_service=self.relationships,
         )
 
-        # Event handler sub-service (March 2026 - extracted from intelligence service)
-        from core.services.principles.principles_event_handler_service import (
-            PrincipleEventHandlerService,
-        )
-
-        self.event_handler: PrincipleEventHandlerService = PrincipleEventHandlerService(
-            backend=backend,
-            relationship_service=self.relationships,
-            insight_store=insight_store,
-        )
+        # Event handler sub-service from factory
+        self.event_handler: PrincipleEventHandlerService = common.event_handler
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
-        self.knowledge_intelligence = activity_knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
+        self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
             "PrinciplesService facade initialized with 8 sub-services: "

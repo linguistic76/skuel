@@ -59,23 +59,23 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
     def __init__(
         self,
         backend: "EventsOperations",
-        relationships: "UnifiedRelationshipService | None" = None,
         event_bus=None,
+        relationship_service: "UnifiedRelationshipService | None" = None,
     ) -> None:
         """
         Initialize events learning service.
 
         Args:
             backend: Protocol-based backend for event operations
-            relationships: UnifiedRelationshipService for graph queries (optional)
             event_bus: Event bus for publishing domain events (optional)
+            relationship_service: UnifiedRelationshipService for graph queries (optional)
 
         Note:
             Context invalidation now happens via event-driven architecture.
             Calendar event operations trigger domain events which invalidate context.
         """
         super().__init__(backend, "events.learning")
-        self.relationships = relationships
+        self.relationships = relationship_service
         self.event_bus = event_bus
 
         # Initialize LearningAlignmentBridge for Events

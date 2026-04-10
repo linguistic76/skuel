@@ -56,13 +56,14 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         completed_statuses=(EntityStatus.ARCHIVED.value,),
     )
 
-    def __init__(self, backend: HabitsOperations, event_bus=None) -> None:
+    def __init__(self, backend: HabitsOperations, event_bus=None, relationship_service=None) -> None:
         """
         Initialize habits learning service.
 
         Args:
             backend: Protocol-based backend for habit operations,
             event_bus: Event bus for publishing domain events (optional)
+            relationship_service: Relationship service (accepted for factory uniformity, not used)
 
         Note:
             Context invalidation now happens via event-driven architecture.

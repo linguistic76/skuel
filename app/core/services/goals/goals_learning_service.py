@@ -63,7 +63,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         self,
         backend: GoalsOperations,
         event_bus=None,
-        relationships_service: "UnifiedRelationshipService | None" = None,
+        relationship_service: "UnifiedRelationshipService | None" = None,
     ) -> None:
         """
         Initialize goals learning service.
@@ -71,7 +71,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         Args:
             backend: Protocol-based backend for goal operations,
             event_bus: Event bus for publishing domain events (optional)
-            relationships_service: Service for fetching goal relationships
+            relationship_service: Service for fetching goal relationships
 
         Note:
             Context invalidation now happens via event-driven architecture.
@@ -79,7 +79,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         """
         super().__init__(backend, "goals.learning")
         self.event_bus = event_bus
-        self.relationships = relationships_service  # GRAPH-NATIVE: For fetching goal relationships
+        self.relationships = relationship_service  # GRAPH-NATIVE: For fetching goal relationships
 
         # Initialize LearningAlignmentBridge for learning operations
         self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](

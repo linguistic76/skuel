@@ -50,12 +50,14 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
         completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 
-    def __init__(self, backend: ChoicesOperations) -> None:
+    def __init__(self, backend: ChoicesOperations, event_bus=None, relationship_service=None) -> None:
         """
         Initialize choices learning service.
 
         Args:
             backend: Protocol-based backend for choice operations
+            event_bus: Event bus (accepted for factory uniformity, not used)
+            relationship_service: Relationship service (accepted for factory uniformity, not used)
         """
         super().__init__(backend, "choices.learning")
         self.logger = get_logger("skuel.services.choices.learning")  # type: ignore[assignment]  # structlog BoundLogger
