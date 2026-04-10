@@ -625,13 +625,22 @@ common = create_common_sub_services(
     backend=backend,
     graph_intel=graph_intelligence_service,
     event_bus=event_bus,
+    insight_store=insight_store,                                      # optional
+    activity_knowledge_intelligence=activity_knowledge_intelligence,  # optional
     skip={"core", "intelligence"},  # optional — skip sub-services created manually
 )
 
 self.search = common.search
 self.relationships = common.relationships
+self.event_handler = common.event_handler              # auto-wired (was manual before April 2026)
+self.learning = common.learning                        # auto-wired (None for Tasks, which has no learning service)
+self.knowledge_intelligence = common.knowledge_intelligence  # auto-wired (was via mixin only)
 # core and intelligence created manually when they need domain-specific params
 ```
+
+**`skip` applies only to:** `core`, `search`, `relationships`, `intelligence`. The `event_handler`,
+`learning`, and `knowledge_intelligence` fields are always produced when conditions are met (domain
+config includes a learning class; singleton is passed in).
 
 **When to use:**
 - Implementing new facade services
@@ -640,25 +649,31 @@ self.relationships = common.relationships
 **Benefits:**
 - Eliminates ~80 lines of repetitive init code
 - Consistent sub-service creation
-- Centralized configuration
-- `skip` parameter avoids constructing sub-services the facade overrides
+- Centralized configuration in `ACTIVITY_DOMAIN_CONFIGS` registry
 
 ---
 
 ## Sub-Service Count by Domain
 
-| Domain | Total Sub-Services | Common (4+1 shared) | Domain-Specific |
-|--------|-------------------|------------|-----------------|
-| Tasks | 11 | 5 | 6 (progress, scheduling, planning, productivity, learning_metrics, event_handler) |
-| Goals | 10 | 5 | 5 (progress, scheduling, learning, planning, event_handler) |
-| Habits | 14 | 5 | 9 (progress, scheduling, planning, learning, completions, events, event_handler, patterns, goal_analytics) |
-| Events | 10 | 5 | 5 (progress, scheduling, learning, habit_integration, event_handler) |
-| Choices | 8 | 5 | 3 (learning, event_handler) |
-| Principles | 10 | 5 | 5 (alignment, learning, reflection, planning, event_handler) |
+| Domain | Total | Common (factory) | Domain-Specific |
+|--------|-------|-----------------|-----------------|
+| Tasks | 12 | 6 (core, search, rels, intel, event_handler, knowledge_intelligence) | learning_metrics, progress, scheduling, planning, analytics_engine, ku_generation_service |
+| Goals | 10 | 7 (+ learning) | progress, scheduling, planning |
+| Habits | 13 | 7 (+ learning) | progress, scheduling, planning, completions, event_integration, patterns |
+| Events | 10 | 7 (+ learning) | progress, scheduling, habit_integration |
+| Choices | 7 | 7 (+ learning) | — |
+| Principles | 10 | 7 (+ learning) | alignment, planning, reflection |
 
-**Common 4:** core, search, relationships, intelligence (created by factory). Knowledge intelligence is a shared singleton wired separately via `KnowledgeIntelligenceDelegationMixin`.
-**Most Complex:** Habits (14 sub-services)
-**Simplest:** Choices (8 sub-services)
+**Common (Tasks):** core, search, relationships, intelligence, event_handler, knowledge_intelligence
+(factory-created; Tasks has no learning service).
+**Common (Goals/Habits/Events/Choices/Principles):** + learning.
+
+Habits has two event services: `HabitEventHandlerService` (reactive fire-and-forget, auto-wired by
+factory as `self.event_handler`) and `HabitsEventIntegrationService` (cross-domain integration that
+creates Event entities from Habits — domain-specific, wired as `self.events`).
+
+**Most Complex:** Habits (13 sub-services)
+**Simplest:** Choices (7 sub-services)
 
 ---
 

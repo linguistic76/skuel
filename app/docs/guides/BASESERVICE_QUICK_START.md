@@ -408,19 +408,26 @@ class TasksService(BaseService[TasksOperations, Task]):
     def __init__(self, backend, ...):
         super().__init__(backend, "tasks")
 
-        # Factory creates 4 common sub-services + passes through knowledge_intelligence
+        # Factory creates 7 common sub-services:
+        # core, search, relationships, intelligence (skippable via skip={})
+        # + event_handler, learning*, knowledge_intelligence (always auto-wired)
+        # *Tasks omits learning — no learning_class in its ActivityDomainConfig
         common = create_common_sub_services(
             domain="tasks",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
-            knowledge_intelligence=activity_knowledge_intelligence,
+            insight_store=insight_store,
+            activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
 
-        self.core = common.core                # TasksCoreService
-        self.search = common.search            # TasksSearchService
-        self.relationships = common.relationships  # UnifiedRelationshipService
-        self.intelligence = common.intelligence    # TasksIntelligenceService
+        self.core = common.core                        # TasksCoreService
+        self.search = common.search                    # TasksSearchService
+        self.relationships = common.relationships      # UnifiedRelationshipService
+        self.intelligence = common.intelligence        # TasksIntelligenceService
+        self.event_handler = common.event_handler      # TaskEventHandlerService
+        self.learning = common.learning                # None for Tasks
+        self.knowledge_intelligence = common.knowledge_intelligence  # shared singleton
 ```
 
 **Eliminates:** ~80 lines of repetitive initialization code

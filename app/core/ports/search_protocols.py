@@ -61,7 +61,7 @@ class DomainSearchOperations(Protocol[T]):
     Standard search interface for activity domain services.
 
     All activity domain SearchServices (TaskSearchService, GoalSearchService,
-    HabitSearchService, EventSearchService, ChoiceSearchService, PrincipleSearchService)
+    HabitsSearchService, EventSearchService, ChoiceSearchService, PrincipleSearchService)
     implement this protocol plus domain-specific methods.
 
     Architecture (November 2025):
@@ -84,7 +84,7 @@ class DomainSearchOperations(Protocol[T]):
     Domain-Specific Methods (examples):
     - TaskSearchService: get_tasks_for_goal(), get_curriculum_tasks()
     - GoalSearchService: get_goals_by_timeframe(), get_goals_needing_habits()
-    - HabitSearchService: get_habits_by_frequency(), get_habits_needing_attention()
+    - HabitsSearchService: get_habits_by_frequency(), get_habits_needing_attention()
 
     See: /docs/patterns/search_service_pattern.md for full documentation.
     """

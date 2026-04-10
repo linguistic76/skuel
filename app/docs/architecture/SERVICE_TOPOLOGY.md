@@ -281,28 +281,31 @@ TasksService (Facade)
 ```
 Activity Domain Facades (6 total)
 │
-├─ TasksService     (11 sub-services)
-│   └─ core, search, progress, scheduling, planning, intelligence, productivity,
-│      learning_metrics, event_handler, knowledge_intelligence, ai
+├─ TasksService     (12 sub-services)
+│   └─ core, search, progress, scheduling, planning, intelligence,
+│      learning_metrics, event_handler, analytics_engine, ku_generation_service, knowledge_intelligence, ai
 │
 ├─ GoalsService      (10 sub-services)
 │   └─ core, search, progress, scheduling, learning, planning, intelligence, event_handler, knowledge_intelligence, ai
 │
-├─ HabitsService    (14 sub-services)  ← Most complex
+├─ HabitsService    (13 sub-services)  ← Most complex
 │   └─ core, search, progress, scheduling, planning, learning, completions,
-│      event_integration, event_handler, intelligence, knowledge_intelligence, ai, patterns, goal_analytics
+│      event_integration, event_handler, intelligence, knowledge_intelligence, ai, patterns
 │
 ├─ EventsService     (10 sub-services)
 │   └─ core, search, progress, scheduling, learning, habit_integration, event_handler, intelligence, knowledge_intelligence, ai
 │
-├─ ChoicesService    (8 sub-services)
+├─ ChoicesService    (7 sub-services)
 │   └─ core, search, learning, intelligence, event_handler, knowledge_intelligence, ai
 │
 └─ PrinciplesService (10 sub-services)
     └─ core, search, alignment, learning, planning, reflection, intelligence, knowledge_intelligence, ai, event_handler
 ```
 
-**Pattern:** All 6 domains share 4 common sub-services (core, search, relationships, intelligence) created by factory, plus knowledge_intelligence (shared singleton via `KnowledgeIntelligenceDelegationMixin`) and ai. Cross-domain reads spanning 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`), injected as a constructor dependency into facades that need it (Goals, Habits, Choices, Principles). Activity domain stat computation centralized in `core/utils/activity_stats.py` (April 2026).
+**Pattern:** All 6 domains share up to 7 common sub-services via factory: core, search, relationships,
+intelligence (skippable via `skip={}`) + event_handler, learning (Tasks omits), knowledge_intelligence
+(always auto-wired when conditions met). `KnowledgeIntelligenceDelegationMixin` remains for the 4
+delegation method shortcuts but is no longer the wiring path for `knowledge_intelligence`. Cross-domain reads spanning 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`), injected as a constructor dependency into facades that need it (Goals, Habits, Choices, Principles). Activity domain stat computation centralized in `core/utils/activity_stats.py` (April 2026).
 
 **Shared Knowledge Intelligence (singleton):**
 ```
@@ -662,7 +665,9 @@ create_common_sub_services(
     backend=backend,
     graph_intel=graph_intelligence_service,
     event_bus=event_bus,
-    skip={"core", "intelligence"},  # optional — skip sub-services created manually
+    insight_store=insight_store,
+    activity_knowledge_intelligence=activity_knowledge_intelligence,
+    skip={"core", "intelligence"},  # optional — applies only to core/search/rels/intel
 )
     │
     ▼
@@ -671,6 +676,8 @@ ACTIVITY_DOMAIN_CONFIGS["events"]  ← Registry lookup
     ├─ core_class: "EventsCoreService"
     ├─ search_class: "EventsSearchService"
     ├─ intelligence_class: "EventsIntelligenceService"
+    ├─ event_handler_class: "EventsEventHandlerService"
+    ├─ learning_class: "EventsLearningService"
     └─ relationship_config: EVENTS_CONFIG
     │
     ▼
@@ -679,21 +686,28 @@ Dynamic imports + instantiation (skipping names in skip set)
     ├─ core = None  (skipped)
     ├─ search = EventsSearchService(backend=backend, ...)
     ├─ intel = None  (skipped)
-    └─ rels = UnifiedRelationshipService(backend=backend, config=EVENTS_CONFIG)
+    ├─ rels = UnifiedRelationshipService(backend=backend, config=EVENTS_CONFIG)
+    ├─ event_handler = EventsEventHandlerService(...)  (always built)
+    ├─ learning = EventsLearningService(...)           (always built when class configured)
+    └─ knowledge_intelligence = <passed-in singleton>  (always set)
     │
     ▼
 CommonSubServices[EventsIntelligenceService]
     ├─ core: None
     ├─ search: EventsSearchService
     ├─ relationships: UnifiedRelationshipService
-    └─ intelligence: None
+    ├─ intelligence: None
+    ├─ event_handler: EventsEventHandlerService
+    ├─ learning: EventsLearningService
+    └─ knowledge_intelligence: ActivityKnowledgeIntelligenceService
 ```
 
 **Benefits:**
 - Eliminates ~80 lines of boilerplate per facade
 - Centralized configuration via `ACTIVITY_DOMAIN_CONFIGS` registry
 - Generic type parameter for intelligence service
-- `skip` parameter avoids constructing sub-services the facade overrides (Tasks skips core+intelligence, Goals skips intelligence)
+- `skip` parameter covers the first 4 (core/search/relationships/intelligence); event_handler, learning,
+  and knowledge_intelligence are always auto-wired (Tasks omits learning)
 
 ---
 
@@ -743,7 +757,7 @@ BaseService._get_config_value("search_fields")
 1. **Mixin Composition** — 7 focused mixins provide 100+ methods to `BaseService`
 2. **Facade Pattern** — 1 facade per domain delegates to 7–14 specialized sub-services
 3. **Explicit Delegation** — Facade services have explicit `async def` delegation methods (not dynamic generation)
-4. **Factory Pattern** — `create_common_sub_services()` creates up to 4 sub-services from registry (with `skip` to omit those created manually); knowledge_intelligence wired via `KnowledgeIntelligenceDelegationMixin`
+4. **Factory Pattern** — `create_common_sub_services()` creates up to 7 sub-services from registry: core/search/relationships/intelligence (skippable via `skip={}`) + event_handler, learning (Tasks omits), knowledge_intelligence (always auto-wired when conditions met)
 5. **Configuration Pattern** — `DomainConfig` dataclass is single source of truth
 6. **Event-Driven** — Domain events published for side effects (analytics, achievements, etc.)
 

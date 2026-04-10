@@ -37,7 +37,7 @@ from core.utils.sort_functions import get_result_score
 from core.utils.timestamp_helpers import get_frequency_window_days
 
 
-class HabitSearchService(BaseService[HabitsOperations, Habit]):
+class HabitsSearchService(BaseService[HabitsOperations, Habit]):
     """
     Habit search and discovery operations.
 

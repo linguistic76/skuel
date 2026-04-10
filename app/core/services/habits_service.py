@@ -6,7 +6,7 @@ Habits service facade that delegates to specialized sub-services.
 
 Sub-Services:
 - HabitsCoreService: CRUD operations
-- HabitSearchService: Search and discovery (DomainSearchOperations[Habit] protocol)
+- HabitsSearchService: Search and discovery (DomainSearchOperations[Habit] protocol)
 - HabitsProgressService: Streaks, consistency, keystone habits
 - HabitsLearningService: Learning path integration
 - HabitsPlanningService: Context-aware habit recommendations (January 2026)
@@ -17,7 +17,7 @@ Sub-Services:
 - HabitEventHandlerService: Event-driven reactive logic (fire-and-forget handlers)
 - HabitsCompletionService: Completion tracking with quality scores and streaks
 - HabitsPatternService: Atomic Habits pattern recognition with confidence scoring
-- HabitsGoalAnalyticsService: Cross-domain Habits->Goals analytics
+- ActivityKnowledgeIntelligenceService: Domain-agnostic knowledge intelligence (shared singleton)
 """
 
 from __future__ import annotations
@@ -593,7 +593,7 @@ class HabitsService(KnowledgeIntelligenceDelegationMixin, BaseService[HabitsOper
         self.logger.info(
             "HabitsService facade initialized with 13 sub-services: "
             "core, search, progress, learning, planning, scheduling, relationships, "
-            "intelligence, event_integration, event_handler, completions, patterns, goal_analytics"
+            "intelligence, event_integration, event_handler, completions, patterns, knowledge_intelligence"
         )
 
     # ========================================================================

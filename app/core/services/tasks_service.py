@@ -371,9 +371,10 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
         self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap
 
         self.logger.info(
-            "TasksService facade initialized with 11 sub-services: "
+            "TasksService facade initialized with 12 sub-services: "
             "core, search, progress, scheduling, planning, relationships, "
-            "intelligence, productivity, learning_metrics, event_handler, knowledge_intelligence"
+            "intelligence, learning_metrics, event_handler, analytics_engine, "
+            "ku_generation_service, knowledge_intelligence"
         )
 
     # ========================================================================

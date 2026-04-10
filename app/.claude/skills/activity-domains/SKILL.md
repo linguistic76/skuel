@@ -50,7 +50,10 @@ ActivityReport UI ← Service Facade (read path)
 
 **Each domain has:**
 - **Facade Service** - Single entry point (`{domain}_service.py`)
-- **6-13 Sub-services** - Specialized functionality (core, search, intelligence, event_handler, etc.)
+- **7-13 Sub-services** - Specialized functionality (core, search, intelligence, event_handler, etc.).
+  `create_common_sub_services()` auto-wires 7 of these: core, search, relationships, intelligence
+  (skippable via `skip={}`), plus event_handler, learning (Tasks omits), and knowledge_intelligence.
+  New facades don't need to build these manually.
 - **Domain Events** - Cross-service communication
 - **Event Handler Service** - Fire-and-forget reactive handlers (`*_event_handler_service.py`) — all 6 Activity Domains have dedicated handlers; all persist structured insights to `InsightStore` (Neo4j `Insight` nodes) at key decision points (overdue tasks, priority inflation, goal stalls, rescheduling patterns, etc.). The Learning Loop has a parallel handler (`LearningLoopEventHandlerService`) tracking submission iterations, feedback turnaround, and mastery velocity.
 - **Read-Focused UI** — All 6 domains have dedicated list + detail views with cross-domain connections and `EntityRelationshipsSection`, sharing a collapsible Activity sidebar (`ui/activities/nav.py`). Activity Domains are embedded inline in `/profile` via `ActivityHubView()`. Activity data also viewable via ActivityReport UI at `/activity-reports`.

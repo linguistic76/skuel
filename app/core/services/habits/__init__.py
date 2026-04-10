@@ -13,7 +13,7 @@ Architecture: Facade Pattern (13 sub-services)
 
 Sub-Services (in this package):
 - HabitsCoreService: CRUD operations, event publishing
-- HabitSearchService: Search, discovery, filtering
+- HabitsSearchService: Search, discovery, filtering
 - HabitsProgressService: Streaks, consistency tracking, keystone habits
 - HabitsLearningService: Learning path integration, knowledge reinforcement
 - HabitsPlanningService: Context-aware habit recommendations
@@ -45,7 +45,7 @@ Architecture Notes:
 """
 
 from core.services.habits.habit_event_handler_service import HabitEventHandlerService
-from core.services.habits.habit_search_service import HabitSearchService
+from core.services.habits.habits_search_service import HabitsSearchService
 from core.services.habits.habits_core_service import HabitsCoreService
 from core.services.habits.habits_event_integration_service import HabitsEventIntegrationService
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
@@ -59,7 +59,7 @@ from core.services.habits.habits_scheduling_service import HabitsSchedulingServi
 
 __all__ = [
     "HabitEventHandlerService",
-    "HabitSearchService",
+    "HabitsSearchService",
     "HabitsCoreService",
     "HabitsEventIntegrationService",
     "HabitsIntelligenceService",
