@@ -24,7 +24,6 @@ from core.models.graph_context import GraphContext
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.services.events.event_relationships import EventRelationships
 from core.services.intelligence import (
     GraphContextOrchestrator,
     RecommendationEngine,
@@ -290,91 +289,6 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
         }
 
         return Result.ok(analysis)
-
-    async def get_event_goal_support(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
-        """
-        Get event's goal contribution analysis
-
-        Args:
-            uid: UID of the event,
-            depth: Graph traversal depth
-
-        Returns:
-            Result containing goal support analysis
-        """
-        context_result = await self.get_event_with_context(uid, depth)
-        if context_result.is_error:
-            return Result.fail(context_result)  # P3: Type-safe error propagation
-
-        event, context = context_result.value
-
-        goal_support = await self._analyze_goal_support(event, context)
-
-        # GRAPH-NATIVE: Fetch goal relationships from graph
-        # Fail-fast: UnifiedRelationshipService is required
-        if not self.relationships:
-            return Result.fail(
-                Errors.system(
-                    message="UnifiedRelationshipService is required for goal support analysis"
-                )
-            )
-
-        # Fetch all event relationships in parallel (includes goals via CONTRIBUTES_TO_GOAL)
-        rels = await EventRelationships.fetch(uid, self.relationships)
-        goal_uids = rels.supports_goal_uids
-
-        return Result.ok(
-            {
-                "event_uid": uid,
-                "supports_goal_uids": goal_uids,  # Can support multiple goals
-                "goal_contribution_weight": 0.0 if not goal_uids else 1.0,
-                "analysis": goal_support,
-                "retrieved_via": "pure Cypher graph intelligence with EventRelationships",
-            }
-        )
-
-    async def get_event_knowledge_reinforcement(
-        self, uid: str, depth: int = 2
-    ) -> Result[dict[str, Any]]:
-        """
-        Get event's knowledge practice tracking
-
-        Args:
-            uid: UID of the event,
-            depth: Graph traversal depth
-
-        Returns:
-            Result containing knowledge reinforcement analysis
-        """
-        context_result = await self.get_event_with_context(uid, depth)
-        if context_result.is_error:
-            return Result.fail(context_result)  # P3: Type-safe error propagation
-
-        event, context = context_result.value
-
-        knowledge_impact = await self._analyze_knowledge_impact(event, context)
-
-        # GRAPH-NATIVE: Fetch knowledge practice relationships from graph
-        # Fail-fast: UnifiedRelationshipService is required
-        if not self.relationships:
-            return Result.fail(
-                Errors.system(
-                    message="UnifiedRelationshipService is required for knowledge reinforcement analysis"
-                )
-            )
-
-        # Fetch all event relationships in parallel
-        rels = await EventRelationships.fetch(uid, self.relationships)
-        practices_knowledge_uids = rels.practices_knowledge_uids
-
-        return Result.ok(
-            {
-                "event_uid": uid,
-                "practices_knowledge_uids": practices_knowledge_uids,  # Proper naming
-                "analysis": knowledge_impact,
-                "retrieved_via": "pure Cypher graph intelligence with EventRelationships",
-            }
-        )
 
     # ========================================================================
     # BATCH INTELLIGENCE OPERATIONS

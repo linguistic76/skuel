@@ -159,7 +159,7 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
 
     Explicit Methods (custom logic):
     - Status management: update_event_status, start_event, complete_event, cancel_event
-    - Relationships: link_event_to_knowledge, create_semantic_knowledge_relationship
+    - Relationships: link_event_to_goal, link_event_to_habit, link_event_to_knowledge (via UnifiedRelationshipService)
     - Attendees: add_attendee, remove_attendee
     - Recurring: create_recurring_instances
     - Orchestration: create_event_with_context
@@ -288,11 +288,6 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
     ) -> Result[list[Event]]:
         return await self.learning.get_learning_events(user_uid, days_ahead)
 
-    async def get_events_for_knowledge(
-        self, knowledge_uid: str, user_uid: UserUID, days_ahead: int = 30
-    ) -> Result[list[Event]]:
-        return await self.learning.get_events_for_knowledge(knowledge_uid, user_uid, days_ahead)
-
     async def get_events_for_learning_path(
         self, learning_path_uid: str, user_uid: UserUID
     ) -> Result[list[Event]]:
@@ -331,13 +326,6 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
     ) -> Result[list[Event]]:
         return await self.learning.create_learning_path_schedule(
             user_uid, learning_path_uid, _learning_position, study_hours_per_week
-        )
-
-    async def get_knowledge_reinforcement_stats(
-        self, user_uid: UserUID, knowledge_uid: str, days_back: int = 30
-    ) -> Result[dict[str, Any]]:
-        return await self.learning.get_knowledge_reinforcement_stats(
-            user_uid, knowledge_uid, days_back
         )
 
     # Search delegations
@@ -416,14 +404,6 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
 
     async def analyze_event_performance(self, uid: str) -> Result[dict[str, Any]]:
         return await self.intelligence.analyze_event_performance(uid)
-
-    async def get_event_goal_support(self, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
-        return await self.intelligence.get_event_goal_support(uid, depth)
-
-    async def get_event_knowledge_reinforcement(
-        self, uid: str, depth: int = 2
-    ) -> Result[dict[str, Any]]:
-        return await self.intelligence.get_event_knowledge_reinforcement(uid, depth)
 
     async def analyze_upcoming_events(
         self, user_uid: UserUID, days_ahead: int = 7
@@ -624,14 +604,12 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
     # - Habits: get_events_for_habit, get_habit_reinforcement_events, get_at_risk_habit_events,
     # complete_event_with_quality, miss_habit_event, create_recurring_events_for_habit,
     # get_next_habit_events
-    # - Learning: get_learning_events, get_events_for_knowledge, get_events_for_learning_path,
-    # create_study_session, suggest_spaced_repetition_events, create_learning_path_schedule,
-    # get_knowledge_reinforcement_stats
+    # - Learning: get_learning_events, get_events_for_learning_path,
+    # create_study_session, suggest_spaced_repetition_events, create_learning_path_schedule
     # - Search: search_events, get_calendar_events, get_event_history, get_events_due_soon,
     # get_overdue_events, get_events_by_status, get_events_in_range, get_prioritized_events
     # - Relationships: get_event_cross_domain_context, get_event_with_semantic_context, analyze_event_impact
-    # - Intelligence: get_event_with_context, analyze_event_performance, get_event_goal_support,
-    # get_event_knowledge_reinforcement, analyze_upcoming_events
+    # - Intelligence: get_event_with_context, analyze_event_performance, analyze_upcoming_events
     # ========================================================================
 
     # ========================================================================
@@ -672,50 +650,6 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value > 0)
-
-    async def get_events_supporting_goal(
-        self, goal_uid: str, user_uid: UserUID
-    ) -> Result[list[Event]]:
-        """Get all events that support a specific goal."""
-        # Get event UIDs linked to the goal
-        event_uids_result = await self.relationships.get_related_uids("goals", goal_uid)
-        if event_uids_result.is_error:
-            return Result.fail(event_uids_result)
-
-        event_uids = event_uids_result.value
-        if not event_uids:
-            return Result.ok([])
-
-        # Fetch events by UIDs using batch get
-        events_result = await self.backend.get_many(event_uids)
-        if events_result.is_error:
-            return Result.fail(events_result)
-
-        # Filter to events owned by this user (exclude None from get_many results)
-        user_events = [e for e in events_result.value if e is not None and e.user_uid == user_uid]
-
-        return Result.ok(user_events)
-
-    async def create_semantic_knowledge_relationship(
-        self,
-        event_uid: str,
-        knowledge_uid: str,
-        semantic_type: SemanticRelationshipType,
-        confidence: float = 0.9,
-        notes: str | None = None,
-    ) -> Result[dict[str, Any]]:
-        """Create semantic relationship between event and knowledge."""
-        return await self.relationships.create_semantic_relationship(
-            event_uid, knowledge_uid, semantic_type, confidence, notes
-        )
-
-    async def find_events_reinforcing_knowledge(
-        self, knowledge_uid: str, user_uid: UserUID, min_confidence: float = 0.8
-    ) -> Result[list[Event]]:
-        """Find events that reinforce specific knowledge."""
-        return await self.relationships.find_by_semantic_filter(
-            target_uid=knowledge_uid, min_confidence=min_confidence, direction="incoming"
-        )
 
     # ========================================================================
     # STATUS MANAGEMENT

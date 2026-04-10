@@ -91,42 +91,6 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         )
 
     # ========================================================================
-    # PRIVATE HELPER METHODS
-    # ========================================================================
-
-    async def _find_events_for_knowledge(
-        self, knowledge_uid: str, user_uid: UserUID
-    ) -> Result[list[Event]]:
-        """
-        Find events that reinforce a knowledge unit for a specific user.
-
-        Uses direct Cypher query (Direct Driver pattern) since this cross-domain
-        reverse query doesn't map cleanly to UnifiedRelationshipService's generic API.
-
-        Args:
-            knowledge_uid: UID of the knowledge unit
-            user_uid: UID of the user
-
-        Returns:
-            Result containing list of Events that reinforce the knowledge unit
-        """
-        from core.utils.neo4j_mapper import from_neo4j_node
-
-        query = """
-        MATCH (e:Entity)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(ku:Entity {uid: $knowledge_uid})
-        WHERE e.user_uid = $user_uid
-        RETURN e
-        """
-        result = await self.backend.execute_query(
-            query, {"knowledge_uid": knowledge_uid, "user_uid": user_uid}
-        )
-        if result.is_error:
-            return Result.fail(result)
-
-        events = [from_neo4j_node(record["e"], Event) for record in result.value]
-        return Result.ok(events)
-
-    # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
     # ========================================================================
 
@@ -178,48 +142,6 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         ]
 
         return Result.ok(learning_events)
-
-    async def get_events_for_knowledge(
-        self, knowledge_uid: str, user_uid: UserUID, days_ahead: int = 30
-    ) -> Result[list[Event]]:
-        """
-        Get events that reinforce a specific knowledge unit.
-
-        Args:
-            knowledge_uid: UID of the knowledge unit,
-            user_uid: UID of the user,
-            days_ahead: Number of days to look ahead
-
-        Returns:
-            Result containing list of events
-        """
-        end_date = date.today() + timedelta(days=days_ahead)
-
-        filters = {
-            "user_uid": user_uid,
-            "event_date__gte": date.today(),
-            "event_date__lte": end_date,
-        }
-
-        # GRAPH-NATIVE: Query events via knowledge relationship
-        # Use direct Cypher query to find events that practice this knowledge unit
-        events_result = await self._find_events_for_knowledge(knowledge_uid, user_uid)
-        if events_result.is_error:
-            # Fallback: return all events (caller can filter if needed)
-            result = await self.backend.list(filters=filters)
-            if result.is_error:
-                return Result.fail(result)
-            events, _ = result.value
-            return Result.ok(events)
-
-        # Filter by date range
-        knowledge_events = [
-            event
-            for event in events_result.value
-            if event.event_date and date.today() <= event.event_date <= end_date
-        ]
-
-        return Result.ok(knowledge_events)
 
     async def get_events_for_learning_path(
         self, learning_path_uid: str, user_uid: UserUID
@@ -477,69 +399,3 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         )
 
         return Result.ok(events)
-
-    # ========================================================================
-    # LEARNING PROGRESS TRACKING
-    # ========================================================================
-
-    async def get_knowledge_reinforcement_stats(
-        self, user_uid: UserUID, knowledge_uid: str, days_back: int = 30
-    ) -> Result[dict[str, Any]]:
-        """
-        Get statistics on how a knowledge unit has been reinforced through events.
-
-        Args:
-            user_uid: UID of the user,
-            knowledge_uid: UID of the knowledge unit,
-            days_back: Number of days to look back
-
-        Returns:
-            Result containing reinforcement statistics
-        """
-        start_date = date.today() - timedelta(days=days_back)
-
-        # GRAPH-NATIVE: Query events via knowledge relationship
-        # Use direct Cypher query to find events that practice this knowledge unit
-        events_result = await self._find_events_for_knowledge(knowledge_uid, user_uid)
-        if events_result.is_error:
-            # Fallback: return empty stats if query failed
-            stats = {
-                "knowledge_uid": knowledge_uid,
-                "total_events": 0,
-                "completed_events": 0,
-                "completion_rate": 0.0,
-                "total_time_minutes": 0,
-                "average_time_per_event": 0.0,
-            }
-            return Result.ok(stats)
-
-        # Filter by date range
-        events = [
-            event
-            for event in events_result.value
-            if event.event_date and start_date <= event.event_date <= date.today()
-        ]
-
-        # Analyze reinforcement events
-        total_events = len(events)
-        completed_events = 0
-        total_time_minutes = 0
-
-        for event in events:
-            if event.status == EntityStatus.COMPLETED:
-                completed_events += 1
-                total_time_minutes += event.duration_minutes or 0
-
-        stats = {
-            "knowledge_uid": knowledge_uid,
-            "total_reinforcement_events": total_events,
-            "completed_events": completed_events,
-            "completion_rate": completed_events / total_events if total_events > 0 else 0.0,
-            "total_study_time_minutes": total_time_minutes,
-            "average_time_per_session": total_time_minutes / completed_events
-            if completed_events > 0
-            else 0.0,
-            "days_analyzed": days_back,
-        }
-
-        return Result.ok(stats)

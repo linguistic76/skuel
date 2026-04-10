@@ -1141,16 +1141,6 @@ class EventsRelationshipOperations(BaseRelationshipOperations, Protocol):
         """Get goal UIDs supported by this event."""
         ...
 
-    async def link_event_to_goal(self, event_uid: str, goal_uid: str) -> Result[bool]:
-        """Link event to goal."""
-        ...
-
-    async def link_event_to_knowledge(
-        self, event_uid: str, knowledge_uid: str, confidence: float = 0.9
-    ) -> Result[bool]:
-        """Link event to knowledge unit."""
-        ...
-
 
 @runtime_checkable
 class GoalsRelationshipOperations(BaseRelationshipOperations, Protocol):

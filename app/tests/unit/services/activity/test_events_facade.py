@@ -106,66 +106,6 @@ class TestEventsServiceRelationships:
 
 
 # ---------------------------------------------------------------------------
-# TestEventsServiceGoalSupport
-# ---------------------------------------------------------------------------
-
-
-class TestEventsServiceGoalSupport:
-    @pytest.mark.asyncio
-    async def test_get_events_supporting_goal_returns_empty_when_no_uids(
-        self, events_service: EventsService, mock_backend: Mock
-    ) -> None:
-        """get_events_supporting_goal returns empty list when no related event UIDs."""
-        events_service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
-
-        result = await events_service.get_events_supporting_goal("goal_abc", "user_test")
-
-        assert result.is_ok
-        assert result.value == []
-        # backend.get_many should NOT be called
-        mock_backend.get_many.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_get_events_supporting_goal_filters_by_user_uid(
-        self, events_service: EventsService, mock_backend: Mock
-    ) -> None:
-        """get_events_supporting_goal filters events to only those owned by user."""
-        events_service.relationships.get_related_uids = AsyncMock(
-            return_value=Result.ok(["event_abc", "event_def"])
-        )
-
-        # Two events: one owned by the requesting user, one by someone else
-        user_event = Mock()
-        user_event.uid = "event_abc"
-        user_event.user_uid = "user_test"
-
-        other_event = Mock()
-        other_event.uid = "event_def"
-        other_event.user_uid = "user_other"
-
-        mock_backend.get_many = AsyncMock(return_value=Result.ok([user_event, other_event]))
-
-        result = await events_service.get_events_supporting_goal("goal_abc", "user_test")
-
-        assert result.is_ok
-        assert len(result.value) == 1
-        assert result.value[0].uid == "event_abc"
-
-    @pytest.mark.asyncio
-    async def test_get_events_supporting_goal_propagates_relationship_error(
-        self, events_service: EventsService
-    ) -> None:
-        """get_events_supporting_goal propagates error from relationships service."""
-        events_service.relationships.get_related_uids = AsyncMock(
-            return_value=Result.fail(Errors.database("query", "DB error"))
-        )
-
-        result = await events_service.get_events_supporting_goal("goal_abc", "user_test")
-
-        assert result.is_error
-
-
-# ---------------------------------------------------------------------------
 # TestEventsServiceStatusManagement
 # ---------------------------------------------------------------------------
 
