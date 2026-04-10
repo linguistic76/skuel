@@ -53,7 +53,7 @@ Created via `create_common_sub_services()` factory:
 | **Habits** | `progress`, `completions`, `planning`, `scheduling`, `learning`, `event_integration`, `event_handler`, `patterns` — plus 3 **facade mixins**: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin` (April 2026) |
 | **Events** | `habits` (integration), `learning` |
 | **Choices** | `learning`, `event_handler` |
-| **Principles** | `alignment`, `learning`, `reflection`, `planning`, `event_handler` |
+| **Principles** | `alignment`, `learning`, `planning`, `event_handler` — plus 3 **facade mixins**: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin` (April 2026) |
 
 ## Explicit Delegation Pattern
 

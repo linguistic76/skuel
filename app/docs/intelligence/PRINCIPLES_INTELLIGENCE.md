@@ -2,10 +2,16 @@
 
 ## Overview
 
-**Architecture:** Extends `BaseAnalyticsService[PrinciplesOperations, Principle]`
-**Location:** `/core/services/principles/principles_intelligence_service.py`
+**Architecture:** Extends `BaseAnalyticsService[PrinciplesOperations, Principle]` with 3 focused mixins (April 2026)
+**Location:** `/core/services/principles/principles_intelligence_service.py` (shell)
 **Service Name:** `principles.intelligence`
-**Lines:** ~1,324
+
+**Mixin decomposition (April 2026):** Shell + 3 mixins for consistency with Choices and Habits:
+| Mixin | File | Methods |
+|-------|------|---------|
+| `_CoreIntelligenceMixin` | `_core_intelligence_mixin.py` | `get_with_context`, `get_performance_analytics`, `get_domain_insights`, `get_principle_with_context` |
+| `_AlignmentIntelligenceMixin` | `_alignment_intelligence_mixin.py` | `assess_principle_alignment`, `assess_alignment_dual_track`, `get_principle_adherence_trends`, alignment helpers |
+| `_InfluenceMixin` | `_influence_mixin.py` | `get_principle_conflict_analysis`, `get_quick_principle_impact`, `batch_analyze_principle_adoption`, `get_choice_guidance_effectiveness` |
 
 **Note:** Event handlers (strength changes, reflections, conflicts) were extracted to `PrincipleEventHandlerService` in `/core/services/principles/principles_event_handler_service.py` (~670 lines) in March 2026.
 
