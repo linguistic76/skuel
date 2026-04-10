@@ -172,33 +172,42 @@ self.learning_helper = LearningAlignmentBridge[Task, TaskDTO, TaskCreateRequest]
 # - Request = TaskCreateRequest (creation request)
 ```
 
-### 2. Protocol-Based Backend Access
+### 2. Callable-Based Backend Access
 
-The helper doesn't depend on concrete backend implementations - it uses `BaseService` methods:
+The helper receives backend methods as callables at construction time — no string dispatch, no `getattr`:
 
 ```python
 class LearningAlignmentBridge[T, DTO, Request]:
-    def __init__(self, service: BaseService, ...):
-        self.service = service
-        self.backend = service.backend  # Protocol-based access
+    def __init__(
+        self,
+        service: BaseService,
+        backend_get: Callable[[str], Awaitable[Result[Any]]],
+        backend_get_user: Callable[[str], Awaitable[Result[Any]]],
+        backend_create: Callable[[dict[str, Any]], Awaitable[Result[Any]]],
+        ...
+    ):
+        self._backend_get = backend_get
+        self._backend_get_user = backend_get_user
+        self._backend_create = backend_create
+        # dto_class / model_class derived from service — no need to pass them
+        self.dto_class = service.dto_class
+        self.model_class = service.model_class
 ```
 
 **How it works:**
-- Helper receives a `BaseService` instance
-- Accesses backend via service (protocol-based)
-- Calls backend methods by name (late binding)
+- Caller passes bound methods directly: `backend_get=self.backend.get`
+- MyPy-checkable and IDE-navigable (no string literals)
+- Fails at `__init__` time if the method doesn't exist — not at first call
+- `dto_class`/`model_class` derived from the service's `_config` — never duplicated at call sites
 - Uses `BaseService._to_domain_model()` for conversion
 
-**Backend method resolution:**
+**Backend method invocation:**
 ```python
-# Helper stores method names
-self.backend_create_method = "create_task"  # Example
+# Stored as callable at init
+self._backend_create = backend_create  # e.g. self.backend.create_task
 
-# At runtime, resolves to actual method
-create_method = getattr(self.backend, self.backend_create_method)
-
-# Calls method with request dict
-create_result = await create_method(request_dict)
+# Called directly — no getattr
+create_result = await self._backend_create(request_dict)
 ```
 
 ### 3. Learning Position Integration
@@ -622,11 +631,9 @@ The helper supports 4 optional hooks for domain-specific customization without m
 ```python
 self.learning_helper = LearningAlignmentBridge[T, DTO, Request](
     service=self,
-    backend_get_method="get",
-    backend_get_user_method="list_user_tasks",
-    backend_create_method="create_task",
-    dto_class=TaskDTO,
-    model_class=Task,
+    backend_get=self.backend.get,
+    backend_get_user=self.backend.get_user_tasks,
+    backend_create=self.backend.create_task,
     domain=Domain.TECH,
     entity_name="task",
     # Optional hooks
@@ -737,11 +744,9 @@ def _add_embodiment_data(entity: T, learning_position: LpPosition) -> dict[str, 
 # In GoalsLearningService.__init__
 self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](
     service=self,
-    backend_get_method="get",
-    backend_get_user_method="list_user_goals",
-    backend_create_method="create_goal",
-    dto_class=GoalDTO,
-    model_class=Goal,
+    backend_get=self.backend.get,
+    backend_get_user=self.backend.get_user_goals,
+    backend_create=self.backend.create_goal,
     domain=Domain.GOALS,
     entity_name="goal",
     # No custom hooks - uses defaults
@@ -794,11 +799,9 @@ self.learning_helper = LearningAlignmentBridge[
     Principle, PrincipleDTO, PrincipleCreateRequest
 ](
     service=self,
-    backend_get_method="get",
-    backend_get_user_method="list_user_principles",
-    backend_create_method="create",
-    dto_class=PrincipleDTO,
-    model_class=Principle,
+    backend_get=self.backend.get,
+    backend_get_user=self.backend.get_user_principles,
+    backend_create=self.backend.create,
     domain=Domain.PRINCIPLES,
     entity_name="principle",
     alignment_scorer=_calculate_virtue_embodiment_score,  # Custom scorer
@@ -863,11 +866,9 @@ async def _validate_task_prerequisites(
 # In TasksSchedulingService.__init__
 self.learning_helper = LearningAlignmentBridge[Task, TaskDTO, TaskCreateRequest](
     service=self,
-    backend_get_method="get",
-    backend_get_user_method="list_user_tasks",
-    backend_create_method="create_task",
-    dto_class=TaskDTO,
-    model_class=Task,
+    backend_get=self.backend.get,
+    backend_get_user=self.backend.get_user_tasks,
+    backend_create=self.backend.create_task,
     domain=Domain.TECH,
     entity_name="task",
     prerequisite_validator=_validate_task_prerequisites,  # Validator hook
@@ -904,11 +905,9 @@ async def create_task_with_learning_context(
 # In EventsLearningService.__init__
 self.learning_helper = LearningAlignmentBridge[Event, EventDTO, EventCreateRequest](
     service=self,
-    backend_get_method="get",
-    backend_get_user_method="list_user_events",
-    backend_create_method="create_event",
-    dto_class=EventDTO,
-    model_class=Event,
+    backend_get=self.backend.get,
+    backend_get_user=self.backend.get_user_events,
+    backend_create=self.backend.create_event,
     domain=Domain.LEARNING,
     entity_name="event",
     # No hooks needed - uses custom_fields parameter
