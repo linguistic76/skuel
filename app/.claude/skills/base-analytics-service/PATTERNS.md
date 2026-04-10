@@ -2,7 +2,7 @@
 
 ## Pattern 1: Complete Service Implementation
 
-A full analytics service with all common patterns:
+A full analytics service with all common patterns. For large services (1000+ LOC), use mixin decomposition — see `ChoicesIntelligenceService` and `HabitsIntelligenceService` for the established local pattern (`_core_intelligence_mixin.py`, `_behavioral_signals_mixin.py`, `_dual_track_mixin.py` in the same package directory).
 
 ```python
 """

@@ -2,10 +2,17 @@
 
 ## Overview
 
-**Architecture:** Extends `BaseAnalyticsService[HabitsOperations, Habit]`
-**Location:** `/core/services/habits/habits_intelligence_service.py`
+**Architecture:** Extends `BaseAnalyticsService[HabitsOperations, Habit]` via mixin decomposition (April 2026)
+**Location:** `/core/services/habits/` — 4 files:
+
+| File | Contents |
+|------|----------|
+| `habits_intelligence_service.py` | Shell: `__init__`, `entity_label`, 3 protocol delegation methods |
+| `_core_intelligence_mixin.py` | `get_habit_with_context` |
+| `_behavioral_signals_mixin.py` | `analyze_habit_performance`, `get_habit_knowledge_reinforcement`, `get_habit_goal_support`, and private helpers |
+| `_dual_track_mixin.py` | `assess_consistency_dual_track`, `_calculate_system_consistency`, gap insights/recommendations, `get_zpd_knowledge_signals` |
+
 **Service Name:** `habits.intelligence`
-**Lines:** ~1,311
 
 ---
 
