@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-01-19
+updated: 2026-04-10
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -90,7 +90,7 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 |---------|---------|
 | `core` | CRUD operations for principles |
 | `search` | Text search, filtering, graph-aware queries |
-| `alignment` | Goal/habit alignment assessment, motivational intelligence |
+| `alignment` | Graph-based goal/habit alignment assessment, motivational intelligence (via `CrossDomainQueryService`) |
 | `learning` | Learning path integration and knowledge framing |
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
 | `intelligence` | Conflict analysis, adherence trends, context enrichment |
