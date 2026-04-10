@@ -31,6 +31,8 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 | Alignment Service | `/core/services/principles/principles_alignment_service.py` |
 | Learning Service | `/core/services/principles/principles_learning_service.py` |
 | Intelligence Service | `/core/services/principles/principles_intelligence_service.py` |
+| Intelligence Mixins | `_core_intelligence_mixin.py`, `_alignment_intelligence_mixin.py`, `_influence_mixin.py` |
+| Facade Mixins | `_embodiment_mixin.py`, `_gravity_mixin.py`, `_enrichment_mixin.py` |
 | Reflection Model | `/core/models/principle/reflection.py` |
 | Reflection DTO | `/core/models/principle/reflection_dto.py` |
 | Reflection Service | `/core/services/principles/principles_reflection_service.py` |
@@ -55,35 +57,26 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 
 **See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
 
-## Facade Pattern (February 2026)
+## Facade Pattern (February 2026, mixins April 2026)
 
-`PrinciplesService` uses explicit `async def` delegation methods for clean delegation to **10 specialized sub-services**:
+`PrinciplesService` delegates to sub-services + 3 focused mixins for consistency with Habits and Choices:
 
 ```python
-class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
-    core: PrinciplesCoreService
-    search: PrinciplesSearchService
-    alignment: PrinciplesAlignmentService
-    learning: PrinciplesLearningService
-    reflection: PrinciplesReflectionService
-    planning: PrinciplesPlanningService
-    intelligence: PrinciplesIntelligenceService
-    knowledge_intelligence: ActivityKnowledgeIntelligenceService  # shared singleton
-    event_handler: PrincipleEventHandlerService
-
-    # Explicit delegation — MyPy-native, no mixin needed
-    async def get_principle(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.core.get_principle(*args, **kwargs)
-
-    async def assess_goal_alignment(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.alignment.assess_goal_alignment(*args, **kwargs)
-
-    async def get_principle_with_context(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.intelligence.get_principle_with_context(*args, **kwargs)
-
-    async def save_reflection(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.reflection.save_reflection(*args, **kwargs)
+class PrinciplesService(
+    _EmbodimentMixin,     # expressions, alignment history, portfolio, integrity
+    _GravityMixin,        # cross-domain links (goals, habits, knowledge, choices)
+    _EnrichmentMixin,     # analytics summary, search, sources, prioritization
+    KnowledgeIntelligenceDelegationMixin,
+    BaseService[PrinciplesOperations, Principle],
+):
 ```
+
+**Facade Mixins** (`core/services/principles/`):
+| Mixin | Purpose |
+|-------|---------|
+| `_EmbodimentMixin` | How values are lived — expressions, alignment history, portfolio, integrity |
+| `_GravityMixin` | The gravitational pull — links to goals, habits, knowledge, choices |
+| `_EnrichmentMixin` | Analytics and discovery — summary, search, sources, prioritization |
 
 **Sub-services:**
 | Service | Purpose |
@@ -94,7 +87,6 @@ class PrinciplesService(BaseService[PrinciplesOperations, Principle]):
 | `learning` | Learning path integration and knowledge framing |
 | `relationships` | Cross-domain links via `UnifiedRelationshipService` |
 | `intelligence` | Conflict analysis, adherence trends, context enrichment |
-| `reflection` | Graph-connected reflection tracking (January 2026) |
 | `planning` | Context-aware recommendations (January 2026) |
 | `event_handler` | Event-driven cascade analysis and conflict intelligence (March 2026) |
 
@@ -232,16 +224,25 @@ The `CONFLICTS_WITH_PRINCIPLE` relationship helps identify when principles may b
 
 **Full catalog:** [Search Service Methods Reference](/docs/reference/SEARCH_SERVICE_METHODS.md)
 
-## Intelligence Service
+## Intelligence Service (mixins April 2026)
 
-`PrinciplesIntelligenceService` provides principle analysis and insights:
+`PrinciplesIntelligenceService` delegates to 3 focused mixins:
 
-| Method | Description |
-|--------|-------------|
-| `get_principle_with_context(uid)` | Principle with full graph neighborhood |
-| `assess_principle_alignment(uid, user_uid)` | Calculate alignment score for user |
-| `get_principle_adherence_trends(uid, days)` | Adherence trends over time |
-| `get_principle_conflict_analysis(uid)` | Analyze conflicts with other principles |
+```python
+class PrinciplesIntelligenceService(
+    _CoreIntelligenceMixin,          # protocol bridges + graph context
+    _AlignmentIntelligenceMixin,     # alignment assessment, dual-track, adherence trends
+    _InfluenceMixin,                 # conflict detection, impact metrics, choice guidance
+    BaseAnalyticsService[PrinciplesOperations, Principle],
+):
+```
+
+**Intelligence Mixins** (`core/services/principles/`):
+| Mixin | Purpose |
+|-------|---------|
+| `_CoreIntelligenceMixin` | `get_with_context`, `get_performance_analytics`, `get_domain_insights`, `get_principle_with_context` |
+| `_AlignmentIntelligenceMixin` | `assess_principle_alignment`, `assess_alignment_dual_track`, `get_principle_adherence_trends`, helpers |
+| `_InfluenceMixin` | `get_principle_conflict_analysis`, `get_quick_principle_impact`, `batch_analyze_principle_adoption`, `get_choice_guidance_effectiveness` |
 
 **See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 
