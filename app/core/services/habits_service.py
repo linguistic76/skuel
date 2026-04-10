@@ -373,12 +373,12 @@ class HabitsService(KnowledgeIntelligenceDelegationMixin, BaseService[HabitsOper
     async def get_events_for_habit(
         self, habit_uid: str, user_context: UserContext, _days_ahead: int = 7
     ) -> Result[list[str]]:
-        return await self.events.get_events_for_habit(habit_uid, user_context, _days_ahead)
+        return await self.event_integration.get_events_for_habit(habit_uid, user_context, _days_ahead)
 
     async def schedule_events_for_habit(
         self, habit_uid: str, _user_context: UserContext, days_to_schedule: int = 7
     ) -> Result[list[dict[str, Any]]]:
-        return await self.events.schedule_events_for_habit(
+        return await self.event_integration.schedule_events_for_habit(
             habit_uid, _user_context, days_to_schedule
         )
 
@@ -567,7 +567,7 @@ class HabitsService(KnowledgeIntelligenceDelegationMixin, BaseService[HabitsOper
             event_bus=event_bus,
         )
         self.learning: HabitsLearningService = common.learning
-        self.events = HabitsEventIntegrationService(backend=backend)
+        self.event_integration = HabitsEventIntegrationService(backend=backend)
 
         # Planning and scheduling services (January 2026)
         self.planning = HabitsPlanningService(
