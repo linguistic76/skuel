@@ -27,6 +27,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 import dataclasses
 from dataclasses import dataclass, field
 from datetime import datetime
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 if TYPE_CHECKING:
@@ -115,6 +116,10 @@ class Entity:
         # Compute word_count from content if not set
         if self.word_count == 0 and self.content:
             object.__setattr__(self, "word_count", len(self.content.split()))
+
+        # Enforce deep immutability: wrap mutable dict in a read-only proxy
+        if isinstance(self.metadata, dict):
+            object.__setattr__(self, "metadata", MappingProxyType(self.metadata))
 
     # =========================================================================
     # USER OWNERSHIP COMPATIBILITY
@@ -303,7 +308,9 @@ class Entity:
             if f.name not in dto_field_names:
                 continue
             value = getattr(self, f.name)
-            if isinstance(value, tuple):
+            if isinstance(value, MappingProxyType):
+                value = dict(value)
+            elif isinstance(value, tuple):
                 value = list(value)
             kwargs[f.name] = value
         return EntityDTO(**kwargs)

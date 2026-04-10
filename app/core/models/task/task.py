@@ -20,6 +20,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass
 from datetime import date
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -47,6 +48,19 @@ class Task(UserOwnedEntity):
         if self.entity_type != EntityType.TASK:
             object.__setattr__(self, "entity_type", EntityType.TASK)
         super().__post_init__()
+        # Enforce deep immutability: wrap mutable dicts in read-only proxies
+        if isinstance(self.knowledge_confidence_scores, dict):
+            object.__setattr__(
+                self,
+                "knowledge_confidence_scores",
+                MappingProxyType(self.knowledge_confidence_scores),
+            )
+        if isinstance(self.knowledge_inference_metadata, dict):
+            object.__setattr__(
+                self,
+                "knowledge_inference_metadata",
+                MappingProxyType(self.knowledge_inference_metadata),
+            )
 
     # =========================================================================
     # SCHEDULING
@@ -178,10 +192,19 @@ class Task(UserOwnedEntity):
     def calculate_knowledge_complexity(self) -> float:
         """Calculate knowledge complexity (0.0-1.0).
 
-        Returns default 0.5 — real complexity comes from related Curriculum
-        nodes via graph relationships, not from the task itself.
+        Derived from knowledge_confidence_scores (breadth x gap) and
+        learning_opportunities_count. Returns 0.0 for bare tasks with no
+        knowledge intelligence data.
         """
-        return 0.5
+        score = 0.0
+        if self.knowledge_confidence_scores:
+            count = len(self.knowledge_confidence_scores)
+            avg_confidence = sum(self.knowledge_confidence_scores.values()) / count
+            score += min(0.5, count / 10.0)  # breadth: up to 0.5 for 10+ concepts
+            score += (1.0 - avg_confidence) * 0.3  # gap: low confidence = harder
+        if self.learning_opportunities_count > 0:
+            score += min(0.2, self.learning_opportunities_count / 5.0)
+        return min(1.0, score)
 
     def is_knowledge_bridge(self) -> bool:
         """Check if this entity bridges multiple knowledge domains.
@@ -192,12 +215,24 @@ class Task(UserOwnedEntity):
         return False
 
     def calculate_learning_impact(self) -> float:
-        """Calculate learning impact score.
+        """Calculate learning impact score (0.0-1.0).
 
-        Returns default 0.15 — real learning impact comes from related
-        Curriculum nodes, not the task itself.
+        Derived from curriculum linkage fields already present on the Task:
+        path step / learning path references, mastery check flag, curriculum
+        origin, and breadth of knowledge confidence scores.
         """
-        return 0.15
+        score = 0.0
+        if self.source_path_step_uid:
+            score += 0.30
+        if self.source_learning_path_uid:
+            score += 0.20
+        if self.knowledge_mastery_check:
+            score += 0.20
+        if self.curriculum_driven:
+            score += 0.15
+        if self.knowledge_confidence_scores:
+            score += min(0.15, len(self.knowledge_confidence_scores) * 0.03)
+        return min(1.0, score)
 
     @property
     def category(self) -> str | None:
@@ -242,7 +277,9 @@ class Task(UserOwnedEntity):
             if f.name not in dto_field_names:
                 continue
             value = getattr(self, f.name)
-            if isinstance(value, tuple):
+            if isinstance(value, MappingProxyType):
+                value = dict(value)
+            elif isinstance(value, tuple):
                 value = list(value)
             kwargs[f.name] = value
         return TaskDTO(**kwargs)

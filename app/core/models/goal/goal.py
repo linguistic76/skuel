@@ -24,6 +24,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -53,6 +54,16 @@ class Goal(UserOwnedEntity):
         if self.entity_type != EntityType.GOAL:
             object.__setattr__(self, "entity_type", EntityType.GOAL)
         super().__post_init__()
+        # Enforce deep immutability: wrap each mutable dict inside progress_history
+        if self.progress_history:
+            object.__setattr__(
+                self,
+                "progress_history",
+                tuple(
+                    MappingProxyType(entry) if isinstance(entry, dict) else entry
+                    for entry in self.progress_history
+                ),
+            )
 
     # =========================================================================
     # CLASSIFICATION
@@ -293,8 +304,10 @@ class Goal(UserOwnedEntity):
             if f.name not in dto_field_names:
                 continue
             value = getattr(self, f.name)
-            if isinstance(value, tuple):
-                value = list(value)
+            if isinstance(value, MappingProxyType):
+                value = dict(value)
+            elif isinstance(value, tuple):
+                value = [dict(e) if isinstance(e, MappingProxyType) else e for e in value]
             kwargs[f.name] = value
         return GoalDTO(**kwargs)
 

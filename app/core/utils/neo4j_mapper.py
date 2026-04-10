@@ -130,6 +130,11 @@ class Neo4jGenericMapper:
 
             value = getattr(entity, field.name)
 
+            # Unwrap read-only dict proxies — MappingProxyType wraps frozen model
+            # dicts for deep immutability; convert back to plain dict for serialization
+            if isinstance(value, types.MappingProxyType):
+                value = dict(value)
+
             # Skip None values for optional fields
             if value is None:
                 node_data[field.name] = None
@@ -153,7 +158,8 @@ class Neo4jGenericMapper:
 
                     # Check if this is a nested collection (contains dicts or dataclasses)
                     has_complex_items = any(
-                        isinstance(item, dict) or is_dataclass(item) for item in value
+                        isinstance(item, dict | types.MappingProxyType) or is_dataclass(item)
+                        for item in value
                     )
 
                     if has_complex_items:
@@ -164,8 +170,8 @@ class Neo4jGenericMapper:
                             if is_dataclass(item):
                                 # Convert dataclass to dict first
                                 serializable_list.append(Neo4jGenericMapper.to_node(item))
-                            elif isinstance(item, dict):
-                                serializable_list.append(item)
+                            elif isinstance(item, dict | types.MappingProxyType):
+                                serializable_list.append(dict(item))
                             else:
                                 serializable_list.append(item)
                         node_data[field.name] = json.dumps(serializable_list)
