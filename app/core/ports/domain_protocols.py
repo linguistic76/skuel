@@ -74,7 +74,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.base_protocols import (
     BackendOperations,
@@ -1071,15 +1070,6 @@ class TasksRelationshipOperations(BaseRelationshipOperations, Protocol):
         """Get task dependency information."""
         ...
 
-    async def link_task_to_knowledge(
-        self,
-        task_uid: str,
-        knowledge_uid: str,
-        relationship_type: RelationshipName = RelationshipName.APPLIES_KNOWLEDGE,
-    ) -> Result[bool]:
-        """Link task to knowledge unit."""
-        ...
-
 
 @runtime_checkable
 class HabitsRelationshipOperations(BaseRelationshipOperations, Protocol):
@@ -1169,10 +1159,6 @@ class GoalsRelationshipOperations(BaseRelationshipOperations, Protocol):
 
     async def get_goal_knowledge(self, goal_uid: str) -> Result[builtins.list[str]]:
         """Get knowledge UIDs required for this goal."""
-        ...
-
-    async def link_task_to_goal(self, task_uid: str, goal_uid: str) -> Result[bool]:
-        """Link task to goal."""
         ...
 
 
