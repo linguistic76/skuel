@@ -84,11 +84,9 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         # Initialize LearningAlignmentBridge for learning operations
         self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](
             service=self,
-            backend_get_method="get_goal",
-            backend_get_user_method="get_user_goals",
-            backend_create_method="create_goal",
-            dto_class=GoalDTO,
-            model_class=Goal,
+            backend_get=self.backend.get_goal,
+            backend_get_user=self.backend.get_user_goals,
+            backend_create=self.backend.create_goal,
             domain=Domain.GOALS,
             entity_name="goal",
         )

@@ -150,11 +150,9 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
             Principle, PrincipleDTO, PrincipleCreateRequest
         ](
             service=self,
-            backend_get_method="get",
-            backend_get_user_method="list_user_principles",
-            backend_create_method="create",
-            dto_class=PrincipleDTO,
-            model_class=Principle,
+            backend_get=self.backend.get,
+            backend_get_user=self.backend.get_user_principles,
+            backend_create=self.backend.create,
             domain=Domain.PRINCIPLES,
             entity_name="principle",
             alignment_scorer=_calculate_virtue_embodiment_score,

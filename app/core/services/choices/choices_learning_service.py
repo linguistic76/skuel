@@ -63,11 +63,9 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
         # Initialize LearningAlignmentBridge for learning operations
         self.learning_helper = LearningAlignmentBridge[Choice, ChoiceDTO, ChoiceCreateRequest](
             service=self,
-            backend_get_method="get",
-            backend_get_user_method="get_user_choices",
-            backend_create_method="create",
-            dto_class=ChoiceDTO,
-            model_class=Choice,
+            backend_get=self.backend.get,
+            backend_get_user=self.backend.get_user_choices,
+            backend_create=self.backend.create,
             domain=Domain.CHOICES,
             entity_name="choice",
         )

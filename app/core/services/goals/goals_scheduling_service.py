@@ -223,12 +223,10 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         # Initialize LearningAlignmentBridge for curriculum integration
         self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](
             service=self,
-            backend_get_method="get",
-            backend_get_user_method="get_user_goals",
-            backend_create_method="create_goal",
-            dto_class=GoalDTO,
-            model_class=Goal,
-            domain=Domain.KNOWLEDGE,  # Default domain for goals
+            backend_get=self.backend.get,
+            backend_get_user=self.backend.get_user_goals,
+            backend_create=self.backend.create_goal,
+            domain=Domain.GOALS,
             entity_name="goal",
         )
 

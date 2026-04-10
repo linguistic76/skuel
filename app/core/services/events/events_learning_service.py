@@ -81,12 +81,10 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         # Initialize LearningAlignmentBridge for Events
         self.learning_helper = LearningAlignmentBridge[Event, EventDTO, EventCreateRequest](
             service=self,
-            backend_get_method="get",
-            backend_get_user_method="list_user_events",
-            backend_create_method="create_event",
-            dto_class=EventDTO,
-            model_class=Event,
-            domain=Domain.LEARNING,  # Events default to learning domain
+            backend_get=self.backend.get,
+            backend_get_user=self.backend.get_user_events,
+            backend_create=self.backend.create_event,
+            domain=Domain.LEARNING,
             entity_name="event",
         )
 

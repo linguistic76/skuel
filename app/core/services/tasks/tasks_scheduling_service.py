@@ -105,12 +105,10 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         # Initialize LearningAlignmentBridge with prerequisite validator
         self.learning_helper = LearningAlignmentBridge[Task, TaskDTO, TaskCreateRequest](
             service=self,
-            backend_get_method="get",
-            backend_get_user_method="list_user_tasks",
-            backend_create_method="create_task",
-            dto_class=TaskDTO,
-            model_class=Task,
-            domain=Domain.TECH,  # Default domain for tasks
+            backend_get=self.backend.get,
+            backend_get_user=self.backend.get_user_tasks,
+            backend_create=self.backend.create_task,
+            domain=Domain.TECH,
             entity_name="task",
             prerequisite_validator=_validate_task_prerequisites,
         )

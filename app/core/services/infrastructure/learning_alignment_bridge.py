@@ -20,7 +20,7 @@ Single generic helper that handles the common pattern, reducing
 each learning service's methods from ~267 LOC → ~12 LOC.
 """
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from operator import itemgetter
 from typing import Any, TypeVar
 
@@ -89,11 +89,9 @@ class LearningAlignmentBridge[T, DTO, Request]:
     def __init__(
         self,
         service: BaseService,
-        backend_get_method: str,
-        backend_get_user_method: str,
-        backend_create_method: str,
-        dto_class: type[DTO],
-        model_class: type[T],
+        backend_get: Callable[[str], Awaitable[Result[Any]]],
+        backend_get_user: Callable[[str], Awaitable[Result[Any]]],
+        backend_create: Callable[[dict[str, Any]], Awaitable[Result[Any]]],
         domain: Domain,
         entity_name: str,  # "goal", "habit", "event", "choice"
         # Optional custom hooks for domain-specific logic
@@ -106,26 +104,38 @@ class LearningAlignmentBridge[T, DTO, Request]:
         Initialize learning alignment helper with service-specific configuration.
 
         Args:
-            service: The learning service (provides backend, BaseService helpers),
-            backend_get_method: Name of backend method to get single entity (e.g., "get_goal"),
-            backend_get_user_method: Name of backend method to get user's entities (e.g., "get_user_goals"),
-            backend_create_method: Name of backend method to create entity (e.g., "create_goal"),
-            dto_class: DTO class for conversion (e.g., GoalDTO),
-            model_class: Domain model class (e.g., Goal),
-            domain: Domain enum for categorization (e.g., Domain.GOALS),
-            entity_name: Human-readable entity name for logging
-            alignment_scorer: Optional custom scorer for learning alignment (replaces calculate_learning_score)
-            prerequisite_validator: Optional validator for prerequisites (called before creation)
-            suggestion_filter: Optional filter for suggestions (applied to generated suggestions)
-            embodiment_scorer: Optional scorer for embodiment data (merged into assessment)
+            service: The learning service (provides backend, BaseService helpers).
+            backend_get: Backend method to fetch a single entity by UID.
+            backend_get_user: Backend method to fetch all entities for a user.
+            backend_create: Backend method to create an entity from a dict.
+            domain: Domain enum for categorization (e.g., Domain.GOALS).
+            entity_name: Human-readable entity name for logging (e.g., "goal").
+            alignment_scorer: Optional custom scorer for learning alignment.
+            prerequisite_validator: Optional validator for prerequisites (called before creation).
+            suggestion_filter: Optional filter for suggestions (applied to generated suggestions).
+            embodiment_scorer: Optional scorer for embodiment data (merged into assessment).
+
+        Note:
+            dto_class and model_class are derived from service._config to avoid repetition
+            at each call site.
         """
         self.service = service
         self.backend = service.backend
-        self.backend_get_method = backend_get_method
-        self.backend_get_user_method = backend_get_user_method
-        self.backend_create_method = backend_create_method
+        self._backend_get = backend_get
+        self._backend_get_user = backend_get_user
+        self._backend_create = backend_create
+
+        # Derive dto_class and model_class from service config (fail-fast)
+        dto_class = service.dto_class
+        model_class = service.model_class
+        if dto_class is None or model_class is None:
+            raise ValueError(
+                f"Service '{service.service_name}' must have dto_class and model_class "
+                "in its _config to use LearningAlignmentBridge."
+            )
         self.dto_class = dto_class
         self.model_class = model_class
+
         self.domain = domain
         self.entity_name = entity_name
         self.logger = get_logger(f"skuel.services.infrastructure.learning_helper.{entity_name}")
@@ -171,15 +181,11 @@ class LearningAlignmentBridge[T, DTO, Request]:
         Example:
             ```python
             # In GoalsLearningService.__init__:
-            self.learning_helper = LearningAlignmentBridge[
-                Goal, GoalDTO, GoalCreateRequest
-            ](
+            self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](
                 service=self,
-                backend_get_method="get_goal",
-                backend_get_user_method="get_user_goals",
-                backend_create_method="create_goal",
-                dto_class=GoalDTO,
-                model_class=Goal,
+                backend_get=self.backend.get_goal,
+                backend_get_user=self.backend.get_user_goals,
+                backend_create=self.backend.create_goal,
                 domain=Domain.GOALS,
                 entity_name="goal",
             )
@@ -198,18 +204,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
             if validation_result.is_error:
                 return Result.fail(validation_result)
 
-        # Step 1: Create entity via backend (delegate to service's existing creation logic)
-        # NOTE: We rely on the service to have a standard create method that accepts the request
-        # For now, services will need to handle DTO creation internally or we extract that too
-        create_method = getattr(self.backend, self.backend_create_method, None)
-        if not create_method:
-            return Result.fail(
-                Errors.system(
-                    message=f"Backend method '{self.backend_create_method}' not found",
-                    operation="create_with_learning_alignment",
-                )
-            )
-
+        # Step 1: Create entity via backend
         # Convert request to dict for backend
         # Pydantic models have model_dump(), fallback to __dict__ for other types
         request_dict = request.model_dump() if isinstance(request, BaseModel) else request.__dict__
@@ -218,7 +213,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
         if custom_fields:
             request_dict.update(custom_fields)
 
-        create_result = await create_method(request_dict)
+        create_result = await self._backend_create(request_dict)
         if create_result.is_error:
             return create_result
 
@@ -370,16 +365,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
         self.logger.debug(f"Getting learning-supporting {self.entity_name}s for user {user_uid}")
 
         # Step 1: Get user's entities
-        get_user_method = getattr(self.backend, self.backend_get_user_method, None)
-        if not get_user_method:
-            return Result.fail(
-                Errors.system(
-                    message=f"Backend method '{self.backend_get_user_method}' not found",
-                    operation="get_learning_supporting_entities",
-                )
-            )
-
-        entities_result = await get_user_method(user_uid)
+        entities_result = await self._backend_get_user(user_uid)
         if entities_result.is_error:
             return entities_result
 
@@ -578,16 +564,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
         self.logger.debug(f"Assessing learning alignment for {self.entity_name} {entity_uid}")
 
         # Step 1: Get the entity
-        get_method = getattr(self.backend, self.backend_get_method, None)
-        if not get_method:
-            return Result.fail(
-                Errors.system(
-                    message=f"Backend method '{self.backend_get_method}' not found",
-                    operation="assess_learning_alignment",
-                )
-            )
-
-        entity_result = await get_method(entity_uid)
+        entity_result = await self._backend_get(entity_uid)
         if entity_result.is_error:
             return entity_result
 

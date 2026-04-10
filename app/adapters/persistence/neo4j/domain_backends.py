@@ -621,6 +621,20 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
             return Result.fail(Errors.not_found(resource="Task", identifier=task_id))
         return Result.ok(get_result.value)
 
+    async def list_by_user(self, user_uid: UserUID, limit: int = 100) -> Result[list[Task]]:
+        """List all tasks for a user. Returns flat list (not paginated tuple)."""
+        page_result: Result[tuple[list[Task], int]] = await self.get_user_entities(
+            user_uid, limit=limit
+        )
+        if page_result.is_error:
+            return Result.fail(page_result)
+        tasks, _ = page_result.value
+        return Result.ok(tasks)
+
+    async def get_user_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
+        """Get all tasks for a user. Alias for list_by_user."""
+        return await self.list_by_user(user_uid)
+
     # ========================================================================
     # LEARNING LOOP METHODS (ADR-048)
     # ========================================================================

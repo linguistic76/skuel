@@ -74,11 +74,9 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         # Initialize LearningAlignmentBridge for learning operations
         self.learning_helper = LearningAlignmentBridge[Habit, HabitDTO, HabitCreateRequest](
             service=self,
-            backend_get_method="get_habit",
-            backend_get_user_method="get_user_habits",
-            backend_create_method="create_habit",
-            dto_class=HabitDTO,
-            model_class=Habit,
+            backend_get=self.backend.get_habit,
+            backend_get_user=self.backend.get_user_habits,
+            backend_create=self.backend.create_habit,
             domain=Domain.HABITS,
             entity_name="habit",
         )

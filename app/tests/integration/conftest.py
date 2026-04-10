@@ -471,9 +471,9 @@ async def services(neo4j_driver):
     from core.models.principle.principle import Principle
     from core.models.task.task import Task
 
-    raw_tasks_backend = UniversalNeo4jBackend[Task](
-        neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY
-    )
+    from adapters.persistence.neo4j.domain_backends import TasksBackend
+
+    raw_tasks_backend = TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
     tasks_backend = TestBackendWrapper(raw_tasks_backend, Task)
 
     from adapters.persistence.neo4j.domain_backends import GoalsBackend
@@ -481,9 +481,9 @@ async def services(neo4j_driver):
     raw_goals_backend = GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
     goals_backend = TestBackendWrapper(raw_goals_backend, Goal)
 
-    raw_events_backend = UniversalNeo4jBackend[Event](
-        neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY
-    )
+    from adapters.persistence.neo4j.domain_backends import EventsBackend
+
+    raw_events_backend = EventsBackend(neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY)
     events_backend = TestBackendWrapper(raw_events_backend, Event)
 
     raw_ps_backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, Entity, base_label=NeoLabel.ENTITY)
@@ -494,15 +494,17 @@ async def services(neo4j_driver):
     )
     lp_backend = TestBackendWrapper(raw_lp_backend, Entity)
 
-    raw_principles_backend = UniversalNeo4jBackend[Principle](
+    from adapters.persistence.neo4j.domain_backends import PrinciplesBackend
+
+    raw_principles_backend = PrinciplesBackend(
         neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
     )
     principles_backend = TestBackendWrapper(raw_principles_backend, Principle)
 
-    # These backends aren't used by tests, create without wrapper
-    choices_backend = UniversalNeo4jBackend[Choice](
-        neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY
-    )
+    # Use domain-specific backends so sub-services can bind methods at init time
+    from adapters.persistence.neo4j.domain_backends import ChoicesBackend
+
+    choices_backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
     users_backend = UniversalNeo4jBackend[User](neo4j_driver, "User", User)
 
     # Mock GraphIntelligenceService for services that require it
