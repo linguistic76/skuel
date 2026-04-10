@@ -36,11 +36,9 @@ await tasks_relationship_service.get_with_context(task_uid)
 ```
 core/services/relationships/
 ├── unified_relationship_service.py   (shell: constructor + core CRUD)
-├── planning_mixin.py                 (UserContext-aware planning methods)
 ├── _batch_operations_mixin.py        (N+1 elimination batch queries)
 ├── _ordered_relationships_mixin.py   (curriculum ordered/metadata queries)
-├── _intelligence_mixin.py            (graph intelligence + semantic + cross-domain)
-└── _life_path_mixin.py               (SERVES_LIFE_PATH relationship methods)
+└── _intelligence_mixin.py            (graph intelligence + semantic + cross-domain)
 ```
 """
 
@@ -55,11 +53,8 @@ from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
 from core.services.infrastructure import RelationshipCreator, SemanticRelationshipLinker
 from core.services.relationships._batch_operations_mixin import BatchOperationsMixin
-from core.services.relationships._domain_planning_mixin import DomainPlanningMixin
 from core.services.relationships._intelligence_mixin import IntelligenceMixin
-from core.services.relationships._life_path_mixin import LifePathMixin
 from core.services.relationships._ordered_relationships_mixin import OrderedRelationshipsMixin
-from core.services.relationships.planning_mixin import PlanningMixin
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_result_score
@@ -79,9 +74,6 @@ D = TypeVar("D")  # DTO type
 
 
 class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProtocol, DtoType](
-    PlanningMixin,
-    DomainPlanningMixin,
-    LifePathMixin,
     IntelligenceMixin,
     OrderedRelationshipsMixin,
     BatchOperationsMixin,

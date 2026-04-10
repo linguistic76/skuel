@@ -37,6 +37,8 @@ from core.services.cross_domain.cross_domain_types import (
     ChoiceAlignmentDetail,
     ChoicePrincipleAdherence,
     ChoicePrincipleConflictCount,
+    EventImpactBatch,
+    EventImpactRow,
     HabitKnowledgeReinforcement,
     KnowledgeApplyingTask,
     PrincipleAlignmentEvidence,
@@ -46,6 +48,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from core.ports import QueryExecutor
 
 
@@ -168,6 +172,23 @@ RETURN
         principles: principle_uids,
         satisfaction: c.satisfaction_score
     }}) AS choice_details
+"""
+
+
+# Cypher: for every non-terminal event owned by ``user_uid`` in ``[start_date,
+# end_date]``, return the count of connected goals (CONTRIBUTES_TO_GOAL) and
+# knowledge units (APPLIES_KNOWLEDGE). One round-trip replaces 2N per-event
+# calls in ``EventsIntelligenceService.analyze_upcoming_events``.
+_EVENT_IMPACT_BATCH_QUERY = f"""
+MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(e:Entity {{entity_type: 'event'}})
+WHERE e.status IN ['scheduled', 'active']
+  AND e.event_date >= date($start_date)
+  AND e.event_date <= date($end_date)
+OPTIONAL MATCH (e)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(g:Entity {{entity_type: 'goal'}})
+OPTIONAL MATCH (e)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k:Entity {{entity_type: 'ku'}})
+RETURN e.uid AS event_uid,
+       count(DISTINCT g) AS goal_count,
+       count(DISTINCT k) AS knowledge_count
 """
 
 
@@ -441,3 +462,39 @@ class CrossDomainQueryService:
         rows = result.value or []
         count = int(rows[0]["conflict_count"]) if rows else 0
         return Result.ok(ChoicePrincipleConflictCount(conflict_count=count))
+
+    async def get_event_impact_batch(
+        self,
+        user_uid: UserUID,
+        start_date: date,
+        end_date: date,
+    ) -> Result[EventImpactBatch]:
+        """
+        Batch-fetch goal + knowledge counts for every non-terminal event owned
+        by ``user_uid`` in ``[start_date, end_date]``.
+
+        One Cypher round-trip. Replaces the 2N ``get_cross_domain_context`` +
+        ``get_related_uids`` loop in ``EventsIntelligenceService.analyze_upcoming_events``.
+        Callers build a ``dict[uid, EventImpactRow]`` and do O(1) lookups per event.
+        """
+        result = await self.executor.execute_query(
+            _EVENT_IMPACT_BATCH_QUERY,
+            {
+                "user_uid": user_uid,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        rows = tuple(
+            EventImpactRow(
+                event_uid=record["event_uid"],
+                goal_count=int(record.get("goal_count") or 0),
+                knowledge_count=int(record.get("knowledge_count") or 0),
+            )
+            for record in (result.value or [])
+            if record and record.get("event_uid")
+        )
+        return Result.ok(EventImpactBatch(rows=rows))

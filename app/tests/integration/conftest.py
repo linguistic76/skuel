@@ -561,10 +561,11 @@ async def services(neo4j_driver):
         cross_domain_query=cross_domain_query,
     )
 
-    # Create Events service (requires graph_intelligence_service)
+    # Create Events service (requires graph_intelligence_service + cross_domain_query)
     events_service = EventsService(
         backend=events_backend,
         graph_intelligence_service=mock_graph_intel,
+        cross_domain_query=cross_domain_query,
     )
 
     # Create Users service (pass query_executor, not raw driver — UserContextBuilder expects QueryExecutor)

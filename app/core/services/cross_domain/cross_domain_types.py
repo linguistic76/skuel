@@ -108,3 +108,19 @@ class HabitKnowledgeReinforcement:
     success_rate: float
     status: str
     ku_uids: tuple[EntityUID, ...]
+
+
+@dataclass(frozen=True)
+class EventImpactRow:
+    """Per-event goal + knowledge counts from a batch impact query."""
+
+    event_uid: EntityUID
+    goal_count: int
+    knowledge_count: int
+
+
+@dataclass(frozen=True)
+class EventImpactBatch:
+    """Batch impact data for multiple events."""
+
+    rows: tuple[EventImpactRow, ...]

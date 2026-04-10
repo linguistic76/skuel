@@ -31,6 +31,7 @@ from core.ports import get_enum_attr_str, get_enum_value
 from core.ports.query_types import EventUpdatePayload
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
+from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
 from core.services.domain_config import create_activity_domain_config
 
 # Import sub-services
@@ -81,7 +82,6 @@ if TYPE_CHECKING:
     from core.ports.query_types import ListContext
     from core.ports.search_protocols import EventsSearchOperations
     from core.services.events.events_ai_service import EventsAIService
-    from core.services.events.events_intelligence_service import EventsIntelligenceService
     from core.services.insight.insight_store import InsightStore
     from core.services.user import UserContext
 
@@ -523,6 +523,7 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
         self,
         backend: EventsOperations,
         graph_intelligence_service: GraphIntelligenceService,
+        cross_domain_query: CrossDomainQueryService,
         event_bus: EventBusOperations | None = None,
         insight_store: InsightStore | None = None,
         activity_knowledge_intelligence: KnowledgeIntelligenceOperations | None = None,
@@ -534,15 +535,8 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
         Args:
             backend: Protocol-based backend for event operations
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics (REQUIRED)
+            cross_domain_query: CrossDomainQueryService for batch cross-domain reads (REQUIRED)
             event_bus: Event bus for publishing domain events (optional)
-
-        Note:
-            Context invalidation now happens via event-driven architecture.
-            Calendar event operations trigger domain events which invalidate context.
-
-        Migration Note (v3.1.0 - December 2025):
-            Made graph_intelligence_service REQUIRED - relationship service needs it.
-            Fail-fast at construction, not at method call.
         """
         super().__init__(backend, "events")
 
@@ -552,17 +546,24 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
         self.ai: EventsAIService | None = ai_service
         self.logger = get_logger("skuel.services.events")  # type: ignore[assignment]  # structlog BoundLogger
 
-        # Initialize 4 common sub-services via factory (eliminates ~30 lines of repetitive code)
+        # Initialize core, search, and relationships via factory; intelligence is
+        # created manually to pass cross_domain_query.
         common: CommonSubServices[EventsIntelligenceService] = create_common_sub_services(
             domain="events",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
+            skip={"intelligence"},
         )
         self.core = common.core
         self.search: EventsSearchOperations = common.search
         self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
-        self.intelligence: EventsIntelligenceService = common.intelligence  # type: ignore[assignment]  # never skipped
+        self.intelligence: EventsIntelligenceService = EventsIntelligenceService(
+            backend=backend,
+            graph_intelligence_service=graph_intelligence_service,
+            relationship_service=self.relationships,  # type: ignore[arg-type]  # UnifiedRelationshipService satisfies protocol
+            cross_domain_query=cross_domain_query,
+        )
 
         # Domain-specific sub-services (not common to all facades)
         self.habits = EventsHabitIntegrationService(backend=backend, event_bus=event_bus)

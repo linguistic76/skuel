@@ -24,6 +24,7 @@ from core.models.graph_context import GraphContext
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
+from core.services.cross_domain.cross_domain_types import EventImpactRow
 from core.services.intelligence import (
     GraphContextOrchestrator,
     RecommendationEngine,
@@ -33,6 +34,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations, EventsRelationshipOperations
+    from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
 
 
 class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event]):
@@ -56,6 +58,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
         backend: "EventsOperations",
         graph_intelligence_service=None,
         relationship_service: "EventsRelationshipOperations | None" = None,
+        cross_domain_query: "CrossDomainQueryService | None" = None,
     ) -> None:
         """
         Initialize events intelligence service.
@@ -63,13 +66,15 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
         Args:
             backend: Protocol-based backend for event operations,
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
-            relationship_service: EventsRelationshipOperations protocol for fetching graph relationships
+            relationship_service: EventsRelationshipOperations protocol for fetching graph relationships,
+            cross_domain_query: CrossDomainQueryService for batch cross-domain reads (required for analyze_upcoming_events)
         """
         super().__init__(
             backend=backend,
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
         )
+        self.cross_domain_query = cross_domain_query
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
             self.orchestrator = GraphContextOrchestrator[Event, EventDTO](
@@ -332,35 +337,45 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
         total_goal_support = 0
         total_habit_reinforcement = 0
 
-        if self.relationships is None:
+        if self.cross_domain_query is None:
             return Result.fail(
                 Errors.system(
-                    message="EventsRelationshipOperations not available",
-                    operation="analyze_event_impact",
+                    message="CrossDomainQueryService not available",
+                    operation="analyze_upcoming_events",
                 )
             )
 
+        # Batch fetch goal + knowledge counts — one Cypher instead of 2N per-event calls
+        batch_result = await self.cross_domain_query.get_event_impact_batch(
+            user_uid=user_uid,
+            start_date=date.today(),
+            end_date=end_date,
+        )
+        if batch_result.is_error:
+            return Result.fail(batch_result)
+
+        impact_lookup: dict[str, EventImpactRow] = {
+            row.event_uid: row for row in batch_result.value.rows
+        }
+
         for event in events:
-            # Calculate impact score using graph queries for graph relationships
+            # Calculate impact score using batch lookup (O(1) per event)
             impact_score: float = 0
+            row = impact_lookup.get(event.uid)
 
-            # Check goal support via graph
-            context_result = await self.relationships.get_cross_domain_context(event.uid)
-            if context_result.is_ok:
-                goals = context_result.value.get("goals", [])
-                if goals:
-                    impact_score += 1
-                    total_goal_support += 1
+            # Goal support
+            if row and row.goal_count > 0:
+                impact_score += 1
+                total_goal_support += 1
 
-            # Check habit reinforcement (field still exists in Event model)
+            # Habit reinforcement (field still exists in Event model)
             if event.reinforces_habit_uid:
                 impact_score += 1
                 total_habit_reinforcement += 1
 
-            # Check knowledge practice via graph
-            knowledge_result = await self.relationships.get_related_uids("knowledge", event.uid)
-            if knowledge_result.is_ok and knowledge_result.value:
-                impact_score += len(knowledge_result.value) * 0.5
+            # Knowledge practice
+            if row and row.knowledge_count > 0:
+                impact_score += row.knowledge_count * 0.5
 
             if impact_score >= 2.0:
                 high_impact_events.append(
@@ -382,7 +397,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
                 )
 
         analysis = {
-            "total_upcoming_events": len(result.value),
+            "total_upcoming_events": len(events),
             "high_impact_events": high_impact_events,
             "low_impact_events": low_impact_events,
             "total_goal_supporting_events": total_goal_support,
