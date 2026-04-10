@@ -41,7 +41,7 @@ the multi-label convention (domain label + :Entity base).
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import pytest_asyncio
@@ -49,7 +49,6 @@ import pytest_asyncio
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.principle_enums import AlignmentLevel
 from core.services.cross_domain import CrossDomainQueryService
-
 
 USER_UID = "user.xdq"
 
@@ -62,8 +61,8 @@ USER_UID = "user.xdq"
 @pytest_asyncio.fixture
 async def graph(neo4j_driver, clean_neo4j):
     """Seed the fixture graph described in the module docstring."""
-    now = datetime.now(tz=timezone.utc).isoformat()
-    recent = (datetime.now(tz=timezone.utc) - timedelta(days=5)).isoformat()
+    now = datetime.now(tz=UTC).isoformat()
+    recent = (datetime.now(tz=UTC) - timedelta(days=5)).isoformat()
 
     async with neo4j_driver.session() as s:
         # -- User --
@@ -486,7 +485,7 @@ class TestChoicePrincipleAdherence:
 
     async def test_period_filter_excludes_old_choices(self, service, graph, neo4j_driver):
         """Create an old choice and verify it's excluded by period_days."""
-        old_ts = (datetime.now(tz=timezone.utc) - timedelta(days=200)).isoformat()
+        old_ts = (datetime.now(tz=UTC) - timedelta(days=200)).isoformat()
         async with neo4j_driver.session() as s:
             await s.run(
                 """

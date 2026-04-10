@@ -49,7 +49,7 @@ class KnowledgeApplyingTask:
 
     uid: EntityUID
     title: str
-    relationship: str  # "APPLIES_KNOWLEDGE" | "REQUIRES_KNOWLEDGE"
+    relationship: str  # RelationshipName.APPLIES_KNOWLEDGE | REQUIRES_KNOWLEDGE
 
 
 @dataclass(frozen=True)

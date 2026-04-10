@@ -102,11 +102,16 @@ def render_instruction_card(ex: Exercise, is_first: bool = False) -> Any:
     )
 
 
+def _exercise_created_at_sort_key(ex: Exercise) -> str:
+    """Sort key for exercises by created_at (descending-friendly)."""
+    return ex.created_at.isoformat() if ex.created_at else ""
+
+
 def render_instruction_list(exercises: list[Exercise], error: str | None = None) -> Any:
     """Return the #instruction-file-list fragment (initial render or HTMX swap)."""
     exercises_sorted = sorted(
         exercises,
-        key=lambda ex: ex.created_at.isoformat() if ex.created_at else "",
+        key=_exercise_created_at_sort_key,
         reverse=True,
     )[:5]
 

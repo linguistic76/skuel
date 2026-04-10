@@ -21,6 +21,7 @@ from typing import Any
 
 from core.constants import QueryLimit
 from core.events import publish_event
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_types import (
@@ -129,7 +130,7 @@ class PrinciplesAlignmentService:
         """
         return await self._assess_entity_alignment_via_graph(
             entity_uid=goal_uid,
-            entity_type="goal",
+            entity_type=EntityType.GOAL,
             user_uid=user_uid,
         )
 
@@ -152,7 +153,7 @@ class PrinciplesAlignmentService:
         """
         return await self._assess_entity_alignment_via_graph(
             entity_uid=habit_uid,
-            entity_type="habit",
+            entity_type=EntityType.HABIT,
             user_uid=user_uid,
         )
 
@@ -161,7 +162,7 @@ class PrinciplesAlignmentService:
     # ========================================================================
 
     async def _assess_entity_alignment_via_graph(
-        self, entity_uid: EntityUID, entity_type: str, user_uid: UserUID
+        self, entity_uid: EntityUID, entity_type: EntityType, user_uid: UserUID
     ) -> Result[AlignmentAssessment]:
         """
         Assess how an entity (goal or habit) aligns with user's principles
@@ -173,7 +174,7 @@ class PrinciplesAlignmentService:
 
         Args:
             entity_uid: Entity to assess.
-            entity_type: "goal" or "habit".
+            entity_type: EntityType.GOAL or EntityType.HABIT.
             user_uid: User whose principles to check.
         """
         # Get user's principles
@@ -196,9 +197,7 @@ class PrinciplesAlignmentService:
                 continue
 
             evidence = evidence_result.value
-            connected, name = self._find_entity_in_evidence(
-                entity_uid, entity_type, evidence
-            )
+            connected, name = self._find_entity_in_evidence(entity_uid, entity_type, evidence)
 
             if connected:
                 level = evidence.alignment_level
@@ -262,7 +261,7 @@ class PrinciplesAlignmentService:
     @staticmethod
     def _find_entity_in_evidence(
         entity_uid: EntityUID,
-        entity_type: str,
+        entity_type: EntityType,
         evidence: PrincipleAlignmentEvidence,
     ) -> tuple[bool, str]:
         """Check if an entity appears in a principle's alignment evidence.
@@ -270,7 +269,9 @@ class PrinciplesAlignmentService:
         Returns:
             (is_connected, entity_title) — title is non-empty when found.
         """
-        entities = evidence.aligned_goals if entity_type == "goal" else evidence.aligned_habits
+        entities = (
+            evidence.aligned_goals if entity_type == EntityType.GOAL else evidence.aligned_habits
+        )
         for entity in entities:
             if entity.uid == entity_uid:
                 return True, entity.title
@@ -777,9 +778,7 @@ class PrinciplesAlignmentService:
         # Find unconnected principles — suggest creating explicit links
         for alignment in alignments:
             if alignment.alignment_level in [AlignmentLevel.UNKNOWN, AlignmentLevel.MISALIGNED]:
-                principle = next(
-                    (p for p in principles if p.uid == alignment.principle_uid), None
-                )
+                principle = next((p for p in principles if p.uid == alignment.principle_uid), None)
                 if principle:
                     recommendations.append(
                         f"Create an explicit connection between this entity and '{principle.title}'"
