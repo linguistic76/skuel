@@ -71,7 +71,15 @@ class BaseAnalyticsService(Generic[B, T]):
 
     # Architectural constraint: Restrict attributes to prevent AI coupling
     # This enforces "Analytics must never depend on AI" in executable form
-    __slots__ = ("backend", "event_bus", "graph_intel", "logger", "orchestrator", "relationships")
+    __slots__ = (
+        "backend",
+        "event_bus",
+        "graph_intel",
+        "insight_store",
+        "logger",
+        "orchestrator",
+        "relationships",
+    )
 
     # Service name for hierarchical logging
     _service_name: ClassVar[str | None] = None
@@ -107,6 +115,7 @@ class BaseAnalyticsService(Generic[B, T]):
         graph_intelligence_service: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
+        insight_store: Any | None = None,
     ) -> None:
         """
         Initialize analytics service with common attributes.
@@ -116,6 +125,7 @@ class BaseAnalyticsService(Generic[B, T]):
             graph_intelligence_service: For graph context retrieval (optional)
             relationship_service: For relationship queries (optional)
             event_bus: For event publishing/subscription (optional)
+            insight_store: For persisting event-driven insights (optional)
 
         Raises:
             ValueError: If backend is None (FAIL-FAST architecture)
@@ -139,6 +149,7 @@ class BaseAnalyticsService(Generic[B, T]):
         self.graph_intel = graph_intelligence_service
         self.relationships = relationship_service
         self.event_bus = event_bus
+        self.insight_store = insight_store
 
         # Orchestrator - initialized by child classes when graph_intel is available
         self.orchestrator: Any | None = None

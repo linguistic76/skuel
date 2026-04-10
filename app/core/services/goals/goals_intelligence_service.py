@@ -123,6 +123,7 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
         graph_intelligence_service=None,
         relationship_service: GoalsRelationshipOperations | None = None,
         progress_service=None,
+        insight_store: Any | None = None,
     ) -> None:
         """
         Initialize goals intelligence service.
@@ -132,11 +133,13 @@ class GoalsIntelligenceService(BaseAnalyticsService[GoalsOperations, Goal]):
             graph_intelligence_service: GraphIntelligenceService for graph intelligence queries,
             relationship_service: GoalsRelationshipOperations protocol for fetching (REQUIRED) goal relationships
             progress_service: GoalsProgressService for velocity calculations
+            insight_store: For persisting event-driven insights (optional)
         """
         super().__init__(
             backend=backend,
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
+            insight_store=insight_store,
         )
         self.progress = progress_service  # Domain-specific: for velocity calculations
         self.habits_service: HabitsOperations | None = None  # Post-wired cross-domain dep

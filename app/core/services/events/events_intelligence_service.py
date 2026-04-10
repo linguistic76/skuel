@@ -59,6 +59,7 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
         graph_intelligence_service=None,
         relationship_service: "EventsRelationshipOperations | None" = None,
         cross_domain_query: "CrossDomainQueryService | None" = None,
+        insight_store: Any | None = None,
     ) -> None:
         """
         Initialize events intelligence service.
@@ -68,11 +69,13 @@ class EventsIntelligenceService(BaseAnalyticsService["EventsOperations", Event])
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics,
             relationship_service: EventsRelationshipOperations protocol for fetching graph relationships,
             cross_domain_query: CrossDomainQueryService for batch cross-domain reads (required for analyze_upcoming_events)
+            insight_store: For persisting event-driven insights (optional)
         """
         super().__init__(
             backend=backend,
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
+            insight_store=insight_store,
         )
         self.cross_domain_query = cross_domain_query
         # Initialize GraphContextOrchestrator for get_with_context pattern

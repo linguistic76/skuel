@@ -282,21 +282,12 @@ def create_common_sub_services(
     if "intelligence" not in skip:
         intel_module = importlib.import_module(config.intelligence_module)
         intel_class = getattr(intel_module, config.intelligence_class)
-        # Note: Not all intelligence services support insight_store yet - pass if available
-        try:
-            intelligence = intel_class(
-                backend=backend,
-                graph_intelligence_service=graph_intel,
-                relationship_service=relationships,
-                insight_store=insight_store,
-            )
-        except TypeError:
-            # Fallback for intelligence services that don't have insight_store parameter yet
-            intelligence = intel_class(
-                backend=backend,
-                graph_intelligence_service=graph_intel,
-                relationship_service=relationships,
-            )
+        intelligence = intel_class(
+            backend=backend,
+            graph_intelligence_service=graph_intel,
+            relationship_service=relationships,
+            insight_store=insight_store,
+        )
 
     # event_handler — all 6 domains have one; all accept the same keyword args after Step 1
     eh_module = importlib.import_module(config.event_handler_module)

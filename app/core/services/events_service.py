@@ -566,6 +566,7 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=self.relationships,  # type: ignore[arg-type]  # UnifiedRelationshipService satisfies protocol
             cross_domain_query=cross_domain_query,
+            insight_store=insight_store,
         )
 
         # Domain-specific sub-services (not common to all facades)

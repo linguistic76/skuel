@@ -519,6 +519,7 @@ class GoalsService(KnowledgeIntelligenceDelegationMixin, BaseService[GoalsOperat
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=self.relationships,
             progress_service=self.progress,
+            insight_store=insight_store,
         )
 
         # Event-driven handlers from factory

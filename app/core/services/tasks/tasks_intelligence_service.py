@@ -116,6 +116,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         graph_intelligence_service: GraphIntelligenceService | None = None,
         relationship_service: TasksRelationshipOperations | None = None,
         event_bus: Any | None = None,
+        insight_store: Any | None = None,
     ) -> None:
         """
         Initialize tasks intelligence service (graph-based analytics).
@@ -125,6 +126,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
             graph_intelligence_service: Graph intelligence service (infrastructure only)
             relationship_service: TasksRelationshipOperations protocol for specialized relationship queries
             event_bus: Event bus for publishing events (optional)
+            insight_store: For persisting event-driven insights (optional)
 
         NOTE: No embeddings_service or llm_service parameters - this is intentional.
         This service uses graph queries and Python, not AI.
@@ -134,6 +136,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
             event_bus=event_bus,
+            insight_store=insight_store,
         )
 
         # Initialize GraphContextOrchestrator for get_with_context pattern

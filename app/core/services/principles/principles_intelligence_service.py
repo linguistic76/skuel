@@ -19,7 +19,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Domain
 from core.models.principle.principle import Principle
@@ -70,7 +70,7 @@ class PrinciplesIntelligenceService(
         backend: PrinciplesOperations,
         graph_intelligence_service=None,
         relationship_service: PrinciplesRelationshipOperations | None = None,
-        insight_store: None = None,
+        insight_store: Any | None = None,
     ) -> None:
         """
         Initialize principles intelligence service.
@@ -79,13 +79,13 @@ class PrinciplesIntelligenceService(
             backend: Backend for principle operations
             graph_intelligence_service: GraphIntelligenceService for pure Cypher analytics
             relationship_service: PrinciplesRelationshipOperations protocol for specialized relationship queries
-            insight_store: Deprecated — kept for backward compatibility with create_common_sub_services factory.
-                Event-driven insights now handled by PrincipleEventHandlerService.
+            insight_store: For persisting event-driven insights (optional)
         """
         super().__init__(
             backend=backend,
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
+            insight_store=insight_store,
         )
 
         # Initialize GraphContextOrchestrator for get_with_context pattern

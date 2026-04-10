@@ -335,6 +335,7 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService["TasksOpera
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=self.relationships,
             event_bus=event_bus,
+            insight_store=insight_store,
         )
 
         # TasksProductivityService shelved (2026-03-28)

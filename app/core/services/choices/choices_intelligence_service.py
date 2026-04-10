@@ -85,9 +85,9 @@ class ChoicesIntelligenceService(
             backend=backend,
             graph_intelligence_service=graph_intelligence_service,
             relationship_service=relationship_service,
+            insight_store=insight_store,
         )
         self.cross_domain_query = cross_domain_query
-        self.insight_store = insight_store
 
         # Initialize GraphContextOrchestrator for get_with_context pattern
         if graph_intelligence_service:
