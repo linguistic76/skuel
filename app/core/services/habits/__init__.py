@@ -2,14 +2,20 @@
 Habits Sub-Services
 ===================
 
-This package contains focused sub-services that compose the unified HabitsService facade.
+This package contains focused sub-services and facade mixins that compose the unified
+HabitsService facade.
 
-Architecture: Facade Pattern (13 sub-services)
+Architecture: Facade Pattern (13 sub-services + 3 facade mixins)
 - Each sub-service handles ONE specific responsibility
 - HabitsService (facade) delegates to appropriate sub-service via explicit delegation methods
-- ~50+ auto-generated delegation methods + explicit orchestration methods
+- Facade mixins host methods with custom logic (extracted April 2026)
 - Most complex Activity Domain (streaks, consistency, event integration)
 - Zero breaking changes to external code
+
+Facade Mixins (in this package):
+- _CompletionMixin: completion tracking, status lifecycle, reminder config
+- _EnrichmentMixin: analytics delegates, enriched data views
+- _OrchestrationMixin: graph relationship creation, cross-domain orchestration
 
 Sub-Services (in this package):
 - HabitsCoreService: CRUD operations, event publishing
@@ -44,8 +50,10 @@ Architecture Notes:
 - HabitAchievementService absorbed into HabitEventHandlerService (March 2026)
 """
 
+from core.services.habits._completion_mixin import _CompletionMixin
+from core.services.habits._enrichment_mixin import _EnrichmentMixin
+from core.services.habits._orchestration_mixin import _OrchestrationMixin
 from core.services.habits.habit_event_handler_service import HabitEventHandlerService
-from core.services.habits.habits_search_service import HabitsSearchService
 from core.services.habits.habits_core_service import HabitsCoreService
 from core.services.habits.habits_event_integration_service import HabitsEventIntegrationService
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
@@ -54,10 +62,14 @@ from core.services.habits.habits_pattern_service import HabitsPatternService
 from core.services.habits.habits_planning_service import HabitsPlanningService
 from core.services.habits.habits_progress_service import HabitsProgressService
 from core.services.habits.habits_scheduling_service import HabitsSchedulingService
+from core.services.habits.habits_search_service import HabitsSearchService
 
 # Shelved (2026-03-28): HabitsGoalAnalyticsService, HabitsAIService
 
 __all__ = [
+    "_CompletionMixin",
+    "_EnrichmentMixin",
+    "_OrchestrationMixin",
     "HabitEventHandlerService",
     "HabitsSearchService",
     "HabitsCoreService",

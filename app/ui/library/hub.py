@@ -60,6 +60,8 @@ LIBRARY_BLOCKS: list[HubBlockData] = [
 def LibraryHub() -> Div:
     """Library hub page content — PageHeader + block list for /library."""
     return Div(
-        PageHeader("Library", subtitle="Your exercises, submission history, resources, and curriculum"),
+        PageHeader(
+            "Library", subtitle="Your exercises, submission history, resources, and curriculum"
+        ),
         HubDomainBlockList(LIBRARY_BLOCKS),
     )

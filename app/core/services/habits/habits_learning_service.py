@@ -56,7 +56,9 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         completed_statuses=(EntityStatus.ARCHIVED.value,),
     )
 
-    def __init__(self, backend: HabitsOperations, event_bus=None, relationship_service=None) -> None:
+    def __init__(
+        self, backend: HabitsOperations, event_bus=None, relationship_service=None
+    ) -> None:
         """
         Initialize habits learning service.
 

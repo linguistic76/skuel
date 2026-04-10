@@ -483,7 +483,9 @@ async def services(neo4j_driver):
 
     from adapters.persistence.neo4j.domain_backends import EventsBackend
 
-    raw_events_backend = EventsBackend(neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY)
+    raw_events_backend = EventsBackend(
+        neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY
+    )
     events_backend = TestBackendWrapper(raw_events_backend, Event)
 
     raw_ps_backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, Entity, base_label=NeoLabel.ENTITY)
@@ -504,7 +506,9 @@ async def services(neo4j_driver):
     # Use domain-specific backends so sub-services can bind methods at init time
     from adapters.persistence.neo4j.domain_backends import ChoicesBackend
 
-    choices_backend = ChoicesBackend(neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY)
+    choices_backend = ChoicesBackend(
+        neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY
+    )
     users_backend = UniversalNeo4jBackend[User](neo4j_driver, "User", User)
 
     # Mock GraphIntelligenceService for services that require it

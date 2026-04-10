@@ -136,7 +136,9 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         completed_statuses=(EntityStatus.ARCHIVED.value,),
     )
 
-    def __init__(self, backend: PrinciplesOperations, event_bus=None, relationship_service=None) -> None:
+    def __init__(
+        self, backend: PrinciplesOperations, event_bus=None, relationship_service=None
+    ) -> None:
         """
         Initialize principles learning service.
 

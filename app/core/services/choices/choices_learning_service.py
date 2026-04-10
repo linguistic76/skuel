@@ -50,7 +50,9 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
         completed_statuses=(EntityStatus.COMPLETED.value,),
     )
 
-    def __init__(self, backend: ChoicesOperations, event_bus=None, relationship_service=None) -> None:
+    def __init__(
+        self, backend: ChoicesOperations, event_bus=None, relationship_service=None
+    ) -> None:
         """
         Initialize choices learning service.
 

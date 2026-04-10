@@ -181,7 +181,9 @@ class LearningAlignmentBridge[T, DTO, Request]:
         Example:
             ```python
             # In GoalsLearningService.__init__:
-            self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](
+            self.learning_helper = LearningAlignmentBridge[
+                Goal, GoalDTO, GoalCreateRequest
+            ](
                 service=self,
                 backend_get=self.backend.get_goal,
                 backend_get_user=self.backend.get_user_goals,
