@@ -1,7 +1,7 @@
 ---
 title: LP (Learning Path) Domain
 created: 2025-12-04
-updated: 2026-01-11
+updated: 2026-04-10
 status: current
 category: domains
 tags:
@@ -88,6 +88,29 @@ class LpSearchService(BaseService["BackendOperations[Lp]", Lp]):
     ...
 ```
 
+## Backend Methods (LpBackend)
+
+All Cypher queries are encapsulated in `LpBackend` (`adapters/persistence/neo4j/domain_backends.py`). LpCoreService calls typed backend methods — no inline Cypher.
+
+| Method | Purpose |
+|--------|---------|
+| `get_path_with_steps(uid)` | Single LP + HAS_STEP steps |
+| `get_paths_batch_with_steps(uids)` | Batch LP fetch (GraphQL DataLoader) |
+| `get_path_with_graph_context(uid)` | LP + 7 graph neighborhoods (steps, prereqs, goals, principles, events, users, stats) |
+| `list_user_paths_with_steps(user_uid, limit)` | User's LPs with steps |
+| `list_all_paths_with_steps(limit, offset, order_by, order_desc)` | All LPs with `_ALLOWED_ORDER_BY` validation |
+| `update_path_properties(set_clauses, params)` | Dynamic SET update |
+| `delete_path_cascade(uid)` | Cascade delete LP + step nodes |
+| `persist_path_with_steps(user_uid, path_params, steps_params)` | Create LP node + User relationship + steps |
+| `entity_exists(uid)` | Simple existence check |
+| `get_steps_raw(path_uid, depth)` | Ordered steps as raw dicts |
+| `get_parent_path_raw(step_uid)` | Parent LP for a step |
+| `add_step_to_path(path_uid, step_uid, sequence, order)` | HAS_STEP creation (idempotent) |
+| `remove_step_from_path(path_uid, step_uid)` | HAS_STEP removal + reorder |
+| `reorder_steps(path_uid, step_uids)` | Batch step reordering |
+| `get_paths_containing_ku(ku_uid)` | LPs that include a KU |
+| `get_ku_mastery_progress(lp_uid, user_uid)` | KU completion state for LP |
+
 ## Key Files
 
 | Component | Location |
@@ -97,6 +120,7 @@ class LpSearchService(BaseService["BackendOperations[Lp]", Lp]):
 | Search Service | `/core/services/lp/lp_search_service.py` |
 | Intelligence Service | `/core/services/lp_intelligence_service.py` |
 | Progress Service | `/core/services/lp/lp_progress_service.py` |
+| Domain Backend | `/adapters/persistence/neo4j/domain_backends.py` (`LpBackend`) |
 | Model | `/core/models/lp/lp.py` |
 | DTO | `/core/models/lp/lp_dto.py` |
 | Relationship Config | `LP_CONFIG` in `/core/models/relationship_registry.py` |
