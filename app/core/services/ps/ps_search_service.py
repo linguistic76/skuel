@@ -34,13 +34,13 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.curriculum_protocols import PsOperations
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
 
 
-class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
+class PsSearchService(BaseService["PsOperations", PathStep]):
     """
     Search service for PathSteps - BaseService pattern.
 
@@ -85,7 +85,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
         content_field="description",  # PS stores content in description
     )
 
-    def __init__(self, backend: BackendOperations[PathStep]) -> None:
+    def __init__(self, backend: PsOperations) -> None:
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="ps.search")
 
@@ -128,14 +128,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
 
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        cypher = """
-            MATCH (lp:Entity {uid: $path_uid})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})
-            RETURN ps
-            ORDER BY ps.sequence ASC
-            LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(cypher, {"path_uid": path_uid, "limit": limit})
+        result = await self.backend.get_steps_for_learning_path(path_uid, limit)
         if result.is_error:
             return Result.fail(result)
 
@@ -156,15 +149,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
         """
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        cypher = """
-            MATCH (ps:Entity {entity_type: 'path_step'})
-            WHERE NOT (ps)<-[:HAS_STEP]-(:Entity {entity_type: 'learning_path'})
-            RETURN ps
-            ORDER BY ps.updated_at DESC
-            LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(cypher, {"limit": limit})
+        result = await self.backend.get_standalone_steps(limit)
         if result.is_error:
             return Result.fail(result)
 
@@ -180,28 +165,21 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
         Complementary to PsGraphService.find_path_steps_containing().
         Returns full PS entities instead of just UIDs.
 
-        Graph Pattern: (Ls)-[:CONTAINS_KNOWLEDGE]->(Ku)
+        Graph Pattern: (PS)-[:CONTAINS_KNOWLEDGE]->(Ku)
 
         Args:
             ku_uid: Knowledge unit UID
             limit: Maximum results to return (default 20)
 
         Returns:
-            Result containing list of Learning Step entities
+            Result containing list of PathStep entities
         """
         if not ku_uid:
             return Result.fail(Errors.validation(message="ku_uid is required", field="ku_uid"))
 
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        cypher = """
-            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:Entity {entity_type: 'path_step'})
-            RETURN ps
-            ORDER BY ps.sequence ASC
-            LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(cypher, {"ku_uid": ku_uid, "limit": limit})
+        result = await self.backend.get_steps_using_ku(ku_uid, limit)
         if result.is_error:
             return Result.fail(result)
 
@@ -232,33 +210,7 @@ class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
         """
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        # Build prioritization query
-        cypher = """
-            MATCH (ps:Entity {entity_type: 'path_step'})
-            OPTIONAL MATCH (u:User {uid: $user_uid})-[progress:STUDYING]->(ps)
-            RETURN ps, progress
-            ORDER BY
-                CASE
-                    WHEN progress IS NOT NULL THEN 0
-                    ELSE 1
-                END,
-                CASE ps.status
-                    WHEN 'in_progress' THEN 0
-                    WHEN 'not_started' THEN 1
-                    ELSE 2
-                END,
-                CASE ps.priority
-                    WHEN 'critical' THEN 0
-                    WHEN 'high' THEN 1
-                    WHEN 'medium' THEN 2
-                    WHEN 'low' THEN 3
-                    ELSE 4
-                END,
-                ps.updated_at DESC
-            LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(cypher, {"user_uid": user_uid, "limit": limit})
+        result = await self.backend.get_prioritized_steps(user_uid, limit)
         if result.is_error:
             return Result.fail(result)
 

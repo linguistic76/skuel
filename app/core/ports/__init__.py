@@ -151,6 +151,7 @@ from .context_awareness_protocols import (
 from .curriculum_protocols import (
     CurriculumOperations,
     ExerciseOperations,
+    KuOperations,
     LpOperations,
     PsOperations,
     RevisedExerciseOperations,
@@ -426,6 +427,7 @@ __all__ = [
     # "LearningPathsOperations", - DELETED January 2026, use LpOperations
     "LowLevelOperations",  # Direct DB access (2 methods + driver)
     "QueryExecutor",  # Standalone Cypher query execution port
+    "KuOperations",  # Knowledge Unit operations (atom)
     "LpOperations",  # Learning Path operations (path)
     "PsOperations",  # Learning Step operations (edge)
     "LtConstraint",

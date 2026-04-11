@@ -140,17 +140,12 @@ class LpProgressService:
                 self.logger.warning("No backend available for PS→LP event integration")
                 return
 
-            # Find LPs containing this PS via HAS_STEP
-            query = """
-            MATCH (lp:Entity {entity_type: 'learning_path'})-[:HAS_STEP]->(ps:Entity {uid: $ps_uid})
-            RETURN DISTINCT lp.uid as lp_uid
-            """
-            result = await self.backend.execute_query(query, {"ps_uid": event.ps_uid})
+            result = await self.backend.get_paths_containing_step(event.ps_uid)
             if result.is_error:
                 self.logger.error(f"Failed to query LPs for PS {event.ps_uid}: {result.error}")
                 return
 
-            lp_uids = [r["lp_uid"] for r in (result.value or [])]
+            lp_uids = result.value or []
 
             if not lp_uids:
                 self.logger.debug(f"No learning paths contain PS {event.ps_uid}")

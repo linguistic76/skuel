@@ -103,6 +103,7 @@ if TYPE_CHECKING:
     from core.models.enums.neo_labels import NeoLabel
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
+    from core.models.ku.ku import Ku
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
     from core.models.relationship_names import RelationshipName
@@ -313,6 +314,164 @@ class KuInteractionOperations(Protocol):
 
 
 @runtime_checkable
+class KuOperations(BackendOperations["Ku"], Protocol):
+    """
+    Knowledge Unit (KU) specific operations.
+
+    Extends BackendOperations with KU-specific methods for:
+    - Reverse traversal (PathSteps using this KU)
+    - Namespace and alias search
+    - Substance tracking
+    - Relationship queries (related, broader, narrower, etc.)
+    - Prerequisite and dependency analysis
+    - Learning state management (IN_PROGRESS, MASTERED)
+
+    Neo4j: KU nodes are :Entity:Ku{entity_type='ku'}
+    UID Format: "ku_{slug}_{random}"
+    """
+
+    # =========================================================================
+    # REVERSE TRAVERSAL
+    # =========================================================================
+
+    async def get_path_steps_using(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get all PathSteps that use this atomic Ku via USES_KU."""
+        ...
+
+    async def get_usage_summary(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Count path steps using, training, and organized children."""
+        ...
+
+    async def is_trained(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Check if any PathStep trains this Ku via TRAINS_KU."""
+        ...
+
+    async def is_organized(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Check if this Ku has ORGANIZES children (acts as MOC)."""
+        ...
+
+    async def get_organization_depth(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get depth of the ORGANIZES tree below this Ku."""
+        ...
+
+    # =========================================================================
+    # NAMESPACE & ALIAS SEARCH
+    # =========================================================================
+
+    async def get_by_namespace(self, namespace: str) -> Result[list[Neo4jProperties]]:
+        """Get all Kus in a specific namespace."""
+        ...
+
+    async def search_by_alias(self, alias: str) -> Result[list[Neo4jProperties]]:
+        """Search Kus by alias (case-insensitive substring)."""
+        ...
+
+    # =========================================================================
+    # SUBSTANCE METRICS
+    # =========================================================================
+
+    async def batch_increment_substance(
+        self,
+        ku_uids: list[str],
+        metric: str,
+        timestamp_field: str,
+        timestamp_str: str,
+    ) -> Result[int]:
+        """Atomically increment a substance metric for multiple KUs and connected PathSteps."""
+        ...
+
+    async def increment_substance(
+        self,
+        ku_uid: str,
+        metric: str,
+        timestamp_field: str,
+        timestamp_str: str,
+    ) -> Result[int]:
+        """Atomically increment a substance metric for a single KU and connected PathSteps."""
+        ...
+
+    # =========================================================================
+    # RELATIONSHIP QUERIES
+    # =========================================================================
+
+    async def get_related_knowledge_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get related knowledge units (RELATED_TO relationship)."""
+        ...
+
+    async def get_broader_concept_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get broader concepts (HAS_BROADER relationship)."""
+        ...
+
+    async def get_narrower_concept_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get narrower concepts (HAS_NARROWER relationship)."""
+        ...
+
+    async def get_learning_path_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get learning paths containing this KU."""
+        ...
+
+    async def get_applying_task_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get tasks applying this knowledge."""
+        ...
+
+    async def get_practicing_event_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get events practicing this knowledge."""
+        ...
+
+    async def get_reinforcing_habit_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get habits reinforcing this knowledge."""
+        ...
+
+    # =========================================================================
+    # PREREQUISITE & DEPENDENCY QUERIES
+    # =========================================================================
+
+    async def get_unmastered_prerequisites(
+        self, ku_uid: str, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]:
+        """Get unmastered prerequisites for a knowledge unit (depth 1..3)."""
+        ...
+
+    async def count_dependents(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Count entities that depend on this knowledge unit via REQUIRES_KNOWLEDGE."""
+        ...
+
+    # =========================================================================
+    # LEARNING STATE
+    # =========================================================================
+
+    async def mark_in_progress(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Mark a Ku as actively being studied (IN_PROGRESS relationship)."""
+        ...
+
+    async def mark_mastered(
+        self,
+        user_uid: UserUID,
+        ku_uid: str,
+        mastery_score: float = 0.7,
+        method: str = "self_report",
+    ) -> Result[list[Neo4jProperties]]:
+        """Mark a Ku as understood/mastered by the user."""
+        ...
+
+    async def get_ku_learning_state(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get user's learning state for a Ku (IN_PROGRESS, MASTERED, MARKED_AS_READ)."""
+        ...
+
+    async def count_studying_kus(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
+        """Count Kus the user has marked as studying."""
+        ...
+
+    async def get_user_learning_states(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
+        """Get all Kus with their learning state for a user."""
+        ...
+
+
+@runtime_checkable
 class PsOperations(CurriculumOperations["PathStep"], Protocol):
     """
     PathStep (PS) specific operations.
@@ -451,6 +610,32 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         Returns:
             Result[bool]: True if standalone
         """
+        ...
+
+    # =========================================================================
+    # SEARCH QUERIES
+    # =========================================================================
+
+    async def get_steps_for_learning_path(
+        self, path_uid: str, limit: int = 100
+    ) -> Result[list[dict[str, Any]]]:
+        """Get PathStep nodes belonging to a learning path, ordered by sequence."""
+        ...
+
+    async def get_standalone_steps(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
+        """Get PathStep nodes not belonging to any learning path."""
+        ...
+
+    async def get_steps_using_ku(
+        self, ku_uid: str, limit: int = 20
+    ) -> Result[list[dict[str, Any]]]:
+        """Get PathStep nodes that contain/teach a knowledge unit."""
+        ...
+
+    async def get_prioritized_steps(
+        self, user_uid: UserUID, limit: int = 20
+    ) -> Result[list[dict[str, Any]]]:
+        """Get PathStep nodes prioritized by user context."""
         ...
 
     # =========================================================================
@@ -1177,12 +1362,36 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         ...
 
     # =========================================================================
+    # SEARCH QUERIES
+    # =========================================================================
+
+    async def get_paths_aligned_with_goal(
+        self, goal_uid: str, limit: int = 50
+    ) -> Result[list[dict[str, Any]]]:
+        """Get learning paths aligned with a goal via ALIGNED_WITH_GOAL."""
+        ...
+
+    async def get_paths_by_knowledge(
+        self, ku_uid: str, limit: int = 20
+    ) -> Result[list[dict[str, Any]]]:
+        """Get learning paths that teach a knowledge unit (2-hop via PS)."""
+        ...
+
+    async def get_user_paths_prioritized(
+        self, user_uid: UserUID, limit: int = 20
+    ) -> Result[list[dict[str, Any]]]:
+        """Get learning paths prioritized by enrollment, goal alignment, and type."""
+        ...
+
+    async def get_paths_containing_step(self, ps_uid: str) -> Result[list[str]]:
+        """Get UIDs of all learning paths containing a given path step."""
+        ...
+
+    # =========================================================================
     # INTELLIGENCE QUERIES
     # =========================================================================
 
-    async def validate_path_prerequisites(
-        self, path_uid: str
-    ) -> Result[list[dict[str, Any]]]:
+    async def validate_path_prerequisites(self, path_uid: str) -> Result[list[dict[str, Any]]]:
         """Run prerequisite validation query for a learning path."""
         ...
 

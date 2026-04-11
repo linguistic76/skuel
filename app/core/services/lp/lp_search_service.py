@@ -33,13 +33,13 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from core.ports.curriculum_protocols import LpOperations
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
 
 
-class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPath]):
+class LpSearchService(BaseService["LpOperations", LearningPath]):
     """
     Search service for Learning Paths - BaseService pattern.
 
@@ -86,7 +86,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         content_field="description",  # LP goal mapped to Entity description
     )
 
-    def __init__(self, backend: BackendOperations[LearningPath]) -> None:
+    def __init__(self, backend: LpOperations) -> None:
         """Initialize service with required backend."""
         super().__init__(backend=backend, service_name="lp.search")
 
@@ -168,22 +168,9 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         if not goal_uid:
             return Result.fail(Errors.validation(message="goal_uid is required", field="goal_uid"))
 
-        # Use backend method if available
-        backend_method = getattr(self.backend, "get_aligned_goals", None)
-        if backend_method:
-            return await backend_method(goal_uid, limit)
-
-        # Fallback to direct query
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        cypher = """
-            MATCH (lp:Entity {entity_type: 'learning_path'})-[:ALIGNED_WITH_GOAL]->(g:Goal {uid: $goal_uid})
-            RETURN lp
-            ORDER BY lp.updated_at DESC
-            LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(cypher, {"goal_uid": goal_uid, "limit": limit})
+        result = await self.backend.get_paths_aligned_with_goal(goal_uid, limit)
         if result.is_error:
             return Result.fail(result)
 
@@ -196,10 +183,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         """
         Find learning paths that teach this knowledge (via path steps).
 
-        Complementary to PsGraphService.find_learning_paths_teaching().
-        Returns full LP entities instead of just UIDs.
-
-        Graph Pattern: (Ku{learning_path})-[:HAS_STEP]->(Ku{path_step})-[:CONTAINS_KNOWLEDGE]->(Ku)
+        Graph Pattern: (LP)-[:HAS_STEP]->(PS)-[:CONTAINS_KNOWLEDGE]->(Ku)
 
         This is a 2-hop indirect relationship query. Uses DISTINCT since
         multiple steps within a path may contain the same knowledge.
@@ -216,14 +200,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
 
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        cypher = """
-            MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:Entity {entity_type: 'path_step'})<-[:HAS_STEP]-(lp:Entity {entity_type: 'learning_path'})
-            RETURN DISTINCT lp
-            ORDER BY lp.created_at DESC
-            LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(cypher, {"ku_uid": ku_uid, "limit": limit})
+        result = await self.backend.get_paths_by_knowledge(ku_uid, limit)
         if result.is_error:
             return Result.fail(result)
 
@@ -284,31 +261,7 @@ class LpSearchService(BaseService["BackendOperations[LearningPath]", LearningPat
         """
         from core.utils.neo4j_mapper import from_neo4j_node
 
-        # Build prioritization query
-        cypher = """
-            MATCH (lp:Entity {entity_type: 'learning_path'})
-            OPTIONAL MATCH (u:User {uid: $user_uid})-[enrolled:ENROLLED_IN]->(lp)
-            OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(g:Goal)<-[:OWNS]-(u2:User {uid: $user_uid})
-            WITH lp, enrolled, count(g) as goal_alignment
-            RETURN lp
-            ORDER BY
-                CASE
-                    WHEN enrolled IS NOT NULL THEN 0
-                    ELSE 1
-                END,
-                goal_alignment DESC,
-                CASE lp.path_type
-                    WHEN 'adaptive' THEN 0
-                    WHEN 'structured' THEN 1
-                    WHEN 'accelerated' THEN 2
-                    WHEN 'remedial' THEN 3
-                    ELSE 4
-                END,
-                lp.updated_at DESC
-            LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(cypher, {"user_uid": user_uid, "limit": limit})
+        result = await self.backend.get_user_paths_prioritized(user_uid, limit)
         if result.is_error:
             return Result.fail(result)
 
