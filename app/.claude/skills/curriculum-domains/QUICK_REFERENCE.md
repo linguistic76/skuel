@@ -21,7 +21,7 @@
 | Lesson | `core/services/lesson_service.py` | `lesson/lesson_core_service.py` | `lesson/lesson_search_service.py` | (via `lesson_adaptive_service.py`) |
 | KU | `core/services/ku_service.py` | `ku/ku_core_service.py` | `ku/ku_search_service.py` | `ku/ku_intelligence_service.py` |
 | PS | `core/services/ps_service.py` | `ps/ps_core_service.py` | `ps/ps_search_service.py` | `ps/ps_intelligence_service.py` |
-| LP | `core/services/lp_service.py` | `lp/lp_core_service.py` | `lp/lp_search_service.py` | `lp_intelligence_service.py` (top-level) |
+| LP | `core/services/lp_service.py` | `lp/lp_core_service.py` | `lp/lp_search_service.py` | `lp/lp_intelligence_service.py` |
 
 ### Lesson Sub-services (`core/services/lesson/`)
 | Service | Purpose |

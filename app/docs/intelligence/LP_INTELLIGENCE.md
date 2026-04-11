@@ -3,7 +3,7 @@
 ## Overview
 
 **Architecture:** Extends `BaseAnalyticsService[Any, Lp]` (Facade Pattern)
-**Location:** `/core/services/lp_intelligence_service.py`
+**Location:** `/core/services/lp/lp_intelligence_service.py`
 **Service Name:** `lp.intelligence`
 **Lines:** ~1,342 (facade) + ~2,467 (4 sub-services)
 
@@ -810,10 +810,10 @@ self.logger.info("Message")  # Logs to: skuel.intelligence.lp.intelligence
 
 ```python
 # services_bootstrap.py
-from core.services.lp_intelligence_service import create_lp_intelligence_service
+from core.services.lp import LpIntelligenceService
 
 # Create standalone (NOT via LpService)
-lp_intelligence = create_lp_intelligence_service(
+lp_intelligence = LpIntelligenceService(
     progress_backend=progress_backend,
     backend=lp_backend,
     graph_intelligence_service=graph_intelligence,
@@ -943,7 +943,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_analyze_learnin
 ### Example Test
 ```python
 from unittest.mock import Mock
-from core.services.lp_intelligence_service import LpIntelligenceService
+from core.services.lp import LpIntelligenceService
 
 # Create mock dependencies
 progress_backend = Mock()

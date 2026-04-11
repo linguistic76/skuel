@@ -570,9 +570,9 @@ Domain-specific factory functions in `/core/services/curriculum_domain_config.py
 
 ```python
 from core.services.curriculum_domain_config import (
-    create_lesson_sub_services,
+    create_ps_sub_services,
     create_lp_sub_services,
-    LessonSubServices,
+    PsSubServices,
     LpSubServices,
 )
 ```
@@ -686,17 +686,15 @@ class LpSubServices:
     relationships: UnifiedRelationshipService
     intelligence: LpIntelligenceService
     progress: LpProgressService
-    backend: UniversalNeo4jBackend[Lp]  # Exposed for legacy access
 ```
 
 ### When to Use Each Factory
 
 | Domain | Factory | Reason |
 |--------|---------|--------|
-| **PS** | `create_curriculum_sub_services()` | Standard 4-service pattern |
-| **Lesson** | `create_lesson_sub_services()` | 12 services + circular dependency |
+| **KU** | `create_curriculum_sub_services("ku", ...)` | Standard 4-service pattern |
+| **PS** | `create_ps_sub_services()` | 12 services + non-standard wiring |
 | **LP** | `create_lp_sub_services()` | 5 services + cross-domain dependency |
-| **MOC** | Manual in facade | Circular (core ↔ section) requires post-init wiring |
 
 ### Benefits
 

@@ -168,7 +168,7 @@ await ps_service.intelligence.practice_completeness_score(ps_uid)
 
 **Factory:** `create_lp_sub_services()` - Specialized (requires cross-domain PsService dependency)
 
-**Intelligence Location:** `LpIntelligenceService` lives at `core/services/lp_intelligence_service.py` (top level, NOT inside `lp/` directory) with a companion `lp_intelligence/` package for helpers.
+**Intelligence Location:** `LpIntelligenceService` lives at `core/services/lp/lp_intelligence_service.py` (inside the `lp/` package, exported via `lp/__init__.py`).
 
 **Unique Features:**
 - **Cross-domain dependency** - LpCoreService requires PsService
