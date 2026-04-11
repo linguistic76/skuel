@@ -162,19 +162,13 @@ def create_activity_reports_ui_routes(
                 render_error_banner("Activity report orchestrator unavailable"),
                 id="activity-report-detail-content",
             )
-        history_result = await orchestrator.get_activity_report_history(user_uid, limit=100)
-        if history_result.is_error:
+        report_result = await orchestrator.get_activity_report(uid, user_uid)
+        if report_result.is_error:
             return Div(
-                render_error_banner("Failed to load report", str(history_result.error)),
+                render_error_banner("Report not found", str(report_result.error)),
                 id="activity-report-detail-content",
             )
-        report = None
-        for r in history_result.value or []:
-            if getattr(r, "uid", None) == uid:
-                report = r
-                break
-        if not report:
-            return Div(render_error_banner("Report not found"), id="activity-report-detail-content")
+        report = report_result.value
         metadata = getattr(report, "metadata", None) or {}
         snapshot = metadata.get("snapshot") if isinstance(metadata, dict) else None
         intelligence = metadata.get("intelligence") if isinstance(metadata, dict) else None

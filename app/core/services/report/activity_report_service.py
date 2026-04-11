@@ -351,6 +351,27 @@ class ActivityReportService:
             logger.error(f"Unexpected error submitting activity report: {e}")
             return Result.fail(Errors.system(f"Failed to submit activity report: {e}"))
 
+    async def get_by_uid(self, uid: str, user_uid: UserUID) -> Result[ActivityReport]:
+        """
+        Fetch a single ActivityReport by UID, scoped to the owning user.
+
+        Args:
+            uid: ActivityReport UID
+            user_uid: Owning user UID (ownership check)
+
+        Returns:
+            Result[ActivityReport] — the report, or NotFound error
+        """
+        query_result = await self.backend.get_by_uid(uid, user_uid)
+        if query_result.is_error:
+            return Result.fail(query_result)
+        records = query_result.value or []
+        if not records:
+            return Result.fail(Errors.not_found("ActivityReport", uid))
+        node = records[0]
+        props = dict(node.get("n")) if isinstance(node, dict) and "n" in node else dict(node)
+        return Result.ok(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
+
     async def get_history(
         self,
         subject_uid: str,

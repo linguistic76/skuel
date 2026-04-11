@@ -106,6 +106,10 @@ class SubmissionsOrchestrator:
 
     # --- Activity Reports ---
 
+    async def get_activity_report(self, uid: str, user_uid: str) -> Result[Any]:
+        """Fetch a single ActivityReport by UID, scoped to the owning user."""
+        return await self._activity_report_service.get_by_uid(uid, user_uid)
+
     async def get_activity_report_history(
         self, user_uid: str, limit: int = 50
     ) -> Result[list[Any]]:

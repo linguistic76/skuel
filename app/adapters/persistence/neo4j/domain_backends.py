@@ -4432,6 +4432,16 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
     get_shares_granted, get_report_schedule.
     """
 
+    async def get_by_uid(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get a single ActivityReport by UID, scoped to the owning user."""
+        return await self.execute_query(
+            """
+            MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: 'activity_report'})
+            RETURN n
+            """,
+            {"uid": uid, "user_uid": user_uid},
+        )
+
     async def get_history(self, subject_uid: str, limit: int = 20) -> Result[list[Neo4jProperties]]:
         """Get ActivityReport entities where subject_uid matches the user."""
         return await self.execute_query(
