@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-03-26
+updated: 2026-04-11
 category: patterns
 related_skills: []
 related_docs:
@@ -8,8 +8,8 @@ related_docs:
 ---
 
 # Model-to-Adapter Dynamic Architecture
-**Date:** October 3, 2025 (Updated: March 26, 2026)
-**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8, 11-12). `execute_query()` standardization complete (Phase 9). LessonBackend decomposed into 5 mixins (Phase 10). LpBackend decomposed into 3 mixins (Phase 12). Fail-fast dependency philosophy enforced across all services.
+**Date:** October 3, 2025 (Updated: April 11, 2026)
+**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8, 11-12). `execute_query()` standardization complete (Phase 9). LessonBackend decomposed into 5 mixins (Phase 10). LpBackend decomposed into 3 mixins (Phase 12). 5 new standalone backends for infrastructure services (Phase 13). Fail-fast dependency philosophy enforced across all services.
 
 ## Executive Summary
 
@@ -42,7 +42,7 @@ adapters/persistence/neo4j/
     _lp_step_mixin.py             # _LpStepMixin — LP step management CRUD + path CRUD (14 methods)
     _lp_progress_mixin.py         # _LpProgressMixin — KU mastery progress + search queries (6 methods)
     _lp_intelligence_mixin.py     # _LpIntelligenceMixin — intelligence + adaptive learning (8 methods)
-    domain_backends.py            # 19 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
+    domain_backends.py            # 27 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
                                   #   ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, PsBackend,
                                   #   LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend,
                                   #   RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend,
@@ -130,7 +130,7 @@ Phase 5 completed the backend delegation refactor — ~46 inline Cypher queries 
 ```
 adapters/persistence/neo4j/
     _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 generic methods)
-    domain_backends.py            # 19 domain subclasses (6 Activity + 5 Curriculum + 8 Other)
+    domain_backends.py            # 27 domain subclasses (6 Activity + 5 Curriculum + 16 Other)
 ```
 
 ### March 25, 2026 Update: Report + Teacher Review Services Migrated (Phase 4)
@@ -219,6 +219,26 @@ Follows the same pattern as PsBackend's 5-mixin decomposition. LpBackend is now 
 `KuOperations(BackendOperations["Ku"], Protocol)` in `curriculum_protocols.py` — 23 method signatures organized into 6 sections (reverse traversal, namespace/alias search, substance metrics, relationship queries, prerequisite/dependency queries, learning state). Exported via `core/ports/__init__.py`.
 
 **Protocols updated:** `PsOperations` gained 4 search method signatures. `LpOperations` gained 4 search method signatures (including `get_paths_containing_step`).
+
+### April 11, 2026 Update: 5 Standalone Infrastructure Backends + Cross-Domain Backend Expansion (Phase 13)
+
+Created 5 new standalone typed backends for infrastructure and cross-domain services that previously used raw `QueryExecutor`/`execute_query`. Also expanded `CrossDomainBackend` with 9 admin stats methods.
+
+**New standalone backends:**
+
+| Backend | File | Methods | Migrated From |
+|---------|------|---------|---------------|
+| `VectorSearchBackend` | `vector_search_backend.py` | 5 | `Neo4jVectorSearchService` (was `self.executor`) |
+| `IngestionBackend` | `ingestion_backend.py` | 12 | `IngestionHistoryService`, `IngestionTracker` |
+| `JupyterSyncBackend` | `jupyter_sync_backend.py` | 9 | `JupyterNeo4jSyncService` |
+| `EmbeddingsBackend` | `embeddings_backend.py` | 3 | `HuggingFaceEmbeddingsService`, `EmbeddingBackgroundWorker` |
+| `KnowledgeDomainBackend` | `knowledge_domain_backend.py` | 3 | `KnowledgeDomainService` |
+
+**CrossDomainBackend expansion (+9 methods):** `get_entity_system_metrics`, `get_all_users_progress`, `get_user_ku_detail`, `get_user_submissions_detail`, `get_user_activity_detail`, `get_learning_metrics`, `get_user_overview_stats`, `get_user_learning_goal_progress`, `get_system_health`. Migrated from `AdminStatsService` and `UserStatsAggregator`.
+
+**Protocols created:** `VectorSearchBackendOperations`, `IngestionBackendOperations`, `JupyterSyncBackendOperations`, `EmbeddingsBackendOperations`, `KnowledgeDomainBackendOperations`, `CrossDomainBackendOperations` (expanded).
+
+**Total:** 45 `execute_query` calls migrated from 10 services into typed backend methods. All services now call `self.backend.method_name()` instead of raw Cypher.
 
 ### March 26, 2026 Update: LessonBackend Mixin Decomposition (Phase 10)
 
@@ -355,7 +375,7 @@ def _build_direction_pattern(
 
 **Rule (Phase 9):** Domain backends call `self.execute_query()`. Services call named backend methods. Zero `self.driver.session()` calls in `domain_backends.py`.
 
-**Nuance:** This rule covers domain CRUD and domain-specific queries. Cross-domain aggregation services (e.g., `UserProgressService`, `AdminStatsService`) and infrastructure services (e.g., `Neo4jSchemaService`) legitimately use `execute_query` via injected `QueryExecutor` — they have no single typed backend. Domain sub-services also use `self.backend.execute_query()` for complex one-off queries. See [query_architecture.md — `execute_query` in Services](query_architecture.md#execute_query-in-services--permitted-tiers) for the full tier breakdown and tightening criteria.
+**Nuance:** This rule covers domain CRUD and domain-specific queries. Most cross-domain aggregation services (e.g., `UserProgressService`, `AdminStatsService`) now use typed standalone backends (Phase 13). Two exceptions remain using `QueryExecutor` directly: `user_context_queries.py` (MEGA-QUERY) and `CrossDomainQueryService` (targeted cross-domain reads). Infrastructure services like `Neo4jSchemaService` still use `execute_query` legitimately. Domain sub-services also use `self.backend.execute_query()` for complex one-off queries. See [query_architecture.md — `execute_query` in Services](query_architecture.md#execute_query-in-services--permitted-tiers) for the full tier breakdown.
 
 ### Fail-Fast Alignment
 

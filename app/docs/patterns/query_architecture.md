@@ -842,24 +842,26 @@ In practice, `execute_query` appears in ~63 files. This is intentional — the r
 
 ### Tier 1: Always Permitted — Cross-Domain Aggregation
 
-Services that span multiple domains have no single typed backend. They inject a `QueryExecutor` protocol and write Cypher directly. This is correct by design.
+Services that span multiple domains now use typed standalone backends (April 2026 migration). Two exceptions remain that inject `QueryExecutor` directly.
 
 | Service | Access Pattern | Why |
 |---------|---------------|-----|
-| `UserProgressService` | `self.executor` | Traverses User + KU + PS domains for readiness/prerequisites |
-| `AdminStatsService` | `self.query_executor` | System-wide counts across all 6 Activity domains + knowledge |
-| `LpIntelligenceService` | `self.executor` | LP progression analytics across LP + User + KU |
-| `GraphIntelligenceService` | `self.executor` | Cross-domain graph traversal for context retrieval |
+| `UserProgressService` | `self.backend` (`UserProgressBackend`) | Traverses User + KU + PS domains for readiness/prerequisites |
+| `AdminStatsService` | `self.backend` (`CrossDomainBackend`) | System-wide counts across all 6 Activity domains + knowledge |
+| `LpIntelligenceService` | `self.backend` (`LpBackend`) | LP progression analytics across LP + User + KU |
+| `GraphIntelligenceService` | `self.backend` | Cross-domain graph traversal for context retrieval |
+| `user_context_queries.py` | `QueryExecutor` directly | MEGA-QUERY (full user state snapshot) |
+| `CrossDomainQueryService` | `QueryExecutor` directly | 9 targeted cross-domain reads (returns frozen typed dataclasses) |
 
 ### Tier 2: Always Permitted — Infrastructure Services
 
-Database-level concerns that operate below the domain layer.
+Database-level concerns that operate below the domain layer. Most now use typed standalone backends.
 
 | Service | Access Pattern | Why |
 |---------|---------------|-----|
 | `Neo4jSchemaService` | `self.neo4j_adapter.execute_query()` | Schema introspection (`CALL db.labels()`, `SHOW INDEXES`) |
-| `Neo4jVectorSearchService` | `self.executor` | Vector index operations (`db.index.vector.queryNodes()`) |
-| `UnifiedIngestionService` | Various | Bulk cross-domain writes |
+| `Neo4jVectorSearchService` | `self.backend` (`VectorSearchBackend`) | Vector index operations (`db.index.vector.queryNodes()`) |
+| `UnifiedIngestionService` | `self.backend` (`IngestionBackend`) + `self.driver.execute_query()` | Bulk cross-domain writes |
 | `UnifiedRelationshipService` | `self.backend.execute_query()` | Cross-domain relationship ops with complex edge metadata |
 
 ### Tier 3: Always Permitted — BaseService Mixins
