@@ -28,7 +28,7 @@ class BatchOperationsMixin:
     """
     Mixin providing batch relationship query methods.
 
-    Methods eliminate N+1 query patterns by using UNWIND in single queries.
+    Methods eliminate N+1 query patterns by delegating to backend batch methods.
 
     Requires on concrete class:
         config: DomainRelationshipConfig
@@ -70,39 +70,11 @@ class BatchOperationsMixin:
         if not entity_uids:
             return Result.ok({})
 
-        # Build batch query
-        direction_clause = (
-            "-[r]->"
-            if spec.direction == "outgoing"
-            else "<-[r]-"
-            if spec.direction == "incoming"
-            else "-[r]-"
-        )
-
-        query = f"""
-        UNWIND $entity_uids AS entity_uid
-        MATCH (e:{self.config.entity_label} {{uid: entity_uid}})
-        OPTIONAL MATCH (e){direction_clause}(related)
-        WHERE type(r) = $relationship_type
-        RETURN entity_uid, count(related) > 0 AS has_relationship
-        """
-
-        params = {
-            "entity_uids": entity_uids,
-            "relationship_type": spec.relationship.value,
-        }
-
-        result = await self.backend.execute_query(query, params)
-
-        if result.is_error:
-            return Result.fail(result)
-
-        # Transform to dict
-        return Result.ok(
-            {
-                str(record["entity_uid"]): record.get("has_relationship", False)
-                for record in result.value
-            }
+        return await self.backend.batch_has_relationship(
+            entity_label=self.config.entity_label,
+            entity_uids=entity_uids,
+            relationship_type=spec.relationship.value,
+            direction=spec.direction,
         )
 
     @with_error_handling("batch_count_related", error_type="database")
@@ -132,34 +104,11 @@ class BatchOperationsMixin:
         if not entity_uids:
             return Result.ok({})
 
-        direction_clause = (
-            "-[r]->"
-            if spec.direction == "outgoing"
-            else "<-[r]-"
-            if spec.direction == "incoming"
-            else "-[r]-"
-        )
-
-        query = f"""
-        UNWIND $entity_uids AS entity_uid
-        MATCH (e:{self.config.entity_label} {{uid: entity_uid}})
-        OPTIONAL MATCH (e){direction_clause}(related)
-        WHERE type(r) = $relationship_type
-        RETURN entity_uid, count(related) AS count
-        """
-
-        params = {
-            "entity_uids": entity_uids,
-            "relationship_type": spec.relationship.value,
-        }
-
-        result = await self.backend.execute_query(query, params)
-
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok(
-            {str(record["entity_uid"]): record.get("count", 0) for record in result.value}
+        return await self.backend.batch_count_related(
+            entity_label=self.config.entity_label,
+            entity_uids=entity_uids,
+            relationship_type=spec.relationship.value,
+            direction=spec.direction,
         )
 
     @with_error_handling("batch_get_related_uids", error_type="database")
@@ -179,15 +128,6 @@ class BatchOperationsMixin:
 
         Returns:
             Result[dict[str, list[str]]] mapping entity_uid → list of related UIDs
-
-        Example:
-            # Instead of N+1:
-            # for habit in habits:
-            #     uids = await service.get_related_uids("knowledge", habit.uid)
-            #
-            # Use batch:
-            result = await service.batch_get_related_uids("knowledge", [h.uid for h in habits])
-            # Returns: {"habit:1": ["ku:a", "ku:b"], "habit:2": ["ku:c"], ...}
         """
         spec = self.config.get_relationship_by_method(relationship_key)
         if not spec:
@@ -200,38 +140,9 @@ class BatchOperationsMixin:
         if not entity_uids:
             return Result.ok({})
 
-        direction_clause = (
-            "-[r]->"
-            if spec.direction == "outgoing"
-            else "<-[r]-"
-            if spec.direction == "incoming"
-            else "-[r]-"
-        )
-
-        query = f"""
-        UNWIND $entity_uids AS entity_uid
-        MATCH (e:{self.config.entity_label} {{uid: entity_uid}})
-        OPTIONAL MATCH (e){direction_clause}(related)
-        WHERE type(r) = $relationship_type
-        RETURN entity_uid, collect(related.uid) AS related_uids
-        """
-
-        params = {
-            "entity_uids": entity_uids,
-            "relationship_type": spec.relationship.value,
-        }
-
-        result = await self.backend.execute_query(query, params)
-
-        if result.is_error:
-            return Result.fail(result)
-
-        # Build mapping, filtering out None values from collect()
-        return Result.ok(
-            {
-                str(record["entity_uid"]): [
-                    uid for uid in (record.get("related_uids") or []) if uid is not None
-                ]
-                for record in result.value
-            }
+        return await self.backend.batch_get_related_uids(
+            entity_label=self.config.entity_label,
+            entity_uids=entity_uids,
+            relationship_type=spec.relationship.value,
+            direction=spec.direction,
         )

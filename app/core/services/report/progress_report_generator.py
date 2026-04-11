@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import EntityStatus
 
 if TYPE_CHECKING:
+    from adapters.persistence.neo4j.domain_backends import ActivityReportGeneratorBackend
     from core.ports import QueryExecutor
     from core.services.ai_service import OpenAIService
     from core.services.analytics_service import AnalyticsService
@@ -84,6 +85,7 @@ class ProgressReportGenerator:
         event_bus: EventBusOperations | None = None,
         analytics_service: "AnalyticsService | None" = None,
         knowledge_intelligence: "ActivityKnowledgeIntelligenceService | None" = None,
+        report_backend: "ActivityReportGeneratorBackend | None" = None,
     ) -> None:
         self.executor = executor
         self.activity_report_service = activity_report_service
@@ -93,6 +95,7 @@ class ProgressReportGenerator:
         self.event_bus = event_bus
         self.analytics_service = analytics_service
         self.knowledge_intelligence = knowledge_intelligence
+        self.report_backend = report_backend
 
     async def generate(
         self,
@@ -1101,24 +1104,18 @@ class ProgressReportGenerator:
         Neo4j temporal values. Returns Result.ok(None) on any query error so that
         a broken cooldown check never blocks legitimate generation (fail-safe open).
         """
-        _query = """
-        MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
-        WHERE ar.entity_type = 'activity_report'
-          AND ar.created_at >= datetime() - duration({minutes: $cooldown_minutes})
-        RETURN count(ar) AS recent_count
-        """
-        result = await self.executor.execute_query(
-            _query,
-            {
-                "user_uid": user_uid,
-                "cooldown_minutes": ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES,
-            },
+        if not self.report_backend:
+            return Result.ok(None)  # fail-safe: allow generation if no backend
+
+        result = await self.report_backend.check_cooldown(
+            user_uid=user_uid,
+            cooldown_minutes=ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES,
         )
         if result.is_error or not result.value:
             return Result.ok(None)  # fail-safe: allow generation if check errors
 
-        recent_count = result.value[0].get("recent_count", 0)
-        if recent_count and recent_count > 0:
+        recent_count = int(result.value[0].get("recent_count", 0))
+        if recent_count > 0:
             return Result.fail(
                 Errors.business(
                     "report_cooldown",
@@ -1137,18 +1134,14 @@ class ProgressReportGenerator:
         Uses period_end < current_period_start to avoid reading the annotation of the
         report currently being generated (which won't exist yet, but avoids ambiguity).
         """
-        _query = """
-        MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
-        WHERE ar.entity_type = 'activity_report'
-          AND (ar.user_annotation IS NOT NULL OR ar.user_revision IS NOT NULL)
-          AND ar.period_end < datetime($period_start)
-        RETURN COALESCE(ar.user_annotation, ar.user_revision) AS annotation
-        ORDER BY ar.period_end DESC
-        LIMIT 1
-        """
-        result = await self.executor.execute_query(
-            _query, {"user_uid": user_uid, "period_start": current_period_start.isoformat()}
+        if not self.report_backend:
+            return None
+
+        result = await self.report_backend.get_previous_annotation(
+            user_uid=user_uid,
+            period_start=current_period_start.isoformat(),
         )
         if result.is_error or not result.value:
             return None
-        return result.value[0].get("annotation") if result.value else None
+        annotation = result.value[0].get("annotation")
+        return str(annotation) if annotation is not None else None

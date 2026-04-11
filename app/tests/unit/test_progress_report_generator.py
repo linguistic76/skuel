@@ -66,12 +66,22 @@ def mock_context_builder():
 
 
 @pytest.fixture
+def mock_report_backend():
+    """Create a mock ActivityReportGeneratorBackend."""
+    backend = MagicMock()
+    backend.check_cooldown = AsyncMock(return_value=Result.ok([{"recent_count": 0}]))
+    backend.get_previous_annotation = AsyncMock(return_value=Result.ok([]))
+    return backend
+
+
+@pytest.fixture
 def generator(
     mock_driver,
     mock_activity_report_service,
     mock_context_builder,
     mock_insight_store,
     mock_event_bus,
+    mock_report_backend,
 ):
     """Create ProgressReportGenerator with mocked deps."""
     return ProgressReportGenerator(
@@ -80,6 +90,7 @@ def generator(
         context_builder=mock_context_builder,
         insight_store=mock_insight_store,
         event_bus=mock_event_bus,
+        report_backend=mock_report_backend,
     )
 
 
@@ -143,8 +154,9 @@ class TestPreviousAnnotationParameter:
 
     @pytest.mark.asyncio
     async def test_provided_annotation_skips_db_lookup(self, generator):
-        """When previous_annotation is given, build_rich called once; executor called once (cooldown only)."""
-        generator.executor.execute_query.reset_mock()
+        """When previous_annotation is given, build_rich called once; backend called once (cooldown only)."""
+        generator.report_backend.check_cooldown.reset_mock()
+        generator.report_backend.get_previous_annotation.reset_mock()
         generator.context_builder.build_rich.reset_mock()
 
         await generator.generate(
@@ -154,19 +166,22 @@ class TestPreviousAnnotationParameter:
 
         # Activity data via context_builder — annotation lookup skipped; only cooldown check fires
         assert generator.context_builder.build_rich.call_count == 1
-        assert generator.executor.execute_query.call_count == 1  # cooldown only
+        assert generator.report_backend.check_cooldown.call_count == 1
+        assert generator.report_backend.get_previous_annotation.call_count == 0
 
     @pytest.mark.asyncio
     async def test_no_annotation_fetches_from_db(self, generator):
-        """When previous_annotation is None, build_rich called once + executor twice (cooldown + annotation)."""
-        generator.executor.execute_query.reset_mock()
+        """When previous_annotation is None, build_rich called once + backend called twice (cooldown + annotation)."""
+        generator.report_backend.check_cooldown.reset_mock()
+        generator.report_backend.get_previous_annotation.reset_mock()
         generator.context_builder.build_rich.reset_mock()
 
         await generator.generate(user_uid="user_alice")
 
-        # Activity data via context_builder + cooldown check + annotation lookup via executor
+        # Activity data via context_builder + cooldown check + annotation lookup via backend
         assert generator.context_builder.build_rich.call_count == 1
-        assert generator.executor.execute_query.call_count == 2  # cooldown + annotation lookup
+        assert generator.report_backend.check_cooldown.call_count == 1
+        assert generator.report_backend.get_previous_annotation.call_count == 1
 
 
 class TestGenerate:

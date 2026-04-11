@@ -19,7 +19,7 @@ from core.models.submissions.report_schedule import (
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
-    from core.ports import BackendOperations
+    from adapters.persistence.neo4j.domain_backends import ReportScheduleBackend
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -35,7 +35,7 @@ class ProgressScheduleService:
 
     def __init__(
         self,
-        backend: "BackendOperations[ReportSchedule]",
+        backend: "ReportScheduleBackend",
     ) -> None:
         self.backend = backend
 
@@ -80,13 +80,8 @@ class ProgressScheduleService:
             return Result.fail(result)
 
         # Create HAS_SCHEDULE relationship
-        rel_result = await self.backend.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})
-            MATCH (s:ReportSchedule {uid: $schedule_uid})
-            MERGE (u)-[:HAS_SCHEDULE]->(s)
-            """,
-            {"user_uid": user_uid, "schedule_uid": uid},
+        rel_result = await self.backend.create_user_schedule_relationship(
+            user_uid=user_uid, schedule_uid=uid
         )
         if rel_result.is_error:
             logger.warning(f"Failed to create HAS_SCHEDULE relationship: {rel_result.error}")
@@ -134,34 +129,23 @@ class ProgressScheduleService:
         caps incidental LLM costs.
         """
         try:
-            result = await self.backend.execute_query(
-                """
-                MATCH (s:ReportSchedule)
-                WHERE s.is_active = true
-                  AND s.next_due_at <= datetime()
-                  AND (
-                    s.last_generated_at IS NULL
-                    OR s.last_generated_at <= datetime() - duration({hours: $min_interval_hours})
-                  )
-                RETURN s
-                ORDER BY s.next_due_at ASC
-                """,
-                {"min_interval_hours": ReportTimePeriod.MIN_AUTO_REPORT_INTERVAL_HOURS},
+            result = await self.backend.get_due_schedules(
+                min_interval_hours=ReportTimePeriod.MIN_AUTO_REPORT_INTERVAL_HOURS,
             )
             if result.is_error:
                 return Result.fail(result)
 
             schedules = []
             for record in result.value or []:
-                node = record["s"]
+                node: dict[str, Any] = dict(record["s"])  # type: ignore[arg-type]  # boundary: Neo4j node → dict
                 dto = ReportScheduleDTO(
-                    uid=node["uid"],
-                    user_uid=node.get("user_uid", ""),
-                    schedule_type=node.get("schedule_type", "weekly"),
-                    day_of_week=node.get("day_of_week", 0),
+                    uid=str(node["uid"]),
+                    user_uid=str(node.get("user_uid", "")),
+                    schedule_type=str(node.get("schedule_type", "weekly")),
+                    day_of_week=int(node.get("day_of_week", 0)),
                     domains=node.get("domains"),
-                    depth=node.get("depth", "standard"),
-                    is_active=node.get("is_active", True),
+                    depth=str(node.get("depth", "standard")),
+                    is_active=bool(node.get("is_active", True)),
                     last_generated_at=node.get("last_generated_at"),
                     next_due_at=node.get("next_due_at"),
                     created_at=node.get("created_at"),

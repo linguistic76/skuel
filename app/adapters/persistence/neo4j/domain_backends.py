@@ -95,6 +95,7 @@ if TYPE_CHECKING:
     from core.models.journal.je_input import JeInput  # noqa: F401
     from core.models.journal.je_output import JeOutput  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
+    from core.models.submissions.report_schedule import ReportSchedule  # noqa: F401
 
 
 class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
@@ -4386,6 +4387,24 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
             params,
         )
 
+    async def get_linked_ku_and_student(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
+        """
+        Get Ku UIDs and student UID linked to a submission via APPLIES_KNOWLEDGE.
+
+        Used by mastery propagation after AI report generation.
+
+        Returns:
+            Records with ku_uid and student_uid fields
+        """
+        return await self.execute_query(
+            f"""
+            MATCH (submission:Entity {{uid: $submission_uid}})-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: 'ku'}})
+            OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
+            RETURN ku.uid AS ku_uid, student.uid AS student_uid
+            """,
+            {"submission_uid": submission_uid},
+        )
+
 
 # Entity types that can be shared while active (not just completed)
 _ACTIVITY_ENTITY_TYPES = frozenset({"task", "goal", "habit", "event", "choice", "principle"})
@@ -5714,8 +5733,161 @@ class InteractionBackend(UniversalNeo4jBackend["Interaction"]):
     """
 
 
+class ReportScheduleBackend(UniversalNeo4jBackend["ReportSchedule"]):
+    """
+    Domain backend for ReportSchedule entities.
+
+    Extends UniversalNeo4jBackend with schedule-specific queries:
+    - create_user_schedule_relationship: HAS_SCHEDULE link
+    - get_due_schedules: Active schedules past their next_due_at
+    """
+
+    async def create_user_schedule_relationship(
+        self, user_uid: str, schedule_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Create HAS_SCHEDULE relationship between User and ReportSchedule."""
+        return await self.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})
+            MATCH (s:ReportSchedule {uid: $schedule_uid})
+            MERGE (u)-[:HAS_SCHEDULE]->(s)
+            RETURN true AS success
+            """,
+            {"user_uid": user_uid, "schedule_uid": schedule_uid},
+        )
+
+    async def get_due_schedules(self, min_interval_hours: int) -> Result[list[Neo4jProperties]]:
+        """
+        Get all active schedules that are due for generation.
+
+        Enforces a minimum interval between automatic report generations.
+        """
+        return await self.execute_query(
+            """
+            MATCH (s:ReportSchedule)
+            WHERE s.is_active = true
+              AND s.next_due_at <= datetime()
+              AND (
+                s.last_generated_at IS NULL
+                OR s.last_generated_at <= datetime() - duration({hours: $min_interval_hours})
+              )
+            RETURN s
+            ORDER BY s.next_due_at ASC
+            """,
+            {"min_interval_hours": min_interval_hours},
+        )
+
+
+class ReviewQueueBackend:
+    """
+    Backend for ReviewRequest node CRUD.
+
+    ReviewRequest is a lightweight workflow marker — not an Entity subclass,
+    not managed by UniversalNeo4jBackend. Uses raw Cypher via executor.
+
+    See: /docs/architecture/REPORT_ARCHITECTURE.md
+    """
+
+    def __init__(self, executor: Neo4jQueryExecutor) -> None:
+        self.executor = executor
+
+    async def create_review_request(
+        self,
+        user_uid: str,
+        uid: str,
+        time_period: str,
+        domains: list[str],
+        message: str,
+        now: str,
+    ) -> Result[list[Neo4jProperties]]:
+        """Create a ReviewRequest node linked to the user via REQUESTED."""
+        return await self.executor.execute_query(
+            f"""
+            MATCH (u:User {{uid: $user_uid}})
+            CREATE (r:ReviewRequest {{
+                uid: $uid,
+                user_uid: $user_uid,
+                time_period: $time_period,
+                domains: $domains,
+                message: $message,
+                status: 'pending',
+                created_at: datetime($now)
+            }})
+            CREATE (u)-[:{RelationshipName.REQUESTED.value}]->(r)
+            RETURN r.uid AS uid, r.status AS status
+            """,
+            {
+                "user_uid": user_uid,
+                "uid": uid,
+                "time_period": time_period,
+                "domains": domains,
+                "message": message,
+                "now": now,
+            },
+        )
+
+    async def get_pending_reviews(self, limit: int = 20) -> Result[list[Neo4jProperties]]:
+        """Get pending review requests with user context, ordered by created_at ASC."""
+        return await self.executor.execute_query(
+            f"""
+            MATCH (u:User)-[:{RelationshipName.REQUESTED.value}]->(r:ReviewRequest {{status: 'pending'}})
+            RETURN r.uid AS uid, r.user_uid AS user_uid, r.time_period AS time_period,
+                   r.domains AS domains, r.message AS message, r.created_at AS created_at,
+                   u.username AS username
+            ORDER BY r.created_at ASC
+            LIMIT $limit
+            """,
+            {"limit": limit},
+        )
+
+
+class ActivityReportGeneratorBackend:
+    """
+    Backend for ProgressReportGenerator queries.
+
+    Encapsulates cooldown check and previous-annotation fetch queries.
+    Uses raw Cypher via executor — these are cross-entity queries not
+    suited for UniversalNeo4jBackend.
+    """
+
+    def __init__(self, executor: Neo4jQueryExecutor) -> None:
+        self.executor = executor
+
+    async def check_cooldown(
+        self, user_uid: str, cooldown_minutes: int
+    ) -> Result[list[Neo4jProperties]]:
+        """Check if an ActivityReport was generated within cooldown_minutes."""
+        return await self.executor.execute_query(
+            """
+            MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
+            WHERE ar.entity_type = 'activity_report'
+              AND ar.created_at >= datetime() - duration({minutes: $cooldown_minutes})
+            RETURN count(ar) AS recent_count
+            """,
+            {"user_uid": user_uid, "cooldown_minutes": cooldown_minutes},
+        )
+
+    async def get_previous_annotation(
+        self, user_uid: str, period_start: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get the most recent user_annotation from a prior ActivityReport."""
+        return await self.executor.execute_query(
+            """
+            MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
+            WHERE ar.entity_type = 'activity_report'
+              AND (ar.user_annotation IS NOT NULL OR ar.user_revision IS NOT NULL)
+              AND ar.period_end < datetime($period_start)
+            RETURN COALESCE(ar.user_annotation, ar.user_revision) AS annotation
+            ORDER BY ar.period_end DESC
+            LIMIT 1
+            """,
+            {"user_uid": user_uid, "period_start": period_start},
+        )
+
+
 __all__ = [
     "ActivityReportBackend",
+    "ActivityReportGeneratorBackend",
     "ChoicesBackend",
     "EventsBackend",
     "ExerciseBackend",
@@ -5734,7 +5906,9 @@ __all__ = [
     "PsBackend",
     "NotificationBackend",
     "PrinciplesBackend",
+    "ReportScheduleBackend",
     "ResourceBackend",
+    "ReviewQueueBackend",
     "RevisedExerciseBackend",
     "SharingBackend",
     "SubmissionsBackend",

@@ -824,3 +824,160 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         self.logger.info(f"Created {total_created} relationships in batch")
         return Result.ok(total_created)
+
+    # ============================================================================
+    # CONFIG-DRIVEN BATCH RELATIONSHIP QUERIES
+    # ============================================================================
+    # Used by UnifiedRelationshipService's BatchOperationsMixin.
+    # Entity label and relationship type come from DomainRelationshipConfig.
+
+    @safe_backend_operation("batch_has_relationship")
+    async def batch_has_relationship(
+        self,
+        entity_label: str,
+        entity_uids: builtins.list[str],
+        relationship_type: str,
+        direction: str,
+    ) -> Result[dict[str, bool]]:
+        """
+        Check relationship existence for multiple entities in a single query.
+
+        Args:
+            entity_label: Label of the source entity nodes
+            entity_uids: List of entity UIDs to check
+            relationship_type: Neo4j relationship type string
+            direction: "outgoing", "incoming", or "both"
+
+        Returns:
+            Result[dict[str, bool]] mapping uid -> has_relationship
+        """
+        if not entity_uids:
+            return Result.ok({})
+
+        direction_clause = (
+            "-[r]->"
+            if direction == "outgoing"
+            else "<-[r]-"
+            if direction == "incoming"
+            else "-[r]-"
+        )
+
+        query = f"""
+        UNWIND $entity_uids AS entity_uid
+        MATCH (e:{entity_label} {{uid: entity_uid}})
+        OPTIONAL MATCH (e){direction_clause}(related)
+        WHERE type(r) = $relationship_type
+        RETURN entity_uid, count(related) > 0 AS has_relationship
+        """
+
+        async with self.driver.session() as session:
+            result = await session.run(
+                query,
+                {"entity_uids": entity_uids, "relationship_type": relationship_type},
+            )
+            records = [dict(record) async for record in result]
+
+        return Result.ok({str(r["entity_uid"]): r.get("has_relationship", False) for r in records})
+
+    @safe_backend_operation("batch_count_related")
+    async def batch_count_related(
+        self,
+        entity_label: str,
+        entity_uids: builtins.list[str],
+        relationship_type: str,
+        direction: str,
+    ) -> Result[dict[str, int]]:
+        """
+        Count related entities for multiple entities in a single query.
+
+        Args:
+            entity_label: Label of the source entity nodes
+            entity_uids: List of entity UIDs to check
+            relationship_type: Neo4j relationship type string
+            direction: "outgoing", "incoming", or "both"
+
+        Returns:
+            Result[dict[str, int]] mapping uid -> count
+        """
+        if not entity_uids:
+            return Result.ok({})
+
+        direction_clause = (
+            "-[r]->"
+            if direction == "outgoing"
+            else "<-[r]-"
+            if direction == "incoming"
+            else "-[r]-"
+        )
+
+        query = f"""
+        UNWIND $entity_uids AS entity_uid
+        MATCH (e:{entity_label} {{uid: entity_uid}})
+        OPTIONAL MATCH (e){direction_clause}(related)
+        WHERE type(r) = $relationship_type
+        RETURN entity_uid, count(related) AS count
+        """
+
+        async with self.driver.session() as session:
+            result = await session.run(
+                query,
+                {"entity_uids": entity_uids, "relationship_type": relationship_type},
+            )
+            records = [dict(record) async for record in result]
+
+        return Result.ok({str(r["entity_uid"]): r.get("count", 0) for r in records})
+
+    @safe_backend_operation("batch_get_related_uids")
+    async def batch_get_related_uids(
+        self,
+        entity_label: str,
+        entity_uids: builtins.list[str],
+        relationship_type: str,
+        direction: str,
+    ) -> Result[dict[str, builtins.list[str]]]:
+        """
+        Get related entity UIDs for multiple entities in a single query.
+
+        Args:
+            entity_label: Label of the source entity nodes
+            entity_uids: List of entity UIDs to query
+            relationship_type: Neo4j relationship type string
+            direction: "outgoing", "incoming", or "both"
+
+        Returns:
+            Result[dict[str, list[str]]] mapping entity_uid -> list of related UIDs
+        """
+        if not entity_uids:
+            return Result.ok({})
+
+        direction_clause = (
+            "-[r]->"
+            if direction == "outgoing"
+            else "<-[r]-"
+            if direction == "incoming"
+            else "-[r]-"
+        )
+
+        query = f"""
+        UNWIND $entity_uids AS entity_uid
+        MATCH (e:{entity_label} {{uid: entity_uid}})
+        OPTIONAL MATCH (e){direction_clause}(related)
+        WHERE type(r) = $relationship_type
+        RETURN entity_uid, collect(related.uid) AS related_uids
+        """
+
+        async with self.driver.session() as session:
+            result = await session.run(
+                query,
+                {"entity_uids": entity_uids, "relationship_type": relationship_type},
+            )
+            records = [dict(record) async for record in result]
+
+        return Result.ok(
+            {
+                str(r["entity_uid"]): [
+                    uid for uid in (r.get("related_uids") or []) if uid is not None
+                ]
+                for r in records
+            }
+        )

@@ -23,7 +23,6 @@ from typing import TYPE_CHECKING
 from core.models.enums.entity_enums import EntityStatus, EntityType, ProcessorType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.exercises.exercise import Exercise
-from core.models.relationship_names import RelationshipName
 from core.models.report.exercise_report import ExerciseReport
 from core.models.submissions.submission import Submission
 from core.models.type_hints import UserUID
@@ -268,12 +267,7 @@ class ExerciseReportService:
         if not self.backend:
             return
 
-        query = f"""
-        MATCH (submission:Entity {{uid: $submission_uid}})-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: 'ku'}})
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
-        RETURN ku.uid AS ku_uid, student.uid AS student_uid
-        """
-        result = await self.backend.execute_query(query, {"submission_uid": submission.uid})
+        result = await self.backend.get_linked_ku_and_student(submission.uid)
         if result.is_error or not result.value:
             return
 
@@ -316,13 +310,7 @@ class ExerciseReportService:
         if not self.ku_interaction_service or not self.backend:
             return
 
-        query = f"""
-        MATCH (submission:Entity {{uid: $submission_uid}})-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: 'ku'}})
-        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
-        RETURN ku.uid AS ku_uid, student.uid AS student_uid
-        """
-
-        result = await self.backend.execute_query(query, {"submission_uid": submission.uid})
+        result = await self.backend.get_linked_ku_and_student(submission.uid)
 
         if result.is_error or not result.value:
             return

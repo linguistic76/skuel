@@ -1011,11 +1011,12 @@ async def compose_services(
         )
 
         # Create progress report generator and schedule service
+        from adapters.persistence.neo4j.domain_backends import ReportScheduleBackend
         from core.models.submissions.report_schedule import ReportSchedule
         from core.services.report.progress_report_generator import ProgressReportGenerator
         from core.services.report.progress_schedule_service import ProgressScheduleService
 
-        progress_schedule_backend = UniversalNeo4jBackend[ReportSchedule](
+        progress_schedule_backend = ReportScheduleBackend(
             driver, NeoLabel.REPORT_SCHEDULE, ReportSchedule, prometheus_metrics=prometheus_metrics
         )
         progress_schedule_service = ProgressScheduleService(backend=progress_schedule_backend)
@@ -1029,10 +1030,17 @@ async def compose_services(
             context_builder=context_builder,
             event_bus=event_bus,
         )
-        review_queue_service = ReviewQueueService(executor=query_executor)
+        from adapters.persistence.neo4j.domain_backends import ReviewQueueBackend
+
+        review_queue_backend = ReviewQueueBackend(executor=query_executor)
+        review_queue_service = ReviewQueueService(backend=review_queue_backend)
         logger.info("✅ ActivityReportService + ReviewQueueService created")
 
+        from adapters.persistence.neo4j.domain_backends import ActivityReportGeneratorBackend
+
+        report_generator_backend = ActivityReportGeneratorBackend(executor=query_executor)
         progress_generator = ProgressReportGenerator(
+            report_backend=report_generator_backend,
             executor=query_executor,
             activity_report_service=activity_report_service,
             context_builder=context_builder,

@@ -22,9 +22,8 @@ from core.models.type_hints import UserUID
 from core.ports.query_types import PendingReviewItem, ReviewRequestResult
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from adapters.persistence.neo4j.domain_backends import ReviewQueueBackend
 
-from core.models.relationship_names import RelationshipName
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -41,8 +40,8 @@ class ReviewQueueService:
     Activity Domain data. Admins call get_pending_reviews() to see the queue.
     """
 
-    def __init__(self, executor: "QueryExecutor") -> None:
-        self.executor = executor
+    def __init__(self, backend: "ReviewQueueBackend") -> None:
+        self.backend = backend
 
     async def request_review(
         self,
@@ -69,29 +68,13 @@ class ReviewQueueService:
             request_uid = UIDGenerator.generate_uid("review_request")
             now = datetime.now().isoformat()
 
-            result = await self.executor.execute_query(
-                f"""
-                MATCH (u:User {{uid: $user_uid}})
-                CREATE (r:ReviewRequest {{
-                    uid: $uid,
-                    user_uid: $user_uid,
-                    time_period: $time_period,
-                    domains: $domains,
-                    message: $message,
-                    status: 'pending',
-                    created_at: datetime($now)
-                }})
-                CREATE (u)-[:{RelationshipName.REQUESTED.value}]->(r)
-                RETURN r.uid AS uid, r.status AS status
-                """,
-                {
-                    "user_uid": user_uid,
-                    "uid": request_uid,
-                    "time_period": time_period,
-                    "domains": domains or [],
-                    "message": message or "",
-                    "now": now,
-                },
+            result = await self.backend.create_review_request(
+                user_uid=user_uid,
+                uid=request_uid,
+                time_period=time_period,
+                domains=domains or [],
+                message=message or "",
+                now=now,
             )
 
             if result.is_error:
@@ -127,17 +110,7 @@ class ReviewQueueService:
             Result[list[PendingReviewItem]] — pending review requests with user context
         """
         try:
-            result = await self.executor.execute_query(
-                f"""
-                MATCH (u:User)-[:{RelationshipName.REQUESTED.value}]->(r:ReviewRequest {{status: 'pending'}})
-                RETURN r.uid AS uid, r.user_uid AS user_uid, r.time_period AS time_period,
-                       r.domains AS domains, r.message AS message, r.created_at AS created_at,
-                       u.username AS username
-                ORDER BY r.created_at ASC
-                LIMIT $limit
-                """,
-                {"limit": limit},
-            )
+            result = await self.backend.get_pending_reviews(limit=limit)
 
             if result.is_error:
                 return Result.fail(result)
