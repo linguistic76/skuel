@@ -111,10 +111,8 @@ class _OrchestrationMixin:
             )
 
         try:
-            knowledge_result = (
-                await ku_generation_service.extract_knowledge_from_completed_tasks(
-                    user_uid=user_uid, days_back=days_back, min_tasks=min_tasks
-                )
+            knowledge_result = await ku_generation_service.extract_knowledge_from_completed_tasks(
+                user_uid=user_uid, days_back=days_back, min_tasks=min_tasks
             )
 
             if knowledge_result.is_error:

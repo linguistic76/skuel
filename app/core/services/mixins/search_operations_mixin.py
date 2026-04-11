@@ -421,9 +421,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Extract request parameters
         property_filters = request.to_property_filters()
         query_text = getattr(request, "query_text", None)
-        graph_patterns = (
-            request.to_graph_patterns() if request.has_relationship_filters() else None
-        )
+        graph_patterns = request.to_graph_patterns() if request.has_relationship_filters() else None
         limit = getattr(request, "limit", 50)
 
         result = await self.backend.faceted_search_raw(

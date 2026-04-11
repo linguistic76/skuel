@@ -11,7 +11,7 @@ Covers the five rewritten search methods that now filter at the Cypher level
 - get_report_statistics
 
 Each test asserts on the *call arguments* forwarded to ``backend.find_by`` /
-``backend.execute_query`` so a future regression that drops the
+``backend.search_submission_content`` so a future regression that drops the
 ``entity_type`` / ``$submission_type`` scoping is caught immediately.
 """
 
@@ -56,10 +56,12 @@ def _make_entity(
 
 @pytest.fixture
 def backend() -> AsyncMock:
-    """Mock BackendOperations with find_by / execute_query."""
+    """Mock BackendOperations with find_by and domain-specific methods."""
     mock = AsyncMock()
     mock.find_by = AsyncMock()
     mock.execute_query = AsyncMock()
+    mock.search_submission_content = AsyncMock()
+    mock.get_submissions_with_feedback_count = AsyncMock()
     return mock
 
 
@@ -233,7 +235,7 @@ class TestSearchSubmissions:
 
         assert result.is_ok
         assert result.value == []
-        backend.execute_query.assert_not_called()
+        backend.search_submission_content.assert_not_called()
 
     async def test_whitespace_only_query_short_circuits(
         self, service: SubmissionsSearchService, backend: AsyncMock
@@ -244,7 +246,7 @@ class TestSearchSubmissions:
 
         assert result.is_ok
         assert result.value == []
-        backend.execute_query.assert_not_called()
+        backend.search_submission_content.assert_not_called()
 
     async def test_single_char_query_short_circuits(
         self, service: SubmissionsSearchService, backend: AsyncMock
@@ -253,45 +255,40 @@ class TestSearchSubmissions:
 
         assert result.is_ok
         assert result.value == []
-        backend.execute_query.assert_not_called()
+        backend.search_submission_content.assert_not_called()
 
     async def test_clamps_oversized_limit(
         self, service: SubmissionsSearchService, backend: AsyncMock
     ) -> None:
-        backend.execute_query.return_value = Result.ok([])
+        backend.search_submission_content.return_value = Result.ok([])
 
         await service.search_submissions(user_uid="user_1", query="Fractions", limit=10_000_000)
 
-        _, params = backend.execute_query.call_args.args
-        assert params["limit"] == 10_000
+        call_kwargs = backend.search_submission_content.call_args.kwargs
+        assert call_kwargs["limit"] == 10_000
 
-    async def test_cypher_uses_case_insensitive_contains(
+    async def test_delegates_to_backend_with_correct_args(
         self, service: SubmissionsSearchService, backend: AsyncMock
     ) -> None:
-        backend.execute_query.return_value = Result.ok([])
+        backend.search_submission_content.return_value = Result.ok([])
 
         await service.search_submissions(user_uid="user_1", query="Fractions", limit=25)
 
-        cypher, params = backend.execute_query.call_args.args
-        assert "toLower(s.processed_content) CONTAINS toLower($query)" in cypher
-        assert "s.entity_type = $submission_type" in cypher
-        assert "ORDER BY s.created_at DESC" in cypher
-        assert "LIMIT $limit" in cypher
-        assert params == {
-            "user_uid": "user_1",
-            "submission_type": EntityType.EXERCISE_SUBMISSION.value,
-            "query": "Fractions",
-            "limit": 25,
-        }
+        backend.search_submission_content.assert_called_once_with(
+            user_uid="user_1",
+            submission_type=EntityType.EXERCISE_SUBMISSION.value,
+            query_text="Fractions",
+            limit=25,
+        )
 
     async def test_converts_records_to_entities(
         self, service: SubmissionsSearchService, backend: AsyncMock
     ) -> None:
-        """Records returned by execute_query are converted via from_neo4j_node."""
-        backend.execute_query.return_value = Result.ok(
+        """Records returned by backend are converted via from_neo4j_node."""
+        backend.search_submission_content.return_value = Result.ok(
             [
-                {"s": {"uid": "es_1", "title": "t1"}},
-                {"s": {"uid": "es_2", "title": "t2"}},
+                {"uid": "es_1", "title": "t1"},
+                {"uid": "es_2", "title": "t2"},
             ]
         )
         fake_entities = [
@@ -312,8 +309,8 @@ class TestSearchSubmissions:
     async def test_propagates_backend_error(
         self, service: SubmissionsSearchService, backend: AsyncMock
     ) -> None:
-        backend.execute_query.return_value = Result.fail(
-            Errors.database(operation="execute_query", message="boom")
+        backend.search_submission_content.return_value = Result.fail(
+            Errors.database(operation="search_submission_content", message="boom")
         )
 
         result = await service.search_submissions(user_uid="user_1", query="anything")

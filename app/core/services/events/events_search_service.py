@@ -245,44 +245,16 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing events in range
         """
-        # Build query with optional user filter
-        if user_uid:
-            cypher_query = """
-            MATCH (e:Entity)
-            WHERE e.event_date >= date($start_date)
-              AND e.event_date <= date($end_date)
-              AND e.user_uid = $user_uid
-            RETURN e
-            ORDER BY e.event_date ASC, e.start_time ASC
-            LIMIT $limit
-            """
-            params = {
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
-                "user_uid": user_uid,
-                "limit": limit,
-            }
-        else:
-            cypher_query = """
-            MATCH (e:Entity)
-            WHERE e.event_date >= date($start_date)
-              AND e.event_date <= date($end_date)
-            RETURN e
-            ORDER BY e.event_date ASC, e.start_time ASC
-            LIMIT $limit
-            """
-            params = {
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
-                "limit": limit,
-            }
-
-        result = await self.backend.execute_query(cypher_query, params)
+        result = await self.backend.get_events_in_range(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            user_uid=user_uid,
+            limit=limit,
+        )
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], EventDTO, Event)
+        events = self._to_domain_models(result.value, EventDTO, Event)
 
         self.logger.debug(f"Found {len(events)} events between {start_date} and {end_date}")
         return Result.ok(events)
@@ -301,33 +273,11 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing recurring events
         """
-        # Build query with optional user filter
-        if user_uid:
-            cypher_query = """
-            MATCH (e:Entity)
-            WHERE e.recurrence_pattern IS NOT NULL
-              AND e.user_uid = $user_uid
-            RETURN e
-            ORDER BY e.event_date ASC
-            LIMIT $limit
-            """
-            params = {"user_uid": user_uid, "limit": limit}
-        else:
-            cypher_query = """
-            MATCH (e:Entity)
-            WHERE e.recurrence_pattern IS NOT NULL
-            RETURN e
-            ORDER BY e.event_date ASC
-            LIMIT $limit
-            """
-            params = {"limit": limit}
-
-        result = await self.backend.execute_query(cypher_query, params)
+        result = await self.backend.get_recurring_events(user_uid=user_uid, limit=limit)
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to Events using inherited helper
-        events = self._to_domain_models([record["e"] for record in result.value], EventDTO, Event)
+        events = self._to_domain_models(result.value, EventDTO, Event)
 
         self.logger.debug(f"Found {len(events)} recurring events")
         return Result.ok(events)
@@ -388,31 +338,17 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         if not event.event_date:
             return Result.ok([])  # No date = no conflicts
 
-        # Query for events on same date for same user
-        cypher_query = """
-        MATCH (e:Entity)
-        WHERE e.event_date = date($event_date)
-          AND e.user_uid = $user_uid
-          AND e.uid <> $event_uid
-          AND e.status NOT IN ['cancelled']
-        RETURN e
-        """
-
-        result = await self.backend.execute_query(
-            cypher_query,
-            {
-                "event_date": event.event_date.isoformat(),
-                "user_uid": event.user_uid,
-                "event_uid": event_uid,
-            },
+        result = await self.backend.get_events_on_date(
+            event_date=event.event_date.isoformat(),
+            user_uid=event.user_uid,
+            exclude_uid=event_uid,
         )
         if result.is_error:
             return Result.fail(result)
 
         # Convert and check for time overlap
         conflicts = []
-        for record in result.value:
-            event_node = record["e"]
+        for event_node in result.value:
             dto = EventDTO.from_dict(dict(event_node))
             other_event = Event.from_dto(dto)
 
@@ -509,36 +445,16 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         today = date.today()
         start_date = today - timedelta(days=days_back)
 
-        # Query for completed events in date range
-        cypher_query = """
-        MATCH (e:Entity)
-        WHERE e.user_uid = $user_uid
-          AND e.event_date >= date($start_date)
-          AND e.event_date <= date($today)
-          AND e.status = 'completed'
-        RETURN e
-        ORDER BY e.event_date DESC
-        LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(
-            cypher_query,
-            {
-                "user_uid": user_uid,
-                "start_date": start_date.isoformat(),
-                "today": today.isoformat(),
-                "limit": limit,
-            },
+        result = await self.backend.get_completed_events_in_range(
+            user_uid=user_uid,
+            start_date=start_date.isoformat(),
+            end_date=today.isoformat(),
+            limit=limit,
         )
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to Events
-        events = []
-        for record in result.value:
-            event_node = record["e"]
-            dto = EventDTO.from_dict(dict(event_node))
-            events.append(Event.from_dto(dto))
+        events = self._to_domain_models(result.value, EventDTO, Event)
 
         self.logger.debug(f"Found {len(events)} events in history for user {user_uid}")
         return Result.ok(events)

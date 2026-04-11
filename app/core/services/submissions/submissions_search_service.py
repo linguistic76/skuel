@@ -284,29 +284,16 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
 
         limit = max(1, min(limit, _MAX_LIMIT))
 
-        cypher = f"""
-        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
-        WHERE s.entity_type = $submission_type
-          AND s.processed_content IS NOT NULL
-          AND toLower(s.processed_content) CONTAINS toLower($query)
-        RETURN s
-        ORDER BY s.created_at DESC
-        LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(
-            cypher,
-            {
-                "user_uid": user_uid,
-                "submission_type": self._resolve_submission_type(entity_type),
-                "query": query,
-                "limit": limit,
-            },
+        result = await self.backend.search_submission_content(  # type: ignore[attr-defined]
+            user_uid=user_uid,
+            submission_type=self._resolve_submission_type(entity_type),
+            query_text=query,
+            limit=limit,
         )
         if result.is_error:
             return Result.fail(result)
 
-        entities = [from_neo4j_node(record["s"], Entity) for record in result.value or []]
+        entities = [from_neo4j_node(record, Entity) for record in result.value or []]
         return Result.ok(entities)
 
     @with_error_handling("get_submissions_with_feedback_status")
@@ -329,30 +316,11 @@ class SubmissionsSearchService(BaseService[BackendOperations[Entity], Entity]):
             Result containing list of dicts with uid, title, original_filename,
             status, entity_type, created_at, and feedback_count.
         """
-        query = f"""
-        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
-        WHERE s.entity_type = $submission_type
-        OPTIONAL MATCH (fb:Entity {{entity_type: $report_type}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
-        WITH s, count(fb) AS feedback_count
-        RETURN s.uid AS uid,
-               s.title AS title,
-               s.original_filename AS original_filename,
-               s.status AS status,
-               s.entity_type AS entity_type,
-               s.created_at AS created_at,
-               feedback_count
-        ORDER BY s.created_at DESC
-        LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {
-                "user_uid": user_uid,
-                "limit": limit,
-                "submission_type": EntityType.EXERCISE_SUBMISSION.value,
-                "report_type": EntityType.EXERCISE_REPORT.value,
-            },
+        result = await self.backend.get_submissions_with_feedback_count(  # type: ignore[attr-defined]
+            user_uid=user_uid,
+            submission_type=EntityType.EXERCISE_SUBMISSION.value,
+            report_type=EntityType.EXERCISE_REPORT.value,
+            limit=limit,
         )
         if result.is_error:
             return Result.fail(result)

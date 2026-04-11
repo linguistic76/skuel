@@ -480,9 +480,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
 
         # Execute graph context query
         try:
-            context_result = await self.execute_query(
-                cypher_query, {"uid": uid, "depth": depth}
-            )
+            context_result = await self.execute_query(cypher_query, {"uid": uid, "depth": depth})
 
             if context_result.is_error:
                 self.logger.error(f"Graph context query failed: {context_result.error}")
@@ -497,8 +495,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
             graph_records = context_result.value or []
 
             self.logger.info(
-                f"Retrieved {self.label} {uid} with graph context: "
-                f"{len(graph_records)} records"
+                f"Retrieved {self.label} {uid} with graph context: {len(graph_records)} records"
             )
 
             return Result.ok((entity, graph_records))

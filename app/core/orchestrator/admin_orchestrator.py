@@ -159,10 +159,7 @@ class AdminOrchestrator:
         activity_stats: dict[str, Any] = (
             activity_result.value
             if not activity_result.is_error
-            else {
-                k: 0
-                for k in ("tasks_created", "habits_active", "goals_active")
-            }
+            else {k: 0 for k in ("tasks_created", "habits_active", "goals_active")}
         )
         if activity_result.is_error:
             logger.error(f"Error fetching activity stats: {activity_result.error}")

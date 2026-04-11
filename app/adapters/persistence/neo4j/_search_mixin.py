@@ -1229,7 +1229,5 @@ class _SearchMixin[T: DomainModelProtocol]:
         """
 
         async with self.driver.session() as session:
-            result = await session.run(
-                query, {"uid": uid, "min_confidence": min_confidence}
-            )
+            result = await session.run(query, {"uid": uid, "min_confidence": min_confidence})
             return Result.ok(await result.data())

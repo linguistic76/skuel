@@ -828,9 +828,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Returns:
             Result containing list of recommendations with metadata
         """
-        result = await self.backend.get_recommended_path_steps(
-            user_uid, max_difficulty, limit
-        )
+        result = await self.backend.get_recommended_path_steps(user_uid, max_difficulty, limit)
         if result.is_error:
             return Result.fail(result)
 

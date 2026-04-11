@@ -268,9 +268,7 @@ class LpService:
     # INTELLIGENCE OPERATIONS - Delegated to LpIntelligenceService
     # ============================================================================
 
-    async def validate_path_prerequisites(
-        self, path_uid: str
-    ) -> Result[LpPrerequisiteValidation]:
+    async def validate_path_prerequisites(self, path_uid: str) -> Result[LpPrerequisiteValidation]:
         """Validate prerequisites for a learning path."""
         return await self.intelligence.validate_path_prerequisites(path_uid)
 

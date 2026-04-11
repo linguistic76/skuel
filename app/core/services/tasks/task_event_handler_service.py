@@ -505,7 +505,11 @@ class TaskEventHandlerService:
                 auto_published = curation_result.value.get("auto_publish", [])
                 for knowledge_dto in auto_published:
                     if self.ku_generation_service.ku_service:
-                        summary = knowledge_dto.content[:200] + "..." if len(knowledge_dto.content) > 200 else knowledge_dto.content
+                        summary = (
+                            knowledge_dto.content[:200] + "..."
+                            if len(knowledge_dto.content) > 200
+                            else knowledge_dto.content
+                        )
                         await self.ku_generation_service.ku_service.create(
                             title=knowledge_dto.title,
                             body=knowledge_dto.content,

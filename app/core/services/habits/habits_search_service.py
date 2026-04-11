@@ -24,7 +24,6 @@ from core.models.enums import EntityStatus
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
-from core.models.relationship_names import RelationshipName
 from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.type_hints import Metadata, UserUID
 from core.ports.domain_protocols import HabitsOperations
@@ -147,34 +146,17 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing habits sorted by priority/relevance
         """
-        # Use Cypher to filter active habits at database level
-        query = f"""
-        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(h:Habit)
-        WHERE NOT h.status IN $terminal_statuses
-        RETURN h
-        ORDER BY
-            CASE WHEN h.current_streak > 0 AND h.last_completed < date() THEN 0 ELSE 1 END,
-            h.current_streak DESC,
-            h.created_at DESC
-        LIMIT $fetch_limit
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {
-                "user_uid": user_context.user_uid,
-                "terminal_statuses": list(self._TERMINAL_STATUSES),
-                "fetch_limit": limit * 2,  # Fetch extra for scoring refinement
-            },
+        # Use backend method to filter active habits at database level
+        result = await self.backend.get_active_habits_prioritized(
+            user_uid=user_context.user_uid,
+            terminal_statuses=list(self._TERMINAL_STATUSES),
+            limit=limit * 2,  # Fetch extra for scoring refinement
         )
         if result.is_error:
             return Result.fail(result)
 
         # Convert to domain models
-        habits = []
-        for record in result.value:
-            dto = HabitDTO.from_dict(record["h"])
-            habits.append(Habit.from_dto(dto))
+        habits = self._to_domain_models(result.value, HabitDTO, Habit)
 
         # Apply fine-grained scoring that uses UserContext
         scored_habits = []

@@ -254,57 +254,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             Result containing SubmissionProcessingContext with all contextual data
         """
-        cypher = """
-        MATCH (u:User {uid: $user_uid})
-
-        // Recent journal-type reports (last 7 days)
-        OPTIONAL MATCH (u)-[:OWNS]->(recent:Entity)
-        WHERE recent.entity_type = 'exercise_submission'
-          AND recent.created_at >= datetime() - duration('P7D')
-        WITH u, collect({
-            uid: recent.uid,
-            title: recent.title,
-            content: recent.content,
-            entry_date: toString(date(recent.entry_date)),
-            mood: recent.mood,
-            energy_level: recent.energy_level,
-            key_topics: recent.key_topics
-        }) as recent_journals
-
-        // Active goals
-        OPTIONAL MATCH (u)-[:OWNS]->(g:Goal)
-        WHERE g.status = 'active'
-        WITH u, recent_journals, collect({
-            uid: g.uid,
-            title: g.title,
-            description: g.description
-        }) as active_goals
-
-        // Recent topics (from last 30 days) - journal-type reports
-        OPTIONAL MATCH (u)-[:OWNS]->(j:Entity)
-        WHERE j.entity_type = 'exercise_submission'
-          AND j.created_at >= datetime() - duration('P30D')
-          AND j.key_topics IS NOT NULL
-        WITH u, recent_journals, active_goals,
-             collect(j.key_topics) as all_topics_raw,
-             collect(j.energy_level) as all_energy_levels
-
-        RETURN {
-            recent_entries: recent_journals,
-            active_goals: active_goals,
-            all_topics_json: all_topics_raw,
-            recent_mood_avg:
-                CASE
-                    WHEN size([e IN all_energy_levels WHERE e IS NOT NULL]) > 0
-                    THEN reduce(sum = 0.0, e IN [x IN all_energy_levels WHERE x IS NOT NULL] | sum + e) /
-                         size([e IN all_energy_levels WHERE e IS NOT NULL])
-                    ELSE 0.0
-                END,
-            data_points: size(all_energy_levels)
-        } as context
-        """
-
-        query_result = await self.backend.execute_query(cypher, {"user_uid": user_uid})
+        query_result = await self.backend.get_journal_processing_context(user_uid)  # type: ignore[attr-defined]
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -466,22 +416,8 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         cutoff_datetime = datetime.now() - timedelta(days=days)
 
-        cypher = """
-        MATCH (j:Report {user_uid: $user_uid, report_type: 'journal'})
-        WHERE j.created_at >= datetime($cutoff_datetime)
-        RETURN j.uid as uid,
-               j.title as title,
-               j.content as content,
-               date(j.entry_date) as entry_date,
-               j.mood as mood,
-               j.energy_level as energy_level,
-               j.key_topics as key_topics
-        ORDER BY j.created_at DESC
-        LIMIT 10
-        """
-
-        result = await self.backend.execute_query(
-            cypher, {"user_uid": user_uid, "cutoff_datetime": cutoff_datetime.isoformat()}
+        result = await self.backend.get_recent_journal_entries(  # type: ignore[attr-defined]
+            user_uid=user_uid, cutoff_datetime=cutoff_datetime.isoformat()
         )
 
         if result.is_error:
@@ -517,15 +453,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         Returns:
             List of goal dictionaries with title and description
         """
-        cypher = """
-        MATCH (g:Goal {user_uid: $user_uid})
-        WHERE g.status = 'active'
-        RETURN g.uid as uid, g.title as title, g.description as description
-        ORDER BY g.created_at DESC
-        LIMIT 10
-        """
-
-        result = await self.backend.execute_query(cypher, {"user_uid": user_uid})
+        result = await self.backend.get_active_goals_for_user(user_uid)  # type: ignore[attr-defined]
 
         if result.is_error:
             self.logger.warning(f"Failed to get active goals: {result.error}")
@@ -558,14 +486,8 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
         cutoff_datetime = datetime.now() - timedelta(days=days)
 
-        cypher = """
-        MATCH (j:Report {user_uid: $user_uid, report_type: 'journal'})
-        WHERE j.created_at >= datetime($cutoff_datetime)
-        RETURN j.key_topics as key_topics
-        """
-
-        result = await self.backend.execute_query(
-            cypher, {"user_uid": user_uid, "cutoff_datetime": cutoff_datetime.isoformat()}
+        result = await self.backend.get_recent_journal_topics(  # type: ignore[attr-defined]
+            user_uid=user_uid, cutoff_datetime=cutoff_datetime.isoformat()
         )
 
         if result.is_error:
@@ -675,20 +597,8 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
 
     async def _create_temporal_relationship(self, journal_uid: str, user_uid: UserUID) -> int:
         """Create FOLLOWS relationship to most recent previous journal-type report."""
-        cypher = """
-        MATCH (new:Entity {uid: $journal_uid})
-        MATCH (prev:Entity {user_uid: $user_uid, report_type: 'journal'})
-        WHERE prev.uid <> $journal_uid
-          AND prev.entry_date <= new.entry_date
-        WITH new, prev
-        ORDER BY prev.entry_date DESC, prev.created_at DESC
-        LIMIT 1
-        MERGE (new)-[r:FOLLOWS]->(prev)
-        RETURN count(r) as count
-        """
-
-        result = await self.backend.execute_query(
-            cypher, {"journal_uid": journal_uid, "user_uid": user_uid}
+        result = await self.backend.create_journal_temporal_link(  # type: ignore[attr-defined]
+            journal_uid=journal_uid, user_uid=user_uid
         )
         if result.is_error:
             return 0
@@ -710,27 +620,11 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         if not shared_topics:
             return 0
 
-        cypher = """
-        MATCH (new:Entity {uid: $journal_uid})
-        MATCH (other:Entity {user_uid: $user_uid, report_type: 'journal'})
-        WHERE other.uid <> $journal_uid
-          AND other.key_topics IS NOT NULL
-        WITH new, other, other.key_topics as other_topics_json
-        WHERE any(topic IN $shared_topics WHERE other_topics_json CONTAINS topic)
-        WITH new, other
-        LIMIT 5
-        MERGE (new)-[r:RELATED_TO {shared_topics: $shared_topics_str}]->(other)
-        RETURN count(r) as count
-        """
-
-        result = await self.backend.execute_query(
-            cypher,
-            {
-                "journal_uid": journal.uid,
-                "user_uid": journal.user_uid,
-                "shared_topics": shared_topics,
-                "shared_topics_str": ", ".join(shared_topics[:3]),
-            },
+        result = await self.backend.create_journal_thematic_links(  # type: ignore[attr-defined]
+            journal_uid=journal.uid,
+            user_uid=journal.user_uid,
+            shared_topics=shared_topics,
+            shared_topics_str=", ".join(shared_topics[:3]),
         )
         if result.is_error:
             return 0
@@ -757,16 +651,8 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         if not mentioned_goal_uids:
             return 0
 
-        cypher = """
-        MATCH (j:Report {uid: $journal_uid})
-        UNWIND $goal_uids as goal_uid
-        MATCH (g:Goal {uid: goal_uid})
-        MERGE (j)-[r:SUPPORTS_GOAL]->(g)
-        RETURN count(r) as count
-        """
-
-        result = await self.backend.execute_query(
-            cypher, {"journal_uid": journal.uid, "goal_uids": mentioned_goal_uids}
+        result = await self.backend.create_journal_goal_links(  # type: ignore[attr-defined]
+            journal_uid=journal.uid, goal_uids=mentioned_goal_uids
         )
         if result.is_error:
             return 0
@@ -794,12 +680,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
             instructions_uid = "instructions:default-report-formatting"
 
         # Load from Neo4j (instructions stored as Exercise Entity nodes)
-        query = """
-        MATCH (i:Entity {uid: $uid, entity_type: 'exercise'})
-        RETURN i.instructions as instructions, i.name as name
-        """
-
-        result = await self.backend.execute_query(query, {"uid": instructions_uid})
+        result = await self.backend.load_exercise_instructions(instructions_uid)  # type: ignore[attr-defined]
 
         if result.is_error:
             self.logger.warning(f"Failed to load instructions, using default: {result.error}")
@@ -869,20 +750,8 @@ Preserve the author's voice and authenticity while improving readability.
         if not uid:
             uid = f"instructions:{name.lower().replace(' ', '-')}"
 
-        query = """
-        CREATE (i:Entity:Exercise {
-            uid: $uid,
-            name: $name,
-            entity_type: 'exercise',
-            instructions: $instructions,
-            created_at: datetime(),
-            char_count: size($instructions)
-        })
-        RETURN i
-        """
-
-        result = await self.backend.execute_query(
-            query, {"uid": uid, "name": name, "instructions": content}
+        result = await self.backend.create_exercise_instruction_set(  # type: ignore[attr-defined]
+            uid=uid, name=name, instructions=content
         )
 
         if result.is_error:
@@ -893,13 +762,7 @@ Preserve the author's voice and authenticity while improving readability.
     @with_error_handling("list_instruction_sets", error_type="database")
     async def list_instruction_sets(self) -> Result[list[dict[str, Any]]]:
         """List all available exercise instruction sets."""
-        query = """
-        MATCH (i:Entity {entity_type: 'exercise'})
-        RETURN i.uid as uid, i.name as name, i.char_count as char_count
-        ORDER BY i.name
-        """
-
-        result = await self.backend.execute_query(query)
+        result = await self.backend.list_exercise_instruction_sets()  # type: ignore[attr-defined]
 
         if result.is_error:
             return Result.fail(result)

@@ -48,9 +48,7 @@ def ku_backend(neo4j_driver) -> UniversalNeo4jBackend[Curriculum]:
 @pytest.fixture
 def lp_backend(neo4j_driver) -> LpBackend:
     """Create LP backend with real Neo4j."""
-    return LpBackend(
-        neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
-    )
+    return LpBackend(neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
 
 
 @pytest.fixture

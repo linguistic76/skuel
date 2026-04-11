@@ -669,6 +669,10 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
         """Get principles relevant to a choice."""
         ...
 
+    async def get_for_habit(self, habit_uid: str, limit: int = 10) -> Result[list["Principle"]]:
+        """Get principles relevant to a habit."""
+        ...
+
     async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list["Principle"]]:
         """Get principles guiding a goal."""
         ...

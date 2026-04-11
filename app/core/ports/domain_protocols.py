@@ -195,6 +195,15 @@ class TasksOperations(
         """Get tasks assigned to a user."""
         ...
 
+    async def get_assigned_tasks(
+        self,
+        user_uid: UserUID,
+        include_completed: bool = False,
+        limit: int = 100,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get tasks assigned to a user via ASSIGNED_TO relationship (raw properties)."""
+        ...
+
     async def get_tasks_requiring_knowledge(self, knowledge_uid: str) -> Result[list[Task]]:
         """Get tasks that require a specific knowledge unit."""
         ...
@@ -372,6 +381,38 @@ class EventsOperations(
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
+    async def get_events_in_range(
+        self,
+        start_date: str,
+        end_date: str,
+        user_uid: UserUID | None = None,
+        limit: int = 100,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get events within a date range (raw properties)."""
+        ...
+
+    async def get_recurring_events(
+        self, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Neo4jProperties]]:
+        """Get events with a recurrence pattern (raw properties)."""
+        ...
+
+    async def get_events_on_date(
+        self, event_date: str, user_uid: UserUID, exclude_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get events on a date for conflict detection (raw properties)."""
+        ...
+
+    async def get_completed_events_in_range(
+        self,
+        user_uid: UserUID,
+        start_date: str,
+        end_date: str,
+        limit: int = 100,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get completed events in a date range, newest first (raw properties)."""
+        ...
+
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[EventStats]:
         """Count event stats: total, scheduled, today."""
         ...
@@ -450,6 +491,15 @@ class HabitsOperations(
         ...
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
+
+    async def get_active_habits_prioritized(
+        self,
+        user_uid: UserUID,
+        terminal_statuses: list[str],
+        limit: int = 20,
+    ) -> Result[builtins.list[Neo4jProperties]]:
+        """Get active habits pre-sorted for prioritization (raw properties)."""
+        ...
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[HabitStats]:
         """Count habit stats: total, active, streaks."""
@@ -890,6 +940,18 @@ class ChoicesOperations(
         """Get all choices for a user."""
         ...
 
+    async def get_pending_choices(
+        self, user_uid: UserUID, limit: int = 100
+    ) -> Result[list[Neo4jProperties]]:
+        """Get pending/undecided choices for a user (raw properties)."""
+        ...
+
+    async def get_choices_needing_decision(
+        self, user_uid: UserUID, end_date: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get choices needing decision by deadline (raw properties)."""
+        ...
+
     async def count_choices(self, filters: FilterParams | None = None) -> Result[int]:
         """Count choices matching filters. Returns Result[int]."""
         ...
@@ -991,6 +1053,37 @@ class PrinciplesOperations(
         ...
 
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
+
+    async def get_principles_needing_review(
+        self,
+        cutoff_date: str,
+        user_uid: UserUID | None = None,
+        limit: int = 100,
+        prioritize_never_reviewed: bool = False,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get active principles whose last_review_date is before cutoff (raw properties)."""
+        ...
+
+    async def get_principles_due_for_review(
+        self,
+        cutoff_date: str,
+        user_uid: UserUID | None = None,
+        limit: int = 100,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get active principles due for review — last_review_date <= cutoff (raw properties)."""
+        ...
+
+    async def get_related_principles_by_traversal(
+        self, uid: str, depth: int, limit: int = 10
+    ) -> Result[list[Neo4jProperties]]:
+        """Get principles related via RELATED_TO traversal (raw properties)."""
+        ...
+
+    async def get_principles_by_category(
+        self, category: str, exclude_uid: str, limit: int = 10
+    ) -> Result[list[Neo4jProperties]]:
+        """Get active principles in a category, excluding one UID (raw properties)."""
+        ...
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[PrincipleStats]:
         """Count principle stats: total, core, active."""

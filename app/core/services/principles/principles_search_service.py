@@ -273,33 +273,15 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         review_threshold_days = 90
         review_cutoff = date.today() - timedelta(days=review_threshold_days - days_ahead)
 
-        # Build query with optional user filter
-        user_clause = "AND p.user_uid = $user_uid" if user_uid else ""
-        cypher_query = f"""
-        MATCH (p:Principle)
-        WHERE p.is_active = true
-          AND (p.last_review_date IS NULL
-               OR date(p.last_review_date) <= date($cutoff_date))
-          {user_clause}
-        RETURN p
-        ORDER BY p.last_review_date ASC
-        LIMIT $limit
-        """
-
-        params: dict[str, str | int] = {"cutoff_date": review_cutoff.isoformat(), "limit": limit}
-        if user_uid:
-            params["user_uid"] = user_uid
-
-        result = await self.backend.execute_query(cypher_query, params)
+        result = await self.backend.get_principles_due_for_review(
+            cutoff_date=review_cutoff.isoformat(),
+            user_uid=user_uid,
+            limit=limit,
+        )
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to Principles
-        principles = []
-        for record in result.value:
-            principle_node = record["p"]
-            dto = PrincipleDTO.from_dict(dict(principle_node))
-            principles.append(Principle.from_dto(dto))
+        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
         self.logger.debug(
             f"Found {len(principles)} principles needing review within {days_ahead} days"
@@ -326,33 +308,15 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         review_threshold_days = 90
         review_cutoff = date.today() - timedelta(days=review_threshold_days)
 
-        # Build query with optional user filter
-        user_clause = "AND p.user_uid = $user_uid" if user_uid else ""
-        cypher_query = f"""
-        MATCH (p:Principle)
-        WHERE p.is_active = true
-          AND (p.last_review_date IS NULL
-               OR date(p.last_review_date) < date($cutoff_date))
-          {user_clause}
-        RETURN p
-        ORDER BY p.last_review_date ASC
-        LIMIT $limit
-        """
-
-        params: dict[str, str | int] = {"cutoff_date": review_cutoff.isoformat(), "limit": limit}
-        if user_uid:
-            params["user_uid"] = user_uid
-
-        result = await self.backend.execute_query(cypher_query, params)
+        result = await self.backend.get_principles_needing_review(
+            cutoff_date=review_cutoff.isoformat(),
+            user_uid=user_uid,
+            limit=limit,
+        )
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to Principles
-        principles = []
-        for record in result.value:
-            principle_node = record["p"]
-            dto = PrincipleDTO.from_dict(dict(principle_node))
-            principles.append(Principle.from_dto(dto))
+        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
         self.logger.debug(f"Found {len(principles)} overdue principles")
         return Result.ok(principles)
@@ -565,31 +529,15 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         """
         review_cutoff = date.today() - timedelta(days=days_threshold)
 
-        cypher_query = """
-        MATCH (p:Principle)
-        WHERE p.is_active = true
-          AND (p.last_review_date IS NULL
-               OR date(p.last_review_date) < date($cutoff_date))
-        RETURN p
-        ORDER BY
-            CASE WHEN p.last_review_date IS NULL THEN 0 ELSE 1 END,
-            p.last_review_date ASC
-        LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(
-            cypher_query,
-            {"cutoff_date": review_cutoff.isoformat(), "limit": limit},
+        result = await self.backend.get_principles_needing_review(
+            cutoff_date=review_cutoff.isoformat(),
+            limit=limit,
+            prioritize_never_reviewed=True,
         )
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to Principles
-        principles = []
-        for record in result.value:
-            principle_node = record["p"]
-            dto = PrincipleDTO.from_dict(dict(principle_node))
-            principles.append(Principle.from_dto(dto))
+        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
         self.logger.debug(
             f"Found {len(principles)} principles needing review (threshold: {days_threshold} days)"
@@ -614,33 +562,13 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         Returns:
             Result containing related principles
         """
-        # Clamp depth to reasonable bounds
-        depth = max(1, min(depth, 5))
-
         # First try RELATED_TO relationships up to specified depth
-        # Use variable-length path traversal for deeper connections
-        related_query = f"""
-        MATCH (source:Principle {{uid: $uid}})
-        OPTIONAL MATCH (source)-[:{RelationshipName.RELATED_TO.value}*1..{depth}]-(related:Principle)
-        WHERE related.is_active = true AND related.uid <> $uid
-        WITH DISTINCT related
-        WHERE related IS NOT NULL
-        RETURN related
-        ORDER BY related.strength DESC
-        LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(
-            related_query,
-            {"uid": principle_uid, "limit": limit},
+        result = await self.backend.get_related_principles_by_traversal(
+            uid=principle_uid, depth=depth, limit=limit
         )
 
         if result.is_ok and result.value:
-            principles = []
-            for record in result.value:
-                if record.get("related"):
-                    dto = PrincipleDTO.from_dict(dict(record["related"]))
-                    principles.append(Principle.from_dto(dto))
+            principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
             if principles:
                 self.logger.debug(
                     f"Found {len(principles)} principles related to {principle_uid} (depth={depth})"
@@ -658,34 +586,17 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         principle = self._to_domain_model(principle_result.value, PrincipleDTO, Principle)
         assert isinstance(principle, Principle)
 
-        # Get principles in same category (excluding self)
-        cypher_query = """
-        MATCH (p:Principle)
-        WHERE p.category = $category
-          AND p.uid <> $uid
-          AND p.is_active = true
-        RETURN p
-        ORDER BY p.strength DESC
-        LIMIT $limit
-        """
-
         from core.ports import get_enum_value
 
         category_value = get_enum_value(principle.category)
 
-        result = await self.backend.execute_query(
-            cypher_query,
-            {"category": category_value, "uid": principle_uid, "limit": limit},
+        result = await self.backend.get_principles_by_category(
+            category=category_value, exclude_uid=principle_uid, limit=limit
         )
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to Principles
-        principles = []
-        for record in result.value:
-            principle_node = record["p"]
-            dto = PrincipleDTO.from_dict(dict(principle_node))
-            principles.append(Principle.from_dto(dto))
+        principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
 
         self.logger.debug(f"Found {len(principles)} principles related to {principle_uid}")
         return Result.ok(principles)

@@ -391,26 +391,13 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         Returns:
             Result containing assigned tasks
         """
-        # Custom Cypher query for reverse relationship: (Task)-[:ASSIGNED_TO]->(User)
-        # This is an incoming relationship from Task's perspective
-        status_filter = "" if include_completed else "AND t.status <> 'completed'"
-        query = f"""
-            MATCH (t:Entity)-[:{RelationshipName.ASSIGNED_TO.value}]->(u:User {{uid: $user_uid}})
-            WHERE t.uid IS NOT NULL {status_filter}
-            RETURN t
-            ORDER BY t.created_at DESC
-            LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        result = await self.backend.get_assigned_tasks(
+            user_uid=user_uid, include_completed=include_completed, limit=limit
+        )
         if result.is_error:
             return Result.fail(result)
 
-        # Convert Neo4j records to domain models
-        tasks = []
-        for record in result.value:
-            task = self._to_domain_model(record["t"], TaskDTO, Task)
-            tasks.append(task)
+        tasks = self._to_domain_models(result.value, TaskDTO, Task)
 
         self.logger.debug(f"Found {len(tasks)} assigned tasks for user {user_uid}")
         return Result.ok(tasks)

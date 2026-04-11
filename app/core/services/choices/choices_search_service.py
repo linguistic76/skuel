@@ -227,28 +227,11 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         Returns:
             Result containing pending choices
         """
-        # Query for pending choices
-        cypher_query = """
-        MATCH (c:Entity {entity_type: 'choice'})
-        WHERE c.user_uid = $user_uid
-          AND c.status IN ['draft', 'active', 'scheduled']
-        RETURN c
-        ORDER BY c.decision_deadline ASC, c.created_at DESC
-        LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(
-            cypher_query, {"user_uid": user_uid, "limit": limit}
-        )
+        result = await self.backend.get_pending_choices(user_uid=user_uid, limit=limit)
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to Choice
-        choices = []
-        for record in result.value:
-            choice_node = record["c"]
-            dto = ChoiceDTO.from_dict(dict(choice_node))
-            choices.append(Choice.from_dto(dto))
+        choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
 
         self.logger.debug(f"Found {len(choices)} pending choices for user {user_uid}")
         return Result.ok(choices)
@@ -303,28 +286,13 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         today = date.today()
         end_date = today + timedelta(days=deadline_days)
 
-        # Query for choices needing decision
-        cypher_query = """
-        MATCH (c:Entity {entity_type: 'choice'})
-        WHERE c.user_uid = $user_uid
-          AND c.decision_deadline <= date($end_date)
-          AND c.status NOT IN ['completed', 'decided', 'cancelled', 'archived']
-        RETURN c
-        ORDER BY c.decision_deadline ASC
-        """
-
-        result = await self.backend.execute_query(
-            cypher_query, {"user_uid": user_uid, "end_date": end_date.isoformat()}
+        result = await self.backend.get_choices_needing_decision(
+            user_uid=user_uid, end_date=end_date.isoformat()
         )
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to Choice
-        choices = []
-        for record in result.value:
-            choice_node = record["c"]
-            dto = ChoiceDTO.from_dict(dict(choice_node))
-            choices.append(Choice.from_dto(dto))
+        choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
 
         self.logger.debug(
             f"Found {len(choices)} choices needing decision within {deadline_days} days"

@@ -36,7 +36,6 @@ See: /docs/patterns/OWNERSHIP_VERIFICATION.md
 
 from __future__ import annotations
 
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j._adaptive_mixin import _AdaptiveMixin
@@ -85,6 +84,8 @@ from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
     from core.models.forms.form_submission import FormSubmission
@@ -154,6 +155,47 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
     ) -> Result[bool]:
         """Create User→Habit OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, habit_uid)
+
+    async def get_active_habits_prioritized(
+        self,
+        user_uid: UserUID,
+        terminal_statuses: list[str],
+        limit: int = 20,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get active habits for a user, pre-sorted for prioritization.
+
+        Fetches habits not in terminal statuses, sorted by streak-at-risk
+        first, then by streak length and recency.
+
+        Args:
+            user_uid: Owner of the habits.
+            terminal_statuses: Status values to exclude.
+            limit: Maximum results.
+
+        Returns:
+            Result containing list of habit node properties.
+        """
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(h:Habit)
+        WHERE NOT h.status IN $terminal_statuses
+        RETURN h
+        ORDER BY
+            CASE WHEN h.current_streak > 0 AND h.last_completed < date() THEN 0 ELSE 1 END,
+            h.current_streak DESC,
+            h.created_at DESC
+        LIMIT $fetch_limit
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "terminal_statuses": terminal_statuses,
+                "fetch_limit": limit,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["h"] for record in result.value])
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[HabitStats]:
         """Count habit stats: total, active, streaks."""
@@ -786,6 +828,35 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
                 )
         return Result.ok(parent_uids)
 
+    async def get_assigned_tasks(
+        self,
+        user_uid: UserUID,
+        include_completed: bool = False,
+        limit: int = 100,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get tasks assigned to a user via ASSIGNED_TO relationship.
+
+        Args:
+            user_uid: Target user UID.
+            include_completed: Whether to include completed tasks.
+            limit: Maximum results.
+
+        Returns:
+            Result containing list of task node properties.
+        """
+        status_filter = "" if include_completed else "AND t.status <> 'completed'"
+        query = f"""
+        MATCH (t:Entity)-[:{RelationshipName.ASSIGNED_TO.value}]->(u:User {{uid: $user_uid}})
+        WHERE t.uid IS NOT NULL {status_filter}
+        RETURN t
+        ORDER BY t.created_at DESC
+        LIMIT $limit
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["t"] for record in result.value])
+
     async def calculate_parent_progress(self, parent_uid: str) -> Result[ParentProgressResult]:
         """Calculate parent task progress based on weighted subtask completion."""
         query = f"""
@@ -886,6 +957,151 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         """Get all events for a user. Alias for list_by_user."""
         return await self.list_by_user(user_uid)
 
+    async def get_events_in_range(
+        self,
+        start_date: str,
+        end_date: str,
+        user_uid: UserUID | None = None,
+        limit: int = 100,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get events within a date range.
+
+        Args:
+            start_date: ISO date string (inclusive).
+            end_date: ISO date string (inclusive).
+            user_uid: Optional user filter.
+            limit: Maximum results.
+
+        Returns:
+            Result containing list of event node properties.
+        """
+        user_clause = "AND e.user_uid = $user_uid" if user_uid else ""
+        query = f"""
+        MATCH (e:Entity)
+        WHERE e.event_date >= date($start_date)
+          AND e.event_date <= date($end_date)
+          {user_clause}
+        RETURN e
+        ORDER BY e.event_date ASC, e.start_time ASC
+        LIMIT $limit
+        """
+        params: dict[str, object] = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "limit": limit,
+        }
+        if user_uid:
+            params["user_uid"] = user_uid
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["e"] for record in result.value])
+
+    async def get_recurring_events(
+        self, user_uid: UserUID | None = None, limit: int = 100
+    ) -> Result[list[Neo4jProperties]]:
+        """Get events with a recurrence pattern.
+
+        Args:
+            user_uid: Optional user filter.
+            limit: Maximum results.
+
+        Returns:
+            Result containing list of recurring event node properties.
+        """
+        user_clause = "AND e.user_uid = $user_uid" if user_uid else ""
+        query = f"""
+        MATCH (e:Entity)
+        WHERE e.recurrence_pattern IS NOT NULL
+          {user_clause}
+        RETURN e
+        ORDER BY e.event_date ASC
+        LIMIT $limit
+        """
+        params: dict[str, object] = {"limit": limit}
+        if user_uid:
+            params["user_uid"] = user_uid
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["e"] for record in result.value])
+
+    async def get_events_on_date(
+        self, event_date: str, user_uid: UserUID, exclude_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get events on a specific date for a user, excluding one event.
+
+        Used for conflict detection.
+
+        Args:
+            event_date: ISO date string.
+            user_uid: Owner of the events.
+            exclude_uid: Event UID to exclude from results.
+
+        Returns:
+            Result containing list of event node properties.
+        """
+        query = """
+        MATCH (e:Entity)
+        WHERE e.event_date = date($event_date)
+          AND e.user_uid = $user_uid
+          AND e.uid <> $event_uid
+          AND e.status NOT IN ['cancelled']
+        RETURN e
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "event_date": event_date,
+                "user_uid": user_uid,
+                "event_uid": exclude_uid,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["e"] for record in result.value])
+
+    async def get_completed_events_in_range(
+        self,
+        user_uid: UserUID,
+        start_date: str,
+        end_date: str,
+        limit: int = 100,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get completed events within a date range, newest first.
+
+        Args:
+            user_uid: Owner of the events.
+            start_date: ISO date string (inclusive).
+            end_date: ISO date string (inclusive).
+            limit: Maximum results.
+
+        Returns:
+            Result containing list of completed event node properties.
+        """
+        query = """
+        MATCH (e:Entity)
+        WHERE e.user_uid = $user_uid
+          AND e.event_date >= date($start_date)
+          AND e.event_date <= date($today)
+          AND e.status = 'completed'
+        RETURN e
+        ORDER BY e.event_date DESC
+        LIMIT $limit
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "start_date": start_date,
+                "today": end_date,
+                "limit": limit,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["e"] for record in result.value])
+
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[EventStats]:
         """Count event stats: total, scheduled, today."""
         from datetime import date
@@ -978,6 +1194,56 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
                 "decided": record.get("decided", 0),
             }
         )
+
+    async def get_pending_choices(
+        self, user_uid: UserUID, limit: int = 100
+    ) -> Result[list[Neo4jProperties]]:
+        """Get pending/undecided choices for a user.
+
+        Args:
+            user_uid: Owner of the choices.
+            limit: Maximum results.
+
+        Returns:
+            Result containing list of choice node properties.
+        """
+        query = """
+        MATCH (c:Entity {entity_type: 'choice'})
+        WHERE c.user_uid = $user_uid
+          AND c.status IN ['draft', 'active', 'scheduled']
+        RETURN c
+        ORDER BY c.decision_deadline ASC, c.created_at DESC
+        LIMIT $limit
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["c"] for record in result.value])
+
+    async def get_choices_needing_decision(
+        self, user_uid: UserUID, end_date: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get choices that need a decision by a deadline.
+
+        Args:
+            user_uid: Owner of the choices.
+            end_date: ISO date string — choices with deadline <= this date.
+
+        Returns:
+            Result containing list of choice node properties.
+        """
+        query = """
+        MATCH (c:Entity {entity_type: 'choice'})
+        WHERE c.user_uid = $user_uid
+          AND c.decision_deadline <= date($end_date)
+          AND c.status NOT IN ['completed', 'decided', 'cancelled', 'archived']
+        RETURN c
+        ORDER BY c.decision_deadline ASC
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid, "end_date": end_date})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["c"] for record in result.value])
 
     async def create_user_choice_relationship(
         self, user_uid: UserUID, choice_uid: str
@@ -1102,6 +1368,148 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
                 principles.append(Principle.from_dto(dto))
         return Result.ok(principles)
 
+    async def get_principles_needing_review(
+        self,
+        cutoff_date: str,
+        user_uid: UserUID | None = None,
+        limit: int = 100,
+        prioritize_never_reviewed: bool = False,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get active principles whose last_review_date is before cutoff.
+
+        Args:
+            cutoff_date: ISO date string — principles reviewed before this are included.
+            user_uid: Optional user filter.
+            limit: Maximum results.
+            prioritize_never_reviewed: If True, never-reviewed principles sort first.
+
+        Returns:
+            Result containing list of principle node properties.
+        """
+        user_clause = "AND p.user_uid = $user_uid" if user_uid else ""
+        if prioritize_never_reviewed:
+            order_clause = """
+            ORDER BY
+                CASE WHEN p.last_review_date IS NULL THEN 0 ELSE 1 END,
+                p.last_review_date ASC
+            """
+        else:
+            order_clause = "ORDER BY p.last_review_date ASC"
+
+        query = f"""
+        MATCH (p:Principle)
+        WHERE p.is_active = true
+          AND (p.last_review_date IS NULL
+               OR date(p.last_review_date) < date($cutoff_date))
+          {user_clause}
+        RETURN p
+        {order_clause}
+        LIMIT $limit
+        """
+        params: dict[str, object] = {"cutoff_date": cutoff_date, "limit": limit}
+        if user_uid:
+            params["user_uid"] = user_uid
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["p"] for record in result.value])
+
+    async def get_principles_due_for_review(
+        self,
+        cutoff_date: str,
+        user_uid: UserUID | None = None,
+        limit: int = 100,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get active principles due for review (last_review_date <= cutoff).
+
+        Unlike get_principles_needing_review (strict <), this uses <= for
+        "due soon" semantics.
+
+        Args:
+            cutoff_date: ISO date string.
+            user_uid: Optional user filter.
+            limit: Maximum results.
+
+        Returns:
+            Result containing list of principle node properties.
+        """
+        user_clause = "AND p.user_uid = $user_uid" if user_uid else ""
+        query = f"""
+        MATCH (p:Principle)
+        WHERE p.is_active = true
+          AND (p.last_review_date IS NULL
+               OR date(p.last_review_date) <= date($cutoff_date))
+          {user_clause}
+        RETURN p
+        ORDER BY p.last_review_date ASC
+        LIMIT $limit
+        """
+        params: dict[str, object] = {"cutoff_date": cutoff_date, "limit": limit}
+        if user_uid:
+            params["user_uid"] = user_uid
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["p"] for record in result.value])
+
+    async def get_related_principles_by_traversal(
+        self, uid: str, depth: int, limit: int = 10
+    ) -> Result[list[Neo4jProperties]]:
+        """Get principles related via RELATED_TO traversal up to given depth.
+
+        Args:
+            uid: Source principle UID.
+            depth: Maximum traversal depth (clamped 1-5).
+            limit: Maximum results.
+
+        Returns:
+            Result containing list of related principle node properties.
+        """
+        depth = max(1, min(depth, 5))
+        query = f"""
+        MATCH (source:Principle {{uid: $uid}})
+        OPTIONAL MATCH (source)-[:{RelationshipName.RELATED_TO.value}*1..{depth}]-(related:Principle)
+        WHERE related.is_active = true AND related.uid <> $uid
+        WITH DISTINCT related
+        WHERE related IS NOT NULL
+        RETURN related
+        ORDER BY related.strength DESC
+        LIMIT $limit
+        """
+        result = await self.execute_query(query, {"uid": uid, "limit": limit})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["related"] for record in result.value if record.get("related")])
+
+    async def get_principles_by_category(
+        self, category: str, exclude_uid: str, limit: int = 10
+    ) -> Result[list[Neo4jProperties]]:
+        """Get active principles in a category, excluding one UID.
+
+        Args:
+            category: Category value string.
+            exclude_uid: UID to exclude from results.
+            limit: Maximum results.
+
+        Returns:
+            Result containing list of principle node properties.
+        """
+        query = """
+        MATCH (p:Principle)
+        WHERE p.category = $category
+          AND p.uid <> $uid
+          AND p.is_active = true
+        RETURN p
+        ORDER BY p.strength DESC
+        LIMIT $limit
+        """
+        result = await self.execute_query(
+            query, {"category": category, "uid": exclude_uid, "limit": limit}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["p"] for record in result.value])
+
     async def create_user_principle_relationship(
         self, user_uid: UserUID, principle_uid: str
     ) -> Result[bool]:
@@ -1119,6 +1527,92 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
     Sharing and access control live in SharingBackend + UnifiedSharingService,
     operating across all entity types.
     """
+
+    async def search_submission_content(
+        self,
+        user_uid: UserUID,
+        submission_type: str,
+        query_text: str,
+        limit: int = 50,
+    ) -> Result[list[Neo4jProperties]]:
+        """Case-insensitive substring search across processed_content.
+
+        Args:
+            user_uid: Owner of the submissions.
+            submission_type: Entity type string (e.g. 'exercise_submission').
+            query_text: Substring to match (case-insensitive).
+            limit: Maximum results.
+
+        Returns:
+            Result containing list of submission node properties.
+        """
+        cypher = f"""
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
+        WHERE s.entity_type = $submission_type
+          AND s.processed_content IS NOT NULL
+          AND toLower(s.processed_content) CONTAINS toLower($query)
+        RETURN s
+        ORDER BY s.created_at DESC
+        LIMIT $limit
+        """
+        result = await self.execute_query(
+            cypher,
+            {
+                "user_uid": user_uid,
+                "submission_type": submission_type,
+                "query": query_text,
+                "limit": limit,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["s"] for record in result.value or []])
+
+    async def get_submissions_with_feedback_count(
+        self,
+        user_uid: UserUID,
+        submission_type: str,
+        report_type: str,
+        limit: int = 50,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get submissions enriched with teacher feedback count.
+
+        Args:
+            user_uid: Student user UID.
+            submission_type: Entity type for submissions.
+            report_type: Entity type for reports.
+            limit: Maximum results.
+
+        Returns:
+            Result containing list of dicts with submission fields + feedback_count.
+        """
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(s:Entity)
+        WHERE s.entity_type = $submission_type
+        OPTIONAL MATCH (fb:Entity {{entity_type: $report_type}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
+        WITH s, count(fb) AS feedback_count
+        RETURN s.uid AS uid,
+               s.title AS title,
+               s.original_filename AS original_filename,
+               s.status AS status,
+               s.entity_type AS entity_type,
+               s.created_at AS created_at,
+               feedback_count
+        ORDER BY s.created_at DESC
+        LIMIT $limit
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "limit": limit,
+                "submission_type": submission_type,
+                "report_type": report_type,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
 
     async def count_submissions_for_exercise(
         self, user_uid: UserUID, exercise_uid: str
@@ -1977,6 +2471,212 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         LIMIT 1
         """
         return await self.execute_query(query, {})
+
+    # ========================================================================
+    # CONTENT ENRICHMENT BACKEND METHODS
+    # ========================================================================
+
+    async def get_journal_processing_context(
+        self, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]:
+        """Gather journal processing context in a single query.
+
+        Returns recent journals (7d), active goals, trending topics (30d),
+        and mood averages for the ContentEnrichmentService pipeline.
+        """
+        cypher = """
+        MATCH (u:User {uid: $user_uid})
+
+        // Recent journal-type reports (last 7 days)
+        OPTIONAL MATCH (u)-[:OWNS]->(recent:Entity)
+        WHERE recent.entity_type = 'exercise_submission'
+          AND recent.created_at >= datetime() - duration('P7D')
+        WITH u, collect({
+            uid: recent.uid,
+            title: recent.title,
+            content: recent.content,
+            entry_date: toString(date(recent.entry_date)),
+            mood: recent.mood,
+            energy_level: recent.energy_level,
+            key_topics: recent.key_topics
+        }) as recent_journals
+
+        // Active goals
+        OPTIONAL MATCH (u)-[:OWNS]->(g:Goal)
+        WHERE g.status = 'active'
+        WITH u, recent_journals, collect({
+            uid: g.uid,
+            title: g.title,
+            description: g.description
+        }) as active_goals
+
+        // Recent topics (from last 30 days) - journal-type reports
+        OPTIONAL MATCH (u)-[:OWNS]->(j:Entity)
+        WHERE j.entity_type = 'exercise_submission'
+          AND j.created_at >= datetime() - duration('P30D')
+          AND j.key_topics IS NOT NULL
+        WITH u, recent_journals, active_goals,
+             collect(j.key_topics) as all_topics_raw,
+             collect(j.energy_level) as all_energy_levels
+
+        RETURN {
+            recent_entries: recent_journals,
+            active_goals: active_goals,
+            all_topics_json: all_topics_raw,
+            recent_mood_avg:
+                CASE
+                    WHEN size([e IN all_energy_levels WHERE e IS NOT NULL]) > 0
+                    THEN reduce(sum = 0.0, e IN [x IN all_energy_levels WHERE x IS NOT NULL] | sum + e) /
+                         size([e IN all_energy_levels WHERE e IS NOT NULL])
+                    ELSE 0.0
+                END,
+            data_points: size(all_energy_levels)
+        } as context
+        """
+        return await self.execute_query(cypher, {"user_uid": user_uid})
+
+    async def get_recent_journal_entries(
+        self, user_uid: UserUID, cutoff_datetime: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get recent journal-type report entries."""
+        cypher = """
+        MATCH (j:Report {user_uid: $user_uid, report_type: 'journal'})
+        WHERE j.created_at >= datetime($cutoff_datetime)
+        RETURN j.uid as uid,
+               j.title as title,
+               j.content as content,
+               date(j.entry_date) as entry_date,
+               j.mood as mood,
+               j.energy_level as energy_level,
+               j.key_topics as key_topics
+        ORDER BY j.created_at DESC
+        LIMIT 10
+        """
+        return await self.execute_query(
+            cypher, {"user_uid": user_uid, "cutoff_datetime": cutoff_datetime}
+        )
+
+    async def get_active_goals_for_user(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
+        """Get active goals for a user (for content enrichment context)."""
+        cypher = """
+        MATCH (g:Goal {user_uid: $user_uid})
+        WHERE g.status = 'active'
+        RETURN g.uid as uid, g.title as title, g.description as description
+        ORDER BY g.created_at DESC
+        LIMIT 10
+        """
+        return await self.execute_query(cypher, {"user_uid": user_uid})
+
+    async def get_recent_journal_topics(
+        self, user_uid: UserUID, cutoff_datetime: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Get key_topics from recent journal entries for topic aggregation."""
+        cypher = """
+        MATCH (j:Report {user_uid: $user_uid, report_type: 'journal'})
+        WHERE j.created_at >= datetime($cutoff_datetime)
+        RETURN j.key_topics as key_topics
+        """
+        return await self.execute_query(
+            cypher, {"user_uid": user_uid, "cutoff_datetime": cutoff_datetime}
+        )
+
+    async def create_journal_temporal_link(
+        self, journal_uid: str, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]:
+        """Create FOLLOWS relationship to most recent previous journal-type report."""
+        cypher = """
+        MATCH (new:Entity {uid: $journal_uid})
+        MATCH (prev:Entity {user_uid: $user_uid, report_type: 'journal'})
+        WHERE prev.uid <> $journal_uid
+          AND prev.entry_date <= new.entry_date
+        WITH new, prev
+        ORDER BY prev.entry_date DESC, prev.created_at DESC
+        LIMIT 1
+        MERGE (new)-[r:FOLLOWS]->(prev)
+        RETURN count(r) as count
+        """
+        return await self.execute_query(cypher, {"journal_uid": journal_uid, "user_uid": user_uid})
+
+    async def create_journal_thematic_links(
+        self,
+        journal_uid: str,
+        user_uid: UserUID,
+        shared_topics: list[str],
+        shared_topics_str: str,
+    ) -> Result[list[Neo4jProperties]]:
+        """Create RELATED_TO relationships for journal reports sharing topics."""
+        cypher = """
+        MATCH (new:Entity {uid: $journal_uid})
+        MATCH (other:Entity {user_uid: $user_uid, report_type: 'journal'})
+        WHERE other.uid <> $journal_uid
+          AND other.key_topics IS NOT NULL
+        WITH new, other, other.key_topics as other_topics_json
+        WHERE any(topic IN $shared_topics WHERE other_topics_json CONTAINS topic)
+        WITH new, other
+        LIMIT 5
+        MERGE (new)-[r:RELATED_TO {shared_topics: $shared_topics_str}]->(other)
+        RETURN count(r) as count
+        """
+        return await self.execute_query(
+            cypher,
+            {
+                "journal_uid": journal_uid,
+                "user_uid": user_uid,
+                "shared_topics": shared_topics,
+                "shared_topics_str": shared_topics_str,
+            },
+        )
+
+    async def create_journal_goal_links(
+        self, journal_uid: str, goal_uids: list[str]
+    ) -> Result[list[Neo4jProperties]]:
+        """Create SUPPORTS_GOAL relationships for mentioned goals."""
+        cypher = """
+        MATCH (j:Report {uid: $journal_uid})
+        UNWIND $goal_uids as goal_uid
+        MATCH (g:Goal {uid: goal_uid})
+        MERGE (j)-[r:SUPPORTS_GOAL]->(g)
+        RETURN count(r) as count
+        """
+        return await self.execute_query(
+            cypher, {"journal_uid": journal_uid, "goal_uids": goal_uids}
+        )
+
+    async def load_exercise_instructions(self, uid: str) -> Result[list[Neo4jProperties]]:
+        """Load formatting instructions from an Exercise entity node."""
+        query = """
+        MATCH (i:Entity {uid: $uid, entity_type: 'exercise'})
+        RETURN i.instructions as instructions, i.name as name
+        """
+        return await self.execute_query(query, {"uid": uid})
+
+    async def create_exercise_instruction_set(
+        self, uid: str, name: str, instructions: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Create a new Exercise instruction set node."""
+        query = """
+        CREATE (i:Entity:Exercise {
+            uid: $uid,
+            name: $name,
+            entity_type: 'exercise',
+            instructions: $instructions,
+            created_at: datetime(),
+            char_count: size($instructions)
+        })
+        RETURN i
+        """
+        return await self.execute_query(
+            query, {"uid": uid, "name": name, "instructions": instructions}
+        )
+
+    async def list_exercise_instruction_sets(self) -> Result[list[Neo4jProperties]]:
+        """List all available exercise instruction sets."""
+        query = """
+        MATCH (i:Entity {entity_type: 'exercise'})
+        RETURN i.uid as uid, i.name as name, i.char_count as char_count
+        ORDER BY i.name
+        """
+        return await self.execute_query(query)
 
 
 class KuBackend(UniversalNeo4jBackend[Ku]):

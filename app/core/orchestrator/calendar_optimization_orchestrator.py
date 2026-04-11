@@ -236,13 +236,15 @@ class CalendarOptimizationOrchestrator:
             end_date=end_date,
             user_uid=user_uid,
         )
-        events = [
-            e
-            for e in (events_result.value or [])
-            if e.status != EntityStatus.CANCELLED.value
-        ] if events_result.is_ok else []
+        events = (
+            [e for e in (events_result.value or []) if e.status != EntityStatus.CANCELLED.value]
+            if events_result.is_ok
+            else []
+        )
         if not events_result.is_ok:
-            logger.warning("Failed to fetch events for density", extra={"error": str(events_result.error)})
+            logger.warning(
+                "Failed to fetch events for density", extra={"error": str(events_result.error)}
+            )
 
         tasks_result = await self._tasks.get_user_items_in_range(
             user_uid=user_uid,
@@ -252,7 +254,9 @@ class CalendarOptimizationOrchestrator:
         )
         tasks = tasks_result.value or [] if tasks_result.is_ok else []
         if not tasks_result.is_ok:
-            logger.warning("Failed to fetch tasks for density", extra={"error": str(tasks_result.error)})
+            logger.warning(
+                "Failed to fetch tasks for density", extra={"error": str(tasks_result.error)}
+            )
 
         total_items = len(events) + len(tasks)
         items_per_day = total_items / days_ahead if days_ahead > 0 else 0
@@ -308,7 +312,10 @@ class CalendarOptimizationOrchestrator:
         )
         existing_events = events_result.value or [] if events_result.is_ok else []
         if not events_result.is_ok:
-            logger.warning("Failed to fetch events for slot suggestions", extra={"error": str(events_result.error)})
+            logger.warning(
+                "Failed to fetch events for slot suggestions",
+                extra={"error": str(events_result.error)},
+            )
 
         blocked: list[tuple[time, time]] = [
             (e.start_time, e.end_time)
@@ -408,7 +415,12 @@ class CalendarOptimizationOrchestrator:
             if not start_time or not end_time:
                 conflicts.append(event)
                 continue
-            if event.start_time and event.end_time and start_time < event.end_time and end_time > event.start_time:
+            if (
+                event.start_time
+                and event.end_time
+                and start_time < event.end_time
+                and end_time > event.start_time
+            ):
                 conflicts.append(event)
 
         return Result.ok(conflicts)
