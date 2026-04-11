@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 ACTIVITY_STORAGE_KEY = "activity-sidebar"
 
 ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Activity Hub", "/profile", "profile", icon="layout"),
     SidebarItem("Tasks", "/tasks", "tasks", icon="check-square"),
     SidebarItem("Goals", "/goals", "goals", icon="target"),
     SidebarItem("Habits", "/habits", "habits", icon="repeat"),
