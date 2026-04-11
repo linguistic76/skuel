@@ -244,7 +244,6 @@ async def lp_service(neo4j_driver):
     # Create LpService with REQUIRED dependencies
     service = LpService(
         backend=lp_backend,
-        executor=executor,
         ps_service=ps_service,
         ku_service=None,  # Optional
         progress_service=None,  # Optional

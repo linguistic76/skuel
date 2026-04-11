@@ -120,11 +120,10 @@ def _create_learning_services(
     lp_backend = LpBackend(driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
     learning_paths = LpService(
         backend=lp_backend,
-        executor=query_executor,
         ps_service=ps_service,  # Delegate PS operations to PsService
         ku_service=ps_service,  # PsService handles curriculum content
         progress_service=user_progress,
-        graph_intelligence_service=graph_intelligence,  # 4 graph queries (REQUIRED)
+        graph_intelligence_service=graph_intelligence,  # GraphContextOrchestrator (REQUIRED)
         event_bus=event_bus,  # Event-driven architecture
         progress_backend=progress_backend,
         user_service=user_service,

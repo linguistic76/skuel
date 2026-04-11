@@ -1176,6 +1176,52 @@ class LpOperations(CurriculumOperations["LearningPath"], Protocol):
         """
         ...
 
+    # =========================================================================
+    # INTELLIGENCE QUERIES
+    # =========================================================================
+
+    async def validate_path_prerequisites(
+        self, path_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Run prerequisite validation query for a learning path."""
+        ...
+
+    async def identify_path_blockers(
+        self, path_uid: str, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:
+        """Run blocker identification query for a user on a learning path."""
+        ...
+
+    async def get_optimal_path_recommendations(
+        self, user_uid: UserUID, goal_domain: str | None = None
+    ) -> Result[list[dict[str, Any]]]:
+        """Find optimal learning path recommendations for a user."""
+        ...
+
+    async def find_learning_sequence(
+        self, start_uid: str, goal_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Find optimal learning path from start to goal using graph traversal."""
+        ...
+
+    async def get_next_adaptive_step(
+        self, current_step_uid: str, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:
+        """Get next path step based on adaptive intelligence."""
+        ...
+
+    async def get_recommended_path_steps(
+        self, user_uid: UserUID, max_difficulty: float = 0.5, limit: int = 5
+    ) -> Result[list[dict[str, Any]]]:
+        """Get recommended path steps for a user based on their progress."""
+        ...
+
+    async def get_path_with_context(
+        self, path_uid: str, user_uid: UserUID | None = None, depth: int = 2
+    ) -> Result[list[dict[str, Any]]]:
+        """Get learning path with complete graph context."""
+        ...
+
 
 # =============================================================================
 # EXERCISE OPERATIONS

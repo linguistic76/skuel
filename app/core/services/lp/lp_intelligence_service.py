@@ -29,15 +29,13 @@ Architecture (January 2026 - Unified Pattern):
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.entity import Entity
 from core.models.enums import Domain
 from core.models.graph_context import GraphContext
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
-from core.models.query_types import QueryIntent
 from core.models.type_hints import UserUID
 from core.ports.content_protocols import ContentAdapter
 from core.ports.query_types import (
@@ -64,11 +62,8 @@ from core.services.lp_intelligence.types import (
     LearningIntervention,
 )
 from core.services.user import UserContext
-from core.utils.decorators import requires_graph_intelligence, with_error_handling
+from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.ports import QueryExecutor
 
 
 class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
@@ -112,19 +107,17 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         progress_backend: Any | None = None,
         event_bus: Any | None = None,
         user_service: Any | None = None,
-        executor: QueryExecutor | None = None,  # January 2026: For adaptive/validation operations
     ) -> None:
         """
         Initialize unified intelligence service.
 
         Args:
             backend: Primary backend for BaseAnalyticsService and LP operations
-            graph_intelligence_service: GraphIntelligenceService - REQUIRED for validation/context
+            graph_intelligence_service: GraphIntelligenceService - for GraphContextOrchestrator
             relationship_service: UnifiedRelationshipService (optional)
             progress_backend: Progress backend (LP-specific)
             event_bus: Event bus for publishing events
             user_service: UserService for UserContext
-            executor: QueryExecutor - REQUIRED for adaptive operations (January 2026)
 
         NOTE: No embeddings_service or llm_service parameters (ADR-030).
         """
@@ -139,10 +132,6 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         # Store LP-specific dependencies
         self.progress_backend = progress_backend
         self.user_service = user_service
-
-        # January 2026: Store executor and graph_intel for consolidated methods
-        self.executor = executor
-        self.graph_intel = graph_intelligence_service
 
         # Initialize all sub-services (no AI dependencies - ADR-030)
         self.state_analyzer = LearningStateAnalyzer(
@@ -488,32 +477,6 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     # VALIDATION OPERATIONS (January 2026 - Consolidated from LpValidationService)
     # ========================================================================
 
-    def _build_prerequisite_query(self, knowledge_var: str = "k", depth: int = 3) -> str:
-        """
-        Build pure Cypher prerequisite subquery using semantic relationships.
-
-        Args:
-            knowledge_var: Variable name for knowledge node in query
-            depth: Maximum prerequisite depth
-
-        Returns:
-            Cypher subquery fragment for prerequisite discovery
-        """
-        prerequisite_types = [
-            SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-            SemanticRelationshipType.REQUIRES_PRACTICAL_APPLICATION,
-            SemanticRelationshipType.REQUIRES_CONCEPTUAL_FOUNDATION,
-            SemanticRelationshipType.BUILDS_ON_FOUNDATION,
-        ]
-
-        rel_pattern = "|".join([st.to_neo4j_name() for st in prerequisite_types])
-
-        return f"""
-        OPTIONAL MATCH ({knowledge_var})<-[:{rel_pattern}*1..{depth}]-(prereq:Entity)
-        WITH {knowledge_var}, collect(DISTINCT prereq) as prereqs
-        """
-
-    @requires_graph_intelligence("validate_path_prerequisites")
     @with_error_handling("validate_path_prerequisites", error_type="database", uid_param="path_uid")
     async def validate_path_prerequisites(self, path_uid: str) -> Result[LpPrerequisiteValidation]:
         """
@@ -531,41 +494,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Returns:
             Validation results with issues and recommendations
         """
-        cypher_query = f"""
-        MATCH (path:Entity {{uid: $path_uid}})
-        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        MATCH (k:Entity {{uid: step.knowledge_uid}})
-
-        // Get all prerequisites using pure Cypher
-        {self._build_prerequisite_query("k", 3)}
-
-        // Check if prerequisites are in earlier steps
-        WITH path, step, k, r.sequence as step_seq, prereqs
-        MATCH (path)-[r2:HAS_STEP]->(earlier:Entity {{entity_type: 'path_step'}})
-        WHERE r2.sequence < step_seq
-
-        WITH step, k, step_seq, prereqs,
-             collect(earlier.knowledge_uid) as earlier_knowledge
-
-        // Find unmet prerequisites
-        WITH step, k, step_seq,
-             [p IN prereqs WHERE NOT p.uid IN earlier_knowledge | p.uid] as unmet_prereqs
-
-        RETURN {{
-            step_uid: step.uid,
-            knowledge_uid: k.uid,
-            sequence: step_seq,
-            unmet_prerequisites: unmet_prereqs,
-            has_issues: size(unmet_prereqs) > 0
-        }} as validation
-        ORDER BY step_seq
-        """
-
-        # Type narrowing for MyPy (decorator ensures graph_intel is not None)
-        assert self.graph_intel is not None
-        result = await self.graph_intel.execute_query(
-            cypher_query, {"path_uid": path_uid}, query_intent=QueryIntent.PREREQUISITE
-        )
+        result = await self.backend.validate_path_prerequisites(path_uid)
 
         if result.is_error:
             return result
@@ -598,7 +527,6 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         )
         return Result.ok(validation_result)
 
-    @requires_graph_intelligence("identify_path_blockers")
     @with_error_handling("identify_path_blockers", error_type="database", uid_param="path_uid")
     async def identify_path_blockers(
         self, path_uid: str, user_uid: UserUID
@@ -619,58 +547,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Returns:
             Blocker analysis with recommendations
         """
-        cypher_query = f"""
-        MATCH (u:User {{uid: $user_uid}})
-        MATCH (path:Entity {{uid: $path_uid}})
-
-        // Get user's mastered knowledge
-        OPTIONAL MATCH (u)-[m:MASTERED]->(mastered:Entity)
-        WITH u, path, collect(mastered.uid) as mastered_uids
-
-        // Get path steps
-        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        MATCH (k:Entity {{uid: step.knowledge_uid}})
-
-        // Check prerequisites
-        {self._build_prerequisite_query("k", 2)}
-
-        WITH step, k, r.sequence as seq, mastered_uids, prereqs,
-             [p IN prereqs WHERE NOT p.uid IN mastered_uids] as blocking_prereqs
-
-        // Identify blockers
-        WITH step, k, seq,
-             blocking_prereqs,
-             size(blocking_prereqs) > 0 as is_blocked
-
-        ORDER BY seq
-
-        // Find first blocker
-        WITH collect({{
-            step: step,
-            knowledge: k,
-            sequence: seq,
-            is_blocked: is_blocked,
-            blocking_prerequisites: blocking_prereqs
-        }}) as all_steps
-
-        WITH all_steps,
-             [s IN all_steps WHERE s.is_blocked][0] as first_blocker
-
-        RETURN {{
-            total_steps: size(all_steps),
-            blocked_steps: [s IN all_steps WHERE s.is_blocked],
-            first_blocker: first_blocker,
-            can_progress: first_blocker IS NULL
-        }} as blocker_analysis
-        """
-
-        # Type narrowing for MyPy (decorator ensures graph_intel is not None)
-        assert self.graph_intel is not None
-        result = await self.graph_intel.execute_query(
-            cypher_query,
-            {"path_uid": path_uid, "user_uid": user_uid},
-            query_intent=QueryIntent.PREREQUISITE,
-        )
+        result = await self.backend.identify_path_blockers(path_uid, user_uid)
 
         if result.is_error:
             return result
@@ -702,7 +579,6 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         self.logger.info(f"Blocker analysis for {path_uid}: {blocked_count} blockers")
         return Result.ok(enhanced_analysis)
 
-    @requires_graph_intelligence("get_optimal_path_recommendation")
     @with_error_handling(
         "get_optimal_path_recommendation", error_type="database", uid_param="user_uid"
     )
@@ -726,63 +602,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Returns:
             Optimal path recommendation
         """
-        domain_filter = "AND path.domain = $domain" if goal_domain else ""
-
-        cypher_query = f"""
-        MATCH (u:User {{uid: $user_uid}})
-
-        // Get user's mastered knowledge
-        OPTIONAL MATCH (u)-[m:MASTERED]->(mastered:Entity)
-        WITH u, collect(mastered.uid) as mastered_uids
-
-        // Get available paths
-        MATCH (path:Entity {{entity_type: 'learning_path'}})
-        WHERE NOT (u)-[:COMPLETED]->(path) {domain_filter}
-
-        // Calculate path readiness
-        MATCH (path)-[:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        MATCH (k:Entity {{uid: step.knowledge_uid}})
-
-        // Get prerequisites
-        {self._build_prerequisite_query("k", 2)}
-
-        WITH path, mastered_uids,
-             size([p IN prereqs WHERE p.uid IN mastered_uids]) as met,
-             size(prereqs) as total
-
-        WITH path,
-             CASE WHEN total = 0 THEN 1.0
-                  ELSE toFloat(met) / total
-             END as readiness_score
-
-        // Get path with best readiness
-        WITH path, readiness_score
-        ORDER BY readiness_score DESC, path.estimated_hours ASC
-        LIMIT 5
-
-        RETURN {{
-            recommended_paths: collect({{
-                path: path,
-                readiness_score: readiness_score,
-                estimated_hours: path.estimated_hours,
-                reason: CASE
-                    WHEN readiness_score > 0.8 THEN "High readiness - prerequisites mostly met"
-                    WHEN readiness_score > 0.5 THEN "Moderate readiness - some prerequisites needed"
-                    ELSE "Low readiness - build foundations first"
-                END
-            }})
-        }} as recommendations
-        """
-
-        params: dict[str, Any] = {"user_uid": user_uid}
-        if goal_domain:
-            params["domain"] = goal_domain
-
-        # Type narrowing for MyPy (decorator ensures graph_intel is not None)
-        assert self.graph_intel is not None
-        result = await self.graph_intel.execute_query(
-            cypher_query, params, query_intent=QueryIntent.EXPLORATORY
-        )
+        result = await self.backend.get_optimal_path_recommendations(user_uid, goal_domain)
 
         if result.is_error:
             return result
@@ -908,28 +728,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Returns:
             Result containing list of knowledge UIDs in optimal sequence
         """
-        if not self.executor:
-            return Result.fail(
-                Errors.system("QueryExecutor not available", operation="find_learning_sequence")
-            )
-
-        query = """
-        MATCH path = shortestPath(
-            (start:Entity {uid: $start_uid})-[:ENABLES_KNOWLEDGE|REQUIRES_KNOWLEDGE*]-(goal:Entity {uid: $goal_uid})
-        )
-        WITH path, relationships(path) as rels
-
-        // Sort by typical_learning_order if available ( edge metadata)
-        UNWIND rels as r
-        WITH path, r
-        ORDER BY coalesce(r.typical_learning_order, 999)
-
-        RETURN [node IN nodes(path) | node.uid] as sequence
-        """
-
-        result = await self.executor.execute_query(
-            query, {"start_uid": start_uid, "goal_uid": goal_uid}
-        )
+        result = await self.backend.find_learning_sequence(start_uid, goal_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -971,55 +770,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Returns:
             Result containing next step UID, or empty string if no ready steps
         """
-        if not self.executor:
-            return Result.fail(
-                Errors.system("QueryExecutor not available", operation="get_next_adaptive_step")
-            )
-
-        query = """
-        MATCH (current:Entity {uid: $current_uid})-[r:ENABLES_KNOWLEDGE]->(next:Entity)
-
-        // Get user progress for prerequisites ( user progress tracking)
-        OPTIONAL MATCH (next)-[:REQUIRES_KNOWLEDGE]->(prereq)
-        OPTIONAL MATCH (prereq)<-[:HAS_PROGRESS]-(up:UserProgress {user_uid: $user_uid})
-
-        WITH next, r,
-             count(prereq) as total_prereqs,
-             count(CASE WHEN up.mastery_level >= 0.7 THEN 1 END) as completed_prereqs,
-             avg(coalesce(r.confidence, 1.0)) as avg_confidence,
-             avg(coalesce(r.strength, 1.0)) as avg_strength,
-             avg(coalesce(r.difficulty_gap, 0.3)) as avg_difficulty
-
-        // Calculate prerequisite readiness
-        WITH next,
-             CASE
-                 WHEN total_prereqs = 0 THEN 1.0
-                 ELSE toFloat(completed_prereqs) / total_prereqs
-             END as prerequisite_readiness,
-             avg_confidence,
-             avg_strength,
-             avg_difficulty
-
-        // Filter to ready steps (80% of prerequisites complete)
-        WHERE prerequisite_readiness >= 0.8
-
-        // Score by confidence (60%) and strength (40%) - metadata
-        WITH next,
-             (avg_confidence * 0.6 + avg_strength * 0.4) as readiness_score,
-             avg_difficulty,
-             prerequisite_readiness
-        ORDER BY readiness_score DESC, avg_difficulty ASC
-
-        RETURN next.uid as next_uid,
-               readiness_score,
-               avg_difficulty,
-               prerequisite_readiness
-        LIMIT 1
-        """
-
-        result = await self.executor.execute_query(
-            query, {"current_uid": current_step_uid, "user_uid": user_uid}
-        )
+        result = await self.backend.get_next_adaptive_step(current_step_uid, user_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -1063,59 +814,8 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Returns:
             Result containing list of recommendations with metadata
         """
-        if not self.executor:
-            return Result.fail(
-                Errors.system("QueryExecutor not available", operation="get_recommended_path_steps")
-            )
-
-        query = """
-        // Find knowledge units user has mastered
-        MATCH (mastered:Entity)<-[:HAS_PROGRESS]-(up:UserProgress {user_uid: $user_uid})
-        WHERE up.mastery_level >= 0.7
-
-        // Find next steps enabled by mastered knowledge
-        MATCH (mastered)-[r:ENABLES_KNOWLEDGE]->(next:Entity)
-
-        // Check if user hasn't started this yet
-        WHERE NOT exists((next)<-[:HAS_PROGRESS]-(:UserProgress {user_uid: $user_uid}))
-
-        // Check prerequisite readiness
-        OPTIONAL MATCH (next)-[:REQUIRES_KNOWLEDGE]->(prereq)
-        OPTIONAL MATCH (prereq)<-[:HAS_PROGRESS]-(prereq_progress:UserProgress {user_uid: $user_uid})
-
-        WITH next, r,
-             count(prereq) as total_prereqs,
-             count(CASE WHEN prereq_progress.mastery_level >= 0.7 THEN 1 END) as completed_prereqs
-
-        // Calculate readiness
-        WITH next, r,
-             CASE
-                 WHEN total_prereqs = 0 THEN 1.0
-                 ELSE toFloat(completed_prereqs) / total_prereqs
-             END as prerequisite_readiness
-
-        // Filter by readiness and difficulty ( metadata)
-        WHERE prerequisite_readiness >= 0.8
-          AND coalesce(r.difficulty_gap, 0.3) <= $max_difficulty
-
-        // Return recommendations with metadata
-        RETURN DISTINCT next.uid as uid,
-               next.title as title,
-               next.domain as domain,
-               coalesce(r.confidence, 1.0) as confidence,
-               coalesce(r.strength, 1.0) as strength,
-               coalesce(r.difficulty_gap, 0.3) as difficulty_gap,
-               coalesce(r.semantic_distance, 0.5) as semantic_distance,
-               prerequisite_readiness
-
-        ORDER BY (confidence * 0.4 + strength * 0.3 + prerequisite_readiness * 0.3) DESC,
-                 difficulty_gap ASC
-
-        LIMIT $limit
-        """
-
-        result = await self.executor.execute_query(
-            query, {"user_uid": user_uid, "max_difficulty": max_difficulty, "limit": limit}
+        result = await self.backend.get_recommended_path_steps(
+            user_uid, max_difficulty, limit
         )
         if result.is_error:
             return Result.fail(result)
@@ -1143,7 +843,6 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
     # CONTEXT OPERATIONS (January 2026 - Consolidated from LpContextService)
     # ========================================================================
 
-    @requires_graph_intelligence("get_path_with_context")
     @with_error_handling("get_path_with_context", error_type="database", uid_param="path_uid")
     async def get_path_with_context(
         self, path_uid: str, user_uid: UserUID | None = None, depth: int = 2
@@ -1166,70 +865,7 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         Returns:
             Complete path with graph context
         """
-        # Build query with optional user context
-        user_match = "MATCH (u:User {uid: $user_uid})" if user_uid else ""
-        mastery_check = (
-            """
-            OPTIONAL MATCH (u)-[m:MASTERED]->(k)
-            WITH path, step, k, m.level as mastery
-        """
-            if user_uid
-            else "WITH path, step, k, null as mastery"
-        )
-
-        cypher_query = f"""
-        MATCH (path:Entity {{uid: $path_uid}})
-        {user_match}
-
-        // Get all steps with knowledge
-        MATCH (path)-[r:HAS_STEP]->(step:Entity {{entity_type: 'path_step'}})
-        MATCH (k:Entity {{uid: step.knowledge_uid}})
-
-        // Get prerequisites using pure Cypher
-        {self._build_prerequisite_query("k", depth)}
-
-        {mastery_check}
-
-        // Calculate step readiness
-        WITH path, step, k, mastery, prereqs,
-             size([p IN prereqs WHERE {("p.uid IN u.mastered_uids" if user_uid else "false")}]) as met_prereqs,
-             size(prereqs) as total_prereqs
-        WITH path, step, k, mastery,
-             CASE WHEN total_prereqs = 0 THEN 1.0
-                  ELSE toFloat(met_prereqs) / total_prereqs
-             END as readiness
-
-        // Get related paths
-        OPTIONAL MATCH (path)-[:SIMILAR_TO]-(related:Entity {{entity_type: 'learning_path'}})
-
-        WITH path, collect({{
-            step: step,
-            knowledge: k,
-            mastery: mastery,
-            readiness: readiness,
-            is_blocking: mastery IS NULL OR mastery < 0.7
-        }}) as steps, collect(DISTINCT related) as related_paths
-
-        RETURN {{
-            path: path,
-            steps: steps,
-            related_paths: related_paths,
-            total_steps: size(steps),
-            completed_steps: size([s IN steps WHERE s.mastery >= 0.8]),
-            blocking_steps: [s IN steps WHERE s.is_blocking | s.step.uid]
-        }} as path_context
-        """
-
-        # Execute query
-        params: dict[str, Any] = {"path_uid": path_uid}
-        if user_uid:
-            params["user_uid"] = user_uid
-
-        # Type narrowing for MyPy (decorator ensures graph_intel is not None)
-        assert self.graph_intel is not None
-        result = await self.graph_intel.execute_query(
-            cypher_query, params, query_intent=QueryIntent.HIERARCHICAL
-        )
+        result = await self.backend.get_path_with_context(path_uid, user_uid, depth)
 
         if result.is_error:
             return result
@@ -1273,7 +909,6 @@ def create_lp_intelligence_service(
     progress_backend: Any | None = None,
     backend: Any | None = None,
     graph_intelligence_service: Any = None,
-    executor: Any = None,  # January 2026: For consolidated adaptive/validation methods
 ) -> LpIntelligenceService:
     """
     Factory function to create LpIntelligenceService instance.
@@ -1283,8 +918,7 @@ def create_lp_intelligence_service(
     Args:
         progress_backend: Progress backend (Universal Backend pattern)
         backend: Learning backend (Universal Backend pattern)
-        graph_intelligence_service: GraphIntelligenceService
-        executor: QueryExecutor (January 2026 - for consolidated methods)
+        graph_intelligence_service: GraphIntelligenceService - for GraphContextOrchestrator
 
     Returns:
         LpIntelligenceService: Configured service instance (facade pattern)
@@ -1293,5 +927,4 @@ def create_lp_intelligence_service(
         progress_backend=progress_backend,
         backend=backend,
         graph_intelligence_service=graph_intelligence_service,
-        executor=executor,
     )

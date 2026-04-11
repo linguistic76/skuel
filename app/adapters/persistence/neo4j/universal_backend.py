@@ -478,10 +478,10 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
 
         cypher_query = build_graph_context_query(node_uid=uid, intent=query_intent, depth=depth)
 
-        # Execute query through GraphIntelligenceService
+        # Execute graph context query
         try:
-            context_result = await self.graph_intel.execute_query(
-                cypher_query, {"uid": uid, "depth": depth}, query_intent=query_intent
+            context_result = await self.execute_query(
+                cypher_query, {"uid": uid, "depth": depth}
             )
 
             if context_result.is_error:
@@ -494,14 +494,14 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
                     )
                 )
 
-            graph_context = context_result.value
+            graph_records = context_result.value or []
 
             self.logger.info(
                 f"Retrieved {self.label} {uid} with graph context: "
-                f"{graph_context.total_nodes} nodes, {graph_context.total_relationships} relationships"
+                f"{len(graph_records)} records"
             )
 
-            return Result.ok((entity, graph_context))
+            return Result.ok((entity, graph_records))
 
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Failed to get graph context: {e}")

@@ -32,11 +32,6 @@ def mock_backend() -> Mock:
 
 
 @pytest.fixture
-def mock_executor() -> Mock:
-    return AsyncMock()
-
-
-@pytest.fixture
 def mock_ps_service() -> Mock:
     return Mock()
 
@@ -49,13 +44,11 @@ def mock_graph_intel() -> Mock:
 @pytest.fixture
 def lp_service(
     mock_backend: Mock,
-    mock_executor: Mock,
     mock_ps_service: Mock,
     mock_graph_intel: Mock,
 ) -> LpService:
     service = LpService(
         backend=mock_backend,
-        executor=mock_executor,
         ps_service=mock_ps_service,
         graph_intelligence_service=mock_graph_intel,
     )

@@ -45,9 +45,9 @@ from core.services.relationships import UnifiedRelationshipService
 if TYPE_CHECKING:
     from core.ports import EventBusOperations, QueryBuilderOperations
     from core.services.lp.lp_core_service import LpCoreService
+    from core.services.lp.lp_intelligence_service import LpIntelligenceService
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
-    from core.services.lp.lp_intelligence_service import LpIntelligenceService
     from core.services.ps.ps_adaptive_service import PsAdaptiveService
     from core.services.ps.ps_application_discovery_service import PsApplicationDiscoveryService
     from core.services.ps.ps_context_service import PsContextService
@@ -342,7 +342,6 @@ class LpSubServices:
 
 def create_lp_sub_services(
     backend: Any,
-    executor: Any,
     ps_service: "PsService",
     graph_intelligence_service: Any,
     event_bus: "EventBusOperations | None" = None,
@@ -358,12 +357,11 @@ def create_lp_sub_services(
     1. LpSearchService (backend)
     2. UnifiedRelationshipService (backend, config, graph_intel)
     3. LpCoreService (backend, ps_service, event_bus)
-    4. LpProgressService (executor, event_bus)
-    5. LpIntelligenceService (backend, graph_intel, progress_backend, event_bus, user_service, executor)
+    4. LpProgressService (backend, event_bus)
+    5. LpIntelligenceService (backend, graph_intel, progress_backend, event_bus, user_service)
 
     Args:
         backend: BackendOperations for LP entities (REQUIRED — created by composition root)
-        executor: QueryExecutor for raw Cypher (REQUIRED — created by composition root)
         ps_service: PsService - REQUIRED for path-step operations
         graph_intelligence_service: GraphIntelligenceService - REQUIRED
         event_bus: Event bus for publishing domain events (optional)
@@ -375,9 +373,9 @@ def create_lp_sub_services(
     """
     # Lazy imports (core-only — no adapter imports)
     from core.services.lp.lp_core_service import LpCoreService
+    from core.services.lp.lp_intelligence_service import LpIntelligenceService
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
-    from core.services.lp.lp_intelligence_service import LpIntelligenceService
 
     # Step 1: Create search (simple, no dependencies)
     search = LpSearchService(backend=backend)
@@ -407,7 +405,6 @@ def create_lp_sub_services(
         progress_backend=progress_backend,
         event_bus=event_bus,
         user_service=user_service,
-        executor=executor,
     )
 
     return LpSubServices(

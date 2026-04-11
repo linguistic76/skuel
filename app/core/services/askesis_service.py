@@ -1070,7 +1070,7 @@ class AskesisService:
             RETURN ku.uid AS uid, collect(prereq.uid) AS prerequisites
             """
 
-            result = await self.graph_intel.execute_query(query, parameters={"ku_uids": ku_uids})
+            result = await self.graph_intel.executor.execute_query(query, {"ku_uids": ku_uids})
 
             if result.is_error or not result.value:
                 return ku_uids

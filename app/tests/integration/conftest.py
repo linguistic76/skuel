@@ -550,7 +550,6 @@ async def services(neo4j_driver):
     # Create LP service (January 2026: intelligence created internally)
     lp_service = LpService(
         backend=lp_backend,
-        executor=query_executor,
         ps_service=ps_service,
         graph_intelligence_service=mock_graph_intel,
     )

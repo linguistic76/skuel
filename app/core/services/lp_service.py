@@ -19,7 +19,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
-from core.ports.query_types import LpRecommendedStep
+from core.ports.query_types import (
+    LpBlockerAnalysis,
+    LpPathRecommendation,
+    LpPrerequisiteValidation,
+    LpRecommendedStep,
+)
 from core.services.filtered_context import build_filtered_context
 from core.services.lp.lp_ai_service import LpAIService
 from core.utils.list_helpers import SortConfig, apply_entity_sort
@@ -106,7 +111,6 @@ class LpService:
     def __init__(
         self,
         backend: Any,
-        executor: Any,
         ps_service: PsService,
         ku_service: PsService | None = None,
         progress_service: Any | None = None,
@@ -120,7 +124,7 @@ class LpService:
         Initialize facade with sub-services via factory.
 
         FAIL-FAST ARCHITECTURE (per CLAUDE.md):
-        The backend, executor, ps_service, and graph_intelligence_service are REQUIRED.
+        The backend, ps_service, and graph_intelligence_service are REQUIRED.
         Services run at full capacity or fail immediately at startup.
 
         **January 2026 - Factory Pattern (Architecture Consistency Review):**
@@ -129,7 +133,6 @@ class LpService:
 
         Args:
             backend: BackendOperations for LP entities (REQUIRED — created by composition root)
-            executor: QueryExecutor for raw Cypher (REQUIRED — created by composition root)
             ps_service: PsService for path step operations - REQUIRED
             ku_service: Optional PsService for prerequisite queries
             progress_service: Optional UserProgressService for progress tracking
@@ -143,12 +146,6 @@ class LpService:
         if not backend:
             raise ValueError(
                 "LpService backend is REQUIRED. "
-                "SKUEL follows fail-fast architecture - all required dependencies "
-                "must be provided at initialization."
-            )
-        if not executor:
-            raise ValueError(
-                "LpService executor is REQUIRED. "
                 "SKUEL follows fail-fast architecture - all required dependencies "
                 "must be provided at initialization."
             )
@@ -170,7 +167,6 @@ class LpService:
 
         subs = create_lp_sub_services(
             backend=backend,
-            executor=executor,
             ps_service=ps_service,
             graph_intelligence_service=graph_intelligence_service,
             event_bus=event_bus,
@@ -272,19 +268,21 @@ class LpService:
     # INTELLIGENCE OPERATIONS - Delegated to LpIntelligenceService
     # ============================================================================
 
-    async def validate_path_prerequisites(self, path_uid: str) -> Result[dict[str, Any]]:
+    async def validate_path_prerequisites(
+        self, path_uid: str
+    ) -> Result[LpPrerequisiteValidation]:
         """Validate prerequisites for a learning path."""
         return await self.intelligence.validate_path_prerequisites(path_uid)
 
     async def identify_path_blockers(
         self, path_uid: str, user_uid: UserUID
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[LpBlockerAnalysis]:
         """Identify blockers in a learning path."""
         return await self.intelligence.identify_path_blockers(path_uid, user_uid)
 
     async def get_optimal_path_recommendation(
         self, user_uid: UserUID, goal_domain: str | None = None
-    ) -> Result[dict[str, Any]]:
+    ) -> Result[LpPathRecommendation]:
         """Get optimal path recommendation."""
         return await self.intelligence.get_optimal_path_recommendation(user_uid, goal_domain)
 
