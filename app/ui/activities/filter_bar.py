@@ -129,3 +129,205 @@ def ActivityFilterBar(
         hx_include="[name]",
         cls="mb-4",
     )
+
+
+# All 6 Activity Domain filter bar configurations.
+# Centralised here so any code that needs to enumerate or look up configs by domain
+# slug can import this dict rather than reaching into individual view files.
+FILTER_CONFIGS: dict[str, FilterBarConfig] = {
+    "tasks": FilterBarConfig(
+        fragment_url="/tasks/list-fragment",
+        list_target_id="task-list",
+        filters=[
+            FilterSelect(
+                name="status",
+                label="Status",
+                options=[
+                    ("Active", "active"),
+                    ("Completed", "completed"),
+                    ("Overdue", "overdue"),
+                    ("All", "all"),
+                ],
+                default="active",
+            ),
+            FilterSelect(
+                name="priority",
+                label="Priority",
+                options=[
+                    ("All", "all"),
+                    ("Critical", "critical"),
+                    ("High", "high"),
+                    ("Medium", "medium"),
+                    ("Low", "low"),
+                ],
+                default="all",
+            ),
+        ],
+        sort_options=[
+            ("Priority", "priority"),
+            ("Due Date", "due_date"),
+            ("Recently Updated", "updated"),
+            ("Title", "title"),
+        ],
+        sort_default="priority",
+    ),
+    "goals": FilterBarConfig(
+        fragment_url="/goals/list-fragment",
+        list_target_id="goal-list",
+        filters=[
+            FilterSelect(
+                name="status",
+                label="Status",
+                options=[
+                    ("Active", "active"),
+                    ("On Track", "on_track"),
+                    ("Wobbly", "wobbly"),
+                    ("Completed", "completed"),
+                    ("All", "all"),
+                ],
+                default="active",
+            ),
+        ],
+        sort_options=[
+            ("Target Date", "target_date"),
+            ("Priority", "priority"),
+            ("Progress", "progress"),
+            ("Title", "title"),
+        ],
+        sort_default="target_date",
+    ),
+    "habits": FilterBarConfig(
+        fragment_url="/habits/list-fragment",
+        list_target_id="habit-list",
+        filters=[
+            FilterSelect(
+                name="status",
+                label="Status",
+                options=[
+                    ("Active", "active"),
+                    ("Paused", "paused"),
+                    ("Completed", "completed"),
+                    ("Keystone", "keystone"),
+                    ("All", "all"),
+                ],
+                default="active",
+            ),
+            FilterSelect(
+                name="category",
+                label="Category",
+                options=[
+                    ("All", "all"),
+                    ("Health", "health"),
+                    ("Fitness", "fitness"),
+                    ("Mindfulness", "mindfulness"),
+                    ("Learning", "learning"),
+                    ("Productivity", "productivity"),
+                    ("Creative", "creative"),
+                    ("Social", "social"),
+                    ("Financial", "financial"),
+                ],
+                default="all",
+            ),
+        ],
+        sort_options=[
+            ("Streak", "streak"),
+            ("Name", "name"),
+            ("Recently Created", "created"),
+        ],
+        sort_default="streak",
+    ),
+    "events": FilterBarConfig(
+        fragment_url="/events/list-fragment",
+        list_target_id="event-list",
+        filters=[
+            FilterSelect(
+                name="status",
+                label="Status",
+                options=[
+                    ("Upcoming", "upcoming"),
+                    ("Today", "today"),
+                    ("Completed", "completed"),
+                    ("All", "all"),
+                ],
+                default="upcoming",
+            ),
+        ],
+        sort_options=[
+            ("Date", "date"),
+            ("Title", "title"),
+            ("Recently Created", "created"),
+        ],
+        sort_default="date",
+    ),
+    "choices": FilterBarConfig(
+        fragment_url="/choices/list-fragment",
+        list_target_id="choice-list",
+        filters=[
+            FilterSelect(
+                name="status",
+                label="Status",
+                options=[
+                    ("Pending", "pending"),
+                    ("Decided", "decided"),
+                    ("All", "all"),
+                ],
+                default="pending",
+            ),
+        ],
+        sort_options=[
+            ("Deadline", "deadline"),
+            ("Priority", "priority"),
+            ("Recently Created", "created"),
+            ("Title", "title"),
+        ],
+        sort_default="deadline",
+    ),
+    "principles": FilterBarConfig(
+        fragment_url="/principles/list-fragment",
+        list_target_id="principle-list",
+        filters=[
+            FilterSelect(
+                name="status",
+                label="Status",
+                options=[("Active", "active"), ("All", "all")],
+                default="active",
+            ),
+            FilterSelect(
+                name="category",
+                label="Category",
+                options=[
+                    ("All", "all"),
+                    ("Spiritual", "spiritual"),
+                    ("Ethical", "ethical"),
+                    ("Relational", "relational"),
+                    ("Personal", "personal"),
+                    ("Professional", "professional"),
+                    ("Intellectual", "intellectual"),
+                    ("Health", "health"),
+                    ("Creative", "creative"),
+                ],
+                default="all",
+            ),
+            FilterSelect(
+                name="strength",
+                label="Strength",
+                options=[
+                    ("All", "all"),
+                    ("Core", "core"),
+                    ("Strong", "strong"),
+                    ("Moderate", "moderate"),
+                    ("Developing", "developing"),
+                    ("Exploring", "exploring"),
+                ],
+                default="all",
+            ),
+        ],
+        sort_options=[
+            ("Strength", "strength"),
+            ("Name", "name"),
+            ("Recently Created", "created"),
+        ],
+        sort_default="strength",
+        columns=4,
+    ),
+}

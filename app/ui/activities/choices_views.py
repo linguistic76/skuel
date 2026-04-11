@@ -4,7 +4,7 @@ Pure FastHTML components for rendering choice data. No service calls —
 routes fetch data and pass it to these components.
 
 Usage:
-    from ui.activities.choices_views import ChoiceList, CHOICE_FILTER_CONFIG, ChoiceStatsBar
+    from ui.activities.choices_views import ChoiceList, ChoiceStatsBar
 """
 
 from typing import TYPE_CHECKING, Any
@@ -20,13 +20,11 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
-from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
-from ui.activities.filter_bar import FilterBarConfig, FilterSelect
+from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
-from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -75,52 +73,12 @@ def ChoiceStatsBar(choices: list["Choice"]) -> "FT":
     return StatsGrid(stats, cols=4)
 
 
-CHOICE_FILTER_CONFIG = FilterBarConfig(
-    fragment_url="/choices/list-fragment",
-    list_target_id="choice-list",
-    filters=[
-        FilterSelect(
-            name="status",
-            label="Status",
-            options=[
-                ("Pending", "pending"),
-                ("Decided", "decided"),
-                ("All", "all"),
-            ],
-            default="pending",
-        ),
-    ],
-    sort_options=[
-        ("Deadline", "deadline"),
-        ("Priority", "priority"),
-        ("Recently Created", "created"),
-        ("Title", "title"),
-    ],
-    sort_default="deadline",
-)
-
-
 def ChoiceList(
     choices: list["Choice"],
     connections_map: dict[str, list[dict[str, str]]] | None = None,
 ) -> "FT":
     """Render a list of choice cards. Returns a replaceable container for HTMX."""
-    if not choices:
-        return Div(
-            EmptyState(
-                title="No choices found",
-                description="Upload YAML files to add choices, or adjust your filters.",
-                action_text="Upload Choices",
-                action_href="/upload",
-            ),
-            id="choice-list",
-        )
-
-    cards = [
-        ChoiceCard(choice, connections_map.get(choice.uid, []) if connections_map else [])
-        for choice in choices
-    ]
-    return Div(*cards, id="choice-list", cls="mt-4 space-y-3")
+    return ActivityList(choices, "choice", ChoiceCard, connections_map)
 
 
 def ChoiceCard(

@@ -4,7 +4,7 @@ Pure FastHTML components for rendering habit data. No service calls —
 routes fetch data and pass it to these components.
 
 Usage:
-    from ui.activities.habits_views import HabitList, HABIT_FILTER_CONFIG, HabitStatsBar
+    from ui.activities.habits_views import HabitList, HabitStatsBar
 """
 
 from typing import TYPE_CHECKING, Any
@@ -19,13 +19,11 @@ from fasthtml.common import (
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from core.utils.activity_stats import compute_habit_stats
-from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
-from ui.activities.filter_bar import FilterBarConfig, FilterSelect
+from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
-from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -58,69 +56,12 @@ def HabitStatsBar(habits: list["Habit"]) -> "FT":
     return StatsGrid(stats, cols=4)
 
 
-HABIT_FILTER_CONFIG = FilterBarConfig(
-    fragment_url="/habits/list-fragment",
-    list_target_id="habit-list",
-    filters=[
-        FilterSelect(
-            name="status",
-            label="Status",
-            options=[
-                ("Active", "active"),
-                ("Paused", "paused"),
-                ("Completed", "completed"),
-                ("Keystone", "keystone"),
-                ("All", "all"),
-            ],
-            default="active",
-        ),
-        FilterSelect(
-            name="category",
-            label="Category",
-            options=[
-                ("All", "all"),
-                ("Health", "health"),
-                ("Fitness", "fitness"),
-                ("Mindfulness", "mindfulness"),
-                ("Learning", "learning"),
-                ("Productivity", "productivity"),
-                ("Creative", "creative"),
-                ("Social", "social"),
-                ("Financial", "financial"),
-            ],
-            default="all",
-        ),
-    ],
-    sort_options=[
-        ("Streak", "streak"),
-        ("Name", "name"),
-        ("Recently Created", "created"),
-    ],
-    sort_default="streak",
-)
-
-
 def HabitList(
     habits: list["Habit"],
     connections_map: dict[str, list[dict[str, str]]] | None = None,
 ) -> "FT":
     """Render a list of habit cards. Returns a replaceable container for HTMX."""
-    if not habits:
-        return Div(
-            EmptyState(
-                title="No habits found",
-                description="Upload YAML files to add habits, or adjust your filters.",
-                action_text="Upload Habits",
-                action_href="/upload",
-            ),
-            id="habit-list",
-        )
-
-    cards = [
-        HabitCard(habit, connections_map.get(habit.uid, []) if connections_map else [])
-        for habit in habits
-    ]
-    return Div(*cards, id="habit-list", cls="mt-4 space-y-3")
+    return ActivityList(habits, "habit", HabitCard, connections_map)
 
 
 def HabitCard(

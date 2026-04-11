@@ -7,7 +7,7 @@ Principles are a gravity well like Goals — they show incoming relationships
 from tasks, habits, choices, and events that embody/express them.
 
 Usage:
-    from ui.activities.principles_views import PrincipleList, PRINCIPLE_FILTER_CONFIG, PrincipleStatsBar
+    from ui.activities.principles_views import PrincipleList, PrincipleStatsBar
 """
 
 from typing import TYPE_CHECKING, Any
@@ -23,14 +23,12 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
-from ui.activities._shared import ConnectionSummary, MetadataField, safe_id
-from ui.activities.filter_bar import FilterBarConfig, FilterSelect
+from ui.activities._shared import ActivityList, ConnectionSummary, MetadataField, safe_id
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.palette import StrengthColor
-from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -90,77 +88,12 @@ def PrincipleStatsBar(principles: list["Principle"]) -> "FT":
     return StatsGrid(stats, cols=4)
 
 
-PRINCIPLE_FILTER_CONFIG = FilterBarConfig(
-    fragment_url="/principles/list-fragment",
-    list_target_id="principle-list",
-    filters=[
-        FilterSelect(
-            name="status",
-            label="Status",
-            options=[("Active", "active"), ("All", "all")],
-            default="active",
-        ),
-        FilterSelect(
-            name="category",
-            label="Category",
-            options=[
-                ("All", "all"),
-                ("Spiritual", "spiritual"),
-                ("Ethical", "ethical"),
-                ("Relational", "relational"),
-                ("Personal", "personal"),
-                ("Professional", "professional"),
-                ("Intellectual", "intellectual"),
-                ("Health", "health"),
-                ("Creative", "creative"),
-            ],
-            default="all",
-        ),
-        FilterSelect(
-            name="strength",
-            label="Strength",
-            options=[
-                ("All", "all"),
-                ("Core", "core"),
-                ("Strong", "strong"),
-                ("Moderate", "moderate"),
-                ("Developing", "developing"),
-                ("Exploring", "exploring"),
-            ],
-            default="all",
-        ),
-    ],
-    sort_options=[
-        ("Strength", "strength"),
-        ("Name", "name"),
-        ("Recently Created", "created"),
-    ],
-    sort_default="strength",
-    columns=4,
-)
-
-
 def PrincipleList(
     principles: list["Principle"],
     connections_map: dict[str, list[dict[str, str]]] | None = None,
 ) -> "FT":
     """Render a list of principle cards. Returns a replaceable container for HTMX."""
-    if not principles:
-        return Div(
-            EmptyState(
-                title="No principles found",
-                description="Upload YAML files to add principles, or adjust your filters.",
-                action_text="Upload Principles",
-                action_href="/upload",
-            ),
-            id="principle-list",
-        )
-
-    cards = [
-        PrincipleCard(principle, connections_map.get(principle.uid, []) if connections_map else [])
-        for principle in principles
-    ]
-    return Div(*cards, id="principle-list", cls="mt-4 space-y-3")
+    return ActivityList(principles, "principle", PrincipleCard, connections_map)
 
 
 def PrincipleCard(

@@ -12,12 +12,8 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from core.utils.connection_fetcher import TASK_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_tasks
-from ui.activities.tasks_views import (
-    TASK_FILTER_CONFIG,
-    TaskDetailView,
-    TaskList,
-    TaskStatsBar,
-)
+from ui.activities.filter_bar import FILTER_CONFIGS
+from ui.activities.tasks_views import TaskDetailView, TaskList, TaskStatsBar
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -41,7 +37,7 @@ def create_tasks_ui_routes(
         backend=tasks_service.core.backend,
         filter_fn=filter_tasks,
         connection_config=TASK_CONNECTION_CONFIG,
-        filter_config=TASK_FILTER_CONFIG,
+        filter_config=FILTER_CONFIGS["tasks"],
         list_component=TaskList,
         stats_component=TaskStatsBar,
         detail_component=TaskDetailView,

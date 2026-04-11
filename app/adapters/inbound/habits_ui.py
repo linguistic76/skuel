@@ -12,12 +12,8 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from core.utils.connection_fetcher import HABIT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_habits
-from ui.activities.habits_views import (
-    HABIT_FILTER_CONFIG,
-    HabitDetailView,
-    HabitList,
-    HabitStatsBar,
-)
+from ui.activities.filter_bar import FILTER_CONFIGS
+from ui.activities.habits_views import HabitDetailView, HabitList, HabitStatsBar
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -40,7 +36,7 @@ def create_habits_ui_routes(
         backend=habits_service.core.backend,
         filter_fn=filter_habits,
         connection_config=HABIT_CONNECTION_CONFIG,
-        filter_config=HABIT_FILTER_CONFIG,
+        filter_config=FILTER_CONFIGS["habits"],
         list_component=HabitList,
         stats_component=HabitStatsBar,
         detail_component=HabitDetailView,

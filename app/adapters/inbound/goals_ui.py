@@ -12,12 +12,8 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from core.utils.connection_fetcher import GOAL_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_goals
-from ui.activities.goals_views import (
-    GOAL_FILTER_CONFIG,
-    GoalDetailView,
-    GoalList,
-    GoalStatsBar,
-)
+from ui.activities.filter_bar import FILTER_CONFIGS
+from ui.activities.goals_views import GoalDetailView, GoalList, GoalStatsBar
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -40,7 +36,7 @@ def create_goals_ui_routes(
         backend=goals_service.core.backend,
         filter_fn=filter_goals,
         connection_config=GOAL_CONNECTION_CONFIG,
-        filter_config=GOAL_FILTER_CONFIG,
+        filter_config=FILTER_CONFIGS["goals"],
         list_component=GoalList,
         stats_component=GoalStatsBar,
         detail_component=GoalDetailView,

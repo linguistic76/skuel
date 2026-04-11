@@ -4,7 +4,7 @@ Pure FastHTML components for rendering task data. No service calls —
 routes fetch data and pass it to these components.
 
 Usage:
-    from ui.activities.tasks_views import TaskList, TASK_FILTER_CONFIG, TaskStatsBar
+    from ui.activities.tasks_views import TaskList, TaskStatsBar
 """
 
 from typing import TYPE_CHECKING, Any
@@ -19,13 +19,11 @@ from fasthtml.common import (
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from core.utils.activity_stats import compute_task_stats
-from ui.activities._shared import ConnectionBadges, MetadataField, safe_id
-from ui.activities.filter_bar import FilterBarConfig, FilterSelect
+from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
-from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -56,65 +54,12 @@ def TaskStatsBar(tasks: list["Task"]) -> "FT":
     return StatsGrid(stats, cols=4)
 
 
-TASK_FILTER_CONFIG = FilterBarConfig(
-    fragment_url="/tasks/list-fragment",
-    list_target_id="task-list",
-    filters=[
-        FilterSelect(
-            name="status",
-            label="Status",
-            options=[
-                ("Active", "active"),
-                ("Completed", "completed"),
-                ("Overdue", "overdue"),
-                ("All", "all"),
-            ],
-            default="active",
-        ),
-        FilterSelect(
-            name="priority",
-            label="Priority",
-            options=[
-                ("All", "all"),
-                ("Critical", "critical"),
-                ("High", "high"),
-                ("Medium", "medium"),
-                ("Low", "low"),
-            ],
-            default="all",
-        ),
-    ],
-    sort_options=[
-        ("Priority", "priority"),
-        ("Due Date", "due_date"),
-        ("Recently Updated", "updated"),
-        ("Title", "title"),
-    ],
-    sort_default="priority",
-)
-
-
 def TaskList(
     tasks: list["Task"],
     connections_map: dict[str, list[dict[str, str]]] | None = None,
 ) -> "FT":
     """Render a list of task cards. Returns a replaceable container for HTMX."""
-    if not tasks:
-        return Div(
-            EmptyState(
-                title="No tasks found",
-                description="Upload YAML files to add tasks, or adjust your filters.",
-                action_text="Upload Tasks",
-                action_href="/upload",
-            ),
-            id="task-list",
-        )
-
-    cards = [
-        TaskCard(task, connections_map.get(task.uid, []) if connections_map else [])
-        for task in tasks
-    ]
-    return Div(*cards, id="task-list", cls="mt-4 space-y-3")
+    return ActivityList(tasks, "task", TaskCard, connections_map)
 
 
 def TaskCard(

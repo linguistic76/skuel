@@ -7,10 +7,12 @@ Usage:
     from ui.activities._shared import safe_id, PRIORITY_ORDER, ConnectionBadges, ConnectionSummary
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from fasthtml.common import A, Div, Small, Span
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
+
+from ui.patterns.empty_state import EmptyState
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -102,3 +104,39 @@ def ConnectionSummary(connections: list[dict[str, str]]) -> "FT":
         )
 
     return Div(*parts, cls="mt-2")
+
+
+def ActivityList(
+    items: list,
+    domain: str,
+    card_fn: Callable,
+    connections_map: dict[str, list[dict[str, str]]] | None = None,
+) -> "FT":
+    """Generic list renderer for any Activity Domain.
+
+    Eliminates the near-identical {Domain}List functions across the 6 view files.
+    Each domain's {Domain}List becomes a one-liner delegating here.
+
+    Args:
+        items: Domain entities to render.
+        domain: Singular domain slug (e.g. "task", "goal"). Used for the list
+            container id and EmptyState copy.
+        card_fn: Domain card component (e.g. TaskCard).
+        connections_map: Cross-domain connection data keyed by entity UID.
+    """
+    list_id = f"{domain}-list"
+    if not items:
+        return Div(
+            EmptyState(
+                title=f"No {domain}s found",
+                description=f"Upload YAML files to add {domain}s, or adjust your filters.",
+                action_text=f"Upload {domain.title()}s",
+                action_href="/upload",
+            ),
+            id=list_id,
+        )
+    cards = [
+        card_fn(item, connections_map.get(item.uid, []) if connections_map else [])
+        for item in items
+    ]
+    return Div(*cards, id=list_id, cls="mt-4 space-y-3")

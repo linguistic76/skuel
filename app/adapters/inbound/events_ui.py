@@ -12,12 +12,8 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from core.utils.connection_fetcher import EVENT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_events
-from ui.activities.events_views import (
-    EVENT_FILTER_CONFIG,
-    EventDetailView,
-    EventList,
-    EventStatsBar,
-)
+from ui.activities.filter_bar import FILTER_CONFIGS
+from ui.activities.events_views import EventDetailView, EventList, EventStatsBar
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -40,7 +36,7 @@ def create_events_ui_routes(
         backend=events_service.core.backend,
         filter_fn=filter_events,
         connection_config=EVENT_CONNECTION_CONFIG,
-        filter_config=EVENT_FILTER_CONFIG,
+        filter_config=FILTER_CONFIGS["events"],
         list_component=EventList,
         stats_component=EventStatsBar,
         detail_component=EventDetailView,

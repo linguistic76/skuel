@@ -4,7 +4,7 @@ Pure FastHTML components for rendering goal data. No service calls —
 routes fetch data and pass it to these components.
 
 Usage:
-    from ui.activities.goals_views import GoalList, GOAL_FILTER_CONFIG, GoalStatsBar
+    from ui.activities.goals_views import GoalList, GoalStatsBar
 """
 
 from typing import TYPE_CHECKING, Any
@@ -21,10 +21,8 @@ from fasthtml.common import (
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
 
 from core.utils.activity_stats import compute_goal_stats
-from ui.activities._shared import ConnectionSummary, MetadataField, safe_id
-from ui.activities.filter_bar import FilterBarConfig, FilterSelect
+from ui.activities._shared import ActivityList, ConnectionSummary, MetadataField, safe_id
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
-from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -65,54 +63,12 @@ def GoalStatsBar(goals: list["Goal"]) -> "FT":
     return StatsGrid(stats, cols=5)
 
 
-GOAL_FILTER_CONFIG = FilterBarConfig(
-    fragment_url="/goals/list-fragment",
-    list_target_id="goal-list",
-    filters=[
-        FilterSelect(
-            name="status",
-            label="Status",
-            options=[
-                ("Active", "active"),
-                ("On Track", "on_track"),
-                ("Wobbly", "wobbly"),
-                ("Completed", "completed"),
-                ("All", "all"),
-            ],
-            default="active",
-        ),
-    ],
-    sort_options=[
-        ("Target Date", "target_date"),
-        ("Priority", "priority"),
-        ("Progress", "progress"),
-        ("Title", "title"),
-    ],
-    sort_default="target_date",
-)
-
-
 def GoalList(
     goals: list["Goal"],
     connections_map: dict[str, list[dict[str, str]]] | None = None,
 ) -> "FT":
     """Render a list of goal cards. Returns a replaceable container for HTMX."""
-    if not goals:
-        return Div(
-            EmptyState(
-                title="No goals found",
-                description="Upload YAML files to add goals, or adjust your filters.",
-                action_text="Upload Goals",
-                action_href="/upload",
-            ),
-            id="goal-list",
-        )
-
-    cards = [
-        GoalCard(goal, connections_map.get(goal.uid, []) if connections_map else [])
-        for goal in goals
-    ]
-    return Div(*cards, id="goal-list", cls="mt-4 space-y-3")
+    return ActivityList(goals, "goal", GoalCard, connections_map)
 
 
 def GoalCard(
