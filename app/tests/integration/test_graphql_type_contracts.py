@@ -27,6 +27,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from adapters.persistence.neo4j.domain_backends import LpBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity
 from core.models.entity_dto import EntityDTO
@@ -231,7 +232,7 @@ async def lp_service(neo4j_driver):
     ps_backend = UniversalNeo4jBackend[PathStepModel](
         neo4j_driver, NeoLabel.PATH_STEP, PathStepModel, base_label=NeoLabel.ENTITY
     )
-    lp_backend = UniversalNeo4jBackend[LearningPath](
+    lp_backend = LpBackend(
         neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
     )
 

@@ -489,10 +489,13 @@ async def services(neo4j_driver):
     raw_ps_backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, Entity, base_label=NeoLabel.ENTITY)
     ps_backend = TestBackendWrapper(raw_ps_backend, Entity)
 
-    raw_lp_backend = UniversalNeo4jBackend[Entity](
-        neo4j_driver, NeoLabel.LEARNING_PATH, Entity, base_label=NeoLabel.ENTITY
+    from adapters.persistence.neo4j.domain_backends import LpBackend
+    from core.models.pathways.learning_path import LearningPath
+
+    raw_lp_backend = LpBackend(
+        neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
     )
-    lp_backend = TestBackendWrapper(raw_lp_backend, Entity)
+    lp_backend = TestBackendWrapper(raw_lp_backend, LearningPath)
 
     from adapters.persistence.neo4j.domain_backends import PrinciplesBackend
 

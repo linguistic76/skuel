@@ -16,6 +16,7 @@ from __future__ import annotations
 # Allowed property names for ORDER BY clauses (prevents Cypher injection)
 _ALLOWED_ORDER_BY = frozenset(
     {
+        "uid",
         "created_at",
         "updated_at",
         "title",

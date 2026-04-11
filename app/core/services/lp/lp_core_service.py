@@ -18,9 +18,8 @@ Part of LpService decomposition (October 24, 2025)
 
 **Architecture (January 2026 Unified):**
 - Extends BaseService[BackendOperations[Lp], Lp] for unified infrastructure
-- Uses specialized Cypher queries for path-step relationships
+- All Cypher queries delegated to LpBackend methods
 - Class attributes match unified domain conventions
-- Accesses database via self.backend.execute_query for graph-native operations
 """
 
 from __future__ import annotations
@@ -30,7 +29,6 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import MasteryLevel
 from core.events import publish_event
-from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.enums import Domain
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
@@ -60,8 +58,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
     **Architecture (January 2026 Unified):**
     Extends BaseService[BackendOperations[Lp], Lp] for unified infrastructure.
-    Uses specialized Cypher queries for path-step relationships via
-    self.backend.execute_query (no wrapper backend needed).
+    All Cypher queries delegated to typed LpBackend methods.
 
     This service owns:
     - Path creation and persistence to Neo4j
@@ -142,33 +139,6 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
                 if step_dict.get("uid"):
                     steps.append(from_neo4j_node(step_dict, PathStep))
         return steps
-
-    def _build_prerequisite_query(self, knowledge_var: str = "k", depth: int = 3) -> str:
-        """
-        Build pure Cypher prerequisite subquery using semantic relationships.
-
-        PHASE 5 MIGRATION: Uses pure Cypher for prerequisite traversal.
-
-        Args:
-            knowledge_var: Variable name for knowledge node in query
-            depth: Maximum prerequisite depth
-
-        Returns:
-            Cypher subquery fragment for prerequisite discovery
-        """
-        prerequisite_types = [
-            SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-            SemanticRelationshipType.REQUIRES_PRACTICAL_APPLICATION,
-            SemanticRelationshipType.REQUIRES_CONCEPTUAL_FOUNDATION,
-            SemanticRelationshipType.BUILDS_ON_FOUNDATION,
-        ]
-
-        rel_pattern = "|".join([st.to_neo4j_name() for st in prerequisite_types])
-
-        return f"""
-        OPTIONAL MATCH ({knowledge_var})<-[:{rel_pattern}*1..{depth}]-(prereq:Entity)
-        WITH {knowledge_var}, collect(DISTINCT prereq) as prereqs
-        """
 
     @with_error_handling(
         "create_path_from_knowledge_units", error_type="database", uid_param="user_uid"
@@ -284,17 +254,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if not uids:
             return Result.ok([])
 
-        query_result = await self.backend.execute_query(
-            """
-            MATCH (p:Entity)
-            WHERE p.uid IN $uids
-            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'path_step'})
-            WITH p, collect({step: s, sequence: r.sequence}) as steps_data
-            ORDER BY p.uid
-            RETURN p, steps_data
-            """,
-            {"uids": uids},
-        )
+        query_result = await self.backend.get_paths_batch_with_steps(uids)  # type: ignore[attr-defined]
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -313,15 +273,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
     @with_error_handling("get_learning_path", error_type="database", uid_param="path_uid")
     async def get_learning_path(self, path_uid: str) -> Result[LearningPath | None]:
         """Get a single learning path by UID (returns None if not found)."""
-        query_result = await self.backend.execute_query(
-            """
-            MATCH (p:Entity {uid: $uid})
-            OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'path_step'})
-            WITH p, collect({step: s, sequence: r.sequence}) as steps_data
-            RETURN p, steps_data
-            """,
-            {"uid": path_uid},
-        )
+        query_result = await self.backend.get_path_with_steps(path_uid)  # type: ignore[attr-defined]
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -374,77 +326,8 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         """
         # Note: depth and min_confidence are accepted for API compatibility
         # but this implementation uses a fixed specialized query
-        path_uid = uid  # Alias for backward compatibility in query
-        query_result = await self.backend.execute_query(
-            """
-            MATCH (lp:Entity {uid: $uid})
-
-            // 1. Steps (with sequence and progress)
-            OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:Entity {entity_type: 'path_step'})
-            WITH lp, collect({
-                uid: step.uid,
-                title: step.title,
-                intent: step.intent,
-                sequence: coalesce(r_step.sequence, step.sequence),
-                status: step.status,
-                current_mastery: step.current_mastery,
-                estimated_hours: step.estimated_hours
-            }) as steps_data
-
-            // 2. Prerequisite knowledge
-            OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(prereq_ku:Entity)
-            WHERE prereq_ku.entity_type IS NULL OR prereq_ku.entity_type = 'ku'
-            WITH lp, steps_data, collect({
-                uid: prereq_ku.uid,
-                title: prereq_ku.title,
-                domain: prereq_ku.domain
-            }) as prerequisite_knowledge
-
-            // 3. Aligned goals (motivational integration)
-            OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(goal:Goal)
-            WITH lp, steps_data, prerequisite_knowledge, collect({
-                uid: goal.uid,
-                title: goal.title,
-                status: goal.status,
-                progress_percentage: goal.progress_percentage
-            }) as aligned_goals
-
-            // 4. Embodied principles (value alignment)
-            OPTIONAL MATCH (lp)-[:EMBODIES_PRINCIPLE]->(principle:Principle)
-            WITH lp, steps_data, prerequisite_knowledge, aligned_goals, collect({
-                uid: principle.uid,
-                title: principle.title,
-                principle_type: principle.principle_type
-            }) as embodied_principles
-
-            // 5. Milestone events (curriculum calendar)
-            OPTIONAL MATCH (lp)-[:HAS_MILESTONE_EVENT]->(event:Event)
-            WITH lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles, collect({
-                uid: event.uid,
-                title: event.title,
-                event_date: event.event_date,
-                status: event.status
-            }) as milestone_events
-
-            // 6. Enrolled users (community tracking)
-            OPTIONAL MATCH (user:User)-[:ENROLLED_IN|HAS_PATH]->(lp)
-            WITH lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles,
-                 milestone_events, collect({
-                uid: user.uid,
-                username: user.username
-            }) as enrolled_users
-
-            // 7. Step statistics (using status instead of completed boolean)
-            WITH lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles,
-                 milestone_events, enrolled_users,
-                 size([s IN steps_data WHERE s.status = 'completed']) as completed_steps,
-                 size(steps_data) as total_steps
-
-            RETURN lp, steps_data, prerequisite_knowledge, aligned_goals, embodied_principles,
-                   milestone_events, enrolled_users, completed_steps, total_steps
-            """,
-            {"uid": path_uid},
-        )
+        path_uid = uid  # Alias for backward compatibility
+        query_result = await self.backend.get_path_with_graph_context(path_uid)  # type: ignore[attr-defined]
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -537,21 +420,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[LearningPath]]:
         """List all learning paths for a specific user."""
-        query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_PATH]->(p:Entity {entity_type: 'learning_path'})
-        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'path_step'})
-        WITH p, collect({step: s, sequence: r.sequence}) as steps_data
-        ORDER BY p.uid DESC
-        """
-        if limit:
-            query += " LIMIT $limit"
-        query += " RETURN p, steps_data"
-
-        params: dict[str, Any] = {"user_uid": user_uid}
-        if limit:
-            params["limit"] = limit
-
-        query_result = await self.backend.execute_query(query, params)
+        query_result = await self.backend.list_user_paths_with_steps(user_uid, limit)  # type: ignore[attr-defined]
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -581,27 +450,9 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             order_by: Field to sort by (e.g., 'uid', 'created_at', 'title')
             order_desc: Sort in descending order if True
         """
-        # Build dynamic ORDER BY clause
-        order_field = f"p.{order_by}" if order_by else "p.uid"
-        order_direction = "DESC" if order_desc else "ASC"
-
-        query = f"""
-        MATCH (p:Entity {{entity_type: 'learning_path'}})
-        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{entity_type: 'path_step'}})
-        WITH p, collect({{step: s, sequence: r.sequence}}) as steps_data
-        ORDER BY {order_field} {order_direction}
-        """
-        if offset > 0:
-            query += " SKIP $offset"
-        if limit:
-            query += " LIMIT $limit"
-        query += " RETURN p, steps_data"
-
-        params: dict[str, Any] = {"offset": offset}
-        if limit:
-            params["limit"] = limit
-
-        query_result = await self.backend.execute_query(query, params)
+        query_result = await self.backend.list_all_paths_with_steps(  # type: ignore[attr-defined]
+            limit=limit, offset=offset, order_by=order_by, order_desc=order_desc
+        )
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -707,15 +558,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         set_clauses.append("p.updated_at = $updated_at")
         params["updated_at"] = datetime.now().isoformat()
 
-        query = f"""
-        MATCH (p:Entity {{uid: $uid}})
-        SET {", ".join(set_clauses)}
-        OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{entity_type: 'path_step'}})
-        WITH p, collect(s) as steps
-        RETURN p, steps
-        """
-
-        query_result = await self.backend.execute_query(query, params)
+        query_result = await self.backend.update_path_properties(set_clauses, params)  # type: ignore[attr-defined]
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -757,15 +600,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if not get_result.value:
             return Result.fail(Errors.not_found(resource="learning_path", identifier=path_uid))
 
-        query_result = await self.backend.execute_query(
-            """
-            MATCH (p:Entity {uid: $uid})
-            OPTIONAL MATCH (p)-[:HAS_STEP]->(s:Entity {entity_type: 'path_step'})
-            DETACH DELETE p, s
-            RETURN count(p) as deleted_count
-            """,
-            {"uid": path_uid},
-        )
+        query_result = await self.backend.delete_path_cascade(path_uid)  # type: ignore[attr-defined]
 
         if query_result.is_error:
             return Result.fail(query_result)
@@ -852,9 +687,7 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
             return Result.fail(Errors.not_found(f"Learning path not found: {path_uid}"))
 
         # Validate step exists
-        step_check = await self.backend.execute_query(
-            "MATCH (ps:Entity {uid: $step_uid}) RETURN ps", {"step_uid": step_uid}
-        )
+        step_check = await self.backend.entity_exists(step_uid)  # type: ignore[attr-defined]
         if step_check.is_error:
             return Result.fail(step_check)
         if not step_check.value:
@@ -881,90 +714,42 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         self, path: LearningPath, steps: list[PathStep], user_uid: UserUID
     ) -> Result[bool]:
         """Persist a learning path to Neo4j graph."""
-        # Create path node with all fields
-        path_result = await self.backend.execute_query(
-            """
-            MERGE (u:User {uid: $user_uid})
-            CREATE (p:Entity {
-                uid: $uid,
-                entity_type: 'learning_path',
-                title: $title,
-                description: $description,
-                domain: $domain,
-                path_type: $path_type,
-                step_difficulty: $step_difficulty,
-                created_by: $created_by,
-                estimated_hours: $estimated_hours,
-                outcomes: $outcomes,
-                checkpoint_week_intervals: $checkpoint_week_intervals,
-                created_at: datetime(),
-                updated_at: datetime()
-            })
-            CREATE (u)-[:HAS_PATH]->(p)
-            """,
+        path_params = {
+            "uid": path.uid,
+            "title": path.title,
+            "description": path.description,
+            "domain": get_enum_value(path.domain),
+            "path_type": get_enum_value(path.path_type),
+            "step_difficulty": get_enum_value(getattr(path, "step_difficulty", None)),
+            "created_by": path.created_by,
+            "estimated_hours": path.estimated_hours,
+            "outcomes": list(path.outcomes),
+            "checkpoint_week_intervals": list(path.checkpoint_week_intervals),
+        }
+
+        steps_params = [
             {
-                "user_uid": user_uid,
-                "uid": path.uid,
-                "title": path.title,
-                "description": path.description,
-                "domain": get_enum_value(path.domain),
-                "path_type": get_enum_value(path.path_type),
-                "step_difficulty": get_enum_value(getattr(path, "step_difficulty", None)),
-                "created_by": path.created_by,
-                "estimated_hours": path.estimated_hours,
-                "outcomes": list(path.outcomes),
-                "checkpoint_week_intervals": list(path.checkpoint_week_intervals),
-            },
-        )
+                "path_uid": path.uid,
+                "uid": step.uid,
+                "title": step.title,
+                "intent": step.intent,
+                "description": step.description,
+                "learning_path_uid": step.learning_path_uid,
+                "sequence": step.sequence,
+                "mastery_threshold": step.mastery_threshold,
+                "current_mastery": step.current_mastery,
+                "estimated_hours": step.estimated_hours,
+                "step_difficulty": get_enum_value(step.step_difficulty),
+                "status": get_enum_value(step.status),
+                "domain": get_enum_value(step.domain),
+                "priority": get_enum_value(step.priority),
+            }
+            for step in steps
+        ]
 
-        if path_result.is_error:
-            return Result.fail(path_result)
-
-        # Create step nodes and relationships
-        for _i, step in enumerate(steps):
-            step_result = await self.backend.execute_query(
-                """
-                MATCH (p:Entity {uid: $path_uid})
-                CREATE (s:Entity {
-                    uid: $uid,
-                    entity_type: 'path_step',
-                    title: $title,
-                    intent: $intent,
-                    description: $description,
-                    learning_path_uid: $learning_path_uid,
-                    sequence: $sequence,
-                    mastery_threshold: $mastery_threshold,
-                    current_mastery: $current_mastery,
-                    estimated_hours: $estimated_hours,
-                    step_difficulty: $step_difficulty,
-                    status: $status,
-                    domain: $domain,
-                    priority: $priority,
-                    created_at: datetime(),
-                    updated_at: datetime()
-                })
-                CREATE (p)-[:HAS_STEP {sequence: $sequence}]->(s)
-                """,
-                {
-                    "path_uid": path.uid,
-                    "uid": step.uid,
-                    "title": step.title,
-                    "intent": step.intent,
-                    "description": step.description,
-                    "learning_path_uid": step.learning_path_uid,
-                    "sequence": step.sequence,
-                    "mastery_threshold": step.mastery_threshold,
-                    "current_mastery": step.current_mastery,
-                    "estimated_hours": step.estimated_hours,
-                    "step_difficulty": get_enum_value(step.step_difficulty),
-                    "status": get_enum_value(step.status),
-                    "domain": get_enum_value(step.domain),
-                    "priority": get_enum_value(step.priority),
-                },
-            )
-
-            if step_result.is_error:
-                return Result.fail(step_result)
+        result = await self.backend.persist_path_with_steps(user_uid, path_params, steps_params)  # type: ignore[attr-defined]
+        if result.is_error:
+            return Result.fail(result)
 
         logger.debug(f"✅ Persisted path {path.uid} with {len(steps)} steps")
         return Result.ok(True)

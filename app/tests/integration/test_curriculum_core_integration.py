@@ -20,6 +20,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from adapters.persistence.neo4j.domain_backends import LpBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
 # Domain models - use domain-specific types
@@ -45,9 +46,9 @@ def ku_backend(neo4j_driver) -> UniversalNeo4jBackend[Curriculum]:
 
 
 @pytest.fixture
-def lp_backend(neo4j_driver) -> UniversalNeo4jBackend[LearningPath]:
+def lp_backend(neo4j_driver) -> LpBackend:
     """Create LP backend with real Neo4j."""
-    return UniversalNeo4jBackend[LearningPath](
+    return LpBackend(
         neo4j_driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY
     )
 
