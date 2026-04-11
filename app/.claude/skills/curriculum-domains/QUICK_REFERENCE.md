@@ -27,9 +27,9 @@
 | Domain | Backend | Key Methods |
 |--------|---------|-------------|
 | Lesson | `LessonBackend` (59 methods, 5 mixins) | Organizes, learning state, semantic, knowledge context, adaptive |
-| KU | `KuBackend` | ORGANIZES graph, usage summary, namespace/alias search (13 methods) |
-| PS | `PsBackend` | CONTAINS_KNOWLEDGE CRUD, lesson progress tracking |
-| LP | `LpBackend` (23 methods) | Path CRUD, HAS_STEP management, intelligence queries, graph context, mastery progress |
+| KU | `KuBackend` (23 methods, protocol: `KuOperations`) | ORGANIZES graph, usage summary, namespace/alias search, substance, prereqs, learning state |
+| PS | `PsBackend` (71+ methods, 5 mixins, protocol: `PsOperations`) | CONTAINS_KNOWLEDGE CRUD, learning state, semantic, knowledge context, adaptive + 4 search queries |
+| LP | `LpBackend` (28 methods, 3 mixins, protocol: `LpOperations`) | Path CRUD, HAS_STEP management, intelligence queries, graph context, mastery progress, search queries |
 | Exercise | `ExerciseBackend` | Curriculum links, OWNS/FOR_GROUP, student queries (6 methods) |
 
 All in `adapters/persistence/neo4j/domain_backends.py`. Services call typed backend methods — no inline Cypher in service layer.

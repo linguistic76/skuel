@@ -100,7 +100,7 @@ async def get_steps(self, path_uid, depth=1):
 
 ## Pattern: LP Intelligence Delegation (Backend-Delegated)
 
-Intelligence Cypher queries live on `LpBackend` (7 methods). `LpIntelligenceService` delegates, then transforms raw records into typed results.
+Intelligence Cypher queries live on `LpBackend` via `_LpIntelligenceMixin` (8 methods). `LpIntelligenceService` delegates, then transforms raw records into typed results. Search queries live on `_LpProgressMixin` (4 methods including `get_paths_aligned_with_goal`, `get_paths_by_knowledge`, `get_user_paths_prioritized`, `get_paths_containing_step`). `LpSearchService` is typed as `BaseService["LpOperations", LearningPath]` to access these.
 
 **Critical:** `execute_query` returns `Result[list[dict]]` — a list of Neo4j records. Always extract records from the list before accessing keys:
 

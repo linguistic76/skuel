@@ -399,14 +399,16 @@ Each Curriculum Domain follows the **decomposed facade pattern** with complexity
 
 Curriculum Domains use domain backend subclasses where relationship-specific Cypher is needed (March 2026):
 
-| Domain | Backend | Domain-specific methods |
-|--------|---------|------------------------|
-| KU | `KuBackend` (extends `UniversalNeo4jBackend[Ku]`) | 7 ORGANIZES methods: `is_organizer`, `organize`, `unorganize`, `reorder`, `get_organized_children`, `find_organizers`, `list_root_organizers` |
-| PS | `PsBackend` (extends `UniversalNeo4jBackend[PathStep]`) | `get_steps_containing_lesson`, `get_lesson_completion_progress` |
-| LP | `LpBackend` (extends `UniversalNeo4jBackend[LearningPath]`) | `get_paths_containing_ku`, `get_ku_mastery_progress` |
-| Exercise | `ExerciseBackend` (extends `UniversalNeo4jBackend[Exercise]`) | `link_to_curriculum`, `unlink_from_curriculum`, `get_required_knowledge` |
+| Domain | Backend | Domain-specific methods | Architecture |
+|--------|---------|------------------------|--------------|
+| KU | `KuBackend` (extends `UniversalNeo4jBackend[Ku]`) | 23 methods: ORGANIZES, namespace/alias search, substance, relationships, prereqs, learning state | Flat (appropriate for atomic domain) |
+| PS | `PsBackend` (extends `UniversalNeo4jBackend[PathStep]`) | 71+ methods via 5 mixins: organizes, learning state, semantic, knowledge context, adaptive + 4 search queries | 5 domain-specific mixins |
+| LP | `LpBackend` (extends `UniversalNeo4jBackend[LearningPath]`) | 28 methods via 3 mixins: step CRUD (14), progress + search (6), intelligence + adaptive (8) | 3 domain-specific mixins |
+| Exercise | `ExerciseBackend` (extends `UniversalNeo4jBackend[Exercise]`) | `link_to_curriculum`, `unlink_from_curriculum`, `get_required_knowledge` | Flat |
 
 All domain backends in: `/adapters/persistence/neo4j/domain_backends.py`
+LP mixins in: `_lp_step_mixin.py`, `_lp_progress_mixin.py`, `_lp_intelligence_mixin.py`
+PS mixins in: `_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`
 
 **See:** CLAUDE.md § "100% Dynamic Backend Pattern"
 
@@ -415,7 +417,7 @@ All domain backends in: `/adapters/persistence/neo4j/domain_backends.py`
 PS and LP search services inherit from `BaseService`, providing unified search infrastructure automatically:
 
 ```python
-class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
+class PsSearchService(BaseService["PsOperations", PathStep]):
     _config = create_curriculum_domain_config(
         dto_class=PathStepDTO,
         model_class=PathStep,

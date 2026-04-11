@@ -57,7 +57,7 @@ All search services extend `BaseService[Backend, Model]` using **DomainConfig** 
 
 ```python
 # Curriculum domain example (shared content, admin creates, all users read)
-class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
+class PsSearchService(BaseService["PsOperations", PathStep]):
     _config = create_curriculum_domain_config(
         dto_class=PathStepDTO,
         model_class=PathStep,

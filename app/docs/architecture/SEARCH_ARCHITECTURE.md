@@ -431,7 +431,7 @@ request = SearchRequest(
 All search services extend `BaseService[Backend, Model]` with `DomainConfig`. Activity domains use `create_activity_domain_config()`; curriculum domains use `create_curriculum_domain_config()`.
 
 ```python
-class PsSearchService(BaseService["BackendOperations[PathStep]", PathStep]):
+class PsSearchService(BaseService["PsOperations", PathStep]):
     _config = create_curriculum_domain_config(
         dto_class=PathStepDTO,
         model_class=PathStep,

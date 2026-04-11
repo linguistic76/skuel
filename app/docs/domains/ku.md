@@ -50,7 +50,7 @@ KuService coordinates 9 sub-services (4 common + 5 domain-specific):
 | `.search_service` | KuSearchService | Search and discovery |
 | `.relationships` | UnifiedRelationshipService | Prerequisite associations |
 | `.intelligence` | KuIntelligenceService | Knowledge suggestions, cross-domain |
-| `.backend` | KuBackend | Graph queries, learning state (Studying + Understood), mastery (Ku-native) |
+| `.backend` | KuBackend | Graph queries, learning state (Studying + Understood), mastery (Ku-native). Contract: `KuOperations` protocol (23 methods, April 2026) |
 
 **Initialization:** Via `create_curriculum_sub_services()` factory.
 **graph_intel:** REQUIRED (fail-fast validation)

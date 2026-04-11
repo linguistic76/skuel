@@ -63,7 +63,10 @@ This means:
 ## Architecture Overview
 
 ```
+*Operations protocol        <- Contract (KuOperations, PsOperations, LpOperations)
+        |
 UniversalNeo4jBackend[T]     <- ONE instance per domain (no wrappers)
+  + domain mixins            <- PsBackend (5 mixins), LpBackend (3 mixins), KuBackend (flat)
         |
         v
     {Domain}Service          <- Facade with explicit delegation methods
@@ -71,6 +74,10 @@ UniversalNeo4jBackend[T]     <- ONE instance per domain (no wrappers)
         v
     Sub-services             <- core, search, intelligence, mastery, etc.
 ```
+
+**Backend mixin decomposition:** PsBackend (71+ methods, 5 mixins), LpBackend (28 methods, 3 mixins: `_LpStepMixin`, `_LpProgressMixin`, `_LpIntelligenceMixin`), KuBackend (23 methods, flat — appropriate for atomic domain).
+
+**Search service type narrowing (April 2026):** `PsSearchService` and `LpSearchService` are typed with domain-specific protocols (`PsOperations`, `LpOperations`) instead of generic `BackendOperations[T]`, giving them access to domain-specific backend methods.
 
 ## Service Sub-packages
 

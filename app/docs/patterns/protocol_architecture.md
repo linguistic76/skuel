@@ -82,7 +82,7 @@ core/ports/
 ├── calendar_protocol.py               # CalendarTrackable entity protocol
 ├── content_protocols.py               # Content/media protocols
 ├── context_awareness_protocols.py     # UserContext slices (11 protocols)
-├── curriculum_protocols.py            # KU, PS, LP operations (4 protocols)
+├── curriculum_protocols.py            # KU, PS, LP operations (5 protocols: CurriculumOperations, PsOperations, LpOperations, KuOperations, ExerciseOperations)
 ├── domain_protocols.py                # Activity domain operations (9 protocols)
 ├── email_protocols.py                 # Email service protocol
 ├── form_protocols.py                  # Form backend + route protocols (4 protocols)
@@ -104,7 +104,7 @@ core/ports/
 |----------|------|---------|-------|
 | **Type Checking** | `core/protocols.py` | Attribute checking (replaces hasattr) | 30+ |
 | **Domain Operations** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 9 |
-| **Curriculum** | `curriculum_protocols.py` | KU, PS, LP operations (unified hierarchy) | 4 |
+| **Curriculum** | `curriculum_protocols.py` | KU, PS, LP operations (unified hierarchy) | 5 |
 | **Search** | `search_protocols.py` | Search and query operations | 8 |
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, User (3 ISP + 1 composed), Ingestion | 9 |
 | **Intelligence** | `intelligence_protocols.py` | Knowledge (shared) + Domain (per-service) + Composed | 3 |

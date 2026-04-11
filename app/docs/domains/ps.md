@@ -66,7 +66,7 @@ await ps_service.intelligence.is_ready(step_uid, completed_steps)
 | Core Service | `/core/services/ps/ps_core_service.py` |
 | Search Service | `/core/services/ps/ps_search_service.py` |
 | Intelligence Service | `/core/services/ps/ps_intelligence_service.py` |
-| Backend | `PsBackend` in `/adapters/persistence/neo4j/domain_backends.py` |
+| Backend | `PsBackend` in `/adapters/persistence/neo4j/domain_backends.py` (71+ methods via 5 mixins + 4 search queries) |
 | Model | `/core/models/pathways/path_step.py` |
 | DTO | `/core/models/pathways/path_step_dto.py` |
 | Relationship Config | `PS_CONFIG` in `/core/models/relationship_registry.py` |

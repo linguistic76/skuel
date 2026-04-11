@@ -77,17 +77,16 @@ class LpCoreService(BaseService["BackendOperations[Lp]", Lp]):
     _user_ownership_relationship = None  # Shared curriculum content
     ...
 
-class LpSearchService(BaseService["BackendOperations[Lp]", Lp]):
-    _dto_class = LpDTO
-    _model_class = Lp
-    _search_fields = ["title", "description"]
-    _user_ownership_relationship = None  # Shared content
+class LpSearchService(BaseService["LpOperations", Lp]):
+    _config = create_curriculum_domain_config(...)
+    # Type-narrowed to LpOperations (April 2026) — gives access to
+    # domain-specific backend methods like get_paths_aligned_with_goal()
     ...
 ```
 
 ## Backend Methods (LpBackend)
 
-All Cypher queries are encapsulated in `LpBackend` (`adapters/persistence/neo4j/domain_backends.py`). LpCoreService calls typed backend methods — no inline Cypher.
+All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3 focused mixins — `_LpStepMixin`, `_LpProgressMixin`, `_LpIntelligenceMixin`). LpCoreService and LpSearchService call typed backend methods — no inline Cypher in services.
 
 | Method | Purpose |
 |--------|---------|
@@ -107,6 +106,10 @@ All Cypher queries are encapsulated in `LpBackend` (`adapters/persistence/neo4j/
 | `reorder_steps(path_uid, step_uids)` | Batch step reordering |
 | `get_paths_containing_ku(ku_uid)` | LPs that include a KU |
 | `get_ku_mastery_progress(lp_uid, user_uid)` | KU completion state for LP |
+| `get_paths_aligned_with_goal(goal_uid)` | LPs aligned with a goal |
+| `get_paths_by_knowledge(ku_uid)` | LPs containing a KU |
+| `get_user_paths_prioritized(user_uid, context)` | User's LPs ranked by priority |
+| `get_paths_containing_step(ps_uid)` | LPs containing a specific step |
 | `validate_path_prerequisites(path_uid)` | Prerequisite ordering validation |
 | `identify_path_blockers(path_uid, user_uid)` | Find blockers for a user |
 | `get_optimal_path_recommendations(user_uid, goal_domain)` | Best path recommendations |
@@ -125,6 +128,9 @@ All Cypher queries are encapsulated in `LpBackend` (`adapters/persistence/neo4j/
 | Intelligence Service | `/core/services/lp/lp_intelligence_service.py` |
 | Progress Service | `/core/services/lp/lp_progress_service.py` |
 | Domain Backend | `/adapters/persistence/neo4j/domain_backends.py` (`LpBackend`) |
+| Step Mixin | `/adapters/persistence/neo4j/_lp_step_mixin.py` (14 methods) |
+| Progress Mixin | `/adapters/persistence/neo4j/_lp_progress_mixin.py` (6 methods) |
+| Intelligence Mixin | `/adapters/persistence/neo4j/_lp_intelligence_mixin.py` (8 methods) |
 | Model | `/core/models/lp/lp.py` |
 | DTO | `/core/models/lp/lp_dto.py` |
 | Relationship Config | `LP_CONFIG` in `/core/models/relationship_registry.py` |

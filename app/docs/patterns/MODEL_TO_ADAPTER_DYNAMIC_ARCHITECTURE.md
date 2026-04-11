@@ -9,7 +9,7 @@ related_docs:
 
 # Model-to-Adapter Dynamic Architecture
 **Date:** October 3, 2025 (Updated: March 26, 2026)
-**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8, 11). `execute_query()` standardization complete (Phase 9). LessonBackend decomposed into 5 mixins (Phase 10). Fail-fast dependency philosophy enforced across all services.
+**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8, 11-12). `execute_query()` standardization complete (Phase 9). LessonBackend decomposed into 5 mixins (Phase 10). LpBackend decomposed into 3 mixins (Phase 12). Fail-fast dependency philosophy enforced across all services.
 
 ## Executive Summary
 
@@ -39,6 +39,9 @@ adapters/persistence/neo4j/
     _semantic_mixin.py            # _SemanticMixin — semantic relationships + graph analysis (11 methods)
     _knowledge_context_mixin.py   # _KnowledgeContextMixin — context, discovery, readiness (13 methods)
     _adaptive_mixin.py            # _AdaptiveMixin — practice, search, adaptive mastery (10 methods)
+    _lp_step_mixin.py             # _LpStepMixin — LP step management CRUD + path CRUD (14 methods)
+    _lp_progress_mixin.py         # _LpProgressMixin — KU mastery progress + search queries (6 methods)
+    _lp_intelligence_mixin.py     # _LpIntelligenceMixin — intelligence + adaptive learning (8 methods)
     domain_backends.py            # 19 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
                                   #   ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, PsBackend,
                                   #   LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend,
@@ -186,6 +189,36 @@ Migrated 4 inline Cypher queries from `ContextRetriever` (which bypassed the bac
 **ContextRetriever** now delegates to `ku_backend` and `lesson_backend` (injected via `AskesisDeps`). `_build_user_learning_context_query()` deleted. `@requires_graph_intelligence` decorator removed from methods that no longer use `graph_intel`.
 
 **Remaining inline Cypher** in `_life_path_mixin.py` (7 queries) and `planning_mixin.py` (2 queries) is correctly placed — executes through `self.backend.execute_query()` and is entity-agnostic/config-driven.
+
+### April 11, 2026 Update: LP + PS Search Service Cypher Migration + LpBackend Mixin Decomposition + KuOperations Protocol (Phase 12)
+
+Three changes completing curriculum domain infrastructure parity:
+
+**1. PS + LP Search Service Cypher Migration (8 queries → 0 `execute_query` calls in services):**
+
+| Service File | Queries Migrated | Backend |
+|---|---|---|
+| `ps_search_service.py` | 4 | PsBackend: `get_steps_for_learning_path`, `get_standalone_steps`, `get_steps_using_ku`, `get_prioritized_steps` |
+| `lp_search_service.py` | 3 | LpBackend: `get_paths_aligned_with_goal`, `get_paths_by_knowledge`, `get_user_paths_prioritized` |
+| `lp_progress_service.py` | 1 | LpBackend: `get_paths_containing_step` |
+
+**Service type narrowing:** `PsSearchService` now typed as `BaseService["PsOperations", PathStep]` (was `BackendOperations[PathStep]`). `LpSearchService` → `LpOperations`. This gives search services access to domain-specific backend methods via the protocol.
+
+**2. LpBackend Mixin Decomposition (28 methods → 3 focused mixins):**
+
+| Mixin | Methods | Responsibility |
+|-------|---------|----------------|
+| `_LpStepMixin` | 14 | Step management CRUD + path CRUD |
+| `_LpProgressMixin` | 6 | KU mastery progress + search queries |
+| `_LpIntelligenceMixin` | 8 | Intelligence + adaptive learning |
+
+Follows the same pattern as PsBackend's 5-mixin decomposition. LpBackend is now ~20 lines inheriting from all 3 mixins.
+
+**3. KuOperations Protocol Created:**
+
+`KuOperations(BackendOperations["Ku"], Protocol)` in `curriculum_protocols.py` — 23 method signatures organized into 6 sections (reverse traversal, namespace/alias search, substance metrics, relationship queries, prerequisite/dependency queries, learning state). Exported via `core/ports/__init__.py`.
+
+**Protocols updated:** `PsOperations` gained 4 search method signatures. `LpOperations` gained 4 search method signatures (including `get_paths_containing_step`).
 
 ### March 26, 2026 Update: LessonBackend Mixin Decomposition (Phase 10)
 

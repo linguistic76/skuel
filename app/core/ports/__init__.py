@@ -22,7 +22,7 @@ Protocol Categories
 -------------------
 - Backend protocols: BackendOperations + 7 sub-protocols (ISP-compliant)
 - Domain protocols: TasksOperations, GoalsOperations, etc. (inherit from BackendOperations)
-- Curriculum protocols: CurriculumOperations + PsOperations, LpOperations (Nov 2025)
+- Curriculum protocols: CurriculumOperations + PsOperations, LpOperations, KuOperations (Nov 2025, Apr 2026)
 - Search protocols: DomainSearchOperations, TasksSearchOperations, etc.
 - Infrastructure protocols: EventBusOperations, SchemaOperations, etc.
 
@@ -147,6 +147,7 @@ from .context_awareness_protocols import (
 
 # Curriculum operation protocols (November 2025 - consistent hierarchy)
 # Three curriculum domains: KU (point), PS (edge), LP (path)
+# All three have dedicated operations protocols: KuOperations, PsOperations, LpOperations (April 2026)
 # NOTE: MOC is KU-based (January 2026) - no separate MocOperations protocol
 from .curriculum_protocols import (
     CurriculumOperations,
