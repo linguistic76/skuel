@@ -12,7 +12,7 @@ Key Design Decisions:
 - Supports both "incremental" and "smart" ingestion modes
 
 Usage:
-    tracker = IngestionTracker(executor)
+    tracker = IngestionTracker(backend)
 
     # Check which files need ingestion
     result = await tracker.get_ingestion_metadata(file_paths)
@@ -34,7 +34,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.ingestion_protocols import IngestionBackendOperations
 
 logger = get_logger("skuel.services.ingestion.ingestion_tracker")
 
@@ -68,14 +68,14 @@ class IngestionTracker:
     Used by ingest_directory() to skip unchanged files.
     """
 
-    def __init__(self, executor: "QueryExecutor") -> None:
+    def __init__(self, backend: "IngestionBackendOperations") -> None:
         """
         Initialize ingestion tracker.
 
         Args:
-            executor: Query executor for database operations
+            backend: Typed backend for ingestion persistence
         """
-        self.executor = executor
+        self.backend = backend
         self.logger = logger
 
     async def ensure_constraints(self) -> Result[None]:
@@ -84,11 +84,7 @@ class IngestionTracker:
 
         Creates unique constraint on file_path for fast lookups.
         """
-        query = """
-        CREATE CONSTRAINT ingestion_metadata_file_path IF NOT EXISTS
-        FOR (s:IngestionMetadata) REQUIRE s.file_path IS UNIQUE
-        """
-        result = await self.executor.execute_query(query)
+        result = await self.backend.ensure_tracker_constraints()
         if result.is_error:
             self.logger.error(
                 "Failed to create IngestionMetadata constraint",
@@ -116,19 +112,7 @@ class IngestionTracker:
 
         path_strings = [str(fp) for fp in file_paths]
 
-        query = """
-        UNWIND $paths AS path
-        MATCH (s:IngestionMetadata {file_path: path})
-        RETURN s.file_path AS file_path,
-               s.content_hash AS content_hash,
-               s.file_mtime AS file_mtime,
-               s.last_ingested_at AS last_ingested_at,
-               s.entity_uid AS entity_uid
-        """
-
-        result_map: dict[str, FileIngestionMetadata] = {}
-
-        result = await self.executor.execute_query(query, {"paths": path_strings})
+        result = await self.backend.get_ingestion_metadata(path_strings)
 
         if result.is_error:
             self.logger.error(
@@ -140,6 +124,7 @@ class IngestionTracker:
             )
             return Result.fail(str(result.error))
 
+        result_map: dict[str, FileIngestionMetadata] = {}
         for record in result.value:
             # Handle datetime - Neo4j returns neo4j.time.DateTime
             last_ingested = record["last_ingested_at"]
@@ -176,14 +161,6 @@ class IngestionTracker:
             entity_uid: UID of the entity created/updated
             content_hash: SHA-256 hash of file content
         """
-        query = """
-        MERGE (s:IngestionMetadata {file_path: $file_path})
-        SET s.content_hash = $content_hash,
-            s.file_mtime = $file_mtime,
-            s.last_ingested_at = datetime(),
-            s.entity_uid = $entity_uid
-        """
-
         try:
             file_mtime = file_path.stat().st_mtime
         except OSError as e:
@@ -197,14 +174,13 @@ class IngestionTracker:
             )
             return Result.fail(str(e))
 
-        result = await self.executor.execute_query(
-            query,
+        result = await self.backend.update_ingestion_metadata(
             {
                 "file_path": str(file_path),
                 "content_hash": content_hash,
                 "file_mtime": file_mtime,
                 "entity_uid": entity_uid,
-            },
+            }
         )
 
         if result.is_error:
@@ -238,16 +214,6 @@ class IngestionTracker:
         if not updates:
             return Result.ok(0)
 
-        query = """
-        UNWIND $items AS item
-        MERGE (s:IngestionMetadata {file_path: item.file_path})
-        SET s.content_hash = item.content_hash,
-            s.file_mtime = item.file_mtime,
-            s.last_ingested_at = datetime(),
-            s.entity_uid = item.entity_uid
-        RETURN count(s) AS updated
-        """
-
         items = []
         for file_path, entity_uid, content_hash in updates:
             try:
@@ -267,7 +233,7 @@ class IngestionTracker:
         if not items:
             return Result.ok(0)
 
-        result = await self.executor.execute_query(query, {"items": items})
+        result = await self.backend.update_ingestion_metadata_batch(items)
 
         if result.is_error:
             self.logger.error(
@@ -298,14 +264,7 @@ class IngestionTracker:
         if not file_paths:
             return Result.ok(0)
 
-        query = """
-        UNWIND $paths AS path
-        MATCH (s:IngestionMetadata {file_path: path})
-        DETACH DELETE s
-        RETURN count(*) AS deleted
-        """
-
-        result = await self.executor.execute_query(query, {"paths": [str(fp) for fp in file_paths]})
+        result = await self.backend.delete_ingestion_metadata([str(fp) for fp in file_paths])
 
         if result.is_error:
             self.logger.error(

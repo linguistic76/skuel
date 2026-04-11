@@ -1,0 +1,39 @@
+"""
+Vector Search Protocols
+========================
+
+Protocols for the VectorSearchBackend — Neo4j vector index queries
+and full-text search for semantic similarity.
+
+Implementation: adapters/persistence/neo4j/vector_search_backend.py
+Consumer: Neo4jVectorSearchService
+"""
+
+from __future__ import annotations
+
+from typing import Any, Protocol, runtime_checkable
+
+from core.utils.result_simplified import Result
+
+
+@runtime_checkable
+class VectorSearchBackendOperations(Protocol):
+    """Backend operations for vector search persistence."""
+
+    async def query_vector_index(
+        self, index_name: str, limit: int, embedding: list[float], min_score: float
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_node_embedding(self, label: str, uid: str) -> Result[list[dict[str, Any]]]: ...
+
+    async def query_fulltext_index(
+        self, index_name: str, query_text: str, limit: int
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_semantic_relationships(
+        self, entity_uid: str, context_uids: list[str]
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_learning_states_batch(
+        self, user_uid: str, ku_uids: list[str]
+    ) -> Result[list[dict[str, Any]]]: ...

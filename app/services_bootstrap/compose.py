@@ -344,6 +344,10 @@ async def compose_services(
         cross_domain_backend = CrossDomainBackend(query_executor)
         logger.info("✅ CrossDomainBackend created")
 
+        # Wire cross-domain backend to UserService (post-construction — UserService created first)
+        user_service.wire_cross_domain_backend(cross_domain_backend)
+        logger.info("✅ UserService wired with CrossDomainBackend (stats aggregation)")
+
         # Create graph intelligence (needed by tasks service)
         from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
@@ -450,11 +454,14 @@ async def compose_services(
         # Create UnifiedIngestionService (ADR-014: Merged MD + YAML ingestion)
         # January 2026 - Automatic Chunking: Pass chunking service for RAG-ready ingestion
         # January 2026 - GenAI Integration: Pass embeddings service for automatic embedding generation
+        from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
         from core.services.ingestion import UnifiedIngestionService
+
+        ingestion_backend = IngestionBackend(executor=query_executor)
 
         unified_ingestion = UnifiedIngestionService(
             driver=driver,
-            executor=query_executor,
+            ingestion_backend=ingestion_backend,
             embeddings_service=None,  # Optional - will be created later in learning_services
             chunking_service=chunking_service,  # Automatic chunk generation for KU entities
         )
@@ -545,7 +552,6 @@ async def compose_services(
                 embedding_worker = EmbeddingBackgroundWorker(
                     event_bus=event_bus,
                     embeddings_service=embeddings_service,
-                    executor=query_executor,
                     config=config,
                     prometheus_metrics=prometheus_metrics,  # Real-time metrics exposure
                     batch_size=25,  # Process 25 entities per batch (cost-optimized)
@@ -1163,7 +1169,7 @@ async def compose_services(
         )
         logger.info("✅ Library Orchestrator created")
 
-        admin_stats_service = AdminStatsService(query_executor=query_executor)
+        admin_stats_service = AdminStatsService(backend=cross_domain_backend)
 
         from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 

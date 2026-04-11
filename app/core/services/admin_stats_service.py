@@ -25,44 +25,27 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.cross_domain_protocols import CrossDomainBackendOperations
 
 logger = get_logger("skuel.services.admin_stats")
 
 
 class AdminStatsService:
-    """Cross-domain admin statistics backed by aggregation Cypher queries.
+    """Cross-domain admin statistics backed by typed backend methods.
 
-    Injected with a QueryExecutor (not a typed backend) because these queries
+    Uses the CrossDomainBackend (shared with CrossDomainAnalyticsService,
+    CrossDomainQueryService, and GraphIntelligenceService) because these queries
     span User, Task, Goal, Habit, Event, Choice, Principle, Entity, Session,
     and AuthEvent nodes — no single domain backend covers them all.
     """
 
-    def __init__(self, query_executor: "QueryExecutor") -> None:
-        self.query_executor = query_executor
+    def __init__(self, backend: "CrossDomainBackendOperations") -> None:
+        self.backend = backend
         self.logger = logger
 
     async def get_entity_system_metrics(self) -> Result[dict[str, int]]:
         """Get system-wide learning metrics: entity totals and interaction counts."""
-        result = await self.query_executor.execute_query(
-            """
-            OPTIONAL MATCH (ku:Entity)
-            WITH count(DISTINCT ku) AS total_kus
-            OPTIONAL MATCH (:User)-[v:VIEWED]->(:Entity)
-            WITH total_kus, count(v) AS total_viewed
-            OPTIONAL MATCH (:User)-[:IN_PROGRESS]->(:Entity)
-            WITH total_kus, total_viewed, count(*) AS total_in_progress
-            OPTIONAL MATCH (:User)-[:MASTERED]->(:Entity)
-            WITH total_kus, total_viewed, total_in_progress, count(*) AS total_mastered
-            OPTIONAL MATCH (:User)-[:BOOKMARKED]->(:Entity)
-            WITH total_kus, total_viewed, total_in_progress, total_mastered,
-                 count(*) AS total_bookmarked
-            OPTIONAL MATCH (u:User)
-                WHERE EXISTS { (u)-[:VIEWED|IN_PROGRESS|MASTERED|BOOKMARKED]->(:Entity) }
-            RETURN total_kus, total_viewed, total_in_progress, total_mastered,
-                   total_bookmarked, count(DISTINCT u) AS users_with_progress
-            """
-        )
+        result = await self.backend.get_entity_system_metrics()
 
         if result.is_error:
             return Result.fail(result)
@@ -86,31 +69,7 @@ class AdminStatsService:
 
     async def get_all_users_progress(self) -> Result[list[dict[str, Any]]]:
         """Get per-user KU progress summary (for admin learning dashboard table)."""
-        result = await self.query_executor.execute_query(
-            """
-            MATCH (u:User)
-            WHERE u.uid <> 'user_system'
-            OPTIONAL MATCH (u)-[:VIEWED]->(ku1:Entity)
-            WITH u, count(DISTINCT ku1) AS viewed_count
-            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(ku2:Entity)
-            WITH u, viewed_count, count(DISTINCT ku2) AS in_progress_count
-            OPTIONAL MATCH (u)-[:MASTERED]->(ku3:Entity)
-            WITH u, viewed_count, in_progress_count, count(DISTINCT ku3) AS mastered_count
-            OPTIONAL MATCH (u)-[:BOOKMARKED]->(ku4:Entity)
-            WITH u, viewed_count, in_progress_count, mastered_count,
-                 count(DISTINCT ku4) AS bookmarked_count
-            RETURN u.uid AS uid,
-                   u.display_name AS display_name,
-                   u.title AS username,
-                   u.role AS role,
-                   viewed_count,
-                   in_progress_count,
-                   mastered_count,
-                   bookmarked_count,
-                   (viewed_count + in_progress_count + mastered_count) AS total_interactions
-            ORDER BY total_interactions DESC
-            """
-        )
+        result = await self.backend.get_all_users_progress()
 
         if result.is_error:
             return Result.fail(result)
@@ -118,43 +77,7 @@ class AdminStatsService:
 
     async def get_user_ku_detail(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """Get detailed KU progress (viewed/in-progress/mastered/bookmarked) for one user."""
-        result = await self.query_executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})
-
-            OPTIONAL MATCH (u)-[v:VIEWED]->(vku:Entity)
-            WITH u, collect(DISTINCT {
-                uid: vku.uid, title: vku.title,
-                view_count: v.view_count,
-                first_viewed_at: toString(v.first_viewed_at),
-                last_viewed_at: toString(v.last_viewed_at)
-            }) AS viewed_kus
-
-            OPTIONAL MATCH (u)-[p:IN_PROGRESS]->(pku:Entity)
-            WITH u, viewed_kus, collect(DISTINCT {
-                uid: pku.uid, title: pku.title,
-                started_at: toString(p.started_at),
-                progress_score: p.progress_score
-            }) AS progress_kus
-
-            OPTIONAL MATCH (u)-[m:MASTERED]->(mku:Entity)
-            WITH u, viewed_kus, progress_kus, collect(DISTINCT {
-                uid: mku.uid, title: mku.title,
-                mastered_at: toString(m.mastered_at),
-                mastery_score: m.mastery_score,
-                method: m.method
-            }) AS mastered_kus
-
-            OPTIONAL MATCH (u)-[b:BOOKMARKED]->(bku:Entity)
-            WITH viewed_kus, progress_kus, mastered_kus, collect(DISTINCT {
-                uid: bku.uid, title: bku.title,
-                bookmarked_at: toString(b.bookmarked_at)
-            }) AS bookmarked_kus
-
-            RETURN viewed_kus, progress_kus, mastered_kus, bookmarked_kus
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_user_ku_detail(user_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -194,22 +117,7 @@ class AdminStatsService:
 
     async def get_user_submissions_detail(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
         """Get exercise submissions owned by a user, with linked exercise and report count."""
-        result = await self.query_executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[:OWNS]->(sub:Entity {entity_type: 'exercise_submission'})
-            OPTIONAL MATCH (sub)-[:FULFILLS_EXERCISE]->(ex:Entity)
-            OPTIONAL MATCH (report:Entity {entity_type: 'exercise_report'})-[:REPORT_FOR]->(sub)
-            RETURN sub.uid AS submission_uid,
-                   sub.title AS title,
-                   sub.status AS status,
-                   toString(sub.created_at) AS submitted_at,
-                   ex.uid AS exercise_uid,
-                   ex.title AS exercise_title,
-                   count(report) AS report_count
-            ORDER BY sub.created_at DESC
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_user_submissions_detail(user_uid)
         if result.is_error:
             return Result.fail(result)
         return Result.ok([dict(r) for r in (result.value or [])])
@@ -219,74 +127,7 @@ class AdminStatsService:
 
         Covers all 6 activity domains + knowledge interactions + sessions/logins.
         """
-        result = await self.query_executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})
-
-            OPTIONAL MATCH (u)-[:OWNS]->(t:Task)
-            WITH u, count(DISTINCT t) AS tasks_total
-            OPTIONAL MATCH (u)-[:OWNS]->(tc:Task)
-                WHERE tc.status IN ['completed', 'done']
-            WITH u, tasks_total, count(DISTINCT tc) AS tasks_completed
-
-            OPTIONAL MATCH (u)-[:OWNS]->(g:Goal)
-            WITH u, tasks_total, tasks_completed, count(DISTINCT g) AS goals_total
-            OPTIONAL MATCH (u)-[:OWNS]->(ga:Goal)
-                WHERE ga.status IN ['active', 'in_progress']
-            With u, tasks_total, tasks_completed, goals_total,
-                 count(DISTINCT ga) AS goals_active
-
-            OPTIONAL MATCH (u)-[:OWNS]->(h:Habit)
-            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
-                 count(DISTINCT h) AS habits_total
-            OPTIONAL MATCH (u)-[:OWNS]->(ha:Habit)
-                WHERE ha.status IN ['active', 'in_progress']
-            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
-                 habits_total, count(DISTINCT ha) AS habits_active
-
-            OPTIONAL MATCH (u)-[:OWNS]->(e:Event)
-            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
-                 habits_total, habits_active, count(DISTINCT e) AS events_total
-
-            OPTIONAL MATCH (u)-[:OWNS]->(c:Choice)
-            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
-                 habits_total, habits_active, events_total,
-                 count(DISTINCT c) AS choices_total
-
-            OPTIONAL MATCH (u)-[:OWNS]->(p:Principle)
-            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
-                 habits_total, habits_active, events_total, choices_total,
-                 count(DISTINCT p) AS principles_total
-
-            OPTIONAL MATCH (u)-[:VIEWED]->(kv:Entity)
-            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
-                 habits_total, habits_active, events_total, choices_total,
-                 principles_total, count(DISTINCT kv) AS ku_viewed
-            OPTIONAL MATCH (u)-[:IN_PROGRESS]->(kp:Entity)
-            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
-                 habits_total, habits_active, events_total, choices_total,
-                 principles_total, ku_viewed,
-                 count(DISTINCT kp) AS ku_in_progress
-            OPTIONAL MATCH (u)-[:MASTERED]->(km:Entity)
-            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
-                 habits_total, habits_active, events_total, choices_total,
-                 principles_total, ku_viewed, ku_in_progress,
-                 count(DISTINCT km) AS ku_mastered
-
-            OPTIONAL MATCH (u)-[:HAS_SESSION]->(s:Session)
-            WITH u, tasks_total, tasks_completed, goals_total, goals_active,
-                 habits_total, habits_active, events_total, choices_total,
-                 principles_total, ku_viewed, ku_in_progress, ku_mastered,
-                 count(DISTINCT s) AS session_count
-            OPTIONAL MATCH (u)-[:HAD_AUTH_EVENT]->(ae:AuthEvent)
-                WHERE ae.event_type = 'LOGIN_SUCCESS'
-            RETURN tasks_total, tasks_completed, goals_total, goals_active,
-                   habits_total, habits_active, events_total, choices_total,
-                   principles_total, ku_viewed, ku_in_progress, ku_mastered,
-                   session_count, count(DISTINCT ae) AS login_count
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_user_detail_stats(user_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -321,16 +162,7 @@ class AdminStatsService:
 
         Single Cypher COUNT query — replaces fetching full entity lists just to count them.
         """
-        result = await self.query_executor.execute_query(
-            """
-            OPTIONAL MATCH (t:Task)
-            WITH count(t) AS tasks_created
-            OPTIONAL MATCH (h:Habit)
-            WITH tasks_created, count(h) AS habits_active
-            OPTIONAL MATCH (g:Goal)
-            RETURN tasks_created, habits_active, count(g) AS goals_active
-            """
-        )
+        result = await self.backend.get_activity_entity_counts()
 
         if result.is_error:
             return Result.fail(result)
@@ -354,13 +186,7 @@ class AdminStatsService:
 
         Single Cypher GROUP BY query — replaces fetching all users just to count roles.
         """
-        result = await self.query_executor.execute_query(
-            """
-            MATCH (u:User)
-            WHERE u.uid <> 'user_system'
-            RETURN u.role AS role, count(u) AS cnt
-            """
-        )
+        result = await self.backend.get_user_role_counts()
 
         if result.is_error:
             return Result.fail(result)
@@ -411,33 +237,7 @@ class AdminStatsService:
 
         where_str = " AND ".join(where_clauses)
 
-        result = await self.query_executor.execute_query(
-            f"""
-            MATCH (u:User)
-            WHERE {where_str}
-
-            OPTIONAL MATCH (u)-[:OWNS]->(t:Task)
-            WITH u, count(DISTINCT t) AS task_count
-            OPTIONAL MATCH (u)-[:OWNS]->(g:Goal)
-            With u, task_count, count(DISTINCT g) AS goal_count
-            OPTIONAL MATCH (u)-[:OWNS]->(h:Habit)
-            WITH u, task_count, goal_count, count(DISTINCT h) AS habit_count
-            OPTIONAL MATCH (u)-[:MASTERED]->(km:Entity)
-            WITH u, task_count, goal_count, habit_count,
-                 count(DISTINCT km) AS ku_mastered
-
-            RETURN u.uid AS uid,
-                   u.title AS username,
-                   u.display_name AS display_name,
-                   u.email AS email,
-                   u.role AS role,
-                   u.is_active AS is_active,
-                   u.updated_at AS last_login_at,
-                   task_count, goal_count, habit_count, ku_mastered
-            ORDER BY u.title
-            """,
-            params,
-        )
+        result = await self.backend.get_users_with_activity_counts(where_str, params)
 
         if result.is_error:
             return Result.fail(result)

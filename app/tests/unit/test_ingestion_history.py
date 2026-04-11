@@ -13,7 +13,7 @@ Test Categories:
 6. Graph Model Verification
 7. Pagination and Counting
 
-Uses mock Neo4j driver to test service logic without database dependency.
+Uses mock backend to test service logic without database dependency.
 """
 
 from __future__ import annotations
@@ -27,16 +27,22 @@ from core.services.ingestion.ingestion_history import IngestionHistoryEntry, Ing
 from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
-# TEST FIXTURES - Mock Neo4j Driver
+# TEST FIXTURES - Mock Backend
 # ============================================================================
 
 
 @pytest.fixture
-def mock_neo4j_driver():
-    """Mock query executor for testing."""
-    executor = Mock()
-    executor.execute_query = AsyncMock(return_value=Result.ok([]))
-    return executor
+def mock_backend():
+    """Mock ingestion backend for testing."""
+    backend = Mock()
+    backend.ensure_history_constraints = AsyncMock(return_value=Result.ok([]))
+    backend.create_history_entry = AsyncMock(return_value=Result.ok([]))
+    backend.update_history_entry = AsyncMock(return_value=Result.ok([]))
+    backend.create_error_nodes = AsyncMock(return_value=Result.ok([]))
+    backend.get_history = AsyncMock(return_value=Result.ok([]))
+    backend.get_history_entry = AsyncMock(return_value=Result.ok([]))
+    backend.get_history_count = AsyncMock(return_value=Result.ok([]))
+    return backend
 
 
 @pytest.fixture
@@ -61,9 +67,9 @@ def mock_ingestion_history_data():
 
 
 @pytest.fixture
-def ingestion_history_service(mock_neo4j_driver):
-    """Create ingestion history service with mocked executor."""
-    return IngestionHistoryService(mock_neo4j_driver)
+def ingestion_history_service(mock_backend):
+    """Create ingestion history service with mocked backend."""
+    return IngestionHistoryService(mock_backend)
 
 
 # ============================================================================
@@ -72,18 +78,10 @@ def ingestion_history_service(mock_neo4j_driver):
 
 
 @pytest.mark.asyncio
-async def test_ensure_constraints(ingestion_history_service, mock_neo4j_driver):
-    """Test that ensure_constraints creates unique constraint."""
+async def test_ensure_constraints(ingestion_history_service, mock_backend):
+    """Test that ensure_constraints delegates to backend."""
     await ingestion_history_service.ensure_constraints()
-
-    # Verify constraint query was executed
-    mock_neo4j_driver.execute_query.assert_called_once()
-    call_args = mock_neo4j_driver.execute_query.call_args
-    query = call_args[0][0]
-
-    assert "CREATE CONSTRAINT" in query
-    assert "IngestionHistory" in query
-    assert "operation_id" in query
+    mock_backend.ensure_history_constraints.assert_called_once()
 
 
 # ============================================================================
@@ -92,11 +90,8 @@ async def test_ensure_constraints(ingestion_history_service, mock_neo4j_driver):
 
 
 @pytest.mark.asyncio
-async def test_create_entry_success(ingestion_history_service, mock_neo4j_driver):
+async def test_create_entry_success(ingestion_history_service, mock_backend):
     """Test successful creation of ingestion history entry."""
-    # Mock successful query execution - service only checks is_error, returns its own operation_id
-    mock_neo4j_driver.execute_query.return_value = Result.ok([])
-
     result = await ingestion_history_service.create_entry(
         operation_type="directory",
         user_uid="user_admin",
@@ -108,23 +103,18 @@ async def test_create_entry_success(ingestion_history_service, mock_neo4j_driver
     assert isinstance(operation_id, str)
     assert len(operation_id) > 0
 
-    # Verify query was executed with correct parameters
-    call_args = mock_neo4j_driver.execute_query.call_args
-    query = call_args[0][0]
-    params = call_args[0][1]
-
-    assert "CREATE" in query
-    assert ":IngestionHistory" in query
-    assert params["operation_type"] == "directory"
-    assert params["user_uid"] == "user_admin"
-    assert params["source_path"] == "/vault/docs"
+    # Verify backend was called with correct parameters
+    mock_backend.create_history_entry.assert_called_once()
+    call_args = mock_backend.create_history_entry.call_args[0][0]
+    assert call_args["operation_type"] == "directory"
+    assert call_args["user_uid"] == "user_admin"
+    assert call_args["source_path"] == "/vault/docs"
 
 
 @pytest.mark.asyncio
-async def test_create_entry_database_error(ingestion_history_service, mock_neo4j_driver):
+async def test_create_entry_database_error(ingestion_history_service, mock_backend):
     """Test create_entry handles database errors."""
-    # Mock database error via Result.fail
-    mock_neo4j_driver.execute_query.return_value = Result.fail(
+    mock_backend.create_history_entry.return_value = Result.fail(
         Errors.database("execute_query", "Database connection failed")
     )
 
@@ -140,19 +130,14 @@ async def test_create_entry_database_error(ingestion_history_service, mock_neo4j
 
 
 @pytest.mark.asyncio
-async def test_create_entry_generates_uuid(ingestion_history_service, mock_neo4j_driver):
+async def test_create_entry_generates_uuid(ingestion_history_service, mock_backend):
     """Test that create_entry generates unique operation IDs."""
-    mock_neo4j_driver.execute_query.return_value = Result.ok([])
-
     # Create multiple entries
     result1 = await ingestion_history_service.create_entry("directory", "user_admin", "/path1")
     result2 = await ingestion_history_service.create_entry("directory", "user_admin", "/path2")
 
-    # Each should have unique operation_id
     assert result1.is_ok
     assert result2.is_ok
-    # Note: We can't verify they're different without mocking uuid.uuid4()
-    # But we verify the pattern is being used
 
 
 # ============================================================================
@@ -161,7 +146,7 @@ async def test_create_entry_generates_uuid(ingestion_history_service, mock_neo4j
 
 
 @pytest.mark.asyncio
-async def test_update_entry_success(ingestion_history_service, mock_neo4j_driver):
+async def test_update_entry_success(ingestion_history_service, mock_backend):
     """Test successful update of ingestion history entry."""
     stats = {
         "total_files": 1000,
@@ -182,22 +167,17 @@ async def test_update_entry_success(ingestion_history_service, mock_neo4j_driver
 
     assert result.is_ok
 
-    # Verify update query was executed
-    call_args = mock_neo4j_driver.execute_query.call_args
-    query = call_args[0][0]
-    params = call_args[0][1]
-
-    assert "MATCH" in query
-    assert "IngestionHistory" in query
-    assert "SET" in query
-    assert params["operation_id"] == "test-uuid-123"
-    assert params["status"] == "completed"
-    assert params["total_files"] == 1000
-    assert params["successful"] == 995
+    # Verify backend was called with correct parameters
+    mock_backend.update_history_entry.assert_called_once()
+    call_args = mock_backend.update_history_entry.call_args[0][0]
+    assert call_args["operation_id"] == "test-uuid-123"
+    assert call_args["status"] == "completed"
+    assert call_args["total_files"] == 1000
+    assert call_args["successful"] == 995
 
 
 @pytest.mark.asyncio
-async def test_update_entry_with_errors(ingestion_history_service, mock_neo4j_driver):
+async def test_update_entry_with_errors(ingestion_history_service, mock_backend):
     """Test update_entry creates error nodes when errors provided."""
     stats = {"total_files": 10, "successful": 8, "failed": 2}
     errors = [
@@ -228,24 +208,15 @@ async def test_update_entry_with_errors(ingestion_history_service, mock_neo4j_dr
 
     assert result.is_ok
 
-    # Verify two queries were executed (update + error nodes)
-    assert mock_neo4j_driver.execute_query.call_count == 2
-
-    # Check error node creation query
-    error_call = mock_neo4j_driver.execute_query.call_args_list[1]
-    error_query = error_call[0][0]
-    error_params = error_call[0][1]
-
-    assert "UNWIND" in error_query
-    assert ":IngestionError" in error_query
-    assert "HAD_ERROR" in error_query
-    assert len(error_params["errors"]) == 2
+    # Verify both update and error creation were called
+    mock_backend.update_history_entry.assert_called_once()
+    mock_backend.create_error_nodes.assert_called_once_with("test-uuid-123", errors)
 
 
 @pytest.mark.asyncio
-async def test_update_entry_database_error(ingestion_history_service, mock_neo4j_driver):
+async def test_update_entry_database_error(ingestion_history_service, mock_backend):
     """Test update_entry handles database errors."""
-    mock_neo4j_driver.execute_query.return_value = Result.fail(
+    mock_backend.update_history_entry.return_value = Result.fail(
         Errors.database("execute_query", "Database error")
     )
 
@@ -267,11 +238,10 @@ async def test_update_entry_database_error(ingestion_history_service, mock_neo4j
 
 @pytest.mark.asyncio
 async def test_get_history_success(
-    ingestion_history_service, mock_neo4j_driver, mock_ingestion_history_data
+    ingestion_history_service, mock_backend, mock_ingestion_history_data
 ):
     """Test successful retrieval of ingestion history."""
-    # Mock query result as list of dicts (Result[list[dict]])
-    mock_neo4j_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_history.return_value = Result.ok(
         [
             {
                 "ih": mock_ingestion_history_data,
@@ -292,25 +262,18 @@ async def test_get_history_success(
 
 
 @pytest.mark.asyncio
-async def test_get_history_pagination(ingestion_history_service, mock_neo4j_driver):
+async def test_get_history_pagination(ingestion_history_service, mock_backend):
     """Test pagination parameters are passed correctly."""
-    mock_neo4j_driver.execute_query.return_value = Result.ok([])
+    mock_backend.get_history.return_value = Result.ok([])
 
     await ingestion_history_service.get_history(limit=25, offset=50)
 
-    call_args = mock_neo4j_driver.execute_query.call_args
-    query = call_args[0][0]
-    params = call_args[0][1]
-
-    assert "SKIP" in query
-    assert "LIMIT" in query
-    assert params["limit"] == 25
-    assert params["offset"] == 50
+    mock_backend.get_history.assert_called_once_with(25, 50)
 
 
 @pytest.mark.asyncio
 async def test_get_history_with_errors(
-    ingestion_history_service, mock_neo4j_driver, mock_ingestion_history_data
+    ingestion_history_service, mock_backend, mock_ingestion_history_data
 ):
     """Test retrieval includes error nodes."""
     error_node = {
@@ -322,7 +285,7 @@ async def test_get_history_with_errors(
         "suggestion": "Add title",
     }
 
-    mock_neo4j_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_history.return_value = Result.ok(
         [
             {
                 "ih": mock_ingestion_history_data,
@@ -340,9 +303,9 @@ async def test_get_history_with_errors(
 
 
 @pytest.mark.asyncio
-async def test_get_history_database_error(ingestion_history_service, mock_neo4j_driver):
+async def test_get_history_database_error(ingestion_history_service, mock_backend):
     """Test get_history handles database errors."""
-    mock_neo4j_driver.execute_query.return_value = Result.fail(
+    mock_backend.get_history.return_value = Result.fail(
         Errors.database("execute_query", "Database error")
     )
 
@@ -360,10 +323,10 @@ async def test_get_history_database_error(ingestion_history_service, mock_neo4j_
 
 @pytest.mark.asyncio
 async def test_get_entry_found(
-    ingestion_history_service, mock_neo4j_driver, mock_ingestion_history_data
+    ingestion_history_service, mock_backend, mock_ingestion_history_data
 ):
     """Test successful retrieval of specific entry."""
-    mock_neo4j_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_history_entry.return_value = Result.ok(
         [
             {
                 "ih": mock_ingestion_history_data,
@@ -381,9 +344,9 @@ async def test_get_entry_found(
 
 
 @pytest.mark.asyncio
-async def test_get_entry_not_found(ingestion_history_service, mock_neo4j_driver):
+async def test_get_entry_not_found(ingestion_history_service, mock_backend):
     """Test get_entry returns None when entry doesn't exist."""
-    mock_neo4j_driver.execute_query.return_value = Result.ok([])
+    mock_backend.get_history_entry.return_value = Result.ok([])
 
     result = await ingestion_history_service.get_entry("nonexistent-uuid")
 
@@ -393,9 +356,9 @@ async def test_get_entry_not_found(ingestion_history_service, mock_neo4j_driver)
 
 
 @pytest.mark.asyncio
-async def test_get_entry_database_error(ingestion_history_service, mock_neo4j_driver):
+async def test_get_entry_database_error(ingestion_history_service, mock_backend):
     """Test get_entry handles database errors."""
-    mock_neo4j_driver.execute_query.return_value = Result.fail(
+    mock_backend.get_history_entry.return_value = Result.fail(
         Errors.database("execute_query", "Database error")
     )
 
@@ -410,9 +373,9 @@ async def test_get_entry_database_error(ingestion_history_service, mock_neo4j_dr
 
 
 @pytest.mark.asyncio
-async def test_get_total_count_success(ingestion_history_service, mock_neo4j_driver):
+async def test_get_total_count_success(ingestion_history_service, mock_backend):
     """Test successful retrieval of total count."""
-    mock_neo4j_driver.execute_query.return_value = Result.ok([{"total": 150}])
+    mock_backend.get_history_count.return_value = Result.ok([{"total": 150}])
 
     result = await ingestion_history_service.get_total_count()
 
@@ -422,9 +385,9 @@ async def test_get_total_count_success(ingestion_history_service, mock_neo4j_dri
 
 
 @pytest.mark.asyncio
-async def test_get_total_count_empty(ingestion_history_service, mock_neo4j_driver):
+async def test_get_total_count_empty(ingestion_history_service, mock_backend):
     """Test get_total_count with no entries."""
-    mock_neo4j_driver.execute_query.return_value = Result.ok([])
+    mock_backend.get_history_count.return_value = Result.ok([])
 
     result = await ingestion_history_service.get_total_count()
 
@@ -434,9 +397,9 @@ async def test_get_total_count_empty(ingestion_history_service, mock_neo4j_drive
 
 
 @pytest.mark.asyncio
-async def test_get_total_count_database_error(ingestion_history_service, mock_neo4j_driver):
+async def test_get_total_count_database_error(ingestion_history_service, mock_backend):
     """Test get_total_count handles database errors."""
-    mock_neo4j_driver.execute_query.return_value = Result.fail(
+    mock_backend.get_history_count.return_value = Result.fail(
         Errors.database("execute_query", "Database error")
     )
 
@@ -451,11 +414,8 @@ async def test_get_total_count_database_error(ingestion_history_service, mock_ne
 
 
 @pytest.mark.asyncio
-async def test_complete_ingestion_workflow(ingestion_history_service, mock_neo4j_driver):
+async def test_complete_ingestion_workflow(ingestion_history_service, mock_backend):
     """Test complete workflow: create -> update -> retrieve."""
-    # Setup: Mock successful operations
-    mock_neo4j_driver.execute_query.return_value = Result.ok([])
-
     # Step 1: Create entry
     create_result = await ingestion_history_service.create_entry(
         operation_type="directory",
@@ -482,7 +442,7 @@ async def test_complete_ingestion_workflow(ingestion_history_service, mock_neo4j
     )
     assert update_result.is_ok
 
-    # Step 3: Retrieve entry (mock return with plain dicts)
+    # Step 3: Retrieve entry
     ih_data = {
         "operation_id": operation_id,
         "operation_type": "directory",
@@ -494,7 +454,7 @@ async def test_complete_ingestion_workflow(ingestion_history_service, mock_neo4j
         **stats,
     }
 
-    mock_neo4j_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_history_entry.return_value = Result.ok(
         [
             {
                 "ih": ih_data,
@@ -515,7 +475,7 @@ async def test_complete_ingestion_workflow(ingestion_history_service, mock_neo4j
 
 
 @pytest.mark.asyncio
-async def test_update_entry_with_empty_stats(ingestion_history_service, mock_neo4j_driver):
+async def test_update_entry_with_empty_stats(ingestion_history_service, mock_backend):
     """Test update_entry handles empty stats dict."""
     result = await ingestion_history_service.update_entry(
         operation_id="test-uuid",
@@ -526,17 +486,14 @@ async def test_update_entry_with_empty_stats(ingestion_history_service, mock_neo
     assert result.is_ok
 
     # Should use default values (0) for missing fields
-    call_args = mock_neo4j_driver.execute_query.call_args
-    params = call_args[0][1]
-    assert params["total_files"] == 0
-    assert params["successful"] == 0
+    call_args = mock_backend.update_history_entry.call_args[0][0]
+    assert call_args["total_files"] == 0
+    assert call_args["successful"] == 0
 
 
 @pytest.mark.asyncio
-async def test_create_entry_with_special_characters(ingestion_history_service, mock_neo4j_driver):
+async def test_create_entry_with_special_characters(ingestion_history_service, mock_backend):
     """Test create_entry handles special characters in paths."""
-    mock_neo4j_driver.execute_query.return_value = Result.ok([])
-
     result = await ingestion_history_service.create_entry(
         operation_type="directory",
         user_uid="user_admin",

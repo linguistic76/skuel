@@ -445,8 +445,11 @@ async def test_embedding_service_initialization(neo4j_driver):
     """Test HuggingFace embeddings service initialization."""
 
     # Create real embeddings service (will check for HF_API_TOKEN)
+    from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+
+    embeddings_backend = EmbeddingsBackend(executor=neo4j_driver)
     embeddings_service = HuggingFaceEmbeddingsService(
-        executor=neo4j_driver, model="BAAI/bge-large-en-v1.5", dimension=DIM
+        backend=embeddings_backend, model="BAAI/bge-large-en-v1.5", dimension=DIM
     )
 
     # Should have correct model and dimension
@@ -461,9 +464,11 @@ async def test_embedding_service_initialization(neo4j_driver):
 @pytest.mark.asyncio
 async def test_embeddings_service_graceful_failure(neo4j_driver):
     """Test that embeddings service fails gracefully when token not set."""
+    from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
 
+    embeddings_backend = EmbeddingsBackend(executor=neo4j_driver)
     embeddings_service = HuggingFaceEmbeddingsService(
-        executor=neo4j_driver, model="BAAI/bge-large-en-v1.5", dimension=DIM
+        backend=embeddings_backend, model="BAAI/bge-large-en-v1.5", dimension=DIM
     )
 
     # Try to create embedding (will fail if HF_API_TOKEN not set)

@@ -113,7 +113,6 @@ class TestEmbeddingBackgroundWorker:
         worker = EmbeddingBackgroundWorker(
             event_bus=event_bus,
             embeddings_service=embeddings_service,
-            executor=neo4j_driver,
             config=mock_config,
             batch_size=25,
             batch_interval_seconds=1,  # Faster for testing
@@ -173,7 +172,6 @@ class TestEmbeddingBackgroundWorker:
         worker = EmbeddingBackgroundWorker(
             event_bus=event_bus,
             embeddings_service=embeddings_service,
-            executor=neo4j_driver,
             config=mock_config,
             batch_size=5,
             batch_interval_seconds=1,

@@ -35,10 +35,13 @@ from core.services.ingestion.types import DryRunPreview, IncrementalStats
 
 @pytest_asyncio.fixture
 async def ingestion_service(neo4j_driver):
-    """Override conftest ingestion_service to include executor for incremental mode."""
-    executor = Neo4jQueryExecutor(neo4j_driver)
+    """Override conftest ingestion_service to include backend for incremental mode."""
+    from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
 
-    service = UnifiedIngestionService(driver=neo4j_driver, executor=executor)
+    executor = Neo4jQueryExecutor(neo4j_driver)
+    ingestion_backend = IngestionBackend(executor=executor)
+
+    service = UnifiedIngestionService(driver=neo4j_driver, ingestion_backend=ingestion_backend)
 
     yield service
 
@@ -46,7 +49,11 @@ async def ingestion_service(neo4j_driver):
 @pytest_asyncio.fixture
 async def ingestion_history_service(neo4j_driver):
     """Create a real IngestionHistoryService connected to test Neo4j."""
-    service = IngestionHistoryService(executor=Neo4jQueryExecutor(neo4j_driver))
+    from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
+
+    executor = Neo4jQueryExecutor(neo4j_driver)
+    ingestion_backend = IngestionBackend(executor=executor)
+    service = IngestionHistoryService(backend=ingestion_backend)
     await service.ensure_constraints()
     return service
 

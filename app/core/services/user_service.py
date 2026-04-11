@@ -100,13 +100,15 @@ class UserService:
         # Context builder requires Neo4j driver
         if driver:
             self.context_builder = UserContextBuilder(driver, user_service=self)
-            self.stats = UserStatsAggregator(self.core, self.context_builder, driver)
         else:
             self.context_builder = None  # type: ignore[assignment]
-            self.stats = None  # type: ignore[assignment]
             logger.warning(
-                "UserService initialized without driver - context/stats operations unavailable"
+                "UserService initialized without driver - context operations unavailable"
             )
+
+        # Stats aggregator requires context_builder + cross_domain_backend
+        # cross_domain_backend is wired post-construction via wire_cross_domain_backend()
+        self.stats: UserStatsAggregator | None = None
 
         # Intelligence factory (wired with 13 domain relationship services)
         # Note: Factory is wired post-construction via services_bootstrap.py
@@ -115,6 +117,18 @@ class UserService:
 
         # Keep repo reference for backward compatibility
         self.repo = user_repo
+
+    def wire_cross_domain_backend(self, cross_domain_backend: Any) -> None:
+        """
+        Post-construction wiring for cross-domain backend.
+
+        Called from services_bootstrap after CrossDomainBackend is created
+        (CrossDomainBackend is created after UserService in the bootstrap sequence).
+        """
+        if self.context_builder:
+            self.stats = UserStatsAggregator(self.core, self.context_builder, cross_domain_backend)
+        else:
+            logger.warning("Cannot wire stats — context_builder not available")
 
     # ========================================================================
     # CRUD OPERATIONS (Delegate to UserCoreService)

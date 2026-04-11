@@ -432,7 +432,7 @@ async def ingest_directory(
     engines: dict[EntityType | NonKuDomain, BulkIngestionEngine[Any]],  # noqa: ARG001 - Modified by get_engine
     get_engine: Any,  # Callable to get/create engine
     driver: Any = None,  # Neo4j driver for raw queries (validation, existence checks)
-    executor: Any = None,  # QueryExecutor for ingestion tracking
+    ingestion_backend: Any = None,  # IngestionBackend for ingestion tracking
     pattern: str = "*",
     batch_size: int = 500,
     max_concurrent: int = DEFAULT_MAX_CONCURRENT_PARSING,
@@ -454,6 +454,7 @@ async def ingest_directory(
         engines: Engine cache (keyed by EntityType | NonKuDomain) - populated by get_engine as side effect
         get_engine: Function to get/create engine for entity type (modifies engines dict)
         driver: Neo4j driver (required for ingestion_mode != "full")
+        ingestion_backend: IngestionBackend for incremental tracking (optional)
         pattern: Glob pattern for files (default: "*" for all supported)
         batch_size: Batch size for bulk operations
         max_concurrent: Maximum concurrent file parsing operations (default: 20)
@@ -475,12 +476,12 @@ async def ingest_directory(
     if not directory.exists():
         return Result.fail(Errors.not_found(f"Directory not found: {directory}"))
 
-    # Validate executor is provided for incremental modes and dry-run
-    if ingestion_mode != "full" and executor is None:
+    # Validate ingestion_backend is provided for incremental modes
+    if ingestion_mode != "full" and ingestion_backend is None:
         return Result.fail(
             Errors.validation(
-                "QueryExecutor required for incremental/smart ingestion mode",
-                field="executor",
+                "IngestionBackend required for incremental/smart ingestion mode",
+                field="ingestion_backend",
             )
         )
 
@@ -520,8 +521,8 @@ async def ingest_directory(
     skipped_hash_match = 0
     tracker: IngestionTracker | None = None
 
-    if ingestion_mode != "full" and executor is not None:
-        tracker = IngestionTracker(executor)
+    if ingestion_mode != "full" and ingestion_backend is not None:
+        tracker = IngestionTracker(ingestion_backend)
         await tracker.ensure_constraints()
 
         # Get existing ingestion metadata

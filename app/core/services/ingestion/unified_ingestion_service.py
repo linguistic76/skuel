@@ -111,7 +111,7 @@ class UnifiedIngestionService:
         max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
         embeddings_service: Any | None = None,
         chunking_service: Any | None = None,
-        executor: Any | None = None,
+        ingestion_backend: Any | None = None,
     ) -> None:
         """
         Initialize unified ingestion service.
@@ -126,13 +126,13 @@ class UnifiedIngestionService:
                                 If not provided, ingestion works without embeddings (graceful degradation).
             chunking_service: Optional EntityChunkingService for automatic chunk generation.
                               If not provided, ingestion works without chunking (graceful degradation).
-            executor: QueryExecutor for ingestion tracking (optional).
+            ingestion_backend: IngestionBackend for ingestion tracking (optional).
         """
         if not driver:
             raise ValueError("Neo4j driver is required")
 
         self.driver = driver
-        self.executor = executor
+        self.ingestion_backend = ingestion_backend
         self.default_user_uid = (
             default_user_uid if default_user_uid is not None else DEFAULT_USER_UID
         )
@@ -530,7 +530,7 @@ class UnifiedIngestionService:
             engines=self._engines,
             get_engine=self._get_engine,
             driver=self.driver,
-            executor=self.executor,
+            ingestion_backend=self.ingestion_backend,
             pattern=pattern,
             batch_size=batch_size,
             max_concurrent=max_concurrent,

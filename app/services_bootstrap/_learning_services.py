@@ -55,18 +55,25 @@ def _create_learning_services(
         logger.info("⏭️  Embedding services skipped (intelligence tier: CORE)")
     else:
         try:
+            from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
             from core.services.embeddings_service import HuggingFaceEmbeddingsService
             from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
             # Create HuggingFace embeddings service
+            embeddings_backend = EmbeddingsBackend(executor=query_executor)
             embeddings_service = HuggingFaceEmbeddingsService(
-                executor=query_executor,
+                backend=embeddings_backend,
                 prometheus_metrics=prometheus_metrics,
             )
             logger.info("✅ HuggingFace embeddings service created (BAAI/bge-large-en-v1.5)")
 
-            # Create vector search service (uses db.index.vector.queryNodes() — native Neo4j)
-            vector_search_service = Neo4jVectorSearchService(query_executor, embeddings_service)
+            # Create vector search backend + service
+            from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
+
+            vector_search_backend = VectorSearchBackend(executor=query_executor)
+            vector_search_service = Neo4jVectorSearchService(
+                vector_search_backend, embeddings_service
+            )
             logger.info("✅ Neo4j vector search service created")
 
         except Exception as e:  # safety-net: service bootstrap must report initialization failures
@@ -152,9 +159,11 @@ def _create_learning_services(
     cross_domain_service = AdaptiveLpCrossDomainService(MasteryLevel.BEGINNER)
 
     # Create knowledge domain service (world-layer taxonomy — read-only)
+    from adapters.persistence.neo4j.knowledge_domain_backend import KnowledgeDomainBackend
     from core.services.knowledge_domain_service import KnowledgeDomainService
 
-    knowledge_domain_service = KnowledgeDomainService(executor=query_executor)
+    knowledge_domain_backend = KnowledgeDomainBackend(executor=query_executor)
+    knowledge_domain_service = KnowledgeDomainService(backend=knowledge_domain_backend)
 
     return {
         "learning_intelligence": learning_paths.intelligence,  # Access via facade

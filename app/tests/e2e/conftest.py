@@ -71,7 +71,6 @@ async def embedding_worker(event_bus, embeddings_service, neo4j_driver):
     """Create embedding background worker for e2e tests."""
     from unittest.mock import Mock
 
-    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 
     # Mock config for embedding version
@@ -81,7 +80,6 @@ async def embedding_worker(event_bus, embeddings_service, neo4j_driver):
     return EmbeddingBackgroundWorker(
         event_bus=event_bus,
         embeddings_service=embeddings_service,
-        executor=Neo4jQueryExecutor(neo4j_driver),
         config=mock_config,
         batch_size=25,
         batch_interval_seconds=2,  # Short interval for tests (production uses 30s)

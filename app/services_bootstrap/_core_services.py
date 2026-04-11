@@ -89,6 +89,13 @@ def _create_orchestration_services(
     }
 
 
+def _create_jupyter_sync_backend(query_executor: Any) -> Any:
+    """Create JupyterSyncBackend from a QueryExecutor."""
+    from adapters.persistence.neo4j.jupyter_sync_backend import JupyterSyncBackend
+
+    return JupyterSyncBackend(executor=query_executor)
+
+
 def _create_advanced_services(
     _driver: Any,
     query_executor: Any = None,
@@ -106,7 +113,9 @@ def _create_advanced_services(
 
     return {
         "calendar_optimization": CalendarOptimizationService(),
-        "jupyter_sync": JupyterNeo4jSync(executor=query_executor, vault_path=vault_path),
+        "jupyter_sync": JupyterNeo4jSync(
+            backend=_create_jupyter_sync_backend(query_executor), vault_path=vault_path
+        ),
         "performance_optimization": PerformanceOptimizationService(),
         "cross_domain_analytics": CrossDomainAnalyticsService(backend=cross_domain_backend),
     }

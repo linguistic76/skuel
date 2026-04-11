@@ -5,6 +5,7 @@ Tests version tracking, metadata storage, and cache-first retrieval.
 
 Created: January 2026
 Updated: March 2026 — HuggingFace migration (1536→1024 dims, v1→v2)
+Updated: April 2026 — EmbeddingsBackend migration (executor → typed backend)
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -22,17 +23,19 @@ DIM = 1024
 
 
 @pytest.fixture
-def mock_driver():
-    """Mock Neo4j driver for testing."""
-    driver = MagicMock()
-    driver.execute_query = AsyncMock()
-    return driver
+def mock_backend():
+    """Mock EmbeddingsBackend for testing."""
+    backend = MagicMock()
+    backend.store_embedding_metadata = AsyncMock()
+    backend.get_embedding_metadata = AsyncMock()
+    backend.get_cached_embedding = AsyncMock()
+    return backend
 
 
 @pytest.fixture
-def embeddings_service(mock_driver):
-    """Create embeddings service with mock driver."""
-    return HuggingFaceEmbeddingsService(mock_driver)
+def embeddings_service(mock_backend):
+    """Create embeddings service with mock backend."""
+    return HuggingFaceEmbeddingsService(mock_backend)
 
 
 @pytest.mark.asyncio
@@ -45,10 +48,10 @@ async def test_embedding_version_constant():
 
 
 @pytest.mark.asyncio
-async def test_store_embedding_with_metadata(embeddings_service, mock_driver):
+async def test_store_embedding_with_metadata(embeddings_service, mock_backend):
     """Test storing embedding with version metadata."""
     # Mock successful update
-    mock_driver.execute_query.return_value = Result.ok([{"uid": "ku.python"}])
+    mock_backend.store_embedding_metadata.return_value = Result.ok([{"uid": "ku.python"}])
 
     embedding = [0.1] * DIM
 
@@ -58,24 +61,22 @@ async def test_store_embedding_with_metadata(embeddings_service, mock_driver):
 
     assert result.is_ok
 
-    # Verify query was called
-    mock_driver.execute_query.assert_called_once()
-    call_args = mock_driver.execute_query.call_args
-
-    # Check parameters include version metadata
-    params = call_args[0][1]
-    assert params["uid"] == "ku.python"
-    assert params["embedding"] == embedding
-    assert params["version"] == EMBEDDING_VERSION
-    assert params["model"] == "BAAI/bge-large-en-v1.5"
-    assert params["text"] == "Python programming"
+    # Verify backend method was called
+    mock_backend.store_embedding_metadata.assert_called_once_with(
+        label="Entity",
+        uid="ku.python",
+        embedding=embedding,
+        version=EMBEDDING_VERSION,
+        model="BAAI/bge-large-en-v1.5",
+        text="Python programming",
+    )
 
 
 @pytest.mark.asyncio
-async def test_store_embedding_node_not_found(embeddings_service, mock_driver):
+async def test_store_embedding_node_not_found(embeddings_service, mock_backend):
     """Test storing embedding when node doesn't exist."""
     # Mock no results (node not found)
-    mock_driver.execute_query.return_value = Result.ok([])
+    mock_backend.store_embedding_metadata.return_value = Result.ok([])
 
     embedding = [0.1] * DIM
 
@@ -88,10 +89,10 @@ async def test_store_embedding_node_not_found(embeddings_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_get_embedding_metadata(embeddings_service, mock_driver):
+async def test_get_embedding_metadata(embeddings_service, mock_backend):
     """Test getting embedding metadata."""
     # Mock metadata response
-    mock_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
         [
             {
                 "embedding": [0.1] * DIM,
@@ -115,10 +116,10 @@ async def test_get_embedding_metadata(embeddings_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_get_embedding_metadata_no_embedding(embeddings_service, mock_driver):
+async def test_get_embedding_metadata_no_embedding(embeddings_service, mock_backend):
     """Test getting metadata when node has no embedding."""
     # Mock node with no embedding
-    mock_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
         [{"embedding": None, "version": None, "model": None, "updated_at": None}]
     )
 
@@ -134,10 +135,10 @@ async def test_get_embedding_metadata_no_embedding(embeddings_service, mock_driv
 
 
 @pytest.mark.asyncio
-async def test_check_version_compatibility_current(embeddings_service, mock_driver):
+async def test_check_version_compatibility_current(embeddings_service, mock_backend):
     """Test version compatibility check for current version."""
     # Mock current version
-    mock_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
         [
             {
                 "embedding": [0.1] * DIM,
@@ -161,10 +162,10 @@ async def test_check_version_compatibility_current(embeddings_service, mock_driv
 
 
 @pytest.mark.asyncio
-async def test_check_version_compatibility_stale(embeddings_service, mock_driver):
+async def test_check_version_compatibility_stale(embeddings_service, mock_backend):
     """Test version compatibility check for stale version."""
     # Mock old version
-    mock_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
         [
             {
                 "embedding": [0.1] * DIM,
@@ -188,10 +189,10 @@ async def test_check_version_compatibility_stale(embeddings_service, mock_driver
 
 
 @pytest.mark.asyncio
-async def test_check_version_compatibility_no_version(embeddings_service, mock_driver):
+async def test_check_version_compatibility_no_version(embeddings_service, mock_backend):
     """Test version compatibility when node has embedding but no version."""
     # Mock embedding without version metadata
-    mock_driver.execute_query.return_value = Result.ok(
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
         [{"embedding": [0.1] * DIM, "version": None, "model": None, "updated_at": None}]
     )
 

@@ -828,13 +828,15 @@ def embeddings_service():
     Tests that use this fixture immediately override service methods (e.g.,
     create_batch_embeddings) with AsyncMock, so the mock driver is sufficient.
     """
-    from unittest.mock import MagicMock
+    from unittest.mock import AsyncMock, MagicMock
 
     from core.services.embeddings_service import HuggingFaceEmbeddingsService
 
-    mock_driver = MagicMock()
-    mock_driver.execute_query = AsyncMock()
-    return HuggingFaceEmbeddingsService(mock_driver)
+    mock_backend = MagicMock()
+    mock_backend.store_embedding_metadata = AsyncMock()
+    mock_backend.get_embedding_metadata = AsyncMock()
+    mock_backend.get_cached_embedding = AsyncMock()
+    return HuggingFaceEmbeddingsService(mock_backend)
 
 
 @pytest.fixture

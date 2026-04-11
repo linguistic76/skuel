@@ -26,7 +26,7 @@ Graph Model:
     })
 
 Usage:
-    service = IngestionHistoryService(executor)
+    service = IngestionHistoryService(backend)
     operation_id = await service.create_entry("directory", "user_admin", "/vault/docs")
     # ... perform ingestion ...
     await service.update_entry(operation_id, "completed", stats, errors)
@@ -43,7 +43,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.ingestion_protocols import IngestionBackendOperations
 
 logger = get_logger("skuel.services.ingestion.ingestion_history")
 
@@ -66,24 +66,19 @@ class IngestionHistoryEntry:
 class IngestionHistoryService:
     """Tracks ingestion operations in Neo4j for audit trail."""
 
-    def __init__(self, executor: "QueryExecutor") -> None:
+    def __init__(self, backend: "IngestionBackendOperations") -> None:
         """
         Initialize ingestion history service.
 
         Args:
-            executor: Query executor for database operations
+            backend: Typed backend for ingestion persistence
         """
-        self.executor = executor
+        self.backend = backend
         self.logger = logger
 
     async def ensure_constraints(self) -> None:
         """Ensure Neo4j constraints for IngestionHistory nodes."""
-        constraint_query = """
-        CREATE CONSTRAINT IF NOT EXISTS
-        FOR (ih:IngestionHistory)
-        REQUIRE ih.operation_id IS UNIQUE
-        """
-        result = await self.executor.execute_query(constraint_query)
+        result = await self.backend.ensure_history_constraints()
         if result.is_error:
             self.logger.error(f"Failed to ensure IngestionHistory constraints: {result.error}")
             return
@@ -109,27 +104,14 @@ class IngestionHistoryService:
         operation_id = str(uuid.uuid4())
         started_at = datetime.now()
 
-        query = """
-        CREATE (ih:IngestionHistory {
-            operation_id: $operation_id,
-            operation_type: $operation_type,
-            started_at: datetime($started_at),
-            status: 'in_progress',
-            user_uid: $user_uid,
-            source_path: $source_path
-        })
-        RETURN ih.operation_id AS operation_id
-        """
-
-        result = await self.executor.execute_query(
-            query,
+        result = await self.backend.create_history_entry(
             {
                 "operation_id": operation_id,
                 "operation_type": operation_type,
                 "started_at": started_at.isoformat(),
                 "user_uid": user_uid,
                 "source_path": source_path,
-            },
+            }
         )
 
         if result.is_error:
@@ -165,19 +147,6 @@ class IngestionHistoryService:
         """
         completed_at = datetime.now()
 
-        query = """
-        MATCH (ih:IngestionHistory {operation_id: $operation_id})
-        SET ih.completed_at = datetime($completed_at),
-            ih.status = $status,
-            ih.total_files = $total_files,
-            ih.successful = $successful,
-            ih.failed = $failed,
-            ih.nodes_created = $nodes_created,
-            ih.nodes_updated = $nodes_updated,
-            ih.relationships_created = $relationships_created,
-            ih.duration_seconds = $duration_seconds
-        """
-
         params: dict[str, Any] = {
             "operation_id": operation_id,
             "completed_at": completed_at.isoformat(),
@@ -191,7 +160,7 @@ class IngestionHistoryService:
             "duration_seconds": stats.get("duration_seconds", 0.0),
         }
 
-        result = await self.executor.execute_query(query, params)
+        result = await self.backend.update_history_entry(params)
 
         if result.is_error:
             self.logger.error(f"Failed to update ingestion history entry: {result.error}")
@@ -221,25 +190,8 @@ class IngestionHistoryService:
             operation_id: UUID of the ingestion operation
             errors: List of error dicts
         """
-        query = """
-        MATCH (ih:IngestionHistory {operation_id: $operation_id})
-        UNWIND $errors AS error
-        CREATE (e:IngestionError {
-            file: error.file,
-            error: error.error,
-            stage: error.stage,
-            error_type: error.error_type,
-            entity_type: error.entity_type,
-            suggestion: error.suggestion
-        })
-        CREATE (ih)-[:HAD_ERROR]->(e)
-        """
-
         try:
-            result = await self.executor.execute_query(
-                query,
-                {"operation_id": operation_id, "errors": errors},
-            )
+            result = await self.backend.create_error_nodes(operation_id, errors)
             if result.is_error:
                 self.logger.error(f"Failed to create error nodes: {result.error}")
             else:
@@ -262,20 +214,7 @@ class IngestionHistoryService:
         Returns:
             Result with list of IngestionHistoryEntry objects
         """
-        query = """
-        MATCH (ih:IngestionHistory)
-        OPTIONAL MATCH (ih)-[:HAD_ERROR]->(e:IngestionError)
-        WITH ih, COLLECT(e) AS errors
-        RETURN ih, errors
-        ORDER BY ih.started_at DESC
-        SKIP $offset
-        LIMIT $limit
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"limit": limit, "offset": offset},
-        )
+        result = await self.backend.get_history(limit, offset)
 
         if result.is_error:
             self.logger.error(f"Failed to retrieve ingestion history: {result.error}")
@@ -345,17 +284,7 @@ class IngestionHistoryService:
         Returns:
             Result with IngestionHistoryEntry or None if not found
         """
-        query = """
-        MATCH (ih:IngestionHistory {operation_id: $operation_id})
-        OPTIONAL MATCH (ih)-[:HAD_ERROR]->(e:IngestionError)
-        WITH ih, COLLECT(e) AS errors
-        RETURN ih, errors
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"operation_id": operation_id},
-        )
+        result = await self.backend.get_history_entry(operation_id)
 
         if result.is_error:
             self.logger.error(f"Failed to retrieve ingestion entry: {result.error}")
@@ -423,12 +352,7 @@ class IngestionHistoryService:
         Returns:
             Result with total count
         """
-        query = """
-        MATCH (ih:IngestionHistory)
-        RETURN COUNT(ih) AS total
-        """
-
-        result = await self.executor.execute_query(query)
+        result = await self.backend.get_history_count()
 
         if result.is_error:
             self.logger.error(f"Failed to get ingestion history count: {result.error}")

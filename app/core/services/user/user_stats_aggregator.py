@@ -35,7 +35,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.cross_domain_protocols import CrossDomainBackendOperations
 
 logger = get_logger(__name__)
 
@@ -63,7 +63,7 @@ class UserStatsAggregator:
         self,
         user_core_service: Any,  # UserCoreService
         context_builder: Any,  # UserContextBuilder
-        executor: "QueryExecutor",
+        cross_domain_backend: "CrossDomainBackendOperations",
     ) -> None:
         """
         Initialize stats aggregator.
@@ -71,7 +71,7 @@ class UserStatsAggregator:
         Args:
             user_core_service: UserCoreService for user CRUD
             context_builder: UserContextBuilder for context building
-            executor: QueryExecutor for activity queries
+            cross_domain_backend: Typed backend for cross-domain activity queries
 
         Raises:
             ValueError: If any dependency is None
@@ -80,12 +80,12 @@ class UserStatsAggregator:
             raise ValueError("UserCoreService is required")
         if not context_builder:
             raise ValueError("UserContextBuilder is required")
-        if not executor:
-            raise ValueError("QueryExecutor is required")
+        if not cross_domain_backend:
+            raise ValueError("CrossDomainBackend is required")
 
         self.user_core = user_core_service
         self.context_builder = context_builder
-        self.executor = executor
+        self.cross_domain_backend = cross_domain_backend
 
     # ========================================================================
     # PROFILE HUB DATA GENERATION
@@ -252,50 +252,7 @@ class UserStatsAggregator:
             - goal.completed: Recently achieved goals
             - habit.practiced: Recently practiced habits (from completions)
         """
-        query = """
-        MATCH (u:User {uid: $user_uid})
-
-        // Recent completed tasks
-        OPTIONAL MATCH (u)-[:HAS_TASK]->(t:Task {status: 'completed'})
-        WHERE t.completed_at IS NOT NULL
-        WITH u, collect({
-            type: 'task',
-            action: 'completed',
-            entity_uid: t.uid,
-            entity_title: t.title,
-            timestamp: t.completed_at
-        })[0..5] as task_activities
-
-        // Recent mastered knowledge
-        OPTIONAL MATCH (u)-[m:MASTERED]->(ku:Entity)
-        WHERE m.mastered_at IS NOT NULL
-        WITH u, task_activities, collect({
-            type: 'knowledge',
-            action: 'mastered',
-            entity_uid: ku.uid,
-            entity_title: ku.title,
-            timestamp: m.mastered_at
-        })[0..5] as knowledge_activities
-
-        // Recent completed goals
-        OPTIONAL MATCH (u)-[:HAS_GOAL]->(g:Goal {status: 'completed'})
-        WHERE g.completed_at IS NOT NULL
-        With task_activities, knowledge_activities, collect({
-            type: 'goal',
-            action: 'completed',
-            entity_uid: g.uid,
-            entity_title: g.title,
-            timestamp: g.completed_at
-        })[0..5] as goal_activities
-
-        // Combine and sort by timestamp
-        UNWIND (task_activities + knowledge_activities + goal_activities) as activity
-        RETURN activity
-        ORDER BY activity.timestamp DESC
-        LIMIT 20
-        """
-
-        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        result = await self.cross_domain_backend.get_recent_activities(user_uid)
         if result.is_error:
             logger.warning(f"Error fetching recent activities: {result.error}")
             return []

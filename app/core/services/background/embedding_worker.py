@@ -73,7 +73,6 @@ class EmbeddingBackgroundWorker:
         self,
         event_bus: EventBusOperations,
         embeddings_service: Any,  # HuggingFaceEmbeddingsService
-        executor: Any,  # QueryExecutor
         config: Any,  # UnifiedConfig for embedding version
         content_adapter: Any | None = None,  # Neo4jContentAdapter for chunk storage
         batch_size: int = 25,
@@ -86,7 +85,6 @@ class EmbeddingBackgroundWorker:
         Args:
             event_bus: Event bus for subscribing to embedding requests
             embeddings_service: HuggingFaceEmbeddingsService for generating embeddings
-            executor: Query executor for updating nodes
             config: UnifiedConfig for accessing embedding version
             content_adapter: Neo4jContentAdapter for chunk embedding storage (optional)
             batch_size: Number of entities to process per batch
@@ -95,7 +93,6 @@ class EmbeddingBackgroundWorker:
         """
         self.event_bus = event_bus
         self.embeddings_service = embeddings_service
-        self.executor = executor
         self.config = config
         self.content_adapter = content_adapter
         self.batch_size = batch_size
@@ -346,23 +343,13 @@ class EmbeddingBackgroundWorker:
             }
             label = label_map.get(entity_type, entity_type.capitalize())
 
-            query = f"""
-                MATCH (n:{label} {{uid: $uid}})
-                SET n.embedding = $embedding,
-                    n.embedding_version = $version,
-                    n.embedding_model = $model,
-                    n.embedding_updated_at = datetime()
-                RETURN n.uid
-            """
-
-            result = await self.executor.execute_query(
-                query,
-                {
-                    "uid": entity_uid,
-                    "embedding": embedding,
-                    "version": self.config.genai.embedding_version,
-                    "model": self.embeddings_service.model,
-                },
+            result = await self.embeddings_service.backend.store_embedding_metadata(
+                label=label,
+                uid=entity_uid,
+                embedding=embedding,
+                version=self.config.genai.embedding_version,
+                model=self.embeddings_service.model,
+                text=None,
             )
 
             if result.is_error:

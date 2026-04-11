@@ -10,7 +10,7 @@ ARCHITECTURE:
 - Client: huggingface_hub.AsyncInferenceClient (NOT sentence-transformers package —
   that's for local inference. We use the async API for serverless, no-GPU deployment.)
 - API key: HF_API_TOKEN environment variable
-- Stores embeddings in Neo4j via QueryExecutor
+- Stores embeddings in Neo4j via EmbeddingsBackend
 - Graceful degradation when HF_API_TOKEN not set
 
 MIGRATION (March 2026):
@@ -31,12 +31,11 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.embeddings_protocols import EmbeddingsBackendOperations
 
 logger = get_logger("skuel.embeddings")
 
@@ -60,19 +59,19 @@ class HuggingFaceEmbeddingsService:
     Setup:
     - Requires HF_API_TOKEN environment variable
     - No Neo4j plugin dependency (pure Python-side embedding generation)
-    - Stores embeddings in Neo4j via QueryExecutor
+    - Stores embeddings in Neo4j via EmbeddingsBackend
 
     See: /docs/decisions/ADR-049-huggingface-embeddings-migration.md
     """
 
     def __init__(
         self,
-        executor: "QueryExecutor",
+        backend: "EmbeddingsBackendOperations",
         model: str = DEFAULT_MODEL,
         dimension: int = DEFAULT_DIMENSION,
         prometheus_metrics: Any | None = None,
     ) -> None:
-        self.executor = executor
+        self.backend = backend
         self.model = model
         self.dimension = dimension
         self.logger = logger
@@ -288,25 +287,14 @@ class HuggingFaceEmbeddingsService:
         Returns:
             Result indicating success or error
         """
-        query = f"""
-        MATCH (n:{label} {{uid: $uid}})
-        SET n.embedding = $embedding,
-            n.embedding_version = $version,
-            n.embedding_model = $model,
-            n.embedding_updated_at = datetime(),
-            n.embedding_source_text = $text
-        RETURN n.uid as uid
-        """
-
-        params = {
-            "uid": uid,
-            "embedding": embedding,
-            "version": EMBEDDING_VERSION,
-            "model": self.model,
-            "text": text,
-        }
-
-        result = await self.executor.execute_query(query, params)
+        result = await self.backend.store_embedding_metadata(
+            label=label,
+            uid=uid,
+            embedding=embedding,
+            version=EMBEDDING_VERSION,
+            model=self.model,
+            text=text,
+        )
 
         if result.is_error:
             self.logger.error(f"Failed to store embedding metadata: {result.error}")
@@ -330,15 +318,7 @@ class HuggingFaceEmbeddingsService:
             Result containing metadata dict with keys:
             - has_embedding, version, model, updated_at, dimension
         """
-        query = f"""
-        MATCH (n:{label} {{uid: $uid}})
-        RETURN n.embedding as embedding,
-               n.embedding_version as version,
-               n.embedding_model as model,
-               n.embedding_updated_at as updated_at
-        """
-
-        result = await self.executor.execute_query(query, {"uid": uid})
+        result = await self.backend.get_embedding_metadata(label=label, uid=uid)
 
         if result.is_error:
             self.logger.error(f"Failed to get embedding metadata: {result.error}")
@@ -413,23 +393,14 @@ class HuggingFaceEmbeddingsService:
 
         if compat_result.is_ok and compat_result.value["is_current"]:
             # Cache hit - get existing embedding
-            query = f"""
-            MATCH (n:{label} {{uid: $uid}})
-            RETURN n.embedding as embedding
-            """
+            result = await self.backend.get_cached_embedding(label=label, uid=uid)
 
-            try:
-                result = await self.executor.execute_query(query, {"uid": uid})
+            if result.is_ok and result.value and result.value[0].get("embedding"):
+                self.logger.debug(f"Cache hit: {label}:{uid} (version={EMBEDDING_VERSION})")
+                return Result.ok(result.value[0]["embedding"])
 
-                if result.is_ok and result.value and result.value[0].get("embedding"):
-                    self.logger.debug(f"Cache hit: {label}:{uid} (version={EMBEDDING_VERSION})")
-                    return Result.ok(result.value[0]["embedding"])
-
-            except NEO4J_EXCEPTIONS as e:
-                self.logger.warning(f"Failed to get cached embedding: {e}")
-                # Fall through to regenerate
-            except Exception as e:  # safety-net: catch unexpected errors
-                self.logger.warning(f"Failed to get cached embedding ({type(e).__name__}): {e}")
+            if result.is_error:
+                self.logger.warning(f"Failed to get cached embedding: {result.error}")
                 # Fall through to regenerate
 
         # Cache miss or stale - generate new embedding

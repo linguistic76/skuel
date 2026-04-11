@@ -26,7 +26,7 @@ from core.config.unified_config import VectorSearchConfig
 from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.vector_search_protocols import VectorSearchBackendOperations
 from core.models.semantic import SearchMetrics
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -44,7 +44,7 @@ class Neo4jVectorSearchService:
 
     def __init__(
         self,
-        executor: "QueryExecutor",
+        backend: "VectorSearchBackendOperations",
         embeddings_service: Any | None = None,
         config: VectorSearchConfig | None = None,
     ) -> None:
@@ -52,11 +52,11 @@ class Neo4jVectorSearchService:
         Initialize vector search service.
 
         Args:
-            executor: Query executor for database operations
+            backend: Typed backend for vector search persistence
             embeddings_service: Optional embeddings service for text-to-embedding conversion
             config: Optional vector search configuration (uses defaults if not provided)
         """
-        self.executor = executor
+        self.backend = backend
         self.embeddings = embeddings_service
         self.config = config or VectorSearchConfig()
         self.logger = logger
@@ -87,23 +87,7 @@ class Neo4jVectorSearchService:
             min_score = self.config.get_min_score_for_entity(label)
         index_name = f"{label.lower()}_embedding_idx"
 
-        query = """
-        // Vector similarity search using native index
-        CALL db.index.vector.queryNodes($index_name, $limit, $embedding)
-        YIELD node, score
-        WHERE score >= $min_score
-        RETURN node, score
-        ORDER BY score DESC
-        """
-
-        params = {
-            "index_name": index_name,
-            "limit": limit,
-            "embedding": embedding,
-            "min_score": min_score,
-        }
-
-        result = await self.executor.execute_query(query, params)
+        result = await self.backend.query_vector_index(index_name, limit, embedding, min_score)
 
         if result.is_error:
             self.logger.error(f"Vector search failed: {result.error}")
@@ -191,12 +175,7 @@ class Neo4jVectorSearchService:
         if min_score is None:
             min_score = self.config.get_min_score_for_entity(label)
         # Get source node's embedding
-        query = f"""
-        MATCH (source:{label} {{uid: $uid}})
-        RETURN source.embedding as embedding
-        """
-
-        result = await self.executor.execute_query(query, {"uid": uid})
+        result = await self.backend.get_node_embedding(label, uid)
 
         if result.is_error:
             self.logger.error(f"Failed to get source embedding: {result.error}")
@@ -416,19 +395,7 @@ class Neo4jVectorSearchService:
         """
         index_name = f"{label.lower()}_fulltext_idx"
 
-        # Neo4j full-text search query
-        # Note: db.index.fulltext.queryNodes returns (node, score)
-        query = """
-        CALL db.index.fulltext.queryNodes($index_name, $query_text)
-        YIELD node, score
-        RETURN node, score
-        ORDER BY score DESC
-        LIMIT $limit
-        """
-
-        params = {"index_name": index_name, "query_text": query_text, "limit": limit}
-
-        result = await self.executor.execute_query(query, params)
+        result = await self.backend.query_fulltext_index(index_name, query_text, limit)
 
         if result.is_error:
             # Full-text index might not exist - return empty results instead of error
@@ -735,26 +702,8 @@ class Neo4jVectorSearchService:
         Returns:
             Semantic boost score (0.0-1.0)
         """
-        # Query semantic relationships from entity to context UIDs
-        query = """
-        MATCH (entity {uid: $entity_uid})
-        MATCH (context)
-        WHERE context.uid IN $context_uids
-        MATCH (entity)-[r]->(context)
-        WHERE r.confidence IS NOT NULL
-        RETURN
-            type(r) as relationship_type,
-            r.confidence as confidence,
-            COALESCE(r.strength, 1.0) as strength
-        """
-
-        params = {
-            "entity_uid": entity_uid,
-            "context_uids": context_uids,
-        }
-
         try:
-            result = await self.executor.execute_query(query, params)
+            result = await self.backend.get_semantic_relationships(entity_uid, context_uids)
 
             if result.is_error or not result.value:
                 return 0.0
@@ -950,23 +899,7 @@ class Neo4jVectorSearchService:
         if not ku_uids:
             return Result.ok({})
 
-        query = """
-        UNWIND $ku_uids as ku_uid
-        MATCH (ku:Entity {uid: ku_uid})
-        MATCH (u:User {uid: $user_uid})
-        OPTIONAL MATCH (u)-[v:VIEWED]->(ku)
-        OPTIONAL MATCH (u)-[p:IN_PROGRESS]->(ku)
-        OPTIONAL MATCH (u)-[m:MASTERED]->(ku)
-        RETURN
-            ku.uid as ku_uid,
-            v IS NOT NULL as has_viewed,
-            p IS NOT NULL as has_in_progress,
-            m IS NOT NULL as has_mastered
-        """
-
-        result = await self.executor.execute_query(
-            query, {"user_uid": user_uid, "ku_uids": ku_uids}
-        )
+        result = await self.backend.get_learning_states_batch(user_uid, ku_uids)
 
         if result.is_error:
             self.logger.error(f"Failed to batch fetch learning states: {result.error}")

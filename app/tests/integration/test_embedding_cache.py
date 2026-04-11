@@ -5,6 +5,7 @@ Tests the cache-first strategy of get_or_create_embedding.
 
 Created: January 2026
 Updated: March 2026 — HuggingFace migration (1536→1024 dims, v1→v2)
+Updated: April 2026 — EmbeddingsBackend migration (executor → typed backend)
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -15,24 +16,26 @@ from core.services.embeddings_service import (
     EMBEDDING_VERSION,
     HuggingFaceEmbeddingsService,
 )
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # Dimension for bge-large-en-v1.5
 DIM = 1024
 
 
 @pytest.fixture
-def mock_driver():
-    """Mock Neo4j driver for testing."""
-    driver = MagicMock()
-    driver.execute_query = AsyncMock()
-    return driver
+def mock_backend():
+    """Mock EmbeddingsBackend for testing."""
+    backend = MagicMock()
+    backend.store_embedding_metadata = AsyncMock()
+    backend.get_embedding_metadata = AsyncMock()
+    backend.get_cached_embedding = AsyncMock()
+    return backend
 
 
 @pytest.fixture
-def embeddings_service(mock_driver):
-    """Create embeddings service with mock driver and mock HF client."""
-    service = HuggingFaceEmbeddingsService(mock_driver)
+def embeddings_service(mock_backend):
+    """Create embeddings service with mock backend and mock HF client."""
+    service = HuggingFaceEmbeddingsService(mock_backend)
     # Patch a mock client so create_embedding works without HF_API_TOKEN
     mock_client = MagicMock()
     service._client = mock_client
@@ -47,28 +50,21 @@ def _hf_embedding(embedding):
 
 
 @pytest.mark.asyncio
-async def test_cache_hit_avoids_api_call(embeddings_service, mock_driver):
+async def test_cache_hit_avoids_api_call(embeddings_service, mock_backend):
     """Test that cache hit doesn't make API call to HuggingFace."""
-
-    async def track_calls(query, params=None):
-        if "embedding_version" in query:
-            # Return current version (cache hit)
-            return Result.ok(
-                [
-                    {
-                        "embedding": [0.1] * DIM,
-                        "version": EMBEDDING_VERSION,
-                        "model": "BAAI/bge-large-en-v1.5",
-                        "updated_at": "2026-03-12T12:00:00Z",
-                    }
-                ]
-            )
-        elif "RETURN n.embedding" in query:
-            # Return cached embedding
-            return Result.ok([{"embedding": [0.1] * DIM}])
-        return Result.ok([])
-
-    mock_driver.execute_query = track_calls
+    # get_embedding_metadata returns current version (cache hit)
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
+        [
+            {
+                "embedding": [0.1] * DIM,
+                "version": EMBEDDING_VERSION,
+                "model": "BAAI/bge-large-en-v1.5",
+                "updated_at": "2026-03-12T12:00:00Z",
+            }
+        ]
+    )
+    # get_cached_embedding returns the embedding
+    mock_backend.get_cached_embedding.return_value = Result.ok([{"embedding": [0.1] * DIM}])
 
     # Ensure HF client was NOT called (cache hit should skip API)
     async def fail_if_called(_text):
@@ -86,28 +82,21 @@ async def test_cache_hit_avoids_api_call(embeddings_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_cache_miss_makes_api_call(embeddings_service, mock_driver):
+async def test_cache_miss_makes_api_call(embeddings_service, mock_backend):
     """Test that cache miss generates new embedding."""
-
-    async def track_calls(query, params=None):
-        if "embedding_version" in query:
-            # Return stale version (cache miss)
-            return Result.ok(
-                [
-                    {
-                        "embedding": [0.1] * DIM,
-                        "version": "v1",  # Old version
-                        "model": "text-embedding-3-small",
-                        "updated_at": "2025-01-01T12:00:00Z",
-                    }
-                ]
-            )
-        elif "SET n.embedding" in query:
-            # Store new embedding
-            return Result.ok([{"uid": "ku.python"}])
-        return Result.ok([])
-
-    mock_driver.execute_query = track_calls
+    # get_embedding_metadata returns stale version (cache miss)
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
+        [
+            {
+                "embedding": [0.1] * DIM,
+                "version": "v1",  # Old version
+                "model": "text-embedding-3-small",
+                "updated_at": "2025-01-01T12:00:00Z",
+            }
+        ]
+    )
+    # store_embedding_metadata succeeds
+    mock_backend.store_embedding_metadata.return_value = Result.ok([{"uid": "ku.python"}])
 
     # Mock HF client to return embedding
     embeddings_service._client.feature_extraction = AsyncMock(
@@ -127,27 +116,14 @@ async def test_cache_miss_makes_api_call(embeddings_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_cache_miss_no_embedding(embeddings_service, mock_driver):
+async def test_cache_miss_no_embedding(embeddings_service, mock_backend):
     """Test cache miss when node has no embedding."""
-
-    async def track_calls(query, params=None):
-        if "embedding_version" in query:
-            # No embedding on node
-            return Result.ok(
-                [
-                    {
-                        "embedding": None,
-                        "version": None,
-                        "model": None,
-                        "updated_at": None,
-                    }
-                ]
-            )
-        elif "SET n.embedding" in query:
-            return Result.ok([{"uid": "ku.new"}])
-        return Result.ok([])
-
-    mock_driver.execute_query = track_calls
+    # get_embedding_metadata returns no embedding
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
+        [{"embedding": None, "version": None, "model": None, "updated_at": None}]
+    )
+    # store succeeds
+    mock_backend.store_embedding_metadata.return_value = Result.ok([{"uid": "ku.new"}])
 
     # Mock HF client
     embeddings_service._client.feature_extraction = AsyncMock(
@@ -163,15 +139,14 @@ async def test_cache_miss_no_embedding(embeddings_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_cache_stores_metadata_on_miss(embeddings_service, mock_driver):
+async def test_cache_stores_metadata_on_miss(embeddings_service, mock_backend):
     """Test that cache miss stores embedding with metadata."""
-    # Use side_effect to return different results for each call in sequence
-    mock_driver.execute_query.side_effect = [
-        # First: check version - no embedding (get_embedding_metadata)
-        Result.ok([{"embedding": None, "version": None, "model": None, "updated_at": None}]),
-        # Second: store with metadata (store_embedding_with_metadata)
-        Result.ok([{"uid": "ku.test"}]),
-    ]
+    # get_embedding_metadata: no embedding
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
+        [{"embedding": None, "version": None, "model": None, "updated_at": None}]
+    )
+    # store succeeds
+    mock_backend.store_embedding_metadata.return_value = Result.ok([{"uid": "ku.test"}])
 
     # Mock HF client
     embeddings_service._client.feature_extraction = AsyncMock(
@@ -186,32 +161,27 @@ async def test_cache_stores_metadata_on_miss(embeddings_service, mock_driver):
     assert result.is_ok
     assert len(result.value) == DIM
 
-    # Should have made 2 DB calls (check version + store)
-    assert mock_driver.execute_query.call_count == 2
+    # Should have called get_embedding_metadata (check version) + store_embedding_metadata
+    mock_backend.get_embedding_metadata.assert_called_once()
+    mock_backend.store_embedding_metadata.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_multiple_calls_use_cache(embeddings_service, mock_driver):
+async def test_multiple_calls_use_cache(embeddings_service, mock_backend):
     """Test that multiple calls to same node use cache."""
-
-    async def track_calls(query, params=None):
-        if "embedding_version" in query:
-            # Current version
-            return Result.ok(
-                [
-                    {
-                        "embedding": [0.2] * DIM,
-                        "version": EMBEDDING_VERSION,
-                        "model": "BAAI/bge-large-en-v1.5",
-                        "updated_at": "2026-03-12T12:00:00Z",
-                    }
-                ]
-            )
-        elif "RETURN n.embedding" in query:
-            return Result.ok([{"embedding": [0.2] * DIM}])
-        return Result.ok([])
-
-    mock_driver.execute_query = track_calls
+    # get_embedding_metadata returns current version
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
+        [
+            {
+                "embedding": [0.2] * DIM,
+                "version": EMBEDDING_VERSION,
+                "model": "BAAI/bge-large-en-v1.5",
+                "updated_at": "2026-03-12T12:00:00Z",
+            }
+        ]
+    )
+    # get_cached_embedding returns embedding
+    mock_backend.get_cached_embedding.return_value = Result.ok([{"embedding": [0.2] * DIM}])
 
     # Call 3 times
     for _ in range(3):
@@ -225,34 +195,31 @@ async def test_multiple_calls_use_cache(embeddings_service, mock_driver):
 
 
 @pytest.mark.asyncio
-async def test_different_nodes_independent_cache(embeddings_service, mock_driver):
+async def test_different_nodes_independent_cache(embeddings_service, mock_backend):
     """Test that different nodes have independent cache entries."""
 
-    async def track_calls(query, params=None):
-        if "embedding_version" in query:
-            # First node: cached, Second node: not cached
-            if "python" in str(params.get("uid", "")):
-                return Result.ok(
-                    [
-                        {
-                            "embedding": [0.1] * DIM,
-                            "version": EMBEDDING_VERSION,
-                            "model": "BAAI/bge-large-en-v1.5",
-                            "updated_at": "2026-03-12T12:00:00Z",
-                        }
-                    ]
-                )
-            else:
-                return Result.ok(
-                    [{"embedding": None, "version": None, "model": None, "updated_at": None}]
-                )
-        elif "RETURN n.embedding" in query:
-            return Result.ok([{"embedding": [0.1] * DIM}])
-        elif "SET n.embedding" in query:
-            return Result.ok([{"uid": params.get("uid")}])
-        return Result.ok([])
+    def metadata_side_effect(label, uid):
+        if "python" in uid:
+            # Cached
+            return Result.ok(
+                [
+                    {
+                        "embedding": [0.1] * DIM,
+                        "version": EMBEDDING_VERSION,
+                        "model": "BAAI/bge-large-en-v1.5",
+                        "updated_at": "2026-03-12T12:00:00Z",
+                    }
+                ]
+            )
+        else:
+            # Not cached
+            return Result.ok(
+                [{"embedding": None, "version": None, "model": None, "updated_at": None}]
+            )
 
-    mock_driver.execute_query = track_calls
+    mock_backend.get_embedding_metadata = AsyncMock(side_effect=metadata_side_effect)
+    mock_backend.get_cached_embedding.return_value = Result.ok([{"embedding": [0.1] * DIM}])
+    mock_backend.store_embedding_metadata.return_value = Result.ok([{"uid": "ku.javascript"}])
 
     # Mock HF client
     embeddings_service._client.feature_extraction = AsyncMock(
@@ -273,24 +240,16 @@ async def test_different_nodes_independent_cache(embeddings_service, mock_driver
 
 
 @pytest.mark.asyncio
-async def test_cache_failure_returns_embedding_anyway(embeddings_service, mock_driver):
+async def test_cache_failure_returns_embedding_anyway(embeddings_service, mock_backend):
     """Test that if storing to cache fails, we still return the embedding."""
-
-    async def track_calls(query, params=None):
-        if "embedding_version" in query:
-            return Result.ok(
-                [{"embedding": None, "version": None, "model": None, "updated_at": None}]
-            )
-        elif "SET n.embedding" in query:
-            # Simulate storage failure via Result.fail
-            from core.utils.errors import Errors
-
-            return Result.fail(
-                Errors.database(operation="store_embedding", message="Database write failed")
-            )
-        return Result.ok([])
-
-    mock_driver.execute_query = track_calls
+    # get_embedding_metadata: no embedding
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
+        [{"embedding": None, "version": None, "model": None, "updated_at": None}]
+    )
+    # store fails
+    mock_backend.store_embedding_metadata.return_value = Result.fail(
+        Errors.database(operation="store_embedding", message="Database write failed")
+    )
 
     # Mock HF client
     embeddings_service._client.feature_extraction = AsyncMock(
@@ -307,27 +266,21 @@ async def test_cache_failure_returns_embedding_anyway(embeddings_service, mock_d
 
 
 @pytest.mark.asyncio
-async def test_stale_version_regenerates(embeddings_service, mock_driver):
+async def test_stale_version_regenerates(embeddings_service, mock_backend):
     """Test that stale versions trigger regeneration."""
-
-    async def track_calls(query, params=None):
-        if "embedding_version" in query:
-            # Return old version
-            return Result.ok(
-                [
-                    {
-                        "embedding": [0.1] * DIM,
-                        "version": "v1",  # Stale
-                        "model": "text-embedding-3-small",
-                        "updated_at": "2025-01-01T12:00:00Z",
-                    }
-                ]
-            )
-        elif "SET n.embedding" in query:
-            return Result.ok([{"uid": "ku.stale"}])
-        return Result.ok([])
-
-    mock_driver.execute_query = track_calls
+    # get_embedding_metadata returns old version
+    mock_backend.get_embedding_metadata.return_value = Result.ok(
+        [
+            {
+                "embedding": [0.1] * DIM,
+                "version": "v1",  # Stale
+                "model": "text-embedding-3-small",
+                "updated_at": "2025-01-01T12:00:00Z",
+            }
+        ]
+    )
+    # store succeeds
+    mock_backend.store_embedding_metadata.return_value = Result.ok([{"uid": "ku.stale"}])
 
     # Mock HF client
     embeddings_service._client.feature_extraction = AsyncMock(
