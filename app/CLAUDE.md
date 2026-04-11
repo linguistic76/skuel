@@ -613,7 +613,11 @@ Domain-specific relationship Cypher belongs on the domain backend. Cross-domain 
 
 **6 Activity Domains:** Tasks, Goals, Habits, Events, Choices, Principles. All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()` (supports `skip` parameter for facades that override sub-services). Active sub-services: `.core`, `.search`, `.ai` (optional, FULL tier). **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) provides domain-agnostic knowledge intelligence for all 6 domains — 4 delegation methods provided by `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`), inherited by all 6 facades.
 
+**Decomposition rule:** Intelligence services >350 lines → extract mixins. Facade services >700 lines + 4+ coherent methods → extract facade mixins. All 6 Activity Domain intelligence services and the EventsService facade now follow this pattern.
+
 **Essential Docs:** `/docs/guides/BASESERVICE_QUICK_START.md`, `/docs/reference/SUB_SERVICE_CATALOG.md`, `/docs/reference/BASESERVICE_METHOD_INDEX.md`, `/docs/architecture/SERVICE_TOPOLOGY.md`
+
+**See:** `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md`
 
 ## Unified Content Ingestion
 

@@ -4,8 +4,15 @@ Tasks Intelligence Service
 
 Task-specific intelligence features (NO AI dependencies).
 
+Architecture: Shell delegates to 3 focused mixins in this directory:
+  _core_intelligence_mixin.py    — get_task_with_context, categorize_cross_domain_context
+  _analytics_mixin.py            — get_behavioral_insights, performance helpers
+  _productivity_mixin.py         — analyze_learning_patterns, calculate_knowledge_aware_priorities,
+                                   generate_task_insights, track_knowledge_mastery_progression
+
 Created: Original November 2025
 Updated: January 2026 - Migrated to BaseAnalyticsService (ADR-030)
+Updated: April 2026 - Decomposed into focused mixins
 
 Provides:
 - Behavioral insights and patterns (task-specific)
@@ -24,74 +31,38 @@ Related sub-services (extracted March 2026):
 NOTE: This service does NOT use AI (LLM/embeddings).
 All methods are pure graph queries + Python calculations.
 See TasksAIService for AI-powered features.
-
-Architecture:
-- Uses shared intelligence utilities (NO cross-service dependencies)
-- Uses GraphIntelligenceService for graph queries (infrastructure only)
 """
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import UserUID
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
 from core.constants import GraphDepth, LearningLoop
-from core.models.enums import CompletionStatus, Domain, EntityStatus, Priority
-from core.models.enums.neo_labels import NeoLabel
-from core.models.graph_context import GraphContext
-from core.models.relationship_names import RelationshipName
+from core.models.enums import Domain, EntityStatus, Priority
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
+from core.models.type_hints import UserUID
 from core.services.analytics_engine import AnalyticsEngine
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
-from core.services.intelligence import (
-    GraphContextOrchestrator,
-    PatternAnalyzer,
-    RecommendationEngine,
-    analyze_completion_trend,
-)
-from core.utils.decorators import with_error_handling
+from core.services.intelligence import GraphContextOrchestrator
+from core.services.tasks._analytics_mixin import _AnalyticsMixin
+from core.services.tasks._core_intelligence_mixin import _CoreIntelligenceMixin
+from core.services.tasks._productivity_mixin import _ProductivityMixin
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.graph_context import GraphContext
     from core.ports.domain_protocols import TasksOperations, TasksRelationshipOperations
 
 
-# =============================================================================
-# HELPER FUNCTIONS (SKUEL012 - no lambdas)
-# =============================================================================
-
-
-def _has_high_priority_focus(tasks: Sequence[Any]) -> bool:
-    """Check if more than 40% of tasks are high priority."""
-    if not tasks:
-        return False
-    high_priority_count = len(
-        [t for t in tasks if t.priority and Priority(t.priority).to_numeric() >= 3]
-    )
-    return high_priority_count / len(tasks) > 0.4
-
-
-def _has_detailed_descriptions(tasks: Sequence[Any]) -> bool:
-    """Check if more than 60% of tasks have descriptions."""
-    if not tasks:
-        return False
-    with_description = len([t for t in tasks if t.description])
-    return with_description / len(tasks) > 0.6
-
-
-def _extract_completion_hour(task: Any) -> int | None:
-    """Extract completion hour from task, or None if not completed."""
-    return task.completed_at.hour if task.completed_at else None
-
-
-class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
+class TasksIntelligenceService(
+    _CoreIntelligenceMixin,
+    _AnalyticsMixin,
+    _ProductivityMixin,
+    BaseAnalyticsService["TasksOperations", Task],
+):
     """
     Task-specific intelligence service (graph-based, no AI).
 
@@ -158,30 +129,8 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory.
+    # get_with_context() is inherited from _CoreIntelligenceMixin (_SharedCoreMixin).
     # ========================================================================
-
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[Task, GraphContext]]:
-        """
-        Get task with full graph context.
-
-        Protocol method: Uses GraphContextOrchestrator for generic pattern.
-        Used by IntelligenceRouteFactory for GET /api/tasks/context route.
-
-        Args:
-            uid: Task UID
-            depth: Graph traversal depth (default: 2)
-
-        Returns:
-            Result containing (Task, GraphContext) tuple
-        """
-        if self.orchestrator is None:
-            return Result.fail(
-                Errors.system(
-                    message="Graph intelligence service required for context queries",
-                    operation="get_with_context",
-                )
-            )
-        return await self.orchestrator.get_with_context(uid=uid, depth=depth)
 
     async def get_domain_insights(
         self, uid: str, min_confidence: float = 0.7
@@ -200,7 +149,6 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
             Result containing insights data dict with knowledge prerequisites
             and learning opportunities.
         """
-        # Get task
         task_result = await self.backend.get(uid)
         if task_result.is_error:
             return Result.fail(task_result)
@@ -209,7 +157,6 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         if not task:
             return Result.fail(Errors.not_found(resource="Task", identifier=uid))
 
-        # Get knowledge prerequisites (inline — shared utility, no cross-service dependency)
         from core.utils.intelligence_queries import get_knowledge_prerequisites
 
         prereq_result = await get_knowledge_prerequisites(
@@ -217,7 +164,6 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         )
         prerequisites = prereq_result.value if prereq_result.is_ok else {}
 
-        # Build insights response
         insights = {
             "task_uid": uid,
             "task_title": task.title,
@@ -239,71 +185,6 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
 
         return Result.ok(insights)
 
-    # ========================================================================
-    # BEHAVIORAL INTELLIGENCE - Tasks-specific implementations
-    # ========================================================================
-
-    async def get_behavioral_insights(
-        self, user_uid: UserUID, period_days: int = 90
-    ) -> Result[dict[str, Any]]:
-        """
-        Analyze behavioral patterns from tasks.
-
-        Analyzes:
-        - Task completion patterns (time of day, day of week)
-        - Procrastination patterns
-        - Energy-task matching
-        - Context productivity patterns
-
-        Returns:
-            Result containing:
-            - behavior_patterns: Identified patterns
-            - success_factors: Key success factors
-            - recommendations: Behavioral recommendations
-        """
-        self.logger.info(f"Analyzing behavioral insights for user {user_uid}")
-
-        # Get completed tasks in period
-        cutoff_date = datetime.now() - timedelta(days=period_days)
-        tasks_result = await self.backend.find_by(user_uid=user_uid, status=CompletionStatus.DONE)
-
-        if tasks_result.is_error:
-            return Result.fail(tasks_result)
-
-        tasks = tasks_result.value
-        recent_tasks = [
-            task for task in tasks if task.completion_date and task.completion_date >= cutoff_date
-        ]
-
-        # Analyze completion patterns
-        behavior_patterns = self._analyze_completion_patterns(recent_tasks)
-
-        # Identify success factors
-        success_factors = self._identify_success_factors(recent_tasks)
-
-        # Generate recommendations
-        recommendations = self._generate_behavioral_recommendations(
-            behavior_patterns, success_factors
-        )
-
-        return Result.ok(
-            {
-                "behavior_patterns": behavior_patterns,
-                "success_factors": success_factors,
-                "recommendations": recommendations,
-                "metadata": {
-                    "generated_at": datetime.now().isoformat(),
-                    "user_uid": user_uid,
-                    "period_days": period_days,
-                    "tasks_analyzed": len(recent_tasks),
-                },
-            }
-        )
-
-    # ========================================================================
-    # PERFORMANCE INTELLIGENCE - Tasks-specific implementations
-    # ========================================================================
-
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
@@ -324,7 +205,6 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         """
         self.logger.info(f"Analyzing performance metrics for user {user_uid}")
 
-        # Get tasks in period
         cutoff_date = datetime.now() - timedelta(days=period_days)
         tasks_result = await self.backend.find_by(user_uid=user_uid)
 
@@ -334,7 +214,6 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
         all_tasks = tasks_result.value
         period_tasks = [task for task in all_tasks if task.created_at >= cutoff_date]
 
-        # Calculate metrics
         # Note: Tasks use EntityStatus, not CompletionStatus (which is for habits)
         completed_tasks = [t for t in period_tasks if t.status == EntityStatus.COMPLETED]
         completion_rate = len(completed_tasks) / len(period_tasks) if period_tasks else 0.0
@@ -355,10 +234,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
             ),
         }
 
-        # Analyze trends
         trends = self._analyze_performance_trends(period_tasks)
-
-        # Identify optimization opportunities
         optimizations = self._identify_optimization_opportunities(period_tasks, metrics)
 
         # Include learned duration calibration (ADR-048)
@@ -387,489 +263,3 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
                 },
             }
         )
-
-    # ========================================================================
-    # CROSS-DOMAIN CONTEXT - Domain-specific categorization
-    # ========================================================================
-
-    @with_error_handling(
-        "categorize_cross_domain_context", error_type="system", uid_param="task_uid"
-    )
-    async def categorize_cross_domain_context(
-        self, task_uid: str, raw_context: list[dict[str, Any]]
-    ) -> Result[dict[str, Any]]:
-        """
-        Categorize raw graph context into task-specific groups.
-
-        This contains the domain-specific intelligence that was previously
-        in the backend's get_task_cross_domain_context() method.
-
-         Architecture:
-        - Backend provides raw graph data via get_domain_context_raw()
-        - Intelligence service performs domain-specific categorization
-        - This achieves true separation: Backend = primitives, Intelligence = domain logic
-
-        Args:
-            task_uid: Task UID
-            raw_context: Raw graph context from backend (list of entities with metadata)
-
-        Returns:
-            Result containing TaskCrossContext grouped by relationship semantic:
-            - prerequisites: Tasks that must be completed first (DEPENDS_ON - outgoing)
-            - dependents: Tasks that depend on this one (DEPENDS_ON - incoming)
-            - required_knowledge: Knowledge needed to complete task (REQUIRES_KNOWLEDGE)
-            - applied_knowledge: Knowledge this task applies (APPLIES_KNOWLEDGE)
-            - contributing_goals: Goals this task fulfills (CONTRIBUTES_TO_GOAL, FULFILLS_GOAL)
-        """
-        from core.models.graph.path_aware_types import (
-            PathAwareGoal,
-            PathAwareKnowledge,
-            PathAwareTask,
-            TaskCrossContext,
-        )
-
-        # Group by entity type and relationship
-        prerequisites = []
-        dependents = []
-        required_knowledge = []
-        applied_knowledge = []
-        contributing_goals = []
-
-        for entity in raw_context:
-            labels = entity["labels"]
-            via_rels = entity["via_relationships"]
-
-            # Task dependencies (bidirectional DEPENDS_ON)
-            # Use directional markers (->DEPENDS_ON / <-DEPENDS_ON) to distinguish
-            depends_on = RelationshipName.DEPENDS_ON.value
-            if NeoLabel.ENTITY.value in labels and (
-                f"->{depends_on}" in via_rels
-                or depends_on in via_rels
-                or f"<-{depends_on}" in via_rels
-            ):
-                task_entity = PathAwareTask(
-                    uid=entity["uid"],
-                    title=entity["title"],
-                    distance=entity["distance"],
-                    path_strength=entity["path_strength"],
-                    via_relationships=via_rels,
-                )
-
-                # Check for directional relationship markers
-                if f"->{depends_on}" in via_rels or depends_on in via_rels:
-                    # Outgoing DEPENDS_ON = this task depends on the related task (prerequisite)
-                    prerequisites.append(task_entity)
-                elif f"<-{depends_on}" in via_rels:
-                    # Incoming DEPENDS_ON = related task depends on this one (dependent)
-                    dependents.append(task_entity)
-
-            # Knowledge requirements (REQUIRES_KNOWLEDGE, APPLIES_KNOWLEDGE)
-            elif NeoLabel.ENTITY.value in labels and (
-                RelationshipName.REQUIRES_KNOWLEDGE.value in via_rels
-                or RelationshipName.APPLIES_KNOWLEDGE.value in via_rels
-            ):
-                knowledge_entity = PathAwareKnowledge(
-                    uid=entity["uid"],
-                    title=entity["title"],
-                    distance=entity["distance"],
-                    path_strength=entity["path_strength"],
-                    via_relationships=via_rels,
-                )
-                if RelationshipName.REQUIRES_KNOWLEDGE.value in via_rels:
-                    required_knowledge.append(knowledge_entity)
-                elif RelationshipName.APPLIES_KNOWLEDGE.value in via_rels:
-                    applied_knowledge.append(knowledge_entity)
-
-            # Goals this task contributes to/fulfills
-            elif NeoLabel.ENTITY.value in labels and (
-                RelationshipName.CONTRIBUTES_TO_GOAL.value in via_rels
-                or RelationshipName.FULFILLS_GOAL.value in via_rels
-            ):
-                contributing_goals.append(
-                    PathAwareGoal(
-                        uid=entity["uid"],
-                        title=entity["title"],
-                        distance=entity["distance"],
-                        path_strength=entity["path_strength"],
-                        via_relationships=via_rels,
-                    )
-                )
-
-        # Create path-aware context
-        context = TaskCrossContext(
-            task_uid=task_uid,
-            prerequisites=prerequisites,
-            dependents=dependents,
-            required_knowledge=required_knowledge,
-            applied_knowledge=applied_knowledge,
-            contributing_goals=contributing_goals,
-        )
-
-        # Return dict representation for compatibility
-        return Result.ok(
-            {
-                "task_uid": context.task_uid,
-                "prerequisites": [
-                    {
-                        "uid": t.uid,
-                        "title": t.title,
-                        "distance": t.distance,
-                        "path_strength": t.path_strength,
-                        "via_relationships": t.via_relationships,
-                    }
-                    for t in context.prerequisites
-                ],
-                "dependents": [
-                    {
-                        "uid": t.uid,
-                        "title": t.title,
-                        "distance": t.distance,
-                        "path_strength": t.path_strength,
-                        "via_relationships": t.via_relationships,
-                    }
-                    for t in context.dependents
-                ],
-                "required_knowledge": [
-                    {
-                        "uid": k.uid,
-                        "title": k.title,
-                        "distance": k.distance,
-                        "path_strength": k.path_strength,
-                        "via_relationships": k.via_relationships,
-                    }
-                    for k in context.required_knowledge
-                ],
-                "applied_knowledge": [
-                    {
-                        "uid": k.uid,
-                        "title": k.title,
-                        "distance": k.distance,
-                        "path_strength": k.path_strength,
-                        "via_relationships": k.via_relationships,
-                    }
-                    for k in context.applied_knowledge
-                ],
-                "contributing_goals": [
-                    {
-                        "uid": g.uid,
-                        "title": g.title,
-                        "distance": g.distance,
-                        "path_strength": g.path_strength,
-                        "via_relationships": g.via_relationships,
-                    }
-                    for g in context.contributing_goals
-                ],
-            }
-        )
-
-    # ========================================================================
-    # ANALYTICS ENGINE METHODS (moved from TasksService facade — January 2026)
-    # These methods own the AnalyticsEngine interaction directly.
-    # ========================================================================
-
-    async def analyze_learning_patterns(
-        self, user_uid: UserUID, timeframe_days: int = 30
-    ) -> Result[list[Any]]:
-        """
-        Analyze learning patterns across user's task activities.
-
-        Args:
-            user_uid: User to analyze
-            timeframe_days: Analysis timeframe in days
-
-        Returns:
-            Result containing detected learning patterns
-        """
-        tasks_result = await self.backend.find_by(user_uid=user_uid)
-        if tasks_result.is_error:
-            return Result.fail(tasks_result)
-
-        return await self._analytics_engine.analyze_learning_patterns(
-            tasks_result.value, timeframe_days
-        )
-
-    async def calculate_knowledge_aware_priorities(
-        self, user_uid: UserUID, task_uids: list[str] | None = None
-    ) -> Result[list[Any]]:
-        """
-        Calculate knowledge-aware priority scores for tasks.
-
-        Args:
-            user_uid: User whose tasks to prioritize
-            task_uids: Specific task UIDs to prioritize (None for all)
-
-        Returns:
-            Result containing knowledge-aware priority scores
-        """
-        from operator import attrgetter
-
-        from core.services.tasks.task_relationships import TaskRelationships
-
-        tasks_result = await self.backend.find_by(user_uid=user_uid)
-        if tasks_result.is_error:
-            return Result.fail(tasks_result)
-
-        all_tasks = tasks_result.value
-
-        # Filter to specific tasks or pending tasks
-        if task_uids:
-            tasks_to_prioritize = [t for t in all_tasks if t.uid in task_uids]
-        else:
-            from core.models.enums import EntityStatus
-
-            tasks_to_prioritize = [
-                t
-                for t in all_tasks
-                if t.status in [EntityStatus.DRAFT, EntityStatus.ACTIVE, EntityStatus.SCHEDULED]
-            ]
-
-        # Get learning patterns
-        patterns_result = await self.analyze_learning_patterns(user_uid)
-        patterns = patterns_result.value if patterns_result.is_ok else []
-
-        # Fetch relationships and get knowledge UIDs
-        import asyncio
-
-        rels_list = await asyncio.gather(
-            *[TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks]
-        )
-
-        all_knowledge_uids: set[str] = set()
-        for task, _rels in zip(all_tasks, rels_list, strict=False):
-            all_knowledge_uids.update(task.get_combined_knowledge_uids())
-
-        # Get mastery progressions
-        mastery_result = await self._analytics_engine.track_knowledge_mastery_progression(
-            all_tasks, list(all_knowledge_uids)
-        )
-        mastery_progressions = mastery_result.value if mastery_result.is_ok else {}
-
-        # Calculate priorities
-        priorities = []
-        for task in tasks_to_prioritize:
-            priority_result = await self._analytics_engine.calculate_knowledge_aware_priority(
-                task, mastery_progressions, patterns
-            )
-            if priority_result.is_ok:
-                priorities.append(priority_result.value)
-
-        priorities.sort(key=attrgetter("final_priority_score"), reverse=True)
-        return Result.ok(priorities)
-
-    async def generate_task_insights(
-        self, user_uid: UserUID, timeframe_days: int = 30
-    ) -> Result[list[Any]]:
-        """
-        Generate insights from user's completed tasks.
-
-        Args:
-            user_uid: User to analyze
-            timeframe_days: Analysis timeframe in days
-
-        Returns:
-            Result containing generated task insights
-        """
-        tasks_result = await self.backend.find_by(user_uid=user_uid)
-        if tasks_result.is_error:
-            return Result.fail(tasks_result)
-
-        cutoff_date = date.today() - timedelta(days=timeframe_days)
-        completed_tasks = [
-            task
-            for task in tasks_result.value
-            if task.status == EntityStatus.COMPLETED
-            and task.completion_date
-            and task.completion_date >= cutoff_date
-        ]
-
-        patterns_result = await self.analyze_learning_patterns(user_uid, timeframe_days)
-        patterns = patterns_result.value if patterns_result.is_ok else []
-
-        return await self._analytics_engine.generate_task_insights(completed_tasks, patterns)
-
-    async def track_knowledge_mastery_progression(
-        self, user_uid: UserUID, knowledge_uids: list[str] | None = None
-    ) -> Result[dict[str, Any]]:
-        """
-        Track knowledge mastery progression for user.
-
-        Args:
-            user_uid: User to analyze
-            knowledge_uids: Specific knowledge UIDs to track (None for all)
-
-        Returns:
-            Result containing mastery progressions by knowledge UID
-        """
-        import asyncio
-
-        from core.services.tasks.task_relationships import TaskRelationships
-
-        tasks_result = await self.backend.find_by(user_uid=user_uid)
-        if tasks_result.is_error:
-            return Result.fail(tasks_result)
-
-        all_tasks = tasks_result.value
-
-        # Determine knowledge UIDs to track
-        if knowledge_uids is None:
-            rels_list = await asyncio.gather(
-                *[TaskRelationships.fetch(task.uid, self.relationships) for task in all_tasks]
-            )
-            all_knowledge_uids: set[str] = set()
-            for task, _rels in zip(all_tasks, rels_list, strict=False):
-                all_knowledge_uids.update(task.get_combined_knowledge_uids())
-            knowledge_uids = list(all_knowledge_uids)
-
-        return await self._analytics_engine.track_knowledge_mastery_progression(
-            all_tasks, knowledge_uids
-        )
-
-    # ========================================================================
-    # HELPER METHODS - Task-specific analysis functions
-    # ========================================================================
-
-    def _analyze_completion_patterns(self, tasks: list) -> list[dict[str, Any]]:
-        """Analyze task completion patterns."""
-        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
-        peak_time = PatternAnalyzer.find_peak_time(tasks, _extract_completion_hour)
-        if peak_time:
-            return [
-                {
-                    "pattern": "peak_productivity",
-                    "description": f"Most tasks completed around {peak_time['peak_hour']}:00",
-                    "confidence": peak_time["confidence"],
-                }
-            ]
-        return []
-
-    def _identify_success_factors(self, tasks: list) -> list[str]:
-        """Identify factors contributing to successful task completion."""
-        if not tasks:
-            return []
-        # Uses PatternAnalyzer from shared intelligence utilities (consolidation)
-        return PatternAnalyzer.identify_factors(
-            tasks,
-            conditions=[
-                (
-                    _has_high_priority_focus,
-                    "High priority focus drives completion",
-                ),
-                (
-                    _has_detailed_descriptions,
-                    "Detailed task descriptions improve completion",
-                ),
-            ],
-        )
-
-    def _generate_behavioral_recommendations(
-        self, patterns: list[dict], success_factors: list[str]
-    ) -> list[str]:
-        """Generate behavioral recommendations."""
-        # Uses RecommendationEngine from shared intelligence utilities (consolidation)
-        engine = RecommendationEngine()
-
-        # Add recommendations based on patterns
-        for pattern in patterns:
-            if pattern.get("pattern") == "peak_productivity":
-                engine.add_message(
-                    f"Schedule high-priority tasks during your peak hours: {pattern.get('description', '')}"
-                )
-
-        # Add recommendations based on success factors
-        engine.add_conditional(
-            "Detailed task descriptions improve completion" in success_factors,
-            "Continue adding detailed descriptions to tasks",
-        )
-
-        return engine.build()
-
-    def _analyze_performance_trends(self, tasks: list) -> dict[str, Any]:
-        """Analyze performance trends over time from task completion data."""
-        # Uses analyze_completion_trend from shared intelligence utilities (consolidation)
-        completed_count = sum(1 for task in tasks if task.status == CompletionStatus.DONE)
-        result = analyze_completion_trend(completed_count, len(tasks))
-
-        return {
-            "completion_trend": result["trend"],
-            "efficiency_trend": "stable",  # Could be enhanced with time tracking
-            "quality_trend": "stable",  # Could be enhanced with quality metrics
-            "completion_rate": result["completion_rate"],
-            "tasks_analyzed": result["analyzed_count"],
-        }
-
-    def _identify_optimization_opportunities(
-        self, tasks: list, metrics: dict
-    ) -> list[dict[str, Any]]:
-        """Identify opportunities for optimization based on tasks and metrics."""
-        opportunities = []
-
-        # Check for low completion rate (from metrics)
-        if metrics["completion_rate"] < 70:
-            opportunities.append(
-                {
-                    "area": "task_completion",
-                    "suggestion": "Consider breaking down large tasks into smaller, manageable subtasks",
-                    "potential_impact": "15-25% improvement in completion rate",
-                }
-            )
-
-        # Check for overdue tasks (from metrics)
-        if metrics.get("overdue_tasks", 0) > 5:
-            opportunities.append(
-                {
-                    "area": "deadline_management",
-                    "suggestion": "Review and adjust deadlines based on actual completion times",
-                    "potential_impact": "Reduced stress and more realistic planning",
-                }
-            )
-
-        # Analyze task title lengths (from tasks)
-        if tasks:
-            avg_title_length = sum(len(task.title) for task in tasks) / len(tasks)
-            if avg_title_length < 10:
-                # Explicit type annotation to allow mixed str/int values
-                opportunity: dict[str, Any] = {
-                    "area": "task_clarity",
-                    "suggestion": "Add more descriptive task titles for better clarity",
-                    "potential_impact": "Improved focus and reduced ambiguity",
-                    "tasks_affected": len(tasks),
-                }
-                opportunities.append(opportunity)
-
-        # Analyze task descriptions (from tasks)
-        if tasks:
-            tasks_without_description = sum(1 for task in tasks if not task.description)
-            if tasks_without_description > len(tasks) * 0.5:  # Over 50% lack descriptions
-                # Explicit type annotation to allow mixed str/int values
-                # P3: Renamed to avoid redefinition error
-                documentation_opportunity: dict[str, Any] = {
-                    "area": "task_documentation",
-                    "suggestion": "Add descriptions to tasks for better context and execution",
-                    "potential_impact": "Clearer expectations and easier execution",
-                    "tasks_needing_description": tasks_without_description,
-                }
-                opportunities.append(documentation_opportunity)
-
-        # Duration calibration insights (ADR-048)
-        learned_ratio = metrics.get("learned_duration_ratio")
-        if learned_ratio is not None:
-            if learned_ratio > 1.3:
-                opportunities.append(
-                    {
-                        "area": "duration_estimation",
-                        "suggestion": "Tasks consistently take longer than estimated — add buffer time",
-                        "potential_impact": "More realistic planning and less overcommitment",
-                        "learned_ratio": round(learned_ratio, 2),
-                    }
-                )
-            elif learned_ratio < 0.7:
-                opportunities.append(
-                    {
-                        "area": "duration_estimation",
-                        "suggestion": "Tasks consistently finish faster than estimated — take on more",
-                        "potential_impact": "Better use of available time",
-                        "learned_ratio": round(learned_ratio, 2),
-                    }
-                )
-
-        return opportunities
