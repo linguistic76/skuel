@@ -9,22 +9,24 @@ Architecture (January 2026 - LP Consolidation ADR-031):
 - lp_search_service.py: Search operations (extends BaseService)
 - lp_progress_service.py: Progress tracking (event-driven)
 
-Note: Validation, analysis, adaptive, and context operations are now
-consolidated into LpIntelligenceService (in parent directory).
+Note: Validation, analysis, adaptive, and context operations are
+consolidated into LpIntelligenceService.
 
 Usage:
     from core.services.lp_service import LpService  # Facade coordinates all sub-services
 
     # Or import sub-services directly:
-    from core.services.lp import LpCoreService, LpSearchService, LpProgressService
+    from core.services.lp import LpCoreService, LpSearchService, LpProgressService, LpIntelligenceService
 """
 
 from .lp_core_service import LpCoreService
+from .lp_intelligence_service import LpIntelligenceService
 from .lp_progress_service import LpProgressService
 from .lp_search_service import LpSearchService
 
 __all__ = [
     "LpCoreService",
+    "LpIntelligenceService",
     "LpSearchService",
     "LpProgressService",
 ]

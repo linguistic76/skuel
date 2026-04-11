@@ -2,23 +2,23 @@
 Curriculum Domain Configuration Registry
 =========================================
 
-Centralizes configuration for 4 Curriculum Domain facades.
+Centralizes configuration and factory functions for the 3 Curriculum Domain facades
+(Ku, Ps, Lp). The generic ``create_curriculum_sub_services`` factory is used only by
+Ku; Ps and Lp have dedicated factories (``create_ps_sub_services``,
+``create_lp_sub_services``) due to non-standard sub-service wiring.
 
-Each domain has:
-- core_module/class: CoreService class for CRUD operations
-- search_module/class: SearchService class for discovery
-- intelligence_module/class: IntelligenceService class for analytics
-- relationship_config: DomainRelationshipConfig from registry (direct reference)
+``CURRICULUM_DOMAIN_CONFIGS`` — 1 entry (Ku only):
+Each entry provides core/search/intelligence module strings + relationship config,
+consumed by ``create_curriculum_sub_services`` for dynamic instantiation.
 
-Usage:
+Usage (Ku):
     from core.services.curriculum_domain_config import (
         CURRICULUM_DOMAIN_CONFIGS,
         create_curriculum_sub_services,
     )
 
-    # In facade __init__:
     common = create_curriculum_sub_services(
-        domain="ps",
+        domain="ku",
         backend=backend,
         graph_intel=graph_intelligence_service,
         event_bus=event_bus,
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from core.services.lp.lp_core_service import LpCoreService
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
-    from core.services.lp_intelligence_service import LpIntelligenceService
+    from core.services.lp.lp_intelligence_service import LpIntelligenceService
     from core.services.ps.ps_adaptive_service import PsAdaptiveService
     from core.services.ps.ps_application_discovery_service import PsApplicationDiscoveryService
     from core.services.ps.ps_context_service import PsContextService
@@ -87,7 +87,9 @@ class CurriculumDomainConfig:
     entity_label: str
 
 
-# Registry of all 4 Curriculum Domain configurations
+# Registry for Curriculum Domains that use the generic create_curriculum_sub_services factory.
+# Only Ku uses the generic factory — Ps and Lp have dedicated factories
+# (create_ps_sub_services, create_lp_sub_services) with non-standard wiring.
 CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
     "ku": CurriculumDomainConfig(
         core_module="core.services.ku.ku_core_service",
@@ -99,28 +101,6 @@ CURRICULUM_DOMAIN_CONFIGS: dict[str, CurriculumDomainConfig] = {
         relationship_config=KU_CONFIG,
         domain_name="ku",
         entity_label="Ku",
-    ),
-    "ps": CurriculumDomainConfig(
-        core_module="core.services.ps.ps_core_service",
-        core_class="PsCoreService",
-        search_module="core.services.ps.ps_search_service",
-        search_class="PsSearchService",
-        intelligence_module="core.services.ps.ps_intelligence_service",
-        intelligence_class="PsIntelligenceService",
-        relationship_config=PS_CONFIG,
-        domain_name="ps",
-        entity_label="Entity",
-    ),
-    "lp": CurriculumDomainConfig(
-        core_module="core.services.lp.lp_core_service",
-        core_class="LpCoreService",
-        search_module="core.services.lp.lp_search_service",
-        search_class="LpSearchService",
-        intelligence_module="core.services.lp_intelligence_service",
-        intelligence_class="LpIntelligenceService",
-        relationship_config=LP_CONFIG,
-        domain_name="lp",
-        entity_label="Entity",
     ),
 }
 
@@ -177,9 +157,8 @@ def create_curriculum_sub_services(
         self.intelligence = common.intelligence # Typed as PsIntelligenceService
 
     Note:
-        For domains with non-standard core/search signatures (KU, LP, MOC),
-        the facade may create those services manually instead of using this factory,
-        similar to how TasksService creates its core manually due to ku_inference_service.
+        Only Ku uses this factory. Ps and Lp have dedicated factories
+        (create_ps_sub_services, create_lp_sub_services) due to non-standard wiring.
     """
     import importlib
 
@@ -255,7 +234,7 @@ def create_ps_sub_services(
     9. PsAdaptiveService (backend, user_service)
     10. PsApplicationDiscoveryService (repo)
     11. PsContextService (repo)
-    12. PsOrganizationService (created by facade — needs service reference)
+    12. PsOrganizationService (ps_core, backend)
     """
     from core.services.ps.ps_adaptive_service import PsAdaptiveService
     from core.services.ps.ps_application_discovery_service import PsApplicationDiscoveryService
@@ -310,8 +289,8 @@ def create_ps_sub_services(
     # Step 11: Create context service
     context_service = PsContextService(repo=backend)
 
-    # Step 12: Organization — placeholder, needs facade reference (set by facade post-init)
-    organization = PsOrganizationService(ps_service=None, backend=backend)  # type: ignore[arg-type]
+    # Step 12: Organization service — uses core for PathStep lookups
+    organization = PsOrganizationService(ps_core=core, backend=backend)
 
     return PsSubServices(
         core=core,
@@ -359,7 +338,6 @@ class LpSubServices:
     relationships: "UnifiedRelationshipService"
     intelligence: "LpIntelligenceService"
     progress: "LpProgressService"
-    backend: Any  # BackendOperations[Ku] — protocol-typed to avoid adapter import
 
 
 def create_lp_sub_services(
@@ -399,7 +377,7 @@ def create_lp_sub_services(
     from core.services.lp.lp_core_service import LpCoreService
     from core.services.lp.lp_progress_service import LpProgressService
     from core.services.lp.lp_search_service import LpSearchService
-    from core.services.lp_intelligence_service import LpIntelligenceService
+    from core.services.lp.lp_intelligence_service import LpIntelligenceService
 
     # Step 1: Create search (simple, no dependencies)
     search = LpSearchService(backend=backend)
@@ -438,5 +416,4 @@ def create_lp_sub_services(
         relationships=relationships,
         intelligence=intelligence,
         progress=progress,
-        backend=backend,
     )

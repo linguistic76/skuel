@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from core.services.ps_service import PsService
+    from core.services.ps.ps_core_service import PsCoreService
 
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from core.utils.logging import get_logger
@@ -92,10 +92,10 @@ class PsOrganizationService:
 
     def __init__(
         self,
-        ps_service: PsService,
+        ps_core: "PsCoreService",
         backend: Any,  # PsBackend — Any to avoid circular import
     ) -> None:
-        self.ps_service = ps_service
+        self.ps_core = ps_core
         self.backend = backend
         self.logger = logger
 
@@ -111,7 +111,7 @@ class PsOrganizationService:
         self, ps_uid: str, max_depth: int = 3
     ) -> Result[StepOrganizationView]:
         """Get a PathStep with its organized children hierarchy."""
-        ps_result = await self.ps_service.get(ps_uid)
+        ps_result = await self.ps_core.get(ps_uid)
         if ps_result.is_error:
             return Result.fail(ps_result)
 
@@ -185,7 +185,7 @@ class PsOrganizationService:
         order: int = 0,
     ) -> Result[bool]:
         """Organize a PathStep under another PathStep (create ORGANIZES relationship)."""
-        parent_result = await self.ps_service.get(parent_uid)
+        parent_result = await self.ps_core.get(parent_uid)
         if parent_result.is_error:
             return Result.fail(parent_result)
         if not parent_result.value:
@@ -193,7 +193,7 @@ class PsOrganizationService:
                 Errors.not_found(resource="PathStep (parent)", identifier=parent_uid)
             )
 
-        child_result = await self.ps_service.get(child_uid)
+        child_result = await self.ps_core.get(child_uid)
         if child_result.is_error:
             return Result.fail(child_result)
         if not child_result.value:

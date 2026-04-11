@@ -31,7 +31,7 @@ from core.utils.result_simplified import Errors, Result
 
 @pytest.fixture
 def mock_ku_service() -> Mock:
-    """Create mock PsService."""
+    """Create mock PsCoreService."""
     ku_service = Mock()
     ku_service.get = AsyncMock()
     return ku_service
@@ -54,7 +54,7 @@ def mock_backend() -> Mock:
 @pytest.fixture
 def organization_service(mock_ku_service, mock_backend) -> PsOrganizationService:
     """Create PsOrganizationService instance for testing."""
-    return PsOrganizationService(ps_service=mock_ku_service, backend=mock_backend)
+    return PsOrganizationService(ps_core=mock_ku_service, backend=mock_backend)
 
 
 @pytest.fixture

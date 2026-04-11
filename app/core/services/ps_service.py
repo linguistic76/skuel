@@ -232,7 +232,6 @@ class PsService:
         # Assign sub-services from factory
         self.core = subs.core
         self.search = subs.search
-        self.search_service = subs.search  # alias for compatibility
         self.graph = subs.graph
         self.semantic = subs.semantic
         self.practice = subs.practice
@@ -243,9 +242,7 @@ class PsService:
         self.application_discovery = subs.application_discovery
         self.context_service = subs.context_service
 
-        # Organization needs facade reference — set post-init
         self.organization = subs.organization
-        self.organization.ps_service = self  # type: ignore[attr-defined]
 
         # Progress sub-service (event-driven)
         self.progress = PsProgressService(backend=backend, event_bus=event_bus)
