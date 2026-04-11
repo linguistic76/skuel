@@ -83,7 +83,7 @@ class LifePathService:
 
     def __init__(
         self,
-        executor: Any = None,
+        backend: Any = None,
         lp_service: LpService | None = None,
         ku_service: PsService | None = None,
         user_service: UserService | None = None,
@@ -93,7 +93,7 @@ class LifePathService:
         Initialize LifePath service with all sub-services.
 
         Args:
-            executor: Query executor for graph queries
+            backend: LifePathBackendOperations for graph queries
             lp_service: LP service for path operations
             ku_service: KU service for knowledge operations
             user_service: User service for context
@@ -106,12 +106,12 @@ class LifePathService:
         )
 
         self.core = LifePathCoreService(
-            executor=executor,
+            backend=backend,
             lp_service=lp_service,
         )
 
         self.alignment = LifePathAlignmentService(
-            executor=executor,
+            backend=backend,
             lp_service=lp_service,
             ku_service=ku_service,
         )

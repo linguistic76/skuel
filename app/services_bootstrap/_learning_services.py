@@ -92,7 +92,10 @@ def _create_learning_services(
     )
 
     # Create progress services
-    user_progress = UserProgressService(query_executor)
+    from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
+
+    user_progress_backend = UserProgressBackend(query_executor)
+    user_progress = UserProgressService(user_progress_backend)
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
 
     # Create path step service (PS operations)

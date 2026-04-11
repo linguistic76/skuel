@@ -359,9 +359,11 @@ async def compose_services(
         logger.info("✅ Inference services created (ku_inference, ku_generation)")
 
         # Create InsightStore
+        from adapters.persistence.neo4j.insight_backend import InsightBackend
         from core.services.insight import InsightStore
 
-        insight_store = InsightStore(query_executor)
+        insight_backend = InsightBackend(query_executor)
+        insight_store = InsightStore(insight_backend)
         logger.info("✅ InsightStore created (event-driven insights)")
 
         # ========================================================================
@@ -882,10 +884,12 @@ async def compose_services(
         # "Everything flows toward the life path"
         # Vision capture → Alignment measurement → Recommendations
         # =====================================================================
+        from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
         from core.services.lifepath import LifePathService
 
+        lifepath_backend = LifePathBackend(query_executor)
         lifepath_service = LifePathService(
-            executor=query_executor,
+            backend=lifepath_backend,
             lp_service=learning_services["learning_paths"],
             ku_service=learning_services["ps"],
             user_service=user_service,

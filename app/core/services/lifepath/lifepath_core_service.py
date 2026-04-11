@@ -29,7 +29,7 @@ from core.utils.result_simplified import Errors, Result
 from .lifepath_types import LifePathDesignation
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.lifepath_protocols import LifePathBackendOperations
     from core.services.lp_service import LpService
 
 logger = get_logger(__name__)
@@ -45,17 +45,17 @@ class LifePathCoreService:
 
     def __init__(
         self,
-        executor: QueryExecutor | None = None,
+        backend: LifePathBackendOperations | None = None,
         lp_service: LpService | None = None,
     ) -> None:
         """
         Initialize core service.
 
         Args:
-            executor: Query executor for database operations
+            backend: LifePathBackendOperations for database operations
             lp_service: LP service for validation
         """
-        self.executor = executor
+        self.backend = backend
         self.lp_service = lp_service
         logger.info("LifePathCoreService initialized")
 
@@ -72,22 +72,11 @@ class LifePathCoreService:
         Returns:
             Result[LifePathDesignation | None]
         """
-        if not self.executor:
-            return Result.fail(Errors.system("Executor not available", operation="get_designation"))
-
-        query = """
-        MATCH (u:User {uid: $user_uid})
-        OPTIONAL MATCH (u)-[r:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
-        RETURN u.vision_statement AS vision_statement,
-               u.vision_themes AS vision_themes,
-               u.vision_captured_at AS vision_captured_at,
-               lp.uid AS life_path_uid,
-               r.designated_at AS designated_at,
-               r.alignment_score AS alignment_score
-        """
+        if not self.backend:
+            return Result.fail(Errors.system("Backend not available", operation="get_designation"))
 
         try:
-            result = await self.executor.execute_query(query, {"user_uid": user_uid})
+            result = await self.backend.get_designation(user_uid)
 
             if result.is_error:
                 logger.error(f"Failed to get designation for {user_uid}: {result.error}")
@@ -145,28 +134,17 @@ class LifePathCoreService:
         Returns:
             Result[LifePathDesignation] with updated data
         """
-        if not self.executor:
-            return Result.fail(Errors.system("Executor not available", operation="save_vision"))
+        if not self.backend:
+            return Result.fail(Errors.system("Backend not available", operation="save_vision"))
 
         now = datetime.now()
 
-        query = """
-        MATCH (u:User {uid: $user_uid})
-        SET u.vision_statement = $vision_statement,
-            u.vision_themes = $vision_themes,
-            u.vision_captured_at = $captured_at
-        RETURN u.uid AS user_uid
-        """
-
         try:
-            result = await self.executor.execute_query(
-                query,
-                {
-                    "user_uid": user_uid,
-                    "vision_statement": vision_statement,
-                    "vision_themes": vision_themes,
-                    "captured_at": now.isoformat(),
-                },
+            result = await self.backend.save_vision(
+                user_uid=user_uid,
+                vision_statement=vision_statement,
+                vision_themes=vision_themes,
+                captured_at=now.isoformat(),
             )
 
             if result.is_error:
@@ -211,9 +189,9 @@ class LifePathCoreService:
         Returns:
             Result[LifePathDesignation] with updated data
         """
-        if not self.executor:
+        if not self.backend:
             return Result.fail(
-                Errors.system("Executor not available", operation="designate_life_path")
+                Errors.system("Backend not available", operation="designate_life_path")
             )
 
         # Validate LP exists
@@ -224,37 +202,11 @@ class LifePathCoreService:
 
         now = datetime.now()
 
-        # Remove existing ULTIMATE_PATH (if any), revert old LP's entity_type,
-        # then create new designation
-        query = """
-        MATCH (u:User {uid: $user_uid})
-        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'learning_path'})
-
-        // Revert previous designation's entity_type back to learning_path
-        OPTIONAL MATCH (u)-[old:ULTIMATE_PATH]->(old_lp:Entity {entity_type: 'life_path'})
-        SET old_lp.entity_type = 'learning_path'
-        DELETE old
-
-        // Create new designation and promote entity_type
-        WITH u, lp
-        CREATE (u)-[r:ULTIMATE_PATH {designated_at: $designated_at}]->(lp)
-        SET lp.entity_type = 'life_path'
-
-        RETURN u.vision_statement AS vision_statement,
-               u.vision_themes AS vision_themes,
-               u.vision_captured_at AS vision_captured_at,
-               lp.uid AS life_path_uid,
-               r.designated_at AS designated_at
-        """
-
         try:
-            result = await self.executor.execute_query(
-                query,
-                {
-                    "user_uid": user_uid,
-                    "life_path_uid": life_path_uid,
-                    "designated_at": now.isoformat(),
-                },
+            result = await self.backend.designate_life_path(
+                user_uid=user_uid,
+                life_path_uid=life_path_uid,
+                designated_at=now.isoformat(),
             )
 
             if result.is_error:
@@ -301,20 +253,13 @@ class LifePathCoreService:
         Returns:
             Result[bool] True if removed, False if no designation existed
         """
-        if not self.executor:
+        if not self.backend:
             return Result.fail(
-                Errors.system("Executor not available", operation="remove_designation")
+                Errors.system("Backend not available", operation="remove_designation")
             )
 
-        query = """
-        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
-        SET lp.entity_type = 'learning_path'
-        DELETE r
-        RETURN count(r) > 0 AS removed
-        """
-
         try:
-            result = await self.executor.execute_query(query, {"user_uid": user_uid})
+            result = await self.backend.remove_designation(user_uid)
 
             if result.is_error:
                 return Result.fail(
@@ -357,20 +302,12 @@ class LifePathCoreService:
         Returns:
             Result[bool] True if updated
         """
-        if not self.executor:
+        if not self.backend:
             return Result.fail(
-                Errors.system("Executor not available", operation="update_alignment_score")
+                Errors.system("Backend not available", operation="update_alignment_score")
             )
 
         alignment_level = AlignmentLevel.from_score(alignment_score)
-
-        # Store alignment scores on the ULTIMATE_PATH relationship
-        query = """
-        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
-        SET r.alignment_score = $alignment_score,
-            r.alignment_level = $alignment_level,
-            r.alignment_updated_at = datetime()
-        """
 
         params: dict[str, Any] = {
             "user_uid": user_uid,
@@ -378,15 +315,7 @@ class LifePathCoreService:
             "alignment_level": alignment_level.value,
         }
 
-        # Add dimension scores if provided
         if dimension_scores:
-            query += """,
-            r.knowledge_alignment = $knowledge_alignment,
-            r.activity_alignment = $activity_alignment,
-            r.goal_alignment = $goal_alignment,
-            r.principle_alignment = $principle_alignment,
-            r.momentum = $momentum
-            """
             params.update(
                 {
                     "knowledge_alignment": dimension_scores.get("knowledge", 0.0),
@@ -397,10 +326,8 @@ class LifePathCoreService:
                 }
             )
 
-        query += "\nRETURN r.alignment_score AS score"
-
         try:
-            result = await self.executor.execute_query(query, params)
+            result = await self.backend.update_alignment_score(params)
 
             if result.is_error:
                 return Result.fail(

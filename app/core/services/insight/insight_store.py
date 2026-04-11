@@ -14,7 +14,7 @@ The InsightStore follows SKUEL's graph-native philosophy - insights are
 first-class graph citizens with relationships to users and entities.
 
 Usage:
-    store = InsightStore(executor)
+    store = InsightStore(backend)
 
     # Create insight
     result = await store.create_insight(insight)
@@ -39,7 +39,7 @@ from core.utils.neo4j_mapper import deserialize_json_fields
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.insight_protocols import InsightBackendOperations
 
 
 # Fields stored as JSON strings in Neo4j (dicts/lists that Neo4j can't store natively)
@@ -66,18 +66,18 @@ class InsightStore:
     Thread Safety: Each method is atomic - safe for concurrent use.
     """
 
-    def __init__(self, executor: "QueryExecutor") -> None:
+    def __init__(self, backend: "InsightBackendOperations") -> None:
         """
-        Initialize InsightStore with query executor.
+        Initialize InsightStore with backend.
 
         Args:
-            executor: Query executor for database operations
+            backend: InsightBackendOperations for database operations
         """
-        if not executor:
+        if not backend:
             raise ValueError(
-                "InsightStore executor is REQUIRED. SKUEL follows fail-fast architecture."
+                "InsightStore backend is REQUIRED. SKUEL follows fail-fast architecture."
             )
-        self.executor = executor
+        self.backend = backend
         self.logger = get_logger("skuel.services.insight")
 
     async def create_insight(self, insight: PersistedInsight) -> Result[str]:
@@ -94,43 +94,6 @@ class InsightStore:
         """
         try:
             import json
-
-            query = """
-            // Create the Insight node — JSON fields serialized via json.dumps()
-            // because this is custom Cypher (not routed through UniversalNeo4jBackend)
-            CREATE (i:Insight {
-                uid: $uid,
-                user_uid: $user_uid,
-                insight_type: $insight_type,
-                domain: $domain,
-                title: $title,
-                description: $description,
-                confidence: $confidence,
-                impact: $impact,
-                entity_uid: $entity_uid,
-                related_entities: $related_entities,
-                recommended_actions: $recommended_actions,
-                supporting_data: $supporting_data,
-                created_at: datetime($created_at),
-                expires_at: $expires_at,
-                dismissed: $dismissed,
-                actioned: $actioned
-            })
-
-            // Create relationship to User
-            WITH i
-            MATCH (u:User {uid: $user_uid})
-            CREATE (u)-[:HAS_INSIGHT]->(i)
-
-            // Create relationship to primary entity if it exists
-            WITH i
-            OPTIONAL MATCH (e {uid: $entity_uid})
-            FOREACH (_ IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END |
-                CREATE (i)-[:ABOUT_ENTITY]->(e)
-            )
-
-            RETURN i.uid as uid
-            """
 
             params = {
                 "uid": insight.uid,
@@ -153,7 +116,7 @@ class InsightStore:
                 "actioned": insight.actioned,
             }
 
-            result = await self.executor.execute_query(query, params)
+            result = await self.backend.create_insight(params)
 
             if result.is_error:
                 self.logger.error(f"Error creating insight: {result.error}")
@@ -202,11 +165,7 @@ class InsightStore:
             Result with the insight or not-found error
         """
         try:
-            query = """
-            MATCH (i:Insight {uid: $uid})
-            RETURN i
-            """
-            result = await self.executor.execute_query(query, {"uid": uid})
+            result = await self.backend.get_by_uid(uid)
 
             if result.is_error:
                 return Result.fail(
@@ -260,35 +219,7 @@ class InsightStore:
             Result with list of active insights, sorted by priority
         """
         try:
-            domain_filter = "AND i.domain = $domain" if domain else ""
-
-            query = f"""
-            MATCH (u:User {{uid: $user_uid}})-[:HAS_INSIGHT]->(i:Insight)
-            WHERE i.dismissed = false
-              AND i.actioned = false
-              AND (i.expires_at IS NULL OR i.expires_at > datetime())
-              {domain_filter}
-            RETURN i
-            ORDER BY
-                CASE i.impact
-                    WHEN 'critical' THEN 4
-                    WHEN 'high' THEN 3
-                    WHEN 'medium' THEN 2
-                    ELSE 1
-                END DESC,
-                i.confidence DESC,
-                i.created_at DESC
-            LIMIT $limit
-            """
-
-            params: dict[str, Any] = {
-                "user_uid": user_uid,
-                "limit": limit,
-            }
-            if domain:
-                params["domain"] = domain
-
-            result = await self.executor.execute_query(query, params)
+            result = await self.backend.get_active_insights(user_uid, domain, limit)
 
             if result.is_error:
                 self.logger.error(f"Error getting active insights: {result.error}")
@@ -344,23 +275,9 @@ class InsightStore:
             Result with list of insights about this entity
         """
         try:
-            dismissed_filter = "" if include_dismissed else "AND i.dismissed = false"
-
-            query = f"""
-            MATCH (i:Insight {{entity_uid: $entity_uid, user_uid: $user_uid}})
-            WHERE i.actioned = false
-              AND (i.expires_at IS NULL OR i.expires_at > datetime())
-              {dismissed_filter}
-            RETURN i
-            ORDER BY i.created_at DESC
-            """
-
-            params = {
-                "entity_uid": entity_uid,
-                "user_uid": user_uid,
-            }
-
-            result = await self.executor.execute_query(query, params)
+            result = await self.backend.get_insights_for_entity(
+                entity_uid, user_uid, include_dismissed
+            )
 
             if result.is_error:
                 self.logger.error(f"Error getting insights for entity {entity_uid}: {result.error}")
@@ -417,17 +334,7 @@ class InsightStore:
             Result indicating success
         """
         try:
-            query = """
-            MATCH (i:Insight {uid: $uid, user_uid: $user_uid})
-            SET i.dismissed = true,
-                i.dismissed_at = datetime(),
-                i.dismissed_notes = $notes
-            RETURN i.uid as uid
-            """
-
-            result = await self.executor.execute_query(
-                query, {"uid": uid, "user_uid": user_uid, "notes": notes}
-            )
+            result = await self.backend.dismiss_insight(uid, user_uid, notes)
 
             if result.is_error:
                 self.logger.error(f"Error dismissing insight {uid}: {result.error}")
@@ -471,17 +378,7 @@ class InsightStore:
             Result indicating success
         """
         try:
-            query = """
-            MATCH (i:Insight {uid: $uid, user_uid: $user_uid})
-            SET i.actioned = true,
-                i.actioned_at = datetime(),
-                i.actioned_notes = $notes
-            RETURN i.uid as uid
-            """
-
-            result = await self.executor.execute_query(
-                query, {"uid": uid, "user_uid": user_uid, "notes": notes}
-            )
+            result = await self.backend.mark_actioned(uid, user_uid, notes)
 
             if result.is_error:
                 self.logger.error(f"Error marking insight actioned {uid}: {result.error}")
@@ -520,14 +417,7 @@ class InsightStore:
             Result with count of deleted insights
         """
         try:
-            query = """
-            MATCH (i:Insight)
-            WHERE i.expires_at IS NOT NULL AND i.expires_at < datetime()
-            DETACH DELETE i
-            RETURN count(i) as deleted_count
-            """
-
-            result = await self.executor.execute_query(query)
+            result = await self.backend.cleanup_expired()
 
             if result.is_error:
                 self.logger.error(f"Error cleaning up expired insights: {result.error}")
@@ -574,26 +464,7 @@ class InsightStore:
             Result containing list of historical insights
         """
         try:
-            # Build WHERE clause based on history type
-            if history_type == "dismissed":
-                where_clause = "AND i.dismissed = true"
-            elif history_type == "actioned":
-                where_clause = "AND i.actioned = true"
-            else:  # "all"
-                where_clause = "AND (i.dismissed = true OR i.actioned = true)"
-
-            query = f"""
-            MATCH (i:Insight {{user_uid: $user_uid}})
-            WHERE true {where_clause}
-            RETURN i
-            ORDER BY coalesce(i.dismissed_at, i.actioned_at) DESC
-            LIMIT $limit
-            """
-
-            result = await self.executor.execute_query(
-                query,
-                {"user_uid": user_uid, "limit": limit},
-            )
+            result = await self.backend.get_insight_history(user_uid, history_type, limit)
 
             if result.is_error:
                 self.logger.error(f"Error getting insight history: {result.error}")
@@ -646,21 +517,7 @@ class InsightStore:
             Result with insight statistics
         """
         try:
-            query = """
-            MATCH (u:User {uid: $user_uid})-[:HAS_INSIGHT]->(i:Insight)
-            RETURN
-                count(i) as total_insights,
-                count(CASE WHEN i.dismissed = false AND i.actioned = false
-                           AND (i.expires_at IS NULL OR i.expires_at > datetime())
-                      THEN 1 END) as active_insights,
-                count(CASE WHEN i.dismissed = true THEN 1 END) as dismissed_insights,
-                count(CASE WHEN i.actioned = true THEN 1 END) as actioned_insights,
-                count(CASE WHEN i.impact = 'critical' THEN 1 END) as critical_insights,
-                count(CASE WHEN i.impact = 'high' THEN 1 END) as high_insights,
-                collect(DISTINCT i.domain) as domains
-            """
-
-            result = await self.executor.execute_query(query, {"user_uid": user_uid})
+            result = await self.backend.get_insight_stats(user_uid)
 
             if result.is_error:
                 self.logger.error(f"Error getting insight stats: {result.error}")
@@ -1116,16 +973,7 @@ class InsightStore:
             # {"habits": 3, "tasks": 5, "goals": 1}
         """
         try:
-            query = """
-            MATCH (u:User {uid: $user_uid})-[:HAS_INSIGHT]->(i:Insight)
-            WHERE i.dismissed = false
-              AND i.actioned = false
-              AND (i.expires_at IS NULL OR i.expires_at > datetime())
-            RETURN i.domain as domain, count(i) as count
-            ORDER BY count DESC
-            """
-
-            result = await self.executor.execute_query(query, {"user_uid": user_uid})
+            result = await self.backend.get_insight_counts_by_domain(user_uid)
 
             if result.is_error:
                 self.logger.error(f"Error getting insight counts by domain: {result.error}")

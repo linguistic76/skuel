@@ -29,7 +29,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.user_progress_protocols import UserProgressBackendOperations
 
 logger = get_logger(__name__)
 
@@ -160,20 +160,20 @@ class UserProgressService:
     flows through this service.
     """
 
-    def __init__(self, executor: "QueryExecutor") -> None:
+    def __init__(self, backend: "UserProgressBackendOperations") -> None:
         """
-        Initialize with QueryExecutor.
+        Initialize with backend.
 
         Args:
-            executor: QueryExecutor (required)
+            backend: UserProgressBackendOperations (required)
 
         Raises:
-            ValueError: If executor is not provided
+            ValueError: If backend is not provided
         """
-        if not executor:
-            raise ValueError("QueryExecutor is required - no fallback")
+        if not backend:
+            raise ValueError("UserProgressBackendOperations is required - no fallback")
 
-        self.executor = executor
+        self.backend = backend
         self.logger = logger
 
     # ========================================================================
@@ -197,13 +197,7 @@ class UserProgressService:
         self.logger.info(f"🔍 Building knowledge profile for user {user_uid}")
 
         # Get user basic info
-        user_result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})
-            RETURN u.username as username
-            """,
-            {"user_uid": user_uid},
-        )
+        user_result = await self.backend.get_user_username(user_uid)
         if user_result.is_error:
             return Result.fail(user_result)
 
@@ -305,17 +299,7 @@ class UserProgressService:
             return Result.ok(0.9)
 
         # Check prerequisites
-        prereq_result = await self.executor.execute_query(
-            """
-            MATCH (target:Entity {uid: $target_uid})
-            OPTIONAL MATCH (target)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-            WITH target, collect(prereq.uid) as prereq_uids
-            RETURN
-                size(prereq_uids) as total_prereqs,
-                prereq_uids
-            """,
-            {"target_uid": knowledge_uid},
-        )
+        prereq_result = await self.backend.get_prerequisites_for_entity(knowledge_uid)
         if prereq_result.is_error:
             return Result.fail(prereq_result)
 
@@ -379,36 +363,12 @@ class UserProgressService:
                 Errors.validation("Mastery score must be >= 0.8", field="mastery_score")
             )
 
-        result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid}), (k:Entity {uid: $knowledge_uid})
-            MERGE (u)-[r:MASTERED]->(k)
-            ON CREATE SET
-                r.mastery_score = $mastery_score,
-                r.achieved_at = datetime(),
-                r.practice_count = $practice_count,
-                r.last_practiced = datetime(),
-                r.confidence_level = $confidence_level,
-                r.retention_score = $mastery_score
-            ON MATCH SET
-                r.mastery_score = $mastery_score,
-                r.practice_count = r.practice_count + 1,
-                r.last_practiced = datetime(),
-                r.confidence_level = $confidence_level,
-                r.retention_score = ($mastery_score + r.retention_score) / 2.0
-
-            // Remove IN_PROGRESS if it exists
-            WITH u, k
-            OPTIONAL MATCH (u)-[ip:IN_PROGRESS]->(k)
-            DETACH DELETE ip
-            """,
-            {
-                "user_uid": user_uid,
-                "knowledge_uid": knowledge_uid,
-                "mastery_score": mastery_score,
-                "practice_count": practice_count,
-                "confidence_level": confidence_level,
-            },
+        result = await self.backend.record_mastery(
+            user_uid=user_uid,
+            knowledge_uid=knowledge_uid,
+            mastery_score=mastery_score,
+            practice_count=practice_count,
+            confidence_level=confidence_level,
         )
         if result.is_error:
             self.logger.warning(f"Failed to record mastery: {result.error}")
@@ -446,28 +406,12 @@ class UserProgressService:
                 Errors.validation("Progress must be between 0.0 and 1.0", field="progress")
             )
 
-        result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid}), (k:Entity {uid: $knowledge_uid})
-            MERGE (u)-[r:IN_PROGRESS]->(k)
-            ON CREATE SET
-                r.progress = $progress,
-                r.started_at = datetime(),
-                r.time_invested_minutes = $time_invested,
-                r.last_accessed = datetime(),
-                r.difficulty_rating = $difficulty_rating
-            ON MATCH SET
-                r.progress = $progress,
-                r.time_invested_minutes = r.time_invested_minutes + $time_invested,
-                r.last_accessed = datetime()
-            """,
-            {
-                "user_uid": user_uid,
-                "knowledge_uid": knowledge_uid,
-                "progress": progress,
-                "time_invested": time_invested_minutes,
-                "difficulty_rating": difficulty_rating or 0.5,
-            },
+        result = await self.backend.record_progress(
+            user_uid=user_uid,
+            knowledge_uid=knowledge_uid,
+            progress=progress,
+            time_invested_minutes=time_invested_minutes,
+            difficulty_rating=difficulty_rating or 0.5,
         )
         if result.is_error:
             self.logger.warning(f"Failed to record progress: {result.error}")
@@ -482,21 +426,7 @@ class UserProgressService:
 
     async def _get_mastered_knowledge(self, user_uid: UserUID) -> list[UserKnowledgeMastery]:
         """Get all mastered knowledge for user."""
-        result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[r:MASTERED]->(k:Entity)
-            RETURN
-                k.uid as knowledge_uid,
-                r.mastery_score as mastery_score,
-                r.achieved_at as achieved_at,
-                r.practice_count as practice_count,
-                r.last_practiced as last_practiced,
-                r.confidence_level as confidence_level,
-                r.retention_score as retention_score
-            ORDER BY r.last_practiced DESC
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_mastered_knowledge(user_uid)
         if result.is_error:
             return []
 
@@ -515,21 +445,7 @@ class UserProgressService:
 
     async def _get_in_progress_knowledge(self, user_uid: UserUID) -> list[UserLearningProgress]:
         """Get all in-progress knowledge for user."""
-        result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[r:IN_PROGRESS]->(k:Entity)
-            RETURN
-                k.uid as knowledge_uid,
-                r.progress as progress,
-                r.started_at as started_at,
-                r.estimated_completion as estimated_completion,
-                r.time_invested_minutes as time_invested_minutes,
-                r.difficulty_rating as difficulty_rating,
-                r.last_accessed as last_accessed
-            ORDER BY r.last_accessed DESC
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_in_progress_knowledge(user_uid)
         if result.is_error:
             return []
 
@@ -549,19 +465,8 @@ class UserProgressService:
     async def _get_completed_prerequisites(
         self, user_uid: UserUID, _mastered_uids: set[str]
     ) -> set[str]:
-        """
-        Get all prerequisites that user has completed.
-
-        This is THE key query for readiness calculation.
-        """
-        result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
-            MATCH (target:Entity)-[:REQUIRES_KNOWLEDGE]->(mastered)
-            RETURN DISTINCT mastered.uid as prereq_uid
-            """,
-            {"user_uid": user_uid},
-        )
+        """Get all prerequisites that user has completed."""
+        result = await self.backend.get_completed_prerequisites(user_uid)
         if result.is_error:
             return set()
 
@@ -569,13 +474,7 @@ class UserProgressService:
 
     async def _build_prerequisite_map(self, user_uid: UserUID) -> dict[str, list[str]]:
         """Build map of knowledge units to their prerequisites."""
-        result = await self.executor.execute_query(
-            """
-            MATCH (k:Entity)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-            RETURN k.uid as knowledge_uid, collect(prereq.uid) as prereq_uids
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_prerequisite_map()
         if result.is_error:
             return {}
 
@@ -583,26 +482,13 @@ class UserProgressService:
 
     async def _get_learning_paths(self, user_uid: UserUID) -> tuple[list[str], set[str]]:
         """Get active and completed learning paths."""
-        active_result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[e:ENROLLED]->(p:Lp)
-            WHERE e.enrollment_status = 'active'
-            RETURN collect(p.uid) as active_paths
-            """,
-            {"user_uid": user_uid},
-        )
+        active_result = await self.backend.get_active_learning_paths(user_uid)
 
         active_records = active_result.value or [] if active_result.is_ok else []
         active_record = active_records[0] if active_records else None
         active_paths = active_record["active_paths"] if active_record else []
 
-        completed_result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[c:COMPLETED]->(p:Lp)
-            RETURN collect(p.uid) as completed_paths
-            """,
-            {"user_uid": user_uid},
-        )
+        completed_result = await self.backend.get_completed_learning_paths(user_uid)
 
         completed_records = completed_result.value or [] if completed_result.is_ok else []
         completed_record = completed_records[0] if completed_records else None
@@ -612,13 +498,7 @@ class UserProgressService:
 
     async def _get_interested_knowledge(self, user_uid: UserUID) -> set[str]:
         """Get knowledge units user is interested in."""
-        result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[:INTERESTED_IN]->(k:Entity)
-            RETURN collect(k.uid) as interested_uids
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_interested_knowledge(user_uid)
         if result.is_error:
             return set()
 
@@ -628,13 +508,7 @@ class UserProgressService:
 
     async def _get_bookmarked_knowledge(self, user_uid: UserUID) -> set[str]:
         """Get bookmarked knowledge units."""
-        result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[:BOOKMARKED]->(k:Entity)
-            RETURN collect(k.uid) as bookmarked_uids
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_bookmarked_knowledge(user_uid)
         if result.is_error:
             return set()
 
@@ -644,13 +518,7 @@ class UserProgressService:
 
     async def _get_struggling_knowledge(self, user_uid: UserUID) -> set[str]:
         """Get knowledge units user is struggling with."""
-        result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[:STRUGGLING_WITH]->(k:Entity)
-            RETURN collect(k.uid) as struggling_uids
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_struggling_knowledge(user_uid)
         if result.is_error:
             return set()
 
@@ -660,14 +528,7 @@ class UserProgressService:
 
     async def _get_needs_review_knowledge(self, user_uid: UserUID) -> set[str]:
         """Get knowledge units that need review."""
-        result = await self.executor.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[r:NEEDS_REVIEW]->(k:Entity)
-            WHERE r.next_review_due <= date()
-            RETURN collect(k.uid) as review_uids
-            """,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_needs_review_knowledge(user_uid)
         if result.is_error:
             return set()
 
@@ -698,58 +559,7 @@ class UserProgressService:
         Returns:
             Result containing coverage statistics and topic details
         """
-        query = """
-        // Get learned knowledge UIDs
-        MATCH (user:User {uid: $user_uid})-[:HAS_PROGRESS]->(up:UserProgress)
-            -[:FOR_KNOWLEDGE]->(learned:Entity)
-        WHERE up.mastery_level >= 0.7
-        WITH collect(learned.uid) as learned_uids
-
-        // Get unlearned knowledge
-        MATCH (unlearned:Entity)
-        WHERE NOT unlearned.uid IN learned_uids
-          AND ($domain IS NULL OR unlearned.domain = $domain)
-
-        // Calculate coverage for each unlearned topic
-        OPTIONAL MATCH (unlearned)-[r:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-        WHERE prereq.uid IN learned_uids // Only count learned prerequisites
-
-        WITH unlearned,
-             learned_uids,
-             collect(DISTINCT prereq.uid) as satisfied_prereqs,
-             avg(coalesce(r.confidence, 1.0)) as avg_prerequisite_confidence
-
-        // Count total prerequisites (learned or not)
-        OPTIONAL MATCH (unlearned)-[:REQUIRES_KNOWLEDGE]->(any_prereq:Entity)
-        WITH unlearned,
-             satisfied_prereqs,
-             avg_prerequisite_confidence,
-             count(DISTINCT any_prereq) as total_prereqs
-
-        // Calculate coverage ratio
-        WITH unlearned,
-             satisfied_prereqs,
-             total_prereqs,
-             CASE
-                 WHEN total_prereqs = 0 THEN 1.0 // No prereqs = ready
-                 ELSE toFloat(size(satisfied_prereqs)) / total_prereqs
-             END as coverage_ratio,
-             avg_prerequisite_confidence
-
-        RETURN {
-            uid: unlearned.uid,
-            title: unlearned.title,
-            domain: unlearned.domain,
-            coverage_ratio: coverage_ratio,
-            confidence: coalesce(avg_prerequisite_confidence, 1.0),
-            satisfied_prereqs: size(satisfied_prereqs),
-            total_prereqs: total_prereqs,
-            ready_to_learn: coverage_ratio >= 0.8
-        } as topic
-        ORDER BY coverage_ratio DESC, topic.confidence DESC
-        """
-
-        result = await self.executor.execute_query(query, {"user_uid": user_uid, "domain": domain})
+        result = await self.backend.calculate_knowledge_coverage(user_uid, domain)
         if result.is_error:
             return Result.fail(result)
 

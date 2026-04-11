@@ -21,7 +21,7 @@ Core Philosophy: "Everything flows toward the life path"
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.type_hints import UserUID
@@ -30,7 +30,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.lifepath_protocols import LifePathBackendOperations
     from core.services.lp_service import LpService
     from core.services.ps_service import PsService
     from core.services.user.unified_user_context import UserContext
@@ -55,7 +55,7 @@ class LifePathAlignmentService:
 
     def __init__(
         self,
-        executor: QueryExecutor | None = None,
+        backend: LifePathBackendOperations | None = None,
         lp_service: LpService | None = None,
         ku_service: PsService | None = None,
     ) -> None:
@@ -63,11 +63,11 @@ class LifePathAlignmentService:
         Initialize alignment service.
 
         Args:
-            executor: QueryExecutor for database operations
+            backend: LifePathBackendOperations for database operations
             lp_service: LP service for path details
             ku_service: KU service for knowledge substance
         """
-        self.executor = executor
+        self.backend = backend
         self.lp_service = lp_service
         self.ku_service = ku_service
         logger.info("LifePathAlignmentService initialized")
@@ -151,15 +151,10 @@ class LifePathAlignmentService:
 
     async def _get_user_life_path(self, user_uid: UserUID) -> str | None:
         """Get user's designated life path UID."""
-        if not self.executor:
+        if not self.backend:
             return None
 
-        query = """
-        MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
-        RETURN lp.uid AS life_path_uid
-        """
-
-        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        result = await self.backend.get_user_life_path(user_uid)
         if result.is_error:
             logger.error(
                 "Failed to get life path - returning None",
@@ -175,14 +170,14 @@ class LifePathAlignmentService:
             return records[0].get("life_path_uid")
         return None
 
-    async def _get_life_path_details(self, life_path_uid: str) -> dict[str, Any]:
+    async def _get_life_path_details(self, life_path_uid: str) -> dict[str, str]:
         """Get life path title and metadata."""
         if self.lp_service:
             lp_result = await self.lp_service.core.get(life_path_uid)
             if lp_result.is_ok and lp_result.value:
                 return {
                     "title": lp_result.value.title,
-                    "description": lp_result.value.description,
+                    "description": lp_result.value.description or "",
                 }
         return {"title": "Unknown", "description": ""}
 
@@ -193,34 +188,10 @@ class LifePathAlignmentService:
         Measures mastery of knowledge units in the life path.
         Uses Knowledge Substance Philosophy - applied knowledge > theory.
         """
-        if not self.executor:
+        if not self.backend:
             return 0.0
 
-        query = """
-        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
-        WITH ku, m,
-             CASE WHEN m IS NOT NULL THEN m.mastery_level ELSE 0 END AS mastery
-
-        // Get substance from knowledge applications
-        OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(task:Entity {entity_type: 'task', user_uid: $user_uid})
-        OPTIONAL MATCH (ku)<-[:APPLIES_KNOWLEDGE]-(habit:Entity {entity_type: 'habit', user_uid: $user_uid})
-
-        WITH ku, mastery,
-             count(DISTINCT task) AS task_count,
-             count(DISTINCT habit) AS habit_count
-
-        // Calculate substance-weighted mastery
-        WITH ku,
-             mastery * 0.6 + (task_count * 0.05) + (habit_count * 0.10) AS weighted_mastery
-
-        RETURN avg(CASE WHEN weighted_mastery > 1.0 THEN 1.0 ELSE weighted_mastery END) AS knowledge_alignment
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"user_uid": user_uid, "life_path_uid": life_path_uid},
-        )
+        result = await self.backend.calculate_knowledge_alignment(user_uid, life_path_uid)
         if result.is_error:
             logger.error(
                 "Knowledge alignment calculation failed - returning 0.0",
@@ -244,45 +215,10 @@ class LifePathAlignmentService:
 
         Measures how tasks and habits support the life path.
         """
-        if not self.executor:
+        if not self.backend:
             return 0.0
 
-        query = """
-        // Get life path knowledge
-        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
-        WITH collect(ku.uid) AS lp_knowledge
-
-        // Count aligned activities
-        MATCH (u:User {uid: $user_uid})
-        OPTIONAL MATCH (u)-[:OWNS]->(task:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
-        WHERE ku.uid IN lp_knowledge
-        WITH lp_knowledge, count(DISTINCT task) AS aligned_tasks
-
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(habit:Entity {entity_type: 'habit'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
-        WHERE ku.uid IN lp_knowledge
-        WITH aligned_tasks, count(DISTINCT habit) AS aligned_habits
-
-        // Also count total activities
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(all_task:Entity {entity_type: 'task'})
-        WITH aligned_tasks, aligned_habits, count(DISTINCT all_task) AS total_tasks
-
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(all_habit:Entity {entity_type: 'habit'})
-        WITH aligned_tasks, aligned_habits, total_tasks, count(DISTINCT all_habit) AS total_habits
-
-        WITH aligned_tasks, aligned_habits, total_tasks, total_habits,
-             CASE WHEN total_tasks = 0 THEN 0.5
-                  ELSE toFloat(aligned_tasks) / total_tasks END AS task_ratio,
-             CASE WHEN total_habits = 0 THEN 0.5
-                  ELSE toFloat(aligned_habits) / total_habits END AS habit_ratio
-
-        // Habits weighted more heavily
-        RETURN (task_ratio * 0.4 + habit_ratio * 0.6) AS activity_alignment
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"user_uid": user_uid, "life_path_uid": life_path_uid},
-        )
+        result = await self.backend.calculate_activity_alignment(user_uid, life_path_uid)
         if result.is_error:
             logger.error(
                 "Activity alignment calculation failed - returning 0.0",
@@ -306,26 +242,10 @@ class LifePathAlignmentService:
 
         Measures if active goals contribute to life path.
         """
-        if not self.executor:
+        if not self.backend:
             return 0.0
 
-        query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Entity {entity_type: 'goal'})
-        WHERE g.status IN ['active', 'in_progress']
-
-        // Check for SERVES_LIFE_PATH relationship
-        OPTIONAL MATCH (g)-[:SERVES_LIFE_PATH]->(lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})
-
-        WITH count(g) AS total_goals, count(lp) AS aligned_goals
-
-        RETURN CASE WHEN total_goals = 0 THEN 0.5
-                    ELSE toFloat(aligned_goals) / total_goals END AS goal_alignment
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"user_uid": user_uid, "life_path_uid": life_path_uid},
-        )
+        result = await self.backend.calculate_goal_alignment(user_uid, life_path_uid)
         if result.is_error:
             logger.error(
                 "Goal alignment calculation failed - returning 0.0",
@@ -349,26 +269,10 @@ class LifePathAlignmentService:
 
         Measures if user's principles support the life path direction.
         """
-        if not self.executor:
+        if not self.backend:
             return 0.0
 
-        query = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(p:Entity {entity_type: 'principle'})
-        WHERE p.status = 'active'
-
-        // Check for alignment with life path
-        OPTIONAL MATCH (p)-[:SERVES_LIFE_PATH]->(lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})
-
-        WITH count(p) AS total_principles, count(lp) AS aligned_principles
-
-        RETURN CASE WHEN total_principles = 0 THEN 0.5
-                    ELSE toFloat(aligned_principles) / total_principles END AS principle_alignment
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"user_uid": user_uid, "life_path_uid": life_path_uid},
-        )
+        result = await self.backend.calculate_principle_alignment(user_uid, life_path_uid)
         if result.is_error:
             logger.error(
                 "Principle alignment calculation failed - returning 0.0",
@@ -393,50 +297,18 @@ class LifePathAlignmentService:
         Measures recent activity trend toward life path.
         Compares last 7 days vs previous 7 days.
         """
-        if not self.executor:
+        if not self.backend:
             return 0.0
 
         now = datetime.now()
         seven_days_ago = now - timedelta(days=7)
         fourteen_days_ago = now - timedelta(days=14)
 
-        query = """
-        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
-        WITH collect(ku.uid) AS lp_knowledge
-
-        // Recent week activities
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
-        WHERE ku.uid IN lp_knowledge
-          AND task.created_at >= $seven_days_ago
-        WITH lp_knowledge, count(task) AS recent_tasks
-
-        // Previous week activities
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(task:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(ku:Entity)
-        WHERE ku.uid IN lp_knowledge
-          AND task.created_at >= $fourteen_days_ago
-          AND task.created_at < $seven_days_ago
-        WITH recent_tasks, count(task) AS previous_tasks
-
-        // Calculate momentum (positive if increasing, negative if decreasing)
-        WITH recent_tasks, previous_tasks,
-             CASE WHEN previous_tasks = 0 THEN
-                  CASE WHEN recent_tasks > 0 THEN 0.8 ELSE 0.5 END
-                  ELSE toFloat(recent_tasks) / previous_tasks END AS ratio
-
-        RETURN CASE WHEN ratio >= 1.5 THEN 1.0
-                    WHEN ratio >= 1.0 THEN 0.7
-                    WHEN ratio >= 0.5 THEN 0.5
-                    ELSE 0.3 END AS momentum
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {
-                "user_uid": user_uid,
-                "life_path_uid": life_path_uid,
-                "seven_days_ago": seven_days_ago.isoformat(),
-                "fourteen_days_ago": fourteen_days_ago.isoformat(),
-            },
+        result = await self.backend.calculate_momentum(
+            user_uid=user_uid,
+            life_path_uid=life_path_uid,
+            seven_days_ago=seven_days_ago.isoformat(),
+            fourteen_days_ago=fourteen_days_ago.isoformat(),
         )
         if result.is_error:
             logger.error(
@@ -459,24 +331,10 @@ class LifePathAlignmentService:
         self, user_uid: UserUID, life_path_uid: str
     ) -> dict[str, int]:
         """Get counts of embodied vs theoretical knowledge."""
-        if not self.executor:
+        if not self.backend:
             return {"total": 0, "embodied": 0, "theoretical": 0}
 
-        query = """
-        MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'life_path'})-[:HAS_STEP]->(ps:Entity {entity_type: 'path_step'})-[:CONTAINS]->(ku:Entity {entity_type: 'ku'})
-        OPTIONAL MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(ku)
-
-        WITH ku, COALESCE(m.substance_score, 0) AS substance
-
-        RETURN count(ku) AS total,
-               sum(CASE WHEN substance >= 0.7 THEN 1 ELSE 0 END) AS embodied,
-               sum(CASE WHEN substance < 0.5 THEN 1 ELSE 0 END) AS theoretical
-        """
-
-        result = await self.executor.execute_query(
-            query,
-            {"user_uid": user_uid, "life_path_uid": life_path_uid},
-        )
+        result = await self.backend.get_knowledge_substance_stats(user_uid, life_path_uid)
         if result.is_error:
             logger.error(
                 "Knowledge stats query failed - returning defaults",
