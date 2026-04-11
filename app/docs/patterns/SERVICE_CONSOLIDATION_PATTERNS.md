@@ -638,12 +638,10 @@ self.intelligence = common.intelligence
 from core.services.curriculum_domain_config import create_lp_sub_services
 
 subs = create_lp_sub_services(
-    driver=driver,
+    backend=backend,
     ps_service=ps_service,  # Cross-domain dependency
     graph_intelligence_service=graph_intelligence_service,
     event_bus=event_bus,
-    embeddings_service=embeddings_service,
-    llm_service=llm_service,
     progress_backend=progress_backend,
     user_service=user_service,
 )
@@ -657,7 +655,7 @@ self.progress = subs.progress
 ```
 
 **Creation Order (handles cross-domain dependency):**
-1. `UniversalNeo4jBackend[Lp]` (shared by all sub-services)
+1. `LpBackend` (shared by all sub-services, created in composition root)
 2. `LpSearchService`, `UnifiedRelationshipService`
 3. `LpCoreService` (requires `ps_service`)
 4. `LpProgressService`, `LpIntelligenceService`

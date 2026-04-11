@@ -166,9 +166,9 @@ await ps_service.intelligence.practice_completeness_score(ps_uid)
 | `LpIntelligenceService` | Validation, analysis, adaptive, context (consolidated) |
 | `LpAiService` | AI-powered LP operations |
 
-**Factory:** `create_lp_sub_services()` - Specialized (requires cross-domain PsService dependency)
+**Factory:** `create_lp_sub_services()` - Specialized (requires cross-domain PsService dependency). No `executor` parameter — all Cypher delegated to `LpBackend` (April 2026).
 
-**Intelligence Location:** `LpIntelligenceService` lives at `core/services/lp/lp_intelligence_service.py` (inside the `lp/` package, exported via `lp/__init__.py`).
+**Intelligence Location:** `LpIntelligenceService` lives at `core/services/lp/lp_intelligence_service.py` (inside the `lp/` package, exported via `lp/__init__.py`). Intelligence Cypher queries are on `LpBackend` (7 methods).
 
 **Unique Features:**
 - **Cross-domain dependency** - LpCoreService requires PsService
@@ -180,17 +180,17 @@ await ps_service.intelligence.practice_completeness_score(ps_uid)
 
 **Key Methods:**
 ```python
-# Validate learning path prerequisites
+# Validate learning path prerequisites (Cypher on LpBackend)
 await lp_service.intelligence.validate_path_prerequisites(lp_uid)
 
-# Get adaptive sequence for user
-await lp_service.intelligence.get_adaptive_sequence(lp_uid, user_uid)
+# Get next adaptive step for user (Cypher on LpBackend)
+await lp_service.intelligence.get_next_adaptive_step(step_uid, user_uid)
 
-# Identify blockers
+# Identify blockers (Cypher on LpBackend)
 await lp_service.intelligence.identify_path_blockers(lp_uid, user_uid)
 
-# Get optimal path recommendation
-await lp_service.intelligence.get_optimal_path_recommendation(user_uid, goal_uid)
+# Get optimal path recommendation (Cypher on LpBackend)
+await lp_service.intelligence.get_optimal_path_recommendation(user_uid, goal_domain)
 
 # Create path from Lessons
 await lp_service.create_path_from_lessons(user_uid, name, lesson_uids)

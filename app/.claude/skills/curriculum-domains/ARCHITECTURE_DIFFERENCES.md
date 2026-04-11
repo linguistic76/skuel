@@ -54,7 +54,7 @@ common = create_curriculum_sub_services(domain="ps", backend=ps_backend, ...)
 
 # LP - Specialized factory (requires cross-domain PsService dependency)
 from core.services.curriculum_domain_config import create_lp_sub_services
-subs = create_lp_sub_services(driver=driver, ps_service=ps_service, ...)
+subs = create_lp_sub_services(backend=lp_backend, ps_service=ps_service, ...)
 ```
 
 **Note on MOC:** There is no `MocService`. MOC identity is emergent — any Entity with outgoing `ORGANIZES` relationships is an organizer. This is managed by `LessonOrganizationService` (sub-service of `LessonService`).

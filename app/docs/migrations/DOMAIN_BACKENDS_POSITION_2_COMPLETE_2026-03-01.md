@@ -100,6 +100,22 @@ The sharing service previously bypassed the backend entirely, wiring directly to
 
 Dead code removed: `_build_prerequisite_query()` in `lp_core_service.py` (duplicate of the copy in `lp_intelligence_service.py`).
 
+### Phase 6: LpBackend Intelligence expansion (April 2026)
+
+7 raw `execute_query` calls moved from `lp_intelligence_service.py` to typed LpBackend methods. Fixes 6 broken `graph_intel.execute_query()` calls (`GraphIntelligenceService` has no `execute_query` method — would raise `AttributeError` at runtime). Also removes `executor` parameter from `LpIntelligenceService` and `LpService`.
+
+| Method | Purpose |
+|--------|---------|
+| `validate_path_prerequisites(path_uid)` | Prerequisite ordering validation |
+| `identify_path_blockers(path_uid, user_uid)` | Find blockers for a user |
+| `get_optimal_path_recommendations(user_uid, goal_domain)` | Best path recommendations |
+| `find_learning_sequence(start_uid, goal_uid)` | Shortest path graph traversal |
+| `get_next_adaptive_step(current_step_uid, user_uid)` | Adaptive next step |
+| `get_recommended_path_steps(user_uid, max_difficulty, limit)` | Recommended steps by progress |
+| `get_path_with_context(path_uid, user_uid, depth)` | Path + full graph context |
+
+Helper `_build_prerequisite_subquery()` (static method) builds Cypher prerequisite fragments using `SemanticRelationshipType`.
+
 ### Phase 4: ExerciseBackend
 
 3 curriculum linking methods moved from `exercise_service.py`:
@@ -147,7 +163,7 @@ Cross-domain aggregation stays in services — not raw persistence:
 - `KuBackend` — ORGANIZES graph + usage summary + namespace/alias search + relationship queries (13 methods: +7 for related/broader/narrower/learning-path/task/event/habit UIDs)
 - `LessonBackend` — 59 methods across 5 mixins: `_OrganizesMixin` (12), `_LearningStateMixin` (13), `_SemanticMixin` (11), `_KnowledgeContextMixin` (13), `_AdaptiveMixin` (10)
 - `PsBackend` — CONTAINS_KNOWLEDGE CRUD (4 methods) + lesson progress tracking
-- `LpBackend` — HAS_STEP management (5 methods) + mastery progress queries (2 methods) + CRUD (9 methods, April 2026)
+- `LpBackend` — HAS_STEP management (5 methods) + mastery progress queries (2 methods) + CRUD (9 methods, April 2026) + intelligence queries (7 methods + 1 helper, April 2026)
 - `ExerciseBackend` — curriculum links + OWNS/FOR_GROUP + student exercise queries (6 methods)
 
 **Submissions/Reports (1):**

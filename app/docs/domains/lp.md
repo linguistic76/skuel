@@ -1,7 +1,7 @@
 ---
 title: LP (Learning Path) Domain
 created: 2025-12-04
-updated: 2026-04-10
+updated: 2026-04-11
 status: current
 category: domains
 tags:
@@ -42,20 +42,17 @@ LpService coordinates 5 sub-services:
 
 **Initialization:** Manual (non-standard core signature requires `ps_service`)
 **Intelligence:** Created internally by LpService (January 2026 - unified pattern)
-**graph_intel:** REQUIRED (fail-fast validation)
+**graph_intel:** REQUIRED for GraphContextOrchestrator (fail-fast validation)
 
 ```python
 from core.services.lp_service import LpService
 
 # In services_bootstrap.py
 lp_service = LpService(
-    driver=driver,
+    backend=lp_backend,
     ps_service=ps_service,           # REQUIRED - for step operations
     graph_intelligence_service=graph_intelligence,  # REQUIRED
     event_bus=event_bus,
-    # Intelligence dependencies (created internally by LpService)
-    embeddings_service=embeddings_service,
-    llm_service=llm_service,
     progress_backend=progress_backend,
     user_service=user_service,
 )
@@ -110,6 +107,13 @@ All Cypher queries are encapsulated in `LpBackend` (`adapters/persistence/neo4j/
 | `reorder_steps(path_uid, step_uids)` | Batch step reordering |
 | `get_paths_containing_ku(ku_uid)` | LPs that include a KU |
 | `get_ku_mastery_progress(lp_uid, user_uid)` | KU completion state for LP |
+| `validate_path_prerequisites(path_uid)` | Prerequisite ordering validation |
+| `identify_path_blockers(path_uid, user_uid)` | Find blockers for a user |
+| `get_optimal_path_recommendations(user_uid, goal_domain)` | Best path recommendations |
+| `find_learning_sequence(start_uid, goal_uid)` | Shortest path graph traversal |
+| `get_next_adaptive_step(current_step_uid, user_uid)` | Adaptive next step |
+| `get_recommended_path_steps(user_uid, max_difficulty, limit)` | Recommended steps by progress |
+| `get_path_with_context(path_uid, user_uid, depth)` | Path + full graph context |
 
 ## Key Files
 
@@ -118,7 +122,7 @@ All Cypher queries are encapsulated in `LpBackend` (`adapters/persistence/neo4j/
 | Facade | `/core/services/lp_service.py` |
 | Core Service | `/core/services/lp/lp_core_service.py` |
 | Search Service | `/core/services/lp/lp_search_service.py` |
-| Intelligence Service | `/core/services/lp_intelligence_service.py` |
+| Intelligence Service | `/core/services/lp/lp_intelligence_service.py` |
 | Progress Service | `/core/services/lp/lp_progress_service.py` |
 | Domain Backend | `/adapters/persistence/neo4j/domain_backends.py` (`LpBackend`) |
 | Model | `/core/models/lp/lp.py` |
@@ -171,7 +175,7 @@ All Cypher queries are encapsulated in `LpBackend` (`adapters/persistence/neo4j/
 
 ## Intelligence Service
 
-LpIntelligenceService is created internally by LpService (January 2026 - unified pattern). It coordinates 4 specialized sub-services and provides consolidated intelligence methods:
+LpIntelligenceService is created internally by LpService (January 2026 - unified pattern). It coordinates 4 specialized sub-services and delegates Cypher queries to `LpBackend` (April 2026 — no `executor` or `graph_intel` dependencies):
 
 | Sub-service | Class | Purpose |
 |-------------|-------|---------|
@@ -185,11 +189,13 @@ LpIntelligenceService is created internally by LpService (January 2026 - unified
 **Dead code removed:**
 - `vectors_backend` parameter - stored but never used
 - `ku_service` parameter - circular dependency workaround never completed
+- `executor` parameter - removed April 2026 (all Cypher moved to LpBackend)
 
 **Internal creation pattern:**
 - LpService now creates LpIntelligenceService internally
 - Matches the unified pattern used by all other domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, MOC)
-- Parameter count reduced from 11+ to 7
+- All 7 intelligence Cypher queries delegated to `LpBackend` (April 2026)
+- `graph_intel` retained only for `GraphContextOrchestrator`
 
 ### Facade Aggregation Methods (March 2026)
 
@@ -207,15 +213,15 @@ Extracted from `pathways_ui.py` route handlers into `LpService` facade:
 
 | Category | Method | Returns | Description |
 |----------|--------|---------|-------------|
-| **Validation** | `validate_path_prerequisites(path_uid)` | `Result[bool]` | Check prerequisites met |
-| **Validation** | `identify_path_blockers(path_uid, user_uid)` | `Result[list]` | Find blockers |
-| **Validation** | `get_optimal_path_recommendation(user_uid)` | `Result[Lp]` | Best path for user |
-| **Context** | `get_path_with_context(path_uid)` | `Result[dict]` | Path with graph context |
+| **Validation** | `validate_path_prerequisites(path_uid)` | `Result[LpPrerequisiteValidation]` | Check prerequisites met (→ LpBackend) |
+| **Validation** | `identify_path_blockers(path_uid, user_uid)` | `Result[LpBlockerAnalysis]` | Find blockers (→ LpBackend) |
+| **Validation** | `get_optimal_path_recommendation(user_uid)` | `Result[LpPathRecommendation]` | Best path for user (→ LpBackend) |
+| **Context** | `get_path_with_context(path_uid, user_uid, depth)` | `Result[dict]` | Path with graph context (→ LpBackend) |
 | **Analysis** | `analyze_path_knowledge_scope(path_uid)` | `Result[dict]` | Knowledge coverage analysis |
 | **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Future* — traverses Lesson practice relationships via `(PS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:activity_rel]->` |
-| **Adaptive** | `find_learning_sequence(goals, user_uid)` | `Result[list]` | Optimal step sequence |
-| **Adaptive** | `get_next_adaptive_step(path_uid, user_uid)` | `Result[Ls]` | Best next step |
-| **Adaptive** | `get_recommended_path_steps(user_uid)` | `Result[list]` | Daily "what to learn" |
+| **Adaptive** | `find_learning_sequence(start_uid, goal_uid)` | `Result[list[str]]` | Optimal step sequence (→ LpBackend) |
+| **Adaptive** | `get_next_adaptive_step(step_uid, user_uid)` | `Result[str\|None]` | Best next step (→ LpBackend) |
+| **Adaptive** | `get_recommended_path_steps(user_uid)` | `Result[list[LpRecommendedStep]]` | Daily "what to learn" (→ LpBackend) |
 | **State** | `analyze_learning_state(context)` | `Result[LearningAnalysis]` | Comprehensive state analysis |
 | **Content** | `recommend_content(context, pool)` | `Result[list]` | Content recommendations |
 

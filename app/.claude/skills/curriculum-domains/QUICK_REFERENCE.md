@@ -182,7 +182,7 @@ Services wired in: `services_bootstrap/_learning_services.py`
     lesson_service = LessonService(lesson_backend, graph_intel, event_bus)
     ku_service = KuService(ku_backend, event_bus)
     ps_service = PsService(driver, graph_intel, event_bus)
-    lp_service = LpService(driver, ps_service, graph_intel, event_bus)  # Cross-domain dep
+    lp_service = LpService(backend=lp_backend, ps_service=ps_service, graph_intelligence_service=graph_intel, event_bus=event_bus)
 ```
 
 ## Intelligence Service Access
@@ -201,9 +201,9 @@ ku_service.intelligence.get_usage_summary(ku_uid)
 # PS - 4 sub-services, generic factory
 ps_service.intelligence.is_ready(ps_uid, completed_uids)
 
-# LP - 5 sub-services, specialized factory
+# LP - 5 sub-services, specialized factory (Cypher on LpBackend)
 lp_service.intelligence.validate_path_prerequisites(lp_uid)
-lp_service.intelligence.get_adaptive_sequence(lp_uid, user_uid)
+lp_service.intelligence.get_next_adaptive_step(step_uid, user_uid)
 
 # LP Facade aggregation (extracted from pathways_ui.py, March 2026)
 lp_service.get_dashboard_summary(user_uid, user_progress)  # Full dashboard data
