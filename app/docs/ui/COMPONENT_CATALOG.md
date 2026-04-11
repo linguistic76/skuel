@@ -1177,7 +1177,7 @@ Shared config-driven filter bar for all 6 Activity Domain list views (2026-04-04
 - `FilterBarConfig(fragment_url, list_target_id, filters, sort_options, sort_default, columns)` — frozen dataclass for the full filter bar
 - `ActivityFilterBar(config, current_values)` — renders the HTMX-powered filter form
 
-Each domain defines a module-level config constant (`TASK_FILTER_CONFIG`, `GOAL_FILTER_CONFIG`, etc.) in its `*_views.py` file. Route files call `ActivityFilterBar(CONFIG, {...})` directly.
+All 6 domain filter configs are centralised in `FILTER_CONFIGS: dict[str, FilterBarConfig]` in `filter_bar.py` (2026-04-10). Route files import `FILTER_CONFIGS` and pass `FILTER_CONFIGS["domain"]` to `ActivityFilterBar()`.
 
 **Note:** Uses plain `<select class="uk-select">` instead of MonsterUI's `LabelSelect` (`<uk-select>` web component). The `<uk-select>` custom element requires FrankenUI JS initialization and can render as raw unstyled text if JS doesn't initialize properly. Plain `<select>` is reliable without JS. `LabelSelect` is still appropriate for full forms — this is specific to the filter bar where reliability matters most.
 
@@ -1187,7 +1187,7 @@ Each domain defines a module-level config constant (`TASK_FILTER_CONFIG`, `GOAL_
 
 Read-focused task view components (2026-03-30). A clean list with HTMX status toggle, priority/status filtering, and knowledge connections. Uses shared utilities from `_shared.py`.
 
-Components: `TASK_FILTER_CONFIG`, `TaskStatsBar`, `TaskList`, `TaskCard`. Filter logic: `filter_tasks()` in `core/utils/entity_filters.py`.
+Components: `TaskStatsBar`, `TaskList` (delegates to generic `ActivityList` in `_shared.py`), `TaskCard`. Filter config: `FILTER_CONFIGS["tasks"]` from `filter_bar.py`. Filter logic: `filter_tasks()` in `core/utils/entity_filters.py`.
 
 Routes: `GET /tasks` (page), `GET /tasks/list-fragment` (HTMX), `POST /api/tasks/{uid}/status` (status update).
 

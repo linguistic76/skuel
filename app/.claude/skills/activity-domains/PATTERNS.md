@@ -157,7 +157,7 @@ Common params: `user_uid`, `status_filter`, `sort_by`. Concrete facades add doma
 
 **Module-level helpers** (Python-side):
 - `compute_{domain}_stats(entities)` — **6 Activity Domain stat functions live in `core/utils/activity_stats.py`** (April 2026 consolidation). Each returns a frozen dataclass (e.g. `TaskStats`, `GoalStats`). Facade-level `_compute_{domain}_stats()` wrappers project these into `dict[str, int | float]` for the `ListContext` contract. Curriculum domains retain stats in their respective facade files.
-- `_{DOMAIN}_FILTER_CONFIG: FilterConfig` — declarative filter predicate dict (7 domains; Principles uses multi-dimensional `_apply_principle_filters` instead; KU uses namespace filter; PS/LP have no filtering)
+- `_{DOMAIN}_FILTER_CONFIG: FilterConfig` — **service-layer** declarative filter predicate dict used in `get_filtered_context()` (7 domains; Principles uses multi-dimensional `_apply_principle_filters` instead; KU uses namespace filter; PS/LP have no filtering). Distinct from the **UI-layer** `FILTER_CONFIGS` dict in `ui/activities/filter_bar.py` which drives filter bar rendering.
 - `_{DOMAIN}_SORT_CONFIG: SortConfig` — declarative sort key dict (all 11 domains)
 - `_apply_{domain}_sort(entities, sort_by)` — thin wrapper calling `apply_entity_sort()` with the domain's `SortConfig`
 - `_apply_task_secondary_filters(tasks, project, assignee, due_filter)` — Tasks only

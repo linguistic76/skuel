@@ -504,29 +504,14 @@ All 6 Activity Domain list views use a shared config-driven filter bar (`/ui/act
 **Implementation note:** Uses plain `<select class="uk-select">` instead of MonsterUI's `LabelSelect` (`<uk-select>` web component) for reliability — the custom element can fail to initialize. `LabelSelect` is still used in regular forms.
 
 ```python
-from ui.activities.filter_bar import ActivityFilterBar, FilterBarConfig, FilterSelect
+from ui.activities.filter_bar import ActivityFilterBar, FILTER_CONFIGS
 
-# Domain config defined in *_views.py (e.g. tasks_views.py)
-TASK_FILTER_CONFIG = FilterBarConfig(
-    fragment_url="/tasks/list-fragment",
-    list_target_id="task-list",
-    filters=[
-        FilterSelect(name="status", label="Status",
-                     options=[("Active", "active"), ("Completed", "completed"), ("All", "all")],
-                     default="active"),
-        FilterSelect(name="priority", label="Priority",
-                     options=[("All", "all"), ("Critical", "critical"), ("High", "high")],
-                     default="all"),
-    ],
-    sort_options=[("Priority", "priority"), ("Due Date", "due_date"), ("Title", "title")],
-    sort_default="priority",
-)
-
-# Called in route files (e.g. tasks_ui.py)
-ActivityFilterBar(TASK_FILTER_CONFIG, {"status": status_filter, "priority": priority_filter, "sort_by": sort_by})
+# All 6 domain configs centralised in FILTER_CONFIGS dict in filter_bar.py
+# Access via FILTER_CONFIGS["tasks"], FILTER_CONFIGS["goals"], etc.
+ActivityFilterBar(FILTER_CONFIGS["tasks"], {"status": status_filter, "priority": priority_filter, "sort_by": sort_by})
 ```
 
-**Config constants per domain:** `TASK_FILTER_CONFIG`, `GOAL_FILTER_CONFIG`, `HABIT_FILTER_CONFIG`, `EVENT_FILTER_CONFIG`, `CHOICE_FILTER_CONFIG`, `PRINCIPLE_FILTER_CONFIG`.
+**Config dict:** `FILTER_CONFIGS: dict[str, FilterBarConfig]` in `ui/activities/filter_bar.py` — keys are domain slugs (`"tasks"`, `"goals"`, `"habits"`, `"events"`, `"choices"`, `"principles"`).
 
 **Activity Domain routes pattern:** `GET /{domain}` (page), `GET /{domain}/list-fragment` (HTMX filtered list), `GET /{domain}/detail` (detail view). Routes are manual `@rt()` handlers in each `_ui.py` file.
 
