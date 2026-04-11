@@ -499,7 +499,8 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         if result.is_error:
             return result
 
-        validations = result.value.get("validation", [])
+        records = result.value or []
+        validations = [r["validation"] for r in records]
 
         # Analyze validation results
         issues = [v for v in validations if v.get("has_issues")]
@@ -552,7 +553,18 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         if result.is_error:
             return result
 
-        analysis = result.value.get("blocker_analysis", {})
+        records = result.value or []
+        record = records[0] if records else None
+        if not record:
+            return Result.ok(
+                {
+                    "recommendations": [],
+                    "status": "ready",
+                    "blocker_count": 0,
+                    "analyzed_at": datetime.now().isoformat(),
+                }
+            )
+        analysis = record["blocker_analysis"]
 
         # Generate recommendations
         recommendations = []
@@ -607,7 +619,9 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         if result.is_error:
             return result
 
-        recommendations = result.value.get("recommendations", {}).get("recommended_paths", [])
+        records = result.value or []
+        record = records[0] if records else None
+        recommendations = record["recommendations"]["recommended_paths"] if record else []
 
         # Format recommendation
         if recommendations:
@@ -870,7 +884,17 @@ class LpIntelligenceService(BaseAnalyticsService[Any, Entity]):
         if result.is_error:
             return result
 
-        context = result.value.get("path_context", {})
+        records = result.value or []
+        record = records[0] if records else None
+        if not record:
+            return Result.ok(
+                {
+                    "progress_percentage": 0,
+                    "insights": [],
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
+        context = record["path_context"]
 
         # Calculate progress
         total = context.get("total_steps", 0)

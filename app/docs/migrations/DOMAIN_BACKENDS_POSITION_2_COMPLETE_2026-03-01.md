@@ -104,6 +104,18 @@ Dead code removed: `_build_prerequisite_query()` in `lp_core_service.py` (duplic
 
 7 raw `execute_query` calls moved from `lp_intelligence_service.py` to typed LpBackend methods. Fixes 6 broken `graph_intel.execute_query()` calls (`GraphIntelligenceService` has no `execute_query` method — would raise `AttributeError` at runtime). Also removes `executor` parameter from `LpIntelligenceService` and `LpService`.
 
+**Follow-up fix (April 2026):** 4 of the 7 service-layer consumers were calling `.get()` on `result.value` (a `list[dict]`) instead of extracting records first. `execute_query` returns `Result[list[dict]]` — a list of Neo4j records, not a single dict. The correct pattern:
+```python
+# Single-record queries (identify_path_blockers, get_optimal_path_recommendations, get_path_with_context):
+records = result.value or []
+record = records[0] if records else None
+analysis = record["blocker_analysis"]
+
+# Multi-record queries (validate_path_prerequisites):
+records = result.value or []
+validations = [r["validation"] for r in records]
+```
+
 | Method | Purpose |
 |--------|---------|
 | `validate_path_prerequisites(path_uid)` | Prerequisite ordering validation |

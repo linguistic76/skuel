@@ -98,6 +98,31 @@ async def get_steps(self, path_uid, depth=1):
 
 ---
 
+## Pattern: LP Intelligence Delegation (Backend-Delegated)
+
+Intelligence Cypher queries live on `LpBackend` (7 methods). `LpIntelligenceService` delegates, then transforms raw records into typed results.
+
+**Critical:** `execute_query` returns `Result[list[dict]]` — a list of Neo4j records. Always extract records from the list before accessing keys:
+
+```python
+# Single-record queries (blocker_analysis, recommendations, path_context):
+result = await self.backend.identify_path_blockers(path_uid, user_uid)
+records = result.value or []
+record = records[0] if records else None
+if not record:
+    return Result.ok({...empty fallback...})
+analysis = record["blocker_analysis"]  # extract the named RETURN alias
+
+# Multi-record queries (validate_path_prerequisites):
+result = await self.backend.validate_path_prerequisites(path_uid)
+records = result.value or []
+validations = [r["validation"] for r in records]  # one record per step
+```
+
+**Never** call `.get()` directly on `result.value` — that's a list, not a dict.
+
+---
+
 ## Pattern: Cross-Domain LP → PS Dependency
 
 LP requires PsService injected at construction — the only cross-domain service dependency in the curriculum stack:

@@ -195,6 +195,7 @@ LpIntelligenceService is created internally by LpService (January 2026 - unified
 - LpService now creates LpIntelligenceService internally
 - Matches the unified pattern used by all other domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, MOC)
 - All 7 intelligence Cypher queries delegated to `LpBackend` (April 2026)
+- Service-layer consumers extract records from `result.value` (a `list[dict]`) before accessing keys — never call `.get()` directly on the list
 - `graph_intel` retained only for `GraphContextOrchestrator`
 
 ### Facade Aggregation Methods (March 2026)
