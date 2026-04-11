@@ -65,11 +65,9 @@ async def get_task(self, *args: Any, **kwargs: Any) -> Any:
     return await self.core.get_task(*args, **kwargs)
 
 # Custom orchestration (when logic spans multiple sub-services)
+# Side effects belong in event subscribers, not inline — keep orchestration a pure delegation
 async def complete_task_with_cascade(self, task_uid: str, ...) -> Result[Task]:
-    result = await self.progress.complete_task_with_cascade(task_uid, ...)
-    if result.is_ok:
-        await self._trigger_knowledge_generation()
-    return result
+    return await self.progress.complete_task_with_cascade(task_uid, ...)
 ```
 
 **Why explicit methods?**

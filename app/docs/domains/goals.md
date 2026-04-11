@@ -108,7 +108,7 @@ Created via `create_common_sub_services()` factory in facade `__init__` (core an
 | `handle_goal_progress_updated` | `progress_delta < 0.01` | `IMBALANCE_DETECTED` | MEDIUM |
 | `handle_goal_progress_updated` | Within 5% of 25/50/75/100% | `COMPLETION_PATTERN` | LOW |
 
-Also handles: recommendation generation, duration calibration, principle alignment, cross-domain trigger logging.
+Also handles: recommendation generation (via `backend.get_achievement_context()` — a `GoalsOperations` protocol method that fetches goal properties + related Kus/habits/principles), duration calibration, principle alignment, cross-domain trigger logging.
 
 ## Model Fields
 

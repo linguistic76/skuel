@@ -95,7 +95,9 @@ class TasksService(BaseService[TasksOperations, Task]):
 | `handle_task_priority_changed` | `inflation_ratio > 0.6` | `IMBALANCE_DETECTED` | HIGH |
 | `handle_task_completed` | Principle alignment found | `PRINCIPLE_ALIGNMENT` | LOW |
 
-Also handles: duration calibration (EMA on User node), cascade impact analysis, batch pattern classification.
+Also handles: duration calibration (EMA on User node), cascade impact analysis, batch pattern classification, and **automatic knowledge generation** (`_trigger_knowledge_generation` — step 4 of `handle_task_completed`, runs when `ku_generation_service` is wired in).
+
+**Constructor note:** `TasksService` constructs `TaskEventHandlerService` manually (not via the `create_common_sub_services()` factory) to pass `ku_generation_service`. This is the same pattern used for `core` and `intelligence`.
 
 ## Model Fields
 

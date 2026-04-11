@@ -340,7 +340,10 @@ All 6 Activity Domain event handlers and the Learning Loop handler accept an opt
 ```python
 from core.services.tasks import TaskEventHandlerService
 
-handler = TaskEventHandlerService(backend=backend, relationship_service=rels, insight_store=insight_store)
+handler = TaskEventHandlerService(
+    backend=backend, relationship_service=rels, insight_store=insight_store,
+    ku_generation_service=ku_gen_service,  # optional; enables automatic KU generation on TaskCompleted
+)
 # Subscribed via event_bus in bootstrap — not called directly
 
 # Learning Loop handler — wired directly (not part of a facade)
@@ -630,7 +633,13 @@ common = create_common_sub_services(
 
 self.search = common.search
 self.relationships = common.relationships
-self.event_handler = common.event_handler              # auto-wired (was manual before April 2026)
+self.event_handler = common.event_handler              # auto-wired for Goals/Habits/Events/Choices/Principles
+# Tasks constructs event_handler manually to pass ku_generation_service:
+self.event_handler = TaskEventHandlerService(
+    backend=backend, relationship_service=self.relationships,
+    insight_store=insight_store, event_bus=event_bus,
+    ku_generation_service=ku_generation_service,  # triggers knowledge gen on TaskCompleted
+)
 self.learning = common.learning                        # auto-wired (None for Tasks, which has no learning service)
 self.knowledge_intelligence = common.knowledge_intelligence  # auto-wired (was via mixin only)
 # core and intelligence created manually when they need domain-specific params
