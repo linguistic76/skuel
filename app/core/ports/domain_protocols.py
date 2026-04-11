@@ -828,6 +828,12 @@ class GoalsOperations(
         """Count habits linked to a goal and compute their average streak."""
         ...
 
+    async def get_achievement_context(
+        self, goal_uid: str, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:
+        """Fetch goal properties and related entities for recommendation generation."""
+        ...
+
 
 # NOTE: JournalsOperations REMOVED (February 2026) - Journal merged into Reports
 # Use SubmissionsCoreService for journal CRUD (report_type=JOURNAL)

@@ -363,11 +363,16 @@ class TasksService(
             relationship_service=self.relationships,
         )
 
-        # Event-driven reactive handlers (fire-and-forget)
-        self.event_handler: TaskEventHandlerService = common.event_handler
-
-        # Private — not part of facade's public API
-        self._ku_generation_service = ku_generation_service
+        # Event-driven reactive handlers (fire-and-forget).
+        # Constructed manually (not via factory) to wire ku_generation_service — knowledge
+        # generation is a named TaskCompleted consequence, not a hidden orchestration side effect.
+        self.event_handler: TaskEventHandlerService = TaskEventHandlerService(
+            backend=backend,
+            relationship_service=self.relationships,
+            insight_store=insight_store,
+            event_bus=event_bus,
+            ku_generation_service=ku_generation_service,
+        )
 
         # Knowledge intelligence (shared singleton — domain-agnostic)
         self.knowledge_intelligence = common.knowledge_intelligence  # type: ignore[assignment]  # always passed by bootstrap

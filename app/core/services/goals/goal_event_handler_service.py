@@ -413,7 +413,7 @@ class GoalEventHandlerService:
     # ========================================================================
 
     async def _get_goal_context(self, goal_uid: str, user_uid: UserUID) -> dict | None:
-        """Get achieved goal context from Neo4j for recommendation generation.
+        """Get achieved goal context for recommendation generation.
 
         Retrieves:
         - Goal properties (domain, type, timeframe)
@@ -428,35 +428,7 @@ class GoalEventHandlerService:
         Returns:
             Goal context dict with properties and relationships, or None if not found
         """
-        query = f"""
-        MATCH (goal:Entity {{uid: $goal_uid, user_uid: $user_uid, entity_type: 'goal'}})
-
-        // Get related knowledge
-        OPTIONAL MATCH (goal)-[:{RelationshipName.REQUIRES_KNOWLEDGE.value}]->(ku:Entity)
-        WHERE ku.entity_type = 'knowledge_unit'
-        WITH goal, collect(DISTINCT {{uid: ku.uid, title: ku.title, domain: ku.domain}}) as knowledge_units
-
-        // Get related habits
-        OPTIONAL MATCH (goal)-[:{RelationshipName.SUPPORTS_GOAL.value}]->(habit:Entity {{entity_type: 'habit'}})
-        WITH goal, knowledge_units, collect(DISTINCT {{uid: habit.uid, title: habit.title}}) as habits
-
-        // Get guiding principles
-        OPTIONAL MATCH (goal)-[:{RelationshipName.GUIDED_BY_PRINCIPLE.value}]->(principle:Entity {{entity_type: 'principle'}})
-        WITH goal, knowledge_units, habits, collect(DISTINCT {{uid: principle.uid, title: principle.title}}) as principles
-
-        RETURN goal.uid as uid,
-               goal.title as title,
-               goal.domain as domain,
-               goal.goal_type as goal_type,
-               goal.timeframe as timeframe,
-               knowledge_units,
-               habits,
-               principles
-        """
-
-        result = await self.backend.execute_query(
-            query, {"goal_uid": goal_uid, "user_uid": user_uid}
-        )
+        result = await self.backend.get_achievement_context(goal_uid, user_uid)
         if result.is_error:
             self.logger.error(f"Failed to get goal context for {goal_uid}: {result.error}")
             return None

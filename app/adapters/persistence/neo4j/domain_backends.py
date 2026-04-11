@@ -592,6 +592,48 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
                 "total_habits": record.get("total_habits", 0),
                 "avg_streak": record.get("avg_streak", 0),
             }
+
+    async def get_achievement_context(
+        self, goal_uid: str, user_uid: UserUID
+    ) -> Result[list[dict[str, Any]]]:
+        """Fetch goal properties and related entities for recommendation generation.
+
+        Returns goal domain/type/timeframe plus related knowledge units, habits,
+        and principles — all the context needed to generate next-step recommendations
+        after a GoalAchieved event.
+
+        Args:
+            goal_uid: UID of the achieved goal
+            user_uid: Owner of the goal
+
+        Returns:
+            Result containing a list with one record (or empty list if not found)
+        """
+        query = f"""
+        MATCH (goal:Entity {{uid: $goal_uid, user_uid: $user_uid, entity_type: 'goal'}})
+
+        OPTIONAL MATCH (goal)-[:{RelationshipName.REQUIRES_KNOWLEDGE.value}]->(ku:Entity)
+        WHERE ku.entity_type = 'knowledge_unit'
+        WITH goal, collect(DISTINCT {{uid: ku.uid, title: ku.title, domain: ku.domain}}) as knowledge_units
+
+        OPTIONAL MATCH (goal)-[:{RelationshipName.SUPPORTS_GOAL.value}]->(habit:Entity {{entity_type: 'habit'}})
+        WITH goal, knowledge_units, collect(DISTINCT {{uid: habit.uid, title: habit.title}}) as habits
+
+        OPTIONAL MATCH (goal)-[:{RelationshipName.GUIDED_BY_PRINCIPLE.value}]->(principle:Entity {{entity_type: 'principle'}})
+        WITH goal, knowledge_units, habits, collect(DISTINCT {{uid: principle.uid, title: principle.title}}) as principles
+
+        RETURN goal.uid as uid,
+               goal.title as title,
+               goal.domain as domain,
+               goal.goal_type as goal_type,
+               goal.timeframe as timeframe,
+               knowledge_units,
+               habits,
+               principles
+        """
+        return await self.execute_query(
+            query, {"goal_uid": goal_uid, "user_uid": user_uid}
+        )
         )
 
 

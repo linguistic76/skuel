@@ -22,7 +22,7 @@ class _OrchestrationMixin:
     relationships: Any
     intelligence: Any
     logger: Any
-    _ku_generation_service: Any
+    event_handler: Any
     get_task: Any  # Provided by TasksService facade
 
     async def complete_task_with_cascade(
@@ -32,13 +32,14 @@ class _OrchestrationMixin:
         actual_minutes: int | None = None,
         quality_score: int | None = None,
     ) -> Result[Task]:
-        """Complete a task and cascade updates through the system."""
-        result = await self.progress.complete_task_with_cascade(
+        """Complete a task and cascade updates through the system.
+
+        Knowledge generation runs as a TaskCompleted event subscriber in
+        TaskEventHandlerService — not as an inline side effect here.
+        """
+        return await self.progress.complete_task_with_cascade(
             task_uid, user_context, actual_minutes, quality_score
         )
-        if result.is_ok and self._ku_generation_service:
-            await self._trigger_knowledge_generation(user_context.user_uid)
-        return result
 
     async def analyze_task_knowledge_impact(self, task_uid: str) -> Result[dict[str, Any]]:
         """
@@ -100,7 +101,8 @@ class _OrchestrationMixin:
         Returns:
             Result containing generation summary and knowledge units
         """
-        if not self._ku_generation_service:
+        ku_generation_service = self.event_handler.ku_generation_service
+        if not ku_generation_service:
             return Result.fail(
                 Errors.system(
                     message="Knowledge generation service not available",
@@ -110,7 +112,7 @@ class _OrchestrationMixin:
 
         try:
             knowledge_result = (
-                await self._ku_generation_service.extract_knowledge_from_completed_tasks(
+                await ku_generation_service.extract_knowledge_from_completed_tasks(
                     user_uid=user_uid, days_back=days_back, min_tasks=min_tasks
                 )
             )
@@ -129,7 +131,7 @@ class _OrchestrationMixin:
                     }
                 )
 
-            curation_result = await self._ku_generation_service.curate_generated_knowledge(
+            curation_result = await ku_generation_service.curate_generated_knowledge(
                 generated_knowledge
             )
 
@@ -162,37 +164,3 @@ class _OrchestrationMixin:
                     operation="trigger_manual_knowledge_generation",
                 )
             )
-
-    async def _trigger_knowledge_generation(self, user_uid: UserUID) -> None:
-        """Trigger automatic knowledge generation from completed tasks."""
-        if not self._ku_generation_service:
-            return
-
-        try:
-            knowledge_result = (
-                await self._ku_generation_service.extract_knowledge_from_completed_tasks(
-                    user_uid=user_uid, days_back=30, min_tasks=3
-                )
-            )
-
-            if knowledge_result.is_ok and knowledge_result.value:
-                curation_result = await self._ku_generation_service.curate_generated_knowledge(
-                    knowledge_result.value
-                )
-
-                if curation_result.is_ok:
-                    auto_published = curation_result.value.get("auto_publish", [])
-                    for knowledge_dto in auto_published:
-                        if self._ku_generation_service.ku_service:
-                            await self._ku_generation_service.ku_service.create(
-                                title=knowledge_dto.title,
-                                body=knowledge_dto.content,
-                                summary=knowledge_dto.content[:200] + "..."
-                                if len(knowledge_dto.content) > 200
-                                else knowledge_dto.content,
-                                tags=knowledge_dto.tags,
-                                domain=str(knowledge_dto.domain.value),
-                                **knowledge_dto.metadata,
-                            )
-        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-            self.logger.warning(f"Knowledge generation failed for user {user_uid}: {e}")

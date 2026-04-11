@@ -37,6 +37,7 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
     from core.services.insight.insight_store import InsightStore
+    from core.services.ku.insight_generation_service import InsightGenerationService
     from core.services.relationships import UnifiedRelationshipService
 
 
@@ -107,6 +108,7 @@ class TaskEventHandlerService:
         relationship_service: UnifiedRelationshipService | None = None,
         insight_store: InsightStore | None = None,
         event_bus: Any = None,
+        ku_generation_service: InsightGenerationService | None = None,
     ) -> None:
         """Initialize task event handler service.
 
@@ -115,10 +117,12 @@ class TaskEventHandlerService:
             relationship_service: For querying related entities (optional)
             insight_store: For persisting event-driven insights (optional)
             event_bus: Event bus (accepted for factory uniformity, not used)
+            ku_generation_service: For automatic knowledge generation on task completion (optional)
         """
         self.backend = backend
         self.relationships = relationship_service
         self.insight_store = insight_store
+        self.ku_generation_service = ku_generation_service
         self.logger = get_logger("skuel.services.tasks.event_handler")
 
     # ========================================================================
@@ -183,6 +187,10 @@ class TaskEventHandlerService:
             # 3. Principle alignment check
             if self.relationships:
                 await self._check_principle_alignment(event)
+
+            # 4. Knowledge generation (fire-and-forget — errors logged, not propagated)
+            if self.ku_generation_service:
+                await self._trigger_knowledge_generation(event.user_uid)
 
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
             self.logger.error(
@@ -468,3 +476,43 @@ class TaskEventHandlerService:
                     self.logger.warning(
                         f"Failed to persist inflation insight: {create_result.error}"
                     )
+
+    async def _trigger_knowledge_generation(self, user_uid: str) -> None:
+        """Extract and auto-publish knowledge from the user's recent completed tasks.
+
+        Fire-and-forget — errors are logged, never propagated. Runs as part of
+        handle_task_completed so knowledge generation is a named event consequence,
+        not a hidden side effect inside the orchestration layer.
+        """
+        if not self.ku_generation_service:
+            return
+
+        try:
+            knowledge_result = (
+                await self.ku_generation_service.extract_knowledge_from_completed_tasks(
+                    user_uid=user_uid, days_back=30, min_tasks=3
+                )
+            )
+
+            if not (knowledge_result.is_ok and knowledge_result.value):
+                return
+
+            curation_result = await self.ku_generation_service.curate_generated_knowledge(
+                knowledge_result.value
+            )
+
+            if curation_result.is_ok:
+                auto_published = curation_result.value.get("auto_publish", [])
+                for knowledge_dto in auto_published:
+                    if self.ku_generation_service.ku_service:
+                        summary = knowledge_dto.content[:200] + "..." if len(knowledge_dto.content) > 200 else knowledge_dto.content
+                        await self.ku_generation_service.ku_service.create(
+                            title=knowledge_dto.title,
+                            body=knowledge_dto.content,
+                            summary=summary,
+                            tags=knowledge_dto.tags,
+                            domain=str(knowledge_dto.domain.value),
+                            **knowledge_dto.metadata,
+                        )
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
+            self.logger.warning(f"Knowledge generation failed for user {user_uid}: {e}")
