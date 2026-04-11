@@ -1062,15 +1062,7 @@ class AskesisService:
 
         try:
             # Step 1: Build dependency graph from Neo4j
-            query = """
-            UNWIND $ku_uids AS ku_uid
-            MATCH (ku:Entity {uid: ku_uid})
-            OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-            WHERE prereq.uid IN $ku_uids
-            RETURN ku.uid AS uid, collect(prereq.uid) AS prerequisites
-            """
-
-            result = await self.graph_intel.executor.execute_query(query, {"ku_uids": ku_uids})
+            result = await self.graph_intel.backend.get_prerequisite_graph(ku_uids=ku_uids)
 
             if result.is_error or not result.value:
                 return ku_uids

@@ -17,19 +17,16 @@ relationships the graph already encodes.
 Rules for additions
 -------------------
 - Methods MUST touch 2+ domain labels (otherwise it belongs in a domain service).
-- Methods take only the ``QueryExecutor``, never per-domain backends.
 - One Cypher per call. No N+1.
 - Return a typed result dataclass from ``cross_domain_types``.
-- Methods are named after the question, not the domain pair.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.models.enums import EntityStatus
+from adapters.persistence.neo4j.cross_domain_backend import FULL_ALIGNMENT_CONNECTION_COUNT
 from core.models.enums.principle_enums import AlignmentLevel
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.cross_domain.cross_domain_types import (
     ActiveTaskCount,
@@ -50,163 +47,14 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from datetime import date
 
-    from core.ports import QueryExecutor
-
-
-# Cypher: find Goals and Habits owned by ``user_uid`` that are connected to
-# Principle ``principle_uid`` via any of the explicit alignment relationships.
-# One round-trip; CALL subqueries keep the two domain matches independent so
-# an empty match in one branch never zeros out the other.
-_PRINCIPLE_ALIGNMENT_EVIDENCE_QUERY = f"""
-MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(p:Entity {{uid: $principle_uid, entity_type: 'principle'}})
-
-CALL {{
-  WITH p, u
-  MATCH (u)-[:{RelationshipName.OWNS.value}]->(g:Entity {{entity_type: 'goal'}})
-  WHERE (p)-[:{RelationshipName.GUIDES_GOAL.value}]->(g)
-     OR (g)-[:{RelationshipName.GUIDED_BY_PRINCIPLE.value}]->(p)
-     OR (g)-[:{RelationshipName.EMBODIES_PRINCIPLE.value}]->(p)
-  RETURN collect(DISTINCT {{uid: g.uid, title: g.title}}) AS aligned_goals
-}}
-
-CALL {{
-  WITH p, u
-  MATCH (u)-[:{RelationshipName.OWNS.value}]->(h:Entity {{entity_type: 'habit'}})
-  WHERE (p)-[:{RelationshipName.INSPIRES_HABIT.value}]->(h)
-     OR (h)-[:{RelationshipName.EMBODIES_PRINCIPLE.value}]->(p)
-  RETURN collect(DISTINCT {{uid: h.uid, title: h.title}}) AS aligned_habits
-}}
-
-RETURN aligned_goals, aligned_habits
-"""
-
-# Score conversion: each connected entity contributes 1/5 to the score, capped
-# at 1.0. Five direct alignments is treated as a fully aligned principle.
-_FULL_ALIGNMENT_CONNECTION_COUNT: float = 5.0
-
-
-# Cypher: find tasks owned by ``user_uid`` that apply or require the given
-# knowledge unit. Ownership is scoped via (:User)-[:OWNS]->(:task) — the
-# canonical user→entity edge for Activity Domains.
-_TASKS_APPLYING_KNOWLEDGE_QUERY = f"""
-MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(t:Entity {{entity_type: 'task'}})
-MATCH (t)-[r:{RelationshipName.APPLIES_KNOWLEDGE.value}|{RelationshipName.REQUIRES_KNOWLEDGE.value}]->(:Entity {{uid: $knowledge_uid}})
-RETURN t.uid AS uid, t.title AS title, type(r) AS rel
-LIMIT $limit
-"""
-
-
-# Cypher: find goals this task contributes to or fulfills. Distinct to avoid
-# double-counting if both edges exist between the same task/goal pair.
-_GOALS_FOR_TASK_QUERY = f"""
-MATCH (t:Entity {{uid: $task_uid, entity_type: 'task'}})
-MATCH (t)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}|{RelationshipName.FULFILLS_GOAL.value}]->(g:Entity {{entity_type: 'goal'}})
-RETURN DISTINCT g.uid AS uid, g.title AS title
-"""
-
-
-# Non-terminal task statuses — used by the goal-abandonment guard. A goal can
-# only be cancelled when no task linked via FULFILLS_GOAL is still active in
-# one of these states. Built from the enum so a status rename can't drift.
-_ACTIVE_TASK_STATUSES: list[str] = [
-    EntityStatus.ACTIVE.value,
-    EntityStatus.SCHEDULED.value,
-    EntityStatus.BLOCKED.value,
-    EntityStatus.PAUSED.value,
-]
-
-
-# Cypher: count tasks that FULFILL the given goal and are still in a
-# non-terminal state. One round-trip; the WHERE clause uses an IN-list against
-# ``$active_statuses`` so the enum stays the source of truth.
-_COUNT_ACTIVE_TASKS_FOR_GOAL_QUERY = f"""
-MATCH (t:Entity {{entity_type: 'task'}})-[:{RelationshipName.FULFILLS_GOAL.value}]->(g:Entity {{uid: $goal_uid, entity_type: 'goal'}})
-WHERE t.status IN $active_statuses
-RETURN count(t) AS count
-"""
-
-
-# Active habit statuses — habits that should contribute to ZPD knowledge
-# reinforcement signals. ``"pending"`` is a legacy alias that maps to DRAFT
-# via ``EntityStatus._MISSING_`` but is preserved as a literal here so
-# historical rows keep matching (see ``entity_enums.py:631``).
-_HABIT_ACTIVE_STATUSES: list[str] = [
-    EntityStatus.ACTIVE.value,
-    "pending",
-]
-
-
-# Cypher: find every active habit the user owns plus the KUs it reinforces via
-# REINFORCES_KNOWLEDGE. One round-trip; OPTIONAL MATCH preserves habits with
-# no KU links (filtered at the Python boundary).
-_HABIT_KNOWLEDGE_REINFORCEMENT_QUERY = f"""
-MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(h:Entity {{entity_type: 'habit'}})
-WHERE h.status IN $active_statuses
-OPTIONAL MATCH (h)-[:{RelationshipName.REINFORCES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: 'ku'}})
-RETURN h.uid AS habit_uid,
-       h.current_streak AS current_streak,
-       h.success_rate AS success_rate,
-       h.status AS status,
-       collect(ku.uid) AS ku_uids
-"""
-
-
-# Cypher: find all choices owned by ``user_uid`` created within ``period_days``,
-# with optional principle alignment data. Returns aggregate counts plus per-choice
-# detail (choice_uid, aligned principle UIDs, satisfaction score).
-_CHOICE_PRINCIPLE_ADHERENCE_QUERY = f"""
-MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
-WHERE c.created_at >= datetime() - duration({{days: $period_days}})
-
-OPTIONAL MATCH (c)-[:{RelationshipName.ALIGNED_WITH_PRINCIPLE.value}]->(p:Entity {{entity_type: 'principle'}})
-
-WITH c,
-     collect(DISTINCT p.uid) AS principle_uids,
-     CASE WHEN count(p) > 0 THEN 1 ELSE 0 END AS is_aligned
-
-RETURN
-    count(c) AS total_choices,
-    sum(is_aligned) AS aligned_count,
-    collect({{
-        choice_uid: c.uid,
-        principles: principle_uids,
-        satisfaction: c.satisfaction_score
-    }}) AS choice_details
-"""
-
-
-# Cypher: for every non-terminal event owned by ``user_uid`` in ``[start_date,
-# end_date]``, return the count of connected goals (CONTRIBUTES_TO_GOAL) and
-# knowledge units (APPLIES_KNOWLEDGE). One round-trip replaces 2N per-event
-# calls in ``EventsIntelligenceService.analyze_upcoming_events``.
-_EVENT_IMPACT_BATCH_QUERY = f"""
-MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(e:Entity {{entity_type: 'event'}})
-WHERE e.status IN ['scheduled', 'active']
-  AND e.event_date >= date($start_date)
-  AND e.event_date <= date($end_date)
-OPTIONAL MATCH (e)-[:{RelationshipName.CONTRIBUTES_TO_GOAL.value}]->(g:Entity {{entity_type: 'goal'}})
-OPTIONAL MATCH (e)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k:Entity {{entity_type: 'ku'}})
-RETURN e.uid AS event_uid,
-       count(DISTINCT g) AS goal_count,
-       count(DISTINCT k) AS knowledge_count
-"""
-
-
-# Cypher: count distinct choices owned by ``user_uid`` created in the last 30
-# days that have a CONFLICTS_WITH_PRINCIPLE edge. One round-trip.
-_CHOICE_CONFLICT_COUNT_QUERY = f"""
-MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
-WHERE c.created_at >= datetime() - duration({{days: 30}})
-MATCH (c)-[:{RelationshipName.CONFLICTS_WITH_PRINCIPLE.value}]->(:Entity {{entity_type: 'principle'}})
-RETURN count(DISTINCT c) AS conflict_count
-"""
+    from core.ports.cross_domain_protocols import CrossDomainBackendOperations
 
 
 class CrossDomainQueryService:
     """Cross-domain read queries — one Cypher per call, typed results."""
 
-    def __init__(self, executor: QueryExecutor) -> None:
-        self.executor = executor
+    def __init__(self, backend: CrossDomainBackendOperations) -> None:
+        self.backend = backend
         self.logger = get_logger("skuel.services.cross_domain")
 
     async def get_principle_alignment_evidence(
@@ -224,9 +72,8 @@ class CrossDomainQueryService:
         ``UNKNOWN`` — which is the honest answer the graph gives, in
         contrast to the previous string-overlap heuristic.
         """
-        result = await self.executor.execute_query(
-            _PRINCIPLE_ALIGNMENT_EVIDENCE_QUERY,
-            {"principle_uid": principle_uid, "user_uid": user_uid},
+        result = await self.backend.get_principle_alignment_evidence(
+            principle_uid=principle_uid, user_uid=user_uid
         )
         if result.is_error:
             return Result.fail(result)
@@ -258,7 +105,7 @@ class CrossDomainQueryService:
         )
 
         total = len(aligned_goals) + len(aligned_habits)
-        score = min(1.0, total / _FULL_ALIGNMENT_CONNECTION_COUNT) if total else 0.0
+        score = min(1.0, total / FULL_ALIGNMENT_CONNECTION_COUNT) if total else 0.0
         level = AlignmentLevel.from_score(score)
 
         return Result.ok(
@@ -286,13 +133,8 @@ class CrossDomainQueryService:
         rather than a ``t.user_uid`` property filter — the graph edge is the
         source of truth for ownership on Activity Domains.
         """
-        result = await self.executor.execute_query(
-            _TASKS_APPLYING_KNOWLEDGE_QUERY,
-            {
-                "knowledge_uid": knowledge_uid,
-                "user_uid": user_uid,
-                "limit": limit,
-            },
+        result = await self.backend.get_tasks_applying_knowledge(
+            knowledge_uid=knowledge_uid, user_uid=user_uid, limit=limit
         )
         if result.is_error:
             return Result.fail(result)
@@ -324,10 +166,7 @@ class CrossDomainQueryService:
         goal alignment scoring on ``ContextualTask`` — previously stubbed as
         an empty list, which silently zeroed goal-alignment scores.
         """
-        result = await self.executor.execute_query(
-            _GOALS_FOR_TASK_QUERY,
-            {"task_uid": task_uid},
-        )
+        result = await self.backend.get_goals_for_task(task_uid=task_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -347,10 +186,7 @@ class CrossDomainQueryService:
         ``GoalsCoreService.update`` to block cancelling a goal that still has
         active tasks underneath it. Empty result → ``count=0``.
         """
-        result = await self.executor.execute_query(
-            _COUNT_ACTIVE_TASKS_FOR_GOAL_QUERY,
-            {"goal_uid": goal_uid, "active_statuses": _ACTIVE_TASK_STATUSES},
-        )
+        result = await self.backend.count_active_tasks_for_goal(goal_uid=goal_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -371,10 +207,7 @@ class CrossDomainQueryService:
         ``HabitsIntelligenceService.get_zpd_knowledge_signals`` to feed
         ``ZPDService.assess_zone``.
         """
-        result = await self.executor.execute_query(
-            _HABIT_KNOWLEDGE_REINFORCEMENT_QUERY,
-            {"user_uid": user_uid, "active_statuses": _HABIT_ACTIVE_STATUSES},
-        )
+        result = await self.backend.get_habit_knowledge_reinforcement(user_uid=user_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -410,9 +243,8 @@ class CrossDomainQueryService:
         Used by ``_BehavioralSignalsMixin.analyze_principle_adherence`` and
         ``get_zpd_behavioral_signals`` for the ZPD behavioral readiness bridge.
         """
-        result = await self.executor.execute_query(
-            _CHOICE_PRINCIPLE_ADHERENCE_QUERY,
-            {"user_uid": user_uid, "period_days": period_days},
+        result = await self.backend.get_choice_principle_adherence(
+            user_uid=user_uid, period_days=period_days
         )
         if result.is_error:
             return Result.fail(result)
@@ -452,10 +284,7 @@ class CrossDomainQueryService:
         One Cypher round-trip. Used by ``get_zpd_behavioral_signals`` to
         surface active principle tensions to ZPDService.
         """
-        result = await self.executor.execute_query(
-            _CHOICE_CONFLICT_COUNT_QUERY,
-            {"user_uid": user_uid},
-        )
+        result = await self.backend.get_choice_conflict_count(user_uid=user_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -477,13 +306,8 @@ class CrossDomainQueryService:
         ``get_related_uids`` loop in ``EventsIntelligenceService.analyze_upcoming_events``.
         Callers build a ``dict[uid, EventImpactRow]`` and do O(1) lookups per event.
         """
-        result = await self.executor.execute_query(
-            _EVENT_IMPACT_BATCH_QUERY,
-            {
-                "user_uid": user_uid,
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
-            },
+        result = await self.backend.get_event_impact_batch(
+            user_uid=user_uid, start_date=start_date, end_date=end_date
         )
         if result.is_error:
             return Result.fail(result)

@@ -126,24 +126,7 @@ async def get_learning_state(
         ...     mastered = result.value["mastered_knowledge"]
     """
     try:
-        # Query graph for user's learning relationships
-        query = """
-        MATCH (u:User {uid: $user_uid})
-        OPTIONAL MATCH (u)-[:MASTERED]->(ku:Entity)
-        OPTIONAL MATCH (u)-[:ENROLLED_IN]->(lp:Lp)
-        OPTIONAL MATCH (lp)-[:CONTAINS]->(step:PathStep)
-        WITH u,
-             collect(DISTINCT ku.uid) as mastered,
-             collect(DISTINCT {
-                 path_uid: lp.uid,
-                 total_steps: count(DISTINCT step),
-                 title: lp.title
-             }) as paths
-        RETURN mastered, paths
-        """
-
-        params = {"user_uid": user_uid}
-        result = await graph.executor.execute_query(query, params)
+        result = await graph.backend.get_user_learning_state(user_uid=user_uid)
 
         if result.is_error:
             return Result.fail(result)
@@ -221,24 +204,7 @@ async def analyze_knowledge_patterns(
         )
 
     try:
-        # Query for knowledge relationships across all entities
-        query = """
-        MATCH (e)
-        WHERE e.uid IN $entity_uids
-        OPTIONAL MATCH (e)-[:APPLIES_KNOWLEDGE|REQUIRES_KNOWLEDGE]->(ku:Entity)
-        WITH ku, count(DISTINCT e) as usage_count
-        WHERE ku IS NOT NULL
-        RETURN
-            collect({
-                uid: ku.uid,
-                title: ku.title,
-                usage_count: usage_count,
-                domain: ku.domain
-            }) as knowledge_units
-        """
-
-        params = {"entity_uids": entity_uids}
-        result = await graph.executor.execute_query(query, params)
+        result = await graph.backend.get_knowledge_patterns(entity_uids=entity_uids)
 
         if result.is_error:
             return Result.fail(result)
@@ -397,22 +363,9 @@ async def find_cross_domain_connections(
         ... )
     """
     try:
-        query = """
-        MATCH (source {uid: $entity_uid})
-        MATCH (source)-[r]-(target)
-        WHERE any(label IN labels(target) WHERE label IN $target_domains)
-        RETURN
-            collect({
-                target_uid: target.uid,
-                target_labels: labels(target),
-                relationship_type: type(r),
-                properties: properties(target)
-            }) as connections
-        """
-
-        params = {"entity_uid": entity_uid, "target_domains": target_domains}
-
-        result = await graph.executor.execute_query(query, params)
+        result = await graph.backend.find_cross_domain_connections(
+            entity_uid=entity_uid, target_domains=target_domains
+        )
 
         if result.is_error:
             return Result.fail(result)

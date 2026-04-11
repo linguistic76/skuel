@@ -36,7 +36,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import QueryExecutor
+    from core.ports.cross_domain_protocols import CrossDomainBackendOperations
 
 
 @dataclass
@@ -113,7 +113,7 @@ class CrossDomainAnalyticsService:
 
     Usage:
         # Wire in bootstrap
-        analytics = CrossDomainAnalyticsService(driver)
+        analytics = CrossDomainAnalyticsService(backend)
 
         event_bus.subscribe(ExpenseCreated, analytics.handle_expense_created)
         event_bus.subscribe(GoalCreated, analytics.handle_goal_created)
@@ -132,14 +132,14 @@ class CrossDomainAnalyticsService:
     - No semantic relationship types used (event-driven aggregation only)
     """
 
-    def __init__(self, executor: "QueryExecutor") -> None:
+    def __init__(self, backend: "CrossDomainBackendOperations") -> None:
         """
         Initialize cross-domain analytics service.
 
         Args:
-            executor: QueryExecutor for analytics storage
+            backend: CrossDomainBackend for analytics storage
         """
-        self.executor = executor
+        self.backend = backend
         self.logger = get_logger("skuel.services.cross_domain_analytics")
 
         # In-memory caches for fast analytics (could be Redis in production)
@@ -175,31 +175,11 @@ class CrossDomainAnalyticsService:
             self._expense_cache[event.user_uid].append(expense_data)
 
             # Persist analytics
-            query = """
-            MERGE (analytics:FinancialAnalytics {user_uid: $user_uid})
-            ON CREATE SET
-                analytics.total_expenses = $amount,
-                analytics.expense_count = 1,
-                analytics.first_expense_at = datetime($occurred_at)
-            ON MATCH SET
-                analytics.total_expenses = analytics.total_expenses + $amount,
-                analytics.expense_count = analytics.expense_count + 1,
-                analytics.last_expense_at = datetime($occurred_at)
-
-            WITH analytics
-            MERGE (analytics)-[r:SPENT_IN_CATEGORY {category: $category}]->(cat:ExpenseCategory {name: $category})
-            ON CREATE SET r.total_amount = $amount, r.count = 1
-            ON MATCH SET r.total_amount = r.total_amount + $amount, r.count = r.count + 1
-            """
-
-            result = await self.executor.execute_query(
-                query,
-                {
-                    "user_uid": event.user_uid,
-                    "amount": event.amount,
-                    "category": event.category,
-                    "occurred_at": event.occurred_at.isoformat(),
-                },
+            result = await self.backend.upsert_financial_analytics(
+                user_uid=event.user_uid,
+                amount=event.amount,
+                category=event.category,
+                occurred_at=event.occurred_at.isoformat(),
             )
             if result.is_error:
                 self.logger.error(f"Error tracking expense: {result.error}")
@@ -260,25 +240,10 @@ class CrossDomainAnalyticsService:
             self._learning_cache[event.user_uid].append(learning_data)
 
             # Persist velocity metrics
-            query = """
-            MERGE (velocity:LearningVelocity {user_uid: $user_uid})
-            ON CREATE SET
-                velocity.kus_mastered = 1,
-                velocity.total_mastery_score = $mastery_score,
-                velocity.first_mastery_at = datetime($occurred_at)
-            ON MATCH SET
-                velocity.kus_mastered = velocity.kus_mastered + 1,
-                velocity.total_mastery_score = velocity.total_mastery_score + $mastery_score,
-                velocity.last_mastery_at = datetime($occurred_at)
-            """
-
-            result = await self.executor.execute_query(
-                query,
-                {
-                    "user_uid": event.user_uid,
-                    "mastery_score": event.mastery_score,
-                    "occurred_at": event.occurred_at.isoformat(),
-                },
+            result = await self.backend.upsert_learning_velocity(
+                user_uid=event.user_uid,
+                mastery_score=event.mastery_score,
+                occurred_at=event.occurred_at.isoformat(),
             )
             if result.is_error:
                 self.logger.error(f"Error tracking learning velocity: {result.error}")
@@ -308,12 +273,7 @@ class CrossDomainAnalyticsService:
     async def handle_path_completed(self, event: LearningPathCompleted) -> Result[None]:
         """Track learning path completion for velocity analysis."""
         try:
-            query = """
-            MERGE (velocity:LearningVelocity {user_uid: $user_uid})
-            SET velocity.paths_completed = coalesce(velocity.paths_completed, 0) + 1
-            """
-
-            result = await self.executor.execute_query(query, {"user_uid": event.user_uid})
+            result = await self.backend.increment_paths_completed(user_uid=event.user_uid)
             if result.is_error:
                 self.logger.error(f"Error tracking path completion: {result.error}")
 
@@ -358,23 +318,9 @@ class CrossDomainAnalyticsService:
         - Completion time trends
         """
         try:
-            # Track completion velocity
-            query = """
-            MERGE (analytics:ProductivityAnalytics {user_uid: $user_uid})
-            ON CREATE SET
-                analytics.tasks_completed = 1,
-                analytics.first_completion_at = datetime($occurred_at)
-            ON MATCH SET
-                analytics.tasks_completed = analytics.tasks_completed + 1,
-                analytics.last_completion_at = datetime($occurred_at)
-            """
-
-            result = await self.executor.execute_query(
-                query,
-                {
-                    "user_uid": event.user_uid,
-                    "occurred_at": event.occurred_at.isoformat(),
-                },
+            result = await self.backend.upsert_productivity_analytics(
+                user_uid=event.user_uid,
+                occurred_at=event.occurred_at.isoformat(),
             )
             if result.is_error:
                 self.logger.error(f"Error tracking task completion: {result.error}")
@@ -409,23 +355,9 @@ class CrossDomainAnalyticsService:
         - Category-based habit tracking
         """
         try:
-            # Track habit consistency
-            query = """
-            MERGE (analytics:HabitAnalytics {user_uid: $user_uid})
-            ON CREATE SET
-                analytics.total_completions = 1,
-                analytics.first_completion_at = datetime($occurred_at)
-            ON MATCH SET
-                analytics.total_completions = analytics.total_completions + 1,
-                analytics.last_completion_at = datetime($occurred_at)
-            """
-
-            result = await self.executor.execute_query(
-                query,
-                {
-                    "user_uid": event.user_uid,
-                    "occurred_at": event.occurred_at.isoformat(),
-                },
+            result = await self.backend.upsert_habit_analytics(
+                user_uid=event.user_uid,
+                occurred_at=event.occurred_at.isoformat(),
             )
             if result.is_error:
                 self.logger.error(f"Error tracking habit completion: {result.error}")
@@ -462,23 +394,9 @@ class CrossDomainAnalyticsService:
         - Time allocation analysis
         """
         try:
-            # Track event attendance
-            query = """
-            MERGE (analytics:EventAnalytics {user_uid: $user_uid})
-            ON CREATE SET
-                analytics.events_attended = 1,
-                analytics.first_attendance_at = datetime($occurred_at)
-            ON MATCH SET
-                analytics.events_attended = analytics.events_attended + 1,
-                analytics.last_attendance_at = datetime($occurred_at)
-            """
-
-            result = await self.executor.execute_query(
-                query,
-                {
-                    "user_uid": event.user_uid,
-                    "occurred_at": event.occurred_at.isoformat(),
-                },
+            result = await self.backend.upsert_event_analytics(
+                user_uid=event.user_uid,
+                occurred_at=event.occurred_at.isoformat(),
             )
             if result.is_error:
                 self.logger.error(f"Error tracking event attendance: {result.error}")
@@ -527,16 +445,9 @@ class CrossDomainAnalyticsService:
         """
         start_date = datetime.now() - timedelta(days=days_back)
 
-        query = """
-        MATCH (velocity:LearningVelocity {user_uid: $user_uid})
-        OPTIONAL MATCH (velocity)<-[:HAS_VELOCITY]-(ku:MasteryRecord)
-        WHERE datetime(ku.mastered_at) >= datetime($start_date)
-        WITH velocity, count(ku) as recent_kus, sum(ku.time_to_mastery_hours) as total_hours
-        RETURN velocity, recent_kus, total_hours
-        """
-
-        result = await self.executor.execute_query(
-            query, {"user_uid": user_uid, "start_date": start_date.isoformat()}
+        result = await self.backend.get_learning_velocity_metrics(
+            user_uid=user_uid,
+            start_date=start_date.isoformat(),
         )
         if result.is_error:
             return Result.fail(result)
@@ -610,13 +521,7 @@ class CrossDomainAnalyticsService:
         """
         datetime.now() - timedelta(days=days_back)
 
-        query = """
-        MATCH (analytics:FinancialAnalytics {user_uid: $user_uid})-[r:SPENT_IN_CATEGORY]->(cat:ExpenseCategory)
-        RETURN cat.name as category, r.total_amount as amount, r.count as count
-        ORDER BY r.total_amount DESC
-        """
-
-        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        result = await self.backend.get_spending_by_category(user_uid=user_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -671,12 +576,7 @@ class CrossDomainAnalyticsService:
         Returns:
             Result containing mood analysis
         """
-        query = """
-        MATCH (analytics:JournalAnalytics {user_uid: $user_uid})
-        RETURN analytics
-        """
-
-        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        result = await self.backend.get_journal_analytics(user_uid=user_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -730,15 +630,7 @@ class CrossDomainAnalyticsService:
         Returns:
             Result containing financial goal metrics
         """
-        # Query expenses linked to this goal
-        query = """
-        MATCH (goal:Goal {uid: $goal_uid})
-        OPTIONAL MATCH (goal)<-[:SUPPORTS_GOAL]-(expense:Expense)
-        WITH goal, collect(expense) as expenses, sum(expense.amount) as total
-        RETURN goal, expenses, total
-        """
-
-        result = await self.executor.execute_query(query, {"goal_uid": goal_uid})
+        result = await self.backend.get_financial_goal_with_expenses(goal_uid=goal_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -796,12 +688,7 @@ class CrossDomainAnalyticsService:
             - last_completion_at: Last completion timestamp
             - completion_velocity: Tasks per week
         """
-        query = """
-        MATCH (analytics:ProductivityAnalytics {user_uid: $user_uid})
-        RETURN analytics
-        """
-
-        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        result = await self.backend.get_productivity_analytics(user_uid=user_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -861,12 +748,7 @@ class CrossDomainAnalyticsService:
             - last_completion_at: Last completion timestamp
             - consistency_score: Completions per week
         """
-        query = """
-        MATCH (analytics:HabitAnalytics {user_uid: $user_uid})
-        RETURN analytics
-        """
-
-        result = await self.executor.execute_query(query, {"user_uid": user_uid})
+        result = await self.backend.get_habit_analytics(user_uid=user_uid)
         if result.is_error:
             return Result.fail(result)
 

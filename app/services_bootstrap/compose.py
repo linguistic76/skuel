@@ -337,10 +337,17 @@ async def compose_services(
         logger.info("✅ UserContextService created (context-aware intelligence)")
         logger.info("   - UserContextBuilder owns user resolution (Option A architecture)")
 
+        # Create cross-domain backend (shared by graph intelligence, cross-domain query,
+        # and cross-domain analytics services)
+        from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
+
+        cross_domain_backend = CrossDomainBackend(query_executor)
+        logger.info("✅ CrossDomainBackend created")
+
         # Create graph intelligence (needed by tasks service)
         from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
-        graph_intelligence = GraphIntelligenceService(query_executor)
+        graph_intelligence = GraphIntelligenceService(cross_domain_backend)
         logger.info("✅ GraphIntelligenceService created")
 
         # Create inference services (passed through to TasksService)
@@ -382,7 +389,7 @@ async def compose_services(
         # (replaces the "fetch all of A, fetch all of B, loop in Python" pattern)
         from core.services.cross_domain import CrossDomainQueryService
 
-        cross_domain_query = CrossDomainQueryService(query_executor)
+        cross_domain_query = CrossDomainQueryService(cross_domain_backend)
         logger.info("✅ CrossDomainQueryService created")
 
         activity_services = _create_activity_services(
@@ -1215,7 +1222,9 @@ async def compose_services(
         logger.info("✅ Lateral Relationships Orchestrator created")
 
         # Create advanced services
-        advanced = _create_advanced_services(driver, query_executor=query_executor)
+        advanced = _create_advanced_services(
+            driver, query_executor=query_executor, cross_domain_backend=cross_domain_backend
+        )
         await advanced["performance_optimization"].initialize()
         logger.info("✅ Advanced services created")
 

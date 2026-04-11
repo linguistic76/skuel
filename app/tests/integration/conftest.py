@@ -521,9 +521,11 @@ async def services(neo4j_driver):
     query_executor = Neo4jQueryExecutor(neo4j_driver)
 
     # Cross-domain query service (graph-direct cross-domain reads)
+    from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
     from core.services.cross_domain import CrossDomainQueryService
 
-    cross_domain_query = CrossDomainQueryService(query_executor)
+    cross_domain_backend = CrossDomainBackend(query_executor)
+    cross_domain_query = CrossDomainQueryService(cross_domain_backend)
 
     # Create Choices service (requires graph_intelligence_service + cross_domain_query)
     choices_service = ChoicesService(

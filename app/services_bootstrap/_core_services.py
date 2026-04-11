@@ -89,7 +89,11 @@ def _create_orchestration_services(
     }
 
 
-def _create_advanced_services(_driver: Any, query_executor: Any = None) -> dict[str, Any]:
+def _create_advanced_services(
+    _driver: Any,
+    query_executor: Any = None,
+    cross_domain_backend: Any = None,
+) -> dict[str, Any]:
     """Create advanced services."""
     from pathlib import Path
 
@@ -104,5 +108,5 @@ def _create_advanced_services(_driver: Any, query_executor: Any = None) -> dict[
         "calendar_optimization": CalendarOptimizationService(),
         "jupyter_sync": JupyterNeo4jSync(executor=query_executor, vault_path=vault_path),
         "performance_optimization": PerformanceOptimizationService(),
-        "cross_domain_analytics": CrossDomainAnalyticsService(executor=query_executor),
+        "cross_domain_analytics": CrossDomainAnalyticsService(backend=cross_domain_backend),
     }

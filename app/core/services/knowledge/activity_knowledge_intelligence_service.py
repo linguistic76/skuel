@@ -387,11 +387,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
         """Derive skill vocabulary from Ku titles/tags in the graph."""
         if not self.graph_intel:
             return []
-        query = """
-        MATCH (k:Ku:Entity)
-        RETURN k.title AS title, k.tags AS tags
-        """
-        results = await self.graph_intel.executor.execute_query(query, {})
+        results = await self.graph_intel.backend.get_ku_titles_and_tags()
         if results.is_error:
             return []
 

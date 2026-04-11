@@ -31,7 +31,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
-    from core.ports import QueryExecutor
+    from core.ports.cross_domain_protocols import CrossDomainBackendOperations
 
 logger = get_logger(__name__)
 
@@ -60,14 +60,14 @@ class GraphIntelligenceService:
     - (Analyzes all relationship types for hub/centrality detection)
     """
 
-    def __init__(self, executor: QueryExecutor) -> None:
+    def __init__(self, backend: CrossDomainBackendOperations) -> None:
         """
         Initialize graph intelligence service.
 
         Args:
-            executor: QueryExecutor for graph queries
+            backend: CrossDomainBackend for graph queries
         """
-        self.executor = executor
+        self.backend = backend
         self.logger = get_logger("skuel.graph.intelligence")
 
     # ========================================================================
@@ -135,31 +135,7 @@ class GraphIntelligenceService:
             domain_filter = "WHERE ku.domain = $domain"
             params["domain"] = domain.value
 
-        query = f"""
-        MATCH (ku:Entity)
-        {domain_filter}
-        OPTIONAL MATCH (ku)-[r WHERE coalesce(r.confidence, 1.0) >= $min_confidence]-()
-        WITH ku, count(r) as total_connections
-        WHERE total_connections >= $min_connections
-
-        // Count incoming and outgoing separately
-        OPTIONAL MATCH (ku)<-[r_in WHERE coalesce(r_in.confidence, 1.0) >= $min_confidence]-()
-        WITH ku, total_connections, count(r_in) as incoming_count
-        OPTIONAL MATCH (ku)-[r_out WHERE coalesce(r_out.confidence, 1.0) >= $min_confidence]->()
-        WITH ku, total_connections, incoming_count, count(r_out) as outgoing_count
-
-        RETURN ku.uid as uid,
-               ku.title as title,
-               ku.domain as domain,
-               total_connections,
-               incoming_count,
-               outgoing_count,
-               toFloat(total_connections) as centrality_score
-        ORDER BY total_connections DESC
-        LIMIT $limit
-        """
-
-        result = await self.executor.execute_query(query, params)
+        result = await self.backend.find_knowledge_hubs(domain_filter=domain_filter, params=params)
         if result.is_error:
             return Result.fail(result)
 
@@ -226,40 +202,9 @@ class GraphIntelligenceService:
         """
         self.logger.info(f"Finding similar knowledge to {ku_uid} (min_similarity={min_similarity})")
 
-        query = """
-        // Find shared neighbors (any relationship direction)
-        MATCH (ku1:Entity {uid: $uid})-[]-(shared)-[]-(ku2:Entity)
-        WHERE ku1 <> ku2
-        WITH ku1, ku2, count(DISTINCT shared) as shared_count
-
-        // Count ku1's total neighbors
-        MATCH (ku1)-[]-(ku1_neighbor)
-        WITH ku1, ku2, shared_count, count(DISTINCT ku1_neighbor) as ku1_degree
-
-        // Count ku2's total neighbors
-        MATCH (ku2)-[]-(ku2_neighbor)
-        WITH ku1, ku2, shared_count, ku1_degree,
-             count(DISTINCT ku2_neighbor) as ku2_degree
-
-        // Calculate Jaccard similarity
-        WITH ku2, shared_count, ku1_degree, ku2_degree,
-             toFloat(shared_count) / (ku1_degree + ku2_degree - shared_count) as similarity
-
-        WHERE similarity >= $min_similarity
-
-        RETURN ku2.uid as uid,
-               ku2.title as title,
-               ku2.domain as domain,
-               similarity,
-               shared_count,
-               (ku1_degree + ku2_degree - shared_count) as total_neighbors
-        ORDER BY similarity DESC
-        LIMIT $limit
-        """
-
-        params = {"uid": ku_uid, "min_similarity": min_similarity, "limit": limit}
-
-        result = await self.executor.execute_query(query, params)
+        result = await self.backend.find_similar_knowledge(
+            uid=ku_uid, min_similarity=min_similarity, limit=limit
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -320,31 +265,7 @@ class GraphIntelligenceService:
         """
         self.logger.info(f"Analyzing prerequisite depth for {ku_uid}")
 
-        query = """
-        // Find all prerequisite paths
-        MATCH path = (end:Entity {uid: $uid})<-[:REQUIRES_KNOWLEDGE*]-(start)
-        WHERE NOT (start)<-[:REQUIRES_KNOWLEDGE]-()
-
-        WITH path,
-             length(path) as depth,
-             [node in nodes(path) | node.uid] as path_uids
-
-        // Aggregate statistics
-        WITH collect(DISTINCT path) as all_paths,
-             max(depth) as max_depth,
-             avg(depth) as avg_depth,
-             collect(DISTINCT path_uids[size(path_uids)-1]) as root_uids
-
-        RETURN max_depth,
-               avg_depth,
-               size(all_paths) as total_paths,
-               root_uids,
-               max_depth * size(all_paths) as complexity_score
-        """
-
-        params = {"uid": ku_uid}
-
-        result = await self.executor.execute_query(query, params)
+        result = await self.backend.analyze_prerequisite_depth(uid=ku_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -429,36 +350,9 @@ class GraphIntelligenceService:
             domain_filter = "WHERE ku.domain = $domain"
             params["domain"] = domain.value
 
-        query = f"""
-        // Find knowledge units with neighbors
-        MATCH (ku:Entity)
-        {domain_filter}
-        MATCH (ku)-[r]-(neighbor:Entity)
-        WITH ku, count(DISTINCT neighbor) as neighbor_count
-        WHERE neighbor_count >= 2
-
-        // Count triangles (ku-n1-n2-ku closed patterns)
-        MATCH (ku)-[]-(n1:Entity)-[]-(n2:Entity)-[]-(ku)
-        WHERE n1 <> n2 AND id(n1) < id(n2)
-        WITH ku, neighbor_count, count(*) as triangles
-
-        // Calculate clustering coefficient (density)
-        WITH ku, neighbor_count, triangles,
-             toFloat(triangles) / (neighbor_count * (neighbor_count - 1) / 2) as density
-
-        WHERE density >= $min_density
-
-        RETURN ku.uid as uid,
-               ku.title as title,
-               ku.domain as domain,
-               neighbor_count,
-               triangles,
-               density
-        ORDER BY density DESC, neighbor_count DESC
-        LIMIT $limit
-        """
-
-        result = await self.executor.execute_query(query, params)
+        result = await self.backend.find_learning_clusters(
+            domain_filter=domain_filter, params=params
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -516,44 +410,7 @@ class GraphIntelligenceService:
         """
         self.logger.info(f"Calculating importance for {ku_uid}")
 
-        query = """
-        MATCH (ku:Entity {uid: $uid})
-
-        // Metric 1: Degree centrality
-        OPTIONAL MATCH (ku)-[r]-()
-        WITH ku, count(r) as degree,
-             avg(coalesce(r.confidence, 1.0)) as avg_confidence
-
-        // Metric 2: Prerequisite importance (how many depend on this)
-        OPTIONAL MATCH (ku)<-[:REQUIRES_KNOWLEDGE*]-(dependent)
-        WITH ku, degree, avg_confidence, count(DISTINCT dependent) as dependents
-
-        // Metric 3: Clustering coefficient
-        OPTIONAL MATCH (ku)-[]-(n1)-[]-(n2)-[]-(ku)
-        WHERE n1 <> n2 AND id(n1) < id(n2)
-        WITH ku, degree, avg_confidence, dependents, count(*) as triangles
-
-        // Calculate composite score
-        WITH ku,
-             degree,
-             dependents,
-             triangles,
-             avg_confidence,
-             CASE WHEN degree >= 2
-                  THEN toFloat(triangles) / (degree * (degree - 1) / 2)
-                  ELSE 0.0
-             END as clustering
-
-        RETURN toFloat(degree) as degree_centrality,
-               toFloat(dependents) as prerequisite_importance,
-               clustering as cluster_coefficient,
-               avg_confidence,
-               (degree * 0.3 + dependents * 0.4 + clustering * 10 * 0.3) as importance_score
-        """
-
-        params = {"uid": ku_uid}
-
-        result = await self.executor.execute_query(query, params)
+        result = await self.backend.calculate_knowledge_importance(uid=ku_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -628,9 +485,8 @@ class GraphIntelligenceService:
         )
 
         query = build_context_query_for_intent(intent, depth)
-        params = {"uid": node_uid}
 
-        result = await self.executor.execute_query(query, params)
+        result = await self.backend.query_with_intent(query=query, uid=node_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -673,12 +529,7 @@ class GraphIntelligenceService:
         from core.services.infrastructure.graph_query_builder import determine_domain
 
         # First, determine domain of entity by fetching it
-        query = """
-        MATCH (n {uid: $uid})
-        RETURN n, labels(n) as labels
-        """
-
-        result = await self.executor.execute_query(query, {"uid": entity_uid})
+        result = await self.backend.get_entity_labels(uid=entity_uid)
         if result.is_error:
             return Result.fail(result)
 

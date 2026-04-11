@@ -47,8 +47,11 @@ class TestMultiDomainAnalyticsFlow:
     @pytest_asyncio.fixture
     async def analytics_service(self, neo4j_driver, clean_neo4j):
         """Create CrossDomainAnalyticsService with clean database."""
+        from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
+
         executor = Neo4jQueryExecutor(neo4j_driver)
-        return CrossDomainAnalyticsService(executor=executor)
+        backend = CrossDomainBackend(executor)
+        return CrossDomainAnalyticsService(backend=backend)
 
     @pytest_asyncio.fixture
     async def test_user_uid(self):

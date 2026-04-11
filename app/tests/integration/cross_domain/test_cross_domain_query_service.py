@@ -298,8 +298,10 @@ async def graph(neo4j_driver, clean_neo4j):
 
 @pytest.fixture
 def service(neo4j_driver):
-    """CrossDomainQueryService wired to a real Neo4j executor."""
-    return CrossDomainQueryService(Neo4jQueryExecutor(neo4j_driver))
+    """CrossDomainQueryService wired to a real Neo4j backend."""
+    from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
+
+    return CrossDomainQueryService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
 
 
 # ---------------------------------------------------------------------------
