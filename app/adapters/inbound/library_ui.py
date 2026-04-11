@@ -24,6 +24,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from core.models.submissions.exercise_submission import ExerciseSubmission
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
 from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
@@ -91,22 +92,9 @@ def _sub_status_badge(status: str | None) -> Any:
     return Badge(label, variant=variant, cls=custom_cls, size=Size.sm)
 
 
-def _submission_item(sub: Any) -> Div:
+def _submission_item(sub: "ExerciseSubmission") -> Div:
     """Single row for a user's exercise submission."""
-    sub_uid = (
-        getattr(sub, "uid", None) or sub.get("uid", "")
-        if isinstance(sub, dict)
-        else getattr(sub, "uid", "")
-    )
-    title = (
-        getattr(sub, "title", None)
-        or (sub.get("title") if isinstance(sub, dict) else None)
-        or sub_uid
-    )
-    raw_status = getattr(sub, "status", None)
-    from enum import Enum
-
-    status = raw_status.value if isinstance(raw_status, Enum) else raw_status
+    status = sub.status.value
 
     return Div(
         Div(
@@ -116,11 +104,11 @@ def _submission_item(sub: Any) -> Div:
                 cls="bg-sky-100 text-sky-800 border-sky-200",
                 size=Size.sm,
             ),
-            Span(title, cls="text-sm font-medium text-foreground ml-2 mr-auto"),
+            Span(sub.title or sub.uid, cls="text-sm font-medium text-foreground ml-2 mr-auto"),
             _sub_status_badge(status),
             ButtonLink(
                 "View →",
-                href=f"/gradebook/{sub_uid}",
+                href=f"/gradebook/{sub.uid}",
                 variant=ButtonT.ghost,
                 size=Size.sm,
             ),
@@ -130,7 +118,7 @@ def _submission_item(sub: Any) -> Div:
     )
 
 
-def render_submissions_list(submissions: list[Any]) -> Div:
+def render_submissions_list(submissions: "list[ExerciseSubmission]") -> Div:
     """Render the user's exercise submissions for the Library Submissions tab."""
     if not submissions:
         return EmptyState(
