@@ -2,10 +2,24 @@
 
 ## Overview
 
-**Architecture:** Extends `_CoreIntelligenceMixin, BaseAnalyticsService[EventsOperations, Event]`
+**Architecture:** Shell delegates to 3 focused mixins (April 2026):
+- `_core_intelligence_mixin.py` (~232 lines) — `get_event_with_context`, `analyze_event_performance`, goal/habit/knowledge analysis helpers
+- `_analytics_mixin.py` (~182 lines) — `analyze_upcoming_events`, scheduling recommendations
+- `_behavioral_signals_mixin.py` (~210 lines) — `assess_engagement_dual_track`, dual-track helpers
+
+```python
+class EventsIntelligenceService(
+    _CoreIntelligenceMixin,        # context retrieval + cross-domain impact analysis
+    _AnalyticsMixin,               # upcoming events analysis + scheduling recommendations
+    _BehavioralSignalsMixin,       # dual-track engagement assessment
+    BaseAnalyticsService["EventsOperations", Event],
+):
+    """Shell: __init__ + get_performance_analytics + get_domain_insights only."""
+```
+
 **Location:** `/core/services/events/events_intelligence_service.py`
 **Service Name:** `events.intelligence`
-**Lines:** ~830
+**Lines:** ~169 (shell) — see mixin files above for the bulk of logic
 
 **Related Services:**
 - `EventsProgressService` - Progress tracking, completion, attendance metrics
@@ -25,7 +39,7 @@ EventsIntelligenceService analyzes events through cross-domain impact tracking, 
 
 ## Core Methods
 
-**`get_with_context(uid, depth)` — inherited from `_CoreIntelligenceMixin`** (`core/services/intelligence/`). Implements the `IntelligenceOperations` protocol via `self.orchestrator`. No domain mixin file — `EventsIntelligenceService` inherits the shared base directly in its MRO.
+**`get_with_context(uid, depth)` — inherited from `_CoreIntelligenceMixin`** (`core/services/intelligence/`). Implements the `IntelligenceOperations` protocol via `self.orchestrator`. The Events `_CoreIntelligenceMixin` (in `core/services/events/`) extends this shared base and adds `get_event_with_context` and `analyze_event_performance`.
 
 ### Method 1: get_event_with_context()
 

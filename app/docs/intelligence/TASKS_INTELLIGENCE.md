@@ -2,10 +2,24 @@
 
 ## Overview
 
-**Architecture:** Extends `BaseAnalyticsService[TasksOperations, Task]` (NO AI dependencies)
+**Architecture:** Shell delegates to 3 focused mixins (April 2026):
+- `_core_intelligence_mixin.py` (~222 lines) — `get_task_with_context`, `categorize_cross_domain_context`
+- `_analytics_mixin.py` (~255 lines) — `get_behavioral_insights`, completion patterns, success factors
+- `_productivity_mixin.py` (~187 lines) — `analyze_learning_patterns`, `calculate_knowledge_aware_priorities`, `generate_task_insights`, `track_knowledge_mastery_progression`
+
+```python
+class TasksIntelligenceService(
+    _CoreIntelligenceMixin,    # get_task_with_context + cross-domain categorization
+    _AnalyticsMixin,           # behavioral + performance analytics
+    _ProductivityMixin,        # analytics engine delegation
+    BaseAnalyticsService["TasksOperations", Task],
+):
+    """Shell: __init__ + get_performance_analytics + get_domain_insights only."""
+```
+
 **Location:** `/core/services/tasks/tasks_intelligence_service.py`
 **Service Name:** `tasks.intelligence`
-**Lines:** ~560
+**Lines:** ~265 (shell) — see mixin files above for the bulk of logic
 
 **Related sub-services (extracted March 2026):**
 - `TasksProductivityService` (`tasks_productivity_service.py`) — dual-track productivity assessment (ADR-030)

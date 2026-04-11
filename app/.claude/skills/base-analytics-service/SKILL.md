@@ -35,15 +35,17 @@ SKUEL separates analytics from AI with two base classes:
 
 ### The 9 Domain Intelligence Services
 
+Services >~350 lines are decomposed into mixin files in the same package directory (April 2026). See `SERVICE_DECOMPOSITION_RULE.md`.
+
 | Domain | Service | Inherits | Key Focus |
 |--------|---------|----------|-----------|
 | **Activity (6)** |
-| Tasks | `TasksIntelligenceService` | `BaseAnalyticsService["TasksOperations", Task]` | Knowledge, behavioral, performance |
+| Tasks | `TasksIntelligenceService` | `_CoreIntelligenceMixin, _AnalyticsMixin, _ProductivityMixin, BaseAnalyticsService["TasksOperations", Task]` | Knowledge, behavioral, performance (shell + 3 mixins) |
 | Tasks | `TasksProductivityService` | `BaseAnalyticsService["TasksOperations", Task]` | Dual-track productivity (ADR-030) |
 | Tasks | `TasksLearningMetricsService` | `BaseAnalyticsService["TasksOperations", Task]` | Task-level learning metrics |
-| Goals | `GoalsIntelligenceService` | `BaseAnalyticsService[GoalsOperations, Goal]` | Progress forecasting |
+| Goals | `GoalsIntelligenceService` | `_CoreIntelligenceMixin, _AnalyticsMixin, _PredictiveMixin, _DualTrackMixin, BaseAnalyticsService[GoalsOperations, Goal]` | Progress forecasting (shell + 4 mixins) |
 | Habits | `HabitsIntelligenceService` | `BaseAnalyticsService[HabitsOperations, Habit]` | Streak patterns |
-| Events | `EventsIntelligenceService` | `BaseAnalyticsService["EventsOperations", Event]` | Cross-domain impact |
+| Events | `EventsIntelligenceService` | `_CoreIntelligenceMixin, _AnalyticsMixin, _BehavioralSignalsMixin, BaseAnalyticsService["EventsOperations", Event]` | Cross-domain impact (shell + 3 mixins) |
 | Choices | `ChoicesIntelligenceService` | `BaseAnalyticsService["ChoicesOperations", Choice]` | Decision support |
 | Principles | `PrinciplesIntelligenceService` | `BaseAnalyticsService[PrinciplesOperations, Principle]` | Alignment analysis |
 | **Curriculum (3)** |
@@ -634,6 +636,7 @@ Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format
 - [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md) - BaseService mixin architecture
 
 **Patterns:**
+- [SERVICE_DECOMPOSITION_RULE.md](/docs/patterns/SERVICE_DECOMPOSITION_RULE.md) - When to extract mixins (intelligence >350 lines, facade >700 lines)
 - [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Service patterns and facade delegation
 - [protocol_architecture.md](/docs/patterns/protocol_architecture.md) - Protocol-based interfaces
 

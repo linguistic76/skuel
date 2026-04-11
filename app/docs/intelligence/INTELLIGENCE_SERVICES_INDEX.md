@@ -58,16 +58,27 @@ The app functions fully without any LLM dependencies - AI services enhance but a
 
 ## Architecture Pattern
 
-All domain intelligence services (10 of 11) follow the `BaseAnalyticsService` pattern (ADR-024, updated January 2026):
+All domain intelligence services (10 of 11) follow the `BaseAnalyticsService` pattern (ADR-024, updated January 2026). Services >350 lines are decomposed into focused mixins (April 2026):
 
 ```python
-class {Domain}IntelligenceService(BaseAnalyticsService[{Domain}Operations, {DomainModel}]):
-    _service_name = "{domain}.analytics"
+# Compact service (≤350 lines) — single inheritance
+class HabitsIntelligenceService(BaseAnalyticsService["HabitsOperations", Habit]):
+    _service_name = "habits.analytics"
 
     def __init__(self, backend, graph_intelligence_service, ...):
         super().__init__(backend, graph_intelligence_service, ...)
-        # NOTE: No embeddings_service or llm_service - these are analytics services
+
+# Decomposed service (>350 lines) — shell + mixin files in same package directory
+class TasksIntelligenceService(
+    _CoreIntelligenceMixin,    # context retrieval + cross-domain categorization
+    _AnalyticsMixin,           # behavioral + performance analytics
+    _ProductivityMixin,        # analytics engine methods
+    BaseAnalyticsService["TasksOperations", Task],
+):
+    """Shell: __init__ + protocol methods only."""
 ```
+
+See `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md` for decomposition thresholds (intelligence: ~350 lines, facade: ~700 lines + 4+ coherent methods).
 
 **Exception:** UserContextIntelligence uses a modular package architecture (ADR-021) with mixin composition instead of BaseAnalyticsService inheritance.
 
@@ -413,10 +424,10 @@ from core.services.intelligence import (
 
 | Service | Guide | Lines | Key Focus |
 |---------|-------|-------|-----------|
-| **Tasks** | [TASKS_INTELLIGENCE.md](./TASKS_INTELLIGENCE.md) | ~560 | Behavioral insights, performance analytics, cross-domain context |
+| **Tasks** | [TASKS_INTELLIGENCE.md](./TASKS_INTELLIGENCE.md) | ~265 shell + 3 mixins | Behavioral insights, performance analytics, cross-domain context |
 | **Goals** | [GOAPS_INTELLIGENCE.md](./GOAPS_INTELLIGENCE.md) | ~1,139 | Progress forecasting, predictive analytics |
 | **Habits** | [HABITS_INTELLIGENCE.md](./HABITS_INTELLIGENCE.md) | ~539 | Streak patterns, habit formation insights |
-| **Events** | [EVENTS_INTELLIGENCE.md](./EVENTS_INTELLIGENCE.md) | ~492 | Cross-domain impact, learning practice tracking |
+| **Events** | [EVENTS_INTELLIGENCE.md](./EVENTS_INTELLIGENCE.md) | ~169 shell + 3 mixins | Cross-domain impact, learning practice tracking |
 | **Choices** | [CHOICES_INTELLIGENCE.md](./CHOICES_INTELLIGENCE.md) | ~679 | Decision support, outcome analysis |
 | **Principles** | [PRINCIPLES_INTELLIGENCE.md](./PRINCIPLES_INTELLIGENCE.md) | ~1,324 | Alignment analysis, conflict detection |
 
@@ -603,6 +614,11 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - ✅ `DomainIntelligenceOperations` (7 methods) — per-domain intelligence services
 - ✅ `IntelligenceOperations` remains as composed protocol for backward compatibility
 
+**Intelligence Mixin Decomposition (2026-04-10):**
+- ✅ `TasksIntelligenceService` decomposed: shell (~265 lines) + `_core_intelligence_mixin`, `_analytics_mixin`, `_productivity_mixin`
+- ✅ `EventsIntelligenceService` decomposed: shell (~169 lines) + `_core_intelligence_mixin`, `_analytics_mixin`, `_behavioral_signals_mixin`
+- See `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md` for decomposition thresholds and mixin patterns
+
 **Standalone (modular package architecture):**
 - UserContextIntelligence (ADR-021, mixin composition pattern)
 
@@ -708,8 +724,10 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 ### To add a new intelligence method:
 
 1. Identify the domain (e.g., Tasks)
-2. Open `/core/services/{domain}/{domain}_intelligence_service.py`
-3. Add method following pattern:
+2. Check if the service is decomposed (Tasks, Events, Goals, Habits — see `SERVICE_DECOMPOSITION_RULE.md`):
+   - **Decomposed:** add the method to the appropriate mixin file (e.g., `_analytics_mixin.py` for behavioral metrics)
+   - **Single file:** add to `{domain}_intelligence_service.py` directly; extract to a mixin if the file exceeds ~350 lines
+3. Follow the pattern:
    ```python
    async def get_new_insight(self, user_uid: UserUID, ...) -> Result[dict[str, Any]]:
        self._require_graph_intelligence("get_new_insight")
