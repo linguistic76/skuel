@@ -34,7 +34,7 @@ from core.utils.result_simplified import Errors, Result
 @pytest.fixture
 def mock_backend() -> Mock:
     backend = Mock()
-    backend.execute_query = AsyncMock(return_value=Result.ok([]))
+    backend.get_achievement_context = AsyncMock(return_value=Result.ok([]))
     return backend
 
 
@@ -140,7 +140,7 @@ class TestHandleGoalAchieved:
         self, service_full: GoalEventHandlerService, mock_backend: Mock
     ):
         """Recommendations are generated and event published."""
-        mock_backend.execute_query.return_value = Result.ok(
+        mock_backend.get_achievement_context.return_value = Result.ok(
             [
                 {
                     "uid": "goal_test_abc",
@@ -175,7 +175,7 @@ class TestHandleGoalAchieved:
         self, service: GoalEventHandlerService, mock_backend: Mock
     ):
         """No recommendations when goal context not found."""
-        mock_backend.execute_query.return_value = Result.ok([])
+        mock_backend.get_achievement_context.return_value = Result.ok([])
 
         event = GoalAchieved(
             goal_uid="goal_missing",
@@ -193,7 +193,7 @@ class TestHandleGoalAchieved:
         self, service: GoalEventHandlerService, mock_backend: Mock
     ):
         """Duration calibration insight logged when both durations present."""
-        mock_backend.execute_query.return_value = Result.ok([])
+        mock_backend.get_achievement_context.return_value = Result.ok([])
 
         event = GoalAchieved(
             goal_uid="goal_test_abc",
@@ -213,7 +213,7 @@ class TestHandleGoalAchieved:
         self, service: GoalEventHandlerService, mock_backend: Mock
     ):
         """No duration calibration when durations not provided."""
-        mock_backend.execute_query.return_value = Result.ok([])
+        mock_backend.get_achievement_context.return_value = Result.ok([])
 
         event = GoalAchieved(
             goal_uid="goal_test_abc",
@@ -231,7 +231,7 @@ class TestHandleGoalAchieved:
         self, service_full: GoalEventHandlerService, mock_relationships: AsyncMock
     ):
         """Principle alignment is checked when relationship service available."""
-        service_full.backend.execute_query.return_value = Result.ok([])
+        service_full.backend.get_achievement_context.return_value = Result.ok([])
         mock_relationships.get_related_uids.return_value = Result.ok(["principle_test_123"])
 
         event = GoalAchieved(
@@ -252,7 +252,7 @@ class TestHandleGoalAchieved:
         """Exceptions are logged, never propagated."""
         from neo4j.exceptions import ServiceUnavailable
 
-        mock_backend.execute_query.side_effect = ServiceUnavailable("connection lost")
+        mock_backend.get_achievement_context.side_effect = ServiceUnavailable("connection lost")
 
         event = GoalAchieved(
             goal_uid="goal_test_abc",
