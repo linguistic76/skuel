@@ -673,7 +673,7 @@ Context awareness is the core value of SKUEL. ZPD calculations, Askesis recommen
 | `KnowledgeAwareness` | mastery, in-progress KUs, current lessons, prerequisites, velocity | `PlanningMixin.get_learning_related_for_user` | ZPDService, AskesisRecommendationService |
 | `HabitAwareness` | streaks, at-risk habits, consistency | `DomainPlanningMixin.get_at_risk_habits_for_user` | HabitsIntelligenceService |
 | `GoalAwareness` | progress, milestones | `PlanningMixin`, `DomainPlanningMixin`, `UnifiedRelationshipService` | GoalsPlanningService |
-| `EventAwareness` | upcoming, scheduled events | `DomainPlanningMixin.get_upcoming_events_for_user` | EventsSchedulingService |
+| `EventAwareness` | upcoming, scheduled events | `DomainPlanningMixin.get_upcoming_events_for_user` | EventsCoreService / EventsSearchService |
 | `PrincipleAwareness` | core principles, integrity scores | `DomainPlanningMixin.get_aligned_principles_for_user` | PrinciplesIntelligenceService |
 | `ChoiceAwareness` | pending choices, decision patterns | `DomainPlanningMixin.get_pending_decisions_for_user` | ChoicesIntelligenceService |
 | `LearningPathAwareness` | enrolled paths, current steps, ZPD | — | ZPDService, AskesisQueryService |

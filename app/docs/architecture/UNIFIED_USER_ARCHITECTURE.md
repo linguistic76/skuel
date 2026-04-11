@@ -383,7 +383,7 @@ async def get_ready_to_work_on_today(self, context: UserContext) -> Result[Daily
 | `KnowledgeAwareness` | mastery, in-progress KUs, actively studying lessons, prerequisites, velocity | `ZPDService`, Askesis, `PlanningMixin` |
 | `HabitAwareness` | streaks, at-risk habits | `HabitsIntelligenceService` |
 | `GoalAwareness` | progress, milestones, `at_risk_goals` | `GoalsPlanningService` |
-| `EventAwareness` | upcoming events, schedule | `EventsSchedulingService` |
+| `EventAwareness` | upcoming events, schedule | `EventsCoreService` / `EventsSearchService` |
 | `PrincipleAwareness` | core principles, integrity | `PrinciplesIntelligenceService` |
 | `ChoiceAwareness` | pending choices | `ChoicesIntelligenceService` |
 | `LearningPathAwareness` | enrolled paths, current steps, ZPD position | `ZPDService`, `AskesisQueryService` |

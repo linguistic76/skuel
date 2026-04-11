@@ -299,7 +299,7 @@ Unlike tasks which require knowledge mastery, habits require **prerequisite habi
 
 `HabitsSchedulingService` provides smart habit scheduling, frequency optimization, and capacity management.
 
-**Pattern Source:** `EventsSchedulingService` + `TasksSchedulingService`
+**Pattern Source:** `TasksSchedulingService`
 
 ### Methods
 
