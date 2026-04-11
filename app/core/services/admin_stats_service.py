@@ -328,10 +328,7 @@ class AdminStatsService:
             OPTIONAL MATCH (h:Habit)
             WITH tasks_created, count(h) AS habits_active
             OPTIONAL MATCH (g:Goal)
-            WITH tasks_created, habits_active, count(g) AS goals_active
-            OPTIONAL MATCH (j:JeInput)
-            RETURN tasks_created, habits_active, goals_active,
-                   count(j) AS journals_submitted
+            RETURN tasks_created, habits_active, count(g) AS goals_active
             """
         )
 
@@ -342,7 +339,6 @@ class AdminStatsService:
             "tasks_created": 0,
             "habits_active": 0,
             "goals_active": 0,
-            "journals_submitted": 0,
         }
 
         records = result.value or []

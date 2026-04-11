@@ -156,13 +156,17 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
     - Learning: get_learning_events, create_study_session, etc.
     - Search: search_events, get_calendar_events, get_event_history, etc.
     - Intelligence: get_event_with_context, analyze_event_performance, etc.
+    - Scheduling: optimize_recurring_schedule, create_recurring_events
 
     Explicit Methods (custom logic):
     - Status management: update_event_status, start_event, complete_event, cancel_event
     - Relationships: link_event_to_goal, link_event_to_habit, link_event_to_knowledge (via UnifiedRelationshipService)
     - Attendees: add_attendee, remove_attendee
-    - Recurring: create_recurring_instances
-    - Orchestration: create_event_with_context
+    - Conflicts: check_conflicts (Events-only, via CheckConflictsRequest)
+
+    Cross-domain scheduling (get_busy_times, get_calendar_density, suggest_time_slots,
+    find_next_available_slot, check_conflicts by time slot) lives in
+    CalendarOptimizationOrchestrator — it sees Tasks + Events together.
     """
 
     # ========================================================================
@@ -448,36 +452,6 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
         return await self.progress.get_habit_event_stats(user_uid, period_days)
 
     # Scheduling delegations
-    async def schedule_event_smart(
-        self,
-        event_data: EventCreateRequest,
-        user_context: UserContext,
-        avoid_conflicts: bool = True,
-    ) -> Result[Event]:
-        return await self.scheduling.schedule_event_smart(event_data, user_context, avoid_conflicts)
-
-    async def suggest_time_slots(
-        self,
-        user_uid: UserUID,
-        target_date: date,
-        duration_minutes: int = 60,
-        preferred_hours: tuple[int, int] = (9, 18),
-    ) -> Result[list[dict[str, Any]]]:
-        return await self.scheduling.suggest_time_slots(
-            user_uid, target_date, duration_minutes, preferred_hours
-        )
-
-    async def find_next_available_slot(
-        self,
-        user_uid: UserUID,
-        duration_minutes: int = 60,
-        preferred_hours: tuple[int, int] = (9, 18),
-        days_to_search: int = 7,
-    ) -> Result[dict[str, Any] | None]:
-        return await self.scheduling.find_next_available_slot(
-            user_uid, duration_minutes, preferred_hours, days_to_search
-        )
-
     async def optimize_recurring_schedule(
         self,
         user_uid: UserUID,
@@ -508,16 +482,6 @@ class EventsService(KnowledgeIntelligenceDelegationMixin, BaseService["EventsOpe
             days_to_create,
             reinforces_habit_uid,
         )
-
-    async def get_busy_times(
-        self, user_uid: UserUID, start_date: date, end_date: date
-    ) -> Result[dict[str, list[dict[str, str]]]]:
-        return await self.scheduling.get_busy_times(user_uid, start_date, end_date)
-
-    async def get_calendar_density(
-        self, user_uid: UserUID, days_ahead: int = 14
-    ) -> Result[dict[str, Any]]:
-        return await self.scheduling.get_calendar_density(user_uid, days_ahead)
 
     def __init__(
         self,

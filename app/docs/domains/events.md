@@ -78,8 +78,11 @@ class EventsService(BaseService[EventsOperations, Event]):
     async def complete_event_with_cascade(self, *args: Any, **kwargs: Any) -> Any:
         return await self.progress.complete_event_with_cascade(*args, **kwargs)
 
-    async def schedule_event_smart(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.scheduling.schedule_event_smart(*args, **kwargs)
+    async def optimize_recurring_schedule(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.optimize_recurring_schedule(*args, **kwargs)
+
+    async def create_recurring_events(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.scheduling.create_recurring_events(*args, **kwargs)
 ```
 
 **Note (April 2026):** Cross-domain read methods (`get_events_for_knowledge`, `get_knowledge_reinforcement_stats`, `get_events_supporting_goal`, `get_event_goal_support`, `get_event_knowledge_reinforcement`) were removed from the facade — these queries now go through `CrossDomainQueryService`. `EventsLearningService` remains for creation-side methods (study sessions, spaced repetition, LP schedules).
@@ -226,19 +229,17 @@ Also handles: attendance time-of-day tracking, goal alignment checks, rescheduli
 | `get_weekly_summary(user_uid, weeks_back)` | Weekly breakdown |
 | `get_habit_event_stats(user_uid)` | Habit event statistics |
 
-## Scheduling Service (January 2026)
+## Scheduling Service
 
-`EventsSchedulingService` handles smart scheduling and conflict detection:
+`EventsSchedulingService` handles Events-domain recurring event creation:
 
 | Method | Description |
 |--------|-------------|
-| `schedule_event_smart(request, user_context)` | Smart event scheduling |
-| `check_conflicts(event_uid)` | Detect time conflicts with other events |
-| `suggest_time_slots(user_uid, date, duration)` | Suggest available time slots |
-| `find_next_available_slot(user_uid, duration)` | Find next free slot |
-| `create_recurring_events(request)` | Generate recurring event instances |
-| `get_busy_times(user_uid, date)` | Get busy time periods |
-| `get_calendar_density(user_uid, date_range)` | Calendar density analysis |
+| `optimize_recurring_schedule(user_uid, pattern)` | Generate optimized recurrence dates (Events-aware) |
+| `create_recurring_events(user_uid, title, pattern)` | Create recurring Event nodes |
+
+**Cross-domain scheduling** (busy times, slot suggestions, conflict detection, calendar density)
+lives in `CalendarOptimizationOrchestrator`, which aggregates Tasks + Events together.
 
 **See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 

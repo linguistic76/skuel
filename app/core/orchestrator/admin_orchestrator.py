@@ -161,7 +161,7 @@ class AdminOrchestrator:
             if not activity_result.is_error
             else {
                 k: 0
-                for k in ("tasks_created", "habits_active", "goals_active", "journals_submitted")
+                for k in ("tasks_created", "habits_active", "goals_active")
             }
         )
         if activity_result.is_error:
