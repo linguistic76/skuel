@@ -71,9 +71,11 @@ def _make_entity(model_cls: type, domain: str) -> object:
 class TestImportConsistency:
     """Verify all activity view modules import required shared components."""
 
+    # EmptyState is intentionally excluded: all 6 views delegate empty-list rendering
+    # to ActivityList (in _shared.py), which imports and uses EmptyState directly.
+    # Each views file does not need its own import.
     REQUIRED_IMPORTS = [
         "from ui.patterns.page_header import PageHeader",
-        "from ui.patterns.empty_state import EmptyState",
         "from ui.patterns.stats_grid import",
         "from ui.patterns.relationships.relationship_section import EntityRelationshipsSection",
     ]

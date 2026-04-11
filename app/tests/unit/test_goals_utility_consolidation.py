@@ -34,10 +34,8 @@ def _make_mock_backend() -> MagicMock:
 
 def _make_goals_core_service() -> GoalsCoreService:
     """Construct a GoalsCoreService with a mocked backend."""
-    from unittest.mock import AsyncMock
-
     mock_backend = _make_mock_backend()
-    return GoalsCoreService(backend=mock_backend, cross_domain_query=AsyncMock())
+    return GoalsCoreService(backend=mock_backend)
 
 
 def _make_goals_service() -> GoalsService:
@@ -206,27 +204,27 @@ class TestAllDomainsHaveListCategoriesMethods:
 
 
 # ============================================================================
-# 4. GoalsCoreService.update — abandonment guard delegated to CrossDomainQueryService
+# 4. GoalsService.cancel_goal — abandonment guard on the facade
 # ============================================================================
 
 
-class TestGoalsCoreServiceAbandonmentGuard:
-    """update() must call cross_domain_query.count_active_tasks_for_goal when cancelling."""
+class TestGoalsServiceAbandonmentGuard:
+    """cancel_goal() must enforce the abandonment guard via cross_domain_query."""
 
     @pytest.mark.asyncio
     async def test_blocks_cancel_when_active_tasks_exist(self):
-        """count > 0 → validation error mentioning the count, no super().update() call."""
+        """count > 0 → validation error mentioning the count."""
         from core.services.cross_domain import ActiveTaskCount
         from core.utils.result_simplified import Result
 
-        mock_backend = MagicMock()
+        service = _make_goals_service()
         mock_xdq = AsyncMock()
         mock_xdq.count_active_tasks_for_goal.return_value = Result.ok(
             ActiveTaskCount(goal_uid="goal_1", count=2)
         )
-        core = GoalsCoreService(backend=mock_backend, cross_domain_query=mock_xdq)
+        service.cross_domain_query = mock_xdq
 
-        result = await core.update("goal_1", {"status": "cancelled"})
+        result = await service.cancel_goal("goal_1")
 
         assert result.is_error
         err = result.expect_error()
@@ -235,57 +233,47 @@ class TestGoalsCoreServiceAbandonmentGuard:
 
     @pytest.mark.asyncio
     async def test_proceeds_when_zero_active_tasks(self):
-        """count == 0 → guard does NOT short-circuit, update() proceeds past it."""
+        """count == 0 → guard passes, core.update() is called."""
         from unittest.mock import patch
 
         from core.services.cross_domain import ActiveTaskCount
         from core.utils.result_simplified import Result
 
-        mock_backend = MagicMock()
+        service = _make_goals_service()
         mock_xdq = AsyncMock()
         mock_xdq.count_active_tasks_for_goal.return_value = Result.ok(
             ActiveTaskCount(goal_uid="goal_1", count=0)
         )
-        core = GoalsCoreService(backend=mock_backend, cross_domain_query=mock_xdq)
+        service.cross_domain_query = mock_xdq
 
-        # Stub the post-guard pipeline (self.get → super().update) so the test
-        # only exercises the guard branch.
         sentinel_goal = MagicMock(uid="goal_1", user_uid="u", status="cancelled", created_at=None)
-        with (
-            patch.object(core, "get", new=AsyncMock(return_value=Result.ok(sentinel_goal))),
-            patch(
-                "core.services.base_service.BaseService.update",
-                new=AsyncMock(return_value=Result.ok(sentinel_goal)),
-            ),
+        with patch.object(
+            service.core, "update", new=AsyncMock(return_value=Result.ok(sentinel_goal))
         ):
-            result = await core.update("goal_1", {"status": "cancelled"})
+            result = await service.cancel_goal("goal_1")
 
         assert result.is_ok
         mock_xdq.count_active_tasks_for_goal.assert_awaited_once_with("goal_1")
 
     @pytest.mark.asyncio
     async def test_proceeds_when_query_fails(self):
-        """Query failure → log warning and continue (preserve existing behavior)."""
+        """Query failure → log warning and continue."""
         from unittest.mock import patch
 
         from core.utils.result_simplified import Errors, Result
 
-        mock_backend = MagicMock()
+        service = _make_goals_service()
         mock_xdq = AsyncMock()
         mock_xdq.count_active_tasks_for_goal.return_value = Result.fail(
             Errors.database(operation="count_active_tasks_for_goal", message="neo4j down")
         )
-        core = GoalsCoreService(backend=mock_backend, cross_domain_query=mock_xdq)
+        service.cross_domain_query = mock_xdq
 
         sentinel_goal = MagicMock(uid="goal_1", user_uid="u", status="cancelled", created_at=None)
-        with (
-            patch.object(core, "get", new=AsyncMock(return_value=Result.ok(sentinel_goal))),
-            patch(
-                "core.services.base_service.BaseService.update",
-                new=AsyncMock(return_value=Result.ok(sentinel_goal)),
-            ),
+        with patch.object(
+            service.core, "update", new=AsyncMock(return_value=Result.ok(sentinel_goal))
         ):
-            result = await core.update("goal_1", {"status": "cancelled"})
+            result = await service.cancel_goal("goal_1")
 
         assert result.is_ok
         mock_xdq.count_active_tasks_for_goal.assert_awaited_once_with("goal_1")

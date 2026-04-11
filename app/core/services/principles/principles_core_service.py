@@ -388,114 +388,16 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
         return Result.ok(principles)
 
-    @with_error_handling("get_principles_for_goal", error_type="database", uid_param="goal_uid")
-    async def get_principles_for_goal(self, goal_uid: str) -> Result[list[Principle]]:
-        """
-        Get all principles that guide a specific goal.
-
-        Graph-native query: (goal)-[:GUIDED_BY_PRINCIPLE]->(principle)
-
-        Args:
-            goal_uid: Goal UID
-
-        Returns:
-            Result containing list of Principles guiding this goal
-        """
-        # Query graph for principles guiding this goal
-        uids_result = await self.backend.get_related_uids(
-            uid=goal_uid,
-            relationship_type=RelationshipName.GUIDED_BY_PRINCIPLE,
-            direction="outgoing",
-            limit=100,
-        )
-
-        if uids_result.is_error:
-            return Result.fail(uids_result)
-
-        principle_uids = uids_result.value
-
-        if not principle_uids:
-            return Result.ok([])
-
-        # Fetch full principle entities
-        principles = []
-        for principle_uid in principle_uids:
-            principle_result = await self.get_principle(principle_uid)
-            if principle_result.is_ok:
-                principles.append(principle_result.value)
-
-        # Sort by strength (core principles first)
-        principles.sort(key=get_principle_priority, reverse=True)
-
-        logger.debug(f"Found {len(principles)} principles for goal {goal_uid}")
-        return Result.ok(principles)
-
-    @with_error_handling("get_principles_for_habit", error_type="database", uid_param="habit_uid")
-    async def get_principles_for_habit(self, habit_uid: str) -> Result[list[Principle]]:
-        """
-        Get all principles that are aligned with a specific habit.
-
-        Graph-native query: (habit)-[:ALIGNED_WITH_PRINCIPLE]->(principle)
-
-        Args:
-            habit_uid: Habit UID
-
-        Returns:
-            Result containing list of Principles aligned with this habit
-        """
-        # Query graph for principles aligned with this habit
-        uids_result = await self.backend.get_related_uids(
-            uid=habit_uid,
-            relationship_type=RelationshipName.ALIGNED_WITH_PRINCIPLE,
-            direction="outgoing",
-            limit=100,
-        )
-
-        if uids_result.is_error:
-            return Result.fail(uids_result)
-
-        principle_uids = uids_result.value
-
-        if not principle_uids:
-            return Result.ok([])
-
-        # Fetch full principle entities
-        principles = []
-        for principle_uid in principle_uids:
-            principle_result = await self.get_principle(principle_uid)
-            if principle_result.is_ok:
-                principles.append(principle_result.value)
-
-        # Sort by strength (core principles first)
-        principles.sort(key=get_principle_priority, reverse=True)
-
-        logger.debug(f"Found {len(principles)} principles for habit {habit_uid}")
-        return Result.ok(principles)
-
     @with_error_handling("get_user_items_in_range", error_type="database", uid_param="user_uid")
     async def get_user_items_in_range(
         self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Principle]]:
-        """
-        Get user's principles - standard interface for meta-services.
+        """Get user's principles adopted within a date range.
 
-        This method provides a unified query API for meta-services (Calendar, Reports)
-        that need consistent querying across all activity domains.
-
-        Filters principles by:
-        - User ownership (user_uid)
-        - Adoption date (adopted_date between start_date and end_date)
-        - Active status (is_active=True unless include_completed=True)
-
-        ARCHITECTURAL NOTE:
-        This method does NOT use BaseService.get_user_items_in_range_base() because
-        Principles uses a boolean `is_active` field instead of a status enum.
-        The base implementation filters on `n.status IN [...]`, which doesn't apply here.
-        This is a legitimate architectural difference - Principles has binary state
-        (active/inactive) rather than lifecycle states (pending/active/completed/etc.).
-
-        Note: Principles without an adopted_date will not be included in date-filtered results.
-        This is intentional - the query returns principles adopted within a specific timeframe.
+        Unified interface for meta-services (Calendar, Reports) that query across
+        all activity domains. Delegates Cypher to PrinciplesBackend, which uses
+        is_active (bool) filtering instead of the status-enum approach used by
+        other activity domains.
 
         Args:
             user_uid: User UID
@@ -505,63 +407,17 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle]):
 
         Returns:
             Result containing list of Principles
-
-        Example:
-            # Get active principles adopted in October 2025
-            result = await principles_core.get_user_items_in_range(
-                user_uid="user_mike",
-                start_date=date(2025, 10, 1),
-                end_date=date(2025, 10, 31),
-                include_completed=False
-            )
         """
-        # Build query with custom filtering for is_active field
-        # Note: Principles use is_active (bool) instead of status enum
-        base_query = """
-        MATCH (n:Principle)
-        WHERE n.user_uid = $user_uid
-          AND n.adopted_date >= date($start_date)
-          AND n.adopted_date <= date($end_date)
-        """
-
-        # Add is_active filter if not including completed/inactive
-        if not include_completed:
-            base_query += "  AND n.is_active = true\n"
-
-        base_query += """
-        RETURN n
-        ORDER BY n.created_at DESC
-        LIMIT $limit
-        """
-
-        params = {
-            "user_uid": user_uid,
-            "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat(),
-            "limit": 1000,
-        }
-
-        query = base_query
-
-        # Execute query
-        results = await self.backend.execute_query(query, params)
-
-        # Check for query errors
-        if results.is_error:
-            return Result.fail(results)
-
-        # Convert to domain models
-        principles = []
-        for record in results.value:
-            principle_data = record.get("n")
-            if principle_data:
-                dto = PrincipleDTO.from_dict(principle_data)
-                principle = Principle.from_dto(dto)
-                principles.append(principle)
-
-        self.logger.debug(f"Found {len(principles)} principles for user {user_uid}")
-
-        return Result.ok(principles)
+        result = await self.backend.get_user_items_in_range(
+            user_uid=user_uid,
+            start_date=start_date,
+            end_date=end_date,
+            include_completed=include_completed,
+        )
+        if result.is_error:
+            return Result.fail(result)
+        self.logger.debug(f"Found {len(result.value)} principles for user {user_uid}")
+        return result
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """

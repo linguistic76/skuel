@@ -967,23 +967,20 @@ class PrinciplesOperations(
     async def get_user_items_in_range(
         self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool = False
     ) -> Result[list[Principle]]:
-        """
-        Get user's principles in date range - unified interface for meta-services.
+        """Get user's principles adopted within a date range.
+
+        Unified interface for meta-services (Calendar, Reports) that query across
+        all activity domains. Principles filter on adopted_date and is_active (bool)
+        rather than the status enum used by other activity domains.
 
         Args:
             user_uid: User identifier
-            start_date: Range start date (not applicable for principles)
-            end_date: Range end date (not applicable for principles)
-            include_completed: Not applicable for principles (always included)
+            start_date: Lower bound on adopted_date (inclusive)
+            end_date: Upper bound on adopted_date (inclusive)
+            include_completed: When True, inactive (is_active=False) principles are included
 
         Returns:
-            Result[list[Principle]] filtered by user
-
-        Implementation:
-            Filters by user_uid only (principles are timeless)
-            Included for consistency with unified query pattern
-
-        Date Added: October 29, 2025 (Unified Query Pattern for Meta-Services)
+            Result[list[Principle]] filtered by adopted_date range and active state
         """
         ...
 

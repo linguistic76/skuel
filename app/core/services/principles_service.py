@@ -345,6 +345,11 @@ class PrinciplesService(
     ) -> Result[list[Principle]]:
         return await self.search.get_for_goal(goal_uid, limit)
 
+    async def get_principles_for_habit(
+        self, habit_uid: str, limit: int = 10
+    ) -> Result[list[Principle]]:
+        return await self.search.get_for_habit(habit_uid, limit)
+
     async def get_principles_for_choice(
         self, choice_uid: str, limit: int = 10
     ) -> Result[list[Principle]]:

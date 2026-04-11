@@ -312,7 +312,6 @@ class TestGoalEmbeddingEvents:
 
         goals_service = GoalsCoreService(
             backend=goals_backend,
-            cross_domain_query=AsyncMock(),
             event_bus=None,
         )
 

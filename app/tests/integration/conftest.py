@@ -886,7 +886,6 @@ async def goals_service(goals_backend, event_bus):
 
     return GoalsCoreService(
         backend=goals_backend,
-        cross_domain_query=AsyncMock(),
         event_bus=event_bus,
     )
 

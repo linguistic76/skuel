@@ -36,6 +36,7 @@ See: /docs/patterns/OWNERSHIP_VERIFICATION.md
 
 from __future__ import annotations
 
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j._adaptive_mixin import _AdaptiveMixin
@@ -56,6 +57,7 @@ from core.models.ku.ku import Ku
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
+from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
 from core.models.report.activity_report import ActivityReport
 from core.models.report.exercise_report import ExerciseReport
@@ -1004,6 +1006,58 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
                 "active": record.get("active", 0),
             }
         )
+
+    async def get_user_items_in_range(
+        self,
+        user_uid: UserUID,
+        start_date: date,
+        end_date: date,
+        include_completed: bool = False,
+    ) -> Result[list[Principle]]:
+        """Get principles adopted within a date range.
+
+        Principles use is_active (bool) instead of a status enum, so
+        build_user_activity_query — which filters on n.status — does not apply.
+        This method is the correct home for that Cypher.
+
+        Args:
+            user_uid: Owner of the principles.
+            start_date: Lower bound on adopted_date (inclusive).
+            end_date: Upper bound on adopted_date (inclusive).
+            include_completed: When True, inactive (is_active=False) principles are included.
+
+        Returns:
+            Result containing principles adopted in the given range.
+        """
+        query = """
+        MATCH (n:Principle)
+        WHERE n.user_uid = $user_uid
+          AND n.adopted_date >= date($start_date)
+          AND n.adopted_date <= date($end_date)
+        """
+        if not include_completed:
+            query += "  AND n.is_active = true\n"
+        query += """
+        RETURN n
+        ORDER BY n.created_at DESC
+        LIMIT $limit
+        """
+        params: dict[str, object] = {
+            "user_uid": user_uid,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "limit": 1000,
+        }
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        principles = []
+        for record in result.value:
+            principle_data = record.get("n")
+            if principle_data:
+                dto = PrincipleDTO.from_dict(principle_data)
+                principles.append(Principle.from_dto(dto))
+        return Result.ok(principles)
 
     async def create_user_principle_relationship(
         self, user_uid: UserUID, principle_uid: str

@@ -60,7 +60,6 @@ class TestGoalsCoreOperations:
 
         return GoalsCoreService(
             backend=goals_backend,
-            cross_domain_query=AsyncMock(),
             event_bus=event_bus,
         )
 

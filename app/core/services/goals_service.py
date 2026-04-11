@@ -249,6 +249,32 @@ class GoalsService(
     async def archive_goal(self, uid: str, reason: str = "Archived") -> Result[bool]:
         return await self.core.archive_goal(uid, reason)
 
+    async def cancel_goal(self, uid: str) -> Result[bool]:
+        """Cancel a goal, rejecting the request if the goal has active tasks.
+
+        The abandonment guard is the only valid entry point for CANCELLED status.
+        Placing it here (facade) allows it to coordinate across the task and goal
+        domains without leaking cross-domain dependencies into GoalsCoreService.
+        """
+        from core.utils.result_simplified import Errors
+
+        count_result = await self.cross_domain_query.count_active_tasks_for_goal(uid)
+        if count_result.is_error:
+            self.logger.warning(
+                f"Failed to check active tasks for goal {uid}: {count_result.expect_error()}"
+            )
+        elif count_result.value.count > 0:
+            active_task_count = count_result.value.count
+            return Result.fail(
+                Errors.validation(
+                    message=f"Cannot abandon goal with {active_task_count} active task(s). Complete or reassign tasks first.",
+                    field="status",
+                    value=EntityStatus.CANCELLED.value,
+                )
+            )
+        result = await self.core.update(uid, {"status": EntityStatus.CANCELLED.value})
+        return Result.ok(True) if result.is_ok else Result.fail(result)
+
     async def create_goal(self, goal_request: GoalCreateRequest, user_uid: UserUID) -> Result[Goal]:
         return await self.core.create_goal(goal_request, user_uid)
 
@@ -486,29 +512,24 @@ class GoalsService(
         self.ai: GoalsAIService | None = ai_service
 
         self.graph_intel = graph_intelligence_service
+        self.cross_domain_query = cross_domain_query
         self.logger = get_logger("skuel.services.goals")  # type: ignore[assignment]  # structlog BoundLogger
 
-        # Initialize search, relationships, event_handler, learning, and
-        # knowledge_intelligence via factory. core is built manually because
-        # GoalsCoreService takes cross_domain_query for the goal-abandonment
-        # guard. intelligence is skipped because it needs progress_service,
-        # which is created below.
+        # Initialize core, search, relationships, event_handler, learning, and
+        # knowledge_intelligence via factory. intelligence is skipped because it
+        # needs progress_service, which is created below.
+        from core.services.goals.goals_core_service import GoalsCoreService
+
         common = create_common_sub_services(
             domain="goals",
             backend=backend,
             graph_intel=graph_intelligence_service,
             event_bus=event_bus,
             insight_store=insight_store,
-            skip={"core", "intelligence"},
+            skip={"intelligence"},
             activity_knowledge_intelligence=activity_knowledge_intelligence,
         )
-        from core.services.goals.goals_core_service import GoalsCoreService
-
-        self.core = GoalsCoreService(
-            backend=backend,
-            cross_domain_query=cross_domain_query,
-            event_bus=event_bus,
-        )
+        self.core: GoalsCoreService = common.core
         self.search: GoalsSearchOperations = common.search  # type: ignore[assignment]  # search service implements callable protocol
         self.relationships: UnifiedRelationshipService = common.relationships  # type: ignore[assignment]  # never skipped
 

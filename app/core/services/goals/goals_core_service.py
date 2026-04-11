@@ -25,7 +25,6 @@ from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
     from core.models.goal.goal_request import GoalCreateRequest
-    from core.services.cross_domain import CrossDomainQueryService
 
 from core.events import publish_event
 from core.events.goal_events import (
@@ -69,7 +68,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
     def __init__(
         self,
         backend: GoalsOperations,
-        cross_domain_query: "CrossDomainQueryService",
         event_bus=None,
     ) -> None:
         """
@@ -77,14 +75,11 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
 
         Args:
             backend: Protocol-based backend for goal operations
-            cross_domain_query: CrossDomainQueryService for the goal-abandonment
-                guard (FULFILLS_GOAL active-task count). REQUIRED — fail-fast.
             event_bus: Event bus for publishing domain events (optional)
         """
         super().__init__(backend, "goals")
         self.logger = get_logger("skuel.services.goals.core")  # type: ignore[assignment]  # structlog BoundLogger
         self.event_bus = event_bus
-        self.cross_domain_query = cross_domain_query
 
     # ========================================================================
     # DOMAIN-SPECIFIC CONTRACT
@@ -368,9 +363,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
         """
         Update a goal and publish appropriate events.
 
-        Business Rule Enforcement (async validation):
-        - Goal abandonment protection: Cannot cancel goal with active tasks
-
         Publishes GoalProgressUpdated if progress field changed.
         Publishes GoalAchieved if status changed to COMPLETED.
 
@@ -385,27 +377,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal]):
             - GoalProgressUpdated: If progress field updated
             - GoalAchieved: If status changed to COMPLETED
         """
-        # Business Rule: Goal abandonment protection (requires async relationship query)
-        # Cannot abandon goal with active tasks - forces user to handle dependencies first.
-        # Delegated to CrossDomainQueryService — one Cypher round-trip, typed result.
-        if "status" in updates and updates["status"] == EntityStatus.CANCELLED.value:
-            count_result = await self.cross_domain_query.count_active_tasks_for_goal(uid)
-            if count_result.is_error:
-                # Log warning but continue — don't block on relationship query failure
-                # (preserve existing behavior; this isn't the migration to change it).
-                self.logger.warning(
-                    f"Failed to check active tasks for goal {uid}: {count_result.expect_error()}"
-                )
-            elif count_result.value.count > 0:
-                active_task_count = count_result.value.count
-                return Result.fail(
-                    Errors.validation(
-                        message=f"Cannot abandon goal with {active_task_count} active task(s). Complete or reassign tasks first.",
-                        field="status",
-                        value=updates["status"],
-                    )
-                )
-
         # Get current goal to track changes (always fetch if updating progress or status)
         old_goal = None
         old_progress = None
