@@ -19,8 +19,8 @@ from collections.abc import Generator
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.domain_backends import LpBackend
+from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 
 # Domain models - use domain-specific types

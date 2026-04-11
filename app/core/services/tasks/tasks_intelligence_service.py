@@ -53,7 +53,6 @@ from core.services.tasks._productivity_mixin import _ProductivityMixin
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.graph_context import GraphContext
     from core.ports.domain_protocols import TasksOperations, TasksRelationshipOperations
 
 

@@ -10,15 +10,12 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from core.models.enums.activity_enums import EngagementLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
-
-if TYPE_CHECKING:
-    pass
 
 
 class _BehavioralSignalsMixin:
@@ -163,7 +160,7 @@ class _BehavioralSignalsMixin:
         return level.to_score()
 
     @staticmethod
-    def _generate_event_gap_insights(direction: str, gap: float, entity_name: str) -> list[str]:
+    def _generate_event_gap_insights(direction: str, gap: float, _entity_name: str) -> list[str]:
         """Generate event-specific insights based on perception gap."""
         insights: list[str] = []
 

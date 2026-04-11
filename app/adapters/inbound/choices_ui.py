@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from core.utils.connection_fetcher import CHOICE_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_choices
-from ui.activities.filter_bar import FILTER_CONFIGS
 from ui.activities.choices_views import ChoiceDetailView, ChoiceList, ChoiceStatsBar
+from ui.activities.filter_bar import FILTER_CONFIGS
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator

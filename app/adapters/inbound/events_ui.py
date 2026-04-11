@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
 from core.utils.connection_fetcher import EVENT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_events
-from ui.activities.filter_bar import FILTER_CONFIGS
 from ui.activities.events_views import EventDetailView, EventList, EventStatsBar
+from ui.activities.filter_bar import FILTER_CONFIGS
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator

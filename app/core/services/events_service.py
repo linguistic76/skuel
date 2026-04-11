@@ -35,8 +35,6 @@ from core.services.activity_domain_config import CommonSubServices, create_commo
 from core.services.base_service import BaseService
 from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
 from core.services.domain_config import create_activity_domain_config
-from core.services.events._orchestration_mixin import _OrchestrationMixin
-from core.services.events._scheduling_mixin import _SchedulingMixin
 
 # Import sub-services
 from core.services.events import (
@@ -49,6 +47,8 @@ from core.services.events import (
     EventsSchedulingService,
     EventsSearchService,
 )
+from core.services.events._orchestration_mixin import _OrchestrationMixin
+from core.services.events._scheduling_mixin import _SchedulingMixin
 from core.services.filtered_context import build_filtered_context
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.mixins import KnowledgeIntelligenceDelegationMixin

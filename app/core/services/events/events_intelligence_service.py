@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import Domain
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
-from core.models.graph_context import GraphContext
 from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.events._analytics_mixin import _AnalyticsMixin

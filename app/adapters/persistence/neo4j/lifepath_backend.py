@@ -119,9 +119,7 @@ class LifePathBackend:
             {"user_uid": user_uid},
         )
 
-    async def update_alignment_score(
-        self, params: dict[str, Any]
-    ) -> Result[list[dict[str, Any]]]:
+    async def update_alignment_score(self, params: dict[str, Any]) -> Result[list[dict[str, Any]]]:
         """Update alignment scores on the ULTIMATE_PATH relationship."""
         # Build query dynamically based on whether dimension scores are provided
         has_dimensions = "knowledge_alignment" in params

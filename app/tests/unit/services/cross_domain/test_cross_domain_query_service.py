@@ -298,9 +298,7 @@ class TestGetHabitKnowledgeReinforcement:
         self, service: CrossDomainQueryService, mock_backend: AsyncMock
     ) -> None:
         mock_backend.get_habit_knowledge_reinforcement.return_value = Result.fail(
-            Errors.database(
-                operation="get_habit_knowledge_reinforcement", message="neo4j down"
-            )
+            Errors.database(operation="get_habit_knowledge_reinforcement", message="neo4j down")
         )
 
         result = await service.get_habit_knowledge_reinforcement(user_uid="user_mike")
@@ -376,9 +374,7 @@ class TestGetChoicePrincipleAdherence:
         self, service: CrossDomainQueryService, mock_backend: AsyncMock
     ) -> None:
         mock_backend.get_choice_principle_adherence.return_value = Result.fail(
-            Errors.database(
-                operation="get_choice_principle_adherence", message="neo4j down"
-            )
+            Errors.database(operation="get_choice_principle_adherence", message="neo4j down")
         )
 
         result = await service.get_choice_principle_adherence(user_uid="user_mike", period_days=90)
@@ -396,9 +392,7 @@ class TestGetChoiceConflictCount:
     async def test_returns_count(
         self, service: CrossDomainQueryService, mock_backend: AsyncMock
     ) -> None:
-        mock_backend.get_choice_conflict_count.return_value = Result.ok(
-            [{"conflict_count": 3}]
-        )
+        mock_backend.get_choice_conflict_count.return_value = Result.ok([{"conflict_count": 3}])
 
         result = await service.get_choice_conflict_count(user_uid="user_mike")
 

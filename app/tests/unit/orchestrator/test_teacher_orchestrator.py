@@ -1,7 +1,8 @@
 """Tests for the TeacherOrchestrator."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 from core.utils.result_simplified import Result

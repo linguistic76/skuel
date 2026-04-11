@@ -35,9 +35,10 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from core.services.ku.insight_generation_service import InsightGenerationService
+
     from core.ports.domain_protocols import TasksOperations
     from core.services.insight.insight_store import InsightStore
-    from core.services.ku.insight_generation_service import InsightGenerationService
     from core.services.relationships import UnifiedRelationshipService
 
 

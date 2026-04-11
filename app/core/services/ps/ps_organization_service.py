@@ -92,7 +92,7 @@ class PsOrganizationService:
 
     def __init__(
         self,
-        ps_core: "PsCoreService",
+        ps_core: PsCoreService,
         backend: Any,  # PsBackend — Any to avoid circular import
     ) -> None:
         self.ps_core = ps_core

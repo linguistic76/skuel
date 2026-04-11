@@ -51,7 +51,6 @@ class TestGoalsCoreOperations:
     @pytest_asyncio.fixture
     async def goals_service(self, goals_backend, event_bus):
         """Create GoalsCoreService with event bus."""
-        from unittest.mock import AsyncMock
 
         return GoalsCoreService(
             backend=goals_backend,

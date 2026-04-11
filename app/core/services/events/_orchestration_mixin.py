@@ -16,20 +16,20 @@ from typing import TYPE_CHECKING, Any
 from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
 from core.models.enums import EntityStatus, RecurrencePattern
+from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.ports import get_enum_value
 from core.ports.query_types import EventUpdatePayload
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.event.event import Event
     from core.models.event.event_request import (
         AddAttendeeRequest,
         EventCreateRequest,
         EventStatusUpdateRequest,
         RemoveAttendeeRequest,
     )
-    from core.models.type_hints import EntityUID, UserUID
+    from core.models.type_hints import UserUID
     from core.services.user import UserContext
 
 

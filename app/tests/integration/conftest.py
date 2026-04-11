@@ -884,7 +884,6 @@ async def goals_backend(neo4j_driver):
 @pytest_asyncio.fixture
 async def goals_service(goals_backend, event_bus):
     """Create goals core service for testing."""
-    from unittest.mock import AsyncMock
 
     from core.services.goals.goals_core_service import GoalsCoreService
 

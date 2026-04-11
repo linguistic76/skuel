@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import CompletionStatus, EntityStatus, Priority
+from core.models.enums import CompletionStatus, Priority
 from core.services.intelligence import (
     PatternAnalyzer,
     RecommendationEngine,

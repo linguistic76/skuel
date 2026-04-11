@@ -21,7 +21,6 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.ports.query_types import PrincipleStats

@@ -322,7 +322,11 @@ class CalendarOptimizationOrchestrator:
             for e in existing_events
             if e.start_time and e.end_time and e.status != EntityStatus.CANCELLED.value
         ]
-        blocked.sort(key=lambda t: t[0])
+
+        def by_start_time(t: tuple[time, time]) -> time:
+            return t[0]
+
+        blocked.sort(key=by_start_time)
 
         slots: list[dict[str, Any]] = []
         current = time(preferred_hours[0], 0)

@@ -7,7 +7,8 @@ Usage:
     from ui.activities._shared import safe_id, PRIORITY_ORDER, ConnectionBadges, ConnectionSummary
 """
 
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Div, Small, Span
 from monsterui.franken import UkIcon  # type: ignore[import-untyped]
