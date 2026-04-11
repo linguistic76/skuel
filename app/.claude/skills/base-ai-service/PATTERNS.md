@@ -178,13 +178,13 @@ Combine AI insights with graph analytics.
 ```python
 from typing import Any, ClassVar
 
-from core.models.ku import KnowledgeUnit
+from core.models.ku import Ku
 from core.services.base_ai_service import BaseAIService
 from core.ports import KuOperations
 from core.utils.result_simplified import Result
 
 
-class KuAIService(BaseAIService[KuOperations, KnowledgeUnit]):
+class KuAIService(BaseAIService[KuOperations, Ku]):
     """AI-powered features for Knowledge Units."""
 
     _service_name: ClassVar[str] = "ku.ai"
@@ -255,13 +255,13 @@ Efficiently process multiple items.
 ```python
 from typing import ClassVar
 
-from core.models.ku import KnowledgeUnit
+from core.models.ku import Ku
 from core.services.base_ai_service import BaseAIService
 from core.ports import KuOperations
 from core.utils.result_simplified import Errors, Result
 
 
-class KuEmbeddingService(BaseAIService[KuOperations, KnowledgeUnit]):
+class KuEmbeddingService(BaseAIService[KuOperations, Ku]):
     """Batch embedding management for KUs."""
 
     _service_name: ClassVar[str] = "ku.embeddings"

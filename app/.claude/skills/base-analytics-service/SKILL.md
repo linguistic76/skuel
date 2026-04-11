@@ -49,11 +49,11 @@ Services >~350 lines are decomposed into mixin files in the same package directo
 | Choices | `ChoicesIntelligenceService` | `BaseAnalyticsService["ChoicesOperations", Choice]` | Decision support |
 | Principles | `PrinciplesIntelligenceService` | `BaseAnalyticsService[PrinciplesOperations, Principle]` | Alignment analysis |
 | **Curriculum (3)** |
-| KU | `KuIntelligenceService` | `BaseAnalyticsService[KuOperations, Entity]` | Knowledge graph analytics |
+| KU | `KuIntelligenceService` | `BaseAnalyticsService["BackendOperations[Ku]", Ku]` | Knowledge graph analytics |
 | PS | `PsIntelligenceService` | `BaseAnalyticsService["BackendOperations[PathStep]", PathStep]` | Readiness checks |
 | LP | `LpIntelligenceService` | `BaseAnalyticsService[Any, Entity]` | Learning state analysis |
 
-**Key pattern:** The second type parameter is the domain's own model (`Task`, `Goal`, `Habit`, etc.), not the generic `Ku`. Curriculum services use `Entity` as the second param since Ku nodes are base-class entities.
+**Key pattern:** The second type parameter is the domain's own model — `Task` for tasks, `Habit` for habits, `Ku` for knowledge units, `PathStep` for path steps, etc. LP is the exception, using `Entity` due to its decomposed backend.
 
 ---
 
@@ -62,7 +62,7 @@ Services >~350 lines are decomposed into mixin files in the same package directo
 Every analytics service must define these class attributes:
 
 ```python
-class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
+class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
     # REQUIRED: Logger name (hierarchical)
     _service_name: ClassVar[str] = "tasks.analytics"
 
@@ -112,7 +112,7 @@ def __init__(
 ```python
 from core.services.base_analytics_service import BaseAnalyticsService
 
-class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Ku]):
+class HabitsIntelligenceService(BaseAnalyticsService[HabitsOperations, Habit]):
     _service_name = "habits.analytics"
 
     def __init__(
@@ -354,7 +354,7 @@ Use the `_event_handlers` class attribute:
 ```python
 from core.events.task_events import TaskCompleted, TaskCreated
 
-class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
+class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
     _service_name = "tasks.analytics"
     _event_handlers = {
         TaskCompleted: "handle_task_completed",
@@ -433,17 +433,17 @@ Each analytics service uses `GraphContextOrchestrator` for unified context retri
 ```python
 from core.services.intelligence.orchestrator import GraphContextOrchestrator
 
-class TasksIntelligenceService(BaseAnalyticsService["BackendOperations[Ku]", Ku]):
+class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
     def __init__(self, backend, graph_intelligence_service=None, ...):
         super().__init__(backend, graph_intelligence_service, ...)
 
         # Initialize orchestrator if graph intelligence available
         if graph_intelligence_service:
-            self.orchestrator = GraphContextOrchestrator[Ku, TaskDTO](
+            self.orchestrator = GraphContextOrchestrator[Task, TaskDTO](
                 service=self,
-                backend_get_method="get",
+                backend_get_method="get_task",
                 dto_class=TaskDTO,
-                model_class=Ku,
+                model_class=Task,
                 domain=Domain.TASKS,
             )
 

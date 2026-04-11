@@ -1196,7 +1196,7 @@ Write Tests (depth 1)
 ```python
 from ui.patterns.relationships import RelationshipGraphView
 
-def ku_detail(request, uid: str, ku: KnowledgeUnit, ...):
+def ku_detail(request, uid: str, ku: Ku, ...):
     return BasePage(
         content=Container(
             H2(ku.title, cls="text-3xl font-bold"),

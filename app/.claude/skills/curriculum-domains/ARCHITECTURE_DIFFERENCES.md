@@ -127,7 +127,7 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
     _supports_user_progress = True
 
 # Curriculum Domain - shared content
-class PsSearchService(BaseService[BackendOperations[Ls], Ls]):
+class PsSearchService(BaseService[BackendOperations[PathStep], PathStep]):
     _user_ownership_relationship = None  # Shared content
     _supports_user_progress = True  # Still tracks per-user progress
 ```

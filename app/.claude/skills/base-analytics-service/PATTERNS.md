@@ -496,10 +496,10 @@ class EventsIntelligenceService(BaseAnalyticsService[EventsOperations, Event]):
 Intelligence for shared curriculum content (no user ownership):
 
 ```python
-class PsIntelligenceService(BaseAnalyticsService[BackendOperations[Ls], Ls]):
+class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", PathStep]):
     """Analytics for Path Steps - shared content."""
 
-    _service_name = "ls.analytics"
+    _service_name = "ps.analytics"
 
     async def is_ready(
         self, ps_uid: str, completed_step_uids: set[str]
