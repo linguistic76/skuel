@@ -43,7 +43,7 @@ from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 if TYPE_CHECKING:
     import builtins
     import logging
-    from datetime import datetime
+    from datetime import date, datetime
 
     from core.models.enums import Priority
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
@@ -553,6 +553,199 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         Returns:
             Result[tuple[list[T], int]]: Tuple of (entities, total_count)
         """
+        ...
+
+    # ========================================================================
+    # Typed Search Operations (April 2026)
+    # Backend methods that encapsulate Cypher construction + execution.
+    # Service mixins call these instead of importing query builders directly.
+    # ========================================================================
+
+    async def text_search_raw(
+        self,
+        query_text: str,
+        search_fields: tuple[str, ...],
+        *,
+        limit: int = 50,
+        order_by: str = "created_at",
+        order_desc: bool = True,
+        user_uid: UserUID | None = None,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Text search across specified fields, returning raw dicts."""
+        ...
+
+    async def relationship_traversal_raw(
+        self,
+        source_uid: str,
+        relationship_type: str,
+        target_label: str,
+        direction: Direction = "outgoing",
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Traverse a graph relationship and return raw target node dicts."""
+        ...
+
+    async def graph_aware_search_raw(
+        self,
+        query_text: str,
+        source_uid: str,
+        relationship_type: str,
+        search_fields: tuple[str, ...],
+        *,
+        direction: Direction = "outgoing",
+        limit: int = 50,
+        order_by: str = "created_at",
+        order_desc: bool = True,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Combined text search + relationship traversal in one query."""
+        ...
+
+    async def array_any_match_raw(
+        self,
+        field: str,
+        values: builtins.list[str],
+        *,
+        match_all: bool = False,
+        limit: int = 50,
+        order_by: str = "created_at",
+        order_desc: bool = True,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Search array field for ANY/ALL of the given values."""
+        ...
+
+    async def array_contains_raw(
+        self,
+        field: str,
+        value: str,
+        *,
+        limit: int = 50,
+        order_by: str = "created_at",
+        order_desc: bool = True,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Search array field for a single value."""
+        ...
+
+    async def distinct_values_raw(
+        self,
+        field: str,
+        user_uid: UserUID | None = None,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Get distinct values for a field, optionally scoped to a user."""
+        ...
+
+    async def faceted_search_raw(
+        self,
+        user_uid: UserUID,
+        *,
+        user_ownership_relationship: str | None,
+        search_fields: tuple[str, ...],
+        search_order_by: str,
+        graph_enrichment_patterns: tuple[tuple[str, ...], ...],
+        property_filters: dict[str, Any],
+        query_text: str | None = None,
+        graph_patterns: dict[str, str] | None = None,
+        limit: int = 50,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Graph-aware faceted search with ownership, filters, and enrichment."""
+        ...
+
+    async def user_activity_range_raw(
+        self,
+        user_uid: UserUID,
+        date_field: str,
+        start_date: date,
+        end_date: date,
+        exclude_statuses: builtins.list[str] | None = None,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Query user entities within a date range."""
+        ...
+
+    async def due_soon_raw(
+        self,
+        date_field: str,
+        days_ahead: int = 7,
+        *,
+        exclude_statuses: builtins.list[str] | None = None,
+        user_uid: UserUID | None = None,
+        limit: int = 100,
+        secondary_sort_field: str | None = None,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Query entities due within N days."""
+        ...
+
+    async def overdue_raw(
+        self,
+        date_field: str,
+        *,
+        exclude_statuses: builtins.list[str] | None = None,
+        user_uid: UserUID | None = None,
+        limit: int = 100,
+        secondary_sort_field: str | None = None,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Query entities past their due date."""
+        ...
+
+    async def prerequisite_traversal_raw(
+        self,
+        uid: str,
+        relationship_types: builtins.list[str],
+        depth: int = 3,
+        direction: Direction = "outgoing",
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Traverse prerequisite relationships and return raw records."""
+        ...
+
+    async def hierarchy_query_raw(
+        self,
+        uid: str,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Get hierarchical structure for an entity."""
+        ...
+
+    async def user_progress_raw(
+        self,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
+        mastery_threshold: float,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Get user's progress/mastery for an entity."""
+        ...
+
+    async def update_user_mastery_rel(
+        self,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
+        mastery_level: float,
+        rel_type: str,
+    ) -> ResultType[bool]:
+        """Create/update a user mastery relationship."""
+        ...
+
+    async def user_curriculum_raw(
+        self,
+        user_uid: UserUID,
+        include_completed: bool = False,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Get entities the user is studying or has mastered."""
+        ...
+
+    async def context_query_raw(
+        self,
+        uid: str,
+        *,
+        include_relationships: builtins.list[str] | None = None,
+        exclude_relationships: builtins.list[str] | None = None,
+        default_confidence: float = 0.7,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Registry-driven context query for entity with graph neighborhood."""
+        ...
+
+    async def basic_context_query_raw(
+        self,
+        uid: str,
+        prereq_rels: str,
+        min_confidence: float = 0.7,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Basic 3-relationship context query for unregistered entities."""
         ...
 
 

@@ -159,20 +159,12 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             # Entity not in registry - use basic 3-relationship pattern
             return await self._basic_get_with_context(uid, depth, min_confidence)
 
-        # Registry-driven generation
-        from adapters.persistence.neo4j.query.cypher.context_query_generator import (
-            generate_context_query,
-        )
-
-        query, params = generate_context_query(
-            entity_label=self.entity_label,
-            include_relationships=include_relationships,
-            exclude_relationships=exclude_relationships,
+        result = await self.backend.context_query_raw(
+            uid,
+            include_relationships=list(include_relationships) if include_relationships else None,
+            exclude_relationships=list(exclude_relationships) if exclude_relationships else None,
             default_confidence=min_confidence,
         )
-        params["uid"] = uid
-
-        result = await self.backend.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
 
@@ -195,48 +187,16 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Uses a standard 3-relationship pattern (prerequisites, enables, related).
         Entities in the registry use the richer registry-driven query generation.
         """
-        label = self.entity_label
         prereq_rels = (
             "|".join(self._prerequisite_relationships)
             if self._prerequisite_relationships
             else RelationshipName.REQUIRES_KNOWLEDGE.value
         )
 
-        query = f"""
-        MATCH (n:{label} {{uid: $uid}})
-
-        // Prerequisites (outgoing REQUIRES relationships)
-        OPTIONAL MATCH (n)-[r1:{prereq_rels}]->(prereq:{label})
-        WHERE coalesce(r1.confidence, 1.0) >= $min_confidence
-        WITH n, collect(DISTINCT {{
-            uid: prereq.uid,
-            title: prereq.title,
-            confidence: coalesce(r1.confidence, 1.0)
-        }}) as prerequisites
-
-        // Entities this enables (incoming relationships)
-        OPTIONAL MATCH (enabled:{label})-[r2:{prereq_rels}]->(n)
-        WHERE coalesce(r2.confidence, 1.0) >= $min_confidence
-        WITH n, prerequisites, collect(DISTINCT {{
-            uid: enabled.uid,
-            title: enabled.title,
-            confidence: coalesce(r2.confidence, 1.0)
-        }}) as enables
-
-        // Related entities (lateral connections)
-        OPTIONAL MATCH (n)-[r3:RELATED_TO|SIMILAR_TO]-(related:{label})
-        WHERE coalesce(r3.confidence, 1.0) >= $min_confidence * 0.8
-        WITH n, prerequisites, enables, collect(DISTINCT {{
-            uid: related.uid,
-            title: related.title,
-            confidence: coalesce(r3.confidence, 1.0)
-        }}) as related
-
-        RETURN n, prerequisites, enables, related
-        """
-
-        result = await self.backend.execute_query(
-            query, {"uid": uid, "depth": depth, "min_confidence": min_confidence}
+        result = await self.backend.basic_context_query_raw(
+            uid=uid,
+            prereq_rels=prereq_rels,
+            min_confidence=min_confidence,
         )
         if result.is_error:
             return Result.fail(result)

@@ -227,8 +227,6 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         Requires: _prerequisite_relationships to be configured (non-empty list)
 
-        Uses: build_prerequisite_traversal_query from cypher module (consolidation)
-
         Args:
             uid: Entity UID
             depth: Maximum prerequisite chain depth (default: 3)
@@ -250,17 +248,12 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        from adapters.persistence.neo4j.query.cypher import build_prerequisite_traversal_query
-
-        query, params = build_prerequisite_traversal_query(
-            label=self.entity_label,
+        result = await self.backend.prerequisite_traversal_raw(
             uid=uid,
             relationship_types=self._prerequisite_relationships,
             depth=depth,
             direction="outgoing",
         )
-
-        result = await self.backend.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
 
@@ -277,8 +270,6 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         Requires: _prerequisite_relationships to be configured (non-empty list)
 
-        Uses: build_prerequisite_traversal_query from cypher module (consolidation)
-
         Args:
             uid: Entity UID
             depth: Maximum depth to traverse (default: 3)
@@ -292,18 +283,12 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not uid:
             return Result.fail(Errors.validation(message="UID is required", field="uid"))
 
-        from adapters.persistence.neo4j.query.cypher import build_prerequisite_traversal_query
-
-        # Use direction="incoming" for enables (inverse of prerequisites)
-        query, params = build_prerequisite_traversal_query(
-            label=self.entity_label,
+        result = await self.backend.prerequisite_traversal_raw(
             uid=uid,
             relationship_types=self._prerequisite_relationships,
             depth=depth,
             direction="incoming",
         )
-
-        result = await self.backend.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
 
@@ -366,8 +351,6 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         - Parents: Entities that contain/aggregate this one
         - Children: Entities this one contains/aggregates
 
-        Uses: build_hierarchy_query from cypher module (consolidation)
-
         Args:
             uid: Entity UID
 
@@ -377,14 +360,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not uid:
             return Result.fail(Errors.validation(message="UID is required", field="uid"))
 
-        from adapters.persistence.neo4j.query.cypher import build_hierarchy_query
-
-        query, params = build_hierarchy_query(
-            label=self.entity_label,
-            uid=uid,
-        )
-
-        result = await self.backend.execute_query(query, params)
+        result = await self.backend.hierarchy_query_raw(uid=uid)
         if result.is_error:
             return Result.fail(result)
 

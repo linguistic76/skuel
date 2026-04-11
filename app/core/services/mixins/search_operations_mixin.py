@@ -26,25 +26,6 @@ PROVIDES (Methods for Routes/Facades):
         - list_all_categories: List all categories (admin)
         - count: Count entities matching filters
 
-Methods:
-    Text Search:
-        - search: Text search across configured fields
-        - search_by_tags: Search by tag array field
-        - search_array_field: Generic array field search
-
-    Graph Search:
-        - get_by_relationship: Get entities via graph relationship
-        - search_connected_to: Text search + relationship traversal
-        - graph_aware_faceted_search: Unified faceted search
-
-    Filtering:
-        - get_by_status: Filter by status field
-        - get_by_domain: Filter by domain enum
-        - get_by_category: Filter by category field
-        - list_user_categories: List unique categories for user
-        - list_all_categories: List all categories (admin)
-        - count: Count entities matching filters
-
 Type Safety (January 2026)
 --------------------------
 Filter parameters accept BaseFilterSpec (or domain-specific TypedDicts like
@@ -61,10 +42,6 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from adapters.persistence.neo4j.query import (
-    build_relationship_traversal_query,
-    build_text_search_query,
-)
 from core.models.enums import EntityStatus
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
@@ -85,8 +62,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     """
     Mixin providing search, graph search, and filtering operations.
 
-    Uses CypherGenerator for consistent query building with OR semantics
-    across multiple fields (case-insensitive CONTAINS).
+    Uses typed backend methods for all Cypher execution. No query builders
+    are imported from the adapter layer — all Cypher lives in the backend.
 
     Required attributes from composing class:
         backend: B - Backend implementation
@@ -172,14 +149,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         """
         Text search across configured search fields.
 
-        Uses CypherGenerator.build_text_search_query() for consistent text search
+        Uses backend.text_search_raw() for consistent text search
         with OR semantics across multiple fields (case-insensitive CONTAINS).
-
-        **Class Attributes Used:**
-        - _search_fields: Fields to search (default: ("title", "description"))
-        - _search_order_by: Field to order results by (default: "created_at")
-        - _dto_class: DTO class for conversion
-        - _model_class: Domain model class for conversion
 
         Args:
             query: Search string (case-insensitive)
@@ -192,33 +163,21 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not query:
             return Result.fail(Errors.validation(message="Search query is required", field="query"))
 
-        # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
 
-        # Use modular cypher query for consistent text search pattern
-        # Access config via underscore-prefixed attributes
-        cypher_query, params = build_text_search_query(
-            self._model_class,
+        result = await self.backend.text_search_raw(
             query,
-            search_fields=self._search_fields,
-            label=self.entity_label,
+            self._search_fields,
             limit=limit,
             order_by=self._search_order_by,
             order_desc=True,
+            user_uid=user_uid,
         )
-
-        # Scope to user when provided (security: prevent cross-user data leakage)
-        if user_uid:
-            cypher_query = cypher_query.replace("WHERE ", "WHERE n.user_uid = $user_uid AND ", 1)
-            params["user_uid"] = user_uid
-
-        result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to domain models
         entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
         self.logger.debug(f"Found {len(entities)} {self.entity_label}(s) matching '{query}'")
@@ -235,7 +194,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Get entities connected via graph relationship.
 
         Uses single-query traversal (eliminates N+1 pattern) via
-        CypherGenerator.build_relationship_traversal_query().
+        backend.relationship_traversal_raw().
 
         Args:
             related_uid: UID of the related entity (source node)
@@ -250,24 +209,19 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
                 Errors.validation(message="related_uid is required", field="related_uid")
             )
 
-        # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
 
-        # Single-query traversal - returns full entities (no N+1)
-        cypher_query, params = build_relationship_traversal_query(
+        result = await self.backend.relationship_traversal_raw(
             source_uid=related_uid,
             relationship_type=relationship_type.value,
             target_label=self.entity_label,
             direction=direction,
         )
-
-        result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to domain models
         entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
         self.logger.debug(
@@ -309,32 +263,23 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
                 Errors.validation(message="related_uid is required", field="related_uid")
             )
 
-        # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
 
-        # Use graph-aware search query builder
-        from adapters.persistence.neo4j.query.cypher import build_graph_aware_search_query
-
-        cypher_query, params = build_graph_aware_search_query(
-            self._model_class,
-            query=query,
+        result = await self.backend.graph_aware_search_raw(
+            query,
             source_uid=related_uid,
             relationship_type=relationship_type.value,
             search_fields=self._search_fields,
-            label=self.entity_label,
             direction=direction,
             limit=limit,
             order_by=self._search_order_by,
             order_desc=True,
         )
-
-        result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to domain models
         entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
         self.logger.debug(
@@ -366,12 +311,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
                 Errors.validation(message="At least one tag is required", field="tags")
             )
 
-        # Get configuration values (DomainConfig or class attributes)
         dto_class = self._get_config_value("dto_class")
         model_class = self._get_config_value("model_class")
         search_order_by = self._get_config_value("search_order_by", "created_at")
 
-        # Check if we have the required configuration
         if dto_class is None or model_class is None:
             return Result.fail(
                 Errors.system(
@@ -381,24 +324,17 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        # Use array search query builder
-        from adapters.persistence.neo4j.query.cypher import build_array_any_match_query
-
-        cypher_query, params = build_array_any_match_query(
-            label=self.entity_label,
-            field="tags",
-            values=tags,
+        result = await self.backend.array_any_match_raw(
+            "tags",
+            tags,
             match_all=match_all,
             limit=limit,
             order_by=search_order_by,
             order_desc=True,
         )
-
-        result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to domain models
         entities = self._to_domain_models(result.value, dto_class, model_class)
 
         mode = "ALL" if match_all else "ANY"
@@ -430,28 +366,20 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not value:
             return Result.fail(Errors.validation(message="Search value is required", field="value"))
 
-        # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
 
-        # Use array contains query builder
-        from adapters.persistence.neo4j.query.cypher import build_array_contains_query
-
-        cypher_query, params = build_array_contains_query(
-            label=self.entity_label,
-            field=field,
-            value=value,
+        result = await self.backend.array_contains_raw(
+            field,
+            value,
             limit=limit,
             order_by=self._search_order_by,
             order_desc=True,
         )
-
-        result = await self.backend.execute_query(cypher_query, params)
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to domain models
         entities = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
         self.logger.debug(
@@ -486,99 +414,29 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result[list[dict]]: Results with _graph_context enrichment
         """
-        # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
 
-        # Build dynamic Cypher query
-        # Note: Using dict[str, Any] for params because we dynamically add keys
-        # Callers can use CypherParams for type-safe construction before passing
-        cypher_parts: list[str] = []
-        params: dict[str, Any] = {"user_uid": user_uid}
-
-        # 1. Base MATCH with optional user ownership
-        if self._user_ownership_relationship:
-            # Activity Domain: User OWNS entity
-            cypher_parts.append(
-                f"MATCH (user:User {{uid: $user_uid}})-[:{self._user_ownership_relationship}]->"
-                f"(entity:{self.entity_label})"
-            )
-        else:
-            # Curriculum Domain: Shared content, no ownership
-            cypher_parts.append(f"MATCH (entity:{self.entity_label})")
-
-        # 2. WHERE clause for property filters
-        where_clauses = ["1=1"]  # Base condition
-
-        # Property filters from SearchRequest (always present - type-safe)
+        # Extract request parameters
         property_filters = request.to_property_filters()
-        for field, value in property_filters.items():
-            param_name = f"filter_{field}"
-            where_clauses.append(f"entity.{field} = ${param_name}")
-            params[param_name] = value
-
-        # 3. Text search on _search_fields
         query_text = getattr(request, "query_text", None)
-        if query_text:
-            text_conditions = []
-            params["query_text"] = query_text.lower()
-            for field in self._search_fields:
-                text_conditions.append(f"toLower(entity.{field}) CONTAINS $query_text")
-            if text_conditions:
-                where_clauses.append(f"({' OR '.join(text_conditions)})")
-
-        # 4. Graph patterns from SearchRequest (for Curriculum domains like KU)
-        if request.has_relationship_filters():
-            graph_patterns = request.to_graph_patterns()
-            for pattern_cypher in graph_patterns.values():
-                # Replace 'ku' with 'entity' for generic use
-                adjusted_pattern = pattern_cypher.replace("(ku)", "(entity)")
-                where_clauses.append(adjusted_pattern.strip())
-
-        cypher_parts.append(f"WHERE {' AND '.join(where_clauses)}")
-
-        # 5. Graph enrichment via OPTIONAL MATCHes
-        enrichment_returns = []
-        for pattern in self._graph_enrichment_patterns:
-            # Support both 3-tuple (default outgoing) and 4-tuple (with direction)
-            if len(pattern) == 4:
-                rel_type, target_label, context_name, direction = pattern
-            else:
-                rel_type, target_label, context_name = pattern
-                direction = "outgoing"
-
-            # Build relationship pattern based on direction
-            if direction == "incoming":
-                rel_pattern = f"({context_name}:{target_label})-[:{rel_type}]->(entity)"
-            elif direction == "both":
-                rel_pattern = f"(entity)-[:{rel_type}]-({context_name}:{target_label})"
-            else:  # outgoing (default)
-                rel_pattern = f"(entity)-[:{rel_type}]->({context_name}:{target_label})"
-
-            cypher_parts.append(f"OPTIONAL MATCH {rel_pattern}")
-            enrichment_returns.append(
-                f"collect(DISTINCT {{{context_name}_uid: {context_name}.uid, "
-                f"{context_name}_title: {context_name}.title}}) as {context_name}_list"
-            )
-
-        # 6. RETURN clause
-        return_fields = ["entity"]
-        return_fields.extend(enrichment_returns)
-        cypher_parts.append(f"RETURN {', '.join(return_fields)}")
-
-        # 7. Ordering and limit
-        cypher_parts.append(f"ORDER BY entity.{self._search_order_by} DESC")
+        graph_patterns = (
+            request.to_graph_patterns() if request.has_relationship_filters() else None
+        )
         limit = getattr(request, "limit", 50)
-        cypher_parts.append(f"LIMIT {limit}")
 
-        # Build final query
-        cypher_query = "\n".join(cypher_parts)
-
-        self.logger.debug(f"Graph-aware faceted search query:\n{cypher_query}")
-
-        # Execute query
-        result = await self.backend.execute_query(cypher_query, params)
+        result = await self.backend.faceted_search_raw(
+            user_uid,
+            user_ownership_relationship=self._user_ownership_relationship,
+            search_fields=self._search_fields,
+            search_order_by=self._search_order_by,
+            graph_enrichment_patterns=self._graph_enrichment_patterns,
+            property_filters=property_filters,
+            query_text=query_text,
+            graph_patterns=graph_patterns,
+            limit=limit,
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -587,17 +445,13 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         for record in result.value or []:
             entity_data = record.get("entity", {})
 
-            # Build result dict from entity properties
             result_dict = dict(entity_data) if isinstance(entity_data, dict) else {}
             result_dict["_domain"] = self.entity_label.lower()
 
-            # Add graph context from enrichment patterns
             graph_context: dict[str, Any] = {}
             for pattern in self._graph_enrichment_patterns:
-                # Extract context_name (3rd element in both 3-tuple and 4-tuple)
                 context_name = pattern[2]
                 context_list = record.get(f"{context_name}_list", [])
-                # Filter out None entries
                 filtered_list = [
                     item for item in context_list if item.get(f"{context_name}_uid") is not None
                 ]
@@ -633,7 +487,6 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing entities with matching status
         """
-        # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
@@ -664,7 +517,6 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing entities in specified domain
         """
-        # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
@@ -700,12 +552,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing entities in the specified category
         """
-        # Validate configuration
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
 
-        # Build filter kwargs dynamically using _category_field
         filters: dict[str, Any] = {self._category_field: category, "limit": limit}
         if user_uid:
             filters["user_uid"] = user_uid
@@ -732,15 +582,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing list of category strings for this user
         """
-        from adapters.persistence.neo4j.query.cypher import build_distinct_values_query
-
-        query, params = build_distinct_values_query(
-            label=self.entity_label,
-            field=self._category_field,
+        result = await self.backend.distinct_values_raw(
+            self._category_field,
             user_uid=user_uid,
         )
-
-        result = await self.backend.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
 
@@ -761,15 +606,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing list of all category strings
         """
-        from adapters.persistence.neo4j.query.cypher import build_distinct_values_query
-
-        query, params = build_distinct_values_query(
-            label=self.entity_label,
-            field=self._category_field,
-            user_uid=None,  # No user filter = all users
+        result = await self.backend.distinct_values_raw(
+            self._category_field,
+            user_uid=None,
         )
-
-        result = await self.backend.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
 

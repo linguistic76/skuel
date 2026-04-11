@@ -88,9 +88,8 @@ class TestTextSearch:
     @pytest.mark.asyncio
     async def test_search_by_tags_delegates_to_base(self, service):
         """Test tag search delegates to BaseService.search_by_tags."""
-        # Mock the backend.execute_query with proper data format
-        # BaseService._to_domain_models expects flat dicts, not nested
-        service.backend.execute_query = AsyncMock(
+        # Mock the backend.array_any_match_raw with proper data format
+        service.backend.array_any_match_raw = AsyncMock(
             return_value=Result.ok(
                 [
                     {
@@ -110,9 +109,8 @@ class TestTextSearch:
 
         await service.search_by_tags(["python", "advanced"], match_all=True)
 
-        # Tags search may fail due to backend format; that's OK for this test
         # The key assertion is that it calls the right backend method
-        service.backend.execute_query.assert_called()
+        service.backend.array_any_match_raw.assert_called()
 
 
 class TestFacadeDelegation:

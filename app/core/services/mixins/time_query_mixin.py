@@ -12,12 +12,6 @@ PROVIDES (Methods for Calendar/Scheduling):
     - get_user_items_in_range: Configured date range query
     - get_due_soon: Get entities due within N days
     - get_overdue: Get entities past their due date
-
-Methods:
-    - get_user_items_in_range_base: Generic date range query
-    - get_user_items_in_range: Configured date range query
-    - get_due_soon: Get entities due within N days
-    - get_overdue: Get entities past their due date
 """
 
 from __future__ import annotations
@@ -25,7 +19,6 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from adapters.persistence.neo4j.query import build_user_activity_query
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.type_hints import UserUID
 from core.ports import BackendOperations
@@ -42,7 +35,8 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
     Mixin providing date-based query operations.
 
     These methods enable calendar integration and scheduling queries across
-    all Activity Domains.
+    all Activity Domains. All Cypher execution is delegated to typed backend
+    methods — no query builders are imported from the adapter layer.
 
     Required attributes from composing class:
         backend: B - Backend implementation
@@ -104,11 +98,6 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         This method consolidates the duplicate implementations across all 7 core services
         (tasks, goals, events, habits, finance, choices, principles).
 
-        Pattern:
-        1. Build Cypher query using CypherGenerator.build_user_activity_query()
-        2. Execute query against backend
-        3. Convert results to domain models using _to_domain_models()
-
         Args:
             user_uid: User identifier (REQUIRED)
             start_date: Start of date range
@@ -121,7 +110,6 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing list of domain model instances
         """
-        # Validate required parameters
         if not user_uid:
             return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
 
@@ -130,27 +118,19 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
                 Errors.validation(message="date_field is required", field="date_field")
             )
 
-        # Build Cypher query using unified helper
-        query, params = build_user_activity_query(
+        results = await self.backend.user_activity_range_raw(
             user_uid=user_uid,
-            node_label=self.entity_label,  # Uses abstract property!
             date_field=date_field,
             start_date=start_date,
             end_date=end_date,
             exclude_statuses=exclude_statuses or [],
         )
 
-        # Execute query
-        results = await self.backend.execute_query(query, params)
-
-        # Handle query errors
         if results.is_error:
             return Result.fail(results)
 
-        # Convert to domain models using existing helper
         items = self._to_domain_models(results.value, dto_class, model_class)
 
-        # Log for debugging
         self.logger.debug(
             f"Found {len(items)} {self.entity_label}(s) for user {user_uid} "
             f"in range {start_date} to {end_date}"
@@ -173,15 +153,6 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         behavior via class attributes (_date_field, _completed_statuses, etc.)
         instead of overriding this method.
 
-        **Class Attributes Used:**
-        - _date_field: Date field for range query (e.g., "due_date", "target_date")
-        - _completed_statuses: Statuses to exclude when include_completed=False
-        - _dto_class: DTO class for conversion
-        - _model_class: Domain model class for conversion
-
-        This provides a unified query API for meta-services (Calendar, Reports)
-        that need consistent querying across all activity domains.
-
         Args:
             user_uid: User identifier
             start_date: Start of date range
@@ -191,7 +162,6 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result containing list of domain model instances
         """
-        # Fail-fast: configuration is required
         dto_class = self._get_config_value("dto_class")
         model_class = self._get_config_value("model_class")
 
@@ -204,11 +174,9 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        # Determine statuses to exclude (use config accessor)
         completed_statuses = self._get_config_value("completed_statuses", [])
         exclude_statuses = [] if include_completed else list(completed_statuses)
 
-        # Delegate to base implementation (use config-accessed values)
         date_field = self._get_config_value("date_field", "created_at")
 
         return await self.get_user_items_in_range_base(
@@ -234,10 +202,6 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         """
         Get entities due within specified number of days.
 
-        Uses class-configured _date_field for date comparison and
-        _completed_statuses for exclusion filtering. Sorts by date
-        field ASC (nearest first).
-
         Args:
             days_ahead: Number of days to look ahead (default 7)
             user_uid: Optional user UID to filter by ownership
@@ -245,20 +209,9 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         Returns:
             Result containing entities due soon, sorted by date
-
-        Note:
-            Returns empty list for domains without meaningful date field
-            (i.e., _date_field == "created_at"). Override this method if
-            domain uses custom "due" logic (e.g., Habits use frequency-based
-            calculations).
         """
-        from adapters.persistence.neo4j.query.cypher import build_due_soon_query
-
-        # Get configured date field
         date_field = self._get_config_value("date_field", "created_at")
 
-        # If date_field is created_at (default), this domain likely doesn't have
-        # meaningful "due soon" semantics - return empty list
         if date_field == "created_at":
             self.logger.debug(
                 f"{self.service_name}: get_due_soon() not meaningful for this domain "
@@ -266,7 +219,6 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
             )
             return Result.ok([])
 
-        # Validate configuration
         if self._dto_class is None or self._model_class is None:
             return Result.fail(
                 Errors.system(
@@ -275,12 +227,9 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        # Get statuses to exclude from temporal queries
         exclude_statuses = list(self._get_config_value("temporal_exclude_statuses", []))
 
-        # Build and execute query
-        query, params = build_due_soon_query(
-            node_label=self.entity_label,
+        result = await self.backend.due_soon_raw(
             date_field=date_field,
             days_ahead=days_ahead,
             exclude_statuses=exclude_statuses if exclude_statuses else None,
@@ -288,12 +237,9 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
             limit=limit,
             secondary_sort_field=self._get_config_value("temporal_secondary_sort"),
         )
-
-        result = await self.backend.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to domain models
         items = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
         self.logger.debug(f"Found {len(items)} {self.entity_label}(s) due within {days_ahead} days")
@@ -308,29 +254,15 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
         """
         Get entities past their due date.
 
-        Uses class-configured _date_field for date comparison and
-        _completed_statuses for exclusion filtering. Sorts by date
-        field ASC (oldest first - most overdue first).
-
         Args:
             user_uid: Optional user UID to filter by ownership
             limit: Maximum results to return
 
         Returns:
             Result containing overdue entities, sorted by how overdue
-
-        Note:
-            Returns empty list for domains without meaningful date field
-            (i.e., _date_field == "created_at"). Override this method if
-            domain uses custom "overdue" logic.
         """
-        from adapters.persistence.neo4j.query.cypher import build_overdue_query
-
-        # Get configured date field
         date_field = self._get_config_value("date_field", "created_at")
 
-        # If date_field is created_at (default), this domain likely doesn't have
-        # meaningful "overdue" semantics - return empty list
         if date_field == "created_at":
             self.logger.debug(
                 f"{self.service_name}: get_overdue() not meaningful for this domain "
@@ -338,7 +270,6 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
             )
             return Result.ok([])
 
-        # Validate configuration
         if self._dto_class is None or self._model_class is None:
             return Result.fail(
                 Errors.system(
@@ -347,24 +278,18 @@ class TimeQueryMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        # Get statuses to exclude from temporal queries
         exclude_statuses = list(self._get_config_value("temporal_exclude_statuses", []))
 
-        # Build and execute query
-        query, params = build_overdue_query(
-            node_label=self.entity_label,
+        result = await self.backend.overdue_raw(
             date_field=date_field,
             exclude_statuses=exclude_statuses if exclude_statuses else None,
             user_uid=user_uid,
             limit=limit,
             secondary_sort_field=self._get_config_value("temporal_secondary_sort"),
         )
-
-        result = await self.backend.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
 
-        # Convert to domain models
         items = self._to_domain_models(result.value, self._dto_class, self._model_class)
 
         self.logger.debug(f"Found {len(items)} overdue {self.entity_label}(s)")

@@ -111,16 +111,11 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
                 )
             )
 
-        from adapters.persistence.neo4j.query.cypher import build_user_progress_query
-
-        query, params = build_user_progress_query(
-            label=self.entity_label,
+        result = await self.backend.user_progress_raw(
             user_uid=user_uid,
             entity_uid=entity_uid,
             mastery_threshold=self._mastery_threshold,
         )
-
-        result = await self.backend.execute_query(query, params)
 
         if result.is_error:
             return Result.fail(result)
@@ -189,23 +184,11 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Determine relationship type based on mastery level
         rel_type = "MASTERED" if mastery_level >= self._mastery_threshold else "STUDYING"
 
-        query = f"""
-        MATCH (u:User {{uid: $user_uid}})
-        MATCH (e:{self.entity_label} {{uid: $entity_uid}})
-        MERGE (u)-[r:{rel_type}]->(e)
-        SET r.level = $mastery_level,
-            r.last_accessed = datetime(),
-            r.updated_at = datetime()
-        RETURN true as success
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {
-                "user_uid": user_uid,
-                "entity_uid": entity_uid,
-                "mastery_level": mastery_level,
-            },
+        result = await self.backend.update_user_mastery_rel(
+            user_uid=user_uid,
+            entity_uid=entity_uid,
+            mastery_level=mastery_level,
+            rel_type=rel_type,
         )
 
         if result.is_error:
@@ -245,15 +228,10 @@ class UserProgressMixin[B: BackendOperations, T: DomainModelProtocol]:
         if not user_uid:
             return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
 
-        from adapters.persistence.neo4j.query.cypher import build_user_curriculum_query
-
-        query, params = build_user_curriculum_query(
-            label=self.entity_label,
+        result = await self.backend.user_curriculum_raw(
             user_uid=user_uid,
             include_completed=include_completed,
         )
-
-        result = await self.backend.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
 
