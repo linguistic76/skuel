@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.services.intelligence import MetricsCalculator, RecommendationEngine
 from core.utils.decorators import requires_graph_intelligence
@@ -361,25 +360,7 @@ class _InfluenceMixin:
         Returns:
             Result containing effectiveness metrics dict
         """
-        query = f"""
-        MATCH (p:Principle {{uid: $principle_uid}})-[:{RelationshipName.GUIDES_CHOICE.value}]->(c:Choice)
-        WHERE c.user_uid = $user_uid
-          AND c.created_at >= datetime() - duration({{days: $period_days}})
-
-        RETURN
-            count(c) AS total_choices,
-            avg(c.satisfaction_score) AS avg_satisfaction,
-            sum(CASE WHEN c.satisfaction_score >= 4 THEN 1 ELSE 0 END) AS positive_outcomes
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {
-                "principle_uid": principle_uid,
-                "user_uid": user_uid,
-                "period_days": period_days,
-            },
-        )
+        result = await self.backend.get_choice_influence_stats(principle_uid, user_uid, period_days)
 
         if result.is_error:
             return Result.fail(result)
@@ -395,7 +376,7 @@ class _InfluenceMixin:
                 }
             )
 
-        record = result.value[0]
+        record = result.value
         total = record.get("total_choices", 0)
         avg_sat = record.get("avg_satisfaction") or 0.0
         positive = record.get("positive_outcomes", 0)

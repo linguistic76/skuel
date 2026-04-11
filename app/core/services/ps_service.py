@@ -754,16 +754,8 @@ class PsService:
     ) -> Result[bool]:
         """Attach an existing path step to a learning path."""
         if sequence is None:
-            seq_query = """
-            MATCH (p:Entity {uid: $path_uid})-[r:HAS_STEP]->()
-            RETURN coalesce(max(r.sequence), -1) + 1 as next_sequence
-            """
-            seq_result = await self.executor.execute_query(seq_query, {"path_uid": path_uid})
-            if seq_result.is_error:
-                sequence = 0
-            else:
-                records = seq_result.value
-                sequence = records[0]["next_sequence"] if records else 0
+            seq_result = await self.repo.get_next_step_sequence(path_uid)
+            sequence = 0 if seq_result.is_error else seq_result.value
         return await self.relationships.create_relationship_with_properties(
             relationship_key="in_paths",
             from_uid=step_uid,

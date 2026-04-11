@@ -21,7 +21,6 @@ Philosophy:
 from dataclasses import dataclass, field
 from typing import Any
 
-from adapters.persistence.neo4j.query import ProvenanceQueries
 from core.models.relationship_names import RelationshipName
 from core.ports.base_protocols import BackendOperations
 from core.utils.result_simplified import Errors, Result
@@ -225,16 +224,13 @@ class AskesisCitationService:
                 min_evidence_count=1 # Only well-documented prerequisites
             )
         """
-        # Build citation export query
-        query, params = ProvenanceQueries.build_citation_export_query(
+        # Execute citation export query via typed backend method
+        result = await self.backend.get_citation_export(
             node_uid=knowledge_uid,
             node_label="Entity",
             relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
             depth=depth,
         )
-
-        # Execute query
-        result = await self.backend.execute_query(query, params)
 
         if result.is_error:
             return Result.fail(

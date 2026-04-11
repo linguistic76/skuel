@@ -905,6 +905,54 @@ class GraphTraversalOperations(Protocol):
         """Get raw graph context for cross-domain intelligence analysis."""
         ...
 
+    async def query_semantic_context(
+        self,
+        node_uid: str,
+        semantic_types: builtins.list[Any],
+        depth: int = 2,
+        min_confidence: float = 0.0,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Execute a semantic context query for a node."""
+        ...
+
+    async def find_uids_by_semantic_filter(
+        self,
+        pattern: str,
+        target_uid: str,
+        min_confidence: float,
+    ) -> ResultType[builtins.list[str]]:
+        """Find entity UIDs matching a semantic relationship pattern."""
+        ...
+
+    async def get_batch_cross_domain_context(
+        self,
+        entity_label: str,
+        entity_uids: builtins.list[str],
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Batch-retrieve cross-domain relationship context for entities."""
+        ...
+
+    async def get_goal_aligned_entities(
+        self,
+        user_uid: str,
+        domain_name: str,
+        entity_label: str,
+        goal_uid: str | None,
+        limit: int,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Get entities aligned with user's goals via goal relationships."""
+        ...
+
+    async def get_citation_export(
+        self,
+        node_uid: str,
+        node_label: str,
+        relationship_type: str,
+        depth: int,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Execute a citation/provenance export query."""
+        ...
+
 
 @runtime_checkable
 class QueryExecutor(Protocol):

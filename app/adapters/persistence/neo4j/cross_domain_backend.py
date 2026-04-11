@@ -981,6 +981,31 @@ class CrossDomainBackend:
             {"user_uid": user_uid},
         )
 
+    async def get_journal_entries_in_range(
+        self,
+        user_uid: str,
+        start_datetime: str,
+        end_datetime: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """Get journal input entries within a date range."""
+        return await self.executor.execute_query(
+            """
+            MATCH (j:JeInput {user_uid: $user_uid})
+            WHERE j.created_at >= datetime($start_datetime)
+              AND j.created_at <= datetime($end_datetime)
+            RETURN j.uid as uid,
+                   j.content as processed_content,
+                   {title: j.title, summary: j.summary, themes: j.key_topics} as metadata,
+                   j.created_at as created_at
+            ORDER BY j.created_at DESC
+            """,
+            {
+                "user_uid": user_uid,
+                "start_datetime": start_datetime,
+                "end_datetime": end_datetime,
+            },
+        )
+
 
 __all__ = [
     "ALIGNMENT_LEVEL",

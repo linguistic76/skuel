@@ -427,6 +427,19 @@ class _LpStepMixin:
         self.logger.debug(f"Persisted path {path_params['uid']} with {len(steps_params)} steps")
         return Result.ok(True)
 
+    async def get_next_step_sequence(self, path_uid: str) -> Result[int]:
+        """Get the next available sequence number for a path's steps."""
+        query = """
+        MATCH (p:Entity {uid: $path_uid})-[r:HAS_STEP]->()
+        RETURN coalesce(max(r.sequence), -1) + 1 as next_sequence
+        """
+        result = await self.execute_query(query, {"path_uid": path_uid})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok(0)
+        return Result.ok(result.value[0].get("next_sequence", 0))
+
     async def entity_exists(self, uid: str) -> Result[bool]:
         """Check whether an Entity node with the given UID exists."""
         query = "MATCH (e:Entity {uid: $uid}) RETURN e.uid LIMIT 1"

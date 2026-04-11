@@ -22,7 +22,6 @@ each relationship service's semantic methods from 155 LOC → 11 LOC.
 from datetime import datetime
 from typing import Any, TypeVar
 
-from adapters.persistence.neo4j.query import build_semantic_context
 from core.infrastructure.relationships.semantic_relationships import (
     RelationshipMetadata,
     SemanticRelationshipType,
@@ -237,13 +236,10 @@ class SemanticRelationshipLinker[T, DTO]:
             f"with {len(semantic_types)} types, min_confidence={min_confidence}"
         )
 
-        # Step 3: Build semantic context query
-        cypher, params = build_semantic_context(
+        # Step 3+4: Execute semantic context query through typed backend method
+        context_result = await self.backend.query_semantic_context(
             node_uid=uid, semantic_types=semantic_types, depth=depth, min_confidence=min_confidence
         )
-
-        # Step 4: Execute query through backend
-        context_result = await self.backend.execute_query(cypher, params)
         if context_result.is_error:
             return context_result
 
@@ -427,21 +423,16 @@ class SemanticRelationshipLinker[T, DTO]:
         else:  # both
             pattern = f"(n:{label})-[r:{rel_types}]-(target)"
 
-        cypher = f"""
-        MATCH {pattern}
-        WHERE target.uid = $target_uid
-          AND r.confidence >= $min_confidence
-        RETURN DISTINCT n.uid as uid
-        """
-
-        params = {"target_uid": target_uid, "min_confidence": min_confidence}
-
-        # Step 2: Execute query to get entity UIDs
-        result = await self.backend.execute_query(cypher, params)
+        # Step 2: Execute query to get entity UIDs via typed backend method
+        result = await self.backend.find_uids_by_semantic_filter(
+            pattern=pattern,
+            target_uid=target_uid,
+            min_confidence=min_confidence,
+        )
         if result.is_error:
             return result
 
-        entity_uids = [row.get("uid") for row in result.value or []]
+        entity_uids = result.value
 
         self.logger.debug(f"Found {len(entity_uids)} matching {self.model_class.__name__} UIDs")
 

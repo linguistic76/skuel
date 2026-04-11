@@ -318,7 +318,9 @@ class TestLearningAwareSearch:
             assert results[0]["learning_state"] == "none"
 
     @pytest.mark.asyncio
-    async def test_learning_aware_prefer_unmastered_false(self, vector_search_service, mock_backend):
+    async def test_learning_aware_prefer_unmastered_false(
+        self, vector_search_service, mock_backend
+    ):
         """Test inverted boosts when prefer_unmastered=False (review mode)."""
 
         initial_results = [

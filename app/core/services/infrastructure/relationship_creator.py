@@ -373,40 +373,17 @@ class RelationshipCreator[T, DTO]:
         if not entity_uids:
             return Result.ok({})
 
-        # Build batch query using UNWIND pattern
+        # Build entity label from domain name
         domain_name = self.domain.value
         singular = domain_name.rstrip("s")
         label = singular.capitalize()
-
-        # Cypher query using UNWIND to process all UIDs in one round-trip
-        query = f"""
-        UNWIND $entity_uids AS entity_uid
-        MATCH (entity:{label} {{uid: entity_uid}})
-
-        // Get cross-domain relationships
-        OPTIONAL MATCH (entity)-[:SUPPORTS_GOAL]->(goal:Goal)
-        OPTIONAL MATCH (entity)-[:ENABLES_KNOWLEDGE|:APPLIES_KNOWLEDGE]->(ku:Entity)
-        OPTIONAL MATCH (entity)-[:FUNDS_HABIT]->(habit:Habit)
-        OPTIONAL MATCH (entity)-[:FUNDS_TASK|:ENABLES_TASK]->(task:Task)
-        OPTIONAL MATCH (entity)-[:INFORMED_BY_PRINCIPLE]->(principle:Principle)
-
-        RETURN
-            entity_uid,
-            collect(DISTINCT goal) as goals,
-            collect(DISTINCT ku) as knowledge,
-            collect(DISTINCT habit) as habits,
-            collect(DISTINCT task) as tasks,
-            collect(DISTINCT principle) as principles
-        """
-
-        params = {"entity_uids": entity_uids}
 
         self.logger.debug(
             f"Batch retrieving cross-domain context for {len(entity_uids)} {self.model_class.__name__} entities"
         )
 
-        # Execute batch query
-        result = await self.backend.execute_query(query, params)
+        # Execute batch query via typed backend method
+        result = await self.backend.get_batch_cross_domain_context(label, entity_uids)
 
         if result.is_error:
             return result

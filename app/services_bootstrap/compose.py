@@ -1095,6 +1095,7 @@ async def compose_services(
             ku_service=learning_services["ps"],  # Layer 0 reporting
             lp_service=learning_services["learning_paths"],  # Layer 0 reporting
             event_bus=event_bus,  # Event-driven report generation
+            cross_domain_backend=cross_domain_backend,  # Cross-domain analytics queries
         )
         logger.info("✅ Analytics service created")
 

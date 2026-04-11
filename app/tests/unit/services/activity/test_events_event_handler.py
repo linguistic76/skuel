@@ -38,7 +38,8 @@ def mock_backend() -> Mock:
     backend.get = AsyncMock(return_value=Result.ok(None))
     backend.update = AsyncMock(return_value=Result.ok({}))
     backend.find_by = AsyncMock(return_value=Result.ok([]))
-    backend.execute_query = AsyncMock(return_value=Result.ok([{"reschedule_count": 0}]))
+    backend.count_recent_reschedules = AsyncMock(return_value=Result.ok(0))
+    backend.count_events_in_date_range = AsyncMock(return_value=Result.ok(0))
     return backend
 
 
@@ -249,7 +250,7 @@ class TestHandleEventRescheduled:
         self, service: EventsEventHandlerService, mock_backend: Mock
     ):
         """Rescheduling pattern is detected and logged."""
-        mock_backend.execute_query.return_value = Result.ok([{"reschedule_count": 2}])
+        mock_backend.count_recent_reschedules.return_value = Result.ok(2)
 
         event = CalendarEventRescheduled(
             event_uid="event_test_abc",
@@ -269,7 +270,7 @@ class TestHandleEventRescheduled:
         self, service: EventsEventHandlerService, mock_backend: Mock
     ):
         """Chronic rescheduling triggers a warning."""
-        mock_backend.execute_query.return_value = Result.ok([{"reschedule_count": 5}])
+        mock_backend.count_recent_reschedules.return_value = Result.ok(5)
 
         event = CalendarEventRescheduled(
             event_uid="event_test_abc",
@@ -289,7 +290,7 @@ class TestHandleEventRescheduled:
         self, service: EventsEventHandlerService, mock_backend: Mock
     ):
         """Rare rescheduling does not trigger a warning."""
-        mock_backend.execute_query.return_value = Result.ok([{"reschedule_count": 1}])
+        mock_backend.count_recent_reschedules.return_value = Result.ok(1)
 
         event = CalendarEventRescheduled(
             event_uid="event_test_abc",
@@ -310,7 +311,7 @@ class TestHandleEventRescheduled:
         """Exceptions are logged, never propagated."""
         from neo4j.exceptions import ServiceUnavailable
 
-        mock_backend.execute_query.side_effect = ServiceUnavailable("connection lost")
+        mock_backend.count_recent_reschedules.side_effect = ServiceUnavailable("connection lost")
 
         event = CalendarEventRescheduled(
             event_uid="event_test_abc",
@@ -335,7 +336,7 @@ class TestHandleEventCreated:
         self, service: EventsEventHandlerService, mock_backend: Mock
     ):
         """Scheduling density is assessed and logged."""
-        mock_backend.execute_query.return_value = Result.ok([{"event_count": 5}])
+        mock_backend.count_events_in_date_range.return_value = Result.ok(5)
 
         event = CalendarEventCreated(
             event_uid="event_test_abc",
@@ -356,7 +357,7 @@ class TestHandleEventCreated:
         self, service: EventsEventHandlerService, mock_backend: Mock
     ):
         """Overcommitment triggers a warning."""
-        mock_backend.execute_query.return_value = Result.ok([{"event_count": 15}])
+        mock_backend.count_events_in_date_range.return_value = Result.ok(15)
 
         event = CalendarEventCreated(
             event_uid="event_test_abc",
@@ -377,7 +378,7 @@ class TestHandleEventCreated:
         self, service: EventsEventHandlerService, mock_backend: Mock
     ):
         """Light scheduling does not trigger a warning."""
-        mock_backend.execute_query.return_value = Result.ok([{"event_count": 2}])
+        mock_backend.count_events_in_date_range.return_value = Result.ok(2)
 
         event = CalendarEventCreated(
             event_uid="event_test_abc",
@@ -399,7 +400,7 @@ class TestHandleEventCreated:
         """Exceptions are logged, never propagated."""
         from neo4j.exceptions import ServiceUnavailable
 
-        mock_backend.execute_query.side_effect = ServiceUnavailable("connection lost")
+        mock_backend.count_events_in_date_range.side_effect = ServiceUnavailable("connection lost")
 
         event = CalendarEventCreated(
             event_uid="event_test_abc",
@@ -428,7 +429,7 @@ class TestInsightPersistence:
         mock_insight_store: AsyncMock,
     ):
         """Chronic rescheduling persists an IMBALANCE_DETECTED insight."""
-        mock_backend.execute_query.return_value = Result.ok([{"reschedule_count": 5}])
+        mock_backend.count_recent_reschedules.return_value = Result.ok(5)
 
         event = CalendarEventRescheduled(
             event_uid="event_test_abc",
@@ -454,7 +455,7 @@ class TestInsightPersistence:
         mock_insight_store: AsyncMock,
     ):
         """Rare rescheduling does not persist an insight."""
-        mock_backend.execute_query.return_value = Result.ok([{"reschedule_count": 1}])
+        mock_backend.count_recent_reschedules.return_value = Result.ok(1)
 
         event = CalendarEventRescheduled(
             event_uid="event_test_abc",
@@ -476,7 +477,7 @@ class TestInsightPersistence:
         mock_insight_store: AsyncMock,
     ):
         """Overcommitment persists an IMBALANCE_DETECTED insight."""
-        mock_backend.execute_query.return_value = Result.ok([{"event_count": 15}])
+        mock_backend.count_events_in_date_range.return_value = Result.ok(15)
 
         event = CalendarEventCreated(
             event_uid="event_test_abc",
@@ -502,7 +503,7 @@ class TestInsightPersistence:
         mock_insight_store: AsyncMock,
     ):
         """Failed insight creation is logged but does not propagate."""
-        mock_backend.execute_query.return_value = Result.ok([{"reschedule_count": 5}])
+        mock_backend.count_recent_reschedules.return_value = Result.ok(5)
         mock_insight_store.create_insight.return_value = Result(
             _error=Errors.database("create_insight", "InsightStore unavailable")
         )

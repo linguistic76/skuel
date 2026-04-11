@@ -29,6 +29,9 @@ if TYPE_CHECKING:
 
     from neo4j import AsyncDriver
 
+    from core.infrastructure.relationships.semantic_relationships import (
+        SemanticRelationshipType,
+    )
     from core.ports.base_protocols import Direction
 
 
@@ -53,6 +56,12 @@ class _TraversalMixin:
             relationship_type: str,
             properties: dict[str, Any] | None = None,
         ) -> Result[bool]: ...
+
+        async def execute_query(
+            self,
+            query: str,
+            params: dict[str, Any] | None = None,
+        ) -> Result[list[dict[str, Any]]]: ...
 
     # ============================================================================
     # PROTOCOL COMPLIANCE METHODS (November 28, 2025)
@@ -272,3 +281,115 @@ class _TraversalMixin:
             return Result.ok(None)
 
         return Result.ok(records)
+
+    # ========================================================================
+    # SEMANTIC & CROSS-DOMAIN TRAVERSAL QUERIES
+    # ========================================================================
+
+    async def query_semantic_context(
+        self,
+        node_uid: str,
+        semantic_types: list[SemanticRelationshipType],
+        depth: int = 2,
+        min_confidence: float = 0.0,
+    ) -> Result[list[dict[str, Any]]]:
+        """Execute a semantic context query for a node."""
+        from adapters.persistence.neo4j.query import build_semantic_context
+
+        cypher, params = build_semantic_context(
+            node_uid=node_uid,
+            semantic_types=semantic_types,
+            depth=depth,
+            min_confidence=min_confidence,
+        )
+        return await self.execute_query(cypher, params)
+
+    async def find_uids_by_semantic_filter(
+        self,
+        pattern: str,
+        target_uid: str,
+        min_confidence: float,
+    ) -> Result[list[str]]:
+        """Find entity UIDs matching a semantic relationship pattern."""
+        cypher = f"""
+        MATCH {pattern}
+        WHERE target.uid = $target_uid
+          AND r.confidence >= $min_confidence
+        RETURN DISTINCT n.uid as uid
+        """
+        params = {"target_uid": target_uid, "min_confidence": min_confidence}
+        result = await self.execute_query(cypher, params)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([str(row["uid"]) for row in result.value or [] if row.get("uid")])
+
+    async def get_batch_cross_domain_context(
+        self,
+        entity_label: str,
+        entity_uids: list[str],
+    ) -> Result[list[dict[str, Any]]]:
+        """Batch-retrieve cross-domain relationship context for entities."""
+        query = f"""
+        UNWIND $entity_uids AS entity_uid
+        MATCH (entity:{entity_label} {{uid: entity_uid}})
+        OPTIONAL MATCH (entity)-[:SUPPORTS_GOAL]->(goal:Goal)
+        OPTIONAL MATCH (entity)-[:ENABLES_KNOWLEDGE|:APPLIES_KNOWLEDGE]->(ku:Entity)
+        OPTIONAL MATCH (entity)-[:FUNDS_HABIT]->(habit:Habit)
+        OPTIONAL MATCH (entity)-[:FUNDS_TASK|:ENABLES_TASK]->(task:Task)
+        OPTIONAL MATCH (entity)-[:INFORMED_BY_PRINCIPLE]->(principle:Principle)
+        RETURN
+            entity_uid,
+            collect(DISTINCT goal) as goals,
+            collect(DISTINCT ku) as knowledge,
+            collect(DISTINCT habit) as habits,
+            collect(DISTINCT task) as tasks,
+            collect(DISTINCT principle) as principles
+        """
+        return await self.execute_query(query, {"entity_uids": entity_uids})
+
+    async def get_goal_aligned_entities(
+        self,
+        user_uid: str,
+        domain_name: str,
+        entity_label: str,
+        goal_uid: str | None,
+        limit: int,
+    ) -> Result[list[dict[str, Any]]]:
+        """Get entities aligned with user's goals via goal relationships."""
+        goal_rels = [
+            RelationshipName.FULFILLS_GOAL.value,
+            RelationshipName.SUPPORTS_GOAL.value,
+            RelationshipName.CONTRIBUTES_TO_GOAL.value,
+        ]
+        rel_pattern = "|".join(goal_rels)
+        goal_filter = "WHERE g.uid = $goal_uid" if goal_uid else ""
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:HAS_{domain_name.upper()}]->(e:{entity_label})
+        MATCH (e)-[:{rel_pattern}]->(g:Goal)
+        {goal_filter}
+        RETURN DISTINCT e, collect(g.uid) as goal_uids
+        ORDER BY size(collect(g.uid)) DESC
+        LIMIT $limit
+        """
+        params: dict[str, Any] = {"user_uid": user_uid, "limit": limit}
+        if goal_uid:
+            params["goal_uid"] = goal_uid
+        return await self.execute_query(query, params)
+
+    async def get_citation_export(
+        self,
+        node_uid: str,
+        node_label: str,
+        relationship_type: str,
+        depth: int,
+    ) -> Result[list[dict[str, Any]]]:
+        """Execute a citation/provenance export query."""
+        from adapters.persistence.neo4j.query._provenance_queries import ProvenanceQueries
+
+        query, params = ProvenanceQueries.build_citation_export_query(
+            node_uid=node_uid,
+            node_label=node_label,
+            relationship_type=relationship_type,
+            depth=depth,
+        )
+        return await self.execute_query(query, params)

@@ -369,18 +369,10 @@ class EventsEventHandlerService:
 
         Uses a lightweight query on event metadata to detect rescheduling frequency.
         """
-        query = """
-        MATCH (e:Entity {user_uid: $user_uid, entity_type: 'event'})
-        WHERE e.rescheduled_at IS NOT NULL
-          AND date(e.rescheduled_at) >= date() - duration('P30D')
-        RETURN count(e) as reschedule_count
-        """
-        result = await self.backend.execute_query(query, {"user_uid": user_uid})
-        if result.is_error or not result.value:
+        result = await self.backend.count_recent_reschedules(user_uid)
+        if result.is_error:
             return 0
-
-        row = result.value[0]
-        return row.get("reschedule_count", 0) if isinstance(row, dict) else 0
+        return result.value
 
     async def _count_events_in_week(self, user_uid: UserUID, event_date: date) -> int:
         """Count events for a user in the 7-day window around a date.
@@ -391,22 +383,9 @@ class EventsEventHandlerService:
         """
         start = event_date - timedelta(days=3)
         end = event_date + timedelta(days=3)
-
-        query = """
-        MATCH (e:Entity {user_uid: $user_uid, entity_type: 'event'})
-        WHERE e.event_date >= $start_date AND e.event_date <= $end_date
-        RETURN count(e) as event_count
-        """
-        result = await self.backend.execute_query(
-            query,
-            {
-                "user_uid": user_uid,
-                "start_date": start.isoformat(),
-                "end_date": end.isoformat(),
-            },
+        result = await self.backend.count_events_in_date_range(
+            user_uid, start.isoformat(), end.isoformat()
         )
-        if result.is_error or not result.value:
+        if result.is_error:
             return 0
-
-        row = result.value[0]
-        return row.get("event_count", 0) if isinstance(row, dict) else 0
+        return result.value

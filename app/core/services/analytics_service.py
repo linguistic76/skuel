@@ -75,6 +75,7 @@ class AnalyticsService:
         lp_service=None,
         report_dir: Path | None = None,
         event_bus=None,
+        cross_domain_backend=None,
     ) -> None:
         """
         Initialize analytics facade with all domain and curriculum services.
@@ -87,12 +88,13 @@ class AnalyticsService:
             finance_service: FinanceService facade (Layer 1)
             choices_service: ChoicesService facade (Layer 1)
             principle_service: PrinciplesService facade (Layer 1)
-            content_enrichment: ContentEnrichmentService (Layer 2) - for
+            content_enrichment: ContentEnrichmentService (Layer 2)
             user_service: UserService for getting UserContext (Layer 3 - for Life Path)
-            ku_service: PsService for knowledge substance scores (Layer 0 - for )
-            lp_service: LpService for Learning Path details (Layer 0 - for )
+            ku_service: PsService for knowledge substance scores (Layer 0)
+            lp_service: LpService for Learning Path details (Layer 0)
             report_dir: Directory for storing generated analytics
             event_bus: Event bus for automatic analytics generation
+            cross_domain_backend: CrossDomainBackend for cross-domain queries
         """
         self.event_bus = event_bus
         self.user_service = user_service
@@ -111,6 +113,8 @@ class AnalyticsService:
             # Layer 0: Curriculum services
             ku_service=ku_service,
             lp_service=lp_service,
+            # Cross-domain backend
+            cross_domain_backend=cross_domain_backend,
         )
 
         self.aggregation = AnalyticsAggregationService(metrics_service=self.metrics)

@@ -19,7 +19,6 @@ that traverses Interaction/Exercise/Report edges.
 from core.constants import QueryLimit
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityType
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports import BackendOperations
 from core.ports.query_types import PathStepSubmissionRow
@@ -76,29 +75,11 @@ class LearningLoopQueryService:
                 result set so a learner with hundreds of submissions on one
                 PathStep can't unbounded-load the detail page.
         """
-        query = f"""
-        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(sub:Entity {{entity_type: $submission_type}})
-        MATCH (i:Entity:Interaction)-[:{RelationshipName.RECORDS.value}]->(sub)
-        MATCH (i)-[:{RelationshipName.INTERACTION_DURING.value}]->(ps:Entity {{uid: $ps_uid}})
-        OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
-        OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
-        RETURN sub.uid AS uid, sub.title AS title, sub.status AS status,
-               sub.created_at AS created_at,
-               ex.uid AS exercise_uid, ex.title AS exercise_title,
-               report.uid AS report_uid,
-               report.assessment_outcome AS report_outcome
-        ORDER BY sub.created_at DESC
-        LIMIT $limit
-        """
-
-        result = await self.backend.execute_query(
-            query,
-            {
-                "user_uid": user_uid,
-                "ps_uid": ps_uid,
-                "submission_type": EntityType.EXERCISE_SUBMISSION.value,
-                "limit": limit,
-            },
+        result = await self.backend.get_submissions_for_path_step(  # type: ignore[attr-defined]
+            user_uid=user_uid,
+            ps_uid=ps_uid,
+            submission_type=EntityType.EXERCISE_SUBMISSION.value,
+            limit=limit,
         )
         if result.is_error:
             return Result.fail(result)

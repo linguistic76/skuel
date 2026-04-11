@@ -131,18 +131,12 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         """
         from core.models.relationship_names import RelationshipName
 
-        safe_depth = max(1, min(max_depth, 10))
         rel_type = RelationshipName.DEPENDS_ON.value
-        query = f"""
-        MATCH (root:Entity {{uid: $task_uid}})-[:{rel_type}*1..{safe_depth}]->(dep:Entity)
-        WHERE dep.uid <> $task_uid
-        RETURN DISTINCT dep.uid AS uid
-        """
-        result = await self.backend.execute_query(query, {"task_uid": task_uid})
+        result = await self.backend.get_transitive_dependencies(task_uid, rel_type, max_depth)
         if result.is_error:
             self.logger.warning(f"Transitive dependency query failed: {result.error}")
             return []
-        return [record["uid"] for record in result.value]
+        return result.value
 
     @with_error_handling(
         "get_task_dependencies_for_user", error_type="database", uid_param="task_uid"

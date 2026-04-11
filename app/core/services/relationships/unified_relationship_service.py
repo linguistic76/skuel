@@ -47,7 +47,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.models.protocols import DomainModelProtocol
-from core.models.relationship_names import RelationshipName
 from core.models.relationship_registry import DomainRelationshipConfig
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
@@ -723,30 +722,15 @@ class UnifiedRelationshipService[Ops: BackendOperations, Model: DomainModelProto
         """
         domain_name = self.config.domain.value.rstrip("s")
         user_uid = context.user_uid
-
-        # Build query based on domain's goal relationships
-        goal_rels = [
-            RelationshipName.FULFILLS_GOAL.value,
-            RelationshipName.SUPPORTS_GOAL.value,
-            RelationshipName.CONTRIBUTES_TO_GOAL.value,
-        ]
-        rel_pattern = "|".join(goal_rels)
-
         entity_label = self.config.entity_label
-        query = f"""
-        MATCH (u:User {{uid: $user_uid}})-[:HAS_{domain_name.upper()}]->(e:{entity_label})
-        MATCH (e)-[:{rel_pattern}]->(g:Goal)
-        {"WHERE g.uid = $goal_uid" if goal_uid else ""}
-        RETURN DISTINCT e, collect(g.uid) as goal_uids
-        ORDER BY size(collect(g.uid)) DESC
-        LIMIT $limit
-        """
 
-        params: dict[str, Any] = {"user_uid": user_uid, "limit": limit}
-        if goal_uid:
-            params["goal_uid"] = goal_uid
-
-        result = await self.backend.execute_query(query, params)
+        result = await self.backend.get_goal_aligned_entities(
+            user_uid=user_uid,
+            domain_name=domain_name,
+            entity_label=entity_label,
+            goal_uid=goal_uid,
+            limit=limit,
+        )
 
         if result.is_error:
             return Result.fail(result)

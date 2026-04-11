@@ -48,6 +48,7 @@ from adapters.persistence.neo4j._lp_step_mixin import _LpStepMixin
 from adapters.persistence.neo4j._organizes_mixin import _OrganizesMixin
 from adapters.persistence.neo4j._semantic_mixin import _SemanticMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.infrastructure.batch.batch_cypher_builder import BatchCypherBuilder
 from core.models.choice.choice import Choice
 from core.models.entity import Entity
 from core.models.enums import UserRole
@@ -912,6 +913,21 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
             }
         )
 
+    async def get_transitive_dependencies(
+        self, task_uid: str, rel_type: str, max_depth: int
+    ) -> Result[list[str]]:
+        """Get transitive dependency UIDs via variable-length path traversal."""
+        safe_depth = max(1, min(max_depth, 10))
+        query = f"""
+        MATCH (root:Entity {{uid: $task_uid}})-[:{rel_type}*1..{safe_depth}]->(dep:Entity)
+        WHERE dep.uid <> $task_uid
+        RETURN DISTINCT dep.uid AS uid
+        """
+        result = await self.execute_query(query, {"task_uid": task_uid})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([record["uid"] for record in result.value])
+
 
 class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
     """
@@ -1129,6 +1145,37 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
                 "today": record.get("today", 0),
             }
         )
+
+    async def count_recent_reschedules(self, user_uid: UserUID) -> Result[int]:
+        """Count events rescheduled in last 30 days."""
+        query = """
+        MATCH (e:Entity {user_uid: $user_uid, entity_type: 'event'})
+        WHERE e.rescheduled_at IS NOT NULL
+          AND date(e.rescheduled_at) >= date() - duration('P30D')
+        RETURN count(e) as reschedule_count
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        row = result.value[0] if result.value else {}
+        return Result.ok(row.get("reschedule_count", 0) if isinstance(row, dict) else 0)
+
+    async def count_events_in_date_range(
+        self, user_uid: UserUID, start_date: str, end_date: str
+    ) -> Result[int]:
+        """Count events in a date range."""
+        query = """
+        MATCH (e:Entity {user_uid: $user_uid, entity_type: 'event'})
+        WHERE e.event_date >= $start_date AND e.event_date <= $end_date
+        RETURN count(e) as event_count
+        """
+        result = await self.execute_query(
+            query, {"user_uid": user_uid, "start_date": start_date, "end_date": end_date}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        row = result.value[0] if result.value else {}
+        return Result.ok(row.get("event_count", 0) if isinstance(row, dict) else 0)
 
 
 class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
@@ -1516,6 +1563,30 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
     ) -> Result[bool]:
         """Create User→Principle OWNS relationship in the graph."""
         return await self.create_user_relationship(user_uid, principle_uid)
+
+    async def get_choice_influence_stats(
+        self, principle_uid: str, user_uid: UserUID, period_days: int
+    ) -> Result[Neo4jProperties]:
+        """Get stats on how a principle has influenced choices."""
+        query = f"""
+        MATCH (p:Principle {{uid: $principle_uid}})-[:{RelationshipName.GUIDES_CHOICE.value}]->(c:Choice)
+        WHERE c.user_uid = $user_uid
+          AND c.created_at >= datetime() - duration({{days: $period_days}})
+
+        RETURN
+            count(c) AS total_choices,
+            avg(c.satisfaction_score) AS avg_satisfaction,
+            sum(CASE WHEN c.satisfaction_score >= 4 THEN 1 ELSE 0 END) AS positive_outcomes
+        """
+        result = await self.execute_query(
+            query,
+            {"principle_uid": principle_uid, "user_uid": user_uid, "period_days": period_days},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok({})
+        return Result.ok(dict(result.value[0]))
 
 
 class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
@@ -2679,6 +2750,61 @@ class SubmissionsBackend(UniversalNeo4jBackend[Submission]):
         """
         return await self.execute_query(query)
 
+    async def get_submissions_for_path_step(
+        self,
+        user_uid: UserUID,
+        ps_uid: str,
+        submission_type: str,
+        limit: int,
+    ) -> Result[list[Neo4jProperties]]:
+        """Get submissions for a path step via Interaction edges."""
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(sub:Entity {{entity_type: $submission_type}})
+        MATCH (i:Entity:Interaction)-[:{RelationshipName.RECORDS.value}]->(sub)
+        MATCH (i)-[:{RelationshipName.INTERACTION_DURING.value}]->(ps:Entity {{uid: $ps_uid}})
+        OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
+        OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
+        RETURN sub.uid AS uid, sub.title AS title, sub.status AS status,
+               sub.created_at AS created_at,
+               ex.uid AS exercise_uid, ex.title AS exercise_title,
+               report.uid AS report_uid,
+               report.assessment_outcome AS report_outcome
+        ORDER BY sub.created_at DESC
+        LIMIT $limit
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "ps_uid": ps_uid,
+                "submission_type": submission_type,
+                "limit": limit,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([dict(record) for record in result.value])
+
+    async def create_goal_support_relationships(
+        self, submission_uid: str, goal_uids: list[str]
+    ) -> Result[int]:
+        """Batch-create SUPPORTS_GOAL relationships from a submission to goals."""
+        if not goal_uids:
+            return Result.ok(0)
+        relationships = [
+            (submission_uid, goal_uid, RelationshipName.SUPPORTS_GOAL.value, None)
+            for goal_uid in goal_uids
+        ]
+        queries = BatchCypherBuilder.build_relationship_create_queries(relationships)
+        total_created = 0
+        for query, rels_data in queries:
+            result = await self.execute_query(query, {"rels": rels_data})
+            if result.is_error:
+                continue
+            records = result.value or []
+            total_created += records[0]["created_count"] if records else 0
+        return Result.ok(total_created)
+
 
 class KuBackend(UniversalNeo4jBackend[Ku]):
     """Domain backend for atomic Knowledge Unit entities.
@@ -3041,6 +3167,23 @@ class PsBackend(
     - ``_KnowledgeContextMixin`` — context, discovery, readiness (13 methods)
     - ``_AdaptiveMixin`` — practice, search, adaptive mastery tracking (10 methods)
     """
+
+    # ========================================================================
+    # STEP SEQUENCE (for attach_step_to_path)
+    # ========================================================================
+
+    async def get_next_step_sequence(self, path_uid: str) -> Result[int]:
+        """Get the next available sequence number for a path's steps."""
+        query = """
+        MATCH (p:Entity {uid: $path_uid})-[r:HAS_STEP]->()
+        RETURN coalesce(max(r.sequence), -1) + 1 as next_sequence
+        """
+        result = await self.execute_query(query, {"path_uid": path_uid})
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok(0)
+        return Result.ok(result.value[0].get("next_sequence", 0))
 
     # ========================================================================
     # KNOWLEDGE RELATIONSHIP CRUD (CONTAINS_KNOWLEDGE edges)

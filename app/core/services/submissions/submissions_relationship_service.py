@@ -16,7 +16,6 @@ Relationships Created:
 from typing import TYPE_CHECKING, Any
 
 from core.models.entity_types import SubmissionEntity
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -185,8 +184,6 @@ class SubmissionsRelationshipService:
         Returns:
             Count of relationships created
         """
-        from core.infrastructure.batch import BatchCypherBuilder
-
         content_lower = processed_content.lower()
         mentioned_goal_uids = []
 
@@ -198,22 +195,10 @@ class SubmissionsRelationshipService:
         if not mentioned_goal_uids:
             return 0
 
-        relationships = [
-            (submission_uid, goal_uid, RelationshipName.SUPPORTS_GOAL.value, None)
-            for goal_uid in mentioned_goal_uids
-        ]
-
-        queries = BatchCypherBuilder.build_relationship_create_queries(relationships)
-
-        total_created = 0
-        for query, rels_data in queries:
-            result = await self.backend.execute_query(query, {"rels": rels_data})
-            if result.is_error:
-                continue
-            records = result.value or []
-            total_created += records[0]["created_count"] if records else 0
-
-        return total_created
+        result = await self.backend.create_goal_support_relationships(  # type: ignore[attr-defined]
+            submission_uid, mentioned_goal_uids
+        )
+        return result.value if result.is_ok else 0
 
     # ========================================================================
     # RELATIONSHIP QUERIES

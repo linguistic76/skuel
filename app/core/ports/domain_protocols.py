@@ -302,6 +302,12 @@ class TasksOperations(
         """Calculate weighted subtask completion percentage."""
         ...
 
+    async def get_transitive_dependencies(
+        self, task_uid: str, rel_type: str, max_depth: int
+    ) -> Result[builtins.list[str]]:
+        """Get transitive dependency UIDs via variable-length path traversal."""
+        ...
+
 
 @runtime_checkable
 class EventsOperations(
@@ -415,6 +421,16 @@ class EventsOperations(
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[EventStats]:
         """Count event stats: total, scheduled, today."""
+        ...
+
+    async def count_recent_reschedules(self, user_uid: UserUID) -> Result[int]:
+        """Count events rescheduled in last 30 days."""
+        ...
+
+    async def count_events_in_date_range(
+        self, user_uid: UserUID, start_date: str, end_date: str
+    ) -> Result[int]:
+        """Count events in a date range."""
         ...
 
 
@@ -1087,6 +1103,12 @@ class PrinciplesOperations(
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[PrincipleStats]:
         """Count principle stats: total, core, active."""
+        ...
+
+    async def get_choice_influence_stats(
+        self, principle_uid: str, user_uid: UserUID, period_days: int
+    ) -> Result[Neo4jProperties]:
+        """Get stats on how a principle has influenced choices."""
         ...
 
 

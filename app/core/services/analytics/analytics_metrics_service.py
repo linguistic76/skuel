@@ -86,6 +86,7 @@ class AnalyticsMetricsService:
         content_enrichment=None,
         ku_service=None,
         lp_service=None,
+        cross_domain_backend=None,
     ) -> None:
         """
         Initialize with domain and layer services.
@@ -101,6 +102,7 @@ class AnalyticsMetricsService:
             content_enrichment: ContentEnrichmentService (Layer 2)
             ku_service: PsService for knowledge metrics (Layer 0)
             lp_service: LpService for curriculum metrics (Layer 0)
+            cross_domain_backend: CrossDomainBackend for cross-domain queries
         """
         # Layer 1 domain services
         self.tasks = tasks_service
@@ -117,6 +119,9 @@ class AnalyticsMetricsService:
         # Layer 0 curriculum services
         self.ku_service = ku_service
         self.lp_service = lp_service
+
+        # Cross-domain backend for analytics queries
+        self.cross_domain_backend = cross_domain_backend
 
     # ========================================================================
     # TASKS METRICS
@@ -1098,34 +1103,19 @@ class AnalyticsMetricsService:
         """
         from datetime import datetime
 
-        # Access the driver through content_enrichment's backend
-        if not self.content_enrichment or not self.content_enrichment.backend:
+        # Use cross_domain_backend for journal queries
+        if not self.cross_domain_backend:
             return []
 
         # Convert dates to datetime for Neo4j comparison
         start_datetime = datetime.combine(start_date, datetime.min.time())
         end_datetime = datetime.combine(end_date, datetime.max.time())
 
-        # Updated March 2026: Query :JeInput nodes (JournalSubmission → JeInput rename)
-        cypher = """
-        MATCH (j:JeInput {user_uid: $user_uid})
-        WHERE j.created_at >= datetime($start_datetime)
-          AND j.created_at <= datetime($end_datetime)
-        RETURN j.uid as uid,
-               j.content as processed_content,
-               {title: j.title, summary: j.summary, themes: j.key_topics} as metadata,
-               j.created_at as created_at
-        ORDER BY j.created_at DESC
-        """
-
         try:
-            result = await self.content_enrichment.backend.execute_query(
-                cypher,
-                {
-                    "user_uid": user_uid,
-                    "start_datetime": start_datetime.isoformat(),
-                    "end_datetime": end_datetime.isoformat(),
-                },
+            result = await self.cross_domain_backend.get_journal_entries_in_range(
+                user_uid=user_uid,
+                start_datetime=start_datetime.isoformat(),
+                end_datetime=end_datetime.isoformat(),
             )
             if result.is_error:
                 logger.warning(f"Failed to query journal assignments: {result.error}")
