@@ -245,6 +245,7 @@ async def ingestion_service(neo4j_driver):
 @pytest_asyncio.fixture
 async def user_service(neo4j_driver):
     """Create UserService for user-entity tracking tests."""
+    from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from adapters.persistence.neo4j.user_backend import UserBackend
     from core.services.user_service import UserService
@@ -257,6 +258,10 @@ async def user_service(neo4j_driver):
     # a QueryExecutor (not a raw AsyncDriver). Mirror the production pattern.
     query_executor = Neo4jQueryExecutor(neo4j_driver)
     service = UserService(user_repo=user_backend, driver=query_executor)
+
+    # Wire the cross-domain backend so the stats aggregator (used by
+    # get_profile_hub_data) is initialized — mirrors services_bootstrap.
+    service.wire_cross_domain_backend(CrossDomainBackend(query_executor))
 
     yield service
 

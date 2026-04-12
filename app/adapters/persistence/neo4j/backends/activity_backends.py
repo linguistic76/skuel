@@ -421,7 +421,6 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
     - get_goal(uid)          → not matched by get_*_by_uid pattern
     - list_by_user(uid, limit) → not matched by list_*s pattern
     - get_user_goals(uid)    → delegates to list_by_user()
-    - add_milestone(...)     → graph MERGE operation
     - get_stats_for_user(uid) → goal count stats (total/active/completed)
     - link_goal_to_habit    → Cypher MERGE
     - link_goal_to_knowledge → Cypher MERGE
@@ -458,30 +457,6 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             return Result.fail(page_result)
         goals, _ = page_result.value
         return Result.ok(goals)
-
-    async def add_milestone(self, goal_id: str, milestone: dict[str, Any]) -> Result[bool]:
-        """
-        Add a milestone to a goal.
-        Creates: (Goal)-[:HAS_MILESTONE]->(Milestone)
-        """
-        query = """
-        MATCH (g:Goal {uid: $goal_id})
-        MERGE (m:Milestone {uid: $milestone_uid})
-        SET m += $milestone_props
-        MERGE (g)-[r:HAS_MILESTONE]->(m)
-        RETURN r
-        """
-        milestone_uid = milestone.get("uid") or f"milestone_{goal_id}_{len(milestone)}"
-        params = {
-            "goal_id": goal_id,
-            "milestone_uid": milestone_uid,
-            "milestone_props": milestone,
-        }
-        result = await self.execute_query(query, params)
-        if result.is_error:
-            return Result.fail(result)
-        self.logger.info(f"Added milestone to Goal:{goal_id}")
-        return Result.ok(True)
 
     async def create_user_goal_relationship(self, user_uid: UserUID, goal_uid: str) -> Result[bool]:
         """Create User→Goal OWNS relationship in the graph."""

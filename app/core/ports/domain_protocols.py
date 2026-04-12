@@ -831,10 +831,6 @@ class GoalsOperations(
         """DETACH DELETE a goal. Returns Result[bool]."""
         ...
 
-    async def add_milestone(self, goal_id: str, milestone: Metadata) -> Result[bool]:
-        """Add a milestone to a goal. Returns Result[bool]."""
-        ...
-
     async def get_goal(self, goal_id: str) -> Result[Goal]:
         """Get a goal by ID. Not found is an error."""
         ...

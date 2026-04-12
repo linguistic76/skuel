@@ -793,10 +793,13 @@ def build_goal_with_context(
     include_subgoals: bool = True,
     include_knowledge: bool = True,
     include_principles: bool = True,
-    include_milestones: bool = True,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for Goal entity with full graph context.
+
+    Note: milestones are stored as an embedded tuple on Goal
+    (`Goal.milestones: tuple[Milestone, ...]`), not as graph nodes — they
+    are not traversed by this query.
 
     Args:
         include_tasks: Include contributing tasks (default True)
@@ -804,7 +807,6 @@ def build_goal_with_context(
         include_subgoals: Include sub-goals (default True)
         include_knowledge: Include required knowledge (default True)
         include_principles: Include aligned principles (default True)
-        include_milestones: Include milestone progress (default True)
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -864,17 +866,6 @@ def build_goal_with_context(
                 "alias": "aligned_principles",
                 "direction": "outgoing",
                 "fields": ["uid", "title"],
-            }
-        )
-
-    if include_milestones:
-        relationships.append(
-            {
-                "rel_types": "HAS_MILESTONE",
-                "target_label": "Milestone",
-                "alias": "milestones",
-                "direction": "outgoing",
-                "fields": ["uid", "title", "is_completed", "target_date", "order"],
             }
         )
 

@@ -12,8 +12,6 @@ Responsibilities:
   RelationshipRegistry (GOAPS_CONFIG). Shared-neighbor pattern for
   related_goals is now defined in the registry.
   See: /core/models/relationship_registry.py
-- v2.2.0 (2025-11-28): Milestones as graph nodes.
-  Milestones are now stored as separate Milestone nodes connected via HAS_MILESTONE edge.
 - v2.1.0 (2025-11-28): Eliminated APOC dependency.
 - v2.0.0 (2025-11-05): Initial facade pattern implementation
 """

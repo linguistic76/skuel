@@ -84,7 +84,7 @@ def build_context_query_for_intent(intent: Any, depth: int) -> str:
         OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
         WHERE any(r in relationships(path) WHERE type(r) IN [
             'FULFILLS_GOAL', 'SUPPORTS_GOAL', 'REQUIRES_KNOWLEDGE',
-            'SUBGOAL_OF', 'HAS_MILESTONE', 'GUIDED_BY_PRINCIPLE',
+            'SUBGOAL_OF', 'GUIDED_BY_PRINCIPLE',
             'CONTRIBUTES_TO_GOAL'
         ])
         WITH origin, collect(DISTINCT related) as nodes,

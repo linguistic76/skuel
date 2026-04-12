@@ -743,20 +743,10 @@ GOAPS_CONFIG = DomainRelationshipConfig(
             "fulfilling_tasks",
             fields=("uid", "title", "status", "priority"),  # Context: include status/priority
         ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.HAS_MILESTONE,
-            "Milestone",  # Target is Milestone, not Goal
-            "outgoing",
-            "milestones",
-            "milestones",
-            fields=(
-                "uid",
-                "title",
-                "is_completed",
-                "target_date",
-                "order",
-            ),  # Context: milestone fields
-        ),
+        # NOTE: Milestones are stored as an embedded tuple on the Goal model
+        # (`Goal.milestones: tuple[Milestone, ...]`), not as graph nodes. There
+        # is no :Milestone label and no HAS_MILESTONE traversal in the context
+        # query — milestone progress is derived from the loaded Goal directly.
         UnifiedRelationshipDefinition(
             RelationshipName.GUIDES_GOAL,
             "Principle",
@@ -844,14 +834,8 @@ GOAPS_CONFIG = DomainRelationshipConfig(
         "achievement": QueryIntent.GOAL_ACHIEVEMENT,
         "impact": QueryIntent.HIERARCHICAL,
     },
-    # Post-query processors for calculated fields
-    post_processors=(
-        PostProcessor(
-            source_field="milestones",
-            target_field="milestone_progress",
-            processor_name="calculate_milestone_progress",
-        ),
-    ),
+    # No post-processors: milestone_progress is computed from the embedded
+    # Goal.milestones tuple when needed, not from graph_context.
 )
 
 # -----------------------------------------------------------------------------
