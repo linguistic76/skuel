@@ -27,7 +27,11 @@ The architecture is **100% dynamic** for model-to-adapter connections. The intro
 adapters/persistence/neo4j/
     universal_backend.py          # ~527 lines (shell: __init__, helpers)
     _crud_mixin.py                # CrudOperations[T]
-    _search_mixin.py              # EntitySearchOperations[T]
+    _search_mixin.py              # EntitySearchOperations[T] — find_by_date_range, search, find_by, count, health_check, get_domain_context_raw, execute_query
+    _search_raw_mixin.py          # _SearchRawMixin — text_search_raw, relationship_traversal_raw, graph_aware_search_raw, array ops, distinct_values_raw, faceted_search_raw
+    _temporal_mixin.py            # _TemporalMixin — user_activity_range_raw, due_soon_raw, overdue_raw
+    _prereq_progress_mixin.py     # _PrereqProgressMixin — prerequisite_traversal_raw, hierarchy_query_raw, user_progress_raw, update_user_mastery_rel, user_curriculum_raw
+    _context_query_mixin.py       # _ContextQueryMixin — context_query_raw, basic_context_query_raw
     _relationship_query_mixin.py  # RelationshipQuery + EdgeMetadata + fluent API
     _relationship_crud_mixin.py   # RelationshipCrud + validation helpers
     _user_entity_mixin.py         # Generic user-entity ops (5 methods)
@@ -42,6 +46,11 @@ adapters/persistence/neo4j/
     _lp_step_mixin.py             # _LpStepMixin — LP step management CRUD + path CRUD (14 methods)
     _lp_progress_mixin.py         # _LpProgressMixin — KU mastery progress + search queries (6 methods)
     _lp_intelligence_mixin.py     # _LpIntelligenceMixin — intelligence + adaptive learning (8 methods)
+    _submission_crud_mixin.py     # _SubmissionCrudMixin — ambient submission CRUD + teacher feedback state
+    _submission_lifecycle_mixin.py # _SubmissionLifecycleMixin — exercise processing, temporal/thematic relationships
+    _submission_assessment_mixin.py # _SubmissionAssessmentMixin — assessments + teacher review operations
+    _submission_report_query_mixin.py # _SubmissionReportQueryMixin — report relationship queries, learning loop chains
+    _submission_content_mixin.py  # _SubmissionContentMixin — journal processing context + exercise-instruction enrichment
     domain_backends.py            # 27 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
                                   #   ChoicesBackend, PrinciplesBackend, KuBackend, PsBackend,
                                   #   LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend,
@@ -57,6 +66,10 @@ adapters/persistence/neo4j/
 class UniversalNeo4jBackend[T: DomainModelProtocol](
     _CrudMixin[T],
     _SearchMixin[T],
+    _SearchRawMixin[T],
+    _TemporalMixin[T],
+    _PrereqProgressMixin[T],
+    _ContextQueryMixin[T],
     _RelationshipQueryMixin[T],
     _RelationshipCrudMixin[T],
     _UserEntityMixin[T],
@@ -64,7 +77,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 ):
 ```
 
-**Security (March 2026):** All 6 mixin files validate interpolated values before Cypher string building. `_relationship_crud_mixin.py` validates relationship types in `_build_direction_pattern()` — the single choke point for all relationship pattern Cypher. `_traversal_mixin.py` validates pipe-separated relationship patterns in `traverse()` and `find_path()`. `_search_mixin.py` and `_user_entity_mixin.py` validate field names via `validate_field_name()` with safe-default fallback. Validators live in `core/utils/validation_helpers.py` and `crud_queries.py`.
+**Security (March 2026):** All base mixin files validate interpolated values before Cypher string building. `_relationship_crud_mixin.py` validates relationship types in `_build_direction_pattern()` — the single choke point for all relationship pattern Cypher. `_traversal_mixin.py` validates pipe-separated relationship patterns in `traverse()` and `find_path()`. `_search_mixin.py` and `_user_entity_mixin.py` validate field names via `validate_field_name()` with safe-default fallback. Validators live in `core/utils/validation_helpers.py` and `crud_queries.py`.
 
 **Cross-mixin dependencies** use `TYPE_CHECKING` stubs (zero runtime cost, MyPy-verified).
 

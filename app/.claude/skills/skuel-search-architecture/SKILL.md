@@ -36,10 +36,10 @@ SearchRouter (THE Orchestrator):
 | **Routes** | `/adapters/inbound/search_routes.py` | HTTP handling |
 | **Domain Services** | `/core/services/{domain}/{domain}_search_service.py` | Domain logic |
 | **Domain Backends** | `/adapters/persistence/neo4j/domain_backends.py` | Domain-specific relationship Cypher |
-| **Universal Backend** | `/adapters/persistence/neo4j/universal_backend.py` | Shell (~527 lines); methods in 6 mixin files |
-| **Backend Mixins** | `_crud_mixin.py`, `_search_mixin.py`, `_relationship_query_mixin.py`, `_relationship_crud_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py` | One file per protocol group |
+| **Universal Backend** | `/adapters/persistence/neo4j/universal_backend.py` | Shell; methods in 10 mixin files |
+| **Backend Mixins** | `_crud_mixin.py`, `_search_mixin.py`, `_search_raw_mixin.py`, `_temporal_mixin.py`, `_prereq_progress_mixin.py`, `_context_query_mixin.py`, `_relationship_query_mixin.py`, `_relationship_crud_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py` | One file per protocol group |
 
-**Backend structure (March 2026):** `universal_backend.py` is a shell; all persistence operations live in 6 focused mixin files. `_relationship_mixin.py` was split into `_relationship_query_mixin.py` (graph-native queries, `relate()` fluent API, edge metadata) and `_relationship_crud_mixin.py` (create/delete/validate, `has_relationship`, batch ops). Public API unchanged.
+**Backend structure (April 2026):** `universal_backend.py` is a shell; all persistence operations live in 10 focused mixin files. The March split of `_relationship_mixin.py` into `_relationship_query_mixin.py` + `_relationship_crud_mixin.py` was followed by the April split of the oversized `_search_mixin.py` (~1,233 lines) along section markers: core `EntitySearchOperations[T]` stayed in `_search_mixin.py` (find_by, search, count, health_check, execute_query), while raw search primitives moved to `_search_raw_mixin.py`, temporal queries to `_temporal_mixin.py`, prerequisite/progress queries to `_prereq_progress_mixin.py`, and registry-driven context queries to `_context_query_mixin.py`. Public API unchanged.
 
 ## Searchable Domains (12 — No MOC)
 
