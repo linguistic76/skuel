@@ -290,7 +290,7 @@ The original February 2026 decomposition created a single `_relationship_mixin.p
 | `/adapters/persistence/neo4j/_semantic_mixin.py` | `_SemanticMixin` — semantic relationships + graph analysis (11 methods) |
 | `/adapters/persistence/neo4j/_knowledge_context_mixin.py` | `_KnowledgeContextMixin` — context, discovery, readiness (13 methods) |
 | `/adapters/persistence/neo4j/_adaptive_mixin.py` | `_AdaptiveMixin` — practice, search, adaptive mastery (10 methods) |
-| `/adapters/persistence/neo4j/backends/` | 27 domain backend subclasses across 8 cluster files (`activity_backends.py`, `curriculum_backends.py`, `submissions_backend.py`, `sharing_backend.py`, `forms_backends.py`, `journal_backends.py`, `collab_backends.py`, `misc_backends.py`). Import directly from the cluster file, e.g. `from adapters.persistence.neo4j.backends.activity_backends import TasksBackend`. |
+| `/adapters/persistence/neo4j/backends/` | 27 domain backend subclasses across 9 cluster files (`activity_backends.py`, `curriculum_backends.py`, `exercise_backends.py`, `submissions_backend.py`, `sharing_backend.py`, `forms_backends.py`, `journal_backends.py`, `collab_backends.py`, `misc_backends.py`). Import directly from the cluster file, e.g. `from adapters.persistence.neo4j.backends.activity_backends import TasksBackend`. |
 | `/core/services/base_service.py` | BaseService using BackendOperations |
 | `/core/ports/domain_protocols.py` | Domain-specific protocols |
 

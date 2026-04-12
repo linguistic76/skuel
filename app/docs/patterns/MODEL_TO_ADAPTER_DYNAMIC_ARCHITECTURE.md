@@ -52,9 +52,9 @@ adapters/persistence/neo4j/
     _submission_report_query_mixin.py # _SubmissionReportQueryMixin — report relationship queries, learning loop chains
     _submission_content_mixin.py  # _SubmissionContentMixin — journal processing context + exercise-instruction enrichment
     backends/
-        __init__.py               # Re-exports every backend from its cluster file
         activity_backends.py      # HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend
-        curriculum_backends.py    # KuBackend, PsBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend
+        curriculum_backends.py    # KuBackend, PsBackend, LpBackend
+        exercise_backends.py      # ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend
         submissions_backend.py    # SubmissionsBackend (shell over 5 _submission_*_mixin files)
         sharing_backend.py        # SharingBackend
         forms_backends.py         # FormTemplateBackend, FormSubmissionBackend
@@ -148,7 +148,7 @@ Phase 5 completed the backend delegation refactor — ~46 inline Cypher queries 
 ```
 adapters/persistence/neo4j/
     _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 generic methods)
-    backends/                     # 8 cluster files holding the 27 domain subclasses (see "April 2026 Update" below)
+    backends/                     # 9 cluster files holding the 27 domain subclasses (see "April 2026 Update" below)
 ```
 
 ### March 25, 2026 Update: Report + Teacher Review Services Migrated (Phase 4)
@@ -288,14 +288,15 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 
 ### April 12, 2026 Update: domain_backends.py Split into backends/ Cluster Package (Phase 15)
 
-`domain_backends.py` (4892 lines, 27 classes) was split into 8 cluster files under `adapters/persistence/neo4j/backends/`, then the old module was deleted entirely. All call sites import directly from the cluster file — e.g. `from adapters.persistence.neo4j.backends.activity_backends import TasksBackend`.
+`domain_backends.py` (4892 lines, 27 classes) was split into 9 cluster files under `adapters/persistence/neo4j/backends/`, then the old module was deleted entirely. All call sites import directly from the cluster file — e.g. `from adapters.persistence.neo4j.backends.activity_backends import TasksBackend`.
 
 **New cluster files** (grouped by concern, not by source line order):
 
 | File | Classes |
 |---|---|
 | `backends/activity_backends.py` | HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend |
-| `backends/curriculum_backends.py` | KuBackend, PsBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend |
+| `backends/curriculum_backends.py` | KuBackend, PsBackend, LpBackend |
+| `backends/exercise_backends.py` | ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend |
 | `backends/submissions_backend.py` | SubmissionsBackend (shell over 5 `_submission_*_mixin` files) |
 | `backends/sharing_backend.py` | SharingBackend |
 | `backends/forms_backends.py` | FormTemplateBackend, FormSubmissionBackend |
@@ -305,7 +306,7 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 
 `backends/__init__.py` re-exports every class. The old `domain_backends.py` shim was deleted — all call sites import directly from the cluster file.
 
-**mypy override:** the existing `disable_error_code = ["misc"]` rule (for intentional MRO overrides from composed mixins) now applies to each of the 8 cluster modules.
+**mypy override:** the existing `disable_error_code = ["misc"]` rule (for intentional MRO overrides from composed mixins) now applies to each of the 9 cluster modules.
 
 **Behavioral change:** none. MRO verified for `SubmissionsBackend`, `PsBackend`, `LpBackend`. `./dev quality` passes; targeted backend tests (53) green; 3891 non-e2e tests pass with the only failures being pre-existing on HEAD.
 

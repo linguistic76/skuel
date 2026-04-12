@@ -583,9 +583,10 @@ await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_ui
 
 **4-Layer Architecture:** `*Operations protocol -> *Backend subclass -> *Service facade -> sub-services`
 
-**Domain Backends** (27 in the `backends/` cluster package):
+**Domain Backends** (27 classes across 9 cluster files under `backends/`):
 - `backends/activity_backends.py` — HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend
-- `backends/curriculum_backends.py` — KuBackend, PsBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend
+- `backends/curriculum_backends.py` — KuBackend, PsBackend, LpBackend
+- `backends/exercise_backends.py` — ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend
 - `backends/submissions_backend.py` — SubmissionsBackend (shell over 5 mixins)
 - `backends/sharing_backend.py` — SharingBackend
 - `backends/forms_backends.py` — FormTemplateBackend, FormSubmissionBackend

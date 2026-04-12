@@ -964,7 +964,7 @@ that never closes the loop.
 | `core/ports/report_protocols.py` | 7 | All report protocols incl. `TeacherReviewOperations`, `ReviewQueueOperations`, `ReportRelationshipOperations` — typed returns (`ReviewRequestResult`, `PendingReviewItem`, `GroupMemberProgress`) |
 | `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
-| `adapters/persistence/neo4j/backends/` | all | Domain-specific Cypher (8 cluster files) |
+| `adapters/persistence/neo4j/backends/` | all | Domain-specific Cypher (9 cluster files) |
 | `adapters/inbound/study_ui.py` | 2+3+4 | Student submit form, submissions list, feedback display |
 | `adapters/inbound/teaching_ui.py` | 4 | Students (default page), review queue (`/teaching/queue`), student detail with KU tab, groups |
 | `adapters/inbound/teaching_forms_ui.py` | — | Forms visibility: template list, per-template submissions, submission detail (teacher role) |
@@ -987,7 +987,7 @@ that never closes the loop.
     GET /lesson/{uid}/details renders full content   → adapters/inbound/lesson_ui.py
     (Learning state: NONE → VIEWED → IN_PROGRESS → MASTERED)
        ↓
-2. ExerciseBackend.link_to_curriculum()             → adapters/persistence/neo4j/backends/curriculum_backends.py
+2. ExerciseBackend.link_to_curriculum()             → adapters/persistence/neo4j/backends/exercise_backends.py
    Teacher links Exercise to Ku via REQUIRES_KNOWLEDGE
        ↓
 3. Student submits file

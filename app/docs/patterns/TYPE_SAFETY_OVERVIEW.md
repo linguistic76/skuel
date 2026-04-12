@@ -199,7 +199,7 @@ Per-module strictness overrides:
 | `core.services.*` | Gradual | 94 untyped defs remain — enable incrementally |
 | `core.ports.*` | `disallow_untyped_defs` | All protocol definitions must have type annotations |
 | `adapters.*` | Gradual | Framework boundaries; `RouteDecorator` protocol handles FastHTML |
-| `adapters.persistence.neo4j.backends.*` | Custom | `misc` suppressed for MRO mixin conflicts (all 8 cluster files) |
+| `adapters.persistence.neo4j.backends.*` | Custom | `misc` suppressed for MRO mixin conflicts (all 9 cluster files) |
 | `tests.*` | Lenient | Mocks and fixtures need flexibility |
 
 **Disabled error codes (global, 4 codes):**

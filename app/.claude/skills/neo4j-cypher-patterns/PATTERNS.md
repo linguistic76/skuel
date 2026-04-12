@@ -460,12 +460,13 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 | Generic hierarchy | `_HierarchyMixin` (shared by 6 Activity backends) | `get_children_raw()`, `create_hierarchy_relationship()` |
 | JSON property utilities | `core/utils/neo4j_mapper.py` | `parse_neo4j_json()`, `deserialize_json_fields()` |
 
-**27 domain backends** live in `adapters/persistence/neo4j/backends/` (8 cluster files). Import directly from the cluster file:
+**27 domain backends** live in `adapters/persistence/neo4j/backends/` (9 cluster files). Import directly from the cluster file:
 
 | Cluster file | Backends |
 |---|---|
 | `backends/activity_backends.py` | HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend |
-| `backends/curriculum_backends.py` | KuBackend, PsBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend |
+| `backends/curriculum_backends.py` | KuBackend, PsBackend, LpBackend |
+| `backends/exercise_backends.py` | ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend |
 | `backends/submissions_backend.py` | SubmissionsBackend (shell over 5 `_submission_*_mixin` files) |
 | `backends/sharing_backend.py` | SharingBackend |
 | `backends/forms_backends.py` | FormTemplateBackend, FormSubmissionBackend |

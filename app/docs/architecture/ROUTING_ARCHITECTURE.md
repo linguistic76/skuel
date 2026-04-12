@@ -76,7 +76,7 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
 │  Location: /adapters/persistence/neo4j/                            │
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────────┐ │
-│  │ backends/ (Data Access — 8 cluster files)             │ │
+│  │ backends/ (Data Access — 9 cluster files)             │ │
 │  │                                                               │ │
 │  │   class TasksBackend(                                        │ │
 │  │       UniversalNeo4jBackend[Task],                           │ │
@@ -123,7 +123,7 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
     │   ├── _relationship_crud_mixin.py   # RelationshipCrud + validation helpers
     │   ├── _user_entity_mixin.py         # Generic user-entity ops
     │   ├── _traversal_mixin.py           # GraphTraversalOperations
-    │   └── backends/                     # 27 domain subclasses split across 8 cluster files
+    │   └── backends/                     # 27 domain subclasses split across 9 cluster files
     │
     └── base_adapter.py               # Shared persistence logic
 
