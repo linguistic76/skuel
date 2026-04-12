@@ -170,7 +170,7 @@ Complex relationship Cypher that is domain-specific belongs on the domain backen
 | Backend | Domain-Specific Relationship Methods |
 |---------|--------------------------------------|
 | `TasksBackend` | Hierarchy via `_HierarchyMixin` (subtask ops) |
-| `GoalsBackend` | `add_milestone()`, hierarchy via `_HierarchyMixin` |
+| `GoalsBackend` | Hierarchy via `_HierarchyMixin` (subgoal ops) |
 | `KuBackend` | `organize()`, `unorganize()`, `reorder()`, `get_organized_children()`, `find_organizers()`, `list_root_organizers()`, `is_organizer()` |
 | `SubmissionsBackend` | `share_submission()`, `unshare_submission()`, `get_shared_with_users()`, `get_submissions_shared_with_me()`, `set_visibility()`, `check_access()`, `verify_shareable()` |
 | `LpBackend` | `get_paths_containing_ku()`, `get_ku_mastery_progress()` |

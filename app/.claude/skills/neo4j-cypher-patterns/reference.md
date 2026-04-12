@@ -70,8 +70,6 @@ Goal hierarchy, dependencies, and guidance.
 | `CONFLICTS_WITH_GOAL` | Goal | Goal | Goals conflict |
 | `INSPIRES_GOAL` | * | Goal | Something inspires this goal |
 | `CELEBRATED_BY_EVENT` | Goal | Event | Goal celebrated by event |
-| `HAS_MILESTONE` | Goal | Milestone | Goal has milestone |
-| `MILESTONE_OF` | Milestone | Goal | Milestone belongs to goal |
 | `ALIGNED_WITH_PATH` | Goal | LifePath | Goal aligned with life path |
 | `MOTIVATED_BY_GOAL` | * | Goal | Motivated by this goal |
 

@@ -48,7 +48,7 @@ Activity Domains use a read-focused UI — data enters via `/upload`, no CRUD fo
 
 ### Goals
 - Has `GoalTimeframe` enum (DAILY → MULTI_YEAR)
-- Supports milestones via `HAS_MILESTONE` relationship
+- Milestones stored as embedded `tuple[Milestone, ...]` on the Goal (not graph nodes)
 - Progress is 0.0-1.0 float
 
 ### Habits

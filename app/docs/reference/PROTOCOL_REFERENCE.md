@@ -337,7 +337,7 @@ class HabitsBackend(UniversalNeo4jBackend["Habit"]):
     """Adds get_habit, list_by_user, get_user_habits, archive_habit, link_habit_to_*"""
 
 class GoalsBackend(UniversalNeo4jBackend["Goal"]):
-    """Adds get_goal, get_user_goals, add_milestone, link_goal_to_*"""
+    """Adds get_goal, get_user_goals, link_goal_to_*"""
 ```
 
 Both are drop-in replacements — same constructor signature as `UniversalNeo4jBackend[T]`.

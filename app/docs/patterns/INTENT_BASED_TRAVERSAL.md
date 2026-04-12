@@ -132,7 +132,6 @@ Traces the complete achievement path for a goal:
 - `REQUIRES_KNOWLEDGE` (outgoing) - Knowledge prerequisites
 - `SUBGOAL_OF` (bidirectional) - Goal hierarchy
 - `GUIDED_BY_PRINCIPLE` (outgoing) - Guiding principles
-- `HAS_MILESTONE` (outgoing) - Milestone nodes
 
 ### PRINCIPLE_EMBODIMENT
 

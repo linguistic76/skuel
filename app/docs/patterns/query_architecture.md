@@ -618,23 +618,23 @@ Some computed fields cannot be efficiently calculated in Cypher (e.g., percentag
 ```
 Cypher Query → Raw Data → Post-Processor → Computed Field
     │              │            │               │
-    │              │            │               └─ graph_context["milestone_progress"]
-    │              │            └─ calculate_milestone_progress()
-    │              └─ graph_context["milestones"] = [{...}, {...}]
-    └─ OPTIONAL MATCH (g)-[:HAS_MILESTONE]->(m)
+    │              │            │               └─ graph_context["habit_summary"]
+    │              │            └─ calculate_habit_streak_summary()
+    │              └─ graph_context["contributing_habits"] = [{...}, {...}]
+    └─ OPTIONAL MATCH (g)<-[:SUPPORTS_GOAL]-(h)
 ```
 
 ### Configuration in Registry
 
 ```python
 # In relationship_registry.py
-GOAPS_CONFIG = DomainRelationshipConfig(
+HABITS_CONFIG = DomainRelationshipConfig(
     relationships=(...),
     post_processors=(
         PostProcessor(
-            source_field="milestones",           # Input from Cypher
-            target_field="milestone_progress",   # Output field
-            processor_name="calculate_milestone_progress",  # Function name
+            source_field="habits",               # Input from Cypher
+            target_field="habit_summary",        # Output field
+            processor_name="calculate_habit_streak_summary",  # Function name
         ),
     ),
 )
@@ -657,7 +657,6 @@ for processor in config.post_processors:
 
 | Processor | Input | Output | Use Case |
 |-----------|-------|--------|----------|
-| `calculate_milestone_progress` | `milestones[]` | `{total, completed, percentage}` | Goal progress |
 | `calculate_habit_streak_summary` | `habits[]` | `{total, active, total_streak_days, avg_streak}` | Habit analytics |
 | `calculate_task_status_summary` | `tasks[]` | `{total, completed, in_progress, pending, completion_percentage}` | Task breakdown |
 
@@ -680,7 +679,7 @@ All 6 Activity Domains now use intent-based graph traversal via `GraphIntelligen
 | Domain | Intent | Focus | Relationships Traversed |
 |--------|--------|-------|------------------------|
 | Tasks | PRACTICE | Task execution and dependencies | EXECUTES_TASK, REQUIRES_KNOWLEDGE, DEPENDS_ON |
-| Goals | GOAL_ACHIEVEMENT | Achievement path analysis | FULFILLS_GOAL, SUPPORTS_GOAL, SUBGOAL_OF, HAS_MILESTONE |
+| Goals | GOAL_ACHIEVEMENT | Achievement path analysis | FULFILLS_GOAL, SUPPORTS_GOAL, SUBGOAL_OF, GUIDED_BY_PRINCIPLE |
 | Principles | PRINCIPLE_EMBODIMENT | How principle is LIVED | GUIDED_BY_PRINCIPLE, INSPIRES_HABIT, GUIDES_GOAL |
 | Habits | PRACTICE | Practice patterns and streaks | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, PREREQUISITE_HABIT |
 | Choices | PRINCIPLE_ALIGNMENT | Principle-guided decisions | ALIGNED_WITH_PRINCIPLE, INFORMED_BY_KNOWLEDGE, SUPPORTS_GOAL |
@@ -757,7 +756,7 @@ elif intent_value == QueryIntent.GOAL_ACHIEVEMENT.value:
     OPTIONAL MATCH path = (origin)-[*0..{depth}]-(related)
     WHERE any(r in relationships(path) WHERE type(r) IN [
         'FULFILLS_GOAL', 'SUPPORTS_GOAL', 'REQUIRES_KNOWLEDGE',
-        'SUBGOAL_OF', 'HAS_MILESTONE', 'GUIDED_BY_PRINCIPLE'
+        'SUBGOAL_OF', 'GUIDED_BY_PRINCIPLE'
     ])
     ...
     """

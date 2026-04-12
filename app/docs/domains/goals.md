@@ -146,7 +146,6 @@ Also handles: recommendation generation (via `backend.get_achievement_context()`
 | `subgoals` | `SUBGOAL_OF` | Goal | Child goals |
 | `supporting_habits` | `SUPPORTS_GOAL` | Habit | Habits that support this goal |
 | `fulfilling_tasks` | `FULFILLS_GOAL` | Task | Tasks that fulfill this goal |
-| `milestones` | `HAS_MILESTONE` | Milestone | Goal milestones |
 | `essential_habits` | `SUPPORTS_GOAL` (essentiality=essential) | Habit | Essential habits |
 | `critical_habits` | `SUPPORTS_GOAL` (essentiality=critical) | Habit | Critical habits |
 | `optional_habits` | `SUPPORTS_GOAL` (essentiality=optional) | Habit | Optional habits |
