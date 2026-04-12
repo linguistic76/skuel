@@ -512,6 +512,9 @@ SubmissionsCoreService.__init__:  self.assessments = AssessmentService(...)
        │                     └─> Listeners:
        ▼                         - UserContextService (update stats)
    Neo4j UPDATE              - AnalyticsEngine (track mastery)
+                             - TaskEventHandlerService
+                                 (handle_task_completed →
+                                  step 4: _trigger_knowledge_generation)
 ```
 
 **Key Observations:**
