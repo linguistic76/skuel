@@ -372,7 +372,7 @@ class TeacherReviewService:
                 # Phase 1 params (ExerciseReport)
                 "report_uid": submission_uid,
                 "report_entity_uid": report_entity_uid,
-                "teacher_uid": teacher_uid,
+                "author_uid": teacher_uid,
                 "feedback": notes,
                 "report_file_path": None,
                 "title": f"Revision request: {submission_uid[:30]}",

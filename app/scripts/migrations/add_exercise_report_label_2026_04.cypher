@@ -7,7 +7,7 @@
 // The write-side fix lands the multi-label CREATE going forward. This migration
 // backfills any pre-fix rows. Idempotent — safe to run multiple times.
 //
-// Run manually against local Neo4j and the Droplet.
+// Run manually against local Neo4j.
 
 MATCH (r:Entity {entity_type: 'exercise_report'})
 WHERE NOT r:ExerciseReport

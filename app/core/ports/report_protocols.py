@@ -198,7 +198,11 @@ class ExerciseReportBackendOperations(Protocol):
     async def get_reports_by_teacher(
         self, teacher_uid: str, limit: int = 50
     ) -> "Result[list[ExerciseReport]]":
-        """All reports authored by a teacher, newest first."""
+        """All reports authored by a teacher, newest first.
+
+        Implicitly HUMAN-only: AI reports store the student as user_uid, so
+        passing a teacher UID can only return reports the teacher wrote.
+        """
         ...
 
     async def get_linked_ku_and_student(

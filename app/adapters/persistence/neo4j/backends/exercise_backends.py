@@ -790,7 +790,12 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
     ) -> Result[list[ExerciseReport]]:
         """All ExerciseReports authored by a teacher, newest first.
 
-        Uses user_uid field (denormalized on creation) for O(1) lookup.
+        Implicitly HUMAN-only: matches on ``user_uid`` (the report's author of
+        record). AI reports store the *student* as ``user_uid`` — see
+        ``create_report_node`` — so passing a teacher UID here can only return
+        reports the teacher actually wrote (processor_type=HUMAN). No explicit
+        processor_type filter is needed.
+
         Returns typed ExerciseReport instances.
         """
         cypher = """

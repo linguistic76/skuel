@@ -243,7 +243,7 @@ class _SubmissionAssessmentMixin:
 
         Params required:
             Phase 1 (ExerciseReport): report_uid (submission UID), report_entity_uid,
-                teacher_uid, feedback, report_file_path, title, entity_type,
+                author_uid, feedback, report_file_path, title, entity_type,
                 submission_status, completed_status, processor_type,
                 assessment_outcome, allowed_from_statuses, now
             Phase 2 (RevisedExercise): re_props (from to_neo4j_node), re_uid,
@@ -262,24 +262,24 @@ class _SubmissionAssessmentMixin:
             uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,
-            user_uid: $teacher_uid,
+            user_uid: $author_uid,
             status: $completed_status,
             processor_type: $processor_type,
             assessment_outcome: $assessment_outcome,
             content: $feedback,
             report_file_path: $report_file_path,
-            created_by: $teacher_uid,
+            created_by: $author_uid,
             created_at: datetime($now),
             updated_at: datetime($now)
         }})
 
         WITH submission, student, fb
-        MATCH (teacher:User {{uid: $teacher_uid}})
-        CREATE (teacher)-[:{RelationshipName.OWNS.value}]->(fb)
+        MATCH (author:User {{uid: $author_uid}})
+        CREATE (author)-[:{RelationshipName.OWNS.value}]->(fb)
         CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
         // Share report with student
-        WITH submission, student, fb, teacher
+        WITH submission, student, fb, author
         FOREACH (_ IN CASE WHEN student IS NOT NULL THEN [1] ELSE [] END |
             CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{
                 shared_at: datetime($now), role: 'student'
@@ -287,18 +287,18 @@ class _SubmissionAssessmentMixin:
         )
 
         // Phase 2: Count existing revisions for revision_number
-        WITH submission, student, fb, teacher
+        WITH submission, student, fb, author
         OPTIONAL MATCH (existing_re:Entity {{entity_type: 'revised_exercise'}})
                        -[:{RelationshipName.REVISES_EXERCISE.value}]->
                        (orig_ex:Entity {{uid: $original_exercise_uid, entity_type: 'exercise'}})
-        WITH submission, student, fb, teacher,
+        WITH submission, student, fb, author,
              count(existing_re) + 1 AS revision_number
 
         // Resolve expected_modality from original exercise
         OPTIONAL MATCH (orig_exercise:Entity {{uid: $original_exercise_uid, entity_type: 'exercise'}})
 
         // Create RevisedExercise node
-        WITH submission, student, fb, teacher, revision_number, orig_exercise
+        WITH submission, student, fb, author, revision_number, orig_exercise
         CREATE (re:Entity:RevisedExercise $re_props)
         SET re.uid = $re_uid,
             re.revision_number = revision_number,
@@ -310,7 +310,7 @@ class _SubmissionAssessmentMixin:
             re.updated_at = datetime($now)
 
         // RevisedExercise relationships
-        MERGE (teacher)-[:{RelationshipName.OWNS.value}]->(re)
+        MERGE (author)-[:{RelationshipName.OWNS.value}]->(re)
         MERGE (re)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
 
         WITH submission, student, fb, re, revision_number, orig_exercise
