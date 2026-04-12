@@ -133,7 +133,7 @@ https_only = True  # In production
 |--------|-----------|
 | WebSocket ingestion requires admin session | Was unauthenticated; closes with 4003 before `ws.accept()` |
 | GraphQL GET requires auth | Playground UI was accessible without login |
-| Cypher injection guards — labels + field names | `_validate_label()` (NeoLabel allowlist) and `_validate_identifier()` (regex) added to `build_distinct_values_query`, `build_hierarchy_query` in `crud_queries.py`; same guards plus `_validate_similarity()` added to all 5 DDL methods in `neo4j_schema_manager.py` |
+| Cypher injection guards — labels + field names | `validate_label()` and `validate_identifier()` promoted to shared `_helpers.py`, applied across all 5 query builder modules (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`) — 17 functions validate labels, field names, relationship types, and property keys before f-string interpolation; same guards plus `_validate_similarity()` added to all 5 DDL methods in `neo4j_schema_manager.py` |
 | IDOR fix — `GET /api/submissions/shared-users` | Ownership failure now returns 404 (not 403) — prevents UID enumeration; matches documented pattern |
 | Ownership bypass fix — `get_shared_users` | Route now fails fast with `Errors.system()` when `core_service` is absent instead of silently skipping ownership check |
 | Service name validation — `POST /api/services/register` | `service_name` validated against `^[a-zA-Z0-9_-]{1,64}$` pattern to prevent phantom service registration |

@@ -248,21 +248,21 @@ MATCH (t:Task {uid: '${uid}'})
 **Exception: labels, property names, and relationship types cannot be parameterized in Neo4j.** SKUEL validates all interpolated values at the infrastructure boundary:
 
 ```python
-# Labels — allowlist against NeoLabel enum
-from adapters.persistence.neo4j.query.cypher.crud_queries import _validate_label, _validate_identifier
-_validate_label(label)       # raises ValueError if not a known NeoLabel value
-_validate_identifier(field)  # raises ValueError if not a safe identifier
+# Shared guards in _helpers.py (used by all 5 query builder modules)
+from adapters.persistence.neo4j.query.cypher._helpers import validate_label, validate_identifier
+validate_label(label)             # raises ValueError if not a known NeoLabel value
+validate_identifier(field)        # raises ValueError if not a safe identifier (^[a-zA-Z_][a-zA-Z0-9_]*$)
 
-# Relationship types — validated in _build_direction_pattern() (single choke point)
+# Relationship types — also validated in _build_direction_pattern() (single choke point for mixin Cypher)
 # Uses validate_relationship_type() from core/utils/validation_helpers.py
-# Accepts RelationshipName enum values OR safe identifiers (^[a-zA-Z_][a-zA-Z0-9_]*$)
+# Accepts RelationshipName enum values OR safe identifiers
 
-# Field names — validated in _search_mixin.py, _user_entity_mixin.py, crud_queries.py
+# Field names — validated in _search_mixin.py, _user_entity_mixin.py, and all query builders
 from core.utils.validation_helpers import validate_field_name
 validate_field_name(name)    # regex check, max 64 chars
 ```
 
-**Coverage:** `_build_direction_pattern()` is the single choke point for all relationship Cypher patterns (`get_related_entities`, `get_related_uids`, `count_related`). `traverse()` and `find_path()` validate pipe-separated patterns. `build_relationship_traversal_query()` and `build_graph_aware_search_query()` validate before their own interpolation.
+**Coverage:** All 5 query builder modules (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`) validate labels, field names, relationship types, and property keys before f-string interpolation. `_build_direction_pattern()` is the single choke point for mixin-level relationship Cypher (`get_related_entities`, `get_related_uids`, `count_related`). `traverse()` and `find_path()` validate pipe-separated patterns.
 
 The same pattern applies to DDL (vector indexes, schema creation) — validate `label`, `field_name`, and `similarity` before building the query string. See `adapters/persistence/neo4j/neo4j_schema_manager.py` for the pattern.
 

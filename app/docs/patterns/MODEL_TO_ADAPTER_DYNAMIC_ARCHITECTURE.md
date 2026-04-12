@@ -301,11 +301,18 @@ Standardized all 33 domain backend methods across 8 backends to use `self.execut
 
 Hardened 3 backend methods against Cypher injection and migrated 17 inline Cypher queries from 5 service files to domain backends.
 
-**Security hardening (now in `_backend_helpers.py`):**
+**Security hardening (two layers):**
+
+*Backend mixins (`_backend_helpers.py`):*
 - `_validate_rel_name()` — rejects relationship names with non-`[A-Z0-9_]` characters
 - `_ALLOWED_ORDER_BY` — whitelist for `ORDER BY` field names (prevents injection via order_by parameter)
 - `find_connected_activities()` — `node_label` typed `NeoLabel`, `rel_types` typed `list[RelationshipName | str]`, `limit` parameterized as `$limit`
 - `delete_semantic_relationship()` / `query_relationships_by_type()` — `rel_name` validated, `direction` typed `Literal["outgoing", "incoming", "both"]`
+
+*Query builders (`_helpers.py` — shared by all 5 modules):*
+- `validate_label()` — checks against `NeoLabel` enum allowlist before label interpolation
+- `validate_identifier()` — regex `^[a-zA-Z_][a-zA-Z0-9_]*$` before field/relationship/property interpolation
+- Applied to 17 functions across `crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`
 
 **Service → Backend migrations:**
 

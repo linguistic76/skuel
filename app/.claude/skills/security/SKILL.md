@@ -42,19 +42,21 @@ Neo4j cannot parameterize labels, property names, or relationship types — thes
 
 | What | Validator | Location |
 |------|-----------|----------|
-| **Relationship types** | `validate_relationship_type()` | `_build_direction_pattern()` in `_relationship_crud_mixin.py` (single choke point for all relationship pattern building), `traverse()` and `find_path()` in `_traversal_mixin.py`, `build_relationship_traversal_query()` and `build_graph_aware_search_query()` in `crud_queries.py` |
-| **Neo4j labels** | `_validate_label()` | `crud_queries.py` — checks against `NeoLabel` enum allowlist |
-| **Field/property names** | `validate_field_name()` | `_search_mixin.py`, `_user_entity_mixin.py`, `crud_queries.py` — regex `^[a-zA-Z_][a-zA-Z0-9_]*$`, max 64 chars |
+| **Relationship types** | `validate_identifier()` + `validate_relationship_type()` | All 5 query builder modules via `_helpers.py`; `_build_direction_pattern()` in `_relationship_crud_mixin.py` (choke point for mixin Cypher); `traverse()` and `find_path()` in `_traversal_mixin.py` |
+| **Neo4j labels** | `validate_label()` | All 5 query builder modules via `_helpers.py` — checks against `NeoLabel` enum allowlist |
+| **Field/property names** | `validate_identifier()` + `validate_field_name()` | All 5 query builder modules via `_helpers.py` — regex `^[a-zA-Z_][a-zA-Z0-9_]*$`; `_search_mixin.py`, `_user_entity_mixin.py` via `validate_field_name()` (max 64 chars) |
 
 ```python
-from core.utils.validation_helpers import validate_relationship_type, validate_field_name
+# Shared guards — used by crud_queries, domain_queries, relationship_queries,
+# semantic_queries, intelligence_queries
+from adapters.persistence.neo4j.query.cypher._helpers import validate_label, validate_identifier
 
 # Infrastructure validates before interpolation — callers don't need to
 # _build_direction_pattern() rejects unsafe relationship types with Result.fail()
-# crud_queries validators raise ValueError for unsafe labels/fields
+# Query builder validators raise ValueError for unsafe labels/fields/relationship types
 ```
 
-**Validators:** `core/utils/validation_helpers.py` (relationship types, field names), `crud_queries.py` (`_validate_label`, `_validate_identifier`).
+**Validators:** `_helpers.py` (`validate_label`, `validate_identifier` — shared by all query builders), `core/utils/validation_helpers.py` (relationship types, field names), `_backend_helpers.py` (`_validate_rel_name`, `_ALLOWED_ORDER_BY`).
 
 **See:** SKUEL013 in `/docs/patterns/linter_rules.md` for the `RelationshipName` enum that makes most interpolation type-safe at the call site.
 

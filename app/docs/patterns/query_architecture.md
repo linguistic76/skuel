@@ -62,7 +62,7 @@ These are consumed by the query builders above, not alternative query paths:
 ├── confidence_filter.py   # Cypher clause helpers for confidence-based filtering
 ├── cypher_template.py     # Query optimization strategies
 ├── cypher/                # Cypher query generators (crud, semantic, domain, relationship, intelligence)
-│   └── _helpers.py        # Shared utilities (convert_value_for_neo4j, validate_dataclass)
+│   └── _helpers.py        # Shared utilities (validate_label, validate_identifier, convert_value_for_neo4j, validate_dataclass)
 ├── unified_query_builder.py  # UnifiedQueryBuilder — THE single entry point
 ├── __init__.py            # Clean public API
 └── README.md              # Usage documentation
