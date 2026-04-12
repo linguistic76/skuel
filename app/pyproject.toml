@@ -53,6 +53,10 @@ dependencies = [
     "prometheus-client>=0.21.0",
     "resend>=2.0.0",
     "huggingface-hub>=0.20.0",
+    # Firefly III REST client (ADR-051)
+    "httpx>=0.28.0",
+    # Stripe webhook signature verification (ADR-051)
+    "stripe>=11.0.0",
 ]
 
 [project.scripts]

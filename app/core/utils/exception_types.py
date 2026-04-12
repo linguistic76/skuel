@@ -92,6 +92,23 @@ LLM_EXCEPTIONS: tuple[type[BaseException], ...] = (*OPENAI_EXCEPTIONS, *ANTHROPI
 """All LLM provider exceptions (OpenAI + Anthropic). Map to Errors.integration()."""
 
 # ============================================================================
+# FIREFLY III HTTP CLIENT EXCEPTIONS
+# ============================================================================
+
+try:
+    import httpx
+
+    FIREFLY_EXCEPTIONS: tuple[type[BaseException], ...] = (
+        httpx.HTTPError,
+        httpx.TimeoutException,
+        httpx.NetworkError,
+        httpx.InvalidURL,
+    )
+except ImportError:
+    FIREFLY_EXCEPTIONS = ()
+"""httpx exceptions raised by the Firefly III REST client. Map to Errors.integration()."""
+
+# ============================================================================
 # FILE I/O EXCEPTIONS
 # ============================================================================
 
