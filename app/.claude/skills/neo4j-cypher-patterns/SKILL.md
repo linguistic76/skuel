@@ -163,11 +163,11 @@ SKUEL has two query builders for domain services (SKUEL001: no APOC in domain se
 ```
 Layer 1: UniversalNeo4jBackend (Generic CRUD)
 ├── Uses UnifiedQueryBuilder for generic operations
-└── Powers ALL 21 entity types with CRUD, search, relationships
+└── Powers ALL 22 entity types with CRUD, search, relationships
 
 Layer 2: Domain Backends (Domain-Specific Cypher)
 ├── 27 typed subclasses in domain_backends.py
-├── 5 standalone backends (VectorSearchBackend, IngestionBackend, JupyterSyncBackend, EmbeddingsBackend, KnowledgeDomainBackend)
+├── 13 standalone backends (CrossDomainBackend, UserBackend, UserProgressBackend, SessionBackend, InsightBackend, LifePathBackend, ZpdBackend, ZpdSnapshotBackend, VectorSearchBackend, IngestionBackend, JupyterSyncBackend, EmbeddingsBackend, KnowledgeDomainBackend)
 ├── Domain-specific relationship Cypher (ORGANIZES, SHARES_WITH, FULFILLS_EXERCISE, etc.)
 └── Rule: If a Cypher query uses domain-specific relationships, it belongs here
 

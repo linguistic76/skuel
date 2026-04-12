@@ -452,14 +452,14 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 | Generic CRUD | `UniversalNeo4jBackend` (via mixins) | `create()`, `get()`, `update()`, `delete()` |
 | Domain-specific relationships | Domain backend in `domain_backends.py` | `SubmissionsBackend.link_to_exercise()` |
 | Atomic multi-entity creation | Domain backend in `domain_backends.py` | `SubmissionsBackend.create_report_and_revised_exercise()` — single Cypher creates ExerciseReport + RevisedExercise + all relationships |
-| Lesson-specific Cypher | 5 Lesson mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
+| PS-specific Cypher | 5 PsBackend mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
 | Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY, `CrossDomainQueryService` (9 targeted reads → frozen typed dataclasses) |
-| Vector index calls | `neo4j_vector_search_service.py` (infrastructure, FULL tier only) | `db.index.vector.queryNodes()` |
+| Vector index calls | `VectorSearchBackend` in `vector_search_backend.py` (infrastructure, FULL tier only) | `db.index.vector.queryNodes()` |
 | Fulltext index creation | `neo4j_schema_manager.py` (bootstrap, always) | `sync_fulltext_indexes()` — 15 domains |
 | Query generation | `query_optimizer.py`, `query_template_registry.py` | Builds Cypher by design |
 | Generic hierarchy | `_HierarchyMixin` (shared by 6 Activity backends) | `get_children_raw()`, `create_hierarchy_relationship()` |
 | JSON property utilities | `core/utils/neo4j_mapper.py` | `parse_neo4j_json()`, `deserialize_json_fields()` |
 
-**19 domain backends** in `domain_backends.py`: TasksBackend, GoalsBackend, HabitsBackend, EventsBackend, PrinciplesBackend, ChoicesBackend, LessonBackend, KuBackend, PsBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, SubmissionsBackend, FormTemplateBackend, FormSubmissionBackend, ActivityReportBackend, LateralRelationshipBackend, GroupBackend, NotificationBackend.
+**27 domain backends** in `domain_backends.py`: TasksBackend, GoalsBackend, HabitsBackend, EventsBackend, PrinciplesBackend, ChoicesBackend, KuBackend, PsBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend, SubmissionsBackend, SharingBackend, FormTemplateBackend, FormSubmissionBackend, JournalInputBackend, JournalOutputBackend, GroupBackend, ActivityReportBackend, LateralRelationshipBackend, NotificationBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ReviewQueueBackend, ActivityReportGeneratorBackend.
 
 **See Also**: [SKILL.md](SKILL.md) for foundational concepts and RelationshipName enum reference.

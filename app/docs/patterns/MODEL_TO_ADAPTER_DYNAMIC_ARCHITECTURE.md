@@ -9,7 +9,7 @@ related_docs:
 
 # Model-to-Adapter Dynamic Architecture
 **Date:** October 3, 2025 (Updated: April 11, 2026)
-**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8, 11-12). `execute_query()` standardization complete (Phase 9). LessonBackend decomposed into 5 mixins (Phase 10). LpBackend decomposed into 3 mixins (Phase 12). 5 new standalone backends for infrastructure services (Phase 13). Fail-fast dependency philosophy enforced across all services.
+**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8, 11-14). `execute_query()` standardization complete (Phase 9). LessonBackend decomposed into 5 mixins (Phase 10). LpBackend decomposed into 3 mixins (Phase 12). 5 new standalone backends for infrastructure services (Phase 13). Final execute_query cleanup across 11 services (Phase 14). Fail-fast dependency philosophy enforced across all services.
 
 ## Executive Summary
 
@@ -43,10 +43,13 @@ adapters/persistence/neo4j/
     _lp_progress_mixin.py         # _LpProgressMixin — KU mastery progress + search queries (6 methods)
     _lp_intelligence_mixin.py     # _LpIntelligenceMixin — intelligence + adaptive learning (8 methods)
     domain_backends.py            # 27 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
-                                  #   ChoicesBackend, PrinciplesBackend, LessonBackend, KuBackend, PsBackend,
+                                  #   ChoicesBackend, PrinciplesBackend, KuBackend, PsBackend,
                                   #   LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend,
-                                  #   RevisedExerciseBackend, FormTemplateBackend, FormSubmissionBackend,
-                                  #   ActivityReportBackend, LateralRelationshipBackend, GroupBackend
+                                  #   RevisedExerciseBackend, ExerciseReportBackend, FormTemplateBackend,
+                                  #   FormSubmissionBackend, JournalInputBackend, JournalOutputBackend,
+                                  #   GroupBackend, ActivityReportBackend, LateralRelationshipBackend,
+                                  #   NotificationBackend, ResourceBackend, InteractionBackend,
+                                  #   ReportScheduleBackend, ReviewQueueBackend, ActivityReportGeneratorBackend
 ```
 
 **Class declaration:**
@@ -239,6 +242,34 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 **Protocols created:** `VectorSearchBackendOperations`, `IngestionBackendOperations`, `JupyterSyncBackendOperations`, `EmbeddingsBackendOperations`, `KnowledgeDomainBackendOperations`, `CrossDomainBackendOperations` (expanded).
 
 **Total:** 45 `execute_query` calls migrated from 10 services into typed backend methods. All services now call `self.backend.method_name()` instead of raw Cypher.
+
+### April 11, 2026 Update: Final execute_query Cleanup (Phase 14)
+
+15 remaining `execute_query` calls migrated from 11 service files into typed backend methods. This completes the execute_query migration — no domain or intelligence service contains inline Cypher.
+
+**New backend methods:**
+
+| Backend | Method | Migrated From |
+|---------|--------|---------------|
+| `EventsBackend` | `count_recent_reschedules` | `EventsIntelligenceService` |
+| `EventsBackend` | `count_events_in_date_range` | `EventsIntelligenceService` |
+| `TasksBackend` | `get_transitive_dependencies` | `TasksIntelligenceService` |
+| `PrinciplesBackend` | `get_choice_influence_stats` | `PrinciplesIntelligenceService` |
+| `SubmissionsBackend` | `get_submissions_for_path_step` | `SubmissionsSearchService` |
+| `SubmissionsBackend` | `create_goal_support_relationships` | `SubmissionsRelationshipService` |
+| `_LpStepMixin` | `get_next_step_sequence` | `PsSearchService` |
+| `_TraversalMixin` | `get_citation_export` | `KuCoreService` |
+| `_TraversalMixin` | `get_goal_aligned_entities` | `GoalsIntelligenceService` |
+| `_TraversalMixin` | `query_semantic_context` | `GraphIntelligenceService` |
+| `_TraversalMixin` | `find_uids_by_semantic_filter` | `GraphIntelligenceService` |
+| `_TraversalMixin` | `get_batch_cross_domain_context` | `GraphIntelligenceService` |
+| `CrossDomainBackend` | `get_journal_entries_in_range` | `CrossDomainQueryService` |
+
+**Remaining exempted `execute_query` usage (infrastructure, not domain):**
+- `schema_service.py` — 9 DDL/schema introspection queries (`CALL db.labels()`, `SHOW INDEXES`)
+- `user_context_queries.py` — 3 MEGA-QUERY fragments (full user state snapshot)
+- Ingestion pipeline — 5 raw driver calls (bulk cross-domain writes)
+- `semantic_relationship_linker.py` — 1 call through backend (tolerated)
 
 ### March 26, 2026 Update: LessonBackend Mixin Decomposition (Phase 10)
 

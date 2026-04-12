@@ -877,20 +877,16 @@ The BaseService mixins *implement* the backend abstraction. They call `execute_q
 
 ### Tier 4: Tolerated — Domain Sub-Services
 
-Domain sub-services (e.g., `EventsSearchService`, `GoalsIntelligenceService`) call `self.backend.execute_query()` for complex domain-specific queries that don't fit the generic mixin patterns. These go *through* the backend object (not around it), but the queries aren't encapsulated as named backend methods.
+Domain sub-services that need complex domain-specific queries can call `self.backend.execute_query()` for one-off queries that go *through* the backend object (not around it).
 
-**Current state:** ~18 sub-services across all 6 Activity domains do this.
+**Current state (April 2026):** After Phases 1-14, nearly all domain sub-service queries have been migrated to named backend methods. One tolerated case remains: `semantic_relationship_linker.py` (1 `self.backend.execute_query()` call — through backend, acceptable).
 
-**Why it exists:** The queries are complex and domain-specific (date-range + secondary sort, recurrence filtering, conditional WHERE clauses). Adding a named backend method for each variation would create method proliferation on the backend with little reuse.
-
-**What we might tighten:** If a domain sub-service query is called from multiple places or represents core domain functionality, it should be extracted to a named method on the domain backend (e.g., `EventsBackend.get_events_by_date_range()`). One-off complex queries used in a single sub-service are acceptable as inline Cypher through `execute_query`.
-
-**Decision criteria for future work:**
+**Decision criteria for new queries:**
 - Query used in 2+ places → extract to domain backend method
-- Query represents a core domain concept (e.g., "recurring events") → extract to domain backend method
-- Query is a one-off analytical or intelligence query → leave as `execute_query`
+- Query represents a core domain concept → extract to domain backend method
+- Query is a one-off analytical query in a single sub-service → `execute_query` through backend is acceptable
 
 ---
 
-**Last Updated:** April 5, 2026
+**Last Updated:** April 11, 2026
 **Status:** Active - Core pattern for all query operations in SKUEL
