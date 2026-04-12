@@ -467,13 +467,16 @@ Entity-agnostic sharing. `UnifiedSharingService` implements this protocol and wo
 |----------|---------------|---------|----------------|
 | `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, verify_shareable, share_with_group, unshare_from_group, get_groups_shared_with, get_shared_with_me_via_groups (11 methods) | `submissions_sharing_api.py` |
 
-### Report Protocols (7) — `report_protocols.py`
+### Report Protocols (8) — `report_protocols.py`
 
 Map to the **Report** stage of the educational loop. `processor_type` discriminates source: `HUMAN` (teacher/admin), `LLM` (AI via Exercise or on-demand), `AUTOMATIC` (scheduled).
 
+ExerciseReport has two protocols: a **service-level** `ExerciseReportOperations` used by routes and a **backend-level** `ExerciseReportBackendOperations` used to type `self.backend` on `ExerciseReportService`. Typed reads return `list[ExerciseReport]` end-to-end (no TypedDict projection); persisted nodes carry `:Entity:ExerciseReport` dual labels.
+
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `ExerciseReportOperations` | `submission_report`, `submissions_core` | generate_report(`Submission`, `Exercise`) → `EXERCISE_REPORT` `LLM`, create_assessment → `EXERCISE_REPORT` `HUMAN`, get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `exercise_report_api.py` |
+| `ExerciseReportOperations` (service) | `exercise_report`, `submissions_core` | generate_report(`Submission`, `Exercise`) → `ExerciseReport` `LLM`, create_assessment → `ExerciseReport` `HUMAN`, list_for_submission → `list[ExerciseReport]` (both HUMAN + LLM, discriminated by `processor_type`), get_assessments_for_student, get_assessments_by_teacher | `exercises_api.py`, `exercise_report_api.py`, `teaching_api.py`, `teaching_ui.py`, `submissions_api.py`, `submissions_ui.py`, `submissions_hub_routes.py` |
+| `ExerciseReportBackendOperations` (backend) | `ExerciseReportService.backend` (typed `self.backend`) | list_for_submission, get_reports_for_student_exercise, get_reports_by_teacher (all → `list[ExerciseReport]` via `from_neo4j_node`), get_linked_ku_and_student (mastery-loop scalar projection) | — (backend-only) |
 | `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
 | `ProgressScheduleOperations` | `progress_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `progress_report_api.py` |
 | `ActivityReportOperations` | `activity_report` | 6 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, annotate → `AnnotationResult`, get_annotation → `AnnotationState`, get_privacy_summary → `PrivacySummary`) | `progress_report_api.py` |
