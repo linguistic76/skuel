@@ -85,24 +85,24 @@ class _AdaptiveMixin:
         ku_uid: str | None = None,
     ) -> Result[list[Neo4jProperties]]:
         """Vector search across ContentChunk nodes for precise RAG retrieval."""
-        cypher = """
-        CALL db.index.vector.queryNodes(
+        parts = [
+            """CALL db.index.vector.queryNodes(
             'contentchunk_embedding_idx',
             $limit * 2,
             $query_embedding
         ) YIELD node AS chunk, score
-        WHERE score >= $threshold
-        """
+        WHERE score >= $threshold"""
+        ]
         if chunk_types:
-            cypher += " AND chunk.chunk_type IN $chunk_types"
+            parts.append("AND chunk.chunk_type IN $chunk_types")
         if ku_uid:
-            cypher += """
-            AND EXISTS {
+            parts.append(
+                """AND EXISTS {
                 MATCH (chunk)<-[:HAS_CHUNK]-(content:Content {uid: $ku_uid})
-            }
-            """
-        cypher += """
-        MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)<-[:HAS_CONTENT]-(ku:Entity)
+            }"""
+            )
+        parts.append(
+            """MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)<-[:HAS_CONTENT]-(ku:Entity)
         RETURN
             chunk.uid as chunk_uid,
             chunk.chunk_type as chunk_type,
@@ -112,8 +112,9 @@ class _AdaptiveMixin:
             ku.uid as parent_entity_uid,
             ku.title as parent_ku_title
         ORDER BY score DESC
-        LIMIT $limit
-        """
+        LIMIT $limit"""
+        )
+        cypher = "\n".join(parts)
         params: dict[str, Any] = {
             "query_embedding": query_embedding,
             "limit": limit,
