@@ -71,7 +71,6 @@ def entity_to_response(entity: Entity) -> dict[str, Any]:
     if isinstance(entity, ExerciseReport):
         response.update(
             {
-                "report_content": entity.report_content,
                 "report_generated_at": entity.report_generated_at.isoformat()
                 if entity.report_generated_at
                 else None,

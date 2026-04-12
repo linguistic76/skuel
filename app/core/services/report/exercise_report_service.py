@@ -267,7 +267,6 @@ class ExerciseReportService:
                 processor_type=ProcessorType.LLM,
                 assessment_outcome=AssessmentOutcome.AI_EVALUATED,
                 content=feedback_text,
-                report_content=feedback_text,
                 subject_uid=submission.uid,
             )
 
@@ -396,7 +395,6 @@ class ExerciseReportService:
             processor_type=ProcessorType.LLM,
             assessment_outcome=AssessmentOutcome.AI_EVALUATED,
             content=feedback_text,
-            report_content=feedback_text,
             subject_uid=submission.uid,
         )
         return Result.ok(feedback_entity)

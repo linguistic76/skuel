@@ -33,8 +33,10 @@ class ExerciseReportDTO(UserOwnedDTO):
     """
     Mutable DTO for exercise reports (EntityType.EXERCISE_REPORT).
 
-    Extends UserOwnedDTO with 6 report-specific fields:
-    - report_content: str | None — the report text
+    Extends UserOwnedDTO with report-specific fields. Report body lives on
+    the inherited ``content`` field (written by the canonical
+    ``create_report_node`` Cypher as ``content: $feedback``).
+
     - report_generated_at: datetime | None — when report was generated
     - subject_uid: str | None — who/what this report is about
     - processor_type: ProcessorType | None — HUMAN/LLM/AUTOMATIC
@@ -45,7 +47,6 @@ class ExerciseReportDTO(UserOwnedDTO):
     # =========================================================================
     # REPORT-SPECIFIC FIELDS
     # =========================================================================
-    report_content: str | None = None
     report_generated_at: datetime | None = None
     subject_uid: str | None = None
     processor_type: ProcessorType | None = None
@@ -65,7 +66,6 @@ class ExerciseReportDTO(UserOwnedDTO):
 
         data.update(
             {
-                "report_content": self.report_content,
                 "report_generated_at": self.report_generated_at,
                 "subject_uid": self.subject_uid,
                 "processor_type": get_enum_value(self.processor_type),
@@ -134,7 +134,6 @@ class ExerciseReportDTO(UserOwnedDTO):
                 "priority",
                 "visibility",
                 # Report-specific fields
-                "report_content",
                 "report_generated_at",
                 "subject_uid",
                 "processor_type",

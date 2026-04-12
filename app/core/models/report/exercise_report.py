@@ -41,7 +41,9 @@ class ExerciseReport(UserOwnedEntity):
     # =========================================================================
     # REPORT-SPECIFIC FIELDS
     # =========================================================================
-    report_content: str | None = None
+    # Report body lives on the inherited ``Entity.content`` field — written by
+    # the canonical ``SubmissionsBackend.create_report_node`` Cypher as
+    # ``content: $feedback`` and read back via ``from_neo4j_node``.
     report_generated_at: datetime | None = None
     subject_uid: str | None = None  # Who/what this report is about
     processor_type: ProcessorType | None = None  # HUMAN/LLM/AUTOMATIC

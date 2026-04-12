@@ -71,7 +71,7 @@ def create_exercises_api_routes(
         - max_tokens: Max tokens to generate (optional, default 4000)
 
         Returns:
-        - 200: ExerciseReport entity created {report_uid, submission_uid, exercise_uid, report_content}
+        - 200: ExerciseReport entity created {report_uid, submission_uid, exercise_uid, content}
         - 400: Invalid input
         - 404: Entry or exercise not found
         - 503: Service not available
@@ -129,7 +129,7 @@ def create_exercises_api_routes(
                 "report_uid": report_entity.uid,
                 "submission_uid": report_request.submission_uid,
                 "exercise_uid": report_request.exercise_uid,
-                "report_content": report_entity.report_content,
+                "content": report_entity.content,
             }
         )
 

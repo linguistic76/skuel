@@ -114,7 +114,6 @@ class TestGenerateReportHappyPath:
         assert report.subject_uid == SUBMISSION_UID
         assert report.user_uid == TEACHER_UID
         assert report.content == "Great work — here is your feedback."
-        assert report.report_content == "Great work — here is your feedback."
         assert report.uid.startswith("sr_")
 
     @pytest.mark.asyncio

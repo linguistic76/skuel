@@ -248,7 +248,7 @@ def render_exercise_report_detail(report: Any, revised_exercise: Any = None) -> 
         revised_exercise: Optional RevisedExercise linked to this report
     """
     title = getattr(report, "title", "") or "Exercise Report"
-    report_content = getattr(report, "report_content", None) or getattr(report, "content", "") or ""
+    report_content = getattr(report, "content", "") or ""
     created_at = getattr(report, "created_at", None)
     user_uid = getattr(report, "user_uid", "") or ""
     subject_uid = getattr(report, "subject_uid", "") or ""

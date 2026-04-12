@@ -11,21 +11,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from core.models.request_base import CreateRequestBase
-from core.models.type_hints import EntityUID
-
-
-class ReportCreateRequest(CreateRequestBase):
-    """Create an exercise report (EXERCISE_REPORT type)."""
-
-    title: str = Field(min_length=1, max_length=200, description="Report title")
-    parent_entity_uid: EntityUID = Field(description="Parent entity being reviewed")
-    subject_uid: str | None = Field(None, description="Student UID the report is about")
-
-    # Content
-    report_content: str = Field(min_length=1, description="Report text")
-    content: str | None = Field(None, description="Additional content")
-
 
 class AssessmentCreateRequest(BaseModel):
     """Request model for creating a teacher assessment (ExerciseReport entity)."""
