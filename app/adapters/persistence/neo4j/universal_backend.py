@@ -154,6 +154,7 @@ from adapters.persistence.neo4j._context_query_mixin import _ContextQueryMixin
 from adapters.persistence.neo4j._crud_mixin import _CrudMixin
 from adapters.persistence.neo4j._prereq_progress_mixin import _PrereqProgressMixin
 from adapters.persistence.neo4j._relationship_crud_mixin import _RelationshipCrudMixin
+from adapters.persistence.neo4j._relationship_ordered_mixin import _RelationshipOrderedMixin
 from adapters.persistence.neo4j._relationship_query_mixin import _RelationshipQueryMixin
 from adapters.persistence.neo4j._search_mixin import _SearchMixin
 from adapters.persistence.neo4j._search_raw_mixin import _SearchRawMixin
@@ -172,6 +173,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
     _PrereqProgressMixin[T],
     _ContextQueryMixin[T],
     _RelationshipQueryMixin[T],
+    _RelationshipOrderedMixin[T],
     _RelationshipCrudMixin[T],
     _UserEntityMixin[T],
     _TraversalMixin,
