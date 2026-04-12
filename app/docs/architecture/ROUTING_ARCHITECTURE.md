@@ -119,7 +119,8 @@ This document provides a detailed explanation of how **Routes**, **Services**, a
     │   ├── universal_backend.py          # Shell: __init__, helpers (~527 lines)
     │   ├── _crud_mixin.py                # CrudOperations[T]
     │   ├── _search_mixin.py              # EntitySearchOperations[T]
-    │   ├── _relationship_query_mixin.py  # RelationshipQuery + EdgeMetadata + fluent API
+    │   ├── _relationship_query_mixin.py  # RelationshipQuery + EdgeMetadata + fluent relate() API
+    │   ├── _relationship_ordered_mixin.py# Ordered/hierarchical traversals + lateral-getter wrappers
     │   ├── _relationship_crud_mixin.py   # RelationshipCrud + validation helpers
     │   ├── _user_entity_mixin.py         # Generic user-entity ops
     │   ├── _traversal_mixin.py           # GraphTraversalOperations

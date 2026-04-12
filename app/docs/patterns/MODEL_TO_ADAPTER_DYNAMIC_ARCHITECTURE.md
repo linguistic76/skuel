@@ -32,7 +32,8 @@ adapters/persistence/neo4j/
     _temporal_mixin.py            # _TemporalMixin — user_activity_range_raw, due_soon_raw, overdue_raw
     _prereq_progress_mixin.py     # _PrereqProgressMixin — prerequisite_traversal_raw, hierarchy_query_raw, user_progress_raw, update_user_mastery_rel, user_curriculum_raw
     _context_query_mixin.py       # _ContextQueryMixin — context_query_raw, basic_context_query_raw
-    _relationship_query_mixin.py  # RelationshipQuery + EdgeMetadata + fluent API
+    _relationship_query_mixin.py  # RelationshipQuery + EdgeMetadata + fluent relate() API
+    _relationship_ordered_mixin.py# Ordered/hierarchical traversals + lateral-getter convenience wrappers
     _relationship_crud_mixin.py   # RelationshipCrud + validation helpers
     _user_entity_mixin.py         # Generic user-entity ops (5 methods)
     _traversal_mixin.py           # GraphTraversalOperations

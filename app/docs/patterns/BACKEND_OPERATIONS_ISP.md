@@ -228,6 +228,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 | `_crud_mixin.py` | `CrudOperations[T]` | `create`, `get`, `get_many`, `update`, `delete`, `list` |
 | `_search_mixin.py` | `EntitySearchOperations[T]` | `find_by_date_range`*, `search`, `find_by`, `count`, `health_check`, `get_domain_context_raw`, `execute_query` |
 | `_relationship_query_mixin.py` | `RelationshipMetadata*`, `RelationshipQuery*` | `get_related_entities`, `get_related_uids`, `get_relationship_metadata`, `get_edge_metadata`, `relate()`, batch queries |
+| `_relationship_ordered_mixin.py` | Ordered/hierarchical queries | `get_ordered_related_uids`, `get_related_with_metadata`, `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, lateral-getter wrappers (`get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`) |
 | `_relationship_crud_mixin.py` | `RelationshipCrud*` | `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `_build_direction_pattern`, helpers |
 | `_user_entity_mixin.py` | Generic user-entity ops | `create_user_relationship`, `get_user_entities`*, `count_user_entities`*, `update_relationship_access`, `delete_user_relationship` |
 | `_traversal_mixin.py` | `GraphTraversalOperations` | `add_relationship`, `get_relationships`, `traverse`, `find_path` |
@@ -256,10 +257,14 @@ The original February 2026 decomposition created a single `_relationship_mixin.p
 
 | File | Lines | Responsibility |
 |------|-------|---------------|
-| `_relationship_query_mixin.py` | ~762 | `RelationshipMetadata*`, `RelationshipQuery*`: `get_related_entities`, `get_related_uids`, `get_relationship_metadata`, `get_edge_metadata`, fluent `relate()`, 7 convenience wrappers, batch queries |
-| `_relationship_crud_mixin.py` | ~863 | `RelationshipCrud*`: `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `_build_direction_pattern`, private helpers |
+| `_relationship_query_mixin.py` | ~666 | `RelationshipMetadata*`, `RelationshipQuery*`: `get_related_entities`, `get_related_uids`, `get_relationship_metadata`, `get_edge_metadata`, fluent `relate()`, batch queries |
+| `_relationship_crud_mixin.py` | ~983 | `RelationshipCrud*`: `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `_build_direction_pattern`, private helpers |
 
 `_relationship_query_mixin.py` stubs `_build_direction_pattern` via `TYPE_CHECKING` (declared in `_relationship_crud_mixin.py`). Public API unchanged — 2,817 tests pass.
+
+### April 2026: Ordered/hierarchical extraction
+
+`_relationship_query_mixin.py` grew to ~1,174 lines through the typed-query migration. The ordered/hierarchical section was extracted into `_relationship_ordered_mixin.py` (~567 lines), leaving the core mixin at ~666 lines. The new mixin holds 14 methods: 3 ordered queries, 1 edge-property create, 3 hierarchical traversals (single/two-level/deep), and 7 lateral-getter convenience wrappers that forward to `get_related_entities` via MRO. Wired into `UniversalNeo4jBackend` parent list immediately after `_RelationshipQueryMixin`.
 
 ### Query Execution Patterns
 
@@ -280,7 +285,8 @@ The original February 2026 decomposition created a single `_relationship_mixin.p
 | `/adapters/persistence/neo4j/universal_backend.py` | Shell: `__init__`, helpers, factory functions (~527 lines) |
 | `/adapters/persistence/neo4j/_crud_mixin.py` | `CrudOperations[T]` implementation |
 | `/adapters/persistence/neo4j/_search_mixin.py` | `EntitySearchOperations[T]` implementation |
-| `/adapters/persistence/neo4j/_relationship_query_mixin.py` | Relationship query + edge metadata + fluent API |
+| `/adapters/persistence/neo4j/_relationship_query_mixin.py` | Relationship query + edge metadata + fluent `relate()` API |
+| `/adapters/persistence/neo4j/_relationship_ordered_mixin.py` | Ordered/hierarchical traversals + lateral-getter convenience wrappers |
 | `/adapters/persistence/neo4j/_relationship_crud_mixin.py` | Relationship CRUD + validation helpers |
 | `/adapters/persistence/neo4j/_user_entity_mixin.py` | Generic user-entity relationship ops (5 methods) |
 | `/adapters/persistence/neo4j/_traversal_mixin.py` | `GraphTraversalOperations` implementation |

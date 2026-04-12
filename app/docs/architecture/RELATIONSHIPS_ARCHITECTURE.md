@@ -198,7 +198,7 @@ Creation, deletion, validation:
 
 ### `_RelationshipQueryMixin` (`adapters/persistence/neo4j/_relationship_query_mixin.py`)
 
-Queries, edge metadata, fluent API:
+Core queries, edge metadata, fluent `relate()` entry point:
 
 - `get_related_entities(uid, relationship_type, direction, limit)` → `Result[list[T]]`
 - `get_related_uids(uid, relationship_type, direction)` → `Result[list[str]]`
@@ -208,8 +208,18 @@ Queries, edge metadata, fluent API:
 - `count_relationships_batch(uids, relationship_type, direction)` → `Result[dict[str, int]]`
 - `get_edge_metadata(uid, relationship_type, direction, target_uid)` → `Result[EdgeMetadata]`
 - `update_edge_metadata(from_uid, to_uid, relationship_type, metadata)` → `Result[bool]`
-- `relate(uid)` → `RelationshipBuilder` (fluent API)
-- Convenience wrappers: `get_prerequisites()`, `get_enables()`, `get_related()`, `get_children()`, `get_parent()`, `get_depends_on()`, `get_blocks()`
+- `relate()` → `RelationshipBuilder` (fluent API)
+
+### `_RelationshipOrderedMixin` (`adapters/persistence/neo4j/_relationship_ordered_mixin.py`)
+
+Ordered/hierarchical traversals and lateral-getter convenience wrappers:
+
+- `get_ordered_related_uids(entity_label, entity_uid, relationship_type, direction, order_by_property, order_direction)` → `Result[list[str]]`
+- `get_related_with_metadata(...)` → `Result[list[dict]]`
+- `reorder_relationships(..., target_uid_sequence, sequence_property)` → `Result[int]`
+- `create_relationship_with_properties(entity_uid, target_uid, relationship_type, direction, edge_properties)` → `Result[bool]`
+- `get_hierarchical_children_single(...)` / `get_hierarchical_children_two_level(...)` / `get_hierarchical_children_deep(...)` → `Result[list[dict]]`
+- Convenience wrappers: `get_prerequisites()`, `get_enables()`, `get_related()`, `get_children()`, `get_parent()`, `get_depends_on()`, `get_blocks()` — forward to `get_related_entities` via MRO
 
 ---
 
