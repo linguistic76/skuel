@@ -70,7 +70,7 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │   │
 │   ├── Submission ───── + processor_type, modality, file_path, file_type, processed_content
 │   │   └── ExerciseSubmission   (forces entity_type=EXERCISE_SUBMISSION)
-│   ├── ExerciseReport ── + report_content, subject_uid, assessment_outcome, report_file_path (NOT Submission, forces entity_type=EXERCISE_REPORT)
+│   ├── ExerciseReport ── + subject_uid, assessment_outcome, report_file_path, report_generated_at (body on Entity.content; NOT Submission; forces entity_type=EXERCISE_REPORT)
 │   ├── JeInput ──────── (forces entity_type=JE_INPUT, standalone journal domain)
 │   ├── JeOutput ─────── (forces entity_type=JE_OUTPUT, standalone journal domain)
 │   ├── ActivityReport ─── (forces entity_type=ACTIVITY_REPORT, NO file fields)

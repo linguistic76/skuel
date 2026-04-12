@@ -511,16 +511,17 @@ entry points. Both close the loop — both say "here is what your work means."
 **EntityType:** `EntityType.EXERCISE_REPORT`
 **Model:** `core/models/report/exercise_report.py` — `ExerciseReport(UserOwnedEntity)` frozen dataclass
 **Neo4j label:** `:Entity:ExerciseReport`
-**Inherits:** `UserOwnedEntity` directly — NOT Submission (+6 report-specific fields)
+**Inherits:** `UserOwnedEntity` directly — NOT Submission. Report body lives on the inherited `Entity.content` field; the class adds 6 report-specific fields on top.
 
 **Key fields:**
 ```python
-report_content: str | None                        # The evaluation text (from uploaded .md file for HUMAN reports)
+# Body: inherited Entity.content (written by create_report_node as content: $feedback)
 report_generated_at: datetime | None
 subject_uid: str | None                           # UID of the submission being evaluated
 processor_type: ProcessorType | None              # HUMAN (teacher) | LLM (AI)
 assessment_outcome: AssessmentOutcome | None       # APPROVED | NEEDS_REVISION | AI_EVALUATED
 report_file_path: str | None                       # Path to uploaded .md file (HUMAN) or generated output (LLM)
+assessment_score: float | None                     # 0.0-1.0 for ASSESSMENT-scope exercises
 ```
 
 `assessment_outcome` (`AssessmentOutcome` enum from `learning_enums.py`) makes each report
@@ -536,7 +537,7 @@ self-describing — the report records what decision was made, not just feedback
 
 **Two teacher feedback pathways — same service methods, different entry points:**
 
-- **Web UI** — `/teaching/review/{uid}` accepts a `.md` file upload (multipart/form-data). File content → `report_content`; path → `report_file_path`. Students download via `GET /api/reports/{report_uid}/download`.
+- **Web UI** — `/teaching/review/{uid}` accepts a `.md` file upload (multipart/form-data). File content → `Entity.content` (the report body); path → `report_file_path`. Students download via `GET /api/reports/{report_uid}/download`.
 - **CLI (offline batch)** — `scripts/export_submissions.py` exports the review queue to `~/skuel-reviews/pending/<uid>.md` and writes an `export_manifest.json` to track pending state; teacher writes reports to `done/<uid>.md` with YAML frontmatter (`submission_uid`, `action: report|revision|approve`); `scripts/import_reports.py` posts them back. To prevent silent loss of feedback, the import script performs **Pending-State Reconciliation** against the manifest, warning the teacher of any pending/done files that have not been successfully imported. Both scripts call the same `TeacherReviewService` methods.
 
 **Graph pattern:**
@@ -545,7 +546,7 @@ self-describing — the report records what decision was made, not just feedback
     subject_uid: 'submission_uid_being_evaluated',
     processor_type: 'human',            // or 'llm'
     assessment_outcome: 'approved',     // or 'needs_revision' or 'ai_evaluated'
-    report_content: 'Your analysis shows...'
+    content: 'Your analysis shows...'   // report body (inherited from Entity)
 })
 (report)-[:REPORT_FOR]->(submission:Entity:ExerciseSubmission)
 ```
@@ -787,7 +788,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Journal output** | `JournalOutputService` | `JournalOutputOperations` | `JournalOutputBackend` | `process_je_input`, `generate_output`, `get_je_output`, `cleanup_date_range` (standalone domain — not under submissions) |
 | **Learning Loop Intelligence (write)** | `LearningLoopEventHandlerService` | — | `SubmissionsBackend` | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
 | **Learning Loop Intelligence (read)** | `LearningLoopQueryService` | — | `SubmissionsBackend` | `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` — Interaction traversal + report-status enrichment, bounded by `limit` (default 100), entity_type filter parameterized via `EntityType.EXERCISE_SUBMISSION.value`. New learning-loop reads land here, not on `SubmissionsSearchService` |
-| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `SubmissionsBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `submit_report` (file upload → `report_content` + `report_file_path`), `request_revision` (text notes), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from OWNS exercise_submission — any submitter, no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` · **Report listing moved:** use `ExerciseReportService.list_for_submission()` for typed report reads (not `get_report_history`, which was deleted) |
+| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `SubmissionsBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `submit_report` (file upload → `Entity.content` + `report_file_path`), `request_revision` (text notes), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from OWNS exercise_submission — any submitter, no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` · **Report listing moved:** use `ExerciseReportService.list_for_submission()` for typed report reads (not `get_report_history`, which was deleted) |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
 | **Activity Report (scheduled)** | `ProgressReportWorker` | — | — | Background worker; calls `ProgressReportGenerator` on schedule |
 | **Activity Report (schedule CRUD)** | `ProgressScheduleService` | `ProgressScheduleOps` | — | `get_schedules`, `create_schedule`, `delete_schedule` |

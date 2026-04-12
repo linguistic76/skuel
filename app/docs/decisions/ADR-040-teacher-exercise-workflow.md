@@ -182,7 +182,7 @@ to write rich, structured feedback in Obsidian or any text editor before submitt
 
 **How it works:**
 - Teacher uploads a `.md` file via the "Submit Feedback" form (multipart/form-data)
-- File content → `ExerciseReport.report_content`
+- File content → `ExerciseReport.content` (inherited from Entity)
 - File saved to `data/reports/{teacher_uid}/{submission_uid}/feedback.md`
 - File path → `ExerciseReport.report_file_path`
 - Students download feedback via `GET /api/reports/{report_uid}/download` (attachment)
