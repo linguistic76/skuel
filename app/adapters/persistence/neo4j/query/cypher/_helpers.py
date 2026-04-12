@@ -4,12 +4,35 @@ Cypher Generator Helpers - Shared utility functions for Cypher query generation.
 This module contains helper functions used across multiple Cypher generator modules.
 """
 
+import re
 from dataclasses import fields, is_dataclass
 from datetime import date, datetime
 from enum import Enum
 from typing import Any, TypeVar
 
+from core.models.enums.neo_labels import NeoLabel
+
 T = TypeVar("T")
+
+
+# =============================================================================
+# Cypher Injection Guards
+# =============================================================================
+
+_VALID_NEO4J_LABELS: frozenset[str] = frozenset(v.value for v in NeoLabel)
+_VALID_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def validate_label(label: str) -> None:
+    """Raise ValueError if label is not a known NeoLabel value."""
+    if label not in _VALID_NEO4J_LABELS:
+        raise ValueError(f"Invalid Neo4j label: {label!r}")
+
+
+def validate_identifier(name: str, context: str = "field") -> None:
+    """Raise ValueError if name contains characters unsafe for Cypher interpolation."""
+    if not _VALID_IDENTIFIER_RE.match(name):
+        raise ValueError(f"Invalid {context} name: {name!r}")
 
 
 def convert_value_for_neo4j(value: Any) -> Any:
@@ -119,4 +142,6 @@ __all__ = [
     "get_filterable_fields",
     "get_supported_operators",
     "validate_dataclass",
+    "validate_identifier",
+    "validate_label",
 ]

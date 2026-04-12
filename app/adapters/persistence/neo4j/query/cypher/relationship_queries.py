@@ -20,6 +20,8 @@ from typing import Any
 
 from core.models.type_hints import Neo4jValue
 
+from ._helpers import validate_identifier
+
 
 def build_relationship_count(
     uid: str,
@@ -58,6 +60,8 @@ def build_relationship_count(
             properties={"essentiality": "essential"}
         )
     """
+    validate_identifier(relationship_type, "relationship type")
+
     # Build Cypher pattern based on direction
     if direction == "outgoing":
         pattern = f"(n)-[r:{relationship_type}]->(related)"
@@ -74,6 +78,7 @@ def build_relationship_count(
 
     if properties:
         for key, value in properties.items():
+            validate_identifier(key, "property")
             param_name = f"prop_{key}"
             where_clauses.append(f"r.{key} = ${param_name}")
             params[param_name] = value
@@ -130,6 +135,8 @@ def build_relationship_uids_query(
             properties={"essentiality": "essential"}
         )
     """
+    validate_identifier(relationship_type, "relationship type")
+
     # Build Cypher pattern based on direction
     if direction == "outgoing":
         pattern = f"(n)-[r:{relationship_type}]->(related)"
@@ -146,6 +153,7 @@ def build_relationship_uids_query(
 
     if properties:
         for key, value in properties.items():
+            validate_identifier(key, "property")
             param_name = f"prop_{key}"
             where_clauses.append(f"r.{key} = ${param_name}")
             params[param_name] = value
@@ -465,6 +473,11 @@ def build_metadata_aware_path_query(
             min_confidence=0.7
         )
     """
+    from ._helpers import validate_label
+
+    validate_label(node_label)
+    validate_identifier(relationship_type, "relationship type")
+
     # Build WHERE clauses for metadata filters
     where_clauses = []
 

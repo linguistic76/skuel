@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING
 
 from core.models.type_hints import Neo4jValue, UserUID
 
+from ._helpers import validate_identifier, validate_label
+
 if TYPE_CHECKING:
     from datetime import date
 
@@ -61,6 +63,9 @@ def build_simple_prerequisite_chain(
     Returns:
         Tuple of (cypher_query, parameters)
     """
+    validate_label(node_label)
+    validate_identifier(relationship_type, "relationship type")
+
     # Build WHERE clauses
     where_clauses = []
 
@@ -128,6 +133,10 @@ def build_unmastered_prerequisite_chain(
     Returns:
         Tuple of (cypher_query, parameters)
     """
+    validate_label(node_label)
+    validate_identifier(relationship_type, "relationship type")
+    validate_identifier(mastery_relationship, "relationship type")
+
     cypher = f"""
     MATCH path = (target:{node_label} {{uid: $target_uid}})<-[:{relationship_type}*1..{depth}]-(prereq:{node_label})
     WHERE NOT (prereq)-[:{mastery_relationship}]->(:User {{uid: $user_uid}})
@@ -163,6 +172,10 @@ def build_multi_domain_context(
     Returns:
         Tuple of (cypher_query, parameters)
     """
+    validate_label(start_label)
+    for rt in relationship_types:
+        validate_identifier(rt, "relationship type")
+
     # Build relationship pattern
     rel_pattern = "|".join(relationship_types)
 
@@ -575,6 +588,14 @@ def build_entity_with_context(
     Returns:
         Tuple of (cypher_query, base_parameters)
     """
+    validate_label(entity_label)
+    for rel in relationships:
+        validate_identifier(rel["rel_types"], "relationship type")
+        validate_label(rel["target_label"])
+        validate_identifier(rel["alias"], "alias")
+        for field in rel.get("fields", ["uid", "title"]):
+            validate_identifier(field, "field")
+
     parts = []
     with_vars = ["entity"]
     return_vars = ["entity"]
@@ -1433,6 +1454,9 @@ def build_user_activity_query(
             exclude_statuses=["archived"]
         )
     """
+    validate_label(node_label)
+    if date_field:
+        validate_identifier(date_field, "date field")
 
     # Build WHERE clauses
     where_clauses = ["n.user_uid = $user_uid"]
@@ -1512,6 +1536,11 @@ def build_due_soon_query(
     """
     from datetime import date, timedelta
 
+    validate_label(node_label)
+    validate_identifier(date_field, "date field")
+    if secondary_sort_field:
+        validate_identifier(secondary_sort_field, "sort field")
+
     today = date.today()
     end_date = today + timedelta(days=days_ahead)
 
@@ -1590,6 +1619,11 @@ def build_overdue_query(
         ... )
     """
     from datetime import date
+
+    validate_label(node_label)
+    validate_identifier(date_field, "date field")
+    if secondary_sort_field:
+        validate_identifier(secondary_sort_field, "sort field")
 
     today = date.today()
 

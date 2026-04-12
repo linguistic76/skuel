@@ -14,55 +14,18 @@ Methods:
 - build_count_query: Count entities with optional filters
 """
 
-import re
 from dataclasses import fields, is_dataclass
-from datetime import date, datetime
-from enum import Enum
 from typing import Any, get_origin, get_type_hints
 
-from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import EntityUID, Neo4jValue, UserUID
 from core.utils.logging import get_logger
 
+from ._helpers import convert_value_for_neo4j
+from ._helpers import validate_identifier as _validate_identifier
+from ._helpers import validate_label as _validate_label
 from ._types import T
 
 logger = get_logger(__name__)
-
-# =============================================================================
-# Cypher Injection Guards
-# =============================================================================
-
-_VALID_NEO4J_LABELS: frozenset[str] = frozenset(v.value for v in NeoLabel)
-_VALID_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
-
-
-def _validate_label(label: str) -> None:
-    """Raise ValueError if label is not a known NeoLabel value."""
-    if label not in _VALID_NEO4J_LABELS:
-        raise ValueError(f"Invalid Neo4j label: {label!r}")
-
-
-def _validate_identifier(name: str, context: str = "field") -> None:
-    """Raise ValueError if name contains characters unsafe for Cypher interpolation."""
-    if not _VALID_IDENTIFIER_RE.match(name):
-        raise ValueError(f"Invalid {context} name: {name!r}")
-
-
-def convert_value_for_neo4j(value: Any) -> Any:
-    """
-    Convert Python value to Neo4j-compatible value.
-
-    Handles:
-    - Enum -> .value
-    - date/datetime -> ISO string
-    - Other -> passthrough
-    """
-    if isinstance(value, Enum):
-        return value.value
-    elif isinstance(value, date | datetime):
-        return value.isoformat()
-    else:
-        return value
 
 
 def build_search_query(

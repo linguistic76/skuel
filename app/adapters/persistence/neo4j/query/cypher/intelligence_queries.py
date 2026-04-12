@@ -31,6 +31,8 @@ from typing import Any, TypeVar
 
 from core.models.type_hints import EntityUID, Neo4jValue, UserUID
 
+from ._helpers import validate_identifier, validate_label
+
 T = TypeVar("T")
 
 
@@ -323,6 +325,17 @@ def build_registry_validated_query(
         validate_relationship,
     )
 
+    validate_label(source_label)
+    validate_label(target_label)
+    validate_identifier(relationship_type, "relationship type")
+    if properties:
+        for prop_key in properties:
+            field = prop_key.rsplit("__", 1)[0] if "__" in prop_key else prop_key
+            validate_identifier(field, "property")
+    if return_properties:
+        for prop in return_properties:
+            validate_identifier(prop, "return property")
+
     # Validate relationship against registry
     if not validate_relationship(source_label, relationship_type):
         valid_rels = list(get_valid_relationships(source_label).keys())
@@ -437,6 +450,12 @@ def build_impact_chain_query(
     """
     from core.models.relationship_registry import get_valid_relationships
 
+    validate_label(start_label)
+    validate_label(end_label)
+    if relationship_filter:
+        for rt in relationship_filter:
+            validate_identifier(rt, "relationship type")
+
     # Discover valid relationships for this path
     if relationship_filter:
         rel_types = relationship_filter
@@ -532,6 +551,8 @@ def build_bidirectional_impact_query(
     Returns:
         Tuple of (cypher_query, parameters)
     """
+    validate_label(entity_label)
+
     from core.models.relationship_registry import (
         get_all_labels,
         get_valid_relationships,
@@ -630,6 +651,10 @@ def build_weighted_path_query(
     Returns:
         Tuple of (cypher_query, parameters)
     """
+    for rt in relationship_types:
+        validate_identifier(rt, "relationship type")
+    validate_identifier(weight_property, "weight property")
+
     rel_pattern = "|".join(relationship_types)
 
     # Build weight aggregation expression
@@ -710,6 +735,12 @@ def build_normalized_centrality_query(
     Returns:
         Tuple of (cypher_query, parameters)
     """
+    validate_label(label)
+    validate_identifier(weight_property, "weight property")
+    if relationship_types:
+        for rt in relationship_types:
+            validate_identifier(rt, "relationship type")
+
     # Build relationship pattern
     if relationship_types:
         rel_pattern = "|".join(relationship_types)
@@ -795,6 +826,9 @@ def build_relationship_weight_stats_query(
     Returns:
         Tuple of (cypher_query, parameters)
     """
+    validate_label(source_label)
+    validate_identifier(relationship_type, "relationship type")
+
     if not weight_properties:
         weight_properties = [
             "confidence",
@@ -802,6 +836,8 @@ def build_relationship_weight_stats_query(
             "alignment_score",
             "contribution_percentage",
         ]
+    for prop in weight_properties:
+        validate_identifier(prop, "weight property")
 
     # Build property analysis expressions
     prop_stats = [

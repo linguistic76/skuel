@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING
 
 from core.models.type_hints import Neo4jValue
 
+from ._helpers import validate_label
+
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 
@@ -373,6 +375,7 @@ def build_semantic_filter_query(
     Returns:
         Tuple of (cypher_query, parameters)
     """
+    validate_label(label)
     rel_name = semantic_type.to_neo4j_name()
 
     # Build direction pattern
