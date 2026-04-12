@@ -61,7 +61,7 @@ A Task is "work to be done." A Ku is "a definable knowledge unit." These are dif
 Activity domains evolve with scheduling, recurrence, completion logic, assessment. Ku evolves with namespace, category, aliases. Inheritance would couple these evolution paths. Separate dataclasses with graph edges keep them independent.
 
 ### 4. Existing architecture already follows this pattern
-Four of six Activity Domains already have `link_*_to_knowledge()` backend methods in `domain_backends.py`. The MEGA-QUERY already traverses `APPLIES_KNOWLEDGE` and `REQUIRES_KNOWLEDGE` edges. This ADR formalizes what's already working.
+Four of six Activity Domains already have `link_*_to_knowledge()` backend methods in `backends/activity_backends.py`. The MEGA-QUERY already traverses `APPLIES_KNOWLEDGE` and `REQUIRES_KNOWLEDGE` edges. This ADR formalizes what's already working.
 
 ## Decision Heuristic
 
@@ -82,7 +82,7 @@ When modeling a new concept:
 - `core/models/ku/ku.py` — Ku(Entity) atomic knowledge model
 - `core/models/entity.py` — Entity base class
 - `core/models/relationship_names.py` — RelationshipName enum
-- `adapters/persistence/neo4j/domain_backends.py` — Backend link methods
+- `adapters/persistence/neo4j/backends/activity_backends.py` — Backend link methods
 - `core/constants.py` — RelationshipStrength confidence scoring
 - `core/services/user/user_context_queries.py` — MEGA-QUERY knowledge traversals
 

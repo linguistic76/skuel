@@ -29,7 +29,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import JournalInputBackend
+    from adapters.persistence.neo4j.backends.journal_backends import JournalInputBackend
     from core.ports.infrastructure_protocols import EventBusOperations
 
 logger = get_logger("skuel.services.journal.input")

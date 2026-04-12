@@ -218,7 +218,7 @@ Queries, edge metadata, fluent API:
 Lateral relationships capture semantics that hierarchies cannot: dependencies between siblings, alternatives, synergistic pairings, and semantic connections across branches. They are core architecture — graph databases excel at relationships precisely because a tree structure cannot express "A must complete before B", "A and B are alternatives", or "A and B complement each other".
 
 **Location:** `core/services/lateral_relationships/lateral_relationship_service.py`
-**Backend:** `adapters/persistence/neo4j/domain_backends.py` → `LateralRelationshipBackend` (14 Cypher methods)
+**Backend:** `adapters/persistence/neo4j/backends/collab_backends.py` → `LateralRelationshipBackend` (14 Cypher methods)
 **Protocol:** `core/ports/service_protocols.py` → `LateralRelationshipBackendOperations`
 
 ### LateralRelationshipService API

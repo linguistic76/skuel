@@ -31,7 +31,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import InteractionBackend
+    from adapters.persistence.neo4j.backends.misc_backends import InteractionBackend
 
 logger = get_logger("skuel.services.interaction")
 

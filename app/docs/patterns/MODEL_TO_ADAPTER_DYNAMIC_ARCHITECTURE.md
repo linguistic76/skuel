@@ -51,8 +51,6 @@ adapters/persistence/neo4j/
     _submission_assessment_mixin.py # _SubmissionAssessmentMixin — assessments + teacher review operations
     _submission_report_query_mixin.py # _SubmissionReportQueryMixin — report relationship queries, learning loop chains
     _submission_content_mixin.py  # _SubmissionContentMixin — journal processing context + exercise-instruction enrichment
-    domain_backends.py            # Re-export shim. All 27 backends live in backends/; the shim preserves
-                                  #   `from adapters.persistence.neo4j.domain_backends import XBackend` call sites.
     backends/
         __init__.py               # Re-exports every backend from its cluster file
         activity_backends.py      # HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend
@@ -98,7 +96,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 
 ### What Changed
 
-Four new domain backends added to `domain_backends.py`:
+Four new domain backends added under `adapters/persistence/neo4j/backends/`:
 
 | Backend | Methods moved from |
 |---------|-------------------|
@@ -150,8 +148,7 @@ Phase 5 completed the backend delegation refactor — ~46 inline Cypher queries 
 ```
 adapters/persistence/neo4j/
     _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 generic methods)
-    domain_backends.py            # Re-export shim (see "April 2026 Update" below)
-    backends/                     # 8 cluster files holding the 27 domain subclasses
+    backends/                     # 8 cluster files holding the 27 domain subclasses (see "April 2026 Update" below)
 ```
 
 ### March 25, 2026 Update: Report + Teacher Review Services Migrated (Phase 4)
@@ -291,7 +288,7 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 
 ### April 12, 2026 Update: domain_backends.py Split into backends/ Cluster Package (Phase 15)
 
-`domain_backends.py` (4892 lines, 27 classes) was split into 8 cluster files under `adapters/persistence/neo4j/backends/`. The original module is now a 71-line re-export shim so every `from adapters.persistence.neo4j.domain_backends import XBackend` call site continues to work unchanged — zero call-site churn.
+`domain_backends.py` (4892 lines, 27 classes) was split into 8 cluster files under `adapters/persistence/neo4j/backends/`, then the old module was deleted entirely. All call sites import directly from the cluster file — e.g. `from adapters.persistence.neo4j.backends.activity_backends import TasksBackend`.
 
 **New cluster files** (grouped by concern, not by source line order):
 
@@ -306,9 +303,9 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 | `backends/collab_backends.py` | GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend |
 | `backends/misc_backends.py` | ActivityReportBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ActivityReportGeneratorBackend |
 
-`backends/__init__.py` re-exports every class; `domain_backends.py` re-exports from the package.
+`backends/__init__.py` re-exports every class. The old `domain_backends.py` shim was deleted — all call sites import directly from the cluster file.
 
-**mypy override:** the existing `disable_error_code = ["misc"]` rule (for intentional MRO overrides from composed mixins) was extended from `adapters.persistence.neo4j.domain_backends` to each of the 8 cluster modules.
+**mypy override:** the existing `disable_error_code = ["misc"]` rule (for intentional MRO overrides from composed mixins) now applies to each of the 8 cluster modules.
 
 **Behavioral change:** none. MRO verified for `SubmissionsBackend`, `PsBackend`, `LpBackend`. `./dev quality` passes; targeted backend tests (53) green; 3891 non-e2e tests pass with the only failures being pre-existing on HEAD.
 
@@ -336,7 +333,7 @@ Standardized all 33 domain backend methods across 8 backends to use `self.execut
 
 **Backends converted:** GoalsBackend (4), TasksBackend (4), EventsBackend (3), LessonBackend (10), KuBackend (1), SubmissionsBackend (5), JournalInputBackend (3), JournalOutputBackend (2).
 
-**Result:** Zero `self.driver.session()` calls remain in `domain_backends.py`. All queries route through `execute_query()` which provides centralized session management, the driver-closed guard, and consistent `Result[list[dict]]` returns. Net reduction of 156 lines of try/except boilerplate.
+**Result:** Zero `self.driver.session()` calls remain in the domain backends. All queries route through `execute_query()` which provides centralized session management, the driver-closed guard, and consistent `Result[list[dict]]` returns. Net reduction of 156 lines of try/except boilerplate.
 
 **Rule enforced:** Domain backends call `self.execute_query()`. Services call named backend methods. No code bypasses the centralized query path.
 
@@ -454,7 +451,7 @@ def _build_direction_pattern(
 | `self.backend.method()` | **Services** — all domain queries | `await self.backend.find_by(status="active")` |
 | `self.execute_query(query, params)` | **Domain backends only** — domain-specific Cypher | `await self.execute_query(query, {"uid": uid})` |
 
-**Rule (Phase 9):** Domain backends call `self.execute_query()`. Services call named backend methods. Zero `self.driver.session()` calls in `domain_backends.py`.
+**Rule (Phase 9):** Domain backends call `self.execute_query()`. Services call named backend methods. Zero `self.driver.session()` calls in any `backends/` file.
 
 **Nuance:** This rule covers domain CRUD and domain-specific queries. Most cross-domain aggregation services (e.g., `UserProgressService`, `AdminStatsService`) now use typed standalone backends (Phase 13). Two exceptions remain using `QueryExecutor` directly: `user_context_queries.py` (MEGA-QUERY) and `CrossDomainQueryService` (targeted cross-domain reads). Infrastructure services like `Neo4jSchemaService` still use `execute_query` legitimately. Domain sub-services also use `self.backend.execute_query()` for complex one-off queries. See [query_architecture.md — `execute_query` in Services](query_architecture.md#execute_query-in-services--permitted-tiers) for the full tier breakdown.
 

@@ -22,7 +22,7 @@ from core.models.type_hints import UserUID
 from core.ports.query_types import PendingReviewItem, ReviewRequestResult
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import ReviewQueueBackend
+    from adapters.persistence.neo4j.backends.collab_backends import ReviewQueueBackend
 
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger

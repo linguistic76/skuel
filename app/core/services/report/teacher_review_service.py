@@ -46,11 +46,9 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import (
-        ExerciseBackend,
-        GroupBackend,
-        SubmissionsBackend,
-    )
+    from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
+    from adapters.persistence.neo4j.backends.curriculum_backends import ExerciseBackend
+    from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.report.report_mastery_service import ReportMasteryService

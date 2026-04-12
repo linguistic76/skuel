@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 class FormTemplateBackendOperations(BackendOperations["FormTemplate"], Protocol):
     """Backend operations for FormTemplate — base CRUD + domain-specific methods.
 
-    Implementation: FormTemplateBackend (domain_backends.py)
+    Implementation: FormTemplateBackend (backends/forms_backends.py)
     Consumer: FormTemplateService.__init__
     """
 
@@ -52,7 +52,7 @@ class FormTemplateBackendOperations(BackendOperations["FormTemplate"], Protocol)
 class FormSubmissionBackendOperations(BackendOperations["FormSubmission"], Protocol):
     """Backend operations for FormSubmission — base CRUD + domain-specific methods.
 
-    Implementation: FormSubmissionBackend (domain_backends.py)
+    Implementation: FormSubmissionBackend (backends/forms_backends.py)
     Consumer: FormSubmissionService.__init__
     """
 

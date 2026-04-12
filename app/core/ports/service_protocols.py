@@ -552,7 +552,7 @@ class LateralRelationshipOperations(Protocol):
 class LateralRelationshipBackendOperations(Protocol):
     """Backend-level protocol for lateral relationship Cypher queries.
 
-    Implementation: LateralRelationshipBackend in domain_backends.py.
+    Implementation: LateralRelationshipBackend in backends/collab_backends.py.
     Consumer: LateralRelationshipService.
 
     Stable query returns are typed with TypedDicts from query_types.py.

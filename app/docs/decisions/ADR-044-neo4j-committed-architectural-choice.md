@@ -46,7 +46,7 @@ The question arose: is this coupling a gap to close, or is it the intended desig
 
 **Neo4j is a committed architectural dependency, not a swappable implementation detail.**
 
-The hexagonal boundary in SKUEL is at `UniversalNeo4jBackend` (and its subclasses in `domain_backends.py`). This is where Neo4j specifics — driver calls, Cypher generation, label conventions, relationship syntax — stop. Above this boundary, the service layer and domain models are written in domain concepts. Below it, everything is Neo4j.
+The hexagonal boundary in SKUEL is at `UniversalNeo4jBackend` (and its 27 subclasses under `adapters/persistence/neo4j/backends/`). This is where Neo4j specifics — driver calls, Cypher generation, label conventions, relationship syntax — stop. Above this boundary, the service layer and domain models are written in domain concepts. Below it, everything is Neo4j.
 
 **The mixin layer is intentionally graph-aware.** `ContextOperationsMixin` and `RelationshipOperationsMixin` use graph vocabulary (`depth`, `traverse`, `graph_enrichment_patterns`) because SKUEL's domain model is inherently a graph. The relationships between a Task, its prerequisite KUs, its contributing Goal, and its SERVES_LIFE_PATH target are not incidental storage concerns — they are the domain. Expressing them in graph terms at the service layer is not a leaky abstraction; it is appropriate coupling.
 
@@ -105,7 +105,7 @@ The backend layer contains all Neo4j driver calls, all Cypher strings, all label
 - ✅ Developer velocity: adding a new relationship type doesn't require updating an abstraction layer
 
 ### Negative Consequences
-- ⚠️ Swapping Neo4j would require rewriting `UniversalNeo4jBackend`, `domain_backends.py`, `UserBackend`, and reconsidering `ContextOperationsMixin` and `RelationshipOperationsMixin` — it is not a one-layer change
+- ⚠️ Swapping Neo4j would require rewriting `UniversalNeo4jBackend`, the `backends/` cluster files, `UserBackend`, and reconsidering `ContextOperationsMixin` and `RelationshipOperationsMixin` — it is not a one-layer change
 - ⚠️ New contributors familiar with strict hexagonal architecture may read the mixin layer as incomplete refactoring; this ADR exists to correct that reading
 
 ### Risks & Mitigation
@@ -126,7 +126,7 @@ Routes (FastHTML)
     ↓ call service methods
 Services + Mixins (ContextOperationsMixin, RelationshipOperationsMixin)
     ↓ call backend methods via self.backend.*
-UniversalNeo4jBackend / domain backends      ← HEXAGONAL BOUNDARY
+UniversalNeo4jBackend / backends/ cluster files   ← HEXAGONAL BOUNDARY
     ↓ write Cypher, call Neo4j driver
 Neo4j
 ```
@@ -137,7 +137,7 @@ Below the boundary: Cypher strings, `AsyncDriver` calls, label conventions.
 
 ### Code Location
 
-- Hexagonal boundary: `adapters/persistence/neo4j/universal_backend.py` and `domain_backends.py`
+- Hexagonal boundary: `adapters/persistence/neo4j/universal_backend.py` and `adapters/persistence/neo4j/backends/`
 - Intentionally graph-aware mixins: `core/services/mixins/context_operations_mixin.py`, `core/services/mixins/relationship_operations_mixin.py`
 - Linter enforcement: `SKUEL001` (no APOC/raw Cypher in domain services)
 - Backend protocol: `core/ports/base_protocols.py` — `BackendOperations[T]`

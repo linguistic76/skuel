@@ -21,7 +21,7 @@ from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import PsBackend
+    from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 
 
 class PsProgressService:

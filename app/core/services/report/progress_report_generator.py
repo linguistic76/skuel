@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import EntityStatus
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import ActivityReportGeneratorBackend
+    from adapters.persistence.neo4j.backends.misc_backends import ActivityReportGeneratorBackend
     from core.ports import QueryExecutor
     from core.services.ai_service import OpenAIService
     from core.services.analytics_service import AnalyticsService

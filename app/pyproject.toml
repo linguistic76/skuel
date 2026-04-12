@@ -251,7 +251,6 @@ disable_error_code = ["call-arg", "no-untyped-def"]
 # _TraversalMixin, _RelationshipCrudMixin via UniversalNeo4jBackend. The overlapping
 # method signatures work correctly at runtime; suppressing [misc] avoids ~42 false positives.
 module = [
-    "adapters.persistence.neo4j.domain_backends",
     "adapters.persistence.neo4j.backends.activity_backends",
     "adapters.persistence.neo4j.backends.curriculum_backends",
     "adapters.persistence.neo4j.backends.submissions_backend",

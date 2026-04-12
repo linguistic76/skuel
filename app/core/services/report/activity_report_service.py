@@ -22,7 +22,7 @@ from core.models.enums import EntityStatus
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import ActivityReportBackend
+    from adapters.persistence.neo4j.backends.misc_backends import ActivityReportBackend
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.user.unified_user_context import UserContext
     from core.services.user.user_context_builder import UserContextBuilder

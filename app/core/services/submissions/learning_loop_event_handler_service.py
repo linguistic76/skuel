@@ -33,7 +33,7 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import SubmissionsBackend
+    from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
     from core.services.insight.insight_store import InsightStore
 
 

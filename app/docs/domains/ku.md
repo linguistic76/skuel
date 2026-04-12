@@ -84,7 +84,7 @@ await ku_service.get_lessons(ku_uid)
 | Core Service | `/core/services/ku/ku_core_service.py` |
 | Search Service | `/core/services/ku/ku_search_service.py` |
 | Intelligence Service | `/core/services/ku/ku_intelligence_service.py` |
-| Backend | `/adapters/persistence/neo4j/domain_backends.py` (`KuBackend`) |
+| Backend | `/adapters/persistence/neo4j/backends/curriculum_backends.py` (`KuBackend`) |
 | Model | `/core/models/ku/ku.py` |
 | DTO | `/core/models/ku/ku_dto.py` |
 | Relationships Container | `/core/services/ku/ku_relationships.py` (delegates to `KuBackend` for graph queries) |

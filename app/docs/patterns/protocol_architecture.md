@@ -160,7 +160,7 @@ These methods still exist as explicit delegation methods on facade services (`Ta
 
 **Added: Typed backend subclasses (February 2026)**
 
-`HabitsBackend` and `GoalsBackend` in `adapters/persistence/neo4j/domain_backends.py` are thin subclasses of `UniversalNeo4jBackend[T]` that explicitly implement domain-specific backend methods which don't match the `__getattr__` bridge patterns:
+`HabitsBackend` and `GoalsBackend` in `adapters/persistence/neo4j/backends/activity_backends.py` are thin subclasses of `UniversalNeo4jBackend[T]` that explicitly implement domain-specific backend methods which don't match the `__getattr__` bridge patterns:
 
 ```python
 # UniversalNeo4jBackend.__getattr__ patterns:
@@ -184,7 +184,7 @@ class HabitsBackend(UniversalNeo4jBackend["Habit"]):
 
 `HabitsBackend` and `GoalsBackend` are drop-in replacements with the same constructor signature — only the instantiation in `services_bootstrap/compose.py` changes.
 
-**See:** `adapters/persistence/neo4j/domain_backends.py`
+**See:** `adapters/persistence/neo4j/backends/activity_backends.py`
 
 ### Protocol Cleanup (January 2026)
 

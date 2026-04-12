@@ -37,7 +37,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import JournalOutputBackend
+    from adapters.persistence.neo4j.backends.journal_backends import JournalOutputBackend
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.services.llm_caller import UnifiedLLMCaller
     from core.services.output.instruction_resolver import InstructionResolver

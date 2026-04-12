@@ -463,7 +463,8 @@ async def services(neo4j_driver):
             return getattr(self.backend, name)
 
     # Create backends with test wrappers
-    from adapters.persistence.neo4j.domain_backends import PsBackend, TasksBackend
+    from adapters.persistence.neo4j.backends.activity_backends import TasksBackend
+    from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
     from core.models.choice.choice import Choice
     from core.models.enums.neo_labels import NeoLabel
     from core.models.event.event import Event
@@ -474,12 +475,12 @@ async def services(neo4j_driver):
     raw_tasks_backend = TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY)
     tasks_backend = TestBackendWrapper(raw_tasks_backend, Task)
 
-    from adapters.persistence.neo4j.domain_backends import GoalsBackend
+    from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
 
     raw_goals_backend = GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
     goals_backend = TestBackendWrapper(raw_goals_backend, Goal)
 
-    from adapters.persistence.neo4j.domain_backends import EventsBackend
+    from adapters.persistence.neo4j.backends.activity_backends import EventsBackend
 
     raw_events_backend = EventsBackend(
         neo4j_driver, NeoLabel.EVENT, Event, base_label=NeoLabel.ENTITY
@@ -489,7 +490,7 @@ async def services(neo4j_driver):
     raw_ps_backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, Entity, base_label=NeoLabel.ENTITY)
     ps_backend = TestBackendWrapper(raw_ps_backend, Entity)
 
-    from adapters.persistence.neo4j.domain_backends import LpBackend
+    from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
     from core.models.pathways.learning_path import LearningPath
 
     raw_lp_backend = LpBackend(
@@ -497,7 +498,7 @@ async def services(neo4j_driver):
     )
     lp_backend = TestBackendWrapper(raw_lp_backend, LearningPath)
 
-    from adapters.persistence.neo4j.domain_backends import PrinciplesBackend
+    from adapters.persistence.neo4j.backends.activity_backends import PrinciplesBackend
 
     raw_principles_backend = PrinciplesBackend(
         neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
@@ -505,7 +506,7 @@ async def services(neo4j_driver):
     principles_backend = TestBackendWrapper(raw_principles_backend, Principle)
 
     # Use domain-specific backends so sub-services can bind methods at init time
-    from adapters.persistence.neo4j.domain_backends import ChoicesBackend
+    from adapters.persistence.neo4j.backends.activity_backends import ChoicesBackend
 
     choices_backend = ChoicesBackend(
         neo4j_driver, NeoLabel.CHOICE, Choice, base_label=NeoLabel.ENTITY

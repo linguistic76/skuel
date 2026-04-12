@@ -193,11 +193,11 @@ This replaces the old pattern of domain services calling `self.backend.find_by()
 
 ## Backend Sharing
 
-All sub-services share ONE domain-specific backend instance (no wrappers). Activity Domains use `domain_backends.py` subclasses, which add domain-specific relationship Cypher on top of `UniversalNeo4jBackend`. **Single-domain Cypher lives in backends — services delegate, never execute inline Cypher.** The two service-layer exceptions are `user_context_queries.py` (MEGA-QUERY) and `CrossDomainQueryService` (targeted cross-domain reads), both of which use `QueryExecutor` directly for explicitly cross-domain Cypher.
+All sub-services share ONE domain-specific backend instance (no wrappers). Activity Domains use subclasses from `backends/activity_backends.py`, which add domain-specific relationship Cypher on top of `UniversalNeo4jBackend`. **Single-domain Cypher lives in backends — services delegate, never execute inline Cypher.** The two service-layer exceptions are `user_context_queries.py` (MEGA-QUERY) and `CrossDomainQueryService` (targeted cross-domain reads), both of which use `QueryExecutor` directly for explicitly cross-domain Cypher.
 
 ```python
 # In services_bootstrap/_backends.py
-from adapters.persistence.neo4j.domain_backends import TasksBackend
+from adapters.persistence.neo4j.backends.activity_backends import TasksBackend
 
 tasks_backend = TasksBackend(
     driver, NeoLabel.TASK, Task,

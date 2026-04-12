@@ -32,7 +32,7 @@
 | LP | `LpBackend` (28 methods, 3 mixins, protocol: `LpOperations`) | Path CRUD, HAS_STEP management, intelligence queries, graph context, mastery progress, search queries |
 | Exercise | `ExerciseBackend` | Curriculum links, OWNS/FOR_GROUP, student queries (6 methods) |
 
-All in `adapters/persistence/neo4j/domain_backends.py`. Services call typed backend methods — no inline Cypher in service layer.
+All in `adapters/persistence/neo4j/backends/curriculum_backends.py`. Services call typed backend methods — no inline Cypher in service layer.
 
 ### Lesson Sub-services (`core/services/lesson/`)
 | Service | Purpose |

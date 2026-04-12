@@ -26,7 +26,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.domain_backends import LpBackend
+from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.learning_events import (
     KnowledgeMastered,

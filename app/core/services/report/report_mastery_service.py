@@ -20,7 +20,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import SubmissionsBackend
+    from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
     from core.services.ps.ps_mastery_service import PsMasteryService
 
 logger = get_logger("skuel.services.report.mastery")

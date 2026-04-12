@@ -187,11 +187,11 @@ return Result.fail(f"Error: {e}")  # String-based""",
         "title": "No Wrapper Classes Around UniversalNeo4jBackend",
         "severity": "WARNING",
         "description": """Use UniversalNeo4jBackend directly instead of creating wrapper classes.
-Domain backends in domain_backends.py are legitimate extensions with domain-specific
-relationship Cypher. New wrapper classes outside domain_backends.py are violations.""",
+Domain backends in adapters/persistence/neo4j/backends/ are legitimate extensions with
+domain-specific relationship Cypher. New wrapper classes outside backends/ are violations.""",
         "good": """tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-# Domain backends in domain_backends.py are legitimate (TasksBackend, PsBackend, etc.)""",
-        "bad": """class TasksBackend(UniversalNeo4jBackend[Task]):  # Don't create outside domain_backends.py
+# Domain backends in backends/ are legitimate (TasksBackend, PsBackend, etc.)""",
+        "bad": """class TasksBackend(UniversalNeo4jBackend[Task]):  # Don't create outside backends/
     pass""",
     },
     "SKUEL009": {
@@ -444,7 +444,7 @@ class SkuelLinter:
 
     # Domain backends that legitimately extend UniversalNeo4jBackend
     CURRICULUM_BACKENDS: ClassVar[list[str]] = [
-        "domain_backends.py",  # All domain backends (Tasks, Goals, Habits, etc.) live here
+        "neo4j/backends/",  # All 27 domain backends live in the backends/ cluster package
     ]
 
     def __init__(

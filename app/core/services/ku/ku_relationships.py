@@ -21,7 +21,7 @@ from core.utils.generic_fetcher import fetch_relationships_parallel
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import KuBackend
+    from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
 
 # Type alias for consistency with other domains
 KuRelationshipService = UnifiedRelationshipService

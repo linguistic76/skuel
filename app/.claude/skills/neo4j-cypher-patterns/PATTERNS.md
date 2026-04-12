@@ -433,7 +433,7 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 4. **coalesce(prop, default)** for nullable relationship/node properties
 5. **UNWIND** for batch operations — one query for N entities
 6. **No APOC in domain services** (SKUEL001) — pure Cypher only
-7. **No inline Cypher in domain services** — domain-specific Cypher belongs in domain backends (`domain_backends.py`). Services call `self.backend.method_name()`, never `self.backend.execute_query(cypher, params)`. Two service-layer exceptions: `user_context_queries.py` (MEGA-QUERY) and `CrossDomainQueryService` (targeted cross-domain reads) — both use `QueryExecutor` directly for explicitly cross-domain Cypher spanning 2+ domain labels.
+7. **No inline Cypher in domain services** — domain-specific Cypher belongs in domain backends (`adapters/persistence/neo4j/backends/`). Services call `self.backend.method_name()`, never `self.backend.execute_query(cypher, params)`. Two service-layer exceptions: `user_context_queries.py` (MEGA-QUERY) and `CrossDomainQueryService` (targeted cross-domain reads) — both use `QueryExecutor` directly for explicitly cross-domain Cypher spanning 2+ domain labels.
 8. **No json.dumps() in services** — `backend.update()` and `backend.create()` auto-serialize complex types via `to_neo4j_node()`. For custom Cypher reads, use `parse_neo4j_json()` / `deserialize_json_fields()`.
 9. **Validate interpolated identifiers** — Neo4j Cypher cannot parameterize relationship types or labels, so f-string interpolation is unavoidable for those. All 5 query builder modules (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`) import `validate_label()` and `validate_identifier()` from `_helpers.py` and call them before every f-string interpolation of labels, field names, relationship types, and property keys. Backend mixins additionally use `_validate_rel_name()` and `_ALLOWED_ORDER_BY` from `_backend_helpers.py`. Never accept raw user strings for these positions.
 10. **Parameterize `entity_type` filters via the enum** — `entity_type` is a node *property*, so it CAN (and must) be a `$param`. Bind `EntityType.EXERCISE_SUBMISSION.value` (etc.) instead of inlining `'exercise_submission'`. Inline literals violate SKUEL014 and silently rot if an enum value ever changes. Pattern: `MATCH (s:Entity {entity_type: $submission_type})` + `params={"submission_type": EntityType.EXERCISE_SUBMISSION.value}`.
@@ -450,8 +450,8 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 | Cypher Type | Location | Example |
 |-------------|----------|---------|
 | Generic CRUD | `UniversalNeo4jBackend` (via mixins) | `create()`, `get()`, `update()`, `delete()` |
-| Domain-specific relationships | Domain backend in `domain_backends.py` | `SubmissionsBackend.link_to_exercise()` |
-| Atomic multi-entity creation | Domain backend in `domain_backends.py` | `SubmissionsBackend.create_report_and_revised_exercise()` — single Cypher creates ExerciseReport + RevisedExercise + all relationships |
+| Domain-specific relationships | Domain backend in `backends/` | `SubmissionsBackend.link_to_exercise()` |
+| Atomic multi-entity creation | Domain backend in `backends/` | `SubmissionsBackend.create_report_and_revised_exercise()` — single Cypher creates ExerciseReport + RevisedExercise + all relationships |
 | PS-specific Cypher | 5 PsBackend mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
 | Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY, `CrossDomainQueryService` (9 targeted reads → frozen typed dataclasses) |
 | Vector index calls | `VectorSearchBackend` in `vector_search_backend.py` (infrastructure, FULL tier only) | `db.index.vector.queryNodes()` |
@@ -460,7 +460,7 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 | Generic hierarchy | `_HierarchyMixin` (shared by 6 Activity backends) | `get_children_raw()`, `create_hierarchy_relationship()` |
 | JSON property utilities | `core/utils/neo4j_mapper.py` | `parse_neo4j_json()`, `deserialize_json_fields()` |
 
-**27 domain backends** live in `adapters/persistence/neo4j/backends/` (8 cluster files), re-exported through the `domain_backends.py` shim so existing imports are unchanged:
+**27 domain backends** live in `adapters/persistence/neo4j/backends/` (8 cluster files). Import directly from the cluster file:
 
 | Cluster file | Backends |
 |---|---|
@@ -473,6 +473,6 @@ submission (per ADR-040). Access is role-gated at route level, not relationship-
 | `backends/collab_backends.py` | GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend |
 | `backends/misc_backends.py` | ActivityReportBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ActivityReportGeneratorBackend |
 
-Always import via `from adapters.persistence.neo4j.domain_backends import XBackend` — the shim re-exports from `backends/`.
+Always import directly from the cluster file, e.g. `from adapters.persistence.neo4j.backends.activity_backends import TasksBackend`.
 
 **See Also**: [SKILL.md](SKILL.md) for foundational concepts and RelationshipName enum reference.

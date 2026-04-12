@@ -1,8 +1,9 @@
 """Backend cluster package — re-exports all domain backends.
 
 Backends are grouped into cluster files by concern; this package exposes
-them at a single import surface. The legacy ``domain_backends`` module is
-a re-export shim that imports from here.
+them at a single import surface. Callers should import from the specific
+cluster module (e.g. ``backends.activity_backends``) — this barrel exists
+for introspection and MyPy override convenience.
 """
 
 from __future__ import annotations

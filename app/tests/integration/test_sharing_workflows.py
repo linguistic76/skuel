@@ -16,7 +16,7 @@ These tests use the actual service implementation with real Neo4j driver.
 
 import pytest
 
-from adapters.persistence.neo4j.domain_backends import SharingBackend
+from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 from core.models.entity import Entity
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.neo_labels import NeoLabel

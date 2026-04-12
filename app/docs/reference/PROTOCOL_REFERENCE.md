@@ -332,7 +332,7 @@ All domain operation protocols use `Result[T]` return types and define **persist
 For methods that don't match `UniversalNeo4jBackend.__getattr__` bridge patterns, typed subclasses provide explicit implementations:
 
 ```python
-# adapters/persistence/neo4j/domain_backends.py
+# adapters/persistence/neo4j/backends/activity_backends.py
 class HabitsBackend(UniversalNeo4jBackend["Habit"]):
     """Adds get_habit, list_by_user, get_user_habits, archive_habit, link_habit_to_*"""
 

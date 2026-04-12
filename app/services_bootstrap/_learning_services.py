@@ -125,7 +125,7 @@ def _create_learning_services(
     # Create path service (LP operations - delegates PS operations to PsService)
     # January 2026: Intelligence created internally (unified with other domains)
     # Backend created here (composition root) — core services never import adapters
-    from adapters.persistence.neo4j.domain_backends import LpBackend
+    from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
 
     lp_backend = LpBackend(driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
     learning_paths = LpService(

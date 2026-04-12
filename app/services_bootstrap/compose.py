@@ -576,7 +576,7 @@ async def compose_services(
         # Enables explicit modeling of sibling, cousin, dependency, and semantic relationships
         # across all 8 hierarchical domains (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP)
 
-        from adapters.persistence.neo4j.domain_backends import LateralRelationshipBackend
+        from adapters.persistence.neo4j.backends.collab_backends import LateralRelationshipBackend
         from core.services.lateral_relationships import LateralRelationshipService
 
         # Create backend + service for lateral relationships (domain-agnostic)
@@ -664,7 +664,7 @@ async def compose_services(
         logger.info("✅ Content enrichment service created")
 
         # Create report and exercise services
-        from adapters.persistence.neo4j.domain_backends import (
+        from adapters.persistence.neo4j.backends.curriculum_backends import (
             ExerciseBackend,
             ExerciseReportBackend,
         )
@@ -720,7 +720,7 @@ async def compose_services(
         exercise_service = ExerciseService(backend=exercise_backend)
 
         # ResourceService: curated content (books, talks, films, podcasts)
-        from adapters.persistence.neo4j.domain_backends import ResourceBackend
+        from adapters.persistence.neo4j.backends.misc_backends import ResourceBackend
         from core.models.resource.resource import Resource as ResourceModel
         from core.services.resource_service import ResourceService
 
@@ -736,7 +736,7 @@ async def compose_services(
         logger.info("✅ Report, exercise, and resource services created")
 
         # Create revised exercise service (five-phase learning loop)
-        from adapters.persistence.neo4j.domain_backends import RevisedExerciseBackend
+        from adapters.persistence.neo4j.backends.curriculum_backends import RevisedExerciseBackend
         from core.models.exercises.revised_exercise import RevisedExercise
         from core.services.revised_exercises import RevisedExerciseService
 
@@ -753,7 +753,7 @@ async def compose_services(
         logger.info("✅ RevisedExerciseService created (five-phase learning loop)")
 
         # Create form services (general-purpose form system)
-        from adapters.persistence.neo4j.domain_backends import (
+        from adapters.persistence.neo4j.backends.forms_backends import (
             FormSubmissionBackend,
             FormTemplateBackend,
         )
@@ -787,7 +787,7 @@ async def compose_services(
         logger.info("✅ Form services created (FormTemplate + FormSubmission)")
 
         # Create interaction service (User Interaction Contract — EntityType.INTERACTION)
-        from adapters.persistence.neo4j.domain_backends import InteractionBackend
+        from adapters.persistence.neo4j.backends.misc_backends import InteractionBackend
         from core.models.interaction.interaction import Interaction
         from core.services.interaction import InteractionService
 
@@ -805,7 +805,7 @@ async def compose_services(
         logger.info("✅ InteractionService created (User Interaction Contract)")
 
         # Create group service (ADR-040: Teacher Exercise Workflow)
-        from adapters.persistence.neo4j.domain_backends import GroupBackend
+        from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
         from core.models.group.group import Group
         from core.services.groups import GroupService
 
@@ -833,7 +833,7 @@ async def compose_services(
         logger.info("✅ TeacherReviewService created (ADR-040)")
 
         # Create notification service
-        from adapters.persistence.neo4j.domain_backends import NotificationBackend
+        from adapters.persistence.neo4j.backends.collab_backends import NotificationBackend
         from core.services.notifications.notification_service import NotificationService
 
         notification_backend = NotificationBackend(executor=query_executor)
@@ -867,7 +867,7 @@ async def compose_services(
         )
 
         # Create sharing backend + service (cross-domain, queries :Entity nodes)
-        from adapters.persistence.neo4j.domain_backends import SharingBackend
+        from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
         from core.models.entity import Entity
         from core.services.sharing import UnifiedSharingService
 
@@ -936,7 +936,7 @@ async def compose_services(
         logger.info("✅ InstructionResolver created")
 
         # Journal input service (CRUD + file upload → JeInput entities)
-        from adapters.persistence.neo4j.domain_backends import JournalInputBackend
+        from adapters.persistence.neo4j.backends.journal_backends import JournalInputBackend
         from core.models.journal.je_input import JeInput
         from core.services.journal import JournalInputService
 
@@ -952,7 +952,7 @@ async def compose_services(
         logger.info(f"✅ JournalInputService created (storage: {journal_storage})")
 
         # Journal output service (LLM processing → JeOutput entities)
-        from adapters.persistence.neo4j.domain_backends import JournalOutputBackend
+        from adapters.persistence.neo4j.backends.journal_backends import JournalOutputBackend
         from core.models.journal.je_output import JeOutput
         from core.services.journal import JournalOutputService
 
@@ -1028,7 +1028,7 @@ async def compose_services(
         )
 
         # Create progress report generator and schedule service
-        from adapters.persistence.neo4j.domain_backends import ReportScheduleBackend
+        from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend
         from core.models.submissions.report_schedule import ReportSchedule
         from core.services.report.progress_report_generator import ProgressReportGenerator
         from core.services.report.progress_schedule_service import ProgressScheduleService
@@ -1047,13 +1047,13 @@ async def compose_services(
             context_builder=context_builder,
             event_bus=event_bus,
         )
-        from adapters.persistence.neo4j.domain_backends import ReviewQueueBackend
+        from adapters.persistence.neo4j.backends.collab_backends import ReviewQueueBackend
 
         review_queue_backend = ReviewQueueBackend(executor=query_executor)
         review_queue_service = ReviewQueueService(backend=review_queue_backend)
         logger.info("✅ ActivityReportService + ReviewQueueService created")
 
-        from adapters.persistence.neo4j.domain_backends import ActivityReportGeneratorBackend
+        from adapters.persistence.neo4j.backends.misc_backends import ActivityReportGeneratorBackend
 
         report_generator_backend = ActivityReportGeneratorBackend(executor=query_executor)
         progress_generator = ProgressReportGenerator(

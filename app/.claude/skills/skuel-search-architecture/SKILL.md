@@ -35,7 +35,7 @@ SearchRouter (THE Orchestrator):
 | **Models** | `/core/models/search_request.py` | SearchRequest/SearchResponse |
 | **Routes** | `/adapters/inbound/search_routes.py` | HTTP handling |
 | **Domain Services** | `/core/services/{domain}/{domain}_search_service.py` | Domain logic |
-| **Domain Backends** | `/adapters/persistence/neo4j/domain_backends.py` | Domain-specific relationship Cypher |
+| **Domain Backends** | `/adapters/persistence/neo4j/backends/` | Domain-specific relationship Cypher (8 cluster files) |
 | **Universal Backend** | `/adapters/persistence/neo4j/universal_backend.py` | Shell; methods in 10 mixin files |
 | **Backend Mixins** | `_crud_mixin.py`, `_search_mixin.py`, `_search_raw_mixin.py`, `_temporal_mixin.py`, `_prereq_progress_mixin.py`, `_context_query_mixin.py`, `_relationship_query_mixin.py`, `_relationship_crud_mixin.py`, `_user_entity_mixin.py`, `_traversal_mixin.py` | One file per protocol group |
 

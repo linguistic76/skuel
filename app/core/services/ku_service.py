@@ -23,7 +23,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import KuBackend
+    from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
     from core.models.graph_context import GraphContext
     from core.models.ku.ku import Ku
     from core.ports.query_types import KuUserSubstanceResult, ListContext

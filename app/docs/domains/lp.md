@@ -127,7 +127,7 @@ All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3
 | Search Service | `/core/services/lp/lp_search_service.py` |
 | Intelligence Service | `/core/services/lp/lp_intelligence_service.py` |
 | Progress Service | `/core/services/lp/lp_progress_service.py` |
-| Domain Backend | `/adapters/persistence/neo4j/domain_backends.py` (`LpBackend`) |
+| Domain Backend | `/adapters/persistence/neo4j/backends/curriculum_backends.py` (`LpBackend`) |
 | Step Mixin | `/adapters/persistence/neo4j/_lp_step_mixin.py` (14 methods) |
 | Progress Mixin | `/adapters/persistence/neo4j/_lp_progress_mixin.py` (6 methods) |
 | Intelligence Mixin | `/adapters/persistence/neo4j/_lp_intelligence_mixin.py` (8 methods) |

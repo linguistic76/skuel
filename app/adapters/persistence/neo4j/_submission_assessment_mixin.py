@@ -6,7 +6,7 @@ Assessment scoring + teacher-review queue and reporting.
 Covers teacher authority verification, assessment relationships,
 review queue queries, report creation, and teacher dashboards.
 
-Extracted from ``domain_backends.SubmissionsBackend`` as part of the
+Extracted from ``SubmissionsBackend`` as part of the
 April 2026 persistence-layer decomposition. All behavior is unchanged —
 this file only moves methods to a smaller, more focused mixin.
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 class _SubmissionAssessmentMixin:
     """Assessment scoring + teacher-review workflow operations.
 
-    See ``SubmissionsBackend`` in ``domain_backends.py`` for the composed class.
+    See ``SubmissionsBackend`` in ``backends/submissions_backend.py`` for the composed class.
     """
 
     if TYPE_CHECKING:

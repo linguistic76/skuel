@@ -6,7 +6,7 @@ Cross-joins to ExerciseReport and learning-loop chain queries.
 Covers pending submissions, unsubmitted exercises, report summaries,
 and learning-loop chain reads.
 
-Extracted from ``domain_backends.SubmissionsBackend`` as part of the
+Extracted from ``SubmissionsBackend`` as part of the
 April 2026 persistence-layer decomposition. All behavior is unchanged —
 this file only moves methods to a smaller, more focused mixin.
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 class _SubmissionReportQueryMixin:
     """Report-relationship cross-joins and learning-loop chain reads.
 
-    See ``SubmissionsBackend`` in ``domain_backends.py`` for the composed class.
+    See ``SubmissionsBackend`` in ``backends/submissions_backend.py`` for the composed class.
     """
 
     if TYPE_CHECKING:

@@ -423,7 +423,7 @@ All 6 activity channels tracked (journals deferred — submissions, not activiti
 | **Decay Algorithm** | `/core/models/curriculum.py` | Exponential decay, spaced repetition |
 | **Domain Events** | `/core/events/knowledge_substance_events.py` | 8 substance events (4 channels × single + bulk) |
 | **Event Handlers** | `/core/services/ps_service.py` | `PsService.increment_substance_metric()` |
-| **Backend Write** | `/adapters/persistence/neo4j/domain_backends.py` | `KuBackend.increment_substance()` + PathStep fan-out |
+| **Backend Write** | `/adapters/persistence/neo4j/backends/curriculum_backends.py` | `KuBackend.increment_substance()` + PathStep fan-out |
 | **Event Wiring** | `/services_bootstrap/_event_wiring.py` | Subscribe PsService to substance events |
 | **Life Path Fields** | `/core/services/user/unified_user_context.py` | Life alignment tracking |
 | **Confidence Enum** | `/core/models/enums/activity_enums.py` | `Confidence` enum (UNCERTAIN → CERTAIN) |

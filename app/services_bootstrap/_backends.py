@@ -19,17 +19,19 @@ def create_all_backends(
 
     Returns dict with named backends for all entity types.
     """
-    from adapters.persistence.neo4j.domain_backends import (
+    from adapters.persistence.neo4j.backends.activity_backends import (
         ChoicesBackend,
         EventsBackend,
         GoalsBackend,
         HabitsBackend,
-        KuBackend,
         PrinciplesBackend,
-        PsBackend,
-        SubmissionsBackend,
         TasksBackend,
     )
+    from adapters.persistence.neo4j.backends.curriculum_backends import (
+        KuBackend,
+        PsBackend,
+    )
+    from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
     from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
     from core.models.askesis.askesis import Askesis
     from core.models.event.event import Event
@@ -143,7 +145,7 @@ def create_all_backends(
     submissions_backend = SubmissionsBackend(
         driver, NeoLabel.ENTITY, Submission, prometheus_metrics=prometheus_metrics
     )
-    from adapters.persistence.neo4j.domain_backends import ActivityReportBackend
+    from adapters.persistence.neo4j.backends.misc_backends import ActivityReportBackend
     from core.models.report.activity_report import ActivityReport
 
     activity_report_backend = ActivityReportBackend(

@@ -19,7 +19,7 @@ from core.models.submissions.report_schedule import (
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.domain_backends import ReportScheduleBackend
+    from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

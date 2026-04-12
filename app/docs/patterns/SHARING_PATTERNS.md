@@ -502,7 +502,7 @@ class UnifiedSharingService:
 ```
 
 **Location:** `core/services/sharing/unified_sharing_service.py`
-**Backend:** `adapters/persistence/neo4j/domain_backends.py` — `SharingBackend(UniversalNeo4jBackend[Entity])`
+**Backend:** `adapters/persistence/neo4j/backends/sharing_backend.py` — `SharingBackend(UniversalNeo4jBackend[Entity])`
 **Protocol:** `core/ports/sharing_protocols.py` — `SharingOperations`
 **Services field:** `services.sharing`
 
@@ -664,7 +664,7 @@ if result.is_error:
 ## References
 
 ### Implementation Files
-- **Backend:** `adapters/persistence/neo4j/domain_backends.py` — `SharingBackend`
+- **Backend:** `adapters/persistence/neo4j/backends/sharing_backend.py` — `SharingBackend`
 - **Service:** `core/services/sharing/unified_sharing_service.py`
 - **Protocol:** `core/ports/sharing_protocols.py`
 - **API Routes:** `adapters/inbound/submissions_sharing_api.py`

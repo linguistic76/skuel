@@ -357,8 +357,8 @@ The `UnifiedIngestionService` (at `core/services/ingestion/`) handles all curric
 | KuIntelligenceService | `/core/services/ku_intelligence_service.py` | Standalone analytics for KU domain |
 | PsService | `/core/services/ps_service.py` | Path Step facade |
 | LpService | `/core/services/lp_service.py` | Learning Path facade |
-| LpBackend | `/adapters/persistence/neo4j/domain_backends.py` | LP-specific graph queries |
-| KuBackend | `/adapters/persistence/neo4j/domain_backends.py` | Ku ORGANIZES operations |
+| LpBackend | `/adapters/persistence/neo4j/backends/curriculum_backends.py` | LP-specific graph queries |
+| KuBackend | `/adapters/persistence/neo4j/backends/curriculum_backends.py` | Ku ORGANIZES operations |
 | EntityType | `/core/models/enums/entity_enums.py` | Type-safe entity identification |
 | Ingestion | `/core/services/ingestion/` | Ingest all patterns from markdown |
 | Unified Registry | `/core/models/relationship_registry.py` | All domain relationship configs |
@@ -406,7 +406,7 @@ Curriculum Domains use domain backend subclasses where relationship-specific Cyp
 | LP | `LpBackend` (extends `UniversalNeo4jBackend[LearningPath]`) | 28 methods via 3 mixins: step CRUD (14), progress + search (6), intelligence + adaptive (8) | 3 domain-specific mixins |
 | Exercise | `ExerciseBackend` (extends `UniversalNeo4jBackend[Exercise]`) | `link_to_curriculum`, `unlink_from_curriculum`, `get_required_knowledge` | Flat |
 
-All domain backends in: `/adapters/persistence/neo4j/domain_backends.py`
+All domain backends in: `/adapters/persistence/neo4j/backends/curriculum_backends.py`
 LP mixins in: `_lp_step_mixin.py`, `_lp_progress_mixin.py`, `_lp_intelligence_mixin.py`
 PS mixins in: `_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`
 

@@ -26,7 +26,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.domain_backends import GoalsBackend
+from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.task_events import TaskCompleted

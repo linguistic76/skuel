@@ -514,8 +514,8 @@ class TestSKUEL008:
     def test_domain_backends_exempt(self) -> None:
         linter = make_linter(["SKUEL008"])
         content = "class TasksBackend(UniversalNeo4jBackend[Task]):\n    pass"
-        fp = Path("/fake/root/adapters/persistence/neo4j/domain_backends.py")
-        rel = Path("adapters/persistence/neo4j/domain_backends.py")
+        fp = Path("/fake/root/adapters/persistence/neo4j/backends/activity_backends.py")
+        rel = Path("adapters/persistence/neo4j/backends/activity_backends.py")
         linter._check_backend_wrappers(fp, rel, content)
         assert len(linter.result.violations) == 0
 

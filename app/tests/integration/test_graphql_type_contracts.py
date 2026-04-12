@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.domain_backends import LpBackend
+from adapters.persistence.neo4j.backends.curriculum_backends import LpBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity

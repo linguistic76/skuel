@@ -96,8 +96,8 @@ Migration script: `scripts/migrations/add_has_lesson_relationship_2026_03.cypher
 
 | Backend | File | Methods |
 |---------|------|---------|
-| `PsBackend` | `adapters/persistence/neo4j/domain_backends.py` | `get_steps_containing_lesson()`, `get_lesson_completion_progress()` |
-| `LpBackend` | `adapters/persistence/neo4j/domain_backends.py` | `get_paths_containing_ku()`, `get_ku_mastery_progress()` |
+| `PsBackend` | `adapters/persistence/neo4j/backends/curriculum_backends.py` | `get_steps_containing_lesson()`, `get_lesson_completion_progress()` |
+| `LpBackend` | `adapters/persistence/neo4j/backends/curriculum_backends.py` | `get_paths_containing_ku()`, `get_ku_mastery_progress()` |
 
 ---
 

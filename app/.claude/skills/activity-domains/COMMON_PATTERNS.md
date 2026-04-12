@@ -89,7 +89,7 @@ Calendar cross-cutting system still works (reads service protocols, not UI route
 All 6 Activity Domain backends extend `_HierarchyMixin` with a per-domain `HierarchyConfig`. Core services delegate hierarchy operations to the backend — **no inline Cypher in services**.
 
 ```python
-# Backend (domain_backends.py) — owns the Cypher via _HierarchyMixin
+# Backend (backends/activity_backends.py) — owns the Cypher via _HierarchyMixin
 class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
     _hierarchy_config = HierarchyConfig(
         forward_rel="HAS_SUBTASK", inverse_rel="SUBTASK_OF",

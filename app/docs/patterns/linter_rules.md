@@ -447,7 +447,7 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 | Rule | Auto-Excluded Directories | Per-File Suppression |
 |------|--------------------------|---------------------|
 | **SKUEL005** | Protocol files | `# skuel-lint: disable-file=SKUEL005` |
-| **SKUEL008** | Domain backends (`domain_backends.py`) | N/A |
+| **SKUEL008** | Domain backends (`adapters/persistence/neo4j/backends/`) | N/A |
 | **SKUEL011** | Tests, `sort_functions.py` | `# skuel-lint: disable=SKUEL011` |
 | **SKUEL012** | Tests, `examples/` | `# skuel-lint: disable=SKUEL012` |
 | **SKUEL015** | Tests, `scripts/`, `examples/`, `debug_*`, `lint_skuel.py`, `dev`, `__main__` blocks, docstrings | `# skuel-lint: disable=SKUEL015` |

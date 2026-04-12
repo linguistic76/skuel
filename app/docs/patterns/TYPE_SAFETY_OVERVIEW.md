@@ -199,7 +199,7 @@ Per-module strictness overrides:
 | `core.services.*` | Gradual | 94 untyped defs remain — enable incrementally |
 | `core.ports.*` | `disallow_untyped_defs` | All protocol definitions must have type annotations |
 | `adapters.*` | Gradual | Framework boundaries; `RouteDecorator` protocol handles FastHTML |
-| `adapters.persistence.neo4j.domain_backends` | Custom | `misc` suppressed for MRO mixin conflicts |
+| `adapters.persistence.neo4j.backends.*` | Custom | `misc` suppressed for MRO mixin conflicts (all 8 cluster files) |
 | `tests.*` | Lenient | Mocks and fixtures need flexibility |
 
 **Disabled error codes (global, 4 codes):**
@@ -209,7 +209,7 @@ Per-module strictness overrides:
 - `type-arg` — Generic type argument constraints in protocol hierarchies
 
 **Disabled error codes (per-module):**
-- `misc` on `domain_backends` — MRO conflicts from multiple mixin inheritance in domain backend classes
+- `misc` on each of the 8 `backends.*` cluster modules — MRO conflicts from multiple mixin inheritance in domain backend classes
 
 **Ruff enforces annotation discipline:**
 - `TCH` rules: correct `TYPE_CHECKING` block usage

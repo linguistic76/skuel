@@ -727,7 +727,7 @@ class LpSubServices:
 | `get_choice_principle_adherence` | Choice + Principle |
 | `get_choice_conflict_count` | Choice + Principle |
 
-**What it replaced:** ~790 lines of N+1 queries, fan-out loops, and misplaced cross-domain Cypher from 6 Activity Domain backends and services (174 lines from `domain_backends.py`, 375 lines from Choices `_behavioral_signals_mixin.py`, 86 lines from `events_intelligence_service.py`, 84 lines from `goals_search_service.py`, etc.).
+**What it replaced:** ~790 lines of N+1 queries, fan-out loops, and misplaced cross-domain Cypher from 6 Activity Domain backends and services (174 lines from activity domain backends, 375 lines from Choices `_behavioral_signals_mixin.py`, 86 lines from `events_intelligence_service.py`, 84 lines from `goals_search_service.py`, etc.).
 
 **Bootstrap:** Wired in `services_bootstrap/compose.py` before activity services — `CrossDomainQueryService(query_executor)`.
 

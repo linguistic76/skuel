@@ -20,7 +20,7 @@ import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.domain_backends import HabitsBackend
+from adapters.persistence.neo4j.backends.activity_backends import HabitsBackend
 from core.events.habit_events import AchievementEarned, HabitStreakMilestone
 from core.models.enums import RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus as HabitStatus
