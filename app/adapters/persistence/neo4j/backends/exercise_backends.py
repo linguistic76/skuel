@@ -837,62 +837,6 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
             {"teacher_uid": teacher_uid, "limit": limit},
         )
 
-    async def create_ai_report_node(self, params: dict[str, str]) -> Result[list[Neo4jProperties]]:
-        """
-        Atomically create an AI-generated ExerciseReport entity in Neo4j.
-
-        Single transaction creates:
-        - :Entity:ExerciseReport node with all report fields
-        - (creator)-[:OWNS]->(report) relationship
-        - (report)-[:REPORT_FOR]->(submission) relationship
-        - Denormalised report_content + report_generated_at on the submission
-
-        Args:
-            params: Dict with keys: submission_uid, report_uid, user_uid,
-                    feedback_text, title, entity_type, completed_status,
-                    processor_type, assessment_outcome, now
-
-        Returns:
-            Result containing record with report_uid on success
-        """
-        return await self.execute_query(
-            f"""
-            MATCH (submission:Entity {{uid: $submission_uid}})
-            OPTIONAL MATCH (creator:User {{uid: $user_uid}})
-
-            SET submission.report_content = $feedback_text,
-                submission.report_generated_at = datetime($now),
-                submission.updated_at = datetime($now)
-
-            CREATE (fb:Entity:ExerciseReport {{
-                uid: $report_uid,
-                title: $title,
-                entity_type: $entity_type,
-                user_uid: $user_uid,
-                status: $completed_status,
-                processor_type: $processor_type,
-                assessment_outcome: $assessment_outcome,
-                content: $feedback_text,
-                report_content: $feedback_text,
-                report_generated_at: datetime($now),
-                subject_uid: $submission_uid,
-                created_by: $user_uid,
-                created_at: datetime($now),
-                updated_at: datetime($now)
-            }})
-
-            WITH submission, creator, fb
-            CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
-
-            WITH submission, creator, fb
-            WHERE creator IS NOT NULL
-            CREATE (creator)-[:{RelationshipName.OWNS.value}]->(fb)
-
-            RETURN fb.uid AS report_uid
-            """,
-            params,
-        )
-
     async def get_linked_ku_and_student(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
         """
         Get Ku UIDs and student UID linked to a submission via APPLIES_KNOWLEDGE.

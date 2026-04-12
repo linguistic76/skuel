@@ -200,7 +200,7 @@ class TeacherReviewService:
             {
                 "report_uid": report_uid,
                 "report_entity_uid": report_entity_uid,
-                "teacher_uid": teacher_uid,
+                "author_uid": teacher_uid,
                 "feedback": feedback,
                 "report_file_path": file_path,
                 "title": f"Feedback: {report_uid[:30]}",
@@ -285,7 +285,7 @@ class TeacherReviewService:
             {
                 "report_uid": report_uid,
                 "report_entity_uid": report_entity_uid,
-                "teacher_uid": teacher_uid,
+                "author_uid": teacher_uid,
                 "feedback": notes,
                 "report_file_path": None,
                 "title": f"Revision request: {report_uid[:30]}",

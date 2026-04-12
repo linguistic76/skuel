@@ -183,41 +183,60 @@ class _SubmissionAssessmentMixin:
     async def create_report_node(self, params: dict[str, Any]) -> Result[list[Neo4jProperties]]:
         """Create ExerciseReport node, link via REPORT_FOR, share with student, update submission.
 
-        Requires ``allowed_from_statuses`` in params — a Cypher-level guard that
-        ensures the submission's current status is valid for the requested transition.
-        Returns empty results when the guard rejects the transition (caller already
-        verified existence via _verify_teacher_access).
+        Canonical report-creation path for both teacher (HUMAN) and AI (LLM) reports.
+
+        Params:
+            report_uid: Submission UID to attach the report to
+            report_entity_uid: UID for the new ExerciseReport node
+            author_uid: UID of the user who authored the report. For teacher
+                reports this is the teacher; for AI reports the caller is the
+                student themselves (the "author of record").
+            feedback, title, entity_type, completed_status, processor_type,
+                assessment_outcome, now: standard report fields
+            report_file_path: optional path to uploaded .md file (may be None)
+            submission_status: new status to transition the submission to, or
+                None to leave submission.status unchanged (AI reports pass None)
+            allowed_from_statuses: list of current-status values permitted for
+                the transition, or None to skip the guard (AI reports pass None)
+
+        Returns empty results when the guard is present and rejects the
+        transition (caller already verified existence).
         """
         query = f"""
         MATCH (submission:Entity {{uid: $report_uid}})
-        WHERE submission.status IN $allowed_from_statuses
+        WHERE $allowed_from_statuses IS NULL
+           OR submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
 
         // Denormalize feedback onto submission for quick list display
         SET submission.report_content = $feedback,
             submission.report_generated_at = datetime($now),
-            submission.status = $submission_status,
             submission.updated_at = datetime($now)
+
+        // Optional status transition (skip when $submission_status is null)
+        FOREACH (_ IN CASE WHEN $submission_status IS NOT NULL THEN [1] ELSE [] END |
+            SET submission.status = $submission_status
+        )
 
         // Canonical feedback lives on the report node
         CREATE (fb:Entity {{
             uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,
-            user_uid: $teacher_uid,
+            user_uid: $author_uid,
             status: $completed_status,
             processor_type: $processor_type,
             assessment_outcome: $assessment_outcome,
             content: $feedback,
             report_file_path: $report_file_path,
-            created_by: $teacher_uid,
+            created_by: $author_uid,
             created_at: datetime($now),
             updated_at: datetime($now)
         }})
 
         WITH submission, student, fb
-        MATCH (teacher:User {{uid: $teacher_uid}})
-        CREATE (teacher)-[:{RelationshipName.OWNS.value}]->(fb)
+        MATCH (author:User {{uid: $author_uid}})
+        CREATE (author)-[:{RelationshipName.OWNS.value}]->(fb)
         CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
         WITH submission, student, fb

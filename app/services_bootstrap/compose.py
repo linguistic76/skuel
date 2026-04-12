@@ -704,8 +704,9 @@ async def compose_services(
         if llm_caller:
             exercise_report_service = ExerciseReportService(
                 llm_caller=llm_caller,
-                backend=exercise_report_backend,  # Creates ExerciseReport entity + REPORT_FOR relationship
-                ku_interaction_service=learning_services["ps"].mastery,  # Closes mastery loop
+                backend=exercise_report_backend,  # mastery-loop reads (get_linked_ku_and_student)
+                submissions_backend=submissions_backend,  # canonical report-node creation
+                ku_interaction_service=learning_services["ps"].mastery,  # closes mastery loop
                 report_mastery_service=report_mastery_service,
             )
 

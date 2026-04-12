@@ -34,6 +34,7 @@ from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.backends.exercise_backends import ExerciseReportBackend
+    from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.report.report_mastery_service import ReportMasteryService
 
@@ -55,15 +56,22 @@ class ExerciseReportService:
         self,
         llm_caller: LLMCallerProtocol,
         backend: "ExerciseReportBackend | None" = None,
+        submissions_backend: "SubmissionsBackend | None" = None,
         ku_interaction_service: "PsMasteryService | None" = None,
         report_mastery_service: "ReportMasteryService | None" = None,
     ) -> None:
         """
-        Initialize with LLM caller and domain backend.
+        Initialize with LLM caller and domain backends.
 
         Args:
             llm_caller: Unified LLM caller for model-agnostic generation
-            backend: ExerciseReportBackend for creating EXERCISE_REPORT entity in Neo4j
+            backend: ExerciseReportBackend for mastery-loop reads
+                (``get_linked_ku_and_student``). Report *creation* is delegated
+                to ``submissions_backend.create_report_node`` — the canonical
+                path shared with teacher reports.
+            submissions_backend: SubmissionsBackend — canonical report-node
+                creator. Shared with TeacherReviewService so AI and teacher
+                reports go through the same Cypher.
             ku_interaction_service: Optional — updates MASTERED relationships on linked Ku nodes
                 after feedback is persisted, closing the mastery loop for PERSONAL scope
                 exercises where no teacher approval step exists
@@ -71,12 +79,13 @@ class ExerciseReportService:
         """
         self.llm_caller = llm_caller
         self.backend = backend
+        self.submissions_backend = submissions_backend
         self.ku_interaction_service = ku_interaction_service
         self.report_mastery_service = report_mastery_service
         self.logger = logger
 
         available = ["LLMCaller"]
-        if self.backend:
+        if self.submissions_backend:
             available.append("Neo4j")
         if self.ku_interaction_service:
             available.append("MasteryLoop")
@@ -175,20 +184,26 @@ class ExerciseReportService:
         """
         Persist AI report as an EXERCISE_REPORT entity in Neo4j.
 
-        Creates the entity, OWNS relationship, REPORT_FOR relationship,
-        and updates the submission's denormalized report field — atomically.
+        Delegates to ``SubmissionsBackend.create_report_node`` — the canonical
+        report-creation path shared with teacher reports. Creates the entity,
+        OWNS + REPORT_FOR relationships, SHARES_WITH the student, and
+        denormalizes feedback onto the submission — all in one transaction.
 
-        Pattern follows TeacherReviewService.submit_report().
+        AI reports pass ``submission_status=None`` and
+        ``allowed_from_statuses=None`` so the submission's status is not
+        transitioned and no status guard runs (AI reports are not a state
+        machine event the way teacher reviews are).
         """
-        if not self.backend:
+        if not self.submissions_backend:
             self.logger.warning(
-                "No backend configured — AI report generated but not persisted as entity. "
-                "Configure backend in ExerciseReportService to enable full persistence."
+                "No submissions_backend configured — AI report generated but not persisted "
+                "as entity. Wire submissions_backend in ExerciseReportService to enable "
+                "full persistence."
             )
             # Return a transient ExerciseReport object for graceful degradation
             return self._build_transient_report(submission, exercise, feedback_text, user_uid)
 
-        report_uid = UIDGenerator.generate_uid("sr")
+        report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
         title = (
             f"AI Feedback: {exercise.title[:50]}"
@@ -197,17 +212,20 @@ class ExerciseReportService:
         )
 
         try:
-            query_result = await self.backend.create_ai_report_node(
+            query_result = await self.submissions_backend.create_report_node(
                 {
-                    "submission_uid": submission.uid,
-                    "report_uid": report_uid,
-                    "user_uid": user_uid,
-                    "feedback_text": feedback_text,
+                    "report_uid": submission.uid,
+                    "report_entity_uid": report_entity_uid,
+                    "author_uid": user_uid,
+                    "feedback": feedback_text,
+                    "report_file_path": None,
                     "title": title,
                     "entity_type": EntityType.EXERCISE_REPORT.value,
+                    "submission_status": None,
                     "completed_status": EntityStatus.COMPLETED.value,
                     "processor_type": ProcessorType.LLM.value,
                     "assessment_outcome": AssessmentOutcome.AI_EVALUATED.value,
+                    "allowed_from_statuses": None,
                     "now": now,
                 },
             )
@@ -220,10 +238,10 @@ class ExerciseReportService:
                     )
                 )
 
-            self.logger.info(f"EXERCISE_REPORT entity created: {report_uid}")
+            self.logger.info(f"EXERCISE_REPORT entity created: {report_entity_uid}")
 
             feedback_entity = ExerciseReport(
-                uid=report_uid,
+                uid=report_entity_uid,
                 entity_type=EntityType.EXERCISE_REPORT,
                 title=title,
                 user_uid=user_uid,
