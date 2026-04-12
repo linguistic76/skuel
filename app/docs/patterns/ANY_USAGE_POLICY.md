@@ -1,6 +1,6 @@
 # Any Usage Policy
 
-*Last updated: 2026-03-28*
+*Last updated: 2026-04-11*
 
 SKUEL treats `Any` as a last resort, not a default. Every use of `Any` must belong to one
 of the three categories below. Unlabelled `Any` annotations are technical debt and should
@@ -30,6 +30,8 @@ They provide no value and actively undermine type safety.
 - `ReviewQueueOperations.request_review()` — Was `Result[dict[str, Any]]`, now `Result[ReviewRequestResult]`
 - `ReviewQueueOperations.get_pending_reviews()` — Was `Result[list[dict[str, Any]]]`, now `Result[list[PendingReviewItem]]`
 - `TeacherReviewOperations.get_group_detail()` — Was `Result[list[dict[str, Any]]]`, now `Result[list[GroupMemberProgress]]`
+- `PsBackend.get_step_with_knowledge()` / `get_step_with_context()` / `delete_step_node()` / `get_standalone_steps()` — Were `Result[list[dict[str, Any]]]`, now `Result[list[PsStepWithKnowledgeRow]]` / `Result[list[PsStepWithContextRow]]` / `Result[list[PsDeleteStepRow]]` / `Result[list[PsStandaloneStepRow]]` (11 new TypedDicts added to `query_types.py`)
+- `FormTemplateBackend.get_forms_for_path_step()` / `FormTemplateService.get_for_path_step()` — Were `Result[list[dict[str, Any]]]`, now `Result[list[Neo4jProperties]]` (reuses existing alias)
 
 If you encounter Category A `Any` during development, fix it immediately. There is no
 architectural reason for these to exist.
