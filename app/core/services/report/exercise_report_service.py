@@ -33,7 +33,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.curriculum_backends import ExerciseReportBackend
+    from adapters.persistence.neo4j.backends.exercise_backends import ExerciseReportBackend
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.report.report_mastery_service import ReportMasteryService
 

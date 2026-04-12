@@ -39,7 +39,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.curriculum_backends import RevisedExerciseBackend
+    from adapters.persistence.neo4j.backends.exercise_backends import RevisedExerciseBackend
     from core.ports.infrastructure_protocols import EventBusOperations
 
 logger = get_logger(__name__)

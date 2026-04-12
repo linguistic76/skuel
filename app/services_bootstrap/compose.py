@@ -664,7 +664,7 @@ async def compose_services(
         logger.info("✅ Content enrichment service created")
 
         # Create report and exercise services
-        from adapters.persistence.neo4j.backends.curriculum_backends import (
+        from adapters.persistence.neo4j.backends.exercise_backends import (
             ExerciseBackend,
             ExerciseReportBackend,
         )
@@ -736,7 +736,7 @@ async def compose_services(
         logger.info("✅ Report, exercise, and resource services created")
 
         # Create revised exercise service (five-phase learning loop)
-        from adapters.persistence.neo4j.backends.curriculum_backends import RevisedExerciseBackend
+        from adapters.persistence.neo4j.backends.exercise_backends import RevisedExerciseBackend
         from core.models.exercises.revised_exercise import RevisedExercise
         from core.services.revised_exercises import RevisedExerciseService
 
