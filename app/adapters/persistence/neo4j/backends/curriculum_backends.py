@@ -905,5 +905,3 @@ class LpBackend(
     - ``_LpProgressMixin`` — KU mastery progress + search queries (6 methods)
     - ``_LpIntelligenceMixin`` — intelligence + adaptive learning (8 methods)
     """
-
-
