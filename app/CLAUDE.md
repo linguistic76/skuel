@@ -583,7 +583,17 @@ await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_ui
 
 **4-Layer Architecture:** `*Operations protocol -> *Backend subclass -> *Service facade -> sub-services`
 
-**Domain Backends** (27 in `domain_backends.py`): TasksBackend, EventsBackend, GoalsBackend, HabitsBackend, ChoicesBackend, PrinciplesBackend, KuBackend, PsBackend, SubmissionsBackend, SharingBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend, FormTemplateBackend, FormSubmissionBackend, JournalInputBackend, JournalOutputBackend, GroupBackend, ActivityReportBackend, LateralRelationshipBackend, NotificationBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ReviewQueueBackend, ActivityReportGeneratorBackend. **Standalone backends** (13 in separate files): CrossDomainBackend, UserBackend, UserProgressBackend, SessionBackend, InsightBackend, LifePathBackend, ZpdBackend, ZpdSnapshotBackend, VectorSearchBackend, IngestionBackend, JupyterSyncBackend, EmbeddingsBackend, KnowledgeDomainBackend.
+**Domain Backends** (27 in `backends/` cluster package, re-exported through the `domain_backends.py` shim):
+- `backends/activity_backends.py` — HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend
+- `backends/curriculum_backends.py` — KuBackend, PsBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend
+- `backends/submissions_backend.py` — SubmissionsBackend (shell over 5 mixins)
+- `backends/sharing_backend.py` — SharingBackend
+- `backends/forms_backends.py` — FormTemplateBackend, FormSubmissionBackend
+- `backends/journal_backends.py` — JournalInputBackend, JournalOutputBackend
+- `backends/collab_backends.py` — GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend
+- `backends/misc_backends.py` — ActivityReportBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ActivityReportGeneratorBackend
+
+All 27 are importable via `from adapters.persistence.neo4j.domain_backends import XBackend` — the shim re-exports from `backends/` so existing call sites are unchanged. **Standalone backends** (13 in separate files): CrossDomainBackend, UserBackend, UserProgressBackend, SessionBackend, InsightBackend, LifePathBackend, ZpdBackend, ZpdSnapshotBackend, VectorSearchBackend, IngestionBackend, JupyterSyncBackend, EmbeddingsBackend, KnowledgeDomainBackend.
 
 Domain-specific relationship Cypher belongs on the domain backend. Cross-domain aggregation stays in services. Services call `self.backend.method_name()` — never inline Cypher via `execute_query()`. Use `cascade=True` for Activity Domains.
 

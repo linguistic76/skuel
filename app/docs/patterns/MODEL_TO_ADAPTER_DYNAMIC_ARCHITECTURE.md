@@ -51,14 +51,18 @@ adapters/persistence/neo4j/
     _submission_assessment_mixin.py # _SubmissionAssessmentMixin — assessments + teacher review operations
     _submission_report_query_mixin.py # _SubmissionReportQueryMixin — report relationship queries, learning loop chains
     _submission_content_mixin.py  # _SubmissionContentMixin — journal processing context + exercise-instruction enrichment
-    domain_backends.py            # 27 domain subclasses: TasksBackend, EventsBackend, GoalsBackend, HabitsBackend,
-                                  #   ChoicesBackend, PrinciplesBackend, KuBackend, PsBackend,
-                                  #   LpBackend, ExerciseBackend, SubmissionsBackend, SharingBackend,
-                                  #   RevisedExerciseBackend, ExerciseReportBackend, FormTemplateBackend,
-                                  #   FormSubmissionBackend, JournalInputBackend, JournalOutputBackend,
-                                  #   GroupBackend, ActivityReportBackend, LateralRelationshipBackend,
-                                  #   NotificationBackend, ResourceBackend, InteractionBackend,
-                                  #   ReportScheduleBackend, ReviewQueueBackend, ActivityReportGeneratorBackend
+    domain_backends.py            # Re-export shim. All 27 backends live in backends/; the shim preserves
+                                  #   `from adapters.persistence.neo4j.domain_backends import XBackend` call sites.
+    backends/
+        __init__.py               # Re-exports every backend from its cluster file
+        activity_backends.py      # HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend
+        curriculum_backends.py    # KuBackend, PsBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend
+        submissions_backend.py    # SubmissionsBackend (shell over 5 _submission_*_mixin files)
+        sharing_backend.py        # SharingBackend
+        forms_backends.py         # FormTemplateBackend, FormSubmissionBackend
+        journal_backends.py       # JournalInputBackend, JournalOutputBackend
+        collab_backends.py        # GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend
+        misc_backends.py          # ActivityReportBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ActivityReportGeneratorBackend
 ```
 
 **Class declaration:**
@@ -146,7 +150,8 @@ Phase 5 completed the backend delegation refactor — ~46 inline Cypher queries 
 ```
 adapters/persistence/neo4j/
     _hierarchy_mixin.py           # HierarchyConfig + _HierarchyMixin (6 generic methods)
-    domain_backends.py            # 27 domain subclasses (6 Activity + 5 Curriculum + 16 Other)
+    domain_backends.py            # Re-export shim (see "April 2026 Update" below)
+    backends/                     # 8 cluster files holding the 27 domain subclasses
 ```
 
 ### March 25, 2026 Update: Report + Teacher Review Services Migrated (Phase 4)
@@ -283,6 +288,31 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 - `user_context_queries.py` — 3 MEGA-QUERY fragments (full user state snapshot)
 - Ingestion pipeline — 5 raw driver calls (bulk cross-domain writes)
 - `semantic_relationship_linker.py` — 1 call through backend (tolerated)
+
+### April 12, 2026 Update: domain_backends.py Split into backends/ Cluster Package (Phase 15)
+
+`domain_backends.py` (4892 lines, 27 classes) was split into 8 cluster files under `adapters/persistence/neo4j/backends/`. The original module is now a 71-line re-export shim so every `from adapters.persistence.neo4j.domain_backends import XBackend` call site continues to work unchanged — zero call-site churn.
+
+**New cluster files** (grouped by concern, not by source line order):
+
+| File | Classes |
+|---|---|
+| `backends/activity_backends.py` | HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend |
+| `backends/curriculum_backends.py` | KuBackend, PsBackend, LpBackend, ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend |
+| `backends/submissions_backend.py` | SubmissionsBackend (shell over 5 `_submission_*_mixin` files) |
+| `backends/sharing_backend.py` | SharingBackend |
+| `backends/forms_backends.py` | FormTemplateBackend, FormSubmissionBackend |
+| `backends/journal_backends.py` | JournalInputBackend, JournalOutputBackend |
+| `backends/collab_backends.py` | GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend |
+| `backends/misc_backends.py` | ActivityReportBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ActivityReportGeneratorBackend |
+
+`backends/__init__.py` re-exports every class; `domain_backends.py` re-exports from the package.
+
+**mypy override:** the existing `disable_error_code = ["misc"]` rule (for intentional MRO overrides from composed mixins) was extended from `adapters.persistence.neo4j.domain_backends` to each of the 8 cluster modules.
+
+**Behavioral change:** none. MRO verified for `SubmissionsBackend`, `PsBackend`, `LpBackend`. `./dev quality` passes; targeted backend tests (53) green; 3891 non-e2e tests pass with the only failures being pre-existing on HEAD.
+
+**Commit:** `c4652ced`.
 
 ### March 26, 2026 Update: LessonBackend Mixin Decomposition (Phase 10)
 

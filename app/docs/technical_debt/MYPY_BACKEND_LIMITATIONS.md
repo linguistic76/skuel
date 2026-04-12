@@ -236,11 +236,21 @@ Domain backends like `TasksBackend`, `GoalsBackend`, etc. inherit from `Universa
 
 ```toml
 [[tool.mypy.overrides]]
-module = "adapters.persistence.neo4j.domain_backends"
+module = [
+    "adapters.persistence.neo4j.domain_backends",
+    "adapters.persistence.neo4j.backends.activity_backends",
+    "adapters.persistence.neo4j.backends.curriculum_backends",
+    "adapters.persistence.neo4j.backends.submissions_backend",
+    "adapters.persistence.neo4j.backends.sharing_backend",
+    "adapters.persistence.neo4j.backends.forms_backends",
+    "adapters.persistence.neo4j.backends.journal_backends",
+    "adapters.persistence.neo4j.backends.collab_backends",
+    "adapters.persistence.neo4j.backends.misc_backends",
+]
 disable_error_code = ["misc"]
 ```
 
-This suppresses only `[misc]` in `domain_backends.py` — all other error codes remain enforced. The MRO conflicts are structural to the mixin composition pattern and do not indicate runtime bugs.
+This suppresses only `[misc]` in the domain-backend modules — all other error codes remain enforced. The override covers the legacy `domain_backends.py` shim plus the 8 cluster files under `backends/` introduced by the April 2026 decomposition. The MRO conflicts are structural to the mixin composition pattern and do not indicate runtime bugs.
 
 ### 19 `no-any-return` Errors
 

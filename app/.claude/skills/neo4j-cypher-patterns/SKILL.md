@@ -166,7 +166,7 @@ Layer 1: UniversalNeo4jBackend (Generic CRUD)
 └── Powers ALL 22 entity types with CRUD, search, relationships
 
 Layer 2: Domain Backends (Domain-Specific Cypher)
-├── 27 typed subclasses in domain_backends.py
+├── 27 typed subclasses in backends/ (8 cluster files, re-exported via the domain_backends.py shim)
 ├── 13 standalone backends (CrossDomainBackend, UserBackend, UserProgressBackend, SessionBackend, InsightBackend, LifePathBackend, ZpdBackend, ZpdSnapshotBackend, VectorSearchBackend, IngestionBackend, JupyterSyncBackend, EmbeddingsBackend, KnowledgeDomainBackend)
 ├── Domain-specific relationship Cypher (ORGANIZES, SHARES_WITH, FULFILLS_EXERCISE, etc.)
 └── Rule: If a Cypher query uses domain-specific relationships, it belongs here
