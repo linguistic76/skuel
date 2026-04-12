@@ -167,13 +167,19 @@ def tasks_service_with_mocked_subservices(
 
 
 class TestCompleteTaskWithCascade:
+    """complete_task_with_cascade is now a pure delegation to TasksProgressService.
+
+    Knowledge generation runs as a TaskCompleted event subscriber in
+    TaskEventHandlerService (commit 7d810261) — not as an inline side effect
+    on the facade. Event-handler behavior is covered by its own unit tests.
+    """
+
     @pytest.mark.asyncio
-    async def test_success_without_ku_generation_service(
+    async def test_delegates_to_progress_service(
         self, tasks_service_with_mocked_subservices: TasksService
     ) -> None:
-        """complete_task_with_cascade delegates to progress; skips generation when no ku_generation_service."""
+        """complete_task_with_cascade forwards args to progress.complete_task_with_cascade."""
         service = tasks_service_with_mocked_subservices
-        service._ku_generation_service = None
 
         mock_task = Mock()
         service.progress.complete_task_with_cascade = AsyncMock(return_value=Result.ok(mock_task))
@@ -189,42 +195,15 @@ class TestCompleteTaskWithCascade:
         )
 
     @pytest.mark.asyncio
-    async def test_success_with_ku_generation_service_triggers_generation(
+    async def test_propagates_progress_failure(
         self, tasks_service_with_mocked_subservices: TasksService
     ) -> None:
-        """complete_task_with_cascade triggers ku_generation when result is ok and service present."""
+        """complete_task_with_cascade returns the progress service's failure unchanged."""
         service = tasks_service_with_mocked_subservices
-
-        mock_task = Mock()
-        service.progress.complete_task_with_cascade = AsyncMock(return_value=Result.ok(mock_task))
-
-        mock_ku_gen = AsyncMock()
-        service._ku_generation_service = mock_ku_gen
-
-        user_context = Mock()
-        user_context.user_uid = "user_test"
-
-        # Patch internal generation method
-        service._trigger_knowledge_generation = AsyncMock()
-
-        result = await service.complete_task_with_cascade("task_abc", user_context)
-
-        assert result.is_ok
-        service._trigger_knowledge_generation.assert_called_once_with("user_test")
-
-    @pytest.mark.asyncio
-    async def test_failure_does_not_trigger_ku_generation(
-        self, tasks_service_with_mocked_subservices: TasksService
-    ) -> None:
-        """complete_task_with_cascade does NOT trigger ku_generation when progress fails."""
-        service = tasks_service_with_mocked_subservices
-        service._ku_generation_service = AsyncMock()  # service IS present
 
         service.progress.complete_task_with_cascade = AsyncMock(
             return_value=Result.fail(Errors.not_found(resource="Task", identifier="task_abc"))
         )
-
-        service._trigger_knowledge_generation = AsyncMock()
 
         user_context = Mock()
         user_context.user_uid = "user_test"
@@ -232,7 +211,6 @@ class TestCompleteTaskWithCascade:
         result = await service.complete_task_with_cascade("task_abc", user_context)
 
         assert result.is_error
-        service._trigger_knowledge_generation.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

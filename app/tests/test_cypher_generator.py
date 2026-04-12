@@ -311,10 +311,10 @@ class TestCypherGeneratorSemantic:
         mock_type.to_neo4j_name.return_value = "RELATED_TO"
 
         query, _params = build_semantic_filter_query(
-            label="Topic", semantic_type=mock_type, direction="both"
+            label="Task", semantic_type=mock_type, direction="both"
         )
 
-        assert "MATCH (n:Topic)-[r:RELATED_TO]-(connected)" in query
+        assert "MATCH (n:Task)-[r:RELATED_TO]-(connected)" in query
 
 
 class TestConvenienceFunctions:

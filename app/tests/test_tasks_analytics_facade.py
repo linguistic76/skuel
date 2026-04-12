@@ -29,13 +29,15 @@ def test_analytics_methods_exist():
     """
     from core.services.tasks_service import TasksService
 
-    # Methods that remain on TasksService (now direct calls to AnalyticsEngine)
+    # Methods that remain on TasksService facade.
+    # _trigger_knowledge_generation moved to TaskEventHandlerService (commit 7d810261) —
+    # knowledge generation now runs as a TaskCompleted event subscriber, not as an inline
+    # side effect on the orchestration facade.
     ku_analytics_methods = [
         "analyze_learning_patterns",
         "calculate_knowledge_aware_priorities",
         "generate_task_insights",
         "track_knowledge_mastery_progression",
-        "_trigger_knowledge_generation",
         "trigger_manual_knowledge_generation",
     ]
 

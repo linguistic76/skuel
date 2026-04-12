@@ -205,8 +205,12 @@ async def run_benchmarks():
     embeddings_service = MockEmbeddingsService()
     config = VectorSearchConfig(ku_min_score=0.0)
 
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
+
+    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(driver))
     vector_search = Neo4jVectorSearchService(
-        driver=driver, embeddings_service=embeddings_service, config=config
+        backend=vector_backend, embeddings_service=embeddings_service, config=config
     )
 
     try:

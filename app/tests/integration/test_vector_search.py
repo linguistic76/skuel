@@ -235,15 +235,22 @@ async def test_batch_embedding_generation(neo4j_driver, clean_neo4j, mock_embedd
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_vector_search_service_initialization(neo4j_driver, mock_embeddings_service):
-    """Test that vector search service initializes correctly."""
+    """Test that vector search service initializes correctly.
 
-    # Create vector search service with mock embeddings
+    Updated April 2026: commit bdbb4710 renamed the `executor` param to `backend`
+    and took a VectorSearchBackend (wrapping a Neo4jQueryExecutor) instead of the
+    raw driver.
+    """
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
+
+    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     vector_search = Neo4jVectorSearchService(
-        executor=neo4j_driver, embeddings_service=mock_embeddings_service
+        backend=vector_backend, embeddings_service=mock_embeddings_service
     )
 
-    assert vector_search.executor == neo4j_driver
-    assert vector_search.embeddings == mock_embeddings_service
+    assert vector_search.backend is vector_backend
+    assert vector_search.embeddings is mock_embeddings_service
 
 
 @pytest.mark.integration
@@ -446,8 +453,9 @@ async def test_embedding_service_initialization(neo4j_driver):
 
     # Create real embeddings service (will check for HF_API_TOKEN)
     from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
-    embeddings_backend = EmbeddingsBackend(executor=neo4j_driver)
+    embeddings_backend = EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     embeddings_service = HuggingFaceEmbeddingsService(
         backend=embeddings_backend, model="BAAI/bge-large-en-v1.5", dimension=DIM
     )
@@ -465,8 +473,9 @@ async def test_embedding_service_initialization(neo4j_driver):
 async def test_embeddings_service_graceful_failure(neo4j_driver):
     """Test that embeddings service fails gracefully when token not set."""
     from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
-    embeddings_backend = EmbeddingsBackend(executor=neo4j_driver)
+    embeddings_backend = EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     embeddings_service = HuggingFaceEmbeddingsService(
         backend=embeddings_backend, model="BAAI/bge-large-en-v1.5", dimension=DIM
     )

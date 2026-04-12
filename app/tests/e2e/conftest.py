@@ -49,10 +49,18 @@ async def event_bus():
 
 
 @pytest_asyncio.fixture
-async def embeddings_service():
-    """Mock embeddings service for e2e tests — avoids real OpenAI calls."""
+async def embeddings_service(neo4j_driver):
+    """Mock embeddings service with real Neo4j-backed storage.
+
+    create_batch_embeddings is stubbed to avoid real HuggingFace API calls,
+    but backend is a real EmbeddingsBackend wired to the test container so
+    the worker's _store_embedding path actually writes to Neo4j (commit
+    bdbb4710 moved storage off self.executor onto embeddings_service.backend).
+    """
     from unittest.mock import Mock
 
+    from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.utils.result_simplified import Result
 
     mock = Mock()
@@ -63,6 +71,7 @@ async def embeddings_service():
         return Result.ok([fake_vector for _ in texts])
 
     mock.create_batch_embeddings = fake_batch_embeddings
+    mock.backend = EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     return mock
 
 

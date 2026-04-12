@@ -16,6 +16,7 @@ import time
 import pytest
 
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.config.unified_config import VectorSearchConfig
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 
@@ -77,9 +78,9 @@ async def test_semantic_enhanced_search_with_relationships(
         semantic_boost_weight=0.3,
         ku_min_score=0.0,  # Accept all for testing
     )
-    executor = Neo4jQueryExecutor(neo4j_driver)
+    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     vector_search = Neo4jVectorSearchService(
-        executor=executor, embeddings_service=mock_embeddings_service, config=config
+        backend=vector_backend, embeddings_service=mock_embeddings_service, config=config
     )
 
     # Execute semantic-enhanced search
@@ -171,9 +172,9 @@ async def test_learning_aware_search_with_states(
         await result.consume()  # Ensure transaction commits
 
     # Create vector search service
-    executor = Neo4jQueryExecutor(neo4j_driver)
+    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     vector_search = Neo4jVectorSearchService(
-        executor=executor,
+        backend=vector_backend,
         embeddings_service=mock_embeddings_service,
         config=VectorSearchConfig(ku_min_score=0.0),
     )
@@ -270,9 +271,9 @@ async def test_semantic_boost_multiple_relationships(
         """)
         await result.consume()  # Ensure transaction commits
 
-    executor = Neo4jQueryExecutor(neo4j_driver)
+    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     vector_search = Neo4jVectorSearchService(
-        executor=executor,
+        backend=vector_backend,
         embeddings_service=mock_embeddings_service,
         config=VectorSearchConfig(semantic_boost_enabled=True, ku_min_score=0.0),
     )
@@ -332,9 +333,9 @@ async def test_performance_semantic_enhanced_search(
             """)
             await result.consume()  # Ensure transaction commits
 
-    executor = Neo4jQueryExecutor(neo4j_driver)
+    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     vector_search = Neo4jVectorSearchService(
-        executor=executor,
+        backend=vector_backend,
         embeddings_service=mock_embeddings_service,
         config=VectorSearchConfig(ku_min_score=0.0),
     )
@@ -403,9 +404,9 @@ async def test_performance_learning_aware_search(
             """)
             await result.consume()  # Ensure transaction commits
 
-    executor = Neo4jQueryExecutor(neo4j_driver)
+    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     vector_search = Neo4jVectorSearchService(
-        executor=executor,
+        backend=vector_backend,
         embeddings_service=mock_embeddings_service,
         config=VectorSearchConfig(ku_min_score=0.0),
     )
@@ -446,9 +447,11 @@ async def test_graceful_degradation_no_vector_index(
         """)
         await result.consume()
 
-    executor = Neo4jQueryExecutor(neo4j_driver)
+    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     vector_search = Neo4jVectorSearchService(
-        executor=executor, embeddings_service=mock_embeddings_service, config=VectorSearchConfig()
+        backend=vector_backend,
+        embeddings_service=mock_embeddings_service,
+        config=VectorSearchConfig(),
     )
 
     # Should handle gracefully (error or empty results, not crash)
@@ -528,9 +531,9 @@ async def test_end_to_end_semantic_discovery_workflow(
         """)
         await result.consume()  # Ensure transaction commits
 
-    executor = Neo4jQueryExecutor(neo4j_driver)
+    vector_backend = VectorSearchBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     vector_search = Neo4jVectorSearchService(
-        executor=executor,
+        backend=vector_backend,
         embeddings_service=mock_embeddings_service,
         config=VectorSearchConfig(semantic_boost_enabled=True, ku_min_score=0.0),
     )
