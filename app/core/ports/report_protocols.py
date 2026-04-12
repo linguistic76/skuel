@@ -156,8 +156,9 @@ class ExerciseReportOperations(Protocol):
         """Generate AI report for a submission using exercise instructions.
 
         Creates EXERCISE_REPORT entity (processor_type=LLM) in Neo4j, linked
-        to the submission via REPORT_FOR. Also updates the submission's
-        denormalized report field for quick access.
+        to the submission via REPORT_FOR. The typed read path
+        (ExerciseReportService.list_for_submission) is the authoritative
+        source for report content.
 
         Args:
             entry: Submission to evaluate (uses content or processed_content)

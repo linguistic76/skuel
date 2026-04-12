@@ -142,9 +142,8 @@ class TeacherReviewService:
         """
         Submit teacher report for an entity.
 
-        Creates an EXERCISE_REPORT Entity node linked to the submission via REPORT_FOR.
-        Also writes report to submission's report field (denormalized for quick access)
-        and sets submission status to COMPLETED.
+        Creates an EXERCISE_REPORT Entity node linked to the submission via REPORT_FOR
+        and transitions submission status to COMPLETED.
 
         Args:
             report_uid: Submission UID to provide report for

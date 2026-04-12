@@ -178,7 +178,7 @@ Curriculum Work                 Activity Domains
 | Teacher writes feedback | `AssessmentService.create_assessment()` | `HUMAN` | Teacher reviews submission in queue |
 | AI evaluates via Exercise | `ExerciseReportService.generate_report()` | `LLM` | Exercise has `instructions`; AI generates response |
 
-Both use atomic Cypher: create entity + `REPORT_FOR` relationship + denormalize to `submission.report` in one transaction.
+Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the submission owner) in one transaction. The typed read path (`ExerciseReportService.list_for_submission`) is the authoritative source for report content — there is no submission-side denormalization.
 
 **Graph pattern:**
 ```cypher

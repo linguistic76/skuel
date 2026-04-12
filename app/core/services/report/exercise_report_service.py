@@ -14,7 +14,7 @@ The core educational loop:
 Following SKUEL principles:
 - Transparent: User sees exact prompt sent to LLM
 - Symmetric: AI report = same entity type as teacher report, processor_type differs
-- Atomic: Entity creation + relationship + denormalization in one transaction
+- Atomic: Entity creation + REPORT_FOR + SHARES_WITH in one transaction
 """
 
 from datetime import datetime
@@ -122,8 +122,8 @@ class ExerciseReportService:
         Generate AI report for a submission entry using exercise instructions.
 
         Creates an EXERCISE_REPORT entity (processor_type=LLM) in Neo4j, linked
-        to the submission via REPORT_FOR. Also updates the submission's
-        denormalized report field for quick access.
+        to the submission via REPORT_FOR. The typed read path
+        (list_for_submission) is the authoritative source for report content.
 
         Args:
             entry: Submission to analyze (uses content or processed_content)
@@ -204,8 +204,8 @@ class ExerciseReportService:
 
         Delegates to ``SubmissionsBackend.create_report_node`` — the canonical
         report-creation path shared with teacher reports. Creates the entity,
-        OWNS + REPORT_FOR relationships, SHARES_WITH the student, and
-        denormalizes feedback onto the submission — all in one transaction.
+        OWNS + REPORT_FOR relationships, and SHARES_WITH the student — all in
+        one transaction.
 
         AI reports pass ``submission_status=None`` and
         ``allowed_from_statuses=None`` so the submission's status is not
