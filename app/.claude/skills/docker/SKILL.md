@@ -41,7 +41,7 @@ SKUEL uses Docker in three contexts: local development, DigitalOcean Droplet (Ne
 | File | What it runs | When to use it |
 |------|--------------|----------------|
 | `infrastructure/docker-compose.yml` | Neo4j (canonical definition, with GenAI + APOC plugins) | Standalone Neo4j (e.g., on a Droplet). Also the base that `app/docker-compose.yml` extends. |
-| `app/docker-compose.yml` | Neo4j (via `extends`) + App. Prometheus + Grafana behind `monitoring` profile. | Default dev workflow. `docker compose up` starts Neo4j + App only. |
+| `app/docker-compose.yml` | Neo4j (via `extends`) + App. Prometheus + Grafana behind `monitoring` profile. Firefly III + MariaDB behind `finance` profile. | Default dev workflow. `docker compose up` starts Neo4j + App only. |
 | `app/docker-compose.production.yml` | SKUEL app + pre-wired future services (Redis, Ollama, nginx, etc.) | Production deployment reference. Most services are disabled. See `FUTURE_SERVICES.md`. |
 
 **The Neo4j definition inside `docker-compose.production.yml` is commented out.** It exists as a fallback reference only. Always use `infrastructure/docker-compose.yml` for Neo4j.
@@ -52,6 +52,15 @@ SKUEL uses Docker in three contexts: local development, DigitalOcean Droplet (Ne
 docker compose --profile monitoring up       # All services including monitoring
 docker compose --profile monitoring up -d    # Detached
 ```
+
+**Finance is profile-gated.** Firefly III and its MariaDB are behind the `finance` profile (ADR-052). They do not start by default. Bring them up with:
+
+```bash
+docker compose --profile finance up -d firefly firefly-db
+# Firefly web UI: http://localhost:8081
+```
+
+Firefly requires `FIREFLY_APP_KEY` in `.env` with the `base64:` prefix — generate via `printf "base64:%s\n" "$(head -c 32 /dev/urandom | base64)"`. Keep all comments on their own lines in `.env`: Docker Compose's parser absorbs inline `# ...` into the value. After editing `.env`, use `up -d` (not `restart`) to recreate the container with the new env. See `docs/domains/finance.md`.
 
 ---
 

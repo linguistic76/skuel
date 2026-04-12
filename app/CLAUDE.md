@@ -126,7 +126,7 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 | Event | Time commitment to keep | `event_{slug}_{random}` | User-owned |
 | FormTemplate | General-purpose form definition | `ft_{slug}_{random}` | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | `fs_{slug}_{random}` | User-owned |
-| Finance | Admin-only bookkeeping | `expense_{random}` | Admin-only |
+| Finance | Admin-only bookkeeping — Firefly III for expenses/budgets/reports; local for invoices (ADR-052) | `inv_{random}` (invoices) | Admin-only |
 | Ku | Atomic knowledge unit | `ku_{slug}_{random}` | Admin-created, shared |
 | Resource | Curated content (books, talks, films) | N/A | Admin-created, shared. `ResourceService` in `core/services/resource_service.py` |
 | PathStep | THE curriculum content entity (composes Kus) | `ps:{namespace}:{slug}` | Admin-created, shared |
@@ -161,7 +161,7 @@ Entity types have behavioral traits — not category membership — that determi
 - **Curriculum (4):** Ku, PathStep, LearningPath, Exercise — `ContentScope.SHARED`, admin creates, all users read. Exercise has three scopes: `PERSONAL` (user's AI feedback template), `ASSIGNED` (teacher → group), `ASSESSMENT` (formal test with `scoring_rubric` + `pass_threshold`). ExerciseReport carries `assessment_score` for ASSESSMENT-scope exercises.
 - **Submissions/Reports (4):** ExerciseSubmission, ExerciseReport, ActivityReport, Interaction — the learning loop. Services in `core/services/submissions/` + `core/services/report/` + `core/services/interaction/`. Interaction is auto-created by `SubmissionsService` at submission time, capturing the user's `context_path_step_uid` + `context_learning_path_uid` from `UserContext`. Three graph relationships: `RECORDS` (→ submission), `INTERACTION_DURING` (→ PathStep), `INTERACTION_WITHIN` (→ LearningPath).
 - **Journal (2):** JeInput, JeOutput — standalone journal domain. `JeInput(UserOwnedEntity)`, `JeOutput(UserOwnedEntity)`. Relationship: `(JeOutput)-[:TRANSFORMS]->(JeInput)`. Pipeline: JE_INPUT(audio) -> Deepgram -> JE_INPUT(text) -> LLM -> JE_OUTPUT. Models in `core/models/journal/`, services in `core/services/journal/` (`JournalInputService` — CRUD + file upload, `JournalOutputService` — LLM processing).
-- **Other:** Finance (admin-only), Resource (curated, not curriculum), Groups (ADR-040), RevisedExercise (teacher-owned hybrid), MOC (emergent via ORGANIZES), LifePath (the destination, alignment score 0.0-1.0).
+- **Other:** Finance (admin-only hybrid — Firefly III sidecar for expenses/budgets/reports + local invoicing, ADR-052), Resource (curated, not curriculum), Groups (ADR-040), RevisedExercise (teacher-owned hybrid), MOC (emergent via ORGANIZES), LifePath (the destination, alignment score 0.0-1.0).
 
 ### The 5 Cross-Cutting Systems
 

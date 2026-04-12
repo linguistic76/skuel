@@ -76,7 +76,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Events](domains/events.md) | Calendar items with scheduling |
 | [Choices](domains/choices.md) | Decisions with outcome tracking |
 | [Principles](domains/principles.md) | Values that guide goals and choices |
-| [Finance](domains/finance.md) | Expense and budget tracking (admin-only) |
+| [Finance](domains/finance.md) | Hybrid — Firefly III for expenses/budgets/reporting, local for invoices (admin-only, ADR-052) |
 | [KU (Knowledge Unit)](domains/ku.md) | Atomic knowledge unit (point topology) |
 | [PS (Path Step)](domains/ps.md) | Collections of lessons (collection topology) |
 | [LP (Learning Path)](domains/lp.md) | Complete learning sequences (path topology) |
@@ -99,7 +99,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Curriculum Grouping Patterns: KU, PS, LP + MOC Organization](architecture/CURRICULUM_GROUPING_PATTERNS.md) | 2026-01-20 | 410 |
 | **[Enum Architecture](architecture/ENUM_ARCHITECTURE.md)** | **2026-03-05** | **~330** |
 | **[Priority & Confidence Architecture](architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md)** | **2026-03-05** | **~130** |
-| [Finance Categories System](architecture/FINANCE_CATEGORIES_GUIDE.md) | 2025-11-27 | 562 |
+| [Finance Categories System (LEGACY — superseded by ADR-052)](architecture/FINANCE_CATEGORIES_GUIDE.md) | 2026-04-12 | 580 |
 | **[Learning Loop Architecture](architecture/LEARNING_LOOP_ARCHITECTURE.md)** | **2026-03-07** | **~130** |
 | **[Learning Progress Event Chain](architecture/LEARNING_PROGRESS_EVENT_CHAIN.md)** | **2026-03-15** | **~120** |
 | [Knowledge Substance Philosophy](architecture/knowledge_substance_philosophy.md) | 2025-10-17 | 371 |
@@ -254,6 +254,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[ADR-046: Activity Domains Connect to Ku via Graph Edges](decisions/ADR-046-activity-domains-not-ku-subtypes.md)** | **2026-03-06** | **—** |
 | **[ADR-047: Entity Types Replace Domain Categories](decisions/ADR-047-entity-types-replace-domain-categories.md)** | **2026-03-07** | **—** |
 | **[ADR-048: Adaptive Learning Loop Architecture](decisions/ADR-048-adaptive-learning-loop.md)** | **2026-03-09** | **—** |
+| **[ADR-052: Firefly III Replaces SKUEL Expense/Budget/Reporting](decisions/ADR-052-firefly-iii-finance-integration.md)** | **2026-04-12** | **—** |
 | [ADR-XXX: [Short Title of Decision]](decisions/ADR-TEMPLATE.md) | 2025-11-26 | 325 |
 
 ## Tools

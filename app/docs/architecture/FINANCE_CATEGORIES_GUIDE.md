@@ -1,16 +1,33 @@
 ---
-title: Finance Categories System
-updated: 2025-11-27
-status: current
-category: architecture
-tags: [architecture, categories, finance, guide]
-related: []
+title: Finance Categories System (LEGACY — being replaced by Firefly III)
+updated: 2026-04-12
+status: legacy
+category: archive
+tags: [archive, legacy, finance, superseded-by-adr-052]
+related:
+  - ADR-052-firefly-iii-finance-integration
+  - docs/domains/finance.md
+---
+
+> ## ⚠️  LEGACY DOCUMENT — DO NOT BUILD AGAINST THIS
+>
+> This guide describes SKUEL's former hierarchical YAML-based expense category
+> system, which is being **deleted** as part of [ADR-052 — Firefly III Finance
+> Integration](../decisions/ADR-052-firefly-iii-finance-integration.md).
+>
+> **Firefly III's native categories + tags replace this system entirely.** The
+> `FinanceCategoriesService`, `SEL_CATEGORIES` hierarchy, and the YAML config
+> will be deleted in Phase 5 of ADR-052. This document is kept only for
+> archaeological reference.
+>
+> **For the current state of the finance domain, read:** [`docs/domains/finance.md`](../domains/finance.md).
+
 ---
 
 # Finance Categories System
 
 **Date:** October 6, 2025
-**Status:** Integrated and Active
+**Status:** Legacy — superseded by Firefly III (ADR-052)
 
 ---
 

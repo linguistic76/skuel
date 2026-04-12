@@ -1,267 +1,163 @@
 ---
 title: Finance Domain
 created: 2025-12-04
-updated: 2026-03-17
+updated: 2026-04-12
 status: current
 category: domains
-tags: [finance, domain, standalone, admin-only, bookkeeping]
+tags: [finance, firefly, invoicing, admin-only, adr-052]
 ---
 
 # Finance Domain
 
-*Last updated: 2026-03-17*
+*Last updated: 2026-04-12*
 
-**Type:** Standalone Bookkeeping Domain (admin-only access)
-**UID Prefix:** `expense:`, `budget:`
-**Entity Labels:** `Expense`, `Budget`
-**Access:** Admin-only (all routes require ADMIN role)
+**Type:** Admin-only hybrid — expense/budget/reporting delegated to [Firefly III](https://www.firefly-iii.org/); invoicing remains local.
+**Access:** All routes require the `ADMIN` role.
 
-## Architecture Overview
+## The Split (ADR-052)
 
-**January 2026 Simplification:** Finance is a **standalone bookkeeping domain**. It does not use BaseService, BaseAnalyticsService, or unified relationship configuration. Finance focuses on fundamental bookkeeping: tracking expenses, creating budgets, and aligning budgets with actual expenses.
+Finance is deliberately split across two worlds. The split is the point — do not reunify it.
 
-```
-FinanceService (Standalone Facade)
-    ├── FinanceCoreService      (CRUD operations)
-    ├── FinanceBudgetService    (Budget management)
-    ├── FinanceReportingService (Reports & summaries)
-    └── FinanceInvoiceService   (Invoice operations, optional)
-```
+| Concern | Where it lives | Why |
+|---------|---------------|-----|
+| **Expenses, budgets, categories, reporting, insights** | [Firefly III](https://docs.firefly-iii.org/) — Docker sidecar at `http://firefly:8080` | Mature, maintained, AGPL. SKUEL's Leverage Maintained Software principle. |
+| **Invoices (A/R, customer-facing PDFs)** | Local: `core/services/finance/finance_invoice_service.py` + `adapters/outbound/invoice_renderer.py` (WeasyPrint) | Firefly III has no invoicing. SKUEL keeps it for future non-Stripe billing. |
 
-**Key Characteristics:**
-- **No cross-domain intelligence** - Finance does not relate to other domains
-- **No relationship configuration** - No `EXPENSE_CONFIG` or unified registry entry
-- **No BaseService inheritance** - FinanceCoreService is standalone
-- **No intelligence service** - Removed in January 2026 simplification
-- **Simple bookkeeping focus** - Expenses, budgets, and financial reporting
+**See:** [ADR-052: Firefly III Finance Integration](../decisions/ADR-052-firefly-iii-finance-integration.md)
 
-## Security Model
+---
 
-**All Finance routes require ADMIN role.** This is enforced at the route level:
+## Firefly III — Expenses, Budgets, Reporting
 
-```python
-# API routes use @require_admin decorator
-@rt("/api/expenses")
-@require_admin(get_user_service)
-async def list_expenses(request, current_user):
-    # Admin sees ALL finance data (no ownership checks)
-    ...
+### Two Books, One Instance
+
+One Firefly III instance, two user accounts: `mike-personal@…` and `mike-skuel@…`. Each has its own Personal Access Token stored in `.env`:
+
+```bash
+FIREFLY_BASE_URL=http://firefly:8080
+FIREFLY_PAT_PERSONAL=<token from the personal Firefly user>
+FIREFLY_PAT_SKUEL=<token from the SKUEL business Firefly user>
 ```
 
-**Why admin-only?**
-- Finance data is sensitive
-- Simplifies development (no multi-tenant complexity)
-- Admin can see all users' expenses for oversight
+SKUEL's finance hub shows two tabs — Personal / SKUEL — each hitting a different PAT. Firefly's "multiple administrations" feature is WIP; two users is the shipped workaround.
 
-## Event-Driven Architecture
+### How SKUEL Talks To Firefly
 
-FinanceCoreService publishes domain events on all state changes:
-
-| Event | Trigger |
-|-------|---------|
-| `ExpenseCreated` | New expense created |
-| `ExpenseUpdated` | Expense fields updated |
-| `ExpensePaid` | Status changed to PAID |
-| `ExpenseDeleted` | Expense deleted |
-
-```python
-# Event publishing example (from FinanceCoreService)
-if result.is_ok and self.event_bus:
-    event = ExpenseCreated(
-        expense_uid=expense.uid,
-        user_uid=expense.user_uid,
-        amount=expense.amount,
-        ...
-    )
-    await self.event_bus.publish_async(event)
+```
+finance_ui.py
+    ↓
+firefly_expense_service (thin read facade, returns TypedDict contexts)
+    ↓
+FireflyOperations  (protocol — core/ports/finance_protocols.py)
+    ↓
+FireflyClient  (adapter — adapters/outbound/firefly_client.py, httpx)
+    ↓
+Firefly III REST API
 ```
 
-## Key Files
+The `FireflyOperations` Protocol is the hexagonal seam. Nothing outside `firefly_client.py` knows Firefly's wire format. Services/UI consume strongly-typed TypedDicts (`FireflyTransaction`, `FireflyBudget`, `FireflyCategory`, `FireflyAccountBalance`).
+
+### Stripe → Firefly Sync
+
+Stripe webhooks flow through SKUEL to record SaaS revenue in the SKUEL Firefly book:
+
+```
+Stripe (charge.succeeded, payout.paid, invoice.payment_succeeded)
+    ↓
+POST /webhooks/stripe  (signature verified via stripe SDK)
+    ↓
+stripe_firefly_sync_service.handle_*(event)
+    ↓
+firefly_client.create_transaction(book="skuel", external_id=event.id, ...)
+```
+
+`external_id = Stripe event ID` makes the sync idempotent — replaying a webhook never creates duplicates. SKUEL also publishes a `StripePaymentRecorded` event after a successful Firefly POST so the audit trail lives in the SKUEL event bus.
+
+### Firefly Docs — Read These For Anything Non-Trivial
+
+SKUEL does not re-document Firefly. When you need to understand a behavior, start here:
+
+- **User guide:** <https://docs.firefly-iii.org/>
+- **REST API reference:** <https://api-docs.firefly-iii.org/>
+- **Rules engine:** <https://docs.firefly-iii.org/references/firefly-iii/rules/>
+- **Budgets:** <https://docs.firefly-iii.org/how-to/firefly-iii/budgets/>
+- **Data importer (CSV/bank):** <https://docs.firefly-iii.org/references/data-importer/>
+
+### Running Firefly Locally
+
+Firefly services are gated behind the `finance` Docker Compose profile so they don't start with the default `docker compose up`:
+
+```bash
+# First-time setup — generate the Laravel app key
+printf "base64:%s\n" "$(head -c 32 /dev/urandom | base64)"
+# Paste the output into FIREFLY_APP_KEY in .env (no inline comments — Docker
+# Compose treats everything after = as the value).
+
+# Bring up the Firefly stack
+docker compose --profile finance up -d firefly-db firefly
+
+# Create users + PATs in the Firefly web UI
+open http://localhost:8081
+# Register mike-personal@… and mike-skuel@…; for each user:
+#   Profile → OAuth → Personal Access Tokens → Create New Token → copy once
+```
+
+### Security Model
+
+All Finance UI and API routes require the `ADMIN` role — enforced at the route level via `@require_admin(get_user_service)`. Admin sees ALL finance data; there is no ownership filtering. Finance data is sensitive, and the admin-only constraint deliberately eliminates multi-tenant complexity.
+
+---
+
+## Local Invoice Module (Kept)
+
+Invoices are not in Firefly. They live in SKUEL because:
+
+1. Firefly III does not support invoicing, A/R, or customer entities.
+2. SaaS user payments currently flow through **Stripe**, which issues its own invoices/receipts — so the SKUEL invoice module is **built but unused in production today**. It is preserved for future non-Stripe billing scenarios.
+
+### Invoice Files
 
 | Component | Location |
 |-----------|----------|
-| **Models** |
-| Expense Domain Model | `/core/models/finance/finance_pure.py` |
-| Expense DTO | `/core/models/finance/finance_dto.py` |
-| Request Models | `/core/models/finance/finance_request.py` |
-| Converters | `/core/models/finance/finance_converters.py` |
-| **Services** |
-| Facade Service | `/core/services/finance_service.py` |
-| Core Service (CRUD) | `/core/services/finance/finance_core_service.py` |
-| Budget Service | `/core/services/finance/finance_budget_service.py` |
-| Reporting Service | `/core/services/finance/finance_reporting_service.py` |
-| **Routes** |
-| Route Factory | `/adapters/inbound/finance_routes.py` |
-| API Routes | `/adapters/inbound/finance_api.py` |
-| UI Routes | `/adapters/inbound/finance_ui.py` |
-| **Events** |
-| Finance Events | `/core/events/finance_events.py` |
-| **Tests** |
-| Integration Tests | `/tests/integration/test_finance_core_operations.py` |
+| Domain model | `core/models/finance/invoice.py` |
+| Service | `core/services/finance/finance_invoice_service.py` |
+| PDF renderer | `adapters/outbound/invoice_renderer.py` (WeasyPrint) |
+| UI views | `ui/finance/invoice_views.py` |
+| API routes | invoice routes in `adapters/inbound/finance_api.py` |
+| UI routes | invoice routes in `adapters/inbound/finance_ui.py` |
 
-## Model Fields (ExpensePure)
+Invoice routes remain unchanged by ADR-052 — `/finance/invoices`, `/finance/invoices/new`, `/finance/invoices/{uid}` all work exactly as before, render via WeasyPrint, and persist to Neo4j.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `uid` | `str` | Yes | Unique identifier (e.g., `expense.coffee`) |
-| `user_uid` | `str` | Yes | Owner user UID |
-| `amount` | `float` | Yes | Expense amount (must be > 0) |
-| `currency` | `str` | Yes | Currency code (default: USD) |
-| `description` | `str` | Yes | Expense description |
-| `expense_date` | `date` | Yes | When expense occurred |
-| `category` | `ExpenseCategory` | Yes | PERSONAL, 2222, SKUEL |
-| `subcategory` | `str?` | No | Sub-category within category |
-| `status` | `ExpenseStatus` | Yes | PENDING, PAID, CANCELLED, etc. |
-| `payment_method` | `PaymentMethod` | No | CASH, CREDIT_CARD, DEBIT_CARD, etc. |
-| `vendor` | `str?` | No | Merchant/vendor name |
-| `receipt_url` | `str?` | No | URL/path to receipt |
-| `tax_deductible` | `bool` | No | Tax deductibility flag |
-| `reimbursable` | `bool` | No | Reimbursement eligibility |
-| `tax_amount` | `float` | No | Tax amount (default: 0.0) |
-| `is_recurring` | `bool` | No | Whether this is a recurring expense |
-| `recurrence_pattern` | `RecurrencePattern?` | No | Recurrence frequency |
-| `budget_uid` | `str?` | No | Associated budget UID |
-| `budget_category` | `str?` | No | Budget category |
+---
 
-## Validation Rules
+## Key SKUEL Files
 
-FinanceCoreService enforces these business rules:
+| Component | Location |
+|-----------|----------|
+| **Firefly adapter** | `adapters/outbound/firefly_client.py` |
+| **Firefly protocol + DTOs** | `core/ports/finance_protocols.py` |
+| **Firefly exceptions** | `core/utils/exception_types.py` (`FIREFLY_EXCEPTIONS` tuple) |
+| **Firefly unit tests** | `tests/unit/test_firefly_client.py` (17 tests, mocked httpx) |
+| **Docker stack** | `docker-compose.yml` (`finance` profile) |
+| **Environment** | `.env.example` — `FIREFLY_*`, `STRIPE_WEBHOOK_SECRET` |
+| **Invoice service** | `core/services/finance/finance_invoice_service.py` |
+| **Invoice renderer** | `adapters/outbound/invoice_renderer.py` |
+| **Invoice UI** | `ui/finance/invoice_views.py` |
 
-### Create Validation
-- Amount must be positive (> 0)
-- `user_uid` is REQUIRED (fail-fast validation)
+---
 
-### Update Validation
-- Amount must be positive (if being updated)
-- Amount increase cannot exceed 10x (data entry error prevention)
-- Category cannot change after 30 days (accounting period locked)
+## What Changed From The Legacy Finance Module
 
-```python
-# Example validation
-if expense.amount <= 0:
-    return Result.fail(
-        Errors.validation(
-            message="Expense amount must be positive",
-            field="amount",
-            value=expense.amount,
-        )
-    )
-```
+If you're reading older docs or commits, the finance domain used to have:
 
-## Categories
+- `ExpensePure`, `BudgetPure` domain models (deleted in Phase 5)
+- `FinanceCoreService`, `FinanceBudgetService`, `FinanceReportingService` (deleted in Phase 5)
+- `FinanceCategoriesService` + `SEL_CATEGORIES` hierarchy (deleted — Firefly uses its own categories and tags)
+- `ExpenseCreated`/`ExpenseUpdated`/`ExpensePaid`/`ExpenseDeleted` events (deleted)
+- `Expense` and `Budget` Neo4j labels (dropped from the graph)
 
-Finance uses a hierarchical category system with three top-level categories:
+The now-legacy `docs/architecture/FINANCE_CATEGORIES_GUIDE.md` describes a category system that no longer exists — Firefly III's native categories + tags replace it. The guide is kept for archaeological purposes only; don't build against it.
 
-```
-ExpenseCategory
-├── PERSONAL
-│   ├── food, dining, groceries
-│   ├── transport, fuel, parking
-│   ├── health, fitness, medical
-│   ├── entertainment, streaming
-│   └── ... (see EXPENSE_SUBCATEGORIES)
-├── 2222 (Business)
-│   ├── office, equipment
-│   ├── marketing, advertising
-│   ├── travel, conferences
-│   └── ...
-└── SKUEL (Project-specific)
-    ├── infrastructure, hosting
-    ├── tools, subscriptions
-    ├── contractors
-    └── ...
-```
-
-`ExpenseCategory.get_icon()` returns emoji for each category (PERSONAL: "👤", TWO222: "🏠", SKUEL: "📚").
-
-See [Finance Categories Guide](../architecture/FINANCE_CATEGORIES_GUIDE.md) for complete subcategory list.
-
-## Budget Model (BudgetPure)
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `uid` | `str` | Yes | Unique identifier |
-| `user_uid` | `str` | Yes | Owner user UID |
-| `name` | `str` | Yes | Budget name |
-| `period` | `BudgetPeriod` | Yes | WEEKLY, MONTHLY, QUARTERLY, YEARLY |
-| `amount_limit` | `float` | Yes | Budget limit |
-| `currency` | `str` | Yes | Currency code |
-| `start_date` | `date` | Yes | Budget start date |
-| `end_date` | `date?` | No | Budget end date |
-| `categories` | `list[ExpenseCategory]` | No | Categories covered |
-| `amount_spent` | `float` | No | Current amount spent |
-| `expense_count` | `int` | No | Number of expenses |
-| `alert_threshold` | `float` | No | Alert threshold (default: 0.8) |
-| `is_exceeded` | `bool` | No | Whether budget is exceeded |
-
-## API Endpoints
-
-All endpoints require ADMIN role:
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/expenses` | List all expenses |
-| POST | `/api/expenses` | Create expense |
-| GET | `/api/expenses/{uid}` | Get expense by UID |
-| PUT | `/api/expenses/{uid}` | Update expense |
-| DELETE | `/api/expenses/{uid}` | Delete expense |
-| GET | `/api/expenses/date-range` | Expenses in date range |
-| GET | `/api/budgets` | List all budgets |
-| POST | `/api/budgets` | Create budget |
-| GET | `/finance` | Finance dashboard (UI) |
-
-## Finance Domain Philosophy
-
-Finance is intentionally **standalone** and **simple**:
-
-1. **No Cross-Domain Intelligence** - Finance does not need to relate expenses to goals, knowledge, or other domains
-2. **Pure Bookkeeping** - Track expenses, manage budgets, generate reports
-3. **Admin-Only** - Simplifies security model (no ownership verification complexity)
-4. **Event-Driven** - Publishes events for audit trail, but no event handlers that trigger cross-domain actions
-
-**What Finance DOES NOT have:**
-- Intelligence service (no AI-powered insights)
-- Search service (admin queries expenses directly)
-- Relationship configuration (no graph relationships to other domains)
-- BaseService inheritance (standalone CRUD)
-
-**What Finance HAS:**
-- Facade pattern with 4 sub-services (Core, Budget, Reporting, Invoice)
-- Clean CRUD operations for expenses and budgets
-- Business validation (amount limits, locked periods)
-- Financial reporting and summaries
-- Event publishing for audit trail
-- Typed UI context methods (see below)
-
-## UI Context Methods
-
-Finance routes delegate all data assembly to typed context methods on `FinanceService`. Each method returns `Result[TypedDict]` — routes only call the method and pass the result to the view renderer.
-
-| Method | TypedDict | Keys |
-|--------|-----------|------|
-| `get_dashboard_context()` | `FinanceDashboardContext` | `total_spent`, `total_budget`, `budget_utilization`, `health_status`, `budget_health`, `recent_expenses`, `budget_alerts` |
-| `get_budgets_context()` | `FinanceBudgetsContext` | `budgets`, `total_budgeted`, `total_spent` |
-| `get_reports_context()` | `FinanceReportsContext` | `monthly_summary`, `category_breakdown`, `tax_summary` |
-| `get_analytics_context()` | `FinanceAnalyticsContext` | `health_score`, `health_tier`, `spending_pattern`, `budget_adherence` |
-
-TypedDicts defined in `core/services/finance_service.py`.
-
-## Test Coverage
-
-30 integration tests covering:
-- CRUD operations (create, get, list, update, delete)
-- Filtering (by status, category, payment method, date range)
-- Validation (positive amounts, reasonable increases, locked periods)
-- Event publishing (created, updated, paid, deleted events)
-
-Run tests:
-```bash
-uv run pytest tests/integration/test_finance_core_operations.py -v
-```
-
-## See Also
-
-- [Finance Categories Guide](../architecture/FINANCE_CATEGORIES_GUIDE.md)
-- [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md)
-- [User Roles (ADR-018)](../decisions/ADR-018-user-roles-four-tier-system.md)
-- [Event-Driven Architecture](../patterns/event_driven_architecture.md)
+**See also:**
+- [ADR-052: Firefly III Finance Integration](../decisions/ADR-052-firefly-iii-finance-integration.md) — the decision and consequences
+- [Leverage Maintained Software](/home/mike/.claude/projects/-home-mike-skuel-app/memory/) — the principle this change applies
