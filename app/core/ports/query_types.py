@@ -2142,18 +2142,6 @@ class StudentSubmissionItem(TypedDict, total=False):
     exercise_title: str
 
 
-class ReportHistoryItem(TypedDict, total=False):
-    """Item in TeacherReviewService.get_report_history()."""
-
-    uid: str
-    title: str
-    content: str
-    status: str
-    created_at: str
-    teacher_uid: str
-    teacher_name: str
-
-
 class TeacherGroupStats(TypedDict, total=False):
     """Item in TeacherReviewService.get_teacher_groups_with_stats()."""
 
@@ -2958,7 +2946,6 @@ __all__ = [
     "SubmissionForExercise",
     "StudentSummaryItem",
     "StudentSubmissionItem",
-    "ReportHistoryItem",
     "TeacherGroupStats",
     # Submission/Report Result Types
     "SubmissionStatistics",

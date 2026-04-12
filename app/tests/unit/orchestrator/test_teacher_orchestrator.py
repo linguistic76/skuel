@@ -15,7 +15,6 @@ def mock_teacher_review_service() -> MagicMock:
     # Ensure all async methods return AsyncMocks
     mock.get_review_queue = AsyncMock()
     mock.get_submission_detail = AsyncMock()
-    mock.get_report_history = AsyncMock()
     mock.get_students_summary = AsyncMock()
     mock.get_student_submissions = AsyncMock()
     mock.get_teacher_groups_with_stats = AsyncMock()

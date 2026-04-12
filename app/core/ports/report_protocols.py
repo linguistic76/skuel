@@ -36,14 +36,13 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
     GroupMemberProgress,
     LearningLoopChain,
     PendingReviewItem,
     ReportApprovalResult,
-    ReportHistoryItem,
     ReportSubmitResult,
     ReportSummary,
     ReviewRequestResult,
@@ -127,6 +126,22 @@ class ExerciseReportOperations(Protocol):
         ...
 
     # ------------------------------------------------------------------
+    # TYPED READS — shared by routes that display report history
+    # ------------------------------------------------------------------
+
+    async def list_for_submission(
+        self,
+        submission_uid: str,
+    ) -> "Result[list[ExerciseReport]]":
+        """List all reports attached to a submission (ASC by created_at).
+
+        Returns both HUMAN (teacher-authored) and LLM (AI-generated) reports —
+        processor_type discriminates. Replaces the dict-returning report
+        history path.
+        """
+        ...
+
+    # ------------------------------------------------------------------
     # AI FEEDBACK — LLM-generated via Exercise instructions
     # ------------------------------------------------------------------
 
@@ -153,6 +168,42 @@ class ExerciseReportOperations(Protocol):
 
         Returns Result[ExerciseReport] — the created EXERCISE_REPORT entity.
         """
+        ...
+
+
+@runtime_checkable
+class ExerciseReportBackendOperations(Protocol):
+    """Backend-level protocol for typed ExerciseReport reads.
+
+    Distinct from the service-level ``ExerciseReportOperations`` (which is
+    the route-facing facade): this protocol captures the narrow backend
+    surface used by ``ExerciseReportService`` and anything else that needs
+    typed persistence-layer reads over EXERCISE_REPORT nodes.
+
+    Implemented structurally by
+    ``ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport])``.
+    """
+
+    async def list_for_submission(self, submission_uid: str) -> "Result[list[ExerciseReport]]":
+        """All reports attached to a submission, ASC by created_at."""
+        ...
+
+    async def get_reports_for_student_exercise(
+        self, student_uid: str, exercise_uid: str
+    ) -> "Result[list[ExerciseReport]]":
+        """All reports on a student's submissions for a given exercise."""
+        ...
+
+    async def get_reports_by_teacher(
+        self, teacher_uid: str, limit: int = 50
+    ) -> "Result[list[ExerciseReport]]":
+        """All reports authored by a teacher, newest first."""
+        ...
+
+    async def get_linked_ku_and_student(
+        self, submission_uid: str
+    ) -> Result[list[Neo4jProperties]]:  # boundary: mastery-loop scalar projection
+        """Ku UIDs + student UID linked to a submission via APPLIES_KNOWLEDGE."""
         ...
 
 
@@ -360,13 +411,6 @@ class TeacherReviewOperations(Protocol):
         self, submission_uid: str, teacher_uid: str
     ) -> "Result[SubmissionDetailResult]":
         """Get full submission detail for teacher review (access-checked). Returns Result[SubmissionDetailResult]."""
-        ...
-
-    async def get_report_history(
-        self,
-        submission_uid: str,
-    ) -> Result[list[ReportHistoryItem]]:
-        """Get EXERCISE_REPORT nodes linked to a submission."""
         ...
 
     async def submit_report(

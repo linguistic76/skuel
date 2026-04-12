@@ -33,8 +33,8 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from adapters.persistence.neo4j.backends.exercise_backends import ExerciseReportBackend
     from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
+    from core.ports.report_protocols import ExerciseReportBackendOperations
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.report.report_mastery_service import ReportMasteryService
 
@@ -55,7 +55,7 @@ class ExerciseReportService:
     def __init__(
         self,
         llm_caller: LLMCallerProtocol,
-        backend: "ExerciseReportBackend | None" = None,
+        backend: "ExerciseReportBackendOperations | None" = None,
         submissions_backend: "SubmissionsBackend | None" = None,
         ku_interaction_service: "PsMasteryService | None" = None,
         report_mastery_service: "ReportMasteryService | None" = None,
@@ -65,10 +65,11 @@ class ExerciseReportService:
 
         Args:
             llm_caller: Unified LLM caller for model-agnostic generation
-            backend: ExerciseReportBackend for mastery-loop reads
-                (``get_linked_ku_and_student``). Report *creation* is delegated
-                to ``submissions_backend.create_report_node`` — the canonical
-                path shared with teacher reports.
+            backend: The typed read facade for ExerciseReport — typed reads
+                (``list_for_submission``, etc.) plus the mastery-loop scalar
+                projection (``get_linked_ku_and_student``). Report *creation*
+                is delegated to ``submissions_backend.create_report_node`` —
+                the canonical path shared with teacher reports.
             submissions_backend: SubmissionsBackend — canonical report-node
                 creator. Shared with TeacherReviewService so AI and teacher
                 reports go through the same Cypher.
@@ -91,6 +92,23 @@ class ExerciseReportService:
             available.append("MasteryLoop")
 
         logger.info(f"ExerciseReportService initialized with: {', '.join(available)}")
+
+    async def list_for_submission(self, submission_uid: str) -> Result[list[ExerciseReport]]:
+        """List all reports attached to a submission (ASC by created_at).
+
+        Delegates to ExerciseReportBackend.list_for_submission — typed
+        end-to-end, no TypedDict projection, no mapping step. Both teacher
+        (HUMAN) and AI (LLM) reports appear here, discriminated by
+        ``ExerciseReport.processor_type``.
+        """
+        if not self.backend:
+            return Result.fail(
+                Errors.system(
+                    "ExerciseReportBackend not configured",
+                    operation="list_for_submission",
+                )
+            )
+        return await self.backend.list_for_submission(submission_uid)
 
     async def generate_report(
         self,

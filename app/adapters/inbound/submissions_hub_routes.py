@@ -45,6 +45,7 @@ def create_submissions_hub_routes(
     orchestrator = services.submissions_orchestrator
     if orchestrator is None:
         raise RuntimeError("SubmissionsOrchestrator is required — check bootstrap wiring")
+    exercise_report_service = services.exercise_report
 
     # ========================================================================
     # HUB PAGE
@@ -180,9 +181,10 @@ def create_submissions_hub_routes(
             return render_error_banner("Access denied")
 
         # Guard: don't delete submissions that already have feedback
-        history_result = await orchestrator.get_report_history(uid)
-        if not history_result.is_error and history_result.value:
-            return render_error_banner("Cannot delete a submission that has received feedback")
+        if exercise_report_service is not None:
+            history_result = await exercise_report_service.list_for_submission(uid)
+            if not history_result.is_error and history_result.value:
+                return render_error_banner("Cannot delete a submission that has received feedback")
 
         delete_result = await orchestrator.delete_submission_with_file(uid)
         if delete_result.is_error:

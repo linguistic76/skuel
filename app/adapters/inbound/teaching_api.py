@@ -46,6 +46,7 @@ from ui.layout import Size
 
 if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
+    from core.ports.report_protocols import ExerciseReportOperations
 
 logger = get_logger(__name__)
 
@@ -72,6 +73,7 @@ def create_teaching_api_routes(
     exercises_service: Any,
     submissions_service: Any = None,
     revised_exercise_service: Any = None,
+    exercise_report_service: "ExerciseReportOperations | None" = None,
 ) -> list[Any]:
     """
     Create teaching API routes.
@@ -278,14 +280,17 @@ def create_teaching_api_routes(
         detail_result = await teacher_review_service.get_submission_detail(
             submission_uid=uid, teacher_uid=current_user.uid
         )
-        history_result = await teacher_review_service.get_report_history(uid)
+
+        if exercise_report_service is None:
+            history: list[Any] = []
+        else:
+            history_result = await exercise_report_service.list_for_submission(uid)
+            history = list(
+                history_result.value if not history_result.is_error and history_result.value else []
+            )
 
         detail_data: dict[str, Any] = dict(
             detail_result.value if not detail_result.is_error and detail_result.value else {}
-        )
-
-        history: list[dict[str, Any]] = list(
-            history_result.value if not history_result.is_error and history_result.value else []
         )
 
         return render_review_panel_inline(uid, detail_data, history)

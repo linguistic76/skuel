@@ -150,23 +150,6 @@ class _SubmissionAssessmentMixin:
         """
         return await self.execute_query(query, params)
 
-    async def get_report_history(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get all ExerciseReport nodes linked to a submission via REPORT_FOR."""
-        query = f"""
-        MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(submission:Entity {{uid: $submission_uid}})
-        OPTIONAL MATCH (teacher:User)-[:{RelationshipName.OWNS.value}]->(fb)
-        RETURN fb.uid as uid,
-               fb.title as title,
-               fb.content as content,
-               fb.report_file_path as file_path,
-               fb.status as status,
-               fb.created_at as created_at,
-               teacher.uid as teacher_uid,
-               teacher.name as teacher_name
-        ORDER BY fb.created_at ASC
-        """
-        return await self.execute_query(query, {"submission_uid": submission_uid})
-
     async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
         """Get the report_file_path for an ExerciseReport node by UID."""
         query = """
@@ -219,7 +202,9 @@ class _SubmissionAssessmentMixin:
         )
 
         // Canonical feedback lives on the report node
-        CREATE (fb:Entity {{
+        // Multi-label: :Entity for cross-domain queries, :ExerciseReport for
+        // typed reads via ExerciseReportBackend (CLAUDE.md: multi-label writes invariant).
+        CREATE (fb:Entity:ExerciseReport {{
             uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,
@@ -278,7 +263,7 @@ class _SubmissionAssessmentMixin:
             submission.status = $submission_status,
             submission.updated_at = datetime($now)
 
-        CREATE (fb:Entity {{
+        CREATE (fb:Entity:ExerciseReport {{
             uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,

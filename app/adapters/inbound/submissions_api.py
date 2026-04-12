@@ -27,7 +27,7 @@ from core.models.entity_types import SubmissionEntity
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
-    from core.ports.report_protocols import TeacherReviewOperations
+    from core.ports.report_protocols import ExerciseReportOperations, TeacherReviewOperations
     from core.ports.submission_protocols import (
         SubmissionOperations,
         SubmissionProcessingOperations,
@@ -86,6 +86,7 @@ def create_submissions_api_routes(
     processing_service: "SubmissionProcessingOperations",
     submissions_core_service: "SubmissionOperations | None" = None,
     teacher_review_service: "TeacherReviewOperations | None" = None,
+    exercise_report_service: "ExerciseReportOperations | None" = None,
     user_service: "UserService | None" = None,
 ) -> list[Any]:
     """
@@ -97,7 +98,8 @@ def create_submissions_api_routes(
         submission_service: SubmissionsService for upload and retrieval
         processing_service: SubmissionsProcessingService for content processing
         submissions_core_service: SubmissionsCoreService for content management
-        teacher_review_service: TeacherReviewService for feedback history queries
+        teacher_review_service: TeacherReviewService for teacher mutations
+        exercise_report_service: ExerciseReportService for typed report reads
         user_service: UserService for building UserContext (supplies Interaction context fields)
     """
 
@@ -951,7 +953,7 @@ def create_submissions_api_routes(
     # STUDENT REPORT HISTORY (student-accessible, ownership-verified)
     # ========================================================================
 
-    if teacher_review_service:
+    if exercise_report_service:
 
         @rt("/api/submissions/{uid}/reports")
         @boundary_handler()
@@ -965,7 +967,7 @@ def create_submissions_api_routes(
             the submission — no information leakage about other students' work.
 
             Returns:
-            - 200 with {submission_uid, reports: [...], count: N}
+            - 200 with {submission_uid, reports: [...typed ExerciseReport...], count: N}
             - 404 if submission not found or not owned by requester
             """
             user_uid = require_authenticated_user(request)
@@ -976,7 +978,7 @@ def create_submissions_api_routes(
             if ownership_error:
                 return ownership_error
 
-            result = await teacher_review_service.get_report_history(uid)
+            result = await exercise_report_service.list_for_submission(uid)
             if result.is_error:
                 return Result.fail(result)
 

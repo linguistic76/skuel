@@ -36,6 +36,7 @@ TEACHING_API_CONFIG = DomainRouteConfig(
         "exercises_service": "exercises",
         "submissions_service": "submissions",
         "revised_exercise_service": "revised_exercises",
+        "exercise_report_service": "exercise_report",
     },
 )
 
@@ -58,6 +59,7 @@ def create_teaching_routes(
             rt=rt,
             orchestrator=services.teacher_orchestrator,
             user_service=services.user,
+            exercise_report_service=services.exercise_report,
         )
 
         # 3. Forms UI routes (separate concern)

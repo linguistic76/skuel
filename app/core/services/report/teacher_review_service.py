@@ -32,7 +32,6 @@ from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
     GroupMemberProgress,
     ReportApprovalResult,
-    ReportHistoryItem,
     ReportSubmitResult,
     RevisionRequestResult,
     RevisionWithExerciseResult,
@@ -127,38 +126,6 @@ class TeacherReviewService:
                 "due_date": record["due_date"],
                 "original_filename": record.get("original_filename"),
                 "feedback_count": record["feedback_count"],
-            }
-            for record in result.value
-        ]
-
-        return Result.ok(items)
-
-    async def get_report_history(
-        self,
-        submission_uid: str,
-    ) -> Result[list[ReportHistoryItem]]:
-        """
-        Get all EXERCISE_REPORT nodes linked to a submission via REPORT_FOR.
-
-        Args:
-            submission_uid: The submission UID
-
-        Returns:
-            Result containing list of report items ordered by creation date
-        """
-        result = await self.submissions_backend.get_report_history(submission_uid)
-        if result.is_error:
-            return Result.fail(result)
-
-        items = [
-            {
-                "uid": record["uid"],
-                "title": record["title"],
-                "content": record["content"],
-                "status": record["status"],
-                "created_at": record["created_at"],
-                "teacher_uid": record["teacher_uid"],
-                "teacher_name": record["teacher_name"],
             }
             for record in result.value
         ]

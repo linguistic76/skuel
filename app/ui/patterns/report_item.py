@@ -1,6 +1,8 @@
 """Shared report item rendering for submission report display.
 
-Used by both the teacher review UI and the student submission detail page.
+Used by the teacher review UI and the student submission detail page. Takes
+a typed ``ExerciseReport`` — the persistence boundary returns these directly
+via ``ExerciseReportService.list_for_submission``.
 """
 
 from datetime import datetime
@@ -8,32 +10,48 @@ from typing import Any
 
 from fasthtml.common import A, Div, P, Span
 
+from core.models.enums.entity_enums import ProcessorType
+from core.models.report.exercise_report import ExerciseReport
 
-def render_report_item(fb: dict[str, Any]) -> Div:
-    """Render a single report history item."""
-    teacher_name = fb.get("teacher_name") or fb.get("teacher_uid") or "Teacher"
-    content = fb.get("content") or ""
-    created_at = fb.get("created_at", "")
-    title = fb.get("title", "")
-    file_path = fb.get("file_path")
-    report_uid = fb.get("uid", "")
+
+def render_report_item(report: ExerciseReport) -> Div:
+    """Render a single typed ExerciseReport as a history card."""
+    author = report.user_uid or "Author"
+    content = report.content or report.report_content or ""
+    title = report.title or ""
 
     time_display = ""
-    if created_at:
-        if isinstance(created_at, datetime):
-            time_display = created_at.strftime("%b %d, %H:%M")
+    if report.created_at:
+        if isinstance(report.created_at, datetime):
+            time_display = report.created_at.strftime("%b %d, %H:%M")
         else:
-            time_display = str(created_at)[:16]
+            time_display = str(report.created_at)[:16]
 
     is_revision = "revision" in title.lower() if title else False
+    is_ai = report.processor_type == ProcessorType.LLM
     border_cls = "border-l-warning" if is_revision else "border-l-info"
-    type_label = "Revision Request" if is_revision else "Feedback"
+    if is_revision:
+        type_label = "Revision Request"
+    elif is_ai:
+        type_label = "AI Feedback"
+    else:
+        type_label = "Feedback"
+
+    badge: Any = ""
+    if is_ai:
+        badge = Span(
+            "AI",
+            cls=(
+                "ml-2 px-1.5 py-0.5 text-[10px] font-semibold rounded "
+                "bg-info/10 text-info uppercase tracking-wide"
+            ),
+        )
 
     download_link: Any = ""
-    if file_path and report_uid:
+    if report.report_file_path and report.uid:
         download_link = A(
             "Download Feedback (.md)",
-            href=f"/api/reports/{report_uid}/download",
+            href=f"/api/reports/{report.uid}/download",
             cls="text-xs text-primary underline mt-2 inline-block",
         )
 
@@ -41,7 +59,8 @@ def render_report_item(fb: dict[str, Any]) -> Div:
         Div(
             Div(
                 Span(type_label, cls="font-medium text-sm"),
-                Span(f" by {teacher_name}", cls="text-sm text-muted-foreground"),
+                badge,
+                Span(f" by {author}", cls="text-sm text-muted-foreground"),
                 Span(f" · {time_display}", cls="text-xs text-foreground/40")
                 if time_display
                 else "",

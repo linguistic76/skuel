@@ -87,6 +87,7 @@ def create_submissions_ui_routes(
     _app: Any,
     rt: RouteDecorator,
     orchestrator: Any,
+    exercise_report_service: Any = None,
 ) -> list[Any]:
     """Create /submit and /gradebook UI routes.
 
@@ -94,6 +95,7 @@ def create_submissions_ui_routes(
         _app: FastHTML application instance
         rt: Router instance
         orchestrator: SubmissionsOrchestrator for unified access to services
+        exercise_report_service: ExerciseReportService for typed report reads
     """
     if orchestrator is None:
         raise RuntimeError("SubmissionsOrchestrator is required — check bootstrap wiring")
@@ -358,7 +360,13 @@ def create_submissions_ui_routes(
             if sub_result.value.user_uid != user_uid:
                 return Div(render_inline_error("Access denied"), id="feedback-section")
 
-            history_result = await orchestrator.get_report_history(uid)
+            if exercise_report_service is None:
+                return Div(
+                    H4("Feedback", cls="mb-4"),
+                    EmptyState(title="No feedback yet"),
+                    id="feedback-section",
+                )
+            history_result = await exercise_report_service.list_for_submission(uid)
             if history_result.is_error:
                 logger.error(f"Error loading feedback for {uid}: {history_result.error}")
                 return Div(

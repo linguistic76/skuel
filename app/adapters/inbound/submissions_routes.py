@@ -42,6 +42,7 @@ SUBMISSIONS_CONFIG = DomainRouteConfig(
         "processing_service": "submissions_processor",
         "submissions_core_service": "submissions_core",
         "teacher_review_service": "teacher_review",
+        "exercise_report_service": "exercise_report",
         "user_service": "user",
     },
 )
@@ -144,6 +145,7 @@ def create_submissions_ui_orchestrator(app: FastHTMLApp, rt: RouteDecorator, ser
         app,
         rt,
         orchestrator=services.submissions_orchestrator,
+        exercise_report_service=services.exercise_report,
     )
     create_exercise_reports_ui_routes(
         app,

@@ -23,7 +23,6 @@ GROUP_UID = "group_class_001"
 def _make_submissions_backend():
     backend = MagicMock()
     backend.get_review_queue = AsyncMock(return_value=Result.ok([]))
-    backend.get_report_history = AsyncMock(return_value=Result.ok([]))
     backend.create_report_node = AsyncMock(return_value=Result.ok([]))
     backend.approve_and_get_linked_kus = AsyncMock(return_value=Result.ok([]))
     backend.get_submissions_for_exercise_review = AsyncMock(return_value=Result.ok([]))
@@ -587,57 +586,6 @@ class TestGetReviewQueue:
         service = _make_service(submissions_backend=backend)
 
         result = await service.get_review_queue(TEACHER_UID)
-
-        assert result.is_error
-        assert result.error is db_error
-
-
-# ========================================================================
-# TestGetReportHistory
-# ========================================================================
-
-
-class TestGetReportHistory:
-    @pytest.mark.asyncio
-    async def test_returns_history(self):
-        records = [
-            {
-                "uid": REPORT_UID,
-                "title": "Feedback: es_submission_001",
-                "content": "Nice work",
-                "status": "completed",
-                "created_at": "2026-03-20T12:00:00",
-                "teacher_uid": TEACHER_UID,
-                "teacher_name": "Prof Smith",
-            }
-        ]
-        backend = _make_submissions_backend()
-        backend.get_report_history.return_value = Result.ok(records)
-        service = _make_service(submissions_backend=backend)
-
-        result = await service.get_report_history(SUBMISSION_UID)
-
-        assert not result.is_error
-        assert len(result.value) == 1
-        assert result.value[0]["uid"] == REPORT_UID
-
-    @pytest.mark.asyncio
-    async def test_empty_history(self):
-        service = _make_service()
-
-        result = await service.get_report_history(SUBMISSION_UID)
-
-        assert not result.is_error
-        assert result.value == []
-
-    @pytest.mark.asyncio
-    async def test_db_error_propagated(self):
-        db_error = Errors.database("execute_query", "read failure")
-        backend = _make_submissions_backend()
-        backend.get_report_history.return_value = Result.fail(db_error)
-        service = _make_service(submissions_backend=backend)
-
-        result = await service.get_report_history(SUBMISSION_UID)
 
         assert result.is_error
         assert result.error is db_error

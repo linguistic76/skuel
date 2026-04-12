@@ -18,6 +18,7 @@ from core.ports.query_types import (
     RequiredKnowledgeResult,
     RevisionChainResult,
 )
+from core.utils.neo4j_mapper import from_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -718,124 +719,96 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
     """
     Domain backend for ExerciseReport entities.
 
-    Provides relationship-specific Cypher for the five-phase learning loop:
-    - get_report_for_submission     — REPORT_FOR reverse lookup
-    - get_reports_for_student_exercise — all reports for a student on an exercise
-    - get_reports_by_teacher        — all reports created by a teacher (user_uid)
-    - create_ai_report_node         — atomic create + OWNS + REPORT_FOR + submission update
+    Provides typed relationship-specific reads for the five-phase learning loop.
+    All reads assert both labels (``:Entity:ExerciseReport``) and return
+    ``list[ExerciseReport]`` via ``from_neo4j_node``.
+
+    Report *creation* is delegated to ``SubmissionsBackend.create_report_node``
+    — the canonical cross-domain path shared by teacher and AI reports.
     """
 
-    async def get_report_for_submission(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
+    async def list_for_submission(self, submission_uid: str) -> Result[list[ExerciseReport]]:
+        """Return all reports attached to a submission, as typed ExerciseReport
+        instances, ordered by created_at ASC (oldest → newest review round).
+
+        Replaces the former dict-returning get_report_for_submission (this
+        backend) and the dict-returning SubmissionsBackend.get_report_history.
+        Typed all the way to the route handler — no TypedDict projection.
         """
-        Find the ExerciseReport linked to a submission via REPORT_FOR.
-
-        Returns the most recent report first (there may be multiple — one per
-        review round). Includes teacher name for display.
-
-        Args:
-            submission_uid: The ExerciseSubmission UID
-
-        Returns:
-            Result containing report records ordered by created_at DESC
+        cypher = f"""
+            MATCH (n:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(:Entity {{uid: $submission_uid}})
+            RETURN n
+            ORDER BY n.created_at ASC
         """
-        return await self.execute_query(
-            f"""
-            MATCH (report:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(sub:Entity {{uid: $submission_uid}})
-            OPTIONAL MATCH (teacher:User {{uid: report.user_uid}})
-            RETURN report.uid AS uid,
-                   report.title AS title,
-                   report.report_content AS report_content,
-                   report.status AS status,
-                   report.processor_type AS processor_type,
-                   report.assessment_outcome AS assessment_outcome,
-                   report.assessment_score AS assessment_score,
-                   report.created_at AS created_at,
-                   report.user_uid AS teacher_uid,
-                   teacher.username AS teacher_name
-            ORDER BY report.created_at DESC
-            """,
-            {"submission_uid": submission_uid},
-        )
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(cypher, {"submission_uid": submission_uid})
+                records = await result.data()
+            entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
+            return Result.ok(entities)
+        except Exception as e:  # safety-net: neo4j + mapping errors
+            return Result.fail(
+                Errors.database("list_for_submission", f"Failed to list reports: {e!s}")
+            )
 
     async def get_reports_for_student_exercise(
         self, student_uid: str, exercise_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """
-        Find all ExerciseReports for a student's submissions on a given exercise.
+    ) -> Result[list[ExerciseReport]]:
+        """All ExerciseReports for a student's submissions on a given exercise.
 
         Traverses: (Student)-[:OWNS]->(Submission)-[:FULFILLS_EXERCISE]->(Exercise)
                    (Report)-[:REPORT_FOR]->(Submission)
 
-        Useful for reviewing the full feedback history on a student's work
-        on a specific exercise across all revision rounds.
-
-        Args:
-            student_uid: The student's user UID
-            exercise_uid: The Exercise UID
-
-        Returns:
-            Result containing report records with submission context, ordered by created_at DESC
+        Returns typed ExerciseReport instances ordered by created_at DESC
+        (newest-first — natural reading order for "most recent feedback").
         """
-        return await self.execute_query(
-            f"""
+        cypher = f"""
             MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(sub:Entity)
             MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
-            MATCH (report:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
-            OPTIONAL MATCH (teacher:User {{uid: report.user_uid}})
-            RETURN report.uid AS uid,
-                   report.title AS title,
-                   report.report_content AS report_content,
-                   report.status AS status,
-                   report.processor_type AS processor_type,
-                   report.assessment_outcome AS assessment_outcome,
-                   report.assessment_score AS assessment_score,
-                   report.created_at AS created_at,
-                   report.user_uid AS teacher_uid,
-                   teacher.username AS teacher_name,
-                   sub.uid AS submission_uid,
-                   sub.title AS submission_title
-            ORDER BY report.created_at DESC
-            """,
-            {"student_uid": student_uid, "exercise_uid": exercise_uid},
-        )
+            MATCH (n:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
+            RETURN n
+            ORDER BY n.created_at DESC
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    cypher, {"student_uid": student_uid, "exercise_uid": exercise_uid}
+                )
+                records = await result.data()
+            entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
+            return Result.ok(entities)
+        except Exception as e:  # safety-net: neo4j + mapping errors
+            return Result.fail(
+                Errors.database(
+                    "get_reports_for_student_exercise",
+                    f"Failed to list reports: {e!s}",
+                )
+            )
 
     async def get_reports_by_teacher(
         self, teacher_uid: str, limit: int = 50
-    ) -> Result[list[Neo4jProperties]]:
-        """
-        List all ExerciseReports created by a teacher, ordered by most recent.
+    ) -> Result[list[ExerciseReport]]:
+        """All ExerciseReports authored by a teacher, newest first.
 
         Uses user_uid field (denormalized on creation) for O(1) lookup.
-        Includes submission and student context for dashboard display.
-
-        Args:
-            teacher_uid: The teacher's user UID
-            limit: Maximum records to return (default 50)
-
-        Returns:
-            Result containing report records with student/submission context
+        Returns typed ExerciseReport instances.
         """
-        return await self.execute_query(
-            f"""
-            MATCH (report:ExerciseReport {{user_uid: $teacher_uid}})
-            OPTIONAL MATCH (report)-[:{RelationshipName.REPORT_FOR.value}]->(sub:Entity)
-            OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub)
-            RETURN report.uid AS uid,
-                   report.title AS title,
-                   report.status AS status,
-                   report.processor_type AS processor_type,
-                   report.assessment_outcome AS assessment_outcome,
-                   report.assessment_score AS assessment_score,
-                   report.created_at AS created_at,
-                   sub.uid AS submission_uid,
-                   sub.title AS submission_title,
-                   student.uid AS student_uid,
-                   student.username AS student_name
-            ORDER BY report.created_at DESC
+        cypher = """
+            MATCH (n:ExerciseReport {user_uid: $teacher_uid})
+            RETURN n
+            ORDER BY n.created_at DESC
             LIMIT $limit
-            """,
-            {"teacher_uid": teacher_uid, "limit": limit},
-        )
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(cypher, {"teacher_uid": teacher_uid, "limit": limit})
+                records = await result.data()
+            entities = [from_neo4j_node(record["n"], self.entity_class) for record in records]
+            return Result.ok(entities)
+        except Exception as e:  # safety-net: neo4j + mapping errors
+            return Result.fail(
+                Errors.database("get_reports_by_teacher", f"Failed to list reports: {e!s}")
+            )
 
     async def get_linked_ku_and_student(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
         """

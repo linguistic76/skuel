@@ -59,7 +59,7 @@ class TeacherOrchestrator:
         )
 
     # ------------------------------------------------------------------
-    # Submission Detail + Report History
+    # Submission Detail
     # ------------------------------------------------------------------
 
     async def get_submission_detail(self, submission_uid: str, teacher_uid: str) -> Result[Any]:
@@ -67,10 +67,6 @@ class TeacherOrchestrator:
         return await self._review.get_submission_detail(
             submission_uid=submission_uid, teacher_uid=teacher_uid
         )
-
-    async def get_report_history(self, submission_uid: str) -> Result[list[Any]]:
-        """Get EXERCISE_REPORT nodes linked to a submission."""
-        return await self._review.get_report_history(submission_uid)
 
     # ------------------------------------------------------------------
     # Students

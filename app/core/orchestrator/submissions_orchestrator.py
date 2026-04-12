@@ -100,10 +100,6 @@ class SubmissionsOrchestrator:
         """Get all received assessments for a student."""
         return await self._submissions_core_service.get_assessments_for_student(user_uid, **kwargs)
 
-    async def get_report_history(self, submission_uid: str) -> Result[Any]:
-        """Get the teacher review thread history for a submission."""
-        return await self._teacher_review_service.get_report_history(submission_uid)
-
     # --- Activity Reports ---
 
     async def get_activity_report(self, uid: str, user_uid: str) -> Result[Any]:
