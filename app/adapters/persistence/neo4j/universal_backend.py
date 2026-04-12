@@ -67,6 +67,21 @@ _search_mixin.py:
     search, find_by, find_by_date_range, count, health_check,
     get_domain_context_raw, execute_query
 
+_search_raw_mixin.py:
+    text_search_raw, relationship_traversal_raw, graph_aware_search_raw,
+    array_any_match_raw, array_contains_raw, distinct_values_raw,
+    faceted_search_raw
+
+_temporal_mixin.py:
+    user_activity_range_raw, due_soon_raw, overdue_raw
+
+_prereq_progress_mixin.py:
+    prerequisite_traversal_raw, hierarchy_query_raw, user_progress_raw,
+    update_user_mastery_rel, user_curriculum_raw
+
+_context_query_mixin.py:
+    context_query_raw, basic_context_query_raw
+
 _relationship_crud_mixin.py:
     create_relationship, delete_relationship, delete_relationships_batch,
     has_relationship, count_related, create_relationships_batch
@@ -135,10 +150,14 @@ if TYPE_CHECKING:
 
     from core.models.graph_context import GraphContext
 
+from adapters.persistence.neo4j._context_query_mixin import _ContextQueryMixin
 from adapters.persistence.neo4j._crud_mixin import _CrudMixin
+from adapters.persistence.neo4j._prereq_progress_mixin import _PrereqProgressMixin
 from adapters.persistence.neo4j._relationship_crud_mixin import _RelationshipCrudMixin
 from adapters.persistence.neo4j._relationship_query_mixin import _RelationshipQueryMixin
 from adapters.persistence.neo4j._search_mixin import _SearchMixin
+from adapters.persistence.neo4j._search_raw_mixin import _SearchRawMixin
+from adapters.persistence.neo4j._temporal_mixin import _TemporalMixin
 from adapters.persistence.neo4j._traversal_mixin import _TraversalMixin
 from adapters.persistence.neo4j._user_entity_mixin import _UserEntityMixin
 
@@ -148,6 +167,10 @@ logger = get_logger(__name__)
 class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mixin MRO overrides are intentional
     _CrudMixin[T],
     _SearchMixin[T],
+    _SearchRawMixin[T],
+    _TemporalMixin[T],
+    _PrereqProgressMixin[T],
+    _ContextQueryMixin[T],
     _RelationshipQueryMixin[T],
     _RelationshipCrudMixin[T],
     _UserEntityMixin[T],
