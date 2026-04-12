@@ -419,8 +419,6 @@ class SubmissionsCoreService(BaseService[BackendOperations[Entity], Entity]):
             "content",
             "summary",
             "tags",
-            "report_content",
-            "report_generated_at",
             "word_count",
             "visibility",
             "instructions",

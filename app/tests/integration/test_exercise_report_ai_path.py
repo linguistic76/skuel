@@ -21,11 +21,13 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
+from adapters.persistence.neo4j.backends.exercise_backends import ExerciseReportBackend
 from adapters.persistence.neo4j.backends.submissions_backend import SubmissionsBackend
 from core.models.enums.entity_enums import EntityType, ProcessorType
 from core.models.enums.learning_enums import AssessmentOutcome
 from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.exercise import Exercise
+from core.models.report.exercise_report import ExerciseReport
 from core.models.submissions.exercise_submission import ExerciseSubmission
 from core.models.submissions.submission import Submission
 from core.services.report.exercise_report_service import ExerciseReportService
@@ -189,16 +191,25 @@ async def test_ai_report_creates_shares_with_edge_to_student(
 
 
 @pytest.mark.asyncio
-async def test_ai_report_denormalizes_feedback_onto_submission(
+async def test_ai_report_is_discoverable_via_typed_read(
     neo4j_driver,
     seeded_submission,
     submissions_backend,
 ):
-    """create_report_node also writes report_content onto the submission for
-    quick list display. AI path must trigger this same denormalization."""
+    """The typed read path (ExerciseReportService.list_for_submission) is the
+    canonical source of truth for report content after c703a596 — the former
+    submission.report_content denormalization was dead weight and has been
+    removed. AI reports must appear in the typed list with the expected body,
+    and the AI path must leave submission.status unchanged."""
     service = ExerciseReportService(
-        llm_caller=_make_llm_caller("Denorm check."),
+        llm_caller=_make_llm_caller("Typed read check."),
         submissions_backend=submissions_backend,
+        backend=ExerciseReportBackend(
+            driver=neo4j_driver,
+            label=NeoLabel.EXERCISE_REPORT,
+            entity_class=ExerciseReport,
+            base_label=NeoLabel.ENTITY,
+        ),
     )
 
     result = await service.generate_report(
@@ -208,20 +219,18 @@ async def test_ai_report_denormalizes_feedback_onto_submission(
     )
     assert not result.is_error
 
+    listed = await service.list_for_submission(SUBMISSION_UID)
+    assert not listed.is_error, listed.error if listed.is_error else None
+    reports = listed.value
+    assert len(reports) == 1
+    assert reports[0].content == "Typed read check."
+
+    # AI path passes submission_status=None → status must be unchanged.
     async with neo4j_driver.session() as session:
         cursor = await session.run(
-            """
-            MATCH (s:Entity {uid: $sub})
-            RETURN s.report_content       AS report_content,
-                   s.report_generated_at  AS report_generated_at,
-                   s.status               AS status
-            """,
+            "MATCH (s:Entity {uid: $sub}) RETURN s.status AS status",
             sub=SUBMISSION_UID,
         )
         record = await cursor.single()
-
     assert record is not None
-    assert record["report_content"] == "Denorm check."
-    assert record["report_generated_at"] is not None
-    # AI path passes submission_status=None → status must be unchanged.
     assert record["status"] == "active"

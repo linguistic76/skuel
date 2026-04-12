@@ -191,10 +191,7 @@ class _SubmissionAssessmentMixin:
            OR submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
 
-        // Denormalize feedback onto submission for quick list display
-        SET submission.report_content = $feedback,
-            submission.report_generated_at = datetime($now),
-            submission.updated_at = datetime($now)
+        SET submission.updated_at = datetime($now)
 
         // Optional status transition (skip when $submission_status is null)
         FOREACH (_ IN CASE WHEN $submission_status IS NOT NULL THEN [1] ELSE [] END |
@@ -258,9 +255,7 @@ class _SubmissionAssessmentMixin:
         WHERE submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
 
-        SET submission.report_content = $feedback,
-            submission.report_generated_at = datetime($now),
-            submission.status = $submission_status,
+        SET submission.status = $submission_status,
             submission.updated_at = datetime($now)
 
         CREATE (fb:Entity:ExerciseReport {{
