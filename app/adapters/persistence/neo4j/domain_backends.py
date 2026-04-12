@@ -36,7 +36,7 @@ See: /docs/patterns/OWNERSHIP_VERIFICATION.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._adaptive_mixin import _AdaptiveMixin
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
@@ -75,8 +75,12 @@ from core.ports.query_types import (
     HabitStats,
     ParentProgressResult,
     PrincipleStats,
+    PsDeleteStepRow,
     PsKnowledgeItemResult,
     PsKnowledgeSummaryResult,
+    PsStandaloneStepRow,
+    PsStepWithContextRow,
+    PsStepWithKnowledgeRow,
     RequiredKnowledgeResult,
     RevisionChainResult,
     TaskStats,
@@ -3370,16 +3374,19 @@ class PsBackend(
         """
         return await self.execute_query(query, params)
 
-    async def get_step_with_knowledge(self, uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_step_with_knowledge(self, uid: str) -> Result[list[PsStepWithKnowledgeRow]]:
         """Get step node with CONTAINS_KNOWLEDGE relationships."""
         query = """
         MATCH (s:Entity {uid: $uid})
         OPTIONAL MATCH (s)-[r:CONTAINS_KNOWLEDGE]->(ku:Entity)
         RETURN s, collect(ku.uid) as knowledge_uids
         """
-        return await self.execute_query(query, {"uid": uid})
+        return cast(
+            "Result[list[PsStepWithKnowledgeRow]]",
+            await self.execute_query(query, {"uid": uid}),
+        )
 
-    async def get_step_with_context(self, uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_step_with_context(self, uid: str) -> Result[list[PsStepWithContextRow]]:
         """Get step with comprehensive 11-part graph context in a single query."""
         query = """
         MATCH (ps:Entity {uid: $uid})
@@ -3473,7 +3480,10 @@ class PsBackend(
         RETURN ps, knowledge_rels, prereq_steps, prereq_knowledge, principles, choices,
                habits, tasks, events, goals, path_context, dependent_steps
         """
-        return await self.execute_query(query, {"uid": uid})
+        return cast(
+            "Result[list[PsStepWithContextRow]]",
+            await self.execute_query(query, {"uid": uid}),
+        )
 
     async def update_step_fields(
         self, _uid: str, set_clauses: list[str], params: dict[str, Any]
@@ -3488,14 +3498,17 @@ class PsBackend(
         """
         return await self.execute_query(query, params)
 
-    async def delete_step_node(self, uid: str) -> Result[list[dict[str, Any]]]:
+    async def delete_step_node(self, uid: str) -> Result[list[PsDeleteStepRow]]:
         """DETACH DELETE a step node and return deletion count."""
         query = """
         MATCH (s:Entity {uid: $uid})
         DETACH DELETE s
         RETURN count(s) as deleted_count
         """
-        return await self.execute_query(query, {"uid": uid})
+        return cast(
+            "Result[list[PsDeleteStepRow]]",
+            await self.execute_query(query, {"uid": uid}),
+        )
 
     async def list_steps_raw(
         self,
@@ -3564,7 +3577,7 @@ class PsBackend(
         """
         return await self.execute_query(query, {"path_uid": path_uid, "limit": limit})
 
-    async def get_standalone_steps(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
+    async def get_standalone_steps(self, limit: int = 50) -> Result[list[PsStandaloneStepRow]]:
         """Get PathStep nodes not belonging to any learning path.
 
         Args:
@@ -3580,7 +3593,10 @@ class PsBackend(
         ORDER BY ps.updated_at DESC
         LIMIT $limit
         """
-        return await self.execute_query(query, {"limit": limit})
+        return cast(
+            "Result[list[PsStandaloneStepRow]]",
+            await self.execute_query(query, {"limit": limit}),
+        )
 
     async def get_steps_using_ku(
         self, ku_uid: str, limit: int = 20
@@ -4855,7 +4871,7 @@ class FormTemplateBackend(UniversalNeo4jBackend["FormTemplate"]):
             return Result.ok(0)
         return Result.ok(result.value[0].get("count", 0))
 
-    async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[Neo4jProperties]]:
         """Get all FormTemplates embedded in a path step."""
         result = await self.execute_query(
             f"""

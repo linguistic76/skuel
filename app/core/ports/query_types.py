@@ -53,7 +53,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
     from datetime import date, datetime
@@ -2608,6 +2608,113 @@ class PsKnowledgeItemResult(TypedDict):
 
 
 # ============================================================================
+# PS BACKEND RESULT TYPES
+# ============================================================================
+# TypedDicts for stable Cypher RETURN shapes from PsBackend domain methods.
+
+
+# --- Shared nested refs used by PsStepWithContextRow ---
+
+
+class PsContextRef(TypedDict):
+    """Ref shape for prereq_knowledge, principles, choices in step context."""
+
+    uid: str
+    title: str
+
+
+class PsKnowledgeRelRef(TypedDict):
+    """Ref shape for knowledge_rels in step context (with confidence weight)."""
+
+    uid: str
+    title: str
+    confidence: float
+
+
+class PsPrereqStepRef(TypedDict):
+    """Ref shape for prereq_steps / dependent_steps in step context."""
+
+    uid: str
+    title: str
+    completed: bool | None
+
+
+class PsHabitRef(TypedDict):
+    """Ref shape for habits in step context."""
+
+    uid: str
+    title: str
+    current_streak: int | None
+
+
+class PsStatusRef(TypedDict):
+    """Ref shape for tasks / goals in step context (with status)."""
+
+    uid: str
+    title: str
+    status: str | None
+
+
+class PsEventRef(TypedDict):
+    """Ref shape for events in step context."""
+
+    uid: str
+    title: str
+    event_date: str | None
+
+
+class PsPathContextRef(TypedDict):
+    """Ref shape for path_context in step context (nullable when no LP)."""
+
+    uid: str | None
+    name: str | None
+    goal: str | None
+    sequence: int
+
+
+# --- Row-level result types ---
+
+
+class PsStepWithKnowledgeRow(TypedDict):
+    """Return shape for PsBackend.get_step_with_knowledge()."""
+
+    s: Neo4jProperties
+    knowledge_uids: list[str]
+
+
+class PsStepWithContextRow(TypedDict):
+    """Return shape for PsBackend.get_step_with_context().
+
+    12 fields: the ps node + 11 context collections.
+    """
+
+    ps: Neo4jProperties
+    knowledge_rels: list[PsKnowledgeRelRef]
+    prereq_steps: list[PsPrereqStepRef]
+    prereq_knowledge: list[PsContextRef]
+    principles: list[PsContextRef]
+    choices: list[PsContextRef]
+    habits: list[PsHabitRef]
+    tasks: list[PsStatusRef]
+    events: list[PsEventRef]
+    goals: list[PsStatusRef]
+    path_context: PsPathContextRef
+    dependent_steps: list[PsPrereqStepRef]
+
+
+class PsDeleteStepRow(TypedDict):
+    """Return shape for PsBackend.delete_step_node()."""
+
+    deleted_count: int
+
+
+class PsStandaloneStepRow(TypedDict):
+    """Return shape for PsBackend.get_standalone_steps()."""
+
+    ps: Neo4jProperties
+
+
+# ============================================================================
 # LATERAL RELATIONSHIP BACKEND RESULT TYPES
 # ============================================================================
 # TypedDicts for stable Cypher RETURN shapes from LateralRelationshipBackend.
@@ -2891,6 +2998,18 @@ __all__ = [
     "CurriculumExerciseResult",
     "RevisionChainResult",
     "PsKnowledgeItemResult",
+    # PS Backend Result Types
+    "PsContextRef",
+    "PsKnowledgeRelRef",
+    "PsPrereqStepRef",
+    "PsHabitRef",
+    "PsStatusRef",
+    "PsEventRef",
+    "PsPathContextRef",
+    "PsStepWithKnowledgeRow",
+    "PsStepWithContextRow",
+    "PsDeleteStepRow",
+    "PsStandaloneStepRow",
     # PS Intelligence Result Types
     "PsAnalyticsSummary",
     "PsPerformanceAnalytics",

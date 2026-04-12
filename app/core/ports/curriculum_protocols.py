@@ -81,9 +81,13 @@ from core.ports.query_types import (
     LearningRecommendationResult,
     OrganizerResult,
     PrereqMasteryResult,
+    PsDeleteStepRow,
     PsKnowledgeItemResult,
     PsKnowledgeSummaryResult,
     PsPracticeSummaryResult,
+    PsStandaloneStepRow,
+    PsStepWithContextRow,
+    PsStepWithKnowledgeRow,
     ReadyToLearnResult,
     ReinforcementCandidateResult,
     RequiredKnowledgeResult,
@@ -622,7 +626,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """Get PathStep nodes belonging to a learning path, ordered by sequence."""
         ...
 
-    async def get_standalone_steps(self, limit: int = 50) -> Result[list[dict[str, Any]]]:
+    async def get_standalone_steps(self, limit: int = 50) -> Result[list[PsStandaloneStepRow]]:
         """Get PathStep nodes not belonging to any learning path."""
         ...
 
@@ -993,11 +997,11 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """Create step node with conditional knowledge and path relationships."""
         ...
 
-    async def get_step_with_knowledge(self, uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_step_with_knowledge(self, uid: str) -> Result[list[PsStepWithKnowledgeRow]]:
         """Get step node with CONTAINS_KNOWLEDGE relationships."""
         ...
 
-    async def get_step_with_context(self, uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_step_with_context(self, uid: str) -> Result[list[PsStepWithContextRow]]:
         """Get step with comprehensive 11-part graph context in a single query."""
         ...
 
@@ -1007,7 +1011,7 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """Update step fields and return step with knowledge relationships."""
         ...
 
-    async def delete_step_node(self, uid: str) -> Result[list[dict[str, Any]]]:
+    async def delete_step_node(self, uid: str) -> Result[list[PsDeleteStepRow]]:
         """DETACH DELETE a step node and return deletion count."""
         ...
 
