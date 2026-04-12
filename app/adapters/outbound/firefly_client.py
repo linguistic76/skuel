@@ -147,9 +147,7 @@ class FireflyClient:
                 body = response.json()
             except ValueError:
                 body = {"raw": response.text}
-            logger.warning(
-                f"Firefly {method} {path} returned {response.status_code}: {body}"
-            )
+            logger.warning(f"Firefly {method} {path} returned {response.status_code}: {body}")
             return Result.fail(
                 Errors.integration(
                     service="firefly",
