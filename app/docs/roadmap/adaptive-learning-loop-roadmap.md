@@ -46,8 +46,8 @@ This is the key insight: **SKUEL already collects significant outcome data that 
 |------|---------------|----------------------|
 | Mastery scores | `(User)-[:MASTERED {mastery_score, confidence}]->(Ku)` | Mastery decay over time (spaced repetition scheduling). Which KUs need review. |
 | View counts + time spent | `(User)-[:VIEWED {view_count, time_spent_seconds}]->(Ku)` | Learning efficiency — how much time does this user need per KU? Diminishing returns detection. |
-| Submission history | Submission → Exercise → Lesson chain | ✅ Partially closed (March 2026): `LearningLoopEventHandlerService` tracks iteration count, mastery velocity, and feedback turnaround. Remaining: exercise effectiveness aggregation (success rate per Exercise). |
-| LP step completion | `KnowledgeMastered` → `LessonCompleted` → `PathStepProgressUpdated` / `PathStepCompleted` → `LearningPathProgressUpdated` — **full chain now active** (March 2026). See [LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md) | Optimal step ordering. Prerequisite satisfaction rates. Path completion prediction. |
+| Submission history | Submission → Exercise → PathStep chain | ✅ Partially closed (March 2026): `LearningLoopEventHandlerService` tracks iteration count, mastery velocity, and feedback turnaround. Remaining: exercise effectiveness aggregation (success rate per Exercise). |
+| LP step completion | `KnowledgeMastered` → `PathStepProgressUpdated` / `PathStepCompleted` → `LearningPathProgressUpdated` — **full chain now active** (March 2026). See [LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md) | Optimal step ordering. Prerequisite satisfaction rates. Path completion prediction. |
 | ZPD computation | `zpd_backend.py` — current zone, proximal zone, blocking gaps | ZPD already identifies *what* to learn next. Missing: feeding completion outcomes back to refine ZPD boundary estimates. |
 
 ### Cross-Domain — Unclosed Loops

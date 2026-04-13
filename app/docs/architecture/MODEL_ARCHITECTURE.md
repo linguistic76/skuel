@@ -136,10 +136,9 @@ core/models/{domain}/
 | `event/` | Event + EventDTO + requests | Activity | + calendar_models.py |
 | `choice/` | Choice + ChoiceDTO | Activity | + ChoiceOption sub-model |
 | `principle/` | Principle + PrincipleDTO + requests | Activity | + Reflection sub-entity, PrincipleIntelligence |
-| `lesson/` | Lesson + LessonDTO | Curriculum | Units for learning |
 | `exercises/` | Exercise, RevisedExercise + DTOs + requests | Curriculum | Exercise and revision models |
-| `pathways/` | PathStep, LearningPath + DTOs, Mastery, LpPosition, LpRelationships, LearningProgress | Curriculum | LP/PS pathway models |
-| `lesson_content/` | CurriculumContent, ContentChunk, ContentMetadata | Curriculum | Lesson body storage + RAG chunking |
+| `pathways/` | PathStep, LearningPath + DTOs, Mastery, LpPosition, LpRelationships, LearningProgress | Curriculum | LP/PS pathway models (PathStep IS the curriculum content entity) |
+| `lesson_content/` | CurriculumContent, ContentChunk, ContentMetadata | Curriculum | PathStep body storage + RAG chunking |
 | `ku/` | Ku + KuDTO | Curriculum | Atomic knowledge units |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
 | `submissions/` | Submission, ExerciseSubmission + DTOs | Submissions | + submission_requests.py, report_schedule.py |

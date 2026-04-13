@@ -297,7 +297,7 @@ factory = UserContextIntelligenceFactory(
     choices=activity_services["choices"].relationships,
     principles=activity_services["principles"].relationships,
     # Curriculum (3)
-    ps=learning_services["ps"],  # PsService facade (merged Lesson into PathStep)
+    ps=learning_services["ps"],  # PsService facade
     lp=learning_services["learning_paths"].relationships,
     # Processing Domains (3)
     submissions=submissions_relationship_service,
@@ -517,7 +517,7 @@ class LearningIntelligenceMixin:
 | `prerequisites_needed` | `dict[str, list[str]]` | Prerequisite chains |
 | `mastered_knowledge_uids` | `set[str]` | Mastery tracking |
 | `in_progress_knowledge_uids` | `set[str]` | KUs with 0 < mastery < 0.8 — used by `include_learning` boost |
-| `current_lesson_uids` | `set[str]` | Lessons user is actively studying (via IN_PROGRESS relationship) |
+| `current_path_step_uids` | `set[str]` | PathSteps the user is actively studying (via IN_PROGRESS relationship) |
 | `estimated_time_to_mastery` | `dict[str, int]` | Time estimates |
 | `learning_goals` | `list[str]` | Learning alignment |
 | `primary_goal_focus` | `str \| None` | Goal prioritization |
@@ -715,7 +715,7 @@ intelligence = factory.create(context)
 ## Related Skills
 
 - **[base-analytics-service](../base-analytics-service/SKILL.md)** - Level 1 domain analytics (BaseAnalyticsService, no AI) — same tier as UserContextIntelligence
-- **[learning-loop](../learning-loop/SKILL.md)** - The five-phased loop (Lesson → Exercise → Submission → Report → RevisedExercise) — context for why submissions/report slots exist
+- **[learning-loop](../learning-loop/SKILL.md)** - The five-phased loop (PathStep → Exercise → Submission → Report → RevisedExercise) — context for why submissions/report slots exist
 - **[result-pattern](../result-pattern/SKILL.md)** - Result[T] error handling
 
 ## See Also

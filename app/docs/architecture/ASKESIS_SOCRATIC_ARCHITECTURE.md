@@ -75,7 +75,7 @@ RESPONSE (GuidanceMode-tagged)
 | `ASSESS_UNDERSTANDING` | 2+ ZPD signals (confirmed) | Ask user to explain in own words |
 | `PROBE_DEEPER` | 1 signal, practice present | Follow-up testing deeper understanding |
 | `SCAFFOLD` | 0 signals, KU in bundle | Leading questions toward insight |
-| `REDIRECT_TO_CURRICULUM` | No ZPD evidence at all | Point to Lesson to read first |
+| `REDIRECT_TO_CURRICULUM` | No ZPD evidence at all | Point to PathStep to read first |
 | `ENCOURAGE_PRACTICE` | 1 signal, missing practice | Connect understanding to habits/tasks |
 | `SURFACE_CONNECTION` | Multi-KU question with edges | Highlight relationships between concepts |
 | `OUT_OF_SCOPE` | Question not in PS bundle | Redirect to current learning focus |
@@ -106,12 +106,11 @@ The PsBundle is a frozen dataclass containing the complete context for a Path St
 
 - `path_step: PathStep` — the active step
 - `learning_path: LearningPath | None` — parent path
-- `lessons: tuple[Lesson, ...]` — primary + supporting content
 - `kus: tuple[Ku, ...]` — atomic knowledge units trained by this step
-- `resources: tuple[Resource, ...]` — reference material cited by Lessons/KUs via CITES_RESOURCE
+- `resources: tuple[Resource, ...]` — reference material cited by PathSteps/KUs via CITES_RESOURCE
 - `habits, tasks, events, principles` — practice activities linked to the step
 - `edges: tuple[dict, ...]` — semantic relationships between bundle entities
-- `learning_objectives: tuple[str, ...]` — from Lessons in the bundle
+- `learning_objectives: tuple[str, ...]` — from the PathStep in the bundle
 
 **Immutability:** Built once per question, passed through the pipeline, never mutated.
 
@@ -175,14 +174,14 @@ When populated on Curriculum entities, the guided pipeline can assess learner re
 ### Conversation Signals to ZPD
 Socratic conversations can generate ZPD signals: if the user explains a concept correctly in an ASSESS turn, that's evidence comparable to a submission. Not yet implemented — requires structured evaluation.
 
-### ZPD Expansion to Lessons and PS
-Currently ZPD assesses per-KU. Expanding to per-Lesson and per-PS would enable "Have you understood this entire Path Step?" assessment. Interfaces are ready; implementation waits for curriculum content to reveal what's needed.
+### ZPD Expansion to PathStep and LearningPath
+Currently ZPD assesses per-KU. Expanding to per-PathStep and per-LearningPath would enable "Have you understood this entire Path Step?" assessment. Interfaces are ready; implementation waits for curriculum content to reveal what's needed.
 
 ### Multi-LP Users
 Users enrolled in multiple Learning Paths need a way to select which LP's PS drives the session. Current implementation uses the first active (non-mastered) PS. Future: explicit session binding to a specific LP.
 
 ### Resource Connectivity (Phase 8) — ✅ Done (March 2026)
-Resources are wired into the Askesis pipeline via `CITES_RESOURCE` relationships. `(Lesson/Ku)-[:CITES_RESOURCE {context}]->(Resource)` connects curriculum to reference material. ContextRetriever loads cited Resources into the PsBundle, ResponseGenerator references them in guided prompts, and semantic search includes Resources alongside Lessons and KUs.
+Resources are wired into the Askesis pipeline via `CITES_RESOURCE` relationships. `(PathStep/Ku)-[:CITES_RESOURCE {context}]->(Resource)` connects curriculum to reference material. ContextRetriever loads cited Resources into the PsBundle, ResponseGenerator references them in guided prompts, and semantic search includes Resources alongside PathSteps and KUs.
 
 ---
 

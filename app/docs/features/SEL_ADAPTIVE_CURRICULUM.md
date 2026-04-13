@@ -191,13 +191,13 @@ def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any
         display_fields=["description"],
         show_labels=False,
         metadata=[
-            f"{progress.lessons_mastered} mastered",
-            f"{progress.lessons_in_progress} in progress",
-            f"{progress.lessons_available} available",
+            f"{progress.path_steps_mastered} mastered",
+            f"{progress.path_steps_in_progress} in progress",
+            f"{progress.path_steps_available} available",
         ],
         actions=ButtonLink(
             "Continue Learning →",
-            href=f"/lessons?sel={category.value}",
+            href=f"/path-steps?sel={category.value}",
             variant=ButtonT.primary,
             cls="w-full",
         ),
@@ -205,7 +205,7 @@ def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any
 
     # Custom progress bar
     progress_section = Div(
-        Progress(value=progress.lessons_mastered, max=progress.total_lessons),
+        Progress(value=progress.path_steps_mastered, max=progress.total_path_steps),
         P(f"{progress.completion_percentage:.0f}% complete"),
     )
 

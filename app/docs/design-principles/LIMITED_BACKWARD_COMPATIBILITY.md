@@ -24,7 +24,7 @@ Historical references in code comments create confusion: "Was this renamed? Is t
 ## In Practice
 
 - **Enum aliases are parsing-only.** `_ENTITY_TYPE_ALIASES` in `EntityType.from_string()` handles old strings from Neo4j data — but the enum itself contains only current values. Deprecated aliases (ARTICLE, SUBMISSION, JOURNAL, SUBMISSION_REPORT) were deleted from the enum.
-- **Renames are atomic.** `Article → Lesson` updated 200+ files. No `Article = Lesson` alias was left behind.
+- **Merges are atomic.** The 2026-04 `Lesson → PathStep` merge updated 200+ files in one pass. `LessonService`, `LessonBackend`, and `lesson_*` routes were shelved the same day — no `Lesson = PathStep` alias was left behind in live code (the narrow `"lesson"` YAML frontmatter alias is a documented content-source exception, not a code alias).
 - **Migration scripts handle data.** Neo4j property renames run as one-time scripts, then the script moves to an archive. The codebase never checks for both old and new property names.
 - **ADRs are the historical record.** If someone needs to understand why something was renamed, they read the ADR — not a comment in the code.
 

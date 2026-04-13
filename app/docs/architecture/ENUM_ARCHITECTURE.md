@@ -50,7 +50,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | Group | EntityTypes | Ownership | Neo4j Labels |
 |-------|-------------|-----------|--------------|
 | **Knowledge** (atomic curriculum) | KU, RESOURCE | Admin-created, no user_uid | :Entity:Ku, :Entity:Resource |
-| **Curriculum Structure** | LESSON, PATH_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:Lesson, :Entity:PathStep, :Entity:LearningPath, :Entity:Exercise |
+| **Curriculum Structure** | PATH_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:PathStep, :Entity:LearningPath, :Entity:Exercise |
 | **Forms** | FORM_TEMPLATE, FORM_SUBMISSION | Template: admin-created; Submission: user-owned | :Entity:FormTemplate, :Entity:FormSubmission |
 | **Submissions** | EXERCISE_SUBMISSION | User-owned | :Entity:ExerciseSubmission:Submission |
 | **Reports** | EXERCISE_REPORT, ACTIVITY_REPORT | User-owned | :Entity:ExerciseReport, :Entity:ActivityReport |
@@ -63,7 +63,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | Tier | ContentOrigin | EntityTypes |
 |------|---------------|-------------|
 | A | CURATED | Resource, FormTemplate |
-| B | CURRICULUM | Lesson, KU, PathStep, LearningPath, Exercise, RevisedExercise |
+| B | CURRICULUM | KU, PathStep, LearningPath, Exercise, RevisedExercise |
 | C | USER_CREATED | All 6 Activity types + ExerciseSubmission, JeInput, JeOutput, LifePath, FormSubmission |
 | D | REPORT | ActivityReport, ExerciseReport |
 
@@ -228,7 +228,7 @@ Enums wire into the model layer through a class hierarchy. Each level inherits e
 |------------|-------------|--------|
 | Entity | entity_type, status, visibility | *(all 22 entity types)* |
 | UserOwnedEntity | *(inherits above)* | Task, Goal, Habit, Event, Choice, Principle, Submission types, LifePath |
-| Curriculum *(base class)* | + complexity, learning_level, sel_category | Lesson, PathStep, LearningPath, Exercise |
+| Curriculum *(base class)* | + complexity, learning_level, sel_category | PathStep, LearningPath, Exercise |
 
 Domain-specific enum fields: Goal (+3), Habit (+3), Principle (+4), Choice (+1), Submission (+1), LifePath (+1), PathStep (+1), LearningPath (+1), Exercise (+1).
 
@@ -529,7 +529,7 @@ These YAML fields are constrained by Python enums. Using an invalid value fails 
 
 | YAML Field | Enum Class | Applies To | Example Values |
 |------------|------------|-----------|----------------|
-| `type` | `EntityType` | All entities | `Task`, `Habit`, `Ku`, `Lesson` |
+| `type` | `EntityType` | All entities | `Task`, `Habit`, `Ku`, `PathStep` |
 | `priority` | `Priority` | All activities | `low`, `medium`, `high`, `critical` |
 | `status` | `EntityStatus` | All entities | `draft`, `active`, `completed` |
 | `polarity` | `HabitPolarity` | Habit | `build`, `break`, `neutral` |
@@ -544,8 +544,8 @@ These YAML fields are constrained by Python enums. Using an invalid value fails 
 | `strength` | `PrincipleStrength` | Principle | `core`, `strong`, `moderate`, `developing` |
 | `recurrence_pattern` | `RecurrencePattern` | Habit, Event | `daily`, `weekly`, `monthly` |
 | `ku_category` | `KuCategory` | Ku | `state`, `concept`, `principle`, `practice` |
-| `sel_category` | `SELCategory` | Ku, Lesson | `self_awareness`, `self_management` |
-| `complexity` | `KuComplexity` | Lesson, Ku | `basic`, `medium`, `advanced` |
+| `sel_category` | `SELCategory` | Ku, PathStep | `self_awareness`, `self_management` |
+| `complexity` | `KuComplexity` | PathStep, Ku | `basic`, `medium`, `advanced` |
 
 ### Annotated Example
 

@@ -6,11 +6,7 @@ CRUD and Intelligence routes are config-driven via DomainRouteConfig
 in path_steps_routes.py. This file contains domain-specific manual routes:
 relationships, content, search, organization, analytics, adaptive curriculum,
 and ORGANIZES hierarchy operations.
-
-Absorbed from lesson_api.py + lesson_organization_api.py during Lesson→PathStep merge.
 """
-
-__version__ = "4.0"  # Absorbed Lesson API routes
 
 from typing import Any
 
@@ -112,7 +108,7 @@ def create_path_steps_api_routes(
         )
 
     # ========================================================================
-    # SEMANTIC RELATIONSHIPS (absorbed from lesson_api.py)
+    # SEMANTIC RELATIONSHIPS
     # ========================================================================
 
     @rt("/api/path-steps/relationships", methods=["POST"])
@@ -149,7 +145,7 @@ def create_path_steps_api_routes(
         return await ps_service.get_step_dependencies(uid)
 
     # ========================================================================
-    # CONTENT OPERATIONS (absorbed from lesson_api.py)
+    # CONTENT OPERATIONS
     # ========================================================================
 
     @rt("/api/path-steps/content", methods=["POST"])
@@ -192,7 +188,7 @@ def create_path_steps_api_routes(
         return await ps_service.remove_step_tags(uid, result.value.tags)
 
     # ========================================================================
-    # SEARCH & DISCOVERY (absorbed from lesson_api.py)
+    # SEARCH & DISCOVERY
     # ========================================================================
 
     @rt("/api/path-steps/search")
@@ -226,7 +222,7 @@ def create_path_steps_api_routes(
         return await ps_service.get_step_recommendations(uid, user_uid, recommendation_type)
 
     # ========================================================================
-    # ORGANIZATION — DOMAINS, CATEGORIES, TAGS (absorbed from lesson_api.py)
+    # ORGANIZATION — DOMAINS, CATEGORIES, TAGS
     # ========================================================================
 
     @rt("/api/path-steps/domains")
@@ -251,7 +247,7 @@ def create_path_steps_api_routes(
         return await ps_service.list_step_tags(min_usage)
 
     # ========================================================================
-    # ANALYTICS (absorbed from lesson_api.py)
+    # ANALYTICS
     # ========================================================================
 
     @rt("/api/path-steps/stats")
@@ -261,7 +257,7 @@ def create_path_steps_api_routes(
         return await ps_service.get_step_stats(uid)
 
     # ========================================================================
-    # USER CONTEXT — Per-user substance & activity (absorbed from lesson_api.py)
+    # USER CONTEXT — Per-user substance & activity
     # ========================================================================
 
     @rt("/api/path-steps/my-context")
@@ -286,7 +282,7 @@ def create_path_steps_api_routes(
         return await ps_service.get_user_step_context(uid, user_context)
 
     # ========================================================================
-    # ADAPTIVE CURRICULUM / SEL (absorbed from lesson_api.py)
+    # ADAPTIVE CURRICULUM / SEL
     # ========================================================================
 
     @rt("/api/path-steps/journey")
@@ -368,7 +364,7 @@ def create_path_steps_api_routes(
         )
 
     # ========================================================================
-    # ANALYTICS ROUTES (Factory-Generated, absorbed from lesson_api.py)
+    # ANALYTICS ROUTES (Factory-Generated)
     # ========================================================================
 
     async def handle_summary_analytics(
@@ -406,7 +402,7 @@ def create_path_steps_api_routes(
     analytics_factory.register_routes(app, rt)
 
     # ========================================================================
-    # ORGANIZES HIERARCHY (absorbed from lesson_organization_api.py)
+    # ORGANIZES HIERARCHY
     # ========================================================================
 
     # Identity Operations

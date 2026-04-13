@@ -58,7 +58,6 @@ Content authored in Obsidian that maps to SKUEL entity types:
 | Content Type | EntityType | Typical Format |
 |-------------|-----------|----------------|
 | Knowledge Units | `KU` | Markdown with YAML frontmatter |
-| Lessons | `LESSON` | Markdown with YAML frontmatter |
 | Path Steps | `PATH_STEP` | YAML or Markdown |
 | Learning Paths | `LEARNING_PATH` | YAML |
 | Activity templates | `TASK`, `GOAL`, `HABIT`, `EVENT`, `CHOICE`, `PRINCIPLE` | YAML |
@@ -171,7 +170,7 @@ Obsidian Headless Sync and per-user bulk upload serve **different audiences**:
 | | Obsidian Headless Sync | Per-User Bulk Upload |
 |---|---|---|
 | **Audience** | Admin/teachers (curriculum) | Individual users (Activity Domains) |
-| **Content** | Kus, Lessons, Exercises, LPs, LSs | Tasks, Goals, Habits, Events, Choices, Principles |
+| **Content** | Kus, PathSteps, Exercises, LearningPaths | Tasks, Goals, Habits, Events, Choices, Principles |
 | **Scope** | `SHARED` (all users read) | `USER_OWNED` (user's data) |
 | **Delivery** | Automatic (file watcher) | Manual (upload via `/upload`) |
 | **Server infra** | 1 headless process | None (HTTP upload) |

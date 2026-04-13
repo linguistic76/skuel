@@ -461,23 +461,23 @@ Before the explicit delegation migration:
 ### ❌ Before (Unsafe Access)
 
 ```python
-@rt("/api/lessons/get")
+@rt("/api/path-steps/get")
 @boundary_handler()
-async def get_lesson_route(request, uid: str) -> Result[Any]:
-    # Get lesson
-    lesson_result = await lesson_service.get(uid)
+async def get_path_step_route(request, uid: str) -> Result[Any]:
+    # Get path step
+    ps_result = await ps_service.get(uid)
 
     # Check for errors
-    if lesson_result.is_error:
-        return Result.fail(lesson_result)
+    if ps_result.is_error:
+        return Result.fail(ps_result)
 
     # Extract value
-    lesson = lesson_result.value
+    path_step = ps_result.value
 
-    # ERROR: Item "None" of "Lesson | None" has no attribute "title"
-    # Problem: get() returns Result[Lesson | None]
+    # ERROR: Item "None" of "PathStep | None" has no attribute "title"
+    # Problem: get() returns Result[PathStep | None]
     # Even though is_error is False, value can still be None (not found case)
-    return Result.ok({"title": lesson.title})
+    return Result.ok({"title": path_step.title})
 ```
 
 **The Issue:** `Result[T | None]` pattern is common for "not found" cases:
@@ -488,25 +488,25 @@ async def get_lesson_route(request, uid: str) -> Result[Any]:
 ### ✅ After (Safe with Guard)
 
 ```python
-@rt("/api/lessons/get")
+@rt("/api/path-steps/get")
 @boundary_handler()
-async def get_lesson_route(request, uid: str) -> Result[Any]:
-    # Get lesson
-    lesson_result = await lesson_service.get(uid)
+async def get_path_step_route(request, uid: str) -> Result[Any]:
+    # Get path step
+    ps_result = await ps_service.get(uid)
 
     # Check for errors
-    if lesson_result.is_error:
-        return Result.fail(lesson_result)
+    if ps_result.is_error:
+        return Result.fail(ps_result)
 
     # Extract value
-    lesson = lesson_result.value
+    path_step = ps_result.value
 
     # ✅ Guard: Check for both error AND None
-    if lesson is None:
-        return Result.fail(Errors.not_found(resource="Lesson", identifier=uid))
+    if path_step is None:
+        return Result.fail(Errors.not_found(resource="PathStep", identifier=uid))
 
-    # After this point, mypy knows lesson is not None
-    return Result.ok({"title": lesson.title})
+    # After this point, mypy knows path_step is not None
+    return Result.ok({"title": path_step.title})
 ```
 
 ### Alternative: Early Return Pattern

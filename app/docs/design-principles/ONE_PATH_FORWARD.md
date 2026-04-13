@@ -21,7 +21,7 @@ Every parallel path doubles the cognitive load, testing surface, and maintenance
 
 ## In Practice
 
-- **Renames are total.** `Article → Lesson` touched 200+ files in one pass. No aliases survived.
+- **Renames are total.** The 2026-04 `Lesson → PathStep` merge touched 200+ files in one pass — every service, backend, route, UI component, and doc referencing Lesson was updated or shelved.
 - **Deprecated enum values are deleted.** `_ENTITY_TYPE_ALIASES` handles historical string parsing; the enum itself contains only current values.
 - **Migration scripts exist for data.** Neo4j property renames (`ku_type → entity_type`) run once, then the script is archived.
 - **ADRs record the decision.** The old pattern lives in the ADR as history, not in the code as an alternative.

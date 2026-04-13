@@ -348,7 +348,7 @@ def create_upload_routes(
 **Three proven CRUDRouteConfig configurations:**
 
 ```python
-# Admin-only shared content (Lesson, LP, PS, FormTemplate)
+# Admin-only shared content (Ku, LearningPath, PathStep, FormTemplate)
 crud=CRUDRouteConfig(
     scope=ContentScope.SHARED,
     require_role=UserRole.ADMIN,
@@ -371,7 +371,7 @@ crud=CRUDRouteConfig(
 )
 ```
 
-**Exemplars:** `groups_routes.py`, `lesson_routes.py`, `exercises_routes.py`, `pathways_routes.py`, `path_steps_routes.py`, `form_templates_routes.py`, `revised_exercises_routes.py`
+**Exemplars:** `groups_routes.py`, `ku_routes.py`, `exercises_routes.py`, `pathways_routes.py`, `path_steps_routes.py`, `form_templates_routes.py`, `revised_exercises_routes.py`
 
 **Combining CRUD + Intelligence:** Curriculum domains typically pair both:
 

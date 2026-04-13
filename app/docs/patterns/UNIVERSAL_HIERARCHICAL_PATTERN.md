@@ -162,12 +162,12 @@ ku_machine-learning-101_def45678
 **Service Methods:**
 
 ```python
-# Lesson Hierarchical Methods (added 2026-01-30, renamed 2026-03-18)
-await lesson_core.get_children(parent_uid, depth=1)
-await lesson_core.get_parents(entity_uid)           # Multiple parents possible!
-await lesson_core.get_hierarchy(entity_uid)
-await lesson_core.organize_lesson(parent_uid, child_uid, order, importance)
-await lesson_core.unorganize_lesson(parent_uid, child_uid)
+# PathStep Hierarchical Methods (via PsService / KuService)
+await ps_service.get_children(parent_uid, depth=1)
+await ps_service.get_parents(entity_uid)           # Multiple parents possible!
+await ps_service.get_hierarchy(entity_uid)
+await ps_service.organize(parent_uid, child_uid, order)
+await ps_service.unorganize(parent_uid, child_uid)
 ```
 
 **MOC Pattern:**
@@ -300,8 +300,8 @@ lp:def456ghi012
 **After:**
 ```python
 # Moving updates edge only (SAFE!)
-await lesson_core.unorganize_lesson(old_parent_uid, ku_uid)
-await lesson_core.organize_lesson(new_parent_uid, ku_uid, order=1)
+await ku_service.unorganize(old_parent_uid, ku_uid)
+await ku_service.organize(new_parent_uid, ku_uid, order=1)
 # UID unchanged: ku_meditation_xyz789
 # All references intact!
 ```
@@ -380,10 +380,10 @@ children = await service.get_related(
 **Built-in for all domains:**
 
 ```python
-# Automatic cycle detection in organize_lesson()
-await lesson_core.organize_lesson(parent="ku_a", child="ku_b")  # OK
-await lesson_core.organize_lesson(parent="ku_b", child="ku_c")  # OK
-await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR: Cycle detected!
+# Automatic cycle detection in organize()
+await ku_service.organize(parent_uid="ku_a", child_uid="ku_b")  # OK
+await ku_service.organize(parent_uid="ku_b", child_uid="ku_c")  # OK
+await ku_service.organize(parent_uid="ku_c", child_uid="ku_a")  # ERROR: Cycle detected!
 
 # Cypher check before creating relationship
 MATCH path = (child)-[:ORGANIZES*]->(parent)
@@ -523,7 +523,7 @@ history = await ku_service.create(
 result = await tasks_service.get_subtasks(parent_uid, depth=1)
 
 # Get all sub-KUs (2 levels deep)
-result = await lesson_core.get_children(moc_uid, depth=2)
+result = await ku_service.get_children(moc_uid, depth=2)
 ```
 
 **Get Parents:**
@@ -532,14 +532,14 @@ result = await lesson_core.get_children(moc_uid, depth=2)
 result = await tasks_service.get_parent_tasks(task_uid)
 
 # Get parent KUs (can have multiple!)
-result = await lesson_core.get_parents(ku_uid)
+result = await ku_service.get_parents(ku_uid)
 # Returns: All MOCs organizing this KU
 ```
 
 **Get Full Hierarchy:**
 ```python
 # Get complete context
-result = await lesson_core.get_hierarchy(ku_uid)
+result = await ku_service.get_hierarchy(ku_uid)
 
 # Returns:
 {
@@ -564,17 +564,16 @@ result = await lesson_core.get_hierarchy(ku_uid)
 **Move Entity:**
 ```python
 # Remove from old parent
-await lesson_core.unorganize_lesson(
+await ku_service.unorganize(
     parent_uid="ku_yoga_abc",
     child_uid="ku_meditation_xyz"
 )
 
 # Add to new parent
-await lesson_core.organize_lesson(
+await ku_service.organize(
     parent_uid="ku_wellness_def",
     child_uid="ku_meditation_xyz",
     order=1,
-    importance="core"
 )
 
 # UID unchanged! All references intact!
@@ -583,9 +582,9 @@ await lesson_core.organize_lesson(
 **Multiple Parents:**
 ```python
 # Add same KU to multiple MOCs
-await lesson_core.organize_lesson("ku_ai_abc", "ku_ml_xyz", order=1)
-await lesson_core.organize_lesson("ku_data_science_def", "ku_ml_xyz", order=2)
-await lesson_core.organize_lesson("ku_python_ghi", "ku_ml_xyz", order=3)
+await ku_service.organize("ku_ai_abc", "ku_ml_xyz", order=1)
+await ku_service.organize("ku_data_science_def", "ku_ml_xyz", order=2)
+await ku_service.organize("ku_python_ghi", "ku_ml_xyz", order=3)
 
 # Machine Learning appears in 3 different contexts
 ```

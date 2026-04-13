@@ -29,7 +29,7 @@ SKUEL is built on a developing ontology — 22 entity types, behavioral traits, 
 | "Entities have behavioral traits" | `is_activity()`, `is_processable()`, `requires_user_uid()` methods |
 | "Services have defined contracts" | 65+ protocols in `core/ports/` |
 | "Query results have known shapes" | 159 TypedDicts in `core/ports/query_types.py` |
-| "The learning loop has phases" | `Lesson -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise` type chain |
+| "The learning loop has phases" | `PathStep -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise` type chain |
 
 When the ontology evolves — a new entity type, a new relationship, a new behavioral trait — the type system evolves with it. A MyPy error after such a change is not noise; it's the system telling you where the old ontology assumptions no longer hold. This is why SKUEL's core principle for type safety is: *"A type error from MyPy reveals a real design problem, not an annotation oversight."*
 

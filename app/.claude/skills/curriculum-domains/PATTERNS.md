@@ -1,6 +1,6 @@
 # Curriculum Domain Patterns
 
-> Implementation patterns for Lesson, KU, PS, LP features.
+> Implementation patterns for Ku, PathStep (PS), and LearningPath (LP) features.
 
 ---
 
@@ -11,11 +11,11 @@ All core/search services use `_config = create_curriculum_domain_config(...)` (n
 ```python
 from core.services.domain_config import create_curriculum_domain_config
 
-class LessonCoreService(BaseService[LessonOperations, Lesson]):
+class PsCoreService(BaseService[PsOperations, PathStep]):
     _config = create_curriculum_domain_config(
-        dto_class=LessonDTO,
-        model_class=Lesson,
-        domain_name="lesson",
+        dto_class=PathStepDTO,
+        model_class=PathStep,
+        domain_name="path_step",
         search_fields=("title", "description", "content"),
         category_field="domain",
     )
@@ -25,55 +25,55 @@ class LessonCoreService(BaseService[LessonOperations, Lesson]):
 
 ---
 
-## Pattern: Lesson Organization (Non-Linear Navigation)
+## Pattern: PathStep Organization (Non-Linear Navigation)
 
-Any Lesson can organize other Lessons via `ORGANIZES` relationships. There is no `MocService` — this is `LessonOrganizationService`:
+Any PathStep can organize other PathSteps via `ORGANIZES` relationships. There is no `MocService` — this is `PsOrganizationService` (a sub-service of `PsService`):
 
 ```python
 # Create non-linear structure
-await lesson_service.organize(
-    parent_uid="l_yoga-fundamentals_abc123",
-    child_uid="l_meditation-basics_xyz789",
+await ps_service.organization.organize(
+    parent_uid="ps:core:yoga-fundamentals",
+    child_uid="ps:core:meditation-basics",
     order=1,
     importance="core",
 )
 
 # Navigate the structure
-children = await lesson_service.get_organized_children("l_yoga-fundamentals_abc123", depth=2)
-parents = await lesson_service.find_organizers("l_meditation-basics_xyz789")
-root_organizers = await lesson_service.list_root_organizers()
+children = await ps_service.organization.get_organized_children("ps:core:yoga-fundamentals", depth=2)
+parents = await ps_service.organization.find_organizers("ps:core:meditation-basics")
+root_organizers = await ps_service.organization.list_root_organizers()
 
-# Check if a Lesson acts as an organizer
-is_org = await lesson_service.is_organizer("l_yoga-fundamentals_abc123")
+# Check if a PathStep acts as an organizer
+is_org = await ps_service.organization.is_organizer("ps:core:yoga-fundamentals")
 
-# Prev/next sibling navigation (used by /api/lesson/{uid}/navigation)
-# Returns KuNavigation dataclass — propagates DB errors, returns empty nav for legitimate empty states
-result = await lesson_service.get_navigation("l_meditation-basics_xyz789")
-nav = result.value  # KuNavigation(prev_uid, prev_title, next_uid, next_title)
+# Prev/next sibling navigation in MOC ORGANIZES order.
+# Returns a StepNavigation dataclass — propagates DB errors, returns empty nav for legitimate empty states.
+result = await ps_service.organization.get_navigation("ps:core:meditation-basics")
+nav = result.value  # StepNavigation(prev_uid, prev_title, next_uid, next_title)
 ```
 
-**When to use this pattern:** When users want to navigate knowledge non-linearly (exploring a topic map rather than following a prescribed sequence). This replaces the old MOC domain entirely.
+**When to use this pattern:** When users want to navigate knowledge non-linearly (exploring a topic map rather than following a prescribed sequence). This is the emergent MOC pattern.
 
-**Key dataclass:** `KuNavigation` (frozen, from `core/services/lesson/lesson_organization_service.py`) — prev/next sibling in MOC ORGANIZES order. Exported via `core/services/lesson/__init__.py`.
+**Key dataclass:** `StepNavigation` (frozen, from `core/services/ps/ps_organization_service.py`) — prev/next sibling in MOC ORGANIZES order.
 
 ---
 
 ## Pattern: PS Knowledge Relationship CRUD (Backend-Delegated)
 
-Knowledge relationships (CONTAINS_KNOWLEDGE) are managed via `PsBackend` — services delegate, no inline Cypher:
+Knowledge relationships (`USES_KU` / `TRAINS_KU`) are managed via `PsBackend` — services delegate, no inline Cypher:
 
 ```python
 # Backend (PsBackend) — owns the Cypher
-await backend.add_knowledge(ps_uid, ku_uid, "primary")
-await backend.remove_knowledge(ps_uid, ku_uid)
-knowledge = await backend.list_knowledge(ps_uid, knowledge_type="primary")
+await backend.add_uses_ku(ps_uid, ku_uid, role="primary")
+await backend.remove_uses_ku(ps_uid, ku_uid)
+ku_refs = await backend.list_ku_refs(ps_uid, role="primary")
 summary = await backend.get_knowledge_summary(ps_uid)  # {primary_count, supporting_count, ...}
 
 # Service (PsCoreService) — validates + delegates
-async def add_knowledge_relationship(self, ps_uid, ku_uid, knowledge_type="primary"):
-    if knowledge_type not in ("primary", "supporting"):
+async def add_ku_reference(self, ps_uid, ku_uid, role="primary"):
+    if role not in ("primary", "supporting"):
         return Result.fail(Errors.validation(...))
-    return await self.backend.add_knowledge(ps_uid, ku_uid, knowledge_type)
+    return await self.backend.add_uses_ku(ps_uid, ku_uid, role)
 ```
 
 ---

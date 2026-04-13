@@ -126,11 +126,10 @@ result = await provider.get_filtered_context(user_uid, status_filter="active")
 | `ChoicesService` | `get_filtered_context(user_uid, status_filter="pending", sort_by="deadline")` |
 | `PrinciplesService` | `get_filtered_context(user_uid, category_filter="all", strength_filter="all", sort_by="strength")` |
 
-**Method signatures (Curriculum Domains — 5):**
+**Method signatures (Curriculum Domains — 4):**
 
 | Service | Signature |
 |---------|-----------|
-| `LessonService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
 | `KuService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
 | `PsService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |
 | `LpService` | `get_filtered_context(user_uid, status_filter="all", sort_by="title")` |

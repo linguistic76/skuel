@@ -23,9 +23,9 @@ Every section follows a three-tier alignment: **YAML fields → Python model →
 
 ## The Atom — Ku
 
-A Ku is the smallest nameable concept in SKUEL. It's an atomic reference node — no content body, no paragraphs, no teaching narrative. If you can define it in one sentence, it's a Ku. If it needs explanation, it's a Lesson.
+A Ku is the smallest nameable concept in SKUEL. It's an atomic reference node — no content body, no paragraphs, no teaching narrative. If you can define it in one sentence, it's a Ku. If it needs explanation, it belongs in a PathStep.
 
-**Granularity decision:** "One sentence = Ku. Paragraphs = Lesson."
+**Granularity decision:** "One sentence = Ku. Paragraphs = PathStep."
 
 ### ku_category Values
 
@@ -99,32 +99,36 @@ Note the UID normalization: colons in YAML (`ku:mindfulness:breath`) become dots
 
 ---
 
-## The Composition — Lesson
+## The Composition — PathStep
 
-A Lesson is a unit for learning. Where a Ku names a single concept, a Lesson weaves multiple Kus into coherent learning content with full markdown. Lessons are the "textbook pages" of SKUEL.
+A PathStep is THE curriculum content entity in SKUEL. Where a Ku names a single concept, a PathStep weaves multiple Kus into coherent learning content with full markdown. PathSteps are the "textbook pages" of SKUEL — and they also connect that content to practice (habits, tasks, choices, events, principles). See [PATHSTEP_CONTENT_ARCHITECTURE.md](/docs/architecture/PATHSTEP_CONTENT_ARCHITECTURE.md) for the full content model.
 
 ### uses_kus — Composing Atoms
 
-The `uses_kus` field declares which Kus a Lesson composes. Each entry becomes a `(Lesson)-[:USES_KU]->(Ku)` edge in the graph. This is how SKUEL knows which atomic concepts a piece of teaching content covers.
+The `uses_kus` field declares which Kus a PathStep composes. Each entry becomes a `(PathStep)-[:USES_KU]->(Ku)` edge in the graph. This is how SKUEL knows which atomic concepts a piece of teaching content covers.
 
 ### connections — Structural Relationships
 
-The `connections` block declares how Lessons relate to each other:
+The `connections` block declares how PathSteps relate to each other:
 
 | Key | Relationship Created | Meaning |
 |-----|---------------------|---------|
 | `requires` | `REQUIRES_KNOWLEDGE` | Must read this first |
 | `enables` | `ENABLES_KNOWLEDGE` | Unlocks after reading |
 
+### YAML `type:` Alias
+
+PathStep YAML files accept `type: PathStep` (canonical). The legacy `type: lesson` alias is still parsed for backward compatibility with older vault content — it resolves to `EntityType.PATH_STEP`. New content should use `PathStep`.
+
 ### Three-Tier Alignment
 
-**YAML** (`lesson_breath-awareness-basics.yaml`):
+**YAML** (`ps_breath-awareness-basics.yaml`):
 
 ```yaml
 version: 1.0
-type: Lesson
+type: PathStep
 
-uid: l:mindfulness:breath-awareness-basics
+uid: ps:mindfulness:breath-awareness-basics
 title: Breath Awareness — Basics
 content: |
   ## Introduction to Breath Awareness
@@ -145,8 +149,8 @@ uses_kus:
 connections:
   requires: []
   enables:
-    - l:mindfulness:posture-basics
-    - l:mindfulness:mind-wandering-happens
+    - ps:mindfulness:posture-basics
+    - ps:mindfulness:mind-wandering-happens
 
 tags:
   - breath
@@ -155,19 +159,19 @@ tags:
   - foundational
 ```
 
-**Python** — `Lesson` extends `Curriculum`, which extends `Entity`. The `Curriculum` base adds ~21 fields including `content`, `complexity`, `domain`, and `quality_score`. Lesson adds no extra fields — Curriculum provides everything a unit for learning needs.
+**Python** — `PathStep` extends `Curriculum`, which extends `Entity`. The `Curriculum` base adds ~21 fields including `content`, `complexity`, `domain`, and `quality_score`. PathStep adds activity-wiring fields (habit_uids, task_uids, choice_uids, event_template_uids, principle_uids) on top.
 
 **How flattening works:** The preparer extracts the nested `connections` dict and flattens it to dotted keys:
 
 ```python
-# Input:  {"connections": {"requires": [], "enables": ["l:mindfulness:posture-basics", ...]}}
-# Output: {"connections.enables": ["l.mindfulness.posture-basics", ...]}
+# Input:  {"connections": {"requires": [], "enables": ["ps:mindfulness:posture-basics", ...]}}
+# Output: {"connections.enables": ["ps.mindfulness.posture-basics", ...]}
 ```
 
 The BulkIngestionEngine then generates CALL subquery patterns for each dotted key:
 
 ```cypher
-MERGE (n:Entity:Lesson {uid: "l.mindfulness.breath-awareness-basics"})
+MERGE (n:Entity:PathStep {uid: "ps.mindfulness.breath-awareness-basics"})
   ON CREATE SET n = props, n.created_at = datetime()
   ON MATCH SET n += props, n.updated_at = datetime()
 WITH n, item
@@ -193,7 +197,7 @@ CALL {
 
 The backtick escaping (`` item.`connections.enables` ``) handles the dotted key in Cypher. Connection data is filtered from node properties in Python before reaching Neo4j — the dotted keys drive edge creation, they don't pollute the node.
 
-**Why MATCH (not MERGE) for targets:** Relationship targets use `MATCH` to only link nodes that already exist. The old `FOREACH`/`MERGE` pattern created stub nodes with incomplete labels (e.g., `:Entity` without `:Lesson`), causing duplicate nodes when the real entity was later ingested with its full multi-label set. `MATCH` silently skips missing targets — they will be linked on re-ingestion after both nodes exist.
+**Why MATCH (not MERGE) for targets:** Relationship targets use `MATCH` to only link nodes that already exist. The old `FOREACH`/`MERGE` pattern created stub nodes with incomplete labels (e.g., `:Entity` without `:PathStep`), causing duplicate nodes when the real entity was later ingested with its full multi-label set. `MATCH` silently skips missing targets — they will be linked on re-ingestion after both nodes exist.
 
 ---
 
@@ -201,35 +205,35 @@ The backtick escaping (`` item.`connections.enables` ``) handles the dotted key 
 
 ### PathStep — The Cross-Domain Connector
 
-A PathStep is the richest entity type in SKUEL. It's where curriculum meets practice — connecting Lessons (what to learn) with Habits, Tasks, Choices, Events, and Principles (how to live it).
+A PathStep is the richest entity type in SKUEL. It carries curriculum content (via the `content` field and `uses_kus`) and also wires that content into practice — Habits, Tasks, Choices, Events, and Principles (how to live it).
 
 Every UID-list field on a PathStep becomes a set of edges in the graph:
 
 | YAML Field | Relationship | Direction | Connects To |
 |---|---|---|---|
-| `knowledge_uids` | `CONTAINS_KNOWLEDGE` | outgoing | Lesson |
+| `uses_kus` | `USES_KU` | outgoing | Ku |
 | `trains_ku_uids` | `TRAINS_KU` | outgoing | Ku |
 | `prerequisite_step_uids` | `REQUIRES_STEP` | outgoing | PathStep |
-| `prerequisite_knowledge_uids` | `REQUIRES_KNOWLEDGE` | outgoing | Lesson |
+| `prerequisite_knowledge_uids` | `REQUIRES_KNOWLEDGE` | outgoing | Ku |
 | `principle_uids` | `GUIDED_BY_PRINCIPLE` | outgoing | Principle |
 | `habit_uids` | `BUILDS_HABIT` | outgoing | Habit |
 | `task_uids` | `ASSIGNS_TASK` | outgoing | Task |
 | `choice_uids` | `INFORMS_CHOICE` | outgoing | Choice |
 | `event_template_uids` | `SCHEDULES_EVENT` | outgoing | Event |
 
-**YAML** (`ls_mindfulness-101_step-1.yaml`):
+**YAML** (`ps_mindfulness-101_step-1.yaml`):
 
 ```yaml
 version: 1.0
 type: PathStep
 
-uid: ls:mindfulness-101:step-1
+uid: ps:mindfulness-101:step-1
 title: Two Minutes Today
 intent: Try one two-minute breath session, note what you notice
 
-knowledge_uids:
-  - l:mindfulness:breath-awareness-basics
-  - l:mindfulness:posture-basics
+uses_kus:
+  - ku:mindfulness:breath
+  - ku:mindfulness:attention
 
 trains_ku_uids:
   - ku:mindfulness:breath
@@ -283,8 +287,8 @@ difficulty: beginner
 
 connections:
   contains_steps:
-    - ls:mindfulness-101:step-1
-    - ls:mindfulness-101:step-2
+    - ps:mindfulness-101:step-1
+    - ps:mindfulness-101:step-2
 
 outcomes:
   - Establish a daily 2-minute breath awareness practice
@@ -296,7 +300,7 @@ estimated_hours: 1.0
 
 ### Prerequisite Chains
 
-When `ls:mindfulness-101:step-2` declares `prerequisite_step_uids: [ls:mindfulness-101:step-1]`, the graph gains a `REQUIRES_STEP` edge. This enables "ready to learn" queries — the system can traverse prerequisite chains to determine which steps a user is prepared for based on their mastery state.
+When `ps:mindfulness-101:step-2` declares `prerequisite_step_uids: [ps:mindfulness-101:step-1]`, the graph gains a `REQUIRES_STEP` edge. This enables "ready to learn" queries — the system can traverse prerequisite chains to determine which steps a user is prepared for based on their mastery state.
 
 ---
 
@@ -314,9 +318,9 @@ title: Build a gentle daily starter practice
 
 connections:
   requires_knowledge:
-    - l:mindfulness:breath-awareness-basics
-    - l:mindfulness:posture-basics
-    - l:mindfulness:mind-wandering-happens
+    - ps:mindfulness:breath-awareness-basics
+    - ps:mindfulness:posture-basics
+    - ps:mindfulness:mind-wandering-happens
   supporting_habits:
     - habit:daily-2min-breath
     - habit:label-wander-daily
@@ -367,7 +371,7 @@ name: Daily Two-Minute Breath
 
 connections:
   reinforces_knowledge:
-    - l:mindfulness:breath-awareness-basics
+    - ps:mindfulness:breath-awareness-basics
   supports_goal:
     - goal:mindfulness-beginner
   embodies_principle:
@@ -458,7 +462,7 @@ SET r.evidence = "After coffee I feel more restless...",
 
 | Use | When | Example |
 |-----|------|---------|
-| `connections:` block (on Lessons) | Structural prerequisite/enablement | "Read Breath Basics before Mind Wandering" |
+| `connections:` block (on PathSteps) | Structural prerequisite/enablement | "Read Breath Basics before Mind Wandering" |
 | `type: Edge` YAML file | Evidence-based observation with confidence | "Caffeine exacerbates buzzing (confidence: 0.8)" |
 
 Use `connections:` when the relationship is structural and certain — ordering curriculum content. Use Edge YAML when the relationship carries evidence, confidence, and polarity — tracking observations about how things affect each other.
@@ -483,9 +487,8 @@ Embedding text is built from entity-specific field maps. Each entity type contri
 
 | Entity Type | Fields included in embedding |
 |-------------|----------------------------|
-| Lesson | title, content, summary |
 | Ku | title, summary, description |
-| PathStep | title, intent, description |
+| PathStep | title, content, intent, description |
 | LearningPath | title, description, outcomes |
 | Task | title, description |
 | Goal | title, description, vision_statement |
@@ -504,7 +507,7 @@ Relationships power the most sophisticated discovery. The graph answers question
 
 - "What am I ready to learn?" — traverse `REQUIRES_STEP` prerequisite chains against mastery state
 - "What supports my current goal?" — follow `SUPPORTS_GOAL`, `GUIDED_BY_PRINCIPLE` from the goal
-- "What does this Lesson teach?" — follow `USES_KU` to atomic concepts
+- "What does this PathStep teach?" — follow `USES_KU` to atomic concepts
 
 ### Discovery Matrix
 
@@ -536,27 +539,22 @@ Dependencies must exist before the entities that reference them. The manifest's 
 
 ```yaml
 import_order:
-  1_kus:                    # Kus first — referenced by Lessons
+  1_kus:                    # Kus first — referenced by PathSteps
     - ku:mindfulness:breath
     - ku:mindfulness:attention
 
-  2_lessons:                # Lessons next — referenced by Steps
-    - l:mindfulness:breath-awareness-basics
-    - l:mindfulness:posture-basics
-    - l:mindfulness:mind-wandering-happens
-
-  3_supporting_entities:    # Activity entities — referenced by Steps
+  2_supporting_entities:    # Activity entities — referenced by PathSteps
     - principle:small-steps
     - habit:daily-2min-breath
     - task:log-first-5-sessions
     - event:practice-block-2min
     - goal:mindfulness-beginner
 
-  4_path_steps:         # Steps — reference all of the above
-    - ls:mindfulness-101:step-1
-    - ls:mindfulness-101:step-2
+  3_path_steps:             # PathSteps — reference all of the above
+    - ps:mindfulness-101:step-1
+    - ps:mindfulness-101:step-2
 
-  5_learning_paths:         # Paths last — reference Steps
+  4_learning_paths:         # Paths last — reference PathSteps
     - lp:mindfulness-101
 ```
 
@@ -609,8 +607,7 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 | Entity Type | UID Format | Mindfulness 101 Example |
 |-------------|-----------|------------------------|
 | Ku | `ku:{namespace}:{slug}` | `ku:mindfulness:breath` |
-| Lesson | `l:{namespace}:{slug}` | `l:mindfulness:breath-awareness-basics` |
-| PathStep | `ls:{path}:{slug}` | `ls:mindfulness-101:step-1` |
+| PathStep | `ps:{namespace}:{slug}` | `ps:mindfulness-101:step-1` |
 | LearningPath | `lp:{slug}` | `lp:mindfulness-101` |
 | Task | `task:{slug}` | `task:log-first-5-sessions` |
 | Goal | `goal:{slug}` | `goal:mindfulness-beginner` |
@@ -625,8 +622,7 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 | YAML `type:` | Required Fields |
 |-------------|----------------|
 | `Ku` | title |
-| `Lesson` | title, content |
-| `PathStep` | title |
+| `PathStep` | title, content |
 | `LearningPath` | name |
 | `Task` | title |
 | `Goal` | title |
@@ -638,7 +634,7 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 
 ### YAML `type:` Values
 
-`Ku`, `Lesson`, `PathStep`, `LearningPath`, `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Edge`
+`Ku`, `PathStep`, `LearningPath`, `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Edge`
 
 ---
 
@@ -648,5 +644,5 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 - `yaml_templates/_schemas/` — Full field reference for every entity type
 - `yaml_templates/domains/mindfulness_101/README.md` — Bundle design principles
 - `docs/patterns/UNIFIED_INGESTION_GUIDE.md` — Ingestion API reference and modes
-- `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — Ku, Lesson, PS, LP topology
+- `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — Ku, PS, LP topology
 - `docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` — Complete relationship catalog

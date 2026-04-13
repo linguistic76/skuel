@@ -56,7 +56,7 @@ crud_factory = CRUDRouteFactory(
 crud_factory.register_routes(app, rt)
 
 # Curriculum domain (shared) — uses FormTemplate as example since
-# Lesson/PS/LP are created via ingestion, not CRUD
+# KU/PS/LP are created via ingestion, not CRUD
 crud_factory = CRUDRouteFactory(
     service=form_template_service,
     domain_name="form-templates",
@@ -415,8 +415,8 @@ intelligence_factory.register_routes(app, rt)
 
 # For Curriculum Domains (shared content)
 intelligence_factory = IntelligenceRouteFactory(
-    intelligence_service=lesson_service.intelligence,
-    domain_name="lesson",
+    intelligence_service=ps_service.intelligence,
+    domain_name="path-steps",
     scope=ContentScope.SHARED,               # Curriculum content is shared
 )
 intelligence_factory.register_routes(app, rt)

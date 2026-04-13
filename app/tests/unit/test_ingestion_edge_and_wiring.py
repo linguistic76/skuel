@@ -275,7 +275,7 @@ class TestLsFieldWiring:
         assert config["learning_path_uids"]["direction"] == "incoming"
 
     def test_activity_wiring_present(self):
-        """Activity domain wiring on PathStep (absorbed from Lesson merge)."""
+        """Activity domain wiring on PathStep."""
         config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
         for field in (

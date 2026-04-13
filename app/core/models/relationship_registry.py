@@ -1648,7 +1648,7 @@ KU_CONFIG = DomainRelationshipConfig(
     },
 )
 
-# PathStep (PS) — THE curriculum content entity (Lesson merged into PathStep)
+# PathStep (PS) — THE curriculum content entity
 # 3-level hierarchy: LP -> PS -> Ku
 PS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,

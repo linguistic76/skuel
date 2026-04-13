@@ -523,25 +523,24 @@ class PsIntelligenceService(BaseAnalyticsService["BackendOperations[PathStep]", 
         """Calculate how well this step provides guidance (0.0-1.0).
 
         Note: Guidance relationships (GUIDED_BY_PRINCIPLE, INFORMS_CHOICE)
-        live on Lessons. PS queries traverse via HAS_LESSON.
-        The actual implementation uses Cypher two-hop traversal, not
-        get_related_uids on the PS directly.
+        live directly on PathSteps — PS queries read them with a single-hop
+        traversal from the PS node, not a two-hop.
         """
-        # Actual implementation uses Cypher:
-        # MATCH (ls)-[:HAS_LESSON]->(l1)-[:GUIDED_BY_PRINCIPLE]->(p)
-        # MATCH (ls)-[:HAS_LESSON]->(l2)-[:INFORMS_CHOICE]->(c)
+        # Implementation uses Cypher:
+        # MATCH (ps:PathStep {uid: $ps_uid})-[:GUIDED_BY_PRINCIPLE]->(p)
+        # MATCH (ps)-[:INFORMS_CHOICE]->(c)
         ...
 
     async def get_practice_summary(self, ps_uid: str) -> Result[dict[str, Any]]:
         """Get practice opportunities summary.
 
         Note: Practice relationships (BUILDS_HABIT, ASSIGNS_TASK, etc.)
-        live on Lessons. PS queries traverse via HAS_LESSON to count
-        all 6 activity domains: habits, tasks, events, goals, principles, choices.
+        live directly on PathSteps. A single-hop traversal from the PS node
+        counts all 6 activity domains: habits, tasks, events, goals, principles, choices.
         """
-        # Actual implementation uses Cypher two-hop traversal:
-        # MATCH (ls)-[:HAS_LESSON]->(l1)-[:BUILDS_HABIT]->(h)
-        # MATCH (ls)-[:HAS_LESSON]->(l2)-[:ASSIGNS_TASK]->(t)
+        # Implementation uses single-hop Cypher:
+        # MATCH (ps:PathStep {uid: $ps_uid})-[:BUILDS_HABIT]->(h)
+        # MATCH (ps)-[:ASSIGNS_TASK]->(t)
         # ... etc for all 6 activity domains
         ...
 

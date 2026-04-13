@@ -416,7 +416,6 @@ CREATE CONSTRAINT choice_uid_unique IF NOT EXISTS FOR (c:Choice) REQUIRE c.uid I
 CREATE CONSTRAINT principle_uid_unique IF NOT EXISTS FOR (p:Principle) REQUIRE p.uid IS UNIQUE;
 
 // Curriculum domain constraints
-CREATE CONSTRAINT lesson_uid_unique IF NOT EXISTS FOR (n:Lesson) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT ku_uid_unique IF NOT EXISTS FOR (n:Ku) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT ps_uid_unique IF NOT EXISTS FOR (n:PathStep) REQUIRE n.uid IS UNIQUE;
 CREATE CONSTRAINT lp_uid_unique IF NOT EXISTS FOR (n:LearningPath) REQUIRE n.uid IS UNIQUE;

@@ -463,10 +463,6 @@ def _wire_event_subscribers(
     event_bus.subscribe(ChoiceMade, choices_service.event_handler.handle_choice_made)
     logger.info("✅ ChoiceEventHandlerService subscribed to ChoiceMade")
 
-    # NOTE: PathStepCompleted handler removed during Lesson→PathStep merge (2026-04).
-    # PsIntelligenceService needs handle_path_step_completed() added back when KU
-    # mastery updates on PS completion are needed again.
-
     # ── Tier 2 handlers: Pattern-based event intelligence ───────────────────
 
     # Principle event handler - cross-domain insights from reflections

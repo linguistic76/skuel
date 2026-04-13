@@ -60,7 +60,7 @@ class AskesisDeps:
     habits_service: Any
     events_service: Any
     zpd_service: ZPDOperations            # Required for guided pipeline (LP gate ensures curriculum exists)
-    citation_service: Any | None = None   # Wired in bootstrap via lesson backend
+    citation_service: Any | None = None   # Wired in bootstrap via PathStep backend
     # PS bundle dependencies for ContextRetriever
     ku_service: Any | None = None         # For PS bundle KU fetching
     lp_service: Any | None = None         # For PS bundle LP fetching
@@ -80,7 +80,7 @@ class AskesisService:
         self.context_retriever = ContextRetriever(
             graph_intelligence_service=deps.graph_intelligence_service,
             embeddings_service=deps.embeddings_service,
-            lesson_service=deps.knowledge_service,
+            ps_service=deps.knowledge_service,
             ku_service=deps.ku_service, ...
         )
 
@@ -248,7 +248,7 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
                                        │                │
                                        ▼                ▼
                                 EmbeddingsService  Domain Services
-                                                   (Lesson, KU, Resource,
+                                                   (PathStep, KU, Resource,
                                                     LP, Habits, Tasks, etc.)
                                                         │
                                                GraphIntelligence
@@ -459,7 +459,7 @@ Six stub implementations were completed to bring Askesis from ~60-70% to ~95% fu
 | Method | File | Implementation |
 |--------|------|----------------|
 | `_find_similar_knowledge()` | `context_retriever.py` | Semantic search via EmbeddingsService |
-| `get_learning_context()` | `context_retriever.py` | Delegates to `LessonBackend.get_user_learning_context()` |
+| `get_learning_context()` | `context_retriever.py` | Delegates to `PsBackend.get_user_learning_context()` |
 | `_analyze_blocked_knowledge_prerequisites()` | `context_retriever.py` | Gap analysis via `KuBackend.get_unmastered_prerequisites()` + `count_dependents()` |
 | `_identify_quick_wins_and_high_impact()` | `context_retriever.py` | Classification based on prerequisite count |
 | `_generate_context_aware_response()` | `query_processor.py` | LLM integration (required) |
@@ -474,11 +474,11 @@ async def _find_similar_knowledge(self, query: str, _user_uid: str) -> list[tupl
     # 1. Create query embedding via EmbeddingsService
     query_embedding = await self.embeddings_service.create_embedding(query)
 
-    # 2. Fetch knowledge entities (Lessons, KUs, Resources) with embeddings from Neo4j
+    # 2. Fetch knowledge entities (PathSteps, KUs, Resources) with embeddings from Neo4j
     ku_query = """
     MATCH (ku:Entity)
     WHERE ku.embedding IS NOT NULL
-      AND ku.entity_type IN ['lesson', 'ku', 'resource']
+      AND ku.entity_type IN ['path_step', 'ku', 'resource']
     RETURN ku.uid, ku.title, ku.embedding LIMIT 100
     """
 
@@ -533,7 +533,7 @@ async def _order_by_prerequisites(self, ku_uids: list[str]) -> list[str]:
 
 Askesis uses PROMPT_REGISTRY for two distinct prompt layers:
 
-1. **Guided system prompts (template-driven):** `ResponseGenerator.build_guided_system_prompt()` renders one of 7 `askesis_guided_*` templates via `PROMPT_REGISTRY.render()`. Each template encodes one `PedagogicalIntent`. The Python method computes dynamic context (lesson refs, KU names, resource refs, edge text) and passes it as template placeholders. Prompt text is editable in `core/prompts/templates/` without touching Python.
+1. **Guided system prompts (template-driven):** `ResponseGenerator.build_guided_system_prompt()` renders one of 7 `askesis_guided_*` templates via `PROMPT_REGISTRY.render()`. Each template encodes one `PedagogicalIntent`. The Python method computes dynamic context (PathStep refs, KU names, resource refs, edge text) and passes it as template placeholders. Prompt text is editable in `core/prompts/templates/` without touching Python.
 
 2. **LLM context assembly (programmatic):** `ResponseGenerator.build_llm_context()` converts UserContext into natural language for the LLM call. `QueryProcessor._generate_context_aware_response()` calls `LLMService.generate_context_aware_answer()` with this assembled context. This layer remains programmatic — the context is data-driven, not pedagogical prose.
 
@@ -541,7 +541,7 @@ Askesis uses PROMPT_REGISTRY for two distinct prompt layers:
 
 | Template ID | GuidanceMode | PedagogicalIntent | Key Placeholders |
 |-------------|-------------|-------------------|-----------------|
-| `askesis_guided_redirect` | DIRECT | REDIRECT_TO_CURRICULUM | `{lessons_text}`, `{resource_refs}` |
+| `askesis_guided_redirect` | DIRECT | REDIRECT_TO_CURRICULUM | `{path_steps_text}`, `{resource_refs}` |
 | `askesis_guided_out_of_scope` | DIRECT | OUT_OF_SCOPE | `{ls_title}`, `{ls_intent}` |
 | `askesis_guided_assess` | SOCRATIC | ASSESS_UNDERSTANDING | `{concepts}` |
 | `askesis_guided_probe` | SOCRATIC | PROBE_DEEPER | `{concepts}` |

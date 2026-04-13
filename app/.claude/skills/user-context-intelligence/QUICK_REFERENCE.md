@@ -114,7 +114,7 @@ from core.models.context_types import (
 
 ### Optional: FilteredContextProvider Dict
 
-`self.filtered_providers: dict[str, FilteredContextProvider]` — maps domain names to facades for on-demand per-domain queries. 11 domains: tasks, goals, habits, events, choices, principles, lessons, ku, path_steps, learning_paths, exercises.
+`self.filtered_providers: dict[str, FilteredContextProvider]` — maps domain names to facades for on-demand per-domain queries. 10 domains: tasks, goals, habits, events, choices, principles, ku, path_steps, learning_paths, exercises.
 
 ```python
 # On-demand domain query (vs. UserContext broad snapshot)

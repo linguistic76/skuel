@@ -117,7 +117,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 |   +-- RevisedExercise(UserOwnedEntity)          REVISED_EXERCISE
 +-- FormTemplate(Entity) — reusable form definition (shared, embeddable)
 +-- Curriculum(Entity) +21 fields (base class only)
-|   +-- Lesson(Curriculum), PathStep, LearningPath, Exercise
+|   +-- PathStep(Curriculum), LearningPath, Exercise
 +-- Ku(Entity) — atomic knowledge unit
 +-- Resource(Entity) +7 fields
 ```
@@ -133,7 +133,7 @@ EntityDTO (~18 fields)
 +-- UserOwnedDTO -> ExerciseReportDTO  (NOT SubmissionDTO)
 +-- UserOwnedDTO -> JeInputDTO, JeOutputDTO        (standalone journal domain)
 +-- EntityDTO -> FormTemplateDTO                   (form_schema, instructions)
-+-- CurriculumDTO(EntityDTO) -> LessonDTO, PathStepDTO, LearningPathDTO, ExerciseDTO
++-- CurriculumDTO(EntityDTO) -> PathStepDTO, LearningPathDTO, ExerciseDTO
 +-- KuDTO(EntityDTO)
 +-- ResourceDTO(EntityDTO)
 ```
@@ -214,16 +214,16 @@ Common sub-services created via `create_common_sub_services()` factory (`core/se
 
 Standalone facade with 4 sub-services (Core, Budget, Reporting, Invoice). No intelligence service, no relationship configuration. All Finance routes require ADMIN role. Does NOT use `BaseService` or `BaseAnalyticsService`.
 
-### Lesson, Ku, PathStep, LearningPath, Exercise — Curriculum
+### Ku, PathStep, LearningPath, Exercise — Curriculum
 
-Educational foundation. Lesson extends `Curriculum(Entity)`. Ku extends `Entity` directly (lightweight atomic unit). All admin-created, publicly readable via `ContentScope.SHARED`.
+Educational foundation. PathStep extends `Curriculum(Entity)` and is THE curriculum content entity (composes atomic Kus into coherent learning content). Ku extends `Entity` directly (lightweight atomic unit). All admin-created, publicly readable via `ContentScope.SHARED`.
 
 ### Resource — Curated External Content
 
-Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `Lesson → Exercise → Submission → Report → RevisedExercise` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
+Pointers to external content (books, talks, films) that Askesis can recommend. Resource extends `Entity` directly (+7 fields). Admin-created, publicly readable via `ContentScope.SHARED`. Resource is NOT curriculum — it does not participate in the `PathStep → Exercise → Submission → Report → RevisedExercise` loop. Its `ContentOrigin` is `CURATED` (tier A), distinct from curriculum's `CURRICULUM` (tier B).
 
 **Two paths to knowledge (Montessori-inspired):**
-- **PS Path**: Structured, linear, teacher-directed (Lesson -> PS -> LP)
+- **PS Path**: Structured, linear, teacher-directed (Ku -> PathStep -> LearningPath)
 - **MOC Path**: Unstructured, graph, learner-directed (any Entity ORGANIZES others)
 
 **Service architecture:**
@@ -280,7 +280,7 @@ Exercise is a single entity type serving three distinct pedagogical roles via `E
 
 ### FormTemplate + FormSubmission — General-Purpose Forms
 
-A general-purpose form system decoupled from the learning loop. Admin creates reusable form templates, embeds them in Lessons via `EMBEDS_FORM` relationships, and users submit structured responses. Submissions flow through the existing sharing infrastructure (groups, direct sharing, admin).
+A general-purpose form system decoupled from the learning loop. Admin creates reusable form templates, embeds them in PathSteps via `EMBEDS_FORM` relationships, and users submit structured responses. Submissions flow through the existing sharing infrastructure (groups, direct sharing, admin).
 
 | EntityType | Inherits | Description |
 |------------|---------|-------------|
@@ -291,7 +291,7 @@ FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fie
 
 **Graph relationships:**
 ```cypher
-(lesson:Lesson)-[:EMBEDS_FORM]->(ft:FormTemplate)
+(ps:PathStep)-[:EMBEDS_FORM]->(ft:FormTemplate)
 (fs:FormSubmission)-[:RESPONDS_TO_FORM]->(ft:FormTemplate)
 (user:User)-[:OWNS]->(fs:FormSubmission)
 ```
@@ -305,7 +305,7 @@ FormTemplate extends `Entity` (NOT Curriculum — doesn't need 21 Curriculum fie
 
 ### Submissions, Reports, ActivityReport — Content Processing
 
-The educational loop: `Lesson -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
+The educational loop: `PathStep -> Exercise -> ExerciseSubmission -> ExerciseReport -> RevisedExercise -> ...`. Activity entity types are equal entry points via `ACTIVITY_REPORT`.
 
 | EntityType | Inherits | ProcessorType | Description |
 |------------|---------|---------------|-------------|
@@ -470,7 +470,7 @@ Natural Text
 (goal:Goal)-[:SUBGOAL_OF]->(goal:Goal)
 
 // Curriculum
-(lesson:Lesson)-[:USES_KU]->(ku:Ku)
+(ps:PathStep)-[:USES_KU]->(ku:Ku)
 (ku:Curriculum)-[:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
 (ku:Curriculum)-[:ENABLES_KNOWLEDGE]->(ku:Curriculum)
 (lp:LearningPath)-[:HAS_NARROWER]->(ps:PathStep)
@@ -486,7 +486,7 @@ Natural Text
 (submission:Submission)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
 
 // Forms
-(lesson:Lesson)-[:EMBEDS_FORM]->(ft:FormTemplate)
+(ps:PathStep)-[:EMBEDS_FORM]->(ft:FormTemplate)
 (fs:FormSubmission)-[:RESPONDS_TO_FORM]->(ft:FormTemplate)
 
 // Sharing

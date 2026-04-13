@@ -9,16 +9,16 @@
 | Domain | Directory | Model | DTO | Request |
 |--------|-----------|-------|-----|---------|
 | **Base** | `core/models/` | `curriculum.py` | `curriculum_dto.py` | — |
-| **Lesson** | `core/models/lesson/` | `lesson.py` (extends Curriculum) | `lesson_dto.py` | `lesson_request.py` |
 | **KU** | `core/models/ku/` | `ku.py` (extends Entity) | `ku_dto.py` | — |
-| **PS** | `core/models/pathways/` | `path_step.py` | `path_step_dto.py` | `pathways_request.py` |
+| **PS** | `core/models/pathways/` | `path_step.py` (extends Curriculum) | `path_step_dto.py` | `pathways_request.py` |
 | **LP** | `core/models/pathways/` | `learning_path.py` | `learning_path_dto.py` | `pathways_request.py` |
 | **Exercise** | `core/models/exercises/` | `exercise.py` | `exercise_dto.py` | `exercise_request.py` |
+
+PathStep is THE curriculum content entity — it composes atomic Kus into coherent learning content and sits within a LearningPath.
 
 ### Services (Facade + Sub-services)
 | Domain | Facade | Core | Search | Intelligence |
 |--------|--------|------|--------|--------------|
-| Lesson | `core/services/lesson_service.py` | `lesson/lesson_core_service.py` | `lesson/lesson_search_service.py` | (via `lesson_adaptive_service.py`) |
 | KU | `core/services/ku_service.py` | `ku/ku_core_service.py` | `ku/ku_search_service.py` | `ku/ku_intelligence_service.py` |
 | PS | `core/services/ps_service.py` | `ps/ps_core_service.py` | `ps/ps_search_service.py` | `ps/ps_intelligence_service.py` |
 | LP | `core/services/lp_service.py` | `lp/lp_core_service.py` | `lp/lp_search_service.py` | `lp/lp_intelligence_service.py` |
@@ -26,58 +26,68 @@
 ### Domain Backends
 | Domain | Backend | Key Methods |
 |--------|---------|-------------|
-| Lesson | `LessonBackend` (59 methods, 5 mixins) | Organizes, learning state, semantic, knowledge context, adaptive |
-| KU | `KuBackend` (23 methods, protocol: `KuOperations`) | ORGANIZES graph, usage summary, namespace/alias search, substance, prereqs, learning state |
-| PS | `PsBackend` (71+ methods, 5 mixins, protocol: `PsOperations`) | CONTAINS_KNOWLEDGE CRUD, learning state, semantic, knowledge context, adaptive + 4 search queries |
-| LP | `LpBackend` (28 methods, 3 mixins, protocol: `LpOperations`) | Path CRUD, HAS_STEP management, intelligence queries, graph context, mastery progress, search queries |
-| Exercise | `ExerciseBackend` | Curriculum links, OWNS/FOR_GROUP, student queries (6 methods) |
+| KU | `KuBackend` (protocol: `KuOperations`) | ORGANIZES graph, usage summary, namespace/alias search, substance, prereqs, learning state |
+| PS | `PsBackend` (5 mixins, protocol: `PsOperations`) | ORGANIZES, learning state (VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED), semantic, knowledge context, adaptive |
+| LP | `LpBackend` (3 mixins, protocol: `LpOperations`) | Path CRUD, HAS_STEP management, intelligence queries, graph context, mastery progress, search queries |
+| Exercise | `ExerciseBackend` | Curriculum links, OWNS/FOR_GROUP, student queries |
 
 `KuBackend`, `PsBackend`, `LpBackend` live in `adapters/persistence/neo4j/backends/curriculum_backends.py`; `ExerciseBackend` lives in `backends/exercise_backends.py` alongside `RevisedExerciseBackend` and `ExerciseReportBackend`. Services call typed backend methods — no inline Cypher in service layer.
 
-### Lesson Sub-services (`core/services/lesson/`)
+### PS Sub-services (`core/services/ps/`)
 | Service | Purpose |
 |---------|---------|
-| `lesson_core_service.py` | CRUD operations |
-| `lesson_search_service.py` | Text search, filtering |
-| `lesson_graph_service.py` | Graph traversal, prerequisites, hub scores |
-| `lesson_application_discovery_service.py` | Reverse relationship queries (where is knowledge applied?) |
-| `lesson_context_service.py` | Context-first knowledge recommendations (*_for_user) |
-| `lesson_semantic_service.py` | Semantic relationship management |
-| `lesson_practice_service.py` | Practice tracking |
-| `lesson_mastery_service.py` | Pedagogical tracking (VIEWED → IN_PROGRESS → MASTERED) |
-| `lesson_adaptive_service.py` | Adaptive learning recommendations |
-| `lesson_organization_service.py` | ORGANIZES relationships (non-linear nav / MOC pattern) |
-| `lesson_ai_service.py` | AI-powered Lesson operations |
-| `lesson_relationship_filters.py` | Relationship filtering utilities |
+| `ps_core_service.py` | CRUD operations + persistence |
+| `ps_search_service.py` | Text search, filtering |
+| `ps_graph_service.py` | Graph traversal, prerequisites |
+| `ps_semantic_service.py` | Semantic relationship management |
+| `ps_practice_service.py` | Event-driven practice tracking |
+| `ps_mastery_service.py` | Pedagogical tracking (VIEWED → IN_PROGRESS → MASTERED) |
+| `ps_adaptive_service.py` | Adaptive learning recommendations |
+| `ps_application_discovery_service.py` | Reverse relationship queries (where is knowledge applied?) |
+| `ps_context_service.py` | Context-first knowledge recommendations |
+| `ps_organization_service.py` | ORGANIZES relationships (non-linear nav / MOC pattern) |
+| `ps_intelligence_service.py` | Readiness assessment, practice analysis |
+| `ps_progress_service.py` | KU completion progress (event-driven) |
+| `ps_ai_service.py` | Optional LLM/embedding features (FULL tier) |
 
 ### KU Sub-services (`core/services/ku/`)
 | Service | Purpose |
 |---------|---------|
 | `ku_core_service.py` | CRUD operations for atomic knowledge units |
 | `ku_search_service.py` | Text search, filtering |
+| `ku_intelligence_service.py` | Usage summary, substance metrics |
+| `ku_relationships.py` | Relationship helpers |
+
+### LP Sub-services (`core/services/lp/`)
+| Service | Purpose |
+|---------|---------|
+| `lp_core_service.py` | CRUD + HAS_STEP management |
+| `lp_search_service.py` | Search/filter |
+| `lp_progress_service.py` | Mastery progress |
+| `lp_intelligence_service.py` | Adaptive step, path validation |
+| `lp_ai_service.py` | Optional LLM features |
 
 ### Factory Functions
 | Domain | Factory | Location |
 |--------|---------|----------|
-| **Lesson** | `create_lesson_sub_services()` | `core/services/curriculum_domain_config.py` |
-| **PS** | `create_curriculum_sub_services()` | `core/services/curriculum_domain_config.py` |
+| **PS** | `create_ps_sub_services()` | `core/services/curriculum_domain_config.py` |
 | **LP** | `create_lp_sub_services()` | `core/services/curriculum_domain_config.py` |
 
 ### Routes
 | Domain | Route file |
 |--------|-----------|
-| Lesson | `adapters/inbound/lesson_routes.py` (LessonService) |
-| Lesson UI | `adapters/inbound/lesson_ui.py` (detail page + learning actions) |
-| Lesson Listing | `adapters/inbound/curriculum_hub_ui.py` (`/lessons` browser with enrollment) |
 | KU | `adapters/inbound/ku_routes.py` + `ku_ui.py` (KuService — index, detail, studying/understood) |
-| PS + LP | `adapters/inbound/pathways_routes.py` |
+| PS (API + UI) | `adapters/inbound/path_steps_routes.py` → `path_steps_api.py` + `path_steps_ui.py` |
+| LP | `adapters/inbound/pathways_routes.py` |
+| Exercise | `adapters/inbound/exercise_routes.py` + `exercise_ui.py` |
 
-**Lesson UI Routes:**
-- `GET /lessons` — Lesson browser with enrollment buttons (Start Lesson / In Progress / Mastered)
-- `GET /lesson/{uid}/details` — Full lesson reading page (markdown + TOC sidebar + metadata + actions)
-- `POST /api/lesson/{uid}/start` — Start a lesson (marks IN_PROGRESS via `LessonMasteryService`)
-- `POST /api/lesson/{uid}/mark-read` — Mark lesson as read
-- `POST /api/lesson/{uid}/bookmark` — Toggle lesson bookmark
+**PathStep UI / learning-loop routes** (the learning loop anchor):
+- `GET /path-steps` — PathStep list with learning-state enrollment buttons (Start / In Progress / Mastered)
+- `GET /path-steps/get?uid={uid}` — PathStep reading page (markdown content, learning objectives)
+- `GET /explore/ps/{uid}` — PathStep detail page in the Explore hub (HTMX-loads exercises, submissions, feedback)
+- `GET /learning-loop/ps/{ps_uid}/*` — HTMX fragment endpoints for exercises/submissions/feedback
+- `POST /api/path-steps/organize` — ORGANIZES hierarchy (admin)
+- `POST /api/path-steps/content` — content updates (admin)
 
 **Ku UI Routes:**
 - `GET /ku` — Knowledge index with bookmarks sidebar
@@ -85,50 +95,42 @@
 - `POST /api/ku/{uid}/mark-studying` — Mark Ku as studying (IN_PROGRESS)
 - `POST /api/ku/{uid}/mark-understood` — Mark Ku as understood (MASTERED)
 
-**Note**: Ku has its own dedicated route config (`KU_CONFIG` in `ku_routes.py`), separate from Lesson routes. No separate `ls_routes.py`, `lp_routes.py`, or `moc_routes.py` files exist.
+**Note**: Ku has its own dedicated route config (`KU_CONFIG` in `ku_routes.py`), separate from PS routes. PS UI is absorbed into `path_steps_routes.py` (no separate `lp_routes.py` file — LP routes live in `pathways_routes.py`).
 
 ## UID Formats
 
 | Domain | Format | Example |
 |--------|--------|---------|
-| Lesson | `l_{slug}_{random}` | `l_meditation-basics_a1b2c3d4` |
 | KU | `ku_{slug}_{random}` | `ku_meditation-basics_x9y8z7w6` |
-| PS | `ps:{random}` | `ps:a1b2c3d4` |
-| LP | `lp:{random}` | `lp:x9y8z7w6` |
+| PS | `ps:{namespace}:{slug}` | `ps:core:meditation-basics` |
+| LP | `lp:{namespace}:{slug}` | `lp:core:intro-mindfulness` |
 
-**Lesson** uses flat identity — slug from title, no hierarchical path. Hierarchy is in `ORGANIZES` relationships, not UIDs.
-
-**KU** is an atomic knowledge unit — lightweight, extends Entity directly.
+**KU** is an atomic knowledge unit — lightweight, extends Entity directly. Hierarchy is in `ORGANIZES` relationships, not UIDs.
 
 ## Key Relationships
 
-### Lesson Relationships
+### PS (PathStep) Relationships
 | Relationship | Direction | Target | Purpose |
 |--------------|-----------|--------|---------|
-| `USES_KU` | outgoing | KU | Lesson composes atomic Kus |
-| `REQUIRES_KNOWLEDGE` | outgoing | Lesson | Prerequisites |
-| `ENABLES` | outgoing | Lesson | Unlocks next concepts |
-| `HAS_NARROWER` | outgoing | Lesson | Subconcepts |
-| `RELATED_TO` | both | Lesson | Related topics |
-| `ORGANIZES` | outgoing | Lesson | Non-linear organization (MOC pattern) |
+| `USES_KU` | outgoing | KU | PathStep composes atomic Kus |
+| `REQUIRES_KNOWLEDGE` | outgoing | KU | Knowledge prerequisites |
+| `ENABLES` | outgoing | PS | Unlocks next path steps |
+| `HAS_NARROWER` | outgoing | PS | Subconcepts |
+| `RELATED_TO` | both | PS | Related topics |
+| `ORGANIZES` | outgoing | PS / KU | Non-linear organization (MOC pattern) |
+| `REQUIRES_STEP` | outgoing | PS | Step prerequisites |
+| `IN_PROGRESS` / `MASTERED` / `BOOKMARKED` / `VIEWED` / `MARKED_AS_READ` | incoming | User | Learning state (user-owned edges) |
 
 ### KU Relationships
 | Relationship | Direction | Target | Purpose |
 |--------------|-----------|--------|---------|
-| `USES_KU` | incoming | Lesson | Composed into Lessons |
+| `USES_KU` | incoming | PS | Composed into PathSteps |
 | `TRAINS_KU` | incoming | PS | Trained by Path Steps |
+| `ORGANIZES` | both | KU / PS | Hierarchical grouping |
 
-### PS Relationships
-| Relationship | Direction | Target | Purpose |
-|--------------|-----------|--------|---------|
-| `HAS_LESSON` | outgoing | Lesson | Contains lesson (activity domains inherited via traversal) |
-| `REQUIRES_STEP` | outgoing | PS | Step prerequisites |
-| `TRAINS_KU` | outgoing | KU | Trains atomic knowledge units |
-| `REQUIRES_KNOWLEDGE` | outgoing | Lesson | Knowledge prerequisites |
+### PS Activity Relationships
+Activity-domain integration lives directly on PathSteps (no intermediate Lesson node):
 
-Activity domain relationships live on **Lessons**, inherited by PS via `(PS)-[:HAS_LESSON]->(Lesson)-[:rel]->`:
-
-### Lesson Activity Relationships
 | Relationship | Direction | Target | Purpose |
 |--------------|-----------|--------|---------|
 | `BUILDS_HABIT` | outgoing | Habit | Practice integration |
@@ -141,7 +143,7 @@ Activity domain relationships live on **Lessons**, inherited by PS via `(PS)-[:H
 ### LP Relationships
 | Relationship | Direction | Target | Purpose |
 |--------------|-----------|--------|---------|
-| `CONTAINS_STEP` | outgoing | PS | Path structure |
+| `HAS_STEP` | outgoing | PS | Path structure (ordered) |
 | `ALIGNED_WITH_GOAL` | outgoing | Goal | Goal alignment |
 | `HAS_MILESTONE_EVENT` | outgoing | Event | Milestone tracking |
 | `SERVES_LIFE_PATH` | incoming | User | Life path designation |
@@ -152,8 +154,6 @@ Activity domain relationships live on **Lessons**, inherited by PS via `(PS)-[:H
 # Models
 from core.models.curriculum import Curriculum
 from core.models.curriculum_dto import CurriculumDTO
-from core.models.lesson.lesson import Lesson
-from core.models.lesson.lesson_dto import LessonDTO
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.pathways.path_step import PathStep
@@ -166,8 +166,7 @@ from core.utils.result_simplified import Result
 
 # Factory functions
 from core.services.curriculum_domain_config import (
-    create_lesson_sub_services,
-    create_curriculum_sub_services,
+    create_ps_sub_services,
     create_lp_sub_services,
 )
 ```
@@ -178,47 +177,56 @@ Services wired in: `services_bootstrap/_learning_services.py`
 
 ```python
 # In _create_learning_services():
-    # Curriculum services use factories
-    lesson_service = LessonService(lesson_backend, graph_intel, event_bus)
     ku_service = KuService(ku_backend, event_bus)
-    ps_service = PsService(driver, graph_intel, event_bus)
-    lp_service = LpService(backend=lp_backend, ps_service=ps_service, graph_intelligence_service=graph_intel, event_bus=event_bus)
+    ps_service = PsService(
+        backend=ps_backend,
+        executor=executor,
+        graph_intel=graph_intel,
+        event_bus=event_bus,
+        ai_service=ps_ai_service,
+    )
+    lp_service = LpService(
+        backend=lp_backend,
+        ps_service=ps_service,
+        graph_intelligence_service=graph_intel,
+        event_bus=event_bus,
+    )
 ```
 
 ## Intelligence Service Access
 
 ```python
-# Lesson - adaptive recommendations (12 sub-services)
-lesson_service.adaptive.get_recommendations(user_uid)
-lesson_service.organization.get_organized_children(parent_uid)  # Non-linear nav
-lesson_service.get_navigation(lesson_uid)  # Prev/next sibling in MOC order → KuNavigation
+# PS — 12 sub-services via facade
+ps_service.core.create_step(step)
+ps_service.search.search_steps(query)
+ps_service.intelligence.is_ready(ps_uid, completed_uids)
+ps_service.adaptive.get_recommendations(user_uid)
+ps_service.organization.get_organized_children(parent_uid)  # Non-linear nav (MOC)
+ps_service.mastery.mark_mastered(ps_uid, user_uid)
+ps_service.progress.record_completion(ps_uid, user_uid)
 
-# KU - 4 sub-services, generic factory (matches PS)
+# KU — 4 sub-services
 ku_service.core.create_ku(...)
 ku_service.search_service.search(...)
 ku_service.intelligence.get_usage_summary(ku_uid)
 
-# PS - 4 sub-services, generic factory
-ps_service.intelligence.is_ready(ps_uid, completed_uids)
-
-# LP - 5 sub-services, specialized factory (Cypher on LpBackend)
+# LP — 5 sub-services (specialized Cypher on LpBackend)
 lp_service.intelligence.validate_path_prerequisites(lp_uid)
 lp_service.intelligence.get_next_adaptive_step(step_uid, user_uid)
 
-# LP Facade aggregation (extracted from pathways_ui.py, March 2026)
-lp_service.get_dashboard_summary(user_uid, user_progress)  # Full dashboard data
-lp_service.filter_paths(difficulty, domain, duration)       # Filtered path list
-lp_service.get_path_detail_progress(path_uid, user_progress, user_uid)  # Path + mastery
-lp_service.get_learning_analytics(user_uid, user_progress)  # Knowledge profile stats
+# LP Facade aggregation
+lp_service.get_dashboard_summary(user_uid, user_progress)
+lp_service.filter_paths(difficulty, domain, duration)
+lp_service.get_path_detail_progress(path_uid, user_progress, user_uid)
+lp_service.get_learning_analytics(user_uid, user_progress)
 ```
 
 ## Sub-service Summary
 
 | Domain | Count | Key Services |
 |--------|-------|--------------|
-| **Lesson** | 10 | core, search, graph, semantic, practice, mastery, adaptive, organization, ai, relationship_helpers |
 | **KU** | 4 | core, search, relationships, intelligence |
-| **PS** | 4 | core, search, intelligence, (ai) |
+| **PS** | 12 | core, search, graph, semantic, practice, mastery, adaptive, application_discovery, context_service, organization, intelligence, progress (+ optional `ai`) |
 | **LP** | 5 | core, search, progress, intelligence, (ai) |
 
 ## Documentation
@@ -226,6 +234,7 @@ lp_service.get_learning_analytics(user_uid, user_progress)  # Knowledge profile 
 | Topic | Doc File |
 |-------|----------|
 | Architecture | `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` |
+| PathStep content | `/docs/architecture/PATHSTEP_CONTENT_ARCHITECTURE.md` |
 | MOC/Organization | `/docs/domains/moc.md` |
-| ADR-013 (flat UID) | `/docs/decisions/ADR-013-ku-uid-flat-identity.md` |
+| ADR-013 (flat KU UID) | `/docs/decisions/ADR-013-ku-uid-flat-identity.md` |
 | ADR-023 (BaseService) | `/docs/decisions/ADR-023-curriculum-baseservice-migration.md` |

@@ -4,8 +4,7 @@ PathStep - THE Curriculum Content Entity
 
 Frozen dataclass for path step entities (EntityType.PATH_STEP).
 A PathStep is THE unit for learning — it composes atomic Kus into coherent
-learning content and sits within a LearningPath. This is the result of
-merging the former Lesson entity into PathStep (2026-04).
+learning content and sits within a LearningPath.
 
 3-level hierarchy: LearningPath -> PathStep -> Ku
 

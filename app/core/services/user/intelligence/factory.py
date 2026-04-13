@@ -128,7 +128,7 @@ class UserContextIntelligenceFactory:
                 principles: Principles relationship service
 
             Curriculum Domains (2):
-                ps: PathStep service facade (merged Lesson into PathStep)
+                ps: PathStep service facade
                 lp: Learning path relationship service
 
             Processing Domains (3):

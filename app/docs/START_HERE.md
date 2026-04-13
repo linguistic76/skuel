@@ -12,7 +12,7 @@ related:
 
 # Start Here
 
-SKUEL is a knowledge-centric productivity platform where every feature connects to learning. Users create activities (Tasks, Goals, Habits), study curriculum (Lessons, Exercises), submit work, receive feedback, and refine — all grounded in a knowledge graph stored in Neo4j.
+SKUEL is a knowledge-centric productivity platform where every feature connects to learning. Users create activities (Tasks, Goals, Habits), study curriculum (PathSteps, Exercises), submit work, receive feedback, and refine — all grounded in a knowledge graph stored in Neo4j.
 
 Read this page first, then follow the links in order.
 

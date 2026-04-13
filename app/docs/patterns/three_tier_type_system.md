@@ -327,8 +327,8 @@ See [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) for comprehensive v
 - `BudgetCreateRequest`, `BudgetUpdateRequest`
 - Literal types for enums (ExpenseStatus, PaymentMethod, etc.)
 
-**Curriculum Domain** (`core/models/lesson/lesson_request.py` and `core/models/pathways/pathways_request.py`):
-- `LessonCreateRequest`, `PathStepCreateRequest`, `LearningPathCreateRequest` (used by ingestion, not CRUD routes)
+**Curriculum Domain** (`core/models/pathways/pathways_request.py`):
+- `PathStepCreateRequest`, `LearningPathCreateRequest` (used by ingestion, not CRUD routes)
 
 **Activity Domain Request Models** (domain-specific packages):
 - `TaskCreateRequest`, `TaskUpdateRequest` (`core/models/task/task_request.py`)

@@ -17,7 +17,7 @@ Forms are a **general-purpose content collection system** decoupled from the lea
 | Base class | `Curriculum` (21 extra fields) | `Entity` (lightweight) |
 | Submission type | `ExerciseSubmission` (file upload or inline form, typed by `SubmissionModality`) | `FormSubmission` (JSON) |
 | Report cycle | Yes (ExerciseReport → RevisedExercise) | No |
-| Embedding | Lessons only | Lessons (via EMBEDS_FORM) |
+| Embedding | PathSteps only | PathSteps (via EMBEDS_FORM) |
 | Sharing | Via group assignment | At submit time (group, direct, admin) |
 
 ---
@@ -78,37 +78,37 @@ A FormTemplate's `form_schema` is a list of field specifications. Each field is 
 
 ---
 
-## Embedding Forms in Lessons
+## Embedding Forms in PathSteps
 
-FormTemplates are linked to Lessons via the `EMBEDS_FORM` relationship. When a user reads a Lesson, any embedded forms render inline after the lesson content.
+FormTemplates are linked to PathSteps via the `EMBEDS_FORM` relationship. When a user reads a PathStep, any embedded forms render inline after the PathStep content.
 
 ### Linking via API
 
 ```
-POST /api/form-templates/link-lesson
+POST /api/form-templates/link-path-step
 {
   "form_template_uid": "ft_weekly_reflection_abc123",
-  "lesson_uid": "l_intro_to_python_xyz789"
+  "path_step_uid": "ps:intro-to-python:basics"
 }
 ```
 
 ### Unlinking
 
 ```
-POST /api/form-templates/unlink-lesson
+POST /api/form-templates/unlink-path-step
 {
   "form_template_uid": "ft_weekly_reflection_abc123",
-  "lesson_uid": "l_intro_to_python_xyz789"
+  "path_step_uid": "ps:intro-to-python:basics"
 }
 ```
 
-A Lesson can embed multiple FormTemplates. A FormTemplate can be embedded in multiple Lessons.
+A PathStep can embed multiple FormTemplates. A FormTemplate can be embedded in multiple PathSteps.
 
 ---
 
 ## Form Submission Flow
 
-1. User reads a Lesson with an embedded FormTemplate
+1. User reads a PathStep with an embedded FormTemplate
 2. The form renders inline with all fields from `form_schema`
 3. User fills out the form and optionally selects sharing targets
 4. On submit:
@@ -170,8 +170,8 @@ Users can delete their own submissions from the detail page. The delete is owner
 | GET | `/api/form-templates/list` | List all FormTemplates |
 | POST | `/api/form-templates/update?uid=` | Update a FormTemplate |
 | POST | `/api/form-templates/delete?uid=` | Delete a FormTemplate |
-| POST | `/api/form-templates/link-lesson` | Link FormTemplate to Lesson |
-| POST | `/api/form-templates/unlink-lesson` | Unlink FormTemplate from Lesson |
+| POST | `/api/form-templates/link-path-step` | Link FormTemplate to PathStep |
+| POST | `/api/form-templates/unlink-path-step` | Unlink FormTemplate from PathStep |
 
 ### FormSubmission (User)
 
@@ -218,7 +218,7 @@ Users can delete their own submissions from the detail page. The delete is owner
 ## Graph Relationships
 
 ```
-(Lesson)-[:EMBEDS_FORM]->(FormTemplate)      # Lesson embeds a form
+(PathStep)-[:EMBEDS_FORM]->(FormTemplate)    # PathStep embeds a form
 (FormSubmission)-[:RESPONDS_TO_FORM]->(FormTemplate)  # Submission links to template
 (User)-[:OWNS]->(FormSubmission)             # User owns their submission
 (FormSubmission)-[:SHARED_WITH_GROUP]->(Group)  # Shared with a group

@@ -19,17 +19,17 @@ The ingestion system supports two file formats. Use the one that matches the ent
 
 | Format | Extension | Best For | How Content Works |
 |--------|-----------|----------|-------------------|
-| **YAML** | `.yaml` | Kus, PS, LP, activities, edges | All fields in YAML. Content (if any) is a `content: \|` string block. |
-| **Markdown** | `.md` | Lessons | Metadata in YAML frontmatter (`---` delimiters), **must include `type: Lesson`**. Markdown body automatically becomes the `content` field. |
+| **YAML** | `.yaml` | Kus, LP, activities, edges | All fields in YAML. Content (if any) is a `content: \|` string block. |
+| **Markdown** | `.md` | PathSteps | Metadata in YAML frontmatter (`---` delimiters), **must include `type: PathStep`**. Markdown body automatically becomes the `content` field. |
 
-**Why this split?** Lessons are content-heavy — long prose, headers, lists, emphasis. Writing that inside a YAML `|` block is awkward to author and impossible to preview in Obsidian. Everything else is metadata-heavy with little or no prose, so YAML is cleaner.
+**Why this split?** PathSteps are content-heavy — long prose, headers, lists, emphasis. Writing that inside a YAML `|` block is awkward to author and impossible to preview in Obsidian. Everything else is metadata-heavy with little or no prose, so YAML is cleaner.
 
-### Markdown Lesson Example
+### Markdown PathStep Example
 
 ```markdown
 ---
-type: Lesson
-uid: l:self-reflection:noticing-patterns
+type: PathStep
+uid: ps:self-reflection:noticing-patterns
 title: Noticing Your Patterns
 sel_category: self_awareness
 learning_level: beginner
@@ -41,7 +41,7 @@ uses_kus:
 connections:
   requires: []
   enables:
-    - l:self-reflection:emotional-awareness
+    - ps:self-reflection:emotional-awareness
 
 tags:
   - self-reflection
@@ -57,7 +57,7 @@ If you've practiced breath awareness, you already have the core skill...
 Pick one pattern you already suspect you have...
 ```
 
-The frontmatter contains all the same fields a YAML lesson would — `type`, `uid`, `uses_kus`, `connections`, `tags`, activity wiring fields. The only difference is that `content` is not in the frontmatter — it's the markdown body below the closing `---`.
+The frontmatter contains all the PathStep fields — `type`, `uid`, `uses_kus`, `connections`, `tags`, activity wiring fields. The only difference from a pure YAML file is that `content` is not in the frontmatter — it's the markdown body below the closing `---`.
 
 ### YAML Entity Example
 
@@ -124,14 +124,13 @@ title: My Task Title    # Display title
 
 ### Ingestible Entity Types
 
-14 of SKUEL's 22 entity types are file-ingestible. The remaining 8 (RevisedExercise, Resource, FormTemplate, FormSubmission, JeInput, JeOutput, ExerciseReport, ActivityReport) are created via API or internal pipelines.
+13 of SKUEL's 22 entity types are file-ingestible. The remaining are created via API or internal pipelines (RevisedExercise, Resource, FormTemplate, FormSubmission, JeInput, JeOutput, ExerciseReport, ActivityReport).
 
 | Type Value | Aliases | Prefix | Example UID |
 |------------|---------|--------|-------------|
-| `Ku` | — | `ku:` | `ku:attention:buzzing` |
-| `Lesson` | `Article`, `KnowledgeUnit` | `l:` | `l:mindfulness:breath-awareness-basics` |
+| `Ku` | `KnowledgeUnit` | `ku:` | `ku:attention:buzzing` |
+| `PathStep` | `ps`, `Lesson` (legacy) | `ps:` | `ps:mindfulness:breath-awareness-basics` |
 | `Exercise` | — | `ex:` | `ex:sel:know-yourself-check-in` |
-| `PathStep` | `ls` | `ls:` | `ls:mindfulness-101:step-1` |
 | `LearningPath` | `lp` | `lp:` | `lp:mindfulness-101` |
 | `Task` | — | `task:` | `task:log-first-5-sessions` |
 | `Goal` | — | `goal:` | `goal:mindfulness-beginner` |
@@ -146,7 +145,7 @@ title: My Task Title    # Display title
 
 The `type` value is case-insensitive. Aliases resolve to the canonical type during ingestion.
 
-**UID format:** `prefix:slug` or `prefix:namespace:slug`. Colons are normalized to dots internally (`ku:attention:buzzing` becomes `ku.attention.buzzing` in Neo4j). **UID prefix validation:** Explicit UIDs must start with the correct prefix for their entity type (e.g., `l:` for Lessons, `ku:` for Kus, `ex:` for Exercises). A mismatched prefix is rejected during ingestion.
+**UID format:** `prefix:slug` or `prefix:namespace:slug`. Colons are normalized to dots internally (`ku:attention:buzzing` becomes `ku.attention.buzzing` in Neo4j). **UID prefix validation:** Explicit UIDs must start with the correct prefix for their entity type (e.g., `ps:` for PathSteps, `ku:` for Kus, `ex:` for Exercises). A mismatched prefix is rejected during ingestion.
 
 **What happens during ingestion:** The `type` field determines which Neo4j labels the node gets (e.g., `type: Task` creates a node with `:Entity:Task` labels) and sets the `entity_type` property on the node (e.g., `entity_type: "task"`). The `type` field itself is not stored — it is translated into labels and properties.
 
@@ -160,7 +159,7 @@ Many YAML fields are constrained by Python enums — using an invalid value will
 
 | YAML Field | Enum Class | Valid Values |
 |------------|------------|-------------|
-| `type` | `EntityType` | `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Ku`, `Lesson`, `PathStep`, `LearningPath`, `ExerciseSubmission`, `LifePath` |
+| `type` | `EntityType` | `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `Ku`, `PathStep`, `LearningPath`, `Exercise`, `ExerciseSubmission`, `LifePath` |
 | `status` | `EntityStatus` | Per-type subset (see [Entity Status](#entity-status) below) |
 | `priority` | `Priority` | `low`, `medium`, `high`, `critical` |
 | `polarity` | `HabitPolarity` | `build`, `break`, `neutral` |
@@ -196,7 +195,7 @@ The `status` field is governed by `EntityStatus` (14 values). Not every status i
 
 | Type | Valid Statuses | Default |
 |------|---------------|---------|
-| Ku, Lesson | `draft`, `completed`, `archived` | `draft` |
+| Ku | `draft`, `completed`, `archived` | `draft` |
 | PathStep, LearningPath | `draft`, `active`, `completed`, `archived` | `draft` |
 | Task | `draft`, `scheduled`, `active`, `paused`, `blocked`, `completed`, `cancelled`, `postponed`, `failed` | `draft` |
 | Goal | `draft`, `active`, `paused`, `completed`, `cancelled`, `failed`, `archived` | `draft` |
@@ -231,7 +230,7 @@ See [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the full tr
 
 Activity domains (Task, Goal, Habit, Event, Choice, Principle), ExerciseSubmission, and LifePath are **user-owned** — they require a `user_uid`. If the YAML file omits `user_uid`, the ingestion engine sets it to the default (`SKUEL_DEFAULT_USER_UID` env var, or `user:system`).
 
-Curriculum types (Lesson, Ku, PathStep, LearningPath) are **shared** — no `user_uid` needed; they are visible to all users.
+Curriculum types (Ku, PathStep, LearningPath, Exercise) are **shared** — no `user_uid` needed; they are visible to all users.
 
 Expense is **admin-only** and also requires `user_uid`.
 
@@ -281,7 +280,7 @@ uid: task:log-first-5-sessions
 title: Log First 5 Sessions
 connections:
   applies_knowledge:
-    - l:mindfulness:breath-awareness-basics
+    - ps:mindfulness:breath-awareness-basics
 
 # Habit reinforces knowledge (HIGHEST substance weight)
 type: Habit
@@ -289,7 +288,7 @@ uid: habit:daily-2min-breath
 title: Daily 2-Minute Breath
 connections:
   reinforces_knowledge:
-    - l:mindfulness:breath-awareness-basics
+    - ps:mindfulness:breath-awareness-basics
 
 # Choice informed by knowledge
 type: Choice
@@ -297,7 +296,7 @@ uid: choice:2-minutes-right-now
 title: Do Two Minutes Right Now
 connections:
   informed_by_knowledge:
-    - l:mindfulness:breath-awareness-basics
+    - ps:mindfulness:breath-awareness-basics
 
 # Principle grounded in knowledge
 type: Principle
@@ -305,8 +304,8 @@ uid: principle:small-steps
 name: Small Steps Beat Big Bursts
 connections:
   grounded_in_knowledge:
-    - l:mindfulness:breath-awareness-basics
-    - l:mindfulness:mind-wandering-happens
+    - ps:mindfulness:breath-awareness-basics
+    - ps:mindfulness:mind-wandering-happens
 
 # Event applies knowledge
 type: Event
@@ -314,7 +313,7 @@ uid: event:practice-block-2min
 title: 2-Minute Practice Block
 connections:
   applies_knowledge:
-    - l:mindfulness:breath-awareness-basics
+    - ps:mindfulness:breath-awareness-basics
 ```
 
 **At runtime**, when a user completes a task, creates a habit, makes a choice, etc., domain events (`KnowledgeAppliedInTask`, `KnowledgeBuiltIntoHabit`, `KnowledgeInformedChoice`) increment substance counters on the knowledge node. The YAML connections define the *structural* links; runtime events track *usage* counts.
@@ -331,7 +330,7 @@ Activities also connect to other activities:
 
 ```yaml
 connections:
-  applies_knowledge: [l:namespace:lesson-slug]       # APPLIES_KNOWLEDGE → Lesson/Ku
+  applies_knowledge: [ps:namespace:path-step-slug]       # APPLIES_KNOWLEDGE → PathStep/Ku
   fulfills_goal: [goal:goal-name]                    # FULFILLS_GOAL → Goal (single)
   reinforces_habit: [habit:habit-name]               # SUPPORTS_HABIT → Habit (single)
   depends_on: [task:other-task]                      # DEPENDS_ON → Task
@@ -341,7 +340,7 @@ connections:
 
 ```yaml
 connections:
-  requires_knowledge: [l:namespace:lesson-slug]      # REQUIRES_KNOWLEDGE → Lesson/Ku
+  requires_knowledge: [ps:namespace:path-step-slug]      # REQUIRES_KNOWLEDGE → PathStep/Ku
   aligned_with_principle: [principle:name]            # GUIDED_BY_PRINCIPLE → Principle
 ```
 
@@ -349,7 +348,7 @@ connections:
 
 ```yaml
 connections:
-  reinforces_knowledge: [l:namespace:lesson-slug]    # REINFORCES_KNOWLEDGE → Lesson/Ku
+  reinforces_knowledge: [ps:namespace:path-step-slug]    # REINFORCES_KNOWLEDGE → PathStep/Ku
   supports_goal: [goal:goal-name]                    # SUPPORTS_GOAL → Goal
   embodies_principle: [principle:name]                # EMBODIES_PRINCIPLE → Principle
   prerequisite_habits: [habit:other-habit]            # REQUIRES_PREREQUISITE_HABIT → Habit
@@ -359,7 +358,7 @@ connections:
 
 ```yaml
 connections:
-  applies_knowledge: [l:namespace:lesson-slug]       # APPLIES_KNOWLEDGE → Lesson/Ku
+  applies_knowledge: [ps:namespace:path-step-slug]       # APPLIES_KNOWLEDGE → PathStep/Ku
   contributes_to_goal: [goal:goal-name]              # CONTRIBUTES_TO_GOAL → Goal
   reinforces_habit: [habit:habit-name]               # REINFORCES_HABIT → Habit
   executes_task: [task:task-name]                    # EXECUTES_TASK → Task
@@ -369,7 +368,7 @@ connections:
 
 ```yaml
 connections:
-  informed_by_knowledge: [l:namespace:lesson-slug]   # INFORMED_BY_KNOWLEDGE → Lesson/Ku
+  informed_by_knowledge: [ps:namespace:path-step-slug]   # INFORMED_BY_KNOWLEDGE → PathStep/Ku
   guided_by_principle: [principle:name]               # INFORMED_BY_PRINCIPLE → Principle
   affects_goal: [goal:goal-name]                     # AFFECTS_GOAL → Goal
   impacts_habit: [habit:habit-name]                  # IMPACTS_HABIT → Habit
@@ -379,7 +378,7 @@ connections:
 
 ```yaml
 connections:
-  grounded_in_knowledge: [l:namespace:lesson-slug]   # GROUNDED_IN_KNOWLEDGE → Lesson/Ku
+  grounded_in_knowledge: [ps:namespace:path-step-slug]   # GROUNDED_IN_KNOWLEDGE → PathStep/Ku
   guides_goal: [goal:goal-name]                      # GUIDES_GOAL → Goal
   inspires_habit: [habit:habit-name]                 # INSPIRES_HABIT → Habit
 ```
@@ -387,45 +386,45 @@ connections:
 ### Curriculum Connections
 
 ```yaml
-# Lesson
+# PathStep
 connections:
-  requires: [l:namespace:prerequisite]               # REQUIRES_KNOWLEDGE → Lesson
-  enables: [l:namespace:next-lesson]                 # ENABLES_KNOWLEDGE → Lesson
+  requires: [ps:namespace:prerequisite]              # REQUIRES_KNOWLEDGE → PathStep
+  enables: [ps:namespace:next-path-step]             # ENABLES_KNOWLEDGE → PathStep
 uses_kus:
   - ku:namespace:concept                             # USES_KU → Ku
 
 # Learning Path
 connections:
   contains_steps:                                    # HAS_STEP → PathStep
-    - ls:path:step-1
-    - ls:path:step-2
+    - ps:path:step-1
+    - ps:path:step-2
 ```
 
-### Path Step Fields
+### PathStep Fields
 
-Path Steps group Lessons into collections within a learning path. They have two types of knowledge references:
+PathSteps are the teaching narrative layer. They sit inside a LearningPath, compose Kus into coherent content, and carry activity domain wiring (habits, tasks, events, goals, principles, choices) directly.
 
-- **`knowledge_uids`** — Lessons in this step. Creates `CONTAINS_KNOWLEDGE` edges. Activities on these Lessons are inherited by the PS via graph traversal.
-
-Activity domain wiring (habits, tasks, events, goals, principles, choices) lives on **Lessons**, not on Path Steps. See [Lesson Activity Wiring Guide](/docs/guides/LESSON_ACTIVITY_WIRING.md).
+See [PathStep Activity Wiring Guide](/docs/guides/LESSON_ACTIVITY_WIRING.md).
 
 ```yaml
 type: PathStep
-uid: ls:mindfulness-101:step-1
-knowledge_uids:
-  - l:mindfulness:breath-awareness-basics
-  - l:mindfulness:posture-basics
+uid: ps:mindfulness-101:breath-awareness-basics
+uses_kus:
+  - ku:mindfulness:breath
+  - ku:mindfulness:attention
 trains_ku_uids: [ku:mindfulness:breath]
 learning_path_uid: lp:mindfulness-101
 sequence: 1
-# Activity fields (habit_uids, task_uids, etc.) belong on the Lesson YAML, not here
+# Activity fields (habit_uids, task_uids, etc.) belong on this PathStep YAML/frontmatter directly
+habit_uids: [habit:daily-2min-breath]
+task_uids: [task:log-first-5-sessions]
 ```
 
 ---
 
 ## Edge Files
 
-Standalone edge files in `data/vault/edges/` create relationships between entities. There are two patterns: **evidence edges** (observed connections between Kus) and **curriculum structure edges** (wiring up the four-entity stack and cross-domain connections).
+Standalone edge files in `{vault}/edges/` create relationships between entities. There are two patterns: **evidence edges** (observed connections between Kus) and **curriculum structure edges** (wiring up the three-entity curriculum stack and cross-domain connections).
 
 ### Evidence Edges (Ku-to-Ku Observations)
 
@@ -456,22 +455,17 @@ For curriculum bundles, edge files declare multiple relationships in a single fi
 version: 1.0
 
 edges:
-  # Lessons → Kus (USES_KU)
-  - from: l:mindfulness:breath-awareness-basics
+  # PathSteps → Kus (USES_KU)
+  - from: ps:mindfulness:breath-awareness-basics
     to: ku:mindfulness:breath
     type: USES_KU
-  - from: l:mindfulness:breath-awareness-basics
+  - from: ps:mindfulness:breath-awareness-basics
     to: ku:mindfulness:attention
     type: USES_KU
 
-  # Path Steps → Lessons (HAS_LESSON)
-  - from: ls:mindfulness-101:step-1
-    to: l:mindfulness:breath-awareness-basics
-    type: HAS_LESSON
-
-  # Learning Path → Steps (CONTAINS_STEP)
+  # Learning Path → PathSteps (CONTAINS_STEP)
   - from: lp:mindfulness-101
-    to: ls:mindfulness-101:step-1
+    to: ps:mindfulness:breath-awareness-basics
     type: CONTAINS_STEP
     properties:
       order: 1
@@ -499,8 +493,8 @@ edges:
     to: ku:self-reflection:self-observation
     type: PREREQUISITE_FOR
 
-  - from: l:mindfulness:mind-wandering-happens
-    to: l:self-reflection:noticing-patterns
+  - from: ps:mindfulness:mind-wandering-happens
+    to: ps:self-reflection:noticing-patterns
     type: ENABLES
 ```
 
@@ -512,21 +506,21 @@ edges:
 
 ## Domain Bundles
 
-A bundle is a complete, curated collection of related content. See `yaml_templates/lesson_ls_lp/mindfulness_101/` for a template example and `data/vault/` for the live ingestion vault.
+A bundle is a complete, curated collection of related content. The default ingestion vault is `/home/mike/0bsidian/0vault/` (configurable via `INGESTION_PATH`).
 
 ### Bundle Structure
 
-A domain bundle in the vault uses the format convention — `.md` for lessons, `.yaml` for everything else:
+A domain bundle in the vault uses the format convention — `.md` for PathSteps (content-heavy), `.yaml` for everything else:
 
 ```
-data/vault/
+/home/mike/0bsidian/0vault/
   # Kus (YAML — metadata only, no prose)
   ku_breath.yaml
   ku_attention.yaml
-  # Lessons (Markdown — frontmatter + prose body)
-  lesson_breath-awareness-basics.md
-  lesson_posture-basics.md
-  lesson_mind-wandering-happens.md
+  # PathSteps (Markdown — frontmatter + prose body)
+  ps_breath-awareness-basics.md
+  ps_posture-basics.md
+  ps_mind-wandering-happens.md
   # Activity entities (YAML — with connections blocks)
   habit_daily-2min-breath.yaml
   task_log-first-5-sessions.yaml
@@ -534,9 +528,7 @@ data/vault/
   goal_mindfulness-beginner.yaml
   choice_2-minutes-right-now.yaml
   principle_small-steps.yaml
-  # Curriculum structure (YAML)
-  ls_mindfulness-101_step-1.yaml
-  ls_mindfulness-101_step-2.yaml
+  # Learning Path (YAML)
   lp_mindfulness-101.yaml
   # Edges (YAML — relationship declarations)
   edges/edge_mindfulness-101-curriculum.yaml
@@ -551,13 +543,12 @@ version: 1.0
 
 import_order:
   1_kus: [ku:mindfulness:breath, ku:mindfulness:attention]
-  2_lessons: [l:mindfulness:breath-awareness-basics, l:mindfulness:posture-basics]
+  2_path_steps: [ps:mindfulness:breath-awareness-basics, ps:mindfulness:posture-basics]
   3_supporting: [habit:daily-2min-breath, task:log-first-5-sessions, ...]
-  4_steps: [ls:mindfulness-101:step-1, ls:mindfulness-101:step-2]
-  5_paths: [lp:mindfulness-101]
+  4_paths: [lp:mindfulness-101]
 ```
 
-**Import order matters:** Kus first (referenced by Lessons), then Lessons (referenced by Activities), then Activities (referenced by Path Steps), then Steps, then Paths.
+**Import order matters:** Kus first (referenced by PathSteps), then PathSteps (referenced by Activities), then Activities, then LearningPaths.
 
 ### Ingestion
 

@@ -220,8 +220,6 @@ def create_ps_sub_services(
 ) -> "PsSubServices":
     """Factory function to create all 12 PsService sub-services.
 
-    Factory for PsService sub-services — PsService absorbs all former Lesson capabilities.
-
     Creation Order:
     1. UnifiedRelationshipService (backend, config, graph_intel)
     2. PsIntelligenceService (backend, graph_intel, relationships, user_service)
@@ -310,10 +308,7 @@ def create_ps_sub_services(
 
 @dataclass
 class PsSubServices:
-    """Container for all PsService sub-services created by the factory.
-
-    PsService absorbs all former Lesson capabilities (Phase 3 merge).
-    """
+    """Container for all PsService sub-services created by the factory."""
 
     core: "PsCoreService"
     search: "PsSearchService"

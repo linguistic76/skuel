@@ -650,11 +650,11 @@ Use `title_href` for clickable titles and `metadata` for UID display.
 
 ```python
 CardGenerator.from_dataclass(
-    {"title": lesson.title, "description": lesson.description},
+    {"title": path_step.title, "description": path_step.description},
     display_fields=["description"],
     show_labels=False,
-    metadata=[lesson.uid],
-    title_href=f"/lessons/{lesson.uid}",
+    metadata=[path_step.uid],
+    title_href=f"/explore/ps/{path_step.uid}",
 )
 ```
 

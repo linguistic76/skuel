@@ -324,9 +324,9 @@ def from_entity_and_context(
 
 **Call sites (4):**
 - `context_first_mixin._enrich_knowledge_with_context()` — default weights
-- `lesson_context_service.get_ready_to_learn_for_user()` — `weights=(0.5, 0.3, 0.2)`
-- `lesson_context_service.get_learning_gaps_for_user()` — `relevance_override=goals_blocked_ratio, weights=(0.4, 0.6)` (2D)
-- `lesson_context_service.get_knowledge_to_reinforce_for_user()` — `readiness_override=0.9`, decay as relevance
+- `ps_context_service.get_ready_to_learn_for_user()` — `weights=(0.5, 0.3, 0.2)`
+- `ps_context_service.get_learning_gaps_for_user()` — `relevance_override=goals_blocked_ratio, weights=(0.4, 0.6)` (2D)
+- `ps_context_service.get_knowledge_to_reinforce_for_user()` — `readiness_override=0.9`, decay as relevance
 
 ### `ContextualGoal.from_entity_and_context()`
 
@@ -675,9 +675,9 @@ UserContext (MEGA-QUERY)
 | 21 | habits_planning | `get_habit_readiness_for_user` | ContextualHabit | readiness=streak/7 |
 | 22 | principles_planning | `get_principles_needing_attention` | ContextualPrinciple | attention path |
 | 23 | principles_planning | `get_contextual_principles` | ContextualPrinciple | relevance=accumulated |
-| 24 | lesson_context | `get_ready_to_learn_for_user` | ContextualKnowledge | weights=(0.5,0.3,0.2) |
-| 25 | lesson_context | `get_learning_gaps_for_user` | ContextualKnowledge | 2D weights=(0.4,0.6) |
-| 26 | lesson_context | `get_knowledge_to_reinforce` | ContextualKnowledge | readiness=0.9 |
+| 24 | ps_context | `get_ready_to_learn_for_user` | ContextualKnowledge | weights=(0.5,0.3,0.2) |
+| 25 | ps_context | `get_learning_gaps_for_user` | ContextualKnowledge | 2D weights=(0.4,0.6) |
+| 26 | ps_context | `get_knowledge_to_reinforce` | ContextualKnowledge | readiness=0.9 |
 
 **Exception (stays direct):** `principles_planning_service.get_principle_practice_opportunities_for_user()` constructs `PracticeOpportunity` (different type, not ContextualEntity).
 

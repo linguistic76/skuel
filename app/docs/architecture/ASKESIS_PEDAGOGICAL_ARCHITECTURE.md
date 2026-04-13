@@ -77,7 +77,7 @@ When `ZPDService` and Askesis query user readiness, they need a well-defined sli
 
 | Service | Protocol | Fields used |
 |---------|----------|------------|
-| `ZPDService.assess_zone()` | `KnowledgeAwareness & LearningPathAwareness` | `mastered_knowledge_uids`, `in_progress_knowledge_uids`, `current_lesson_uids`, `prerequisites_completed`, `prerequisites_needed`, `enrolled_path_uids`, `current_step_uid` |
+| `ZPDService.assess_zone()` | `KnowledgeAwareness & LearningPathAwareness` | `mastered_knowledge_uids`, `in_progress_knowledge_uids`, `active_path_step_uids`, `prerequisites_completed`, `prerequisites_needed`, `enrolled_path_uids`, `current_step_uid` |
 | `AskesisQueryService` | `LearningPathAwareness` | Enrolled paths, current step, ZPD position |
 | `AskesisStateAnalysisService` | `CrossDomainAwareness` | Cross-domain readiness signals |
 | Askesis dialogue context | `FullAwareness` | Complete user state for Socratic scaffolding |
@@ -256,7 +256,7 @@ curriculum of the conversation — it constrains what Askesis can do.
 
 `ResponseGenerator.build_guided_system_prompt()` dispatches to 4 mode-specific builders,
 each rendering one or two templates via `PROMPT_REGISTRY.render()`. Dynamic context
-(lesson refs, KU names, resource refs, edge text, practice items) is computed in Python
+(PathStep refs, KU names, resource refs, edge text, practice items) is computed in Python
 and passed as template placeholders. Prompt text lives in `core/prompts/templates/`.
 
 | Template | GuidanceMode | PedagogicalIntent |

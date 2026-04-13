@@ -110,11 +110,11 @@ score: float = float(props.get("score", 0.0))
 
 ### 2. Domain Backend `# type: ignore[attr-defined]`
 
-Domain backends (e.g., `LessonBackend`, `HabitsBackend`) add methods beyond what `BackendOperations[T]` defines. When services call these domain-specific methods through a generically-typed `self.backend`, MyPy cannot verify the attribute exists.
+Domain backends (e.g., `PsBackend`, `HabitsBackend`) add methods beyond what `BackendOperations[T]` defines. When services call these domain-specific methods through a generically-typed `self.backend`, MyPy cannot verify the attribute exists.
 
 ```python
-# Backend protocol defines generic ops, but LessonBackend adds domain methods
-result = await self.backend.get_lesson_with_kus(uid)  # type: ignore[attr-defined]
+# Backend protocol defines generic ops, but PsBackend adds domain methods
+result = await self.backend.get_ps_with_kus(uid)  # type: ignore[attr-defined]
 ```
 
 This is a conscious trade-off: the backend IS the correct type at runtime (guaranteed by composition), but the generic protocol cannot express every domain extension.

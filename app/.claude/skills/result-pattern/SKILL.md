@@ -283,10 +283,10 @@ For detail routes that fetch a shared entity and need to 404 if missing:
 ```python
 from adapters.inbound.result_helpers import require_found
 
-@rt("/api/lessons/get")
+@rt("/api/path-steps/get")
 @boundary_handler()
-async def get_lesson(request: Request, uid: str) -> Result[dict[str, Any]]:
-    found = require_found(await service.get(uid), "Lesson", uid)
+async def get_path_step(request: Request, uid: str) -> Result[dict[str, Any]]:
+    found = require_found(await service.get(uid), "PathStep", uid)
     if found.is_error:
         return found
     return Result.ok(entity_to_response(found.value))

@@ -27,8 +27,8 @@ Activity Domain child pages (`/tasks`, `/goals`, etc.) use `SidebarPage` with th
 | Route | Purpose | Status |
 |-------|---------|--------|
 | `/ku` | Knowledge browsing (ORGANIZES-driven) | Active |
-| `/lessons` | Enrolled + available lessons | Active |
-| `/exercises` | Practice linked to lessons and Kus | Active |
+| `/path-steps` | Enrolled + available path steps | Active |
+| `/exercises` | Practice linked to PathSteps and Kus | Active |
 | `/submissions` | Full submission list + browse | Active |
 | `/exercise-reports` | Teacher and AI feedback on submissions | Active |
 | `/activity-reports` | Activity progress reports | Active |
@@ -321,7 +321,7 @@ def HomeHub(active_tab: str = "submissions") -> Div:
 Any route handler can render ORGANIZES data as a card grid:
 
 ```python
-children_result = await lesson_service.get_organized_children(moc_uid)
+children_result = await ku_service.get_organized_children(moc_uid)
 cards = hub_cards_from_organizers(children_result.value)
 section = HubSection("Contents", cards)
 ```

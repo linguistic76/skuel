@@ -111,8 +111,8 @@ from core.services.domain_config import create_curriculum_domain_config
 _config = create_curriculum_domain_config(
     dto_class=CurriculumDTO,
     model_class=Curriculum,
-    domain_name="lesson",
-    search_fields=("title", "content", "description"),  # Lesson has more searchable fields
+    domain_name="path_step",
+    search_fields=("title", "content", "description"),  # PathStep has more searchable fields
     search_order_by="updated_at",   # Curriculum sorts by update time
     category_field="domain",        # Curriculum uses 'domain' not 'category'
     content_field="content",        # Field containing main content
@@ -560,9 +560,9 @@ Specialized factory functions for curriculum domains with complex initialization
 
 Activity domains use `create_common_sub_services()` with standard signatures. Some curriculum domains have non-standard requirements:
 
-- **Lesson**: 12 sub-services + circular dependency (intelligence must be created before core)
+- **PS**: 12+ sub-services + circular dependency (intelligence must be created before core)
 - **LP**: 5 sub-services + cross-domain dependency (requires `ps_service`)
-- **KU, PS**: Use generic `create_curriculum_sub_services()` factory (4 sub-services each)
+- **KU**: Uses generic `create_curriculum_sub_services()` factory (4 sub-services)
 
 ### The Solution
 
@@ -577,13 +577,13 @@ from core.services.curriculum_domain_config import (
 )
 ```
 
-### Lesson Factory
+### PS Factory
 
 ```python
-# In LessonService.__init__
-from core.services.curriculum_domain_config import create_lesson_sub_services
+# In PsService.__init__
+from core.services.curriculum_domain_config import create_ps_sub_services
 
-subs = create_lesson_sub_services(
+subs = create_ps_sub_services(
     backend=repo,
     content_repo=content_repo,
     chunking_service=chunking_service,
@@ -607,20 +607,20 @@ self.adaptive = subs.adaptive
 
 **Creation Order (handles circular dependency):**
 1. `UnifiedRelationshipService` (needed by intelligence)
-2. `LessonIntelligenceService` (BEFORE core — core depends on intelligence)
-3. `LessonCoreService` (requires intelligence)
-4. `LessonSearchService`, `LessonGraphService`, `LessonSemanticService`, `LessonPracticeService`, `LessonMasteryService`, `LessonAdaptiveService`, `LessonApplicationDiscoveryService`, `LessonContextService`
+2. `PsIntelligenceService` (BEFORE core — core depends on intelligence)
+3. `PsCoreService` (requires intelligence)
+4. `PsSearchService`, `PsSemanticService`, `PsPracticeService`, `PsMasteryService`, `PsAdaptiveService`, `PsKnowledgeContextService`
 
-### KU and PS — Generic Factory
+### KU — Generic Factory
 
-KU and PS both use `create_curriculum_sub_services()` for 4 standard sub-services:
+KU uses `create_curriculum_sub_services()` for 4 standard sub-services:
 
 ```python
-# In KuService.__init__ (and PsService.__init__)
+# In KuService.__init__
 from core.services.curriculum_domain_config import create_curriculum_sub_services
 
 common = create_curriculum_sub_services(
-    domain="ku",  # or "ls"
+    domain="ku",
     backend=backend,
     graph_intel=graph_intel,
     event_bus=event_bus,
@@ -664,18 +664,16 @@ self.progress = subs.progress
 
 ```python
 @dataclass
-class LessonSubServices:
-    core: LessonCoreService
-    search: LessonSearchService
-    graph: LessonGraphService
-    semantic: LessonSemanticService
-    practice: LessonPracticeService
-    mastery: LessonMasteryService
+class PsSubServices:
+    core: PsCoreService
+    search: PsSearchService
+    semantic: PsSemanticService
+    practice: PsPracticeService
+    mastery: PsMasteryService
     relationships: UnifiedRelationshipService
-    intelligence: LessonIntelligenceService
-    adaptive: LessonAdaptiveService
-    application_discovery: LessonApplicationDiscoveryService
-    context_service: LessonContextService
+    intelligence: PsIntelligenceService
+    adaptive: PsAdaptiveService
+    knowledge_context: PsKnowledgeContextService
 
 @dataclass
 class LpSubServices:
@@ -691,7 +689,7 @@ class LpSubServices:
 | Domain | Factory | Reason |
 |--------|---------|--------|
 | **KU** | `create_curriculum_sub_services("ku", ...)` | Standard 4-service pattern |
-| **PS** | `create_ps_sub_services()` | 12 services + non-standard wiring |
+| **PS** | `create_ps_sub_services()` | 12+ services + non-standard wiring (PathStep IS curriculum content) |
 | **LP** | `create_lp_sub_services()` | 5 services + cross-domain dependency |
 
 ### Benefits
@@ -803,7 +801,7 @@ class ChoicesService(
 | Explicit Delegation | `/core/services/tasks_service.py` | Explicit `async def` methods on facade class (no import needed) |
 | Relationship Registry | `/core/models/relationship_registry.py` | `from core.models.relationship_registry import generate_graph_enrichment` |
 | Post-Query Processors | `/adapters/persistence/neo4j/query/cypher/post_processors.py` | `from adapters.persistence.neo4j.query.cypher.post_processors import apply_processor, PROCESSOR_REGISTRY` |
-| Lesson/LP Factories | `/core/services/curriculum_domain_config.py` | `from core.services.curriculum_domain_config import create_lesson_sub_services, create_lp_sub_services` |
+| PS/LP Factories | `/core/services/curriculum_domain_config.py` | `from core.services.curriculum_domain_config import create_ps_sub_services, create_lp_sub_services` |
 | Cross-Domain Reads | `/core/services/cross_domain/cross_domain_query_service.py` | `from core.services.cross_domain import CrossDomainQueryService` |
 | Activity Stats | `/core/utils/activity_stats.py` | `from core.utils.activity_stats import compute_task_stats, TaskStats` |
 | Facade Mixins | `/core/services/{domain}/_*_mixin.py` | `from core.services.{domain}._relationship_mixin import _RelationshipMixin` |

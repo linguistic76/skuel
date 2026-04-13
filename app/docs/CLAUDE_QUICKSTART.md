@@ -28,15 +28,15 @@ related: [README.md, INDEX.md]
 
 ## Architecture at a Glance
 
-### Entity Types (17)
+### Entity Types
 
 ```
-Activity (6)             Curriculum (5)      Content/Processing    Other
-├── Tasks                ├── Lesson          ├── Submission        ├── Resource
-├── Goals                ├── Ku              ├── Journal           ├── Finance
-├── Habits               ├── PathStep    ├── ActivityReport    ├── Groups
-├── Events               ├── LearningPath    └── ExerciseReport  ├── MOC (emergent)
-├── Choices              └── Exercise                              └── LifePath
+Activity (6)             Curriculum (4)      Content/Processing    Other
+├── Tasks                ├── Ku              ├── Submission        ├── Resource
+├── Goals                ├── PathStep        ├── Journal           ├── Finance
+├── Habits               ├── LearningPath    ├── ActivityReport    ├── Groups
+├── Events               └── Exercise        └── ExerciseReport    ├── MOC (emergent)
+├── Choices                                                        └── LifePath
 └── Principles
 ```
 

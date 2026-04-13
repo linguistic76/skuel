@@ -2,7 +2,7 @@
 PathStep Service Sub-modules
 ==============================
 
-Decomposed path step services (merged Lesson capabilities).
+Decomposed path step services.
 
 Architecture:
 - ps_core_service.py: CRUD operations + persistence (extends BaseService)

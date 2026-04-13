@@ -4,10 +4,7 @@ Path Steps Routes - Configuration-Driven Registration
 
 Standalone DomainRouteConfig for Path Steps (PS).
 Called from pathways_routes.py since PS lives under the Pathways umbrella.
-
-Includes both API and UI routes (UI absorbed from lesson_ui.py).
-
-Version: 4.0 (Absorbed Lesson routes during Lesson→PathStep merge)
+Registers both API and UI routes.
 """
 
 from adapters.inbound.path_steps_api import create_path_steps_api_routes

@@ -131,7 +131,7 @@ async def _create_intelligence_hub(
         choices=activity_services["choices"].relationships,
         principles=activity_services["principles"].relationships,
         # Curriculum Domains (2)
-        ps=learning_services["ps"],  # PsService facade (merged Lesson into PathStep)
+        ps=learning_services["ps"],
         lp=learning_services["learning_paths"].relationships,  # Factory expects 'lp' parameter name
         # Processing Domains (3)
         submissions=submissions_relationship_service,  # SubmissionsRelationshipService

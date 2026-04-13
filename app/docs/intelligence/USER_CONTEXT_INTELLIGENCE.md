@@ -124,13 +124,12 @@ UserContextIntelligence requires ALL 13 domain services because each contributes
 | **choices** | What decisions await? | `choices_service.relationships` (UnifiedRelationshipService) |
 | **principles** | What values guide this? | `principles_service.relationships` (UnifiedRelationshipService) |
 
-### Curriculum (4) - PS/LP unified in January 2026, Lesson/KU split March 2026
+### Curriculum (3) - PS/LP unified January 2026, KU split March 2026, Lesson merged into PS April 2026
 
 | Service | Purpose | Implementation |
 |---------|---------|----------------|
-| **lesson** | What teaching content is ready? | `lesson_service` (LessonService facade) |
 | **ku** | Atomic knowledge reference | `ku_service` (KuService) |
-| **ls** | Learning step relationships | `ps_service.relationships` (UnifiedRelationshipService) |
+| **ps** | PathStep — THE curriculum content entity | `ps_service` (PsService facade) |
 | **lp** | Critical path to life path | `lp_service.relationships` (UnifiedRelationshipService) |
 
 **January 2026 Consolidation:**
@@ -298,7 +297,7 @@ async def get_optimal_next_path_steps(
 ```
 
 **Synthesis Algorithm:**
-1. Get ready-to-learn KUs via `lesson.get_ready_to_learn_for_user()`
+1. Get ready-to-learn KUs via `ps.get_ready_to_learn_for_user()`
 2. For each KU, find application opportunities (tasks/goals it enables)
 3. Count items unlocked (knowledge with high unblocking potential)
 4. Find aligned goals (knowledge supporting active goals)
@@ -537,7 +536,7 @@ Priority 4: Advancing goals (make progress)
      Cost: ~30min per goal
 
 Priority 5: Ready-to-learn knowledge (growth)
-  └─ lesson.get_ready_to_learn_for_user() → Prerequisites met
+  └─ ps.get_ready_to_learn_for_user() → Prerequisites met
      Filter: Aligns with goals or life path
      Cost: KU estimated_time
 
@@ -926,8 +925,8 @@ factory = UserContextIntelligenceFactory(
     choices=choices_service.relationships,
     principles=principles_service.relationships,
     # Curriculum (3)
-    lesson=lesson_service,  # LessonService facade
-    ls=ps_service.relationships,
+    ku=ku_service,  # KuService facade
+    ps=ps_service,  # PsService facade (THE curriculum content entity)
     lp=lp_service.relationships,
     # Processing (3)
     assignments=assignments_service.relationships,

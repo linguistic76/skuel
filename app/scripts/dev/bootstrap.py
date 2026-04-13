@@ -685,8 +685,6 @@ async def _wire_all_routes(
 
         register_analytics_routes(app, services)
 
-    # ORGANIZES hierarchy routes absorbed into path_steps_api.py (Lesson→PathStep merge)
-
     from adapters.inbound.ai_routes import create_ai_routes
 
     create_ai_routes(app, rt, services)

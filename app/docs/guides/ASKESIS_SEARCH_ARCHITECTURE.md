@@ -216,7 +216,7 @@ gate. The `min_score=0.6` threshold handles relevance filtering.
 
 `ContextRetriever` performs comprehensive gap analysis via backend delegation:
 
-1. **`get_learning_context()`** — Delegates to `LessonBackend.get_user_learning_context()` which runs a single Cypher query returning:
+1. **`get_learning_context()`** — Delegates to `PsBackend.get_user_learning_context()` which runs a single Cypher query returning:
    - Current knowledge (mastered KUs)
    - Active learning (in-progress KUs)
    - Blocked knowledge (required by tasks but not mastered)

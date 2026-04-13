@@ -25,8 +25,8 @@
 | Events | `/core/services/events/events_intelligence_service.py` | |
 | Choices | `/core/services/choices/choices_intelligence_service.py` | |
 | Principles | `/core/services/principles/principles_intelligence_service.py` | |
-| Lesson | `/core/services/lesson_intelligence_service.py` | top-level (not in article/ subdir) |
-| PS | `/core/services/ps/ps_intelligence_service.py` | |
+| KU | `/core/services/ku/ku_intelligence_service.py` | in `ku/` package |
+| PS | `/core/services/ps/ps_intelligence_service.py` | PathStep — THE curriculum content entity |
 | LP | `/core/services/lp/lp_intelligence_service.py` | in `lp/` package, exported via `lp/__init__.py` |
 
 ### Documentation

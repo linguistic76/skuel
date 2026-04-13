@@ -16,7 +16,7 @@ The Five-Phased Learning Loop is the **core purpose of SKUEL**. Every feature in
 codebase either feeds this loop, supports its infrastructure, or should be questioned.
 
 Learning is not consuming content. Learning is what happens when knowledge changes how you
-act, decide, and live. SKUEL models this through five phases: **what you can learn** (Lesson),
+act, decide, and live. SKUEL models this through five phases: **what you can learn** (PathStep),
 **how you practise it** (Exercise), **what you produce** (Submission), **what the
 system says back** (Report), and **how the teacher guides revision** (RevisedExercise).
 Every layer is a frozen Python dataclass. Every connection is a Neo4j graph relationship.
@@ -33,7 +33,7 @@ Every measurement flows from real user behaviour, not self-reported progress.
 ║                                                                          ║
 ║  CURRICULUM TRACK (artifact-based)                                       ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [Lesson] → [Exercise] → [Submission/Journal] → [Report]               ║
+║  [PathStep] → [Exercise] → [Submission/Journal] → [Report]             ║
 ║   ↑             ↓              ↑↓                     ↓                  ║
 ║  admin       teacher        student               teacher/AI             ║
 ║  creates     assigns     uploads/revises          assesses               ║
@@ -81,39 +81,44 @@ The mechanism differs, but the loop closes either way.
 
 ---
 
-## Phase 1: Lesson — The Teaching Composition
+## Phase 1: PathStep — The Teaching Composition
 
-**What:** Essay-like curriculum content that composes atomic Kus into narrative. Admin-created
-and shared across all users. Every Exercise is grounded in one or more Lessons. Lessons
-compose atomic Kus via `(Lesson)-[:USES_KU]->(Ku)`.
+**What:** THE curriculum content entity — composes atomic Kus into coherent narrative and
+sits within LearningPaths. Admin-created and shared across all users. Every Exercise is
+grounded in one or more PathSteps. PathSteps compose atomic Kus via
+`(PathStep)-[:USES_KU]->(Ku)`.
 
-**EntityType:** `EntityType.LESSON`
+**Historical note:** The former `Lesson` entity type was merged into `PathStep` in April 2026.
+PathStep is now the single curriculum content entity; there is no separate Lesson layer.
+
+**EntityType:** `EntityType.PATH_STEP`
 **Loop role:** The *why* — the knowledge the loop exists to transmit.
-**See:** [ASKESIS_PEDAGOGICAL_ARCHITECTURE.md](/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) — Askesis scaffolds Phase 1 (Lesson discovery via ZPD-aware Socratic dialogue).
+**See:** [ASKESIS_PEDAGOGICAL_ARCHITECTURE.md](/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) — Askesis scaffolds Phase 1 (PathStep discovery via ZPD-aware Socratic dialogue).
+**See:** [PATHSTEP_CONTENT_ARCHITECTURE.md](/docs/architecture/PATHSTEP_CONTENT_ARCHITECTURE.md) — body content storage via `HAS_CONTENT`.
 
 ### Layer 1: What You Can Learn
 
-**File:** `core/models/lesson/lesson.py`
+**File:** `core/models/pathways/path_step.py`
 
-A Lesson is a frozen dataclass — immutable once created, like a published textbook
+A PathStep is a frozen dataclass — immutable once created, like a published textbook
 page:
 
 ```
-Lesson (frozen dataclass, inherits Curriculum → Entity)
-├── Identity:    uid, title, content, domain
+PathStep (frozen dataclass, inherits Curriculum → Entity)
+├── Identity:    uid, title, description, domain
 ├── SEL Lens:    sel_category (SELCategory | None) — optional filter, not inherent
 ├── Difficulty:  learning_level, estimated_time_minutes, difficulty_rating (0.0-1.0)
 ├── Quality:     quality_score, complexity, semantic_links
 └── Substance:   times_applied_in_tasks, times_practiced_in_events, ...
 ```
 
-**Atomic Kus:** Lessons compose atomic `Ku` entities (`EntityType.KU`, extends `Entity`
+**Atomic Kus:** PathSteps compose atomic `Ku` entities (`EntityType.KU`, extends `Entity`
 directly — lightweight ontology nodes in `core/models/ku/ku.py`). The substance and mastery
-tracking described below applies to Lessons; atomic Kus are reference nodes.
+tracking described below applies to PathSteps; atomic Kus are reference nodes.
 
 #### SEL Navigation Lens
 
-A Lesson *may* carry an `sel_category` — a classification into the Social Emotional Learning
+A PathStep *may* carry an `sel_category` — a classification into the Social Emotional Learning
 framework. SEL is a navigation lens over KUs, not an inherent property of every piece of
 knowledge. `sel_category` is typed as `SELCategory | None` with a default of `None`; no
 silent default is injected.
@@ -131,32 +136,34 @@ presentation logic: `get_icon()`, `get_color()`, `get_description()`. The `DOMAI
 bridges activity domains into the SEL framework: principles map to self-awareness, habits to
 self-management, choices to responsible decision-making.
 
-The `LessonAdaptiveService` uses `sel_category` as a filter — `find_by(sel_category=category.value)` —
-to surface Lessons grouped by SEL competency. Lessons without a meaningful classification simply won't
-appear in category-filtered views: not all knowledge fits neatly into an SEL lens.
+The `PsAdaptiveService` uses `sel_category` as a filter — `find_by(sel_category=category.value)` —
+to surface PathSteps grouped by SEL competency. PathSteps without a meaningful classification
+simply won't appear in category-filtered views: not all knowledge fits neatly into an SEL lens.
 
-#### How Lessons Are Born: Markdown to Graph
+#### How PathSteps Are Born: Markdown to Graph
 
-Lessons originate as Markdown files with YAML frontmatter in the Obsidian vault
-(`/home/mike/0bsidian/skuel/docs/`). The ingestion pipeline (`core/services/ingestion/`)
-parses the frontmatter, including the optional `sel_category` field.
+PathSteps originate as Markdown files with YAML frontmatter in the Obsidian vault
+(default `/home/mike/0bsidian/0vault/`, configurable via `INGESTION_PATH`). The ingestion
+pipeline (`core/services/ingestion/`) parses the frontmatter, including the optional
+`sel_category` field.
 
-Once in Neo4j, Lessons connect through graph relationships:
+Once in Neo4j, PathSteps connect through graph relationships:
 
 ```cypher
-(a1:Lesson)-[:REQUIRES_KNOWLEDGE]->(a2:Lesson)       // Prerequisites
-(a1:Lesson)-[:ENABLES_KNOWLEDGE]->(a2:Lesson)        // What mastering this unlocks
-(moc:Lesson)-[:ORGANIZES]->(a:Lesson)                // MOC grouping (non-linear)
-(a:Lesson)-[:USES_KU]->(ku:Ku)                        // Composes atomic Kus
-(ps:PathStep)-[:TRAINS_KU]->(ku:Ku)                // PS trains atomic Kus
+(p1:PathStep)-[:REQUIRES_KNOWLEDGE]->(p2:PathStep)  // Prerequisites
+(p1:PathStep)-[:ENABLES_KNOWLEDGE]->(p2:PathStep)   // What mastering this unlocks
+(moc:Entity)-[:ORGANIZES]->(p:PathStep)              // MOC grouping (non-linear)
+(p:PathStep)-[:USES_KU]->(ku:Ku)                     // Composes atomic Kus
+(lp:LearningPath)-[:HAS_STEP]->(p:PathStep)          // Ordered within a path
 ```
 
 ### Layer 2: How You're Learning It — Mastery Tracking
 
 **File:** `core/models/pathways/mastery.py`
 
-When a user interacts with a Lesson, a `MASTERED` relationship is created between `:User` and
-`:Lesson`. The `Mastery` dataclass models what that relationship means:
+When a user interacts with a PathStep, pedagogical relationships (`VIEWED`, `IN_PROGRESS`,
+`MASTERED`, `BOOKMARKED`, `MARKED_AS_READ`) are created between `:User` and `:PathStep`. The
+`Mastery` dataclass models what that relationship means:
 
 ```
 Mastery (frozen dataclass)
@@ -174,9 +181,9 @@ Mastery (frozen dataclass)
 UNAWARE → INTRODUCED → FAMILIAR → PROFICIENT → ADVANCED → EXPERT → MASTERED
 ```
 
-The `LessonMasteryService` (`core/services/lesson/lesson_mastery_service.py`) manages
-pedagogical progression: `VIEWED` → `IN_PROGRESS` → `MASTERED`. `mark_mastered()` publishes
-`KnowledgeMastered`, which triggers the learning progress event chain — see
+The `PsMasteryService` (`core/services/ps/ps_mastery_service.py`) manages pedagogical
+progression: `VIEWED` → `IN_PROGRESS` → `MASTERED`. KU mastery publishes `KnowledgeMastered`,
+which triggers the learning progress event chain — see
 [LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md).
 
 `LearningVelocity` tracks how fast a user learns in different domains — not as a judgment
@@ -189,9 +196,9 @@ This profile evolves from actual learning patterns, not questionnaires.
 
 ### Layer 3: Whether It's Changing Your Life — Substance Scoring
 
-**File:** `core/models/lesson/lesson.py`
+**File:** `core/models/pathways/path_step.py`
 
-The `substance_score()` method on the `Lesson` dataclass measures how knowledge is **lived**,
+The `substance_score()` method on the `PathStep` dataclass measures how knowledge is **lived**,
 not just consumed:
 
 | Application Type | Weight | Max | What It Measures |
@@ -206,28 +213,28 @@ Substance decays over time using exponential decay with a 30-day half-life (`_de
 Knowledge never fully disappears (floor at 0.2), but it fades without practice — exactly like
 human memory.
 
-The substance fields on the `Lesson` model (`times_applied_in_tasks`, `times_practiced_in_events`,
-etc.) are updated via the event-driven architecture. When a user completes a task that
-references a Lesson, the `LessonService` handles the `knowledge.applied_in_task` event and atomically
-increments the counter in Neo4j.
+The substance fields on the `PathStep` model (`times_applied_in_tasks`,
+`times_practiced_in_events`, etc.) are updated via the event-driven architecture. When a user
+completes a task that references a PathStep, `PsService` handles the
+`knowledge.applied_in_task` event and atomically increments the counter in Neo4j.
 
 ### The Adaptive Service: Connecting the Layers
 
-**File:** `core/services/lesson/lesson_adaptive_service.py`
+**File:** `core/services/ps/ps_adaptive_service.py`
 
-`LessonAdaptiveService` answers the question: **"What should this person learn next?"**
+`PsAdaptiveService` answers the question: **"What should this person learn next?"**
 
 **Personalised curriculum delivery** (`get_personalized_curriculum`):
 
 ```
 1. Load user's learning intelligence (masteries, paths, velocity)
-2. Query all Lessons in the requested SEL category
+2. Query all PathSteps in the requested SEL category
 3. Filter by readiness:
    - Not already mastered
    - Prerequisites met (via REQUIRES_KNOWLEDGE graph traversal)
    - Appropriate for user's current level
 4. Rank by learning value:
-   - Enables many future Lessons (×10) — high leverage
+   - Enables many future PathSteps (×10) — high leverage
    - Matches preferred difficulty (×20) — flow state
    - Fits available time (×15) — practical
    - Foundational / no prerequisites (×5) — unblocked
@@ -236,15 +243,7 @@ increments the counter in Neo4j.
 ```
 
 **`CurriculumProgress`** (`core/models/pathways/learning_progress.py`) — a frozen snapshot of
-a user's progress through one SEL category:
-
-```
-KuCategoryProgress
-├── user_uid, sel_category
-├── lessons_mastered, lessons_in_progress, lessons_available, total_lessons
-├── completion_percentage (0-100), current_level (LearningLevel)
-└── started_at, last_activity, estimated_completion_date
-```
+a user's progress through one SEL category, tracking path-step-level completion.
 
 `determine_level()` maps completion to `LearningLevel`:
 0–24% → BEGINNER · 25–49% → INTERMEDIATE · 50–74% → ADVANCED · 75–100% → EXPERT
@@ -272,25 +271,19 @@ values breadth alongside depth.
 
 ### UI: Making Learning Visible
 
-**File:** `ui/patterns/curriculum_adaptive.py`
+The PathStep detail page (`/explore/ps/{uid}`) is the primary surface. A flat index at
+`/path-steps` lists enrolment-aware PathSteps (Start / In Progress / Mastered). Adaptive
+curriculum recommendations and SEL journey views are composed through
+`ui/patterns/curriculum_adaptive.py` and the explore sidebar graph.
 
-| Component | What It Shows |
-|---|---|
-| `SELCategoryCard(category, progress)` | One category's progress bar, count badges, "Continue Learning" link to `/lessons?sel={category}` |
-| `AdaptiveLessonCard(lesson, prerequisites_met)` | One recommended Lesson — time, difficulty, level badge, prerequisite status, link to `/lessons/{uid}` |
-| `SELJourneyOverview(journey)` | Master view — overall %, recommended focus alert, grid of five `SELCategoryCard` components |
-
-**API routes** (`adapters/inbound/lesson_api.py`):
+**Routes:**
 
 | Route | Purpose |
 |---|---|
-| `GET /api/lessons/journey` | `LearningJourney` (JSON) |
-| `GET /api/lessons/curriculum/{category}` | `list[Lesson]` (JSON) |
-| `GET /api/lessons/journey-html` | `SELJourneyOverview` (HTMX fragment) |
-| `GET /api/lessons/curriculum-html/{category}` | Grid of `AdaptiveLessonCard` (HTMX fragment) |
-
-The HTML routes enable HTMX partial updates — the journey overview loads once, and clicking
-a category fetches that category's personalised curriculum as an HTML fragment.
+| `GET /explore/ps/{uid}` | PathStep detail page — learning loop anchor |
+| `GET /path-steps` | Flat PathStep index |
+| `GET /path-steps/get?uid=` | PathStep reading page |
+| `GET /api/path-steps/*` | PathStep API (CRUD + intelligence) |
 
 ---
 
@@ -301,7 +294,7 @@ LLM prompt embedded for AI-assisted feedback. Two scopes: `PERSONAL` (self-direc
 `ASSIGNED` (classroom with a Group target and due date).
 
 **EntityType:** `EntityType.EXERCISE`
-**Loop role:** The *how* — operationalises Lesson content into a concrete task. The `instructions`
+**Loop role:** The *how* — operationalises PathStep content into a concrete task. The `instructions`
 field serves double duty: directive for the student AND prompt for the AI when generating
 `EXERCISE_REPORT`.
 
@@ -318,7 +311,7 @@ structured form (`STRUCTURED_FORM` — inline form responses stored as JSON). Th
 `expected_modality` field determines which path the UI presents.
 
 **EntityType:** `EntityType.EXERCISE_SUBMISSION`
-**Loop role:** The *evidence* — the student's demonstration of engagement with Lesson content.
+**Loop role:** The *evidence* — the student's demonstration of engagement with PathStep content.
 Without it, the Curriculum Track has no student voice.
 
 **Derivation chain fields (set at creation, no graph query needed):**
@@ -411,7 +404,7 @@ cycle continues indefinitely. This forces a **reflection step** between feedback
 resubmission, making revision pedagogically explicit.
 
 ```
-Lesson → Exercise v1 → Submission v1 → ExerciseReport v1
+PathStep → Exercise v1 → Submission v1 → ExerciseReport v1
                                               ↓
                                         RevisedExercise v2 → Submission v2 → ExerciseReport v2
                                               ↓
@@ -550,15 +543,15 @@ status pills or submission/feedback sections.
 | Learning loop UI renderers | `ui/learning_loop/` (`exercise_status.py`, `submissions_section.py`, `feedback_section.py`) |
 | PS learning loop fragment routes | `adapters/inbound/explore_ui.py` (`create_explore_ui_routes`) |
 | Submissions UI orchestration (GradeBook sub-factories) | `adapters/inbound/submissions_routes.py` (`create_submissions_ui_orchestrator`) |
-| Lesson domain model | `core/models/lesson/lesson.py` |
+| PathStep domain model | `core/models/pathways/path_step.py` |
 | Mastery + intelligence models | `core/models/pathways/mastery.py` |
 | Curriculum progress + journey models | `core/models/pathways/learning_progress.py` |
 | SELCategory + LearningLevel enums | `core/models/enums/learning_enums.py` |
-| Adaptive curriculum service | `core/services/lesson/lesson_adaptive_service.py` |
-| Lesson mastery service (MASTERED transitions) | `core/services/lesson/lesson_mastery_service.py` |
-| Lesson facade (wires sub-services) | `core/services/lesson_service.py` |
+| Adaptive curriculum service | `core/services/ps/ps_adaptive_service.py` |
+| PathStep mastery service (MASTERED transitions) | `core/services/ps/ps_mastery_service.py` |
+| PathStep facade (wires sub-services) | `core/services/ps_service.py` |
 | Learning experience UI components | `ui/patterns/curriculum_adaptive.py` |
-| Lesson API routes | `adapters/inbound/lesson_api.py` |
+| PathStep API routes | `adapters/inbound/path_steps_api.py` |
 | Ingestion pipeline | `core/services/ingestion/` |
 | Substance philosophy | `docs/architecture/knowledge_substance_philosophy.md` |
 | Curriculum grouping patterns (KU / PS / LP) | `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` |
@@ -578,7 +571,7 @@ The learning loop is Layer 1 of a 5-layer system. Each layer builds on the ones 
 | 4. Knowledge Graph | Neo4j relationships encode everything | The loop generates graph relationships |
 | 3. Saved Interactions | Conversations, journals, annotations | Each loop iteration compounds signals |
 | 2. ZPD + UserContext | "Where are you?" + "What's next?" | Intelligence makes the loop adaptive |
-| **1. Learning Loop** | **Lesson → Exercise → Submission → Report → RevisedExercise** | **The base — everything serves this** |
+| **1. Learning Loop** | **PathStep → Exercise → Submission → Report → RevisedExercise** | **The base — everything serves this** |
 
 See: `docs/user-guides/zpd.md`, `docs/user-guides/learning-loop.md`
 

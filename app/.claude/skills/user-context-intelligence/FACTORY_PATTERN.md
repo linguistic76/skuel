@@ -74,8 +74,8 @@ class UserContextIntelligenceFactory:
         choices: UnifiedRelationshipService,
         principles: UnifiedRelationshipService,
         # Curriculum (3)
-        lesson: LessonService,
-        ls: UnifiedRelationshipService,
+        ps: PsService,
+        ku: UnifiedRelationshipService,
         lp: UnifiedRelationshipService,
         # Processing (3)
         submissions: SubmissionsRelationshipService,
@@ -178,7 +178,7 @@ context_intelligence_factory = UserContextIntelligenceFactory(
     choices=activity_services["choices"].relationships,
     principles=activity_services["principles"].relationships,
     # Curriculum (3)
-    ps=learning_services["ps"],  # PsService facade (merged Lesson into PathStep)
+    ps=learning_services["ps"],  # PsService facade
     lp=learning_services["learning_paths"].relationships,
     # Processing (3)
     submissions=submissions_relationship_service,
@@ -194,7 +194,7 @@ context_intelligence_factory = UserContextIntelligenceFactory(
 services.context_intelligence = context_intelligence_factory
 ```
 
-The `filtered_providers` dict maps domain names (`"tasks"`, `"goals"`, ..., `"lessons"`, `"ku"`, `"path_steps"`, `"learning_paths"`, `"exercises"`) to facades that implement `FilteredContextProvider`. Intelligence services access these via `self.filtered_providers["domain"].get_filtered_context(user_uid)` for on-demand, per-domain filtered queries. UserContext is the broad snapshot; `get_filtered_context()` is the zoom lens.
+The `filtered_providers` dict maps domain names (`"tasks"`, `"goals"`, ..., `"ku"`, `"path_steps"`, `"learning_paths"`, `"exercises"`) to facades that implement `FilteredContextProvider`. Intelligence services access these via `self.filtered_providers["domain"].get_filtered_context(user_uid)` for on-demand, per-domain filtered queries. UserContext is the broad snapshot; `get_filtered_context()` is the zoom lens.
 
 ### In Services Dataclass
 

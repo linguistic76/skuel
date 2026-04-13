@@ -17,7 +17,7 @@ The "hips" of SKUEL - stability through clarity. Connects content (MD/YAML) to t
 
 ## Default Vault
 
-The default ingestion folder is `data/vault/` (i.e., `/home/mike/skuel/app/data/vault/`). This is where Ku YAMLs (`ku_*.yaml`), Lesson YAMLs (`lesson_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown content files live. Configurable via `INGESTION_PATH` env var.
+The default ingestion folder is `/home/mike/0bsidian/0vault/` (the Obsidian vault). This is where Ku YAMLs (`ku_*.yaml`), PathStep YAMLs (`ps_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown content files live. Configurable via `INGESTION_PATH` env var.
 
 ## Quick Start
 
@@ -432,12 +432,12 @@ print(DEFAULT_USER_UID)  # "user:admin" or "user:system"
 
 ### Markdown Files (.md)
 
-Best for text-heavy content like Lessons. **Requires an explicit `type` field in frontmatter** — markdown files without a `type` field are rejected:
+Best for text-heavy content like PathSteps. **Requires an explicit `type` field in frontmatter** — markdown files without a `type` field are rejected:
 
 ```yaml
-# /docs/l.machine-learning.md
+# /vault/ps_machine-learning.md
 ---
-type: Lesson
+type: PathStep
 title: Machine Learning
 domain: tech
 tags: [ml, ai, algorithms]
@@ -483,10 +483,9 @@ connections:
 
 | Entity Type | Prefix | Neo4j Labels | Required Fields | Example File |
 |-------------|--------|-------------|-----------------|--------------|
-| `lesson` | `l.` | `:Entity:Lesson` | title, content | `l.intro-python.md` |
 | `exercise` | `ex.` | `:Entity:Exercise` | title, instructions | `exercise_know-yourself.yaml` |
 | `ku` | `ku.` | `:Entity:Ku` | title | `ku.python-basics.md` |
-| `ps` | `ps.` | `:Entity:PathStep` | title | `ps.learn-variables.yaml` |
+| `ps` | `ps.` | `:Entity:PathStep` | title, content | `ps.learn-variables.md` |
 | `lp` | `lp.` | `:Entity:LearningPath` | name | `lp.python-journey.yaml` |
 | `task` | `task.` | `:Entity:Task` | title | `task.complete-exercise.yaml` |
 | `goal` | `goal.` | `:Entity:Goal` | title | `goal.learn-python.yaml` |
@@ -506,13 +505,12 @@ connections:
 
 The service detects entity type from:
 1. **Explicit `type` field** in YAML or markdown frontmatter (required — no silent defaults)
-2. **`moc: true` flag** in markdown frontmatter → LESSON
 
 **No implicit defaults:** Markdown files without an explicit `type` field are rejected. YAML files require an explicit `type` field.
 
 ### UID Format Validation
 
-Explicit UIDs in vault files are validated against the expected prefix for their entity type. A `type: Lesson` file with `uid: ku.something` is rejected — the prefix must match (e.g., `l.` for Lessons, `ku.` for Kus, `ex.` for Exercises). If no UID is declared, one is auto-generated from the filename with the correct prefix.
+Explicit UIDs in vault files are validated against the expected prefix for their entity type. A `type: PathStep` file with `uid: ku.something` is rejected — the prefix must match (e.g., `ps.` for PathSteps, `ku.` for Kus, `ex.` for Exercises). If no UID is declared, one is auto-generated from the filename with the correct prefix.
 
 ---
 
@@ -555,9 +553,9 @@ connections:
 
 | Connection Field | Relationship Type | Target Entity | Used By |
 |-----------------|-------------------|---------------|---------|
-| `requires` | REQUIRES_KNOWLEDGE | Entity | Lesson |
-| `enables` | ENABLES_KNOWLEDGE | Entity | Lesson |
-| `related` | RELATED_TO | Entity | Lesson |
+| `requires` | REQUIRES_KNOWLEDGE | Entity | PathStep |
+| `enables` | ENABLES_KNOWLEDGE | Entity | PathStep |
+| `related` | RELATED_TO | Entity | PathStep |
 | `depends_on` | DEPENDS_ON | Task | Task |
 | `applies_knowledge` | APPLIES_KNOWLEDGE | Entity | Task, Event |
 | `requires_knowledge` | REQUIRES_KNOWLEDGE | Entity | Goal |
@@ -582,15 +580,9 @@ connections:
 | `guides_goal` | GUIDES_GOAL | Goal | Principle |
 | `inspires_habit` | INSPIRES_HABIT | Entity | Principle |
 | `contains_steps` | HAS_STEP | Entity | LP |
-| `organizes` | ORGANIZES | Entity | Lesson |
+| `organizes` | ORGANIZES | Entity | PathStep |
 
-#### Lesson Composition Fields
-
-| YAML Field | Relationship Type | Target | Direction |
-|-----------|-------------------|--------|-----------|
-| `uses_kus` | USES_KU | Ku | outgoing |
-
-#### Path Step Fields (11 total)
+#### Path Step Fields (12 total)
 
 | YAML Field | Relationship Type | Target | Direction |
 |-----------|-------------------|--------|-----------|

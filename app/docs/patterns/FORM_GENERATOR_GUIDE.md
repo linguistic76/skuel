@@ -269,18 +269,18 @@ FormGenerator.from_model(
 
 ---
 
-## Fragment Mode: Embedding Forms in Lessons
+## Fragment Mode: Embedding Forms in PathSteps
 
-`as_fragment=True` returns a `<div>` with fields only — no `<form>` tag, no submit button. Use this to embed interactive form fields within lesson content.
+`as_fragment=True` returns a `<div>` with fields only — no `<form>` tag, no submit button. Use this to embed interactive form fields within PathStep content.
 
-### Use case: Interactive exercise within a lesson
+### Use case: Interactive exercise within a PathStep
 
 ```python
 from fasthtml.common import Div, Form, H2, P
 from ui.buttons import Button, ButtonT
 
-# Lesson content with embedded exercise form
-def render_lesson_with_exercise(lesson, exercise):
+# PathStep content with embedded exercise form
+def render_path_step_with_exercise(path_step, exercise):
     exercise_fields = FormGenerator.from_model(
         ExerciseSubmissionRequest,
         include_fields=["response", "confidence_level"],
@@ -293,9 +293,9 @@ def render_lesson_with_exercise(lesson, exercise):
     )
 
     return Div(
-        # Lesson content
-        H2(lesson.title),
-        Div(lesson.rendered_content, cls="prose"),
+        # PathStep content
+        H2(path_step.title),
+        Div(path_step.rendered_content, cls="prose"),
 
         # Embedded exercise form
         Form(

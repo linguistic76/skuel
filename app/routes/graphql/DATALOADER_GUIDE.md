@@ -348,7 +348,7 @@ query {
 
 3. **Implement batch methods in services**
    ```python
-   async def get_lessons_batch(self, uids: list[str]) -> Result[list[Lesson | None]]  # ✅
+   async def get_path_steps_batch(self, uids: list[str]) -> Result[list[PathStep | None]]  # ✅
    ```
 
 4. **Preserve order in batch results**
@@ -457,7 +457,6 @@ query TestBatching {
 ## Next Steps
 
 1. **All batch methods implemented:**
-   - ✅ LessonService.get_lessons_batch()
    - ✅ TasksService.get_tasks_batch()
    - ✅ LpService.get_learning_paths_batch()
    - ✅ PsService.get_path_steps_batch()

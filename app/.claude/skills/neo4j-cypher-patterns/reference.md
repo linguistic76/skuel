@@ -208,13 +208,12 @@ Curriculum-to-Resource citations — connects teaching content to reference mate
 
 | Relationship | From | To | Properties | Purpose |
 |--------------|------|-----|------------|---------|
-| `CITES_RESOURCE` | Lesson / Ku | Resource | `context` | Curriculum cites reference material (books, talks, films) |
+| `CITES_RESOURCE` | PathStep / Ku | Resource | `context` | Curriculum cites reference material (books, talks, films) |
 
 ```cypher
--- Find all Resources cited by Lessons in a Path Step
-MATCH (ps:PathStep)-[:HAS_STEP]-(lp:LearningPath)
-MATCH (ls)-[:CONTAINS_KNOWLEDGE]->(a:Lesson)-[:CITES_RESOURCE]->(r:Resource)
-RETURN a.title AS article, r.title AS resource, r.author, r.media_type
+-- Find all Resources cited by PathSteps in a LearningPath
+MATCH (lp:LearningPath)-[:HAS_STEP]->(ps:PathStep)-[:CITES_RESOURCE]->(r:Resource)
+RETURN ps.title AS path_step, r.title AS resource, r.author, r.media_type
 ```
 
 ### Journal Relationships (Standalone Domain)

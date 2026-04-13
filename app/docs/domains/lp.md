@@ -225,7 +225,7 @@ Extracted from `pathways_ui.py` route handlers into `LpService` facade:
 | **Validation** | `get_optimal_path_recommendation(user_uid)` | `Result[LpPathRecommendation]` | Best path for user (→ LpBackend) |
 | **Context** | `get_path_with_context(path_uid, user_uid, depth)` | `Result[dict]` | Path with graph context (→ LpBackend) |
 | **Analysis** | `analyze_path_knowledge_scope(path_uid)` | `Result[dict]` | Knowledge coverage analysis |
-| **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Future* — traverses Lesson practice relationships via `(PS)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(Lesson)-[:activity_rel]->` |
+| **Analysis** | `identify_practice_gaps(path_uid)` | `Result[dict]` | *Future* — traverses PathStep practice relationships via `(LP)-[:HAS_STEP]->(PathStep)-[:activity_rel]->` |
 | **Adaptive** | `find_learning_sequence(start_uid, goal_uid)` | `Result[list[str]]` | Optimal step sequence (→ LpBackend) |
 | **Adaptive** | `get_next_adaptive_step(step_uid, user_uid)` | `Result[str\|None]` | Best next step (→ LpBackend) |
 | **Adaptive** | `get_recommended_path_steps(user_uid)` | `Result[list[LpRecommendedStep]]` | Daily "what to learn" (→ LpBackend) |
@@ -295,16 +295,16 @@ score = await ls_intelligence.practice_completeness_score("ls:functions")
 await ls_intelligence.has_practice_opportunities("ls:functions")  # → True
 ```
 
-The Cypher that powers this (two-hop traversal through Lessons):
+The Cypher that powers this (activity relationships authored directly on the PathStep):
 
 ```cypher
-MATCH (ls:Entity {uid: $ps_uid})
-OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l1)-[:BUILDS_HABIT]->(h)
-OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l2)-[:ASSIGNS_TASK]->(t)
-OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l3)-[:SCHEDULES_EVENT]->(e)
-OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l4)-[:SUPPORTS_GOAL]->(g)
-OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l5)-[:GUIDED_BY_PRINCIPLE]->(p)
-OPTIONAL MATCH (ls)-[:HAS_LESSON|CONTAINS_KNOWLEDGE]->(l6)-[:INFORMS_CHOICE]->(c)
+MATCH (ps:Entity {uid: $ps_uid})
+OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(h)
+OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(t)
+OPTIONAL MATCH (ps)-[:SCHEDULES_EVENT]->(e)
+OPTIONAL MATCH (ps)-[:SUPPORTS_GOAL]->(g)
+OPTIONAL MATCH (ps)-[:GUIDED_BY_PRINCIPLE]->(p)
+OPTIONAL MATCH (ps)-[:INFORMS_CHOICE]->(c)
 RETURN count(DISTINCT h) as habits,
        count(DISTINCT t) as tasks,
        count(DISTINCT e) as events,

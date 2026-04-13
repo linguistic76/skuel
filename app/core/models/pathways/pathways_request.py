@@ -20,15 +20,15 @@ from core.models.request_base import CreateRequestBase
 class PathStepCreateRequest(CreateRequestBase):
     """Create a PATH_STEP entity (curriculum content unit). Admin-only, shared.
 
-    PathStep is THE curriculum content entity — it absorbed the Lesson role
-    and directly composes KUs via USES_KU relationships.
+    PathStep is THE curriculum content entity — it directly composes KUs via
+    USES_KU relationships.
     """
 
     title: str = Field(min_length=1, max_length=200, description="Step title")
     intent: str = Field(default="", description="Step intent/purpose")
     description: str | None = Field(None, max_length=2000, description="Step description")
 
-    # Content (absorbed from Lesson)
+    # Content
     content: str | None = Field(None, description="Body text / markdown content")
     summary: str | None = Field(None, max_length=500, description="Brief summary")
 
@@ -121,7 +121,6 @@ class PathStepPathRequest(BaseModel):
 
 # =============================================================================
 # PATH STEP DOMAIN-SPECIFIC REQUEST MODELS
-# (Absorbed from Lesson domain during Lesson→PathStep merge)
 # =============================================================================
 
 

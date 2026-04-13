@@ -78,9 +78,9 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Principles](domains/principles.md) | Values that guide goals and choices |
 | [Finance](domains/finance.md) | Hybrid — Firefly III for expenses/budgets/reporting, local for invoices (admin-only, ADR-052) |
 | [KU (Knowledge Unit)](domains/ku.md) | Atomic knowledge unit (point topology) |
-| [PS (Path Step)](domains/ps.md) | Collections of lessons (collection topology) |
+| [PS (Path Step)](domains/ps.md) | THE curriculum content entity — composes Kus (collection topology) |
 | [LP (Learning Path)](domains/lp.md) | Complete learning sequences (path topology) |
-| [Submissions + Reports](domains/submissions.md) | Lesson→Exercise→Submission→Report→RevisedExercise learning loop |
+| [Submissions + Reports](domains/submissions.md) | PathStep→Exercise→Submission→Report→RevisedExercise learning loop |
 | [Journals](domains/journals.md) | Standalone journal domain (JE_INPUT → JE_OUTPUT, AI-processed) |
 | Groups | Teacher-student class management (ADR-040) — doc pending |
 | [MOC (Map of Content)](domains/moc.md) | Non-linear navigation (graph topology via ORGANIZES) |
@@ -293,10 +293,8 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Protocol Implementation Guide](guides/PROTOCOL_IMPLEMENTATION_GUIDE.md) | 2026-01-03 | 475 |
 | [Shared UI Components - Quick Reference Card](guides/SHARED_UI_QUICK_REFERENCE.md) | 2025-11-27 | 264 |
 | [Shared UI Components Guide](guides/SHARED_UI_COMPONENTS_GUIDE.md) | 2026-01-15 | 674 |
-| **[Lesson Content and Resources](guides/LESSON_CONTENT_AND_RESOURCES.md)** | **2026-03-09** | **140** |
 | **[Curriculum Developer Guide](guides/CURRICULUM_DEVELOPER_GUIDE.md)** | **2026-03-17** | **290** |
 | **[YAML Authoring Guide](guides/YAML_AUTHORING_GUIDE.md)** | **2026-03-21** | **220** |
-| **[Lesson Activity Wiring Guide](guides/LESSON_ACTIVITY_WIRING.md)** | **2026-03-22** | **230** |
 | **[Linter Guide](guides/LINTER_GUIDE.md)** | **2026-03-29** | **180** |
 | **[UV Package Manager Guide](guides/UV_GUIDE.md)** | **2026-03-29** | **120** |
 | **[Troubleshooting Guide](TROUBLESHOOTING.md)** | **2026-01-31** | **650** |

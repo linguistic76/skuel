@@ -76,7 +76,7 @@ Priority.from_search_text("urgent")          # → [Priority.HIGH, Priority.CRIT
 
 **File:** `core/models/curriculum.py`
 
-**Request models:** `core/models/lesson/lesson_request.py` (LessonCreateRequest), `core/models/pathways/pathways_request.py` (LsCreateRequest, LpCreateRequest) — used by ingestion, not CRUD routes
+**Request models:** `core/models/pathways/pathways_request.py` (PathStepCreateRequest, LpCreateRequest) — used by ingestion, not CRUD routes
 
 **Domains:** KU, PS (PathStep), LP (LearningPath)
 
@@ -185,7 +185,7 @@ The cap of 3 prevents CRITICAL from becoming meaningless if users over-apply it.
 | `core/models/enums/activity_enums.py` | `Priority` and `Confidence` enum definitions |
 | `core/models/user_owned_entity.py` | `priority: str \| None` field declaration |
 | `core/models/curriculum.py` | `confidence: str \| None` field declaration |
-| `core/models/lesson/lesson_request.py`, `core/models/pathways/pathways_request.py` | `confidence` in Lesson/PS/LP create requests |
+| `core/models/pathways/pathways_request.py` | `confidence` in PS/LP create requests |
 | `core/services/user/intelligence/daily_planning.py` | CRITICAL priority override in planning |
 | `core/services/lateral_relationships/lateral_relationship_service.py` | `confidence` + `priority` on graph edges |
 | `static/js/skuel.js` | vis.js edge styling by confidence and priority |

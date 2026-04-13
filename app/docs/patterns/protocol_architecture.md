@@ -125,14 +125,14 @@ UserContext (~240 fields)  ←  implements all 11 protocols
     ↓ ISP narrowing
 CoreIdentity          → user_uid, username
 TaskAwareness         → active/blocked/overdue tasks, priorities
-KnowledgeAwareness    → mastery levels, in-progress KUs, current lessons, prerequisites, velocity
+KnowledgeAwareness    → mastery levels, in-progress KUs, active path steps, prerequisites, velocity
 HabitAwareness        → streaks, at-risk habits, consistency
 GoalAwareness         → progress, milestones
 EventAwareness        → upcoming events, schedule
 PrincipleAwareness    → core principles, integrity scores
 ChoiceAwareness       → pending choices, decision patterns
 LearningPathAwareness → enrolled paths, current steps, ZPD position
-CrossDomainAwareness  → multi-domain subset incl. in-progress KUs, current lessons
+CrossDomainAwareness  → multi-domain subset incl. in-progress KUs, active path steps
 FullAwareness         → all fields (Askesis dialogue, admin — use sparingly)
 ```
 

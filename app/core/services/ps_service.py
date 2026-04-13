@@ -142,7 +142,7 @@ def _apply_ps_sort(steps: list[Any], sort_by: str) -> list[Any]:
 
 
 class PsService:
-    """Facade for path step management (merged Lesson capabilities).
+    """Facade for path step management.
 
     Coordinates 12 sub-services (via create_ps_sub_services factory):
     - Core: CRUD operations + persistence
@@ -166,7 +166,6 @@ class PsService:
         graph_intel: Any = None,
         event_bus: Any = None,
         ai_service: PsAIService | None = None,
-        # Merged lesson dependencies
         content_repo: Any | None = None,
         ku_backend: Any | None = None,
         chunking_service: Any | None = None,
@@ -260,7 +259,7 @@ class PsService:
         self.ai: PsAIService | None = ai_service
 
         self.logger = logger
-        logger.debug("PsService facade initialized with 12 sub-services (merged Lesson)")
+        logger.debug("PsService facade initialized with 12 sub-services")
 
     # ============================================================================
     # CORE CRUD OPERATIONS - Delegated to PsCoreService

@@ -113,7 +113,7 @@ crud_factory = CRUDRouteFactory(
 )
 
 # Curriculum domains (shared) - no ownership verification
-# Note: Lesson/PS/LP are created via ingestion, not CRUD.
+# Note: KU/PS/LP are created via ingestion, not CRUD.
 # FormTemplate is a shared domain that uses CRUD:
 crud_factory = CRUDRouteFactory(
     service=form_template_service,

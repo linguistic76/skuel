@@ -55,7 +55,7 @@ KuService coordinates 9 sub-services (4 common + 5 domain-specific):
 **Initialization:** Via `create_curriculum_sub_services()` factory.
 **graph_intel:** REQUIRED (fail-fast validation)
 
-**Architectural principle:** Ku never depends on LessonService. Learning state (Studying → Understood) and mastery are Ku-native capabilities on `KuBackend`.
+**Architectural principle:** Ku never depends on PsService. Learning state (Studying → Understood) and mastery are Ku-native capabilities on `KuBackend`.
 
 ```python
 from core.services.ku_service import KuService
@@ -73,7 +73,7 @@ await ku_service.search_service.search(query)
 await ku_service.intelligence.get_usage_summary(ku_uid)
 await ku_service.mark_as_studying(user_uid, ku_uid)
 await ku_service.mark_as_understood(user_uid, ku_uid)
-await ku_service.get_lessons(ku_uid)
+await ku_service.get_path_steps(ku_uid)
 ```
 
 ## Key Files
@@ -91,7 +91,7 @@ await ku_service.get_lessons(ku_uid)
 | Routes | `/adapters/inbound/ku_routes.py` + `/adapters/inbound/ku_ui.py` |
 | Relationship Config | `KU_CONFIG` in `/core/models/relationship_registry.py` |
 
-**Architectural principle:** Ku is the atom, Lesson is the molecule. Ku never depends on LessonService. Learning state (Studying → Understood) and mastery are Ku-native capabilities on `KuBackend`.
+**Architectural principle:** Ku is the atom, PathStep is the molecule. Ku never depends on PsService. Learning state (Studying → Understood) and mastery are Ku-native capabilities on `KuBackend`.
 
 ## Model Fields (Ku-Specific)
 

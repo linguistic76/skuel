@@ -128,7 +128,7 @@ class ZoneEvidence:
 @dataclass(frozen=True)
 class ZPDAction:
     entity_uid: EntityUID
-    entity_type: str       # "lesson"
+    entity_type: str       # "path_step"
     action_type: str       # "learn", "reinforce", "unblock"
     priority: float        # 0.0-1.0
     rationale: str

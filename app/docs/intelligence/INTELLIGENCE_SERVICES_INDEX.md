@@ -181,8 +181,8 @@ factory = IntelligenceRouteFactory(
 
 # Factory for shared content (Curriculum)
 factory = IntelligenceRouteFactory(
-    intelligence_service=lesson_service.intelligence,
-    domain_name="lesson",
+    intelligence_service=ps_service.intelligence,
+    domain_name="ps",
     scope=ContentScope.SHARED,                # No ownership checks
 )
 ```
@@ -439,7 +439,7 @@ from core.services.intelligence import (
 
 Extracted from TasksIntelligenceService (March 2026). These methods are domain-agnostic — they use `PatternAnalyzer` on entity titles and graph traversal via shared utilities. All 6 activity domains have knowledge relationships in Neo4j.
 
-**Backend:** Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries across ALL entity types. Since only user-owned activity entities have `user_uid`, shared entities (Lesson, Ku, etc.) naturally filter out from `find_by(user_uid=...)` calls. Uses `EntityStatus.COMPLETED` (not `CompletionStatus.DONE`) for completed entity queries.
+**Backend:** Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries across ALL entity types. Since only user-owned activity entities have `user_uid`, shared entities (PathStep, Ku, etc.) naturally filter out from `find_by(user_uid=...)` calls. Uses `EntityStatus.COMPLETED` (not `CompletionStatus.DONE`) for completed entity queries.
 
 ---
 

@@ -313,14 +313,14 @@ Both methods run the same LP-scoped pipeline: LP enrollment gate → intent clas
 - `_identify_quick_wins_and_high_impact()` - Classification by prerequisite count:
   - **Quick wins**: 0-1 prerequisites (easy to start)
   - **High impact**: Many dependents (unblocks the most)
-- `_fetch_lessons()`, `_fetch_kus()`, `_fetch_entities_by_uid()` - Parallel entity fetching via `asyncio.gather()`
-- `_fetch_cited_resources()` - Resources via `LessonBackend.get_cited_resources()`
+- `_fetch_path_steps()`, `_fetch_kus()`, `_fetch_entities_by_uid()` - Parallel entity fetching via `asyncio.gather()`
+- `_fetch_cited_resources()` - Resources via `PsBackend.get_cited_resources()`
 
-**PS bundle deps** use `EntityLookup` protocol (async `get(uid) -> Result[Any]`): lesson_service, ku_service, habits_service, tasks_service, events_service, principles_service, lp_service.
+**PS bundle deps** use `EntityLookup` protocol (async `get(uid) -> Result[Any]`): ps_service, ku_service, habits_service, tasks_service, events_service, principles_service, lp_service.
 
-**Backend deps** for graph queries (March 2026 — migrated from inline Cypher): `ku_backend` (KuBackend), `lesson_backend` (LessonBackend).
+**Backend deps** for graph queries: `ku_backend` (KuBackend), `ps_backend` (PsBackend).
 
-**Graph Integration:** Uses LessonBackend for learning context queries, KuBackend for prerequisite analysis, EmbeddingsService for vector similarity
+**Graph Integration:** Uses PsBackend for learning context queries, KuBackend for prerequisite analysis, EmbeddingsService for vector similarity
 
 ---
 

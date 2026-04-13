@@ -9,7 +9,7 @@ related_docs:
 
 # Model-to-Adapter Dynamic Architecture
 **Date:** October 3, 2025 (Updated: April 11, 2026)
-**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8, 11-14). `execute_query()` standardization complete (Phase 9). LessonBackend decomposed into 5 mixins (Phase 10). LpBackend decomposed into 3 mixins (Phase 12). 5 new standalone backends for infrastructure services (Phase 13). Final execute_query cleanup across 11 services (Phase 14). Fail-fast dependency philosophy enforced across all services.
+**Status:** 100% Dynamic - All domains use domain backend subclasses or UniversalNeo4jBackend[T]. Inline Cypher migration complete (Phases 1-8, 11-14). `execute_query()` standardization complete (Phase 9). PsBackend decomposed into 5 mixins (Phase 10). LpBackend decomposed into 3 mixins (Phase 12). 5 new standalone backends for infrastructure services (Phase 13). Final execute_query cleanup across 11 services (Phase 14). Fail-fast dependency philosophy enforced across all services.
 
 ## Executive Summary
 
@@ -143,7 +143,7 @@ Four new domain backends added under `adapters/persistence/neo4j/backends/`:
 
 **March 24, 2026 Update: Remaining 12 Services Migrated**
 
-Phase 5 completed the backend delegation refactor — ~46 inline Cypher queries from 12 service files moved to domain backends. Two new backends created: `GroupBackend` (6 OWNS/MEMBER_OF methods) and `NotificationBackend` (5 HAS_NOTIFICATION methods). All existing backends extended: `LessonBackend` (+18 user progress/graph context methods), `KuBackend` (+6 usage/search methods), `SubmissionsBackend` (+14 exercise processing/relationship/assessment methods), `ExerciseBackend` (+6 methods), `RevisedExerciseBackend` (+4 methods), `HabitsBackend` (+4 badge methods), `FormTemplateBackend` (+1), `FormSubmissionBackend` (+1).
+Phase 5 completed the backend delegation refactor — ~46 inline Cypher queries from 12 service files moved to domain backends. Two new backends created: `GroupBackend` (6 OWNS/MEMBER_OF methods) and `NotificationBackend` (5 HAS_NOTIFICATION methods). All existing backends extended: `PsBackend` (then named `LessonBackend`, +18 user progress/graph context methods), `KuBackend` (+6 usage/search methods), `SubmissionsBackend` (+14 exercise processing/relationship/assessment methods), `ExerciseBackend` (+6 methods), `RevisedExerciseBackend` (+4 methods), `HabitsBackend` (+4 badge methods), `FormTemplateBackend` (+1), `FormSubmissionBackend` (+1).
 
 **File layout:**
 ```
@@ -205,7 +205,7 @@ Migrated 4 inline Cypher queries from `ContextRetriever` (which bypassed the bac
 - `_KnowledgeContextMixin.get_cited_resources()` — CITES_RESOURCE traversal for PS bundles
 - `_LearningStateMixin.get_user_learning_context()` — single-query learning state (mastered, learning, blocked, paths, tasks, goals)
 
-**ContextRetriever** now delegates to `ku_backend` and `lesson_backend` (injected via `AskesisDeps`). `_build_user_learning_context_query()` deleted. `@requires_graph_intelligence` decorator removed from methods that no longer use `graph_intel`.
+**ContextRetriever** now delegates to `ku_backend` and `ps_backend` (injected via `AskesisDeps`). `_build_user_learning_context_query()` deleted. `@requires_graph_intelligence` decorator removed from methods that no longer use `graph_intel`.
 
 **Remaining inline Cypher** in `_life_path_mixin.py` (7 queries) and `planning_mixin.py` (2 queries) is correctly placed — executes through `self.backend.execute_query()` and is entity-agnostic/config-driven.
 
@@ -313,9 +313,9 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 
 **Commit:** `c4652ced`.
 
-### March 26, 2026 Update: LessonBackend Mixin Decomposition (Phase 10)
+### March 26, 2026 Update: PsBackend Mixin Decomposition (Phase 10)
 
-`LessonBackend` (1,248 lines, 54 methods) was 2x the next-largest backend. Decomposed into 5 focused mixins following the `_HierarchyMixin` pattern. LessonBackend is now ~20 lines inheriting from all 5 mixins — pure structural refactor, no behavioral changes.
+`PsBackend` (then named `LessonBackend` — 1,248 lines, 54 methods) was 2x the next-largest backend. Decomposed into 5 focused mixins following the `_HierarchyMixin` pattern. The backend shell is now ~20 lines inheriting from all 5 mixins — pure structural refactor, no behavioral changes.
 
 | Mixin | Methods | Responsibility |
 |-------|---------|----------------|
@@ -327,13 +327,13 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 
 Shared validation helpers (`_validate_rel_name`, `_ALLOWED_ORDER_BY`) extracted to `_backend_helpers.py`.
 
-**Reuse potential:** `_LearningStateMixin` methods are entity-agnostic internally — PsBackend, ExerciseBackend, or KuBackend can add it to their bases when learning state tracking is needed.
+**Reuse potential:** `_LearningStateMixin` methods are entity-agnostic internally — `ExerciseBackend` or `KuBackend` can add it to their bases when learning state tracking is needed.
 
 ### March 26, 2026 Update: execute_query() Standardization (Phase 9)
 
 Standardized all 33 domain backend methods across 8 backends to use `self.execute_query()` instead of direct `self.driver.session()` + `session.run()`. Also fixed 3 `HabitsBackend` methods that returned raw `bool` instead of `Result[bool]`.
 
-**Backends converted:** GoalsBackend (4), TasksBackend (4), EventsBackend (3), LessonBackend (10), KuBackend (1), SubmissionsBackend (5), JournalInputBackend (3), JournalOutputBackend (2).
+**Backends converted:** GoalsBackend (4), TasksBackend (4), EventsBackend (3), PsBackend (then named LessonBackend, 10), KuBackend (1), SubmissionsBackend (5), JournalInputBackend (3), JournalOutputBackend (2).
 
 **Result:** Zero `self.driver.session()` calls remain in the domain backends. All queries route through `execute_query()` which provides centralized session management, the driver-closed guard, and consistent `Result[list[dict]]` returns. Net reduction of 156 lines of try/except boilerplate.
 
@@ -367,13 +367,13 @@ Hardened 3 backend methods against Cypher injection and migrated 17 inline Cyphe
 
 **Deprecated pattern eliminated:** `ku_relationships.py` no longer uses `graph_service.repo.execute_query()` — uses named `KuBackend` methods via `_get_uids_from_backend()` helper.
 
-**Protocol updated:** `LessonOperations` in `curriculum_protocols.py` — `find_connected_activities()` signature tightened (`NeoLabel`, `RelationshipName`, `Literal`).
+**Protocol updated:** `PsOperations` (then named `LessonOperations`) in `curriculum_protocols.py` — `find_connected_activities()` signature tightened (`NeoLabel`, `RelationshipName`, `Literal`).
 
-### March 25, 2026 Update: Lesson Domain Cypher Migration (Phase 7)
+### March 25, 2026 Update: PathStep Domain Cypher Migration (Phase 7)
 
-The largest single migration — 35 inline Cypher queries from 8 lesson service files moved to 31 named `LessonBackend` methods. The `neo4j_adapter` dependency was removed from 5 services entirely.
+The largest single migration — 35 inline Cypher queries from 8 PathStep service files (then named `lesson/`) moved to 31 named backend methods on what is now `PsBackend`. The `neo4j_adapter` dependency was removed from 5 services entirely.
 
-**LessonBackend extended (+31 methods), later decomposed into 5 mixins (Phase 10):**
+**PsBackend extended (+31 methods), later decomposed into 5 mixins (Phase 10):**
 
 | Category | Methods | Mixin (Phase 10) |
 |----------|---------|-------------------|
@@ -385,16 +385,16 @@ The largest single migration — 35 inline Cypher queries from 8 lesson service 
 | **Graph (9)** | `link_prerequisite`, `link_parent_child`, `query_user_mastery_for_prereqs`, `find_learning_recommendations`, `compute_hub_scores`, `query_foundational_knowledge`, `find_prerequisite_chain`, `find_next_steps`, `find_time_aware_paths` | `_SemanticMixin` + `_KnowledgeContextMixin` |
 | **Adaptive (5)** | `track_mastery_completion`, `query_user_masteries`, `query_active_learning_paths`, `query_completed_learning_paths`, `query_learning_preferences` | `_AdaptiveMixin` |
 
-**Protocol:** 31 new methods added to `LessonOperations` in `curriculum_protocols.py`.
+**Protocol:** 31 new methods added to the curriculum protocol (then named `LessonOperations`, now `PsOperations`) in `curriculum_protocols.py`.
 
-**neo4j_adapter eliminated from:**
+**neo4j_adapter eliminated from (service names at time of Phase 7, prior to the Lesson → PathStep merge):**
 - `LessonGraphService` — `__init__(repo, graph_intel)` (was `repo, neo4j_adapter, graph_intel`)
 - `LessonSemanticService` — `__init__(repo, intelligence)` (was `repo, neo4j_adapter, intelligence`)
 - `LessonApplicationDiscoveryService` — `__init__(repo)` (was `repo, neo4j_adapter`)
 - `LessonContextService` — `__init__(repo)` (was `repo, neo4j_adapter`)
 - `LessonAdaptiveService` — `__init__(backend, user_service)` (was `ku_backend, user_service`)
 
-**Factory:** `create_lesson_sub_services()` no longer accepts `neo4j_adapter` parameter.
+**Factory:** `create_lesson_sub_services()` (now `create_ps_sub_services()`) no longer accepts `neo4j_adapter` parameter.
 
 **Bootstrap:** `_create_learning_services()` no longer accepts or passes `neo4j_adapter`.
 
@@ -405,7 +405,7 @@ Eliminated optional-dep fallback patterns across 7 files, enforcing One Path For
 | File | Pattern Removed | Fix |
 |------|----------------|-----|
 | `ku/ku_relationships.py` | Caught errors, returned `Result.ok([])` | Removed try/except, errors propagate via `Result.fail()` |
-| `lesson/lesson_search_service.py` | Semantic search fail → silent keyword fallback | Error propagates when FULL tier; keyword used only when CORE tier |
+| `ps/ps_search_service.py` (then `lesson/lesson_search_service.py`) | Semantic search fail → silent keyword fallback | Error propagates when FULL tier; keyword used only when CORE tier |
 | `visualization_service.py` | Optional deps + demo/mock data | All 4 service deps required, demo data deleted |
 | `calendar_service.py` | Optional deps + `if self.X_service:` guards + demo data | All 3 deps required, null guards + demo methods deleted |
 | `insight_generation_service.py` | `if not self.tasks_service: return []` | `RuntimeError` if tasks_service missing |

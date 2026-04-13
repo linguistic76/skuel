@@ -232,7 +232,7 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 
 ### Ku Learning State
 
-Ku has native two-tier learning state on `KuBackend` (no LessonService dependency):
+Ku has native two-tier learning state on `KuBackend` (no PsService dependency):
 
 ```python
 # Two-tier learning state (Ku-native, via KuService -> KuBackend)
@@ -241,7 +241,7 @@ await ku_service.mark_as_understood(user_uid, ku_uid)  # MASTERED (self-reported
 state = await ku_service.get_ku_learning_state(user_uid, ku_uid)  # {is_studying, is_understood}
 ```
 
-Lesson has richer learning state via `LessonMasteryService` (VIEWED, IN_PROGRESS, MASTERED, BOOKMARKED, MARKED_AS_READ).
+PathStep has richer learning state via `PsMasteryService` (VIEWED, IN_PROGRESS, MASTERED, BOOKMARKED, MARKED_AS_READ).
 
 ### Learning Progress Filters
 
@@ -749,7 +749,7 @@ Graph Relationships:
 | **Intelligence** | `/core/services/search/search_intelligence_service.py` | Ranking, suggestions |
 | **MEGA-QUERY** | `/core/services/user/user_context_queries.py` | User state query |
 | **Ku Learning State** | `KuBackend` in `/adapters/persistence/neo4j/backends/curriculum_backends.py` | IN_PROGRESS, MASTERED (Ku-native two-tier: Studying + Understood) |
-| **Lesson Learning State** | `/core/services/lesson/lesson_mastery_service.py` | VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED/MARKED_AS_READ |
+| **PathStep Learning State** | `/core/services/ps/ps_mastery_service.py` | VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED/MARKED_AS_READ |
 | **Relationship Names** | `/core/models/relationship_names.py` | VIEWED, IN_PROGRESS, MASTERED |
 
 ---

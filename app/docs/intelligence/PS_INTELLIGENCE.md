@@ -322,7 +322,7 @@ if result.is_ok:
 
 ### Method 7: has_practice_opportunities()
 
-**Purpose:** Check if path step has practice opportunities. Checks for any BUILDS_HABIT, ASSIGNS_TASK, or SCHEDULES_EVENT relationships on the step's Lessons (via HAS_LESSON traversal).
+**Purpose:** Check if path step has practice opportunities. Checks for any BUILDS_HABIT, ASSIGNS_TASK, or SCHEDULES_EVENT relationships authored directly on the PathStep.
 
 **Signature:**
 ```python
@@ -353,7 +353,7 @@ if result.is_ok:
 
 **Dependencies:**
 - GraphQueryExecutor (REQUIRED - uses `execute_exists()`)
-- Checks BUILDS_HABIT, ASSIGNS_TASK, or SCHEDULES_EVENT relationships (on Lessons via HAS_LESSON traversal)
+- Checks BUILDS_HABIT, ASSIGNS_TASK, or SCHEDULES_EVENT relationships (authored directly on the PathStep)
 
 **Implementation Notes:**
 - Uses `execute_exists()` for efficient boolean check

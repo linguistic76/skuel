@@ -1,12 +1,14 @@
 # Curriculum Developer Guide
 
-**Purpose:** Show curriculum developers how to build structured, interconnected learning content for the SKUEL system — starting from atomic concepts (Kus), composing them into teaching narratives (Lessons), and linking everything into prerequisite chains that learners follow.
+**Purpose:** Show curriculum developers how to build structured, interconnected learning content for the SKUEL system — starting from atomic concepts (Kus), composing them into teaching narratives (PathSteps), and linking everything into prerequisite chains that learners follow.
 
 **Audience:** Curriculum developers and subject-matter experts creating content for SKUEL.app
 
 **Prerequisite:** No coding experience required. You write YAML files and markdown. The system does the rest.
 
-**Last Updated:** 2026-03-29
+**Last Updated:** 2026-04-12
+
+> **Historical note (2026-04):** SKUEL previously had a separate `Lesson` entity type sitting between `Ku` and `PathStep`. Lesson was merged into PathStep in April 2026 — PathStep now IS the teaching narrative. The three-entity curriculum stack is **Ku → PathStep → LearningPath**. Older docs and ADRs may still reference Lesson; treat those as historical.
 
 ---
 
@@ -15,15 +17,15 @@
 SKUEL separates **what you know** from **how you learn it**.
 
 - A **Ku** (Knowledge Unit) is an atomic concept — a single definable thing. It exists as a reference node in the knowledge graph. It has no teaching narrative, no exercises, no learning objectives. It just *is*.
-- A **Lesson** is a unit for learning — a teaching narrative that composes multiple Kus into coherent content. Lessons are where explanation, examples, exercises, and voice live.
+- A **PathStep** is a unit for learning — a teaching narrative that composes multiple Kus into coherent content. PathSteps are where explanation, examples, exercises, and voice live. PathSteps are also the anchor of the learning loop: exercises, submissions, and feedback all attach to a PathStep.
 
-This separation is deliberate. The same Ku — say, *Empathy* — can appear in a lesson about social awareness, a lesson about conflict resolution, a lesson about leadership, and a lesson about parenting. The concept is defined once; it's taught many ways.
+This separation is deliberate. The same Ku — say, *Empathy* — can appear in a PathStep about social awareness, a PathStep about conflict resolution, a PathStep about leadership, and a PathStep about parenting. The concept is defined once; it's taught many ways.
 
 Your job as a curriculum developer is to:
 
 1. **Define the atoms** — write Kus that capture individual concepts clearly
-2. **Compose the narratives** — write Lessons that weave those Kus into teachable stories
-3. **Build the chains** — connect Lessons into prerequisite sequences so learners know where to start and where to go next
+2. **Compose the narratives** — write PathSteps that weave those Kus into teachable stories
+3. **Build the chains** — connect PathSteps into prerequisite sequences so learners know where to start and where to go next
 
 ---
 
@@ -31,14 +33,14 @@ Your job as a curriculum developer is to:
 
 The best way to understand the system is to see it in action. SKUEL ships with a reference curriculum built around the five CASEL Social-Emotional Learning competencies. This section walks through how it was designed and why.
 
-### The Five Lessons
+### The Five PathSteps
 
 ```
 Knowing Yourself → Managing Yourself → Understanding Others → Building Relationships → Making Good Decisions
      (SA)              (SM)                 (SOA)                  (RS)                    (RDM)
 ```
 
-Each lesson covers one SEL competency. Each composes exactly four Kus. Each links forward to the next lesson via a prerequisite connection. The result is a linear chain that a learner can follow from start to finish — or enter at any point if they already have the prerequisites.
+Each PathStep covers one SEL competency. Each composes exactly four Kus. Each links forward to the next via a prerequisite connection. The result is a linear chain that a learner can follow from start to finish — or enter at any point if they already have the prerequisites.
 
 ### Why This Order?
 
@@ -52,37 +54,37 @@ The order is not arbitrary. It follows a pedagogical logic:
 
 4. **Building Relationships** (Relationship Skills) applies social awareness in practice. Active listening, boundary setting, conflict resolution, and teamwork are empathy made concrete.
 
-5. **Making Good Decisions** (Responsible Decision-Making) is the capstone. It synthesizes all four prior competencies: know yourself, manage yourself, understand others, relate to others — and now, choose wisely. The final lesson explicitly names this synthesis and closes the loop back to self-awareness.
+5. **Making Good Decisions** (Responsible Decision-Making) is the capstone. It synthesizes all four prior competencies: know yourself, manage yourself, understand others, relate to others — and now, choose wisely. The final PathStep explicitly names this synthesis and closes the loop back to self-awareness.
 
 This is not the only valid sequence. A curriculum developer might choose a different entry point, a different grouping, or a spiral structure that revisits competencies at increasing depth. The point is that the order should be *intentional* and *justified*, not accidental.
 
-### How Each Lesson Composes Four Kus
+### How Each PathStep Composes Four Kus
 
-Each lesson in the chain declares exactly four Kus in its `uses_kus` field. Here's the mapping:
+Each PathStep in the chain declares exactly four Kus in its `uses_kus` field. Here's the mapping:
 
-| Lesson | Ku 1 | Ku 2 | Ku 3 | Ku 4 |
-|--------|-------|-------|-------|-------|
+| PathStep | Ku 1 | Ku 2 | Ku 3 | Ku 4 |
+|----------|-------|-------|-------|-------|
 | Knowing Yourself | Emotions | Emotional Triggers | Self-Worth | Growth Mindset |
 | Managing Yourself | Goal Setting | Habits | Impulse Control | Stress Management |
 | Understanding Others | Empathy | Perspective-Taking | Cultural Awareness | Compassion |
 | Building Relationships | Active Listening | Conflict Resolution | Teamwork | Boundary Setting |
 | Making Good Decisions | Ethical Reasoning | Consequence Analysis | Identifying Problems | Reflecting on Choices |
 
-Four is not a magic number. A lesson might compose two Kus or seven. But four works well for beginner-level content because it's enough to create connections between ideas without overwhelming the learner. The constraint also forces you to choose — which concepts are *essential* to this lesson's narrative?
+Four is not a magic number. A PathStep might compose two Kus or seven. But four works well for beginner-level content because it's enough to create connections between ideas without overwhelming the learner. The constraint also forces you to choose — which concepts are *essential* to this PathStep's narrative?
 
-The relationship between a Lesson and its Kus is **composition, not coverage**. A lesson on "Understanding Others" doesn't just *mention* empathy — it weaves empathy into a narrative alongside perspective-taking, cultural awareness, and compassion, showing how these four concepts interact. The Ku provides the definition; the Lesson provides the meaning.
+The relationship between a PathStep and its Kus is **composition, not coverage**. A PathStep on "Understanding Others" doesn't just *mention* empathy — it weaves empathy into a narrative alongside perspective-taking, cultural awareness, and compassion, showing how these four concepts interact. The Ku provides the definition; the PathStep provides the meaning.
 
 ### How Prerequisite Chains Work
 
-In each Lesson YAML, the `connections` field declares what must come before and what comes after:
+In each PathStep YAML, the `connections` field declares what must come before and what comes after:
 
 ```yaml
-# From lesson_managing-yourself.yaml
+# From ps_managing-yourself.yaml
 connections:
   requires:
-    - l:sel:knowing-yourself       # Must complete this first
+    - ps:sel:knowing-yourself       # Must complete this first
   enables:
-    - l:sel:understanding-others   # Unlocks this next
+    - ps:sel:understanding-others   # Unlocks this next
 ```
 
 When ingested, the system creates directed relationships in the knowledge graph:
@@ -94,31 +96,31 @@ When ingested, the system creates directed relationships in the knowledge graph:
 These relationships power:
 - **Prerequisite checking** — the system can warn a learner if they're jumping ahead
 - **Learning path generation** — the system can build ordered sequences from the graph
-- **Progress tracking** — the system knows which lessons unlock next based on what's been completed
+- **Progress tracking** — the system knows which PathSteps unlock next based on what's been completed
 
-A lesson with no `requires` is an entry point — anyone can start there. A lesson with no `enables` is a terminal — it's the end of a chain (or the start of a new one, once you extend it).
+A PathStep with no `requires` is an entry point — anyone can start there. A PathStep with no `enables` is a terminal — it's the end of a chain (or the start of a new one, once you extend it).
 
 ### How the Loop Closes
 
-The final lesson — *Making Good Decisions* — has no `enables` connection. But thematically, it loops back to self-awareness:
+The final PathStep — *Making Good Decisions* — has no `enables` connection. But thematically, it loops back to self-awareness:
 
 > *"Decisions reveal who you are — which brings you back to self-awareness. The loop never ends. It just deepens."*
 
 This is intentional. The prerequisite chain is linear (A → B → C → D → E), but the *conceptual* structure is circular. A learner who completes the chain is better equipped to start it again at a deeper level. This creates a natural opening for intermediate and advanced content that revisits the same five competencies with greater nuance.
 
-In SKUEL's graph, this circularity is captured not through prerequisite edges (which would create cycles) but through the Ku layer. The Kus in the first lesson (Emotions, Emotional Triggers) and the Kus in the last lesson (Reflecting on Choices) share semantic connections — reflection *is* a form of self-awareness. A curriculum developer building the next level of content can make this explicit:
+In SKUEL's graph, this circularity is captured not through prerequisite edges (which would create cycles) but through the Ku layer. The Kus in the first PathStep (Emotions, Emotional Triggers) and the Kus in the last PathStep (Reflecting on Choices) share semantic connections — reflection *is* a form of self-awareness. A curriculum developer building the next level of content can make this explicit:
 
 ```yaml
-# A future advanced lesson
+# A future advanced PathStep
 connections:
   requires:
-    - l:sel:making-good-decisions   # Completed the beginner chain
-    - l:sel:knowing-yourself        # Revisiting self-awareness at depth
+    - ps:sel:making-good-decisions   # Completed the beginner chain
+    - ps:sel:knowing-yourself        # Revisiting self-awareness at depth
 ```
 
 ---
 
-## The Two Primitives: Ku and Lesson
+## The Two Primitives: Ku and PathStep
 
 ### Writing a Ku
 
@@ -165,18 +167,18 @@ tags:
 **Guidelines:**
 
 - **One concept per Ku.** If you're writing "and" in the title, you probably have two Kus.
-- **Describe, don't teach.** The description should define the concept, not explain how to develop it. Teaching belongs in Lessons.
+- **Describe, don't teach.** The description should define the concept, not explain how to develop it. Teaching belongs in PathSteps.
 - **Choose `ku_category` carefully.** A *concept* is an abstract idea (empathy, neuroplasticity). A *practice* is something you do (active listening, meditation). A *value* is something you aspire to (compassion, honesty). A *state* is something you observe (buzzing, calm).
 - **Use `aliases` generously.** Learners search with different words. If your Ku is "Impulse Control," aliases like "self-regulation" and "pause before acting" help the system surface it.
 
-### Writing a Lesson
+### Writing a PathStep
 
-A Lesson is a **markdown file** (`.md`) with YAML frontmatter. Metadata goes in the frontmatter; the teaching content is the markdown body. The ingestion system automatically extracts the body as the `content` field.
+A PathStep is a **markdown file** (`.md`) with YAML frontmatter. Metadata goes in the frontmatter; the teaching content is the markdown body. The ingestion system automatically extracts the body as the `content` field.
 
 ```markdown
 ---
-type: Lesson
-uid: l:mindfulness:breath-awareness-basics
+type: PathStep
+uid: ps:mindfulness:breath-awareness-basics
 title: Breath Awareness — Basics
 sel_category: self_awareness
 learning_level: beginner
@@ -195,8 +197,8 @@ uses_kus:
 connections:
   requires: []
   enables:
-    - l:mindfulness:posture-basics
-    - l:mindfulness:mind-wandering-happens
+    - ps:mindfulness:posture-basics
+    - ps:mindfulness:mind-wandering-happens
 
 quality_score: 0.88
 
@@ -223,22 +225,22 @@ Right now, take three natural breaths and answer one question:
 where do you feel the breath most?
 ```
 
-**Why `.md` instead of `.yaml`?** Lessons are content-heavy — the body is the whole point. Markdown gives you natural prose authoring, Obsidian preview, and the ingestion system automatically extracts the body as `content`. No need to cram long prose into YAML `|` string blocks.
+**Why `.md` instead of `.yaml`?** PathSteps are content-heavy — the body is the whole point. Markdown gives you natural prose authoring, Obsidian preview, and the ingestion system automatically extracts the body as `content`. No need to cram long prose into YAML `|` string blocks.
 
 **Format convention:**
-- **Lessons** → `.md` files with YAML frontmatter (content-heavy, prose-first)
-- **Everything else** (Kus, PS, LP, activities, edges) → `.yaml` files (metadata-heavy, little/no prose)
+- **PathSteps** → `.md` files with YAML frontmatter (content-heavy, prose-first)
+- **Everything else** (Kus, LP, activities, edges) → `.yaml` files (metadata-heavy, little/no prose)
 
 **Key fields:**
 
 | Field | Purpose | Required? |
 |-------|---------|-----------|
-| `uid` | Unique identifier (`l:{namespace}:{slug}`) | Yes |
+| `uid` | Unique identifier (`ps:{namespace}:{slug}`) | Yes |
 | `title` | Display name | Yes |
-| `content` | Full markdown teaching narrative | Yes |
-| `uses_kus` | Which atomic Kus this lesson composes | No, but essential for graph |
-| `connections.requires` | Prerequisite lesson UIDs | No |
-| `connections.enables` | Lessons this unlocks | No |
+| `content` | Full markdown teaching narrative (auto-extracted from body) | Yes |
+| `uses_kus` | Which atomic Kus this PathStep composes | No, but essential for graph |
+| `connections.requires` | Prerequisite PathStep UIDs | No |
+| `connections.enables` | PathSteps this unlocks | No |
 | `learning_level` | Target level (beginner, intermediate, advanced, expert) | No |
 | `complexity` | Difficulty (basic, medium, advanced) | No |
 | `estimated_time_minutes` | Reading time in minutes | No |
@@ -246,10 +248,10 @@ where do you feel the breath most?
 
 **Guidelines for the content body:**
 
-- **Start with why.** The first section should answer: why does this matter? Why now? Connect it to what the learner already knows (the prerequisite lesson).
+- **Start with why.** The first section should answer: why does this matter? Why now? Connect it to what the learner already knows (the prerequisite PathStep).
 - **Use headers to chunk.** Each `##` section should be one digestible idea. A learner should be able to pause after any section and resume later.
-- **Include a practice exercise.** Every lesson should end with something the learner can *do*. Not "think about this" — something concrete, specific, and achievable today.
-- **Close with what's next.** Point forward to the next lesson in the chain. This creates momentum and gives the learner a reason to continue.
+- **Include a practice exercise.** Every PathStep should end with something the learner can *do*. Not "think about this" — something concrete, specific, and achievable today.
+- **Close with what's next.** Point forward to the next PathStep in the chain. This creates momentum and gives the learner a reason to continue.
 - **Write in second person.** "You" is more engaging than "the learner" or "one." This is a conversation, not a textbook.
 - **Be direct.** Short sentences. Active voice. Say what you mean. Cut filler.
 
@@ -279,19 +281,19 @@ This is a dependency analysis, not a table of contents. The question isn't "what
 
 ### Step 2: Define the Kus
 
-For each lesson in your chain, identify 2-6 atomic concepts that the lesson will compose. Write these as Ku YAML files first.
+For each PathStep in your chain, identify 2-6 atomic concepts that the PathStep will compose. Write these as Ku YAML files first.
 
 Ask yourself:
 - Is this truly atomic? Could I define this in one paragraph?
-- Could this Ku appear in a *different* lesson in a *different* context?
-- Am I defining a concept, or am I already teaching? (If teaching, it belongs in the Lesson.)
+- Could this Ku appear in a *different* PathStep in a *different* context?
+- Am I defining a concept, or am I already teaching? (If teaching, it belongs in the PathStep.)
 
-### Step 3: Write the Lessons
+### Step 3: Write the PathSteps
 
-Now write each lesson's content, weaving its Kus into a narrative. The Kus are your building blocks; the lesson is the structure you build with them.
+Now write each PathStep's content, weaving its Kus into a narrative. The Kus are your building blocks; the PathStep is the structure you build with them.
 
-For each lesson:
-1. State the `uses_kus` — which Kus does this lesson compose?
+For each PathStep:
+1. State the `uses_kus` — which Kus does this PathStep compose?
 2. State the `connections` — what must come before? What does this unlock?
 3. Write the content — the teaching narrative itself
 
@@ -299,19 +301,19 @@ For each lesson:
 
 Before ingesting, review the chain as a whole:
 
-- **No orphans:** Every lesson (except entry points) has at least one `requires`. Every lesson (except terminals) has at least one `enables`.
+- **No orphans:** Every PathStep (except entry points) has at least one `requires`. Every PathStep (except terminals) has at least one `enables`.
 - **No circular prerequisites:** The `requires`/`enables` graph must be a DAG (directed acyclic graph). Thematic loops are fine; prerequisite loops are not.
 - **Ku coverage:** Every Ku referenced in `uses_kus` should have a corresponding Ku YAML file. The ingestion system will create the relationship even if the Ku doesn't exist yet, but dangling references make the graph messy.
 - **Entry points are clear:** A new learner should be able to look at the chain and know where to start. If your chain has multiple entry points, that's fine — but make it intentional.
 
 ### Step 5: Ingest
 
-Place your YAML files in the default ingestion vault at `data/vault/` (i.e., `/home/mike/skuel/app/data/vault/`), configurable via `INGESTION_PATH` env var, and ingest them through the system. The ingestion pipeline will:
+Place your YAML files in the default ingestion vault at `/home/mike/0bsidian/0vault/` (configurable via `INGESTION_PATH` env var), and ingest them through the system. The ingestion pipeline will:
 
-1. Parse each YAML file
-2. Create graph nodes for each Ku and Lesson
-3. Create `USES_KU` relationships between Lessons and their composed Kus
-4. Create `ENABLES`/`REQUIRES` relationships between Lessons
+1. Parse each YAML/markdown file
+2. Create graph nodes for each Ku and PathStep
+3. Create `USES_KU` relationships between PathSteps and their composed Kus
+4. Create `ENABLES`/`REQUIRES` relationships between PathSteps
 5. Index content for search and RAG retrieval
 
 ---
@@ -322,30 +324,30 @@ The SEL example is a straight line: A → B → C → D → E. Real curricula ar
 
 ### Branching
 
-After a foundational lesson, learners might choose between two parallel paths:
+After a foundational PathStep, learners might choose between two parallel paths:
 
 ```
 Foundations
     ├── Track A: Interpersonal Skills
-    │   ├── Lesson A1
-    │   └── Lesson A2
+    │   ├── PathStep A1
+    │   └── PathStep A2
     └── Track B: Intrapersonal Skills
-        ├── Lesson B1
-        └── Lesson B2
+        ├── PathStep B1
+        └── PathStep B2
 ```
 
-Both A1 and B1 declare `requires: [l:foundations]`. Neither requires the other.
+Both A1 and B1 declare `requires: [ps:foundations]`. Neither requires the other.
 
 ### Convergence
 
 Two parallel tracks merge into a capstone:
 
 ```yaml
-# Capstone lesson
+# Capstone PathStep
 connections:
   requires:
-    - l:track-a:lesson-a2
-    - l:track-b:lesson-b2
+    - ps:track-a:lesson-a2
+    - ps:track-b:lesson-b2
 ```
 
 The learner must complete both tracks before the capstone unlocks.
@@ -358,43 +360,40 @@ The same competency taught at increasing depth:
 Empathy (Beginner) → Empathy (Intermediate) → Empathy (Advanced)
 ```
 
-Each level uses some of the same Kus but adds new ones. The beginner lesson might use `ku:sel:empathy` and `ku:sel:perspective-taking`. The advanced lesson might add `ku:sel:compassion-fatigue` and `ku:sel:structural-empathy`. The Ku layer makes this overlap explicit in the graph.
+Each level uses some of the same Kus but adds new ones. The beginner PathStep might use `ku:sel:empathy` and `ku:sel:perspective-taking`. The advanced PathStep might add `ku:sel:compassion-fatigue` and `ku:sel:structural-empathy`. The Ku layer makes this overlap explicit in the graph.
 
 ---
 
 ## A Second Worked Example: Mindfulness 101 + Self-Reflection 101
 
-The SEL chain above is linear and self-contained. This example shows two things the SEL chain doesn't: **the full four-entity curriculum stack** (Ku → Lesson → PathStep → LearningPath) and **cross-domain progression** (one learning path leading into another).
+The SEL chain above is linear and self-contained. This example shows two things the SEL chain doesn't: **the full three-entity curriculum stack** (Ku → PathStep → LearningPath) and **cross-domain progression** (one learning path leading into another).
 
 ### The Two Domains
 
-**Mindfulness 101** teaches the foundational skill: noticing. Three lessons, two path steps, one learning path.
+**Mindfulness 101** teaches the foundational skill: noticing. Three PathSteps, one learning path.
 
-**Self-Reflection 101** builds on that skill: once you can notice your breath and label your wandering mind, turn that capacity toward your behavior, emotions, and values. Three lessons, two path steps, one learning path. It declares Mindfulness 101 as a prerequisite.
+**Self-Reflection 101** builds on that skill: once you can notice your breath and label your wandering mind, turn that capacity toward your behavior, emotions, and values. Three PathSteps, one learning path. It declares Mindfulness 101 as a prerequisite.
 
 ```
 Mindfulness 101                          Self-Reflection 101
-  PS Step 1: Two Minutes Today             PS Step 1: Notice Your Patterns
-    └── Lesson: Breath Awareness             └── Lesson: Noticing Patterns
-    └── Lesson: Posture Basics               └── Lesson: Emotional Awareness
-  PS Step 2: Name The Wanders             PS Step 2: Understand Your Values
-    └── Lesson: Mind Wandering               └── Lesson: Values Discovery
-                                             └── Lesson: Emotional Awareness
+  PS: Breath Awareness                     PS: Noticing Patterns
+  PS: Posture Basics                       PS: Emotional Awareness
+  PS: Mind Wandering Happens               PS: Values Discovery
+
          lp:mindfulness-101  ──PREREQUISITE_FOR──>  lp:self-reflection-101
 ```
 
-### The Four-Entity Stack
+### The Three-Entity Stack
 
 This is the full curriculum hierarchy in action:
 
 | Layer | What It Does | Example |
 |-------|-------------|---------|
 | **Ku** | Defines one atomic concept | `ku:mindfulness:breath` — "The natural rhythm of breathing, used as the primary anchor for attention" |
-| **Lesson** | Composes Kus into a teaching narrative with practice exercises | `l:mindfulness:breath-awareness-basics` — 10-minute lesson teaching the two-minute practice |
-| **PathStep** | Groups related lessons into a step with a clear intent | `ls:mindfulness-101:step-1` — "Try one two-minute breath session and notice where you feel the breath" |
-| **LearningPath** | Sequences steps into a learner journey | `lp:mindfulness-101` — beginner path from breath to labeling |
+| **PathStep** | Composes Kus into a teaching narrative with practice exercises | `ps:mindfulness:breath-awareness-basics` — 10-minute step teaching the two-minute practice |
+| **LearningPath** | Sequences PathSteps into a learner journey | `lp:mindfulness-101` — beginner path from breath to labeling |
 
-Each layer has a distinct purpose. Kus don't teach. Lessons don't sequence. Steps don't define concepts. Paths don't contain content. Mixing these roles creates confusion.
+Each layer has a distinct purpose. Kus don't teach. PathSteps don't sequence an entire journey. Paths don't contain content. Mixing these roles creates confusion.
 
 ### Cross-Domain Edges
 
@@ -412,8 +411,8 @@ edges:
     to: ku:self-reflection:self-observation
     type: PREREQUISITE_FOR
 
-  - from: l:mindfulness:mind-wandering-happens
-    to: l:self-reflection:noticing-patterns
+  - from: ps:mindfulness:mind-wandering-happens
+    to: ps:self-reflection:noticing-patterns
     type: ENABLES
 ```
 
@@ -421,7 +420,7 @@ This creates a progression: a learner who completes Mindfulness 101 is ready for
 
 ### Supporting Activity Entities
 
-Each domain wires activities to its lessons. The Mindfulness 101 bundle includes:
+Each domain wires activities directly to its PathSteps. The Mindfulness 101 bundle includes:
 - `habit:daily-2min-breath` — the core daily practice
 - `task:log-first-5-sessions` — a one-time logging task
 - `event:practice-block-2min` — a recurring calendar template
@@ -429,11 +428,11 @@ Each domain wires activities to its lessons. The Mindfulness 101 bundle includes
 - `principle:small-steps` — the guiding principle
 - `choice:2-minutes-right-now` — the immediate action prompt
 
-Self-Reflection 101 has its own parallel set: different habits, tasks, and principles — but the same structural pattern. Activities connect back to their domain's lessons via the `connections` block and substance tracking.
+Self-Reflection 101 has its own parallel set: different habits, tasks, and principles — but the same structural pattern. Activities connect back to their domain's PathSteps via the `connections` block and substance tracking.
 
-### Lesson Content Design (Inspired by Practice-Reflection Structure)
+### PathStep Content Design
 
-Every lesson in both bundles follows the same content arc:
+Every PathStep in both bundles follows the same content arc:
 
 1. **Why this matters** — connect to what the learner already knows
 2. **Core concept** — explain the idea clearly, no jargon
@@ -441,55 +440,49 @@ Every lesson in both bundles follows the same content arc:
 4. **Common mistakes** — what to watch for (normalizes difficulty)
 5. **Practice** — a specific exercise the learner can do today
 
-The practice section is not optional decoration — it's the point. A lesson without a practice exercise is an essay, not a teaching unit.
+The practice section is not optional decoration — it's the point. A PathStep without a practice exercise is an essay, not a teaching unit.
 
 ### File Layout
 
 ```
-data/vault/
+/home/mike/0bsidian/0vault/
   # Mindfulness 101
-  ku_breath.yaml                          # Kus (YAML — metadata only)
+  ku_breath.yaml                     # Kus (YAML — metadata only)
   ku_attention.yaml
-  lesson_breath-awareness-basics.md       # Lessons (Markdown — content-heavy)
-  lesson_posture-basics.md
-  lesson_mind-wandering-happens.md
-  ls_mindfulness-101_step-1.yaml          # Path Steps (YAML)
-  ls_mindfulness-101_step-2.yaml
-  lp_mindfulness-101.yaml                 # Learning Path (YAML)
+  ps_breath-awareness-basics.md      # PathSteps (Markdown — content-heavy)
+  ps_posture-basics.md
+  ps_mind-wandering-happens.md
+  lp_mindfulness-101.yaml            # Learning Path (YAML)
   edges/edge_mindfulness-101-curriculum.yaml  # Internal edges
   # Self-Reflection 101
   ku_self-observation.yaml
   ku_emotional-patterns.yaml
   ku_personal-values.yaml
-  lesson_noticing-patterns.md
-  lesson_emotional-awareness.md
-  lesson_values-discovery.md
-  ls_self-reflection-101_step-1.yaml
-  ls_self-reflection-101_step-2.yaml
+  ps_noticing-patterns.md
+  ps_emotional-awareness.md
+  ps_values-discovery.md
   lp_self-reflection-101.yaml
   edges/edge_self-reflection-101-curriculum.yaml
   # Cross-domain
   edges/edge_mindfulness-to-self-reflection.yaml
 ```
 
-Notice the format convention: `.md` for lessons (content-heavy), `.yaml` for everything else (metadata-heavy).
+Notice the format convention: `.md` for PathSteps (content-heavy), `.yaml` for everything else (metadata-heavy).
 
 ---
 
-## Wiring Activities to Lessons
+## Wiring Activities to PathSteps
 
-Curriculum content becomes *real* when learners apply it through activities. SKUEL's 6 activity domains — Habits, Tasks, Events, Goals, Principles, Choices — wire directly to Lessons, making each Lesson a self-contained learning unit with built-in practice.
+Curriculum content becomes *real* when learners apply it through activities. SKUEL's 6 activity domains — Habits, Tasks, Events, Goals, Principles, Choices — wire directly to PathSteps, making each PathStep a self-contained learning unit with built-in practice.
 
 ### The 6 Activity YAML Fields
 
-Add these to any Lesson YAML:
+Add these to any PathStep frontmatter:
 
 ```yaml
-type: Lesson
-uid: l:sel:understanding-others
+type: PathStep
+uid: ps:sel:understanding-others
 title: Understanding Others — Empathy, Perspective, and Compassion
-content: |
-  ...
 
 uses_kus:
   - ku:sel:empathy
@@ -515,23 +508,23 @@ choice_uids:
   - choice:ask-before-assuming        # INFORMS_CHOICE → Choice
 ```
 
-Not every Lesson needs all 6. Use what fits the content.
+Not every PathStep needs all 6. Use what fits the content.
 
-### PathStep Inherits from Lessons
+### LearningPath Inherits from PathSteps
 
-PathSteps do NOT have their own activity fields. They inherit activities from their Lessons via graph traversal:
+LearningPaths do NOT have their own activity fields. They inherit activities from their PathSteps via graph traversal:
 
 ```
-(PS)-[:CONTAINS_KNOWLEDGE]->(Lesson)-[:BUILDS_HABIT]->(Habit)
+(LP)-[:HAS_STEP]->(PathStep)-[:BUILDS_HABIT]->(Habit)
 ```
 
-An PS with 3 Lessons automatically aggregates all their activities. Wire activity fields to the Lessons listed in `knowledge_uids`.
+An LP that contains 3 PathSteps automatically aggregates all their activities.
 
 ### Substance Tracking
 
-When activities link back to Lessons, substance counters track how much knowledge is being *lived*: Habits (weight 0.10), Choices (0.07), Principles (0.07), Events (0.05), Tasks (0.05). Total capped at 1.0.
+When activities link back to PathSteps, substance counters track how much knowledge is being *lived*: Habits (weight 0.10), Choices (0.07), Principles (0.07), Events (0.05), Tasks (0.05). Total capped at 1.0.
 
-For the complete reference, see the **[Lesson Activity Wiring Guide](/docs/guides/LESSON_ACTIVITY_WIRING.md)** and the **[YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md)**.
+For the complete reference, see the **[PathStep Activity Wiring Guide](/docs/guides/LESSON_ACTIVITY_WIRING.md)** and the **[YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md)**.
 
 ---
 
@@ -541,17 +534,17 @@ This is the sequence that works in practice. It was refined by building the Mind
 
 ### Step 1: Start with the Kus (5 minutes)
 
-Define 2-4 atomic concepts. Keep them tiny. If you're writing more than one paragraph for a Ku description, you're teaching — and teaching belongs in a Lesson.
+Define 2-4 atomic concepts. Keep them tiny. If you're writing more than one paragraph for a Ku description, you're teaching — and teaching belongs in a PathStep.
 
-### Step 2: Write the Lessons (the bulk of the work)
+### Step 2: Write the PathSteps (the bulk of the work)
 
-This is where you spend most of your time. Each lesson is a `.md` file with frontmatter metadata and a markdown body. Write in second person. Be direct. Include a practice exercise at the end.
+This is where you spend most of your time. Each PathStep is a `.md` file with frontmatter metadata and a markdown body. Write in second person. Be direct. Include a practice exercise at the end.
 
-A good lesson takes 30-60 minutes to write well. Three lessons is a good starting size.
+A good PathStep takes 30-60 minutes to write well. Three PathSteps is a good starting size.
 
 ### Step 3: Define the Supporting Activities (10 minutes each)
 
-For each lesson, ask: what should the learner *do* with this knowledge?
+For each PathStep, ask: what should the learner *do* with this knowledge?
 
 - **Habit** — a repeating behavior (daily 2-minute practice)
 - **Task** — a one-time deliverable (write three sentences about your patterns)
@@ -560,34 +553,33 @@ For each lesson, ask: what should the learner *do* with this knowledge?
 - **Choice** — a decision prompt (do two minutes right now)
 - **Event** — a calendar template (evening check-in)
 
-Not every lesson needs all six. Wire what fits.
+Not every PathStep needs all six. Wire what fits.
 
-### Step 4: Build the Structure (PS, LP, edges)
+### Step 4: Build the Structure (LP, edges)
 
-Group lessons into Path Steps. Sequence steps into a Learning Path. Write edge files for the curriculum structure and any cross-domain connections.
+Sequence PathSteps into a LearningPath. Write edge files for the curriculum structure and any cross-domain connections.
 
 ### Step 5: Review the Graph
 
 Before ingesting, mentally walk the graph:
 - Can a learner start from the LP and follow a clear path?
-- Does every PS have at least one lesson?
-- Does every lesson compose at least one Ku?
-- Are activities wired to the right lessons?
+- Does every PathStep compose at least one Ku?
+- Are activities wired to the right PathSteps?
 - Are cross-domain connections declared in edge files?
 
 ### Step 6: Ingest
 
-Place files in `data/vault/` and ingest. The system handles node creation, relationship wiring, embedding generation, and indexing.
+Place files in `/home/mike/0bsidian/0vault/` and ingest. The system handles node creation, relationship wiring, embedding generation, and indexing.
 
 ## What Comes Next
 
-This guide covers: Kus, Lessons, prerequisite chains, activity wiring, the four-entity curriculum stack (Ku → Lesson → PS → LP), cross-domain progression, and the practical workflow. Future guides will cover:
+This guide covers: Kus, PathSteps, prerequisite chains, activity wiring, the three-entity curriculum stack (Ku → PathStep → LP), cross-domain progression, and the practical workflow. Future guides will cover:
 
-- **Exercises and the Learning Loop** — attaching practice exercises to lessons, collecting student submissions, generating feedback reports, and creating targeted revisions
+- **Exercises and the Learning Loop** — attaching practice exercises to PathSteps, collecting student submissions, generating feedback reports, and creating targeted revisions
 - **The Askesis Companion** — how the AI tutor uses your curriculum graph to guide learners through their zone of proximal development
 - **Ingestion Workflows** — bulk ingestion, dry-run mode, incremental updates, and vault management
 
-Start small. Pick a domain. Define 2-4 Kus. Write 3 Lessons as `.md` files. Wire a few activities. Build the PS/LP structure. Write edge files. Ingest and see what the system builds.
+Start small. Pick a domain. Define 2-4 Kus. Write 3 PathSteps as `.md` files. Wire a few activities. Build the LP structure. Write edge files. Ingest and see what the system builds.
 
 The graph grows one node at a time.
 
@@ -599,22 +591,19 @@ The graph grows one node at a time.
 
 | What | Where | Format |
 |------|-------|--------|
-| Ku files | `data/vault/ku_*.yaml` | YAML |
-| Lesson files | `data/vault/lesson_*.md` | Markdown + YAML frontmatter |
-| PathStep files | `data/vault/ls_*.yaml` | YAML |
-| LearningPath files | `data/vault/lp_*.yaml` | YAML |
-| Activity files | `data/vault/{type}_*.yaml` | YAML |
-| Edge files | `data/vault/edges/edge_*.yaml` | YAML |
+| Ku files | `/home/mike/0bsidian/0vault/ku_*.yaml` | YAML |
+| PathStep files | `/home/mike/0bsidian/0vault/ps_*.md` | Markdown + YAML frontmatter |
+| LearningPath files | `/home/mike/0bsidian/0vault/lp_*.yaml` | YAML |
+| Activity files | `/home/mike/0bsidian/0vault/{type}_*.yaml` | YAML |
+| Edge files | `/home/mike/0bsidian/0vault/edges/edge_*.yaml` | YAML |
 | Templates and schemas | `yaml_templates/_schemas/` | YAML |
-| Worked examples | `yaml_templates/lesson_ls_lp/` | Mixed |
 
 ### UID Patterns
 
 | Entity | Pattern | Example |
 |--------|---------|---------|
 | Ku | `ku:{namespace}:{slug}` | `ku:mindfulness:breath` |
-| Lesson | `l:{namespace}:{slug}` | `l:mindfulness:breath-awareness-basics` |
-| PathStep | `ls:{path}:{slug}` | `ls:mindfulness-101:step-1` |
+| PathStep | `ps:{namespace}:{slug}` | `ps:mindfulness:breath-awareness-basics` |
 | LearningPath | `lp:{slug}` | `lp:mindfulness-101` |
 | Activity | `{type}:{slug}` | `habit:daily-2min-breath` |
 

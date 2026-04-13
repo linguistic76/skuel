@@ -451,7 +451,7 @@ Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 
 ### Submission Protocols (3) — `submission_protocols.py`
 
-Map to the **Submission** stage of the educational loop (`Lesson → Exercise → Submission → Report`).
+Map to the **Submission** stage of the educational loop (`PathStep → Exercise → Submission → Report`).
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
@@ -497,14 +497,14 @@ Two-tier protocols for the general-purpose form system.
 
 | Protocol | Consumer | Methods |
 |----------|----------|---------|
-| `FormTemplateBackendOperations` | `FormTemplateService.__init__` | BackendOperations[FormTemplate] + `link_to_lesson`, `unlink_from_lesson`, `get_forms_for_lesson` |
+| `FormTemplateBackendOperations` | `FormTemplateService.__init__` | BackendOperations[FormTemplate] + `link_to_path_step`, `unlink_from_path_step`, `get_forms_for_path_step` |
 | `FormSubmissionBackendOperations` | `FormSubmissionService.__init__` | BackendOperations[FormSubmission] + `create_with_relationships`, `list_by_user`, `get_submissions_for_template` |
 
 **Route-level** (typed service in routes):
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `FormTemplateOperations` | `form_template_service` | 8 (create, get, list, update, delete, link/unlink lesson, get_for_lesson) | `form_templates_api.py` |
+| `FormTemplateOperations` | `form_template_service` | 8 (create, get, list, update, delete, link/unlink path_step, get_for_path_step) | `form_templates_api.py` |
 | `FormSubmissionOperations` | `form_submission_service` | 5 (submit, get, list_mine, delete, share) | `form_submissions_api.py` |
 
 ### Group Protocol (1) — `group_protocols.py`
@@ -673,14 +673,14 @@ Context awareness is the core value of SKUEL. ZPD calculations, Askesis recommen
 |----------|---------------|------------|-------------|
 | `CoreIdentity` | user_uid, username | `PlanningMixin._is_completed`, `UnifiedRelationshipService` | Every context-aware service |
 | `TaskAwareness` | active/blocked/overdue tasks, priorities | `PlanningMixin`, `DomainPlanningMixin`, `UnifiedRelationshipService` | TasksPlanningService, TasksSchedulingService |
-| `KnowledgeAwareness` | mastery, in-progress KUs, current lessons, prerequisites, velocity | `PlanningMixin.get_learning_related_for_user` | ZPDService, AskesisRecommendationService |
+| `KnowledgeAwareness` | mastery, in-progress KUs, active path steps, prerequisites, velocity | `PlanningMixin.get_learning_related_for_user` | ZPDService, AskesisRecommendationService |
 | `HabitAwareness` | streaks, at-risk habits, consistency | `DomainPlanningMixin.get_at_risk_habits_for_user` | HabitsIntelligenceService |
 | `GoalAwareness` | progress, milestones | `PlanningMixin`, `DomainPlanningMixin`, `UnifiedRelationshipService` | GoalsPlanningService |
 | `EventAwareness` | upcoming, scheduled events | `DomainPlanningMixin.get_upcoming_events_for_user` | EventsCoreService / EventsSearchService |
 | `PrincipleAwareness` | core principles, integrity scores | `DomainPlanningMixin.get_aligned_principles_for_user` | PrinciplesIntelligenceService |
 | `ChoiceAwareness` | pending choices, decision patterns | `DomainPlanningMixin.get_pending_decisions_for_user` | ChoicesIntelligenceService |
 | `LearningPathAwareness` | enrolled paths, current steps, ZPD | — | ZPDService, AskesisQueryService |
-| `CrossDomainAwareness` | Multi-domain subset incl. in-progress KUs, current lessons | `PlanningMixin.get_actionable_for_user`, `UnifiedRelationshipService` | Askesis cross-domain methods |
+| `CrossDomainAwareness` | Multi-domain subset incl. in-progress KUs, active path steps | `PlanningMixin.get_actionable_for_user`, `UnifiedRelationshipService` | Askesis cross-domain methods |
 | `FullAwareness` | All fields | — | Dashboards, Askesis (use sparingly) |
 
 ### Usage Pattern

@@ -1038,7 +1038,7 @@ class SkuelLinter:
             "CONTRIBUTES_TO",
             "ENABLES",
             "PREREQUISITE",
-            # Lesson/Ku composition
+            # Curriculum composition
             "USES_KU",
             "TRAINS_KU",
             "ORGANIZES",
