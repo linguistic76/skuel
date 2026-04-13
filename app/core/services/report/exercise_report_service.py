@@ -70,9 +70,9 @@ class ExerciseReportService:
                 projection (``get_linked_ku_and_student``). Report *creation*
                 is delegated to ``submissions_backend.create_report_node`` —
                 the canonical path shared with teacher reports.
-            submissions_backend: SubmissionsBackend — canonical report-node
-                creator. Shared with TeacherReviewService so AI and teacher
-                reports go through the same Cypher.
+            submissions_backend: SubmissionsBackend — required. Canonical
+                report-node creator shared with TeacherReviewService so AI
+                and teacher reports go through the same Cypher.
             ku_interaction_service: Optional — updates MASTERED relationships on linked Ku nodes
                 after feedback is persisted, closing the mastery loop for PERSONAL scope
                 exercises where no teacher approval step exists
@@ -243,13 +243,13 @@ class ExerciseReportService:
         machine event the way teacher reviews are).
         """
         if not self.submissions_backend:
-            self.logger.warning(
-                "No submissions_backend configured — AI report generated but not persisted "
-                "as entity. Wire submissions_backend in ExerciseReportService to enable "
-                "full persistence."
+            return Result.fail(
+                Errors.system(
+                    "submissions_backend not configured — ExerciseReportService requires "
+                    "submissions_backend at startup (fail-fast dependency)",
+                    operation="_persist_report_entity",
+                )
             )
-            # Return a transient ExerciseReport object for graceful degradation
-            return self._build_transient_report(submission, exercise, feedback_text, user_uid)
 
         report_entity_uid = UIDGenerator.generate_uid("sr")
         now = datetime.now().isoformat()
@@ -404,33 +404,6 @@ class ExerciseReportService:
                     f"Mastery updated via AI report: {student_uid} -> {ku_uid} "
                     f"(score={ai_score}, impact={mastery_impact.value})"
                 )
-
-    def _build_transient_report(
-        self,
-        submission: Submission,
-        exercise: Exercise,
-        feedback_text: str,
-        user_uid: UserUID,
-    ) -> Result[ExerciseReport]:
-        """Build a non-persisted ExerciseReport object for graceful degradation."""
-        title = (
-            f"AI Feedback: {exercise.title[:50]}"
-            if exercise.title
-            else f"AI Feedback: {exercise.uid[:20]}"
-        )
-        feedback_entity = ExerciseReport(
-            uid=f"transient_{submission.uid}",
-            entity_type=EntityType.EXERCISE_REPORT,
-            title=title,
-            user_uid=submission.user_uid or user_uid,
-            author_uid=user_uid,
-            status=EntityStatus.COMPLETED,
-            processor_type=ProcessorType.LLM,
-            assessment_outcome=AssessmentOutcome.AI_EVALUATED,
-            processed_content=feedback_text,
-            subject_uid=submission.uid,
-        )
-        return Result.ok(feedback_entity)
 
     def get_supported_models(self) -> dict[str, list[str]]:
         """Get list of supported models by provider."""

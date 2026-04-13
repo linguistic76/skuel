@@ -485,12 +485,11 @@ class TestListForSubmission:
 
 class TestGenerateReportWithoutBackend:
     @pytest.mark.asyncio
-    async def test_no_backend_returns_transient_report(self):
-        """Graceful degradation: if no submissions_backend is wired, the
-        service returns a transient (non-persisted) ExerciseReport rather
-        than failing. Transient reports have uid prefix 'transient_'."""
+    async def test_no_backend_returns_system_error(self):
+        """Fail-fast: missing submissions_backend returns a system error
+        rather than a transient non-persisted report (SKUEL fail-fast rule)."""
         service = ExerciseReportService(
-            llm_caller=_make_llm_caller(text="Transient feedback."),
+            llm_caller=_make_llm_caller(text="Feedback text."),
             submissions_backend=None,
         )
 
@@ -500,6 +499,5 @@ class TestGenerateReportWithoutBackend:
             user_uid=TEACHER_UID,
         )
 
-        assert not result.is_error
-        assert result.value.uid.startswith("transient_")
-        assert result.value.processed_content == "Transient feedback."
+        assert result.is_error
+        assert "submissions_backend" in str(result.error).lower()

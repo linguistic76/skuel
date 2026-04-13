@@ -701,8 +701,8 @@ async def compose_services(
 
         # ExerciseReportService: always created so typed reads (get_by_uid,
         # list_for_submission) work in both CORE and FULL tiers. AI report
-        # *generation* still requires llm_caller — the service degrades to
-        # read-only when llm_caller is None (CORE tier).
+        # *generation* still requires llm_caller — returns a system error
+        # when llm_caller is None (CORE tier).
         exercise_report_service = ExerciseReportService(
             llm_caller=llm_caller,
             backend=exercise_report_backend,  # mastery-loop reads (get_linked_ku_and_student)
